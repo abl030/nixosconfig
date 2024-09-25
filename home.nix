@@ -47,7 +47,7 @@
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
 
-    ".p10k.zsh".source = ./.p10k.zsh;
+    "test".source = ./test;
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
@@ -116,9 +116,9 @@
         file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
       }
     ];
-    initExtra = ''
-      [[ ! -f ${./.p10k.zsh} ]] || source ${./.p10k.zsh}
-    '';
+    # initExtra = ''
+    #   [[ ! -f ${./.p10k.zsh} ]] || source ${./.p10k.zsh}
+    # '';
   };
 
   programs.git = {
