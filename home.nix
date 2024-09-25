@@ -47,7 +47,7 @@
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
 
-    ".p10k.zsh".source = ./p10k.zsh;
+    ".p10k.zsh".source = ./.p10k.zsh;
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
