@@ -14,19 +14,56 @@
       system = "x86_64-linux";
       lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
+
+      #define our hosts
+      hosts = {
+
+        asus = {
+
+          configurationFile = ./configuration_asus.nix;
+          homeFile = ./home.nix;
+          user = "family";
+          homeDirectory = "/home/family";
+        };
+
+        testvm = {
+          configurationFile = ./configuration.nix;
+          homeFile = ./home.nix;
+          user = "testvm";
+          homeDirectory = "/home/testvm";
+
+        };
+
+
+      };
+
+
+
+
     in
     {
-      nixosConfigurations = {
-        nixos = lib.nixosSystem {
-          inherit system;
-          modules = [ ./configuration.nix ];
-        };
-      };
-      homeConfigurations = {
-        testvm = home-manager.lib.homeManagerConfiguration {
-          inherit pkgs;
-          modules = [ ./home.nix ];
-        };
-      };
+      nixosConfigurations =
+        (lib.mapAttrs
+          (hostname: config: lib.nixosSystem {
+            inherit system;
+            modules = [ config.configurationFile ];
+          })
+          hosts);
+
+      homeConfigurations =
+        (lib.mapAttrs
+          (hostname: config: home-manager.lib.homeManagerConfiguration {
+            inherit pkgs;
+            modules = [
+              config.homeFile
+
+              {
+                home.username = config.user;
+                home.homeDirectory = config.homeDirectory;
+              }
+
+            ];
+          })
+          hosts);
     };
 }
