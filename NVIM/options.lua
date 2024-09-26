@@ -1,3 +1,5 @@
+require("nvchad.options")
+
 --  This setups conform.vim to work with our filetypes.
 require("conform").setup({
 	formatters_by_ft = {
@@ -27,3 +29,4 @@ require("nvim-treesitter.configs").setup({
 	ensure_installed = { "markdown", "markdown_inline" },
 })
 vim.opt.clipboard = "unnamedplus"
+vim.cmd("source ~/vim.vim")
