@@ -54,7 +54,7 @@
     # ".screenrc".source = dotfiles/screenrc;
 
     ".p10k.zsh".source = ./.p10k.zsh;
-    "~/.config/nvim/lua/plugins/plugins.lua".source = ./NVIM/plugins.lua;
+    ".config/nvim/lua/plugins/plugins.lua".source = ./NVIM/plugins.lua;
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
