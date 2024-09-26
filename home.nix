@@ -25,7 +25,12 @@
     pkgs.tmux
     pkgs.git
     pkgs.gh
+    #NCChad and PreReqs
     pkgs.nvchad
+    pkgs.zip
+    pkgs.unzip
+    pkgs.shellcheck
+    pkgs.python3
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -49,6 +54,7 @@
     # ".screenrc".source = dotfiles/screenrc;
 
     ".p10k.zsh".source = ./.p10k.zsh;
+    "~/.config/nvim/lua/plugins/plugins.lua".source = ./NVIM/plugins.lua;
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
