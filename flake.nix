@@ -6,14 +6,20 @@
     nixpkgs.url = "nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    #NVCHAD is best chad.
+    nvchad4nix = {
+      url = "github:nix-community/nix4nvchad";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }:
+  outputs = { self, nixpkgs, home-manager, ... }@inputs:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
+      extraSpecialArgs = { inherit system; inherit inputs; };
 
       #define our hosts
       hosts = {
@@ -41,7 +47,9 @@
         (lib.mapAttrs
           (hostname: config: lib.nixosSystem {
             inherit system;
-            modules = [ config.configurationFile ];
+            modules = [
+              config.configurationFile
+            ];
           })
           hosts);
 
@@ -49,12 +57,20 @@
         (lib.mapAttrs
           (hostname: config: home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
+            inherit extraSpecialArgs;
             modules = [
               config.homeFile
 
               {
                 home.username = config.user;
                 home.homeDirectory = config.homeDirectory;
+                nixpkgs = {
+                  overlays = [
+                    (final: prev: {
+                      nvchad = inputs.nvchad4nix.packages."${pkgs.system}".nvchad;
+                    })
+                  ];
+                };
               }
 
             ];

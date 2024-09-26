@@ -23,10 +23,11 @@
     # pkgs.hello
 
     pkgs.tmux
-    # # It is sometimes useful to fine-tune packages, for example, by applying
     pkgs.git
-    # # overrides. You can do that directly here, just don't forget the
     pkgs.gh
+    pkgs.nvchad
+    # # It is sometimes useful to fine-tune packages, for example, by applying
+    # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
     # # fonts?
     # (pkgs.nerdfonts.override { fonts = [ "FantasqueSansMono" ]; })
