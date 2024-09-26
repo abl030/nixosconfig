@@ -1,5 +1,4 @@
-{ config, pkgs, username, homeDirectory, ... }:
-
+{ config, pkgs, username, homeDirectory, inputs, ... }:
 {
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
@@ -31,6 +30,7 @@
     pkgs.unzip
     pkgs.shellcheck
     pkgs.python3
+    pkgs.cargo
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -55,6 +55,10 @@
 
     ".p10k.zsh".source = ./.p10k.zsh;
     ".config/nvim/lua/plugins/plugins.lua".source = ./NVIM/plugins.lua;
+    ".config/nvim/lua/options.lua".source = ./NVIM/options.lua;
+    ".config/nvim/lua/configs/lspconfig.lua".source = ./NVIM/lspconfig.lua;
+    ".config/nvim/lua/chadrc.lua".source = ./NVIM/ui.lua;
+    "vim.vim".source = ./NVIM/vim.vim;
     # # You can also set the file content immediately.
     # ".gradle/gradle.properties".text = ''
     #   org.gradle.console=verbose
@@ -132,7 +136,15 @@
     # enable = true;
     userName = "abl030";
     userEmail = "abl030@g.m.a.i.l";
-
-
   };
+  imports = [
+    inputs.nvchad4nix.homeManagerModule
+  ];
+  programs.nvchad = {
+    # enable = true;
+    # extraConfig = ''
+    #   echo "ttt"
+    # '';
+  };
+
 }
