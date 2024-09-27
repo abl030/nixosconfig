@@ -14,6 +14,12 @@
   # release notes.
   home.stateVersion = "24.05"; # Please read the comment before changing.
 
+  imports = [
+    ./zsh/plugins.nix
+    ./zsh/theme.nix
+    inputs.nvchad4nix.homeManagerModule
+  ];
+
   # The home.packages option allows you to install Nix packages into your
   # environment.
   home.packages = [
@@ -53,8 +59,7 @@
     # # the Nix store. Activating the configuration will then make '~/.screenrc' a
     # # symlink to the Nix store copy.
     # ".screenrc".source = dotfiles/screenrc;
-
-    ".p10k.zsh".source = ./.p10k.zsh;
+    #
     ".config/nvim/lua/plugins/plugins.lua".source = ./NVIM/plugins.lua;
     ".config/nvim/lua/options.lua".source = ./NVIM/options.lua;
     ".config/nvim/lua/configs/lspconfig.lua".source = ./NVIM/lspconfig.lua;
@@ -90,57 +95,54 @@
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
-  programs.zsh = {
-    enable = true;
-    oh-my-zsh = {
-      enable = true;
-      plugins = [
-        "tmux"
-        "common-aliases"
-        "copypath"
-        "copyfile"
-        "ubuntu"
-        "git"
-        "history"
-        "history-substring-search"
-        # "autoupdate" # https://github.com/tamcore/autoupdate-oh-my-zsh-plugins
-        # "zsh-syntax-highlighting" # https://github.com/zsh-users/zsh-syntax-highlighting/blob/master/INSTALL.md
-        # "zsh-autosuggestions"
-        # "zsh-autocomplete" # https://gist.github.com/n1snt/454b879b8f0b7995740ae04c5fb5b7df
-        "rust"
-        "pyenv"
-      ];
-      # theme = "robbyrussell"; # You can change this if you'd like a different theme
-    };
-    zplug = {
-      enable = true;
-      plugins = [
-        { name = "tamcore/autoupdate-oh-my-zsh-plugins"; }
-        { name = "zsh-users/zsh-syntax-highlighting"; }
-        { name = "marlonrichert/zsh-autocomplete"; }
-        { name = "zsh-users/zsh-autosuggestions"; }
-      ];
-    };
-    plugins = [
-      {
-        name = "powerlevel10k";
-        src = pkgs.zsh-powerlevel10k;
-        file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
-      }
-    ];
-    initExtra = ''
-      [[ ! -f ${./.p10k.zsh} ]] || source ${./.p10k.zsh}
-    '';
-  };
-
+  # programs.zsh = {
+  #   enable = true;
+  #   oh-my-zsh = {
+  #     enable = true;
+  #     plugins = [
+  #       "tmux"
+  #       "common-aliases"
+  #       "copypath"
+  #       "copyfile"
+  #       "ubuntu"
+  #       "git"
+  #       "history"
+  #       "history-substring-search"
+  #       # "autoupdate" # https://github.com/tamcore/autoupdate-oh-my-zsh-plugins
+  #       # "zsh-syntax-highlighting" # https://github.com/zsh-users/zsh-syntax-highlighting/blob/master/INSTALL.md
+  #       # "zsh-autosuggestions"
+  #       # "zsh-autocomplete" # https://gist.github.com/n1snt/454b879b8f0b7995740ae04c5fb5b7df
+  #       "rust"
+  #       "pyenv"
+  #     ];
+  #     # theme = "robbyrussell"; # You can change this if you'd like a different theme
+  #   };
+  #   zplug = {
+  #     enable = true;
+  #     plugins = [
+  #       { name = "tamcore/autoupdate-oh-my-zsh-plugins"; }
+  #       { name = "zsh-users/zsh-syntax-highlighting"; }
+  #       { name = "marlonrichert/zsh-autocomplete"; }
+  #       { name = "zsh-users/zsh-autosuggestions"; }
+  #     ];
+  #   };
+  #   plugins = [
+  #     {
+  #       name = "powerlevel10k";
+  #       src = pkgs.zsh-powerlevel10k;
+  #       file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+  #     }
+  #   ];
+  #   initExtra = ''
+  #     [[ ! -f ${./.p10k.zsh} ]] || source ${./.p10k.zsh}
+  #   '';
+  # };
+  #
   programs.git = {
     # enable = true;
     userName = "abl030";
     userEmail = "abl030@g.m.a.i.l";
   };
-  imports = [
-    inputs.nvchad4nix.homeManagerModule
-  ];
   programs.nvchad = {
     # enable = true;
     # extraConfig = ''
