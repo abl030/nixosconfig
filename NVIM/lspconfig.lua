@@ -36,7 +36,7 @@ nvim_lsp.nixd.setup({
 				home_manager = {
 					expr = '(builtins.getFlake "/home/'
 						.. username
-						.. '/dotfiles").homeConfigurations.'
+						.. '/nixosconfig").homeConfigurations.'
 						.. username
 						.. ".options",
 				},
