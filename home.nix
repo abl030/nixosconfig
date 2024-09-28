@@ -14,6 +14,8 @@
   # release notes.
   home.stateVersion = "24.05"; # Please read the comment before changing.
 
+  home.sessionVariables.NIXD_FLAGS = "-log=error";
+
   imports = [
     ./zsh/plugins.nix
     ./zsh/theme.nix
@@ -38,6 +40,7 @@
     pkgs.python3
     pkgs.cargo
     pkgs.xclip
+    pkgs.nixd
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
