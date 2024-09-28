@@ -21,6 +21,11 @@ end
 -- 	on_init = on_init,
 -- 	capabilities = capabilities,
 -- })
+
+local handle = io.popen("whoami")
+local username = handle:read("*l")
+handle:close()
+
 local nvim_lsp = require("lspconfig")
 nvim_lsp.nixd.setup({
 	cmd = { "nixd" },
@@ -29,7 +34,11 @@ nvim_lsp.nixd.setup({
 			options = {
 
 				home_manager = {
-					expr = '(builtins.getFlake "/home/testvm/dotfiles").homeConfigurations.testvm.options',
+					expr = '(builtins.getFlake "/home/'
+						.. username
+						.. '/dotfiles").homeConfigurations.'
+						.. username
+						.. ".options",
 				},
 			},
 		},
