@@ -13,7 +13,7 @@
       }
     ];
     # Ok so this inits our p10k config. Have to wrap it in these conf.home things
-    #Because it's not modularised and the direct paths weren't working. 
+    #Because it's now modularised and the direct paths weren't working. 
     initExtra = ''
       [[ ! -f ${config.home.homeDirectory}/.p10k.zsh ]] || source ${config.home.homeDirectory}/.p10k.zsh
     '';

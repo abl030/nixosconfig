@@ -4,7 +4,7 @@ local on_init = require("nvchad.configs.lspconfig").on_init
 local capabilities = require("nvchad.configs.lspconfig").capabilities
 
 local lspconfig = require("lspconfig")
-local servers = { "html", "cssls", "yamlls", "marksman", "pyright", "bashls", "nil_ls" }
+local servers = { "html", "cssls", "yamlls", "marksman", "pyright", "bashls", "nixd" }
 
 -- lsps with default config
 for _, lsp in ipairs(servers) do
@@ -21,3 +21,17 @@ end
 -- 	on_init = on_init,
 -- 	capabilities = capabilities,
 -- })
+local nvim_lsp = require("lspconfig")
+nvim_lsp.nixd.setup({
+	cmd = { "nixd" },
+	settings = {
+		nixd = {
+			options = {
+
+				home_manager = {
+					expr = '(builtins.getFlake "/home/testvm/dotfiles").homeConfigurations.testvm.options',
+				},
+			},
+		},
+	},
+})
