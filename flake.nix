@@ -23,8 +23,11 @@
 
       #define our hosts
       hosts = {
-
-        asus = {
+        #Our hosts key here must match the username. 
+        #In NVIM/lspconfig.lua you can see we pull in our home_manager completions
+        #programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se 
+        #but merely this host key and the username must be the same. 
+        family = {
 
           configurationFile = ./configuration_asus.nix;
           homeFile = ./home.nix;
