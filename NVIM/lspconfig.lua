@@ -15,6 +15,13 @@ for _, lsp in ipairs(servers) do
 	})
 end
 
+-- lspconfig.lua_language_server.setup({
+-- 	cmd = { "lua-language-server" }, -- This uses the Nix shell to run the package
+-- 	on_attach = on_attach,
+-- 	on_init = on_init,
+-- 	capabilities = capabilities,
+-- })
+
 -- typescript
 -- lspconfig.tsserver.setup({
 -- 	on_attach = on_attach,

@@ -13,7 +13,10 @@
   # want to update the value, then make sure to first check the Home Manager
   # release notes.
   home.stateVersion = "24.05"; # Please read the comment before changing.
-
+  #This is to lower the level of logging by NIXD in ~/.local/state/nvim/lsp.log
+  #This was used during the saga to get home_manager lsp completion through nixd. 
+  #It can probably be removed. Remembe the 5 hours we spent on 280924 getting this completion to work.
+  #Remember
   home.sessionVariables.NIXD_FLAGS = "-log=error";
 
   imports = [
@@ -41,6 +44,21 @@
     pkgs.cargo
     pkgs.xclip
     pkgs.nixd
+    pkgs.stylua
+    pkgs.yamlfmt
+    pkgs.rustfmt
+    pkgs.prettierd
+    pkgs.beautysh
+    pkgs.nixpkgs-fmt
+    pkgs.black
+    pkgs.isort
+    pkgs.yaml-language-server
+    pkgs.marksman
+    pkgs.pyright
+    pkgs.bash-language-server
+    pkgs.vscode-langservers-extracted
+
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
