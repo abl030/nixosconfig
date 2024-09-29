@@ -130,8 +130,12 @@
   # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
-
+  services.openssh = {
+    enable = true;
+    #Enable X11 forwarding for Copy/paste. We will solve this.
+    forwardX11 = true;
+  };
+  #
   # Open ports in the firewall.
   networking.firewall.allowedTCPPorts = [ 2049 ];
   # networking.firewall.allowedUDPPorts = [ ... ];
