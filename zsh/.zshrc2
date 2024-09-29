@@ -1,0 +1,80 @@
+# Bind 'tab tab' to accept the auto suggest. All time most used key binding.
+bindkey '^I^I' autosuggest-accept
+
+# [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+alias nosleep='sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target'
+
+alias gosleep='sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target && sudo systemctl suspend && exit'
+
+alias gohibe='sudo systemctl unmask hibernate.target && sudo systemctl hibernate && exit'
+
+alias cr='cargo run'
+
+alias  epi!="wakeonlan       18:c0:4d:65:86:e8 "
+
+
+# export PYENV_ROOT="$HOME/.pyenv"
+# [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv init -)"
+
+# Function to quickly push our dotfile changes
+function push_dotfiles() {
+    cd ~/nixosconfig/ || return
+    echo "Enter commit message: "
+    read commit_message
+    git add --all
+    git commit -m "$commit_message"
+    git push origin
+}
+
+# Similar function to easily pull remote changes
+function pull_dotfiles() {
+    cd ~/nixosconfig || return
+    git pull origin
+}
+
+
+#thisisatest
+
+function edit() {
+  case $1 in
+    zsh)
+      nvim ~/nixosconfig/zsh/.zshrc2
+      ;;
+    caddy)
+      nvim ~/nixosconfig/caddy/caddyfile 
+      ;;
+     diary)
+      cd /mnt/data/Life/Zet/Projects/Diary && nvim
+     ;;
+   cullen)
+     cd /mnt/data/Life/Zet/Cullen && nvim
+     ;;
+    *)
+      echo "Unknown argument: $1"
+      ;;
+  esac
+}
+
+function reload() {
+  case $1 in
+    caddy)
+      sudo systemctl restart caddy
+      ;;
+    zsh)
+      exec zsh
+      ;;
+    home)
+      cd ~/nixosconfig/ && home-manager switch --flake .#testvm
+      ;;
+    nix)
+      cd ~/nixosconfig/ &&  sudo nixos-rebuild switch --flake .#testvm      
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      ;;
+   esac
+}
+
+

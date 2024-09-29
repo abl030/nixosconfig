@@ -20,8 +20,7 @@
   home.sessionVariables.NIXD_FLAGS = "-log=error";
 
   imports = [
-    ./zsh/plugins.nix
-    ./zsh/theme.nix
+    ./zsh/zsh.nix
     inputs.nvchad4nix.homeManagerModule
   ];
 
