@@ -76,10 +76,10 @@ function reload() {
       exec zsh
       ;;
     home)
-      cd ~/nixosconfig/ && home-manager switch --flake .#testvm
+      cd ~/nixosconfig/ && home-manager switch --flake .#${USER}
       ;;
     nix)
-      cd ~/nixosconfig/ &&  sudo nixos-rebuild switch --flake .#testvm      
+      cd ~/nixosconfig/ &&  sudo nixos-rebuild switch --flake .#${USER}
       ;;
     *)
       echo "Unknown argument: $1"
