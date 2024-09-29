@@ -1,6 +1,16 @@
 # Bind 'tab tab' to accept the auto suggest. All time most used key binding.
 bindkey '^I^I' autosuggest-accept
 
+#this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zsh
+#actually this took forever for me to work out. Even though cat -v shows the up arrow as
+#[[A its not? its [OA. This took me two hours to debug. Great.
+bindkey "'${key[Up]}" up-line-or-search
+bindkey "^[OA" up-line-or-search
+bindkey "^[[A" up-line-or-search
+
+bindkey "^[OB" down-line-or-select
+bindkey "^[[B" down-line-or-select
+
 # [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 alias nosleep='sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target'
