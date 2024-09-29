@@ -13,6 +13,7 @@ require("conform").setup({
 		yaml = { "yamlfmt", lsp_format = "fallback" },
 		sh = { "beautysh" },
 		nix = { "nixpkgs_fmt" },
+		json = { "jq" },
 	},
 })
 
