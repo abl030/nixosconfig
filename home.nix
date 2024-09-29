@@ -57,6 +57,8 @@
     pkgs.pyright
     pkgs.bash-language-server
     pkgs.vscode-langservers-extracted
+    pkgs.jsonfmt
+    pkgs.jq
 
 
     # # It is sometimes useful to fine-tune packages, for example, by applying
