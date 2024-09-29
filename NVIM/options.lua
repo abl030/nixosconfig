@@ -10,7 +10,7 @@ require("conform").setup({
 		rust = { "rustfmt", lsp_format = "fallback" },
 		-- Conform will run the first available formatter
 		javascript = { "prettierd", "prettier", stop_after_first = true },
-		yaml = { "yamlfmt", lsp_format = "fallback" },
+		yaml = { "prettierd", lsp_format = "prettierd" },
 		sh = { "beautysh" },
 		nix = { "nixpkgs_fmt" },
 		json = { "jq" },
