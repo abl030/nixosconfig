@@ -31,3 +31,4 @@ require("nvim-treesitter.configs").setup({
 })
 vim.opt.clipboard = "unnamedplus"
 vim.cmd("source ~/vim.vim")
+vim.keymap.set("n", ":", ";", { noremap = true, silent = true })

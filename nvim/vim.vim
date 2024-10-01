@@ -69,7 +69,7 @@ endfunction
 inoremap jj <Esc>
 
 " Map ';' to ':'
-nnoremap ; :
+"nnoremap ; :
 
 " hide deprecation warnings.
 "vim.deprecate = function() end 
