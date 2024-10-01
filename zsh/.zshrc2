@@ -90,4 +90,8 @@ function reload() {
    esac
 }
 
+#nvim ftw
 alias v='nvim'
+
+#make ls pretty and show those pesky .files.
+alias ls='ls -A -F -l --group-directories-first --color=always'
