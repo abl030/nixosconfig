@@ -42,6 +42,13 @@
           homeDirectory = "/home/testvm";
         };
 
+        epi = {
+          configurationFile = ./configuration.nix;
+          homeFile = ./home.nix;
+          user = "abl030";
+          homeDirectory = "/home/abl030";
+        };
+
 
       };
     in
