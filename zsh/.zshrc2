@@ -62,7 +62,7 @@ function edit() {
      cd /mnt/data/Life/Zet/Cullen && nvim
      ;;
    nvim)
-     nvim ~/nixosconfig/NVIM/options.lua
+     nvim ~/nixosconfig/nvim/options.lua
      ;;
     *)
       echo "Unknown argument: $1"

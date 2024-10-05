@@ -29,6 +29,10 @@ require("nvim-treesitter.configs").setup({
 	-- A list of parser names, or "all" (the listed parsers MUST always be installed)
 	ensure_installed = { "markdown", "markdown_inline" },
 })
+-- This just forces nvim to use the clipboard all the time. I am unsure if this is the best method
+
 vim.opt.clipboard = "unnamedplus"
+--This sources our crusty old vimrc that needs to be updated
 vim.cmd("source ~/vim.vim")
+-- This keybind finished the swap of : to ; so that we can move through our finds in the buffer.
 vim.keymap.set("n", ":", ";", { noremap = true, silent = true })
