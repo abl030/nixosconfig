@@ -2,7 +2,7 @@
 {
   home.packages = [
     #These packages are for installing through mason. But we can't do that so I am commenting them out here but leaving them
-    pkgs.nvchad
+    # pkgs.nvchad
     # pkgs.zip
     # pkgs.unzip
     # pkgs.python3
@@ -45,12 +45,20 @@
     #Define all the plugins we want to use. this needs a clean out.
     ".config/nvim/lua/plugins/plugins.lua".source = ./plugins.lua;
     # This is our main option file. This is also now aliased to "edit nvim"
-    ".config/nvim/lua/options.lua".source = ./options.lua;
+    ".config/nvim/lua/options2.lua".source = ./options.lua;
     #Defining how we want to use our lsp config.
-    ".config/nvim/lua/configs/lspconfig.lua".source = ./lspconfig.lua;
+    ".config/nvim/lua/configs/lspconfig2.lua".source = ./lspconfig.lua;
     #Edit any UI options we want, currently just want that dashboard.
     ".config/nvim/lua/chadrc.lua".source = ./ui.lua;
     #This is a lot of our old crusty keybindings. This also needs to be sorted through
     "vim.vim".source = ./vim.vim;
   };
+  programs.nvchad.extraConfig = ''
+
+    require "options2"
+    require "configs.lspconfig2"
+
+
+  '';
+  programs.nvchad.enable = true;
 }

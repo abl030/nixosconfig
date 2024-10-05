@@ -1,4 +1,4 @@
-require("nvchad.options")
+-- require("nvchad.options")
 
 --  This setups conform.vim to work with our filetypes.
 require("conform").setup({
