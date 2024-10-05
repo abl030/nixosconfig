@@ -7,7 +7,7 @@ local plugins = {
 	},
 	{
 		"tpope/vim-sensible",
-		lazy = false,
+		event = { "BufRead", "BufNewFile" },
 	},
 	-- {
 	-- 	"preservim/nerdtree",
@@ -15,7 +15,7 @@ local plugins = {
 	-- },
 	{
 		"tpope/vim-surround",
-		lazy = false,
+		event = { "BufRead", "BufNewFile" },
 	},
 	-- {
 	-- 	"aymericbeaumet/vim-symlink",
