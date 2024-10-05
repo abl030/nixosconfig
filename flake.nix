@@ -54,6 +54,12 @@
          user = "abl030";
        homeDirectory = "/home/abl030";  
        };
+       
+       framework = {
+         homeFile = ./home.nix;
+         user = "abl030";
+         homeDirectory = /home/abl030;
+       };
 
       };
     in
