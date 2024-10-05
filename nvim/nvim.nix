@@ -49,7 +49,7 @@
     #Defining how we want to use our lsp config.
     ".config/nvim/lua/configs/lspconfig2.lua".source = ./lspconfig.lua;
     #Edit any UI options we want, currently just want that dashboard.
-    ".config/nvim/lua/chadrc.lua".source = ./ui.lua;
+    ".config/nvim/lua/chadrc_editor.lua".source = ./chadrc_editor.lua;
     #This is a lot of our old crusty keybindings. This also needs to be sorted through
     "vim.vim".source = ./vim.vim;
   };
@@ -57,6 +57,7 @@
 
     require "options2"
     require "configs.lspconfig2"
+    require "chadrc_editor"
 
 
   '';
