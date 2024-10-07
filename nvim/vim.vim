@@ -67,8 +67,9 @@ set linebreak
 " Map 'jj' to exit insert mode
 inoremap jj <Esc>
 
+" This is now handled in improvedft
 " Map ';' to ':'
-nnoremap ; :
+"nnoremap ; :
 
 "" hide deprecation warnings.
 ""vim.deprecate = function() end 
