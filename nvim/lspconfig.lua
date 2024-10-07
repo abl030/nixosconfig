@@ -1,10 +1,13 @@
--- EXAMPLE
+--I originally tried to load this in as a plugin setting.
+--but that doesn't work. It's actually some looping lua code to attach lsps to the current buffers.
+--it's its own function. Thus load it like this.
+
 local on_attach = require("nvchad.configs.lspconfig").on_attach
 local on_init = require("nvchad.configs.lspconfig").on_init
 local capabilities = require("nvchad.configs.lspconfig").capabilities
 
 local lspconfig = require("lspconfig")
-local servers = { "html", "ts_ls", "cssls", "yamlls", "marksman", "pyright", "bashls", "nixd", "jsonls" }
+local servers = { "ts_ls", "yamlls", "marksman", "pyright", "bashls", "nixd", "jsonls" }
 
 -- lsps with default config
 for _, lsp in ipairs(servers) do
@@ -15,20 +18,7 @@ for _, lsp in ipairs(servers) do
 	})
 end
 
--- lspconfig.lua_language_server.setup({
--- 	cmd = { "lua-language-server" }, -- This uses the Nix shell to run the package
--- 	on_attach = on_attach,
--- 	on_init = on_init,
--- 	capabilities = capabilities,
--- })
-
--- typescript
--- lspconfig.tsserver.setup({
--- 	on_attach = on_attach,
--- 	on_init = on_init,
--- 	capabilities = capabilities,
--- })
-
+-- this loads in our home_manager completion for nixd
 local handle = io.popen("whoami")
 local username = handle:read("*l")
 handle:close()

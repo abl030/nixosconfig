@@ -8,6 +8,8 @@
     # pkgs.python3
     # pkgs.cargo
 
+    #Need ripgrep
+    pkgs.ripgrep
     #XClip is needed to yank through X11 through ssh sessions
     pkgs.xclip
 
@@ -43,7 +45,11 @@
 
   home.file = {
     #Define all the plugins we want to use. this needs a clean out.
-    ".config/nvim/lua/plugins/plugins.lua".source = ./plugins.lua;
+    ".config/nvim/lua/plugins/plugins2.lua".source = ./plugins/plugins.lua;
+    #Add in our treesitters config
+    ".config/nvim/lua/plugins/treesitter.lua".source = ./plugins/treesitter.lua;
+    #Add in our conform config
+    ".config/nvim/lua/plugins/conform.lua".source = ./plugins/conform.lua;
     # This is our main option file. This is also now aliased to "edit nvim"
     ".config/nvim/lua/options2.lua".source = ./options.lua;
     #Defining how we want to use our lsp config.
@@ -56,8 +62,8 @@
   programs.nvchad.extraConfig = ''
 
     require "options2"
-    require "configs.lspconfig2"
     require "chadrc_editor"
+    require "configs/lspconfig2"
 
 
   '';
