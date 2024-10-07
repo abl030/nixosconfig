@@ -44,4 +44,10 @@ nvim_lsp.nixd.setup({
 			},
 		},
 	},
+	-- For all our custom LSP setups we need to inherit the below.
+	-- This keeps keybindings and other NVCHAD goodies intact.
+	-- Ensure nixd uses the same settings as other language servers
+	on_attach = on_attach,
+	on_init = on_init,
+	capabilities = capabilities,
 })
