@@ -20,8 +20,8 @@
   # home.sessionVariables.NIXD_FLAGS = "-log=error";
 
   imports = [
-    ./home/zsh/zsh.nix
-    ./home/nvim/nvim.nix
+    ./zsh/zsh.nix
+    ./nvim/nvim.nix
   ];
 
   # The home.packages option allows you to install Nix packages into your

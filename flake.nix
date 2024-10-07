@@ -57,7 +57,7 @@
         };
 
         framework = {
-          homeFile = ./home.nix;
+          homeFile = ./home/home.nix;
           user = "abl030";
           homeDirectory = /home/abl030;
         };
