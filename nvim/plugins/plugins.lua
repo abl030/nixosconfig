@@ -94,6 +94,13 @@ local plugins = {
 			})
 		end,
 	},
+	{
+		"arnamak/stay-centered.nvim",
+		event = { "BufRead", "BufNewFile" },
+		opts = {
+			skip_filetypes = {},
+		},
+	},
 }
 
 return plugins
