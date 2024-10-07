@@ -31,27 +31,27 @@
         family = {
 
           configurationFile = ./configuration_asus.nix;
-          homeFile = ./home.nix;
+          homeFile = ./home/home.nix;
           user = "family";
           homeDirectory = "/home/family";
         };
 
         testvm = {
           configurationFile = ./configuration.nix;
-          homeFile = ./home.nix;
+          homeFile = ./home/home.nix;
           user = "testvm";
           homeDirectory = "/home/testvm";
         };
 
         epimetheus = {
           configurationFile = ./configuration.nix;
-          homeFile = ./home.nix;
+          homeFile = ./home/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
 
         caddy = {
-          homeFile = ./home.nix;
+          homeFile = ./home/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
