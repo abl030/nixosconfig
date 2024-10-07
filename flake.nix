@@ -28,12 +28,12 @@
         #In NVIM/lspconfig.lua you can see we pull in our home_manager completions
         #programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se 
         #but merely this host key and the username must be the same. 
-        family = {
+        asus = {
 
-          configurationFile = ./configuration_asus.nix;
+          configurationFile = ./hosts/asus/configuration.nix;
           homeFile = ./home/home.nix;
-          user = "family";
-          homeDirectory = "/home/family";
+          user = "asus";
+          homeDirectory = "/home/asus";
         };
 
         testvm = {
