@@ -34,6 +34,8 @@
     pkgs.jq
     pkgs.eslint_d
     pkgs.typescript-language-server
+    pkgs.yamllint
+    pkgs.nodePackages.jsonlint
 
 
   ];

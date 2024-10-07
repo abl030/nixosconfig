@@ -18,23 +18,27 @@ for _, lsp in ipairs(servers) do
 	})
 end
 
--- this loads in our home_manager completion for nixd
-local handle = io.popen("whoami")
-local username = handle:read("*l")
-handle:close()
+-- Capture the username and hostname dynamically
+local handle_username = io.popen("whoami")
+local username = handle_username:read("*l")
+handle_username:close()
 
+local handle_hostname = io.popen("hostname")
+local hostname = handle_hostname:read("*l")
+handle_hostname:close()
+
+-- Set up nixd with dynamic home_manager expression
 local nvim_lsp = require("lspconfig")
 nvim_lsp.nixd.setup({
 	cmd = { "nixd" },
 	settings = {
 		nixd = {
 			options = {
-
 				home_manager = {
 					expr = '(builtins.getFlake "/home/'
 						.. username
 						.. '/nixosconfig").homeConfigurations.'
-						.. username
+						.. hostname
 						.. ".options",
 				},
 			},

@@ -23,7 +23,8 @@
 
       #define our hosts
       hosts = {
-        #Our hosts key here must match the username. 
+        #Our hostkey must match our hostname so that NIXD home completions work. 
+        #Note this does mean at the moment we are limited to one user per host. 
         #In NVIM/lspconfig.lua you can see we pull in our home_manager completions
         #programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se 
         #but merely this host key and the username must be the same. 
@@ -42,24 +43,24 @@
           homeDirectory = "/home/testvm";
         };
 
-        epi = {
+        epimetheus = {
           configurationFile = ./configuration.nix;
           homeFile = ./home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
 
-       caddy = {
-         homeFile = ./home.nix;
-         user = "abl030";
-       homeDirectory = "/home/abl030";  
-       };
-       
-       framework = {
-         homeFile = ./home.nix;
-         user = "abl030";
-         homeDirectory = /home/abl030;
-       };
+        caddy = {
+          homeFile = ./home.nix;
+          user = "abl030";
+          homeDirectory = "/home/abl030";
+        };
+
+        framework = {
+          homeFile = ./home.nix;
+          user = "abl030";
+          homeDirectory = /home/abl030;
+        };
 
       };
     in

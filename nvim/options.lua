@@ -7,7 +7,7 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 })
 
 -- This just forces nvim to use the clipboard all the time. I am unsure if this is the best method
-vim.opt.clipboard = "unnamedplus"
+-- vim.opt.clipboard = "unnamedplus"
 
 --This sources our crusty old vimrc that needs to be updated
 vim.cmd("source ~/vim.vim")
