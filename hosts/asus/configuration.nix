@@ -106,6 +106,8 @@
       firefox
       gh
       git
+      sops
+      age
     ];
   };
 
