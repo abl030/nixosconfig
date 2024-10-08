@@ -62,6 +62,15 @@
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
+  # BLuetooth settings
+  hardware = {
+    bluetooth.enable = true;
+  };
+
+  services = {
+    blueman.enable = true;
+  };
+
   # Enable sound with pipewire.
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
@@ -86,6 +95,7 @@
     isNormalUser = true;
     description = "asus";
     extraGroups = [ "networkmanager" "wheel" ];
+    shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
       firefox
@@ -101,6 +111,9 @@
   # Install firefox.
   programs.firefox.enable = true;
 
+  #install zsh
+  programs.zsh.enable = true;
+
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
@@ -109,6 +122,7 @@
   environment.systemPackages = with pkgs; [
     #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     #  wget
+    blueman
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -122,7 +136,8 @@
   # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
+  services.openssh.enable = true;
+  services.openssh.forwardX11 = true;
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
