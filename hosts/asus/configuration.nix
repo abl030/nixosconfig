@@ -11,6 +11,8 @@
       ./hardware-configuration.nix
       # Our modulat tailscale setup that should work anywhere.
       ../services/tailscale/tailscale.nix
+      # Our mounts
+      ../services/mounts/nfs.nix
     ];
 
   # Bootloader.
@@ -126,7 +128,6 @@
     #  wget
     blueman
   ];
-
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
