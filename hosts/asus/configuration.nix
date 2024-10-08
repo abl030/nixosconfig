@@ -13,6 +13,7 @@
       ../services/tailscale/tailscale.nix
       # Our mounts
       ../services/mounts/nfs.nix
+      ../services/mounts/cifs.nix
     ];
 
   # Bootloader.
