@@ -9,6 +9,8 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      # Our modulat tailscale setup that should work anywhere.
+      ../services/tailscale/tailscale.nix
     ];
 
   # Bootloader.
@@ -125,6 +127,7 @@
     blueman
   ];
 
+
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
@@ -141,9 +144,10 @@
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
+  # networking.firewall.allowedUDPPorts = [ 41641 ];
   # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  #Enable firewall. Its on by default, but this is here to remind myself its on.
+  networking.firewall.enable = true;
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
