@@ -10,7 +10,7 @@ return {
 		formatters_by_ft = {
 			rust = { "rustfmt" },
 			yaml = { "prettierd", lsp_format = "prettierd" },
-			sh = { "beautysh" },
+			sh = { "shfmt", "beautysh" },
 			nix = { "nixpkgs_fmt" },
 			json = { "jq" },
 		},

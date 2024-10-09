@@ -37,6 +37,7 @@
     pkgs.yamllint
     pkgs.nodePackages.jsonlint
     pkgs.markdownlint-cli
+    pkgs.shfmt
 
 
   ];
