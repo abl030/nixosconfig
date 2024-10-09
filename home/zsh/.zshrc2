@@ -64,6 +64,9 @@ function edit() {
    nvim)
      nvim ~/nixosconfig/home/nvim/options.lua
      ;;
+   nix)
+     cd ~/nixosconfig/ && nvim
+     ;;
     *)
       echo "Unknown argument: $1"
       ;;
