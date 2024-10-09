@@ -76,10 +76,18 @@ local plugins = {
 		--For instance that JSON linter doesn't really provide much more info that the LSP JOSNLS
 		--So why use it! The nix linter is working, but I've never seen it actually do _anything_
 		-- I got this from here: https://docs.rockylinux.org/books/nvchad/
+		-- nvim-lint plugin
 		"mfussenegger/nvim-lint",
 		enabled = true,
 		event = "VeryLazy",
 		config = function()
+			-- Function to check if the current directory is 'Diary'
+			local function is_in_diary_directory()
+				local cwd = vim.loop.cwd() -- Get current working directory
+				return vim.fn.fnamemodify(cwd, ":t") == "Diary"
+			end
+
+			-- Linter setup
 			require("lint").linters_by_ft = {
 				markdown = { "markdownlint" },
 				yaml = { "yamllint" },
@@ -87,9 +95,12 @@ local plugins = {
 				-- json = { "jsonlint" },
 			}
 
+			-- Autocmd for linting on BufWritePost, but skip if in 'Diary' directory
 			vim.api.nvim_create_autocmd({ "BufWritePost" }, {
 				callback = function()
-					require("lint").try_lint()
+					if not is_in_diary_directory() then
+						require("lint").try_lint()
+					end
 				end,
 			})
 		end,

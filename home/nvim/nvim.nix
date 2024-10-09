@@ -36,6 +36,7 @@
     pkgs.typescript-language-server
     pkgs.yamllint
     pkgs.nodePackages.jsonlint
+    pkgs.markdownlint-cli
 
 
   ];
@@ -60,6 +61,8 @@
     ".config/nvim/lua/chadrc_editor.lua".source = ./chadrc_editor.lua;
     #This is a lot of our old crusty keybindings. This also needs to be sorted through
     "vim.vim".source = ./vim.vim;
+    #Add in our diary management lua. Autosave, cmp off and spellcheck on.
+    ".config/nvim/lua/diary.lua".source = ./diary.lua;
   };
   programs.nvchad.extraConfig = ''
 

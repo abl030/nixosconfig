@@ -50,7 +50,7 @@ function pull_dotfiles() {
 function edit() {
   case $1 in
     zsh)
-      nvim ~/nixosconfig/zsh/.zshrc2
+      nvim ~/nixosconfig/home/zsh/.zshrc2
       ;;
     caddy)
       nvim ~/nixosconfig/caddy/caddyfile 
@@ -62,7 +62,7 @@ function edit() {
      cd /mnt/data/Life/Zet/Cullen && nvim
      ;;
    nvim)
-     nvim ~/nixosconfig/nvim/options.lua
+     nvim ~/nixosconfig/home/nvim/options.lua
      ;;
     *)
       echo "Unknown argument: $1"
