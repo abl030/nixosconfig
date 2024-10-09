@@ -17,3 +17,6 @@ vim.keymap.set("n", ":", ";", { noremap = true, silent = true })
 
 -- remap leader o to add in a line break but stay in normal mode
 vim.api.nvim_set_keymap("n", "<leader>o", "o<Esc>", { noremap = true, silent = true })
+
+-- Require our diary file. This handles spellcheck, turning completion off and our autosave events.
+require("diary")
