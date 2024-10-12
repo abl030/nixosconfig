@@ -22,6 +22,7 @@
   imports = [
     ./zsh/zsh.nix
     ./nvim/nvim.nix
+    ../secrets/sops_home.nix
   ];
 
   # The home.packages option allows you to install Nix packages into your

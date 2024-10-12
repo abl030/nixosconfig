@@ -1,7 +1,7 @@
-{ inputs, ... }:
+{ inputs, config, ... }:
 
 let
-  username = builtins.getEnv "USER"; # Gets the current username
+  username = config.home.username; # Gets the current username
   homeDir = "/home/${username}"; # Constructs the home directory path
 in
 {
