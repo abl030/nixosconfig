@@ -23,6 +23,8 @@
     ./zsh/zsh.nix
     ./nvim/nvim.nix
     ./ssh/ssh.nix
+    ../secrets/sops_home.nix
+    ./utils/common.nix
   ];
 
   # The home.packages option allows you to install Nix packages into your
@@ -35,6 +37,9 @@
     pkgs.tmux
     pkgs.git
     pkgs.gh
+    pkgs.sops
+    pkgs.age
+    pkgs.ssh-to-age
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
