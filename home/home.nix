@@ -23,6 +23,7 @@
     ./zsh/zsh.nix
     ./nvim/nvim.nix
     ../secrets/sops_home.nix
+    ./utils/common.nix
   ];
 
   # The home.packages option allows you to install Nix packages into your
@@ -35,7 +36,6 @@
     pkgs.tmux
     pkgs.git
     pkgs.gh
-    pkgs.neofetch
     pkgs.sops
     pkgs.age
     pkgs.ssh-to-age
