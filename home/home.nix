@@ -93,9 +93,9 @@
   programs.home-manager.enable = true;
 
 
-  programs.git = {
-    enable = true;
-    userName = "abl030";
-    userEmail = "abl030@g.m.a.i.l";
-  };
+  # programs.git = {
+  #   enable = true;
+  #   userName = "abl030";
+  #   userEmail = "abl030@g.m.a.i.l";
+  # };
 }
