@@ -21,7 +21,7 @@ vim.api.nvim_create_autocmd("FileType", {
 -- Autosave function
 local function autosave()
 	if is_in_diary_directory() then
-		vim.cmd("silent! write") -- Save the file silently without messages
+		vim.cmd("silent! noautocmd write!") -- Save the file silently without messages
 	end
 end
 
