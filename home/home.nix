@@ -22,8 +22,9 @@
   imports = [
     ./zsh/zsh.nix
     ./nvim/nvim.nix
-    ./ssh/ssh.nix
-    ../secrets/sops_home.nix
+    #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
+    # ./ssh/ssh.nix
+    # ../secrets/sops_home.nix
     ./utils/common.nix
   ];
 
