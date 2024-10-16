@@ -1,9 +1,10 @@
 Host *
     ForwardX11 yes
+    ForwardX11Trusted yes
 
 Host caddyjump
     HostName 127.0.0.1
     User abl030
     ProxyJump abl030@caddy
     ForwardX11 yes
-
+    ForwardX11Trusted yes
