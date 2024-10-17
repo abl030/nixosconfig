@@ -14,10 +14,20 @@
       # Our mounts
       ../services/mounts/nfs.nix
       ../services/mounts/cifs.nix
+      ../services/fonts/fonts.nix
     ];
 
-
-
+  # nixpkgs.config.qt5 = {
+  #   enable = true;
+  #   platformTheme = "qt5ct";
+  #   style = {
+  #     package = pkgs.utterly-nord-plasma;
+  #     name = "Utterly Nord Plasma";
+  #   };
+  # };
+  #
+  # environment.sessionVariables.QT_QPA_PLATFORMTHEME = "qt5ct";
+  #
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
@@ -134,7 +144,7 @@
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     #  wget
-    blueman
+
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
