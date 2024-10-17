@@ -36,7 +36,7 @@
         asus = {
 
           configurationFile = ./hosts/asus/configuration.nix;
-          homeFile = ./home/home.nix;
+          homeFile = ./hosts/asus/home.nix;
           user = "asus";
           homeDirectory = "/home/asus";
         };
@@ -56,7 +56,7 @@
         };
 
         caddy = {
-          homeFile = ./home/home.nix;
+          homeFile = ./hosts/caddy/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
