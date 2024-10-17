@@ -25,6 +25,7 @@
     ./ssh/ssh.nix
     ../secrets/sops_home.nix
     ./utils/common.nix
+    .utils/nixos.nix
   ];
 
   # The home.packages option allows you to install Nix packages into your
