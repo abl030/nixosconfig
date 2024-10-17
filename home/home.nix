@@ -22,12 +22,26 @@
   imports = [
     ./zsh/zsh.nix
     ./nvim/nvim.nix
-    ./ssh/ssh.nix
-    ../secrets/sops_home.nix
+    #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
+    # ./ssh/ssh.nix
+    # ../secrets/sops_home.nix
     ./utils/common.nix
     .utils/nixos.nix
   ];
 
+  # Environment
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    BROWSER = "firefox";
+    TERMINAL = "kitty";
+  };
+
+  nixpkgs = {
+    config = {
+      allowUnfree = true;
+      allowUnfreePredicate = (_: true);
+    };
+  };
   # The home.packages option allows you to install Nix packages into your
   # environment.
   home.packages = [
@@ -41,6 +55,7 @@
     pkgs.sops
     pkgs.age
     pkgs.ssh-to-age
+
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
