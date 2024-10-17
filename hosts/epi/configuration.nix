@@ -19,7 +19,7 @@
     ];
 
   # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_xanmod_latest;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -28,6 +28,7 @@
   networking.hostName = "epimetheus"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
+  networking.interfaces.enp9s0.wakeOnLan.enable = true;
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
@@ -57,8 +58,19 @@
   services.xserver.enable = true;
 
   # Enable the GNOME Desktop Environment.
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  # services.xserver.displayManager.gdm.enable = true;
+  # services.xserver.desktopManager.gnome.enable = true;
+
+  #This is LXQT - strangely suspend/resume works fine here?
+  # services.xserver.displayManager.lightdm.enable = true;
+  # services.xserver.desktopManager.lxqt.enable = true;
+
+  #KDE
+  services.displayManager.sddm.enable = true;
+  # services.desktopManager.plasma6.enable = true;
+  services.xserver.desktopManager.plasma5.enable = true;
+
+  # services.displayManager.defaultSession = "plasmax11";
 
   # Configure keymap in X11
   services.xserver.xkb = {
