@@ -5,8 +5,8 @@
     pkgs.yt-dlp
     pkgs.neofetch
     pkgs.wakeonlan
-    pkgs.kitty
-    pkgs.plexamp
-    pkgs.google-chrome
+    # pkgs.kitty
+    # pkgs.plexamp
+    # pkgs.google-chrome
   ];
 }
