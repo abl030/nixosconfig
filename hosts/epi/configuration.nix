@@ -19,7 +19,7 @@
     ];
 
   # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_xanmod_latest;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
