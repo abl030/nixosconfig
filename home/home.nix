@@ -26,7 +26,6 @@
     # ./ssh/ssh.nix
     # ../secrets/sops_home.nix
     ./utils/common.nix
-    .utils/nixos.nix
   ];
 
   # Environment
