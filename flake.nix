@@ -50,7 +50,7 @@
 
         epimetheus = {
           configurationFile = ./hosts/epi/configuration.nix;
-          homeFile = ./home/home.nix;
+          homeFile = ./hosts/epi/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
