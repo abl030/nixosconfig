@@ -44,7 +44,8 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
-
+  #enable avahi for chromecasting to work.
+  services.avahi.enable = true;
   # Enable network manager applet
   programs.nm-applet.enable = true;
 
@@ -126,6 +127,7 @@
     ];
   };
 
+
   # Enable automatic login for the user.
   services.xserver.displayManager.autoLogin.enable = true;
   services.xserver.displayManager.autoLogin.user = "asus";
@@ -143,8 +145,8 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+    # kdePackages.qtsvg
     #  wget
-
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -166,8 +168,13 @@
   # networking.firewall.allowedUDPPorts = [ 41641 ];
   # Or disable the firewall altogether.
   #Enable firewall. Its on by default, but this is here to remind myself its on.
-  networking.firewall.enable = true;
+  # networking.firewall.enable = true;
 
+  networking.firewall = {
+    allowedUDPPorts = [ 5353 ]; # For device discovery
+    allowedUDPPortRanges = [{ from = 32768; to = 61000; }]; # For Streaming
+    allowedTCPPorts = [ 8010 ]; # For gnomecast server
+  };
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
   # on your system were taken. It‘s perfectly fine and recommended to leave
