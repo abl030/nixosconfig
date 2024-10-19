@@ -3,8 +3,13 @@
 {
   home.packages = [
     pkgs.dolphin
-    # pkgs.libsForQt5.kdegraphics-thumbnailers
-    pkgs.kdePackages.kdegraphics-thumbnailers
-    pkgs.kdePackages.kdesdk-thumbnailers
+    # These are our thumbnailers. QT5 because we using LXQT.
+    # Use the KDE ones is you are using KDE elsewhere
+    pkgs.libsForQt5.kdegraphics-thumbnailers
+    pkgs.libsForQt5.kio-extras
+    pkgs.ffmpegthumbs
+    pkgs.kdePackages.dolphin-plugins
+    pkgs.zathura
+    #
   ];
 }
