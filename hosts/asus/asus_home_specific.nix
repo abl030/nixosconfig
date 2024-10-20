@@ -10,6 +10,7 @@
     pkgs.ffmpegthumbs
     pkgs.kdePackages.dolphin-plugins
     pkgs.zathura
+    pkgs.spotify
     #
   ];
 }
