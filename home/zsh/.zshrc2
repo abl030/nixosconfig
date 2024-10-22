@@ -104,9 +104,9 @@ alias v='nvim'
 #make ls pretty and show those pesky .files.
 alias ls='ls -A -F -l --group-directories-first --color=always'
 
-
 reload() {
   HOST=$1
+  TARGET=$2
 
   # Run the pull_dotfiles function and exit if it fails
   pull_dotfiles || return
@@ -114,9 +114,12 @@ reload() {
   # Update flake
   nix flake update
 
-  # Rebuild NixOS with sudo
-  sudo nixos-rebuild switch --flake .#${HOST}
-
-  # Rebuild Home Manager
-  home-manager switch --flake .#${HOST}
+  if [[ "$TARGET" == "home" ]]; then
+    # Only run Home Manager switch
+    home-manager switch --flake .#${HOST}
+  else
+    # Rebuild NixOS with sudo and then Home Manager switch
+    sudo nixos-rebuild switch --flake .#${HOST}
+    home-manager switch --flake .#${HOST}
+  fi
 }
