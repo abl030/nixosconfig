@@ -42,6 +42,11 @@ function push_dotfiles() {
 function pull_dotfiles() {
     cd ~/nixosconfig || return
     git pull origin
+    # If there's a merge conflict or other error, exit the function
+  if [ $? -ne 0 ]; then
+    echo "Error: Git pull failed. Please resolve conflicts."
+    return 1
+  fi
 }
 
 
@@ -98,3 +103,20 @@ alias v='nvim'
 
 #make ls pretty and show those pesky .files.
 alias ls='ls -A -F -l --group-directories-first --color=always'
+
+
+reload() {
+  HOST=$1
+
+  # Run the pull_dotfiles function and exit if it fails
+  pull_dotfiles || return
+
+  # Update flake
+  nix flake update
+
+  # Rebuild NixOS with sudo
+  sudo nixos-rebuild switch --flake .#${HOST}
+
+  # Rebuild Home Manager
+  home-manager switch --flake .#${HOST}
+}
