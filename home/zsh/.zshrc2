@@ -1,4 +1,22 @@
-# Bind 'tab tab' to accept the auto suggest. All time most used key binding.
+reload() 0
+  HOST=$1
+  TARGET=$2
+
+  # Run the pull_dotfiles function and exit if it fails
+  pull_dotfiles || return
+
+  # Update flake
+  nix flake update
+
+  if [[ "$TARGET" == "home" ]]; then
+    # Only run Home Manager switch
+    home-manager switch --flake .#${HOST}
+  else
+    # Rebuild NixOS with sudo and then Home Manager switch
+    sudo nixos-rebuild switch --flake .#${HOST}
+    home-manager switch --flake .#${HOST}
+  fi
+}# Bind 'tab tab' to accept the auto suggest. All time most used key binding.
 bindkey '^I^I' autosuggest-accept
 
 #this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zsh
@@ -78,25 +96,26 @@ function edit() {
   esac
 }
 
-function reload() {
-  case $1 in
-    caddy)
-      sudo systemctl restart caddy
-      ;;
-    zsh)
-      exec zsh
-      ;;
-    home)
-      cd ~/nixosconfig/ && home-manager switch --flake .#${USER}
-      ;;
-    nix)
-      cd ~/nixosconfig/ &&  sudo nixos-rebuild switch --flake .#${USER}
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      ;;
-   esac
-}
+# This function is now superseded as we are in Nix Land everywhere.
+# function reload() {
+#   case $1 in
+#     caddy)
+#       sudo systemctl restart caddy
+#       ;;
+#     zsh)
+#       exec zsh
+#       ;;
+#     home)
+#       cd ~/nixosconfig/ && home-manager switch --flake .#${USER}
+#       ;;
+#     nix)
+#       cd ~/nixosconfig/ &&  sudo nixos-rebuild switch --flake .#${USER}
+#       ;;
+#     *)
+#       echo "Unknown argument: $1"
+#       ;;
+#    esac
+# }
 
 #nvim ftw
 alias v='nvim'
@@ -117,9 +136,11 @@ reload() {
   if [[ "$TARGET" == "home" ]]; then
     # Only run Home Manager switch
     home-manager switch --flake .#${HOST}
+    exec zsh
   else
     # Rebuild NixOS with sudo and then Home Manager switch
     sudo nixos-rebuild switch --flake .#${HOST}
     home-manager switch --flake .#${HOST}
+    exec zsh
   fi
 }
