@@ -1,24 +1,3 @@
-reload() 0
-  HOST=$1
-  TARGET=$2
-
-  # Run the pull_dotfiles function and exit if it fails
-  pull_dotfiles || return
-
-  # Update flake
-  nix flake update
-
-  if [[ "$TARGET" == "home" ]]; then
-    # Only run Home Manager switch
-    home-manager switch --flake .#${HOST}
-  else
-    # Rebuild NixOS with sudo and then Home Manager switch
-    sudo nixos-rebuild switch --flake .#${HOST}
-    home-manager switch --flake .#${HOST}
-  fi
-}# Bind 'tab tab' to accept the auto suggest. All time most used key binding.
-bindkey '^I^I' autosuggest-accept
-
 #this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zsh
 #actually this took forever for me to work out. Even though cat -v shows the up arrow as
 #[[A its not? its [OA. This took me two hours to debug. Great.
