@@ -8,6 +8,9 @@ bindkey "^[[A" up-line-or-search
 bindkey "^[OB" down-line-or-select
 bindkey "^[[B" down-line-or-select
 
+# Bind 'tab tab' to accept the auto suggest. All time most used key binding.
+bindkey '^I^I' autosuggest-accept
+
 # [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 alias nosleep='sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target'
@@ -123,3 +126,5 @@ reload() {
     exec zsh
   fi
 }
+
+echo "did this work"
