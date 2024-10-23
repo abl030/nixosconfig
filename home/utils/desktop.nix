@@ -9,5 +9,6 @@
     pkgs.remmina
     pkgs.vlc
 
+    pkgs.tailscale-systray
   ];
 }
