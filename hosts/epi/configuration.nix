@@ -15,7 +15,7 @@
       ../services/mounts/nfs.nix
       # ../services/mounts/cifs.nix
 
-      ../services/nvidia/nvidia.nix
+      # ../services/nvidia/nvidia.nix
     ];
 
   # lets use the latest kernel because we are stupid
