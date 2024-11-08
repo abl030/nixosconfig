@@ -58,7 +58,7 @@ function edit() {
       nvim ~/nixosconfig/home/zsh/.zshrc2
       ;;
     caddy)
-      nvim ~/nixosconfig/caddy/caddyfile 
+      nvim ~/DotFiles/Caddy/Caddyfile 
       ;;
      diary)
       cd /mnt/data/Life/Zet/Projects/Diary && nvim
