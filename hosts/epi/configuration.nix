@@ -21,6 +21,10 @@
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
+  # add in nix-ld for non-nix binaries
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = [ ];
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
