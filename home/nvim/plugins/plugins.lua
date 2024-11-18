@@ -126,9 +126,16 @@ local plugins = {
 	-- 	end,
 	-- },
 	-- Codeium
+	-- {
+	-- 	"Exafunction/codeium.vim",
+	-- 	event = "BufEnter",
+	-- },
 	{
-		"Exafunction/codeium.vim",
+		"supermaven-inc/supermaven-nvim",
 		event = "BufEnter",
+		config = function()
+			require("supermaven-nvim").setup({})
+		end,
 	},
 }
 
