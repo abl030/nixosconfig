@@ -20,3 +20,20 @@ vim.api.nvim_set_keymap("n", "<leader>o", "o<Esc>", { noremap = true, silent = t
 
 -- Require our diary file. This handles spellcheck, turning completion off and our autosave events.
 require("diary")
+
+-- Overrides the default behavior of the tab key.
+local cmp = require("cmp")
+
+cmp.setup({
+	mapping = cmp.mapping.preset.insert({
+		-- Always let Tab pass through to supermaven
+		["<Tab>"] = cmp.mapping.abort(), -- This tells cmp to completely ignore Tab
+
+		-- Use Enter for cmp selection
+		["<CR>"] = cmp.mapping.confirm({ select = true }),
+
+		-- Keep your other existing mappings
+		-- ... other mappings ...
+	}),
+	-- ... rest of your cmp configuration ...
+})
