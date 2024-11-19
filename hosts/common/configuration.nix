@@ -8,6 +8,7 @@
   imports =
     [
       ./auto_update.nix
+      ./printing.nix
     ];
 
   # add in nix-ld for non-nix binaries
