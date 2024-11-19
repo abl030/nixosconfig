@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   imports =
@@ -16,6 +16,7 @@
       # ../services/mounts/cifs.nix
 
       # ../services/nvidia/nvidia.nix
+      ../common/configuration.nix
     ];
 
   # lets use the latest kernel because we are stupid

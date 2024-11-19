@@ -79,6 +79,7 @@
         (lib.mapAttrs
           (hostname: config: lib.nixosSystem {
             inherit system;
+            specialArgs = extraSpecialArgs; # Pass extraSpecialArgs here
             modules = [
               config.configurationFile
             ];
