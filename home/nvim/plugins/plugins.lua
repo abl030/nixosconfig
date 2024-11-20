@@ -134,7 +134,10 @@ local plugins = {
 		"supermaven-inc/supermaven-nvim",
 		event = "BufEnter",
 		config = function()
-			require("supermaven-nvim").setup({})
+			require("supermaven-nvim").setup({
+				-- disable supermaven for markdown files
+				ignore_filetypes = { "markdown" },
+			})
 		end,
 	},
 }
