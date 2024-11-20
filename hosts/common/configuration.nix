@@ -9,6 +9,7 @@
     [
       ./auto_update.nix
       ./printing.nix
+      ./ssh.nix
     ];
 
   # add in nix-ld for non-nix binaries
