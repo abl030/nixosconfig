@@ -26,6 +26,8 @@
   virtualisation.virtualbox.host.enable = true;
   users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
 
+  #enable docker
+  virtualisation.docker.enable = true;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -129,6 +131,7 @@
     #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     #  wget
     vim
+    docker-compose
   ];
 
   programs.zsh.enable = true;
