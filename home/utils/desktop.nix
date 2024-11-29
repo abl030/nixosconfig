@@ -8,7 +8,7 @@
     pkgs.libreoffice-qt
     pkgs.remmina
     pkgs.vlc
-
     pkgs.tailscale-systray
+    pkgs.warp-terminal
   ];
 }
