@@ -8,6 +8,5 @@
     pkgs.htop
     # pkgs.nvtopPackages.full
     pkgs.nmap
-    pkgs.warp-terminal
   ];
 }
