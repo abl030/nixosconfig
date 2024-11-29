@@ -25,6 +25,11 @@
   #enable virtualbox
   virtualisation.virtualbox.host.enable = true;
   users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
+  boot.kernelParams = [ "kvm.enable_virt_at_load=0" ];
+
+  # Enable virt-manager
+  # virtualisation.libvirtd.enable = true;
+  # programs.virt-manager.enable = true;
 
   #enable docker
   virtualisation.docker.enable = true;
@@ -112,7 +117,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "libvirtd" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
