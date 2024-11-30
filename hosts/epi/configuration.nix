@@ -25,7 +25,12 @@
   #enable virtualbox
   virtualisation.virtualbox.host.enable = true;
   users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
-  boot.kernelParams = [ "kvm.enable_virt_at_load=0" ];
+  boot.kernelParams = [
+    #This is to fix virtualbox in the 6.12 kernel
+    "kvm.enable_virt_at_load=0"
+    # This is to fix hanging on shutdown
+    "reboot=acpi"
+  ];
 
   # Enable virt-manager
   # virtualisation.libvirtd.enable = true;
@@ -37,6 +42,7 @@
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+
 
   networking.hostName = "epimetheus"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
