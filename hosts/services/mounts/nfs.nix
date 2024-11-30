@@ -18,19 +18,19 @@
     options = [
       # We need this bit so that the mount works on tailscale. 
       # Otherwise it will load at boot and tailscale isn't up yet.
-      # Automatically mount when accessed.
+      # Automount when accessed
       "x-systemd.automount"
-
-      # Do not mount at boot, only when needed.
+      # Do not mount at boot, only when needed
       "noauto"
-
-      # Unmount after 300 seconds of inactivity.
+      # Ensures the mount depends on Tailscale being up
+      "_netdev"
+      # Requires Tailscale service to be active before mounting
+      "x-systemd.requires=tailscaled.service"
+      # Unmount after 300 seconds of inactivity
       "x-systemd.idle-timeout=300"
-
-      # Do not update file access times (improves performance).
+      # Do not update file access times (improves performance)
       "noatime"
-
-      # Use NFS version 4.2.
+      # Use NFS version 4.2
       "nfsvers=4.2"
     ];
 
