@@ -17,10 +17,10 @@
   programs.nix-ld.libraries = [ ];
 
 
-
-
-
-
+  # install nerdfonts
+  environment.systemPackages = [
+    pkgs.nerd-fonts.fira-code
+  ];
 
 
 
