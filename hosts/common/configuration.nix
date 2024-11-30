@@ -19,9 +19,7 @@
 
   # install nerdfonts
   environment.systemPackages = [
-    pkgs.nerd-fonts.fira-code
+    pkgs.nerd-fonts.sauce-code-pro
   ];
-
-
-
+  # need to run fc-cache -fv to update font fc-cache
 }
