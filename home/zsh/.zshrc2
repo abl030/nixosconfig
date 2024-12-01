@@ -127,4 +127,10 @@ reload() {
   fi
 }
 
+# The alias saves our gnome config declaratively using dconf2nix
+alias save-gnome='cd ~/nixosconfig/home/display_managers && dconf dump / | dconf2nix > dconf.nix'
+
+
 echo "did this work"
+
+
