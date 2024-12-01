@@ -219,8 +219,8 @@ with lib.hm.gvariant;
     "org/gnome/shell/extensions/caffeine" = {
       indicator-position-max = 2;
       show-indicator = "only-active";
-#      toggle-state = true;
-#      user-enabled = true;
+      #      toggle-state = false;
+      #      user-enabled = false;
     };
 
     "org/gnome/shell/extensions/dash-to-panel" = {
