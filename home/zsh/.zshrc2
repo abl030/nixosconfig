@@ -128,8 +128,11 @@ reload() {
 }
 
 # The alias saves our gnome config declaratively using dconf2nix
-alias save-gnome='cd ~/nixosconfig/home/display_managers && dconf dump / | dconf2nix > dconf.nix'
-
+save-gnome() { 
+    cd ~/nixosconfig/home/display_managers || return
+    dconf dump / | dconf2nix > dconf.nix 
+    sed -i "/animate-appicon-hover-animation-extent = {/,/};/ s/^/#/" dconf.nix 
+}
 
 echo "did this work"
 
