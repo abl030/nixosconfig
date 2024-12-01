@@ -128,10 +128,13 @@ reload() {
 }
 
 # The alias saves our gnome config declaratively using dconf2nix
-save-gnome() { 
+# the two sed commands are to remove the trailing newline and comment out the animation 
+# this seems to be a bug in dconf2nix
+save_gnome() { 
     cd ~/nixosconfig/home/display_managers || return
     dconf dump / | dconf2nix > dconf.nix 
     sed -i "/animate-appicon-hover-animation-extent = {/,/};/ s/^/#/" dconf.nix 
+    sed -i 's/\\\\n\\n$/\\\\n/g' dconf.nix
 }
 
 echo "did this work"
