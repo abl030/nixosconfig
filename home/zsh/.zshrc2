@@ -132,9 +132,10 @@ reload() {
 # this seems to be a bug in dconf2nix
 save_gnome() { 
     cd ~/nixosconfig/home/display_managers || return
+    rm -f dconf.nix
     dconf dump / | dconf2nix > dconf.nix 
     sed -i "/animate-appicon-hover-animation-extent = {/,/};/ s/^/#/" dconf.nix 
-    sed -i 's/\\\\n\\n$/\\\\n/g' dconf.nix
+    # sed -i 's/\\\\n\\n$/\\\\n/g' dconf.nix
 }
 
 echo "did this work"

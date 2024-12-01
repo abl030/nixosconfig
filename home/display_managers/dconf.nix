@@ -219,11 +219,11 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/extensions/dash-to-panel" = {
-#      animate-appicon-hover-animation-extent = {
-#        RIPPLE = 4;
-#        PLANK = 4;
-#        SIMPLE = 1;
-#      };
+      # animate-appicon-hover-animation-extent = {
+      #   RIPPLE = 4;
+      #   PLANK = 4;
+      #   SIMPLE = 1;
+      # };
       appicon-margin = 8;
       appicon-padding = 4;
       available-monitors = [ 0 1 ];
@@ -233,17 +233,17 @@ with lib.hm.gvariant;
       isolate-monitors = true;
       leftbox-padding = -1;
       panel-anchors = ''
-        {"0":"MIDDLE","1":"MIDDLE"}\\n
+        {"0":"MIDDLE","1":"MIDDLE"}
       '';
       panel-element-positions = ''
-        {"0":[{"element":"showAppsButton","visible":false,"position":"stackedTL"},{"element":"activitiesButton","visible":true,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":true,"position":"stackedTL"},{"element":"dateMenu","visible":true,"position":"stackedTL"},{"element":"systemMenu","visible":true,"position":"stackedTL"},{"element":"desktopButton","visible":true,"position":"stackedTL"}],"1":[{"element":"showAppsButton","visible":false,"position":"stackedTL"},{"element":"activitiesButton","visible":false,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":false,"position":"stackedTL"},{"element":"dateMenu","visible":false,"position":"stackedTL"},{"element":"systemMenu","visible":false,"position":"centerMonitor"},{"element":"desktopButton","visible":false,"position":"stackedTL"}]}\\n
+        {"0":[{"element":"showAppsButton","visible":false,"position":"stackedTL"},{"element":"activitiesButton","visible":true,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":true,"position":"stackedTL"},{"element":"dateMenu","visible":true,"position":"stackedTL"},{"element":"systemMenu","visible":true,"position":"stackedTL"},{"element":"desktopButton","visible":true,"position":"stackedTL"}],"1":[{"element":"showAppsButton","visible":false,"position":"stackedTL"},{"element":"activitiesButton","visible":false,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":false,"position":"stackedTL"},{"element":"dateMenu","visible":false,"position":"stackedTL"},{"element":"systemMenu","visible":false,"position":"centerMonitor"},{"element":"desktopButton","visible":false,"position":"stackedTL"}]}
       '';
       panel-element-positions-monitors-sync = false;
       panel-lengths = ''
-        {"0":100,"1":100}\\n
+        {"0":100,"1":100}
       '';
       panel-sizes = ''
-        {"0":48,"1":48}\\n
+        {"0":48,"1":48}
       '';
       primary-monitor = 0;
       status-icon-padding = -1;
@@ -271,7 +271,7 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/world-clocks" = {
-      locations = [];
+      locations = [ ];
     };
 
     "org/gnome/tweaks" = {
@@ -279,7 +279,7 @@ with lib.hm.gvariant;
     };
 
     "org/gtk/gtk4/settings/color-chooser" = {
-      selected-color = mkTuple [ true 0.207843 0.517647 0.894118 1.0 ];
+      selected-color = mkTuple [ true 0.2078431397676468 0.5176470875740051 0.8941176533699036 1.0 ];
     };
 
     "org/gtk/gtk4/settings/file-chooser" = {
