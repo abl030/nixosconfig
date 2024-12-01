@@ -14,7 +14,7 @@
       # Our mounts
       ../services/mounts/nfs.nix
       ../services/mounts/cifs.nix
-      ../services/fonts/fonts.nix
+      # ../services/fonts/fonts.nix
       # Add in common
       ../common/configuration.nix
     ];

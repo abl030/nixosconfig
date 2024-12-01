@@ -38,7 +38,7 @@
     pkgs.nodePackages.jsonlint
     pkgs.markdownlint-cli
     pkgs.shfmt
-    pkgs.tabby-agent
+    # pkgs.tabby-agent
 
 
   ];
