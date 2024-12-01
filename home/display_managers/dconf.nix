@@ -25,7 +25,7 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/control-center" = {
-      last-panel = "background";
+      last-panel = "bluetooth";
       window-state = mkTuple [ 980 640 true ];
     };
 
@@ -108,7 +108,11 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/desktop/peripherals/keyboard" = {
-      numlock-state = true;
+      numlock-state = false;
+    };
+
+    "org/gnome/desktop/peripherals/mouse" = {
+      accel-profile = "flat";
     };
 
     "org/gnome/desktop/peripherals/touchpad" = {
@@ -213,17 +217,18 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/extensions/caffeine" = {
-      indicator-position-max = 1;
+      indicator-position-max = 2;
       show-indicator = "only-active";
-      toggle-state = false;
+#      toggle-state = true;
+#      user-enabled = true;
     };
 
     "org/gnome/shell/extensions/dash-to-panel" = {
-#      animate-appicon-hover-animation-extent = {
-#        RIPPLE = 4;
-#        PLANK = 4;
-#        SIMPLE = 1;
-#      };
+      #      animate-appicon-hover-animation-extent = {
+      #        RIPPLE = 4;
+      #        PLANK = 4;
+      #        SIMPLE = 1;
+      #      };
       appicon-margin = 8;
       appicon-padding = 4;
       available-monitors = [ 0 1 ];
@@ -271,7 +276,7 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/world-clocks" = {
-      locations = [];
+      locations = [ ];
     };
 
     "org/gnome/tweaks" = {
@@ -301,12 +306,12 @@ with lib.hm.gvariant;
       show-hidden = false;
       show-size-column = true;
       show-type-column = true;
-      sidebar-width = 157;
+      sidebar-width = 174;
       sort-column = "name";
       sort-directories-first = false;
       sort-order = "descending";
       type-format = "category";
-      window-position = mkTuple [ 2315 127 ];
+      window-position = mkTuple [ 26 23 ];
       window-size = mkTuple [ 1130 826 ];
     };
 
