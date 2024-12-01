@@ -10,5 +10,7 @@
     pkgs.vlc
     pkgs.tailscale-systray
     pkgs.warp-terminal
+    pkgs.alacritty
+    pkgs.obs-studio
   ];
 }

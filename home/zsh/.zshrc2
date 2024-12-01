@@ -138,6 +138,7 @@ save_gnome() {
     sed -i "/animate-appicon-hover-animation-extent = {/,/};/ s/^/#/" dconf.nix 
     sed -i '/panel-anchors\|panel-element-positions\|panel-sizes/ {N;s/\\n//g}' dconf.nix
     sed -i '/panel-lengths/ {N;s/\\n[[:space:]]*//g}' dconf.nix
+    sed -i '/toggle-state\|user-enabled/ s/^\([^#]*\)$/#\1/' dconf.nix
 }
 
 echo "did this work"
