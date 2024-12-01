@@ -219,11 +219,11 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/extensions/dash-to-panel" = {
-      # animate-appicon-hover-animation-extent = {
-      #   RIPPLE = 4;
-      #   PLANK = 4;
-      #   SIMPLE = 1;
-      # };
+#      animate-appicon-hover-animation-extent = {
+#        RIPPLE = 4;
+#        PLANK = 4;
+#        SIMPLE = 1;
+#      };
       appicon-margin = 8;
       appicon-padding = 4;
       available-monitors = [ 0 1 ];
@@ -271,7 +271,7 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/world-clocks" = {
-      locations = [ ];
+      locations = [];
     };
 
     "org/gnome/tweaks" = {
@@ -279,7 +279,7 @@ with lib.hm.gvariant;
     };
 
     "org/gtk/gtk4/settings/color-chooser" = {
-      selected-color = mkTuple [ true 0.2078431397676468 0.5176470875740051 0.8941176533699036 1.0 ];
+      selected-color = mkTuple [ true 0.207843 0.517647 0.894118 1.0 ];
     };
 
     "org/gtk/gtk4/settings/file-chooser" = {
