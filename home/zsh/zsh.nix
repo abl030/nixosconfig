@@ -14,7 +14,7 @@
     ".zshrc2".source = ./.zshrc2;
   };
 
-  programs.zsh.zprof.enable = true;
+  # programs.zsh.zprof.enable = true;
 
   programs.zsh = {
     initExtra = ''
