@@ -1,4 +1,5 @@
-#this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zsh
+
+# Jonathan Watts#this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zs0
 #actually this took forever for me to work out. Even though cat -v shows the up arrow as
 #[[A its not? its [OA. This took me two hours to debug. Great.
 bindkey "'${key[Up]}" up-line-or-search

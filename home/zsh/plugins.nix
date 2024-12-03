@@ -20,16 +20,16 @@
         "pyenv"
       ];
     };
-    zplug = {
-      enable = true;
-      plugins = [
-        { name = "tamcore/autoupdate-oh-my-zsh-plugins"; }
-        # { name = "zsh-users/zsh-syntax-highlighting"; }
-        { name = "marlonrichert/zsh-autocomplete"; }
-        # { name = "zsh-users/zsh-autosuggestions"; }
-      ];
-    };
-
+    # zplug = {
+    #   enable = true;
+    #   plugins = [
+    #     # { name = "tamcore/autoupdate-oh-my-zsh-plugins"; }
+    #     # { name = "zsh-users/zsh-syntax-highlighting"; }
+    #     { name = "marlonrichert/zsh-autocomplete"; }
+    #     # { name = "zsh-users/zsh-autosuggestions"; }
+    #   ];
+    # };
+    #
   };
 }
 
