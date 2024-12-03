@@ -6,9 +6,16 @@
     ./plugins.nix
   ];
 
+  home.packages = [
+    pkgs.zsh-autocomplete
+  ];
+
   home.file = {
     ".zshrc2".source = ./.zshrc2;
   };
+
+  programs.zsh.zprof.enable = true;
+
   programs.zsh = {
     initExtra = ''
 
