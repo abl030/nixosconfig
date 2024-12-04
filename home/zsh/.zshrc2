@@ -1,5 +1,4 @@
-
-# Jonathan Watts#this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zs0
+#this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zs0
 #actually this took forever for me to work out. Even though cat -v shows the up arrow as
 #[[A its not? its [OA. This took me two hours to debug. Great.
 bindkey "'${key[Up]}" up-line-or-search
@@ -24,6 +23,7 @@ alias cr='cargo run'
 
 alias  epi!="wakeonlan       18:c0:4d:65:86:e8 "
 
+alias nvs='nvim `tv`'
 
 # export PYENV_ROOT="$HOME/.pyenv"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
