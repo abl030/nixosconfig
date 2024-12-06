@@ -110,6 +110,8 @@ reload() {
   HOST=$1
   TARGET=$2
 
+  # Get sudo password
+  sudo -v
   # Run the pull_dotfiles function and exit if it fails
   pull_dotfiles || return
 
