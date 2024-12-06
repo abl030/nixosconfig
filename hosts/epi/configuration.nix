@@ -17,6 +17,8 @@
 
       # ../services/nvidia/nvidia.nix
       ../common/configuration.nix
+      # sunshine
+      ../services/display/sunshine.nix
     ];
 
   # lets use the latest kernel because we are stupid
@@ -80,6 +82,17 @@
   # Don't forget to enable the home manager options
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
+  services.xserver.displayManager.gdm.wayland = true;
+  # Remote desktop
+  services.xrdp.enable = true;
+  services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
+  services.xrdp.openFirewall = true;
+  # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
+  # If no user is logged in, the machine will power down after 20 minutes.
+  systemd.targets.sleep.enable = false;
+  systemd.targets.suspend.enable = false;
+  systemd.targets.hibernate.enable = false;
+  systemd.targets.hybrid-sleep.enable = false;
 
   #This is LXQT - strangely suspend/resume works fine here?
   # services.xserver.displayManager.lightdm.enable = true;
