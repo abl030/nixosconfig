@@ -17,6 +17,7 @@
     pkgs.gnomeExtensions.grand-theft-focus
     pkgs.dconf2nix
     pkgs.gnome-remote-desktop
+    pkgs.kdePackages.qtwayland
   ];
 
   imports = [
