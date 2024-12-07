@@ -15,7 +15,7 @@
       ../services/mounts/nfs.nix
       # ../services/mounts/cifs.nix
 
-      # ../services/nvidia/nvidia.nix
+      ../services/nvidia/intel.nix
       ../common/configuration.nix
       # sunshine
       ../services/display/sunshine.nix
@@ -23,6 +23,7 @@
 
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelModules = [ "uinput" ];
 
   #enable virtualbox
   virtualisation.virtualbox.host.enable = true;
@@ -89,11 +90,11 @@
   services.xrdp.openFirewall = true;
   # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
   # If no user is logged in, the machine will power down after 20 minutes.
-  systemd.targets.sleep.enable = false;
-  systemd.targets.suspend.enable = false;
-  systemd.targets.hibernate.enable = false;
-  systemd.targets.hybrid-sleep.enable = false;
-
+  # systemd.targets.sleep.enable = false;
+  # systemd.targets.suspend.enable = false;
+  # systemd.targets.hibernate.enable = false;
+  # systemd.targets.hybrid-sleep.enable = false;
+  #
   #This is LXQT - strangely suspend/resume works fine here?
   # services.xserver.displayManager.lightdm.enable = true;
   # services.xserver.desktopManager.lxqt.enable = true;
