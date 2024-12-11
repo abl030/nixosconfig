@@ -21,6 +21,8 @@
       ../services/display/sunshine.nix
       #disable our autosleep
       ../services/display/gnome.nix
+      ## And allow gnome-remote-desktop for logged in users
+      ../services/display/gnome-remote-desktop.nix
     ];
 
   # lets use the latest kernel because we are stupid
@@ -88,7 +90,8 @@
   services.xserver.displayManager.gdm.wayland = true;
   # Remote desktop
   services.xrdp.enable = true;
-  services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
+  # services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
+  services.xrdp.defaultWindowManager = "gnome-remote-desktop";
   services.xrdp.openFirewall = true;
   # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
   # If no user is logged in, the machine will power down after 20 minutes.
