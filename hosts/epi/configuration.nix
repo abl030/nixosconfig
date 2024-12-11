@@ -23,7 +23,7 @@
 
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
-  boot.kernelModules = [ "uinput" ];
+  # boot.kernelModules = [ "uinput" ];
 
   #enable virtualbox
   virtualisation.virtualbox.host.enable = true;
@@ -159,6 +159,7 @@
     #  wget
     vim
     docker-compose
+    intel-gpu-tools
   ];
 
   programs.zsh.enable = true;
