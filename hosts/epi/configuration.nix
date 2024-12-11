@@ -19,6 +19,8 @@
       ../common/configuration.nix
       # sunshine
       ../services/display/sunshine.nix
+      #disable our autosleep
+      ../services/display/gnome.nix
     ];
 
   # lets use the latest kernel because we are stupid
