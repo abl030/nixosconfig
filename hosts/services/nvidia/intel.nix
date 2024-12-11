@@ -10,5 +10,8 @@
       # intel-media-sdk   # for older GPUs
     ];
   };
+  environment.systemPackages = [
+    pkgs.nvtopPackages.intel
+  ];
 }
 
