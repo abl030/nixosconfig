@@ -6,9 +6,7 @@
     pkgs.neofetch
     pkgs.wakeonlan
     pkgs.htop
-    pkgs.nvtopPackages.full
     pkgs.nmap
     pkgs.television
-    pkgs.nvtop
   ];
 }
