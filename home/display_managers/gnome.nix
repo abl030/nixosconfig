@@ -18,6 +18,7 @@
     pkgs.dconf2nix
     pkgs.kdePackages.qtwayland
     pkgs.gnomeExtensions.paperwm
+    pkgs.gnomeExtensions.allow-locked-remote-desktop
   ];
 
   imports = [
