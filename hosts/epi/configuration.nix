@@ -89,10 +89,10 @@
   services.xserver.desktopManager.gnome.enable = true;
   # services.xserver.displayManager.gdm.wayland = false;
   # Remote desktop
-  services.xrdp.enable = true;
-  services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
+  # services.xrdp.enable = true;
+  # services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
   # services.xrdp.defaultWindowManager = "gnome-remote-desktop";
-  services.xrdp.openFirewall = true;
+  # services.xrdp.openFirewall = true;
   systemd.services."gnome-remote-desktop".wantedBy = [ "graphical.target" ];
   # services.gnome.gnome-remote-desktop.enable = true;
   # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
@@ -185,7 +185,10 @@
   services.openssh.enable = true;
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
+  networking.firewall.allowedTCPPorts = [
+    3389
+    3390
+  ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
