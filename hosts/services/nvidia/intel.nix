@@ -15,6 +15,7 @@
   environment.sessionVariables = { LIBVA_DRIVER_NAME = "iHD"; }; # Optionally, set the environment variable
   environment.systemPackages = [
     pkgs.nvtopPackages.intel
+    pkgs.intel-gpu-tools
   ];
 }
 

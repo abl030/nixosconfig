@@ -87,12 +87,14 @@
   # Don't forget to enable the home manager options
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
-  services.xserver.displayManager.gdm.wayland = true;
+  # services.xserver.displayManager.gdm.wayland = false;
   # Remote desktop
   services.xrdp.enable = true;
-  # services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
-  services.xrdp.defaultWindowManager = "gnome-remote-desktop";
+  services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
+  # services.xrdp.defaultWindowManager = "gnome-remote-desktop";
   services.xrdp.openFirewall = true;
+  systemd.services."gnome-remote-desktop".wantedBy = [ "graphical.target" ];
+  # services.gnome.gnome-remote-desktop.enable = true;
   # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
   # If no user is logged in, the machine will power down after 20 minutes.
   # systemd.targets.sleep.enable = false;
@@ -162,9 +164,9 @@
   environment.systemPackages = with pkgs; [
     #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     #  wget
+    git
     vim
-    docker-compose
-    intel-gpu-tools
+    gnome-remote-desktop
   ];
 
   programs.zsh.enable = true;
