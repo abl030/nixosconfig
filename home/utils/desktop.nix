@@ -12,7 +12,7 @@
     pkgs.vlc
     pkgs.mpv
     pkgs.tailscale-systray
-    pkgs.warp-terminal
+    # pkgs.warp-terminal
     pkgs.alacritty
     pkgs.obs-studio
     pkgs.xfce.thunar

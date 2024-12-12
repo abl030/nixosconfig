@@ -16,8 +16,8 @@
     pkgs.gnomeExtensions.caffeine
     pkgs.gnomeExtensions.grand-theft-focus
     pkgs.dconf2nix
-    pkgs.gnome-remote-desktop
     pkgs.kdePackages.qtwayland
+    pkgs.gnomeExtensions.paperwm
   ];
 
   imports = [
