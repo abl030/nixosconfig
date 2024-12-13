@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   home.packages = [
@@ -13,9 +13,10 @@
     pkgs.mpv
     pkgs.tailscale-systray
     # pkgs.warp-terminal
-    pkgs.alacritty
+    # pkgs.alacritty
     pkgs.obs-studio
     pkgs.xfce.thunar
     pkgs.audacity
+    inputs.wezterm.packages.${pkgs.system}.default
   ];
 }

@@ -22,6 +22,7 @@
   # Enable Numlock (i.e. can type numbers)
   xsession.numlock.enable = true;
 
+
   imports = [
     ./zsh/zsh.nix
     ./nvim/nvim.nix
