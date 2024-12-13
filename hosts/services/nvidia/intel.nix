@@ -9,7 +9,7 @@
       intel-media-driver
       # intel-media-sdk   # for older GPUs
       # libvdpau-va-gl
-      intel-vaapi-driver
+      # intel-vaapi-driver
     ];
   };
   environment.sessionVariables = { LIBVA_DRIVER_NAME = "iHD"; }; # Optionally, set the environment variable
