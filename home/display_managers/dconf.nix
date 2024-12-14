@@ -65,7 +65,7 @@ with lib.hm.gvariant;
       command-history = [ "r" ];
       enabled-extensions = [ "drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us" ];
       welcome-dialog-last-shown-version = "46.2";
-      favorite-apps = [ "org.gnome.Nautilus.desktop" "firefox.desktop" ];
+      favorite-apps = [ "org.kde.dolphin.desktop" "firefox.desktop" ];
     };
 
     "org/gnome/shell/extensions/caffeine" = {
