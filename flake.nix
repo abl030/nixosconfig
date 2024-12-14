@@ -71,7 +71,8 @@
         };
 
         framework = {
-          homeFile = ./home/home.nix;
+          configurationFile = ./hosts/framework/configuration.nix;
+          homeFile = ./hosts/framework/home.nix;
           user = "abl030";
           homeDirectory = /home/abl030;
         };
