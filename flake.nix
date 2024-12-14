@@ -1,11 +1,14 @@
 {
   description = "My first flake!";
 
+
   inputs = {
     # use the following for unstable:
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    #nixos-hardware
+    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
     #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";

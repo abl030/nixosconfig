@@ -14,7 +14,7 @@ with lib.hm.gvariant;
       gtk-theme = "Adwaita";
       icon-theme = "Adwaita";
       scaling-factor = mkUint32 1;
-      text-scaling-factor = 1.0;
+      text-scaling-factor = 0.8;
       toolbar-style = "text";
       toolkit-accessibility = false;
     };
