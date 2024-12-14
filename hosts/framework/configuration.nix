@@ -19,8 +19,12 @@
       ../common/configuration.nix
       ## And allow gnome-remote-desktop for logged in users
       ../services/display/gnome-remote-desktop.nix
+      # Framework specific hardware-configuration
+      inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ];
 
+  # Framework specific hardware-configuration
+  services.fwupd.enable = true;
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
   # boot.kernelModules = [ "uinput" ];
@@ -47,7 +51,7 @@
   networking.hostName = "epimetheus"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
-  networking.interfaces.enp9s0.wakeOnLan.enable = true;
+  # networking.interfaces.enp9s0.wakeOnLan.enable = true;
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
