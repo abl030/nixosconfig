@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   imports =
@@ -15,7 +15,12 @@
       ../services/mounts/nfs.nix
       # ../services/mounts/cifs.nix
       ../common/configuration.nix
+      # Framework specific hardware-configuration
+      inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ];
+
+  # Framework specific hardware-configuration
+  services.fwupd.enable = true;
 
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
