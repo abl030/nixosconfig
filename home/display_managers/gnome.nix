@@ -22,7 +22,7 @@
   ];
 
   imports = [
-    ./dconf.nix
+    # ./dconf.nix
   ];
 
 }
