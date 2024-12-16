@@ -8,7 +8,7 @@
     ../../home/display_managers/gnome.nix
     ./framework_home_specific.nix
     # Framework specifici gnome overrides
-    ../../home/display_managers/dconf_framework.nix
+    # ../../home/display_managers/dconf_framework.nix
   ];
 }
  
