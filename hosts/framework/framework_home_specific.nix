@@ -13,6 +13,7 @@
     pkgs.kdePackages.qtsvg
     pkgs.libsForQt5.qt5ct
     pkgs.spotify
+    pkgs.nvtopPackages.amd
 
   ];
 }
