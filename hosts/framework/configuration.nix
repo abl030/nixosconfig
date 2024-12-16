@@ -22,6 +22,9 @@
   # Framework specific hardware-configuration
   services.fwupd.enable = true;
 
+  # Hardware acceleration for video
+  hardware.opengl.enable = true;
+
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
