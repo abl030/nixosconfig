@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, ... }:
 
 {
   imports =
@@ -14,44 +14,16 @@
       # Our mounts
       ../services/mounts/nfs.nix
       # ../services/mounts/cifs.nix
-
-      ../services/nvidia/intel.nix
       ../common/configuration.nix
-      ## And allow gnome-remote-desktop for logged in users
-      ../services/display/gnome-remote-desktop.nix
-      # Framework specific hardware-configuration
-      inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ];
-
-  # Framework specific hardware-configuration
-  services.fwupd.enable = true;
-  # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-  # boot.kernelModules = [ "uinput" ];
-
-  #enable virtualbox
-  virtualisation.virtualbox.host.enable = true;
-  users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
-  boot.kernelParams = [
-    #This is to fix virtualbox in the 6.12 kernel
-    "kvm.enable_virt_at_load=0"
-    # This is to fix hanging on shutdown
-    "reboot=acpi"
-  ];
-
-  # Enable virt-manager
-  # virtualisation.libvirtd.enable = true;
-  # programs.virt-manager.enable = true;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-
-  networking.hostName = "epimetheus"; # Define your hostname.
+  networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
-  # networking.interfaces.enp9s0.wakeOnLan.enable = true;
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
@@ -80,36 +52,11 @@
   # Enable the X11 windowing system.
   services.xserver.enable = true;
 
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
   # Enable the GNOME Desktop Environment.
-  # Don't forget to enable the home manager options
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
-  # services.xserver.displayManager.gdm.wayland = false;
-  # Remote desktop
-  # services.xrdp.enable = true;
-  # services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
-  # services.xrdp.defaultWindowManager = "gnome-remote-desktop";
-  # services.xrdp.openFirewall = true;
-  systemd.services."gnome-remote-desktop".wantedBy = [ "graphical.target" ];
-  # services.gnome.gnome-remote-desktop.enable = true;
-  # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
-  # If no user is logged in, the machine will power down after 20 minutes.
-  # systemd.targets.sleep.enable = false;
-  # systemd.targets.suspend.enable = false;
-  # systemd.targets.hibernate.enable = false;
-  # systemd.targets.hybrid-sleep.enable = false;
-  #
-  #This is LXQT - strangely suspend/resume works fine here?
-  # services.xserver.displayManager.lightdm.enable = true;
-  # services.xserver.desktopManager.lxqt.enable = true;
-
-  # #KDE
-  # Don't forget to enable the home manager options
-  # services.displayManager.sddm.enable = true;
-  # # services.desktopManager.plasma6.enable = true;
-  # services.xserver.desktopManager.plasma5.enable = true;
-  #
-  # services.displayManager.defaultSession = "plasmax11";
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -143,7 +90,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" ];
+    extraGroups = [ "networkmanager" "wheel" "libvertd" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -161,13 +108,13 @@
   environment.systemPackages = with pkgs; [
     #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     #  wget
+    gh
     git
     vim
     gnome-remote-desktop
   ];
 
   programs.zsh.enable = true;
-
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
@@ -182,8 +129,7 @@
   services.openssh.enable = true;
 
   # Open ports in the firewall.
-  networking.firewall.allowedTCPPorts = [
-  ];
+  # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
@@ -195,11 +141,5 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-  # nix = {
-  #   package = pkgs.nixFlakes;
-  #   extraOptions = ''
-  #     experimental-features = nix-command flakes
-  #   '';
-  # };
+
 }
