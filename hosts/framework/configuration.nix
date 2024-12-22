@@ -17,6 +17,9 @@
       ../common/configuration.nix
       # Framework specific hardware-configuration
       inputs.nixos-hardware.nixosModules.framework-13-7040-amd
+      # Our sleep then hibernate script
+      # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
+      ../framework/sleep-then-hibernate.nix
     ];
 
   # Framework specific hardware-configuration
