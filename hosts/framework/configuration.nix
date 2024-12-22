@@ -29,7 +29,10 @@
   hardware.opengl.enable = true;
 
   # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  # For now we are using xanmod to limit us to 6.11.
+  # This is because 6.12.x breaks hibernation
+  boot.kernelPackages = pkgs.linuxPackages_xanmod_latest;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -141,6 +144,11 @@
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
+
+  # Hibernation
+  powerManagement.enable = true;
+  # boot.resumeDevice = "/dev/nvme0n1p3";
+  boot.initrd.systemd.enable = true;
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
