@@ -8,5 +8,7 @@
     pkgs.htop
     pkgs.nmap
     pkgs.television
+    pkgs.wget
+    pkgs.pciutils
   ];
 }
