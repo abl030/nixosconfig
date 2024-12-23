@@ -20,6 +20,7 @@
       # Our sleep then hibernate script
       # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
       ../framework/sleep-then-hibernate.nix
+      ../framework/hibernate-fix.nix
     ];
 
   # Framework specific hardware-configuration
