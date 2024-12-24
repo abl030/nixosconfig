@@ -43,6 +43,9 @@
   # virtualisation.libvirtd.enable = true;
   # programs.virt-manager.enable = true;
 
+  # Enable bluetooth
+  hardware.bluetooth.enable = true;
+
   #enable docker
   virtualisation.docker.enable = true;
 
