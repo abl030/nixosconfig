@@ -21,5 +21,6 @@
     inputs.wezterm.packages.${pkgs.system}.default
     pkgs.galaxy-buds-client
     pkgs.freetube
+    pkgs.zotero-beta
   ];
 }

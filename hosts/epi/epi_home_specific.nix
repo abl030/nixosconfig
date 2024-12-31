@@ -12,6 +12,8 @@
     pkgs.kdePackages.qtwayland
     pkgs.kdePackages.qtsvg
     pkgs.libsForQt5.qt5ct
+    pkgs.zathura
+    pkgs.ghostty
 
   ];
 }
