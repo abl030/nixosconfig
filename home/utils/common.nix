@@ -10,5 +10,6 @@
     pkgs.television
     pkgs.wget
     pkgs.pciutils
+    pkgs.fish
   ];
 }
