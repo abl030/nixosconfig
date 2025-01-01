@@ -1,0 +1,9 @@
+font-size = 7
+background-opacity = 0.9
+background-blur-radius = 20
+window-width = 204 
+window-height = 51
+clipboard-write = allow
+clipboard-read = allow
+clipboard-trim-trailing-spaces = true
+gtk-titlebar = true
