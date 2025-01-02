@@ -17,6 +17,7 @@
 
       ../services/nvidia/intel.nix
       ../common/configuration.nix
+      ../common/desktop.nix
       # sunshine
       ../services/display/sunshine.nix
       #disable our autosleep

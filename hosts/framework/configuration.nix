@@ -15,6 +15,7 @@
       ../services/mounts/nfs.nix
       # ../services/mounts/cifs.nix
       ../common/configuration.nix
+      ../common/desktop.nix
       # Framework specific hardware-configuration
       inputs.nixos-hardware.nixosModules.framework-13-7040-amd
       # Our sleep then hibernate script
