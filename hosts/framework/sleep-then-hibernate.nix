@@ -55,6 +55,6 @@ in
   # systemd.sleep.extraConfig = ''
   #   HibernateDelaySec=60min
   # '';
-  services.logind.lidSwitch = "suspend";
+  # services.logind.lidSwitch = "suspend";
   #
 }
