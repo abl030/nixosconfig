@@ -12,5 +12,6 @@
     allowedUDPPorts = lib.mkBefore [ config.services.tailscale.port ];
     trustedInterfaces = [ "tailscale0" ];
   };
+  services.tailscale.useRoutingFeatures = "both";
 }
 
