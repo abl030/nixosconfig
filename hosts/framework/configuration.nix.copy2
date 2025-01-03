@@ -2,61 +2,21 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, inputs, ... }:
+{ inputs, config, pkgs, ... }:
 
 {
   imports =
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      # Our modulat tailscale setup that should work anywhere.
-      ../services/tailscale/tailscale.nix
-      # Our mounts
-      ../services/mounts/nfs.nix
-      # ../services/mounts/cifs.nix
-      ../common/configuration.nix
-      ../common/desktop.nix
       # Framework specific hardware-configuration
       inputs.nixos-hardware.nixosModules.framework-13-7040-amd
-      # Our sleep then hibernate script
-      # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
-      ../framework/sleep-then-hibernate.nix
-      ../framework/hibernate-fix.nix
-      ../framework/hibernatefix2.nix
+
     ];
 
-  # Framework specific hardware-configuration
-  services.fwupd.enable = true;
-  services.fwupd.extraRemotes = [ "lvfs-testing" ];
+  # Make fingerprint reader work
+  services.fprintd.enable = true;
 
-  # # Make fingerprint reader work
-  # services.fprintd.enable = true;
-  #
-  # Wifi fix 
-  hardware.wirelessRegulatoryDatabase = true;
-  boot.extraModprobeConfig = ''
-    options cfg80211 ieee80211_regdom="AU"
-  '';
-
-  # # we need fwupd 1.9.7 to downgrade the fingerprint sensor firmware
-  # services.fwupd.package = (import
-  #   (builtins.fetchTarball {
-  #     url = "https://github.com/NixOS/nixpkgs/archive/bb2009ca185d97813e75736c2b8d1d8bb81bde05.tar.gz";
-  #     sha256 = "sha256:003qcrsq5g5lggfrpq31gcvj82lb065xvr7bpfa8ddsw8x4dnysk";
-  #   })
-  #   {
-  #     inherit (pkgs) system;
-  #   }).fwupd;
-
-  # Hardware acceleration for video
-  hardware.opengl.enable = true;
-
-  # lets use the latest kernel because we are stupid
-  # boot.kernelPackages = pkgs.linuxPackages_latest;
-  # For now we are using xanmod to limit us to 6.11.
-  # This is because 6.12.x breaks hibernation
-  # boot.kernelPackages = pkgs.linuxPackages_6_11;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -89,6 +49,9 @@
     LC_TELEPHONE = "en_AU.UTF-8";
     LC_TIME = "en_AU.UTF-8";
   };
+
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
+
 
   # Enable the X11 windowing system.
   services.xserver.enable = true;
@@ -131,8 +94,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvertd" ];
-    shell = pkgs.zsh;
+    extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -151,13 +113,8 @@
     #  wget
     gh
     git
-    vim
-    gnome-remote-desktop
-    dmidecode
-    fprintd
   ];
 
-  programs.zsh.enable = true;
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
@@ -169,13 +126,8 @@
   # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
+  # services.openssh.enable = true;
 
-  # # Hibernation
-  # powerManagement.enable = true;
-  # # boot.resumeDevice = "/dev/nvme0n1p3";
-  # boot.initrd.systemd.enable = true;
-  #
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
