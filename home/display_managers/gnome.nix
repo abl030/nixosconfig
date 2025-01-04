@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ hostname, config, pkgs, ... }:
 
 {
 
@@ -22,7 +22,7 @@
   ];
 
   imports = [
-    # ./dconf.nix
+    ./gnome_configs/${hostname}.nix
   ];
 
   # This themes Dolphin to dark mode.
