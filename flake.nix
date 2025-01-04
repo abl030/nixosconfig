@@ -65,6 +65,7 @@
           homeFile = ./hosts/epi/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
+          hostname = "epimetheus";
         };
 
         caddy = {
@@ -98,7 +99,7 @@
         (lib.mapAttrs
           (hostname: config: home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
-            inherit extraSpecialArgs;
+            extraSpecialArgs = extraSpecialArgs // { inherit hostname; }; # Pass hostname here
             modules = [
               config.homeFile
 
