@@ -24,6 +24,6 @@
     pkgs.zotero-beta
   ];
   imports = [
-    ../terminals/ghostty.nix
+    ../terminals/ghostty/ghostty.nix
   ];
 }
