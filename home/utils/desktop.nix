@@ -6,6 +6,9 @@
     pkgs.plexamp
     pkgs.google-chrome
     pkgs.libreoffice-qt
+    pkgs.hunspell
+    pkgs.hunspellDicts.en_AU
+    pkgs.hunspellDicts.en_GB-ise
     pkgs.remmina
     #VLC doesn't user VAAPI anymore because devs are fighting over FFMPEG
     #Just use gnome videos for now

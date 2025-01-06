@@ -11,5 +11,6 @@
     pkgs.wget
     pkgs.pciutils
     pkgs.fish
+    pkgs.unzip
   ];
 }
