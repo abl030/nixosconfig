@@ -28,7 +28,7 @@
       url = "github:wez/wezterm/main?dir=nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
+    nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
   };
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs:
@@ -80,6 +80,12 @@
           user = "abl030";
           homeDirectory = /home/abl030;
         };
+	wsl = {
+	  configurationFile = ./hosts/wsl/configuration.nix;
+	  homeFile = ./hosts/wsl/home.nix;
+	  user = "nixos";
+	  homeDirectory = "/home/nixos/";
+	};
 
       };
     in
