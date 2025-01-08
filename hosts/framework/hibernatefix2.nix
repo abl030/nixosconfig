@@ -44,6 +44,8 @@
       
       # Re-enable Bluetooth
       ${pkgs.bluez}/bin/bluetoothctl power on || true
+
+      systemctl restart bluetooth
     '';
     serviceConfig = {
       Type = "oneshot";
