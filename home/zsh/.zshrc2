@@ -122,6 +122,10 @@ reload() {
     # Only run Home Manager switch
     home-manager switch --flake .#${HOST}
     exec zsh
+  elif [[ "$TARGET" == "wsl" ]]; then # WSL needs the impure flag
+    sudo nixos-rebuild switch --flake .#${HOST} --impure
+    home-manager switch --flake .#${HOST}
+    exec zsh
   else
     # Rebuild NixOS with sudo and then Home Manager switch
     sudo nixos-rebuild switch --flake .#${HOST}
