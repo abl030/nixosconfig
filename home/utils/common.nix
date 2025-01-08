@@ -12,5 +12,6 @@
     pkgs.pciutils
     pkgs.fish
     pkgs.unzip
+    pkgs.nvd
   ];
 }
