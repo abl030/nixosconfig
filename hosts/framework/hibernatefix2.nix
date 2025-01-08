@@ -1,10 +1,19 @@
 { config, lib, pkgs, ... }:
-
 {
   systemd.services.disable-wireless-hibernate = {
-    description = "Disable WiFi and Bluetooth before hibernation";
-    wantedBy = [ "hibernate.target" "hybrid-sleep.target" ];
-    before = [ "hibernate.target" "hybrid-sleep.target" ];
+    description = "Disable WiFi and Bluetooth before hibernation/sleep";
+    wantedBy = [
+      "hibernate.target"
+      "hybrid-sleep.target"
+      "suspend.target"
+      "suspend-then-hibernate.target"
+    ];
+    before = [
+      "hibernate.target"
+      "hybrid-sleep.target"
+      "suspend.target"
+      "suspend-then-hibernate.target"
+    ];
     script = ''
       # Disable WiFi
       ${pkgs.networkmanager}/bin/nmcli radio wifi off || true
@@ -19,11 +28,16 @@
     };
   };
 
-  # Optional: Create a complementary service to re-enable on resume
   systemd.services.enable-wireless-resume = {
     description = "Re-enable WiFi and Bluetooth after resume";
-    wantedBy = [ "post-resume.target" ];
-    after = [ "post-resume.target" ];
+    wantedBy = [
+      "post-resume.target"
+      "post-suspend.target"
+    ];
+    after = [
+      "post-resume.target"
+      "post-suspend.target"
+    ];
     script = ''
       # Re-enable WiFi
       ${pkgs.networkmanager}/bin/nmcli radio wifi on || true
