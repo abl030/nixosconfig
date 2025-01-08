@@ -16,15 +16,19 @@
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
 
+
   system.activationScripts.diff = ''
     if [[ -e /run/current-system ]]; then
-      ${pkgs.nix}/bin/nix store diff-closures /run/current-system "$systemConfig"
+    echo "--- diff to current-system"
+    ${pkgs.nvd}/bin/nvd --nix-bin-dir=${config.nix.package}/bin diff /run/current-system "$systemConfig"
+    echo "---"
     fi
   '';
 
   # install nerdfonts
   environment.systemPackages = [
     pkgs.nerd-fonts.sauce-code-pro
+    pkgs.nvd
   ];
   # need to run fc-cache -fv to update font fc-cache
 }
