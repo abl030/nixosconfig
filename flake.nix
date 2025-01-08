@@ -29,9 +29,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
+    home-manager-diff.url = "github:pedorich-n/home-manager-diff";
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
@@ -80,12 +81,12 @@
           user = "abl030";
           homeDirectory = /home/abl030;
         };
-	wsl = {
-	  configurationFile = ./hosts/wsl/configuration.nix;
-	  homeFile = ./hosts/wsl/home.nix;
-	  user = "nixos";
-	  homeDirectory = "/home/nixos/";
-	};
+        wsl = {
+          configurationFile = ./hosts/wsl/configuration.nix;
+          homeFile = ./hosts/wsl/home.nix;
+          user = "nixos";
+          homeDirectory = "/home/nixos/";
+        };
 
       };
     in
@@ -107,6 +108,7 @@
             inherit pkgs;
             extraSpecialArgs = extraSpecialArgs // { inherit hostname; }; # Pass hostname here
             modules = [
+              home-manager-diff.hmModules.default
               config.homeFile
 
               {
