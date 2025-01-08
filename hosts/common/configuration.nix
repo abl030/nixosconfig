@@ -16,6 +16,11 @@
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
 
+  system.activationScripts.diff = ''
+    if [[ -e /run/current-system ]]; then
+      ${pkgs.nix}/bin/nix store diff-closures /run/current-system "$systemConfig"
+    fi
+  '';
 
   # install nerdfonts
   environment.systemPackages = [
