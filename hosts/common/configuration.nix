@@ -16,7 +16,18 @@
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
 
+  # Optimise nix store to save space daily.
+  nix.optimise.automatic = true;
+  nix.optimise.dates = [ "03:45" ]; # Optional; allows customizing optimisation schedule
 
+  # Automate garbage collection
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 7d";
+  };
+
+  # Pretty diffs for packages on rebuild
   system.activationScripts.diff = ''
     if [[ -e /run/current-system ]]; then
     echo "--- diff to current-system"
