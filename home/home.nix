@@ -22,6 +22,10 @@
   # Enable Numlock (i.e. can type numbers)
   xsession.numlock.enable = true;
 
+  programs.hmd = {
+    enable = true;
+    runOnSwitch = true; # enabled by default
+  };
 
   imports = [
     ./zsh/zsh.nix
