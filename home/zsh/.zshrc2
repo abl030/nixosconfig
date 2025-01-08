@@ -25,6 +25,8 @@ alias  epi!="wakeonlan       18:c0:4d:65:86:e8 "
 
 alias nvs='nvim `tv`'
 
+alias power_monitor='sudo watch "turbostat --quiet --num_iterations 1 --interval 1 --show PkgWatt --Summary | tail -1"'
+
 # export PYENV_ROOT="$HOME/.pyenv"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 # eval "$(pyenv init -)"

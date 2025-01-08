@@ -27,6 +27,7 @@
     pkgs.galaxy-buds-client
     pkgs.freetube
     pkgs.zotero-beta
+    pkgs.linuxKernel.packages.linux_6_12.turbostat
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix
