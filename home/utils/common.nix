@@ -20,5 +20,6 @@
     pkgs.broot
     pkgs.ripgrep
     pkgs.ripgrep-all
+    pkgs.toybox
   ];
 }
