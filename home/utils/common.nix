@@ -13,6 +13,7 @@
     pkgs.fish
     pkgs.unzip
     pkgs.nvd
+
     # Rust Utils
     pkgs.fzf
     pkgs.lsd
@@ -20,6 +21,7 @@
     pkgs.broot
     pkgs.ripgrep
     pkgs.ripgrep-all
+
     pkgs.toybox
   ];
 }
