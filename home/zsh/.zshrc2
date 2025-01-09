@@ -27,6 +27,10 @@ alias nvs='nvim `tv`'
 
 alias power_monitor='sudo watch "turbostat --quiet --num_iterations 1 --interval 1 --show PkgWatt --Summary | tail -1"'
 
+alias cd='z'
+
+alias cdi='zi'
+
 # export PYENV_ROOT="$HOME/.pyenv"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 # eval "$(pyenv init -)"
@@ -52,8 +56,20 @@ function pull_dotfiles() {
   fi
 }
 
-
-#thisisatest
+# Broot functino
+function br {
+    local cmd cmd_file code
+    cmd_file=$(mktemp)
+    if broot --outcmd "$cmd_file" "$@"; then
+        cmd=$(<"$cmd_file")
+        command rm -f "$cmd_file"
+        eval "$cmd"
+    else
+        code=$?
+        command rm -f "$cmd_file"
+        return "$code"
+    fi
+}
 
 function edit() {
   case $1 in
@@ -106,7 +122,7 @@ function edit() {
 alias v='nvim'
 
 #make ls pretty and show those pesky .files.
-alias ls='ls -A -F -l --group-directories-first --color=always'
+alias ls='lsd -A -F -l --group-directories-first --color=always'
 
 reload() {
   HOST=$1
@@ -153,3 +169,4 @@ save_gnome() {
 echo "did this work"
 
 
+eval "$(zoxide init zsh)"
