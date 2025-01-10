@@ -26,6 +26,9 @@
       ../services/display/gnome-remote-desktop.nix
       # Lets try the bluetooth fix after suspend for buds 3 pro
       ../framework/hibernatefix2.nix
+      # Nosleep scripts
+      ../services/system/ssh_nosleep.nix
+      ../services/system/remote_desktop_nosleep.nix
     ];
 
   # lets use the latest kernel because we are stupid
@@ -133,7 +136,7 @@
   services.printing.enable = true;
 
   # Enable sound with pipewire.
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;

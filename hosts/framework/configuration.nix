@@ -23,6 +23,9 @@
       ../framework/sleep-then-hibernate.nix
       ../framework/hibernate-fix.nix
       ../framework/hibernatefix2.nix
+      # Nosleep scripts
+      ../services/system/ssh_nosleep.nix
+      ../services/system/remote_desktop_nosleep.nix
     ];
 
   # Framework specific hardware-configuration
