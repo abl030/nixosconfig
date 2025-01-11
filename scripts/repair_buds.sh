@@ -43,4 +43,6 @@ bluetoothctl connect ${MAIN_BUDS} || {
     exit 1
 }
 
+bash ~/nixosconfig/scripts/trust_buds.sh
+
 echo "Process complete!"
