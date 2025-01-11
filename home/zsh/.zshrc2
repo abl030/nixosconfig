@@ -31,6 +31,10 @@ alias cd='z'
 
 alias cdi='zi'
 
+alias restart_bluetooth="bash ~/nixosconfig/scripts/bluetooth_restart.sh"
+
+alias trust_buds="bash ~/nixosconfig/scripts/trust_buds.sh"
+
 # export PYENV_ROOT="$HOME/.pyenv"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 # eval "$(pyenv init -)"
