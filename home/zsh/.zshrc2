@@ -41,6 +41,8 @@ alias dcb="bluetoothctl disconnect 24:24:B7:58:C6:49"
 
 alias rb="bash ~/nixosconfig/scripts/repair_buds.sh"
 
+alias ytlisten='mpv --no-video --ytdl-format=bestaudio --msg-level=ytdl_hook=debug'
+
 # export PYENV_ROOT="$HOME/.pyenv"
 # [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 # eval "$(pyenv init -)"

@@ -23,5 +23,7 @@
     pkgs.ripgrep-all
 
     pkgs.toybox
+    pkgs.zip
+    pkgs.busybox
   ];
 }

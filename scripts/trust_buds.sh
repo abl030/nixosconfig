@@ -1,10 +1,10 @@
 #!/usr/bin/bash
 
-# Cache sudo credentials upfront
-sudo -v || {
-    echo "Script requires sudo privileges"
-    exit 1
-}
+# # Cache sudo credentials upfront
+# sudo -v || {
+#     echo "Script requires sudo privileges"
+#     exit 1
+# }
 
 # Define the buds addresses
 BUDS_1="24:24:B7:04:58:B5"

@@ -28,11 +28,11 @@
       ../framework/hibernatefix2.nix
       # Nosleep scripts
       ../services/system/ssh_nosleep.nix
-      ../services/system/remote_desktop_nosleep.nix
+      # ../services/system/remote_desktop_nosleep.nix
     ];
 
   # lets use the latest kernel because we are stupid
-  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
   # boot.kernelModules = [ "uinput" ];
 
   #enable virtualbox
