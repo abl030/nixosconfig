@@ -1,0 +1,96 @@
+{ config, options, lib, pkgs, ... }:
+let
+  PID_PATH = "/run/ssh_sleep_block.pid";
+  PID_PIPE = "/run/ssh_sleep_pipe";
+
+  sleep_script = pkgs.writeScript "infinite-sleep" ''
+    #!${pkgs.runtimeShell}
+    trap 'rm -f ${PID_PATH}' EXIT
+    echo $$ > ${PID_PATH}
+    echo $$ > ${PID_PIPE}
+    exec sleep infinity
+  '';
+
+  inhibit_script = pkgs.writeScript "inhibit_script" ''
+    #!${pkgs.runtimeShell}
+    exec systemd-inhibit \
+      --what=sleep \
+      --why="Active SSH session" \
+      --mode=block \
+      ${sleep_script} \
+      2>&1 >> /var/log/ssh-inhibit.log
+  '';
+
+  ssh_script = pkgs.writeScript "ssh-session-handler" ''
+    #!${pkgs.runtimeShell}
+    set -eu
+
+    log() {
+      logger -t ssh-sleep-prevention "$*"
+      echo "$*" >> /var/log/ssh-sleep.log
+    }
+
+    count_ssh() {
+      ${pkgs.unixtools.netstat}/bin/netstat -nt | 
+        ${pkgs.gawk}/bin/awk '$4 ~ /:22$/ && $6 == "ESTABLISHED"' | 
+        wc -l
+    }
+
+    num_ssh=$(count_ssh)
+    log "PAM_TYPE: $PAM_TYPE, SSH connections: $num_ssh, UID: $UID"
+
+    case "$PAM_TYPE" in
+      open_session)
+        if [ "$num_ssh" -gt 1 ]; then
+          log "Not first SSH session, exiting"
+          exit 0
+        fi
+        log "Starting sleep inhibitor"
+        mkdir -p "$(dirname ${PID_PIPE})"
+        [ ! -p ${PID_PIPE} ] && mkfifo ${PID_PIPE}
+        ${inhibit_script} &
+        PID=$(cat ${PID_PIPE})
+        log "Sleep inhibitor started with PID $PID"
+        rm -f ${PID_PIPE}
+        ;;
+      
+      close_session)
+        if [ "$num_ssh" -ne 0 ]; then
+          log "Other SSH sessions exist, keeping inhibitor"
+          exit 0
+        fi
+        if [ -f ${PID_PATH} ]; then
+          PID=$(cat ${PID_PATH})
+          log "Killing sleep inhibitor PID $PID"
+          kill $PID || log "Failed to kill PID $PID"
+          rm -f ${PID_PATH}
+        else
+          log "No PID file found at ${PID_PATH}"
+        fi
+        ;;
+      
+      *)
+        log "Unknown PAM_TYPE: $PAM_TYPE"
+        exit 1
+        ;;
+    esac
+  '';
+in
+{
+  # Make netstat available to the system
+  environment.systemPackages = with pkgs; [
+    unixtools.netstat
+  ];
+
+  # Create log files and directories
+  systemd.tmpfiles.rules = [
+    "d /run/ssh-sleep 0755 root root -"
+    "f /var/log/ssh-sleep.log 0644 root root -"
+    "f /var/log/ssh-inhibit.log 0644 root root -"
+  ];
+
+  security.pam.services.sshd.text = lib.mkAfter ''
+    # Prevent sleep on active SSH
+    session optional pam_exec.so quiet ${ssh_script}
+  '';
+}
