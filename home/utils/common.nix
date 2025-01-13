@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   home.packages = [
@@ -22,8 +22,9 @@
     pkgs.ripgrep
     pkgs.ripgrep-all
 
-    pkgs.toybox
-    pkgs.zip
-    pkgs.busybox
+    # pkgs.toybox
+    # pkgs.zip
+    # pkgs.busybox
+    inputs.fzf-preview.packages.${pkgs.system}.default
   ];
 }

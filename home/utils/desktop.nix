@@ -32,4 +32,5 @@
   imports = [
     ../terminals/ghostty/ghostty.nix
   ];
+
 }

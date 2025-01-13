@@ -13,5 +13,7 @@
     trustedInterfaces = [ "tailscale0" ];
   };
   services.tailscale.useRoutingFeatures = "both";
+
+  imports = [ ./tailscale_subnet_priority.nix ];
 }
 

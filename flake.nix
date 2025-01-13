@@ -30,6 +30,8 @@
     };
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
     home-manager-diff.url = "github:pedorich-n/home-manager-diff";
+    fzf-preview.url = "github:niksingh710/fzf-preview";
+    fzf-preview.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
