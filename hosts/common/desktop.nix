@@ -11,4 +11,10 @@
   networking.firewall.allowedTCPPorts = [ 57621 ];
   # Google cast
   networking.firewall.allowedUDPPorts = [ 5353 ];
+
+  # programs.steam = {
+  #   enable = true;
+  #   remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+  #   # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+  # };
 }

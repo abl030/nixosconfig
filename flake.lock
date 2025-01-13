@@ -21,6 +21,24 @@
         "nixpkgs-lib": "nixpkgs-lib"
       },
       "locked": {
+        "lastModified": 1736143030,
+        "narHash": "sha256-+hu54pAoLDEZT9pjHlqL9DNzWz0NbUn8NEAHP7PQPzU=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "b905f6fc23a9051a6e1b741e1438dbfc0634c6de",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_2": {
+      "inputs": {
+        "nixpkgs-lib": "nixpkgs-lib_2"
+      },
+      "locked": {
         "lastModified": 1733312601,
         "narHash": "sha256-4pDvzqnegAfRkPwO3wmwBhVi/Sye1mzps0zHWYnP88c=",
         "owner": "hercules-ci",
@@ -90,6 +108,27 @@
         "type": "github"
       }
     },
+    "fzf-preview": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1736585801,
+        "narHash": "sha256-iXwHo/so9rgbxnWdaXYyzYXRIlAymgfCqs3UMuO6Cfk=",
+        "owner": "niksingh710",
+        "repo": "fzf-preview",
+        "rev": "57ed7d1e7561d713ff9d2c71265b2b0481ae80d4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "niksingh710",
+        "repo": "fzf-preview",
+        "type": "github"
+      }
+    },
     "harfbuzz": {
       "flake": false,
       "locked": {
@@ -130,7 +169,7 @@
     },
     "home-manager-diff": {
       "inputs": {
-        "flake-parts": "flake-parts",
+        "flake-parts": "flake-parts_2",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "poetry2nix": "poetry2nix",
@@ -221,6 +260,18 @@
     },
     "nixpkgs-lib": {
       "locked": {
+        "lastModified": 1735774519,
+        "narHash": "sha256-CewEm1o2eVAnoqb6Ml+Qi9Gg/EfNAxbRx1lANGVyoLI=",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/e9b51731911566bbf7e4895475a87fe06961de0b.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/e9b51731911566bbf7e4895475a87fe06961de0b.tar.gz"
+      }
+    },
+    "nixpkgs-lib_2": {
+      "locked": {
         "lastModified": 1733096140,
         "narHash": "sha256-1qRH7uAUsyQI7R1Uwl4T+XvdNv778H0Nb5njNrqvylY=",
         "type": "tarball",
@@ -249,11 +300,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1736420959,
-        "narHash": "sha256-dMGNa5UwdtowEqQac+Dr0d2tFO/60ckVgdhZU9q2E2o=",
+        "lastModified": 1736693123,
+        "narHash": "sha256-9lIfXCaBPwUA7FnfDnoH4gxxdOvXG78k6UlUw0+ZDxc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "32af3611f6f05655ca166a0b1f47b57c762b5192",
+        "rev": "2fdec2c2e68b7b7845d1ea4e0894c63143e3261b",
         "type": "github"
       },
       "original": {
@@ -265,11 +316,11 @@
     "nvchad-starter": {
       "flake": false,
       "locked": {
-        "lastModified": 1728129783,
-        "narHash": "sha256-SVpep7lVX0isYsUtscvgA7Ga3YXt/2jwQQCYkYadjiM=",
+        "lastModified": 1736643544,
+        "narHash": "sha256-PoThdeLgPIFrqVMgwOyWsPDD01K4qEFT6Q5LHz6n5DM=",
         "owner": "NvChad",
         "repo": "starter",
-        "rev": "d0c602f5f155d4d1261609219e9b8a61e936d681",
+        "rev": "c3d1fb646a04aaa97b2929b90269f8a7bf8e8dc4",
         "type": "github"
       },
       "original": {
@@ -287,11 +338,11 @@
         "nvchad-starter": "nvchad-starter"
       },
       "locked": {
-        "lastModified": 1736570008,
-        "narHash": "sha256-pVfQTM8NcLUtxdiG1Dfx0jorp+b2RyW850m4ZODaS1I=",
+        "lastModified": 1736768187,
+        "narHash": "sha256-793DOpOqWXU+O7tnuaPMJjIYOEsDf2rnBuQhbvRog2c=",
         "owner": "nix-community",
         "repo": "nix4nvchad",
-        "rev": "652976df66c5771e2ce0ac9cdc7ec83a9a9d8e7a",
+        "rev": "98d4d76050623460072402e92365e437a28b59bf",
         "type": "github"
       },
       "original": {
@@ -360,6 +411,7 @@
     },
     "root": {
       "inputs": {
+        "fzf-preview": "fzf-preview",
         "home-manager": "home-manager",
         "home-manager-diff": "home-manager-diff",
         "nixos-hardware": "nixos-hardware",

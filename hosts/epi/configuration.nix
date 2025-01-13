@@ -27,8 +27,7 @@
       # Lets try the bluetooth fix after suspend for buds 3 pro
       ../framework/hibernatefix2.nix
       # Nosleep scripts
-      ../services/system/ssh_nosleep.nix
-      # ../services/system/remote_desktop_nosleep.nix
+      ../services/system/remote_desktop_nosleep.nix
     ];
 
   # lets use the latest kernel because we are stupid
