@@ -14,5 +14,6 @@
   };
   imports = [
     ../services/system/ssh_nosleep.nix
+    ../services/system/ssh_nosleep_cleanup.nix
   ];
 }
