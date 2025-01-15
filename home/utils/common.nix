@@ -27,4 +27,7 @@
     # pkgs.busybox
     inputs.fzf-preview.packages.${pkgs.system}.default
   ];
+  imports = [
+    ../ssh/ssh.nix
+  ];
 }
