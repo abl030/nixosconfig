@@ -8,3 +8,9 @@ Host caddyjump
     ProxyJump abl030@caddy
     ForwardX11 yes
     ForwardX11Trusted yes
+
+host epimetheus
+    HostName epimetheus
+    User abl030
+    ProxyCommand sh -c "wakeonlan 18:c0:4d:65:86:e8; nc %h %p"
+
