@@ -60,7 +60,7 @@
     #Defining how we want to use our lsp config.
     ".config/nvim/lua/configs/lspconfig2.lua".source = ./lspconfig.lua;
     #Edit any UI options we want, currently just want that dashboard.
-    ".config/nvim/lua/chadrc_editor.lua".source = ./chadrc_editor.lua;
+    # ".config/nvim/lua/chadrc_editor.lua".source = ./chadrc_editor.lua;
     #This is a lot of our old crusty keybindings. This also needs to be sorted through
     "vim.vim".source = ./vim.vim;
     #Add in our diary management lua. Autosave, cmp off and spellcheck on.
@@ -69,10 +69,36 @@
   programs.nvchad.extraConfig = ''
 
     require "options2"
-    require "chadrc_editor"
     require "configs/lspconfig2"
 
 
   '';
   programs.nvchad.enable = true;
+
+  programs.nvchad.chadrcConfig = ''
+    -- This file needs to have same structure as nvconfig.lua 
+    -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
+    -- Please read that file to know all available options :( 
+
+    ---@type ChadrcConfig
+    local M = {}
+
+    M.base46 = {
+    	-- theme = "onedark",
+
+    	-- hl_override = {
+    	-- 	Comment = { italic = true },
+    	-- 	["@comment"] = { italic = true },
+    	-- },
+    }
+
+    M.nvdash = { load_on_startup = true }
+    -- M.ui = {
+    --       tabufline = {
+    --          lazyload = false
+    --      }
+    --}
+
+    return M
+  '';
 }
