@@ -52,7 +52,7 @@
   #   }).fwupd;
 
   # Hardware acceleration for video
-  hardware.opengl.enable = true;
+  hardware.graphics.enable = true;
 
   # lets use the latest kernel because we are stupid
   # boot.kernelPackages = pkgs.linuxPackages_latest;
@@ -112,7 +112,7 @@
   services.printing.enable = true;
 
   # Enable sound with pipewire.
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
