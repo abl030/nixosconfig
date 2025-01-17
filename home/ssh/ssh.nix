@@ -6,6 +6,17 @@
 {
   home.file = {
     # ".ssh/authorized_keys".source = ./authorized_keys;
-    ".ssh/config".source = ./config;
+    # ".ssh/config".source = ./config;
+  };
+  programs.ssh = {
+    enable = true;
+    matchBlocks = {
+      "*" = {
+        forwardX11 = true;
+
+      };
+    };
   };
 }
+
+
