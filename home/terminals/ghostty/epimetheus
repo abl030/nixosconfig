@@ -7,3 +7,4 @@ clipboard-write = allow
 clipboard-read = allow
 clipboard-trim-trailing-spaces = true
 gtk-titlebar = true
+shell-integration-features = sudo
