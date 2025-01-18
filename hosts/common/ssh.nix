@@ -4,6 +4,7 @@
   services.openssh = {
     enable = true;
     ports = [ 22 ];
+    openFirewall = false;
     # We won't be binding to 0.0.0.0. We will only use this server to proxyjump for X11 forwarding.
     listenAddresses = [
       {
@@ -14,7 +15,6 @@
       PasswordAuthentication = true;
       X11Forwarding = true;
       PermitRootLogin = "no";
-      openFirewall = false;
     };
   };
   imports = [
