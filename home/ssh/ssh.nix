@@ -1,7 +1,8 @@
-# At the moment this doesn't work. Because we have a permissions error on the authorized_keys file.
-# I can't be bother settings this up in home manager because its super easily done in the nixos config
-#Hence this is just going to be left here.
-# For home manager managed installs just copy the above authorized_keys file over.
+# We are 100% in on tailscale SSH. The biggest problem is X11 forwarding. See: https://github.com/tailscale/tailscale/issues/5160
+# So, what we do is make sure the normal sshd is running and either block it at the firewall for nix hosts or just set a unique 127.0.0.0/0 address for non-nix hosts.
+# The hostname address in the matchblocks must be unique for each host, otherwise it will check known_hosts and fail. 
+# So we now have no open ports but still use X11 forwarding. #SECURE.
+
 { config, inputs, home, pkgs, ... }:
 {
   home.file = {
@@ -19,6 +20,7 @@
       };
       "cad" = {
         proxyJump = "abl030@caddy";
+        # Non nix hosts need a unique 127 address. Set this up in /etc/ssh/sshd_config
         hostname = "127.0.0.1";
         user = "abl030";
         forwardX11 = true;
@@ -43,6 +45,14 @@
       "epi" = {
         proxyJump = "abl030@epimetheus";
         hostname = "192.168.1.5";
+        user = "abl030";
+        forwardX11 = true;
+        forwardX11Trusted = true;
+      };
+      "fra" = {
+        proxyJump = "abl030@framework";
+        # This is a laptop and the IP will change. Hence unique 127.0.0.0/0 address and we bind to 0.0.0.0
+        hostname = "127.0.0.3";
         user = "abl030";
         forwardX11 = true;
         forwardX11Trusted = true;
