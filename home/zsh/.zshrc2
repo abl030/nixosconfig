@@ -21,7 +21,7 @@ alias gohibe='sudo systemctl unmask hibernate.target && sudo systemctl hibernate
 
 alias cr='cargo run'
 
-alias  epi!="ssh cad 'wakeonlan       18:c0:4d:65:86:e8' "
+alias  epi!="ssh abl030@caddy 'wakeonlan       18:c0:4d:65:86:e8' "
 
 alias nvs='nvim `tv`'
 
@@ -45,6 +45,7 @@ alias cm="bluetoothctl connect CB:75:24:8D:69:D0"
 
 alias ytlisten='mpv --no-video --ytdl-format=bestaudio --msg-level=ytdl_hook=debug'
 
+alias ssh_epi='epi! && ssh epi'
 
 alias fzfp='fzf --preview '\''fzf-preview {}'\'''
 
