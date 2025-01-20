@@ -1,13 +1,10 @@
 #this is the nix bindkey for up and down. from https://nixos.wiki/wiki/Zs0
 #actually this took forever for me to work out. Even though cat -v shows the up arrow as
 #[[A its not? its [OA. This took me two hours to debug. Great.
-bindkey "'${key[Up]}" up-line-or-search
-bindkey "^[OA" up-line-or-search
-bindkey "^[[A" up-line-or-search
-
-bindkey "^[OB" down-line-or-select
-bindkey "^[[B" down-line-or-select
-
+bindkey '^[OA' history-substring-search-up
+bindkey '^[[A' history-substring-search-up
+bindkey '^[OB' history-substring-search-down
+bindkey '^[[B' history-substring-search-down
 # Bind 'tab tab' to accept the auto suggest. All time most used key binding.
 bindkey '^I^I' autosuggest-accept
 
