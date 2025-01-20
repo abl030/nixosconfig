@@ -16,8 +16,9 @@
   ];
 
   wsl.enable = true;
-  wsl.defaultUser = "nixos";
+  wsl.defaultUser = "abl030";
 
+  networking.hostName = "wsl";
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
