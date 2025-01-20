@@ -1,4 +1,4 @@
-{
+ {
   description = "My first flake!";
 
 
@@ -86,8 +86,8 @@
         wsl = {
           configurationFile = ./hosts/wsl/configuration.nix;
           homeFile = ./hosts/wsl/home.nix;
-          user = "nixos";
-          homeDirectory = "/home/nixos/";
+          user = "abl030";
+          homeDirectory = "/home/abl030/";
         };
 
       };

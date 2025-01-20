@@ -17,14 +17,18 @@
 
   wsl.enable = true;
   wsl.defaultUser = "abl030";
-
   networking.hostName = "wsl";
+
   # lets use the latest kernel because we are stupid
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   nixpkgs.config.allowUnfree = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  users.defaultUserShell = pkgs.zsh;
+
+  programs.zsh.enable = true;
 
   environment.systemPackages = [
     pkgs.neovim
