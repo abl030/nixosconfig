@@ -19,15 +19,15 @@
       url = "github:mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    plasma-manager = {
-      url = "github:nix-community/plasma-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
-    };
-    wezterm = {
-      url = "github:wez/wezterm/main?dir=nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # plasma-manager = {
+    #   url = "github:nix-community/plasma-manager";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    #   inputs.home-manager.follows = "home-manager";
+    # };
+    # wezterm = {
+    #   url = "github:wez/wezterm/main?dir=nix";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
     home-manager-diff.url = "github:pedorich-n/home-manager-diff";
     fzf-preview.url = "github:niksingh710/fzf-preview";
