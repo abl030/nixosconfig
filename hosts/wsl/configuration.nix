@@ -34,6 +34,7 @@
     pkgs.neovim
     pkgs.gh
     pkgs.git
+    pkgs.home-manager
   ];
 
   # This value determines the NixOS release from which the default
