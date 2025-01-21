@@ -59,7 +59,8 @@
   # For now we are using xanmod to limit us to 6.11.
   # This is because 6.12.x breaks hibernation
   # boot.kernelPackages = pkgs.linuxPackages_6_11;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_6_12;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
