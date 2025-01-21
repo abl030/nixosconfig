@@ -19,7 +19,7 @@
       ../common/configuration.nix
       ../common/desktop.nix
       # sunshine
-      ../services/display/sunshine.nix
+      # ../services/display/sunshine.nix
       #disable our autosleep
       ../services/display/gnome.nix
       ## And allow gnome-remote-desktop for logged in users
@@ -31,7 +31,8 @@
     ];
 
   # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_6_12;
   # boot.kernelModules = [ "uinput" ];
 
   #enable virtualbox
