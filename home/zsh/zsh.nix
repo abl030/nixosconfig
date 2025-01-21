@@ -16,6 +16,12 @@
 
   # programs.zsh.zprof.enable = true;
 
+  programs.dircolors.enable = true;
+  programs.dircolors.enableZshIntegration = true;
+  programs.dircolors.settings = {
+    OTHER_WRITABLE = "01;33"; # Change to yellow with bold text
+  };
+
   programs.zsh = {
     history = {
       size = 10000;
