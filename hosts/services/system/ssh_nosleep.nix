@@ -74,10 +74,10 @@ in
         "session optional pam_exec.so quiet ${ssh_script}"
     );
 
-    login.text = lib.mkDefault (
-      lib.mkAfter
-        "session optional pam_exec.so quiet ${ssh_script}"
-    );
+    # login.text = lib.mkDefault (
+    #   lib.mkAfter
+    #     "session optional pam_exec.so quiet ${ssh_script}"
+    # );
   };
 }
 
