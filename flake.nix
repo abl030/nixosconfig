@@ -1,4 +1,4 @@
- {
+{
   description = "My first flake!";
 
 
@@ -32,6 +32,7 @@
     home-manager-diff.url = "github:pedorich-n/home-manager-diff";
     fzf-preview.url = "github:niksingh710/fzf-preview";
     fzf-preview.inputs.nixpkgs.follows = "nixpkgs";
+    isd.url = "github:isd-project/isd";
   };
 
   outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
