@@ -46,6 +46,8 @@ alias ssh_epi='epi! && ssh epi'
 
 alias fzfp='fzf --preview '\''fzf-preview {}'\'''
 
+alias clear_dots='git stash && git stash clear'
+
 # alias tailscale_up='sudo tailscale up && sudo systemctl start tailscale-lan-priority'
 
 # alias tailscale_down='sudo tailscale down && sudo systemctl stop tailscale-lan-priority'
