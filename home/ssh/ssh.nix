@@ -58,6 +58,13 @@
         forwardX11 = true;
         forwardX11Trusted = true;
       };
+      "kal" = {
+        proxyJump = "abl030@kali";
+        hostname = "127.0.0.4";
+        user = "abl030";
+        forwardX11 = true;
+        forwardX11Trusted = true;
+      };
     };
   };
 }
