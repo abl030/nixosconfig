@@ -14,6 +14,25 @@ for _, lsp in ipairs(servers) do
 	})
 end
 
+-- Create a custom on_attach that wraps the default one
+local custom_on_attach = function(client, bufnr)
+	-- Call the default NvChad on_attach first
+	on_attach(client, bufnr)
+
+	-- Special handling for nixd's inlay hints
+	if client.name == "nixd" then
+		-- Explicitly enable inlay hints for nixd
+		vim.lsp.inlay_hint.enable(true)
+
+		-- Force-enable capability if needed (some LSPs don't advertise properly)
+		client.server_capabilities.inlayHintProvider = true
+	end
+
+	-- Generic handling for other LSPs
+	if client.server_capabilities.inlayHintProvider then
+		vim.lsp.inlay_hint.enable(true)
+	end
+end
 -- Get username with nil checks
 local username = "abl030"
 local handle_username = io.popen("whoami")
@@ -35,9 +54,12 @@ local nvim_lsp = require("lspconfig")
 local flake_path = "/home/" .. username .. "/nixosconfig"
 
 nvim_lsp.nixd.setup({
-	cmd = { "nixd" },
+	cmd = { "nixd", "--inlay-hints=true" }, -- Add the flag here
 	settings = {
 		nixd = {
+			nixpkgs = {
+				expr = "import <nixpkgs> { }",
+			},
 			options = {
 				home_manager = {
 					expr = '(builtins.getFlake ("git+file://" + toString "'
@@ -49,7 +71,7 @@ nvim_lsp.nixd.setup({
 			},
 		},
 	},
-	on_attach = on_attach,
+	on_attach = custom_on_attach,
 	on_init = on_init,
 	capabilities = capabilities,
 })
