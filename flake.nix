@@ -101,6 +101,11 @@
             specialArgs = extraSpecialArgs; # Pass extraSpecialArgs here
             modules = [
               config.configurationFile
+              {
+                nix.nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
+                # Optional: Set registry for consistency
+                nix.registry.nixpkgs.flake = inputs.nixpkgs;
+              }
             ];
           })
           hosts);
