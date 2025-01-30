@@ -5,34 +5,27 @@ local capabilities = require("nvchad.configs.lspconfig").capabilities
 local lspconfig = require("lspconfig")
 local servers = { "ts_ls", "yamlls", "marksman", "pyright", "bashls", "jsonls" }
 
--- lsps with default config
-for _, lsp in ipairs(servers) do
-	lspconfig[lsp].setup({
-		on_attach = on_attach,
-		on_init = on_init,
-		capabilities = capabilities,
-	})
-end
-
 -- Create a custom on_attach that wraps the default one
+-- This allows inlay hints to be enabled for all LSPs
 local custom_on_attach = function(client, bufnr)
 	-- Call the default NvChad on_attach first
 	on_attach(client, bufnr)
-
-	-- Special handling for nixd's inlay hints
-	if client.name == "nixd" then
-		-- Explicitly enable inlay hints for nixd
-		vim.lsp.inlay_hint.enable(true)
-
-		-- Force-enable capability if needed (some LSPs don't advertise properly)
-		client.server_capabilities.inlayHintProvider = true
-	end
 
 	-- Generic handling for other LSPs
 	if client.server_capabilities.inlayHintProvider then
 		vim.lsp.inlay_hint.enable(true)
 	end
 end
+
+-- lsps with default config
+for _, lsp in ipairs(servers) do
+	lspconfig[lsp].setup({
+		on_attach = custom_on_attach,
+		on_init = on_init,
+		capabilities = capabilities,
+	})
+end
+
 -- Get username with nil checks
 local username = "abl030"
 local handle_username = io.popen("whoami")
@@ -74,4 +67,14 @@ nvim_lsp.nixd.setup({
 	on_attach = custom_on_attach,
 	on_init = on_init,
 	capabilities = capabilities,
+})
+
+require("lspconfig").lua_ls.setup({
+	settings = {
+		Lua = {
+			hint = {
+				enable = true,
+			},
+		},
+	},
 })
