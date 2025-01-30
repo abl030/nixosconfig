@@ -13,6 +13,7 @@
     <nixos-wsl/modules>
     ../common/configuration.nix
     ../services/tailscale/tailscale.nix
+    ../services/mounts/cifs.nix
   ];
 
   wsl.enable = true;
