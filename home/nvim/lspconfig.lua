@@ -70,6 +70,7 @@ nvim_lsp.nixd.setup({
 })
 
 require("lspconfig").lua_ls.setup({
+	on_attach = custom_on_attach, -- Add this line
 	settings = {
 		Lua = {
 			hint = {
