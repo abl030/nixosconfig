@@ -70,11 +70,24 @@ nvim_lsp.nixd.setup({
 })
 
 require("lspconfig").lua_ls.setup({
-	on_attach = custom_on_attach, -- Add this line
+	on_attach = custom_on_attach,
 	settings = {
 		Lua = {
 			hint = {
 				enable = true,
+			},
+			diagnostics = {
+				globals = { "vim" }, -- Add this line
+			},
+			workspace = {
+				library = {
+					[vim.fn.expand("$VIMRUNTIME/lua")] = true, -- Neovim runtime
+					[vim.fn.stdpath("config") .. "/lua"] = true, -- Your config directory
+				},
+				checkThirdParty = false, -- Disable annoying "third party" warnings
+			},
+			runtime = {
+				version = "LuaJIT", -- Tell the LSP we're using LuaJIT
 			},
 		},
 	},
