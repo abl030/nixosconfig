@@ -1,53 +1,48 @@
-local on_attach = require("nvchad.configs.lspconfig").on_attach
-local on_init = require("nvchad.configs.lspconfig").on_init
-local capabilities = require("nvchad.configs.lspconfig").capabilities
+-- ~/custom/configs/lspconfig.lua
 
+local nvlsp = require("nvchad.configs.lspconfig")
 local lspconfig = require("lspconfig")
-local servers = { "ts_ls", "yamlls", "marksman", "pyright", "bashls", "jsonls" }
 
--- Create a custom on_attach that wraps the default one
--- This allows inlay hints to be enabled for all LSPs
+-- Load NvChad's default LSP configurations
+nvlsp.defaults()
+
+-- Create custom on_attach to preserve NvChad's keymaps + add inlay hints
 local custom_on_attach = function(client, bufnr)
-	-- Call the default NvChad on_attach first
-	on_attach(client, bufnr)
-
-	-- Generic handling for other LSPs
-	if client.server_capabilities.inlayHintProvider then
-		vim.lsp.inlay_hint.enable(true)
-	end
+	nvlsp.on_attach(client, bufnr) -- Preserve default keymaps
+	vim.lsp.inlay_hint.enable(true) -- Your custom inlay hints
 end
 
--- lsps with default config
-for _, lsp in ipairs(servers) do
+-- List of standard LSP servers with default config
+local default_servers = {
+	"html",
+	"cssls",
+	"ts_ls",
+	"yamlls",
+	"marksman",
+	"pyright",
+	"bashls",
+	"jsonls",
+}
+
+-- Configure default servers
+for _, lsp in ipairs(default_servers) do
 	lspconfig[lsp].setup({
 		on_attach = custom_on_attach,
-		on_init = on_init,
-		capabilities = capabilities,
+		on_init = nvlsp.on_init,
+		capabilities = nvlsp.capabilities,
 	})
 end
 
--- Get username with nil checks
-local username = "abl030"
-local handle_username = io.popen("whoami")
-if handle_username then
-	username = handle_username:read("*l") or username
-	handle_username:close()
-end
+-- Special configurations ------------------------------------------------------
 
--- Get hostname with nil checks
-local hostname = "localhost"
-local handle_hostname = io.popen("hostname")
-if handle_hostname then
-	hostname = handle_hostname:read("*l") or hostname
-	handle_hostname:close()
-end
+-- Nixd configuration
+local username = vim.fn.getenv("USER") or "user"
+local hostname = vim.fn.hostname()
 
--- Set up nixd with error handling
-local nvim_lsp = require("lspconfig")
-local flake_path = "/home/" .. username .. "/nixosconfig"
-
-nvim_lsp.nixd.setup({
-	cmd = { "nixd", "--inlay-hints=true" }, -- Add the flag here
+lspconfig.nixd.setup({
+	cmd = { "nixd", "--inlay-hints=true" },
+	on_attach = custom_on_attach,
+	capabilities = nvlsp.capabilities,
 	settings = {
 		nixd = {
 			nixpkgs = {
@@ -55,39 +50,43 @@ nvim_lsp.nixd.setup({
 			},
 			options = {
 				home_manager = {
-					expr = '(builtins.getFlake ("git+file://" + toString "'
-						.. flake_path
-						.. '")).homeConfigurations."'
+					expr = '(builtins.getFlake ("git+file://" + toString "/home/'
+						.. username
+						.. '/nixosconfig")).homeConfigurations."'
 						.. hostname
 						.. '".options',
 				},
 			},
 		},
 	},
-	on_attach = custom_on_attach,
-	on_init = on_init,
-	capabilities = capabilities,
 })
 
-require("lspconfig").lua_ls.setup({
+-- Gave up on mergin the default NVChad LSP config for Lua. All we are doing here is recreating the NVChad
+-- default on_attach and adding the inlay hints.
+lspconfig.lua_ls.setup({
 	on_attach = custom_on_attach,
+	capabilities = nvlsp.capabilities,
+	on_init = nvlsp.on_init,
 	settings = {
 		Lua = {
 			hint = {
 				enable = true,
 			},
 			diagnostics = {
-				globals = { "vim" }, -- Add this line
+				globals = { "vim" },
 			},
 			workspace = {
+				checkThirdParty = false,
 				library = {
-					[vim.fn.expand("$VIMRUNTIME/lua")] = true, -- Neovim runtime
-					[vim.fn.stdpath("config") .. "/lua"] = true, -- Your config directory
+					-- Add any custom paths here
+					vim.fn.expand("$VIMRUNTIME/lua"),
+					vim.fn.expand("$VIMRUNTIME/lua/vim/lsp"),
+					vim.fn.stdpath("data") .. "/lazy/ui/nvchad_types",
+					vim.fn.stdpath("data") .. "/lazy/lazy.nvim/lua/lazy",
+					"${3rd}/luv/library",
 				},
-				checkThirdParty = false, -- Disable annoying "third party" warnings
-			},
-			runtime = {
-				version = "LuaJIT", -- Tell the LSP we're using LuaJIT
+				maxPreload = 100000,
+				preloadFileSize = 10000,
 			},
 		},
 	},
