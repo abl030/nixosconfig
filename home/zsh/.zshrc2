@@ -52,6 +52,23 @@ alias clear_dots='git stash && git stash clear'
 
 # alias tailscale_down='sudo tailscale down && sudo systemctl stop tailscale-lan-priority'
 
+
+cdd() {
+  if [[ -z "$1" ]]; then
+    echo "Usage: cdd <search term>"
+    return 1
+  fi
+
+  local dir
+  dir=$(plocate -i "$1" | fzf --height 40% --reverse --preview 'ls -l {}' --preview-window right:50%:wrap)
+
+  if [[ -n "$dir" && -d "$dir" ]]; then
+    cd "$dir" || return 1
+  else
+    echo "No directory selected or directory does not exist."
+  fi
+}
+
 # tailscale start script with our service
 # a todo will be make this a simple script
 tailscale() {
@@ -64,6 +81,50 @@ tailscale() {
   else
     echo "Usage: tailscale {up|down|set|status|login|logout|help}"
   fi
+}
+
+mvcopy() {
+  if [[ -z "$1" ]]; then
+    echo "Usage: mvcopy <search term>"
+    return 1
+  fi
+
+  # Step 1: Search for the source file/directory
+  local src
+  src=$(plocate -i "$1" | fzf --height 40% --reverse --preview 'ls -l {}' --preview-window right:50%:wrap)
+
+  if [[ -z "$src" ]]; then
+    echo "No source selected."
+    return 1
+  fi
+
+  # Step 2: Search for the destination directory
+  local dest
+  dest=$(find ~ -type d 2>/dev/null | fzf --height 40% --reverse --preview 'ls -l {}' --preview-window right:50%:wrap)
+
+  if [[ -z "$dest" ]]; then
+    echo "No destination selected."
+    return 1
+  fi
+
+  # Step 3: Confirm the action (move or copy)
+  echo "Do you want to move (m) or copy (c) '$src' to '$dest'?"
+  read -r action
+
+  case $action in
+    m|M)
+      echo "Moving '$src' to '$dest'..."
+      rsync -av --progress --remove-source-files "$src" "$dest" && echo "Move complete!"
+      ;;
+    c|C)
+      echo "Copying '$src' to '$dest'..."
+      rsync -av --progress "$src" "$dest" && echo "Copy complete!"
+      ;;
+    *)
+      echo "Invalid action. Aborting."
+      return 1
+      ;;
+  esac
 }
 
 # export PYENV_ROOT="$HOME/.pyenv"
