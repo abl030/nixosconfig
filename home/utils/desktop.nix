@@ -29,6 +29,7 @@
     pkgs.zotero-beta
     # pkgs.linuxKernel.packages.linux_latest_libre.turbostat
     pkgs.neovide
+    pkgs.ffmpeg
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix

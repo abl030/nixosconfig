@@ -20,7 +20,7 @@
       {
         name = "Brother_MFC_L2750DW";
         location = "Home";
-        deviceUri = "ipp://192.168.1.131:631/ipp/print";
+        deviceUri = "ipp://192.168.1.21:631/ipp/print";
         model = "brother-MFCL2750DW-cups-en.ppd";
         ppdOptions = {
           PageSize = "A4";
