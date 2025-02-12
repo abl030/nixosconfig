@@ -264,5 +264,9 @@ save_gnome() {
 
 echo "did this work"
 
-
-eval "$(zoxide init zsh)"
+# Try to initialize zoxide with a 10-second timeout.
+if output=$(timeout 10 zoxide init zsh 2>/dev/null); then
+  eval "$output"
+else
+  echo "zoxide eval failed, is the server down?"
+fi
