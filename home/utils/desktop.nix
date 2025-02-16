@@ -30,6 +30,7 @@
     # pkgs.linuxKernel.packages.linux_latest_libre.turbostat
     pkgs.neovide
     pkgs.ffmpeg
+    pkgs.zathura
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix
