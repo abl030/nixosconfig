@@ -264,9 +264,16 @@ save_gnome() {
 
 echo "did this work"
 
-# Try to initialize zoxide with a 10-second timeout.
+# Load zoxide with timeout on both init and eval
 if output=$(timeout 10 zoxide init zsh 2>/dev/null); then
-  eval "$output"
+  # Use a subshell to evaluate with an additional timeout
+  ( eval "$output" ) & pid=$!
+  sleep 10
+  if kill $pid 2>/dev/null; then
+    echo "zoxide eval timed out, server may be down"
+  else
+    wait $pid  # Ensure clean exit if completed
+  fi
 else
-  echo "zoxide eval failed, is the server down?"
+  echo "zoxide init failed, server may be down"
 fi
