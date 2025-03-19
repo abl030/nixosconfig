@@ -264,7 +264,7 @@ save_gnome() {
 
 echo "did this work"
 
-eval "$(zoxide init zsh)"
+# eval "$(zoxide init zsh)"
 
 # # Load zoxide with timeout on both init and eval
 # if output=$(timeout 10 zoxide init zsh 2>/dev/null); then
@@ -279,3 +279,10 @@ eval "$(zoxide init zsh)"
 # else
 #   echo "zoxide init failed, server may be down"
 # fi
+
+if timeout 1s zoxide init zsh &>/dev/null; then
+    eval "$(zoxide init zsh)"
+else
+    echo "Skipping zoxide due to slow response"
+fi
+

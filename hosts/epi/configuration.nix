@@ -201,7 +201,7 @@
     3389
     3390
   ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
+  networking.firewall.allowedUDPPorts = [ 5140 ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
