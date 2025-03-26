@@ -13,6 +13,7 @@
     pkgs.fish
     pkgs.unzip
     pkgs.nvd
+    pkgs.speedtest-cli
 
     # Rust Utils
     pkgs.fzf
