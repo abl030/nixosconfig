@@ -38,6 +38,7 @@
   #enable virtualbox
   virtualisation.virtualbox.host.enable = true;
   users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
+  virtualisation.virtualbox.host.enableExtensionPack = true;
   boot.kernelParams = [
     #This is to fix virtualbox in the 6.12 kernel
     "kvm.enable_virt_at_load=0"
@@ -158,7 +159,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" ];
+    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
