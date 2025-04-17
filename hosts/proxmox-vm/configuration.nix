@@ -19,6 +19,7 @@
 
   # Bootloader.
   boot.loader.grub.enable = true;
+  boot.loader.grub.devices = [ "/dev/sda" ];
 
   # Enable networking
   networking.networkmanager.enable = true;
