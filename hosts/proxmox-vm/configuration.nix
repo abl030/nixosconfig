@@ -18,10 +18,11 @@
   virtualisation.docker.enable = true;
 
   # Bootloader.
-  # boot.loader.grub.enable = true;
-  # boot.loader.grub.devices = [ "/dev/sda" ];
-  boot.loader.systemd-boot.enable = true;
+  boot.loader.grub.enable = true;
+  boot.loader.grub.devices = [ "/dev/sda" ];
   boot.loader.efi.canTouchEfiVariables = true;
+  # boot.loader.systemd-boot.enable = true;
+  # boot.loader.efi.canTouchEfiVariables = true;
 
   # Enable networking
   networking.networkmanager.enable = true;
