@@ -19,8 +19,9 @@
 
   # Bootloader.
   boot.loader.grub.enable = true;
-  boot.loader.grub.devices = [ "/dev/sda" ];
+  # boot.loader.grub.devices = [ "/dev/sda" ];
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.grub.efiSupport = true; # Tell GRUB to install the UEFI version
   # boot.loader.systemd-boot.enable = true;
   # boot.loader.efi.canTouchEfiVariables = true;
 
