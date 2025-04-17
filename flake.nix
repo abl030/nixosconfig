@@ -91,6 +91,13 @@
           homeDirectory = "/home/abl030/";
         };
 
+        proxmox-vm = {
+          configurationFile = ./hosts/proxmox-vm/configuration.nix;
+          homeFile = ./hosts/proxmox-vm/home.nix;
+          user = "abl030";
+          homeDirectory = "/home/abl030";
+        };
+
       };
     in
     {
