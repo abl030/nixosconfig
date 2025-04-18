@@ -82,5 +82,5 @@ echo "You can now proceed with:"
 echo "  nixos-generate-config --root /mnt"
 echo "  # (Edit /mnt/etc/nixos/configuration.nix if needed)"
 echo "  nixos-install --flake /mnt/etc/nixos#yourFlakeOutputName" # Adjust flake path/name as needed
-
+nixos-generate-config --root /mnt
 exit 0
