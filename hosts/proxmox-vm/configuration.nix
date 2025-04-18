@@ -12,7 +12,7 @@
       # ../services/mounts/cifs.nix
 
       ../common/configuration.nix
-      <nixpkgs/nixos/modules/virtualisation/qemu-vm.nix>
+      "${inputs.nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
     ];
 
   #enable docker
