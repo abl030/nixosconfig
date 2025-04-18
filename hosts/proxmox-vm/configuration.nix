@@ -12,7 +12,6 @@
       # ../services/mounts/cifs.nix
 
       ../common/configuration.nix
-      "${inputs.nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
     ];
 
   #enable docker
@@ -24,7 +23,7 @@
   # Enable networking
   networking.networkmanager.enable = true;
   # Enable the qemu agent
-  virtualisation.qemu.guestAgent.enable = true;
+  # virtualisation.qemu.guestAgent.enable = true;
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
@@ -77,14 +76,14 @@
   ];
   networking.firewall.allowedUDPPorts = [ ];
 
-  # fileSystems."/" = {
-  #   device = "/dev/disk/by-label/nixos"; # Match label during formatting
-  #   fsType = "ext4";
-  # };
-  # fileSystems."/boot" = {
-  #   device = "/dev/disk/by-label/BOOT"; # Match label during formatting
-  #   fsType = "vfat";
-  # };
+  fileSystems."/" = {
+    device = "/dev/disk/by-label/nixos"; # Match label during formatting
+    fsType = "ext4";
+  };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/BOOT"; # Match label during formatting
+    fsType = "vfat";
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
