@@ -65,6 +65,13 @@
         forwardX11 = true;
         forwardX11Trusted = true;
       };
+      "doc1" = {
+        proxyJump = "abl030@nixos";
+        hostname = "127.0.0.5";
+        user = "abl030";
+        forwardX11 = true;
+        forwardX11Trusted = true;
+      };
     };
   };
 }
