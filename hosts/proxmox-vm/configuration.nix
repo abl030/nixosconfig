@@ -59,7 +59,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" ];
+    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -83,11 +83,12 @@
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
+  networking.firewall.enable = false;
   # Open ports in the firewall.
-  networking.firewall.allowedTCPPorts = [
-  ];
-  networking.firewall.allowedUDPPorts = [ ];
-
+  # networking.firewall.allowedTCPPorts = [
+  # ];
+  # networking.firewall.allowedUDPPorts = [ ];
+  #
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos"; # Match label during formatting
     fsType = "ext4";
