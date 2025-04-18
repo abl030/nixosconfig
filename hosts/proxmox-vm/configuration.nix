@@ -22,6 +22,8 @@
   boot.loader.efi.canTouchEfiVariables = true;
   # Enable networking
   networking.networkmanager.enable = true;
+  # Enable the qemu agent
+  virtualisation.qemu.guestAgent.enable = true;
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
