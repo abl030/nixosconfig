@@ -1,10 +1,15 @@
-version: "3"
+version: "3.8"
 services:
   watchtower:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Hectic way that gemini wants us to inherit our timezone
+      - /etc/localtime:/etc/localtime:ro # <---- Add this line (read-only is good practice)
     environment:
+      # TZ variable is not needed if mounting /etc/localtime
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_SCHEDULE=0 3 * * *
+      # - WATCHTOWER_REVIVE_STOPPED=true # Uncomment if you want stopped containers to start after update
+      - WATCHTOWER_SCHEDULE=0 0 3 * * * # Runs daily at 3:00 AM according to host time
+    restart: unless-stopped
