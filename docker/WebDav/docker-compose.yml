@@ -9,10 +9,10 @@ services:
     volumes:
       - /mnt/data/Life/Andy/Education/Zotero Library/:/var/webdav/public # Maps your Unraid path to the container path
     environment:
-      WEBDAV_USERNAME: abl030
-      WEBDAV_PASSWORD: # Consider using Docker secrets or .env file for sensitive data
-      PUID: 99 # User ID for file permissions
-      PGID: 100 # Group ID for file permissions
+      WEBDAV_USERNAME: ${WEBDAV_USERNAME}
+      WEBDAV_PASSWORD: ${WEBDAV_PASSWORD}
+      PUID: 33 # User ID for file permissions
+      PGID: 33 # Group ID for file permissions
       UMASK: "0000" # File creation mask (using quotes as it starts with 0)
     restart: unless-stopped # Automatically restart the container unless manually stopped
 
