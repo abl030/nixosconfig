@@ -1,42 +1,32 @@
-# docker-compose.yml (lives in your git repo, NOT /mnt/docker/kopia/)
-
 version: "3.7"
 services:
   kopia:
     image: kopia/kopia:latest
     hostname: kopia
-    container_name: Kopia
+    container_name: kopiaphotos
     restart: unless-stopped
     ports:
       - 51515:51515
     # Setup the server that provides the web gui
-    # Username and password are now pulled from the .env file
     command:
       - server
       - start
       - --disable-csrf-token-checks
-      - --insecure # Consider removing if you set up HTTPS/proxy
+      - --insecure
       - --address=0.0.0.0:51515
       - --server-username=${KOPIA_SERVER_USER}
       - --server-password=${KOPIA_SERVER_PASSWORD}
     environment:
-      # Set repository password from the .env file
-      KOPIA_PASSWORD: "${KOPIA_REPO_PASSWORD}"
-      USER: "User"
+      # Set repository password
+      # Set repository password
+      KOPIA_PASSWORD: $KOPIA_PASSWORD
+      USER: "abc"
     volumes:
-      # Mount local folders needed by kopia, paths pulled from .env file
-      - ${KOPIA_CONFIG_DIR}:/app/config
-      - ${KOPIA_CACHE_DIR}:/app/cache
-      - ${KOPIA_LOGS_DIR}:/app/logs
-      - ${KOPIA_REPO_DIR}:/repository
+      - /mnt/docker/kopiaphotos/config:/app/config
+      - /mnt/docker/kopiaphotos/cache:/app/cache
+      - /mnt/docker/kopiaphotos/logs:/app/logs
+      # - /mnt/docker/kopiaphotos/repository:/repository
       # Mount path for browsing mounted snaphots, path pulled from .env file
-      - ${KOPIA_TMP_DIR}:/tmp:shared
+      - /mnt/docker/kopiaphotos/tmp:/tmp:shared
 
       - /mnt/data2/Life/Photos:/photos:ro
-      # --- Mount local folders to snapshot ---
-      # Add your data directories here using variables defined in .env
-      # You need to ADD the corresponding variables (like DATA_DIR_MEDIA)
-      # to your /mnt/docker/kopia/.env file first!
-      # Example:
-      # - ${DATA_DIR_MEDIA}:/data/media:ro
-      # - ${DATA_DIR_DOCS}:/data/docs:ro
