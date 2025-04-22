@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=99 # Replace with your user ID if needed
+      - PGID=100 # Replace with your group ID if needed
+      - UMASK=0000 # Optional
+      - TZ=Perth/Australia # Optional: Set your timezone
+      # Set to your Proxmox host's LAN IP for local discovery/apps that might need it
+      # Tailscale access will use the Tailscale IP automatically due to shared network
+      - JELLYFIN_PublishedServerUrl=192.168.1.12 # <<< CHANGE to Proxmox host LAN IP
+    volumes:
+      - /mnt/docker/jellyfin/:/config # <<< CHANGE THIS
+      - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
+      - /mnt/data/Media/Movies/:/data/movies:ro # <<< CHANGE THIS
+      # Add more media volumes as needed
+    ports:
+      # These ports are exposed on the HOST IP for local LAN access
+      - "8096:8096" # Web UI HTTP
+      - "8920:8920" # Optional: Web UI HTTPS
+      - "7359:7359/udp" # Optional: Client discovery (might still work locally)
+      - "1900:1900/udp" # Optional: DLNA (might still work locally)
+    devices:
+      # AMD GPU passthrough for Jellyfin
+      - /dev/dri:/dev/dri
+    group_add:
+      # Access to render nodes for VA-API
+      - render
+      # - video # Add if needed
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # Memory limit for Jellyfin itself
+          memory: 4G # Adjust as needed
+    # NOTE: No network_mode here, it uses the default bridge
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: jellyfin-tailscale-sidecar
+    # CRITICAL: Use the network namespace of the 'jellyfin' service
+    network_mode: service:jellyfin
+    # Define dependencies if needed, though often not required for network sharing
+    # depends_on:
+    #   - jellyfin # Usually not needed as network is shared immediately
+    volumes:
+      # Persist Tailscale state
+      - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
+      # Required for Tailscale tunnel device
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      # Required capabilities for Tailscale
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      # IMPORTANT: Generate an Auth Key in Tailscale Admin Console (Settings -> Keys)
+      # Use a reusable or ephemeral key. Pre-authorized is best if possible.
+      - TS_HOSTNAME=jellyfin # Name that appears in Tailscale admin console
+      - TS_STATE_DIR=/var/lib/tailscale # Tell tailscale where state is mounted
+      - TS_USERSPACE=false # Use kernel mode networking (requires /dev/net/tun and caps)
+      - TS_ACCEPT_DNS=false # Recommended unless you specifically need container DNS via Tailscale
+      # Optional: Advertise this node as an exit node (unlikely needed for Jellyfin sharing)
+      # - TS_EXTRA_ARGS=--advertise-exit-node
+      # Optional: Set the user who manages this node in Tailscale ACLs
+      # - TS_EXTRA_ARGS=--operator=your_tailscale_login_name
+    restart: unless-stopped
