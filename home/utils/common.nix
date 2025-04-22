@@ -14,6 +14,7 @@
     pkgs.unzip
     pkgs.nvd
     pkgs.speedtest-cli
+    pkgs.lazydocker
 
     # Rust Utils
     pkgs.fzf
