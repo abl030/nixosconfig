@@ -26,10 +26,6 @@ services:
     devices:
       # AMD GPU passthrough for Jellyfin
       - /dev/dri:/dev/dri
-    group_add:
-      # Access to render nodes for VA-API
-      - render
-      # - video # Add if needed
     restart: unless-stopped
     deploy:
       resources:
