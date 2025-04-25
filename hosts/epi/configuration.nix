@@ -159,7 +159,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" ];
+    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
