@@ -1,0 +1,18 @@
+services:
+  paperless-ai:
+    image: clusterzx/paperless-ai
+    container_name: paperless-ai
+    network_mode: bridge
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      - PUID=0000
+      - PGID=0000
+      - PAPERLESS_AI_PORT=${PAPERLESS_AI_PORT:-3000}
+    ports:
+      - "3000:${PAPERLESS_AI_PORT:-3000}"
+    volumes:
+      - /mnt/docker/paperless-ai:/app/data
