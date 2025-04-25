@@ -95,7 +95,7 @@
 
     git_status = {
       staged = "[++($count)](green)";
-      modified = "[++($count)](red)"; # Or "[~($count)](yellow)" etc.
+      modified = "[!($count)](red)"; # Or "[~($count)](yellow)" etc.
       untracked = "🤷";
       conflicted = "🏳";
       renamed = "»";
