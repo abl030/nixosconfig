@@ -24,7 +24,7 @@ alias nvs='nvim `tv`'
 
 alias power_monitor='sudo watch "turbostat --quiet --num_iterations 1 --interval 1 --show PkgWatt --Summary | tail -1"'
 
-alias cd='z'
+# alias cd='z'
 
 alias cdi='zi'
 
@@ -262,7 +262,6 @@ save_gnome() {
     sed -i '/toggle-state\|user-enabled/ s/^\([^#]*\)$/#\1/' dconf.nix
 }
 
-echo "did this work"
 
 # eval "$(zoxide init zsh)"
 
@@ -280,9 +279,13 @@ echo "did this work"
 #   echo "zoxide init failed, server may be down"
 # fi
 
+echo "entering our zoxide loop"
 if timeout 1s zoxide init zsh &>/dev/null; then
     eval "$(zoxide init zsh)"
 else
     echo "Skipping zoxide due to slow response"
 fi
 
+echo "we're out of the loop!"
+
+echo "did this work"
