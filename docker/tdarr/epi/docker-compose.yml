@@ -1,0 +1,24 @@
+services:
+  tdarr-node:
+    container_name: tdarr-node
+    image: ghcr.io/haveagitgat/tdarr_node:latest
+    restart: unless-stopped
+    environment:
+      - TZ=Perth/Australia
+      # - PUID=${PUID}
+      # - PGID=${PGID}
+      - UMASK_SET=002
+      - nodeName=EpiNode
+      - serverIP=192.168.1.2
+      - serverPort=8266
+      - inContainer=true
+      - ffmpegVersion=7
+
+    volumes:
+      - /docker/tdarr/configs:/app/configs
+      - /docker/tdarr/logs:/app/logs
+      - /mnt/data/Media:/mnt/media
+      - "/mnt/data/Media/Transcode Temp/:/temp"
+
+    devices:
+      - /dev/dri:/dev/dri
