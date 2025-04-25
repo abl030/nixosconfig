@@ -15,8 +15,7 @@
       "[](bg:#769ff0 fg:#a3aed2)" +
       "$directory" +
       "[](fg:#769ff0 bg:#394260)" +
-      "$git_branch" +
-      "$git_status" +
+      "$all" +
       "[](fg:#394260 bg:#212736)" +
       "$nodejs" +
       "$rust" +
