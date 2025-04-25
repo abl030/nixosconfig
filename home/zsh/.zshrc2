@@ -24,7 +24,7 @@ alias nvs='nvim `tv`'
 
 alias power_monitor='sudo watch "turbostat --quiet --num_iterations 1 --interval 1 --show PkgWatt --Summary | tail -1"'
 
-# alias cd='z'
+alias cd='z'
 
 alias cdi='zi'
 
