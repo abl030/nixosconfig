@@ -37,11 +37,13 @@
   '';
 
   # install nerdfonts
+  # and common packages
   environment.systemPackages = [
     pkgs.nerd-fonts.sauce-code-pro
     pkgs.nvd
     pkgs.xorg.xauth
     pkgs.home-manager
+    pkgs.parted
   ];
   # need to run fc-cache -fv to update font fc-cache
 
