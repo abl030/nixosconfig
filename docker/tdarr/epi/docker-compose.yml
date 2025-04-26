@@ -1,24 +1,69 @@
+version: "3.8" # Specify a version, 3.8 is recent and widely compatible
+
 services:
   tdarr-node:
     container_name: tdarr-node
     image: ghcr.io/haveagitgat/tdarr_node:latest
     restart: unless-stopped
     environment:
-      - TZ=Perth/Australia
-      # - PUID=${PUID}
-      # - PGID=${PGID}
+      - TZ=Australia/Perth # Correct TZ format
+      # - PUID=${PUID} # Ensure these are uncommented and set if needed for permissions
+      # - PGID=${PGID} # Ensure these are uncommented and set if needed for permissions
       - UMASK_SET=002
       - nodeName=EpiNode
       - serverIP=192.168.1.2
       - serverPort=8266
       - inContainer=true
       - ffmpegVersion=7
-
     volumes:
       - /docker/tdarr/configs:/app/configs
       - /docker/tdarr/logs:/app/logs
-      - /mnt/data/Media:/mnt/media
-      - "/mnt/data/Media/Transcode Temp/:/temp"
-
+      - /mnt/data/Media:/mnt/media # Critical mount
+      - /mnt/data/Media/Transcode Temp/:/temp # Assumes this is inside /mnt/data/Media
+      # Consider relative path for temp if it's always inside the media mount:
+      # - /mnt/data/Media/Transcode Temp:/mnt/media/Transcode Temp
+      # Or map it separately if it's truly independent:
+      # - /path/to/host/transcode/temp:/temp
     devices:
       - /dev/dri:/dev/dri
+    healthcheck:
+      # Test by trying to access the root of the media mountpoint inside the container.
+      # Use timeout to prevent hangs on stale mounts. Exit 1 if it fails/times out.
+      test: ["CMD-SHELL", "timeout 10s stat /mnt/media || exit 1"]
+      interval: 30s # Check every 30 seconds
+      timeout: 15s # Wait up to 15 seconds for the check command to complete
+      retries: 5 # Consider unhealthy after 5 consecutive failures
+      start_period: 60s # Wait 60 seconds after container start before first check
+    labels:
+      # Add this label so autoheal knows to monitor this container
+      - autoheal=true
+
+  autoheal:
+    container_name: autoheal
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      # Optional: Set loop interval (default 5 seconds)
+      # - AUTOHEAL_INTERVAL=30
+      # Optional: Only monitor containers started since autoheal started (default false)
+      # - AUTOHEAL_START_PERIOD=0
+      # Optional: Stop timeout before sending SIGKILL (default 10 seconds)
+      # - AUTOHEAL_STOP_TIMEOUT=10
+      # Optional: Docker socket location (usually fine as default)
+      # - DOCKER_SOCK=/var/run/docker.sock
+      # Optional: Don't autoheal certain containers (by name)
+      # - AUTOHEAL_CONTAINER_LABEL=all # Default, set to other label name if needed
+      # Set Timezone
+      - TZ=Australia/Perth
+    volumes:
+      # Mount the docker socket so autoheal can interact with docker daemon
+      - /var/run/docker.sock:/var/run/docker.sock
+# Optional: Define networks if needed, otherwise default bridge is used
+# networks:
+#   default:
+#     driver: bridge
+
+# Optional: Define top-level volumes if you prefer named volumes
+# volumes:
+#   tdarr-configs:
+#   tdarr-logs:
