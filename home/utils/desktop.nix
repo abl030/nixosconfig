@@ -31,6 +31,7 @@
     pkgs.neovide
     pkgs.ffmpeg
     pkgs.zathura
+    pkgs.moonlight-qt
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix
