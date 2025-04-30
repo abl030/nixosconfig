@@ -15,6 +15,7 @@
     pkgs.nvd
     pkgs.speedtest-cli
     pkgs.lazydocker
+    pkgs.bind.dnsutils
 
     # Rust Utils
     pkgs.fzf
