@@ -38,7 +38,7 @@ alias dcb="bluetoothctl disconnect 24:24:B7:58:C6:49"
 
 alias rb="bash ~/nixosconfig/scripts/repair_buds.sh"
 
-alias cm="bluetoothctl connect CB:75:24:8D:69:D0"
+alias cm="bluetoothctl connect CB:75:24:95:69:D0"
 
 alias ytlisten='mpv --no-video --ytdl-format=bestaudio --msg-level=ytdl_hook=debug'
 
