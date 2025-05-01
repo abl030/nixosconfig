@@ -1,3 +1,6 @@
+# Leaving this here for reference.  The micorsoft mousse here increments its bluetooth address
+# every time it is paired with a new ccomputer. So this script doesn't help us.
+# The mouse essentially can only be used with one computer at a time.
 #!/usr/bin/bash
 
 # Define the MAC address of your mouse
@@ -42,10 +45,10 @@ sleep 1
 
 echo "Attempting to pair with mouse (${MOUSE_ADDR})..."
 bluetoothctl pair ${MOUSE_ADDR} || {
-    echo "ERROR: Pairing failed. Ensure the mouse is discoverable and in range."
-    # Optionally turn scan back off if pairing fails early
-    bluetoothctl scan off &>/dev/null
-    exit 1
+  echo "ERROR: Pairing failed. Ensure the mouse is discoverable and in range."
+  # Optionally turn scan back off if pairing fails early
+  bluetoothctl scan off &>/dev/null
+  exit 1
 }
 
 # Turn off scanning explicitly after successful pairing attempt
@@ -53,14 +56,14 @@ bluetoothctl scan off &>/dev/null
 
 echo "Attempting to connect to mouse (${MOUSE_ADDR})..."
 bluetoothctl connect ${MOUSE_ADDR} || {
-    echo "ERROR: Connection failed. The mouse might have exited pairing mode or there was an issue."
-    exit 1
+  echo "ERROR: Connection failed. The mouse might have exited pairing mode or there was an issue."
+  exit 1
 }
 
 echo "Marking mouse (${MOUSE_ADDR}) as trusted..."
 bluetoothctl trust ${MOUSE_ADDR} || {
-    echo "WARNING: Failed to mark mouse as trusted. It might not auto-connect next time."
-    # Continue despite warning, as connection succeeded.
+  echo "WARNING: Failed to mark mouse as trusted. It might not auto-connect next time."
+  # Continue despite warning, as connection succeeded.
 }
 
 # If you prefer to use your specific trust script:
