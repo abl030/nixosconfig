@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  autoheal:
+    container_name: autoheal
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      - TZ=Australia/Perth
+      # Optional: Define the label autoheal looks for.
+      # 'all' or leaving it unset defaults to monitoring containers with label `autoheal=true`.
+      # - AUTOHEAL_CONTAINER_LABEL=all
+      # Optional: Set loop interval (default 5 seconds)
+      # - AUTOHEAL_INTERVAL=30
+      # Optional: Stop timeout before sending SIGKILL (default 10 seconds)
+      # - AUTOHEAL_STOP_TIMEOUT=10
+    volumes:
+      # REQUIRED: Mount the docker socket so autoheal can interact with docker daemon
+      - /var/run/docker.sock:/var/run/docker.sock

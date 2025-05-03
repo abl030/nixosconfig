@@ -1,13 +1,24 @@
 services:
   audiobookshelf:
+    container_name: audiobookshelf
     image: ghcr.io/advplyr/audiobookshelf:latest
     restart: unless-stopped
     ports:
       - 13378:80
     volumes:
-      - /mnt/data/Media/Books/Audiobooks:/audiobooks
+      - /mnt/data/Media/Books/Audiobooks:/audiobooks # Monitored mount
       # - /mnt/data/Media/Podcasts:/podcasts
       - /mnt/docker/audiobookshelf:/config
       - /mnt/docker/audiobookshelf/metadata:/metadata
     environment:
       - TZ=Australia/Perth
+    healthcheck:
+      # Test Audiobookshelf's primary media mount
+      test: ["CMD-SHELL", "timeout 10s stat /audiobooks || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      # REQUIRED: Label for autoheal to find this container
+      - autoheal=true
