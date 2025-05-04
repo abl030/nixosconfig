@@ -58,3 +58,4 @@ services:
       - /mnt/docker/kopiamum/tmp:/tmp:shared
 
       - /mnt/data/:/data:ro
+      - /mnt/mum/:/mum
