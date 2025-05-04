@@ -32,7 +32,7 @@ services:
   kopiamum:
     image: kopia/kopia:latest
     hostname: kopia
-    container_name: kopiaphotos
+    container_name: kopiamum
     restart: unless-stopped
     ports:
       - 51516:51515
