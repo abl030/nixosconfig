@@ -29,4 +29,32 @@ services:
       # Mount path for browsing mounted snaphots, path pulled from .env file
       - /mnt/docker/kopiaphotos/tmp:/tmp:shared
 
-      - /mnt/data2/Life/Photos:/photos:ro
+  kopiamum:
+    image: kopia/kopia:latest
+    hostname: kopia
+    container_name: kopiaphotos
+    restart: unless-stopped
+    ports:
+      - 51516:51515
+    # Setup the server that provides the web gui
+    command:
+      - server
+      - start
+      - --disable-csrf-token-checks
+      - --insecure
+      - --address=0.0.0.0:51515
+      - --server-username=${KOPIA_SERVER_USER}
+      - --server-password=${KOPIA_SERVER_PASSWORD}
+    environment:
+      # Set repository password
+      # Set repository password
+      KOPIA_PASSWORD: $KOPIA_PASSWORD
+      USER: "abc"
+    volumes:
+      - /mnt/docker/kopiamum/config:/app/config
+      - /mnt/docker/kopiamum/cache:/app/cache
+      - /mnt/docker/kopiamum/logs:/app/logs
+      # Mount path for browsing mounted snaphots, path pulled from .env file
+      - /mnt/docker/kopiamum/tmp:/tmp:shared
+
+      - /mnt/data/:/data:ro
