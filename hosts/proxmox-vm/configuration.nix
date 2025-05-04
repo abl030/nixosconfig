@@ -9,6 +9,8 @@
       ../services/tailscale/tailscale.nix
       # Our mounts
       ../services/mounts/nfs.nix
+      # mum backup mount
+      ../services/mounts/ext.nix
       # ../services/mounts/cifs.nix
 
       ../common/configuration.nix
