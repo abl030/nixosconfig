@@ -16,6 +16,10 @@
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
 
+  # sudo-rs
+  security.sudo-rs.enable = true;
+
+
   # Optimise nix store to save space daily.
   nix.optimise.automatic = true;
   nix.optimise.dates = [ "03:45" ]; # Optional; allows customizing optimisation schedule
