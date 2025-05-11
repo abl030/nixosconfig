@@ -14,8 +14,6 @@
       # ../services/mounts/cifs.nix
 
       ../common/configuration.nix
-      # temporarily add in scheduler for kopia
-      ../../docker/kopia/temp_scheduler.nix
     ];
 
   #enable docker
