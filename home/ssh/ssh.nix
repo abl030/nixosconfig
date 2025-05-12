@@ -72,6 +72,13 @@
         forwardX11 = true;
         forwardX11Trusted = true;
       };
+      "dow2" = {
+        proxyJump = "abl030@downloader2";
+        hostname = "127.0.0.5";
+        user = "abl030";
+        forwardX11 = true;
+        forwardX11Trusted = true;
+      };
     };
   };
 }
