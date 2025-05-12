@@ -35,6 +35,7 @@
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix
+    ../utils/vscode.nix
   ];
 
 }
