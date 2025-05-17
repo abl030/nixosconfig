@@ -21,8 +21,8 @@
       # Our sleep then hibernate script
       # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
       ../framework/sleep-then-hibernate.nix
-      ../framework/hibernate-fix.nix
-      ../framework/hibernatefix2.nix
+      # ../framework/hibernate-fix.nix
+      # ../framework/hibernatefix2.nix
       # Nosleep scripts
       ../services/system/ssh_nosleep.nix
       ../services/system/remote_desktop_nosleep.nix
@@ -59,7 +59,7 @@
   # For now we are using xanmod to limit us to 6.11.
   # This is because 6.12.x breaks hibernation
   # boot.kernelPackages = pkgs.linuxPackages_6_11;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
   # boot.kernelPackages = pkgs.linuxPackages_6_12;
 
   # Bootloader.

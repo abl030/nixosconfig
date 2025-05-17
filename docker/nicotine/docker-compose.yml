@@ -1,0 +1,36 @@
+services:
+  nicotine-plus:
+    image: ghcr.io/fletchto99/nicotine-plus-docker:latest
+    container_name: nicotine-plus # Optional: Assign a specific name to the container
+
+    ports:
+      # WebUI Port
+      - "6080:6080/tcp"
+      - "2234:2234/tcp"
+      - "2235:2235/tcp"
+      - "2236:2236/tcp"
+      - "2237:2237/tcp"
+      - "2238:2238/tcp"
+      - "2239:2239/tcp"
+
+    volumes:
+      # Volume mounts from the XML <Config Type="Path"> entries
+      # Format: "host_path:container_path"
+      - "/mnt/data/Media/Temp/Music/Complete/:/data/downloads/completed" # Complete Downloads
+      - "/mnt/data/Media/Temp/Music/Incomplete/:/data/downloads/incomplete" # Complete Downloads (Incomplete)
+      - "/mnt/data/Media/Music/:/data/share" # Share (Note: XML shows this is not required, but is configured)
+      - "/mnt/nicotine-plus:/config" # Appdata (Config files)
+
+    environment:
+      # Environment variables from the XML <Config Type="Variable"> entries
+      - PUID=99
+      - PGID=100
+      - UMASK=002
+      # You may also need TZ environment variable for timezone, e.g.:
+      # - TZ=Etc/UTC # Or your specific timezone
+
+    restart: unless-stopped # Automatically restart the container unless it's stopped manually
+
+
+    # Other Unraid XML parameters like <Privileged>false</Privileged> are default in Docker
+    # and don't need to be explicitly set unless you need to override the default (e.g., privileged: true)
