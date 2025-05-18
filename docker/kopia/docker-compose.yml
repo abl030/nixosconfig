@@ -28,6 +28,7 @@ services:
       # - /mnt/docker/kopiaphotos/repository:/repository
       # Mount path for browsing mounted snaphots, path pulled from .env file
       - /mnt/docker/kopiaphotos/tmp:/tmp:shared
+      - /mnt/data2/Life/Photos:/photos:ro
 
   kopiamum:
     image: kopia/kopia:latest
