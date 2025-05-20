@@ -25,7 +25,7 @@
       ## And allow gnome-remote-desktop for logged in users
       ../services/display/gnome-remote-desktop.nix
       # Lets try the bluetooth fix after suspend for buds 3 pro
-      ../framework/hibernatefix2.nix
+      # ../framework/hibernatefix2.nix
       # Nosleep scripts
       ../services/system/remote_desktop_nosleep.nix
     ];
