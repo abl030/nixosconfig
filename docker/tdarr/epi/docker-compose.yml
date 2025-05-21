@@ -4,7 +4,7 @@ services:
   tdarr-node:
     container_name: tdarr-node
     image: ghcr.io/haveagitgat/tdarr_node:latest
-    restart: unless-stopped
+    restart: always
     environment:
       - TZ=Australia/Perth # Correct TZ format
       # - PUID=${PUID} # Ensure these are uncommented and set if needed for permissions
