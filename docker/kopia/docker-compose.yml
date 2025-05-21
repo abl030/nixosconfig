@@ -4,7 +4,7 @@ services:
     image: kopia/kopia:latest
     hostname: kopia
     container_name: kopiaphotos
-    restart: unless-stopped
+    restart: always
     ports:
       - 51515:51515
     # Setup the server that provides the web gui
@@ -34,7 +34,7 @@ services:
     image: kopia/kopia:latest
     hostname: kopia
     container_name: kopiamum
-    restart: unless-stopped
+    restart: always
     ports:
       - 51516:51515
     # Setup the server that provides the web gui
