@@ -17,6 +17,7 @@
     pkgs.lazydocker
     pkgs.bind.dnsutils
     pkgs.lazygit
+    pkgs.gnome-disk-utility
 
     # Rust Utils
     pkgs.fzf
