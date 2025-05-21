@@ -46,6 +46,7 @@ alias fzfp='fzf --preview '\''fzf-preview {}'\'''
 
 alias clear_dots='git stash && git stash clear'
 
+alias lzd='lazydocker'
 
 cdd() {
   if [[ -z "$1" ]]; then

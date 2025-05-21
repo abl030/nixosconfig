@@ -32,6 +32,7 @@
     pkgs.ffmpeg
     pkgs.zathura
     pkgs.moonlight-qt
+    pkgs.popsicle
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix

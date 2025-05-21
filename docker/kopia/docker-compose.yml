@@ -4,7 +4,7 @@ services:
     image: kopia/kopia:latest
     hostname: kopia
     container_name: kopiaphotos
-    restart: unless-stopped
+    restart: always
     ports:
       - 51515:51515
     # Setup the server that provides the web gui
@@ -28,12 +28,13 @@ services:
       # - /mnt/docker/kopiaphotos/repository:/repository
       # Mount path for browsing mounted snaphots, path pulled from .env file
       - /mnt/docker/kopiaphotos/tmp:/tmp:shared
+      - /mnt/data2/Life/Photos:/photos:ro
 
   kopiamum:
     image: kopia/kopia:latest
     hostname: kopia
     container_name: kopiamum
-    restart: unless-stopped
+    restart: always
     ports:
       - 51516:51515
     # Setup the server that provides the web gui
