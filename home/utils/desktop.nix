@@ -33,6 +33,7 @@
     pkgs.zathura
     pkgs.moonlight-qt
     pkgs.popsicle
+    pkgs.pinta
   ];
   imports = [
     ../terminals/ghostty/ghostty.nix
