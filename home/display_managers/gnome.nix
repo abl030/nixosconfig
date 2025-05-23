@@ -19,6 +19,7 @@
     pkgs.kdePackages.qtwayland
     pkgs.gnomeExtensions.paperwm
     pkgs.gnomeExtensions.allow-locked-remote-desktop
+    pkgs.gnomeExtensions.system-monitor
   ];
 
   imports = [
