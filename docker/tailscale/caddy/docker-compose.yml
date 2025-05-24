@@ -33,5 +33,5 @@ services:
       - /mnt/docker/tailscale/caddy_data:/data # Persist Caddy's state (certs, etc.)
       - /mnt/docker/tailscale/caddy_config:/config # Persist Caddy's config (if needed)
     restart: always
-    depends_on:
-      - tailscale # Ensure tailscale starts first (though network_mode implies this)
+    # depends_on:
+    # - tailscale # Ensure tailscale starts first (though network_mode implies this)
