@@ -17,7 +17,7 @@
   programs.nix-ld.libraries = [ ];
 
   # sudo-rs
-  security.sudo-rs.enable = true;
+  # security.sudo-rs.enable = true;
 
 
   # Optimise nix store to save space daily.
