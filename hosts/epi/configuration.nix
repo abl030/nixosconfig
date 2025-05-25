@@ -28,6 +28,9 @@
       # ../framework/hibernatefix2.nix
       # Nosleep scripts
       ../services/system/remote_desktop_nosleep.nix
+      # incus
+      # ../services/virtualisation/incus.nix
+      ../services/virtualisation/virtman.nix
     ];
 
   # lets use the latest kernel because we are stupid
@@ -36,15 +39,15 @@
   # boot.kernelModules = [ "uinput" ];
 
   #enable virtualbox
-  virtualisation.virtualbox.host.enable = true;
-  users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
-  virtualisation.virtualbox.host.enableExtensionPack = true;
-  boot.kernelParams = [
-    #This is to fix virtualbox in the 6.12 kernel
-    "kvm.enable_virt_at_load=0"
-    # This is to fix hanging on shutdown
-    "reboot=acpi"
-  ];
+  # virtualisation.virtualbox.host.enable = true;
+  # users.extraGroups.vboxusers.members = [ "user-with-access-to-virtualbox" ];
+  # virtualisation.virtualbox.host.enableExtensionPack = true;
+  # boot.kernelParams = [
+  #   #This is to fix virtualbox in the 6.12 kernel
+  #   "kvm.enable_virt_at_load=0"
+  #   # This is to fix hanging on shutdown
+  #   "reboot=acpi"
+  # ];
 
   # Enable virt-manager
   # virtualisation.libvirtd.enable = true;
