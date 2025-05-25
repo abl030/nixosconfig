@@ -1,10 +1,10 @@
 { config, pkgs, ... }:
 # Old way using a custom systemd service.
 let
-  hibernateEnvironment = {
-    HIBERNATE_SECONDS = "3600";
-    HIBERNATE_LOCK = "/var/run/autohibernate.lock";
-  };
+  # hibernateEnvironment = {
+  #   HIBERNATE_SECONDS = "3600";
+  #   HIBERNATE_LOCK = "/var/run/autohibernate.lock";
+  # };
 in
 {
   # systemd.services."awake-after-suspend-for-a-time" = {
@@ -53,8 +53,8 @@ in
   # services.logind.lidSwitchDocked defaults to ignore which I like as well since I’m often docked to an external monitor so this means I can put the lid down and it doesn’t Suspend.
 
   systemd.sleep.extraConfig = ''
-    HibernateDelaySec=60min
+    HibernateDelaySec=5min
   '';
-  services.logind.lidSwitch = "suspend";
+  services.logind.lidSwitch = "suspend-then-hibernate";
 
 }
