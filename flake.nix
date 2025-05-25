@@ -33,6 +33,12 @@
     fzf-preview.url = "github:niksingh710/fzf-preview";
     fzf-preview.inputs.nixpkgs.follows = "nixpkgs";
     isd.url = "github:isd-project/isd";
+    gaj-shared = {
+      url = "gitlab:gaj-nixos/shared"; # Shorthand for gitlab.com/gaj-nixos/shared
+      # By default, it tracks the default branch (e.g., main)
+      # You can add `flake = false;` if it's not a flake itself but you want to use its files
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
