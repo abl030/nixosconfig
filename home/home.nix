@@ -28,7 +28,8 @@
   };
 
   imports = [
-    ./zsh/zsh.nix
+    # ./zsh/zsh.nix
+    ./fish/fish.nix
     ./nvim/nvim.nix
     #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
     # ./ssh/ssh.nix

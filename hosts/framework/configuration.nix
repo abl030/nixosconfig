@@ -60,7 +60,7 @@
   # This is because 6.12.x breaks hibernation
   # boot.kernelPackages = pkgs.linuxPackages_6_11;
   # boot.kernelPackages = pkgs.linuxPackages_latest;
-  # boot.kernelPackages = pkgs.linuxPackages_6_12;
+  # boot.kernelPackages = pkgs.linuxPackages_6_13;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -136,7 +136,7 @@
     isNormalUser = true;
     description = "Andy";
     extraGroups = [ "networkmanager" "wheel" "libvertd" ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -160,8 +160,9 @@
     dmidecode
     fprintd
   ];
+  programs.fish.enable = true;
 
-  programs.zsh.enable = true;
+  # programs.zsh.enable = true;
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
