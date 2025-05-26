@@ -3,7 +3,9 @@
 {
   programs.starship.enable = true;
 
+  programs.starship.enableFishIntegration = true;
   programs.starship.settings = {
+
     # --- Main Prompt Format ---
     # Removed the initial static icons.
     # Added $username and $hostname at the beginning.
