@@ -19,6 +19,43 @@
   # sudo-rs
   # security.sudo-rs.enable = true;
 
+  # swap caps lock to control, and right ctrl to caps lock.
+  services.keyd = {
+    enable = true;
+    keyboards = {
+      # "default" is a special name that keyd can use to apply to all keyboards
+      # not explicitly configured, or you can try to find a more specific name
+      # for your keyboard using `sudo keyd -l` and use that name here.
+      # For most single-keyboard setups, "default" or using "*" for ids is fine.
+      default = {
+        # The 'ids' option specifies which devices this configuration applies to.
+        # Using "*" applies it to all detected keyboards.
+        # Alternatively, you can get specific vendor:product IDs using `sudo keyd -l`
+        # e.g., ids = [ "046d:c077" ]; # Example for a Logitech mouse (not a keyboard, just for ID format)
+        ids = [ "*" ];
+
+        # The 'settings' attribute set maps directly to the keyd configuration file format.
+        settings = {
+          # The [main] layer is the default layer.
+          main = {
+            # Physical CapsLock becomes LeftControl
+            capslock = "leftcontrol";
+
+            # Physical LeftControl becomes CapsLock
+            leftcontrol = "capslock";
+
+            # Physical RightControl becomes CapsLock
+            rightcontrol = "capslock";
+          };
+
+          # You could define other layers here if needed, e.g.:
+          # mylayer = {
+          #   a = "b";
+          # };
+        };
+      };
+    };
+  };
 
   # Optimise nix store to save space daily.
   nix.optimise.automatic = true;
