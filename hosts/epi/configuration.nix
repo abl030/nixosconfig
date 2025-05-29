@@ -163,7 +163,7 @@
     isNormalUser = true;
     description = "Andy";
     extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
-    shell = pkgs.zsh;
+    shell = pkgs.fish;
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -185,7 +185,7 @@
     gnome-remote-desktop
   ];
 
-  programs.zsh.enable = true;
+  programs.fish.enable = true;
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
