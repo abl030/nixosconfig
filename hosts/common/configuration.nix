@@ -51,10 +51,10 @@
   ];
   # need to run fc-cache -fv to update font fc-cache
 
-  services.locate = {
-    enable = true;
-    interval = "hourly"; # Or whatever interval you prefer
-    pruneFS = [
-    ];
-  };
+  # services.locate = {
+  #   enable = true;
+  #   interval = "hourly"; # Or whatever interval you prefer
+  #   pruneFS = [
+  #   ];
+  # };
 }
