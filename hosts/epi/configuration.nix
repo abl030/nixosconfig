@@ -30,11 +30,13 @@
       ../services/system/remote_desktop_nosleep.nix
       # incus
       # ../services/virtualisation/incus.nix
-      ../services/virtualisation/virtman.nix
+      # ../services/virtualisation/virtman.nix
     ];
 
+  services.qemuGuest.enable = true;
+
   # lets use the latest kernel because we are stupid
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
   # boot.kernelPackages = pkgs.linuxPackages_6_12;
   # boot.kernelModules = [ "uinput" ];
 
