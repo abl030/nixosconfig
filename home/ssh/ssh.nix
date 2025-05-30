@@ -44,7 +44,7 @@
       };
       "epi" = {
         proxyJump = "abl030@epimetheus";
-        hostname = "192.168.1.5";
+        hostname = "192.168.1.136";
         user = "abl030";
         port = 22;
         forwardX11 = true;
