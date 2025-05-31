@@ -18,6 +18,7 @@
     pkgs.bind.dnsutils
     pkgs.lazygit
     pkgs.gnome-disk-utility
+    pkgs.ansible
 
     # Rust Utils
     pkgs.fzf
