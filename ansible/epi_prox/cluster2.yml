@@ -1,0 +1,64 @@
+---
+- name: Prepare Proxmox VE Host for QDevice
+  hosts: proxmox_hosts # Assuming this is defined in your inventory
+  become: true
+  gather_facts: false
+
+  vars:
+    pve_cluster_name: "grevcluster" # Define your desired cluster name here
+
+  tasks:
+    - name: Ensure Proxmox VE host is up-to-date (cache update)
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600 # Update if cache is older than 1 hour
+      changed_when: false
+
+    - name: Ensure Proxmox VE host is up-to-date (dist-upgrade)
+      ansible.builtin.apt:
+        upgrade: dist
+        autoremove: yes
+      # Consider adding a register and notify for reboot if kernel updated
+
+    - name: Check current Proxmox cluster status
+      ansible.builtin.command: pvecm status
+      register: pve_cluster_status_initial
+      changed_when: false
+      failed_when: false # Expect potential failure if no cluster exists
+
+    - name: Debug Show initial cluster status output
+      ansible.builtin.debug:
+        var: pve_cluster_status_initial
+        verbosity: 1
+
+    - name: Create Proxmox VE cluster if it does not exist
+      ansible.builtin.command: "pvecm create {{ pve_cluster_name }}"
+      when: >
+        pve_cluster_status_initial.rc != 0 or
+        "no cluster configuration found" in pve_cluster_status_initial.stderr
+      # This step might need adjustment if pvecm create errors when a cluster
+      # with a different name already exists. For a single node setup where
+      # you're initializing, this should be fine.
+
+    - name: Install corosync-qdevice package on Proxmox VE
+      ansible.builtin.apt:
+        name: corosync-qdevice
+        state: present
+        update_cache: yes
+
+    - name: Verify final Proxmox cluster status
+      ansible.builtin.command: pvecm status
+      register: pve_cluster_status_final
+      changed_when: false
+
+    - name: Display final Proxmox cluster status
+      ansible.builtin.debug:
+        msg: "{{ pve_cluster_status_final.stdout_lines }}"
+
+    - name: Inform user about next steps for QDevice
+      ansible.builtin.debug:
+        msg: |
+          Proxmox VE host preparation for QDevice is complete.
+          Next steps:
+          1. Prepare your Ubuntu VM as the QDevice server (install corosync-qnetd, configure firewall).
+          2. On this Proxmox VE host, run: pvecm qdevice setup <IP_OF_UBUNTU_VM>

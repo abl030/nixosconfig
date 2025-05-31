@@ -35,6 +35,23 @@
 
   services.qemuGuest.enable = true;
 
+  # 2. Use the LATEST kernel for best Arc support
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+
+  # 3. Kernel parameters (you had these, keep them, especially enable_guc)
+  boot.kernelParams = [
+    "i915.force_probe=56a6" # Good to have for DG2
+    "i915.enable_guc=3" # Essential for enabling GuC & HuC
+    # "loglevel=7"          # Optional: for more dmesg verbosity during boot
+  ];
+
+  # 4. Enable redistributable firmware (this should pull in i915 firmware)
+  hardware.enableRedistributableFirmware = true;
+
+  # 5. Explicitly add i915 module to initrd to ensure it loads early with firmware
+  boot.initrd.kernelModules = [ "i915" ];
+  boot.kernelModules = [ "i915" ]; # Also for main system
+
   # lets use the latest kernel because we are stupid
   # boot.kernelPackages = pkgs.linuxPackages_latest;
   # boot.kernelPackages = pkgs.linuxPackages_6_12;
