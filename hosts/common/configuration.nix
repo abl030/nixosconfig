@@ -41,9 +41,6 @@
             # Physical CapsLock becomes LeftControl
             capslock = "leftcontrol";
 
-            # Physical LeftControl becomes CapsLock
-            leftcontrol = "capslock";
-
             # Physical RightControl becomes CapsLock
             rightcontrol = "capslock";
           };
