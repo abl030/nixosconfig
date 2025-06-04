@@ -14,6 +14,7 @@ in
     # Aliases are moved here
     shellAliases = {
       "epi!" = "ssh abl030@caddy 'wakeonlan 18:c0:4d:65:86:e8'"; # Quoted due to '!'
+      epi = "wakeonlan 18:c0:4d:65:86:e8";
       cd = "z";
       cdi = "zi";
       restart_bluetooth = "bash ${scriptsPath}/bluetooth_restart.sh";
@@ -23,6 +24,7 @@ in
       ytlisten = "mpv --no-video --ytdl-format=bestaudio --msg-level=ytdl_hook=debug";
       ssh_epi = "epi!; and ssh epi";
       clear_dots = "git stash; and git stash clear";
+      clear_flake = "git restore flake.lock && pull_dotfiles";
       lzd = "lazydocker";
       v = "nvim";
       ls = "lsd -A -F -l --group-directories-first --color=always";
