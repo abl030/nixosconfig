@@ -1,0 +1,7 @@
+{
+  "TCP": {
+    "2283": {
+      "Destination": "http://localhost:2283"
+    }
+  }
+}

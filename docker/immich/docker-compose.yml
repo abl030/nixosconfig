@@ -37,6 +37,25 @@ services:
     healthcheck:
       disable: false
 
+  immich-tailscale-sidecar:
+    container_name: immich_tailscale_sidecar
+    image: tailscale/tailscale:stable # Using stable tag is generally recommended
+    # Shares the network stack with the immich-server service.
+    network_mode: "service:immich-server"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE # Required for TUN device
+    volumes:
+      - /mnt/docker/tailscale/immich/:/var/lib/tailscale # Persists Tailscale state
+      - /dev/net/tun:/dev/net/tun # Allows Tailscale to create a TUN interface
+      - ./immich-tailscale-serve.json:/config/immich-serve.json:ro # Tailscale serve config
+    environment:
+      - TS_HOSTNAME=immich
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/immich-serve.json
+      - TS_ACCEPT_DNS=false # Optional: set to true if you want this node to use Tailscale's MagicDNS for resolving other Tailnet hosts
+    restart: unless-stopped
+
   immich-machine-learning:
     container_name: immich_machine_learning
     # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
