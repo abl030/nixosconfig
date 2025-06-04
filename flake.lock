@@ -149,11 +149,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1748890411,
-        "narHash": "sha256-cHkoYIiRcUrt5lms4FFOQCUfCRrxycyh/KegqalrJ+A=",
+        "lastModified": 1748956326,
+        "narHash": "sha256-/4qHxA9THcz+N9HjVypc6+XGnUe9Z8YJ5u88/HI68YI=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "2b776bee5e71ae8a743138562fc3de9d51c90527",
+        "rev": "31113c080f3079d9dc1ac9beff863fcc4737fa27",
         "type": "gitlab"
       },
       "original": {
@@ -169,11 +169,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1748925027,
-        "narHash": "sha256-BJ0qRIdvt5aeqm3zg/5if7b5rruG05zrSX3UpLqjDRk=",
+        "lastModified": 1748979197,
+        "narHash": "sha256-mKYwYcO9RmA2AcAFIXGDBOw5iv/fbjw6adWvMbnfIuk=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "cb809ec1ff15cf3237c6592af9bbc7e4d983e98c",
+        "rev": "34a13086148cbb3ae65a79f753eb451ce5cac3d3",
         "type": "github"
       },
       "original": {
