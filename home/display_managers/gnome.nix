@@ -23,7 +23,7 @@
   ];
 
   imports = [
-    ./gnome_configs/${hostname}.nix
+    # ./gnome_configs/${hostname}.nix
   ];
 
   # This themes Dolphin to dark mode.
