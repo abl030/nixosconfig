@@ -1,0 +1,80 @@
+---
+- name: Install Realtek r8126 Network Driver on Proxmox
+  hosts: proxmox_hosts
+  become: true # All tasks require root privileges
+  gather_facts: true # We need facts to get the kernel version
+
+  vars:
+    driver_source_dir_local: "r8126-10.015.00"
+    driver_source_dir_remote: "/tmp/r8126-driver-build"
+    driver_module_name: "r8126"
+
+  tasks:
+    - name: Check if the driver is already installed for the current kernel
+      ansible.builtin.stat:
+        path: "/lib/modules/{{ ansible_kernel }}/kernel/drivers/net/ethernet/realtek/{{ driver_module_name }}.ko"
+      register: driver_ko_file
+
+    - name: Block for driver installation
+      when: not driver_ko_file.stat.exists
+      block:
+        - name: Update apt cache and install build dependencies
+          ansible.builtin.apt:
+            name:
+              - build-essential
+              - pve-headers-{{ ansible_kernel }} # Install headers for the RUNNING kernel
+            state: present
+            update_cache: true
+          register: apt_result
+          # Reboot if a new kernel was installed as part of the dependencies
+          # This is a safety measure to ensure headers match the running kernel
+          notify: Reboot server if needed
+
+        - name: Force handlers to run now, before compiling
+          ansible.builtin.meta: flush_handlers
+
+        - name: Copy driver source files to the remote host
+          ansible.builtin.copy:
+            src: "{{ driver_source_dir_local }}/"
+            dest: "{{ driver_source_dir_remote }}"
+            owner: root
+            group: root
+            mode: "0755"
+
+        - name: Run the driver installation script
+          ansible.builtin.command:
+            cmd: ./autorun.sh
+            chdir: "{{ driver_source_dir_remote }}"
+          register: install_script_output
+          changed_when: true # This task always represents a change
+
+        - name: Show installation script output
+          ansible.builtin.debug:
+            var: install_script_output.stdout_lines
+
+    - name: Clean up the source directory on the remote host
+      ansible.builtin.file:
+        path: "{{ driver_source_dir_remote }}"
+        state: absent
+      when: driver_ko_file.stat.exists # Clean up if it was already there or just installed
+
+    - name: Print a success message
+      ansible.builtin.debug:
+        msg: "Driver '{{ driver_module_name }}' is now installed and loaded."
+      when: not driver_ko_file.stat.exists # Only show on fresh install
+
+    - name: Print a message if driver was already present
+      ansible.builtin.debug:
+        msg: "Driver '{{ driver_module_name }}' was already installed for kernel {{ ansible_kernel }}. No action taken."
+      when: driver_ko_file.stat.exists
+
+  handlers:
+    - name: Reboot server if needed
+      ansible.builtin.reboot:
+        msg: "Rebooting to activate new kernel for header matching."
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: "'pve-kernel' in apt_result.stdout" # A simple check to see if a new kernel was installed
