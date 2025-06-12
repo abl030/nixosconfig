@@ -19,29 +19,29 @@
   #enable docker
   virtualisation.docker.enable = true;
   # Docker fileSystems
-  fileSystems."/mnt/docker" = # Choose your desired mount point inside the VM
-    {
-      device = "dockerVolumes"; # <-- Use the tag you set in Proxmox
-      fsType = "virtiofs";
-      options = [
-        "defaults"
-        # Potentially add UID/GID mapping options here if needed, e.g.:
-        # "uid=1000"
-        # "gid=100" # users group in NixOS often
-      ];
-    };
-  fileSystems."/mnt/data2" = # Choose your desired mount point inside the VM
-    {
-      device = "data"; # <-- Use the tag you set in Proxmox
-      fsType = "virtiofs";
-      options = [
-        "defaults"
-        # Potentially add UID/GID mapping options here if needed, e.g.:
-        # "uid=1000"
-        # "gid=100" # users group in NixOS often
-      ];
-    };
-
+  # fileSystems."/mnt/docker" = # Choose your desired mount point inside the VM
+  #   {
+  #     device = "dockerVolumes"; # <-- Use the tag you set in Proxmox
+  #     fsType = "virtiofs";
+  #     options = [
+  #       "defaults"
+  #       # Potentially add UID/GID mapping options here if needed, e.g.:
+  #       # "uid=1000"
+  #       # "gid=100" # users group in NixOS often
+  #     ];
+  #   };
+  # fileSystems."/mnt/data2" = # Choose your desired mount point inside the VM
+  #   {
+  #     device = "data"; # <-- Use the tag you set in Proxmox
+  #     fsType = "virtiofs";
+  #     options = [
+  #       "defaults"
+  #       # Potentially add UID/GID mapping options here if needed, e.g.:
+  #       # "uid=1000"
+  #       # "gid=100" # users group in NixOS often
+  #     ];
+  #   };
+  #
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
