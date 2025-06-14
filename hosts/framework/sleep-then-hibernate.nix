@@ -53,7 +53,7 @@ in
   # services.logind.lidSwitchDocked defaults to ignore which I like as well since I’m often docked to an external monitor so this means I can put the lid down and it doesn’t Suspend.
 
   systemd.sleep.extraConfig = ''
-    HibernateDelaySec=5min
+    HibernateDelaySec=60min
   '';
   services.logind.lidSwitch = "suspend-then-hibernate";
 
