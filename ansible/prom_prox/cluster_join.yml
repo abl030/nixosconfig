@@ -1,0 +1,47 @@
+# .../nixosconfig/ansible/prom_prox/cluster_join.yml
+---
+- name: Join New Node to the Proxmox Cluster using Static Join Info
+  hosts: proxmox_new_nodes
+  become: true
+  vars_files:
+    - vault.yml
+
+  tasks:
+    - name: Ensure required dependencies are installed on the new node
+      ansible.builtin.apt:
+        name: python3-pexpect
+        state: present
+        update_cache: true
+
+    - name: Decode and parse static join information from vault
+      ansible.builtin.set_fact:
+        pve_join_data: "{{ proxmox_join_info_b64 | b64decode | from_json }}"
+
+    - name: Pre-flight check | See if node is already in a cluster
+      ansible.builtin.command: pvecm status
+      register: join_check
+      failed_when: false
+      changed_when: false
+
+    # ------------------ FINAL CHANGES ARE IN THIS TASK ------------------
+    - name: Add this node to the existing cluster
+      ansible.builtin.expect:
+        command: "pvecm add {{ pve_join_data.ipAddress }} --fingerprint '{{ pve_join_data.fingerprint }}' --link0 {{ ansible_host }}"
+        timeout: 60 # <-- ADDED: Increase timeout to 60 seconds
+        responses:
+          # UPDATED: More specific regex to match the actual prompt
+          "(?i)password for '.*':": "{{ proxmox_master_password }}"
+          "(?i)are you sure you want to continue connecting": "yes"
+      when: join_check.rc != 0
+      changed_when: true
+      # no_log: true
+    # --------------------------------------------------------------------
+
+    - name: Check final cluster status after potential join
+      ansible.builtin.command: pvecm status
+      register: final_status
+      changed_when: false
+
+    - name: Display final cluster status
+      ansible.builtin.debug:
+        var: final_status.stdout_lines
