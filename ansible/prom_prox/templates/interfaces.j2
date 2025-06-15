@@ -1,0 +1,29 @@
+# This file is managed by Ansible. Do not edit manually.
+
+auto lo
+iface lo inet loopback
+
+# --- Secondary Interface (Old NIC) ---
+# This interface is kept up for backup/alternative access.
+# It does NOT have a gateway to avoid routing conflicts.
+auto {{ secondary_nic }}
+iface {{ secondary_nic }} inet static
+    address {{ secondary_nic_ip_cidr }}
+
+# --- Primary Interface (New Realtek NIC) ---
+# This is the physical port for the main bridge. It does not
+# get an IP configuration itself.
+auto {{ primary_nic }}
+iface {{ primary_nic }} inet manual
+
+# --- Main Proxmox Bridge ---
+# The bridge 'vmbr0' is now attached to the new primary NIC.
+# This holds the main IP and the default gateway for the host.
+auto {{ bridge_name }}
+iface {{ bridge_name }} inet static
+    address {{ bridge_ip_cidr }}
+    gateway {{ gateway_ip }}
+    bridge-ports {{ primary_nic }}
+    bridge-stp off
+    bridge-fd 0
+    # Add other bridge options if you need them
