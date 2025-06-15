@@ -1,0 +1,73 @@
+# .../nixosconfig/ansible/prom_prox/cluster_remove.yml
+---
+# PLAY 0: Gather facts from the node to be removed so we know its real hostname.
+- name: Pre-flight | Gather facts from the node to be removed
+  hosts: proxmox_new_nodes
+  gather_facts: true # This is the key part - we are populating hostvars
+  tasks:
+    - name: Confirming which hostname will be removed from the cluster
+      ansible.builtin.debug:
+        msg: "Will be removing node with Proxmox nodename '{{ ansible_hostname }}'"
+
+# PLAY 1: Tell the cluster to remove the node. This runs ON THE MASTER.
+- name: Remove Node from the Proxmox Cluster
+  hosts: proxmox_master
+  become: true
+  vars:
+    # This now works because Play 0 gathered the facts.
+    node_to_remove: "{{ hostvars[groups['proxmox_new_nodes'][0]]['ansible_hostname'] }}"
+
+  tasks:
+    - name: Check which nodes are currently in the cluster
+      ansible.builtin.command: pvecm nodes
+      register: cluster_nodes
+      changed_when: false
+
+    - name: Forcibly remove the node from the cluster
+      ansible.builtin.command: "pvecm delnode {{ node_to_remove }}"
+      when: "node_to_remove in cluster_nodes.stdout"
+      register: delnode_result
+
+    - name: Display removal result
+      ansible.builtin.debug:
+        msg: "Removal command executed for node {{ node_to_remove }}."
+      when: "delnode_result is defined and delnode_result.changed"
+
+# PLAY 2: Clean up the removed node to return it to a standalone state.
+- name: Clean Up Removed Node
+  hosts: proxmox_new_nodes
+  become: true
+
+  tasks:
+    # ... (The rest of this play remains exactly the same) ...
+    - name: Stop cluster filesystem service
+      ansible.builtin.systemd:
+        name: pve-cluster
+        state: stopped
+      ignore_errors: true
+
+    - name: Stop corosync service
+      ansible.builtin.systemd:
+        name: corosync
+        state: stopped
+      ignore_errors: true
+
+    - name: Delete the cluster configuration file
+      ansible.builtin.file:
+        path: /etc/pve/corosync.conf
+        state: absent
+
+    - name: Delete the corosync authkey file
+      ansible.builtin.file:
+        path: /etc/corosync/corosync.conf
+        state: absent
+
+    - name: Restart the cluster filesystem service to run in local mode
+      ansible.builtin.systemd:
+        name: pve-cluster
+        state: restarted
+
+    - name: Reboot the node to ensure a clean state
+      ansible.builtin.reboot:
+        msg: "Node removed from cluster. Rebooting to finalize standalone state."
+        reboot_timeout: 360
