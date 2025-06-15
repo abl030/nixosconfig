@@ -6,9 +6,9 @@ iface lo inet loopback
 # --- Secondary Interface (Old NIC) ---
 # This interface is kept up for backup/alternative access.
 # It does NOT have a gateway to avoid routing conflicts.
-auto {{ secondary_nic }}
-iface {{ secondary_nic }} inet static
-    address {{ secondary_nic_ip_cidr }}
+# auto {{ secondary_nic }}
+# iface {{ secondary_nic }} inet static
+    # address {{ secondary_nic_ip_cidr }}
 
 # --- Primary Interface (New Realtek NIC) ---
 # This is the physical port for the main bridge. It does not
