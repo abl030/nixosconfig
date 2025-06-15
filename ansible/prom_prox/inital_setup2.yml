@@ -1,0 +1,233 @@
+---
+- name: Proxmox VE Initial Setup and Configuration
+  hosts: proxmox_hosts
+  remote_user: root
+  gather_facts: false
+  become: true
+
+  vars:
+    new_user: abl030
+    ssh_public_key_file_control_node: "~/.ssh/id_rsa.pub"
+
+  pre_tasks:
+    - name: Gather minimal facts (like distribution for version check)
+      ansible.builtin.setup:
+        filter:
+          - ansible_distribution
+          - ansible_distribution_version
+          - ansible_pkg_mgr
+      register: facts_gathered
+      failed_when: "not facts_gathered.ansible_facts"
+
+    - name: Get PVE version details
+      ansible.builtin.command: pveversion -v
+      register: pve_version_output
+      changed_when: false
+      check_mode: false
+
+    - name: Assert PVE version compatibility (8.0.x - 8.4.x)
+      ansible.builtin.assert:
+        that:
+          - "pve_version_output.stdout is search('pve-manager: 8\\\\.[0-4](\\\\.[0-9]+)*')"
+        fail_msg: >
+          This version of Proxmox VE (details below)
+          is not supported by this playbook. Requires PVE 8.0.x through 8.4.x.
+          Ensure the pve-manager line in the output matches the expected pattern.
+          Full pveversion output:
+          {{ pve_version_output.stdout }}
+        quiet: true
+
+  tasks:
+    # --- Correct APT Sources FIRST ---
+    - name: Correct Proxmox VE Sources (/etc/apt/sources.list)
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list
+        content: |
+          deb http://deb.debian.org/debian bookworm main contrib
+          deb http://deb.debian.org/debian bookworm-updates main contrib
+          deb http://security.debian.org/debian-security bookworm-security main contrib
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Mark apt cache for update
+
+    - name: Disable Bookworm non-free firmware warnings
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/no-bookworm-firmware.conf
+        content: 'APT::Get::Update::SourceListWarnings::NonFreeFirmware "false";'
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Disable 'pve-enterprise' repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pve-enterprise.list
+        content: |
+          # deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Mark apt cache for update
+
+    - name: Enable 'pve-no-subscription' repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pve-install-repo.list
+        content: |
+          deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Mark apt cache for update
+
+    - name: Correct 'ceph package repositories' (comment out all)
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/ceph.list
+        content: |
+          # deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise
+          # deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription
+          # deb https://enterprise.proxmox.com/debian/ceph-reef bookworm enterprise
+          # deb http://download.proxmox.com/debian/ceph-reef bookworm no-subscription
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Mark apt cache for update
+
+    - name: Add (Disabled) 'pvetest' repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pvetest-for-beta.list
+        content: |
+          # deb http://download.proxmox.com/debian/pve bookworm pvetest
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Mark apt cache for update
+
+    # --- Now install essential packages, which will update the (now corrected) cache ---
+    - name: Ensure essential packages are present (python3-apt, sudo)
+      ansible.builtin.apt:
+        name:
+          - python3-apt
+          - sudo
+        state: present
+        update_cache: yes
+
+    # --- Continue with other setup tasks ---
+    - name: Check if subscription nag removal script exists
+      ansible.builtin.stat:
+        path: /etc/apt/apt.conf.d/no-nag-script
+      register: no_nag_script_file
+
+    - name: Disable Proxmox VE subscription nag (if not already done)
+      when: not no_nag_script_file.stat.exists
+      block:
+        - name: Create no-nag apt hook script
+          ansible.builtin.copy:
+            dest: /etc/apt/apt.conf.d/no-nag-script
+            content: |
+              DPkg::Post-Invoke { "dpkg -V proxmox-widget-toolkit | grep -q '/proxmoxlib\\.js$'; if [ $? -eq 1 ]; then { echo 'Removing subscription nag from UI...'; sed -i '/.*data\\.status.*{/{s/\\!//;s/active/NoMoreNagging/}' /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js; }; fi"; };
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Reinstall proxmox-widget-toolkit to apply nag removal
+          ansible.builtin.command:
+            cmd: apt-get install --reinstall -y proxmox-widget-toolkit
+          args:
+            warn: false # Suppress warnings about using apt-get in command module for this specific, known case
+          changed_when: true # Assume it changed as we are forcing a reinstall
+          # No need for apt-get update here as the previous apt task should have updated the cache
+
+    - name: Ensure High Availability services are enabled and active
+      vars:
+        ha_services:
+          - pve-ha-lrm
+          - pve-ha-crm
+          - corosync
+      ansible.builtin.service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop: "{{ ha_services }}"
+
+    - name: Ensure the new user '{{ new_user }}' exists
+      ansible.builtin.user:
+        name: "{{ new_user }}"
+        state: present
+        shell: /bin/bash
+        groups: sudo
+        create_home: true
+
+    - name: Set up authorized_keys for '{{ new_user }}'
+      ansible.posix.authorized_key:
+        user: "{{ new_user }}"
+        state: present
+        key: "{{ lookup('file', ssh_public_key_file_control_node) }}"
+
+    - name: Allow '{{ new_user }}' to sudo without a password
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: "^{{ new_user }} ALL="
+        line: "{{ new_user }} ALL=(ALL) NOPASSWD: ALL"
+        validate: /usr/sbin/visudo -cf %s
+
+    - name: Ensure SSH PubkeyAuthentication is enabled
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PubkeyAuthentication"
+        line: "PubkeyAuthentication yes"
+        state: present
+      notify: Restart sshd
+
+    - name: Ensure SSH PasswordAuthentication is enabled
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication yes"
+        state: present
+      notify: Restart sshd
+
+    - name: Ensure PermitRootLogin is enabled
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PermitRootLogin"
+        line: "PermitRootLogin yes"
+        state: present
+      notify: Restart sshd
+
+    # --- Final system update ---
+    - name: Flush handlers to ensure apt cache is up-to-date before dist-upgrade
+      ansible.builtin.meta: flush_handlers
+
+    - name: Update all packages to the latest version (dist-upgrade)
+      ansible.builtin.apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+  handlers:
+    - name: Mark apt cache for update
+      ansible.builtin.set_fact:
+        apt_cache_needs_update: true
+      listen: "Mark apt cache for update"
+
+    - name: Update apt cache if marked
+      ansible.builtin.apt:
+        update_cache: yes
+      when: apt_cache_needs_update | default(false)
+
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+      listen: "Restart sshd"
+
+  post_tasks:
+    - name: Reboot Proxmox VE host
+      ansible.builtin.reboot:
+        msg: "Rebooting Proxmox VE host after configuration and updates."
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 2
+        post_reboot_delay: 30
+        test_command: uptime

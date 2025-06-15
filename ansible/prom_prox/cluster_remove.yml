@@ -1,5 +1,3 @@
-# .../nixosconfig/ansible/prom_prox/cluster_remove.yml
----
 # PLAY 0: Gather facts from the node to be removed so we know its real hostname.
 - name: Pre-flight | Gather facts from the node to be removed
   hosts: proxmox_new_nodes
@@ -16,12 +14,12 @@
   vars:
     # This now works because Play 0 gathered the facts.
     node_to_remove: "{{ hostvars[groups['proxmox_new_nodes'][0]]['ansible_hostname'] }}"
-
   tasks:
     - name: Check which nodes are currently in the cluster
       ansible.builtin.command: pvecm nodes
       register: cluster_nodes
       changed_when: false
+      tags: always # Ensure this runs even with other tags
 
     - name: Forcibly remove the node from the cluster
       ansible.builtin.command: "pvecm delnode {{ node_to_remove }}"
@@ -35,16 +33,14 @@
 
 # PLAY 2: Clean up the removed node to return it to a standalone state.
 - name: Clean Up Removed Node
-  hosts: proxmox_new_nodes
+  hosts: proxmox_new_nodes # This is the node being removed
   become: true
-
   tasks:
-    # ... (The rest of this play remains exactly the same) ...
     - name: Stop cluster filesystem service
       ansible.builtin.systemd:
         name: pve-cluster
         state: stopped
-      ignore_errors: true
+      ignore_errors: true # Important as it might already be in a weird state
 
     - name: Stop corosync service
       ansible.builtin.systemd:
@@ -52,22 +48,83 @@
         state: stopped
       ignore_errors: true
 
-    - name: Delete the cluster configuration file
+    # --- NEW TASKS TO HANDLE SHARED STORAGE ---
+    - name: Get list of currently mounted PVE shared storage (NFS, CIFS, etc.)
+      ansible.builtin.shell: "mount | grep -E '/mnt/pve/([a-zA-Z0-9_-]+)' | awk '{print $3}' || true"
+      register: pve_mount_points
+      changed_when: false
+      check_mode: false # Always run this to gather info
+
+    - name: Unmount PVE shared storage mounts
+      ansible.posix.mount:
+        path: "{{ item }}"
+        state: unmounted
+      with_items: "{{ pve_mount_points.stdout_lines }}"
+      ignore_errors: true # Some mounts might be stubborn or already gone
+      when: pve_mount_points.stdout_lines | length > 0
+
+    - name: Get list of shared storage IDs (NFS, CIFS, iSCSI, Ceph, PBS, etc.)
+      ansible.builtin.shell: >
+        pvesm status --noborder --noheader |
+        awk '$2 ~ /^(nfs|cifs|iscsi|rbd|cephfs|pbs|glusterfs)$/ {print $1}' || true
+      register: shared_storage_ids
+      changed_when: false
+      check_mode: false # Always run this to gather info
+
+    - name: Disable shared storage configurations on the removed node
+      ansible.builtin.command: "pvesm set {{ item }} --disable 1"
+      with_items: "{{ shared_storage_ids.stdout_lines }}"
+      when: shared_storage_ids.stdout_lines | length > 0
+      ignore_errors: true # Storage might already be inaccessible
+      # This modifies /etc/pve/storage.cfg locally to disable these.
+      # Note: `pvesm remove <id>` could also be used but might be more aggressive
+      # if the goal is just to stop it from auto-mounting. Disabling is safer.
+
+    # --- END OF NEW TASKS ---
+
+    - name: Delete the cluster configuration file for pve-cluster
       ansible.builtin.file:
         path: /etc/pve/corosync.conf
         state: absent
 
-    - name: Delete the corosync authkey file
+    - name: Delete the main corosync configuration file
       ansible.builtin.file:
-        path: /etc/corosync/corosync.conf
+        path: /etc/corosync/corosync.conf # Used by corosync service directly
         state: absent
+
+    - name: Delete corosync authkey file
+      ansible.builtin.file:
+        path: /etc/corosync/authkey # Also important for corosync
+        state: absent
+
+    - name: Delete other potential corosync cluster files (if they exist)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/pve/authkey.pub # May or may not be present/relevant after pmxcfs stops
+        - /etc/pve/priv/authkey.key # May or may not be present/relevant
+        # Add any other cluster-specific files you know of
 
     - name: Restart the cluster filesystem service to run in local mode
       ansible.builtin.systemd:
         name: pve-cluster
         state: restarted
+        enabled: yes # Ensure it's enabled for local mode operation
+
+    # Optional: Verify pve-cluster is running in local mode
+    - name: Check pve-cluster status after restart
+      ansible.builtin.command: pvecm status
+      register: pvecm_status_after_restart
+      changed_when: false
+      failed_when: "'quorum FAILED' in pvecm_status_after_restart.stdout" # Should not see quorum issues in local mode
+
+    - name: Display pve-cluster status
+      ansible.builtin.debug:
+        var: pvecm_status_after_restart.stdout_lines
+      when: pvecm_status_after_restart.stdout is defined
 
     - name: Reboot the node to ensure a clean state
       ansible.builtin.reboot:
-        msg: "Node removed from cluster. Rebooting to finalize standalone state."
+        msg: "Node removed from cluster. Shared storage unmounted/disabled. Rebooting to finalize standalone state."
         reboot_timeout: 360
