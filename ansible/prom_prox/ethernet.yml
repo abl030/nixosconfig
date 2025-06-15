@@ -1,0 +1,70 @@
+---
+- name: Reconfigure Proxmox Networking to use the new Realtek NIC
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: true # We define facts manually to be explicit
+
+  vars:
+    # --- REQUIRED: VERIFY AND EDIT THESE VALUES ---
+
+    # The new, faster NIC that will be the primary interface for the bridge
+    primary_nic: "enp8s0"
+
+    # The old NIC that will become a secondary/backup interface
+    secondary_nic: "enx00e04c78687d"
+
+    # The name of the Proxmox bridge
+    bridge_name: "vmbr0"
+
+    # The static IP for the main bridge (vmbr0). MUST include CIDR mask.
+    bridge_ip_cidr: "192.168.1.12/24"
+
+    # The default gateway for your network. Find with `ip route | grep default`
+    gateway_ip: "192.168.1.1"
+
+    # A NEW, UNUSED static IP for the old NIC. It must be on the same
+    # subnet but different from the bridge IP. VERIFY THIS IS NOT IN USE!
+    # MUST include CIDR mask.
+    secondary_nic_ip_cidr: "192.168.1.156/24" # Example: one less than the main IP
+
+  tasks:
+    - name: Ensure ifupdown2 is installed for safe network reloading
+      ansible.builtin.apt:
+        name: ifupdown2
+        state: present
+
+    - name: Backup the current /etc/network/interfaces file
+      ansible.builtin.copy:
+        src: /etc/network/interfaces
+        dest: "/etc/network/interfaces.bak-{{ ansible_date_time.iso8601_basic }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      register: backup_result
+      changed_when: false
+
+    - name: Print backup location
+      ansible.builtin.debug:
+        msg: "Backed up current network config to {{ backup_result.dest }}"
+
+    - name: Generate the new network configuration from template
+      ansible.builtin.template:
+        src: templates/interfaces.j2
+        dest: /etc/network/interfaces
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Apply Network Changes
+
+  handlers:
+    - name: Apply Network Changes
+      listen: "Apply Network Changes"
+      ansible.builtin.command:
+        # pvenetapply is the safest way. It has a 30-second timeout
+        # and will revert if the network doesn't come back up.
+        # Fallback to 'ifreload -a' if not present.
+        cmd: "ifreload -a"
+      register: network_apply
+      changed_when: true
+      failed_when: network_apply.rc != 0
