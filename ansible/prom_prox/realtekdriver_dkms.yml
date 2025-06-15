@@ -60,7 +60,7 @@
         mode: "0644"
       notify:
         - Update initramfs
-        - Advise Final Reboot
+        - Perform Final Reboot for Blacklist # MODIFIED: Changed handler name
 
     - name: Print a success message
       ansible.builtin.debug:
@@ -93,10 +93,11 @@
       # NOTE: This will delete the source code after installation.
       # Comment this handler out if you wish to keep the source.
 
-    - name: Advise Final Reboot
-      listen: "Advise Final Reboot"
-      ansible.builtin.debug:
+    # MODIFIED: Changed this handler to perform a reboot
+    - name: Perform Final Reboot for Blacklist
+      listen: "Perform Final Reboot for Blacklist"
+      ansible.builtin.reboot:
         msg: |
-          A module was blacklisted. A final reboot is required for this
-          change to take full effect. Please reboot the host at your
-          earliest convenience.
+          A module was blacklisted, and initramfs updated.
+          Performing final reboot for these changes to take full effect.
+        reboot_timeout: 360
