@@ -1,7 +1,7 @@
 ---
 - name: Update AMD Microcode to the Absolute Latest
-  hosts: proxmox_hosts # Or whatever you call your host/group in your inventory
-  become: true # We need root privileges to install packages
+  hosts: proxmox_hosts
+  become: true
   vars:
     amd_microcode_repo_url: "https://ftp.debian.org/debian/pool/non-free-firmware/a/amd64-microcode/"
     download_path: "/tmp"
@@ -9,18 +9,20 @@
   tasks:
     - name: Ensure prerequisite packages are installed
       ansible.builtin.apt:
-        name:
-          - curl
-          - grep
-          - sed
+        name: [curl, grep, sed]
         state: present
         update_cache: true
 
     - name: Find the latest AMD microcode .deb package name
-      # This command scrapes the debian repo page, extracts all .deb filenames,
-      # version-sorts them, and grabs the last one (the newest).
       ansible.builtin.shell:
-        cmd: 'curl -sSL {{ amd_microcode_repo_url }} | grep -o ''href="[^"_]*amd64.deb"'' | sed ''s/href="//;s/"//'' | sort -V | tail -n 1'
+        # Using a YAML block scalar '>' is cleaner and avoids quoting issues.
+        # The grep regex is now corrected to '[^"]*' to allow underscores.
+        cmd: >
+          curl -sSL {{ amd_microcode_repo_url }} |
+          grep -o 'href="[^"]*_amd64\.deb"' |
+          sed 's/href="//;s/"//' |
+          sort -V |
+          tail -n 1
       register: latest_package_info
       changed_when: false
 
@@ -29,15 +31,14 @@
         latest_package_name: "{{ latest_package_info.stdout }}"
 
     - name: Check the currently installed version of amd64-microcode
-      # We use 'command' and 'failed_when: false' to prevent an error if the package isn't installed at all.
       ansible.builtin.command: "dpkg-query -W -f='${Version}' amd64-microcode"
       register: current_version_info
       changed_when: false
-      failed_when: false # Important! Don't fail if package is not installed.
+      failed_when: false
 
     - name: Display findings
       ansible.builtin.debug:
-        msg: "Latest available version is {{ latest_package_name }}. Currently installed is '{{ current_version_info.stdout | default('Not Installed') }}'."
+        msg: "Latest available version is '{{ latest_package_name }}'. Currently installed is '{{ current_version_info.stdout | default('Not Installed') }}'."
 
     # --- This block only runs if an update is needed ---
     - name: Download and install the latest microcode if necessary
@@ -49,19 +50,18 @@
             mode: "0644"
 
         - name: Install the .deb package using apt
-          # Using the apt module is better than dpkg as it can handle dependencies if there were any.
           ansible.builtin.apt:
             deb: "{{ download_path }}/{{ latest_package_name }}"
-          notify: Reboot Host # This tells Ansible to run the "Reboot Host" handler at the end of the play
+          notify: Reboot Host
 
-      when: "latest_package_name not in current_version_info.stdout"
-      # This condition is the key to idempotency. The block is skipped if the latest version is already installed.
+      # This condition also prevents running if the package name is empty
+      when: latest_package_name | length > 0 and latest_package_name not in current_version_info.stdout
 
     - name: Clean up the downloaded .deb file
       ansible.builtin.file:
         path: "{{ download_path }}/{{ latest_package_name }}"
         state: absent
-      when: "latest_package_name not in current_version_info.stdout" # Only clean up if we downloaded it
+      when: latest_package_name | length > 0 and latest_package_name not in current_version_info.stdout
 
   # --- This handler is only triggered by the 'notify' keyword ---
   handlers:
@@ -69,4 +69,4 @@
       listen: "Reboot Host"
       ansible.builtin.reboot:
         msg: "Rebooting to apply microcode update..."
-        reboot_timeout: 300 # 5 minutes
+        reboot_timeout: 300
