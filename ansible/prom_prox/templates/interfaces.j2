@@ -1,29 +1,37 @@
 # This file is managed by Ansible. Do not edit manually.
+# Configured for dual NIC: Management and WAN/LAN
 
 auto lo
 iface lo inet loopback
 
-# --- Secondary Interface (Old NIC) ---
-# This interface is kept up for backup/alternative access.
-# It does NOT have a gateway to avoid routing conflicts.
-# auto {{ secondary_nic }}
-# iface {{ secondary_nic }} inet static
-    # address {{ secondary_nic_ip_cidr }}
+# --- Management Interface (e.g., old USB NIC) ---
+# Physical NIC for management
+auto {{ management_nic_phys }}
+iface {{ management_nic_phys }} inet manual
 
-# --- Primary Interface (New Realtek NIC) ---
-# This is the physical port for the main bridge. It does not
-# get an IP configuration itself.
-auto {{ primary_nic }}
-iface {{ primary_nic }} inet manual
-
-# --- Main Proxmox Bridge ---
-# The bridge 'vmbr0' is now attached to the new primary NIC.
-# This holds the main IP and the default gateway for the host.
-auto {{ bridge_name }}
-iface {{ bridge_name }} inet static
-    address {{ bridge_ip_cidr }}
-    gateway {{ gateway_ip }}
-    bridge-ports {{ primary_nic }}
+# Bridge for Proxmox Management (WebUI, SSH)
+auto {{ management_bridge_name }}
+iface {{ management_bridge_name }} inet static
+    address {{ management_bridge_ip_cidr }}
+    # NO gateway on the management bridge
+    bridge-ports {{ management_nic_phys }}
     bridge-stp off
     bridge-fd 0
-    # Add other bridge options if you need them
+    # Proxmox VE GUI: Management Interface
+
+# --- WAN/LAN Interface (e.g., Realtek NIC) ---
+# Physical NIC for WAN/LAN traffic (host internet + VMs)
+auto {{ wan_lan_nic_phys }}
+iface {{ wan_lan_nic_phys }} inet manual
+
+# Bridge for WAN/LAN traffic (host internet + VMs)
+auto {{ wan_lan_bridge_name }}
+iface {{ wan_lan_bridge_name }} inet static
+    address {{ wan_lan_bridge_ip_cidr }}
+    # Default gateway for the Proxmox host is configured below
+    gateway {{ gateway_ip }}
+    dns-nameservers {{ dns_servers | join(' ') }} # Optional: specify DNS servers directly
+    bridge-ports {{ wan_lan_nic_phys }}
+    bridge-stp off
+    bridge-fd 0
+    # Proxmox VE GUI: WAN/LAN for VMs

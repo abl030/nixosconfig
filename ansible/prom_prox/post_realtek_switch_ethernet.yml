@@ -1,42 +1,48 @@
 ---
-- name: Reconfigure Proxmox Networking to use the new Realtek NIC
-  hosts: proxmox_hosts
+- name: Configure Proxmox Dual NIC Networking (Management & WAN/LAN)
+  hosts: proxmox_hosts # Or the specific host group from your inventory
   become: true
-  gather_facts: true # We define facts manually to be explicit
+  gather_facts: false # We define facts manually to be explicit or rely on inventory
 
   vars:
-    # --- REQUIRED: VERIFY AND EDIT THESE VALUES ---
+    # --- Define your NICs and Network Configuration ---
 
-    # The new, faster NIC that will be the primary interface for the bridge
-    primary_nic: "enp8s0"
+    # Management Network (for SSH, WebUI)
+    management_nic_phys: "enx00e04c78687d" # The "old" USB NIC
+    management_bridge_name: "vmbr0" # Proxmox bridge for management
+    management_bridge_ip_cidr: "192.168.1.108/24" # Static IP for management bridge
 
-    # The old NIC that will become a secondary/backup interface
-    secondary_nic: "enx00e04c78687d"
+    # WAN/LAN Network (for Host Internet and VMs)
+    wan_lan_nic_phys: "enp8s0" # The "new" Realtek NIC
+    wan_lan_bridge_name: "vmbr1" # Proxmox bridge for WAN/LAN
+    wan_lan_bridge_ip_cidr: "192.168.1.12/24" # Static IP for WAN/LAN bridge
 
-    # The name of the Proxmox bridge
-    bridge_name: "vmbr0"
+    # General Network Settings
+    gateway_ip: "192.168.1.1" # Default gateway for the Proxmox host (via WAN/LAN bridge)
+    dns_servers: # Optional: List of DNS servers
+      - "192.168.1.1" # Your router
+      - "8.8.8.8" # Google DNS
+      # - "1.1.1.1"                        # Cloudflare DNS
 
-    # The static IP for the main bridge (vmbr0). MUST include CIDR mask.
-    bridge_ip_cidr: "192.168.1.12/24"
+  pre_tasks:
+    - name: Gather minimal facts if not already done by inventory
+      ansible.builtin.setup:
+        filter:
+          - ansible_distribution
+          - ansible_distribution_version
+      when: ansible_distribution is not defined
 
-    # The default gateway for your network. Find with `ip route | grep default`
-    gateway_ip: "192.168.1.1"
-
-    # A NEW, UNUSED static IP for the old NIC. It must be on the same
-    # subnet but different from the bridge IP. VERIFY THIS IS NOT IN USE!
-    # MUST include CIDR mask.
-    secondary_nic_ip_cidr: "192.168.1.156/24" # Example: one less than the main IP
-
-  tasks:
     - name: Ensure ifupdown2 is installed for safe network reloading
       ansible.builtin.apt:
         name: ifupdown2
         state: present
+        update_cache: yes # Run update_cache the first time apt is called
 
+  tasks:
     - name: Backup the current /etc/network/interfaces file
       ansible.builtin.copy:
         src: /etc/network/interfaces
-        dest: "/etc/network/interfaces.bak-{{ ansible_date_time.iso8601_basic }}"
+        dest: "/etc/network/interfaces.bak-{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
         remote_src: true
         owner: root
         group: root
@@ -47,24 +53,27 @@
     - name: Print backup location
       ansible.builtin.debug:
         msg: "Backed up current network config to {{ backup_result.dest }}"
+      when: backup_result.dest is defined
 
     - name: Generate the new network configuration from template
       ansible.builtin.template:
-        src: templates/interfaces.j2
+        src: templates/interfaces.j2 # Assumes your template is in 'templates/interfaces.j2' relative to the playbook
         dest: /etc/network/interfaces
         owner: root
         group: root
         mode: "0644"
+        backup: yes # Creates a backup of the destination file before overwriting
       notify: Apply Network Changes
 
   handlers:
     - name: Apply Network Changes
       listen: "Apply Network Changes"
       ansible.builtin.command:
-        # pvenetapply is the safest way. It has a 30-second timeout
-        # and will revert if the network doesn't come back up.
-        # Fallback to 'ifreload -a' if not present.
+        # ifreload -a is safer as it attempts to roll back on failure if ifupdown2 is used.
         cmd: "ifreload -a"
       register: network_apply
       changed_when: true
       failed_when: network_apply.rc != 0
+      # You might lose SSH connection here if the interface you are connected through changes IP
+      # or becomes misconfigured. Ensure console access.
+      # Consider adding a delay and a connectivity check task after this if applying remotely.
