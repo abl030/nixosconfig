@@ -38,21 +38,21 @@ in
         echo "Enter commit message: "
         read commit_message
         git add --all
-        git commit -m "$commit_message"
+        git commit -m "''$commit_message"
         git push origin
       '';
 
       pull_dotfiles = ''
         cd ~/nixosconfig/; or return 1
         git pull origin
-        if test $status -ne 0
+        if test ''$status -ne 0
           echo "Error: Git pull failed. Please resolve conflicts."
           return 1
         end
       '';
 
       edit = ''
-        switch "$argv[1]"
+        switch "''$argv[1]"
           case zsh
             nvim ~/nixosconfig/home/zsh/.zshrc2
           case caddy
@@ -66,38 +66,60 @@ in
           case nix
             cd ~/nixosconfig/; and nvim
           case '*'
-            echo "Unknown argument: $argv[1]"
+            echo "Unknown argument: ''$argv[1]"
         end
       '';
 
+      # Fast reload. Uses `script` to prevent hanging when piped.
+      # Note the ''$ escaping for all shell variables to prevent Nix interpolation.
       reload = ''
-        set -l HOST "$argv[1]"
-        set -l TARGET "$argv[2]"
-        sudo -v
-        if test $status -ne 0; return 1; end
-        pull_dotfiles
-        if test $status -ne 0; return 1; end
-        nix flake update
+        set -l HOST "''$argv[1]"
+        set -l TARGET "''$argv[2]"
+        sudo -v; or return 1
+
         set -l flake_path_prefix "${config.home.homeDirectory}/nixosconfig#"
-        if test "$TARGET" = "home"
-          home-manager switch --flake "$flake_path_prefix$HOST"
-          if test $status -eq 0; exec fish; else; return 1; end
-        else if test "$TARGET" = "wsl"
-          sudo nixos-rebuild switch --flake "$flake_path_prefix$HOST" --impure
-          if test $status -eq 0
-            home-manager switch --flake "$flake_path_prefix$HOST"
-            if test $status -eq 0; exec fish; else; return 1; end
-          else
-            return 1
-          end
+        set -l rebuild_cmd ""
+
+        if test "''$TARGET" = "home"
+          set rebuild_cmd "home-manager switch --flake ''$flake_path_prefix''$HOST"
+        else if test "''$TARGET" = "wsl"
+          set rebuild_cmd "sudo nixos-rebuild switch --flake ''$flake_path_prefix''$HOST --impure; and home-manager switch --flake ''$flake_path_prefix''$HOST"
         else # System rebuild
-          sudo nixos-rebuild switch --flake "$flake_path_prefix$HOST"
-          if test $status -eq 0
-            home-manager switch --flake "$flake_path_prefix$HOST"
-            if test $status -eq 0; exec fish; else; return 1; end
-          else
+          set rebuild_cmd "sudo nixos-rebuild switch --flake ''$flake_path_prefix''$HOST; and home-manager switch --flake ''$flake_path_prefix''$HOST"
+        end
+
+        if script -q -e -c "''$rebuild_cmd" /dev/null
+            if isatty stdout; exec fish; end
+        else
             return 1
-          end
+        end
+      '';
+
+      # Full update. Uses `script` to prevent hanging when piped.
+      update = ''
+        set -l HOST "''$argv[1]"
+        set -l TARGET "''$argv[2]"
+        sudo -v; or return 1
+
+        pull_dotfiles; or return 1
+        echo "Updating flake inputs..."
+        nix flake update
+
+        set -l flake_path_prefix "${config.home.homeDirectory}/nixosconfig#"
+        set -l rebuild_cmd ""
+
+        if test "''$TARGET" = "home"
+          set rebuild_cmd "home-manager switch --flake ''$flake_path_prefix''$HOST"
+        else if test "''$TARGET" = "wsl"
+          set rebuild_cmd "sudo nixos-rebuild switch --flake ''$flake_path_prefix''$HOST --impure; and home-manager switch --flake ''$flake_path_prefix''$HOST"
+        else # System rebuild
+          set rebuild_cmd "sudo nixos-rebuild switch --flake ''$flake_path_prefix''$HOST; and home-manager switch --flake ''$flake_path_prefix''$HOST"
+        end
+
+        if script -q -e -c "''$rebuild_cmd" /dev/null
+            if isatty stdout; exec fish; end
+        else
+            return 1
         end
       '';
 
@@ -108,19 +130,19 @@ in
           echo "Piped input copied to clipboard." >&2
           return 0
         end
-        set -l target "$argv[1]"; if test -z "$target"; set target "."; end
-        if not test -e "$target"; echo "Error: '$target' does not exist." >&2; return 1; end
-        if test -d "$target"
-          pushd "$target"; or return 1
-          begin; command ls -la .; echo; echo "FILE CONTENTS"; for f in *; if test -f "$f"; echo "===== $f ====="; cat "$f"; echo; end; end; end | xclip -selection clipboard
+        set -l target "''$argv[1]"; if test -z "''$target"; set target "."; end
+        if not test -e "''$target"; echo "Error: ' ''$target' does not exist." >&2; return 1; end
+        if test -d "''$target"
+          pushd "''$target"; or return 1
+          begin; command ls -la .; echo; echo "FILE CONTENTS"; for f in *; if test -f "''$f"; echo "===== ''$f ====="; cat "''$f"; echo; end; end; end | xclip -selection clipboard
           popd
-          echo "Directory '$target' context copied to clipboard." >&2; return 0
+          echo "Directory ' ''$target' context copied to clipboard." >&2; return 0
         end
-        if test -f "$target"
-          begin; command ls -l "$target"; echo; echo "FILE CONTENTS"; cat "$target"; echo; end | xclip -selection clipboard
-          echo "File '$target' context copied to clipboard." >&2; return 0
+        if test -f "''$target"
+          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard
+          echo "File ' ''$target' context copied to clipboard." >&2; return 0
         end
-        echo "Error: '$target' is not a regular file or directory." >&2; return 1
+        echo "Error: ' ''$target' is not a regular file or directory." >&2; return 1
       '';
 
       # Tees piped input to the screen and to the clipboard.
