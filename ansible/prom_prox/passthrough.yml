@@ -1,0 +1,186 @@
+---
+- name: Configure Proxmox VE for GPU Passthrough (AMD iGPU & NVIDIA dGPU)
+  hosts: proxmox_hosts
+  remote_user: root
+  become: true
+  gather_facts: false
+
+  vars:
+    kernel_cmdline_iommu_params: "amd_iommu=on iommu=pt video=efifb:off"
+
+    # --- PCI IDs for the devices you want to pass through ---
+    # NVIDIA dGPU (if you still intend to set it up for passthrough eventually)
+    nvidia_gpu_id: "10de:1b80"
+    nvidia_audio_id: "10de:10f0"
+
+    # AMD iGPU (Your Ryzen 9950X - verify these are correct for your specific CPU if needed via lspci -nn on host)
+    # The device ID 1002:13c0 is common for Raphael/Granite Ridge iGPUs.
+    amd_igpu_vga_id: "1002:13c0"
+    amd_igpu_audio1_id: "1002:1640" # Primary HDMI/DP Audio
+    amd_igpu_encryption_id: "1022:1649" # PSP/CCP (often passed with iGPU)
+    amd_igpu_usb1_id: "1022:15b6" # Optional iGPU USB - include if you want to pass and can get it working
+    amd_igpu_usb2_id: "1022:15b7" # Optional iGPU USB
+    amd_igpu_audio2_id: "1022:15e3" # Secondary ACP/Azalia Audio (often passed)
+
+    # --- Combine IDs for vfio-pci options ---
+    # Adjust this list based on what you *definitely* want to pass to VFIO *now*.
+    # For initial AMD iGPU testing, focus on the iGPU VGA and its primary audio.
+    # You can add the NVIDIA later if needed.
+    vfio_pci_target_ids:
+      - "{{ amd_igpu_vga_id }}"
+      - "{{ amd_igpu_audio1_id }}"
+      - "{{ amd_igpu_encryption_id }}" # Recommended
+      - "{{ amd_igpu_audio2_id }}" # Recommended
+      - "{{ nvidia_gpu_id }}" # Uncomment if/when setting up NVIDIA
+      - "{{ nvidia_audio_id }}" # Uncomment if/when setting up NVIDIA
+      - "{{ amd_igpu_usb1_id }}" # Uncomment if attempting to pass iGPU USB
+      - "{{ amd_igpu_usb2_id }}" # Uncomment if attempting to pass iGPU USB
+
+    vfio_pci_ids_list_string: "{{ vfio_pci_target_ids | join(',') }}"
+
+    # --- Modules to load at boot (vfio_virqfd removed based on findings) ---
+    vfio_modules_to_load:
+      - vfio
+      - vfio_iommu_type1
+      - vfio_pci
+      # - vfio_virqfd # Removed based on investigation
+
+    # --- Host drivers to blacklist for the targeted GPUs ---
+    # This list will effectively blacklist drivers for any device in vfio_pci_target_ids
+    gpu_drivers_to_blacklist:
+      - nouveau
+      - nvidiafb
+      - radeon
+      - amdgpu
+
+    # --- vBIOS file for AMD iGPU ---
+    # Your CPU is 9950X, so we use vbios_9950x.rom
+    amd_igpu_vbios_filename: "vbios_9950x.rom"
+    amd_igpu_vbios_url: "https://raw.githubusercontent.com/isc30/ryzen-gpu-passthrough-proxmox/main/{{ amd_igpu_vbios_filename }}"
+    # Generic AMD GOP Driver for UEFI audio (if needed for Error 43, less common for iGPU primary passthrough)
+    # amd_gop_driver_filename: "AMDGopDriver.rom"
+    # amd_gop_driver_url: "https://raw.githubusercontent.com/isc30/ryzen-gpu-passthrough-proxmox/main/{{ amd_gop_driver_filename }}"
+
+    kvm_bios_path: "/usr/share/kvm"
+
+  tasks:
+    - name: Gather minimal facts (distribution)
+      ansible.builtin.setup:
+        filter: ansible_distribution
+      when: ansible_distribution is not defined
+
+    - name: Ensure kernel command line in /etc/kernel/cmdline has IOMMU options
+      ansible.builtin.lineinfile:
+        path: /etc/kernel/cmdline
+        regexp: '^(.*(?:root=ZFS=|root=)[^ ]+)(?:(?: amd_iommu=\S*| iommu=\S*| video=efifb:\S*)*)(.*)$'
+        line: '\1 {{ kernel_cmdline_iommu_params }}\2'
+        backrefs: yes
+      notify: Refresh proxmox-boot-tool
+
+    - name: Load essential VFIO modules at boot via /etc/modules
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        line: "{{ item }}"
+        state: present
+      loop: "{{ vfio_modules_to_load }}"
+      notify: Update initramfs
+
+    - name: Remove vfio_virqfd from /etc/modules if it exists (cleanup)
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        regexp: "^vfio_virqfd$"
+        state: absent
+      notify: Update initramfs
+
+    - name: Create KVM BIOS directory if it doesn't exist
+      ansible.builtin.file:
+        path: "{{ kvm_bios_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download vBIOS for AMD iGPU ({{ amd_igpu_vbios_filename }})
+      ansible.builtin.get_url:
+        url: "{{ amd_igpu_vbios_url }}"
+        dest: "{{ kvm_bios_path }}/{{ amd_igpu_vbios_filename }}"
+        mode: "0644"
+      # Consider adding 'force: yes' if you want to always re-download
+
+    # - name: Download AMD GOP Driver ({{ amd_gop_driver_filename }}) - Optional
+    #   ansible.builtin.get_url:
+    #     url: "{{ amd_gop_driver_url }}"
+    #     dest: "{{ kvm_bios_path }}/{{ amd_gop_driver_filename }}"
+    #     mode: "0644"
+
+    - name: Configure modprobe for VFIO, blacklists, and softdeps
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/vfio-passthrough.conf
+        content: |
+          # Assign GPU/Audio devices to vfio-pci
+          options vfio-pci ids={{ vfio_pci_ids_list_string }} disable_vga=1
+
+          # Blacklist host drivers for GPUs
+          {% for driver in gpu_drivers_to_blacklist %}
+          blacklist {{ driver }}
+          {% endfor %}
+
+          # Ensure vfio-pci loads before host drivers for these devices
+          # Based on the ryzen-gpu-passthrough-proxmox guide
+          softdep radeon pre: vfio-pci
+          softdep amdgpu pre: vfio-pci
+          softdep snd_hda_intel pre: vfio-pci
+          softdep nouveau pre: vfio-pci # If also passing NVIDIA
+
+          # If passing iGPU USB controllers and they don't bind to vfio-pci:
+          # softdep xhci_pci pre: vfio-pci
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Update initramfs
+
+    - name: Flush handlers before reboot
+      ansible.builtin.meta: flush_handlers
+
+    - name: Inform user about next steps and reboot
+      ansible.builtin.debug:
+        msg: |
+          Host configuration applied. A vBIOS file ({{ amd_igpu_vbios_filename }}) has been downloaded to {{ kvm_bios_path }}/.
+          The system will now reboot.
+          After reboot:
+          1. Verify 'vfio-pci' is in use for target devices (lspci -nnk).
+          2. In Proxmox UI, for your VM:
+             - Machine Type: q35
+             - BIOS: OVMF (UEFI)
+             - Display: Set to 'none' (or 'Default (STD)' for initial troubleshooting).
+             - Add PCI Device for AMD iGPU (e.g., {{ amd_igpu_vga_id }} at host PCI 7a:00.0):
+               - UNCHECK 'All Functions'.
+               - UNCHECK 'Primary GPU'.
+               - CHECK 'PCI-Express'.
+               - Set 'ROM file' to '{{ amd_igpu_vbios_filename }}'. (Proxmox will look in {{ kvm_bios_path }})
+             - Add PCI Device for AMD iGPU Audio (e.g., {{ amd_igpu_audio1_id }} at host PCI 7a:00.1):
+               - UNCHECK 'All Functions'.
+               - CHECK 'PCI-Express'.
+               - (Optional, if UEFI Error 43: try adding romfile={{ amd_gop_driver_filename }} here later)
+             - Add other desired AMD iGPU functions (Encryption, secondary Audio) as separate PCI devices.
+          Start the VM and check guest OS for GPU detection and driver initialization.
+
+    - name: Reboot Proxmox VE host
+      ansible.builtin.reboot:
+        msg: "Rebooting Proxmox VE host to apply GPU passthrough configuration."
+        connect_timeout: 10
+        reboot_timeout: 600
+        pre_reboot_delay: 5
+        post_reboot_delay: 60
+        test_command: uptime
+
+  handlers:
+    - name: Refresh proxmox-boot-tool
+      listen: "Refresh proxmox-boot-tool"
+      ansible.builtin.command:
+        cmd: proxmox-boot-tool refresh
+      changed_when: true
+
+    - name: Update initramfs
+      listen: "Update initramfs"
+      ansible.builtin.command:
+        cmd: update-initramfs -u -k all
+      changed_when: true
