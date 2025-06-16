@@ -1,5 +1,6 @@
 # ~/nixosconfig/fish.nix (or wherever this file is located)
 { config, pkgs, ... }:
+
 let
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
 in
@@ -11,7 +12,6 @@ in
   programs.fish = {
     enable = true;
 
-    # Aliases are moved here
     shellAliases = {
       "epi!" = "ssh abl030@caddy 'wakeonlan 18:c0:4d:65:86:e8'"; # Quoted due to '!'
       epi = "wakeonlan 18:c0:4d:65:86:e8";
@@ -30,8 +30,6 @@ in
       ls = "lsd -A -F -l --group-directories-first --color=always";
     };
 
-    # Functions are moved here
-    # The body of the function (between 'function name ...' and 'end') goes here.
     functions = {
       fish_greeting = ""; # Your existing greeting override
 
@@ -75,17 +73,12 @@ in
       reload = ''
         set -l HOST "$argv[1]"
         set -l TARGET "$argv[2]"
-
         sudo -v
         if test $status -ne 0; return 1; end
-
         pull_dotfiles
         if test $status -ne 0; return 1; end
-
         nix flake update
-
         set -l flake_path_prefix "${config.home.homeDirectory}/nixosconfig#"
-
         if test "$TARGET" = "home"
           home-manager switch --flake "$flake_path_prefix$HOST"
           if test $status -eq 0; exec fish; else; return 1; end
@@ -107,31 +100,43 @@ in
           end
         end
       '';
+
+
+      copy-directory = ''
+        # In fish, use 'begin' and 'end' to group commands for a pipe.
+        begin
+          # 1. List the directory contents
+          command ls -la
+          echo
+          echo "========================================"
+          echo "           FILE CONTENTS"
+          echo "========================================"
+          echo
+
+          # 2. Loop through and concatenate file contents
+          for f in *
+            # Only process regular files, not directories or symlinks
+            if test -f "$f"
+              echo "===== $f ====="
+              cat "$f"
+              echo # Add a blank line for readability
+            end
+          end
+        end | xclip -selection clipboard
+
+        # This confirmation message prints to your terminal, not the clipboard.
+        echo "Directory listing and file contents copied to clipboard."
+      '';
+
     };
 
-    # shellInit is now empty as its contents have been moved to more specific options.
-    # If you had any other arbitrary shell script to run at init, it would go here.
     shellInit = ''
     '';
-
-    # If you had keybindings like the double-tab or Shift+L:
-    # interactiveShellInit = ''
-    #   # Example: if __fish_custom_tab_handler is also defined in programs.fish.functions
-    #   # bind \t __fish_custom_tab_handler
-    #   # bind L 'commandline -f autosuggest-accept'
-    # '';
-
-  }; # End of programs.fish
+  };
 
   programs.zoxide = {
     enable = true;
-    enableFishIntegration = true; # This provides 'z' and 'zi'
+    enableFishIntegration = true;
   };
-
-  # If you use starship, this is the Fish-specific way:
-  # programs.starship = {
-  #   enable = true;
-  #   enableFishIntegration = true;
-  # };
-
 }
+
