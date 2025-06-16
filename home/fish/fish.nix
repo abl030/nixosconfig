@@ -101,33 +101,34 @@ in
         end
       '';
 
-
-      copy-directory = ''
-        # In fish, use 'begin' and 'end' to group commands for a pipe.
-        begin
-          # 1. List the directory contents
-          command ls -la
-          echo
-          echo "========================================"
-          echo "           FILE CONTENTS"
-          echo "========================================"
-          echo
-
-          # 2. Loop through and concatenate file contents
-          for f in *
-            # Only process regular files, not directories or symlinks
-            if test -f "$f"
-              echo "===== $f ====="
-              cat "$f"
-              echo # Add a blank line for readability
-            end
-          end
-        end | xclip -selection clipboard
-
-        # This confirmation message prints to your terminal, not the clipboard.
-        echo "Directory listing and file contents copied to clipboard."
+      # Combined context-copying function with pipe support.
+      copyc = ''
+        if not isatty stdin
+          cat | xclip -selection clipboard
+          echo "Piped input copied to clipboard." >&2
+          return 0
+        end
+        set -l target "$argv[1]"; if test -z "$target"; set target "."; end
+        if not test -e "$target"; echo "Error: '$target' does not exist." >&2; return 1; end
+        if test -d "$target"
+          pushd "$target"; or return 1
+          begin; command ls -la .; echo; echo "FILE CONTENTS"; for f in *; if test -f "$f"; echo "===== $f ====="; cat "$f"; echo; end; end; end | xclip -selection clipboard
+          popd
+          echo "Directory '$target' context copied to clipboard." >&2; return 0
+        end
+        if test -f "$target"
+          begin; command ls -l "$target"; echo; echo "FILE CONTENTS"; cat "$target"; echo; end | xclip -selection clipboard
+          echo "File '$target' context copied to clipboard." >&2; return 0
+        end
+        echo "Error: '$target' is not a regular file or directory." >&2; return 1
       '';
 
+      # Tees piped input to the screen and to the clipboard.
+      teec = ''
+        # Use 'tee' to send a copy of the input to the terminal screen (/dev/tty).
+        # The original stream continues down the pipe to xclip.
+        tee /dev/tty | xclip -selection clipboard
+      '';
     };
 
     shellInit = ''
@@ -139,4 +140,3 @@ in
     enableFishIntegration = true;
   };
 }
-
