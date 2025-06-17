@@ -1,0 +1,100 @@
+# ====================================================================
+# Proxmox VM Configuration for AMD iGPU Passthrough (Ryzen 9000 series)
+# VM ID: 100
+# Path: /etc/pve/qemu-server/100.conf
+# ====================================================================
+
+# --- Core Virtual Machine & Boot Settings ---
+
+# CRITICAL: Use OVMF for a UEFI environment. This is required for modern
+# GPU passthrough, allowing the guest to properly initialize the VBIOS.
+bios: ovmf
+
+# Standard boot order.
+boot: order=scsi0;ide2;net0
+
+# Guest OS Type. 'l26' is a generic hint for modern Linux kernels.
+ostype: l26
+
+# CRITICAL: Q35 machine type is necessary for modern PCIe passthrough.
+# Do not use the older 'i440fx'.
+machine: q35
+
+
+# --- CPU & Memory ---
+
+# CPU cores assigned to the VM.
+cores: 12
+
+# Amount of RAM in MB.
+memory: 8096
+
+# Enable NUMA for better memory/CPU performance alignment.
+numa: 0
+
+# Number of CPU sockets. Usually 1 for desktops.
+sockets: 1
+
+
+# --- GPU Passthrough Devices ---
+#
+# ### IMPORTANT: Replace 7a:00.x with the actual addresses from YOUR host ###
+# You can find them by running: lspci -nn | grep -E '1002:13c0|1002:1640|1022:1649|1022:15e3'
+#
+# Pass through all required functions of the iGPU. Passing only the VGA
+# device is not enough and will cause driver initialization failures.
+
+# hostpci0: The main VGA controller.
+# pcie=1:       Required to treat the device as a PCIe device.
+# romfile=...:  Specifies the VBIOS file for the guest to load. The file must
+#               be in /usr/share/kvm/ on the Proxmox host.
+# rombar=0 was removed as it prevents the guest from finding the ROM.
+hostpci0: 0000:7a:00.0,pcie=1,romfile=vbios_9950x.rom
+
+# hostpci1: The primary HDMI/DP Audio device associated with the iGPU.
+hostpci1: 0000:7a:00.1,pcie=1
+
+# hostpci2: The PSP/CCP Encryption Co-Processor. This is ESSENTIAL for the
+#           amdgpu driver to initialize security features and the SMU.
+#           Missing this causes PSP firmware loading failures.
+hostpci2: 0000:7a:00.2,pcie=1
+
+# hostpci3: The secondary ACP/Azalia Audio device. Also recommended.
+hostpci3: 0000:7a:00.6,pcie=1
+
+
+# --- Virtual Display ---
+
+# CRITICAL: Removes the default virtual display adapter (Cirrus/VGA).
+# This prevents conflicts and ensures the passthrough GPU is the primary
+# and only graphics device available to the guest OS.
+vga: none
+
+
+# --- Storage & Disks ---
+
+# The UEFI disk where the bootloader is stored.
+efidisk0: local-zfs:vm-100-disk-0,efitype=4m,pre-enrolled-keys=1,size=1M
+
+# The primary OS disk. iothread=1 improves disk I/O performance.
+scsi0: local-zfs:vm-100-disk-1,iothread=1,size=32G
+
+# The virtual SCSI controller type.
+scsihw: virtio-scsi-single
+
+# A virtual CD/DVD drive, currently empty.
+ide2: none,media=cdrom
+
+
+# --- Network ---
+
+# Virtual network card connected to the vmbr0 bridge.
+net0: virtio=BC:24:11:2A:91:F3,bridge=vmbr0,firewall=1
+
+
+# --- Metadata ---
+
+# For internal Proxmox/QEMU use.
+meta: creation-qemu=9.2.0,ctime=1750079019
+smbios1: uuid=e6e58aca-35b2-4a36-832c-9f61f1789ec5
+vmgenid: a9a633cf-4b87-445a-a77f-003c2fc34715
