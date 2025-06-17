@@ -159,7 +159,6 @@
              - Add PCI Device for AMD iGPU Audio (e.g., {{ amd_igpu_audio1_id }} at host PCI 7a:00.1):
                - UNCHECK 'All Functions'.
                - CHECK 'PCI-Express'.
-               - (Optional, if UEFI Error 43: try adding romfile={{ amd_gop_driver_filename }} here later)
              - Add other desired AMD iGPU functions (Encryption, secondary Audio) as separate PCI devices.
           Start the VM and check guest OS for GPU detection and driver initialization.
 
