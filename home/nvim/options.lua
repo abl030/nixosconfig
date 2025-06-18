@@ -37,3 +37,20 @@ cmp.setup({
 	}),
 	-- ... rest of your cmp configuration ...
 })
+
+-- Function to toggle diagnostics on and off using the correct API
+local function toggle_diagnostics()
+	-- is_enabled() is not deprecated and is the correct way to check the current state.
+	if vim.diagnostic.is_enabled() then
+		-- This is the new, non-deprecated way to disable diagnostics globally.
+		vim.diagnostic.enable(false)
+		print("Diagnostics Disabled")
+	else
+		-- This enables diagnostics globally.
+		vim.diagnostic.enable(true)
+		print("Diagnostics Enabled")
+	end
+end
+
+-- Map Ctrl-l to toggle diagnostics
+vim.keymap.set("n", "<leader>dl", toggle_diagnostics, { noremap = true, silent = false, desc = "Toggle Diagnostics" })
