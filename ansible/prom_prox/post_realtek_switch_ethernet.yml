@@ -10,7 +10,7 @@
     # Management Network (for SSH, WebUI)
     management_nic_phys: "enx00e04c78687d" # The "old" USB NIC
     management_bridge_name: "vmbr0" # Proxmox bridge for management
-    management_bridge_ip_cidr: "192.168.1.108/24" # Static IP for management bridge
+    management_bridge_ip_cidr: "192.168.1.26/24" # Static IP for management bridge
 
     # WAN/LAN Network (for Host Internet and VMs)
     wan_lan_nic_phys: "enp8s0" # The "new" Realtek NIC

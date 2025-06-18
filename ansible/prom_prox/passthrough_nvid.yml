@@ -1,0 +1,156 @@
+# passthrough_nvid.yml
+---
+- name: Configure Proxmox VE for NVIDIA dGPU Passthrough
+  hosts: proxmox_hosts # Ensure this group targets the correct Proxmox host(s)
+  remote_user: root # Or your sudo-capable user if ansible_user is defined in inventory
+  become: true
+  gather_facts: false # Facts like ansible_distribution are gathered in pre_tasks if needed
+
+  vars:
+    # --- IMPORTANT: Kernel IOMMU Parameters ---
+    # Assuming AMD CPU based on your original passthrough.yml which used amd_iommu=on
+    # If your Proxmox host has an Intel CPU, change to "intel_iommu=on iommu=pt video=efifb:off"
+    kernel_cmdline_iommu_params: "amd_iommu=on iommu=pt video=efifb:off"
+
+    # --- PCI IDs for the NVIDIA dGPU (from your passthrough.yml) ---
+    nvidia_gpu_id: "10de:1b80"
+    nvidia_audio_id: "10de:10f0"
+
+    # --- Combine NVIDIA IDs for vfio-pci options ---
+    vfio_pci_target_ids:
+      - "{{ nvidia_gpu_id }}"
+      - "{{ nvidia_audio_id }}"
+    vfio_pci_ids_list_string: "{{ vfio_pci_target_ids | join(',') }}"
+
+    # --- Modules to load at boot ---
+    vfio_modules_to_load:
+      - vfio
+      - vfio_iommu_type1
+      - vfio_pci
+
+    # --- Host drivers to blacklist for the NVIDIA GPU ---
+    # These drivers will be prevented from loading on the host for the passthrough GPU.
+    gpu_drivers_to_blacklist:
+      - nouveau
+      - nvidiafb
+      # - nvidia # Add 'nvidia' if you have NVIDIA proprietary drivers installed on the HOST
+      # and they might interfere with vfio-pci claiming the card.
+
+    kvm_bios_path: "/usr/share/kvm" # Standard path for KVM vBIOS files
+
+  pre_tasks:
+    - name: Gather minimal facts (distribution) if not already available
+      ansible.builtin.setup:
+        filter: ansible_distribution
+      when: ansible_distribution is not defined
+
+  tasks:
+    - name: Ensure kernel command line in /etc/kernel/cmdline has IOMMU options
+      ansible.builtin.lineinfile:
+        path: /etc/kernel/cmdline
+        regexp: '^(.*(?:root=ZFS=|root=)[^ ]+)(?:(?: amd_iommu=\S*| intel_iommu=\S*| iommu=\S*| video=efifb:\S*)*)(.*)$'
+        line: '\1 {{ kernel_cmdline_iommu_params }}\2'
+        backrefs: yes
+      notify: Refresh proxmox-boot-tool
+      # REMOVED THE OFFENDING VARS BLOCK FROM HERE
+
+    - name: Load essential VFIO modules at boot via /etc/modules
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        line: "{{ item }}"
+        state: present
+      loop: "{{ vfio_modules_to_load }}"
+      notify: Update initramfs
+
+    - name: Remove vfio_virqfd from /etc/modules if it exists (legacy cleanup)
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        regexp: "^vfio_virqfd$"
+        state: absent
+      notify: Update initramfs
+
+    - name: Create KVM BIOS directory if it doesn't exist
+      ansible.builtin.file:
+        path: "{{ kvm_bios_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Configure modprobe for VFIO, blacklists, and softdeps for NVIDIA
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/vfio-nvidia-passthrough.conf
+        content: |
+          # Assign NVIDIA GPU/Audio devices to vfio-pci
+          # disable_vga=1 can prevent vfio-pci from creating a legacy VGA interface, often beneficial.
+          options vfio-pci ids={{ vfio_pci_ids_list_string }} disable_vga=1
+
+          # Blacklist host drivers for the NVIDIA GPU
+          {% for driver in gpu_drivers_to_blacklist %}
+          blacklist {{ driver }}
+          {% endfor %}
+
+          # Ensure vfio-pci loads before host drivers for these devices
+          softdep nouveau pre: vfio-pci
+          # If 'nvidia' proprietary driver is on host and might interfere:
+          # softdep nvidia pre: vfio-pci
+          # softdep nvidia-drm pre: vfio-pci
+          softdep snd_hda_intel pre: vfio-pci # For the GPU's audio device
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Update initramfs
+
+    - name: Flush handlers before reboot
+      ansible.builtin.meta: flush_handlers
+
+    - name: Inform user about next steps and reboot for NVIDIA passthrough
+      ansible.builtin.debug:
+        msg: |
+          Host configuration for NVIDIA dGPU passthrough applied.
+          The KVM BIOS directory is {{ kvm_bios_path }}.
+          The system will now reboot.
+
+          After reboot:
+          1. Verify 'vfio-pci' is in use for target NVIDIA devices:
+             Run 'lspci -nnk' on the Proxmox host.
+             Look for your NVIDIA GPU ({{ nvidia_gpu_id }}) and Audio ({{ nvidia_audio_id }}).
+             Ensure they show 'Kernel driver in use: vfio-pci'.
+
+          2. In Proxmox UI, for your Virtual Machine:
+             - Machine Type: q35
+             - BIOS: OVMF (UEFI)
+             - Display: Set to 'none'. (If you have issues, try 'Default (STD)' for initial VM setup, then switch to 'none' once guest OS and drivers are installed).
+             - Add PCI Device for NVIDIA GPU ({{ nvidia_gpu_id }}):
+               - UNCHECK 'All Functions' (unless you know you need this for a multi-function device).
+               - CHECK 'Primary GPU' if this is the only GPU for the VM. Uncheck if you also have a virtual SPICE/VNC display.
+               - CHECK 'PCI-Express'.
+               - ROM file: Usually left blank for NVIDIA passthrough to Linux guests.
+                 For Windows guests, if you encounter 'Code 43', you might need a vBIOS ROM file.
+                 If so, obtain your card's vBIOS (e.g., dump from card or find online), place it in
+                 '{{ kvm_bios_path }}/your_nvidia_vbios.rom', and specify 'your_nvidia_vbios.rom' here.
+             - Add PCI Device for NVIDIA GPU Audio ({{ nvidia_audio_id }}):
+               - UNCHECK 'All Functions'.
+               - CHECK 'PCI-Express'.
+
+          3. Start the VM and install appropriate NVIDIA drivers inside the guest OS.
+
+    - name: Reboot Proxmox VE host to apply NVIDIA GPU passthrough configuration
+      ansible.builtin.reboot:
+        msg: "Rebooting Proxmox VE host to apply NVIDIA GPU passthrough configuration."
+        connect_timeout: 10
+        reboot_timeout: 600
+        pre_reboot_delay: 5
+        post_reboot_delay: 60
+        test_command: uptime
+
+  handlers:
+    - name: Refresh proxmox-boot-tool
+      listen: "Refresh proxmox-boot-tool"
+      ansible.builtin.command:
+        cmd: proxmox-boot-tool refresh
+      changed_when: true # This command always indicates a change if it runs
+
+    - name: Update initramfs
+      listen: "Update initramfs"
+      ansible.builtin.command:
+        cmd: update-initramfs -u -k all
+      changed_when: true # This command always indicates a change if it runs
