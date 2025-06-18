@@ -28,6 +28,7 @@ in
       lzd = "lazydocker";
       v = "nvim";
       ls = "lsd -A -F -l --group-directories-first --color=always";
+      lzg = "lazygit";
     };
 
     functions = {
