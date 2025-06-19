@@ -74,22 +74,22 @@ services:
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
       PAPERLESS_TIKA_ENDPOINT: http://tika:9998
     # --- ADDED FOR MOUNT MONITORING ---
-    healthcheck:
-      # Test the container paths that correspond to host /mnt/data mounts
-      # Combine checks: If any fail (or timeout), the whole check fails (exit 1).
-      test:
-        [
-          "CMD-SHELL",
-          "timeout 15s sh -c 'stat /usr/src/paperless/media && stat /usr/src/paperless/consume && stat /usr/src/paperless/consume/scans' || exit 1",
-        ]
-      interval: 30s # Check every 30 seconds
-      timeout: 20s # Wait up to 20 seconds for the check command
-      retries: 5 # Consider unhealthy after 5 consecutive failures
-      start_period: 60s # Wait 60 seconds after container start before first check
-    labels:
-      # Tell autoheal (running separately) to monitor this container
-      - autoheal=true
-    # --- END OF ADDED SECTION ---
+    # healthcheck:
+    #   # Test the container paths that correspond to host /mnt/data mounts
+    #   # Combine checks: If any fail (or timeout), the whole check fails (exit 1).
+    #   test:
+    #     [
+    #       "CMD-SHELL",
+    #       "timeout 15s sh -c 'stat /usr/src/paperless/media && stat /usr/src/paperless/consume && stat /usr/src/paperless/consume/scans' || exit 1",
+    #     ]
+    #   interval: 30s # Check every 30 seconds
+    #   timeout: 20s # Wait up to 20 seconds for the check command
+    #   retries: 5 # Consider unhealthy after 5 consecutive failures
+    #   start_period: 60s # Wait 60 seconds after container start before first check
+    # labels:
+    #   # Tell autoheal (running separately) to monitor this container
+    #   - autoheal=true
+    # # --- END OF ADDED SECTION ---
 
   gotenberg:
     image: docker.io/gotenberg/gotenberg:8.7
