@@ -13,6 +13,6 @@ services:
       - PGID=0000
       - PAPERLESS_AI_PORT=${PAPERLESS_AI_PORT:-3000}
     ports:
-      - "3000:${PAPERLESS_AI_PORT:-3000}"
+      - "3001:${PAPERLESS_AI_PORT:-3000}"
     volumes:
       - /mnt/docker/paperless-ai:/app/data
