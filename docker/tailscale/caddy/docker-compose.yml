@@ -15,7 +15,9 @@ services:
     cap_add:
       - net_admin
       - sys_module # Sometimes needed depending on kernel/setup
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: tailscale status --peers=false --json | grep -q 'Online.*true'
 
   # The Caddy container using the Tailscale container's network
   caddy:
@@ -32,6 +34,7 @@ services:
       - /mnt/docker/tailscale/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddy configuration
       - /mnt/docker/tailscale/caddy_data:/data # Persist Caddy's state (certs, etc.)
       - /mnt/docker/tailscale/caddy_config:/config # Persist Caddy's config (if needed)
-    restart: always
-    # depends_on:
-    # - tailscale # Ensure tailscale starts first (though network_mode implies this)
+    restart: unless-stopped
+    depends_on:
+      tailscale: # Ensure tailscale starts first (though network_mode implies this)
+        condition: service_healthy
