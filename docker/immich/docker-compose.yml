@@ -49,12 +49,18 @@ services:
       - /mnt/docker/tailscale/immich/:/var/lib/tailscale # Persists Tailscale state
       - /dev/net/tun:/dev/net/tun # Allows Tailscale to create a TUN interface
       - ./immich-tailscale-serve.json:/config/immich-serve.json:ro # Tailscale serve config
+      - /etc/localtime:/etc/localtime:ro # <--- ADD THIS LINE
     environment:
       - TS_HOSTNAME=immich
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/immich-serve.json
       - TS_ACCEPT_DNS=false # Optional: set to true if you want this node to use Tailscale's MagicDNS for resolving other Tailnet hosts
     restart: unless-stopped
+    healthcheck:
+      test: tailscale status --peers=false --json | grep -q 'Online.*true'
+    depends_on:
+      immich-server: # <--- CHANGE TO THIS FORMAT
+        condition: service_healthy
 
   caddy:
     # image: caddy:latest
@@ -70,7 +76,10 @@ services:
       - /mnt/docker/tailscale/immich/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddy configuration
       - /mnt/docker/tailscale/immich/caddy_data:/data # Persist Caddy's state (certs, etc.)
       - /mnt/docker/tailscale/immich/caddy_config:/config # Persist Caddy's config (if needed)
-    restart: always
+    restart: unless-stopped
+    depends_on:
+      immich-tailscale-sidecar:
+        condition: service_healthy
 
   immich-machine-learning:
     container_name: immich_machine_learning
