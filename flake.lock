@@ -149,11 +149,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1750292839,
-        "narHash": "sha256-VleV3SIeP40MA1UDj6BgqjkAfAc7Ozc8qZJObu4onNY=",
+        "lastModified": 1750343364,
+        "narHash": "sha256-Q/aYIBscvCm1eJaHcQvtz8YzFl6FE1OcNNjwyB+CYwI=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "b22991bcf1f49888369c4171f63faac6fd9a25b5",
+        "rev": "87e9267656cb0e4fa2957c99b98ad5aa67769d15",
         "type": "gitlab"
       },
       "original": {
@@ -430,11 +430,11 @@
         "nvchad-starter": "nvchad-starter"
       },
       "locked": {
-        "lastModified": 1750250215,
-        "narHash": "sha256-8ctlb6upiMYGmIdlXqJdQPNPjV1uzmRdQbdzT7MbsUc=",
+        "lastModified": 1750316716,
+        "narHash": "sha256-2IXg76E8YMMRhgzVhUjbq4g2JCdb1QkuVpI3MVhjIx4=",
         "owner": "nix-community",
         "repo": "nix4nvchad",
-        "rev": "27c77e783dc98ed76b2e93b5e424d16b19325fb4",
+        "rev": "8cd304b3d8e49db95c6a1542c66880cfcf7d3abb",
         "type": "github"
       },
       "original": {
