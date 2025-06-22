@@ -1,0 +1,26 @@
+# enable_lxc_logging.yml
+---
+- name: Enable Centralized LXC Logging via systemd-machined
+  hosts: proxmox_master,proxmox_hosts # Target all your Proxmox nodes at once
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure systemd-machined service is enabled and running
+      ansible.builtin.systemd:
+        name: systemd-machined.service
+        state: started
+        enabled: yes
+      # This task is idempotent. It will only make changes if the service
+      # is not already in the desired state. No reboot is required for this change.
+
+    - name: Confirm the service status (optional verification)
+      ansible.builtin.command: systemctl is-active systemd-machined.service
+      register: service_status
+      changed_when: false
+      failed_when: service_status.stdout != 'active'
+
+    - name: Display service status
+      ansible.builtin.debug:
+        msg: "systemd-machined.service is active on {{ inventory_hostname }}."
+      when: service_status.stdout == 'active'
