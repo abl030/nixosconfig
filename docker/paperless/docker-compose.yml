@@ -106,5 +106,78 @@ services:
     image: docker.io/apache/tika:latest
     restart: unless-stopped
 
+  paperless-gpt:
+    # Use one of these image sources:
+    image: icereed/paperless-gpt:latest # Docker Hub
+    restart: unless-stopped
+    # image: ghcr.io/icereed/paperless-gpt:latest  # GitHub Container Registry
+    env_file: .env
+    environment:
+      PAPERLESS_BASE_URL: "http://webserver:8000"
+      MANUAL_TAG: "paperless-gpt" # Optional, default: paperless-gpt
+      AUTO_TAG: "paperless-gpt-auto" # Optional, default: paperless-gpt-auto
+      # LLM Configuration - Choose one:
+
+      # Option 3: Ollama (Local)
+      LLM_PROVIDER: "ollama"
+      LLM_MODEL: "gemma3:12b"
+      OLLAMA_HOST: "http://192.168.1.27:11434"
+      # TOKEN_LIMIT: 1000 # Recommended for smaller models
+
+      # Optional LLM Settings
+      # LLM_LANGUAGE: "English" # Optional, default: English
+
+      # OCR Configuration - Choose one:
+      # Option 1: LLM-based OCR
+      OCR_PROVIDER: "llm" # Default OCR provider
+      VISION_LLM_PROVIDER: "ollama" # openai or ollama
+      VISION_LLM_MODEL: "minicpm-v" # minicpm-v (ollama) or gpt-4o (openai)
+
+      # OCR Processing Mode
+      OCR_PROCESS_MODE: "image" # Optional, default: image, other options: pdf, whole_pdf
+      PDF_SKIP_EXISTING_OCR: "false" # Optional, skip OCR for PDFs with existing OCR
+
+      # Option 2: Google Document AI
+      # OCR_PROVIDER: 'google_docai'       # Use Google Document AI
+      # GOOGLE_PROJECT_ID: 'your-project'  # Your GCP project ID
+      # GOOGLE_LOCATION: 'us'              # Document AI region
+      # GOOGLE_PROCESSOR_ID: 'processor-id' # Your processor ID
+      # GOOGLE_APPLICATION_CREDENTIALS: '/app/credentials.json' # Path to service account key
+
+      # Option 3: Azure Document Intelligence
+      # OCR_PROVIDER: 'azure'              # Use Azure Document Intelligence
+      # AZURE_DOCAI_ENDPOINT: 'your-endpoint' # Your Azure endpoint URL
+      # AZURE_DOCAI_KEY: 'your-key'        # Your Azure API key
+      # AZURE_DOCAI_MODEL_ID: 'prebuilt-read' # Optional, defaults to prebuilt-read
+      # AZURE_DOCAI_TIMEOUT_SECONDS: '120'  # Optional, defaults to 120 seconds
+      # AZURE_DOCAI_OUTPUT_CONTENT_FORMAT: 'text' # Optional, defaults to 'text', other valid option is 'markdown'
+      # 'markdown' requires the 'prebuilt-layout' model
+
+      # Enhanced OCR Features
+      CREATE_LOCAL_HOCR: "false" # Optional, save hOCR files locally
+      LOCAL_HOCR_PATH: "/app/hocr" # Optional, path for hOCR files
+      CREATE_LOCAL_PDF: "false" # Optional, save enhanced PDFs locally
+      LOCAL_PDF_PATH: "/app/pdf" # Optional, path for PDF files
+      PDF_UPLOAD: "false" # Optional, upload enhanced PDFs to paperless-ngx
+      PDF_REPLACE: "false" # Optional and DANGEROUS, delete original after upload
+      PDF_COPY_METADATA: "true" # Optional, copy metadata from original document
+      PDF_OCR_TAGGING: "true" # Optional, add tag to processed documents
+      PDF_OCR_COMPLETE_TAG: "paperless-gpt-ocr-complete" # Optional, tag name
+
+      # Option 4: Docling Server
+      # OCR_PROVIDER: 'docling'              # Use a Docling server
+      # DOCLING_URL: 'http://your-docling-server:port' # URL of your Docling instance
+
+      AUTO_OCR_TAG: "paperless-gpt-ocr-auto" # Optional, default: paperless-gpt-ocr-auto
+      OCR_LIMIT_PAGES: "5" # Optional, default: 5. Set to 0 for no limit.
+      LOG_LEVEL: "info" # Optional: debug, warn, error
+
+    volumes:
+      - /mnt/docker/paperlessgpt/prompts:/app/prompts # Mount the prompts directory
+      # For local hOCR and PDF saving:
+    ports:
+      - "8081:8080"
+    depends_on:
+      - webserver
 volumes:
   redisdata:
