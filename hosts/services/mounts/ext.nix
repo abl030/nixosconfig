@@ -20,10 +20,13 @@
       "_netdev"
       # Requires Tailscale service to be active before mounting
       "x-systemd.requires=tailscaled.service"
+      "x-systemd.after=tailscaled.service"
       # Unmount after 300 seconds of inactivity
       "x-systemd.idle-timeout=300"
       # Do not update file access times (improves performance)
       "noatime"
+
+      "retry=10"
       # Use NFS version 4.2
       # "nfsvers=4.2"
     ];
