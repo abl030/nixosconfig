@@ -10,7 +10,7 @@ name: immich
 
 services:
   immich-server:
-    container_name: immich_server
+    container_name: immich-server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     # extends:
     #   file: hwaccel.transcoding.yml
@@ -29,11 +29,12 @@ services:
       - .env
     ports:
       - 2283:2283
-    cpuset: "0-5"
     depends_on:
-      - redis
-      - database
-    restart: always
+      redis:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       disable: false
 
@@ -77,9 +78,20 @@ services:
       - /mnt/docker/tailscale/immich/caddy_data:/data # Persist Caddy's state (certs, etc.)
       - /mnt/docker/tailscale/immich/caddy_config:/config # Persist Caddy's config (if needed)
     restart: unless-stopped
+    # healthcheck:
+    #   # This command checks if Caddy's admin API is responsive.
+    #   test: ["CMD", "caddy", "api", "get", "--endpoint", "/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 10s # Give Caddy time to start before the first check
     depends_on:
       immich-tailscale-sidecar:
         condition: service_healthy
+      immich-server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
 
   immich-machine-learning:
     container_name: immich_machine_learning
