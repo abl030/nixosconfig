@@ -49,3 +49,9 @@ services:
       #
       # Uncomment to enable authentication. See https://dozzle.dev/guide/authentication
       - DOZZLE_AUTH_PROVIDER=simple
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
