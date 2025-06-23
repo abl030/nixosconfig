@@ -36,6 +36,30 @@
     wantedBy = [ "multi-user.target" ];
   }; # Delay our docker start to make sure tailscale containers boot
 
+  systemd.services.delayed-docker-restart = {
+    description = "Delayed restart of Docker service";
+    # This service is only meant to be run once by the timer
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart docker.service";
+    };
+    # We don't want this service to be enabled or started directly at boot,
+    # only by its timer. So, no 'wantedBy' or 'requiredBy' here.
+  };
+
+  systemd.timers.delayed-docker-restart = {
+    description = "Timer to trigger a delayed Docker restart after boot";
+    timerConfig = {
+      # OnActiveSec specifies a monotonic time delay relative to when the timer unit itself is activated.
+      # Since this timer is 'wantedBy = [ "multi-user.target" ]', it will activate
+      # when multi-user.target is reached. Then, 1 minute later, it will trigger the service.
+      OnActiveSec = "1m"; # You can use "60s", "1min", etc.
+      Unit = "delayed-docker-restart.service"; # The service unit to activate
+    };
+    # This ensures the timer itself is started when the system reaches multi-user.target
+    wantedBy = [ "multi-user.target" ];
+  };
+
   # Docker fileSystems
   # fileSystems."/mnt/docker" = # Choose your desired mount point inside the VM
   #   {
