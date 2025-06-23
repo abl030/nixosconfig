@@ -8,7 +8,7 @@
       # Our modulat tailscale setup that should work anywhere.
       ../services/tailscale/tailscale.nix
       # Our mounts
-      ../services/mounts/nfs.nix
+      ../services/mounts/nfs_server.nix
       # mum backup mount
       ../services/mounts/ext.nix
       # ../services/mounts/cifs.nix
@@ -18,6 +18,21 @@
 
   #enable docker
   virtualisation.docker.enable = true;
+  systemd.services.docker = {
+    # It must start AFTER these things are ready
+    after = [
+      "network-online.target"
+      "tailscale.service" # Good to be explicit
+      "mnt-data.mount" # Wait for our specific NFS mount
+    ];
+    # It REQUIRES these things to be successfully activated
+    requires = [
+      "network-online.target"
+      "mnt-data.mount" # Require our specific NFS mount
+    ];
+    wantedBy = [ "multi-user.target" ];
+  }; # Delay our docker start to make sure tailscale containers boot
+
   # Docker fileSystems
   # fileSystems."/mnt/docker" = # Choose your desired mount point inside the VM
   #   {
