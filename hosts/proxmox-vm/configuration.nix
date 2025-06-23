@@ -23,7 +23,7 @@
     after = [
       "network-online.target"
       "tailscale.service" # Good to be explicit
-      "mnt-data.mount" # Wait for our specific NFS mount
+      "mnt-data.automount" # Wait for our specific NFS mount
     ];
     # It REQUIRES these things to be successfully activated
     requires = [
