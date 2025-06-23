@@ -9,11 +9,11 @@ services:
       - TZ=Australia/Perth
       # Optional: Define the label autoheal looks for.
       # 'all' or leaving it unset defaults to monitoring containers with label `autoheal=true`.
-      # - AUTOHEAL_CONTAINER_LABEL=all
+      - AUTOHEAL_CONTAINER_LABEL=all
       # Optional: Set loop interval (default 5 seconds)
-      # - AUTOHEAL_INTERVAL=30
+      - AUTOHEAL_INTERVAL=30
       # Optional: Stop timeout before sending SIGKILL (default 10 seconds)
-      # - AUTOHEAL_STOP_TIMEOUT=10
+      - AUTOHEAL_STOP_TIMEOUT=10
     volumes:
       # REQUIRED: Mount the docker socket so autoheal can interact with docker daemon
       - /var/run/docker.sock:/var/run/docker.sock
