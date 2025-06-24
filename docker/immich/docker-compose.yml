@@ -74,6 +74,8 @@ services:
     depends_on:
       immich-server: # <--- CHANGE TO THIS FORMAT
         condition: service_healthy
+      immich-network-holder:
+        condition: service_started
 
   caddy:
     # image: caddy:latest
@@ -102,6 +104,8 @@ services:
         condition: service_healthy
       immich-server:
         condition: service_healthy
+      immich-network-holder:
+        condition: service_started
     stdin_open: true
     tty: true
 
