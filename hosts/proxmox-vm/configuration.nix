@@ -16,6 +16,7 @@
       ../common/configuration.nix
 
       # Here's we'll organise our docker services
+      ../../docker/tailscale/caddy/docker-compose.nix
       ../../docker/immich/docker-compose.nix
     ];
 
