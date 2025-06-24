@@ -1,14 +1,28 @@
 version: "3.7"
 
 services:
-  # The container running Tailscale and providing the network interface
+  # This container now owns the network stack AND its properties, like the hostname.
+  network-holder:
+    image: k8s.gcr.io/pause:3.9
+    container_name: caddy_network_holder
+    # The hostname is now defined here.
+    hostname: caddy # Hostname for MagicDNS (e.g., caddy.your-tailnet.ts.net)
+    restart: unless-stopped
+
+  # The container running Tailscale, now joining the holder's network
   tailscale:
     image: tailscale/tailscale:latest
     container_name: ts-caddy # Container name
-    hostname: caddy # Hostname for MagicDNS (e.g., caddy-proxy-gateway.your-tailnet.ts.net)
+    # This service now joins the network of the holder container.
+    network_mode: service:network-holder
+    # The hostname line has been REMOVED from here.
     environment:
       - TS_STATE_DIR=/var/lib/tailscale # Persist state outside the container ephemeral storage
-      - TS_HOSTNAME=caddy-proxy-gateway # Explicitly set the desired hostname
+      # Note: Tailscale's TS_HOSTNAME is different from Docker's `hostname`.
+      # TS_HOSTNAME sets the machine name within the Tailscale admin panel.
+      # Docker's `hostname` sets the kernel hostname.
+      # It's good practice to keep them consistent.
+      - TS_HOSTNAME=caddy
     volumes:
       - /mnt/docker/tailscale/ts-state:/var/lib/tailscale # Mount persistent state directory
       - /dev/net/tun:/dev/net/tun # Required for Tailscale tunnel
@@ -18,23 +32,27 @@ services:
     restart: unless-stopped
     healthcheck:
       test: tailscale status --peers=false --json | grep -q 'Online.*true'
+      start_period: 60s
+    depends_on:
+      # Ensures the network holder is running before this container starts
+      - network-holder
 
-  # The Caddy container using the Tailscale container's network
+  # The Caddy container, also using the holder container's network
   caddy:
     # image: caddy:latest
     build:
       context: .
       dockerfile: Dockerfile
     container_name: caddy-reverse-proxy
-    # CRITICAL: Uses the network stack of the 'tailscale' service container
-    network_mode: "service:tailscale"
+    # CRITICAL: Now uses the network stack of the 'network-holder' service container
+    network_mode: service:network-holder
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN} # Will be read from .env file or shell
     volumes:
       - /mnt/docker/tailscale/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddy configuration
       - /mnt/docker/tailscale/caddy_data:/data # Persist Caddy's state (certs, etc.)
       - /mnt/docker/tailscale/caddy_config:/config # Persist Caddy's config (if needed)
-    restart: unless-stopped
+    restart: always
     depends_on:
-      tailscale: # Ensure tailscale starts first (though network_mode implies this)
+      tailscale: # Still depends on tailscale being healthy to function correctly
         condition: service_healthy
