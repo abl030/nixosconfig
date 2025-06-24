@@ -18,6 +18,7 @@
       # Here's we'll organise our docker services
       ../../docker/tailscale/caddy/docker-compose.nix
       ../../docker/immich/docker-compose.nix
+      ../../docker/management/docker-compose.nix
     ];
 
   #enable docker
