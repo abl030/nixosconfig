@@ -7,6 +7,7 @@ in
 {
   imports = [
     ../zsh/starship.nix
+    ../utils/atuin.nix
   ];
 
   programs.fish = {
