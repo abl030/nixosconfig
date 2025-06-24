@@ -56,3 +56,5 @@ services:
     depends_on:
       tailscale: # Still depends on tailscale being healthy to function correctly
         condition: service_healthy
+      network-holder:
+        condition: service_started
