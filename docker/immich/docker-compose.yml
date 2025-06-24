@@ -72,8 +72,6 @@ services:
     healthcheck:
       test: tailscale status --peers=false --json | grep -q 'Online.*true'
     depends_on:
-      immich-server: # <--- CHANGE TO THIS FORMAT
-        condition: service_healthy
       immich-network-holder:
         condition: service_started
 
@@ -100,10 +98,6 @@ services:
     #   retries: 3
     #   start_period: 10s # Give Caddy time to start before the first check
     depends_on:
-      immich-tailscale-sidecar:
-        condition: service_healthy
-      immich-server:
-        condition: service_healthy
       immich-network-holder:
         condition: service_started
     stdin_open: true

@@ -14,6 +14,9 @@
       # ../services/mounts/cifs.nix
 
       ../common/configuration.nix
+
+      # Here's we'll organise our docker services
+      ../../docker/immich/docker-compose.nix
     ];
 
   #enable docker
@@ -22,51 +25,96 @@
     liveRestore = false;
 
   };
-  systemd.services.docker = {
-    # It must start AFTER these things are ready
-    after = [
-      "network-online.target"
-      "tailscaled.service" # Good to be explicit
-      "mnt-mum.automount"
-      "mnt-data.automount"
-      "multi-user.target"
-      "remote-fs.target"
-    ];
-    # It REQUIRES these things to be successfully activated
-    requires = [
-      "network-online.target"
-      "tailscaled.service"
-      "mnt-data.automount"
-      "mnt-mum.automount"
-      "multi-user.target"
-      "remote-fs.target"
-    ];
-    # wantedBy = [ "multi-user.target" ];
-  }; # Delay our docker start to make sure tailscale containers boot
+  # systemd.services.docker = {
+  # It must start AFTER these things are ready
+  #   after = [
+  #     "network-online.target"
+  #     "tailscaled.service" # Good to be explicit
+  #     "mnt-mum.automount"
+  #     "mnt-data.automount"
+  #     "multi-user.target"
+  #     "remote-fs.target"
+  #   ];
+  #   # It REQUIRES these things to be successfully activated
+  #   requires = [
+  #     "network-online.target"
+  #     "tailscaled.service"
+  #     "mnt-data.automount"
+  #     "mnt-mum.automount"
+  #     "multi-user.target"
+  #     "remote-fs.target"
+  #   ];
+  #   # wantedBy = [ "multi-user.target" ];
+  # }; # Delay our docker start to make sure tailscale containers boot
+  #
+  # systemd.services.delayed-docker-restart = {
+  #   description = "Delayed restart of Docker service";
+  #   # This service is only meant to be run once by the timer
+  #   serviceConfig = {
+  #     Type = "oneshot";
+  #     ExecStart = "${pkgs.systemd}/bin/systemctl restart docker.service";
+  #   };
+  #   # We don't want this service to be enabled or started directly at boot,
+  #   # only by its timer. So, no 'wantedBy' or 'requiredBy' here.
+  # };
+  #
+  # systemd.timers.delayed-docker-restart = {
+  #   description = "Timer to trigger a delayed Docker restart after boot";
+  #   timerConfig = {
+  #     # OnActiveSec specifies a monotonic time delay relative to when the timer unit itself is activated.
+  #     # Since this timer is 'wantedBy = [ "multi-user.target" ]', it will activate
+  #     # when multi-user.target is reached. Then, 1 minute later, it will trigger the service.
+  #     OnActiveSec = "60s"; # You can use "60s", "1min", etc.
+  #     Unit = "delayed-docker-restart.service"; # The service unit to activate
+  #   };
+  #   # This ensures the timer itself is started when the system reaches multi-user.target
+  #   wantedBy = [ "multi-user.target" ];
+  # };
 
-  systemd.services.delayed-docker-restart = {
-    description = "Delayed restart of Docker service";
-    # This service is only meant to be run once by the timer
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.systemd}/bin/systemctl restart docker.service";
-    };
-    # We don't want this service to be enabled or started directly at boot,
-    # only by its timer. So, no 'wantedBy' or 'requiredBy' here.
-  };
-
-  systemd.timers.delayed-docker-restart = {
-    description = "Timer to trigger a delayed Docker restart after boot";
-    timerConfig = {
-      # OnActiveSec specifies a monotonic time delay relative to when the timer unit itself is activated.
-      # Since this timer is 'wantedBy = [ "multi-user.target" ]', it will activate
-      # when multi-user.target is reached. Then, 1 minute later, it will trigger the service.
-      OnActiveSec = "60s"; # You can use "60s", "1min", etc.
-      Unit = "delayed-docker-restart.service"; # The service unit to activate
-    };
-    # This ensures the timer itself is started when the system reaches multi-user.target
-    wantedBy = [ "multi-user.target" ];
-  };
+  # systemd.services.caddy-tailscale-stack = {
+  #   description = "Caddy Tailscale Docker Compose Stack";
+  #
+  #   # This service requires the Docker daemon to be running.
+  #   requires = [ "docker.service" ];
+  #
+  #   # It should start after the Docker daemon and network are ready.
+  #   # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
+  #   after = [ "docker.service" "network-online.target" ];
+  #
+  #   # This section corresponds to the [Service] block in a systemd unit file.
+  #   serviceConfig = {
+  #     # 'oneshot' is perfect for commands that start a process and then exit.
+  #     # 'docker compose up -d' does exactly this.
+  #     Type = "oneshot";
+  #
+  #     # This tells systemd that even though the start command exited,
+  #     # the service should be considered 'active' until the stop command is run.
+  #     RemainAfterExit = true;
+  #
+  #     # The working directory where docker-compose.yml is located.
+  #     WorkingDirectory = "/home/abl030/nixosconfig/docker/tailscale/caddy";
+  #
+  #     # Command to start the containers.
+  #     # We use config.virtualisation.docker.package to get the correct path to the Docker binary.
+  #     # --build: Rebuilds the Caddy image if the Dockerfile changes.
+  #     # --remove-orphans: Cleans up containers for services that are no longer in the compose file.
+  #     ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
+  #
+  #     # Command to stop and remove the containers.
+  #     ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
+  #
+  #     # Optional: Command to reload the service, useful for applying changes.
+  #     ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
+  #
+  #     # StandardOutput and StandardError can be useful for debugging with journalctl.
+  #     StandardOutput = "journal";
+  #     StandardError = "journal";
+  #   };
+  #
+  #   # This section corresponds to the [Install] block in a systemd unit file.
+  #   # This ensures the service is started automatically on boot.
+  #   wantedBy = [ "multi-user.target" ];
+  # };
 
   # Docker fileSystems
   # fileSystems."/mnt/docker" = # Choose your desired mount point inside the VM
