@@ -24,6 +24,7 @@
       ../../docker/kopia/docker-compose.nix
       ../../docker/paperless/docker-compose.nix
       ../../docker/WebDav/docker-compose.nix
+      ../../docker/atuin/docker-compose.nix
     ];
 
   #enable docker
