@@ -17,7 +17,11 @@
     ];
 
   #enable docker
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+    liveRestore = false;
+
+  };
   systemd.services.docker = {
     # It must start AFTER these things are ready
     after = [
@@ -25,6 +29,8 @@
       "tailscaled.service" # Good to be explicit
       "mnt-mum.automount"
       "mnt-data.automount"
+      "multi-user.target"
+      "remote-fs.target"
     ];
     # It REQUIRES these things to be successfully activated
     requires = [
@@ -32,8 +38,10 @@
       "tailscaled.service"
       "mnt-data.automount"
       "mnt-mum.automount"
+      "multi-user.target"
+      "remote-fs.target"
     ];
-    wantedBy = [ "multi-user.target" ];
+    # wantedBy = [ "multi-user.target" ];
   }; # Delay our docker start to make sure tailscale containers boot
 
   systemd.services.delayed-docker-restart = {
@@ -53,7 +61,7 @@
       # OnActiveSec specifies a monotonic time delay relative to when the timer unit itself is activated.
       # Since this timer is 'wantedBy = [ "multi-user.target" ]', it will activate
       # when multi-user.target is reached. Then, 1 minute later, it will trigger the service.
-      OnActiveSec = "1m"; # You can use "60s", "1min", etc.
+      OnActiveSec = "60s"; # You can use "60s", "1min", etc.
       Unit = "delayed-docker-restart.service"; # The service unit to activate
     };
     # This ensures the timer itself is started when the system reaches multi-user.target
