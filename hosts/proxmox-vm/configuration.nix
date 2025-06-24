@@ -19,6 +19,9 @@
       ../../docker/tailscale/caddy/docker-compose.nix
       ../../docker/immich/docker-compose.nix
       ../../docker/management/docker-compose.nix
+      ../../docker/netboot/docker-compose.nix
+      ../../docker/audiobookshelf/docker-compose.nix
+      ../../docker/kopia/docker-compose.nix
     ];
 
   #enable docker
