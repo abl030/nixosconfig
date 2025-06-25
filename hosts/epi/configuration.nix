@@ -28,9 +28,9 @@
       # ../framework/hibernatefix2.nix
       # Nosleep scripts
       ../services/system/remote_desktop_nosleep.nix
-      # incus
-      # ../services/virtualisation/incus.nix
-      # ../services/virtualisation/virtman.nix
+
+      ../../docker/management/epi_management/docker_compose.nix
+      ../../docker/tdarr/epi/docker-compose.nix
     ];
 
   services.qemuGuest.enable = true;
