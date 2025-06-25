@@ -52,4 +52,43 @@
     # This ensures the service is started automatically on boot.
     wantedBy = [ "multi-user.target" ];
   };
+
+  # ========================================================================= #
+  # NEW SERVICE BLOCK: Run Watchtower once on boot to update containers       #
+  # ========================================================================= #
+  systemd.services.watchtower-run-once = {
+    description = "Run Watchtower once on boot to update containers";
+
+    # This service must run after the main docker compose stack is up,
+    # after the /mnt/data mount is available, and late in the boot process.
+    after = [ "management-epi-stack.service" "mnt-data.automount" "multi-user.target" "tdarr-epi-stack.service" ];
+    requires = [ "management-epi-stack.service" "mnt-data.automount" "tdarr-epi-stack.service" ];
+
+    serviceConfig = {
+      # This is a one-off command that starts, runs, and exits.
+      Type = "oneshot";
+
+      # The full docker command to run watchtower once.
+      # --rm: Automatically remove the container when it exits.
+      # -v /var/run/docker.sock...: Grants access to the Docker daemon.
+      # --run-once: Tells Watchtower to run its update check and then exit.
+      # --cleanup: Removes old images after a successful update.
+      # --include-stopped: Also updates containers that are not currently running.
+      ExecStart = ''
+        ${config.virtualisation.docker.package}/bin/docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          containrrr/watchtower \
+          --run-once \
+          --cleanup \
+          --include-stopped
+      '';
+
+      # Log output to the system journal for debugging.
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+
+    # Ensures the service is started automatically on boot.
+    wantedBy = [ "multi-user.target" ];
+  };
 }
