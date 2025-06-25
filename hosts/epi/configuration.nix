@@ -77,6 +77,7 @@
 
   #enable docker
   virtualisation.docker.enable = true;
+  virtualisation.docker.liveRestore = false;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
