@@ -45,4 +45,52 @@
     # This ensures the service is started automatically on boot.
     wantedBy = [ "multi-user.target" ];
   };
+
+  # --- NEW ---
+  # The service that performs the update.
+  # This service is only meant to be run by the timer or manually.
+  systemd.services.caddy-tailscale-updater = {
+    description = "Weekly updater for the Caddy Tailscale Docker stack";
+    serviceConfig = {
+      Type = "oneshot";
+      # The WorkingDirectory is critical, so docker-compose finds the right files.
+      WorkingDirectory = "/home/abl030/nixosconfig/docker/tailscale/caddy";
+    };
+    # We create a self-contained script to be executed.
+    script = ''
+      set -e  # Exit immediately if a command exits with a non-zero status.
+      echo "--- [$(date)] Starting scheduled Caddy update ---"
+
+      # Get the full path to the docker binary
+      DOCKER_BIN="${config.virtualisation.docker.package}/bin/docker"
+
+      # Step 1: Rebuild the caddy service, pulling its base images.
+      echo "Building 'caddy' service with --pull..."
+      $DOCKER_BIN compose build --pull caddy
+
+      # Step 2: Restart the stack to apply the newly built image.
+      echo "Restarting stack to apply new image..."
+      $DOCKER_BIN compose up -d --force-recreate --remove-orphans
+
+      # Step 3: Prune old images.
+      echo "Pruning old Docker images..."
+      $DOCKER_BIN image prune -f
+
+      echo "--- [$(date)] Scheduled Caddy update complete ---"
+    '';
+  };
+
+  # --- NEW ---
+  # The timer that triggers the updater service.
+  systemd.timers.caddy-tailscale-updater = {
+    description = "Weekly timer to update the Caddy Tailscale Docker stack";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      # Runs at 1:00 AM every Sunday.
+      OnCalendar = "Sun 01:00:00";
+      # If the system was down at the scheduled time, run the job
+      # as soon as it's up again.
+      Persistent = true;
+    };
+  };
 }
