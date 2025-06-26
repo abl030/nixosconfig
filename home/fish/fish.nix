@@ -155,6 +155,24 @@ in
         # The original stream continues down the pipe to xclip.
         tee /dev/tty | xclip -selection clipboard
       '';
+
+      ytsum = ''
+        if test (count $argv) -eq 0
+          echo "Usage: ytsum <YouTube URL>" >&2
+          return 1
+        end
+        set tmpdir "/tmp/ytsum"
+        mkdir -p "$tmpdir"
+        yt-dlp --write-auto-sub --skip-download --sub-format "vtt" --output "$tmpdir/%(title)s.%(ext)s" "$argv[1]"
+        or return 1
+        set subfile (find "$tmpdir" -type f -iname "*.vtt" -print -quit)
+        if test -f "$subfile"
+          cat "$subfile" | teec
+        else
+          echo "Subtitle file not found." >&2
+          return 1
+        end
+      '';
     };
 
     shellInit = ''
