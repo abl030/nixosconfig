@@ -25,6 +25,7 @@
       ../../docker/paperless/docker-compose.nix
       ../../docker/WebDav/docker-compose.nix
       ../../docker/atuin/docker-compose.nix
+      ../../docker/StirlingPDF/docker-compose.nix
     ];
 
   #enable docker
