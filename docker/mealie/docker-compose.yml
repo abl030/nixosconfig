@@ -18,6 +18,7 @@ services:
       # Set Backend ENV Variables Here
       ALLOW_SIGNUP: "false"
       ALLOW_GUEST_ACCESS: "true"
+      DEFAULT_GROUP: "home"
       PUID: 1000
       PGID: 1000
       TZ: Australia/Perth
