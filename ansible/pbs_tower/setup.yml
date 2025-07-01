@@ -1,0 +1,37 @@
+# First run the PBS post install script.  https://community-scripts.github.io/ProxmoxVE/scripts?id=post-pbs-install
+
+# ssh-copy-id root@192.168.1.30
+#
+---
+- name: Configure Proxmox Backup Server
+  hosts: proxmox_hosts
+  become: yes
+
+  vars:
+    # IMPORTANT: Change this to the "Mount Tag" you set in the Unraid VM settings.
+    virtio_mount_tag: "VMBackups"
+
+    # This is the path where the share will be mounted inside the PBS VM.
+    mount_point_path: "/mnt/datastore/vmbackups"
+
+    # The Proxmox Backup Server services run as the 'backup' user.
+    # This user MUST own the datastore directory to be able to write backups.
+    datastore_user: "backup"
+    datastore_group: "backup"
+
+  tasks:
+    - name: Ensure mount point directory exists
+      ansible.builtin.file:
+        path: "{{ mount_point_path }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ datastore_user }}"
+        group: "{{ datastore_group }}"
+
+    - name: Mount the VirtioFS share and add to fstab
+      ansible.posix.mount:
+        path: "{{ mount_point_path }}"
+        src: "{{ virtio_mount_tag }}"
+        fstype: "virtiofs"
+        opts: "defaults,_netdev"
+        state: "mounted"
