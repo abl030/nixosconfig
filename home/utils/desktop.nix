@@ -34,7 +34,11 @@
     pkgs.moonlight-qt
     pkgs.popsicle
     pkgs.pinta
+    pkgs.usbutils
+    # pkgs.pulseaudioFull
+
   ];
+
   imports = [
     ../terminals/ghostty/ghostty.nix
     ../utils/vscode.nix
