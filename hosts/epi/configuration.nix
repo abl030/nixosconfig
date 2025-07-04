@@ -34,6 +34,7 @@
     ];
 
   services.qemuGuest.enable = true;
+  services.fstrim.enable = true;
 
   # 2. Use the LATEST kernel for best Arc support
   boot.kernelPackages = pkgs.linuxPackages_latest;
