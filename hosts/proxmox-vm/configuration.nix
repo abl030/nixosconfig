@@ -42,6 +42,7 @@
   networking.networkmanager.enable = true;
   # Enable the qemu agent
   services.qemuGuest.enable = true;
+  services.fstrim.enable = true;
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
