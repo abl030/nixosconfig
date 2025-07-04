@@ -203,6 +203,7 @@
     git
     vim
     gnome-remote-desktop
+    kdiskmark
   ];
 
   programs.fish.enable = true;
