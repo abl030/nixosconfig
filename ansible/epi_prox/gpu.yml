@@ -1,17 +1,44 @@
+# ==============================================================================
+# GPU Passthrough Configuration Playbook for Proxmox VE
+# ==============================================================================
+# This Ansible playbook automates the host-level configuration required to pass
+# a GPU through to a virtual machine on Proxmox VE. It handles:
+# 1. Setting the correct kernel boot parameters to enable IOMMU.
+# 2. Loading the necessary VFIO kernel modules.
+# 3. Forcing the VFIO driver to bind to the specified GPU.
+# 4. Blacklisting native graphics drivers to prevent conflicts.
+# ==============================================================================
 ---
 - name: Configure GPU Passthrough for Proxmox (GRUB focus)
   hosts: proxmox_hosts
   become: true
   gather_facts: true
 
+  # ------------------------------------------------------------------------------
+  # VARIABLES
+  # ------------------------------------------------------------------------------
   vars:
+    # A list of PCI vendor and device IDs for the hardware to be passed through.
+    # The vfio-pci driver will be instructed to claim these devices.
     gpu_passthrough_device_ids:
       - "8086:56a6" # Intel Arc A310 GPU
       - "8086:4f92" # Intel Arc A310 Audio
+
+    # Dynamically determines the correct kernel parameter for enabling IOMMU
+    # based on the host's CPU vendor (detected by Ansible facts).
+    # This makes the playbook portable between Intel and AMD systems.
     iommu_kernel_param_vendor: "{{ 'intel_iommu=on' if ansible_facts.get('processor_vendor_id') == 'GenuineIntel' else 'amd_iommu=on' }}"
+
+    # Enables IOMMU passthrough mode. This can improve performance and is the
+    # recommended setting for modern kernels.
     iommu_kernel_param_pt: "iommu=pt"
 
+  # ------------------------------------------------------------------------------
+  # TASKS
+  # ------------------------------------------------------------------------------
   tasks:
+    # This is a non-functional task that serves as a critical reminder.
+    # BIOS/UEFI settings cannot be configured by Ansible and must be set manually.
     - name: Check if IOMMU is enabled in BIOS/UEFI (Manual Check Reminder)
       ansible.builtin.debug:
         msg: |
@@ -20,24 +47,28 @@
           in your Proxmox host's BIOS/UEFI settings. Ansible cannot do this.
           The system will need a reboot after this playbook for changes to take effect.
 
+    # A simple debugging step to confirm the CPU vendor was detected correctly
+    # and the appropriate IOMMU kernel parameter was selected.
     - name: "Debug: Show detected CPU vendor and IOMMU param"
       ansible.builtin.debug:
         msg: |
           Raw ansible_facts.processor_vendor_id: {{ ansible_facts.get('processor_vendor_id', 'NOT FOUND') }}
           Calculated iommu_kernel_param_vendor: {{ iommu_kernel_param_vendor }}
 
+    # A pre-flight check to ensure the host uses GRUB as its bootloader.
+    # The playbook will fail here if /etc/default/grub is not found.
     - name: Ensure /etc/default/grub exists
       ansible.builtin.stat:
         path: /etc/default/grub
       register: grub_default_stat
-      failed_when: not grub_default_stat.stat.exists # Fail early if GRUB config isn't there
+      failed_when: not grub_default_stat.stat.exists
 
-    # Task to remove old/conflicting IOMMU parameters
+    # This task makes the playbook idempotent. It safely removes any pre-existing
+    # IOMMU-related parameters from the kernel command line before adding the new
+    # ones, preventing duplicates and conflicts.
     - name: Remove existing IOMMU parameters from GRUB_CMDLINE_LINUX_DEFAULT
       ansible.builtin.replace:
         path: /etc/default/grub
-        # Regex to find GRUB_CMDLINE_LINUX_DEFAULT and capture its contents
-        # It then removes amd_iommu=..., intel_iommu=..., iommu=... from the captured content
         regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=")(.*?)(")$'
         replace: >-
           \1{{ '\2'.split(' ')
@@ -51,47 +82,42 @@
       notify: Run update-grub
       when: grub_default_stat.stat.exists
 
-    # Task to add the new IOMMU parameters
+    # This task adds the required IOMMU kernel parameters to the GRUB configuration.
+    # These parameters are essential for enabling hardware virtualization features.
     - name: Add desired IOMMU parameters to GRUB_CMDLINE_LINUX_DEFAULT
       ansible.builtin.lineinfile:
         path: /etc/default/grub
-        # Regex to find GRUB_CMDLINE_LINUX_DEFAULT="<current_params>"
-        # and insert new params before the closing quote.
         regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=")(.*?)(")$'
-        # \1 is prefix, \2 is existing content, \3 is closing quote
-        # We add new params to \2, ensuring they are not duplicated if already present by the previous step.
         line: '\1\2 {{ iommu_kernel_param_vendor }} {{ iommu_kernel_param_pt }}\3'
-        backrefs: true # IMPORTANT: Use backreferences
-        # The line above will add a leading space if \2 is empty, which is fine.
-        # If \2 has content, it adds a space then the new params.
-        # We might get double spaces if \2 ends with a space, we can clean that up.
+        backrefs: true
       notify: Run update-grub
       when: grub_default_stat.stat.exists
 
-    # Optional: Cleanup double spaces in GRUB_CMDLINE_LINUX_DEFAULT
+    # A simple housekeeping task to ensure the GRUB config file remains clean
+    # by consolidating any extra spaces that may have been introduced.
     - name: Cleanup multiple spaces in GRUB_CMDLINE_LINUX_DEFAULT
       ansible.builtin.replace:
         path: /etc/default/grub
         regexp: '(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*")\s+'
-        replace: '\1 ' # Replace multiple spaces with a single space within the quotes
+        replace: '\1 '
       when: grub_default_stat.stat.exists
-      # This replace is a bit broad, a more precise one would be:
-      # regexp: 'GRUB_CMDLINE_LINUX_DEFAULT="(.*?)\s\s+(.*?)"'
-      # replace: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 \2"'
-      # loop: "{{ range(5) | list }}" # Run a few times to catch all multiple spaces
 
-    - name: Ensure VFIO modules are loaded at boot
+    # This task ensures that the necessary VFIO modules are loaded automatically at boot.
+    # 'vfio_virqfd' has been removed as it is deprecated in modern kernels.
+    - name: Ensure core VFIO modules are loaded at boot
       ansible.builtin.blockinfile:
         path: /etc/modules
         block: |
           vfio
           vfio_iommu_type1
           vfio_pci
-          vfio_virqfd
         marker: "# ANSIBLE MANAGED BLOCK FOR VFIO MODULES"
         state: present
       notify: Run update-initramfs
 
+    # This creates a modprobe configuration file to tell the vfio-pci driver
+    # which specific devices it should claim at boot, using their PCI IDs.
+    # The 'disable_vga=1' option prevents conflicts with the VGA arbiter.
     - name: Configure vfio-pci to claim GPU devices
       ansible.builtin.copy:
         dest: /etc/modprobe.d/vfio.conf
@@ -101,18 +127,47 @@
         mode: "0644"
       notify: Run update-initramfs
 
+    # **THIS IS THE PRIMARY FIX FOR INTERMITTENT FAILURES**
+    # This task creates a blacklist file to explicitly prevent the native Intel
+    # graphics drivers (i915, xe) from loading. This resolves a race condition
+    # where the host OS could claim the GPU before vfio-pci, making passthrough fail.
+    - name: Blacklist native Intel GPU drivers (i915, xe)
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/blacklist-intel-gpu.conf
+        content: |
+          blacklist i915
+          blacklist xe
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Run update-initramfs
+
+    # This task ensures that any pending handlers (like update-grub and
+    # update-initramfs) are executed before the playbook concludes.
     - name: Flush handlers to apply config before potential reboot
       ansible.builtin.meta: flush_handlers
 
+    # Final friendly reminder to the user that a reboot is necessary for any
+    # changes to the kernel, modules, or bootloader to take effect.
     - name: Inform user about necessary reboot
       ansible.builtin.debug:
         msg: "Configuration applied. A reboot is required for GPU passthrough to be fully enabled. You can reboot manually."
 
+  # ------------------------------------------------------------------------------
+  # HANDLERS
+  # ------------------------------------------------------------------------------
+  # Handlers are only run if they are notified by a task that made a change.
+  # ------------------------------------------------------------------------------
   handlers:
+    # This handler runs 'update-grub' to apply changes from /etc/default/grub
+    # to the actual bootloader configuration used by the system.
     - name: Run update-grub
       ansible.builtin.command: update-grub
       listen: "Run update-grub"
 
+    # This handler runs 'update-initramfs' to rebuild the initial RAM disk.
+    # This is necessary when module loading or options are changed, ensuring the
+    # correct drivers and settings are available very early in the boot process.
     - name: Run update-initramfs
       ansible.builtin.command: update-initramfs -u -k all
       listen: "Run update-initramfs"
