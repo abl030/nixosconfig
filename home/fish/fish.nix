@@ -128,9 +128,10 @@ in
       '';
 
       # Combined context-copying function with pipe support.
+      # MODIFIED: Added a check to only `cat` text files, skipping binaries.
       copyc = ''
         if not isatty stdin
-          cat | xclip -selection clipboard
+          cat | xclip -selection clipboard -target UTF8_STRING
           echo "Piped input copied to clipboard." >&2
           return 0
         end
@@ -138,22 +139,37 @@ in
         if not test -e "''$target"; echo "Error: ' ''$target' does not exist." >&2; return 1; end
         if test -d "''$target"
           pushd "''$target"; or return 1
-          begin; command ls -la .; echo; echo "FILE CONTENTS"; for f in *; if test -f "''$f"; echo "===== ''$f ====="; cat "''$f"; echo; end; end; end | xclip -selection clipboard
+          begin
+            command ls -la .
+            echo
+            echo "FILE CONTENTS"
+            for f in *
+              if test -f "''$f"
+                # Check if file is text (-I) and non-empty (.), quietly (-q).
+                if grep -Iq . "''$f"
+                  echo "===== ''$f ====="
+                  cat "''$f"
+                  echo
+                else
+                  echo "===== ''$f (SKIPPED BINARY) =====" >&2
+                end
+              end
+            end
+          end | xclip -selection clipboard -target UTF8_STRING
           popd
           echo "Directory ' ''$target' context copied to clipboard." >&2; return 0
         end
         if test -f "''$target"
-          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard
+          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard -target UTF8_STRING
           echo "File ' ''$target' context copied to clipboard." >&2; return 0
         end
         echo "Error: ' ''$target' is not a regular file or directory." >&2; return 1
       '';
 
       # Tees piped input to the screen and to the clipboard.
+      # This function is fine as-is, the caller is responsible for content.
       teec = ''
-        # Use 'tee' to send a copy of the input to the terminal screen (/dev/tty).
-        # The original stream continues down the pipe to xclip.
-        tee /dev/tty | xclip -selection clipboard
+        tee /dev/tty | xclip -selection clipboard -target UTF8_STRING
       '';
 
       ytsum = ''
@@ -162,39 +178,22 @@ in
           echo "Usage: ytsum <YouTube URL>" >&2
           return 1
         end
-
-        # Create a unique temporary directory that will be cleaned up automatically.
-        # The 'begin...end' block ensures the $tmpdir variable is local to this scope.
         begin
-          # Create a new, unique temporary directory for this specific run.
           set -l tmpdir (mktemp -d -t ytsum-XXXXXX)
-
-          # Download the subtitle file into our unique, empty directory.
           yt-dlp --write-auto-sub --skip-download --sub-format "vtt" --output "$tmpdir/%(title)s.%(ext)s" "$argv[1]"
-      
-          # Check the exit status of yt-dlp.
           if test $status -ne 0
             echo "yt-dlp failed to download subtitles." >&2
-            # Clean up the temp directory on failure
             rm -rf "$tmpdir"
             return 1
           end
-
-          # Find the subtitle file. This is now 100% reliable because it's
-          # the only .vtt file that can possibly exist in our unique directory.
           set -l subfile (find "$tmpdir" -type f -iname "*.vtt" -print -quit)
-
           if test -f "$subfile"
-            # The main logic: cat the file to teec
             cat "$subfile" | teec
           else
             echo "Error: Subtitle file was not created by yt-dlp." >&2
-            # Clean up the temp directory on failure
             rm -rf "$tmpdir"
             return 1
           end
-
-          # Clean up the temporary directory after success.
           rm -rf "$tmpdir"
         end
       '';
