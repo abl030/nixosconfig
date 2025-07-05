@@ -7,22 +7,22 @@
   vars:
     # --- Define your NICs and Network Configuration ---
 
-    # Management Network (for SSH, WebUI)
-    management_nic_phys: "enx00e04c78687d" # The "old" USB NIC
-    management_bridge_name: "vmbr0" # Proxmox bridge for management
-    management_bridge_ip_cidr: "192.168.1.26/24" # Static IP for management bridge
+    # WAN/LAN Network (for Host Internet and VMs) using the Realtek NIC
+    wan_lan_nic_phys: "enp8s0"
+    wan_lan_bridge_name: "vmbr0"
+    wan_lan_bridge_ip_cidr: "192.168.1.12/24"
 
-    # WAN/LAN Network (for Host Internet and VMs)
-    wan_lan_nic_phys: "enp8s0" # The "new" Realtek NIC
-    wan_lan_bridge_name: "vmbr1" # Proxmox bridge for WAN/LAN
-    wan_lan_bridge_ip_cidr: "192.168.1.12/24" # Static IP for WAN/LAN bridge
+    # Management Network (for SSH, WebUI) using the USB NIC on a separate VLAN
+    management_nic_phys: "enx00e04c78687d"
+    management_bridge_name: "vmbr1"
+    management_bridge_ip_cidr: "192.168.11.12/24"
+    management_gateway_ip: "192.168.11.1" # <<< THIS LINE WAS MISSING
 
     # General Network Settings
-    gateway_ip: "192.168.1.1" # Default gateway for the Proxmox host (via WAN/LAN bridge)
-    dns_servers: # Optional: List of DNS servers
-      - "192.168.1.1" # Your router
-      - "8.8.8.8" # Google DNS
-      # - "1.1.1.1"                        # Cloudflare DNS
+    gateway_ip: "192.168.1.1" # The default gateway for the PRIMARY WAN/LAN
+    dns_servers:
+      - "192.168.1.1"
+      - "8.8.8.8"
 
   pre_tasks:
     - name: Gather minimal facts if not already done by inventory
@@ -36,7 +36,7 @@
       ansible.builtin.apt:
         name: ifupdown2
         state: present
-        update_cache: yes # Run update_cache the first time apt is called
+        update_cache: yes
 
   tasks:
     - name: Backup the current /etc/network/interfaces file
@@ -50,30 +50,21 @@
       register: backup_result
       changed_when: false
 
-    - name: Print backup location
-      ansible.builtin.debug:
-        msg: "Backed up current network config to {{ backup_result.dest }}"
-      when: backup_result.dest is defined
-
     - name: Generate the new network configuration from template
       ansible.builtin.template:
-        src: templates/interfaces.j2 # Assumes your template is in 'templates/interfaces.j2' relative to the playbook
+        src: templates/interfaces.j2
         dest: /etc/network/interfaces
         owner: root
         group: root
         mode: "0644"
-        backup: yes # Creates a backup of the destination file before overwriting
+        backup: yes
       notify: Apply Network Changes
 
   handlers:
     - name: Apply Network Changes
       listen: "Apply Network Changes"
       ansible.builtin.command:
-        # ifreload -a is safer as it attempts to roll back on failure if ifupdown2 is used.
         cmd: "ifreload -a"
       register: network_apply
       changed_when: true
       failed_when: network_apply.rc != 0
-      # You might lose SSH connection here if the interface you are connected through changes IP
-      # or becomes misconfigured. Ensure console access.
-      # Consider adding a delay and a connectivity check task after this if applying remotely.
