@@ -8,7 +8,7 @@
       # Our modulat tailscale setup that should work anywhere.
       ../services/tailscale/tailscale.nix
       # Our mounts
-      ../services/mounts/nfs.nix
+      ../services/mounts/nfs_local.nix
       # mum backup mount
       ../services/mounts/ext.nix
       # ../services/mounts/cifs.nix
