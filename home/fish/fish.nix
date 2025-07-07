@@ -128,9 +128,10 @@ in
       '';
 
       # Combined context-copying function with pipe support.
+      # Fixed: Skips binary files and uses UTF8_STRING target for Firefox compatibility.
       copyc = ''
         if not isatty stdin
-          cat | xclip -selection clipboard
+          cat | xclip -selection clipboard -target UTF8_STRING
           echo "Piped input copied to clipboard." >&2
           return 0
         end
@@ -138,24 +139,42 @@ in
         if not test -e "''$target"; echo "Error: ' ''$target' does not exist." >&2; return 1; end
         if test -d "''$target"
           pushd "''$target"; or return 1
-          begin; command ls -la .; echo; echo "FILE CONTENTS"; for f in *; if test -f "''$f"; echo "===== ''$f ====="; cat "''$f"; echo; end; end; end | xclip -selection clipboard
+          begin
+            command ls -la .
+            echo
+            echo "FILE CONTENTS"
+            for f in *
+              if test -f "''$f"
+                # Check if file is text (-I) and non-empty (.), quietly (-q).
+                if grep -Iq . "''$f"
+                  echo "===== ''$f ====="
+                  cat "''$f"
+                  echo
+                else
+                  echo "===== ''$f (SKIPPED BINARY) =====" >&2
+                end
+              end
+            end
+          end | xclip -selection clipboard -target UTF8_STRING
           popd
           echo "Directory ' ''$target' context copied to clipboard." >&2; return 0
         end
         if test -f "''$target"
-          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard
+          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard -target UTF8_STRING
           echo "File ' ''$target' context copied to clipboard." >&2; return 0
         end
         echo "Error: ' ''$target' is not a regular file or directory." >&2; return 1
       '';
 
       # Tees piped input to the screen and to the clipboard.
+      # Fixed: Added `-target UTF8_STRING` for Firefox compatibility.
       teec = ''
         # Use 'tee' to send a copy of the input to the terminal screen (/dev/tty).
         # The original stream continues down the pipe to xclip.
-        tee /dev/tty | xclip -selection clipboard
+        tee /dev/tty | xclip -selection clipboard -target UTF8_STRING
       '';
 
+      # RESTORED: ytsum function with original comments.
       ytsum = ''
         # Check for arguments
         if test (count $argv) -eq 0

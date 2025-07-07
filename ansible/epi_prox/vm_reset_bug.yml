@@ -1,0 +1,64 @@
+---
+- name: Apply GPU Reset Hook to a Specific Proxmox VM
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: false
+
+  # --- EDIT THESE VARIABLES FOR YOUR VM ---
+  vars:
+    vm_id: "101"
+    gpu_pci_address: "0000:0c:00.0"
+    audio_pci_address: "0000:0d:00.0"
+    parent_pci_bridge_address: "0000:0a:00.0"
+    hook_script_name: "intel-gpu-reset.sh"
+  # ----------------------------------------
+
+  tasks:
+    - name: Ensure the Proxmox snippets directory exists
+      ansible.builtin.file:
+        path: /var/lib/vz/snippets
+        state: directory
+        mode: "0755"
+
+    - name: Create the PCI remove/rescan hook script
+      ansible.builtin.copy:
+        dest: "/var/lib/vz/snippets/{{ hook_script_name }}"
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # This script performs a PCI remove/rescan, a very forceful reset for GPUs
+          # that get stuck after a guest reboot and do not support FLR.
+
+          if [ "$1" == "{{ vm_id }}" ]; then
+              if [ "$2" == "pre-start" ]; then
+                  echo "Intel GPU Reset Hook: Performing remove/rescan for VM {{ vm_id }}."
+                  
+                  # Remove the devices from the PCI bus
+                  echo "1" > /sys/bus/pci/devices/{{ gpu_pci_address }}/remove
+                  echo "1" > /sys/bus/pci/devices/{{ audio_pci_address }}/remove
+                  
+                  # Wait for removal
+                  sleep 2
+                  
+                  # Rescan the parent bridge to rediscover the devices
+                  echo "1" > /sys/bus/pci/devices/{{ parent_pci_bridge_address }}/rescan
+                  
+                  echo "Intel GPU Reset Hook: PCI rescan complete."
+              fi
+          fi
+
+          exit 0
+
+    - name: Add the hookscript to the VM configuration file
+      ansible.builtin.lineinfile:
+        path: "/etc/pve/qemu-server/{{ vm_id }}.conf"
+        regexp: "^hookscript:"
+        line: "hookscript: local:snippets/{{ hook_script_name }}"
+        state: present
+      register: hook_config_result
+
+    - name: Report status
+      ansible.builtin.debug:
+        msg: "Hook script '{{ hook_script_name }}' has been configured for VM {{ vm_id }}."
