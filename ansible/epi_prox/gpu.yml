@@ -1,113 +1,83 @@
 ---
-- name: Configure GPU Passthrough for Proxmox (GRUB focus)
+- name: Configure Proxmox Host for GPU Passthrough (with Auto-Reboot)
   hosts: proxmox_hosts
   become: true
-  gather_facts: true
-
-  vars:
-    gpu_passthrough_device_ids:
-      - "8086:56a6" # Intel Arc A310 GPU
-      - "8086:4f92" # Intel Arc A310 Audio
-    iommu_kernel_param_vendor: "{{ 'intel_iommu=on' if ansible_facts.get('processor_vendor_id') == 'GenuineIntel' else 'amd_iommu=on' }}"
-    iommu_kernel_param_pt: "iommu=pt"
+  gather_facts: false
 
   tasks:
-    - name: Check if IOMMU is enabled in BIOS/UEFI (Manual Check Reminder)
+    - name: Ensure IOMMU is enabled in BIOS/UEFI (Manual Check Reminder)
       ansible.builtin.debug:
         msg: |
-          IMPORTANT MANUAL CHECK:
-          Please ensure that IOMMU (VT-d for Intel / AMD-Vi for AMD) is ENABLED
-          in your Proxmox host's BIOS/UEFI settings. Ansible cannot do this.
-          The system will need a reboot after this playbook for changes to take effect.
+          IMPORTANT MANUAL CHECK: Ensure IOMMU (AMD-Vi) is ENABLED
+          in your Proxmox host's BIOS/UEFI. Ansible cannot do this.
 
-    - name: "Debug: Show detected CPU vendor and IOMMU param"
-      ansible.builtin.debug:
-        msg: |
-          Raw ansible_facts.processor_vendor_id: {{ ansible_facts.get('processor_vendor_id', 'NOT FOUND') }}
-          Calculated iommu_kernel_param_vendor: {{ iommu_kernel_param_vendor }}
-
-    - name: Ensure /etc/default/grub exists
-      ansible.builtin.stat:
-        path: /etc/default/grub
-      register: grub_default_stat
-      failed_when: not grub_default_stat.stat.exists # Fail early if GRUB config isn't there
-
-    # Task to remove old/conflicting IOMMU parameters
-    - name: Remove existing IOMMU parameters from GRUB_CMDLINE_LINUX_DEFAULT
-      ansible.builtin.replace:
-        path: /etc/default/grub
-        # Regex to find GRUB_CMDLINE_LINUX_DEFAULT and capture its contents
-        # It then removes amd_iommu=..., intel_iommu=..., iommu=... from the captured content
-        regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=")(.*?)(")$'
-        replace: >-
-          \1{{ '\2'.split(' ')
-              | reject('match', '^amd_iommu=')
-              | reject('match', '^intel_iommu=')
-              | reject('match', '^iommu=')
-              | reject('equalto', '')
-              | join(' ')
-          }}\3
-        backup: true
-      notify: Run update-grub
-      when: grub_default_stat.stat.exists
-
-    # Task to add the new IOMMU parameters
-    - name: Add desired IOMMU parameters to GRUB_CMDLINE_LINUX_DEFAULT
+    - name: Set correct IOMMU kernel parameters in GRUB
       ansible.builtin.lineinfile:
         path: /etc/default/grub
-        # Regex to find GRUB_CMDLINE_LINUX_DEFAULT="<current_params>"
-        # and insert new params before the closing quote.
-        regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=")(.*?)(")$'
-        # \1 is prefix, \2 is existing content, \3 is closing quote
-        # We add new params to \2, ensuring they are not duplicated if already present by the previous step.
-        line: '\1\2 {{ iommu_kernel_param_vendor }} {{ iommu_kernel_param_pt }}\3'
-        backrefs: true # IMPORTANT: Use backreferences
-        # The line above will add a leading space if \2 is empty, which is fine.
-        # If \2 has content, it adds a space then the new params.
-        # We might get double spaces if \2 ends with a space, we can clean that up.
-      notify: Run update-grub
-      when: grub_default_stat.stat.exists
+        regexp: "^GRUB_CMDLINE_LINUX_DEFAULT="
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt"'
+        state: present
+      notify:
+        - Run update-grub
+        - A reboot is required
 
-    # Optional: Cleanup double spaces in GRUB_CMDLINE_LINUX_DEFAULT
-    - name: Cleanup multiple spaces in GRUB_CMDLINE_LINUX_DEFAULT
-      ansible.builtin.replace:
-        path: /etc/default/grub
-        regexp: '(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*")\s+'
-        replace: '\1 ' # Replace multiple spaces with a single space within the quotes
-      when: grub_default_stat.stat.exists
-      # This replace is a bit broad, a more precise one would be:
-      # regexp: 'GRUB_CMDLINE_LINUX_DEFAULT="(.*?)\s\s+(.*?)"'
-      # replace: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 \2"'
-      # loop: "{{ range(5) | list }}" # Run a few times to catch all multiple spaces
-
-    - name: Ensure VFIO modules are loaded at boot
+    - name: Ensure core VFIO modules are loaded at boot
       ansible.builtin.blockinfile:
         path: /etc/modules
         block: |
+          # Modules required for PCI passthrough
           vfio
           vfio_iommu_type1
           vfio_pci
-          vfio_virqfd
         marker: "# ANSIBLE MANAGED BLOCK FOR VFIO MODULES"
-        state: present
-      notify: Run update-initramfs
+        create: true
+      notify:
+        - Run update-initramfs
+        - A reboot is required
 
-    - name: Configure vfio-pci to claim GPU devices
+    - name: Configure vfio-pci to claim the GPU at boot
       ansible.builtin.copy:
         dest: /etc/modprobe.d/vfio.conf
-        content: "options vfio-pci ids={{ gpu_passthrough_device_ids | join(',') }} disable_vga=1"
+        content: "options vfio-pci ids=8086:56a6,8086:4f92 disable_vga=1"
         owner: root
         group: root
         mode: "0644"
-      notify: Run update-initramfs
+      notify:
+        - Run update-initramfs
+        - A reboot is required
 
-    - name: Flush handlers to apply config before potential reboot
+    - name: Blacklist native Intel GPU drivers to prevent race conditions
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/blacklist-intel-gpu.conf
+        content: |
+          blacklist i915
+          blacklist xe
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Run update-initramfs
+        - A reboot is required
+
+    # This task ensures all pending handlers (like update-grub) are run before the reboot check.
+    - name: Flush handlers to apply configurations
       ansible.builtin.meta: flush_handlers
 
-    - name: Inform user about necessary reboot
-      ansible.builtin.debug:
-        msg: "Configuration applied. A reboot is required for GPU passthrough to be fully enabled. You can reboot manually."
+    # This block handles the actual reboot. It will only run if the 'reboot_is_required'
+    # fact was set by one of the handlers.
+    - name: Reboot the server if configuration changes were made
+      when: reboot_is_required | default(false)
+      block:
+        - name: Inform user about the required reboot
+          ansible.builtin.debug:
+            msg: "Configuration changed, rebooting the host in 30 seconds..."
 
+        - name: Reboot host and wait for it to return
+          ansible.builtin.reboot:
+            reboot_timeout: 600 # 10 minutes
+            pre_reboot_delay: 30 # Give us time to read the message
+
+  # These handlers are the tasks that get notified by the main tasks above.
   handlers:
     - name: Run update-grub
       ansible.builtin.command: update-grub
@@ -116,3 +86,8 @@
     - name: Run update-initramfs
       ansible.builtin.command: update-initramfs -u -k all
       listen: "Run update-initramfs"
+
+    - name: Set reboot flag
+      ansible.builtin.set_fact:
+        reboot_is_required: true
+      listen: "A reboot is required"

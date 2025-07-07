@@ -1,37 +1,48 @@
 # This file is managed by Ansible. Do not edit manually.
-# Configured for dual NIC: Management and WAN/LAN
+# Configured for dual NIC with Policy-Based Routing to prevent asymmetric routing.
 
 auto lo
 iface lo inet loopback
 
-# --- Management Interface (e.g., old USB NIC) ---
-# Physical NIC for management
+# --- WAN/LAN Interface (Realtek NIC -> vmbr0) ---
+# This is the primary bridge for host internet, VM traffic, and the default gateway.
+auto {{ wan_lan_nic_phys }}
+iface {{ wan_lan_nic_phys }} inet manual
+
+auto {{ wan_lan_bridge_name }}
+iface {{ wan_lan_bridge_name }} inet static
+    address {{ wan_lan_bridge_ip_cidr }}
+    gateway {{ gateway_ip }}
+    dns-nameservers {{ dns_servers | join(' ') }}
+    bridge-ports {{ wan_lan_nic_phys }}
+    bridge-stp off
+    bridge-fd 0
+    # Proxmox VE GUI: WAN/LAN for VMs
+
+# --- Management Interface (USB NIC -> vmbr1) ---
+# This is a secondary bridge for management on a dedicated VLAN.
+# Policy-Based Routing is used to ensure traffic from this interface's IP
+# uses its own gateway and does not leak out the default gateway.
 auto {{ management_nic_phys }}
 iface {{ management_nic_phys }} inet manual
 
-# Bridge for Proxmox Management (WebUI, SSH)
 auto {{ management_bridge_name }}
 iface {{ management_bridge_name }} inet static
     address {{ management_bridge_ip_cidr }}
-    # NO gateway on the management bridge
+    # NO 'gateway' line here. The gateway is handled by the routing rules below.
     bridge-ports {{ management_nic_phys }}
     bridge-stp off
     bridge-fd 0
     # Proxmox VE GUI: Management Interface
 
-# --- WAN/LAN Interface (e.g., Realtek NIC) ---
-# Physical NIC for WAN/LAN traffic (host internet + VMs)
-auto {{ wan_lan_nic_phys }}
-iface {{ wan_lan_nic_phys }} inet manual
+    # === Policy Routing Rules for the Management Interface ===
+    # These commands create a new routing table (ID 1) for this interface.
+    # The 'from' rule directs any traffic originating from this IP to use table 1.
+    post-up ip route add {{ management_bridge_ip_cidr | ipaddr('network') }}/{{ management_bridge_ip_cidr | ipaddr('prefix') }} dev {{ management_bridge_name }} table 1
+    post-up ip route add default via {{ management_gateway_ip }} dev {{ management_bridge_name }} table 1
+    post-up ip rule add from {{ management_bridge_ip_cidr | ipaddr('address') }} table 1
 
-# Bridge for WAN/LAN traffic (host internet + VMs)
-auto {{ wan_lan_bridge_name }}
-iface {{ wan_lan_bridge_name }} inet static
-    address {{ wan_lan_bridge_ip_cidr }}
-    # Default gateway for the Proxmox host is configured below
-    gateway {{ gateway_ip }}
-    dns-nameservers {{ dns_servers | join(' ') }} # Optional: specify DNS servers directly
-    bridge-ports {{ wan_lan_nic_phys }}
-    bridge-stp off
-    bridge-fd 0
-    # Proxmox VE GUI: WAN/LAN for VMs
+    # These commands clean up the rules when the interface is brought down.
+    pre-down ip rule del from {{ management_bridge_ip_cidr | ipaddr('address') }} table 1
+    pre-down ip route del default via {{ management_gateway_ip }} dev {{ management_bridge_name }} table 1
+    pre-down ip route del {{ management_bridge_ip_cidr | ipaddr('network') }}/{{ management_bridge_ip_cidr | ipaddr('prefix') }} dev {{ management_bridge_name }} table 1
