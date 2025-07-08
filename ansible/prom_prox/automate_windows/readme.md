@@ -45,3 +45,16 @@ The `2-Inject-Drivers-and-Build-ISO.bat` script has a configuration section at t
 
 -   `FINAL_ISO_NAME`: Change the output path and filename of the final ISO.
 -   `INSTALL_WIM_INDEX`: If you are using a different edition of Windows (e.g., Home instead of Pro), you will need to find its correct index number. You can do this by running `dism /get-imageinfo /imagefile:C:\ISO_BUILD\sources\install.wim`.
+
+
+## Generate autounattend.xml
+
+This is the best thing since sliced bread for generating our xml, takes five minutes: https://schneegans.de/windows/unattend-generator/
+I have included the xml I'm using in this repo as well. But it's not for primetime use, no windows defender etc etc. Just generate a new one per host
+would be my suggestion.
+
+After you've got the file you need to turn it into an ISO. You'll need to be in linux for now
+```
+genisoimage -o unattend.iso -l -R -J autounattend.xml
+
+```
