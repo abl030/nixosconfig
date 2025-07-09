@@ -1,20 +1,30 @@
-version: "3.8" # Or a version compatible with your Docker install
+version: "3.8"
 
 services:
   webdav:
     image: ck98/webdav-nginx
-    container_name: webdav # Optional: Sets a specific container name
+    container_name: webdav
     ports:
-      - "9090:80" # Maps host port 9090 to container port 80
+      - "9090:80"
     volumes:
-      - /mnt/data/Life/Andy/Education/Zotero Library/:/var/webdav/public # Maps your Unraid path to the container path
+      # This is the mount point we will check
+      - /mnt/data/Life/Andy/Education/Zotero Library/:/var/webdav/public
     environment:
       WEBDAV_USERNAME: ${WEBDAV_USERNAME}
       WEBDAV_PASSWORD: ${WEBDAV_PASSWORD}
-      PUID: 33 # User ID for file permissions
-      PGID: 33 # Group ID for file permissions
-      UMASK: "0000" # File creation mask (using quotes as it starts with 0)
-    restart: unless-stopped # Automatically restart the container unless manually stopped
+      PUID: 33
+      PGID: 33
+      UMASK: "0000"
+    restart: unless-stopped
+    healthcheck:
+      # The command to run to check health. 'stat' is a lightweight way
+      # to check if a directory is accessible. If the NFS mount is stale,
+      # this command will either fail or time out.
+      test: ["CMD", "stat", "/var/webdav/public"]
+      interval: 30s # How often to run the check
+      timeout: 10s # How long to wait for the command to complete
+      retries: 3 # How many consecutive failures to allow before marking as unhealthy
+      start_period: 60s # Grace period for the container to start before checks begin
 
 # Note: Assumes the default 'bridge' network. Define networks explicitly if needed.
 # networks:
