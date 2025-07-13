@@ -1,0 +1,126 @@
+---
+- name: Set AMD iGPU Passthrough for Proxmox VM (vFINAL - The Multifunction Split)
+  hosts: proxmox_hosts
+  remote_user: root
+  become: true
+  gather_facts: false
+
+  vars:
+    target_vm_id: "100"
+    igpu_parent_bridge: "0000:00:08.1"
+    pci_functions:
+      - "0000:79:00.0"
+      - "0000:79:00.1"
+      - "0000:79:00.2"
+      - "0000:79:00.3"
+      - "0000:79:00.4"
+    hook_script_name: "amd-igpu-reset-hook.sh"
+    snippets_dir: "/var/lib/vz/snippets"
+    vm_conf_path: "/etc/pve/qemu-server/{{ target_vm_id }}.conf"
+    hookscript_config_value: "local:snippets/{{ hook_script_name }}"
+
+  tasks:
+    - name: Ensure snippets directory exists
+      ansible.builtin.file:
+        path: "{{ snippets_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy the final PCI Bus Reset hook script (v5)
+      ansible.builtin.copy:
+        dest: "{{ snippets_dir }}/{{ hook_script_name }}"
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # v5: PCIe Bus Reset hook. This is the correct reset method.
+          VM_ID="$1"
+          TARGET_VM_ID="{{ target_vm_id }}"
+          PHASE="$2"
+          PARENT_BRIDGE="{{ igpu_parent_bridge }}"
+          PCI_DEVICES=( {% for pci_dev in pci_functions %}"{{ pci_dev }}" {% endfor %} )
+          if [[ "$VM_ID" -ne "$TARGET_VM_ID" || "$PHASE" != "pre-start" ]]; then exit 0; fi
+          echo "--- AMD iGPU Reset Hook (v5 - PCIe Bus Reset) ---"
+          echo "Unbinding devices from vfio-pci..."
+          for dev in "${PCI_DEVICES[@]}"; do
+              if [ -e "/sys/bus/pci/devices/$dev/driver" ]; then
+                  echo -n "$dev" > "/sys/bus/pci/devices/$dev/driver/unbind"
+              fi
+          done
+          sleep 1
+          echo "Issuing reset to parent bridge $PARENT_BRIDGE..."
+          if [ -f "/sys/bus/pci/devices/$PARENT_BRIDGE/reset" ]; then
+              echo 1 > "/sys/bus/pci/devices/$PARENT_BRIDGE/reset"
+          else
+              echo "Error: Reset file for bridge not found! Aborting."
+              exit 1
+          fi
+          sleep 2
+          echo "Rescanning PCI bus..."
+          echo 1 > "/sys/bus/pci/devices/$PARENT_BRIDGE/rescan"
+          sleep 1
+          echo "Re-binding all devices to vfio-pci..."
+          for dev in "${PCI_DEVICES[@]}"; do
+              echo -n "$dev" > /sys/bus/pci/drivers/vfio-pci/bind
+          done
+          echo "--- PCIe Bus Reset Complete ---"
+          exit 0
+
+    - name: Configure VM with the final Multifunction Split strategy
+      block:
+        - name: Set display to 'none' to avoid any virtual GPU conflict
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            regexp: "^vga:"
+            line: "vga: none"
+            state: present
+            create: yes
+
+        - name: Ensure hookscript is present
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            regexp: "^hookscript:"
+            line: "hookscript: {{ hookscript_config_value }}"
+            state: present
+
+        - name: Remove ALL existing hostpci entries to ensure a clean slate
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            regexp: '^hostpci\d+:'
+            state: absent
+
+        # This is the most critical part. We add each function individually.
+        - name: Add iGPU VGA function (0) as primary GPU, with rombar=0
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            line: "hostpci0: {{ pci_functions[0] }},pcie=1,rombar=0,x-vga=1"
+            state: present
+
+        - name: Add iGPU Audio function (1)
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            line: "hostpci1: {{ pci_functions[1] }},pcie=1"
+            state: present
+
+        - name: Add iGPU Crypto function (2)
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            line: "hostpci2: {{ pci_functions[2] }},pcie=1"
+            state: present
+
+        - name: Add iGPU USB function (3)
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            line: "hostpci3: {{ pci_functions[3] }},pcie=1"
+            state: present
+
+        - name: Add iGPU USB function (4)
+          ansible.builtin.lineinfile:
+            path: "{{ vm_conf_path }}"
+            line: "hostpci4: {{ pci_functions[4] }},pcie=1"
+            state: present
+
+    - name: Report status
+      ansible.builtin.debug:
+        msg: "VM {{ target_vm_id }} has been configured with the FINAL Multifunction Split strategy. This is the last attempt."
