@@ -166,6 +166,52 @@ in
         echo "Error: ' ''$target' is not a regular file or directory." >&2; return 1
       '';
 
+      # Recursive version of copyc.
+      copycr = ''
+        if not isatty stdin
+          cat | xclip -selection clipboard -target UTF8_STRING
+          echo "Piped input copied to clipboard." >&2
+          return 0
+        end
+
+        set -l target "''$argv[1]"; if test -z "''$target"; set target "."; end
+        if not test -e "''$target"; echo "Error: ' ''$target' does not exist." >&2; return 1; end
+
+        # Handle single files directly
+        if test -f "''$target"
+          begin; command ls -l "''$target"; echo; echo "FILE CONTENTS"; cat "''$target"; echo; end | xclip -selection clipboard -target UTF8_STRING
+          echo "File ' ''$target' context copied to clipboard." >&2; return 0
+        end
+
+        # Handle directories, now with protection
+        if test -d "''$target"
+          pushd "''$target"; or return 1
+          begin
+            # The directory listing can still be large, but the main issue is cat-ing files.
+            command ls -laR .
+            echo
+            echo "FILE CONTENTS"
+            # FIX: Prune problematic directories. This prevents `find` from descending
+            # into .git, node_modules, and Nix's `result` directory/symlink.
+            # The \( ... \) groups the -name conditions for the -prune action.
+            for f in (find . \( -name .git -o -name result -o -name node_modules \) -prune -o -type f -print)
+              # Check if file is text (-I) and non-empty (.), quietly (-q).
+              if grep -Iq . "''$f"
+                echo "===== ''$f ====="
+                cat "''$f"
+                echo
+              else
+                echo "===== ''$f (SKIPPED BINARY) =====" >&2
+              end
+            end
+          end | xclip -selection clipboard -target UTF8_STRING
+          popd
+          echo "Recursive directory ' ''$target' context copied to clipboard." >&2; return 0
+        end
+
+        echo "Error: ' ''$target' is not a regular file or directory." >&2; return 1
+      '';
+
       # Tees piped input to the screen and to the clipboard.
       # Fixed: Added `-target UTF8_STRING` for Firefox compatibility.
       teec = ''
