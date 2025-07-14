@@ -16,6 +16,12 @@ services:
       - --address=0.0.0.0:51515
       - --server-username=${KOPIA_SERVER_USER}
       - --server-password=${KOPIA_SERVER_PASSWORD}
+    healthcheck:
+      # Checks if the /photos mount (from /mnt/data/Life/Photos) is accessible
+      test: ["CMD-SHELL", "test -d /photos"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
       # Set repository password
       # Set repository password
@@ -46,6 +52,13 @@ services:
       - --address=0.0.0.0:51515
       - --server-username=${KOPIA_SERVER_USER}
       - --server-password=${KOPIA_SERVER_PASSWORD}
+    healthcheck:
+      # Checks if both the /data and /mum mounts are accessible.
+      # Uses a longer timeout and interval because /mum is a remote mount.
+      test: ["CMD-SHELL", "test -d /data && test -d /mum"]
+      interval: 1m
+      timeout: 2m
+      retries: 5
     environment:
       # Set repository password
       # Set repository password
