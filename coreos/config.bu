@@ -1,0 +1,58 @@
+variant: fcos
+# It's good practice to update this to the spec you're actually targeting.
+version: 1.6.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCcguuicrBgY89ex8v5HR6UFI7jQiln4FQML+FNx5FJPd+qVMJpHXVsDl3d8MT4XY4Fm2HJV8Z7AreX2JdwvGO03/lB4EEbNM0I+oZ3T3ccJj2afB1QmtS6DxaDrFVnctLk0DiRjEu19A6Urho+vo14OhLZnAwMfcnv+5k6+vwMRQiEwm3d+5jdvukUC8GiLCG2Y0dx16hNLUsbQ+mFAWl08aSX4RDmC51FEwVzJ2jujaYdYJuSKOJ7TGfxGicNWPuLiuvV0o9g+WwtZXn2xXM76A2rhKPogr6dzVajYaYz4FfcLxto4iFEW96mpt21wQLK6h86xpJ6lytIK03nRfZ9pt7AjU0vzxyTYo7H/LHrJnm4jPbkOhzEXEpitRro/VIiey4sqMYQgawLrt3doUqulqJjCA/NJ/+Qr6YjRNec0f5Ugs3HK++fLG5L/D7M7e3WcdRExhxFWsGqIS5M+sV9l/Ixn+Je01qSbcMtNipbHGqNbRTFGAgcM+4CwpA+exyverzrYKPMkSfCibcgCEdC0+x9QqAMN8sQoqoxT42h2TOPar4Ak1A3oyFSEqWcLyY9OkU+5xrBCqpSLoxXGM6mFcB2rJnIEKdxeJ2eNWiOsRPZVAzfjks52twpDNC5iNbCsrXGtveI3bzgNMNwjUvN3CXHPmsDUD8eOYz20qTtTQ== abl030@nixos"
+
+storage:
+  files:
+    - path: /etc/yum.repos.d/tailscale.repo
+      mode: 0644
+      contents:
+        inline: |
+          [tailscale-stable]
+          name=Tailscale stable
+          baseurl=https://pkgs.tailscale.com/stable/fedora/$basearch
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://pkgs.tailscale.com/stable/fedora/repo.gpg
+          
+systemd:
+  units:
+    # This is the new part: A service to install packages
+    - name: rpm-ostree-install-packages.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Layer additional packages on first boot
+        # We only want to run this once.
+        # The service will create this file, and the ConditionPathExists line
+        # will prevent the service from running on subsequent boots.
+        ConditionPathExists=!/etc/coreos-packages-layered
+        # We need the network to be up to fetch repos.
+        Wants=network-online.target
+        After=network-online.target
+
+        [Service]
+        Type=oneshot
+        # Layer the packages
+        ExecStart=/usr/bin/rpm-ostree install --idempotent qemu-guest-agent tailscale
+        # Create our "flag" file so this doesn't run again
+        ExecStartPost=/usr/bin/touch /etc/coreos-packages-layered
+        # Reboot into the new deployment. --no-block prevents systemd from
+        # waiting for the reboot to complete, which it never would.
+        ExecStartPost=/usr/bin/systemctl --no-block reboot
+
+        [Install]
+        WantedBy=multi-user.target
+        
+    # We can still enable the services we plan to install.
+    # They will fail to start on the first boot, but will start
+    # correctly after the reboot into the new layered OS.
+    - name: qemu-guest-agent.service
+      enabled: true
+    - name: tailscaled.service
+      enabled: true

@@ -1,0 +1,44 @@
+{
+  "ignition": {
+    "version": "3.5.0"
+  },
+  "passwd": {
+    "users": [
+      {
+        "name": "core",
+        "sshAuthorizedKeys": [
+          "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCcguuicrBgY89ex8v5HR6UFI7jQiln4FQML+FNx5FJPd+qVMJpHXVsDl3d8MT4XY4Fm2HJV8Z7AreX2JdwvGO03/lB4EEbNM0I+oZ3T3ccJj2afB1QmtS6DxaDrFVnctLk0DiRjEu19A6Urho+vo14OhLZnAwMfcnv+5k6+vwMRQiEwm3d+5jdvukUC8GiLCG2Y0dx16hNLUsbQ+mFAWl08aSX4RDmC51FEwVzJ2jujaYdYJuSKOJ7TGfxGicNWPuLiuvV0o9g+WwtZXn2xXM76A2rhKPogr6dzVajYaYz4FfcLxto4iFEW96mpt21wQLK6h86xpJ6lytIK03nRfZ9pt7AjU0vzxyTYo7H/LHrJnm4jPbkOhzEXEpitRro/VIiey4sqMYQgawLrt3doUqulqJjCA/NJ/+Qr6YjRNec0f5Ugs3HK++fLG5L/D7M7e3WcdRExhxFWsGqIS5M+sV9l/Ixn+Je01qSbcMtNipbHGqNbRTFGAgcM+4CwpA+exyverzrYKPMkSfCibcgCEdC0+x9QqAMN8sQoqoxT42h2TOPar4Ak1A3oyFSEqWcLyY9OkU+5xrBCqpSLoxXGM6mFcB2rJnIEKdxeJ2eNWiOsRPZVAzfjks52twpDNC5iNbCsrXGtveI3bzgNMNwjUvN3CXHPmsDUD8eOYz20qTtTQ== abl030@nixos"
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/yum.repos.d/tailscale.repo",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/4zMsQoCMQzG8T1P4eBqg6vQt3ATh1wuptLeNTR18O2lFJ3dwo/8v1unZ3GmIifvtBS5w06bxOuXD5NhIZdXKzH1bn5BtKwefnHguuH8xIestREeR0GNE8g+fI1nUFNOwnmeWd7/zzWxGtQUPgEAAP//EkQQu7IAAAA="
+        },
+        "mode": 420
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "contents": "[Unit]\nDescription=Layer additional packages on first boot\n# We only want to run this once.\n# The service will create this file, and the ConditionPathExists line\n# will prevent the service from running on subsequent boots.\nConditionPathExists=!/etc/coreos-packages-layered\n# We need the network to be up to fetch repos.\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nType=oneshot\n# Layer the packages\nExecStart=/usr/bin/rpm-ostree install --idempotent qemu-guest-agent tailscale\n# Create our \"flag\" file so this doesn't run again\nExecStartPost=/usr/bin/touch /etc/coreos-packages-layered\n# Reboot into the new deployment. --no-block prevents systemd from\n# waiting for the reboot to complete, which it never would.\nExecStartPost=/usr/bin/systemctl --no-block reboot\n\n[Install]\nWantedBy=multi-user.target\n",
+        "enabled": true,
+        "name": "rpm-ostree-install-packages.service"
+      },
+      {
+        "enabled": true,
+        "name": "qemu-guest-agent.service"
+      },
+      {
+        "enabled": true,
+        "name": "tailscaled.service"
+      }
+    ]
+  }
+}
