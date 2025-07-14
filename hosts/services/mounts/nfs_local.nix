@@ -1,12 +1,15 @@
-# Ok this is a long one, where to start.
-# I had significant trouble getting this to work, if you get errors try a reboot
-# This mounts via tailscale. I now have access controls so that no one can see nfs shares unless they are on tailscale.
-# Here's the uraid NFS rules: 
-# 100.70.190.0/24(rw,sync,no_subtree_check,anonuid=99,anongid=100,all_squash) 192.168.1.0/24(sec=sys,root_squash,noaccess) 
-# The id stuff squashes all requests to nobody/users which is default unraid and just leads to less headaches.
+# Resilient static NFS mounts for a local server.
+# Version with explicit network-online dependency.
 { pkgs, ... }:
 {
+  # Ensure networking services are configured to wait for an active connection
+  # before declaring the network to be "online". This makes network-online.target reliable.
+  systemd.services.systemd-networkd-wait-online.enable = true;
+
+  # Required for NFS client functionality.
   environment.systemPackages = with pkgs; [ nfs-utils ];
+
+  # Ensures the kernel has NFS support during the boot process.
   boot.initrd = {
     supportedFilesystems = [ "nfs" ];
     kernelModules = [ "nfs" ];
@@ -16,48 +19,37 @@
     device = "192.168.1.2:/mnt/user/data/";
     fsType = "nfs";
     options = [
-      # We need this bit so that the mount works on tailscale. 
-      # Otherwise it will load at boot and tailscale isn't up yet.
-      # Automount when accessed
-      "x-systemd.automount"
-      # Do not mount at boot, only when needed
-      "noauto"
-      # Ensures the mount depends on Tailscale being up
+      # Ensures this mount is attempted only after the network is fully operational.
+      "x-systemd.requires=network-online.target"
+      "x-systemd.after=network-online.target"
+      # A fallback dependency, good practice to keep.
       "_netdev"
-      # Requires Tailscale service to be active before mounting
-      "x-systemd.requires=tailscaled.service"
-      "x-systemd.after=tailscaled.service"
-      # Unmount after 300 seconds of inactivity
-      "x-systemd.idle-timeout=300"
-      # Do not update file access times (improves performance)
+      # 'hard' option makes the client retry requests indefinitely if the server is down.
+      "hard"
+      # 'bg' allows the system to boot even if the NFS server is initially unavailable.
+      "bg"
+      # Do not update file access times (improves performance).
       "noatime"
-      "retry=10"
-      # Use NFS version 4.2
+      # Use NFS version 4.2.
       "nfsvers=4.2"
     ];
   };
+
   fileSystems."/mnt/appdata" = {
-    device = "tower:/mnt/user/appdata/";
+    # It's generally more resilient to use the IP address for local mounts
+    # to avoid dependencies on DNS resolution during boot.
+    device = "192.168.1.2:/mnt/user/appdata/";
     fsType = "nfs";
     options = [
-      # We need this bit so that the mount works on tailscale. 
-      # Otherwise it will load at boot and tailscale isn't up yet.
-      # Automount when accessed
-      "x-systemd.automount"
-      # Do not mount at boot, only when needed
-      "noauto"
-      # Ensures the mount depends on Tailscale being up
+      # Ensures this mount is attempted only after the network is fully operational.
+      "x-systemd.requires=network-online.target"
+      "x-systemd.after=network-online.target"
+      # A fallback dependency, good practice to keep.
       "_netdev"
-      # Requires Tailscale service to be active before mounting
-      "x-systemd.requires=tailscaled.service"
-      # Unmount after 300 seconds of inactivity
-      "x-systemd.idle-timeout=300"
-      # Do not update file access times (improves performance)
+      "hard"
+      "bg"
       "noatime"
-      # Use NFS version 4.2
       "nfsvers=4.2"
     ];
-
-
   };
 }
