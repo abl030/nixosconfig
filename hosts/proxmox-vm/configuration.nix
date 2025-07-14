@@ -83,6 +83,7 @@
     #  wget
     git
     vim
+    butane
   ];
 
   programs.fish.enable = true;
