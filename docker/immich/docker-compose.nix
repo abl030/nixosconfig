@@ -7,8 +7,8 @@
   # ===================================================================
   systemd.services.immich-stack = {
     description = "Immich Docker Compose Stack";
-    requires = [ "docker.service" "network-online.target" "mnt-data.automount" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.automount" ];
+    requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
+    after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
 
     serviceConfig = {
       Type = "oneshot";
