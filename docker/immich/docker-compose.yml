@@ -47,7 +47,10 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      disable: false
+      test: ["CMD-SHELL", "test -d /usr/src/app/upload"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   immich-tailscale-sidecar:
     container_name: immich_tailscale_sidecar
