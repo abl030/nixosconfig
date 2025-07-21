@@ -13,6 +13,7 @@ return {
 			sh = { "shfmt", "beautysh" },
 			nix = { "nixpkgs_fmt" },
 			json = { "jq" },
+			zsh = { "shfmt", "beautysh" },
 		},
 	},
 }
