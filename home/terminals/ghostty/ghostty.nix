@@ -7,6 +7,7 @@
   home.file = {
     ".config/ghostty/config".source = ./. + "/${hostname}";
   };
+  programs.ghostty.enableZshIntegration = true;
 }
 
 

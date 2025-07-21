@@ -4,6 +4,7 @@
   programs.starship.enable = true;
 
   programs.starship.enableFishIntegration = true;
+  programs.starship.enableZshIntegration = true;
   programs.starship.settings = {
 
     # --- Main Prompt Format ---
