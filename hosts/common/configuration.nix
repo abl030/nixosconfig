@@ -12,6 +12,9 @@
       ./ssh.nix
     ];
 
+  # for Zsh autocompletion
+  environment.pathsToLink = [ "/share/zsh" ];
+
   # add in nix-ld for non-nix binaries
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
