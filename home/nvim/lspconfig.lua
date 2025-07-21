@@ -20,7 +20,7 @@ local default_servers = {
 	"yamlls",
 	"marksman",
 	"pyright",
-	"bashls",
+	-- "bashls",
 	"jsonls",
 }
 
@@ -34,6 +34,14 @@ for _, lsp in ipairs(default_servers) do
 end
 
 -- Special configurations ------------------------------------------------------
+
+-- This allows us to specify which filetypes it should attach to.
+lspconfig.bashls.setup({
+	on_attach = custom_on_attach,
+	on_init = nvlsp.on_init,
+	capabilities = nvlsp.capabilities,
+	filetypes = { "sh", "zsh" }, -- This is the key change!
+})
 
 -- Nixd configuration
 local username = vim.fn.getenv("USER") or "user"
