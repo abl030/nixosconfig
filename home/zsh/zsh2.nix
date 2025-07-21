@@ -33,11 +33,14 @@ in
       v = "nvim";
       ls = "lsd -A -F -l --group-directories-first --color=always";
       lzg = "lazygit";
+      ytsum = "noglob ytsum";
     };
 
     # Source our separate, syntax-highlighted functions file.
     initContent = ''
-      source ${./my_functions.zsh}
+        # Nix expands ${config.home.homeDirectory} *here*.
+      _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
+        source ${./my_functions.zsh}
     '';
 
   };
