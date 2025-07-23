@@ -67,7 +67,7 @@
     isNormalUser = true;
     description = "Andy";
     extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
-    shell = pkgs.fish;
+    shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -87,6 +87,7 @@
   ];
 
   programs.fish.enable = true;
+  programs.zsh.enable = true;
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
