@@ -8,6 +8,7 @@ in
 
   imports = [
     ./starship.nix
+    ../utils/atuin.nix
   ];
   programs.zsh = {
     enable = true;
