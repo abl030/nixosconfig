@@ -27,9 +27,9 @@
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  users.defaultUserShell = pkgs.fish;
+  users.defaultUserShell = pkgs.zsh;
 
-  programs.fish.enable = true;
+  programs.zsh.enable = true;
   environment.systemPackages = [
     pkgs.neovim
     pkgs.gh
