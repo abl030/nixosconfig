@@ -71,6 +71,7 @@ in
     '';
 
   };
+  programs.zoxide.enable = true;
   programs.zoxide.enableZshIntegration = true;
   programs.atuin.enableZshIntegration = true;
   programs.starship.enableZshIntegration = true;
