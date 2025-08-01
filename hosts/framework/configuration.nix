@@ -135,8 +135,8 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvertd" ];
-    shell = pkgs.fish;
+    extraGroups = [ "networkmanager" "wheel" "libvertd" "dialout" ];
+    shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -162,6 +162,7 @@
   ];
   programs.fish.enable = true;
 
+  programs.zsh.enable = true;
   # programs.zsh.enable = true;
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
