@@ -288,43 +288,86 @@ copycr() {
     return 1
 }
 
+# # Downloads YouTube subtitles and pipes them to the screen and clipboard.
+# ytsum() {
+#     # 1. Check for arguments. In Zsh, $# is the argument count.
+#     if [[ $# -eq 0 ]]; then
+#         echo "Usage: ytsum <YouTube URL>" >&2
+#         return 1
+#     fi
+#
+#     # 2. Create a unique temporary directory.
+#     # The 'mktemp' command is identical. We use a local variable.
+#     local tmpdir
+#     tmpdir=$(mktemp -d -t ytsum-XXXXXX)
+#
+#     # 3. THE IDIOMATIC ZSH IMPROVEMENT: Set a trap for cleanup.
+#     # This command will run AUTOMATICALLY when the function exits, whether it's
+#     # due to success, failure (return 1), or user interruption (Ctrl+C).
+#     # This is more robust than manually calling 'rm' on every exit path.
+#     trap 'rm -rf "$tmpdir"' EXIT
+#
+#     # 4. Download the subtitle file into our unique directory.
+#     # We use '$1' for the first argument and check the command's success directly.
+#     if ! yt-dlp --write-auto-sub --skip-download --sub-format "vtt" --output "$tmpdir/%(title)s.%(ext)s" "$1"; then
+#         echo "yt-dlp failed to download subtitles." >&2
+#         return 1 # The trap will execute and clean up the directory.
+#     fi
+#
+#     # 5. Find the subtitle file. '$(...)' is Zsh's command substitution.
+#     # This is reliable because it's the only .vtt file in our unique directory.
+#     local subfile
+#     subfile=$(find "$tmpdir" -type f -iname "*.vtt" -print -quit)
+#
+#     if [[ -f "$subfile" ]]; then
+#         # 6. The main logic: cat the file to our existing 'teec' function.
+#         cat "$subfile" | teec
+#         # The function will now exit successfully, and the trap will clean up.
+#     else
+#         echo "Error: Subtitle file was not created by yt-dlp." >&2
+#         return 1 # The trap will execute and clean up the directory.
+#     fi
+# }
+
 # Downloads YouTube subtitles and pipes them to the screen and clipboard.
 ytsum() {
-    # 1. Check for arguments. In Zsh, $# is the argument count.
+    # 1. Check for arguments.
     if [[ $# -eq 0 ]]; then
         echo "Usage: ytsum <YouTube URL>" >&2
         return 1
     fi
 
     # 2. Create a unique temporary directory.
-    # The 'mktemp' command is identical. We use a local variable.
     local tmpdir
     tmpdir=$(mktemp -d -t ytsum-XXXXXX)
 
-    # 3. THE IDIOMATIC ZSH IMPROVEMENT: Set a trap for cleanup.
-    # This command will run AUTOMATICALLY when the function exits, whether it's
-    # due to success, failure (return 1), or user interruption (Ctrl+C).
-    # This is more robust than manually calling 'rm' on every exit path.
+    # 3. Set a trap for cleanup.
     trap 'rm -rf "$tmpdir"' EXIT
 
-    # 4. Download the subtitle file into our unique directory.
-    # We use '$1' for the first argument and check the command's success directly.
-    if ! yt-dlp --write-auto-sub --skip-download --sub-format "vtt" --output "$tmpdir/%(title)s.%(ext)s" "$1"; then
-        echo "yt-dlp failed to download subtitles." >&2
-        return 1 # The trap will execute and clean up the directory.
+    echo "ℹ️ Using patched yt-dlp to avoid impersonation errors..."
+
+    # 4. Download the subtitle file using the patched command directly.
+    # The '--' separates nix run options from yt-dlp options.
+    # This is THE FIX: call the command directly instead of through a variable.
+    if ! nix run github:nmouha/nixpkgs/patch-1#yt-dlp -- \
+        --write-auto-sub \
+        --skip-download \
+        --sub-format "vtt" \
+        --output "$tmpdir/%(title)s.%(ext)s" \
+        "$1"; then
+        echo "❌ yt-dlp failed to download subtitles." >&2
+        return 1
     fi
 
-    # 5. Find the subtitle file. '$(...)' is Zsh's command substitution.
-    # This is reliable because it's the only .vtt file in our unique directory.
+    # 5. Find the subtitle file.
     local subfile
     subfile=$(find "$tmpdir" -type f -iname "*.vtt" -print -quit)
 
     if [[ -f "$subfile" ]]; then
         # 6. The main logic: cat the file to our existing 'teec' function.
         cat "$subfile" | teec
-        # The function will now exit successfully, and the trap will clean up.
     else
-        echo "Error: Subtitle file was not created by yt-dlp." >&2
-        return 1 # The trap will execute and clean up the directory.
+        echo "❌ Error: Subtitle file was not created by yt-dlp." >&2
+        return 1
     fi
 }
