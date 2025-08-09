@@ -1,22 +1,22 @@
 ---
-- name: Configure Proxmox Dual NIC Networking (Management & WAN/LAN)
-  hosts: proxmox_hosts # Or the specific host group from your inventory
+- name: Configure Proxmox Dual NIC Networking and Hostname
+  hosts: proxmox_hosts
   become: true
-  gather_facts: false # We define facts manually to be explicit or rely on inventory
+  gather_facts: true # Reliably get the node's actual hostname
 
   vars:
     # --- Define your NICs and Network Configuration ---
 
-    # WAN/LAN Network (for Host Internet and VMs) using the Realtek NIC
+    # WAN/LAN Network (for Host Internet, VMs, and Primary Management)
     wan_lan_nic_phys: "enp8s0"
     wan_lan_bridge_name: "vmbr0"
     wan_lan_bridge_ip_cidr: "192.168.1.12/24"
 
-    # Management Network (for SSH, WebUI) using the USB NIC on a separate VLAN
+    # Secondary/Physical Management Network (e.g., for a dedicated physical link)
     management_nic_phys: "enx00e04c78687d"
     management_bridge_name: "vmbr1"
     management_bridge_ip_cidr: "192.168.11.12/24"
-    management_gateway_ip: "192.168.11.1" # <<< THIS LINE WAS MISSING
+    management_gateway_ip: "192.168.11.1"
 
     # General Network Settings
     gateway_ip: "192.168.1.1" # The default gateway for the PRIMARY WAN/LAN
@@ -25,13 +25,6 @@
       - "8.8.8.8"
 
   pre_tasks:
-    - name: Gather minimal facts if not already done by inventory
-      ansible.builtin.setup:
-        filter:
-          - ansible_distribution
-          - ansible_distribution_version
-      when: ansible_distribution is not defined
-
     - name: Ensure ifupdown2 is installed for safe network reloading
       ansible.builtin.apt:
         name: ifupdown2
@@ -50,6 +43,15 @@
       register: backup_result
       changed_when: false
 
+    - name: Ensure /etc/hosts maps the hostname to the primary IP address
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '.*\s{{ ansible_hostname }}$'
+        line: "{{ wan_lan_bridge_ip_cidr | ipaddr('address') }} {{ ansible_hostname }}"
+        owner: root
+        group: root
+        mode: "0644"
+
     - name: Generate the new network configuration from template
       ansible.builtin.template:
         src: templates/interfaces.j2
@@ -58,13 +60,24 @@
         group: root
         mode: "0644"
         backup: yes
-      notify: Apply Network Changes
+      notify: Apply Network Changes and Reboot
 
+  # ==============================================================================
+  # CORRECTED HANDLER BLOCK
+  # The 'name' is what the 'notify' statement calls. The block of tasks is what
+  # gets executed when the handler is triggered.
+  # ==============================================================================
   handlers:
-    - name: Apply Network Changes
-      listen: "Apply Network Changes"
-      ansible.builtin.command:
-        cmd: "ifreload -a"
-      register: network_apply
-      changed_when: true
-      failed_when: network_apply.rc != 0
+    - name: Apply Network Changes and Reboot
+      block:
+        - name: Reload network configuration with ifreload
+          ansible.builtin.command:
+            cmd: "ifreload -a"
+          register: network_apply
+          changed_when: true
+          failed_when: network_apply.rc != 0
+
+        - name: Reboot the host to ensure all changes are active
+          ansible.builtin.reboot:
+            msg: "Rebooting host to apply network and hostname configuration."
+            reboot_timeout: 360
