@@ -1,0 +1,112 @@
+# patch_igpu_reset.yml (FINAL - Proxmox 9 / Kernel 6.14+ compatible)
+---
+- name: Apply vendor-reset fix for AMD iGPU Reset Bug
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: false
+
+  vars:
+    vendor_reset_repo_url: "https://github.com/ballerburg9005/vendor-reset.git"
+    vendor_reset_repo_dest: "/usr/local/src/vendor-reset"
+    dkms_module_name: "vendor-reset"
+    dkms_module_version: "0.1.1"
+    igpu_device_id: "13c0"
+    reset_strategy: "AMD_NAVI10"
+
+  tasks:
+    - name: Wait for apt lock to be released
+      ansible.builtin.shell: >
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+          echo "Waiting for other apt processes to finish..."
+          sleep 10
+        done
+      changed_when: false
+
+    - name: 1. Install prerequisites
+      ansible.builtin.apt:
+        name: [dkms, git, build-essential, pve-headers]
+        state: present
+        update_cache: yes
+
+    - name: 2. Ensure vendor-reset source is a clean clone
+      ansible.builtin.git:
+        repo: "{{ vendor_reset_repo_url }}"
+        dest: "{{ vendor_reset_repo_dest }}"
+        version: master
+        force: yes
+
+    - name: 3. Apply kernel compatibility fix for unaligned.h
+      ansible.builtin.shell:
+        cmd: "sed -i 's|#include <asm/unaligned.h>|#include <linux/unaligned.h>|' src/amd/amdgpu/atom.c"
+        chdir: "{{ vendor_reset_repo_dest }}"
+      changed_when: true
+
+    - name: 4. Remove any existing vendor-reset module from DKMS tree
+      ansible.builtin.command:
+        cmd: dkms remove {{ dkms_module_name }}/{{ dkms_module_version }} --all
+      register: dkms_remove_result
+      failed_when: false
+      changed_when: dkms_remove_result.rc == 0
+
+    - name: 5. Patch Makefile to disable '-Werror'
+      ansible.builtin.lineinfile:
+        path: "{{ vendor_reset_repo_dest }}/Makefile"
+        regexp: '^EXTRA_CFLAGS \\+= -Werror'
+        line: "#EXTRA_CFLAGS += -Werror"
+        backrefs: yes
+
+    - name: 6. Deploy patched device-db.h from template
+      ansible.builtin.template:
+        src: templates/device-db.h.j2
+        dest: "{{ vendor_reset_repo_dest }}/src/device-db.h"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: 7. Build and install the patched module via DKMS
+      ansible.builtin.command:
+        cmd: dkms install .
+        chdir: "{{ vendor_reset_repo_dest }}"
+      changed_when: true
+
+    - name: 8. Copy and patch udev rule
+      block:
+        - name: Copy udev rule
+          ansible.builtin.copy:
+            src: "{{ vendor_reset_repo_dest }}/udev/99-vendor-reset.rules"
+            dest: "/etc/udev/rules.d/99-vendor-reset.rules"
+            remote_src: yes
+        - name: Add udev rule for our iGPU
+          ansible.builtin.lineinfile:
+            path: "/etc/udev/rules.d/99-vendor-reset.rules"
+            line: 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x1002", ATTR{device}=="0x{{ igpu_device_id }}", RUN+="/bin/sh -c ''/sbin/modprobe vendor-reset; echo device_specific > /sys$env{DEVPATH}/reset_method''"'
+            state: present
+      notify: Reload udev rules
+
+    - name: 9. Ensure vendor-reset module is loaded early at boot
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        line: "{{ dkms_module_name }}"
+        state: present
+      notify: Update initramfs
+
+    - name: 10. Flush handlers and reboot
+      block:
+        - ansible.builtin.meta: flush_handlers
+        - name: Final reboot
+          ansible.builtin.reboot:
+            msg: "Rebooting to activate the patched vendor-reset kernel module."
+            reboot_timeout: 360
+
+  handlers:
+    - name: Update initramfs
+      listen: "Update initramfs"
+      ansible.builtin.command:
+        cmd: update-initramfs -u -k all
+      changed_when: true
+
+    - name: Reload udev rules
+      listen: "Reload udev rules"
+      ansible.builtin.shell:
+        cmd: udevadm control --reload-rules && udevadm trigger
+      changed_when: true

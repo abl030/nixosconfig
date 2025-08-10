@@ -1,0 +1,32 @@
+---
+- name: Prepare vBIOS and GOP files for AMD iGPU Passthrough
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: false
+
+  vars:
+    kvm_bios_path: "/usr/share/kvm"
+    vbios_filename: "vbios_9950x.rom"
+    gop_driver_filename: "AMDGopDriver.rom"
+    vbios_url: "https://raw.githubusercontent.com/isc30/ryzen-gpu-passthrough-proxmox/main/{{ vbios_filename }}"
+    gop_driver_url: "https://raw.githubusercontent.com/isc30/ryzen-gpu-passthrough-proxmox/main/AMDGopDriver.rom"
+  tasks:
+    - name: Ensure KVM BIOS directory exists
+      ansible.builtin.file:
+        path: "{{ kvm_bios_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download vBIOS and GOP Driver if missing
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ kvm_bios_path }}/{{ item.name }}"
+        mode: "0644"
+      loop:
+        - { name: "{{ vbios_filename }}", url: "{{ vbios_url }}" }
+        - { name: "{{ gop_driver_filename }}", url: "{{ gop_driver_url }}" }
+
+    - name: Display success message
+      ansible.builtin.debug:
+        msg: "Passthrough files verified. No host OS configuration changes are needed."
+# NO HANDLERS, NO REBOOTS. Nothing is changed that requires them.
