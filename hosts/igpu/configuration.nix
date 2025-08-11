@@ -9,7 +9,7 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ../services/jellyfin/jellyfin.nix
+      # ../services/jellyfin/jellyfin.nix
       ../services/mounts/nfs_local.nix
     ];
 
@@ -30,7 +30,11 @@
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.amd.updateMicrocode = true;
 
-  # networking.hostName = "nixos"; # Define your hostname.
+  services.qemuGuest.enable = true;
+
+  virtualisation.docker.enable = true;
+
+  networking.hostName = "igpu"; # Define your hostname.
   # Pick only one of the below networking options.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
   # networking.networkmanager.enable = true;  # Easiest to use and most distros use this by default.
@@ -78,7 +82,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "video" "render" ]; # Enable ‘sudo’ for the user.
+    extraGroups = [ "docker" "wheel" "video" "render" ]; # Enable ‘sudo’ for the user.
     packages = with pkgs; [
       git
     ];
@@ -108,6 +112,9 @@
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
+  services.openssh.settings = {
+    X11Forwarding = true;
+  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
