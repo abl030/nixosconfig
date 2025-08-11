@@ -9,6 +9,8 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ../services/jellyfin/jellyfin.nix
+      ../services/mounts/nfs_local.nix
     ];
 
   # Use the systemd-boot EFI boot loader.
@@ -89,6 +91,8 @@
   # You can use https://search.nixos.org/ to find more packages (and options).
   environment.systemPackages = with pkgs; [
     libva-utils
+    radeontop
+    nvtopPackages.amd
 
   ];
 
