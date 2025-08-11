@@ -103,6 +103,12 @@
           user = "abl030";
           homeDirectory = "/home/abl030";
         };
+        igpu = {
+          configurationFile = ./hosts/igpu/configuration.nix;
+          homeFile = ./hosts/igpu/home.nix;
+          user = "abl030";
+          homeDirectory = "/home/abl030";
+        };
 
       };
     in
