@@ -1,6 +1,20 @@
 version: "3.8"
 
 services:
+  # ---------------------------------------------------------------
+  # Network holder (shared network namespace for Jellyfin, Caddy,
+  # and the Tailscale sidecar). Ports are exposed here.
+  # ---------------------------------------------------------------
+  jellyfin-network-holder:
+    image: k8s.gcr.io/pause:3.9
+    container_name: jellyfin_network_holder
+    ports:
+      - "8096:8096" # Jellyfin HTTP
+      - "8920:8920" # Jellyfin HTTPS (optional)
+      - "7359:7359/udp" # Discovery (optional)
+      - "1900:1900/udp" # DLNA (optional)
+    restart: unless-stopped
+
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
@@ -17,12 +31,6 @@ services:
       - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
       - /mnt/data/Media/Movies/:/data/movies:ro # <<< CHANGE THIS
       # Add more media volumes as needed
-    ports:
-      # These ports are exposed on the HOST IP for local LAN access
-      - "8096:8096" # Web UI HTTP
-      - "8920:8920" # Optional: Web UI HTTPS
-      - "7359:7359/udp" # Optional: Client discovery (might still work locally)
-      - "1900:1900/udp" # Optional: DLNA (might still work locally)
     devices:
       # AMD GPU passthrough for Jellyfin
       - /dev/dri:/dev/dri
@@ -30,36 +38,70 @@ services:
     deploy:
       resources:
         limits:
-          # Memory limit for Jellyfin itself
-          memory: 4G # Adjust as needed
-    # NOTE: No network_mode here, it uses the default bridge
+          memory: 4G
+    # --- minimal but necessary change: share the holder's network ---
+    network_mode: "service:jellyfin-network-holder"
+    depends_on:
+      jellyfin-network-holder:
+        condition: service_started
 
+  # ---------------------------------------------------------------
+  # Tailscale sidecar shares the same network namespace as Jellyfin
+  # (via the network-holder). No direct ports here.
+  # ---------------------------------------------------------------
   tailscale:
     image: tailscale/tailscale:latest
     container_name: jellyfin-tailscale-sidecar
-    # CRITICAL: Use the network namespace of the 'jellyfin' service
-    network_mode: service:jellyfin
-    # Define dependencies if needed, though often not required for network sharing
-    # depends_on:
-    #   - jellyfin # Usually not needed as network is shared immediately
+    network_mode: "service:jellyfin-network-holder"
     volumes:
-      # Persist Tailscale state
       - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
-      # Required for Tailscale tunnel device
       - /dev/net/tun:/dev/net/tun
     cap_add:
-      # Required capabilities for Tailscale
       - NET_ADMIN
       - NET_RAW
     environment:
-      # IMPORTANT: Generate an Auth Key in Tailscale Admin Console (Settings -> Keys)
-      # Use a reusable or ephemeral key. Pre-authorized is best if possible.
-      - TS_HOSTNAME=jellyfin # Name that appears in Tailscale admin console
-      - TS_STATE_DIR=/var/lib/tailscale # Tell tailscale where state is mounted
-      - TS_USERSPACE=false # Use kernel mode networking (requires /dev/net/tun and caps)
-      - TS_ACCEPT_DNS=false # Recommended unless you specifically need container DNS via Tailscale
-      # Optional: Advertise this node as an exit node (unlikely needed for Jellyfin sharing)
+      - TS_HOSTNAME=jellyfin
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_ACCEPT_DNS=false
+      # Optional:
       # - TS_EXTRA_ARGS=--advertise-exit-node
-      # Optional: Set the user who manages this node in Tailscale ACLs
       # - TS_EXTRA_ARGS=--operator=your_tailscale_login_name
     restart: unless-stopped
+    depends_on:
+      jellyfin-network-holder:
+        condition: service_started
+
+  # ---------------------------------------------------------------
+  # Custom Caddy (for your own domains/certs), sharing the same
+  # network namespace as Jellyfin (via the holder).
+  # ---------------------------------------------------------------
+  caddy:
+    # image: caddy:latest
+    build:
+      context: .
+      dockerfile: ../tailscale/caddy/Dockerfile
+    container_name: jellyfin-caddy
+    network_mode: "service:jellyfin-network-holder"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - /mnt/docker/jellyfin/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - /mnt/docker/jellyfin/caddy_data:/data
+      - /mnt/docker/jellyfin/caddy/caddy_config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    # Optional healthcheck example:
+    # healthcheck:
+    #   test: ["CMD", "caddy", "api", "get", "--endpoint", "/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 10s
+    depends_on:
+      jellyfin-network-holder:
+        condition: service_started
+    stdin_open: true
+    tty: true
