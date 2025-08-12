@@ -13,6 +13,8 @@
     enable = true;
     matchBlocks = {
       "*" = {
+        forwardX11 = true;
+        forwardX11Trusted = true;
         setEnv = {
           # Needed for sudo on remote hosts to work with ghostty. Check removing it as ncurses is adopted. 
           TERM = "xterm-256color";

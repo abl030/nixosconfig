@@ -11,11 +11,11 @@ services:
       - TZ=Perth/Australia # Optional: Set your timezone
       # Set to your Proxmox host's LAN IP for local discovery/apps that might need it
       # Tailscale access will use the Tailscale IP automatically due to shared network
-      - JELLYFIN_PublishedServerUrl=192.168.1.12 # <<< CHANGE to Proxmox host LAN IP
+      - JELLYFIN_PublishedServerUrl=192.168.1.33 # <<< CHANGE to Proxmox host LAN IP
     volumes:
-      - /Containers/100-docker-volumes/jellyfin:/config # <<< CHANGE THIS
-      - "/mnt/pve/Data/Media/TV Shows/:/data/tvshows:ro"
-      - /mnt/pve/Data/Media/Movies/:/data/movies:ro # <<< CHANGE THIS
+      - /mnt/docker/jellyfin:/config # <<< CHANGE THIS
+      - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
+      - /mnt/data/Media/Movies/:/data/movies:ro # <<< CHANGE THIS
       # Add more media volumes as needed
     ports:
       # These ports are exposed on the HOST IP for local LAN access
@@ -44,7 +44,7 @@ services:
     #   - jellyfin # Usually not needed as network is shared immediately
     volumes:
       # Persist Tailscale state
-      - /Containers/100-docker-volumes/jellyfin/tailscale:/var/lib/tailscale
+      - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
       # Required for Tailscale tunnel device
       - /dev/net/tun:/dev/net/tun
     cap_add:
