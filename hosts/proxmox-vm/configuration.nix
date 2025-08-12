@@ -35,6 +35,7 @@
     liveRestore = false;
   };
 
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -46,6 +47,8 @@
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
+
+  networking.hostName = "proxmox-vm";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_GB.UTF-8";
