@@ -11,11 +11,16 @@
       ./hardware-configuration.nix
       # ../services/jellyfin/jellyfin.nix
       ../services/mounts/nfs_local.nix
+
+      # Our docker services
+      ../../docker/jellyfinn/docker-compose.nix
     ];
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+
+
 
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_latest;
