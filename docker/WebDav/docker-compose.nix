@@ -6,6 +6,9 @@
   systemd.services.webdav-stack = {
     description = "WebDav Compose Stack";
 
+    restartIfChanged = false;
+    reloadIfChanged = true;
+
     # This service requires the Docker daemon to be running.
     requires = [ "docker.service" "network-online.target" ];
 

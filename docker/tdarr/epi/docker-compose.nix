@@ -6,6 +6,9 @@
   systemd.services.tdarr-epi-stack = {
     description = "Tdarr Epi Compose Stack";
 
+    restartIfChanged = false;
+    reloadIfChanged = true;
+
     # This service requires the Docker daemon to be running.
     requires = [ "docker.service" "network-online.target" "mnt-data.automount" ];
 
