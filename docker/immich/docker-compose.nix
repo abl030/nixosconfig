@@ -7,6 +7,8 @@
   # ===================================================================
   systemd.services.immich-stack = {
     description = "Immich Docker Compose Stack";
+    restartIfChanged = false;
+    reloadIfChanged = true;
     requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
     after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
 
@@ -18,6 +20,7 @@
       # A build is not strictly necessary here, but doesn't hurt.
       ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
       ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
+      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
       Restart = "on-failure";
       RestartSec = "30s";
       StandardOutput = "journal";
