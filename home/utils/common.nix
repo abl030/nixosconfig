@@ -19,6 +19,7 @@
     pkgs.lazygit
     pkgs.gnome-disk-utility
     pkgs.ansible
+    pkgs.tldr
 
     # Rust Utils
     pkgs.fzf
