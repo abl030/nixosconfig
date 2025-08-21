@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  jdownloader-2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader-2
+    restart: unless-stopped
+    ports:
+      # Exposes the WebUI on port 5800
+      - "5800:5800"
+    volumes:
+      # Persists configuration data
+      - "/mnt/docker/jdownloader2:/config"
+      # Maps the host download location to the container's output directory
+      - "/mnt/data/Media/Temp:/output"
+      - "/mnt/data/Media/Books/Unsorted/Books/:/books"
+    environment:
+      # Sets the timezone for the container
+      - TZ=Australia/Perth
+      # Sets user and group IDs to manage file permissions, adjust if necessary
+      - USER_ID=99
+      - GROUP_ID=100
