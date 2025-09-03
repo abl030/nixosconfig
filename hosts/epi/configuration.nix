@@ -184,7 +184,7 @@
     isNormalUser = true;
     description = "Andy";
     extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
-    shell = pkgs.fish;
+    shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
     ];
@@ -207,7 +207,9 @@
     kdiskmark
   ];
 
-  programs.fish.enable = true;
+  # programs.fish.enable = true;
+  programs.zsh.enable = true;
+
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.

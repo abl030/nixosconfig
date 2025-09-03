@@ -36,6 +36,7 @@
     pkgs.pinta
     pkgs.usbutils
     # pkgs.pulseaudioFull
+    pkgs.jellyfin-media-player
 
   ];
 
