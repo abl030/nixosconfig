@@ -42,8 +42,8 @@
     description = "Weekly updater for the Jellyfin Docker stack";
 
     # This service should only run if the main stack is already active.
-    requires = [ "Jellyfin-stack.service" ];
-    after = [ "Jellyfin-stack.service" ];
+    requires = [ "jellyfin-stack.service" ];
+    after = [ "jellyfin-stack.service" ];
 
     serviceConfig = {
       Type = "oneshot";
