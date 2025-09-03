@@ -27,6 +27,7 @@
       ../../docker/atuin/docker-compose.nix
       ../../docker/StirlingPDF/docker-compose.nix
       ../../docker/mealie/docker-compose.nix
+      ../../docker/jdownloader2/docker-compose.nix
     ];
 
   #enable docker

@@ -39,11 +39,11 @@
     pkgs.markdownlint-cli
     pkgs.shfmt
     # pkgs.tabby-agent
-    pkgs.vimPlugins.rustaceanvim
-    pkgs.rust-analyzer
-    pkgs.vscode-extensions.vadimcn.vscode-lldb
-    pkgs.cargo
-    pkgs.rustc
+    # pkgs.vimPlugins.rustaceanvim
+    # pkgs.rust-analyzer
+    # pkgs.vscode-extensions.vadimcn.vscode-lldb
+    # pkgs.cargo
+    # pkgs.rustc
 
 
   ];
