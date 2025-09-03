@@ -13,6 +13,8 @@ services:
       - "8920:8920" # Jellyfin HTTPS (optional)
       - "7359:7359/udp" # Discovery (optional)
       - "1900:1900/udp" # DLNA (optional)
+      - "3468:3468" # Autoscan
+      - "8080:8080" # Watchstate WebUI
     restart: unless-stopped
 
   jellyfin:
@@ -22,7 +24,7 @@ services:
       - PUID=99 # Replace with your user ID if needed
       - PGID=100 # Replace with your group ID if needed
       - UMASK=0000 # Optional
-      - TZ=Perth/Australia # Optional: Set your timezone
+      - TZ=Australia/Perth # Optional: Set your timezone
       # Set to your Proxmox host's LAN IP for local discovery/apps that might need it
       # Tailscale access will use the Tailscale IP automatically due to shared network
       - JELLYFIN_PublishedServerUrl=192.168.1.33 # <<< CHANGE to Proxmox host LAN IP
@@ -105,3 +107,32 @@ services:
         condition: service_started
     stdin_open: true
     tty: true
+
+  autoscan:
+    image: ghcr.io/niniyas/autoscan:latest
+    container_name: jellyfin-autoscan
+    network_mode: "service:jellyfin-network-holder" # shares the same network namespace
+    volumes:
+      - /mnt/docker/jellyfin/autoscan:/config # config.json and database
+      - /var/run/docker.sock:/var/run/docker.sock # needed if controlling Docker containers
+    environment:
+      - PUID=99
+      - PGID=100
+      - UMASK=0000
+      - TZ=Australia/Perth
+    restart: unless-stopped
+    depends_on:
+      jellyfin-network-holder:
+        condition: service_started
+
+  watchstate:
+    image: ghcr.io/arabcoders/watchstate:latest
+    container_name: watchstate
+    user: "99:100"
+    network_mode: "service:jellyfin-network-holder"
+    volumes:
+      - /mnt/docker/jellyfin/watchstate:/config
+    restart: unless-stopped
+    depends_on:
+      jellyfin-network-holder:
+        condition: service_started
