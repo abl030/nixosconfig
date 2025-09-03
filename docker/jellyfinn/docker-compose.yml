@@ -130,6 +130,8 @@ services:
     container_name: watchstate
     user: "99:100"
     network_mode: "service:jellyfin-network-holder"
+    environment:
+      - TZ=Australia/Perth
     volumes:
       - /mnt/docker/jellyfin/watchstate:/config
     restart: unless-stopped
