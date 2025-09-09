@@ -8,7 +8,7 @@
     reloadIfChanged = true;
 
     # This service requires the Docker daemon to be running.
-    requires = [ "docker.service" ];
+    requires = [ "docker.service" "network-online.target" ];
 
     # It should start after the Docker daemon and network are ready.
     # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
