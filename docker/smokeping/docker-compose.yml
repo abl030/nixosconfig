@@ -1,0 +1,15 @@
+---
+services:
+  smokeping:
+    image: lscr.io/linuxserver/smokeping:latest
+    container_name: smokeping
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Australia/Perth
+    volumes:
+      - /mnt/docker/smokeping/config:/config
+      - /mnt/docker/smokeping/data:/data
+    ports:
+      - 8084:80
