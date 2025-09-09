@@ -11,6 +11,10 @@
   };
   programs.ssh = {
     enable = true;
+    # This disables the implicit default settings that will be removed in a future
+    # version of Home Manager, thereby resolving the warning.
+    enableDefaultConfig = false;
+
     matchBlocks = {
       "*" = {
         forwardX11 = true;
@@ -84,5 +88,3 @@
     };
   };
 }
-
-
