@@ -1,4 +1,4 @@
-{
+ {
   description = "My first flake!";
 
 
@@ -93,8 +93,8 @@
         wsl = {
           configurationFile = ./hosts/wsl/configuration.nix;
           homeFile = ./hosts/wsl/home.nix;
-          user = "abl030";
-          homeDirectory = "/home/abl030/";
+          user = "nixos";
+          homeDirectory = "/home/nixos/";
         };
 
         proxmox-vm = {
