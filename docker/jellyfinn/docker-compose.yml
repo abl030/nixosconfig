@@ -15,6 +15,7 @@ services:
       - "3468:3468" # Autoscan
       - "8080:8080" # Watchstate WebUI
       # NOTE: Port 3000 for Jellystat has been moved
+      - "9999:9999/udp" # inotify-receiver UDP (added)
     restart: unless-stopped
     networks:
       - jellyfin-net
@@ -32,6 +33,7 @@ services:
       - /mnt/docker/jellyfin:/config
       - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
       - /mnt/data/Media/Movies/:/data/movies:ro
+      - /mnt/data/Media/Music/:/data/music:ro # added: music mapping
     devices:
       - /dev/dri:/dev/dri
     restart: unless-stopped
@@ -160,6 +162,36 @@ services:
         condition: service_healthy
     networks:
       - jellyfin-net
+
+      # ---------------------------------------------------------------
+  # inotify receiver (socat + tiny handler script)
+  # ---------------------------------------------------------------
+  inotify-receiver:
+    image: alpine:3.20
+    container_name: inotify-receiver
+    network_mode: "service:jellyfin-network-holder"
+    restart: unless-stopped
+    volumes:
+      - "/mnt/data/Media/TV Shows/:/data/tvshows:rw"
+      - "/mnt/data/Media/Movies/:/data/movies:rw"
+      - "/mnt/data/Media/Music/:/data/music:rw"
+      - /mnt/docker/jellyfin/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -eu
+        # install socat once (you've disabled read_only)
+        apk add --no-cache socat >/dev/null 2>&1 || true
+        # chmod +x /usr/local/bin/inotify-recv.sh
+        echo "[receiver] socat fork on 0.0.0.0:9999, guard=/data"
+        # per-datagram process: short SYSTEM target avoids "address too long"
+        exec socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork SYSTEM:/usr/local/bin/inotify-recv.sh
+    security_opt: ["no-new-privileges:true"]
+    # read_only: true           # keep commented out if you want apk to run
+    tmpfs: ["/tmp", "/run"]
+    depends_on:
+      - jellyfin-network-holder
 
 # Define the custom network used by the services
 networks:
