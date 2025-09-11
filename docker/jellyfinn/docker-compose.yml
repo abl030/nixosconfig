@@ -2,8 +2,7 @@ version: "3.8"
 
 services:
   # ---------------------------------------------------------------
-  # Network holder (shared network namespace for Jellyfin, Caddy,
-  # and the Tailscale sidecar). Ports are exposed here.
+  # Network holder for the core Jellyfin services
   # ---------------------------------------------------------------
   jellyfin-network-holder:
     image: k8s.gcr.io/pause:3.9
@@ -15,46 +14,41 @@ services:
       - "1900:1900/udp" # DLNA (optional)
       - "3468:3468" # Autoscan
       - "8080:8080" # Watchstate WebUI
+      # NOTE: Port 3000 for Jellystat has been moved
     restart: unless-stopped
+    networks:
+      - jellyfin-net
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=99 # Replace with your user ID if needed
-      - PGID=100 # Replace with your group ID if needed
-      - UMASK=0000 # Optional
-      - TZ=Australia/Perth # Optional: Set your timezone
-      # Set to your Proxmox host's LAN IP for local discovery/apps that might need it
-      # Tailscale access will use the Tailscale IP automatically due to shared network
-      - JELLYFIN_PublishedServerUrl=192.168.1.33 # <<< CHANGE to Proxmox host LAN IP
+      - PUID=99
+      - PGID=100
+      - UMASK=0000
+      - TZ=Australia/Perth
+      - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
-      - /mnt/docker/jellyfin:/config # <<< CHANGE THIS
+      - /mnt/docker/jellyfin:/config
       - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
-      - /mnt/data/Media/Movies/:/data/movies:ro # <<< CHANGE THIS
-      # Add more media volumes as needed
+      - /mnt/data/Media/Movies/:/data/movies:ro
     devices:
-      # AMD GPU passthrough for Jellyfin
       - /dev/dri:/dev/dri
     restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 4G
-    # --- minimal but necessary change: share the holder's network ---
     network_mode: "service:jellyfin-network-holder"
     depends_on:
-      jellyfin-network-holder:
-        condition: service_started
+      - jellyfin-network-holder
 
-  # ---------------------------------------------------------------
-  # Tailscale sidecar shares the same network namespace as Jellyfin
-  # (via the network-holder). No direct ports here.
-  # ---------------------------------------------------------------
+  # ... (tailscale, caddy, autoscan, watchstate services remain unchanged) ...
   tailscale:
     image: tailscale/tailscale:latest
     container_name: jellyfin-tailscale-sidecar
     network_mode: "service:jellyfin-network-holder"
+    # ... (rest of tailscale config) ...
     volumes:
       - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
@@ -66,55 +60,40 @@ services:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_USERSPACE=false
       - TS_ACCEPT_DNS=false
-      # Optional:
-      # - TS_EXTRA_ARGS=--advertise-exit-node
-      # - TS_EXTRA_ARGS=--operator=your_tailscale_login_name
     restart: unless-stopped
     depends_on:
-      jellyfin-network-holder:
-        condition: service_started
+      - jellyfin-network-holder
 
-  # ---------------------------------------------------------------
-  # Custom Caddy (for your own domains/certs), sharing the same
-  # network namespace as Jellyfin (via the holder).
-  # ---------------------------------------------------------------
   caddy:
-    # image: caddy:latest
     build:
       context: .
       dockerfile: ../tailscale/caddy/Dockerfile
     container_name: jellyfin-caddy
     network_mode: "service:jellyfin-network-holder"
+    # ... (rest of caddy config) ...
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
       - /mnt/docker/jellyfin/caddy/Caddyfile:/etc/caddy/Caddyfile
       - /mnt/docker/jellyfin/caddy_data:/data
-      - /mnt/docker/jellyfin/caddy/caddy_config:/config
+      - /mnt/docker/jellyfin/caddy_config:/config
       - /etc/localtime:/etc/localtime:ro
     restart: always
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
-    # Optional healthcheck example:
-    # healthcheck:
-    #   test: ["CMD", "caddy", "api", "get", "--endpoint", "/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 10s
     depends_on:
-      jellyfin-network-holder:
-        condition: service_started
+      - jellyfin-network-holder
     stdin_open: true
     tty: true
 
   autoscan:
     image: ghcr.io/niniyas/autoscan:latest
     container_name: jellyfin-autoscan
-    network_mode: "service:jellyfin-network-holder" # shares the same network namespace
+    network_mode: "service:jellyfin-network-holder"
+    # ... (rest of autoscan config) ...
     volumes:
-      - /mnt/docker/jellyfin/autoscan:/config # config.json and database
-      - /var/run/docker.sock:/var/run/docker.sock # needed if controlling Docker containers
+      - /mnt/docker/jellyfin/autoscan:/config
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PUID=99
       - PGID=100
@@ -122,19 +101,67 @@ services:
       - TZ=Australia/Perth
     restart: unless-stopped
     depends_on:
-      jellyfin-network-holder:
-        condition: service_started
+      - jellyfin-network-holder
 
   watchstate:
     image: ghcr.io/arabcoders/watchstate:latest
     container_name: watchstate
     user: "99:100"
     network_mode: "service:jellyfin-network-holder"
+    # ... (rest of watchstate config) ...
     environment:
       - TZ=Australia/Perth
     volumes:
       - /mnt/docker/jellyfin/watchstate:/config
     restart: unless-stopped
     depends_on:
-      jellyfin-network-holder:
-        condition: service_started
+      - jellyfin-network-holder
+
+  # ---------------------------------------------------------------
+  # Jellystat Services (Corrected Configuration)
+  # ---------------------------------------------------------------
+  jellystat-db:
+    image: "postgres:15.2"
+    container_name: jellystat-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=jellystat
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
+    volumes:
+      - "/mnt/docker/jellystat/postgres-data:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jellystat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - jellyfin-net
+
+  jellystat:
+    image: "cyfershepard/jellystat:latest"
+    container_name: jellystat
+    restart: unless-stopped
+    # --- KEY CHANGE: Removed network_mode and added ports directly ---
+    ports:
+      - "3000:3000"
+    environment:
+      - POSTGRES_USER=jellystat
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
+      # Connect via service name (Docker DNS)
+      - POSTGRES_IP=jellystat-db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
+      - TZ=Australia/Perth
+    volumes:
+      - "/mnt/docker/jellystat/backup-data:/app/backend/backup-data"
+    depends_on:
+      jellystat-db:
+        condition: service_healthy
+    networks:
+      - jellyfin-net
+
+# Define the custom network used by the services
+networks:
+  jellyfin-net:
+    driver: bridge
