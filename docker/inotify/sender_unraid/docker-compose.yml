@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  inotify-sender:
+    image: devodev/inotify:0.3.0
+    container_name: inotify-sender
+    restart: unless-stopped
+    # Run our script (mounted below)
+    command: ["/bin/bash", "/sender.sh"]
+    environment:
+      # Watch multiple roots (container paths)
+      WATCH_DIRS: "/watch/movies,/watch/tv,/watch/music"
+      # List all receivers (host or host:port), comma-separated
+      REMOTE_HOSTS: "192.168.1.33"
+      REMOTE_PORT: "9999"
+      SRC_PREFIX: "/watch"
+      DST_PREFIX: "/data"
+      DEBOUNCE_SECS: "5"
+    volumes:
+      # map your Unraid paths read-only
+      - /mnt/user/data/Media/Movies:/watch/Movies:ro
+      - "/mnt/user/data/Media/TV Shows:/watch/TV:ro"
+      - /mnt/user/data/Media/Music:/watch/Music:ro
+      # mount the script
+      - /mnt/user/appdata/inotify-bridge/sender.sh:/sender.sh:ro
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
