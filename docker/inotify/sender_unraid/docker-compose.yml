@@ -17,9 +17,9 @@ services:
       DEBOUNCE_SECS: "5"
     volumes:
       # map your Unraid paths read-only
-      - /mnt/user/data/Media/Movies:/watch/Movies:ro
-      - "/mnt/user/data/Media/TV Shows:/watch/TV:ro"
-      - /mnt/user/data/Media/Music:/watch/Music:ro
+      - /mnt/user/data/Media/Movies:/watch/movies:ro
+      - "/mnt/user/data/Media/TV Shows:/watch/tv:ro"
+      - /mnt/user/data/Media/Music:/watch/music:ro
       # mount the script
       - /mnt/user/appdata/inotify-bridge/sender.sh:/sender.sh:ro
     security_opt:
