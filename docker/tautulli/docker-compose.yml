@@ -1,0 +1,12 @@
+version: "3"
+services:
+  tautulli:
+    image: ghcr.io/tautulli/tautulli
+    container_name: tautulli
+    restart: unless-stopped
+    volumes:
+      - /mnt/docker/tautulli/:/config
+    environment:
+      - TZ=Australia/Perth
+    ports:
+      - 8181:8181

@@ -29,6 +29,7 @@
       ../../docker/mealie/docker-compose.nix
       ../../docker/jdownloader2/docker-compose.nix
       ../../docker/smokeping/docker-compose.nix
+      ../../docker/tautulli/docker-compose.nix
     ];
 
   #enable docker
