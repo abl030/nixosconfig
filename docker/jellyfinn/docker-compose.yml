@@ -31,9 +31,9 @@ services:
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
       - /mnt/docker/jellyfin:/config
-      - "/mnt/data/Media/TV Shows/:/data/tvshows:ro"
-      - /mnt/data/Media/Movies/:/data/movies:ro
-      - /mnt/data/Media/Music/:/data/music:ro # added: music mapping
+      - "/mnt/fuse/Media/TV_Shows:/data/tvshows:ro"
+      - "/mnt/fuse/Media/Movies:/data/movies:ro"
+      - "/mnt/fuse/Media/Music:/data/music:ro" # switched to fuse path
     devices:
       - /dev/dri:/dev/dri
     restart: unless-stopped
@@ -172,10 +172,10 @@ services:
     network_mode: "service:jellyfin-network-holder"
     restart: unless-stopped
     volumes:
-      - "/mnt/data/Media/TV Shows/:/data/tvshows:rw"
-      - "/mnt/data/Media/Movies/:/data/movies:rw"
-      - "/mnt/data/Media/Music/:/data/music:rw"
-      - /mnt/docker/jellyfin/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
+      - "/mnt/fuse/Media/TV_Shows:/data/tvshows:rw"
+      - "/mnt/fuse/Media/Movies:/data/movies:rw"
+      - "/mnt/fuse/Media/Music:/data/music:rw"
+      - /home/abl030/nixosconfig/docker/jellyfinn/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
     command:
       - /bin/sh
       - -lc

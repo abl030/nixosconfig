@@ -12,7 +12,10 @@ DST_PREFIX="${DST_PREFIX:-/data}"
 # Debounce window
 DEBOUNCE_SECS="${DEBOUNCE_SECS:-5}"
 
-# IMPORTANT: name used by receiver; we ignore events on these files to avoid loops
+# Names of files to ignore (comma-separated). We always want to ignore "refresh".
+IGNORE_BASENAMES="${IGNORE_BASENAMES:-refresh}"
+
+# Legacy ping prefix still ignored if present anywhere else
 PING_PREFIX=".inotify-ping"
 
 IFS=',' read -r -a DIRS <<<"$WATCH_DIRS"
@@ -27,7 +30,7 @@ done
 echo "[sender] watching: ${DIRS[*]}"
 echo "[sender] receivers: ${HOSTS[*]}  (default port: ${DEFAULT_PORT})"
 echo "[sender] map: $SRC_PREFIX -> $DST_PREFIX; debounce: ${DEBOUNCE_SECS}s"
-echo "[sender] ignoring files with prefix: $PING_PREFIX"
+echo "[sender] ignoring basenames: ${IGNORE_BASENAMES}"
 
 send_line() {
     local path="$1"
@@ -62,20 +65,28 @@ trap 'rm -f "$tmpq"' EXIT
     done
 ) &
 
-# Collector: parse DIR|FILE|EVENTS; ignore our own ping files; enqueue directory paths only
+# Collector: parse DIR|FILE|EVENTS; ignore loop-causing files; enqueue directory paths only
 inotifywait "${args[@]}" | while IFS='|' read -r DIR FILE EV; do
-    # normalize DIR to have trailing slash removed
     DIR="${DIR%/}/"
 
-    # ignore our own temp ping files (create+delete)
-    if [[ -n "$FILE" && "$FILE" == ${PING_PREFIX}* ]]; then
-        # echo "[sender] skip self-ping: $DIR$FILE"
-        continue
+    # --- Ignore our own files to prevent loops ---
+    skip=0
+    if [[ -n "${FILE:-}" ]]; then
+        # old ping files
+        [[ "$FILE" == ${PING_PREFIX}* ]] && skip=1
+        # refresh marker
+        IFS=',' read -r -a IGNS <<<"$IGNORE_BASENAMES"
+        for bn in "${IGNS[@]}"; do
+            [[ "$FILE" == "$bn" ]] && {
+                skip=1
+                break
+            }
+        done
     fi
+    ((skip)) && continue
+    # --------------------------------------------
 
     # decide which directory to enqueue
-    # - if event is on a directory (ISDIR), the full dir is DIR+FILE
-    # - otherwise (file event), we enqueue the parent DIR
     if [[ "$EV" == *ISDIR* && -n "$FILE" ]]; then
         OUTDIR="${DIR}${FILE}/"
     else
@@ -84,8 +95,6 @@ inotifywait "${args[@]}" | while IFS='|' read -r DIR FILE EV; do
 
     # map /watch -> /data and strip duplicate slashes
     MAPPED="${OUTDIR/$SRC_PREFIX/$DST_PREFIX}"
-    # remove trailing slash for cleaner logs; receiver accepts both
-    MAPPED="${MAPPED%/}"
-
+    MAPPED="${MAPPED%/}" # normalize (receiver accepts both)
     echo "$MAPPED" >>"$tmpq"
 done

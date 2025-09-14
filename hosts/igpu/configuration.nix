@@ -11,6 +11,9 @@
       ./hardware-configuration.nix
       # ../services/jellyfin/jellyfin.nix
       ../services/mounts/nfs_local.nix
+      # We need fuse mounts for jellyfin inotify
+
+      ../services/mounts/fuse.nix
 
       # Our docker services
       ../../docker/jellyfinn/docker-compose.nix
