@@ -172,7 +172,7 @@ services:
     network_mode: "service:jellyfin-network-holder"
     restart: unless-stopped
     volumes:
-      - "/mnt/fuse/Media/TV_Shows:/data/tvshows:rw"
+      - "/mnt/fuse/Media/TV_Shows:/data/tv:rw"
       - "/mnt/fuse/Media/Movies:/data/movies:rw"
       - "/mnt/fuse/Media/Music:/data/music:rw"
       - /home/abl030/nixosconfig/docker/jellyfinn/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
