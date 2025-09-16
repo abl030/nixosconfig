@@ -10,7 +10,7 @@ set -eu
 
 # --- config (override via environment if you like) ---------------------
 ROOT_MOVIES="${ROOT_MOVIES:-/data/movies}"
-ROOT_TV="${ROOT_TV:-/data/tvshows}"
+ROOT_TV="${ROOT_TV:-/data/tv}" # <--- THIS IS THE ONLY CHANGE
 ROOT_MUSIC="${ROOT_MUSIC:-/data/music}"
 
 JELLY_TEST_MUSIC="${TARGET_TICKLE_JELLY_MUSIC:-/data/music/New2}" # capital N
