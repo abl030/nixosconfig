@@ -1,49 +1,121 @@
 #!/bin/sh
-# Music-only receiver: always tickle /data/music/New2 with a 'refresh' file
+# Unified receiver:
+# - Always tickle /data/music/New2 for MUSIC events (Jelly test path)
+# - Also tickle the actual target directory ("normal") for all 3 libs
+# - Creates 'refresh' (plain file) and deletes it after 46s
+# - Debounces per-target via /tmp lock
+# - Ignores library roots to avoid full-library refreshes
 
 set -eu
 
-# Read the UDP datagram (we don't care what it says, but log it)
-payload="$(cat | tr -d '\r\n')"
-echo "[receiver] recv: ${payload:-<empty>}"
+# --- config (override via environment if you like) ---------------------
+ROOT_MOVIES="${ROOT_MOVIES:-/data/movies}"
+ROOT_TV="${ROOT_TV:-/data/tvshows}"
+ROOT_MUSIC="${ROOT_MUSIC:-/data/music}"
 
-# Only react to music paths; ignore everything else
+JELLY_TEST_MUSIC="${TARGET_TICKLE_JELLY_MUSIC:-/data/music/New2}" # capital N
+MARKER_NAME="${MARKER_NAME:-refresh}"                             # plain file
+TTL="${TTL:-46}"                                                  # seconds
+# ----------------------------------------------------------------------
+
+log() { printf '%s\n' "$*"; }
+
+# Read UDP datagram
+payload="$(cat | tr -d '\r\n')"
+log "[receiver] recv: ${payload:-<empty>}"
+
+# Accept only /data/*
 case "$payload" in
-    /data/music/* | /data/Music/*) ;;
-    *)
-        echo "[receiver] ignore (non-music): $payload"
-        exit 0
-        ;;
+/data/*) ;;
+*)
+  log "[receiver] reject (outside /data): $payload"
+  exit 0
+  ;;
 esac
 
-# Fixed target (capital N)
-TARGET="${TARGET_TICKLE:-/data/music/New2}"
-
-# Must be a writable directory
-if [ ! -d "$TARGET" ] || [ ! -w "$TARGET" ]; then
-    echo "[receiver] target not a writable dir: $TARGET"
-    exit 0
+# If payload isn’t a dir, resolve to its parent
+target="$payload"
+if [ ! -d "$target" ]; then
+  target="$(dirname -- "$target" 2>/dev/null || echo "$payload")"
 fi
 
-# Debounce per-target via a lock in /tmp
-key="$(printf '%s' "$TARGET" | md5sum | awk '{print $1}')"
-lock="/tmp/refresh-$key.lock"
+# Canonicalize double slashes / trailing slashes
+# (leave as-is otherwise; POSIX sh)
+case "$target" in
+*/) target="${target%/}" ;;
+esac
 
-if mkdir "$lock" 2>/dev/null; then
-    marker="$TARGET/refresh"
-    # Create or truncate the plain 'refresh' file to trigger inotify
+# Helper: lowercase prefix check for root matching
+starts_with() {
+  case "$1" in "$2"*) return 0 ;; *) return 1 ;; esac
+}
+
+# Identify which library
+lib="other"
+case "$target" in
+"$ROOT_MOVIES"/* | "$ROOT_MOVIES") lib="movies" ;;
+"$ROOT_TV"/* | "$ROOT_TV") lib="tvshows" ;;
+"$ROOT_MUSIC"/* | "$ROOT_MUSIC") lib="music" ;;
+esac
+
+# Don’t ever tickle the library root dirs themselves
+is_library_root() {
+  case "$1" in
+  "$ROOT_MOVIES" | "$ROOT_TV" | "$ROOT_MUSIC") return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+# Core tickle: create a 'refresh' marker file and delete later
+tickle() {
+  t="$1"
+  [ -z "$t" ] && return 0
+  if is_library_root "$t"; then
+    log "[receiver] skip (library root): $t"
+    return 0
+  fi
+  if [ ! -d "$t" ] || [ ! -w "$t" ]; then
+    log "[receiver] not writable or not a dir: $t"
+    return 0
+  fi
+
+  key="$(printf '%s' "$t" | md5sum | awk '{print $1}')"
+  lock="/tmp/refresh-$key.lock"
+
+  if mkdir "$lock" 2>/dev/null; then
+    marker="$t/$MARKER_NAME"
+    # Creation/truncate; no utime syscall (avoids noisy permission errors)
     if : >"$marker" 2>/dev/null; then
-        echo "[receiver] refresh touched: $marker (will delete in 30s)"
-        (
-            sleep 30
-            rm -f "$marker"
-            rmdir "$lock" 2>/dev/null || true
-            echo "[receiver] refresh removed: $marker"
-        ) &
-    else
-        echo "[receiver] create/truncate failed: $marker"
+      log "[receiver] refresh touched: $marker (will delete in ${TTL}s)"
+      (
+        sleep "$TTL"
+        rm -f "$marker"
         rmdir "$lock" 2>/dev/null || true
+        log "[receiver] refresh removed: $marker"
+      ) &
+    else
+      log "[receiver] create/truncate failed: $marker"
+      rmdir "$lock" 2>/dev/null || true
     fi
-else
-    echo "[receiver] refresh already pending for $TARGET"
-fi
+  else
+    log "[receiver] refresh already pending for $t"
+  fi
+}
+
+# --- Apply rules -------------------------------------------------------
+
+case "$lib" in
+movies | tvshows)
+  # Normal tickle in the actual path
+  tickle "$target"
+  ;;
+music)
+  # Normal tickle in the actual path…
+  tickle "$target"
+  # …and keep the Jelly test tickle to /data/music/New2
+  tickle "$JELLY_TEST_MUSIC"
+  ;;
+*)
+  log "[receiver] ignore (not in movies/tvshows/music roots): $target"
+  ;;
+esac

@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------
+  # Network holder for the Plex service
+  # This container holds the network stack for Plex.
+  # ---------------------------------------------------------------
+  plex-network-holder:
+    image: k8s.gcr.io/pause:3.9
+    container_name: plex_network_holder
+    ports:
+      # Required for the main web UI, clients, and API
+      - "32400:32400/tcp"
+      # Optional ports for various Plex features
+      # - "1900:1900/udp" # Plex DLNA Server
+      - "5353:5353/udp" # Bonjour/Avahi network discovery
+      - "8324:8324/tcp" # Plex Companion
+      - "32410:32410/udp" # GDM network discovery
+      - "32412:32412/udp" # GDM network discovery
+      - "32413:32413/udp" # GDM network discovery
+      - "32414:32414/udp" # GDM network discovery
+      - "32469:32469/tcp" # Plex DLNA Server
+    restart: unless-stopped
+    networks:
+      - plex-net
+
+  # ---------------------------------------------------------------
+  # The main Plex Media Server application
+  # ---------------------------------------------------------------
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    # Use the network stack of the holder container
+    network_mode: "service:plex-network-holder"
+    environment:
+      # Use the same PUID/PGID as your Jellyfin setup for consistency
+      - PUID=99
+      - PGID=100
+      - TZ=Australia/Perth
+      # Keeps Plex at the latest version managed by linuxserver.io
+      - VERSION=docker
+      # --- IMPORTANT FOR FIRST RUN ---
+      # On the first run, uncomment this and add a claim token from https://www.plex.tv/claim
+      # This allows the server to be associated with your Plex account.
+      # The token is only valid for a few minutes.
+    volumes:
+      # Create a new directory for Plex's configuration
+      - /mnt/docker/plex:/config
+      # Reuse your existing media paths
+      - "/mnt/fuse/Media/TV_Shows:/tv"
+      - "/mnt/fuse/Media/Movies:/movies"
+      - "/mnt/fuse/Media/Music:/music"
+    devices:
+      # Pass through the GPU for hardware transcoding, same as Jellyfin
+      - /dev/dri:/dev/dri
+    restart: unless-stopped
+    depends_on:
+      - plex-network-holder
+
+# Define the custom network used by the Plex services
+networks:
+  plex-net:
+    driver: bridge
