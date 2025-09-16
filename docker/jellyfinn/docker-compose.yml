@@ -88,22 +88,22 @@ services:
     stdin_open: true
     tty: true
 
-  autoscan:
-    image: ghcr.io/niniyas/autoscan:latest
-    container_name: jellyfin-autoscan
-    network_mode: "service:jellyfin-network-holder"
-    # ... (rest of autoscan config) ...
-    volumes:
-      - /mnt/docker/jellyfin/autoscan:/config
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - PUID=99
-      - PGID=100
-      - UMASK=0000
-      - TZ=Australia/Perth
-    restart: unless-stopped
-    depends_on:
-      - jellyfin-network-holder
+  # autoscan:
+  #   image: ghcr.io/niniyas/autoscan:latest
+  #   container_name: jellyfin-autoscan
+  #   network_mode: "service:jellyfin-network-holder"
+  #   # ... (rest of autoscan config) ...
+  #   volumes:
+  #     - /mnt/docker/jellyfin/autoscan:/config
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   environment:
+  #     - PUID=99
+  #     - PGID=100
+  #     - UMASK=0000
+  #     - TZ=Australia/Perth
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - jellyfin-network-holder
 
   watchstate:
     image: ghcr.io/arabcoders/watchstate:latest
