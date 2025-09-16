@@ -12,8 +12,8 @@
     description = "Jellyfin Docker Compose Stack";
     restartIfChanged = false;
     reloadIfChanged = true;
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
+    requires = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
+    after = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
 
     serviceConfig = {
       Type = "oneshot";
