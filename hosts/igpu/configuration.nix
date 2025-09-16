@@ -18,6 +18,7 @@
       # Our docker services
       ../../docker/jellyfinn/docker-compose.nix
       ../../docker/management/igpu/docker_compose.nix
+      ../../docker/plex/docker-compose.nix
     ];
 
   # Use the systemd-boot EFI boot loader.

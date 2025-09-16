@@ -11,24 +11,23 @@
     restartIfChanged = false;
     reloadIfChanged = false; # Set to false as reload is not explicitly defined differently than start
 
-    # Dependencies: Wait for Docker, networking, and your data mount to be ready
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
+    # Dependencies: Wait for Docker, networking, your data mount, and FUSE mounts to be ready
+    requires = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
+    after = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # Set the working directory to where your docker-compose.plex.yml is located
+      # Set the working directory to where your docker-compose.yml is located
       WorkingDirectory = "/home/abl030/nixosconfig/docker/plex/";
 
-      # Use the -f flag to specify the exact compose file name
-      # This prevents conflicts if other compose files are in the same directory
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f docker-compose.plex.yml up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f docker-compose.plex.yml down";
+      # docker-compose.yml is the default filename, so the -f flag is not needed
+      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
+      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
 
       # A simple reload is just to bring the stack up again with any new images
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f docker-compose.plex.yml up -d --remove-orphans";
+      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
 
       Restart = "on-failure";
       RestartSec = "30s";
