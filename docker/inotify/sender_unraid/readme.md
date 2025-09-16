@@ -1,4 +1,3 @@
-here you go — a drop-in, project-ready `README.md` you can stick in the repo (works for both your Jellyfinn stack and the Unraid sender folder).
 
 ---
 
