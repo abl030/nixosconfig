@@ -1,0 +1,282 @@
+# ==============================================================================
+# ENERGY TARIFFS & COSTING PACKAGE (v5 - CORRECTED SENSOR LOGIC + Natural Power)
+# This package defines import and export tariffs, tracks usage for each,
+# and calculates the final daily net cost. Trigger-based sensors are placed
+# under the 'template:' integration (required by HA).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# HELPER INPUTS
+# ------------------------------------------------------------------------------
+input_number:
+  daily_supply_charge:
+    name: Daily Supply Charge
+    initial: 2.6336
+    min: 0
+    max: 10
+    step: 0.0001
+    mode: box
+    unit_of_measurement: "AUD"
+    icon: mdi:cash-marker
+
+  export_rate_on_peak:
+    name: Export Rate On Peak
+    initial: 0.025
+    min: 0
+    max: 1
+    step: 0.001
+    mode: box
+    unit_of_measurement: "AUD/kWh"
+    icon: mdi:cash-refund
+
+  export_rate_off_peak:
+    name: Export Rate Off Peak
+    initial: 0.015
+    min: 0
+    max: 1
+    step: 0.001
+    mode: box
+    unit_of_measurement: "AUD/kWh"
+    icon: mdi:cash-refund
+
+  # NEW: Natural Power surcharge rate (AUD/kWh)
+  natural_power_surcharge_per_kwh:
+    name: Natural Power Surcharge per kWh
+    initial: 0.051929
+    min: 0
+    max: 1
+    step: 0.000001
+    mode: box
+    unit_of_measurement: "AUD/kWh"
+    icon: mdi:leaf
+
+# ------------------------------------------------------------------------------
+# TEMPLATE SENSORS (including trigger-based)  — all under 'template:'
+# ------------------------------------------------------------------------------
+template:
+  # ------- State-based sensors -------
+  - sensor:
+      - name: "Current Electricity Tariff"
+        unique_id: "current_electricity_tariff"
+        state: >
+          {% set n = now() %}
+          {% if today_at("09:00") <= n < today_at("15:00") %}
+            midday_saver
+          {% elif today_at("15:00") <= n < today_at("21:00") %}
+            on_peak
+          {% else %}
+            off_peak
+          {% endif %}
+
+      - name: "Current Export Tariff"
+        unique_id: "current_export_tariff"
+        state: >
+          {% set n = now() %}
+          {% if today_at("15:00") <= n < today_at("21:00") %}
+            export_on_peak
+          {% else %}
+            export_off_peak
+          {% endif %}
+
+      # --- IMPORT COST SENSORS ---
+      - name: "Daily Energy Cost On Peak"
+        unique_id: "daily_energy_cost_on_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.daily_energy_on_peak') | float(0) / 1000 * 0.6762) | round(2) }}
+
+      - name: "Daily Energy Cost Midday Saver"
+        unique_id: "daily_energy_cost_midday_saver"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.daily_energy_midday_saver') | float(0) / 1000 * 0.1818) | round(2) }}
+
+      - name: "Daily Energy Cost Off Peak"
+        unique_id: "daily_energy_cost_off_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.daily_energy_off_peak') | float(0) / 1000 * 0.2451) | round(2) }}
+
+      # --- EXPORT CREDIT SENSORS ---
+      - name: "Daily Energy Credit On Peak"
+        unique_id: "daily_energy_credit_on_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.daily_energy_exported_export_on_peak') | float(0) / 1000
+               * (states('input_number.export_rate_on_peak') | float(0))) | round(2) }}
+
+      - name: "Daily Energy Credit Off Peak"
+        unique_id: "daily_energy_credit_off_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.daily_energy_exported_export_off_peak') | float(0) / 1000
+               * (states('input_number.export_rate_off_peak') | float(0))) | round(2) }}
+
+      - name: "Total Daily Energy Credit"
+        unique_id: "total_daily_energy_credit"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:cash-refund
+        state: >
+          {{ ((states('sensor.daily_energy_credit_on_peak') | float(0))
+             + (states('sensor.daily_energy_credit_off_peak') | float(0))) | round(2) }}
+
+      # NEW: consolidated Natural Power surcharge for the day (imports only)
+      - name: "Daily Natural Power Surcharge"
+        unique_id: "daily_natural_power_surcharge"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:leaf
+        state: >
+          {% set total_wh =
+               (states('sensor.daily_energy') | float(0))
+               if not is_state('sensor.daily_energy','unavailable')
+               and not is_state('sensor.daily_energy','unknown')
+               else (states('sensor.daily_energy_on_peak') | float(0)
+                     + states('sensor.daily_energy_midday_saver') | float(0)
+                     + states('sensor.daily_energy_off_peak') | float(0)) %}
+          {% set kwh = total_wh / 1000 %}
+          {% set rate = states('input_number.natural_power_surcharge_per_kwh') | float(0.051929) %}
+          {{ (kwh * rate) | round(2) }}
+
+      # --- FINAL NET COST SENSOR (includes Natural Power) ---
+      - name: "Total Daily Energy Net Cost"
+        unique_id: "total_daily_energy_net_cost"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:cash-multiple
+        state: >
+          {% set usage_cost =
+               (states('sensor.daily_energy_cost_on_peak') | float(0))
+             + (states('sensor.daily_energy_cost_midday_saver') | float(0))
+             + (states('sensor.daily_energy_cost_off_peak') | float(0)) %}
+          {% set supply_charge = states('input_number.daily_supply_charge') | float(0) %}
+          {% set total_credit = states('sensor.total_daily_energy_credit') | float(0) %}
+          {% set natural_power = states('sensor.daily_natural_power_surcharge') | float(0) %}
+          {{ (usage_cost + supply_charge - total_credit + natural_power) | round(2) }}
+        attributes:
+          usage_cost: "{{ ((states('sensor.daily_energy_cost_on_peak') | float(0)) + (states('sensor.daily_energy_cost_midday_saver') | float(0)) + (states('sensor.daily_energy_cost_off_peak') | float(0))) | round(2) }}"
+          supply_charge: "{{ states('input_number.daily_supply_charge') | float(0) | round(4) }}"
+          total_credit_earned: "{{ states('sensor.total_daily_energy_credit') | float(0) | round(2) }}"
+          natural_power_surcharge_today: "{{ states('sensor.daily_natural_power_surcharge') | float(0) | round(2) }}"
+
+  # ------- Trigger-based sensors (must be under template:) -------
+  - trigger:
+      - platform: time
+        at: "23:59:50" # just before midnight
+    sensor:
+      - name: "Monthly Net Cost"
+        unique_id: "monthly_net_cost"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_cost = states('sensor.total_daily_energy_net_cost') | float(0) %}
+          {% if now().day == 1 %}
+            {{ daily_cost }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_cost }}
+          {% endif %}
+
+  - trigger:
+      - platform: time
+        at: "23:59:54"
+    sensor:
+      - name: "Monthly Natural Power Surcharge"
+        unique_id: "monthly_natural_power_surcharge"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-leaf
+        state: >
+          {% set daily_np = states('sensor.daily_natural_power_surcharge') | float(0) %}
+          {{ daily_np if now().day == 1 else (this.state | float(0)) + daily_np }}
+
+  - trigger:
+      - platform: time
+        at: "23:59:57"
+    sensor:
+      - name: "Yearly Natural Power Surcharge"
+        unique_id: "yearly_natural_power_surcharge"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_np = states('sensor.daily_natural_power_surcharge') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_np }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_np }}
+          {% endif %}
+
+# ------------------------------------------------------------------------------
+# UTILITY METERS
+# ------------------------------------------------------------------------------
+utility_meter:
+  daily_energy:
+    source: sensor.sa_todays_energy_imported
+    cycle: daily
+    tariffs:
+      - on_peak
+      - midday_saver
+      - off_peak
+
+  daily_energy_exported:
+    source: sensor.sa_todays_energy_exported
+    cycle: daily
+    tariffs:
+      - export_on_peak
+      - export_off_peak
+
+# ------------------------------------------------------------------------------
+# AUTOMATIONS
+# ------------------------------------------------------------------------------
+automation:
+  - alias: "Set Energy Tariff"
+    id: "set_energy_tariff"
+    trigger:
+      - platform: state
+        entity_id: sensor.current_electricity_tariff
+        not_to:
+          - unavailable
+          - unknown
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.daily_energy
+        data:
+          option: "{{ states('sensor.current_electricity_tariff') }}"
+
+  - alias: "Set Export Tariff"
+    id: "set_export_tariff"
+    trigger:
+      - platform: state
+        entity_id: sensor.current_export_tariff
+        not_to:
+          - unavailable
+          - unknown
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.daily_energy_exported
+        data:
+          option: "{{ states('sensor.current_export_tariff') }}"
