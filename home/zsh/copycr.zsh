@@ -12,10 +12,8 @@ _copycr_select_dirs() {
     local depth="${1:-1}"
     local include_hidden="${2:-0}"
 
-    # Build find command for directories up to depth
     local -a find_args=(. -mindepth 1 -maxdepth "$depth" -type d)
     if [[ "$include_hidden" != "1" ]]; then
-        # Exclude any path segment that begins with a dot at any level
         find_args+=(-not -path "*/.*")
     fi
 
@@ -63,6 +61,8 @@ _copycr_select_dirs() {
 # ──────────────────────────────────────────────────────────────────────────────
 # Dump *one* target (file or dir) to STDOUT using the existing copycr format.
 # Optional arg2: shallow=1 to dump only top-level files (non-recursive).
+# NOTE: We no longer `cd` into the target; we run ls/find on the *path* so
+#       headings show the actual path (e.g., `ha:` not `.:`).
 # ──────────────────────────────────────────────────────────────────────────────
 _copycr_dump_target() {
     local target="$1"
@@ -85,44 +85,54 @@ _copycr_dump_target() {
     fi
 
     if [[ -d "$target" ]]; then
-        (
-            cd -- "$target" || exit 1
+        # Normalize a helper to print with leading "./" (for consistency with prior format)
+        _copycr__print_path() {
+            local p="$1"
+            case "$p" in
+                ./*) printf "%s" "$p" ;;
+                /*) printf "%s" "$p" ;;  # absolute: leave as-is
+                *) printf "./%s" "$p" ;; # relative: add "./"
+            esac
+        }
 
-            if [[ "$shallow" == "1" ]]; then
-                # Non-recursive: list current dir and include only top-level files.
-                command ls -la .
-                echo
-                echo "FILE CONTENTS"
-                local f
-                for f in *; do
-                    [[ -f "$f" ]] || continue
-                    if grep -Iq . "$f"; then
-                        echo "===== $f ====="
-                        cat -- "$f"
-                        echo
-                    else
-                        echo "===== $f (SKIPPED BINARY) =====" >&2
-                    fi
-                done
-                exit 0
-            fi
-
-            # Recursive (existing behavior)
-            command ls -laR .
+        if [[ "$shallow" == "1" ]]; then
+            # Non-recursive: list the directory itself and only its top-level files
+            command ls -la -- "$target"
             echo
             echo "FILE CONTENTS"
+
+            # top-level files only
             local f
             while IFS= read -r -d '' f; do
                 if grep -Iq . "$f"; then
-                    echo "===== $f ====="
+                    echo "===== $(_copycr__print_path "$f") ====="
                     cat -- "$f"
                     echo
                 else
-                    echo "===== $f (SKIPPED BINARY) =====" >&2
+                    echo "===== $(_copycr__print_path "$f") (SKIPPED BINARY) =====" >&2
                 fi
-            done < <(find . \( -name .git -o -name result -o -name node_modules \) -prune -o -type f -print0)
-        )
-        return $?
+            done < <(find "$target" -mindepth 1 -maxdepth 1 -type f -print0)
+
+            return 0
+        fi
+
+        # Recursive (existing behavior), but run on the path directly so headings include it
+        command ls -laR -- "$target"
+        echo
+        echo "FILE CONTENTS"
+
+        local f
+        while IFS= read -r -d '' f; do
+            if grep -Iq . "$f"; then
+                echo "===== $(_copycr__print_path "$f") ====="
+                cat -- "$f"
+                echo
+            else
+                echo "===== $(_copycr__print_path "$f") (SKIPPED BINARY) =====" >&2
+            fi
+        done < <(find "$target" \( -name .git -o -name result -o -name node_modules \) -prune -o -type f -print0)
+
+        return 0
     fi
 
     echo "Error: '$target' is not a regular file or directory." >&2
@@ -197,22 +207,17 @@ _copycr_parse_opts() {
 # Output is piped once to xclip, preserving prior clipboard behavior.
 # ──────────────────────────────────────────────────────────────────────────────
 copycr() {
-    # Piped input → copy as-is
     if [[ ! -t 0 ]]; then
         xclip -selection clipboard -target UTF8_STRING
         echo "Piped input copied to clipboard." >&2
         return 0
     fi
 
-    # Parse options (affects interactive mode / header)
     _copycr_parse_opts "$@" || return 1
-    # Use parsed positional args
     set -- "${COPYCR_REST_ARGS[@]}"
 
-    # Explicit targets → no TUI
     if (($# > 0)); then
-        local missing=0
-        local p
+        local missing=0 p
         for p in "$@"; do
             [[ -e "$p" ]] || {
                 echo "Error: '$p' does not exist." >&2
@@ -232,7 +237,6 @@ copycr() {
         return 0
     fi
 
-    # Interactive mode (no args, TTY)
     if [[ -t 1 ]]; then
         local selections sel_rc
         selections=$(_copycr_select_dirs "$COPYCR_DEPTH" "$COPYCR_INCLUDE_HIDDEN")
@@ -247,7 +251,6 @@ copycr() {
                     _copycr_dump_target "$line" || return 1
                 done <<<"$selections"
             else
-                # If user made no selection but asked for root, that's fine.
                 ((COPYCR_INCLUDE_ROOT == 1)) || return 1
             fi
         } | xclip -selection clipboard -target UTF8_STRING
