@@ -3,23 +3,30 @@ set -euo pipefail
 
 # Comma-separated container paths to watch (must match your volume mounts)
 WATCH_DIRS="${WATCH_DIRS:-/watch}"
+
 # Comma-separated receivers: host or host:port
 REMOTE_HOSTS="${REMOTE_HOSTS:-receiver}"
 DEFAULT_PORT="${REMOTE_PORT:-9999}"
+
 # Map /watch -> /data so receivers share the same canonical path
 SRC_PREFIX="${SRC_PREFIX:-/watch}"
 DST_PREFIX="${DST_PREFIX:-/data}"
+
 # Debounce window
 DEBOUNCE_SECS="${DEBOUNCE_SECS:-5}"
 
 # Names of files to ignore (comma-separated). We always want to ignore "refresh".
 IGNORE_BASENAMES="${IGNORE_BASENAMES:-refresh}"
 
+# Single heartbeat file updated by the flusher loop
+HEALTH_FILE="/tmp/sender-healthy"
+
 # Legacy ping prefix still ignored if present anywhere else
 PING_PREFIX=".inotify-ping"
 
 IFS=',' read -r -a DIRS <<<"$WATCH_DIRS"
 IFS=',' read -r -a HOSTS <<<"$REMOTE_HOSTS"
+
 for d in "${DIRS[@]}"; do
     [[ -d "$d" ]] || {
         echo "[sender] missing WATCH_DIR: $d" >&2
@@ -43,7 +50,11 @@ send_line() {
             host="$rx"
             port="$DEFAULT_PORT"
         fi
-        printf '%s\n' "$path" | nc -u -w1 "$host" "$port" || true
+        if printf '%s\n' "$path" | nc -u -w1 "$host" "$port"; then
+            echo "[sender] pinged: ${host}:${port} <- ${path}"
+        else
+            echo "[sender] ping FAILED: ${host}:${port} <- ${path}" >&2
+        fi
     done
 }
 
@@ -51,13 +62,18 @@ send_line() {
 args=(-mr -e close_write,create,move,delete --format '%w|%f|%e')
 for d in "${DIRS[@]}"; do args+=("$d"); done
 
-tmpq=$(mktemp)
+tmpq="$(mktemp)"
 trap 'rm -f "$tmpq"' EXIT
 
-# Flusher (debounce)
+# Initialize heartbeat so healthcheck doesn't fail on startup
+date +%s >"$HEALTH_FILE"
+
+# Flusher (debounce) + heartbeat writer
 (
     while true; do
         sleep "$DEBOUNCE_SECS"
+        # Heartbeat in epoch seconds (portable, no stat/find needed)
+        date +%s >"$HEALTH_FILE"
         [[ -s "$tmpq" ]] || continue
         mapfile -t PATHS < <(sort -u "$tmpq")
         : >"$tmpq"
@@ -72,9 +88,7 @@ inotifywait "${args[@]}" | while IFS='|' read -r DIR FILE EV; do
     # --- Ignore our own files to prevent loops ---
     skip=0
     if [[ -n "${FILE:-}" ]]; then
-        # old ping files
         [[ "$FILE" == ${PING_PREFIX}* ]] && skip=1
-        # refresh marker
         IFS=',' read -r -a IGNS <<<"$IGNORE_BASENAMES"
         for bn in "${IGNS[@]}"; do
             [[ "$FILE" == "$bn" ]] && {

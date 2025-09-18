@@ -4,8 +4,10 @@ services:
     image: devodev/inotify:0.3.0
     container_name: inotify-sender
     restart: unless-stopped
+
     # Run our script (mounted below)
     command: ["/bin/bash", "/sender.sh"]
+
     environment:
       # Watch multiple roots (container paths)
       WATCH_DIRS: "/watch/movies,/watch/tv,/watch/music"
@@ -15,6 +17,7 @@ services:
       SRC_PREFIX: "/watch"
       DST_PREFIX: "/data"
       DEBOUNCE_SECS: "5"
+
     volumes:
       # map your Unraid paths read-only
       - /mnt/user/data/Media/Movies:/watch/movies:ro
@@ -22,9 +25,43 @@ services:
       - /mnt/user/data/Media/Music:/watch/music:ro
       # mount the script
       - /mnt/user/appdata/inotify-bridge/sender.sh:/sender.sh:ro
+
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
       - /run
+
+    # Let autoheal watch this service
+    labels:
+      - autoheal=true
+
+    # Healthcheck: OK when inotifywait is running and the flusher heartbeat updated recently.
+    # Use a 180s window to avoid flapping on very idle libraries.
+    healthcheck:
+      test: >
+        bash -lc '
+          pgrep inotifywait >/dev/null &&
+          now=$(date +%s) &&
+          h=$(cat /tmp/sender-healthy 2>/dev/null || echo 0) &&
+          [ $((now - h)) -lt 180 ]'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Autoheal sidecar: restarts any container with label autoheal=true when unhealthy
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=30
+      - AUTOHEAL_START_PERIOD=120
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
