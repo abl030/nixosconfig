@@ -62,9 +62,12 @@ _copycr_select_dirs() {
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dump *one* target (file or dir) to STDOUT using the existing copycr format.
+# Optional arg2: shallow=1 to dump only top-level files (non-recursive).
 # ──────────────────────────────────────────────────────────────────────────────
 _copycr_dump_target() {
     local target="$1"
+    local shallow="${2:-0}"
+
     if [[ ! -e "$target" ]]; then
         echo "Error: '$target' does not exist." >&2
         return 1
@@ -84,10 +87,30 @@ _copycr_dump_target() {
     if [[ -d "$target" ]]; then
         (
             cd -- "$target" || exit 1
+
+            if [[ "$shallow" == "1" ]]; then
+                # Non-recursive: list current dir and include only top-level files.
+                command ls -la .
+                echo
+                echo "FILE CONTENTS"
+                local f
+                for f in *; do
+                    [[ -f "$f" ]] || continue
+                    if grep -Iq . "$f"; then
+                        echo "===== $f ====="
+                        cat -- "$f"
+                        echo
+                    else
+                        echo "===== $f (SKIPPED BINARY) =====" >&2
+                    fi
+                done
+                exit 0
+            fi
+
+            # Recursive (existing behavior)
             command ls -laR .
             echo
             echo "FILE CONTENTS"
-
             local f
             while IFS= read -r -d '' f; do
                 if grep -Iq . "$f"; then
@@ -107,14 +130,16 @@ _copycr_dump_target() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Parse options for interactive mode (simple, robust, no double-shifts):
+# Parse options for interactive mode (simple, robust):
 #   -d N | --depth N         choose directories up to depth N (default 1)
-#   --include-hidden         include hidden directories
+#   --include-hidden         include hidden directories in the picker
+#   -R  | --include-root     ALSO dump '.' (pwd) alongside selections/args (shallow)
 # Leaves non-option args in COPYCR_REST_ARGS (global).
 # ──────────────────────────────────────────────────────────────────────────────
 _copycr_parse_opts() {
     typeset -g COPYCR_DEPTH=1
     typeset -g COPYCR_INCLUDE_HIDDEN=0
+    typeset -g COPYCR_INCLUDE_ROOT=0
     typeset -g COPYCR_REST_ARGS=()
 
     local -a ARGS=()
@@ -137,9 +162,12 @@ _copycr_parse_opts() {
                 COPYCR_INCLUDE_HIDDEN=1
                 shift
                 ;;
+            -R | --include-root)
+                COPYCR_INCLUDE_ROOT=1
+                shift
+                ;;
             --)
                 shift
-                # everything after -- are positional args
                 while [[ $# -gt 0 ]]; do
                     ARGS+=("$1")
                     shift
@@ -165,6 +193,7 @@ _copycr_parse_opts() {
 #   - If piped input: copy stdin to clipboard (no TUI).
 #   - If args given (paths after options): dump those paths recursively (no TUI).
 #   - Else (TTY): show TUI to pick subdirs up to configured depth (default 1).
+# If -R/--include-root is set, also dumps '.' (pwd) **shallow** (non-recursive).
 # Output is piped once to xclip, preserving prior clipboard behavior.
 # ──────────────────────────────────────────────────────────────────────────────
 copycr() {
@@ -193,6 +222,7 @@ copycr() {
         ((missing)) && return 1
 
         {
+            ((COPYCR_INCLUDE_ROOT == 1)) && _copycr_dump_target "." 1 || true
             for p in "$@"; do
                 _copycr_dump_target "$p" || return 1
             done
@@ -204,14 +234,22 @@ copycr() {
 
     # Interactive mode (no args, TTY)
     if [[ -t 1 ]]; then
-        local selections
-        selections=$(_copycr_select_dirs "$COPYCR_DEPTH" "$COPYCR_INCLUDE_HIDDEN") || return 1
+        local selections sel_rc
+        selections=$(_copycr_select_dirs "$COPYCR_DEPTH" "$COPYCR_INCLUDE_HIDDEN")
+        sel_rc=$?
 
         {
-            local line
-            while IFS= read -r line; do
-                _copycr_dump_target "$line" || return 1
-            done <<<"$selections"
+            ((COPYCR_INCLUDE_ROOT == 1)) && _copycr_dump_target "." 1 || true
+
+            if ((sel_rc == 0)); then
+                local line
+                while IFS= read -r line; do
+                    _copycr_dump_target "$line" || return 1
+                done <<<"$selections"
+            else
+                # If user made no selection but asked for root, that's fine.
+                ((COPYCR_INCLUDE_ROOT == 1)) || return 1
+            fi
         } | xclip -selection clipboard -target UTF8_STRING
 
         echo "Selected directories' context copied to clipboard." >&2
