@@ -10,13 +10,13 @@ in
     ./starship.nix
     ../utils/atuin.nix
   ];
+
   programs.zsh = {
     enable = true;
 
     autosuggestion.enable = true;
     enableCompletion = true;
     syntaxHighlighting.enable = true;
-
 
     shellAliases = {
       "epi!" = "ssh abl030@caddy 'wakeonlan 18:c0:4d:65:86:e8'"; # Quoted due to '!'
@@ -40,11 +40,12 @@ in
       ytsum = "noglob ytsum";
     };
 
-    # Source our separate, syntax-highlighted functions file.
+    # Source our separate, syntax-highlighted functions file(s).
     initContent = ''
             # Nix expands ${config.home.homeDirectory} *here*.
           _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
             source ${./my_functions.zsh}
+            source ${./copycr.zsh}
 
           # Bind Tab-Tab to accept the current autosuggestion.
           # ^I is the control character for the Tab key.
@@ -69,11 +70,18 @@ in
       zstyle ':completion:*:descriptions' format 'Completing %d'
       zstyle ':completion:*' verbose yes
     '';
-
   };
+
   programs.zoxide.enable = true;
   programs.zoxide.enableZshIntegration = true;
   programs.atuin.enableZshIntegration = true;
   programs.starship.enableZshIntegration = true;
+
+  # NEW: Enable fzf for the TUI (preferred path; minimal change)
+  programs.fzf.enable = true;
+  programs.fzf.enableZshIntegration = true;
+
+  # Optional: have gum available for fallback (not required)
+  # home.packages = (config.home.packages or []) ++ [ pkgs.gum ];
 }
 

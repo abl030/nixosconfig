@@ -199,58 +199,6 @@ copyc() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  Recursively copies file/directory context to the clipboard
-# ──────────────────────────────────────────────────────────────────────────────
-copycr() {
-    if [[ ! -t 0 ]]; then
-        xclip -selection clipboard -target UTF8_STRING
-        echo "Piped input copied to clipboard." >&2
-        return 0
-    fi
-
-    local target="${1:-.}"
-    [[ ! -e "$target" ]] && {
-        echo "Error: '$target' does not exist." >&2
-        return 1
-    }
-
-    if [[ -f "$target" ]]; then
-        {
-            command ls -l "$target"
-            echo
-            echo "FILE CONTENTS"
-            cat "$target"
-            echo
-        } | xclip -selection clipboard -target UTF8_STRING
-        echo "File '$target' context copied to clipboard." >&2
-        return 0
-    fi
-
-    if [[ -d "$target" ]]; then
-        (
-            cd "$target" || return 1
-            command ls -laR .
-            echo
-            echo "FILE CONTENTS"
-            for f in $(find . \( -name .git -o -name result -o -name node_modules \) -prune -o -type f -print); do
-                if grep -Iq . "$f"; then
-                    echo "===== $f ====="
-                    cat "$f"
-                    echo
-                else
-                    echo "===== $f (SKIPPED BINARY) =====" >&2
-                fi
-            done
-        ) | xclip -selection clipboard -target UTF8_STRING
-        echo "Recursive directory '$target' context copied to clipboard." >&2
-        return 0
-    fi
-
-    echo "Error: '$target' is not a regular file or directory." >&2
-    return 1
-}
-
-# ──────────────────────────────────────────────────────────────────────────────
 #  Downloads YouTube subtitles and pipes them to the screen and clipboard
 # ──────────────────────────────────────────────────────────────────────────────
 ytsum() {
@@ -281,3 +229,5 @@ ytsum() {
         return 1
     }
 }
+
+# Note: copycr moved to its own file (copycr.zsh) and is sourced from zsh2.nix
