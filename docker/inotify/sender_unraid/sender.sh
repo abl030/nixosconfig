@@ -18,6 +18,13 @@ DEBOUNCE_SECS="${DEBOUNCE_SECS:-5}"
 # Names of files to ignore (comma-separated). We always want to ignore "refresh".
 IGNORE_BASENAMES="${IGNORE_BASENAMES:-refresh}"
 
+# ---------------------------------------------------------------------------------
+# NEW: Case-insensitive list of extensions to ignore at the inotify layer.
+# Defaults to noisy metadata/artwork churn from media servers.
+# You can append more later, e.g. "nfo,xml,jpg,png,srt,txt"
+IGNORE_EXTS="${IGNORE_EXTS:-nfo,xml,jpg,png}"
+# ---------------------------------------------------------------------------------
+
 # Single heartbeat file updated by the flusher loop
 HEALTH_FILE="/tmp/sender-healthy"
 
@@ -38,6 +45,7 @@ echo "[sender] watching: ${DIRS[*]}"
 echo "[sender] receivers: ${HOSTS[*]}  (default port: ${DEFAULT_PORT})"
 echo "[sender] map: $SRC_PREFIX -> $DST_PREFIX; debounce: ${DEBOUNCE_SECS}s"
 echo "[sender] ignoring basenames: ${IGNORE_BASENAMES}"
+echo "[sender] ignoring extensions (case-insensitive): ${IGNORE_EXTS}"
 
 send_line() {
     local path="$1"
@@ -60,12 +68,34 @@ send_line() {
 
 # Build inotify args once
 args=(-mr -e close_write,create,move,delete --format '%w|%f|%e')
+
+# ---------------------------------------------------------------------------------
+# NEW: Translate IGNORE_EXTS into a case-insensitive --excludei regex.
+# Example: "nfo,xml,jpg,png" => --excludei '\.(nfo|xml|jpg|png)$'
+# This prevents metadata/artwork churn from entering the queue at all.
+if [[ -n "${IGNORE_EXTS//,/}" ]]; then
+    IFS=',' read -r -a _EXTS <<<"$IGNORE_EXTS"
+    # Trim whitespace around each ext (defensive); keep simple POSIX-safe approach.
+    _CLEANED=()
+    for _e in "${_EXTS[@]}"; do
+        # shellcheck disable=SC2001
+        _e_trimmed="$(echo "$_e" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        [[ -n "$_e_trimmed" ]] && _CLEANED+=("$_e_trimmed")
+    done
+    if [[ "${#_CLEANED[@]}" -gt 0 ]]; then
+        _JOINED="$(printf '%s|' "${_CLEANED[@]}" | sed 's/|$//')"
+        # Add the exclude to inotifywait args (case-insensitive match at end of name)
+        args+=(--excludei "\\.(${_JOINED})$")
+    fi
+fi
+# ---------------------------------------------------------------------------------
+
 for d in "${DIRS[@]}"; do args+=("$d"); done
 
 tmpq="$(mktemp)"
 trap 'rm -f "$tmpq"' EXIT
 
-# Initialize heartbeat so healthcheck doesn't fail on startup
+# Initialize heartbeat so healthcheck doesn't fail on start
 date +%s >"$HEALTH_FILE"
 
 # Flusher (debounce) + heartbeat writer
