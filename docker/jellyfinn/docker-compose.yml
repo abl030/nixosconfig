@@ -31,8 +31,8 @@ services:
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
       - /mnt/docker/jellyfin:/config
-      - "/mnt/fuse/Media/TV_Shows:/data/tvshows:ro"
-      - "/mnt/fuse/Media/Movies:/data/movies:ro"
+      - "/mnt/fuse/Media/TV_Shows:/data/tvshows"
+      - "/mnt/fuse/Media/Movies:/data/movies"
       - "/mnt/fuse/Media/Music:/data/music:ro" # switched to fuse path
     devices:
       - /dev/dri:/dev/dri
