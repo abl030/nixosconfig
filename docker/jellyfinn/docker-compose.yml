@@ -31,9 +31,9 @@ services:
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
       - /mnt/docker/jellyfin:/config
-      - "/mnt/fuse/Media/TV_Shows:/data/tvshows:ro"
-      - "/mnt/fuse/Media/Movies:/data/movies:ro"
-      - "/mnt/fuse/Media/Music:/data/music:ro" # switched to fuse path
+      - "/mnt/fuse/Media/TV_Shows:/data/tvshows"
+      - "/mnt/fuse/Media/Movies:/data/movies"
+      - "/mnt/fuse/Media/Music:/data/music:ro"
     devices:
       - /dev/dri:/dev/dri
     restart: unless-stopped
@@ -45,12 +45,10 @@ services:
     depends_on:
       - jellyfin-network-holder
 
-  # ... (tailscale, caddy, autoscan, watchstate services remain unchanged) ...
   tailscale:
     image: tailscale/tailscale:latest
     container_name: jellyfin-tailscale-sidecar
     network_mode: "service:jellyfin-network-holder"
-    # ... (rest of tailscale config) ...
     volumes:
       - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
@@ -72,7 +70,6 @@ services:
       dockerfile: ../tailscale/caddy/Dockerfile
     container_name: jellyfin-caddy
     network_mode: "service:jellyfin-network-holder"
-    # ... (rest of caddy config) ...
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
@@ -92,7 +89,6 @@ services:
   #   image: ghcr.io/niniyas/autoscan:latest
   #   container_name: jellyfin-autoscan
   #   network_mode: "service:jellyfin-network-holder"
-  #   # ... (rest of autoscan config) ...
   #   volumes:
   #     - /mnt/docker/jellyfin/autoscan:/config
   #     - /var/run/docker.sock:/var/run/docker.sock
@@ -110,7 +106,6 @@ services:
     container_name: watchstate
     user: "99:100"
     network_mode: "service:jellyfin-network-holder"
-    # ... (rest of watchstate config) ...
     environment:
       - TZ=Australia/Perth
     volumes:
@@ -120,7 +115,7 @@ services:
       - jellyfin-network-holder
 
   # ---------------------------------------------------------------
-  # Jellystat Services (Corrected Configuration)
+  # Jellystat Services
   # ---------------------------------------------------------------
   jellystat-db:
     image: "postgres:15.2"
@@ -144,13 +139,11 @@ services:
     image: "cyfershepard/jellystat:latest"
     container_name: jellystat
     restart: unless-stopped
-    # --- KEY CHANGE: Removed network_mode and added ports directly ---
     ports:
       - "3000:3000"
     environment:
       - POSTGRES_USER=jellystat
       - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
-      # Connect via service name (Docker DNS)
       - POSTGRES_IP=jellystat-db
       - POSTGRES_PORT=5432
       - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
@@ -163,8 +156,8 @@ services:
     networks:
       - jellyfin-net
 
-      # ---------------------------------------------------------------
-  # inotify receiver (socat + tiny handler script)
+  # ---------------------------------------------------------------
+  # inotify receiver (socat + tiny handler script) with startup logs + healthcheck
   # ---------------------------------------------------------------
   inotify-receiver:
     image: alpine:3.20
@@ -176,19 +169,64 @@ services:
       - "/mnt/fuse/Media/Movies:/data/movies:rw"
       - "/mnt/fuse/Media/Music:/data/music:rw"
       - /home/abl030/nixosconfig/docker/jellyfinn/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
+    environment:
+      - HEALTH_INTERVAL=30
+      - HEALTH_WINDOW=180
+      - HEALTH_FILE=/tmp/receiver-healthy
+      # You can override these to match custom mounts; these are the defaults used by inotify-recv.sh
+      - ROOT_MOVIES=/data/movies
+      - ROOT_TV=/data/tv
+      - ROOT_MUSIC=/data/music
     command:
       - /bin/sh
       - -lc
       - |
-        set -eu
-        # install socat once (you've disabled read_only)
+        set -e
         apk add --no-cache socat >/dev/null 2>&1 || true
-        # chmod +x /usr/local/bin/inotify-recv.sh
-        echo "[receiver] socat fork on 0.0.0.0:9999, guard=/data"
-        # per-datagram process: short SYSTEM target avoids "address too long"
-        exec socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork SYSTEM:/usr/local/bin/inotify-recv.sh
+
+        # Resolve defaults at runtime (avoid compose pre-substitution)
+        HEALTH_FILE="$${HEALTH_FILE:-/tmp/receiver-healthy}"
+        [ -n "$$HEALTH_FILE" ] || HEALTH_FILE=/tmp/receiver-healthy
+        mkdir -p "$$(dirname "$$HEALTH_FILE")"
+        : >"$$HEALTH_FILE" || { echo "[receiver] cannot write $$HEALTH_FILE"; exit 1; }
+
+        ROOT_MOVIES="$${ROOT_MOVIES:-/data/movies}"
+        ROOT_TV="$${ROOT_TV:-/data/tv}"
+        ROOT_MUSIC="$${ROOT_MUSIC:-/data/music}"
+
+        echo "[receiver] listening UDP 0.0.0.0:9999"
+        echo "[receiver] guards: movies=$$ROOT_MOVIES tv=$$ROOT_TV music=$$ROOT_MUSIC"
+        echo "[receiver] healthfile: $$HEALTH_FILE (interval=$${HEALTH_INTERVAL:-30}s window=$${HEALTH_WINDOW:-180}s)"
+
+        # Start socat (fork spawns per datagram). If it dies, container exits.
+        socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork SYSTEM:/usr/local/bin/inotify-recv.sh &
+        SOCAT_PID=$!
+
+        # Heartbeat loop: update only if socat is alive
+        (
+          while sleep "$${HEALTH_INTERVAL:-30}"; do
+            if kill -0 "$$SOCAT_PID" 2>/dev/null; then
+              date +%s >"$$HEALTH_FILE" || true
+            else
+              exit 0
+            fi
+          done
+        ) &
+
+        # Reap socat (main process exits if socat dies)
+        wait "$$SOCAT_PID"
+    healthcheck:
+      test: >
+        sh -lc '
+          pidof socat >/dev/null 2>&1 &&
+          now=$(date +%s) &&
+          h=$(cat "$${HEALTH_FILE:-/tmp/receiver-healthy}" 2>/dev/null || echo 0) &&
+          [ $((now - h)) -lt $${HEALTH_WINDOW:-180} ]'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     security_opt: ["no-new-privileges:true"]
-    # read_only: true           # keep commented out if you want apk to run
     tmpfs: ["/tmp", "/run"]
     depends_on:
       - jellyfin-network-holder
