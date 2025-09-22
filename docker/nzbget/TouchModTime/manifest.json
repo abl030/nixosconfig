@@ -1,0 +1,24 @@
+{
+  "main": "touch_modtime.sh",
+  "name": "TouchModTime",
+  "homepage": "https://example.invalid/touch-modtime",
+  "kind": "POST-PROCESSING",
+  "displayName": "Touch Modified Time",
+  "version": "1.0.0",
+  "nzbgetMinVersion": "24",
+  "author": "You",
+  "license": "MIT",
+  "about": "After a successful download/unpack, update the modification time of all files in the final directory to the current time.",
+  "queueEvents": "",
+  "taskTime": "",
+  "requirements": [
+    "POSIX shell with `find`, `xargs`, and `touch` available (BusyBox/Alpine OK)."
+  ],
+  "description": [
+    "Recursively touches all regular files in NZBPP_FINALDIR (if set) or NZBPP_DIRECTORY to set their mtime to now.",
+    "Useful for media indexers that sort by modified date."
+  ],
+  "options": [],
+  "commands": [],
+  "sections": []
+}
