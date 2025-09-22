@@ -26,6 +26,9 @@ services:
       - /mnt/user/data/Media/Music:/watch/music:ro
       # mount the script
       - /mnt/user/appdata/inotify-bridge/sender.sh:/sender.sh:ro
+      # Map timezone from host
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
     security_opt:
       - no-new-privileges:true
@@ -64,6 +67,9 @@ services:
       - AUTOHEAL_START_PERIOD=120
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Map timezone from host
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     security_opt:
       - no-new-privileges:true
     read_only: true
