@@ -49,6 +49,8 @@ echo "[sender] ignoring extensions (case-insensitive): ${IGNORE_EXTS}"
 
 send_line() {
     local path="$1"
+    local ts
+    ts="$(date '+%d%m - %H:%M')" # ← minimal addition: timestamp ddmm - hh:mm
     for rx in "${HOSTS[@]}"; do
         local host port
         if [[ "$rx" == *:* ]]; then
@@ -59,9 +61,9 @@ send_line() {
             port="$DEFAULT_PORT"
         fi
         if printf '%s\n' "$path" | nc -u -w1 "$host" "$port"; then
-            echo "[sender] pinged: ${host}:${port} <- ${path}"
+            echo "[$ts] [sender] pinged: ${host}:${port} <- ${path}"
         else
-            echo "[sender] ping FAILED: ${host}:${port} <- ${path}" >&2
+            echo "[$ts] [sender] ping FAILED: ${host}:${port} <- ${path}" >&2
         fi
     done
 }
@@ -114,7 +116,6 @@ date +%s >"$HEALTH_FILE"
 # Collector: parse DIR|FILE|EVENTS; ignore loop-causing files; enqueue directory paths only
 inotifywait "${args[@]}" | while IFS='|' read -r DIR FILE EV; do
     DIR="${DIR%/}/"
-
     # --- Ignore our own files to prevent loops ---
     skip=0
     if [[ -n "${FILE:-}" ]]; then
@@ -129,14 +130,12 @@ inotifywait "${args[@]}" | while IFS='|' read -r DIR FILE EV; do
     fi
     ((skip)) && continue
     # --------------------------------------------
-
     # decide which directory to enqueue
     if [[ "$EV" == *ISDIR* && -n "$FILE" ]]; then
         OUTDIR="${DIR}${FILE}/"
     else
         OUTDIR="$DIR"
     fi
-
     # map /watch -> /data and strip duplicate slashes
     MAPPED="${OUTDIR/$SRC_PREFIX/$DST_PREFIX}"
     MAPPED="${MAPPED%/}" # normalize (receiver accepts both)
