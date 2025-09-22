@@ -19,3 +19,4 @@ services:
       # Sets user and group IDs to manage file permissions, adjust if necessary
       - USER_ID=99
       - GROUP_ID=100
+      - UMASK=0002
