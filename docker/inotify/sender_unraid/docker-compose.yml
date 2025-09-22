@@ -9,6 +9,7 @@ services:
     command: ["/bin/bash", "/sender.sh"]
 
     environment:
+      TZ: Australia/Perth
       # Watch multiple roots (container paths)
       WATCH_DIRS: "/watch/movies,/watch/tv,/watch/music"
       # List all receivers (host or host:port), comma-separated
@@ -57,6 +58,7 @@ services:
     container_name: autoheal
     restart: unless-stopped
     environment:
+      - TZ=Australia/Perth
       - AUTOHEAL_CONTAINER_LABEL=autoheal
       - AUTOHEAL_INTERVAL=30
       - AUTOHEAL_START_PERIOD=120
