@@ -11,9 +11,22 @@
     restartIfChanged = false;
     reloadIfChanged = false; # Set to false as reload is not explicitly defined differently than start
 
-    # Dependencies: Wait for Docker, networking, your data mount, and FUSE mounts to be ready
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" "fuse-bindfs-movies.service" "fuse-bindfs-tv.service" "fuse-bindfs-music.service" ];
+    requires = [
+      "docker.service"
+      "network-online.target"
+      "mnt-data.mount"
+      "fuse-mergerfs-movies.service"
+      "fuse-mergerfs-tv.service"
+      "fuse-mergerfs-music.service"
+    ];
+    after = [
+      "docker.service"
+      "network-online.target"
+      "mnt-data.mount"
+      "fuse-mergerfs-movies.service"
+      "fuse-mergerfs-tv.service"
+      "fuse-mergerfs-music.service"
+    ];
 
     serviceConfig = {
       Type = "oneshot";
