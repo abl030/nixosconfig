@@ -7,7 +7,7 @@ in
 {
 
   imports = [
-    ./starship.nix
+    ../utils/starship.nix
     ../utils/atuin.nix
   ];
 
