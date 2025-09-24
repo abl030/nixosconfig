@@ -1,4 +1,4 @@
- {
+{
   description = "My first flake!";
 
 
@@ -55,21 +55,6 @@
         #In NVIM/lspconfig.lua you can see we pull in our home_manager completions
         #programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se 
         #but merely this host key and the username must be the same. 
-        asus = {
-
-          configurationFile = ./hosts/asus/configuration.nix;
-          homeFile = ./hosts/asus/home.nix;
-          user = "asus";
-          homeDirectory = "/home/asus";
-        };
-
-        testvm = {
-          configurationFile = ./configuration.nix;
-          homeFile = ./home/home.nix;
-          user = "testvm";
-          homeDirectory = "/home/testvm";
-        };
-
         epimetheus = {
           configurationFile = ./hosts/epi/configuration.nix;
           homeFile = ./hosts/epi/home.nix;
