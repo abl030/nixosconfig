@@ -69,6 +69,9 @@
           homeFile = ./hosts/caddy/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
+          hostname = "caddy";
+          jumpAddress = "caddy";
+          sshAlias = "cad";
         };
 
         framework = {
@@ -76,6 +79,9 @@
           homeFile = ./hosts/framework/home.nix;
           user = "abl030";
           homeDirectory = /home/abl030;
+          hostname = "framework";
+          jumpAddress = "framework";
+          sshAlias = "fra";
         };
         wsl = {
           configurationFile = ./hosts/wsl/configuration.nix;
@@ -89,12 +95,18 @@
           homeFile = ./hosts/proxmox-vm/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
+          hostname = "proxmox-vm";
+          jumpAddress = "proxmox-vm";
+          sshAlias = "doc1";
         };
         igpu = {
           configurationFile = ./hosts/igpu/configuration.nix;
           homeFile = ./hosts/igpu/home.nix;
           user = "abl030";
           homeDirectory = "/home/abl030";
+          hostname = "igpu";
+          jumpAddress = "igpu";
+          sshAlias = "igpu";
         };
 
       };
@@ -120,7 +132,9 @@
         (lib.mapAttrs
           (hostname: config: home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
-            extraSpecialArgs = extraSpecialArgs // { inherit hostname; allHosts = hosts; }; # Pass hostname here
+            extraSpecialArgs = extraSpecialArgs // {
+              inherit hostname; allHosts = hosts;
+            }; # Pass hostname here
             modules = [
               home-manager-diff.hmModules.default
               config.homeFile
