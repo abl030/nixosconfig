@@ -99,7 +99,7 @@ in
               forwardX11 = true;
 
               # Allow per-host override; default aligns with the global (secure) default.
-              forwardX11Trusted = hostConfig.forwardX11Trusted or false;
+              forwardX11Trusted = hostConfig.forwardX11Trusted or true;
 
               # 9. Add support for optional port and identityFile attributes.
               # Home Manager will correctly omit these if they are null.
