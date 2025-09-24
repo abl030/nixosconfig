@@ -37,6 +37,8 @@
     ./utils/common.nix
   ];
 
+  homelab.home.ssh.enable = true;
+
   # Environment
   home.sessionVariables = {
     EDITOR = "nvim";
