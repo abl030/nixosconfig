@@ -45,7 +45,7 @@ in
             # Nix expands ${config.home.homeDirectory} *here*.
           _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
             source ${./my_functions.sh}
-            source ${./copycr.zsh}
+            source ${./copycr.sh}
 
           # Bind Tab-Tab to accept the current autosuggestion.
           # ^I is the control character for the Tab key.
