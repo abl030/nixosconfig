@@ -12,8 +12,10 @@
       # ../services/jellyfin/jellyfin.nix
       ../services/mounts/nfs_local.nix
       # We need fuse mounts for jellyfin inotify
-
       ../services/mounts/fuse.nix
+
+      ../services/tailscale/tailscale.nix
+      ../common/ssh.nix
 
       # Our docker services
       ../../docker/jellyfinn/docker-compose.nix
