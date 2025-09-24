@@ -17,7 +17,8 @@ let
     dcb = "bluetoothctl disconnect 24:24:B7:58:C6:49";
     rb = "bash ${scriptsPath}/repair_buds.sh";
     pb = "bash ${scriptsPath}/pair_buds.sh";
-    ytlisten = "mpv --no-video --ytdl-format=bestaudio --msg-level=ytdl_hook=debug";
+    # UPDATED: Use a more robust format string for yt-dlp.
+    ytlisten = "mpv --no-video --ytdl-format='bestaudio/best' --msg-level=ytdl_hook=debug";
     clear_dots = "git stash; and git stash clear";
     clear_flake = "git restore flake.lock && pull_dotfiles";
     lzd = "lazydocker";

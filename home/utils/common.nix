@@ -3,6 +3,7 @@
 {
   home.packages = [
     pkgs.yt-dlp
+    pkgs.deno
     pkgs.neofetch
     pkgs.wakeonlan
     pkgs.htop
