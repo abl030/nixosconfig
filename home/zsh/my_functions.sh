@@ -1,6 +1,6 @@
-# This file is managed by Nix but can be edited directly for syntax highlighting.
-# It is sourced by ~/.bashrc when the shell starts.
-
+# This file is managed by Nix but edited directly for syntax highlighting.
+# Remember to keep all these functions compliant with BASH.
+# It will be imported directly into our bash config as well.
 # ──────────────────────────────────────────────────────────────────────────────
 #  Pull dotfiles from Git and rebuild helpers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -17,12 +17,12 @@ pull_dotfiles() {
 # ──────────────────────────────────────────────────────────────────────────────
 edit() {
     if [[ -z "$1" ]]; then
-        echo "Usage: edit <bash|caddy|diary|nvim|nix>"
+        echo "Usage: edit <zsh|caddy|diary|cullen|nvim|nix>"
         return 1
     fi
 
     case "$1" in
-        bash) nvim ~/nixosconfig/home/bash/my_functions.bash ;;
+        zsh) nvim ~/nixosconfig/home/zsh/.zshrc2 ;;
         caddy) nvim ~/DotFiles/Caddy/Caddyfile ;;
         diary) cd /mnt/data/Life/Zet/Projects/Diary && nvim ;;
         nvim) nvim ~/nixosconfig/home/nvim/options.lua ;;
@@ -56,11 +56,6 @@ reload() {
 
     sudo -v || return 1
 
-    local impure_flag=""
-    if [[ "$HOST" == "wsl" ]]; then
-        impure_flag=" --impure"
-    fi
-
     local rebuild_cmd
     case "$TARGET" in
         home)
@@ -74,13 +69,13 @@ reload() {
             local sudo_keepalive_pid=$!
             trap "kill $sudo_keepalive_pid &>/dev/null" EXIT
             if [[ "$TARGET" == "config" ]]; then
-                rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'${impure_flag}"
+                rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'"
             else
-                rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'${impure_flag} && home-manager switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'"
+                rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}' && home-manager switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'"
             fi
             ;;
         wsl)
-            rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'${impure_flag} && home-manager switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'"
+            rebuild_cmd="sudo nixos-rebuild switch --flake '${_RELOAD_FLAKE_PATH}${HOST}' --impure && home-manager switch --flake '${_RELOAD_FLAKE_PATH}${HOST}'"
             ;;
         *)
             echo "Error: Unknown target '$TARGET'. Use 'home', 'config', or 'wsl'." >&2
@@ -90,11 +85,13 @@ reload() {
 
     echo "🚀 Executing: $rebuild_cmd"
     if eval "$rebuild_cmd"; then
-        [[ -n "$sudo_keepalive_pid" ]] && kill $sudo_keepalive_pid &>/dev/null && trap - EXIT
+        [[ -n ${sudo_keepalive_pid-} ]] && kill "$sudo_keepalive_pid" &>/dev/null
+        trap - EXIT
         echo "✅ Rebuild successful."
-        [[ -t 1 ]] && exec bash
+        [[ -t 1 ]] && exec "$SHELL" -l
     else
-        [[ -n "$sudo_keepalive_pid" ]] && kill $sudo_keepalive_pid &>/dev/null && trap - EXIT
+        [[ -n ${sudo_keepalive_pid-} ]] && kill "$sudo_keepalive_pid" &>/dev/null
+        trap - EXIT
         echo "❌ Rebuild failed."
         return 1
     fi
@@ -102,6 +99,7 @@ reload() {
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Pulls dotfiles, updates flake inputs, *then* performs full system rebuild
+#  Usage: update [hostname]   # defaults to $(hostname)
 # ──────────────────────────────────────────────────────────────────────────────
 update() {
     local HOST=${1:-$(hostname)}
@@ -127,20 +125,16 @@ update() {
         return 1
     }
 
+    # Build flake reference safely
     local FLAKE_BASE=${_RELOAD_FLAKE_PATH:-"$HOME/nixosconfig"}
     FLAKE_BASE=${FLAKE_BASE%#} # strip trailing '#'
     local FLAKE_REF="${FLAKE_BASE}#${HOST}"
 
-    local impure_flag=""
-    if [[ "$HOST" == "wsl" ]]; then
-        impure_flag=" --impure"
-    fi
-
     echo "🛠️  Rebuilding for $FLAKE_REF ..."
-    if sudo nixos-rebuild switch --flake "$FLAKE_REF"${impure_flag} &&
+    if sudo nixos-rebuild switch --flake "$FLAKE_REF" &&
     home-manager switch --flake "$FLAKE_REF"; then
         echo "✅ Update and rebuild successful!"
-        [[ -t 1 ]] && exec bash
+        [[ -t 1 ]] && exec "$SHELL" -l
     else
         echo "❌ Rebuild failed."
         return 1
@@ -174,7 +168,8 @@ copyc() {
         (
             cd "$target" || return 1
             command ls -la .
-            echo -e "\nFILE CONTENTS"
+            echo
+            echo "FILE CONTENTS"
             for f in *; do
                 [[ -f "$f" ]] || continue
                 if grep -Iq . "$f"; then
@@ -193,61 +188,12 @@ copyc() {
     if [[ -f "$target" ]]; then
         {
             command ls -l "$target"
-            echo -e "\nFILE CONTENTS"
+            echo
+            echo "FILE CONTENTS"
             cat "$target"
             echo
         } | xclip -selection clipboard -target UTF8_STRING
         echo "File '$target' context copied to clipboard." >&2
-        return 0
-    fi
-
-    echo "Error: '$target' is not a regular file or directory." >&2
-    return 1
-}
-
-# ──────────────────────────────────────────────────────────────────────────────
-#  Recursively copies file/directory context to the clipboard
-# ──────────────────────────────────────────────────────────────────────────────
-copycr() {
-    if [[ ! -t 0 ]]; then
-        xclip -selection clipboard -target UTF8_STRING
-        echo "Piped input copied to clipboard." >&2
-        return 0
-    fi
-
-    local target="${1:-.}"
-    [[ ! -e "$target" ]] && {
-        echo "Error: '$target' does not exist." >&2
-        return 1
-    }
-
-    if [[ -f "$target" ]]; then
-        {
-            command ls -l "$target"
-            echo -e "\nFILE CONTENTS"
-            cat "$target"
-            echo
-        } | xclip -selection clipboard -target UTF8_STRING
-        echo "File '$target' context copied to clipboard." >&2
-        return 0
-    fi
-
-    if [[ -d "$target" ]]; then
-        (
-            cd "$target" || return 1
-            command ls -laR .
-            echo -e "\nFILE CONTENTS"
-            for f in $(find . \( -name .git -o -name result -o -name node_modules \) -prune -o -type f -print); do
-                if grep -Iq . "$f"; then
-                    echo "===== $f ====="
-                    cat "$f"
-                    echo
-                else
-                    echo "===== $f (SKIPPED BINARY) =====" >&2
-                fi
-            done
-        ) | xclip -selection clipboard -target UTF8_STRING
-        echo "Recursive directory '$target' context copied to clipboard." >&2
         return 0
     fi
 

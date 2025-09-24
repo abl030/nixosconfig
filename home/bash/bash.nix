@@ -54,7 +54,7 @@ in
       export _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
       
       # Source our custom functions file.
-      source ${./my_functions.bash}
+      source ${../zsh/my_functions.sh}
     '';
   };
 

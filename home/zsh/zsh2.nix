@@ -44,7 +44,7 @@ in
     initContent = ''
             # Nix expands ${config.home.homeDirectory} *here*.
           _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
-            source ${./my_functions.zsh}
+            source ${./my_functions.sh}
             source ${./copycr.zsh}
 
           # Bind Tab-Tab to accept the current autosuggestion.
