@@ -17,7 +17,7 @@ _copycr_select_dirs() {
         find_args+=(-not -path "*/.*")
     fi
 
-    local -a dirs
+    local -a dirs=()
     local d
     while IFS= read -r d; do dirs+=("$d"); done < <(
         find "${find_args[@]}" -printf '%P\n' | LC_ALL=C sort
@@ -55,7 +55,7 @@ _copycr_select_dirs() {
         echo "No directories selected. Aborting." >&2
         return 1
     }
-    print -r -- "$out"
+    printf '%s\n' "$out"
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -147,10 +147,11 @@ _copycr_dump_target() {
 # Leaves non-option args in COPYCR_REST_ARGS (global).
 # ──────────────────────────────────────────────────────────────────────────────
 _copycr_parse_opts() {
-    typeset -g COPYCR_DEPTH=1
-    typeset -g COPYCR_INCLUDE_HIDDEN=0
-    typeset -g COPYCR_INCLUDE_ROOT=0
-    typeset -g COPYCR_REST_ARGS=()
+    # Use plain global assignments (bash + zsh friendly)
+    COPYCR_DEPTH=1
+    COPYCR_INCLUDE_HIDDEN=0
+    COPYCR_INCLUDE_ROOT=0
+    COPYCR_REST_ARGS=()
 
     local -a ARGS=()
     while [[ $# -gt 0 ]]; do
@@ -194,6 +195,7 @@ _copycr_parse_opts() {
         esac
     done
 
+    # Export remaining args to a global array (works in bash & zsh)
     COPYCR_REST_ARGS=("${ARGS[@]}")
 }
 

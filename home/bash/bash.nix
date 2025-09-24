@@ -7,7 +7,7 @@ in
 {
   # Import modules for tools that will be integrated into the shell.
   imports = [
-    ../zsh/starship.nix # Starship config is shell-agnostic, we can reuse it.
+    ../utils/starship.nix # Starship config is shell-agnostic, we can reuse it.
     ../utils/atuin.nix
   ];
 
@@ -55,6 +55,7 @@ in
       
       # Source our custom functions file.
       source ${../zsh/my_functions.sh}
+      source ${../zsh/copycr.sh}
     '';
   };
 
