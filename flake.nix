@@ -106,7 +106,7 @@
           homeDirectory = "/home/abl030";
           hostname = "igpu";
           jumpAddress = "igpu";
-          sshAlias = "igpu";
+          sshAlias = "igp";
         };
 
       };
