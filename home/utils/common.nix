@@ -6,6 +6,7 @@
     pkgs.neofetch
     pkgs.wakeonlan
     pkgs.htop
+    pkgs.btop
     pkgs.nmap
     pkgs.television
     pkgs.wget
