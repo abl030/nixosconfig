@@ -61,6 +61,8 @@
           user = "abl030";
           homeDirectory = "/home/abl030";
           hostname = "epimetheus";
+          jumpAddress = "epimetheus";
+          sshAlias = "epi";
         };
 
         caddy = {
@@ -118,7 +120,7 @@
         (lib.mapAttrs
           (hostname: config: home-manager.lib.homeManagerConfiguration {
             inherit pkgs;
-            extraSpecialArgs = extraSpecialArgs // { inherit hostname; }; # Pass hostname here
+            extraSpecialArgs = extraSpecialArgs // { inherit hostname; allHosts = hosts; }; # Pass hostname here
             modules = [
               home-manager-diff.hmModules.default
               config.homeFile
