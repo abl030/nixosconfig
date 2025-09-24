@@ -96,7 +96,7 @@
           user = "abl030";
           homeDirectory = "/home/abl030";
           hostname = "proxmox-vm";
-          jumpAddress = "proxmox-vm";
+          jumpAddress = "nixos";
           sshAlias = "doc1";
         };
         igpu = {
@@ -138,6 +138,7 @@
             modules = [
               home-manager-diff.hmModules.default
               config.homeFile
+              ./modules/home-manager
 
               {
                 home.username = config.user;

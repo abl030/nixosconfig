@@ -37,6 +37,6 @@
     inputs.isd.packages.${pkgs.system}.default
   ];
   imports = [
-    ../ssh/ssh.nix
+    # ../ssh/ssh.nix
   ];
 }
