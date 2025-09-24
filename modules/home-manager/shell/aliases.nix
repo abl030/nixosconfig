@@ -1,4 +1,4 @@
-# ./modules/home-manager/aliases.nix
+# ./modules/home-manager/shell/aliases.nix
 { lib, config }:
 let
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
@@ -48,6 +48,8 @@ let
   # Zsh is like other sh shells, but with a `noglob` tweak.
   toZsh = toSh // {
     ytsum = "noglob ytsum";
+    # Prepend `noglob` to the ytlisten command to prevent URL expansion
+    ytlisten = "noglob ${toSh.ytlisten}";
   };
 in
 {
