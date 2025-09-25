@@ -29,6 +29,9 @@
 
   imports = [
     ./zsh/zsh2.nix
+    ./bash/bash.nix
+    ./fish/fish.nix
+
     # ./fish/fish.nix
     ./nvim/nvim.nix
     #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
