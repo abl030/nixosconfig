@@ -19,6 +19,8 @@
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = [ ];
 
+  programs.bash.blesh.enable = true;
+
   # sudo-rs
   # security.sudo-rs.enable = true;
 
