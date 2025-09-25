@@ -10,6 +10,8 @@
     # ../../home/zsh/zsh2.nix
     # ./fish/fish.nix
     ../../home/bash/bash.nix
+    ../../home/zsh/zsh2.nix
+    ../../home/fish/fish.nix
     ../../home/nvim/nvim.nix
     #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
     ../../home/ssh/ssh.nix
