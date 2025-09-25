@@ -15,6 +15,7 @@
 
   wsl.enable = true;
   wsl.defaultUser = "nixos";
+  programs.bash.blesh.enable = true;
 
   networking.hostName = "wsl";
   nixpkgs.config.allowUnfree = true;
