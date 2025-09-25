@@ -39,6 +39,10 @@
       # You can add `flake = false;` if it's not a flake itself but you want to use its files
       flake = false;
     };
+    yt-dlp-src = {
+      url = "github:yt-dlp/yt-dlp";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
@@ -148,6 +152,26 @@
                     (final: prev: {
                       nvchad = inputs.nvchad4nix.packages."${pkgs.system}".nvchad;
                     })
+                    (
+                      final: prev:
+                        let
+                          # 'rev' is usually present for git inputs, but guard just in case
+                          rev = inputs.yt-dlp-src.rev or null;
+                          short = if rev == null then "unknown" else builtins.substring 0 7 rev;
+                        in
+                        {
+                          yt-dlp = prev.yt-dlp.overrideAttrs (old: {
+                            # track master tree from the flake input
+                            src = inputs.yt-dlp-src;
+
+                            # optional: stamp the version for clarity (safe to omit entirely)
+                            version = "master-${short}";
+
+                            # If upstream flips tests and it blocks you, you can temporarily uncomment:
+                            # doCheck = false;
+                          });
+                        }
+                    )
                   ];
                 };
               }
