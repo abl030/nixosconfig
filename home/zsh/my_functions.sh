@@ -231,3 +231,25 @@ ytsum() {
         return 1
     }
 }
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Plays audio from a YouTube URL using mpv without requiring quoted URLs
+# ──────────────────────────────────────────────────────────────────────────────
+ytlisten() {
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: ytlisten <YouTube URL>" >&2
+        return 1
+    fi
+
+    echo "▶️  Starting audio stream for '$1'..."
+    if mpv \
+        --no-video \
+        --ytdl-format='bestaudio/best' \
+        --msg-level=ytdl_hook=debug \
+        "$1"; then
+        echo "✅ Stream finished."
+    else
+        echo "❌ mpv failed to play the stream." >&2
+        return 1
+    fi
+}

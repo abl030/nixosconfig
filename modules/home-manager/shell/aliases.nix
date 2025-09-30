@@ -17,14 +17,14 @@ let
     dcb = "bluetoothctl disconnect 24:24:B7:58:C6:49";
     rb = "bash ${scriptsPath}/repair_buds.sh";
     pb = "bash ${scriptsPath}/pair_buds.sh";
-    # UPDATED: Use a more robust format string for yt-dlp.
-    ytlisten = "mpv --no-video --ytdl-format='bestaudio/best' --msg-level=ytdl_hook=debug";
     clear_dots = "git stash; and git stash clear";
     clear_flake = "git restore flake.lock && pull_dotfiles";
     lzd = "lazydocker";
     v = "nvim";
     ls = "lsd -A -F -l --group-directories-first --color=always";
     lzg = "lazygit";
+    ytslisten = "ytlisten";
+    ytsum = "ytsum";
   };
 
   # --- Transformations for POSIX-like shells (bash, zsh) ---
@@ -35,22 +35,19 @@ let
     )
     base // {
     ssh_epi = "epi! && ssh epi";
-    ytsum = "ytsum"; # Default behavior for ytsum
   };
 
   # --- Transformations for Fish ---
   # Fish keeps `; and` and has its own overrides.
   toFish = base // {
     ssh_epi = "epi!; and ssh epi";
-    ytsum = "ytsum";
   };
 
   # --- Transformations for Zsh ---
   # Zsh is like other sh shells, but with a `noglob` tweak.
   toZsh = toSh // {
     ytsum = "noglob ytsum";
-    # Prepend `noglob` to the ytlisten command to prevent URL expansion
-    ytlisten = "noglob ${toSh.ytlisten}";
+    ytlisten = "noglob ytlisten";
   };
 in
 {
