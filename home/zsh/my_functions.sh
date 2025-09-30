@@ -214,8 +214,7 @@ ytsum() {
     tmpdir=$(mktemp -d -t ytsum-XXXXXX)
     trap 'rm -rf "$tmpdir"' EXIT
 
-    echo "ℹ️ Using patched yt-dlp to avoid impersonation errors..."
-    if ! nix run github:nmouha/nixpkgs/patch-1#yt-dlp -- \
+    if ! yt-dlp \
         --write-auto-sub \
         --skip-download \
         --sub-format "vtt" \
