@@ -101,6 +101,7 @@ reload() {
 #  Pulls dotfiles, updates flake inputs, *then* performs full system rebuild
 #  Usage: update [hostname]   # defaults to $(hostname)
 # ──────────────────────────────────────────────────────────────────────────────
+
 update() {
     local HOST=${1:-$(hostname)}
 
@@ -130,8 +131,15 @@ update() {
     FLAKE_BASE=${FLAKE_BASE%#} # strip trailing '#'
     local FLAKE_REF="${FLAKE_BASE}#${HOST}"
 
+    # Match reload()'s WSL behavior: allow impure eval when on/targeting WSL.
+    # This is needed if your config reads env (builtins.getEnv) or similar.
+    local IMPURE_FLAG=""
+    if [[ "${HOST,,}" == "wsl" ]] || grep -qi microsoft /proc/version 2>/dev/null; then
+        IMPURE_FLAG="--impure"
+    fi
+
     echo "🛠️  Rebuilding for $FLAKE_REF ..."
-    if sudo nixos-rebuild switch --flake "$FLAKE_REF" &&
+    if sudo nixos-rebuild switch $IMPURE_FLAG --flake "$FLAKE_REF" &&
     home-manager switch --flake "$FLAKE_REF"; then
         echo "✅ Update and rebuild successful!"
         [[ -t 1 ]] && exec "$SHELL" -l
