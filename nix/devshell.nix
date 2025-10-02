@@ -5,14 +5,13 @@
 # - `lint-nix` runs deadnix + statix with flag detection + panic handling.
 #
 # Notes:
-# - Avoid NUL-delimited reads and `-d ''` to keep the Nix string stable.
-# - Use newline-delimited collection via git/find; good enough for Git paths.
+# - We never pass "-w" to nixfmt (it's "width", not "write"). All writes are done by
+#   streaming to a temp file then atomically replacing the original when different.
+# - Newline-delimited path collection; robust enough for Git paths and avoids NUL quoting.
 
 { pkgs, lib, ... }:
 let
   # Wrapper that formats all Nix files, with dry-run and diff modes.
-  # Reason: `nix fmt` runs the formatter with *no args*; `nixfmt` then waits on stdin.
-  # This wrapper discovers files and invokes nixfmt correctly across versions.
   fmtNix = pkgs.writeShellApplication {
     name = "fmt-nix";
     runtimeInputs = [
@@ -32,7 +31,7 @@ let
                 --help|-h)
                   cat <<'EOF'
       Usage: fmt-nix [--write|--check|--diff] [FILES...]
-        --write  (default) format files in place
+        --write  (default) format files in place (only if content changes)
         --check  report files that would change; no writes; exit 1 if any
         --diff   print diffs of changes; no writes; exit 1 if any
       If FILES are omitted, formats all tracked *.nix files (or falls back to find).
@@ -42,14 +41,12 @@ let
               esac
             fi
 
-            # Collect targets (newline-delimited; Git paths are newline-safe in practice)
+            # Collect targets
             files=()
             if [ $# -gt 0 ]; then
               for f in "$@"; do
                 [ -f "$f" ] || continue
-                case "$f" in
-                  *.nix) files+=("$f") ;;
-                esac
+                case "$f" in *.nix) files+=("$f");; esac
               done
             else
               if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -69,38 +66,37 @@ let
 
             [ "''${#files[@]}" -eq 0 ] && exit 0
 
-            # Detect nixfmt write flag support
-            HAS_W=false
-            if nixfmt --help 2>&1 | grep -qE '\s-w(,|\s|$)'; then
-              HAS_W=true
-            fi
-
             changed=0
+
+            format_to_tmp() {
+              # Format $1 to a temp file on stdout->tmp pipeline; never writes in-place.
+              # Return 0 if success, >0 if formatter failed.
+              local src="$1" tmp
+              tmp="$(mktemp)"
+              if ! nixfmt < "$src" > "$tmp"; then
+                rm -f "$tmp"
+                echo "formatter failed on: $src" >&2
+                return 2
+              fi
+              printf '%s\n' "$tmp"
+              return 0
+            }
+
             case "$MODE" in
               --write)
-                if [ "$HAS_W" = true ]; then
-                  nixfmt -w "''${files[@]}"
-                else
-                  for f in "''${files[@]}"; do
-                    tmp="$(mktemp)"
-                    nixfmt "$f" > "$tmp"
-                    if ! cmp -s "$f" "$tmp"; then
-                      mv "$tmp" "$f"
-                    else
-                      rm -f "$tmp"
-                    fi
-                  done
-                fi
+                for f in "''${files[@]}"; do
+                  tmp="$(format_to_tmp "$f")" || exit $?
+                  if ! cmp -s "$f" "$tmp"; then
+                    mv "$tmp" "$f"
+                  else
+                    rm -f "$tmp"
+                  fi
+                done
                 ;;
 
               --check|--diff)
                 for f in "''${files[@]}"; do
-                  tmp="$(mktemp)"
-                  if ! nixfmt "$f" > "$tmp"; then
-                    echo "formatter failed on: $f" >&2
-                    rm -f "$tmp"
-                    exit 2
-                  fi
+                  tmp="$(format_to_tmp "$f")" || exit $?
                   if ! cmp -s "$f" "$tmp"; then
                     changed=1
                     if [ "$MODE" = "--check" ]; then
