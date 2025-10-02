@@ -1,7 +1,6 @@
 {
   lib,
   config,
-  pkgs,
   ...
 }: let
   # Define the path to your scripts directory for cleaner aliases.

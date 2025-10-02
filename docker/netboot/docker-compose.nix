@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.netboot-stack = {
     description = "Netboot Docker Compose Stack";
 

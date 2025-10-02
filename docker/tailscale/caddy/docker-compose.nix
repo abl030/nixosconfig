@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.caddy-tailscale-stack = {
     description = "Caddy Tailscale Docker Compose Stack";
 

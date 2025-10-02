@@ -1,9 +1,4 @@
-{
-  hostname,
-  config,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   home.packages = [
     pkgs.gnome-tweaks
     pkgs.gnomeExtensions.dash-to-panel

@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.atuin-stack = {
     description = "atuin Docker Compose Stack";
 

@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{config, ...}: {
   # ===================================================================
   # This service starts and stops the Plex stack.
   # It is activated on boot and managed by `systemctl`.

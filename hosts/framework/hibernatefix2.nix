@@ -1,9 +1,4 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   systemd.services.disable-wireless-hibernate = {
     description = "Disable WiFi and Bluetooth before hibernation/sleep";
     wantedBy = [

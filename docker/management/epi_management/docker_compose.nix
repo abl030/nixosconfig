@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.management-epi-stack = {
     description = "Docker Management Epi Compose Stack";
 

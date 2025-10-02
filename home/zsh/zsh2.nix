@@ -1,7 +1,6 @@
 {
   lib,
   config,
-  pkgs,
   ...
 }: let
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";

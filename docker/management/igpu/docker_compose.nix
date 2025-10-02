@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.management-igpu-stack = {
     description = "Docker Management igpu Compose Stack";
 

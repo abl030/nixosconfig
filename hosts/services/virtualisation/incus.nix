@@ -1,10 +1,5 @@
 # Filename: basic-incus-setup.nix
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   # 1. Enable Incus
   # This will start the incusd daemon and related services.
   virtualisation.incus.enable = true;

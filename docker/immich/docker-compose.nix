@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   # ===================================================================
   # This is the primary service that starts and stops the Immich stack.
   # It is activated on boot and managed by `systemctl`.

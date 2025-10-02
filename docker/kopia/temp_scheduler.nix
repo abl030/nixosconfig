@@ -1,9 +1,5 @@
 # ~/nixosconfig/kopia-schedule.nix
-{
-  config,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   # --- Configuration ---
   kopiaComposeDir = "/home/abl030/nixosconfig/docker/kopia"; # Absolute path
   composeFileName = "docker-compose.yml"; # Compose file name

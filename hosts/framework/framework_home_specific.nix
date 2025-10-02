@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   home.packages = [
     # pkgs.dolphin
     pkgs.kdePackages.dolphin

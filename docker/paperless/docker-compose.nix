@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.paperless-stack = {
     description = "Paperless Docker Compose Stack";
 

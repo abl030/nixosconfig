@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.tdarr-epi-stack = {
     description = "Tdarr Epi Compose Stack";
 

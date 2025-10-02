@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   home.packages = [
     pkgs.kdePackages.dolphin
     # These are our thumbnailers. QT5 because we using LXQT.

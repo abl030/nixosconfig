@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.smokeping-stack = {
     description = "Smokeping Docker Compose Stack";
 
