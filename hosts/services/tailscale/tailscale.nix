@@ -7,14 +7,18 @@
   config,
   ...
 }: {
-  services.tailscale.enable = true;
-  services.tailscale.port = 55500;
+  # Group all tailscale service options into a single attribute set.
+  # This makes the configuration for this specific service self-contained and easier to read.
+  services.tailscale = {
+    enable = true;
+    port = 55500;
+    useRoutingFeatures = "both";
+  };
 
   networking.firewall = {
     allowedUDPPorts = lib.mkBefore [config.services.tailscale.port];
     trustedInterfaces = ["tailscale0"];
   };
-  services.tailscale.useRoutingFeatures = "both";
 
   imports = [./tailscale_subnet_priority.nix];
 }
