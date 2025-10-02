@@ -13,14 +13,19 @@
   # For example, if virtman.nix sets virtualisation.libvirtd.qemu options, that might be fine.
 
   # --- System Network Configuration for the Bridge ---
-  # 1. Define the bridge interface itself and add your physical interface to it.
-  networking.bridges.br0.interfaces = ["enp9s0"]; # Verify "enp9s0" is correct
+  # Group network definitions together to avoid repeated keys.
+  networking = {
+    # 1. Define the bridge interface itself and add your physical interface to it.
+    bridges.br0.interfaces = ["enp9s0"]; # Verify "enp9s0" is correct
 
-  # 2. Configure the bridge interface (br0) to get an IP via DHCP.
-  networking.interfaces.br0.useDHCP = true;
-
-  # 3. Explicitly disable DHCP on the physical interface (enp9s0)
-  networking.interfaces.enp9s0.useDHCP = false;
+    # 2 & 3. Configure interface DHCP settings in one place.
+    interfaces = {
+      # Configure the bridge interface (br0) to get an IP via DHCP.
+      br0.useDHCP = true;
+      # Explicitly disable DHCP on the physical interface (enp9s0).
+      enp9s0.useDHCP = false;
+    };
+  };
 
   # --- Libvirt Network Configuration (using the standard NixOS option) ---
   # 4. Define a libvirt network that uses the system bridge "br0".

@@ -16,10 +16,14 @@
   environment.pathsToLink = ["/share/zsh"];
 
   # add in nix-ld for non-nix binaries
-  programs.nix-ld.enable = true;
-  programs.nix-ld.libraries = [];
-
-  programs.bash.blesh.enable = true;
+  # Group related settings under a single attribute set to avoid re-defining it.
+  programs = {
+    nix-ld = {
+      enable = true;
+      libraries = [];
+    };
+    bash.blesh.enable = true;
+  };
 
   # sudo-rs
   # security.sudo-rs.enable = true;
@@ -59,15 +63,26 @@
     };
   };
 
-  # Optimise nix store to save space daily.
-  nix.optimise.automatic = true;
-  nix.optimise.dates = ["03:45"]; # Optional; allows customizing optimisation schedule
+  # Group all nix-related options into a single attribute set.
+  nix = {
+    # Optimise nix store to save space daily.
+    optimise = {
+      automatic = true;
+      dates = ["03:45"]; # Optional; allows customizing optimisation schedule
+    };
 
-  # Automate garbage collection
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 7d";
+    # Automate garbage collection
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 7d";
+    };
+
+    # Make our download buffer size bigger. Gigabit.
+    settings = {
+      # Increase the download buffer to 128 MiB to prevent stalls
+      download-buffer-size = 128 * 1024 * 1024;
+    };
   };
 
   # Pretty diffs for packages on rebuild
@@ -78,12 +93,6 @@
     echo "---"
     fi
   '';
-
-  # Make our download buffer size bigger. Gigabit.
-  nix.settings = {
-    # Increase the download buffer to 128 MiB to prevent stalls
-    download-buffer-size = 128 * 1024 * 1024;
-  };
 
   # install nerdfonts
   # and common packages

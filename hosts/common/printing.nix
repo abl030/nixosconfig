@@ -1,14 +1,18 @@
 {pkgs, ...}: {
-  services.printing.enable = true;
-  services.printing.drivers = [pkgs.cups-brother-mfcl2750dw];
+  # Group all service definitions into a single attribute set.
+  services = {
+    printing = {
+      enable = true;
+      drivers = [pkgs.cups-brother-mfcl2750dw];
+      # Disable CUPS Browse-d as everything uses IPP and it causes random hangs on shutdown/reboot
+      browsed.enable = false;
+    };
 
-  # Disable CUPS Browse-d as everything uses IPP and it causes random hangs on shutdown/reboot
-  services.printing.browsed.enable = false;
-
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    openFirewall = true;
+    avahi = {
+      enable = true;
+      nssmdns4 = true;
+      openFirewall = true;
+    };
   };
 
   # Ok so the above will ensure that the printer is available on the network if we are inside the lan.

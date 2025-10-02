@@ -5,51 +5,54 @@ _: {
   # Group all virtualisation options under a single attribute set.
   # This makes the configuration modular and avoids conflicts with other modules.
   virtualisation = {
-    # 1. Enable Incus
-    # This will start the incusd daemon and related services.
-    incus.enable = true;
+    # Consolidate all incus settings under a single `incus` attribute set.
+    incus = {
+      # 1. Enable Incus
+      # This will start the incusd daemon and related services.
+      enable = true;
 
-    # 2. Enable the Incus Web UI
-    incus.ui.enable = true;
+      # 2. Enable the Incus Web UI
+      ui.enable = true;
 
-    incus.preseed = {
-      networks = [
-        {
-          config = {
-            "ipv4.address" = "10.0.100.1/24";
-            "ipv4.nat" = "true";
-          };
-          name = "incusbr0";
-          type = "bridge";
-        }
-      ];
-      profiles = [
-        {
-          devices = {
-            eth0 = {
-              name = "eth0";
-              network = "incusbr0";
-              type = "nic";
+      preseed = {
+        networks = [
+          {
+            config = {
+              "ipv4.address" = "10.0.100.1/24";
+              "ipv4.nat" = "true";
             };
-            root = {
-              path = "/";
-              pool = "default";
-              size = "35GiB";
-              type = "disk";
+            name = "incusbr0";
+            type = "bridge";
+          }
+        ];
+        profiles = [
+          {
+            devices = {
+              eth0 = {
+                name = "eth0";
+                network = "incusbr0";
+                type = "nic";
+              };
+              root = {
+                path = "/";
+                pool = "default";
+                size = "35GiB";
+                type = "disk";
+              };
             };
-          };
-          name = "default";
-        }
-      ];
-      storage_pools = [
-        {
-          config = {
-            source = "/var/lib/incus/storage-pools/default";
-          };
-          driver = "dir";
-          name = "default";
-        }
-      ];
+            name = "default";
+          }
+        ];
+        storage_pools = [
+          {
+            config = {
+              source = "/var/lib/incus/storage-pools/default";
+            };
+            driver = "dir";
+            name = "default";
+          }
+        ];
+      };
     };
   };
 
