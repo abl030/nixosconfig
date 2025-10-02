@@ -10,10 +10,13 @@
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  boot.initrd.availableKernelModules = ["uhci_hcd" "ehci_pci" "ahci" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
-  boot.initrd.kernelModules = [];
-  boot.kernelModules = ["kvm-amd"];
-  boot.extraModulePackages = [];
+  # Group all boot-related settings under a single attribute set to avoid repetition.
+  boot = {
+    initrd.availableKernelModules = ["uhci_hcd" "ehci_pci" "ahci" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
+    initrd.kernelModules = [];
+    kernelModules = ["kvm-amd"];
+    extraModulePackages = [];
+  };
 
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";

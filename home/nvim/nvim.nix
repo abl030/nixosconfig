@@ -72,39 +72,42 @@
     #Add in our diary management lua. Autosave, cmp off and spellcheck on.
     ".config/nvim/lua/diary.lua".source = ./diary.lua;
   };
-  programs.nvchad.extraConfig = ''
 
-    require "options2"
-    require "configs/lspconfig2"
+  # Group all nvchad configurations into a single block to avoid repeating the `programs` key.
+  programs.nvchad = {
+    enable = true;
+    extraConfig = ''
+
+      require "options2"
+      require "configs/lspconfig2"
 
 
-  '';
-  programs.nvchad.enable = true;
+    '';
+    chadrcConfig = ''
+      -- This file needs to have same structure as nvconfig.lua
+      -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
+      -- Please read that file to know all available options :(
 
-  programs.nvchad.chadrcConfig = ''
-    -- This file needs to have same structure as nvconfig.lua
-    -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
-    -- Please read that file to know all available options :(
+      ---@type ChadrcConfig
+      local M = {}
 
-    ---@type ChadrcConfig
-    local M = {}
+      M.base46 = {
+      	-- theme = "onedark",
 
-    M.base46 = {
-    	-- theme = "onedark",
+      	-- hl_override = {
+      	-- 	Comment = { italic = true },
+      	-- 	["@comment"] = { italic = true },
+      	-- },
+      }
 
-    	-- hl_override = {
-    	-- 	Comment = { italic = true },
-    	-- 	["@comment"] = { italic = true },
-    	-- },
-    }
+      M.nvdash = { load_on_startup = true }
+      -- M.ui = {
+      --       tabufline = {
+      --          lazyload = false
+      --      }
+      --}
 
-    M.nvdash = { load_on_startup = true }
-    -- M.ui = {
-    --       tabufline = {
-    --          lazyload = false
-    --      }
-    --}
-
-    return M
-  '';
+      return M
+    '';
+  };
 }

@@ -85,7 +85,9 @@
       # We apply the same overlays here so system + user environments match perSystem.
       flake = let
         system = "x86_64-linux";
-        lib = nixpkgs.lib;
+        # `inherit (scope) attr;` is the idiomatic shorthand for `attr = scope.attr;`.
+        # It brings the `lib` attribute from the `nixpkgs` scope into the current `let` block.
+        inherit (nixpkgs) lib;
 
         # Global overlays used everywhere in this flake (system builds, HM, dev shells).
         overlays = import ./nix/overlay.nix {inherit inputs;};
@@ -93,7 +95,9 @@
         # pkgs for any top-level evaluation needs (rarely used directly below).
         pkgs = import nixpkgs {
           inherit system;
-          overlays = overlays;
+          # `inherit attr;` is the idiomatic shorthand for `attr = attr;` when the variable name
+          # and the attribute name are the same.
+          inherit overlays;
         };
 
         # Host topology lives in a separate file to keep this one focused on wiring.

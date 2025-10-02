@@ -3,7 +3,9 @@
   config,
   ...
 }: let
-  username = config.home.username; # Gets the current username
+  # Use `inherit` to concisely bring `username` into the local scope from `config.home`.
+  # This is functionally identical to `username = config.home.username;` but is more idiomatic.
+  inherit (config.home) username; # Gets the current username
   homeDir = "/home/${username}"; # Constructs the home directory path
 in {
   imports = [
