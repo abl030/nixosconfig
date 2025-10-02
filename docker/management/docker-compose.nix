@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.management-stack = {
     description = "Docker Management Compose Stack";
 

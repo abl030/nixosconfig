@@ -1,9 +1,4 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   # https://github.com/systemd/systemd/issues/34304#issuecomment-2550498883
   systemd.package =
     pkgs.systemd.overrideAttrs

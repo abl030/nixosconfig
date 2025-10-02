@@ -7,12 +7,7 @@
 # But also lets the laptop roam on other networks.
 # This biggest problem I forsee is when we connect to a newtwork in the 192.168.1.0/24 range
 # and its not our network. Then things may break. Who knows!
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   systemd.services.tailscale-lan-priority = {
     description = "Manage Tailscale LAN routing priorities";
     after = ["network.target" "tailscaled.service"];

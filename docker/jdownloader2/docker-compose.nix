@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.jdownloader2-stack = {
     description = "JDownloader2 Docker Compose Stack";
 

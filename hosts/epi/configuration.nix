@@ -1,12 +1,7 @@
 # Edit this configuration file to define what should be installed on
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{pkgs, ...}: {
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
@@ -21,8 +16,6 @@
     ../common/desktop.nix
     # sunshine
     ../services/display/sunshine.nix
-    #disable our autosleep
-    ../services/display/gnome.nix
     ## And allow gnome-remote-desktop for logged in users
     ../services/display/gnome-remote-desktop.nix
     # Lets try the bluetooth fix after suspend for buds 3 pro

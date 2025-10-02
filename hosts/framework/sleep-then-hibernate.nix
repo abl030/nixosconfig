@@ -1,8 +1,4 @@
-{
-  config,
-  pkgs,
-  ...
-}:
+{...}:
 # Old way using a custom systemd service.
 let
   # hibernateEnvironment = {

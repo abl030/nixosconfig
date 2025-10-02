@@ -1,9 +1,4 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   PID_PATH = "/tmp/rdp_sleep_block.pid";
   PID_PIPE = "rdp_pid_pipe";
 

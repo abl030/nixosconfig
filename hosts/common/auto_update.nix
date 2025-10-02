@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{inputs, ...}: {
   # Enable auto-upgrade
   system.autoUpgrade = {
     enable = true;

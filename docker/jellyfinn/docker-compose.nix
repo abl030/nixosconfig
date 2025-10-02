@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   # networking.firewall.allowedTCPPorts = [ 8096 8920 ];
   # networking.firewall.allowedUDPPorts = [ 7359 1900 ];
   # ===================================================================

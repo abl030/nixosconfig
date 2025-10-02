@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.webdav-stack = {
     description = "WebDav Compose Stack";
 

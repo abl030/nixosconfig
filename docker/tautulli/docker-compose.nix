@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.tautulli-stack = {
     description = "Tautulli Docker Compose Stack";
 

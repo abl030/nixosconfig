@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.audiobookshelf-stack = {
     description = "Audiobookshelf Docker Compose Stack";
 

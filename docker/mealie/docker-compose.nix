@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.mealie-stack = {
     description = "mealie Docker Compose Stack";
 

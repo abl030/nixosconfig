@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}:
+{pkgs, ...}:
 # Things that need firewall rules or access to system files must be here
 # They cannot be maanged by home-manager
 {

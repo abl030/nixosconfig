@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}:
+{pkgs, ...}:
 # End main configuration set{ config, pkgs, lib, ... }:
 let
   # ────────────────────────────────────────────────────────────────────────────

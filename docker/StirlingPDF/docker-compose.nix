@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.StirlingPDF-stack = {
     description = "StirlingPDF Docker Compose Stack";
 

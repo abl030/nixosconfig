@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   systemd.services.kopia-stack = {
     description = "Kopia Docker Compose Stack";
 
