@@ -1,21 +1,21 @@
 # Developer UX: repo-wide formatter, dev shell, and helper apps.
-# - `nix fmt` runs a wrapper that formats all *.nix files in-place.
-# - `nix run .#fmt-nix -- --check` shows which files WOULD change (exit 1 if any).
-# - `nix run .#fmt-nix -- --diff` prints unified diffs (exit 1 if any).
+# - `nix fmt` uses Alejandra and writes only if content changes.
+# - `nix run .#fmt-nix -- --check` lists files that WOULD change (no writes).
+# - `nix run .#fmt-nix -- --diff` prints unified diffs (no writes).
 # - `lint-nix` runs deadnix + statix with flag detection + panic handling.
 #
-# Notes:
-# - We never pass "-w" to nixfmt (it's "width", not "write"). All writes are done by
-#   streaming to a temp file then atomically replacing the original when different.
-# - Newline-delimited path collection; robust enough for Git paths and avoids NUL quoting.
+# Important detail:
+# - Alejandra writes in-place when given real paths. To keep --check/--diff pure,
+#   we always format a *copy* in a temp dir, compare with `cmp`, and only replace
+#   the original file during --write (via a same-dir temp for near-atomic mv).
 
 { pkgs, lib, ... }:
 let
-  # Wrapper that formats all Nix files, with dry-run and diff modes.
+  # Alejandra-based formatter wrapper with write/check/diff modes.
   fmtNix = pkgs.writeShellApplication {
     name = "fmt-nix";
     runtimeInputs = [
-      pkgs.nixfmt
+      pkgs.alejandra
       pkgs.findutils
       pkgs.coreutils
       pkgs.diffutils
@@ -66,31 +66,36 @@ let
 
             [ "''${#files[@]}" -eq 0 ] && exit 0
 
-            changed=0
-
+            # Format $1 in a temp directory; never touches the original.
+            # Prints the temp file path; caller must clean up its parent dir.
             format_to_tmp() {
-              # Format $1 to a temp file on stdout->tmp pipeline; never writes in-place.
-              # Return 0 if success, >0 if formatter failed.
-              local src="$1" tmp
-              tmp="$(mktemp)"
-              if ! nixfmt < "$src" > "$tmp"; then
-                rm -f "$tmp"
+              local src="$1"
+              local tmpdir tmpfile
+              tmpdir="$(mktemp -d)"
+              tmpfile="$tmpdir/$(basename "$src")"
+              cp "$src" "$tmpfile"
+              # Alejandra writes in-place; run it on the COPY and be quiet.
+              if ! alejandra --quiet "$tmpfile" >/dev/null 2>&1; then
+                rm -rf "$tmpdir"
                 echo "formatter failed on: $src" >&2
                 return 2
               fi
-              printf '%s\n' "$tmp"
+              printf '%s\n' "$tmpfile"
               return 0
             }
 
+            changed=0
             case "$MODE" in
               --write)
                 for f in "''${files[@]}"; do
                   tmp="$(format_to_tmp "$f")" || exit $?
+                  # Only replace if content actually changed; use same-dir temp for near-atomic mv
                   if ! cmp -s "$f" "$tmp"; then
-                    mv "$tmp" "$f"
-                  else
-                    rm -f "$tmp"
+                    final="$(mktemp -p "$(dirname "$f")")"
+                    cp "$tmp" "$final"
+                    mv "$final" "$f"
                   fi
+                  rm -rf "$(dirname "$tmp")"
                 done
                 ;;
 
@@ -107,7 +112,7 @@ let
                       echo
                     fi
                   fi
-                  rm -f "$tmp"
+                  rm -rf "$(dirname "$tmp")"
                 done
                 if [ "$changed" -ne 0 ]; then
                   exit 1
@@ -169,7 +174,7 @@ let
   };
 in
 {
-  # Make `nix fmt` work on the whole repo (defaults to --write).
+  # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
 
   # Expose helpers as packages + apps so you can `nix run .#...`
@@ -185,7 +190,7 @@ in
       pkgs.git
       pkgs.home-manager
       pkgs.nixd
-      pkgs.nixfmt
+      pkgs.alejandra
       pkgs.deadnix
       pkgs.statix
       lintNix
@@ -194,7 +199,7 @@ in
     shellHook = ''
       echo "Dev shell ready."
       echo "  - lint-nix"
-      echo "  - nix fmt                (write)"
+      echo "  - nix fmt                (write with Alejandra)"
       echo "  - nix run .#fmt-nix -- --check"
       echo "  - nix run .#fmt-nix -- --diff"
     '';
