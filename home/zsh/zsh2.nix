@@ -3,7 +3,6 @@
   config,
   ...
 }: let
-  scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
 in {
   imports = [
     ../utils/starship.nix

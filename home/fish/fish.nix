@@ -6,7 +6,6 @@
   ...
 }: let
   flakeBase = "${config.home.homeDirectory}/nixosconfig";
-  zshDir = "${flakeBase}/home/zsh";
 
   # Source scripts as *store paths* so the wrapper list is reproducible.
   myFunctions = ../zsh/my_functions.sh;

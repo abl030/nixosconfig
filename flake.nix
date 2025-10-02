@@ -105,7 +105,7 @@
         nixosConfigurations =
           lib.mapAttrs
           (
-            hostname: cfg:
+            _hostname: cfg:
               lib.nixosSystem {
                 inherit system;
                 specialArgs = extraSpecialArgs;
@@ -126,7 +126,7 @@
           )
           # Filter the hosts map to only include entries that have a `configurationFile` attribute.
           # This prevents `nix flake check` from failing on Home Manager-only hosts.
-          (lib.filterAttrs (hostname: cfg: cfg ? "configurationFile") hosts);
+          (lib.filterAttrs (_hostname: cfg: cfg ? "configurationFile") hosts);
 
         homeConfigurations =
           lib.mapAttrs
