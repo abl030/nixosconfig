@@ -1,34 +1,34 @@
-# Central overlay list for pkgs.
-# This isolates package customisations from flake topology so they can be reused
-# by both system and home builds without touching flake outputs.
-# Keep overlays small and self-contained; each overlay declares only what it owns.
+# Central list of overlays applied across the repo.
+# Purpose:
+# - Keep all package customisations in one place.
+# - Ensure devShells, checks, NixOS, and Home Manager see the same pkgs.
+#
+# Notes:
+# - nvchad is sourced from the nvchad4nix flake for the current system.
+# - yt-dlp builds from the pinned flake input and carries a readable version tag.
+# - If an overlay needs the system string, prefer prev.stdenv.hostPlatform.system
+#   (that keeps it correct under cross and matches flake-parts guidance).
 
 { inputs }:
 
 [
-  # Expose nvchad from the nvchad4nix flake
+  # nvchad overlay: expose nvchad for the active platform
   (final: prev: {
-    # Use the current pkgs system so this works anywhere the overlay is applied.
-    nvchad = inputs.nvchad4nix.packages.${prev.system}.nvchad;
+    nvchad =
+      inputs.nvchad4nix.packages.${final.stdenv.hostPlatform.system}.nvchad;
   })
 
-  # Track yt-dlp master from flake input; stamp version with short rev
+  # yt-dlp overlay: build from flake input and stamp version with short rev
   (final: prev:
     let
-      # Guard for non-git sources; version string stays readable either way.
       rev = inputs.yt-dlp-src.rev or null;
       short = if rev == null then "unknown" else builtins.substring 0 7 rev;
     in
     {
       yt-dlp = prev.yt-dlp.overrideAttrs (_old: {
-        # Build from the flake input so updates are explicit and reproducible.
-        src = inputs.yt-dlp-src;
-
-        # Version marker helps `yt-dlp --version` debugging across hosts.
-        version = "master-${short}";
-
-        # If upstream flips tests and it blocks builds, you can temporarily:
-        # doCheck = false;
+        src = inputs.yt-dlp-src; # pinned source for reproducibility
+        version = "master-${short}"; # human-friendly debugging aid
+        # doCheck = false;                    # unblock if upstream toggles tests
       });
     }
   )
