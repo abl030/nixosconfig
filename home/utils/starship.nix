@@ -1,12 +1,10 @@
 # Correct the malformed function signature which was declared twice.
 # A Nix module should only have one set of arguments.
 {pkgs, ...}: let
-  # ────────────────────────────────────────────────────────────────────────────
   # Base Starship settings (zsh/default). We’ll generate fish/bash variants
   # from this single source of truth to avoid config drift.
-  # ────────────────────────────────────────────────────────────────────────────
   # NOTE: The original content below is your existing settings block verbatim,
-  # moved into `baseStarshipSettingsReal` so we can reuse it for fish/bash.
+  # moved into baseStarshipSettingsReal so we can reuse it for fish/bash.
   baseStarshipSettingsReal = {
     # Enable + configure Starship (default = zsh keeps your current blue theme)
     programs = {
@@ -17,23 +15,15 @@
         settings = {
           # --- Main Prompt Format ---
           # Removed the initial static icons.
-          # Added $username and $hostname at the beginning.
-          # Adjusted the first separator's colors.
-          format =
-            "$username"
-            + # Display username module
-            "$hostname"
-            + # Display hostname module
-            
-            # Separator: FG matches hostname BG, BG matches directory BG
-            "[](bg:#769ff0 fg:#394260)"
-            + "$directory"
-            + "[](fg:#769ff0 bg:#394260)"
-            + "$all"
-            + "[](fg:#212736 bg:#1d2230)"
-            + "$time"
-            + "[ ](fg:#1d2230)"
-            + "\n$character"; # The prompt character itself on a new line
+          # Added $username and
+          # Display username module
+          # Display hostname module
+
+          # Separator: FG matches hostname BG, BG matches directory BG
+          format = ''
+            $username$hostname[](bg:#769ff0 fg:#394260)$directory[](fg:#769ff0 bg:#394260)$all[](fg:#212736 bg:#1d2230)$time[ ](fg:#1d2230)
+            $character
+          '';
 
           # --- Module Configurations ---
           # NEW: Username Module Configuration
@@ -125,14 +115,13 @@
     };
   };
 
-  # ────────────────────────────────────────────────────────────────────────────
   # Minimal-Change generator:
   # We only replace the accent hex "769ff0" in your format string and
   # update the directory bg color. All other settings stay identical.
-  # ────────────────────────────────────────────────────────────────────────────
   mkSettingsWithAccent = accentHex: let
     base = baseStarshipSettingsReal.programs.starship.settings;
-    replacedFormat = builtins.replaceStrings ["769ff0"] [accentHex] base.format;
+    replacedFormat =
+      builtins.replaceStrings ["769ff0"] [accentHex] base.format;
     newDirectory = base.directory // {style = "fg:#394260 bg:#${accentHex}";};
   in
     base
@@ -151,16 +140,14 @@
 
   toml = pkgs.formats.toml {};
 in {
-  # Group all starship settings into a single attribute set to avoid re-defining the `programs` key.
-  programs.starship = {
-    enable = true;
-    enableFishIntegration = true;
-    # programs.starship.enableZshIntegration = true;
-    # zsh/default uses the base (blue) settings
-    settings = baseStarshipSettingsReal.programs.starship.settings;
-  };
+  # Group all starship settings into a single attribute set to avoid re-defining the programs key.
+  # Reuse the already-complete subtree to avoid redundant assignments (fixes Statix W04).
+  programs.starship = baseStarshipSettingsReal.programs.starship;
 
   # Declaratively materialize per-shell TOMLs (generated from the same base)
-  home.file.".config/starship-fish.toml".source = toml.generate "starship-fish.toml" fishSettings;
-  home.file.".config/starship-bash.toml".source = toml.generate "starship-bash.toml" bashSettings;
+  home.file.".config/starship-fish.toml".source =
+    toml.generate "starship-fish.toml" fishSettings;
+
+  home.file.".config/starship-bash.toml".source =
+    toml.generate "starship-bash.toml" bashSettings;
 }
