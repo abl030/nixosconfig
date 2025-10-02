@@ -35,58 +35,64 @@ in {
   environment.systemPackages = with pkgs; [mergerfs];
   programs.fuse.userAllowOther = true;
 
-  # Ensure target mountpoints exist
-  systemd.tmpfiles.rules = [
-    "d /mnt/fuse 0755 root root -"
-    "d /mnt/fuse/Media 0755 root root -"
-    "d /mnt/fuse/Media/Movies 0755 root root -"
-    "d /mnt/fuse/Media/TV_Shows 0755 root root -"
-    "d /mnt/fuse/Media/Music 0755 root root -"
-  ];
+  # Group all systemd configurations to avoid attribute set collisions and improve readability.
+  # This makes it clear that this module configures multiple, related systemd units.
+  systemd = {
+    # Ensure target mountpoints exist
+    tmpfiles.rules = [
+      "d /mnt/fuse 0755 root root -"
+      "d /mnt/fuse/Media 0755 root root -"
+      "d /mnt/fuse/Media/Movies 0755 root root -"
+      "d /mnt/fuse/Media/TV_Shows 0755 root root -"
+      "d /mnt/fuse/Media/Music 0755 root root -"
+    ];
 
-  # Movies
-  systemd.services."fuse-mergerfs-movies" = {
-    description = "mergerfs union for Movies (Metadata=RW, Media=RO)";
-    after = ["mnt-data.mount"];
-    requires = ["mnt-data.mount"];
-    bindsTo = ["mnt-data.mount"];
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = mkExecStart brMovies dstMovies;
-      ExecStop = "${umnt} ${dstMovies}";
-      Restart = "on-failure";
-    };
-    # We rely on mnt-data.mount; path checks are optional here since both branches live under /mnt/data
-    wantedBy = ["multi-user.target"];
-  };
+    services = {
+      # Movies
+      "fuse-mergerfs-movies" = {
+        description = "mergerfs union for Movies (Metadata=RW, Media=RO)";
+        after = ["mnt-data.mount"];
+        requires = ["mnt-data.mount"];
+        bindsTo = ["mnt-data.mount"];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = mkExecStart brMovies dstMovies;
+          ExecStop = "${umnt} ${dstMovies}";
+          Restart = "on-failure";
+        };
+        # We rely on mnt-data.mount; path checks are optional here since both branches live under /mnt/data
+        wantedBy = ["multi-user.target"];
+      };
 
-  # TV Shows (note the space in the source path is handled via shell quoting)
-  systemd.services."fuse-mergerfs-tv" = {
-    description = "mergerfs union for TV Shows (Metadata=RW, Media=RO)";
-    after = ["mnt-data.mount"];
-    requires = ["mnt-data.mount"];
-    bindsTo = ["mnt-data.mount"];
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = mkExecStart brTV dstTV;
-      ExecStop = "${umnt} ${dstTV}";
-      Restart = "on-failure";
-    };
-    wantedBy = ["multi-user.target"];
-  };
+      # TV Shows (note the space in the source path is handled via shell quoting)
+      "fuse-mergerfs-tv" = {
+        description = "mergerfs union for TV Shows (Metadata=RW, Media=RO)";
+        after = ["mnt-data.mount"];
+        requires = ["mnt-data.mount"];
+        bindsTo = ["mnt-data.mount"];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = mkExecStart brTV dstTV;
+          ExecStop = "${umnt} ${dstTV}";
+          Restart = "on-failure";
+        };
+        wantedBy = ["multi-user.target"];
+      };
 
-  # Music
-  systemd.services."fuse-mergerfs-music" = {
-    description = "mergerfs union for Music (Metadata=RW, Media=RO)";
-    after = ["mnt-data.mount"];
-    requires = ["mnt-data.mount"];
-    bindsTo = ["mnt-data.mount"];
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = mkExecStart brMusic dstMusic;
-      ExecStop = "${umnt} ${dstMusic}";
-      Restart = "on-failure";
+      # Music
+      "fuse-mergerfs-music" = {
+        description = "mergerfs union for Music (Metadata=RW, Media=RO)";
+        after = ["mnt-data.mount"];
+        requires = ["mnt-data.mount"];
+        bindsTo = ["mnt-data.mount"];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = mkExecStart brMusic dstMusic;
+          ExecStop = "${umnt} ${dstMusic}";
+          Restart = "on-failure";
+        };
+        wantedBy = ["multi-user.target"];
+      };
     };
-    wantedBy = ["multi-user.target"];
   };
 }
