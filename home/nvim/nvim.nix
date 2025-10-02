@@ -38,6 +38,7 @@
     pkgs.nodePackages.jsonlint
     pkgs.markdownlint-cli
     pkgs.shfmt
+    pkgs.alejandra
     # pkgs.tabby-agent
     # pkgs.vimPlugins.rustaceanvim
     # pkgs.rust-analyzer

@@ -11,7 +11,7 @@ return {
 			rust = { "rustfmt" },
 			yaml = { "prettierd", lsp_format = "prettierd" },
 			sh = { "shfmt", "beautysh" },
-			nix = { "nixpkgs_fmt" },
+			nix = { "alejandra" },
 			json = { "jq" },
 			zsh = { "shfmt", "beautysh" },
 		},
