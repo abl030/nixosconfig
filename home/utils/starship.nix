@@ -5,10 +5,6 @@ let
   # Base Starship settings (zsh/default). We’ll generate fish/bash variants
   # from this single source of truth to avoid config drift.
   # ────────────────────────────────────────────────────────────────────────────
-  baseStarshipSettings = {
-    programs = {}; # (no-op placeholder so we can paste the original settings intact)
-  };
-
   # NOTE: The original content below is your existing settings block verbatim,
   # moved into `baseStarshipSettingsReal` so we can reuse it for fish/bash.
   baseStarshipSettingsReal = {

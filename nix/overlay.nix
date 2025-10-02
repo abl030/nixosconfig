@@ -10,14 +10,14 @@
 #   (that keeps it correct under cross and matches flake-parts guidance).
 {inputs}: [
   # nvchad overlay: expose nvchad for the active platform
-  (final: prev: {
+  (final: _prev: {
     nvchad =
       inputs.nvchad4nix.packages.${final.stdenv.hostPlatform.system}.nvchad;
   })
 
   # yt-dlp overlay: build from flake input and stamp version with short rev
   (
-    final: prev: let
+    _final: prev: let
       rev = inputs.yt-dlp-src.rev or null;
       short =
         if rev == null

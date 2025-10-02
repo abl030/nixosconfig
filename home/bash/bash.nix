@@ -3,8 +3,6 @@
   config,
   ...
 }: let
-  # Define the path to your scripts directory for cleaner aliases.
-  scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
 in {
   # Import modules for tools that will be integrated into the shell.
   imports = [
