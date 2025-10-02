@@ -38,7 +38,7 @@
     configurationFile = ./hosts/wsl/configuration.nix;
     homeFile = ./hosts/wsl/home.nix;
     user = "nixos";
-    homeDirectory = "/home/nixos/";
+    homeDirectory = "/home/nixos";
   };
 
   proxmox-vm = {
