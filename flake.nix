@@ -66,34 +66,13 @@
       # Target platforms for perSystem (devShells/formatter/checks).
       systems = [ "x86_64-linux" ];
 
-      perSystem = { system, lib, pkgs, ... }: {
-        # Initialise pkgs WITH global overlays so devShells/formatter/checks see the
-        # exact same package universe as our NixOS/HM builds.
-        _module.args.pkgs = import inputs.nixpkgs {
-          inherit system;
-          overlays = import ./nix/overlay.nix { inherit inputs; };
-          config = { };
-        };
+      # Root-level imports are evaluated before perSystem.
+      # Here we bootstrap pkgs (with overlays) for all perSystem consumers.
+      imports = [ ./nix/pkgs.nix ];
 
-        # Repo-wide formatter so `nix fmt` is consistent locally and in CI.
-        # We use nixfmt (requested) instead of alejandra.
-        formatter = pkgs.nixfmt;
-
-        # Developer shell: the standard tools used when editing this repo.
-        devShells.default = pkgs.mkShell {
-          packages = [
-            pkgs.git
-            pkgs.home-manager
-            pkgs.nixd
-            pkgs.nixfmt
-          ];
-        };
-
-        # Example check wiring (leave commented until you want it in CI):
-        # checks.format = pkgs.runCommand "fmt-check" { } ''
-        #   ${pkgs.nixfmt}/bin/nixfmt --check .
-        #   touch $out
-        # '';
+      # perSystem: bring in the dev shell + formatter + apps using the pkgs we bootstrapped.
+      perSystem = { pkgs, ... }: {
+        imports = [ ./nix/devshell.nix ];
       };
 
       # Flake outputs for NixOS and Home Manager.
