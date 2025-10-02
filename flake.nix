@@ -8,16 +8,16 @@
     home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    # nixos-hardware
+    #nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
-    # NVCHAD is best chad.
+    #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # sops-nix for secrets
+    #sops-nix for secrets
     sops-nix = {
       url = "github:mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -53,72 +53,118 @@
       url = "github:yt-dlp/yt-dlp";
       flake = false;
     };
+
+    # Structure helper: gives us a standard layout for dev shells, formatter, checks.
+    flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
-  # NOTE: Keep the same calling style; we bind the whole set to `inputs` for overlays, etc.
-  outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
-    let
-      system = "x86_64-linux";
-      lib = nixpkgs.lib;
-      pkgs = nixpkgs.legacyPackages.${system};
+  # We keep explicit, readable outputs and add a perSystem section for developer UX.
+  # perSystem: defines the toolchain for contributors (nix develop, nix fmt, checks).
+  # flake:     keeps host builds (NixOS + Home Manager) as first-class outputs.
+  outputs = inputs@{ self, nixpkgs, home-manager, home-manager-diff, flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      # Target platforms for perSystem (devShells/formatter/checks).
+      systems = [ "x86_64-linux" ];
 
-      # Pass commonly-needed things to modules and home
-      extraSpecialArgs = { inherit system; inherit inputs; };
+      perSystem = { system, lib, config, ... }: {
+        # Initialise pkgs WITH global overlays so devShells/formatter/checks see the
+        # exact same package universe as our NixOS/HM builds.
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = import ./nix/overlay.nix { inherit inputs; };
+          config = { };
+        };
 
-      # Hosts topology lives in its own file to keep outputs small and readable.
-      hosts = import ./hosts.nix;
-    in
-    {
-      nixosConfigurations =
-        (lib.mapAttrs
-          (hostname: config:
-            lib.nixosSystem {
-              inherit system;
-              specialArgs = extraSpecialArgs; # Pass extraSpecialArgs here
-              modules = [
-                config.configurationFile
-                {
-                  nix.nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
-                  # Optional: Set registry for consistency
-                  nix.registry.nixpkgs.flake = inputs.nixpkgs;
+        # Repo-wide formatter so `nix fmt` is consistent locally and in CI.
+        # We use nixfmt (requested) instead of alejandra.
+        formatter = config.pkgs.nixfmt;
+
+        # Developer shell: the standard tools used when editing this repo.
+        devShells.default = config.pkgs.mkShell {
+          packages = [
+            config.pkgs.git
+            config.pkgs.home-manager
+            config.pkgs.nixd
+            config.pkgs.nixfmt
+          ];
+        };
+
+        # Example check wiring (leave commented until you want it in CI):
+        # checks.format = config.pkgs.runCommand "fmt-check" { } ''
+        #   ${config.pkgs.nixfmt}/bin/nixfmt --check .
+        #   touch $out
+        # '';
+      };
+
+      # Flake outputs for NixOS and Home Manager.
+      # We apply the same overlays here so system + user environments match perSystem.
+      flake =
+        let
+          system = "x86_64-linux";
+          lib = nixpkgs.lib;
+
+          # Global overlays used everywhere in this flake (system builds, HM, dev shells).
+          overlays = import ./nix/overlay.nix { inherit inputs; };
+
+          # pkgs for any top-level evaluation needs (rarely used directly below).
+          pkgs = import nixpkgs { inherit system; overlays = overlays; };
+
+          # Host topology lives in a separate file to keep this one focused on wiring.
+          hosts = import ./hosts.nix;
+
+          # Pass inputs/system/host context to modules (for host-aware HM bits, etc.).
+          extraSpecialArgs = { inherit system inputs; };
+        in
+        {
+          nixosConfigurations =
+            lib.mapAttrs
+              (hostname: cfg:
+                lib.nixosSystem {
+                  inherit system;
+                  specialArgs = extraSpecialArgs;
+
+                  modules = [
+                    cfg.configurationFile
+                    {
+                      # Keep nixpkgs channel and registry consistent across hosts.
+                      nix.nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
+                      # Optional: Set registry for consistency
+                      nix.registry.nixpkgs.flake = inputs.nixpkgs;
+
+                      # Make overlays global for the system.
+                      nixpkgs.overlays = overlays;
+                    }
+                  ];
                 }
-              ];
-            }
-          )
-          hosts
-        );
+              )
+              hosts;
 
-      homeConfigurations =
-        (lib.mapAttrs
-          (hostname: config:
-            home-manager.lib.homeManagerConfiguration {
-              inherit pkgs;
+          homeConfigurations =
+            lib.mapAttrs
+              (hostname: cfg:
+                home-manager.lib.homeManagerConfiguration {
+                  inherit pkgs;
 
-              # Pass hostname + allHosts; consumers unchanged
-              extraSpecialArgs = extraSpecialArgs // {
-                inherit hostname;
-                allHosts = hosts;
-              };
+                  # Provide host context and inputs to HM modules.
+                  extraSpecialArgs = extraSpecialArgs // { inherit hostname; allHosts = hosts; };
 
-              modules = [
-                home-manager-diff.hmModules.default
-                config.homeFile
-                ./modules/home-manager
-                {
-                  home.username = config.user;
-                  home.homeDirectory = config.homeDirectory;
+                  # Apply overlays at the HM level so user packages match system/dev shells.
+                  modules = [
+                    home-manager-diff.hmModules.default
+                    cfg.homeFile
+                    ./modules/home-manager
+                    {
+                      home.username = cfg.user;
+                      home.homeDirectory = cfg.homeDirectory;
 
-                  nixpkgs = {
-                    # Overlays now live in ./nix/overlay.nix so package customisations
-                    # are maintained in one place and reused across hosts.
-                    overlays = import ./nix/overlay.nix { inherit inputs; };
-                  };
+                      # Make overlays global for Home Manager as well.
+                      nixpkgs.overlays = overlays;
+                    }
+                  ];
                 }
-              ];
-            }
-          )
-          hosts
-        );
+              )
+              hosts;
+        };
     };
 }
 
