@@ -4,14 +4,14 @@
 # NixOS-WSL specific options are documented on the NixOS-WSL repository:
 # https://github.com/nix-community/NixOS-WSL
 {
-  config,
-  lib,
   pkgs,
+  inputs, # Make flake inputs available to this module.
   ...
 }: {
   imports = [
-    # include NixOS-WSL modules
-    <nixos-wsl/modules>
+    # Use the flake input directly for a pure, reproducible import.
+    # This replaces the impure <nixos-wsl/modules> lookup.
+    inputs.nixos-wsl.nixosModules.default
   ];
 
   wsl.enable = true;

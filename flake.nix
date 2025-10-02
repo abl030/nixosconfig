@@ -62,7 +62,6 @@
   # perSystem: defines the toolchain for contributors (nix develop, nix fmt, checks).
   # flake:     keeps host builds (NixOS + Home Manager) as first-class outputs.
   outputs = inputs @ {
-    self,
     nixpkgs,
     home-manager,
     home-manager-diff,
@@ -78,7 +77,7 @@
       imports = [./nix/pkgs.nix];
 
       # perSystem: bring in the dev shell + formatter + apps using the pkgs we bootstrapped.
-      perSystem = {pkgs, ...}: {
+      perSystem = {...}: {
         imports = [./nix/devshell.nix];
       };
 
@@ -125,7 +124,9 @@
                 ];
               }
           )
-          hosts;
+          # Filter the hosts map to only include entries that have a `configurationFile` attribute.
+          # This prevents `nix flake check` from failing on Home Manager-only hosts.
+          (lib.filterAttrs (hostname: cfg: cfg ? "configurationFile") hosts);
 
         homeConfigurations =
           lib.mapAttrs
