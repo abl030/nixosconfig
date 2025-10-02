@@ -1,7 +1,9 @@
 # ~/nixosconfig/kopia-schedule.nix
-{ config, pkgs, ... }:
-
-let
+{
+  config,
+  pkgs,
+  ...
+}: let
   # --- Configuration ---
   kopiaComposeDir = "/home/abl030/nixosconfig/docker/kopia"; # Absolute path
   composeFileName = "docker-compose.yml"; # Compose file name
@@ -11,9 +13,7 @@ let
 
   # Get the explicit path to the docker binary provided by NixOS
   dockerBinary = "${pkgs.docker}/bin/docker";
-
-in
-{
+in {
   systemd.services = {
     # Service to START the Kopia Docker Compose stack
     kopia-compose-start = {
@@ -26,8 +26,8 @@ in
         # CORRECTED ExecStart: Use the docker binary path, then 'compose' as an argument
         ExecStart = "${dockerBinary} compose -f ${composeFileName} up -d";
       };
-      after = [ "docker.service" ];
-      requires = [ "docker.service" ];
+      after = ["docker.service"];
+      requires = ["docker.service"];
     };
 
     # Service to STOP the Kopia Docker Compose stack
@@ -41,8 +41,8 @@ in
         # CORRECTED ExecStart: Use the docker binary path, then 'compose' as an argument
         ExecStart = "${dockerBinary} compose -f ${composeFileName} down";
       };
-      after = [ "docker.service" ];
-      requires = [ "docker.service" ];
+      after = ["docker.service"];
+      requires = ["docker.service"];
     };
   };
 
@@ -50,7 +50,7 @@ in
   systemd.timers = {
     kopia-compose-start = {
       description = "Timer to start Kopia Docker Compose at 11 PM";
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = "*-*-* 23:00:00";
         Persistent = true;
@@ -59,7 +59,7 @@ in
     };
     kopia-compose-stop = {
       description = "Timer to stop Kopia Docker Compose at 2 PM";
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = "*-*-* 14:00:00";
         Persistent = true;

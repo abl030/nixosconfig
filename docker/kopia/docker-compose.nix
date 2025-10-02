@@ -1,8 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
-
 {
-
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   systemd.services.kopia-stack = {
     description = "Kopia Docker Compose Stack";
 
@@ -10,11 +11,11 @@
     reloadIfChanged = true;
 
     # This service requires the Docker daemon to be running.
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" "mnt-mum.automount" ];
+    requires = ["docker.service" "network-online.target" "mnt-data.mount" "mnt-mum.automount"];
 
     # It should start after the Docker daemon and network are ready.
     # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" "mnt-mum.automount" ];
+    after = ["docker.service" "network-online.target" "mnt-data.mount" "mnt-mum.automount"];
 
     # This section corresponds to the [Service] block in a systemd unit file.
     serviceConfig = {
@@ -52,6 +53,6 @@
 
     # This section corresponds to the [Install] block in a systemd unit file.
     # This ensures the service is started automatically on boot.
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }

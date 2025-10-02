@@ -1,10 +1,11 @@
-{ inputs, config, ... }:
-
-let
+{
+  inputs,
+  config,
+  ...
+}: let
   username = config.home.username; # Gets the current username
   homeDir = "/home/${username}"; # Constructs the home directory path
-in
-{
+in {
   imports = [
     inputs.sops-nix.homeManagerModules.sops
   ];
@@ -22,4 +23,3 @@ in
     };
   };
 }
-

@@ -1,9 +1,11 @@
-{ lib, config, pkgs, ... }:
-
-let
-  scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
-in
 {
+  lib,
+  config,
+  pkgs,
+  ...
+}: let
+  scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
+in {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
@@ -15,7 +17,7 @@ in
     enableCompletion = true;
     syntaxHighlighting.enable = true;
 
-    shellAliases = (import ../../modules/home-manager/shell/aliases.nix { inherit lib config; }).zsh;
+    shellAliases = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).zsh;
 
     # Source our separate, syntax-highlighted functions file(s).
     initContent = ''
@@ -67,4 +69,3 @@ in
   # Optional: have gum available for fallback (not required)
   # home.packages = (config.home.packages or []) ++ [ pkgs.gum ];
 }
-

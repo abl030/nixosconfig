@@ -1,16 +1,15 @@
-{ pkgs, ... }:
-{
-  environment.systemPackages = with pkgs; [ nfs-utils ];
+{pkgs, ...}: {
+  environment.systemPackages = with pkgs; [nfs-utils];
   boot.initrd = {
-    supportedFilesystems = [ "nfs" ];
-    kernelModules = [ "nfs" ];
+    supportedFilesystems = ["nfs"];
+    kernelModules = ["nfs"];
   };
 
   fileSystems."/mnt/mum" = {
     device = "100.100.237.21:/volumeUSB1/usbshare";
     fsType = "nfs";
     options = [
-      # We need this bit so that the mount works on tailscale. 
+      # We need this bit so that the mount works on tailscale.
       # Otherwise it will load at boot and tailscale isn't up yet.
       # Automount when accessed
       "x-systemd.automount"

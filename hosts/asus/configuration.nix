@@ -1,23 +1,23 @@
 # Edit this configuration file to define what should be installed on
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
-
-{ config, pkgs, ... }:
-
 {
-  imports =
-    [
-      # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      # Our modulat tailscale setup that should work anywhere.
-      ../services/tailscale/tailscale.nix
-      # Our mounts
-      ../services/mounts/nfs.nix
-      ../services/mounts/cifs.nix
-      # ../services/fonts/fonts.nix
-      # Add in common
-      ../common/configuration.nix
-    ];
+  config,
+  pkgs,
+  ...
+}: {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    # Our modulat tailscale setup that should work anywhere.
+    ../services/tailscale/tailscale.nix
+    # Our mounts
+    ../services/mounts/nfs.nix
+    ../services/mounts/cifs.nix
+    # ../services/fonts/fonts.nix
+    # Add in common
+    ../common/configuration.nix
+  ];
 
   # nixpkgs.config.qt5 = {
   #   enable = true;
@@ -117,7 +117,7 @@
   users.users.asus = {
     isNormalUser = true;
     description = "asus";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = ["networkmanager" "wheel"];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -128,7 +128,6 @@
       age
     ];
   };
-
 
   # Enable automatic login for the user.
   services.xserver.displayManager.autoLogin.enable = true;
@@ -173,9 +172,14 @@
   # networking.firewall.enable = true;
 
   networking.firewall = {
-    allowedUDPPorts = [ 5353 ]; # For device discovery
-    allowedUDPPortRanges = [{ from = 32768; to = 61000; }]; # For Streaming
-    allowedTCPPorts = [ 8010 ]; # For gnomecast server
+    allowedUDPPorts = [5353]; # For device discovery
+    allowedUDPPortRanges = [
+      {
+        from = 32768;
+        to = 61000;
+      }
+    ]; # For Streaming
+    allowedTCPPorts = [8010]; # For gnomecast server
   };
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
@@ -185,5 +189,5 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 }

@@ -1,41 +1,42 @@
 # Edit this configuration file to define what should be installed on
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
-
-{ config, pkgs, inputs, ... }:
-
 {
-  imports =
-    [
-      # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      # Our modulat tailscale setup that should work anywhere.
-      ../services/tailscale/tailscale.nix
-      # Our mounts
-      ../services/mounts/nfs.nix
-      # ../services/mounts/cifs.nix
-      ../common/configuration.nix
-      ../common/desktop.nix
-      # Framework specific hardware-configuration
-      inputs.nixos-hardware.nixosModules.framework-13-7040-amd
-      # Our sleep then hibernate script
-      # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
-      ../framework/sleep-then-hibernate.nix
-      # ../framework/hibernate-fix.nix
-      # ../framework/hibernatefix2.nix
-      # Nosleep scripts
-      ../services/system/ssh_nosleep.nix
-      ../services/system/remote_desktop_nosleep.nix
-    ];
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    # Our modulat tailscale setup that should work anywhere.
+    ../services/tailscale/tailscale.nix
+    # Our mounts
+    ../services/mounts/nfs.nix
+    # ../services/mounts/cifs.nix
+    ../common/configuration.nix
+    ../common/desktop.nix
+    # Framework specific hardware-configuration
+    inputs.nixos-hardware.nixosModules.framework-13-7040-amd
+    # Our sleep then hibernate script
+    # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221
+    ../framework/sleep-then-hibernate.nix
+    # ../framework/hibernate-fix.nix
+    # ../framework/hibernatefix2.nix
+    # Nosleep scripts
+    ../services/system/ssh_nosleep.nix
+    ../services/system/remote_desktop_nosleep.nix
+  ];
 
   # Framework specific hardware-configuration
   services.fwupd.enable = true;
-  services.fwupd.extraRemotes = [ "lvfs-testing" ];
+  services.fwupd.extraRemotes = ["lvfs-testing"];
 
   # # Make fingerprint reader work
   # services.fprintd.enable = true;
   #
-  # Wifi fix 
+  # Wifi fix
   hardware.wirelessRegulatoryDatabase = true;
   boot.extraModprobeConfig = ''
     options cfg80211 ieee80211_regdom="AU"
@@ -97,7 +98,7 @@
   # Enable the X11 windowing system.
   services.xserver.enable = true;
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 
   # Enable the GNOME Desktop Environment.
   services.displayManager.gdm.enable = true;
@@ -135,7 +136,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvertd" "dialout" ];
+    extraGroups = ["networkmanager" "wheel" "libvertd" "dialout"];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -195,5 +196,4 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
-
 }

@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = [
     pkgs.dolphin
     # These are our thumbnailers. QT5 because we using LXQT.

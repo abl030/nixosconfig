@@ -1,5 +1,10 @@
-{ config, inputs, home, pkgs, ... }:
 {
+  config,
+  inputs,
+  home,
+  pkgs,
+  ...
+}: {
   home.packages = [
     #These packages are for installing through mason. But we can't do that so I am commenting them out here but leaving them
     # pkgs.nvchad
@@ -45,10 +50,7 @@
     # pkgs.vscode-extensions.vadimcn.vscode-lldb
     # pkgs.cargo
     # pkgs.rustc
-
-
   ];
-
 
   imports = [
     inputs.nvchad4nix.homeManagerModule
@@ -82,9 +84,9 @@
   programs.nvchad.enable = true;
 
   programs.nvchad.chadrcConfig = ''
-    -- This file needs to have same structure as nvconfig.lua 
+    -- This file needs to have same structure as nvconfig.lua
     -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
-    -- Please read that file to know all available options :( 
+    -- Please read that file to know all available options :(
 
     ---@type ChadrcConfig
     local M = {}

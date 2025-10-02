@@ -1,8 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
-
 {
-
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   systemd.services.webdav-stack = {
     description = "WebDav Compose Stack";
 
@@ -10,11 +11,11 @@
     reloadIfChanged = true;
 
     # This service requires the Docker daemon to be running.
-    requires = [ "docker.service" "network-online.target" ];
+    requires = ["docker.service" "network-online.target"];
 
     # It should start after the Docker daemon and network are ready.
     # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
-    after = [ "docker.service" "network-online.target" ];
+    after = ["docker.service" "network-online.target"];
 
     # This section corresponds to the [Service] block in a systemd unit file.
     serviceConfig = {
@@ -41,7 +42,6 @@
       # Optional: Command to reload the service, useful for applying changes.
       ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
 
-
       # Restart the service automatically if it fails
       Restart = "on-failure";
       RestartSec = "30s";
@@ -53,6 +53,6 @@
 
     # This section corresponds to the [Install] block in a systemd unit file.
     # This ensures the service is started automatically on boot.
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }

@@ -1,9 +1,6 @@
 # Generated via dconf2nix: https://github.com/gvolpe/dconf2nix
-{ lib, ... }:
-
-with lib.hm.gvariant;
-
-{
+{lib, ...}:
+with lib.hm.gvariant; {
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
@@ -32,26 +29,26 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/desktop/wm/keybindings" = {
-      maximize = [ "<Super>Up" ];
-      move-to-monitor-down = [ "<Super><Shift>Down" ];
-      move-to-monitor-left = [ "<Super><Shift>Left" ];
-      move-to-monitor-right = [ "<Super><Shift>Right" ];
-      move-to-monitor-up = [ "<Super><Shift>Up" ];
-      move-to-workspace-down = [ "<Control><Shift><Alt>Down" ];
-      move-to-workspace-left = [ "<Super><Shift>Page_Up" "<Super><Shift><Alt>Left" "<Control><Shift><Alt>Left" ];
-      move-to-workspace-right = [ "<Super><Shift>Page_Down" "<Super><Shift><Alt>Right" "<Control><Shift><Alt>Right" ];
-      move-to-workspace-up = [ "<Control><Shift><Alt>Up" ];
-      switch-applications = [ "<Super>Tab" "<Alt>Tab" ];
-      switch-applications-backward = [ "<Shift><Super>Tab" "<Shift><Alt>Tab" ];
-      switch-group = [ "<Super>Above_Tab" "<Alt>Above_Tab" ];
-      switch-group-backward = [ "<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab" ];
-      switch-panels = [ "<Control><Alt>Tab" ];
-      switch-panels-backward = [ "<Shift><Control><Alt>Tab" ];
-      switch-to-workspace-1 = [ "<Super>Home" ];
-      switch-to-workspace-last = [ "<Super>End" ];
-      switch-to-workspace-left = [ "<Super>Page_Up" "<Super><Alt>Left" "<Control><Alt>Left" ];
-      switch-to-workspace-right = [ "<Super>Page_Down" "<Super><Alt>Right" "<Control><Alt>Right" ];
-      unmaximize = [ "<Super>Down" "<Alt>F5" ];
+      maximize = ["<Super>Up"];
+      move-to-monitor-down = ["<Super><Shift>Down"];
+      move-to-monitor-left = ["<Super><Shift>Left"];
+      move-to-monitor-right = ["<Super><Shift>Right"];
+      move-to-monitor-up = ["<Super><Shift>Up"];
+      move-to-workspace-down = ["<Control><Shift><Alt>Down"];
+      move-to-workspace-left = ["<Super><Shift>Page_Up" "<Super><Shift><Alt>Left" "<Control><Shift><Alt>Left"];
+      move-to-workspace-right = ["<Super><Shift>Page_Down" "<Super><Shift><Alt>Right" "<Control><Shift><Alt>Right"];
+      move-to-workspace-up = ["<Control><Shift><Alt>Up"];
+      switch-applications = ["<Super>Tab" "<Alt>Tab"];
+      switch-applications-backward = ["<Shift><Super>Tab" "<Shift><Alt>Tab"];
+      switch-group = ["<Super>Above_Tab" "<Alt>Above_Tab"];
+      switch-group-backward = ["<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab"];
+      switch-panels = ["<Control><Alt>Tab"];
+      switch-panels-backward = ["<Shift><Control><Alt>Tab"];
+      switch-to-workspace-1 = ["<Super>Home"];
+      switch-to-workspace-last = ["<Super>End"];
+      switch-to-workspace-left = ["<Super>Page_Up" "<Super><Alt>Left" "<Control><Alt>Left"];
+      switch-to-workspace-right = ["<Super>Page_Down" "<Super><Alt>Right" "<Control><Alt>Right"];
+      unmaximize = ["<Super>Down" "<Alt>F5"];
     };
 
     "org/gnome/nautilus/preferences" = {
@@ -62,10 +59,10 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell" = {
-      command-history = [ "r" ];
-      enabled-extensions = [ "drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us" ];
+      command-history = ["r"];
+      enabled-extensions = ["drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us"];
       welcome-dialog-last-shown-version = "46.2";
-      favorite-apps = [ "org.kde.dolphin.desktop" "firefox.desktop" ];
+      favorite-apps = ["org.kde.dolphin.desktop" "firefox.desktop"];
     };
 
     "org/gnome/shell/extensions/caffeine" = {
@@ -76,7 +73,7 @@ with lib.hm.gvariant;
     "org/gnome/shell/extensions/dash-to-panel" = {
       appicon-margin = 8;
       appicon-padding = 4;
-      available-monitors = [ 0 1 ];
+      available-monitors = [0 1];
       dot-position = "BOTTOM";
       group-apps = true;
       hotkeys-overlay-combo = "TEMPORARILY";
@@ -132,7 +129,7 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell/world-clocks" = {
-      locations = [ ];
+      locations = [];
     };
 
     "org/gnome/tweaks" = {

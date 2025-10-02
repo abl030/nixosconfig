@@ -1,6 +1,9 @@
-{ hostname, config, pkgs, ... }:
 {
-
+  hostname,
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = with pkgs; [
     ghostty
   ];
@@ -9,7 +12,3 @@
   };
   programs.ghostty.enableZshIntegration = true;
 }
-
-
-
-

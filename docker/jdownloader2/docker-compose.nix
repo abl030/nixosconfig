@@ -1,6 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   systemd.services.jdownloader2-stack = {
     description = "JDownloader2 Docker Compose Stack";
 
@@ -8,8 +11,8 @@
     reloadIfChanged = true;
 
     # This service requires Docker and the data mount to be ready.
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
+    requires = ["docker.service" "network-online.target" "mnt-data.mount"];
+    after = ["docker.service" "network-online.target" "mnt-data.mount"];
 
     serviceConfig = {
       Type = "oneshot";
@@ -35,6 +38,6 @@
     };
 
     # This ensures the service is started automatically on boot.
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }

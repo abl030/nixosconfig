@@ -1,22 +1,21 @@
 # Ok this is a long one, where to start.
 # I had significant trouble getting this to work, if you get errors try a reboot
 # This mounts via tailscale. I now have access controls so that no one can see nfs shares unless they are on tailscale.
-# Here's the uraid NFS rules: 
-# 100.70.190.0/24(rw,sync,no_subtree_check,anonuid=99,anongid=100,all_squash) 192.168.1.0/24(sec=sys,root_squash,noaccess) 
+# Here's the uraid NFS rules:
+# 100.70.190.0/24(rw,sync,no_subtree_check,anonuid=99,anongid=100,all_squash) 192.168.1.0/24(sec=sys,root_squash,noaccess)
 # The id stuff squashes all requests to nobody/users which is default unraid and just leads to less headaches.
-{ pkgs, ... }:
-{
-  environment.systemPackages = with pkgs; [ nfs-utils ];
+{pkgs, ...}: {
+  environment.systemPackages = with pkgs; [nfs-utils];
   boot.initrd = {
-    supportedFilesystems = [ "nfs" ];
-    kernelModules = [ "nfs" ];
+    supportedFilesystems = ["nfs"];
+    kernelModules = ["nfs"];
   };
 
   fileSystems."/mnt/data" = {
     device = "tower:/mnt/user/data/";
     fsType = "nfs";
     options = [
-      # We need this bit so that the mount works on tailscale. 
+      # We need this bit so that the mount works on tailscale.
       # Otherwise it will load at boot and tailscale isn't up yet.
       # Automount when accessed
       "x-systemd.automount"
@@ -40,7 +39,7 @@
     device = "tower:/mnt/user/appdata/";
     fsType = "nfs";
     options = [
-      # We need this bit so that the mount works on tailscale. 
+      # We need this bit so that the mount works on tailscale.
       # Otherwise it will load at boot and tailscale isn't up yet.
       # Automount when accessed
       "x-systemd.automount"
@@ -57,7 +56,5 @@
       # Use NFS version 4.2
       "nfsvers=4.2"
     ];
-
-
   };
 }

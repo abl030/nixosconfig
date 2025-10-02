@@ -1,13 +1,17 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 # End main configuration set{ config, pkgs, lib, ... }:
-
 let
   # ────────────────────────────────────────────────────────────────────────────
   # Base Starship settings (zsh/default). We’ll generate fish/bash variants
   # from this single source of truth to avoid config drift.
   # ────────────────────────────────────────────────────────────────────────────
   baseStarshipSettings = {
-    programs = { }; # (no-op placeholder so we can paste the original settings intact)
+    programs = {}; # (no-op placeholder so we can paste the original settings intact)
   };
 
   # NOTE: The original content below is your existing settings block verbatim,
@@ -25,17 +29,20 @@ let
           # Added $username and $hostname at the beginning.
           # Adjusted the first separator's colors.
           format =
-            "$username" + # Display username module
-            "$hostname" + # Display hostname module
+            "$username"
+            + # Display username module
+            "$hostname"
+            + # Display hostname module
+            
             # Separator: FG matches hostname BG, BG matches directory BG
-            "[](bg:#769ff0 fg:#394260)" +
-            "$directory" +
-            "[](fg:#769ff0 bg:#394260)" +
-            "$all" +
-            "[](fg:#212736 bg:#1d2230)" +
-            "$time" +
-            "[ ](fg:#1d2230)" +
-            "\n$character"; # The prompt character itself on a new line
+            "[](bg:#769ff0 fg:#394260)"
+            + "$directory"
+            + "[](fg:#769ff0 bg:#394260)"
+            + "$all"
+            + "[](fg:#212736 bg:#1d2230)"
+            + "$time"
+            + "[ ](fg:#1d2230)"
+            + "\n$character"; # The prompt character itself on a new line
 
           # --- Module Configurations ---
           # NEW: Username Module Configuration
@@ -132,14 +139,13 @@ let
   # We only replace the accent hex "769ff0" in your format string and
   # update the directory bg color. All other settings stay identical.
   # ────────────────────────────────────────────────────────────────────────────
-  mkSettingsWithAccent =
-    accentHex:
-    let
-      base = baseStarshipSettingsReal.programs.starship.settings;
-      replacedFormat = builtins.replaceStrings [ "769ff0" ] [ accentHex ] base.format;
-      newDirectory = base.directory // { style = "fg:#394260 bg:#${accentHex}"; };
-    in
-    base // {
+  mkSettingsWithAccent = accentHex: let
+    base = baseStarshipSettingsReal.programs.starship.settings;
+    replacedFormat = builtins.replaceStrings ["769ff0"] [accentHex] base.format;
+    newDirectory = base.directory // {style = "fg:#394260 bg:#${accentHex}";};
+  in
+    base
+    // {
       format = replacedFormat;
       directory = newDirectory;
     };
@@ -152,9 +158,8 @@ let
   fishSettings = mkSettingsWithAccent fishAccent;
   bashSettings = mkSettingsWithAccent bashAccent;
 
-  toml = pkgs.formats.toml { };
-in
-{
+  toml = pkgs.formats.toml {};
+in {
   # Keep your original behavior for zsh (default) exactly the same.
   programs.starship.enable = true;
   programs.starship.enableFishIntegration = true;
@@ -167,4 +172,3 @@ in
   home.file.".config/starship-fish.toml".source = toml.generate "starship-fish.toml" fishSettings;
   home.file.".config/starship-bash.toml".source = toml.generate "starship-bash.toml" bashSettings;
 }
-

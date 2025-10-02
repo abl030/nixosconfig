@@ -1,10 +1,12 @@
-{ lib, config, pkgs, ... }:
-
-let
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}: let
   # Define the path to your scripts directory for cleaner aliases.
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
-in
-{
+in {
   # Import modules for tools that will be integrated into the shell.
   imports = [
     ../utils/starship.nix # Starship config is shell-agnostic, we can reuse it.
@@ -20,13 +22,13 @@ in
 
     # --- History Settings ---
     # Replicate some of Zsh's sensible history defaults.
-    historyControl = [ "ignoredups" "erasedups" ];
+    historyControl = ["ignoredups" "erasedups"];
     historySize = 10000;
     historyFileSize = 10000;
 
     # --- Aliases ---
     # Directly translated from your zsh config.
-    shellAliases = (import ../../modules/home-manager/shell/aliases.nix { inherit lib config; }).sh;
+    shellAliases = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).sh;
 
     # --- Custom Scripts and Initialization ---
     initExtra = ''
@@ -59,4 +61,3 @@ in
   # or syntax highlighting out of the box. `enableCompletion` provides
   # standard tab-completion, which is the primary QoL feature for Bash.
 }
-

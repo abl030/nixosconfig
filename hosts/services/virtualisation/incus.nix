@@ -1,7 +1,10 @@
 # Filename: basic-incus-setup.nix
-{ config, lib, pkgs, ... }:
-
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   # 1. Enable Incus
   # This will start the incusd daemon and related services.
   virtualisation.incus.enable = true;
@@ -14,7 +17,7 @@
   # User Group for Administration:
   # To manage Incus without `sudo` for every `incus` command, add your
   # user to the "incus-admin" group in your main NixOS configuration:
-  users.users.abl030.extraGroups = [ "incus-admin" ];
+  users.users.abl030.extraGroups = ["incus-admin"];
 
   virtualisation.incus.preseed = {
     networks = [
@@ -55,6 +58,5 @@
       }
     ];
   };
-  networking.firewall.trustedInterfaces = [ "incusbr0" ];
+  networking.firewall.trustedInterfaces = ["incusbr0"];
 }
-

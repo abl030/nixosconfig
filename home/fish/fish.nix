@@ -1,7 +1,10 @@
 # ./home/fish/fish.nix
-{ lib, config, pkgs, ... }:
-
-let
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}: let
   flakeBase = "${config.home.homeDirectory}/nixosconfig";
   zshDir = "${flakeBase}/home/zsh";
 
@@ -10,7 +13,8 @@ let
   copycr = ../zsh/copycr.sh;
 
   # Build-time generator: ask Bash for function names, emit Fish wrappers.
-  bashWrappers = pkgs.runCommand "bash-function-wrappers.fish"
+  bashWrappers =
+    pkgs.runCommand "bash-function-wrappers.fish"
     {
       inherit myFunctions copycr;
       bash = "${pkgs.bash}/bin/bash";
@@ -46,9 +50,7 @@ let
               done < names.txt
             } > "$out"
     '';
-
-in
-{
+in {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
@@ -73,7 +75,7 @@ in
     '';
 
     # Your existing abbreviations
-    shellAbbrs = (import ../../modules/home-manager/shell/aliases.nix { inherit lib config; }).fish;
+    shellAbbrs = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).fish;
   };
 
   programs.starship.enableFishIntegration = true;
@@ -92,4 +94,3 @@ in
   # just function definitions; shadowing still guarded by `type -q`).
   xdg.configFile."fish/conf.d/10-bash-wrappers.fish".source = bashWrappers;
 }
-

@@ -1,8 +1,11 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   services.printing.enable = true;
-  services.printing.drivers = [ pkgs.cups-brother-mfcl2750dw ];
+  services.printing.drivers = [pkgs.cups-brother-mfcl2750dw];
 
   # Disable CUPS Browse-d as everything uses IPP and it causes random hangs on shutdown/reboot
   services.printing.browsed.enable = false;

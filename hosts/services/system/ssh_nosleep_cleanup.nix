@@ -1,6 +1,9 @@
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   # Create a PATH with all required utilities
   requiredPaths = lib.makeBinPath [
     pkgs.bash
@@ -14,23 +17,23 @@ let
 
   monitor_script = pkgs.writeScript "session-monitor" ''
     #!${pkgs.bash}/bin/bash
-    
+
     # Set PATH to include all required utilities
     export PATH=${requiredPaths}:$PATH
-    
+
     PID_FILE="/tmp/ssh_sleep_block.pid"
-    
+
     check_sessions() {
         # Check for any pts sessions
         active_pts=$(who | grep -c "pts/")
-        
+
         if [ "$active_pts" -eq 0 ] && [ -f "$PID_FILE" ]; then
             # No active pts sessions and PID file exists
             logger "No active pts sessions found, cleaning up inhibitor"
-            
+
             # Get PID from the PID file first
             pid_from_file=$(cat "$PID_FILE")
-            
+
             # Find the sleep inhibitor process
             # Match the specific inhibitor we created and get its PID
             inhibitor_info=$(systemd-inhibit --list | grep "sleep.*Active SSH")
@@ -51,24 +54,23 @@ let
                     fi
                 fi
             fi
-            
+
             # Clean up PID file
             rm -f "$PID_FILE"
         fi
     }
-    
+
     # Run check every second
     while true; do
         check_sessions
         sleep 1
     done
   '';
-in
-{
+in {
   systemd.services.session-monitor = {
     description = "Monitor SSH/Tailscale sessions for sleep inhibition";
-    after = [ "network.target" ];
-    wantedBy = [ "multi-user.target" ];
+    after = ["network.target"];
+    wantedBy = ["multi-user.target"];
 
     serviceConfig = {
       Type = "simple";

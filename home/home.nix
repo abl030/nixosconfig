@@ -1,5 +1,10 @@
-{ config, pkgs, homeDirectory, inputs, ... }:
 {
+  config,
+  pkgs,
+  homeDirectory,
+  inputs,
+  ...
+}: {
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   # home.username = username;
@@ -14,7 +19,7 @@
   # release notes.
   home.stateVersion = "24.05"; # Please read the comment before changing.
   #This is to lower the level of logging by NIXD in ~/.local/state/nvim/lsp.log
-  #This was used during the saga to get home_manager lsp completion through nixd. 
+  #This was used during the saga to get home_manager lsp completion through nixd.
   #It can probably be removed. Remembe the 5 hours we spent on 280924 getting this completion to work.
   #Remember
   # home.sessionVariables.NIXD_FLAGS = "-log=error";
@@ -52,7 +57,7 @@
   nixpkgs = {
     config = {
       allowUnfree = true;
-      allowUnfreePredicate = (_: true);
+      allowUnfreePredicate = _: true;
     };
   };
   # The home.packages option allows you to install Nix packages into your
@@ -120,7 +125,6 @@
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
-
 
   # programs.git = {
   #   enable = true;

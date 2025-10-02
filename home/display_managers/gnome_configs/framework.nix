@@ -1,13 +1,10 @@
 # Generated via dconf2nix: https://github.com/gvolpe/dconf2nix
-{ lib, ... }:
-
-with lib.hm.gvariant;
-
-{
+{lib, ...}:
+with lib.hm.gvariant; {
   dconf.settings = {
     "org/gnome/Console" = {
       last-window-maximised = true;
-      last-window-size = mkTuple [ 492 384 ];
+      last-window-size = mkTuple [492 384];
     };
 
     "org/gnome/Extensions" = {
@@ -15,8 +12,8 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/desktop/app-folders/folders/Utilities" = {
-      apps = [ "gnome-abrt.desktop" "gnome-system-log.desktop" "nm-connection-editor.desktop" "org.gnome.baobab.desktop" "org.gnome.Connections.desktop" "org.gnome.DejaDup.desktop" "org.gnome.Dictionary.desktop" "org.gnome.DiskUtility.desktop" "org.gnome.Evince.desktop" "org.gnome.FileRoller.desktop" "org.gnome.fonts.desktop" "org.gnome.Loupe.desktop" "org.gnome.seahorse.Application.desktop" "org.gnome.tweaks.desktop" "org.gnome.Usage.desktop" "vinagre.desktop" ];
-      categories = [ "X-GNOME-Utilities" ];
+      apps = ["gnome-abrt.desktop" "gnome-system-log.desktop" "nm-connection-editor.desktop" "org.gnome.baobab.desktop" "org.gnome.Connections.desktop" "org.gnome.DejaDup.desktop" "org.gnome.Dictionary.desktop" "org.gnome.DiskUtility.desktop" "org.gnome.Evince.desktop" "org.gnome.FileRoller.desktop" "org.gnome.fonts.desktop" "org.gnome.Loupe.desktop" "org.gnome.seahorse.Application.desktop" "org.gnome.tweaks.desktop" "org.gnome.Usage.desktop" "vinagre.desktop"];
+      categories = ["X-GNOME-Utilities"];
       name = "X-GNOME-Utilities.directory";
       translate = true;
     };
@@ -58,26 +55,26 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/desktop/wm/keybindings" = {
-      maximize = [ "<Super>Up" ];
-      move-to-monitor-down = [ "<Super><Shift>Down" ];
-      move-to-monitor-left = [ "<Super><Shift>Left" ];
-      move-to-monitor-right = [ "<Super><Shift>Right" ];
-      move-to-monitor-up = [ "<Super><Shift>Up" ];
-      move-to-workspace-down = [ "<Control><Shift><Alt>Down" ];
-      move-to-workspace-left = [ "<Super><Shift>Page_Up" "<Super><Shift><Alt>Left" "<Control><Shift><Alt>Left" ];
-      move-to-workspace-right = [ "<Super><Shift>Page_Down" "<Super><Shift><Alt>Right" "<Control><Shift><Alt>Right" ];
-      move-to-workspace-up = [ "<Control><Shift><Alt>Up" ];
-      switch-applications = [ "<Super>Tab" "<Alt>Tab" ];
-      switch-applications-backward = [ "<Shift><Super>Tab" "<Shift><Alt>Tab" ];
-      switch-group = [ "<Super>Above_Tab" "<Alt>Above_Tab" ];
-      switch-group-backward = [ "<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab" ];
-      switch-panels = [ "<Control><Alt>Tab" ];
-      switch-panels-backward = [ "<Shift><Control><Alt>Tab" ];
-      switch-to-workspace-1 = [ "<Super>Home" ];
-      switch-to-workspace-last = [ "<Super>End" ];
-      switch-to-workspace-left = [ "<Super>Page_Up" "<Super><Alt>Left" "<Control><Alt>Left" ];
-      switch-to-workspace-right = [ "<Super>Page_Down" "<Super><Alt>Right" "<Control><Alt>Right" ];
-      unmaximize = [ "<Super>Down" "<Alt>F5" ];
+      maximize = ["<Super>Up"];
+      move-to-monitor-down = ["<Super><Shift>Down"];
+      move-to-monitor-left = ["<Super><Shift>Left"];
+      move-to-monitor-right = ["<Super><Shift>Right"];
+      move-to-monitor-up = ["<Super><Shift>Up"];
+      move-to-workspace-down = ["<Control><Shift><Alt>Down"];
+      move-to-workspace-left = ["<Super><Shift>Page_Up" "<Super><Shift><Alt>Left" "<Control><Shift><Alt>Left"];
+      move-to-workspace-right = ["<Super><Shift>Page_Down" "<Super><Shift><Alt>Right" "<Control><Shift><Alt>Right"];
+      move-to-workspace-up = ["<Control><Shift><Alt>Up"];
+      switch-applications = ["<Super>Tab" "<Alt>Tab"];
+      switch-applications-backward = ["<Shift><Super>Tab" "<Shift><Alt>Tab"];
+      switch-group = ["<Super>Above_Tab" "<Alt>Above_Tab"];
+      switch-group-backward = ["<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab"];
+      switch-panels = ["<Control><Alt>Tab"];
+      switch-panels-backward = ["<Shift><Control><Alt>Tab"];
+      switch-to-workspace-1 = ["<Super>Home"];
+      switch-to-workspace-last = ["<Super>End"];
+      switch-to-workspace-left = ["<Super>Page_Up" "<Super><Alt>Left" "<Control><Alt>Left"];
+      switch-to-workspace-right = ["<Super>Page_Down" "<Super><Alt>Right" "<Control><Alt>Right"];
+      unmaximize = ["<Super>Down" "<Alt>F5"];
     };
 
     "org/gnome/desktop/wm/preferences" = {
@@ -90,7 +87,7 @@ with lib.hm.gvariant;
 
     "org/gnome/epiphany/state" = {
       is-maximized = true;
-      window-size = mkTuple [ 1128 720 ];
+      window-size = mkTuple [1128 720];
     };
 
     "org/gnome/settings-daemon/plugins/power" = {
@@ -102,9 +99,9 @@ with lib.hm.gvariant;
     };
 
     "org/gnome/shell" = {
-      command-history = [ "r" ];
-      enabled-extensions = [ "drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us" ];
-      favorite-apps = [ "org.kde.dolphin.desktop" "firefox.desktop" "google-chrome.desktop" ];
+      command-history = ["r"];
+      enabled-extensions = ["drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us"];
+      favorite-apps = ["org.kde.dolphin.desktop" "firefox.desktop" "google-chrome.desktop"];
     };
 
     "org/gnome/shell/extensions/blur-my-shell" = {
@@ -142,7 +139,7 @@ with lib.hm.gvariant;
     "org/gnome/shell/extensions/dash-to-panel" = {
       appicon-margin = 8;
       appicon-padding = 4;
-      available-monitors = [ 0 ];
+      available-monitors = [0];
       dot-position = "BOTTOM";
       group-apps = true;
       hotkeys-overlay-combo = "TEMPORARILY";
@@ -216,9 +213,8 @@ with lib.hm.gvariant;
       sort-directories-first = false;
       sort-order = "descending";
       type-format = "category";
-      window-position = mkTuple [ 26 23 ];
-      window-size = mkTuple [ 740 534 ];
+      window-position = mkTuple [26 23];
+      window-size = mkTuple [740 534];
     };
-
   };
 }

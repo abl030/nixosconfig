@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = [
     # pkgs.dolphin
     pkgs.kdePackages.dolphin
@@ -19,7 +21,5 @@
     pkgs.spotify
     pkgs.nvtopPackages.amd
     pkgs.acpi
-
   ];
 }
- 

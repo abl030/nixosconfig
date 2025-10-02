@@ -1,7 +1,9 @@
-{ pkgs, inputs, ... }:
-
 {
-  imports = [ inputs.plasma-manager.homeManagerModules.plasma-manager ];
+  pkgs,
+  inputs,
+  ...
+}: {
+  imports = [inputs.plasma-manager.homeManagerModules.plasma-manager];
 
   programs.plasma = {
     enable = true;
@@ -40,7 +42,7 @@
       {
         location = "top";
         height = 26;
-        widgets = [ "org.kde.plasma.appmenu" ];
+        widgets = ["org.kde.plasma.appmenu"];
       }
     ];
 
