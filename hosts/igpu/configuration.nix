@@ -1,39 +1,38 @@
 # Edit this configuration file to define what should be installed on
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-
-{ config, lib, pkgs, ... }:
-
 {
-  imports =
-    [
-      # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      # ../services/jellyfin/jellyfin.nix
-      ../services/mounts/nfs_local.nix
-      # We need fuse mounts for jellyfin inotify
-      ../services/mounts/fuse.nix
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    # ../services/jellyfin/jellyfin.nix
+    ../services/mounts/nfs_local.nix
+    # We need fuse mounts for jellyfin inotify
+    ../services/mounts/fuse.nix
 
-      ../services/tailscale/tailscale.nix
-      ../common/ssh.nix
+    ../services/tailscale/tailscale.nix
+    ../common/ssh.nix
 
-      # Our docker services
-      ../../docker/jellyfinn/docker-compose.nix
-      ../../docker/management/igpu/docker_compose.nix
-      ../../docker/plex/docker-compose.nix
-    ];
+    # Our docker services
+    ../../docker/jellyfinn/docker-compose.nix
+    ../../docker/management/igpu/docker_compose.nix
+    ../../docker/plex/docker-compose.nix
+  ];
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-
-
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Use Flakes
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 
   # Igpu test
   hardware.graphics = {
@@ -69,9 +68,6 @@
   # Enable the X11 windowing system.
   # services.xserver.enable = true;
 
-
-
-
   # Configure keymap in X11
   # services.xserver.xkb.layout = "us";
   # services.xserver.xkb.options = "eurosign:e,caps:escape";
@@ -94,7 +90,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "docker" "wheel" "video" "render" ]; # Enable ‘sudo’ for the user.
+    extraGroups = ["docker" "wheel" "video" "render"]; # Enable ‘sudo’ for the user.
     packages = with pkgs; [
       git
     ];
@@ -109,7 +105,6 @@
     libva-utils
     radeontop
     nvtopPackages.amd
-
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -157,6 +152,4 @@
   #
   # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
   system.stateVersion = "25.05"; # Did you read the comment?
-
 }
-

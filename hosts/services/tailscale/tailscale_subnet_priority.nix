@@ -3,22 +3,22 @@
 # the Tailscale service is started.
 # It checks if the system is on the target network (192.168.1.0/24) and
 # adds a routing rule so that packets are routed on the local network and not tailscale.
-# this lets us run with --accept-routes=true and have the local network accessible. 
+# this lets us run with --accept-routes=true and have the local network accessible.
 # But also lets the laptop roam on other networks.
-
 # This biggest problem I forsee is when we connect to a newtwork in the 192.168.1.0/24 range
 # and its not our network. Then things may break. Who knows!
-
-
-{ config, lib, pkgs, ... }:
-
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   systemd.services.tailscale-lan-priority = {
     description = "Manage Tailscale LAN routing priorities";
-    after = [ "network.target" "tailscaled.service" ];
-    requires = [ "tailscaled.service" ];
-    wantedBy = [ "multi-user.target" ];
-    path = [ pkgs.iproute2 pkgs.util-linux pkgs.gawk ];
+    after = ["network.target" "tailscaled.service"];
+    requires = ["tailscaled.service"];
+    wantedBy = ["multi-user.target"];
+    path = [pkgs.iproute2 pkgs.util-linux pkgs.gawk];
 
     serviceConfig = {
       Type = "oneshot";
@@ -73,4 +73,3 @@
     };
   };
 }
-

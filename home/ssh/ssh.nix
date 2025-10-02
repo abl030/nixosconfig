@@ -1,10 +1,14 @@
 # We are 100% in on tailscale SSH. The biggest problem is X11 forwarding. See: https://github.com/tailscale/tailscale/issues/5160
 # So, what we do is make sure the normal sshd is running and either block it at the firewall for nix hosts or just set a unique 127.0.0.0/0 address for non-nix hosts.
-# The hostname address in the matchblocks must be unique for each host, otherwise it will check known_hosts and fail. 
+# The hostname address in the matchblocks must be unique for each host, otherwise it will check known_hosts and fail.
 # So we now have no open ports but still use X11 forwarding. #SECURE.
-
-{ config, inputs, home, pkgs, ... }:
 {
+  config,
+  inputs,
+  home,
+  pkgs,
+  ...
+}: {
   home.file = {
     # ".ssh/authorized_keys".source = ./authorized_keys;
     # ".ssh/config".source = ./config;
@@ -20,7 +24,7 @@
         forwardX11 = true;
         forwardX11Trusted = true;
         setEnv = {
-          # Needed for sudo on remote hosts to work with ghostty. Check removing it as ncurses is adopted. 
+          # Needed for sudo on remote hosts to work with ghostty. Check removing it as ncurses is adopted.
           TERM = "xterm-256color";
         };
       };

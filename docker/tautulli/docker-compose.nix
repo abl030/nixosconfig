@@ -1,6 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   systemd.services.tautulli-stack = {
     description = "Tautulli Docker Compose Stack";
 
@@ -8,10 +11,10 @@
     reloadIfChanged = true;
 
     # This service requires the Docker daemon to be running.
-    requires = [ "docker.service" "network-online.target" ];
+    requires = ["docker.service" "network-online.target"];
 
     # It should start after the Docker daemon and network are ready.
-    after = [ "docker.service" "network-online.target" ];
+    after = ["docker.service" "network-online.target"];
 
     # This section corresponds to the [Service] block in a systemd unit file.
     serviceConfig = {
@@ -46,6 +49,6 @@
 
     # This section corresponds to the [Install] block in a systemd unit file.
     # This ensures the service is started automatically on boot.
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }

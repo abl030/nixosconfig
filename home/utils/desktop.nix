@@ -1,6 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   home.packages = [
     # pkgs.kitty
     pkgs.plexamp
@@ -36,12 +39,10 @@
     pkgs.pinta
     pkgs.usbutils
     # pkgs.pulseaudioFull
-
   ];
 
   imports = [
     ../terminals/ghostty/ghostty.nix
     ../utils/vscode.nix
   ];
-
 }

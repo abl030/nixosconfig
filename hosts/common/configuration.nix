@@ -1,23 +1,25 @@
 # Edit this configuration file to define what should be installed on
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
-
-{ config, pkgs, inputs, system, ... }:
-
 {
-  imports =
-    [
-      ./auto_update.nix
-      ./printing.nix
-      ./ssh.nix
-    ];
+  config,
+  pkgs,
+  inputs,
+  system,
+  ...
+}: {
+  imports = [
+    ./auto_update.nix
+    ./printing.nix
+    ./ssh.nix
+  ];
 
   # for Zsh autocompletion
-  environment.pathsToLink = [ "/share/zsh" ];
+  environment.pathsToLink = ["/share/zsh"];
 
   # add in nix-ld for non-nix binaries
   programs.nix-ld.enable = true;
-  programs.nix-ld.libraries = [ ];
+  programs.nix-ld.libraries = [];
 
   programs.bash.blesh.enable = true;
 
@@ -37,7 +39,7 @@
         # Using "*" applies it to all detected keyboards.
         # Alternatively, you can get specific vendor:product IDs using `sudo keyd -l`
         # e.g., ids = [ "046d:c077" ]; # Example for a Logitech mouse (not a keyboard, just for ID format)
-        ids = [ "*" ];
+        ids = ["*"];
 
         # The 'settings' attribute set maps directly to the keyd configuration file format.
         settings = {
@@ -61,7 +63,7 @@
 
   # Optimise nix store to save space daily.
   nix.optimise.automatic = true;
-  nix.optimise.dates = [ "03:45" ]; # Optional; allows customizing optimisation schedule
+  nix.optimise.dates = ["03:45"]; # Optional; allows customizing optimisation schedule
 
   # Automate garbage collection
   nix.gc = {

@@ -1,6 +1,8 @@
 # ./modules/home-manager/shell/aliases.nix
-{ lib, config }:
-let
+{
+  lib,
+  config,
+}: let
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
 
   # --- Base commands written once ---
@@ -29,28 +31,34 @@ let
 
   # --- Transformations for POSIX-like shells (bash, zsh) ---
   # Replaces "; and " with " && " and adds shell-specific overrides.
-  toSh = lib.mapAttrs
-    (_: v:
-      lib.replaceStrings [ "; and " ] [ " && " ] v
+  toSh =
+    lib.mapAttrs
+    (
+      _: v:
+        lib.replaceStrings ["; and "] [" && "] v
     )
-    base // {
-    ssh_epi = "epi! && ssh epi";
-  };
+    base
+    // {
+      ssh_epi = "epi! && ssh epi";
+    };
 
   # --- Transformations for Fish ---
   # Fish keeps `; and` and has its own overrides.
-  toFish = base // {
-    ssh_epi = "epi!; and ssh epi";
-  };
+  toFish =
+    base
+    // {
+      ssh_epi = "epi!; and ssh epi";
+    };
 
   # --- Transformations for Zsh ---
   # Zsh is like other sh shells, but with a `noglob` tweak.
-  toZsh = toSh // {
-    ytsum = "noglob ytsum";
-    ytlisten = "noglob ytlisten";
-  };
-in
-{
+  toZsh =
+    toSh
+    // {
+      ytsum = "noglob ytsum";
+      ytlisten = "noglob ytlisten";
+    };
+in {
   # The final, exported attribute set for consumption by other modules.
   sh = toSh;
   fish = toFish;

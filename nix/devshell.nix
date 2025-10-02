@@ -8,9 +8,11 @@
 # - Alejandra writes in-place when given real paths. To keep --check/--diff pure,
 #   we always format a *copy* in a temp dir, compare with `cmp`, and only replace
 #   the original file during --write (via a same-dir temp for near-atomic mv).
-
-{ pkgs, lib, ... }:
-let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   # Alejandra-based formatter wrapper with write/check/diff modes.
   fmtNix = pkgs.writeShellApplication {
     name = "fmt-nix";
@@ -125,7 +127,7 @@ let
   # Lint wrapper: deadnix + statix with robust flags and panic detection.
   lintNix = pkgs.writeShellApplication {
     name = "lint-nix";
-    runtimeInputs = [ pkgs.deadnix pkgs.statix pkgs.coreutils ];
+    runtimeInputs = [pkgs.deadnix pkgs.statix pkgs.coreutils];
     text = ''
       set -uo pipefail
 
@@ -172,8 +174,7 @@ let
       exit "$ec"
     '';
   };
-in
-{
+in {
   # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
 
@@ -181,8 +182,14 @@ in
   packages.lint-nix = lintNix;
   packages.fmt-nix = fmtNix;
 
-  apps.lint-nix = { type = "app"; program = "${lib.getExe lintNix}"; };
-  apps.fmt-nix = { type = "app"; program = "${lib.getExe fmtNix}"; };
+  apps.lint-nix = {
+    type = "app";
+    program = "${lib.getExe lintNix}";
+  };
+  apps.fmt-nix = {
+    type = "app";
+    program = "${lib.getExe fmtNix}";
+  };
 
   # Standard dev shell for this repo.
   devShells.default = pkgs.mkShellNoCC {
@@ -205,4 +212,3 @@ in
     '';
   };
 }
-

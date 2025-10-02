@@ -1,6 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   # ===================================================================
   # This is the primary service that starts and stops the Immich stack.
   # It is activated on boot and managed by `systemctl`.
@@ -9,8 +12,8 @@
     description = "Immich Docker Compose Stack";
     restartIfChanged = false;
     reloadIfChanged = true;
-    requires = [ "docker.service" "network-online.target" "mnt-data.mount" ];
-    after = [ "docker.service" "network-online.target" "mnt-data.mount" ];
+    requires = ["docker.service" "network-online.target" "mnt-data.mount"];
+    after = ["docker.service" "network-online.target" "mnt-data.mount"];
 
     serviceConfig = {
       Type = "oneshot";
@@ -27,9 +30,8 @@
       StandardError = "journal";
     };
 
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
-
 
   # ===================================================================
   # This service performs the complete update and restart procedure.
@@ -39,8 +41,8 @@
     description = "Weekly updater for the Immich Docker stack";
 
     # This service should only run if the main stack is already active.
-    requires = [ "immich-stack.service" ];
-    after = [ "immich-stack.service" ];
+    requires = ["immich-stack.service"];
+    after = ["immich-stack.service"];
 
     serviceConfig = {
       Type = "oneshot";
@@ -78,7 +80,6 @@
     '';
   };
 
-
   # ===================================================================
   # This timer triggers the updater service on a schedule.
   # This defines WHEN the update happens.
@@ -87,7 +88,7 @@
     description = "Timer to trigger weekly Immich stack update";
 
     # This ensures the timer is enabled and starts on boot.
-    wantedBy = [ "timers.target" ];
+    wantedBy = ["timers.target"];
 
     timerConfig = {
       # Runs at 1:00 AM every Sunday. You can change this schedule as needed.

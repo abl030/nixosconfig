@@ -1,5 +1,9 @@
-{ config, lib, pkgs, ... }:
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   systemd.services.disable-wireless-hibernate = {
     description = "Disable WiFi and Bluetooth before hibernation/sleep";
     wantedBy = [
@@ -17,7 +21,7 @@
     script = ''
       # Disable WiFi
       ${pkgs.networkmanager}/bin/nmcli radio wifi off || true
-      
+
       # Disable Bluetooth
       ${pkgs.bluez}/bin/bluetoothctl power off || true
     '';
@@ -41,7 +45,7 @@
     script = ''
       # Re-enable WiFi
       ${pkgs.networkmanager}/bin/nmcli radio wifi on || true
-      
+
       # Re-enable Bluetooth
       ${pkgs.bluez}/bin/bluetoothctl power on || true
 

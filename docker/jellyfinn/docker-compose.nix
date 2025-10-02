@@ -1,7 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
-
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   # networking.firewall.allowedTCPPorts = [ 8096 8920 ];
   # networking.firewall.allowedUDPPorts = [ 7359 1900 ];
   # ===================================================================
@@ -45,9 +47,8 @@
       StandardError = "journal";
     };
 
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
-
 
   # ===================================================================
   # This service performs the complete update and restart procedure.
@@ -57,8 +58,8 @@
     description = "Weekly updater for the Jellyfin Docker stack";
 
     # This service should only run if the main stack is already active.
-    requires = [ "jellyfin-stack.service" ];
-    after = [ "jellyfin-stack.service" ];
+    requires = ["jellyfin-stack.service"];
+    after = ["jellyfin-stack.service"];
 
     serviceConfig = {
       Type = "oneshot";
@@ -95,7 +96,6 @@
     '';
   };
 
-
   # ===================================================================
   # This timer triggers the updater service on a schedule.
   # This defines WHEN the update happens.
@@ -104,7 +104,7 @@
     description = "Timer to trigger weekly Jellyfin stack update";
 
     # This ensures the timer is enabled and starts on boot.
-    wantedBy = [ "timers.target" ];
+    wantedBy = ["timers.target"];
 
     timerConfig = {
       # Runs at 1:00 AM every Sunday. You can change this schedule as needed.

@@ -1,12 +1,14 @@
 # /etc/nixos/cockpit.nix (or your path)
-{ pkgs, lib, config, inputs, ... }:
-
-let
+{
+  pkgs,
+  lib,
+  config,
+  inputs,
+  ...
+}: let
   adminUser = "abl030";
   gaj-shared = inputs.gaj-shared;
-in
-
-{
+in {
   virtualisation.libvirtd = {
     enable = true;
     qemu = {
@@ -29,11 +31,11 @@ in
         # which now includes our 'libvirt-dbus' definition.
       };
 
-      cockpit-files = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-files.nix") { };
+      cockpit-files = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-files.nix") {};
 
-      cockpit-podman = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-podman.nix") { };
+      cockpit-podman = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-podman.nix") {};
 
-      cockpit-sensors = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-sensors.nix") { };
+      cockpit-sensors = final.callPackage (gaj-shared + "/pkgs/cockpit/cockpit-sensors.nix") {};
     })
   ];
 
@@ -42,7 +44,7 @@ in
     enable = true;
     openFirewall = true;
     port = 9090;
-    allowed-origins = [ "https://cockpit.ablz.au" ];
+    allowed-origins = ["https://cockpit.ablz.au"];
   };
 
   # --- Package Installation ---

@@ -4,7 +4,7 @@
 
   # --- Libvirt and Virt-Manager Base Configuration ---
   programs.virt-manager.enable = true;
-  users.groups.libvirtd.members = [ "abl030" ]; # Ensure your user is in this group
+  users.groups.libvirtd.members = ["abl030"]; # Ensure your user is in this group
 
   virtualisation.libvirtd.enable = true;
   virtualisation.spiceUSBRedirection.enable = true;
@@ -14,7 +14,7 @@
 
   # --- System Network Configuration for the Bridge ---
   # 1. Define the bridge interface itself and add your physical interface to it.
-  networking.bridges.br0.interfaces = [ "enp9s0" ]; # Verify "enp9s0" is correct
+  networking.bridges.br0.interfaces = ["enp9s0"]; # Verify "enp9s0" is correct
 
   # 2. Configure the bridge interface (br0) to get an IP via DHCP.
   networking.interfaces.br0.useDHCP = true;

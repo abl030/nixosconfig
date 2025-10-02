@@ -1,6 +1,9 @@
-{ config, pkgs, inputs, ... }:
-
 {
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
   systemd.services.caddy-tailscale-stack = {
     description = "Caddy Tailscale Docker Compose Stack";
 
@@ -8,11 +11,11 @@
     reloadIfChanged = true;
 
     # This service requires the Docker daemon to be running.
-    requires = [ "docker.service" "network-online.target" ];
+    requires = ["docker.service" "network-online.target"];
 
     # It should start after the Docker daemon and network are ready.
     # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
-    after = [ "docker.service" "network-online.target" ];
+    after = ["docker.service" "network-online.target"];
 
     # This section corresponds to the [Service] block in a systemd unit file.
     serviceConfig = {
@@ -46,7 +49,7 @@
 
     # This section corresponds to the [Install] block in a systemd unit file.
     # This ensures the service is started automatically on boot.
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 
   # --- NEW ---
@@ -87,7 +90,7 @@
   # The timer that triggers the updater service.
   systemd.timers.caddy-tailscale-updater = {
     description = "Weekly timer to update the Caddy Tailscale Docker stack";
-    wantedBy = [ "timers.target" ];
+    wantedBy = ["timers.target"];
     timerConfig = {
       # Runs at 1:00 AM every Sunday.
       OnCalendar = "Sun 01:00:00";

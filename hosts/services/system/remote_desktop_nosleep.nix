@@ -1,6 +1,9 @@
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   PID_PATH = "/tmp/rdp_sleep_block.pid";
   PID_PIPE = "rdp_pid_pipe";
 
@@ -18,7 +21,7 @@ let
 
   rdp_monitor_script = pkgs.writeScript "rdp-session-monitor" ''
     #!${pkgs.bash}/bin/bash
-    
+
     check_rdp_sessions() {
       # Check for active gnome-remote-desktop sessions (both port 3389 and 3390)
       num_rdp=$(${pkgs.nettools}/bin/netstat -nt | ${pkgs.gawk}/bin/awk '$4 ~ /:3389$/ || $4 ~ /:3390$/ && $6 == "ESTABLISHED"' | wc -l)
@@ -38,7 +41,7 @@ let
 
     while true; do
       num_sessions=$(check_rdp_sessions)
-      
+
       if [ "$num_sessions" -gt 0 ]; then
         if [ ! -f ${PID_PATH} ]; then
           ${pkgs.utillinux}/bin/logger "RDP Monitor: Starting sleep inhibitor for Remote Desktop session"
@@ -54,16 +57,15 @@ let
           rm -f ${PID_PATH}
         fi
       fi
-      
+
       sleep 10
     done
   '';
-in
-{
+in {
   systemd.services.rdp-sleep-inhibit = {
     description = "GNOME Remote Desktop Sleep Inhibitor";
-    after = [ "network.target" "gnome-remote-desktop.service" ];
-    wantedBy = [ "multi-user.target" ];
+    after = ["network.target" "gnome-remote-desktop.service"];
+    wantedBy = ["multi-user.target"];
 
     path = with pkgs; [
       nettools

@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   # ===================================================================
   # This service starts and stops the Plex stack.
   # It is activated on boot and managed by `systemctl`.
@@ -49,6 +51,6 @@
     };
 
     # Enable the service to start on boot
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }

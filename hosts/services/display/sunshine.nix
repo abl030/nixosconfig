@@ -1,6 +1,9 @@
-{ config, lib, pkgs, ... }:
-
 {
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   environment.systemPackages = with pkgs; [
     pkgs.sunshine
     pkgs.moonlight-qt #for testing purposes.
@@ -23,7 +26,7 @@
   services.avahi.publish.enable = true;
   services.avahi.publish.userServices = true;
 
-  boot.kernelModules = [ "uinput" ];
+  boot.kernelModules = ["uinput"];
 
   # networking.firewall = {
   #   enable = true;
@@ -46,5 +49,4 @@
   #   };
   # };
   #
-
 }

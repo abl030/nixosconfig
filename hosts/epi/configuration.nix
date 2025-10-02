@@ -1,37 +1,38 @@
 # Edit this configuration file to define what should be installed on
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
-
-{ config, pkgs, inputs, ... }:
-
 {
-  imports =
-    [
-      # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      # Our modulat tailscale setup that should work anywhere.
-      ../services/tailscale/tailscale.nix
-      # Our mounts
-      ../services/mounts/nfs.nix
-      # ../services/mounts/cifs.nix
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    # Our modulat tailscale setup that should work anywhere.
+    ../services/tailscale/tailscale.nix
+    # Our mounts
+    ../services/mounts/nfs.nix
+    # ../services/mounts/cifs.nix
 
-      ../services/nvidia/intel.nix
-      ../common/configuration.nix
-      ../common/desktop.nix
-      # sunshine
-      ../services/display/sunshine.nix
-      #disable our autosleep
-      ../services/display/gnome.nix
-      ## And allow gnome-remote-desktop for logged in users
-      ../services/display/gnome-remote-desktop.nix
-      # Lets try the bluetooth fix after suspend for buds 3 pro
-      # ../framework/hibernatefix2.nix
-      # Nosleep scripts
-      ../services/system/remote_desktop_nosleep.nix
+    ../services/nvidia/intel.nix
+    ../common/configuration.nix
+    ../common/desktop.nix
+    # sunshine
+    ../services/display/sunshine.nix
+    #disable our autosleep
+    ../services/display/gnome.nix
+    ## And allow gnome-remote-desktop for logged in users
+    ../services/display/gnome-remote-desktop.nix
+    # Lets try the bluetooth fix after suspend for buds 3 pro
+    # ../framework/hibernatefix2.nix
+    # Nosleep scripts
+    ../services/system/remote_desktop_nosleep.nix
 
-      ../../docker/management/epi_management/docker_compose.nix
-      ../../docker/tdarr/epi/docker-compose.nix
-    ];
+    ../../docker/management/epi_management/docker_compose.nix
+    ../../docker/tdarr/epi/docker-compose.nix
+  ];
 
   services.qemuGuest.enable = true;
   services.fstrim.enable = true;
@@ -50,8 +51,8 @@
   hardware.enableRedistributableFirmware = true;
 
   # 5. Explicitly add i915 module to initrd to ensure it loads early with firmware
-  boot.initrd.kernelModules = [ "i915" ];
-  boot.kernelModules = [ "i915" ]; # Also for main system
+  boot.initrd.kernelModules = ["i915"];
+  boot.kernelModules = ["i915"]; # Also for main system
 
   # lets use the latest kernel because we are stupid
   # boot.kernelPackages = pkgs.linuxPackages_latest;
@@ -125,14 +126,13 @@
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
 
-
   # services.xserver.displayManager.gdm.wayland = false;
   # Remote desktop
   # services.xrdp.enable = true;
   # services.xrdp.defaultWindowManager = "${pkgs.gnome-session}/bin/gnome-session";
   # services.xrdp.defaultWindowManager = "gnome-remote-desktop";
   # services.xrdp.openFirewall = true;
-  systemd.services."gnome-remote-desktop".wantedBy = [ "graphical.target" ];
+  systemd.services."gnome-remote-desktop".wantedBy = ["graphical.target"];
   # services.gnome.gnome-remote-desktop.enable = true;
   # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in GUI!
   # If no user is logged in, the machine will power down after 20 minutes.
@@ -185,7 +185,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
+    extraGroups = ["networkmanager" "wheel" "libvirtd" "vboxusers" "docker"];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -212,7 +212,6 @@
   # programs.fish.enable = true;
   programs.zsh.enable = true;
 
-
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
@@ -231,7 +230,7 @@
     3389
     3390
   ];
-  networking.firewall.allowedUDPPorts = [ 5140 ];
+  networking.firewall.allowedUDPPorts = [5140];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
@@ -242,7 +241,7 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = ["nix-command" "flakes"];
   # nix = {
   #   package = pkgs.nixFlakes;
   #   extraOptions = ''

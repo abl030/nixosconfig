@@ -1,12 +1,15 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  ...
+}:
 # Old way using a custom systemd service.
 let
   # hibernateEnvironment = {
   #   HIBERNATE_SECONDS = "3600";
   #   HIBERNATE_LOCK = "/var/run/autohibernate.lock";
   # };
-in
-{
+in {
   # systemd.services."awake-after-suspend-for-a-time" = {
   #   description = "Sets up the suspend so that it'll wake for hibernation";
   #   wantedBy = [ "suspend.target" ];
@@ -39,11 +42,9 @@ in
   # };
   #
 
-
-
   # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221?permalink_comment_id=5275164#gistcomment-5275164
   # actually lets let systemd do the hibernation for us
-  # 
+  #
   #
   # There are a couple more lid options in NixOS:
   # https://search.nixos.org/options?channel=24.05&from=0&size=50&sort=relevance&type=packages&query=services.logind.lidSwitch

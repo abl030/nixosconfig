@@ -1,18 +1,17 @@
 # Resilient static NFS mounts for a local server.
 # Version with explicit network-online dependency.
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   # Ensure networking services are configured to wait for an active connection
   # before declaring the network to be "online". This makes network-online.target reliable.
   systemd.services.systemd-networkd-wait-online.enable = true;
 
   # Required for NFS client functionality.
-  environment.systemPackages = with pkgs; [ nfs-utils ];
+  environment.systemPackages = with pkgs; [nfs-utils];
 
   # Ensures the kernel has NFS support during the boot process.
   boot.initrd = {
-    supportedFilesystems = [ "nfs" ];
-    kernelModules = [ "nfs" ];
+    supportedFilesystems = ["nfs"];
+    kernelModules = ["nfs"];
   };
 
   fileSystems."/mnt/data" = {

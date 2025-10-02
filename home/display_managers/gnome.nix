@@ -1,8 +1,9 @@
-{ hostname, config, pkgs, ... }:
-
 {
-
-
+  hostname,
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = [
     pkgs.gnome-tweaks
     pkgs.gnomeExtensions.dash-to-panel
@@ -35,5 +36,4 @@
 
   # Fixes the background colour issue with Dolphin
   home.file.".config/kdeglobals".source = ./kdeglobals;
-
 }

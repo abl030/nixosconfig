@@ -1,15 +1,17 @@
 # FUSE union mounts for Jellyfin: Metadata (RW) + Media (RO) -> single view
-{ pkgs, lib, ... }:
-
-let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   # Common mergerfs flags:
   # - category.create=ff => always create in first branch (Metadata)
   # - per-branch =RW/=RO => hard safety
   # - cache.files=off,use_ino,dropcacheonclose => good for inotify/freshness
   # - moveonenospc,minfreespace => nicer low-space behavior
   baseFlags =
-    "allow_other,use_ino,cache.files=off,dropcacheonclose=true," +
-    "moveonenospc=true,minfreespace=20G,category.create=ff";
+    "allow_other,use_ino,cache.files=off,dropcacheonclose=true,"
+    + "moveonenospc=true,minfreespace=20G,category.create=ff";
 
   # Helpers to build safe shell commands (handles spaces via proper quoting)
   sh = "${pkgs.bash}/bin/bash";
@@ -28,10 +30,9 @@ let
 
   # Build a shell-wrapped ExecStart so quoted args with spaces work reliably
   mkExecStart = branchArgs: dest:
-    "${sh} -lc " + lib.escapeShellArg ("${mfs} -f -o ${baseFlags} '${branchArgs}' '${dest}'");
-in
-{
-  environment.systemPackages = with pkgs; [ mergerfs ];
+    "${sh} -lc " + lib.escapeShellArg "${mfs} -f -o ${baseFlags} '${branchArgs}' '${dest}'";
+in {
+  environment.systemPackages = with pkgs; [mergerfs];
   programs.fuse.userAllowOther = true;
 
   # Ensure target mountpoints exist
@@ -46,9 +47,9 @@ in
   # Movies
   systemd.services."fuse-mergerfs-movies" = {
     description = "mergerfs union for Movies (Metadata=RW, Media=RO)";
-    after = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
-    bindsTo = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
+    bindsTo = ["mnt-data.mount"];
     serviceConfig = {
       Type = "simple";
       ExecStart = mkExecStart brMovies dstMovies;
@@ -56,37 +57,36 @@ in
       Restart = "on-failure";
     };
     # We rely on mnt-data.mount; path checks are optional here since both branches live under /mnt/data
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 
   # TV Shows (note the space in the source path is handled via shell quoting)
   systemd.services."fuse-mergerfs-tv" = {
     description = "mergerfs union for TV Shows (Metadata=RW, Media=RO)";
-    after = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
-    bindsTo = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
+    bindsTo = ["mnt-data.mount"];
     serviceConfig = {
       Type = "simple";
       ExecStart = mkExecStart brTV dstTV;
       ExecStop = "${umnt} ${dstTV}";
       Restart = "on-failure";
     };
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 
   # Music
   systemd.services."fuse-mergerfs-music" = {
     description = "mergerfs union for Music (Metadata=RW, Media=RO)";
-    after = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
-    bindsTo = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
+    bindsTo = ["mnt-data.mount"];
     serviceConfig = {
       Type = "simple";
       ExecStart = mkExecStart brMusic dstMusic;
       ExecStop = "${umnt} ${dstMusic}";
       Restart = "on-failure";
     };
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = ["multi-user.target"];
   };
 }
-

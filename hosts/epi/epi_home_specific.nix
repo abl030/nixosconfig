@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = [
     pkgs.kdePackages.dolphin
     # These are our thumbnailers. QT5 because we using LXQT.
@@ -17,11 +19,8 @@
     # pkgs.ghostty
     # pkgs.retroarchFull
     pkgs.winePackages.full
-
   ];
   imports = [
     # ../../home/zsh/zsh2.nix
   ];
-
 }
- 

@@ -1,14 +1,12 @@
 # /etc/nixos/configuration.nix
-{ pkgs, ... }:
-
-{
+{pkgs, ...}: {
   programs.vscode = {
     enable = true;
     # package = pkgs.vscodium; # If using VSCodium
 
     profiles.default.extensions = with pkgs.vscode-extensions; [
       # Essential Vim emulation
-      vscodevim.vim # 
+      vscodevim.vim #
 
       # Your existing extensions:
       rust-lang.rust-analyzer # Rust Analyzer
@@ -22,7 +20,10 @@
 
       # jj for Escape in Insert Mode
       "vim.insertModeKeyBindings" = [
-        { "before" = [ "j" "j" ]; "after" = [ "<Esc>" ]; }
+        {
+          "before" = ["j" "j"];
+          "after" = ["<Esc>"];
+        }
       ];
 
       # Optional: jj for Escape in Visual Mode (if you ever type jj accidentally)
@@ -40,25 +41,73 @@
       # or by looking them up.
       "vim.normalModeKeyBindingsNonRecursive" = [
         # File operations
-        { "before" = [ "<leader>" "f" "f" ]; "commands" = [ "workbench.action.quickOpen" ]; "comment" = "Find File (Ctrl+P)"; }
-        { "before" = [ "<leader>" "f" "s" ]; "commands" = [ "workbench.action.files.save" ]; "comment" = "Save File (Ctrl+S)"; }
-        { "before" = [ "<leader>" "w" "q" ]; "commands" = [ "workbench.action.closeActiveEditor" ]; "comment" = "Close current tab/editor"; }
-        { "before" = [ "<leader>" "w" "d" ]; "commands" = [ "workbench.action.closeActiveEditor" ]; "comment" = "Same as wq, delete window"; }
+        {
+          "before" = ["<leader>" "f" "f"];
+          "commands" = ["workbench.action.quickOpen"];
+          "comment" = "Find File (Ctrl+P)";
+        }
+        {
+          "before" = ["<leader>" "f" "s"];
+          "commands" = ["workbench.action.files.save"];
+          "comment" = "Save File (Ctrl+S)";
+        }
+        {
+          "before" = ["<leader>" "w" "q"];
+          "commands" = ["workbench.action.closeActiveEditor"];
+          "comment" = "Close current tab/editor";
+        }
+        {
+          "before" = ["<leader>" "w" "d"];
+          "commands" = ["workbench.action.closeActiveEditor"];
+          "comment" = "Same as wq, delete window";
+        }
         # Buffer/Tab navigation (VS Code uses "editors" or "tabs")
-        { "before" = [ "<leader>" "b" "n" ]; "commands" = [ "workbench.action.nextEditor" ]; "comment" = "Next tab"; }
-        { "before" = [ "<leader>" "b" "p" ]; "commands" = [ "workbench.action.previousEditor" ]; "comment" = "Previous tab"; }
-        { "before" = [ "<leader>" "b" "d" ]; "commands" = [ "workbench.action.closeActiveEditor" ]; "comment" = "Close current tab (buffer delete)"; }
+        {
+          "before" = ["<leader>" "b" "n"];
+          "commands" = ["workbench.action.nextEditor"];
+          "comment" = "Next tab";
+        }
+        {
+          "before" = ["<leader>" "b" "p"];
+          "commands" = ["workbench.action.previousEditor"];
+          "comment" = "Previous tab";
+        }
+        {
+          "before" = ["<leader>" "b" "d"];
+          "commands" = ["workbench.action.closeActiveEditor"];
+          "comment" = "Close current tab (buffer delete)";
+        }
         # Terminal
-        { "before" = [ "<leader>" "t" "n" ]; "commands" = [ "workbench.action.terminal.toggleTerminal" ]; "comment" = "Toggle Terminal"; }
+        {
+          "before" = ["<leader>" "t" "n"];
+          "commands" = ["workbench.action.terminal.toggleTerminal"];
+          "comment" = "Toggle Terminal";
+        }
         # Window/Split Navigation (VS Code calls them Editor Groups)
         # Note: VSCodeVim also has its own Ctrl+W sequences for this. These are alternatives.
-        { "before" = [ "<leader>" "w" "h" ]; "commands" = [ "workbench.action.focusLeftGroup" ]; "comment" = "Focus left split"; }
-        { "before" = [ "<leader>" "w" "l" ]; "commands" = [ "workbench.action.focusRightGroup" ]; "comment" = "Focus right split"; }
-        { "before" = [ "<leader>" "w" "k" ]; "commands" = [ "workbench.action.focusAboveGroup" ]; "comment" = "Focus split above"; }
-        { "before" = [ "<leader>" "w" "j" ]; "commands" = [ "workbench.action.focusBelowGroup" ]; "comment" = "Focus split below"; }
+        {
+          "before" = ["<leader>" "w" "h"];
+          "commands" = ["workbench.action.focusLeftGroup"];
+          "comment" = "Focus left split";
+        }
+        {
+          "before" = ["<leader>" "w" "l"];
+          "commands" = ["workbench.action.focusRightGroup"];
+          "comment" = "Focus right split";
+        }
+        {
+          "before" = ["<leader>" "w" "k"];
+          "commands" = ["workbench.action.focusAboveGroup"];
+          "comment" = "Focus split above";
+        }
+        {
+          "before" = ["<leader>" "w" "j"];
+          "commands" = ["workbench.action.focusBelowGroup"];
+          "comment" = "Focus split below";
+        }
         # Explorer
         {
-          "before" = [ "<leader>" "e" ];
+          "before" = ["<leader>" "e"];
           "commands" = [
             "workbench.action.toggleSidebarVisibility"
             "workbench.files.action.focusFilesExplorer"

@@ -1,43 +1,44 @@
-{ config, pkgs, inputs, ... }:
-
 {
-  imports =
-    [
-      # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      # Our modulat tailscale setup that should work anywhere.
-      ../services/tailscale/tailscale.nix
-      # Our mounts
-      ../services/mounts/nfs_local.nix
-      # mum backup mount
-      ../services/mounts/ext.nix
-      # ../services/mounts/cifs.nix
+  config,
+  pkgs,
+  inputs,
+  ...
+}: {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    # Our modulat tailscale setup that should work anywhere.
+    ../services/tailscale/tailscale.nix
+    # Our mounts
+    ../services/mounts/nfs_local.nix
+    # mum backup mount
+    ../services/mounts/ext.nix
+    # ../services/mounts/cifs.nix
 
-      ../common/configuration.nix
+    ../common/configuration.nix
 
-      # Here's we'll organise our docker services
-      ../../docker/tailscale/caddy/docker-compose.nix
-      ../../docker/immich/docker-compose.nix
-      ../../docker/management/docker-compose.nix
-      ../../docker/netboot/docker-compose.nix
-      ../../docker/audiobookshelf/docker-compose.nix
-      ../../docker/kopia/docker-compose.nix
-      ../../docker/paperless/docker-compose.nix
-      ../../docker/WebDav/docker-compose.nix
-      ../../docker/atuin/docker-compose.nix
-      ../../docker/StirlingPDF/docker-compose.nix
-      ../../docker/mealie/docker-compose.nix
-      ../../docker/jdownloader2/docker-compose.nix
-      ../../docker/smokeping/docker-compose.nix
-      ../../docker/tautulli/docker-compose.nix
-    ];
+    # Here's we'll organise our docker services
+    ../../docker/tailscale/caddy/docker-compose.nix
+    ../../docker/immich/docker-compose.nix
+    ../../docker/management/docker-compose.nix
+    ../../docker/netboot/docker-compose.nix
+    ../../docker/audiobookshelf/docker-compose.nix
+    ../../docker/kopia/docker-compose.nix
+    ../../docker/paperless/docker-compose.nix
+    ../../docker/WebDav/docker-compose.nix
+    ../../docker/atuin/docker-compose.nix
+    ../../docker/StirlingPDF/docker-compose.nix
+    ../../docker/mealie/docker-compose.nix
+    ../../docker/jdownloader2/docker-compose.nix
+    ../../docker/smokeping/docker-compose.nix
+    ../../docker/tautulli/docker-compose.nix
+  ];
 
   #enable docker
   virtualisation.docker = {
     enable = true;
     liveRestore = false;
   };
-
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -72,7 +73,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     description = "Andy";
-    extraGroups = [ "networkmanager" "wheel" "libvirtd" "vboxusers" "docker" ];
+    extraGroups = ["networkmanager" "wheel" "libvirtd" "vboxusers" "docker"];
     shell = pkgs.zsh;
     packages = with pkgs; [
       #  thunderbird
@@ -120,5 +121,5 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 }
