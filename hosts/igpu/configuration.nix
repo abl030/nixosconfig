@@ -19,22 +19,29 @@
     ../../docker/plex/docker-compose.nix
   ];
 
-  # Use the systemd-boot EFI boot loader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  # Grouping all boot loader and kernel options under a single 'boot' attribute set.
+  # This is standard practice for structuring NixOS configurations.
+  boot = {
+    # Use the systemd-boot EFI boot loader.
+    loader.systemd-boot.enable = true;
+    loader.efi.canTouchEfiVariables = true;
 
-  # Use latest kernel.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+    # Use latest kernel.
+    kernelPackages = pkgs.linuxPackages_latest;
+  };
 
   # Use Flakes
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
-  # Igpu test
-  hardware.graphics = {
-    enable = true;
+  # Consolidating hardware settings into a single attribute set improves clarity.
+  hardware = {
+    # Igpu test
+    graphics = {
+      enable = true;
+    };
+    enableRedistributableFirmware = true;
+    cpu.amd.updateMicrocode = true;
   };
-  hardware.enableRedistributableFirmware = true;
-  hardware.cpu.amd.updateMicrocode = true;
 
   services.qemuGuest.enable = true;
 
