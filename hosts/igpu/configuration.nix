@@ -43,8 +43,6 @@
     cpu.amd.updateMicrocode = true;
   };
 
-  services.qemuGuest.enable = true;
-
   virtualisation.docker.enable = true;
 
   networking.hostName = "igpu"; # Define your hostname.
@@ -118,11 +116,16 @@
   # };
 
   # List services that you want to enable:
-
-  # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
-  services.openssh.settings = {
-    X11Forwarding = true;
+  # Group all service definitions into a single block to avoid re-defining the `services` key.
+  services = {
+    qemuGuest.enable = true;
+    # Enable the OpenSSH daemon.
+    openssh = {
+      enable = true;
+      settings = {
+        X11Forwarding = true;
+      };
+    };
   };
 
   # Open ports in the firewall.

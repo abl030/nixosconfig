@@ -2,7 +2,8 @@
 # So, what we do is make sure the normal sshd is running and either block it at the firewall for nix hosts or just set a unique 127.0.0.0/0 address for non-nix hosts.
 # The hostname address in the matchblocks must be unique for each host, otherwise it will check known_hosts and fail.
 # So we now have no open ports but still use X11 forwarding. #SECURE.
-{...}: {
+# Use `_:` for unused function arguments for clarity and convention.
+_: {
   home.file = {
     # ".ssh/authorized_keys".source = ./authorized_keys;
     # ".ssh/config".source = ./config;

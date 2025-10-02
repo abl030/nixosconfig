@@ -10,10 +10,13 @@
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  boot.initrd.availableKernelModules = ["ata_piix" "uhci_hcd" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
-  boot.initrd.kernelModules = ["virtio_scsi"];
-  boot.kernelModules = [];
-  boot.extraModulePackages = [];
+  # Group all boot-related options under a single attribute set to avoid repetition.
+  boot = {
+    initrd.availableKernelModules = ["ata_piix" "uhci_hcd" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
+    initrd.kernelModules = ["virtio_scsi"];
+    kernelModules = [];
+    extraModulePackages = [];
+  };
 
   # fileSystems."/" =
   #   {

@@ -6,16 +6,24 @@
   ...
 }: let
   adminUser = "abl030";
-  gaj-shared = inputs.gaj-shared;
+  # `inherit` is a concise way to bring a variable into scope from an attribute set.
+  inherit (inputs) gaj-shared;
 in {
-  virtualisation.libvirtd = {
-    enable = true;
-    qemu = {
-      package = pkgs.qemu_kvm; # Use KVM-enabled QEMU
-      runAsRoot = false; # Recommended for security
-      swtpm.enable = true; # For virtual TPM, useful for Windows 11 etc.
+  # Group all virtualisation settings to avoid repeating the `virtualisation` key.
+  virtualisation = {
+    libvirtd = {
+      enable = true;
+      qemu = {
+        package = pkgs.qemu_kvm; # Use KVM-enabled QEMU
+        runAsRoot = false; # Recommended for security
+        swtpm.enable = true; # For virtual TPM, useful for Windows 11 etc.
+      };
+    };
+    podman = {
+      enable = true;
     };
   };
+
   nixpkgs.overlays = lib.mkIf (gaj-shared != null) [
     (final: prev: {
       # --- Fix for missing libvirt-dbus ---
@@ -56,11 +64,7 @@ in {
   ];
 
   # --- Dependencies for Cockpit Plugins ---
-  virtualisation.libvirtd.enable = true;
   networking.networkmanager.enable = true;
-  virtualisation.podman = {
-    enable = true;
-  };
 
   # --- User Permissions ---
   users.users.${adminUser} = {
@@ -71,7 +75,12 @@ in {
   };
 
   # --- Sudo Override ---
-  security.sudo-rs.enable = lib.mkForce false;
-  security.sudo.enable = lib.mkForce true;
-  security.sudo.package = lib.mkForce pkgs.sudo;
+  # Group all security settings into a single attribute set.
+  security = {
+    sudo-rs.enable = lib.mkForce false;
+    sudo = {
+      enable = lib.mkForce true;
+      package = lib.mkForce pkgs.sudo;
+    };
+  };
 }

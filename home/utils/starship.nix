@@ -151,13 +151,14 @@ let
 
   toml = pkgs.formats.toml {};
 in {
-  # Keep your original behavior for zsh (default) exactly the same.
-  programs.starship.enable = true;
-  programs.starship.enableFishIntegration = true;
-  # programs.starship.enableZshIntegration = true;
-
-  # zsh/default uses the base (blue) settings
-  programs.starship.settings = baseStarshipSettingsReal.programs.starship.settings;
+  # Group all starship settings into a single attribute set to avoid re-defining the `programs` key.
+  programs.starship = {
+    enable = true;
+    enableFishIntegration = true;
+    # programs.starship.enableZshIntegration = true;
+    # zsh/default uses the base (blue) settings
+    settings = baseStarshipSettingsReal.programs.starship.settings;
+  };
 
   # Declaratively materialize per-shell TOMLs (generated from the same base)
   home.file.".config/starship-fish.toml".source = toml.generate "starship-fish.toml" fishSettings;

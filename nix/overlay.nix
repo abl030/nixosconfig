@@ -11,8 +11,8 @@
 {inputs}: [
   # nvchad overlay: expose nvchad for the active platform
   (final: _prev: {
-    nvchad =
-      inputs.nvchad4nix.packages.${final.stdenv.hostPlatform.system}.nvchad;
+    # Use `inherit` to bring a variable into scope, which is idiomatic when the attribute name matches.
+    inherit (inputs.nvchad4nix.packages.${final.stdenv.hostPlatform.system}) nvchad;
   })
 
   # yt-dlp overlay: build from flake input and stamp version with short rev
