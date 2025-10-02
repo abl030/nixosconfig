@@ -11,15 +11,19 @@
   #   source = "${pkgs.sunshine}/bin/sunshine";
   # };
   #
-  services.sunshine = {
-    enable = true;
-    autoStart = true;
-    capSysAdmin = true;
-    openFirewall = true;
+  # Group all service definitions under a single `services` attribute set to avoid repetition.
+  services = {
+    sunshine = {
+      enable = true;
+      autoStart = true;
+      capSysAdmin = true;
+      openFirewall = true;
+    };
+    avahi.publish = {
+      enable = true;
+      userServices = true;
+    };
   };
-
-  services.avahi.publish.enable = true;
-  services.avahi.publish.userServices = true;
 
   boot.kernelModules = ["uinput"];
 

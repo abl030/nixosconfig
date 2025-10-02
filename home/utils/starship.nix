@@ -1,6 +1,6 @@
-{pkgs, ...}:
-# End main configuration set{ config, pkgs, lib, ... }:
-let
+# Correct the malformed function signature which was declared twice.
+# A Nix module should only have one set of arguments.
+{pkgs, ...}: let
   # ────────────────────────────────────────────────────────────────────────────
   # Base Starship settings (zsh/default). We’ll generate fish/bash variants
   # from this single source of truth to avoid config drift.

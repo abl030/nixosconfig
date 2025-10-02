@@ -27,25 +27,89 @@
     ../../docker/tdarr/epi/docker-compose.nix
   ];
 
-  services.qemuGuest.enable = true;
-  services.fstrim.enable = true;
+  # Group all boot-related settings into a single block.
+  boot = {
+    # 2. Use the LATEST kernel for best Arc support
+    kernelPackages = pkgs.linuxPackages_latest;
+    # 3. Kernel parameters (you had these, keep them, especially enable_guc)
+    kernelParams = [
+      "i915.force_probe=56a6" # Good to have for DG2
+      "i915.enable_guc=3" # Essential for enabling GuC & HuC
+      # "loglevel=7"          # Optional: for more dmesg verbosity during boot
+    ];
+    # 5. Explicitly add i915 module to initrd to ensure it loads early with firmware
+    initrd.kernelModules = ["i915"];
+    kernelModules = ["i915"]; # Also for main system
+    # Bootloader.
+    loader.systemd-boot.enable = true;
+    loader.efi.canTouchEfiVariables = true;
+  };
 
-  # 2. Use the LATEST kernel for best Arc support
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Group all hardware settings into one block.
+  hardware = {
+    # 4. Enable redistributable firmware (this should pull in i915 firmware)
+    enableRedistributableFirmware = true;
+    # Enable bluetooth
+    bluetooth.enable = true;
+    # Logitech devices
+    logitech.wireless = {
+      enable = true;
+      enableGraphical = true;
+    };
+  };
 
-  # 3. Kernel parameters (you had these, keep them, especially enable_guc)
-  boot.kernelParams = [
-    "i915.force_probe=56a6" # Good to have for DG2
-    "i915.enable_guc=3" # Essential for enabling GuC & HuC
-    # "loglevel=7"          # Optional: for more dmesg verbosity during boot
-  ];
+  # Group all networking configurations to avoid repeated keys.
+  networking = {
+    hostName = "epimetheus"; # Define your hostname.
+    networkmanager.enable = true;
+    # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+    # networking.interfaces.enp9s0.wakeOnLan.enable = true;
+    # Open ports in the firewall.
+    firewall = {
+      allowedTCPPorts = [
+        3389
+        3390
+      ];
+      allowedUDPPorts = [5140];
+    };
+  };
 
-  # 4. Enable redistributable firmware (this should pull in i915 firmware)
-  hardware.enableRedistributableFirmware = true;
+  # Group all service definitions into a single attribute set.
+  services = {
+    qemuGuest.enable = true;
+    fstrim.enable = true;
+    # Enable the X11 windowing system.
+    xserver = {
+      enable = true;
+      # Configure keymap in X11
+      xkb = {
+        layout = "us";
+        variant = "";
+      };
+    };
+    # Enable the GNOME Desktop Environment.
+    # Don't forget to enable the home manager options
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+    # Enable CUPS to print documents.
+    printing.enable = true;
+    # Enable sound with pipewire.
+    pulseaudio.enable = false;
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+      # If you want to use JACK applications, uncomment this
+      #jack.enable = true;
 
-  # 5. Explicitly add i915 module to initrd to ensure it loads early with firmware
-  boot.initrd.kernelModules = ["i915"];
-  boot.kernelModules = ["i915"]; # Also for main system
+      # use the example session manager (no others are packaged yet so this is enabled by default,
+      # no need to redefine it in your config for now)
+      #media-session.enable = true;
+    };
+    # Enable the OpenSSH daemon.
+    openssh.enable = true;
+  };
 
   # lets use the latest kernel because we are stupid
   # boot.kernelPackages = pkgs.linuxPackages_latest;
@@ -67,31 +131,13 @@
   # virtualisation.libvirtd.enable = true;
   # programs.virt-manager.enable = true;
 
-  # Enable bluetooth
-  hardware.bluetooth.enable = true;
-
   #enable docker
   virtualisation.docker.enable = true;
   virtualisation.docker.liveRestore = false;
 
-  # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
-  # Logitech devices
-  hardware.logitech.wireless.enable = true;
-  hardware.logitech.wireless.enableGraphical = true;
-
-  networking.hostName = "epimetheus"; # Define your hostname.
-  # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
-
-  # networking.interfaces.enp9s0.wakeOnLan.enable = true;
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
-
-  # Enable networking
-  networking.networkmanager.enable = true;
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
@@ -110,14 +156,6 @@
     LC_TELEPHONE = "en_AU.UTF-8";
     LC_TIME = "en_AU.UTF-8";
   };
-
-  # Enable the X11 windowing system.
-  services.xserver.enable = true;
-
-  # Enable the GNOME Desktop Environment.
-  # Don't forget to enable the home manager options
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
 
   # services.xserver.displayManager.gdm.wayland = false;
   # Remote desktop
@@ -146,30 +184,7 @@
   #
   # services.displayManager.defaultSession = "plasmax11";
 
-  # Configure keymap in X11
-  services.xserver.xkb = {
-    layout = "us";
-    variant = "";
-  };
-
-  # Enable CUPS to print documents.
-  services.printing.enable = true;
-
-  # Enable sound with pipewire.
-  services.pulseaudio.enable = false;
   security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-    # If you want to use JACK applications, uncomment this
-    #jack.enable = true;
-
-    # use the example session manager (no others are packaged yet so this is enabled by default,
-    # no need to redefine it in your config for now)
-    #media-session.enable = true;
-  };
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
@@ -185,9 +200,6 @@
     ];
   };
 
-  # Install firefox.
-  programs.firefox.enable = true;
-
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
@@ -202,8 +214,13 @@
     kdiskmark
   ];
 
-  # programs.fish.enable = true;
-  programs.zsh.enable = true;
+  # Group program enables into a single block.
+  programs = {
+    # Install firefox.
+    firefox.enable = true;
+    # programs.fish.enable = true;
+    zsh.enable = true;
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -215,15 +232,6 @@
 
   # List services that you want to enable:
 
-  # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
-
-  # Open ports in the firewall.
-  networking.firewall.allowedTCPPorts = [
-    3389
-    3390
-  ];
-  networking.firewall.allowedUDPPorts = [5140];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 

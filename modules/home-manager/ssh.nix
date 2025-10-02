@@ -106,7 +106,9 @@ in {
               lib.nameValuePair hostConfig.sshAlias {
                 proxyJump = "${hostConfig.user}@${hostConfig.jumpAddress}";
                 hostname = "127.0.0.${toString ipIndex}";
-                user = hostConfig.user;
+                # Use `inherit` to concisely bring `user` from the `hostConfig` scope.
+                # This is a stylistic improvement over `user = hostConfig.user;`.
+                inherit (hostConfig) user;
                 forwardX11 = true;
 
                 # Allow per-host override; default aligns with the global (secure) default.

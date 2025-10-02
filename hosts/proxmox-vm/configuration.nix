@@ -38,16 +38,25 @@
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Enable networking
-  networking.networkmanager.enable = true;
-  # Enable the qemu agent
-  services.qemuGuest.enable = true;
-  services.fstrim.enable = true;
+
+  # Group network settings into a single attribute set to avoid repetition.
+  networking = {
+    networkmanager.enable = true;
+    hostName = "proxmox-vm";
+    firewall.enable = false;
+  };
+
+  # Group services into a single block for better organization.
+  services = {
+    # Enable the qemu agent
+    qemuGuest.enable = true;
+    fstrim.enable = true;
+    # Enable the OpenSSH daemon.
+    openssh.enable = true;
+  };
 
   # Set your time zone.
   time.timeZone = "Australia/Perth";
-
-  networking.hostName = "proxmox-vm";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_GB.UTF-8";
@@ -88,13 +97,12 @@
     butane
   ];
 
-  programs.fish.enable = true;
-  programs.zsh.enable = true;
+  # Group related programs to avoid repeating the `programs` key.
+  programs = {
+    fish.enable = true;
+    zsh.enable = true;
+  };
 
-  # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
-
-  networking.firewall.enable = false;
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [
   # ];

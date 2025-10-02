@@ -1,4 +1,6 @@
-{...}: {
+# The function argument `{...}` is replaced with `_` because this module does not use any of the passed-in arguments (like pkgs, config, etc.).
+# Using `_` makes it clear that the arguments are intentionally ignored.
+_: {
   security.polkit.enable = true;
   security.polkit.extraConfig = ''
     polkit.addRule(function (action, subject) {

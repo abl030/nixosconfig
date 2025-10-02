@@ -1,11 +1,8 @@
-{...}:
-# Old way using a custom systemd service.
-let
-  # hibernateEnvironment = {
-  #   HIBERNATE_SECONDS = "3600";
-  #   HIBERNATE_LOCK = "/var/run/autohibernate.lock";
-  # };
-in {
+# This module is a simple configuration snippet and doesn't use any inputs like `pkgs` or `config`.
+# The function signature is changed from `{...}:` to `_:`, and the empty `let-in` block is removed
+# to make it clear that no external arguments are being used.
+_: {
+  # Old way using a custom systemd service.
   # systemd.services."awake-after-suspend-for-a-time" = {
   #   description = "Sets up the suspend so that it'll wake for hibernation";
   #   wantedBy = [ "suspend.target" ];
