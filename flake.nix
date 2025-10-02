@@ -65,8 +65,7 @@
       # Pass commonly-needed things to modules and home
       extraSpecialArgs = { inherit system; inherit inputs; };
 
-      # ⬇️ Minimal change: import hosts attrset from a separate file.
-      #    This isolates host topology without touching consumers.
+      # Hosts topology lives in its own file to keep outputs small and readable.
       hosts = import ./hosts.nix;
     in
     {
@@ -94,11 +93,13 @@
           (hostname: config:
             home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
+
               # Pass hostname + allHosts; consumers unchanged
               extraSpecialArgs = extraSpecialArgs // {
                 inherit hostname;
                 allHosts = hosts;
               };
+
               modules = [
                 home-manager-diff.hmModules.default
                 config.homeFile
@@ -108,32 +109,9 @@
                   home.homeDirectory = config.homeDirectory;
 
                   nixpkgs = {
-                    overlays = [
-                      # Expose nvchad from the nvchad4nix flake
-                      (final: prev: {
-                        nvchad = inputs.nvchad4nix.packages."${pkgs.system}".nvchad;
-                      })
-
-                      # Track yt-dlp master from flake input; stamp version with short rev
-                      (final: prev:
-                        let
-                          rev = inputs.yt-dlp-src.rev or null;
-                          short = if rev == null then "unknown" else builtins.substring 0 7 rev;
-                        in
-                        {
-                          yt-dlp = prev.yt-dlp.overrideAttrs (old: {
-                            # track master tree from the flake input
-                            src = inputs.yt-dlp-src;
-
-                            # optional: stamp the version for clarity (safe to omit entirely)
-                            version = "master-${short}";
-
-                            # If upstream flips tests and it blocks you, you can temporarily uncomment:
-                            # doCheck = false;
-                          });
-                        }
-                      )
-                    ];
+                    # Overlays now live in ./nix/overlay.nix so package customisations
+                    # are maintained in one place and reused across hosts.
+                    overlays = import ./nix/overlay.nix { inherit inputs; };
                   };
                 }
               ];
