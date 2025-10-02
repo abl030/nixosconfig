@@ -1,161 +1,122 @@
 {
   description = "My first flake!";
 
-
   inputs = {
     # use the following for unstable:
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+
     home-manager.url = "github:nix-community/home-manager/master";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    #nixos-hardware
+
+    # nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
-    #NVCHAD is best chad.
+
+    # NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    #sops-nix for secrets
+
+    # sops-nix for secrets
     sops-nix = {
       url = "github:mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     # plasma-manager = {
     #   url = "github:nix-community/plasma-manager";
     #   inputs.nixpkgs.follows = "nixpkgs";
     #   inputs.home-manager.follows = "home-manager";
     # };
+
     # wezterm = {
     #   url = "github:wez/wezterm/main?dir=nix";
     #   inputs.nixpkgs.follows = "nixpkgs";
     # };
+
     nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
     home-manager-diff.url = "github:pedorich-n/home-manager-diff";
+
     fzf-preview.url = "github:niksingh710/fzf-preview";
     fzf-preview.inputs.nixpkgs.follows = "nixpkgs";
+
     isd.url = "github:isd-project/isd";
+
     gaj-shared = {
       url = "gitlab:gaj-nixos/shared"; # Shorthand for gitlab.com/gaj-nixos/shared
       # By default, it tracks the default branch (e.g., main)
-      # You can add `flake = false;` if it's not a flake itself but you want to use its files
+      # You can add flake = false; if it's not a flake itself but you want to use its files
       flake = false;
     };
+
     yt-dlp-src = {
       url = "github:yt-dlp/yt-dlp";
       flake = false;
     };
   };
 
+  # NOTE: Keep the same calling style; we bind the whole set to `inputs` for overlays, etc.
   outputs = { self, nixpkgs, home-manager, home-manager-diff, ... }@inputs:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
+
+      # Pass commonly-needed things to modules and home
       extraSpecialArgs = { inherit system; inherit inputs; };
 
-      #define our hosts
-      hosts = {
-        #Our hostkey must match our hostname so that NIXD home completions work. 
-        #Note this does mean at the moment we are limited to one user per host. 
-        #In NVIM/lspconfig.lua you can see we pull in our home_manager completions
-        #programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se 
-        #but merely this host key and the username must be the same. 
-        epimetheus = {
-          configurationFile = ./hosts/epi/configuration.nix;
-          homeFile = ./hosts/epi/home.nix;
-          user = "abl030";
-          homeDirectory = "/home/abl030";
-          hostname = "epimetheus";
-          jumpAddress = "epimetheus";
-          sshAlias = "epi";
-        };
-
-        caddy = {
-          homeFile = ./hosts/caddy/home.nix;
-          user = "abl030";
-          homeDirectory = "/home/abl030";
-          hostname = "caddy";
-          jumpAddress = "caddy";
-          sshAlias = "cad";
-        };
-
-        framework = {
-          configurationFile = ./hosts/framework/configuration.nix;
-          homeFile = ./hosts/framework/home.nix;
-          user = "abl030";
-          homeDirectory = /home/abl030;
-          hostname = "framework";
-          jumpAddress = "framework";
-          sshAlias = "fra";
-        };
-        wsl = {
-          configurationFile = ./hosts/wsl/configuration.nix;
-          homeFile = ./hosts/wsl/home.nix;
-          user = "nixos";
-          homeDirectory = "/home/nixos/";
-        };
-
-        proxmox-vm = {
-          configurationFile = ./hosts/proxmox-vm/configuration.nix;
-          homeFile = ./hosts/proxmox-vm/home.nix;
-          user = "abl030";
-          homeDirectory = "/home/abl030";
-          hostname = "proxmox-vm";
-          jumpAddress = "nixos";
-          sshAlias = "doc1";
-        };
-        igpu = {
-          configurationFile = ./hosts/igpu/configuration.nix;
-          homeFile = ./hosts/igpu/home.nix;
-          user = "abl030";
-          homeDirectory = "/home/abl030";
-          hostname = "igpu";
-          jumpAddress = "igpu";
-          sshAlias = "igp";
-        };
-
-      };
+      # ⬇️ Minimal change: import hosts attrset from a separate file.
+      #    This isolates host topology without touching consumers.
+      hosts = import ./hosts.nix;
     in
     {
       nixosConfigurations =
         (lib.mapAttrs
-          (hostname: config: lib.nixosSystem {
-            inherit system;
-            specialArgs = extraSpecialArgs; # Pass extraSpecialArgs here
-            modules = [
-              config.configurationFile
-              {
-                nix.nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
-                # Optional: Set registry for consistency
-                nix.registry.nixpkgs.flake = inputs.nixpkgs;
-              }
-            ];
-          })
-          hosts);
+          (hostname: config:
+            lib.nixosSystem {
+              inherit system;
+              specialArgs = extraSpecialArgs; # Pass extraSpecialArgs here
+              modules = [
+                config.configurationFile
+                {
+                  nix.nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
+                  # Optional: Set registry for consistency
+                  nix.registry.nixpkgs.flake = inputs.nixpkgs;
+                }
+              ];
+            }
+          )
+          hosts
+        );
 
       homeConfigurations =
         (lib.mapAttrs
-          (hostname: config: home-manager.lib.homeManagerConfiguration {
-            inherit pkgs;
-            extraSpecialArgs = extraSpecialArgs // {
-              inherit hostname; allHosts = hosts;
-            }; # Pass hostname here
-            modules = [
-              home-manager-diff.hmModules.default
-              config.homeFile
-              ./modules/home-manager
+          (hostname: config:
+            home-manager.lib.homeManagerConfiguration {
+              inherit pkgs;
+              # Pass hostname + allHosts; consumers unchanged
+              extraSpecialArgs = extraSpecialArgs // {
+                inherit hostname;
+                allHosts = hosts;
+              };
+              modules = [
+                home-manager-diff.hmModules.default
+                config.homeFile
+                ./modules/home-manager
+                {
+                  home.username = config.user;
+                  home.homeDirectory = config.homeDirectory;
 
-              {
-                home.username = config.user;
-                home.homeDirectory = config.homeDirectory;
-                nixpkgs = {
-                  overlays = [
-                    (final: prev: {
-                      nvchad = inputs.nvchad4nix.packages."${pkgs.system}".nvchad;
-                    })
-                    (
-                      final: prev:
+                  nixpkgs = {
+                    overlays = [
+                      # Expose nvchad from the nvchad4nix flake
+                      (final: prev: {
+                        nvchad = inputs.nvchad4nix.packages."${pkgs.system}".nvchad;
+                      })
+
+                      # Track yt-dlp master from flake input; stamp version with short rev
+                      (final: prev:
                         let
-                          # 'rev' is usually present for git inputs, but guard just in case
                           rev = inputs.yt-dlp-src.rev or null;
                           short = if rev == null then "unknown" else builtins.substring 0 7 rev;
                         in
@@ -171,13 +132,15 @@
                             # doCheck = false;
                           });
                         }
-                    )
-                  ];
-                };
-              }
-
-            ];
-          })
-          hosts);
+                      )
+                    ];
+                  };
+                }
+              ];
+            }
+          )
+          hosts
+        );
     };
 }
+
