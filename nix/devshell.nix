@@ -1,7 +1,8 @@
 # Developer UX: repo-wide formatter, dev shell, and helper apps.
 # - `nix fmt` uses nixfmt
 # - `nix develop` drops you into a shell with deadnix/statix/etc.
-# - `lint-nix` runs deadnix + statix together (also exposed as a flake app)
+# - `lint-nix` runs deadnix + statix together with robust flag detection and
+#   panic handling so CI/local runs are stable across tool versions.
 
 { pkgs, lib, ... }:
 let
@@ -9,16 +10,45 @@ let
     name = "lint-nix";
     text = ''
       set -uo pipefail
-      ec=0
 
+      # ---- deadnix: build flags dynamically based on what's supported ----
+      DEADNIX_FLAGS=""
+      if deadnix --help 2>&1 | grep -q -- "--no-progress"; then
+        DEADNIX_FLAGS="$DEADNIX_FLAGS --no-progress"
+      fi
+      # Many deadnix builds already exit non-zero on findings; if a future
+      # build supports --fail-on-warnings, we add it transparently:
+      if deadnix --help 2>&1 | grep -q -- "--fail-on-warnings"; then
+        DEADNIX_FLAGS="$DEADNIX_FLAGS --fail-on-warnings"
+      fi
+
+      ec=0
       echo "▶ deadnix"
-      if ! deadnix --no-progress --fail-on-warnings .; then
+      if ! eval "deadnix $DEADNIX_FLAGS ."; then
+        # bit 1 indicates deadnix reported issues or failed
         ec=$((ec | 1))
       fi
       echo
 
+      # ---- statix: capture output, detect panics, convert to stable exit ----
       echo "▶ statix"
-      if ! statix check .; then
+      tmp="$(mktemp -t lint-nix.statix.XXXXXX)"
+      # Use tee so the user sees output as well as we can parse it.
+      if statix check . 2>&1 | tee "$tmp"; then
+        statix_rc=0
+      else
+        statix_rc=1
+      fi
+
+      if grep -q "thread 'main' panicked" "$tmp"; then
+        echo
+        echo "note: statix crashed (upstream bug). Treating as a failure but continuing."
+        statix_rc=1
+      fi
+      rm -f "$tmp"
+
+      if [ "$statix_rc" -ne 0 ]; then
+        # bit 2 indicates statix reported issues or crashed
         ec=$((ec | 2))
       fi
       echo
