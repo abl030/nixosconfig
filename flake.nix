@@ -66,7 +66,7 @@
       # Target platforms for perSystem (devShells/formatter/checks).
       systems = [ "x86_64-linux" ];
 
-      perSystem = { system, lib, config, ... }: {
+      perSystem = { system, lib, pkgs, ... }: {
         # Initialise pkgs WITH global overlays so devShells/formatter/checks see the
         # exact same package universe as our NixOS/HM builds.
         _module.args.pkgs = import inputs.nixpkgs {
@@ -77,21 +77,21 @@
 
         # Repo-wide formatter so `nix fmt` is consistent locally and in CI.
         # We use nixfmt (requested) instead of alejandra.
-        formatter = config.pkgs.nixfmt;
+        formatter = pkgs.nixfmt;
 
         # Developer shell: the standard tools used when editing this repo.
-        devShells.default = config.pkgs.mkShell {
+        devShells.default = pkgs.mkShell {
           packages = [
-            config.pkgs.git
-            config.pkgs.home-manager
-            config.pkgs.nixd
-            config.pkgs.nixfmt
+            pkgs.git
+            pkgs.home-manager
+            pkgs.nixd
+            pkgs.nixfmt
           ];
         };
 
         # Example check wiring (leave commented until you want it in CI):
-        # checks.format = config.pkgs.runCommand "fmt-check" { } ''
-        #   ${config.pkgs.nixfmt}/bin/nixfmt --check .
+        # checks.format = pkgs.runCommand "fmt-check" { } ''
+        #   ${pkgs.nixfmt}/bin/nixfmt --check .
         #   touch $out
         # '';
       };
