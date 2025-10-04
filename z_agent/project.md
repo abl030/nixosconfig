@@ -11,19 +11,19 @@ To implement a secure, fast, and fully automated GitOps pipeline that updates th
 ## Execution Plan
 
 **Phase 1: Refactor & Simplify**
--   [ ] Integrate the Home Manager configuration directly into the NixOS modules for each host.
--   [ ] Ensure a single `nixos-rebuild switch` command updates both the system and the user environment.
+-   [*] Integrate the Home Manager configuration directly into the NixOS modules for each host.
+-   [*] Ensure a single `nixos-rebuild switch` command updates both the system and the user environment.
 
 **Phase 2: Secure the Foundation**
--   [ ] On the bastion host (`proxmox-vm`), deploy and configure the `services.github-runners` NixOS module.
--   [ ] Register the runner with the GitHub repository.
--   [ ] Update user permissions to allow the runner to use Nix.
+-   [*] On the bastion host (`proxmox-vm`), deploy and configure the `services.github-runners` NixOS module.
+-   [*] Register the runner with the GitHub repository.
+-   [*] Update user permissions to allow the runner to use Nix.
 
 **Phase 3: Accelerate the Process**
--   [ ] **Internal Cache:**
-    -   [ ] Generate a signing key for `nix-serve` on the bastion host.
-    -   [ ] Enable the `services.nix-serve` module.
-    -   [ ] Configure Caddy as a reverse proxy for the cache endpoint (e.g., `nixcache.ablz.au`).
+-   [*] **Internal Cache:**
+    -   [*] Generate a signing key for `nix-serve` on the bastion host.
+    -   [*] Enable the `services.nix-serve` module.
+    -   [*] Configure Caddy as a reverse proxy for the cache endpoint (e.g., `nixcache.ablz.au`).
 -   [ ] **External Cache:**
     -   [ ] Create a repository on Cachix.
     -   [ ] Add the Cachix authentication token to GitHub Secrets.

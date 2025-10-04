@@ -8,6 +8,8 @@ services:
     # The hostname is now defined here.
     hostname: caddy # Hostname for MagicDNS (e.g., caddy.your-tailnet.ts.net)
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # The container running Tailscale, now joining the holder's network
   tailscale:
