@@ -37,6 +37,14 @@
     runnerName = "proxmox-bastion";
   };
 
+  # Enable Nix-Server
+  services.nix-serve = {
+    enable = true;
+    bindAddress = "0.0.0.0"; # reverse-proxy only from Caddy
+    port = 5000;
+    secretKeyFile = "/var/lib/nixcache/secret.key"; # signs .narinfo
+  };
+
   #enable docker
   virtualisation.docker = {
     enable = true;
