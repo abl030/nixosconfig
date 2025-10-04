@@ -29,6 +29,14 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
+  # Enable our github runner
+  homelab.services.githubRunner = {
+    enable = true;
+    repoUrl = "https://github.com/abl030/nixosconfig";
+    tokenFile = "/var/lib/github-runner/registration-token";
+    runnerName = "proxmox-bastion";
+  };
+
   #enable docker
   virtualisation.docker = {
     enable = true;
