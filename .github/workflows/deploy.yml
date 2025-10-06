@@ -1,15 +1,12 @@
 name: "Build and Cache NixOS/HM (no all-hosts)"
 
 on:
-  # Run once for pushes to master
   push:
     branches: [master]
-  # Run for PRs targeting master (branch pushes won't trigger)
   pull_request:
     branches: [master]
   workflow_dispatch:
 
-# Ensure only one run per PR or ref; cancel older in-progress runs
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -26,7 +23,6 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-            # If any inputs are private GitHub repos:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Cachix
@@ -35,28 +31,41 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Build + push nixosConfigurations and homeConfigurations
+      - name: Build + push nixosConfigurations and homeConfigurations (retain last K locally)
         shell: bash
         run: |
           set -euo pipefail
 
-          # Per-user GC roots only; we do NOT use sudo anywhere.
-          ROOT_BASE="$HOME/.cache/nix-serve-gcroots"
+          # ---- Policy knobs ----
+          RETAIN=3                                   # keep last K builds per tag locally
+          ROOT_BASE="$HOME/.cache/nix-serve-gcroots" # per-user roots; no sudo anywhere
           mkdir -p "$ROOT_BASE"
 
-          # Push the full closure of a store path to Cachix (chunked to avoid long argv)
+          # ---- Helpers ----
           push_closure() {
             local path="$1"
             nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
           }
 
-          # Keep exactly the latest build rooted per tag; older outputs become unrooted and GC'able
-          keep_latest_root() {
-            local tag="$1" out="$2"
-            ln -sfn "$out" "$ROOT_BASE/${tag}-latest"
+          # Rotate roots: tag.(K-1) <- tag.(K-2) <- ... <- tag.0 ; then set tag.0 = new out
+          rotate_roots() {
+            local tag="$1" out="$2" i src tgt
+            # shift older generations back
+            for (( i=RETAIN-1; i>0; i-- )); do
+              src="$ROOT_BASE/${tag}.$((i-1))"
+              tgt="$ROOT_BASE/${tag}.$i"
+              if [[ -L "$src" ]]; then
+                # re-point tgt to the same store path as src
+                ln -sfn "$(readlink -f "$src")" "$tgt"
+              fi
+            done
+            # write new generation 0
+            ln -sfn "$out" "$ROOT_BASE/${tag}.0"
+            # convenience alias "latest" -> gen 0
+            ln -sfn "$ROOT_BASE/${tag}.0" "$ROOT_BASE/${tag}-latest"
           }
 
-          # Enumerate exported attrs without jq/getFlake
+          # Enumerate exported attrs
           HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
             --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
             2>/dev/null || echo "")"
@@ -70,7 +79,7 @@ jobs:
             exit 1
           fi
 
-          # NixOS systems
+          # ---- NixOS systems ----
           if [[ -n "${HOSTS_RAW}" ]]; then
             readarray -t HOSTS <<< "${HOSTS_RAW}"
             echo "Discovered nixosConfigurations:"
@@ -84,22 +93,16 @@ jobs:
                 --print-out-paths \
                 ".#nixosConfigurations.${h}.config.system.build.toplevel")"
 
-              # 1) Upload the full closure to Cachix
               push_closure "$out"
-
-              # 2) Root only the latest locally (retention depth = 1)
-              keep_latest_root "nixos-${h}" "$out"
-
-              # 3) Keep on Cachix for 7 days (remote retention)
+              rotate_roots "nixos-${h}" "$out"
               cachix pin nixosconfig "nixos-${h}" "$out" --keep-days 7
-
               echo "::endgroup::"
             done
           else
             echo "No nixosConfigurations exported by flake."
           fi
 
-          # Home Manager activations
+          # ---- Home Manager activations ----
           if [[ -n "${HOMES_RAW}" ]]; then
             readarray -t HOMES <<< "${HOMES_RAW}"
             echo "Discovered homeConfigurations:"
@@ -113,21 +116,15 @@ jobs:
                 --print-out-paths \
                 ".#homeConfigurations.${u}.activationPackage")"
 
-              # 1) Upload the full closure to Cachix
               push_closure "$out"
-
-              # 2) Root only the latest locally (retention depth = 1)
-              keep_latest_root "hm-${u}" "$out"
-
-              # 3) Keep on Cachix for 7 days (remote retention)
+              rotate_roots "hm-${u}" "$out"
               cachix pin nixosconfig "hm-${u}" "$out" --keep-days 7
-
               echo "::endgroup::"
             done
           else
             echo "No homeConfigurations exported by flake."
           fi
 
-          # Local cleanup as the same user (no sudo): respects our per-user roots.
+          # ---- Local cleanup (user GC; sees our per-user roots) ----
           nix-collect-garbage --delete-old || true
           nix-store --optimise || true
