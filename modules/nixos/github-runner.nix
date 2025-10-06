@@ -48,7 +48,7 @@ in {
 
       # By not setting `workDir`, we use the module's default inside /var/lib, which it manages correctly.
       extraLabels = ["nix" "proxmox-vm"];
-      extraPackages = [pkgs.git pkgs.gnutar pkgs.xz pkgs.cacert pkgs.nix];
+      extraPackages = [pkgs.git pkgs.gnutar pkgs.xz pkgs.cacert pkgs.nix pkgs.cachix];
     };
 
     # Trust the group the module creates. The group name is derived from the service name.
