@@ -28,45 +28,36 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # Build every nixosConfigurations.<host>.config.system.build.toplevel and push to Cachix
       - name: Build + push all nixosConfigurations
         shell: bash
         run: |
           set -euo pipefail
-          # Use jq from nixpkgs without polluting the runner:
-          nix shell --quiet nixpkgs#jq -c bash -lc '
-            # List host names exported by your flake
-            mapfile -t HOSTS < <(nix eval --json .#nixosConfigurations --apply builtins.attrNames | jq -r ".[]")
-            if [ "${#HOSTS[@]}" -eq 0 ]; then
-              echo "No nixosConfigurations found; skipping."
-              exit 0
-            fi
+          HOSTS_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake "."; in builtins.concatStringsSep "\n" (builtins.attrNames (f.nixosConfigurations or {}))' || true)"
+          if [[ -z "${HOSTS_RAW// }" ]]; then
+            echo "No nixosConfigurations found; skipping."
+          else
+            readarray -t HOSTS <<< "$HOSTS_RAW"
             for h in "${HOSTS[@]}"; do
               echo "::group::nixosConfigurations.${h}"
-              # Build but don’t leave ./result symlinks everywhere
-              OUT=$(nix build --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")
-              # Push full closure to Cachix
-              nix copy --to "cachix://nixosconfig" "$OUT"
+              out="$(nix build --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")"
+              nix copy --to "cachix://nixosconfig" "$out"
               echo "::endgroup::"
             done
-          '
+          fi
 
-      # Build every homeConfigurations.<name>.activationPackage (if present) and push to Cachix
       - name: Build + push all homeConfigurations (if any)
         shell: bash
         run: |
           set -euo pipefail
-          nix shell --quiet nixpkgs#jq -c bash -lc '
-            # If homeConfigurations isn’t exported, just skip
-            if ! nix eval --json .#homeConfigurations --apply builtins.attrNames >/dev/null 2>&1; then
-              echo "No homeConfigurations found; skipping."
-              exit 0
-            fi
-            mapfile -t HOMES < <(nix eval --json .#homeConfigurations --apply builtins.attrNames | jq -r ".[]")
+          HOMES_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake "."; in builtins.concatStringsSep "\n" (builtins.attrNames (f.homeConfigurations or {}))' || true)"
+          if [[ -z "${HOMES_RAW// }" ]]; then
+            echo "No homeConfigurations found; skipping."
+          else
+            readarray -t HOMES <<< "$HOMES_RAW"
             for u in "${HOMES[@]}"; do
               echo "::group::homeConfigurations.${u}"
-              OUT=$(nix build --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")
-              nix copy --to "cachix://nixosconfig" "$OUT"
+              out="$(nix build --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")"
+              nix copy --to "cachix://nixosconfig" "$out"
               echo "::endgroup::"
             done
-          '
+          fi
