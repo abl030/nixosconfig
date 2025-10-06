@@ -43,7 +43,7 @@ in {
       # The module creates a user/group named after the service (`github-runner-proxmox-bastion`),
       # so we don't need to define one manually.
 
-      ephemeral = true;
+      ephemeral = false;
       replace = true;
 
       # By not setting `workDir`, we use the module's default inside /var/lib, which it manages correctly.
