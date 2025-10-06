@@ -31,100 +31,65 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Build + push nixosConfigurations and homeConfigurations (retain last K locally)
+      - name: Build + push nixosConfigurations and homeConfigurations (force substituters order)
         shell: bash
+        env:
+          NIX_CONFIG: |
+            experimental-features = nix-command flakes
+            substituters = https://nixcache.ablz.au?priority=10 https://nixosconfig.cachix.org?priority=20 https://nix-mirror.ablz.au?priority=30 https://cache.nixos.org?priority=40
+            trusted-public-keys = \
+              ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54= \
+              nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k= \
+              cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
         run: |
           set -euo pipefail
+          echo "Effective substituters:" 
+          nix config show | sed -n 's/^substituters = /substituters = /p'
+          # add -L so you can SEE which cache is used
+          NIXBUILD='nix build --accept-flake-config --no-link --print-out-paths -L'
 
-          # ---- Policy knobs ----
-          RETAIN=3                                   # keep last K builds per tag locally
-          ROOT_BASE="$HOME/.cache/nix-serve-gcroots" # per-user roots; no sudo anywhere
+          ROOT_BASE="$HOME/.cache/nix-serve-gcroots"
           mkdir -p "$ROOT_BASE"
 
-          # ---- Helpers ----
-          push_closure() {
-            local path="$1"
-            nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
-          }
-
-          # Rotate roots: tag.(K-1) <- tag.(K-2) <- ... <- tag.0 ; then set tag.0 = new out
+          push_closure() { nix path-info -r "$1" | xargs -r -n 128 cachix push nixosconfig; }
           rotate_roots() {
-            local tag="$1" out="$2" i src tgt
-            # shift older generations back
+            local tag="$1" out="$2" i src tgt RETAIN=3
             for (( i=RETAIN-1; i>0; i-- )); do
-              src="$ROOT_BASE/${tag}.$((i-1))"
-              tgt="$ROOT_BASE/${tag}.$i"
-              if [[ -L "$src" ]]; then
-                # re-point tgt to the same store path as src
-                ln -sfn "$(readlink -f "$src")" "$tgt"
-              fi
+              src="$ROOT_BASE/${tag}.$((i-1))"; tgt="$ROOT_BASE/${tag}.$i"
+              [[ -L "$src" ]] && ln -sfn "$(readlink -f "$src")" "$tgt" || true
             done
-            # write new generation 0
             ln -sfn "$out" "$ROOT_BASE/${tag}.0"
-            # convenience alias "latest" -> gen 0
             ln -sfn "$ROOT_BASE/${tag}.0" "$ROOT_BASE/${tag}-latest"
           }
 
-          # Enumerate exported attrs
-          HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
-            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
-            2>/dev/null || echo "")"
+          HOSTS_RAW="$(nix eval --raw .#nixosConfigurations --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' 2>/dev/null || echo "")"
+          HOMES_RAW="$(nix eval --raw .#homeConfigurations --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' 2>/dev/null || echo "")"
+          [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]] && { echo "Error: no nixos/home configs."; exit 1; }
 
-          HOMES_RAW="$(nix eval --raw .#homeConfigurations \
-            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
-            2>/dev/null || echo "")"
-
-          if [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]]; then
-            echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
-            exit 1
-          fi
-
-          # ---- NixOS systems ----
           if [[ -n "${HOSTS_RAW}" ]]; then
             readarray -t HOSTS <<< "${HOSTS_RAW}"
-            echo "Discovered nixosConfigurations:"
-            for h in "${HOSTS[@]}"; do echo "  - ${h}"; done
-
             for h in "${HOSTS[@]}"; do
               echo "::group::nixosConfigurations.${h}"
-              out="$(nix build \
-                --accept-flake-config \
-                --no-link \
-                --print-out-paths \
-                ".#nixosConfigurations.${h}.config.system.build.toplevel")"
-
+              out="$($NIXBUILD ".#nixosConfigurations.${h}.config.system.build.toplevel")"
               push_closure "$out"
               rotate_roots "nixos-${h}" "$out"
               cachix pin nixosconfig "nixos-${h}" "$out" --keep-days 7
               echo "::endgroup::"
             done
-          else
-            echo "No nixosConfigurations exported by flake."
           fi
 
-          # ---- Home Manager activations ----
           if [[ -n "${HOMES_RAW}" ]]; then
             readarray -t HOMES <<< "${HOMES_RAW}"
-            echo "Discovered homeConfigurations:"
-            for u in "${HOMES[@]}"; do echo "  - ${u}"; done
-
             for u in "${HOMES[@]}"; do
               echo "::group::homeConfigurations.${u}"
-              out="$(nix build \
-                --accept-flake-config \
-                --no-link \
-                --print-out-paths \
-                ".#homeConfigurations.${u}.activationPackage")"
-
+              out="$($NIXBUILD ".#homeConfigurations.${u}.activationPackage")"
               push_closure "$out"
               rotate_roots "hm-${u}" "$out"
               cachix pin nixosconfig "hm-${u}" "$out" --keep-days 7
               echo "::endgroup::"
             done
-          else
-            echo "No homeConfigurations exported by flake."
           fi
 
-          # ---- Local cleanup (user GC; sees our per-user roots) ----
+          # Keep last 3 roots per tag; GC as user so these roots are respected
           nix-collect-garbage --delete-old || true
           nix-store --optimise || true
