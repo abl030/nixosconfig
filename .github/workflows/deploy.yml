@@ -1,52 +1,42 @@
-# This workflow builds all NixOS and Home Manager configurations.
-# On success, it pushes the resulting packages to a Cachix binary cache
-# to accelerate future builds and deployments.
+# .github/workflows/deploy.yml
 
 name: "Build and Cache NixOS Fleet"
 
 on:
-  # Trigger the workflow on pushes to the main branch.
   push:
     branches:
       - main
-  # Also allow the workflow to be run manually from the GitHub Actions UI.
+  # --- ADD THIS SECTION ---
+  # Trigger the workflow when a pull request is created or updated
+  # that targets the main branch.
+  pull_request:
+    branches:
+      - main
+  # ------------------------
   workflow_dispatch:
 
 jobs:
   build-and-cache:
-    # This job must run on your self-hosted runner, as defined in your project plan.
     runs-on: self-hosted
 
     steps:
-      # Get a copy of your repository's code on the runner.
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Set up the Nix environment, enabling flakes.
       - name: Install Nix
         uses: cachix/install-nix-action@v27
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      # Authenticate to Cachix. This allows the job to download existing
-      # artifacts from your cache and push new ones upon a successful build.
       - name: Configure Cachix
         uses: cachix/cachix-action@v15
         with:
-          # The public name of your cache.
           name: nixosconfig
-          # The secret token, securely retrieved from GitHub secrets.
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
-      # Build all host configurations defined in your flake. Flakes automatically
-      # resolve top-level names, so this command correctly builds both
-      # nixosConfigurations and homeConfigurations. The cachix-action automatically
-      # wraps this step to handle the upload.
       - name: Build All Host Configurations
         run: nix build .#epimetheus .#caddy .#framework .#wsl .#proxmox-vm .#igpu
 
-      # This is the placeholder for the final deployment step from your project plan.
-      # Once artifacts are cached, this is where you would deploy them.
       - name: Deploy (Placeholder)
         run: echo "Deployment logic will be added in a future phase."
