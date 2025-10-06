@@ -43,12 +43,12 @@ jobs:
           # Use sudo if available (for GC roots & GC)
           if command -v sudo >/dev/null; then SUDO=sudo; else SUDO=; fi
 
-          # Prefer system gcroots; fall back to per-user if needed.
+          # Prefer system gcroots; fall back to per-user if needed (GC won't see per-user unless you also register an indirect root).
           ROOT_BASE="/nix/var/nix/gcroots/nix-serve"
           if ! $SUDO install -d -m 0755 "$ROOT_BASE"; then
             ROOT_BASE="$HOME/.cache/nix-serve-gcroots"
             mkdir -p "$ROOT_BASE"
-            echo "Using per-user GC roots at $ROOT_BASE"
+            echo "Using per-user GC roots at $ROOT_BASE (note: system GC won't see these)."
           fi
 
           # Helper: push full closure of a store path to Cachix
@@ -58,12 +58,11 @@ jobs:
             nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
           }
 
-          # Helper: keep only the latest build on nix-serve via a single GC root
+          # Helper: keep only the latest build on nix-serve via a single GC root (symlink under /nix/var/nix/gcroots)
           keep_latest_root() {
             local tag="$1" out="$2"
             local root="$ROOT_BASE/${tag}-latest"
             $SUDO ln -sfn "$out" "$root"
-            $SUDO nix-store --add-root "$root" --indirect "$out"
           }
 
           # Enumerate sets without jq / getFlake
