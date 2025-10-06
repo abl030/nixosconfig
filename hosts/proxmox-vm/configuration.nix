@@ -29,6 +29,11 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
+  homelab.nixCaches = {
+    enable = true;
+    profile = "internal"; # or "external"
+  };
+
   homelab.services.nginxNixMirror = {
     enable = true;
     hostName = "nix-mirror.ablz.au";
