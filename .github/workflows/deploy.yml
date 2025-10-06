@@ -40,32 +40,23 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Use sudo if available (for GC roots & GC)
-          if command -v sudo >/dev/null; then SUDO=sudo; else SUDO=; fi
+          # Per-user GC roots only; we do NOT use sudo anywhere.
+          ROOT_BASE="$HOME/.cache/nix-serve-gcroots"
+          mkdir -p "$ROOT_BASE"
 
-          # Prefer system gcroots; fall back to per-user if needed (GC won't see per-user unless you also register an indirect root).
-          ROOT_BASE="/nix/var/nix/gcroots/nix-serve"
-          if ! $SUDO install -d -m 0755 "$ROOT_BASE"; then
-            ROOT_BASE="$HOME/.cache/nix-serve-gcroots"
-            mkdir -p "$ROOT_BASE"
-            echo "Using per-user GC roots at $ROOT_BASE (note: system GC won't see these)."
-          fi
-
-          # Helper: push full closure of a store path to Cachix
+          # Push the full closure of a store path to Cachix (chunked to avoid long argv)
           push_closure() {
             local path="$1"
-            # Push in chunks to avoid arg length issues
             nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
           }
 
-          # Helper: keep only the latest build on nix-serve via a single GC root (symlink under /nix/var/nix/gcroots)
+          # Keep exactly the latest build rooted per tag; older outputs become unrooted and GC'able
           keep_latest_root() {
             local tag="$1" out="$2"
-            local root="$ROOT_BASE/${tag}-latest"
-            $SUDO ln -sfn "$out" "$root"
+            ln -sfn "$out" "$ROOT_BASE/${tag}-latest"
           }
 
-          # Enumerate sets without jq / getFlake
+          # Enumerate exported attrs without jq/getFlake
           HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
             --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
             2>/dev/null || echo "")"
@@ -79,7 +70,7 @@ jobs:
             exit 1
           fi
 
-          # Build + push NixOS systems
+          # NixOS systems
           if [[ -n "${HOSTS_RAW}" ]]; then
             readarray -t HOSTS <<< "${HOSTS_RAW}"
             echo "Discovered nixosConfigurations:"
@@ -93,13 +84,13 @@ jobs:
                 --print-out-paths \
                 ".#nixosConfigurations.${h}.config.system.build.toplevel")"
 
-              # 1) Push full closure to Cachix
+              # 1) Upload the full closure to Cachix
               push_closure "$out"
 
-              # 2) Keep only latest on nix-serve (single GC root per host)
+              # 2) Root only the latest locally (retention depth = 1)
               keep_latest_root "nixos-${h}" "$out"
 
-              # 3) Retain 7 days on Cachix via pins (per host)
+              # 3) Keep on Cachix for 7 days (remote retention)
               cachix pin nixosconfig "nixos-${h}" "$out" --keep-days 7
 
               echo "::endgroup::"
@@ -108,7 +99,7 @@ jobs:
             echo "No nixosConfigurations exported by flake."
           fi
 
-          # Build + push Home Manager activations
+          # Home Manager activations
           if [[ -n "${HOMES_RAW}" ]]; then
             readarray -t HOMES <<< "${HOMES_RAW}"
             echo "Discovered homeConfigurations:"
@@ -122,13 +113,13 @@ jobs:
                 --print-out-paths \
                 ".#homeConfigurations.${u}.activationPackage")"
 
-              # 1) Push full closure to Cachix
+              # 1) Upload the full closure to Cachix
               push_closure "$out"
 
-              # 2) Keep only latest HM activation on nix-serve (optional but handy)
+              # 2) Root only the latest locally (retention depth = 1)
               keep_latest_root "hm-${u}" "$out"
 
-              # 3) Retain 7 days on Cachix via pins (per HM config)
+              # 3) Keep on Cachix for 7 days (remote retention)
               cachix pin nixosconfig "hm-${u}" "$out" --keep-days 7
 
               echo "::endgroup::"
@@ -137,6 +128,6 @@ jobs:
             echo "No homeConfigurations exported by flake."
           fi
 
-          # Reclaim local space: anything not reachable from "latest" roots is removed
-          $SUDO nix-collect-garbage --delete-old || true
-          $SUDO nix-store --optimise || true
+          # Local cleanup as the same user (no sudo): respects our per-user roots.
+          nix-collect-garbage --delete-old || true
+          nix-store --optimise || true
