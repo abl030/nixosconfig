@@ -19,7 +19,7 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-            # Needed if any inputs are private GitHub repos:
+            # If any inputs are private GitHub repos:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Cachix
@@ -28,49 +28,63 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # Enumerate flake outputs with `nix flake show --json` (pure), parse via jq from nixpkgs,
-      # then build and push each closure to Cachix. Fails loudly if neither set exists.
       - name: Build + push nixosConfigurations and homeConfigurations
         shell: bash
         run: |
           set -euo pipefail
-          nix shell --quiet nixpkgs#jq --command bash -lc '
-            set -euo pipefail
 
-            # Get keys safely (keys[]? avoids errors if the object is missing)
-            readarray -t HOSTS < <(nix flake show --json | jq -r ".nixosConfigurations | keys[]? // empty")
-            readarray -t HOMES < <(nix flake show --json | jq -r ".homeConfigurations | keys[]? // empty")
+          # Enumerate attr names **without** jq and **without** getFlake.
+          # If an attr set is missing, swallow the error and leave RAW empty.
+          HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
+            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
+            2>/dev/null || echo "")"
 
-            if [ "${#HOSTS[@]}" -eq 0 ] && [ "${#HOMES[@]}" -eq 0 ]; then
-              echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
-              exit 1
-            fi
+          HOMES_RAW="$(nix eval --raw .#homeConfigurations \
+            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
+            2>/dev/null || echo "")"
 
-            if [ "${#HOSTS[@]}" -gt 0 ]; then
-              echo "Discovered nixosConfigurations:"
-              printf "  - %s\n" "${HOSTS[@]}"
-            else
-              echo "No nixosConfigurations exported by flake."
-            fi
+          # Hard fail if neither is exported.
+          if [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]]; then
+            echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
+            exit 1
+          fi
 
-            if [ "${#HOMES[@]}" -gt 0 ]; then
-              echo "Discovered homeConfigurations:"
-              printf "  - %s\n" "${HOMES[@]}"
-            else
-              echo "No homeConfigurations exported by flake."
-            fi
+          # Build + push all NixOS hosts.
+          if [[ -n "${HOSTS_RAW}" ]]; then
+            readarray -t HOSTS <<< "${HOSTS_RAW}"
+            echo "Discovered nixosConfigurations:"
+            for h in "${HOSTS[@]}"; do echo "  - ${h}"; done
 
             for h in "${HOSTS[@]}"; do
               echo "::group::nixosConfigurations.${h}"
-              out="$(nix build --accept-flake-config --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")"
+              out="$(nix build \
+                --accept-flake-config \
+                --no-link \
+                --print-out-paths \
+                ".#nixosConfigurations.${h}.config.system.build.toplevel")"
               nix copy --to "cachix://nixosconfig" "$out"
               echo "::endgroup::"
             done
+          else
+            echo "No nixosConfigurations exported by flake."
+          fi
+
+          # Build + push all Home Manager configs.
+          if [[ -n "${HOMES_RAW}" ]]; then
+            readarray -t HOMES <<< "${HOMES_RAW}"
+            echo "Discovered homeConfigurations:"
+            for u in "${HOMES[@]}"; do echo "  - ${u}"; done
 
             for u in "${HOMES[@]}"; do
               echo "::group::homeConfigurations.${u}"
-              out="$(nix build --accept-flake-config --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")"
+              out="$(nix build \
+                --accept-flake-config \
+                --no-link \
+                --print-out-paths \
+                ".#homeConfigurations.${u}.activationPackage")"
               nix copy --to "cachix://nixosconfig" "$out"
               echo "::endgroup::"
             done
-          '
+          else
+            echo "No homeConfigurations exported by flake."
+          fi
