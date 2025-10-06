@@ -116,6 +116,8 @@
 
                 modules = [
                   cfg.configurationFile
+                  ./modules/nixos
+                  inputs.sops-nix.nixosModules.sops
                   {
                     # Keep nixpkgs channel and registry consistent across hosts.
                     nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
@@ -124,6 +126,29 @@
 
                     # Make overlays global for the system.
                     nixpkgs.overlays = overlays;
+                  }
+
+                  # Integrate Home Manager so `nixos-rebuild switch` applies HM too.
+                  # HM uses global pkgs; we pass host context through extraSpecialArgs.
+                  home-manager.nixosModules.home-manager
+                  {
+                    home-manager = {
+                      useGlobalPkgs = true;
+                      useUserPackages = true;
+                      extraSpecialArgs =
+                        extraSpecialArgs
+                        // {
+                          hostname = _hostname;
+                          allHosts = hosts;
+                        };
+                      users.${cfg.user} = {
+                        imports = [
+                          home-manager-diff.hmModules.default
+                          cfg.homeFile
+                          ./modules/home-manager
+                        ];
+                      };
+                    };
                   }
                 ];
               }
@@ -162,7 +187,8 @@
                 ];
               }
           )
-          hosts;
+          # Build standalone Home Manager configs only for HM-only hosts (no `configurationFile`).
+          (lib.filterAttrs (_: cfg: !(cfg ? "configurationFile")) hosts);
       };
     };
 }
