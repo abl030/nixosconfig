@@ -29,6 +29,19 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
+  homelab.services.nginxNixMirror = {
+    enable = true;
+    hostName = "nix-mirror.ablz.au";
+    acmeEmail = "acme@ablz.au"; # or null to use global defaults
+
+    # Path to your encrypted dotenv (committed file)
+    cloudflare.sopsFile = ../../secrets/secrets/acme-cloudflare.env;
+
+    # Optional: override cache root or age key paths
+    # cacheRoot = "/var/cache/nginx-nix-mirror";
+    # sopsAgeKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  };
+
   # Enable our github runner
   homelab.services.githubRunner = {
     enable = true;

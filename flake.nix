@@ -117,6 +117,7 @@
                 modules = [
                   cfg.configurationFile
                   ./modules/nixos
+                  inputs.sops-nix.nixosModules.sops
                   {
                     # Keep nixpkgs channel and registry consistent across hosts.
                     nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
