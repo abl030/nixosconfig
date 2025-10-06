@@ -19,7 +19,6 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-            # Helps if any inputs are private Git repos:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Cachix
@@ -28,36 +27,47 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Build + push all nixosConfigurations
+      - name: Build + push nixosConfigurations and homeConfigurations
         shell: bash
         run: |
           set -euo pipefail
-          HOSTS_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake "."; in builtins.concatStringsSep "\n" (builtins.attrNames (f.nixosConfigurations or {}))' || true)"
-          if [[ -z "${HOSTS_RAW// }" ]]; then
-            echo "No nixosConfigurations found; skipping."
-          else
-            readarray -t HOSTS <<< "$HOSTS_RAW"
-            for h in "${HOSTS[@]}"; do
-              echo "::group::nixosConfigurations.${h}"
-              out="$(nix build --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")"
-              nix copy --to "cachix://nixosconfig" "$out"
-              echo "::endgroup::"
-            done
+
+          # Enumerate exports directly from the flake (absolute path form).
+          HOSTS_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake (toString ./.); in builtins.concatStringsSep "\n" (builtins.attrNames (f.nixosConfigurations or {}))')"
+          HOMES_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake (toString ./.); in builtins.concatStringsSep "\n" (builtins.attrNames (f.homeConfigurations or {}))')"
+
+          # Fail loudly if neither NixOS nor HM configurations are exported.
+          if [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]]; then
+            echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
+            exit 1
           fi
 
-      - name: Build + push all homeConfigurations (if any)
-        shell: bash
-        run: |
-          set -euo pipefail
-          HOMES_RAW="$(nix eval --raw --expr 'let f = builtins.getFlake "."; in builtins.concatStringsSep "\n" (builtins.attrNames (f.homeConfigurations or {}))' || true)"
-          if [[ -z "${HOMES_RAW// }" ]]; then
-            echo "No homeConfigurations found; skipping."
-          else
-            readarray -t HOMES <<< "$HOMES_RAW"
-            for u in "${HOMES[@]}"; do
-              echo "::group::homeConfigurations.${u}"
-              out="$(nix build --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")"
+          # Build + push all NixOS hosts (if any).
+          if [[ -n "${HOSTS_RAW}" ]]; then
+            echo "Discovered nixosConfigurations:"
+            printf '  - %s\n' ${HOSTS_RAW}
+            readarray -t HOSTS <<< "${HOSTS_RAW}"
+            for h in "${HOSTS[@]}"; do
+              echo "::group::nixosConfigurations.${h}"
+              out="$(nix build --accept-flake-config --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")"
               nix copy --to "cachix://nixosconfig" "$out"
               echo "::endgroup::"
             done
+          else
+            echo "No nixosConfigurations exported by flake."
+          fi
+
+          # Build + push all Home Manager configs (if any).
+          if [[ -n "${HOMES_RAW}" ]]; then
+            echo "Discovered homeConfigurations:"
+            printf '  - %s\n' ${HOMES_RAW}
+            readarray -t HOMES <<< "${HOMES_RAW}"
+            for u in "${HOMES[@]}"; do
+              echo "::group::homeConfigurations.${u}"
+              out="$(nix build --accept-flake-config --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")"
+              nix copy --to "cachix://nixosconfig" "$out"
+              echo "::endgroup::"
+            done
+          else
+            echo "No homeConfigurations exported by flake."
           fi
