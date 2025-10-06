@@ -9,27 +9,6 @@
   cfg = config.homelab.services.nginxNixMirror or {};
   secretName = cfg.cloudflare.secretName;
 
-  # Resolve email: prefer file if provided; trim whitespace/newlines.
-  # Note: ACME requires an email at *evaluation* time. If you don't want it in the repo,
-  # use acmeEmailFile pointing to a git-ignored file. If neither is set, the ACME module asserts.
-  emailFromFile =
-    if cfg.acmeEmailFile != null
-    then
-      lib.pipe (builtins.readFile cfg.acmeEmailFile) [
-        lib.strings.trim
-        (s: lib.strings.removeSuffix "\n" s)
-        (s:
-          if s == ""
-          then null
-          else s)
-      ]
-    else null;
-
-  emailValue =
-    if emailFromFile != null
-    then emailFromFile
-    else cfg.acmeEmail;
-
   # --- Retention policy implementation ---
   # We keep proxy_store (immutable mirror semantics for NARs) and add a housekeeping
   # service + timer. It prunes:
@@ -79,7 +58,7 @@
     }
 
     # Phase 1: prune files that haven't been *recently used*.
-    # CHANGE: In mtime fallback we removed the extra "fresh" guard (redundant vs. INACTIVE_DAYS).
+    # (mtime fallback doesn't need an extra "fresh guard": INACTIVE_DAYS >> PROTECT_HOURS)
     prune_inactive() {
       for d in "''${PRUNE_DIRS[@]}"; do
         [ -d "$d" ] || continue
@@ -152,19 +131,11 @@ in {
       description = "Root directory for cached artifacts and temp areas.";
     };
 
-    # Keep as fallback (if you really want to set inline)
+    # SIMPLIFIED EMAIL: default provided here; no file sourcing.
     acmeEmail = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "ACME contact email (inline). Prefer acmeEmailFile for public repos.";
-    };
-
-    # Preferred for public repos: read email from an untracked or private file.
-    acmeEmailFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      description = "Path to a local/private file containing the ACME contact email (single line). Takes precedence over acmeEmail.";
-      example = "/etc/local/acme-email.txt";
+      type = lib.types.str;
+      default = "acme@ablz.au";
+      description = "ACME contact email (override here if you don't want the default).";
     };
 
     # SOPS/age config kept here so the module owns decryption.
@@ -244,10 +215,14 @@ in {
       ];
     };
 
-    # ACME DNS-01 via Cloudflare; email can come from file or inline (file wins)
+    # ACME DNS-01 via Cloudflare
     security.acme = {
       acceptTerms = true;
-      defaults = lib.mkIf (emailValue != null) {email = emailValue;};
+
+      # FIXED: set defaults.email correctly (previous nesting caused an invalid path).
+      # mkDefault lets a global or another module override if needed.
+      defaults.email = lib.mkDefault cfg.acmeEmail;
+
       certs."${cfg.hostName}" = {
         domain = cfg.hostName;
         dnsProvider = "cloudflare";
@@ -261,9 +236,10 @@ in {
 
     # nginx vhost: pull-through only for exact nix endpoints
     services.nginx = {
-      enable = true;
-      recommendedProxySettings = true;
-      recommendedTlsSettings = true;
+      # mkDefault to compose cleanly with other modules that may tweak nginx.
+      enable = lib.mkDefault true;
+      recommendedProxySettings = lib.mkDefault true;
+      recommendedTlsSettings = lib.mkDefault true;
 
       virtualHosts."${cfg.hostName}" = {
         useACMEHost = cfg.hostName;
@@ -322,7 +298,7 @@ in {
         # Read/write only where we need it.
         ReadWritePaths = [cfg.cacheRoot];
 
-        # SECURITY CHANGE: Keep system dirs read-only. Previously 'false' widened attack surface.
+        # SECURITY: keep system dirs read-only (previously discussed).
         ProtectSystem = "strict";
         ProtectHome = true;
 

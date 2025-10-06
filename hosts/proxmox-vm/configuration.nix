@@ -32,7 +32,6 @@
   homelab.services.nginxNixMirror = {
     enable = true;
     hostName = "nix-mirror.ablz.au";
-    acmeEmail = "acme@ablz.au"; # or null to use global defaults
 
     # Path to your encrypted dotenv (committed file)
     cloudflare.sopsFile = ../../secrets/secrets/acme-cloudflare.env;
