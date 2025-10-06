@@ -33,8 +33,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Enumerate attr names **without** jq and **without** getFlake.
-          # If an attr set is missing, swallow the error and leave RAW empty.
+          # Enumerate sets without jq / getFlake
           HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
             --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
             2>/dev/null || echo "")"
@@ -43,13 +42,19 @@ jobs:
             --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
             2>/dev/null || echo "")"
 
-          # Hard fail if neither is exported.
           if [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]]; then
             echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
             exit 1
           fi
 
-          # Build + push all NixOS hosts.
+          # Helper to push full closure of a store path to Cachix
+          push_closure() {
+            local path="$1"
+            # Push in chunks to avoid arg length issues
+            nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
+          }
+
+          # Build + push NixOS systems
           if [[ -n "${HOSTS_RAW}" ]]; then
             readarray -t HOSTS <<< "${HOSTS_RAW}"
             echo "Discovered nixosConfigurations:"
@@ -62,14 +67,14 @@ jobs:
                 --no-link \
                 --print-out-paths \
                 ".#nixosConfigurations.${h}.config.system.build.toplevel")"
-              nix copy --to "cachix://nixosconfig" "$out"
+              push_closure "$out"
               echo "::endgroup::"
             done
           else
             echo "No nixosConfigurations exported by flake."
           fi
 
-          # Build + push all Home Manager configs.
+          # Build + push Home Manager activations
           if [[ -n "${HOMES_RAW}" ]]; then
             readarray -t HOMES <<< "${HOMES_RAW}"
             echo "Discovered homeConfigurations:"
@@ -82,7 +87,7 @@ jobs:
                 --no-link \
                 --print-out-paths \
                 ".#homeConfigurations.${u}.activationPackage")"
-              nix copy --to "cachix://nixosconfig" "$out"
+              push_closure "$out"
               echo "::endgroup::"
             done
           else
