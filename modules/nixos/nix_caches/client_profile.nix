@@ -184,7 +184,10 @@ in {
 
     nix.settings = {
       substituters = substitutersFor cfg.profile;
-      trusted-public-keys = publicKeys;
+
+      # Force the final list so module merge (which concatenates lists) can't re-add default keys.
+      # Also dedupe just in case another layer fed the same key.
+      trusted-public-keys = lib.mkForce (lib.unique publicKeys);
 
       narinfo-cache-positive-ttl = cfg.narinfo.positiveTtl;
       narinfo-cache-negative-ttl = cfg.narinfo.negativeTtl;
