@@ -1,5 +1,2 @@
-ci 
--  Devshell with formatting, deadnix (for dead code), statix (for finding anti-patterns)
-- Then integrate this into autochecks on PR's. With the runner being self hosted, of course!
-
-nix flake check should evaluate every host. this should be in the CI too.
+1. Need to update our bash functions for reload and update. Though this will become out of data once we finish our gitops deployment hey.
+2. We have a lot of nix packages errors now we have integrated home manager into nixos rebuild switch. Need to fix these but they are hard to find: <BS>That’s Home Manager cautioning against setting HM’s own nixpkgs.* inside the HM user profile when useGlobalPkgs = true (because HM will use the system pkgs). If any of your HM modules set home-manager.users.<name>.nixpkgs.overlays or ...nixpkgs.config, delete those in the NixOS/HM path. You can keep overlays at the system level (what we already do), and for HM-only hosts it’s fine to set them in the standalone homeConfigurations (which we also do).

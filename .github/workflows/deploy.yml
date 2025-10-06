@@ -1,0 +1,42 @@
+# .github/workflows/deploy.yml
+
+name: "Build and Cache NixOS Fleet"
+
+on:
+  push:
+    branches:
+      - main
+  # --- ADD THIS SECTION ---
+  # Trigger the workflow when a pull request is created or updated
+  # that targets the main branch.
+  pull_request:
+    branches:
+      - main
+  # ------------------------
+  workflow_dispatch:
+
+jobs:
+  build-and-cache:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Configure Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: nixosconfig
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+
+      - name: Build All Host Configurations
+        run: nix build .#epimetheus .#caddy .#framework .#wsl .#proxmox-vm .#igpu
+
+      - name: Deploy (Placeholder)
+        run: echo "Deployment logic will be added in a future phase."

@@ -29,6 +29,34 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
+  homelab.services.nginxNixMirror = {
+    enable = true;
+    hostName = "nix-mirror.ablz.au";
+
+    # Path to your encrypted dotenv (committed file)
+    cloudflare.sopsFile = ../../secrets/secrets/acme-cloudflare.env;
+
+    # Optional: override cache root or age key paths
+    # cacheRoot = "/var/cache/nginx-nix-mirror";
+    # sopsAgeKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  };
+
+  # Enable our github runner
+  homelab.services.githubRunner = {
+    enable = true;
+    repoUrl = "https://github.com/abl030/nixosconfig";
+    tokenFile = "/var/lib/github-runner/registration-token";
+    runnerName = "proxmox-bastion";
+  };
+
+  # Enable Nix-Server
+  services.nix-serve = {
+    enable = true;
+    bindAddress = "0.0.0.0"; # reverse-proxy only from Caddy
+    port = 5000;
+    secretKeyFile = "/var/lib/nixcache/secret.key"; # signs .narinfo
+  };
+
   #enable docker
   virtualisation.docker = {
     enable = true;

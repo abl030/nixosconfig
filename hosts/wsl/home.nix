@@ -17,7 +17,7 @@ _: {
     # Home Manager needs a bit of information about you and the paths it should
     # manage.
     username = "nixos";
-    homeDirectory = "/home/nixos/";
+    homeDirectory = "/home/nixos";
     sessionPath = [
       "/mnt/c/Users/andy.b/AppData/Local/Microsoft/WinGet/Packages/equalsraf.win32yank_Microsoft.Winget.Source_8wekyb3d8bbwe"
     ];
