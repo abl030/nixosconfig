@@ -148,7 +148,7 @@ in {
       publicKey = lib.mkOption {
         type = lib.types.str;
         # Official cache key kept as default; override if you really need to.
-        default = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAwr33j/IM4E4+Q6CTGg4w=";
+        default = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=";
       };
       priority = lib.mkOption {
         type = lib.types.ints.positive;
