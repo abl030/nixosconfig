@@ -37,7 +37,7 @@ jobs:
           # Force substituter order for this job; no backslashes anywhere.
           NIX_CONFIG: |
             experimental-features = nix-command flakes
-            substituters = https://nixcache.ablz.au?priority=10 https://nixosconfig.cachix.org?priority=20 https://nix-mirror.ablz.au?priority=30 https://cache.nixos.org?priority=40
+            substituters = https://nixcache.ablz.au?priority=10 https://nixosconfig.cachix.org?priority=30 https://nix-mirror.ablz.au?priority=20 https://cache.nixos.org?priority=40
             trusted-public-keys = ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54= nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
         run: |
           set -euo pipefail
