@@ -1,7 +1,7 @@
 # Edit this configuration file to define what should be installed on
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-{pkgs, ...}: {
+{ pkgs, ... }: {
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
@@ -30,8 +30,15 @@
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
+
+  homelab.nixCaches = {
+    enable = true;
+    profile = "internal"; # or "external"
+  };
   # Use Flakes
-  nix.settings.experimental-features = ["nix-command" "flakes"];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+  };
 
   # Consolidating hardware settings into a single attribute set improves clarity.
   hardware = {
@@ -90,7 +97,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = ["docker" "wheel" "video" "render"]; # Enable ‘sudo’ for the user.
+    extraGroups = [ "docker" "wheel" "video" "render" ]; # Enable ‘sudo’ for the user.
     packages = with pkgs; [
       git
     ];
