@@ -1,11 +1,18 @@
 name: "Build and Cache NixOS/HM (no all-hosts)"
 
 on:
+  # Run once for pushes to main
   push:
     branches: [main]
+  # Run for PRs targeting main (branch pushes won't trigger)
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# Ensure only one run per PR or ref; cancel older in-progress runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-cache:
@@ -19,7 +26,7 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-            # Helps if any inputs are private Git repos:
+            # If any inputs are private GitHub repos:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Cachix
@@ -28,45 +35,102 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # Build every nixosConfigurations.<host>.config.system.build.toplevel and push to Cachix
-      - name: Build + push all nixosConfigurations
+      - name: Build + push nixosConfigurations and homeConfigurations
         shell: bash
         run: |
           set -euo pipefail
-          # Use jq from nixpkgs without polluting the runner:
-          nix shell --quiet nixpkgs#jq -c bash -lc '
-            # List host names exported by your flake
-            mapfile -t HOSTS < <(nix eval --json .#nixosConfigurations --apply builtins.attrNames | jq -r ".[]")
-            if [ "${#HOSTS[@]}" -eq 0 ]; then
-              echo "No nixosConfigurations found; skipping."
-              exit 0
-            fi
+
+          # Use sudo if available (for GC roots & GC)
+          if command -v sudo >/dev/null; then SUDO=sudo; else SUDO=; fi
+
+          # Stable place for GC roots so nix-serve keeps only "latest"
+          $SUDO install -d -m 0755 /var/lib/nix-serve-gcroots
+
+          # Helper: push full closure of a store path to Cachix
+          push_closure() {
+            local path="$1"
+            nix path-info -r "$path" | xargs -r -n 128 cachix push nixosconfig
+          }
+
+          # Helper: keep only the latest build on nix-serve via a single GC root
+          keep_latest_root() {
+            local tag="$1" out="$2" root="/var/lib/nix-serve-gcroots/${tag}-latest"
+            $SUDO ln -sfn "$out" "$root"
+            $SUDO nix-store --add-root "$root" --indirect "$out"
+          }
+
+          # Enumerate sets without jq / getFlake
+          HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
+            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
+            2>/dev/null || echo "")"
+
+          HOMES_RAW="$(nix eval --raw .#homeConfigurations \
+            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
+            2>/dev/null || echo "")"
+
+          if [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]]; then
+            echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."
+            exit 1
+          fi
+
+          # Build + push NixOS systems
+          if [[ -n "${HOSTS_RAW}" ]]; then
+            readarray -t HOSTS <<< "${HOSTS_RAW}"
+            echo "Discovered nixosConfigurations:"
+            for h in "${HOSTS[@]}"; do echo "  - ${h}"; done
+
             for h in "${HOSTS[@]}"; do
               echo "::group::nixosConfigurations.${h}"
-              # Build but don’t leave ./result symlinks everywhere
-              OUT=$(nix build --no-link --print-out-paths ".#nixosConfigurations.${h}.config.system.build.toplevel")
-              # Push full closure to Cachix
-              nix copy --to "cachix://nixosconfig" "$OUT"
+              out="$(nix build \
+                --accept-flake-config \
+                --no-link \
+                --print-out-paths \
+                ".#nixosConfigurations.${h}.config.system.build.toplevel")"
+
+              # 1) Push full closure to Cachix
+              push_closure "$out"
+
+              # 2) Keep only latest on nix-serve (single GC root per host)
+              keep_latest_root "nixos-${h}" "$out"
+
+              # 3) Retain 7 days on Cachix via pins (per host)
+              cachix pin nixosconfig "nixos-${h}" "$out" --keep-days 7
+
               echo "::endgroup::"
             done
-          '
+          else
+            echo "No nixosConfigurations exported by flake."
+          fi
 
-      # Build every homeConfigurations.<name>.activationPackage (if present) and push to Cachix
-      - name: Build + push all homeConfigurations (if any)
-        shell: bash
-        run: |
-          set -euo pipefail
-          nix shell --quiet nixpkgs#jq -c bash -lc '
-            # If homeConfigurations isn’t exported, just skip
-            if ! nix eval --json .#homeConfigurations --apply builtins.attrNames >/dev/null 2>&1; then
-              echo "No homeConfigurations found; skipping."
-              exit 0
-            fi
-            mapfile -t HOMES < <(nix eval --json .#homeConfigurations --apply builtins.attrNames | jq -r ".[]")
+          # Build + push Home Manager activations
+          if [[ -n "${HOMES_RAW}" ]]; then
+            readarray -t HOMES <<< "${HOMES_RAW}"
+            echo "Discovered homeConfigurations:"
+            for u in "${HOMES[@]}"; do echo "  - ${u}"; done
+
             for u in "${HOMES[@]}"; do
               echo "::group::homeConfigurations.${u}"
-              OUT=$(nix build --no-link --print-out-paths ".#homeConfigurations.${u}.activationPackage")
-              nix copy --to "cachix://nixosconfig" "$OUT"
+              out="$(nix build \
+                --accept-flake-config \
+                --no-link \
+                --print-out-paths \
+                ".#homeConfigurations.${u}.activationPackage")"
+
+              # 1) Push full closure to Cachix
+              push_closure "$out"
+
+              # 2) Keep only latest HM activation on nix-serve (optional but handy)
+              keep_latest_root "hm-${u}" "$out"
+
+              # 3) Retain 7 days on Cachix via pins (per HM config)
+              cachix pin nixosconfig "hm-${u}" "$out" --keep-days 7
+
               echo "::endgroup::"
             done
-          '
+          else
+            echo "No homeConfigurations exported by flake."
+          fi
+
+          # Reclaim local space: anything not reachable from "latest" roots is removed
+          $SUDO nix-collect-garbage --delete-old || true
+          $SUDO nix-store --optimise || true
