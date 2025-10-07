@@ -31,7 +31,7 @@
 
   homelab.nixCaches = {
     enable = true;
-    profile = "internal"; # or "external"
+    profile = "server"; # or "external"
   };
 
   homelab.services.nginxNixMirror = {

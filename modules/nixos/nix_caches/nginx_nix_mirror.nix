@@ -1,4 +1,4 @@
-# modules/nixos/nginx-nix-mirror.nix
+# modules/nixos/nix_caches/nginx_nix_mirror.nix
 {
   lib,
   pkgs,
@@ -39,6 +39,7 @@
     PRUNE_DIRS=(
       "$CACHE_ROOT/nar/store"
       "$CACHE_ROOT/nix-cache-info/store"
+      "$CACHE_ROOT/narinfo/store"   # include narinfo metadata cache
     )
 
     # Convert hours → minutes for 'find -mmin'.
@@ -80,7 +81,7 @@
         return 0
       fi
 
-      # Build an ordered (oldest-first) list across both store dirs.
+      # Build an ordered (oldest-first) list across store dirs.
       tmp="$(mktemp)"
       for d in "''${PRUNE_DIRS[@]}"; do
         [ -d "$d" ] || continue
@@ -99,14 +100,12 @@
             continue
           fi
         fi
-
         rm -f -- "$path" || true
         cur_free="$(percent_free)"
         if [ "$cur_free" -ge "$TARGET_FREE" ]; then
           break
         fi
       done < "$tmp"
-
       rm -f "$tmp"
     }
 
@@ -171,26 +170,31 @@ in {
     # --- Retention policy knobs (sensible defaults) ---
     retention = {
       enable = lib.mkEnableOption "Enable housekeeping for proxy_store cache (time-based + watermark)";
+
       inactiveDays = lib.mkOption {
         type = lib.types.ints.positive;
         default = 45;
         description = "Delete files not accessed (or modified if noatime) in N days.";
       };
+
       protectFreshHours = lib.mkOption {
         type = lib.types.ints.positive;
         default = 24;
         description = "Never delete files newer than this many hours (avoid thrash after deploys).";
       };
+
       minFreePercent = lib.mkOption {
         type = lib.types.ints.positive;
         default = 20;
         description = "If FS free% drops below this low-watermark, start LRU pruning.";
       };
+
       targetFreePercent = lib.mkOption {
         type = lib.types.ints.positive;
         default = 30;
         description = "After low-watermark triggers, prune until this free% is reached.";
       };
+
       # Daily schedule in systemd OnCalendar format.
       schedule = lib.mkOption {
         type = lib.types.str;
@@ -218,11 +222,9 @@ in {
     # ACME DNS-01 via Cloudflare
     security.acme = {
       acceptTerms = true;
-
       # FIXED: set defaults.email correctly (previous nesting caused an invalid path).
       # mkDefault lets a global or another module override if needed.
       defaults.email = lib.mkDefault cfg.acmeEmail;
-
       certs."${cfg.hostName}" = {
         domain = cfg.hostName;
         dnsProvider = "cloudflare";
@@ -244,6 +246,16 @@ in {
       virtualHosts."${cfg.hostName}" = {
         useACMEHost = cfg.hostName;
         forceSSL = true;
+
+        # Narinfo metadata (Nix asks for this first; cache it to avoid falling through)
+        locations."~ \\.narinfo$".extraConfig = ''
+          proxy_store        on;
+          proxy_store_access user:rw group:rw all:r;
+          proxy_temp_path    ${cfg.cacheRoot}/narinfo/temp;
+          root               ${cfg.cacheRoot}/narinfo/store;
+          proxy_set_header   Host "cache.nixos.org";
+          proxy_pass         https://cache.nixos.org;
+        '';
 
         locations."~ ^/nix-cache-info$".extraConfig = ''
           proxy_store        on;
@@ -267,18 +279,23 @@ in {
 
     # cache directories (writeable by nginx) + unit hardening escape hatches
     systemd.tmpfiles.rules = [
-      "d ${cfg.cacheRoot}                         0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nix-cache-info         0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nix-cache-info/store   0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nix-cache-info/temp    0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nar                    0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nar/store              0750 nginx nginx -"
-      "d ${cfg.cacheRoot}/nar/temp               0750 nginx nginx -"
+      "d ${cfg.cacheRoot}                       0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nix-cache-info        0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nix-cache-info/store  0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nix-cache-info/temp   0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nar                   0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nar/store             0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/nar/temp              0750 nginx nginx -"
+      "d ${cfg.cacheRoot}/narinfo               0750 nginx nginx -" # allow narinfo cache
+      "d ${cfg.cacheRoot}/narinfo/store         0750 nginx nginx -" # allow narinfo cache
+      "d ${cfg.cacheRoot}/narinfo/temp          0750 nginx nginx -" # allow narinfo temp
     ];
+
     systemd.services.nginx.serviceConfig.ReadWritePaths = [
       cfg.cacheRoot
       "${cfg.cacheRoot}/nix-cache-info/temp"
       "${cfg.cacheRoot}/nar/temp"
+      "${cfg.cacheRoot}/narinfo/temp" # nginx may write temp narinfo files
     ];
 
     networking.firewall.allowedTCPPorts = [80 443];
@@ -301,12 +318,13 @@ in {
         # SECURITY: keep system dirs read-only (previously discussed).
         ProtectSystem = "strict";
         ProtectHome = true;
-
         PrivateTmp = true;
         NoNewPrivileges = true;
       };
+
       # Provide the tools we rely on (findutils, coreutils, awk, grep).
       path = [pkgs.findutils pkgs.coreutils pkgs.gnugrep pkgs.gawk pkgs.util-linux];
+
       script = pruneScript;
     };
 

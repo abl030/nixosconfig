@@ -6,7 +6,7 @@
 }:
 /*
 Purpose:
-- Centralise substituters + priorities with a single profile toggle: "internal" | "external".
+- Centralise substituters + priorities with a single profile toggle: "internal" | "external" | "server".
 - Default public keys are hard-coded for:
     • Cachix  : nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k=
     • nix-serve: ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54=
@@ -15,6 +15,7 @@ Purpose:
 Notes:
 - Lower numeric priority = higher preference.
 - We append ?priority=… (or &priority=… if the URL already has ?).
+- "server" profile removes cache.nixos.org (direct) and nix-serve; it uses the nginx mirror and (optionally) Cachix last.
 */
 let
   cfg = config.homelab.nixCaches;
@@ -27,27 +28,47 @@ let
   in "${url}${sep}priority=${toString pr}";
 
   # Build the ordered list based on profile.
+  # Cachix is intentionally LAST so we only fetch our custom pre-computed artifacts there.
   substitutersFor = profile: let
     prio =
       if profile == "internal"
       then {
         nixServe = cfg.nixServe.priorityInternal;
-        cachix = cfg.cachix.priorityInternal;
         mirror = cfg.mirror.priorityInternal;
         upstream = cfg.upstream.priority;
+        cachix = cfg.cachix.priorityInternal;
       }
-      else {
+      else if profile == "external"
+      then {
         nixServe = cfg.nixServe.priorityExternal;
-        cachix = cfg.cachix.priorityExternal;
         mirror = cfg.mirror.priorityExternal;
         upstream = cfg.upstream.priority;
+        cachix = cfg.cachix.priorityExternal;
+      }
+      else {
+        # "server": no direct cache.nixos.org, no nix-serve
+        nixServe = 999; # unused
+        mirror = cfg.mirror.priorityInternal; # prefer LAN mirror on servers
+        upstream = 999; # unused
+        cachix = cfg.cachix.priorityInternal; # keep Cachix last
       };
 
     urls = lib.flatten [
-      (lib.optional cfg.nixServe.enable (addPriority cfg.nixServe.url prio.nixServe))
-      (lib.optional cfg.cachix.enable (addPriority "https://${cfg.cachix.name}.cachix.org" prio.cachix))
-      (lib.optional cfg.mirror.enable (addPriority cfg.mirror.url prio.mirror))
-      (addPriority cfg.upstream.url prio.upstream)
+      # Skip nix-serve on "server" (it *is* the server / has its own store)
+      (lib.optional (cfg.nixServe.enable && profile != "server")
+        (addPriority cfg.nixServe.url prio.nixServe))
+
+      # Always keep the local nginx mirror
+      (lib.optional cfg.mirror.enable
+        (addPriority cfg.mirror.url prio.mirror))
+
+      # Skip direct cache.nixos.org on "server"
+      (lib.optional (profile != "server")
+        (addPriority cfg.upstream.url prio.upstream))
+
+      # Cachix LAST on purpose (only for our custom pre-computed stuff)
+      (lib.optional cfg.cachix.enable
+        (addPriority "https://${cfg.cachix.name}.cachix.org" prio.cachix))
     ];
   in
     urls;
@@ -60,8 +81,9 @@ let
 in {
   options.homelab.nixCaches = {
     enable = lib.mkEnableOption "Enable profile-based Nix cache substituters";
+
     profile = lib.mkOption {
-      type = lib.types.enum ["internal" "external"];
+      type = lib.types.enum ["internal" "external" "server"];
       default = "internal";
       description = "Pick cache priority profile for this host.";
     };
@@ -93,7 +115,7 @@ in {
       };
     };
 
-    # Cachix
+    # Cachix (kept LAST so we don't pull general binaries from it)
     cachix = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -109,13 +131,14 @@ in {
         default = "nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k=";
         description = "Cachix public key.";
       };
+      # Make Cachix the lowest priority by default (higher number → lower priority)
       priorityInternal = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 20;
+        default = 50;
       };
       priorityExternal = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 10;
+        default = 50;
       };
     };
 
@@ -131,7 +154,7 @@ in {
       };
       priorityInternal = lib.mkOption {
         type = lib.types.ints.positive;
-        default = 30;
+        default = 20;
       };
       priorityExternal = lib.mkOption {
         type = lib.types.ints.positive;
@@ -139,7 +162,7 @@ in {
       };
     };
 
-    # Upstream (always enabled as the final fallback)
+    # Upstream (always enabled as the final fallback; omitted in "server" profile)
     upstream = {
       url = lib.mkOption {
         type = lib.types.str;
@@ -183,12 +206,11 @@ in {
     ];
 
     nix.settings = {
-      substituters = substitutersFor cfg.profile;
-
+      # Force to prevent default appends adding a duplicate cache.nixos.org.
+      substituters = lib.mkForce (substitutersFor cfg.profile);
       # Force the final list so module merge (which concatenates lists) can't re-add default keys.
       # Also dedupe just in case another layer fed the same key.
       trusted-public-keys = lib.mkForce (lib.unique publicKeys);
-
       narinfo-cache-positive-ttl = cfg.narinfo.positiveTtl;
       narinfo-cache-negative-ttl = cfg.narinfo.negativeTtl;
     };
