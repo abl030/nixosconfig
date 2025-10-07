@@ -192,33 +192,53 @@ in {
                 forceSSL = true;
 
                 # Narinfo metadata (requested first by Nix); cache it too
+                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_narinfo.
                 locations."~ \\.narinfo$".extraConfig = ''
-                  proxy_store        on;
-                  proxy_store_access user:rw group:rw all:r;
-                  proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
                   root               ${cfg.mirrorCacheRoot}/narinfo/store;
-                  proxy_set_header   Host "cache.nixos.org";
-                  proxy_pass         https://cache.nixos.org;
+                  try_files          $uri @fetch_narinfo;
                 '';
 
                 # nix-cache-info
-                locations."~ ^/nix-cache-info$".extraConfig = ''
-                  proxy_store        on;
-                  proxy_store_access user:rw group:rw all:r;
-                  proxy_temp_path    ${cfg.mirrorCacheRoot}/nix-cache-info/temp;
-                  root               ${cfg.mirrorCacheRoot}/nix-cache-info/store;
+                # CHANGED: Always fetch from upstream (don't store). This guarantees we mirror upstream's Priority
+                #          and avoids ever serving an accidentally modified local nix-cache-info.
+                locations."= /nix-cache-info".extraConfig = ''
                   proxy_set_header   Host "cache.nixos.org";
                   proxy_pass         https://cache.nixos.org;
+                  proxy_no_cache     1;
+                  proxy_cache_bypass 1;
                 '';
 
                 # NAR payloads
+                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
                 locations."~ ^/nar/.+$".extraConfig = ''
-                  proxy_store        on;
-                  proxy_store_access user:rw group:rw all:r;
-                  proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
                   root               ${cfg.mirrorCacheRoot}/nar/store;
-                  proxy_set_header   Host "cache.nixos.org";
-                  proxy_pass         https://cache.nixos.org;
+                  try_files          $uri @fetch_nar;
+                '';
+
+                # NEW: Named fetch locations that do the one-time upstream proxy + write-through store.
+                #      Keeping these in server scope via extraConfig ensures they're available to try_files.
+                extraConfig = ''
+                  # --- Named fetch for .narinfo (cold path only) ---
+                  location @fetch_narinfo {
+                    proxy_set_header   Host "cache.nixos.org";
+                    proxy_pass         https://cache.nixos.org;
+
+                    proxy_store        on;
+                    proxy_store_access user:rw group:rw all:r;
+                    proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
+                    # Store path derives from "root + $uri" as set in the parent location.
+                  }
+
+                  # --- Named fetch for /nar/... payloads (cold path only) ---
+                  location @fetch_nar {
+                    proxy_set_header   Host "cache.nixos.org";
+                    proxy_pass         https://cache.nixos.org;
+
+                    proxy_store        on;
+                    proxy_store_access user:rw group:rw all:r;
+                    proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
+                    # Store path derives from "root + $uri" as set in the parent location.
+                  }
                 '';
               };
             })
