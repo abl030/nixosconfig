@@ -1,7 +1,7 @@
 # modules/nixos/default.nix
 {...}: {
   imports = [
-    ./nginx_nix_mirror.nix
+    ./nix_cache.nix
     ./client_profile.nix
   ];
 }
