@@ -1,4 +1,4 @@
-name: "Build and Cache NixOS/HM (no all-hosts)"
+name: "Populate Cachix from flake script"
 
 on:
   push:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-cache:
+  populate-cache:
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -31,81 +31,16 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Build + push nixosConfigurations and homeConfigurations (retain last K locally)
+      - name: Populate cache by running your script (auto-push via watch-exec)
         shell: bash
         env:
-          # Force substituter order for this job; no backslashes anywhere.
+          # Keep this in the *step* so it applies to the command we run.
           NIX_CONFIG: |
             experimental-features = nix-command flakes
-            substituters = https://nixcache.ablz.au?priority=10 https://nixosconfig.cachix.org?priority=30 https://nix-mirror.ablz.au?priority=20 https://cache.nixos.org?priority=40
+            substituters = https://nixcache.ablz.au?priority=10 https://nix-mirror.ablz.au?priority=20 https://nixosconfig.cachix.org?priority=30 https://cache.nixos.org?priority=40
             trusted-public-keys = ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54= nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
         run: |
           set -euo pipefail
-
-          # ---- Policy knobs ----
-          RETAIN=3                                   # keep last K builds per tag locally
-          ROOT_BASE="$HOME/.cache/nix-serve-gcroots" # per-user roots; no sudo anywhere
-          mkdir -p "$ROOT_BASE"
-
-          echo "Effective substituters:"
-          nix config show | sed -n 's/^substituters = /substituters = /p'
-
-          # Show which cache is used during builds
-          NIXBUILD='nix build --accept-flake-config --no-link --print-out-paths -L'
-
-          # ---- Helpers ----
-          push_closure() { nix path-info -r "$1" | xargs -r -n 128 cachix push nixosconfig; }
-          rotate_roots() {
-            local tag="$1" out="$2" i src tgt
-            for (( i=RETAIN-1; i>0; i-- )); do
-              src="$ROOT_BASE/${tag}.$((i-1))"; tgt="$ROOT_BASE/${tag}.$i"
-              [[ -L "$src" ]] && ln -sfn "$(readlink -f "$src")" "$tgt" || true
-            done
-            ln -sfn "$out" "$ROOT_BASE/${tag}.0"
-            ln -sfn "$ROOT_BASE/${tag}.0" "$ROOT_BASE/${tag}-latest"
-          }
-
-          # ---- Enumerate exported attrs ----
-          HOSTS_RAW="$(nix eval --raw .#nixosConfigurations \
-            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
-            2>/dev/null || echo "")"
-          HOMES_RAW="$(nix eval --raw .#homeConfigurations \
-            --apply 'x: builtins.concatStringsSep "\n" (builtins.attrNames x)' \
-            2>/dev/null || echo "")"
-          [[ -z "${HOSTS_RAW}${HOMES_RAW}" ]] && { echo "Error: flake exports neither nixosConfigurations nor homeConfigurations."; exit 1; }
-
-          # ---- NixOS systems ----
-          if [[ -n "${HOSTS_RAW}" ]]; then
-            readarray -t HOSTS <<< "${HOSTS_RAW}"
-            echo "Discovered nixosConfigurations:"; for h in "${HOSTS[@]}"; do echo "  - ${h}"; done
-            for h in "${HOSTS[@]}"; do
-              echo "::group::nixosConfigurations.${h}"
-              out="$($NIXBUILD ".#nixosConfigurations.${h}.config.system.build.toplevel")"
-              push_closure "$out"
-              rotate_roots "nixos-${h}" "$out"
-              cachix pin nixosconfig "nixos-${h}" "$out" --keep-days 7
-              echo "::endgroup::"
-            done
-          else
-            echo "No nixosConfigurations exported by flake."
-          fi
-
-          # ---- Home Manager activations ----
-          if [[ -n "${HOMES_RAW}" ]]; then
-            readarray -t HOMES <<< "${HOMES_RAW}"
-            echo "Discovered homeConfigurations:"; for u in "${HOMES[@]}"; do echo "  - ${u}"; done
-            for u in "${HOMES[@]}"; do
-              echo "::group::homeConfigurations.${u}"
-              out="$($NIXBUILD ".#homeConfigurations.${u}.activationPackage")"
-              push_closure "$out"
-              rotate_roots "hm-${u}" "$out"
-              cachix pin nixosconfig "hm-${u}" "$out" --keep-days 7
-              echo "::endgroup::"
-            done
-          else
-            echo "No homeConfigurations exported by flake."
-          fi
-
-          # ---- Local cleanup (user GC; respects our per-user roots) ----
-          nix-collect-garbage --delete-old || true
-          nix-store --optimise || true
+          # Ensure jq is available for the script, then run it under watch-exec
+          cachix watch-exec nixosconfig -- \
+            nix shell nixpkgs#jq -c bash ./scripts/populate_cache.sh
