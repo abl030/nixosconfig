@@ -25,6 +25,9 @@ Surface area is intentionally small and flat:
 
     localHost = "nixcache.ablz.au";                     # omit -> nix-serve disabled
     nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
+
+    # NEW: keep same-host requests on loopback (no bridge/NAT/conntrack).
+    loopbackSelf = true;
   };
 */
 let
@@ -115,209 +118,224 @@ in {
       default = null;
       description = "Path to nix-serve signing secret key (required if localHost is set).";
     };
+
+    # NEW: loopback mapping for same-host requests (only affects this machine).
+    loopbackSelf = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        When true, map mirrorHost to 127.0.0.1/::1 on this machine only.
+        Keeps same-host requests on loopback (clearer graphs, a touch less overhead).
+        Other LAN clients still use normal DNS (e.g. 192.168.1.29).
+      '';
+    };
   };
 
-  config = lib.mkIf cfg.enable (
-    lib.mkMerge [
-      # Fail fast on missing secrets/keys and invalid values.
-      {
-        assertions = [
-          {
-            assertion = !(anyHosts && (cfg.cloudflareSopsFile == null));
-            message = "homelab.cache: cloudflareSopsFile is required when mirrorHost or localHost is set.";
-          }
-          {
-            assertion = !(haveLocal && (cfg.nixServeSecretKeyFile == null));
-            message = "homelab.cache: nixServeSecretKeyFile is required when localHost is set.";
-          }
-          {
-            assertion = cfg.mirrorRetentionDays >= 0;
-            message = "homelab.cache: mirrorRetentionDays must be >= 0.";
-          }
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    # Fail fast on missing secrets/keys and invalid values.
+    {
+      assertions = [
+        {
+          assertion = !(anyHosts && (cfg.cloudflareSopsFile == null));
+          message = "homelab.cache: cloudflareSopsFile is required when mirrorHost or localHost is set.";
+        }
+        {
+          assertion = !(haveLocal && (cfg.nixServeSecretKeyFile == null));
+          message = "homelab.cache: nixServeSecretKeyFile is required when localHost is set.";
+        }
+        {
+          assertion = cfg.mirrorRetentionDays >= 0;
+          message = "homelab.cache: mirrorRetentionDays must be >= 0.";
+        }
+      ];
+    }
+
+    # ACME + Cloudflare secret only when any hostnames are enabled.
+    (lib.mkIf anyHosts {
+      sops.age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
+      sops.secrets.${secretName} = {
+        sopsFile = cfg.cloudflareSopsFile;
+        format = "dotenv";
+        owner = "acme";
+        group = "acme";
+        mode = "0400";
+        restartUnits =
+          ["nginx.service"]
+          ++ lib.optional haveMirror "acme-${cfg.mirrorHost}.service"
+          ++ lib.optional haveLocal "acme-${cfg.localHost}.service";
+      };
+
+      security.acme = {
+        acceptTerms = true;
+        defaults.email = lib.mkDefault cfg.acmeEmail;
+
+        certs = lib.mkMerge [
+          (lib.mkIf haveMirror {
+            "${cfg.mirrorHost}" = {
+              domain = cfg.mirrorHost;
+              dnsProvider = "cloudflare";
+              credentialsFile = config.sops.secrets.${secretName}.path;
+            };
+          })
+          (lib.mkIf haveLocal {
+            "${cfg.localHost}" = {
+              domain = cfg.localHost;
+              dnsProvider = "cloudflare";
+              credentialsFile = config.sops.secrets.${secretName}.path;
+            };
+          })
         ];
-      }
+      };
 
-      # ACME + Cloudflare secret only when any hostnames are enabled.
-      (lib.mkIf anyHosts {
-        sops.age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
-        sops.secrets.${secretName} = {
-          sopsFile = cfg.cloudflareSopsFile;
-          format = "dotenv";
-          owner = "acme";
-          group = "acme";
-          mode = "0400";
-          restartUnits =
-            ["nginx.service"]
-            ++ lib.optional haveMirror "acme-${cfg.mirrorHost}.service"
-            ++ lib.optional haveLocal "acme-${cfg.localHost}.service";
-        };
+      users.users.nginx.extraGroups = ["acme"];
+      networking.firewall.allowedTCPPorts = [80 443];
+    })
 
-        security.acme = {
-          acceptTerms = true;
-          defaults.email = lib.mkDefault cfg.acmeEmail;
+    # NEW: Keep same-host requests on loopback. (Only affects this machine.)
+    (lib.mkIf (haveMirror && cfg.loopbackSelf) {
+      networking.hosts = {
+        "127.0.0.1" = [cfg.mirrorHost];
+        "::1" = [cfg.mirrorHost];
+      };
+    })
 
-          certs = lib.mkMerge [
-            (lib.mkIf haveMirror {
-              "${cfg.mirrorHost}" = {
-                domain = cfg.mirrorHost;
-                dnsProvider = "cloudflare";
-                credentialsFile = config.sops.secrets.${secretName}.path;
-              };
-            })
-            (lib.mkIf haveLocal {
-              "${cfg.localHost}" = {
-                domain = cfg.localHost;
-                dnsProvider = "cloudflare";
-                credentialsFile = config.sops.secrets.${secretName}.path;
-              };
-            })
-          ];
-        };
+    # Single, robust nginx definition; vhosts merged conditionally.
+    (lib.mkIf anyHosts {
+      services.nginx = {
+        enable = lib.mkDefault true;
+        recommendedProxySettings = lib.mkDefault true;
+        recommendedTlsSettings = lib.mkDefault true;
 
-        users.users.nginx.extraGroups = ["acme"];
-        networking.firewall.allowedTCPPorts = [80 443];
-      })
+        virtualHosts = lib.mkMerge [
+          (lib.mkIf haveMirror {
+            "${cfg.mirrorHost}" = {
+              useACMEHost = cfg.mirrorHost;
+              forceSSL = true;
 
-      # Single, robust nginx definition; vhosts merged conditionally.
-      (lib.mkIf anyHosts {
-        services.nginx = {
-          enable = lib.mkDefault true;
-          recommendedProxySettings = lib.mkDefault true;
-          recommendedTlsSettings = lib.mkDefault true;
+              # Narinfo metadata (requested first by Nix); cache it too
+              # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_narinfo.
+              locations."~ \\.narinfo$".extraConfig = ''
+                root        ${cfg.mirrorCacheRoot}/narinfo/store;
+                try_files   $uri @fetch_narinfo;
+              '';
 
-          virtualHosts = lib.mkMerge [
-            (lib.mkIf haveMirror {
-              "${cfg.mirrorHost}" = {
-                useACMEHost = cfg.mirrorHost;
-                forceSSL = true;
+              # nix-cache-info
+              # CHANGED: Always fetch from upstream (don't store). Guarantees upstream Priority and avoids divergence.
+              locations."= /nix-cache-info".extraConfig = ''
+                proxy_set_header   Host "cache.nixos.org";
+                proxy_pass         https://cache.nixos.org;
+                proxy_no_cache     1;
+                proxy_cache_bypass 1;
+              '';
 
-                # Narinfo metadata (requested first by Nix); cache it too
-                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_narinfo.
-                locations."~ \\.narinfo$".extraConfig = ''
-                  root               ${cfg.mirrorCacheRoot}/narinfo/store;
-                  try_files          $uri @fetch_narinfo;
-                '';
+              # NAR payloads
+              # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
+              locations."~ ^/nar/.+$".extraConfig = ''
+                root        ${cfg.mirrorCacheRoot}/nar/store;
+                try_files   $uri @fetch_nar;
+              '';
 
-                # nix-cache-info
-                # CHANGED: Always fetch from upstream (don't store). This guarantees we mirror upstream's Priority
-                #          and avoids ever serving an accidentally modified local nix-cache-info.
-                locations."= /nix-cache-info".extraConfig = ''
+              # NEW: Named fetch locations that do the one-time upstream proxy + write-through store.
+              extraConfig = ''
+                # --- Named fetch for .narinfo (cold path only) ---
+                location @fetch_narinfo {
                   proxy_set_header   Host "cache.nixos.org";
                   proxy_pass         https://cache.nixos.org;
-                  proxy_no_cache     1;
-                  proxy_cache_bypass 1;
-                '';
 
-                # NAR payloads
-                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
-                locations."~ ^/nar/.+$".extraConfig = ''
-                  root               ${cfg.mirrorCacheRoot}/nar/store;
-                  try_files          $uri @fetch_nar;
-                '';
+                  proxy_store        on;
+                  proxy_store_access user:rw group:rw all:r;
+                  proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
+                  # Store path derives from "root + $uri" as set in the calling location.
+                }
 
-                # NEW: Named fetch locations that do the one-time upstream proxy + write-through store.
-                #      Keeping these in server scope via extraConfig ensures they're available to try_files.
-                extraConfig = ''
-                  # --- Named fetch for .narinfo (cold path only) ---
-                  location @fetch_narinfo {
-                    proxy_set_header   Host "cache.nixos.org";
-                    proxy_pass         https://cache.nixos.org;
+                # --- Named fetch for /nar/... payloads (cold path only) ---
+                location @fetch_nar {
+                  proxy_set_header   Host "cache.nixos.org";
+                  proxy_pass         https://cache.nixos.org;
 
-                    proxy_store        on;
-                    proxy_store_access user:rw group:rw all:r;
-                    proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
-                    # Store path derives from "root + $uri" as set in the parent location.
-                  }
-
-                  # --- Named fetch for /nar/... payloads (cold path only) ---
-                  location @fetch_nar {
-                    proxy_set_header   Host "cache.nixos.org";
-                    proxy_pass         https://cache.nixos.org;
-
-                    proxy_store        on;
-                    proxy_store_access user:rw group:rw all:r;
-                    proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
-                    # Store path derives from "root + $uri" as set in the parent location.
-                  }
-                '';
-              };
-            })
-            (lib.mkIf haveLocal {
-              "${cfg.localHost}" = {
-                useACMEHost = cfg.localHost;
-                forceSSL = true;
-                # Idiomatic proxy
-                locations."/" = {proxyPass = "http://127.0.0.1:5000";};
-              };
-            })
-          ];
-        };
-      })
-
-      # nix-serve runs on loopback only; nginx is the public face.
-      (lib.mkIf haveLocal {
-        services.nix-serve = {
-          enable = true;
-          bindAddress = "127.0.0.1";
-          port = 5000;
-          secretKeyFile = cfg.nixServeSecretKeyFile;
-        };
-      })
-
-      # Mirror-specific FS prep and nginx write permissions (only when mirror enabled).
-      (lib.mkIf haveMirror {
-        systemd.tmpfiles.rules = [
-          "d ${cfg.mirrorCacheRoot}                        0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nix-cache-info         0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nix-cache-info/store   0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nix-cache-info/temp    0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nar                    0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nar/store              0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/nar/temp               0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/narinfo                0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/narinfo/store          0750 nginx nginx -"
-          "d ${cfg.mirrorCacheRoot}/narinfo/temp           0750 nginx nginx -"
+                  proxy_store        on;
+                  proxy_store_access user:rw group:rw all:r;
+                  proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
+                  # Store path derives from "root + $uri" as set in the calling location.
+                }
+              '';
+            };
+          })
+          (lib.mkIf haveLocal {
+            "${cfg.localHost}" = {
+              useACMEHost = cfg.localHost;
+              forceSSL = true;
+              # Idiomatic proxy for nix-serve on loopback
+              locations."/" = {proxyPass = "http://127.0.0.1:5000";};
+            };
+          })
         ];
+      };
+    })
 
-        systemd.services.nginx.serviceConfig.ReadWritePaths = [
-          cfg.mirrorCacheRoot
-          "${cfg.mirrorCacheRoot}/nix-cache-info/temp"
-          "${cfg.mirrorCacheRoot}/nar/temp"
-          "${cfg.mirrorCacheRoot}/narinfo/temp"
-        ];
-      })
+    # nix-serve runs on loopback only; nginx is the public face.
+    (lib.mkIf haveLocal {
+      services.nix-serve = {
+        enable = true;
+        bindAddress = "127.0.0.1";
+        port = 5000;
+        secretKeyFile = cfg.nixServeSecretKeyFile;
+      };
+    })
 
-      # Pruning: mirror only, daily at a fixed time; 0 disables.
-      (lib.mkIf (haveMirror && cfg.mirrorRetentionDays > 0) {
-        systemd.services.nginx-mirror-prune = {
-          description = "Prune pull-through mirror cache";
-          serviceConfig = {
-            Type = "oneshot";
-            User = "nginx";
-            Group = "nginx";
-            Nice = 10;
-            IOSchedulingClass = "best-effort";
-            IOSchedulingPriority = 7;
-            ReadWritePaths = [cfg.mirrorCacheRoot];
-            ProtectSystem = "strict";
-            ProtectHome = true;
-            PrivateTmp = true;
-            NoNewPrivileges = true;
-            # Run the generated script directly (derivation path).
-            ExecStart = ["${pruneScript}"];
-          };
+    # Mirror-specific FS prep and nginx write permissions (only when mirror enabled).
+    (lib.mkIf haveMirror {
+      systemd.tmpfiles.rules = [
+        "d ${cfg.mirrorCacheRoot}                        0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nix-cache-info         0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nix-cache-info/store   0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nix-cache-info/temp    0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nar                    0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nar/store              0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/nar/temp               0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/narinfo                0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/narinfo/store          0750 nginx nginx -"
+        "d ${cfg.mirrorCacheRoot}/narinfo/temp           0750 nginx nginx -"
+      ];
+
+      systemd.services.nginx.serviceConfig.ReadWritePaths = [
+        cfg.mirrorCacheRoot
+        "${cfg.mirrorCacheRoot}/nix-cache-info/temp"
+        "${cfg.mirrorCacheRoot}/nar/temp"
+        "${cfg.mirrorCacheRoot}/narinfo/temp"
+      ];
+    })
+
+    # Pruning: mirror only, daily at a fixed time; 0 disables.
+    (lib.mkIf (haveMirror && cfg.mirrorRetentionDays > 0) {
+      systemd.services.nginx-mirror-prune = {
+        description = "Prune pull-through mirror cache";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "nginx";
+          Group = "nginx";
+          Nice = 10;
+          IOSchedulingClass = "best-effort";
+          IOSchedulingPriority = 7;
+          ReadWritePaths = [cfg.mirrorCacheRoot];
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          NoNewPrivileges = true;
+          # Run the generated script directly (derivation path).
+          ExecStart = ["${pruneScript}"];
         };
+      };
 
-        systemd.timers.nginx-mirror-prune = {
-          description = "Daily mirror pruning";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnCalendar = "03:17"; # keep simple; can be optionized later if needed
-            Persistent = true;
-            AccuracySec = "10m";
-          };
+      systemd.timers.nginx-mirror-prune = {
+        description = "Daily mirror pruning";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "03:17"; # keep simple; can be optionized later if needed
+          Persistent = true;
+          AccuracySec = "10m";
         };
-      })
-    ]
-  );
+      };
+    })
+  ]);
 }
