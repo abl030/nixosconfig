@@ -1,0 +1,48 @@
+# .github/workflows/nix-cleanup.yml
+name: Nix cleanup (deadnix + statix) on PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: write # needed to push commits back to the PR branch
+  pull-requests: write
+jobs:
+  cleanup:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout PR head (clean)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: true
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Configure git author
+        run: |
+          git config user.name "nix-cleanup-bot"
+          git config user.email "ci@ablz.au"
+
+      - name: Compute PR .nix file list
+        id: files
+        shell: bash
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1 || true
+          git diff --name-only "origin/${{ github.base_ref }}"...HEAD -- '*.nix' | sed '/^$/d' > changed.txt
+          echo "count=$(wc -l < changed.txt | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Exit if no .nix changes
+        if: steps.files.outputs.count == '0'
+        run: echo "No .nix changes in this PR."
+
+      - name: Run linting (scoped to PR files)
+        if: steps.files.outputs.count != '0'
+        shell: bash
+        run: |
+          # SAFE in CI, commit enabled
+          bash scripts/linting.sh --files-from changed.txt
+
+      - name: Push back to PR branch
+        if: steps.files.outputs.count != '0'
+        run: |
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
