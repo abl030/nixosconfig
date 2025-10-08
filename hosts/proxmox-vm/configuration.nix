@@ -29,6 +29,11 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
+  homelab.ci.rollingFlakeUpdate = {
+    enable = true;
+    repoDir = "/home/abl030/nixosconfig";
+  };
+
   homelab.cache = {
     enable = true;
 
