@@ -1,0 +1,5 @@
+# LLM patch prompt: remaining Nix lints
+
+_Generated: 2025-10-08 06:40:54 UTC_
+
+No remaining issues after deadnix/statix autofix 🎉
