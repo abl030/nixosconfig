@@ -1,6 +1,6 @@
 # LLM patch prompt: remaining Nix lints
 
-_Generated: 2025-10-08 07:15:40 UTC_
+_Generated: 2025-10-08 12:17:58 UTC_
 
 Autofixes done with:
   • deadnix --edit
