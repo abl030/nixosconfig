@@ -21,7 +21,7 @@ in {
     ];
   };
 
-  # Duplicate top-level key to trigger statix W20 (avoid repeated keys in attr sets)
+  # asdlkjfDuplicate top-level key to trigger statix W20 (avoid repeated keys in attr sets)
   environment = {
     variables = {FOO = "bar";};
   };
