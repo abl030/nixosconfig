@@ -6,14 +6,9 @@
 # - statix will still warn:
 #     * repeated top-level key `environment` (W20) – not auto-fixable
 {
-  lib,
   pkgs,
-  foo,
   ...
-}: let
-  # deadnix: this is unused and will be deleted
-  unused = pkgs.cowsay;
-in {
+}: {
   # Using `with` often gets a statix nudge, and it's fine to keep.
   environment = {
     systemPackages = with pkgs; [
