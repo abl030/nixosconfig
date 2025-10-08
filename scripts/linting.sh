@@ -67,7 +67,7 @@ NO_COLOR=1 run_deadnix -o human-readable . >"$DEADNIX_HUMAN" || true
 # Build unique file list from both tools
 declare -A NEED_FILES=()
 
-# From statix (errfmt). It may print "path>line:col:..." (or "path:line:col:...").
+# From statix (errfmt): may print "path>line:col:..." (or "path:line:col:...").
 # Normalize to "path" only and strip leading "./".
 if [[ -s "$STATIX_OUT" ]]; then
   while IFS= read -r f; do
@@ -89,9 +89,9 @@ mkdir -p "$(dirname "$REPORT_PATH")"
 # --- Emit "clean" report & exit -------------------------------------------
 if ((${#NEED_FILES[@]} == 0)); then
   {
-    printf "# LLM patch prompt: remaining Nix lints\n\n"
+    printf "%s\n\n" "# LLM patch prompt: remaining Nix lints"
     printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-    printf "No remaining issues after deadnix/statix autofix 🎉\n"
+    printf "%s\n" "No remaining issues after deadnix/statix autofix 🎉"
   } >"$REPORT_PATH"
   git add -A "$REPORT_PATH" || true
   if ! git diff --cached --quiet; then
@@ -106,42 +106,45 @@ FILES=("${!NEED_FILES[@]}")
 IFS=$'\n' FILES=($(printf "%s\n" "${FILES[@]}" | sort))
 unset IFS
 
+# Header
 {
-  printf "# LLM patch prompt: remaining Nix lints\n\n"
+  printf "%s\n\n" "# LLM patch prompt: remaining Nix lints"
   printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-  printf "Autofixes done with:\n  • deadnix --edit\n  • statix fix\n\n"
-  printf "For each file below, the **lint findings** are listed first, then the **full file**.\n\n"
-  printf "Return **ONLY full file replacements** (no diffs). For each file, output exactly:\n"
-  printf "----- BEGIN FILE <path> -----\n"
-  printf '```nix\n'
-  printf "<complete file contents>\n"
-  printf '```\n'
-  printf "----- END FILE <path> -----\n\n"
-  printf "Constraints: make the **smallest** changes needed so that:\n"
-  printf "  • \`deadnix\` (no flags) reports zero unused declarations\n"
-  printf "  • \`statix check\` (default) reports zero lints\n"
-  printf "Preserve comments, semantics, and style; avoid churn.\n"
+  printf "%s\n" "Autofixes done with:"
+  printf "%s\n" "  • deadnix --edit"
+  printf "%s\n\n" "  • statix fix"
+  printf "%s\n\n" "For each file below, the **lint findings** are listed first, then the **full file**."
+  printf "%s\n" "Return **ONLY full file replacements** (no diffs). For each file, output exactly:"
+  printf '%s\n' '----- BEGIN FILE <path> -----'
+  printf '%s\n' '```nix'
+  printf '%s\n' '<complete file contents>'
+  printf '%s\n' '```'
+  printf '%s\n\n' '----- END FILE <path> -----'
+  printf "%s\n" "Constraints: make the **smallest** changes needed so that:"
+  printf "%s\n" "  • \`deadnix\` (no flags) reports zero unused declarations"
+  printf "%s\n" "  • \`statix check\` (default) reports zero lints"
+  printf "%s\n" "Preserve comments, semantics, and style; avoid churn."
 } >"$REPORT_PATH"
 
 # Per-file sections
 for f in "${FILES[@]}"; do
   {
-    printf "\n================================================================\n"
+    printf "\n%s\n" "================================================================"
     printf "FILE: %s\n" "$f"
-    printf "----------------------------------------------------------------\n"
-    printf "Statix (errfmt):\n"
+    printf "%s\n" "----------------------------------------------------------------"
+    printf "%s\n" "Statix (errfmt):"
     # Gather, dedupe, and indent statix findings for this file
     STATIX_LINES="$(
       { grep -F -e "$f:" -e "./$f:" -e "$f>" -e "./$f>" "$STATIX_OUT" || true; } |
         awk '!seen[$0]++'
     )"
     if [[ -z "$STATIX_LINES" ]]; then
-      printf "  (no statix findings)\n"
+      printf "  %s\n" "(no statix findings)"
     else
       printf "%s\n" "$STATIX_LINES" | sed 's/^/  /'
     fi
 
-    printf "\nDeadnix (context):\n"
+    printf "\n%s\n" "Deadnix (context):"
     # Slice only this file’s block(s) from the human-readable output and dedupe lines.
     DEADNIX_BLOCK="$(
       awk -v target="$f" '
@@ -152,16 +155,17 @@ for f in "${FILES[@]}"; do
       ' "$DEADNIX_HUMAN" | awk '!seen[$0]++'
     )"
     if [[ -z "$DEADNIX_BLOCK" ]]; then
-      printf "  (no deadnix findings)\n"
+      printf "  %s\n" "(no deadnix findings)"
     else
       printf "%s\n" "$DEADNIX_BLOCK" | sed 's/^/  /'
     fi
 
-    printf "\n----- BEGIN FILE %s -----\n" "$f"
-    printf '```nix\n'
+    printf "\n"
+    printf '%s\n' "----- BEGIN FILE $f -----"
+    printf '%s\n' '```nix'
     cat -- "$f" || true
-    printf '```\n'
-    printf "----- END FILE %s -----\n" "$f"
+    printf '%s\n' '```'
+    printf '%s\n' "----- END FILE $f -----"
   } >>"$REPORT_PATH"
 done
 
