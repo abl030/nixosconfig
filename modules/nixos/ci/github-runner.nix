@@ -38,7 +38,7 @@ in {
     services.github-runners.${cfg.runnerName} = {
       enable = true;
       url = cfg.repoUrl;
-      tokenFile = cfg.tokenFile;
+      inherit (cfg) tokenFile;
 
       # The module creates a user/group named after the service (`github-runner-proxmox-bastion`),
       # so we don't need to define one manually.
@@ -48,7 +48,7 @@ in {
 
       # By not setting `workDir`, we use the module's default inside /var/lib, which it manages correctly.
       extraLabels = ["nix" "proxmox-vm"];
-      extraPackages = [pkgs.git pkgs.gnutar pkgs.xz pkgs.cacert pkgs.nix pkgs.cachix pkgs.jq];
+      extraPackages = [pkgs.git pkgs.gnutar pkgs.xz pkgs.cacert pkgs.nix pkgs.cachix pkgs.jq pkgs.gawk];
     };
 
     # Trust the group the module creates. The group name is derived from the service name.
