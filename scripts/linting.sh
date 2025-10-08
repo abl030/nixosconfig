@@ -15,6 +15,8 @@
 #   SAFE_CI_ONLY=1              # refuse outside CI (default 1)
 #   REQUIRE_EXPLICIT_ON_LOCAL=1 # require explicit file list when local (default 1)
 #   NO_COMMIT=0                 # 1 = do not commit (dry-run)
+#   FAIL_ON_REMAINING=1         # 1 = exit 1 if findings remain (default 1)
+#   WRITE_STEP_SUMMARY=1        # 1 = append summary to $GITHUB_STEP_SUMMARY if set
 
 set -euo pipefail
 
@@ -27,6 +29,8 @@ AUTHOR_EMAIL="${AUTHOR_EMAIL:-ci@ablz.au}"
 SAFE_CI_ONLY="${SAFE_CI_ONLY:-1}"
 REQUIRE_EXPLICIT_ON_LOCAL="${REQUIRE_EXPLICIT_ON_LOCAL:-1}"
 NO_COMMIT="${NO_COMMIT:-0}"
+FAIL_ON_REMAINING="${FAIL_ON_REMAINING:-1}"
+WRITE_STEP_SUMMARY="${WRITE_STEP_SUMMARY:-1}"
 
 # If you prefer pinned tool paths, set STATIX_BIN/DEADNIX_BIN to absolute paths.
 run_statix() { ${STATIX_BIN:-nix run --quiet nixpkgs#statix --} "$@"; }
@@ -201,6 +205,25 @@ fi
 
 mkdir -p "$(dirname "$REPORT_PATH")"
 
+# --- helper: write a brief CI summary if available ------------------------
+write_summary() {
+  local title="$1"
+  shift
+  local files=("$@")
+  if [[ "$WRITE_STEP_SUMMARY" = "1" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+      printf "### %s\n\n" "$title"
+      if ((${#files[@]})); then
+        printf "Files with remaining issues (%d):\n\n" "${#files[@]}"
+        for x in "${files[@]}"; do printf "- %s\n" "$x"; done
+        printf "\nReport saved to \`%s\`.\n" "$REPORT_PATH"
+      else
+        printf "No remaining issues after autofix.\n"
+      fi
+    } >>"$GITHUB_STEP_SUMMARY"
+  fi
+}
+
 # --- Emit "clean" report & exit -------------------------------------------
 if ((${#NEED_FILES[@]} == 0)); then
   {
@@ -216,6 +239,7 @@ if ((${#NEED_FILES[@]} == 0)); then
   else
     echo "↪ NO_COMMIT=1 (skipping report commit)"
   fi
+  write_summary "Nix lint: clean ✅"
   echo "✓ Clean. Wrote $REPORT_PATH"
   exit 0
 fi
@@ -252,7 +276,6 @@ for f in "${FILES[@]}"; do
     printf "FILE: %s\n" "$f"
     printf "%s\n" "----------------------------------------------------------------"
     printf "%s\n" "Statix (errfmt):"
-    # Gather, dedupe, and indent statix findings for this file
     STATIX_LINES="$(
       { grep -F -e "$f:" -e "./$f:" -e "$f>" -e "./$f>" "$STATIX_OUT" || true; } |
         awk '!seen[$0]++'
@@ -264,7 +287,6 @@ for f in "${FILES[@]}"; do
     fi
 
     printf "\n%s\n" "Deadnix (context):"
-    # Slice only this file’s block(s) from the human-readable output and dedupe lines.
     DEADNIX_BLOCK="$(
       awk -v target="$f" '
         match($0, /\[([^]]+\.nix):[0-9]+:[0-9]+\]/, m) {
@@ -302,4 +324,16 @@ else
   echo "↪ NO_COMMIT=1 (skipping report commit)"
 fi
 
-echo "✓ Wrote $REPORT_PATH"
+# CI signals: annotate + summary + FAIL if requested
+write_summary "Nix lint: manual edits required ❌" "${FILES[@]}"
+
+# GitHub annotation for quick visibility
+printf '%s\n' "::error ::Nix lint fails after autofix; manual changes required in ${#FILES[@]} file(s). See ${REPORT_PATH}"
+
+# Exit non-zero to fail the job (unless disabled)
+if [[ "$FAIL_ON_REMAINING" = "1" ]]; then
+  exit 1
+fi
+
+echo "⚠ Findings remain, but FAIL_ON_REMAINING=0 → not failing the job."
+exit 0
