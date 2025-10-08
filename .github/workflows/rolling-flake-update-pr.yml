@@ -2,13 +2,25 @@ name: "Rolling Flake Update (PR CI)"
 
 on:
   pull_request:
-    branches: [master] # or your default branch
-    types: [opened, synchronize, reopened]
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+# Cancel older runs when a new push lands to the same PR branch
+concurrency:
+  group: pr-populate-cache-${{ github.repository }}-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-cache:
+    # Only run for the bot branch
     if: ${{ github.event_name == 'pull_request' && github.head_ref == 'bot/rolling-flake-update' }}
     runs-on: self-hosted
+    name: Populate Cache
 
     steps:
       - name: Checkout
@@ -27,11 +39,12 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # ✅ NIX_CONFIG as clean multi-line (no trailing backslashes, no extra spaces)
+      # Build + push, capturing logs. NOTE the nix shell invocation uses --command (no -c/-- mixups).
       - name: Build & push (capture logs)
         id: build
         shell: bash
         env:
+          # Keep NIX_CONFIG a clean multi-line (no trailing backslashes).
           NIX_CONFIG: |
             experimental-features = nix-command flakes
             substituters = https://nixcache.ablz.au?priority=10 https://nix-mirror.ablz.au?priority=20 https://nixosconfig.cachix.org?priority=30 https://cache.nixos.org?priority=40
@@ -41,22 +54,27 @@ jobs:
           mkdir -p ci-logs
           LOG=ci-logs/build.log
 
+          # Run your script with jq available, under watch-exec for automatic Cachix push.
+          # IMPORTANT: Use --command form (no stray "--" after -c).
           set +e
           cachix watch-exec nixosconfig -- \
-            nix shell nixpkgs#jq -c -- bash ./scripts/populate_cache.sh \
+            nix shell nixpkgs#jq --command bash ./scripts/populate_cache.sh \
             2>&1 | tee "$LOG"
-          STATUS=$?
+          STATUS=${PIPESTATUS[0]}
           set -e
 
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
+          # Always produce small helper logs for the PR comment
           tail -n 120 "$LOG" > ci-logs/tail.log || true
-          awk '
+
+          # Extract a compact "first error" snippet using awk provided by nixpkgs#gawk
+          nix shell nixpkgs#gawk --command awk '
             /error:/ {show=1; n=0}
             show {print; if (n++ > 80) exit}
           ' "$LOG" > ci-logs/first-error-snippet.log || true
 
-          exit $STATUS
+          exit "$STATUS"
 
       - name: Upload logs (always)
         if: always()
@@ -65,10 +83,12 @@ jobs:
           name: populate-cache-logs
           path: ci-logs/
 
+      # Update/replace a single status comment. Use gh via nix shell so we don't depend on runner's PATH.
       - name: Update single PR status comment (always)
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           set -euo pipefail
           PR_NUMBER="${{ github.event.pull_request.number }}"
@@ -80,9 +100,9 @@ jobs:
             DETAILS="All builds completed and were pushed to Cachix."
           else
             SUMMARY="❌ Cache populate failed."
-            SNIP=$( (echo '```'; cat ci-logs/first-error-snippet.log; echo '```') || true )
-            TAIL=$( (echo '<details><summary>Log tail</summary>'; echo; echo '```'; cat ci-logs/tail.log; echo '```'; echo '</details>') || true )
-            DETAILS="First error snippet:\n${SNIP}\n\n${TAIL}\n\nArtifacts: attach \"populate-cache-logs\" from this run."
+            SNIP=$( (echo '```'; cat ci-logs/first-error-snippet.log 2>/dev/null || true; echo '```') )
+            TAIL=$( (echo '<details><summary>Log tail</summary>'; echo; echo '```'; cat ci-logs/tail.log 2>/dev/null || true; echo '```'; echo '</details>') )
+            DETAILS="First error snippet:\n${SNIP}\n\n${TAIL}\n\nArtifacts: download \"populate-cache-logs\" from this run."
           fi
 
           NEW_BODY="${MARKER}
@@ -92,12 +112,18 @@ jobs:
           ${MARKER}
           "
 
-          CMT_ID="$(gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
-              --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n1 || true)"
+          # Find existing comment by marker (via gh provided by nixpkgs#gh)
+          CMT_ID="$(
+            nix shell nixpkgs#gh --command gh api \
+              "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' \
+              | head -n1 || true
+          )"
 
           if [ -n "$CMT_ID" ]; then
-            gh api repos/${{ github.repository }}/issues/comments/"$CMT_ID" \
+            nix shell nixpkgs#gh --command gh api \
+              "repos/${{ github.repository }}/issues/comments/${CMT_ID}" \
               -X PATCH -f body="$NEW_BODY" >/dev/null
           else
-            gh pr comment "$PR_NUMBER" --body "$NEW_BODY" >/dev/null
+            nix shell nixpkgs#gh --command gh pr comment "$PR_NUMBER" --body "$NEW_BODY" >/dev/null
           fi
