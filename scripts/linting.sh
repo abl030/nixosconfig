@@ -10,6 +10,11 @@
 #   - No args           -> scan whole repo (tracked *.nix)
 #   - ARGS              -> only those files
 #   - --files-from -    -> read newline-separated file list from stdin
+#
+# Safety toggles (env vars):
+#   SAFE_CI_ONLY=1              # refuse outside CI (default 1)
+#   REQUIRE_EXPLICIT_ON_LOCAL=1 # require explicit file list when local (default 1)
+#   NO_COMMIT=0                 # 1 = do not commit (dry-run)
 
 set -euo pipefail
 
@@ -17,6 +22,11 @@ set -euo pipefail
 REPORT_PATH="${REPORT_PATH:-.github/llm/NIX_LINT_PATCH_PROMPT.txt}"
 AUTHOR_NAME="${AUTHOR_NAME:-nix-cleanup-bot}"
 AUTHOR_EMAIL="${AUTHOR_EMAIL:-ci@ablz.au}"
+
+# Safety rails
+SAFE_CI_ONLY="${SAFE_CI_ONLY:-1}"
+REQUIRE_EXPLICIT_ON_LOCAL="${REQUIRE_EXPLICIT_ON_LOCAL:-1}"
+NO_COMMIT="${NO_COMMIT:-0}"
 
 # If you prefer pinned tool paths, set STATIX_BIN/DEADNIX_BIN to absolute paths.
 run_statix() { ${STATIX_BIN:-nix run --quiet nixpkgs#statix --} "$@"; }
@@ -29,6 +39,12 @@ if [[ -z "${ROOT}" ]]; then
   exit 1
 fi
 cd "$ROOT"
+
+# CI guard
+if [[ "$SAFE_CI_ONLY" = "1" && -z "${GITHUB_ACTIONS:-}${CI:-}" ]]; then
+  echo "✖ Refusing to run outside CI. Set SAFE_CI_ONLY=0 to override." >&2
+  exit 2
+fi
 
 # --- input handling -------------------------------------------------------
 INPUT_MODE="auto"
@@ -44,13 +60,12 @@ while (($# > 0)); do
       exit 2
     }
     if [[ "$src" == "-" ]]; then
-      # newline-separated list from stdin
       while IFS= read -r line; do
-        [[ -n "$line" ]] && INPUT_FILES+=("$line")
+        [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}")
       done
     else
       while IFS= read -r line; do
-        [[ -n "$line" ]] && INPUT_FILES+=("$line")
+        [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}")
       done <"$src"
     fi
     INPUT_MODE="explicit"
@@ -76,13 +91,17 @@ while (($# > 0)); do
   esac
 done
 
+# Local guard: require explicit list if not CI
+if [[ -z "${GITHUB_ACTIONS:-}${CI:-}" && "$REQUIRE_EXPLICIT_ON_LOCAL" = "1" && "$INPUT_MODE" = "auto" ]]; then
+  echo "✖ Local run requires an explicit file list (args or --files-from -). Set REQUIRE_EXPLICIT_ON_LOCAL=0 to override." >&2
+  exit 2
+fi
+
 # Normalize file list
 declare -a NIX_FILES=()
 if [[ "$INPUT_MODE" == "explicit" ]]; then
-  # Deduplicate, keep existing *.nix only
   declare -A seen=()
   for p in "${INPUT_FILES[@]}"; do
-    # strip leading ./ for consistency
     p="${p#./}"
     [[ "$p" == *.nix ]] || continue
     [[ -e "$p" ]] || continue
@@ -97,7 +116,6 @@ if [[ "$INPUT_MODE" == "explicit" ]]; then
   fi
   echo "▶ Scoped run: ${#NIX_FILES[@]} file(s)"
 else
-  # Auto: tracked *.nix
   mapfile -d '' NIX_FILES < <(git ls-files -z -- '*.nix' || true)
   if ((${#NIX_FILES[@]} == 0)); then
     echo "No tracked .nix files found; nothing to do."
@@ -125,13 +143,17 @@ for f in "${NIX_FILES[@]}"; do
 done
 
 # Commit autofixed changes (if any)
-if ! git diff --quiet; then
-  git add -A
-  GIT_AUTHOR_NAME="$AUTHOR_NAME" \
-    GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
-    GIT_COMMITTER_NAME="$AUTHOR_NAME" \
-    GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
-    git commit -m "chore(nix): autofix with deadnix --edit & statix fix"
+if [[ "$NO_COMMIT" != "1" ]]; then
+  if ! git diff --quiet; then
+    git add -A
+    GIT_AUTHOR_NAME="$AUTHOR_NAME" \
+      GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
+      GIT_COMMITTER_NAME="$AUTHOR_NAME" \
+      GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
+      git commit -m "chore(nix): autofix with deadnix --edit & statix fix"
+  fi
+else
+  echo "↪ NO_COMMIT=1 (skipping autofix commit)"
 fi
 
 # --- Phase 2: collect remaining issues -----------------------------------
@@ -173,9 +195,13 @@ if ((${#NEED_FILES[@]} == 0)); then
     printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
     printf "%s\n" "No remaining issues after deadnix/statix autofix 🎉"
   } >"$REPORT_PATH"
-  git add -A "$REPORT_PATH" || true
-  if ! git diff --cached --quiet; then
-    git commit -m "ci: add lint report (clean)"
+  if [[ "$NO_COMMIT" != "1" ]]; then
+    git add -A "$REPORT_PATH" || true
+    if ! git diff --cached --quiet; then
+      git commit -m "ci: add lint report (clean)"
+    fi
+  else
+    echo "↪ NO_COMMIT=1 (skipping report commit)"
   fi
   echo "✓ Clean. Wrote $REPORT_PATH"
   exit 0
@@ -250,13 +276,17 @@ for f in "${FILES[@]}"; do
 done
 
 # Commit the LLM prompt
-git add -A "$REPORT_PATH" || true
-if ! git diff --cached --quiet; then
-  GIT_AUTHOR_NAME="$AUTHOR_NAME" \
-    GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
-    GIT_COMMITTER_NAME="$AUTHOR_NAME" \
-    GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
-    git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only, dedup + placeholders)"
+if [[ "$NO_COMMIT" != "1" ]]; then
+  git add -A "$REPORT_PATH" || true
+  if ! git diff --cached --quiet; then
+    GIT_AUTHOR_NAME="$AUTHOR_NAME" \
+      GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
+      GIT_COMMITTER_NAME="$AUTHOR_NAME" \
+      GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
+      git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only, dedup + placeholders)"
+  fi
+else
+  echo "↪ NO_COMMIT=1 (skipping report commit)"
 fi
 
 echo "✓ Wrote $REPORT_PATH"
