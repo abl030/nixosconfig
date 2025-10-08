@@ -86,13 +86,12 @@ fi
 
 mkdir -p "$(dirname "$REPORT_PATH")"
 
+# --- Emit "clean" report & exit -------------------------------------------
 if ((${#NEED_FILES[@]} == 0)); then
   {
-    echo "# LLM patch prompt: remaining Nix lints"
-    echo
-    echo "_Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")_"
-    echo
-    echo "No remaining issues after deadnix/statix autofix 🎉"
+    printf "# LLM patch prompt: remaining Nix lints\n\n"
+    printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+    printf "No remaining issues after deadnix/statix autofix 🎉\n"
   } >"$REPORT_PATH"
   git add -A "$REPORT_PATH" || true
   if ! git diff --cached --quiet; then
@@ -108,60 +107,63 @@ IFS=$'\n' FILES=($(printf "%s\n" "${FILES[@]}" | sort))
 unset IFS
 
 {
-  echo "# LLM patch prompt: remaining Nix lints"
-  echo
-  echo "_Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")_"
-  echo
-  echo "Autofixes done with:"
-  echo "  • deadnix --edit"
-  echo "  • statix fix"
-  echo
-  echo "For each file below, the **lint findings** are listed first, then the **full file**."
-  echo
-  echo "Return **ONLY full file replacements** (no diffs). For each file, output exactly:"
-  echo
-  echo "----- BEGIN FILE <path> -----"
-  echo '```nix'
-  echo "<complete file contents>"
-  echo '```'
-  echo "----- END FILE <path> -----"
-  echo
-  echo "Constraints: make the **smallest** changes needed so that:"
-  echo "  • \`deadnix\` (no flags) reports zero unused declarations"
-  echo "  • \`statix check\` (default) reports zero lints"
-  echo "Preserve comments, semantics, and style; avoid churn."
-  echo
-
-  for f in "${FILES[@]}"; do
-    echo
-    echo "================================================================"
-    echo "FILE: $f"
-    echo "----------------------------------------------------------------"
-    echo "Statix (errfmt):"
-    (grep -F -e "$f:" -e "./$f:" -e "$f>" -e "./$f>" "$STATIX_OUT" ||
-      echo "(no statix findings)") | sed 's/^/  /'
-    echo
-    echo "Deadnix (context):"
-    # Slice the human-readable report to just this file’s blocks
-    awk -v target="$f" '
-      # Headers look like:  ╭─[path/to/file.nix:12:3]
-      match($0, /\[([^]]+\.nix):[0-9]+:[0-9]+\]/, m) {
-        curfile = m[1]; printing = (curfile == target)
-      }
-      printing { print }
-    ' "$DEADNIX_HUMAN" | sed 's/^/  /' || true
-    echo
-    echo "----- BEGIN FILE $f -----"
-    echo '```nix'
-    cat -- "$f" || true
-    echo '```'
-    echo "----- END FILE $f -----"
-  done
-
-  echo
-  echo "== Final instructions to the LLM =="
-  echo "Return **only** full file replacements for the files listed above, using the exact markers."
+  printf "# LLM patch prompt: remaining Nix lints\n\n"
+  printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+  printf "Autofixes done with:\n  • deadnix --edit\n  • statix fix\n\n"
+  printf "For each file below, the **lint findings** are listed first, then the **full file**.\n\n"
+  printf "Return **ONLY full file replacements** (no diffs). For each file, output exactly:\n"
+  printf "----- BEGIN FILE <path> -----\n"
+  printf '```nix\n'
+  printf "<complete file contents>\n"
+  printf '```\n'
+  printf "----- END FILE <path> -----\n\n"
+  printf "Constraints: make the **smallest** changes needed so that:\n"
+  printf "  • \`deadnix\` (no flags) reports zero unused declarations\n"
+  printf "  • \`statix check\` (default) reports zero lints\n"
+  printf "Preserve comments, semantics, and style; avoid churn.\n"
 } >"$REPORT_PATH"
+
+# Per-file sections
+for f in "${FILES[@]}"; do
+  {
+    printf "\n================================================================\n"
+    printf "FILE: %s\n" "$f"
+    printf "----------------------------------------------------------------\n"
+    printf "Statix (errfmt):\n"
+    # Gather, dedupe, and indent statix findings for this file
+    STATIX_LINES="$(
+      { grep -F -e "$f:" -e "./$f:" -e "$f>" -e "./$f>" "$STATIX_OUT" || true; } |
+        awk '!seen[$0]++'
+    )"
+    if [[ -z "$STATIX_LINES" ]]; then
+      printf "  (no statix findings)\n"
+    else
+      printf "%s\n" "$STATIX_LINES" | sed 's/^/  /'
+    fi
+
+    printf "\nDeadnix (context):\n"
+    # Slice only this file’s block(s) from the human-readable output and dedupe lines.
+    DEADNIX_BLOCK="$(
+      awk -v target="$f" '
+        match($0, /\[([^]]+\.nix):[0-9]+:[0-9]+\]/, m) {
+          curfile = m[1]; printing = (curfile == target)
+        }
+        printing { print }
+      ' "$DEADNIX_HUMAN" | awk '!seen[$0]++'
+    )"
+    if [[ -z "$DEADNIX_BLOCK" ]]; then
+      printf "  (no deadnix findings)\n"
+    else
+      printf "%s\n" "$DEADNIX_BLOCK" | sed 's/^/  /'
+    fi
+
+    printf "\n----- BEGIN FILE %s -----\n" "$f"
+    printf '```nix\n'
+    cat -- "$f" || true
+    printf '```\n'
+    printf "----- END FILE %s -----\n" "$f"
+  } >>"$REPORT_PATH"
+done
 
 # Commit the LLM prompt
 git add -A "$REPORT_PATH" || true
@@ -170,7 +172,7 @@ if ! git diff --cached --quiet; then
     GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
     GIT_COMMITTER_NAME="$AUTHOR_NAME" \
     GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
-    git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only)"
+    git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only, dedup + placeholders)"
 fi
 
 echo "✓ Wrote $REPORT_PATH"
