@@ -38,7 +38,7 @@ in {
     services.github-runners.${cfg.runnerName} = {
       enable = true;
       url = cfg.repoUrl;
-      tokenFile = cfg.tokenFile;
+      inherit (cfg) tokenFile;
 
       # The module creates a user/group named after the service (`github-runner-proxmox-bastion`),
       # so we don't need to define one manually.
