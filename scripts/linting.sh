@@ -215,7 +215,7 @@ write_summary() {
       printf "### %s\n\n" "$title"
       if ((${#files[@]})); then
         printf "Files with remaining issues (%d):\n\n" "${#files[@]}"
-        for x in "${files[@]}"; do printf "- %s\n" "$x"; done
+        for x in "${files[@]}"; do printf " %s\n" "$x"; done
         printf "\nReport saved to \`%s\`.\n" "$REPORT_PATH"
       else
         printf "No remaining issues after autofix.\n"
