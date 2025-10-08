@@ -1,16 +1,16 @@
-# .github/workflows/nix-cleanup.yml
 name: Nix cleanup (deadnix + statix) on PR
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: write # needed to push commits back to the PR branch
   pull-requests: write
 
 jobs:
   cleanup:
-    runs-on: self-hosted
+    runs-on: self-hosted # or 'ubuntu-latest' if you prefer
     steps:
       - name: Checkout PR HEAD (exact commit)
         uses: actions/checkout@v4
@@ -20,24 +20,28 @@ jobs:
           fetch-depth: 1
           clean: true
 
-      - name: Fetch base commit (single object)
+      # If your self-hosted runner doesn't already have Nix, add an installer step here.
+
+      - name: Fetch base commit object
         run: |
           git fetch --no-tags --depth=1 origin ${{ github.event.pull_request.base.sha }}
 
-      - name: Compute PR .nix file list
+      - name: Compute PR .nix file list (no merge-base; compare trees)
         id: files
         shell: bash
         run: |
           BASE=${{ github.event.pull_request.base.sha }}
           HEAD=${{ github.event.pull_request.head.sha }}
-          git diff --name-only "$BASE...$HEAD" -- '*.nix' | sed '/^$/d' > changed.txt
+          git diff --name-only "$BASE" "$HEAD" -- '*.nix' | sed '/^$/d' > changed.txt
           echo "count=$(wc -l < changed.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          echo "Changed .nix files:"
+          cat changed.txt || true
 
       - name: Exit if no .nix changes
         if: steps.files.outputs.count == '0'
         run: echo "No .nix changes in this PR."
 
-      - name: Configure git author
+      - name: Configure git author (for commits)
         if: steps.files.outputs.count != '0'
         run: |
           git config user.name "nix-cleanup-bot"
