@@ -162,20 +162,33 @@ STATIX_OUT="$(mktemp)"
 DEADNIX_JSON="$(mktemp)"
 DEADNIX_HUMAN="$(mktemp)"
 
-NO_COLOR=1 run_statix check -o errfmt "${STATIX_TARGETS[@]}" 2>&1 | tee "$STATIX_OUT" || true
+# statix check: single target only → loop for scoped runs; single dot for auto.
+: >"$STATIX_OUT"
+if [[ "${STATIX_TARGETS[*]}" == "." ]]; then
+  NO_COLOR=1 run_statix check -o errfmt . 2>&1 | tee -a "$STATIX_OUT" || true
+else
+  for f in "${STATIX_TARGETS[@]}"; do
+    NO_COLOR=1 run_statix check -o errfmt "$f" 2>&1 >>"$STATIX_OUT" || true
+  done
+fi
+
+# deadnix machine-parse + human-readable for context slicing
 NO_COLOR=1 run_deadnix -o json "${DEADNIX_TARGETS[@]}" >"$DEADNIX_JSON" || true
 NO_COLOR=1 run_deadnix -o human-readable "${DEADNIX_TARGETS[@]}" >"$DEADNIX_HUMAN" || true
 
 # Build unique file list from both tools
 declare -A NEED_FILES=()
 
-# From statix (errfmt): may print "path>line:col:..." (or "path:line:col:...").
-# Normalize to "path" only and strip leading "./".
+# From statix (errfmt): only accept real *.nix hits with >line:col or :line:col
 if [[ -s "$STATIX_OUT" ]]; then
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     NEED_FILES["$f"]=1
-  done < <(sed -E 's#^\./##; s#([>:])[0-9]+:.*$##' "$STATIX_OUT" | awk 'NF' | sort -u)
+  done < <(
+    grep -E '(^|/)[^[:space:]]+\.nix([>:])[0-9]+:' "$STATIX_OUT" |
+      sed -E 's#^\./##; s#([>:])[0-9]+:.*$##' |
+      awk 'NF' | sort -u
+  )
 fi
 
 # From deadnix (json). Extract "file": "…"
