@@ -5,6 +5,11 @@
 # 2) Re-run to gather remaining findings
 # 3) Build single LLM-ready prompt with errors + full files (no diffs)
 # 4) Autocommit any changes (autofixes + prompt)
+#
+# Modes:
+#   - No args           -> scan whole repo (tracked *.nix)
+#   - ARGS              -> only those files
+#   - --files-from -    -> read newline-separated file list from stdin
 
 set -euo pipefail
 
@@ -25,11 +30,89 @@ if [[ -z "${ROOT}" ]]; then
 fi
 cd "$ROOT"
 
-# Limit scope to tracked .nix files (avoids vendored dirs etc)
-mapfile -d '' NIX_FILES < <(git ls-files -z -- '*.nix' || true)
-if ((${#NIX_FILES[@]} == 0)); then
-  echo "No tracked .nix files found; nothing to do."
-  exit 0
+# --- input handling -------------------------------------------------------
+INPUT_MODE="auto"
+declare -a INPUT_FILES=()
+
+while (($# > 0)); do
+  case "${1:-}" in
+  --files-from)
+    shift
+    src="${1:-}"
+    [[ -z "$src" ]] && {
+      echo "✖ --files-from requires a path or '-'" >&2
+      exit 2
+    }
+    if [[ "$src" == "-" ]]; then
+      # newline-separated list from stdin
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && INPUT_FILES+=("$line")
+      done
+    else
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && INPUT_FILES+=("$line")
+      done <"$src"
+    fi
+    INPUT_MODE="explicit"
+    shift || true
+    ;;
+  --)
+    shift
+    while (($# > 0)); do
+      INPUT_FILES+=("$1")
+      shift
+    done
+    INPUT_MODE="explicit"
+    ;;
+  -*)
+    echo "✖ Unknown option: $1" >&2
+    exit 2
+    ;;
+  *)
+    INPUT_FILES+=("$1")
+    INPUT_MODE="explicit"
+    shift
+    ;;
+  esac
+done
+
+# Normalize file list
+declare -a NIX_FILES=()
+if [[ "$INPUT_MODE" == "explicit" ]]; then
+  # Deduplicate, keep existing *.nix only
+  declare -A seen=()
+  for p in "${INPUT_FILES[@]}"; do
+    # strip leading ./ for consistency
+    p="${p#./}"
+    [[ "$p" == *.nix ]] || continue
+    [[ -e "$p" ]] || continue
+    if [[ -z "${seen[$p]:-}" ]]; then
+      NIX_FILES+=("$p")
+      seen["$p"]=1
+    fi
+  done
+  if ((${#NIX_FILES[@]} == 0)); then
+    echo "✖ No existing .nix files provided." >&2
+    exit 0
+  fi
+  echo "▶ Scoped run: ${#NIX_FILES[@]} file(s)"
+else
+  # Auto: tracked *.nix
+  mapfile -d '' NIX_FILES < <(git ls-files -z -- '*.nix' || true)
+  if ((${#NIX_FILES[@]} == 0)); then
+    echo "No tracked .nix files found; nothing to do."
+    exit 0
+  fi
+  echo "▶ Auto-scan: ${#NIX_FILES[@]} tracked .nix file(s)"
+fi
+
+# Targets for the re-check step (scope to files if provided)
+if [[ "$INPUT_MODE" == "explicit" ]]; then
+  STATIX_TARGETS=("${NIX_FILES[@]}")
+  DEADNIX_TARGETS=("${NIX_FILES[@]}")
+else
+  STATIX_TARGETS=(.)
+  DEADNIX_TARGETS=(.)
 fi
 
 # --- Phase 1: in-place autofix -------------------------------------------
@@ -57,12 +140,9 @@ STATIX_OUT="$(mktemp)"
 DEADNIX_JSON="$(mktemp)"
 DEADNIX_HUMAN="$(mktemp)"
 
-# statix: single-line format (works well for grep/awk)
-NO_COLOR=1 run_statix check -o errfmt . 2>&1 | tee "$STATIX_OUT" || true
-
-# deadnix: machine-parse + human-readable for context slicing
-NO_COLOR=1 run_deadnix -o json . >"$DEADNIX_JSON" || true
-NO_COLOR=1 run_deadnix -o human-readable . >"$DEADNIX_HUMAN" || true
+NO_COLOR=1 run_statix check -o errfmt "${STATIX_TARGETS[@]}" 2>&1 | tee "$STATIX_OUT" || true
+NO_COLOR=1 run_deadnix -o json "${DEADNIX_TARGETS[@]}" >"$DEADNIX_JSON" || true
+NO_COLOR=1 run_deadnix -o human-readable "${DEADNIX_TARGETS[@]}" >"$DEADNIX_HUMAN" || true
 
 # Build unique file list from both tools
 declare -A NEED_FILES=()
