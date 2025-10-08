@@ -30,11 +30,15 @@ open_pr_url() {
 # Summarize input changes between two locks
 summarize_changes() {
     local old="$1" new="$2"
-    jq -r --argfile OLD "$old" --argfile NEW "$new" '
-    def rev(x):
-      (x.locked.rev // x.locked.lastModified // x.locked.narHash // "") | tostring;
-    ($OLD.nodes | keys[]) as $k
-    | select(($NEW.nodes[$k]? // {}) != ($OLD.nodes[$k] // {}))
+    # Compatibility: use --rawfile + fromjson so both jq and gojq work (no --argfile required).
+    # The OLD file is parsed with a safe fallback to {"nodes":{}} to cover first-run scenarios.
+    jq -r --rawfile OLD "$old" --rawfile NEW "$new" '
+      (try ($OLD | fromjson) catch {"nodes":{}}) as $OLD
+      | ($NEW | fromjson) as $NEW
+      | def rev(x):
+          (x.locked.rev // x.locked.lastModified // x.locked.narHash // "") | tostring;
+      ($OLD.nodes | keys[]) as $k
+      | select(($NEW.nodes[$k]? // {}) != ($OLD.nodes[$k] // {}))
     | "\($k): " + (rev($OLD.nodes[$k] // {})[0:7]) + " → " + (rev($NEW.nodes[$k] // {})[0:7])'
 }
 
@@ -54,7 +58,12 @@ fi
 
 # Snapshot old lock
 OLD_LOCK="$(mktemp)"
-if [ -f flake.lock ]; then cp flake.lock "$OLD_LOCK"; else : >"$OLD_LOCK"; fi
+if [ -f flake.lock ]; then
+    cp flake.lock "$OLD_LOCK"
+else
+    # Emit minimal valid JSON so the summarizer can parse consistently on first run.
+    printf '%s\n' '{"nodes":{}}' >"$OLD_LOCK"
+fi
 
 # Bot identity (local)
 git config user.name "$GIT_USER_NAME"
@@ -100,8 +109,11 @@ PR_URL="$(open_pr_url)"
 if [ -n "${PR_URL:-}" ]; then
     gh pr edit "$PR_URL" --title "$PR_TITLE" --body-file "$BODY_FILE"
 else
-    PR_URL="$(gh pr create --base "$BASE_BRANCH" --head "$PR_BRANCH" \
-    --title "$PR_TITLE" --body-file "$BODY_FILE" --json url -q .url)"
+    # Create without relying on a --json flag here; then resolve the URL via the list query.
+    gh pr create --base "$BASE_BRANCH" --head "$PR_BRANCH" \
+        --title "$PR_TITLE" --body-file "$BODY_FILE" >/dev/null
+    # Re-query to obtain the canonical URL for downstream steps.
+    PR_URL="$(open_pr_url)"
 fi
 
 # Enable auto-merge (squash) on the OPEN PR
