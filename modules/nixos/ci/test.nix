@@ -5,10 +5,7 @@
 #     * remove the unused `let` binding `unused`
 # - statix will still warn:
 #     * repeated top-level key `environment` (W20) – not auto-fixable
-{
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   # Using `with` often gets a statix nudge, and it's fine to keep.
   environment = {
     systemPackages = with pkgs; [
@@ -16,7 +13,7 @@
     ];
   };
 
-  # asdlkjfDuplicate top-level key to trigger statix W20 (avoid repeated keys in attr sets)
+  #f asdlkjfDuplicate top-level key to trigger statix W20 (avoid repeated keys in attr sets)
   environment = {
     variables = {FOO = "bar";};
   };
