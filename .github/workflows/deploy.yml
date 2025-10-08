@@ -1,24 +1,19 @@
-name: "Populate Cache (PR)"
+name: "Populate Cachix from flake script"
 
 on:
+  push:
+    branches: [master]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  pull-requests: write
-  actions: read
-
-# ✅ Concurrency: cancel older runs when a new push arrives to the same PR branch
 concurrency:
-  group: pr-populate-cache-${{ github.repository }}-${{ github.event.pull_request.head.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   populate-cache:
-    name: Populate Cache
     runs-on: self-hosted
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,77 +31,16 @@ jobs:
           name: nixosconfig
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # ✅ NIX_CONFIG as clean multi-line (no trailing backslashes, no extra spaces)
-      - name: Build & push (capture logs)
-        id: build
+      - name: Populate cache by running your script (auto-push via watch-exec)
         shell: bash
         env:
+          # Keep this in the *step* so it applies to the command we run.
           NIX_CONFIG: |
             experimental-features = nix-command flakes
             substituters = https://nixcache.ablz.au?priority=10 https://nix-mirror.ablz.au?priority=20 https://nixosconfig.cachix.org?priority=30 https://cache.nixos.org?priority=40
             trusted-public-keys = ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54= nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
         run: |
           set -euo pipefail
-          mkdir -p ci-logs
-          LOG=ci-logs/build.log
-
-          set +e
+          # Ensure jq is available for the script, then run it under watch-exec
           cachix watch-exec nixosconfig -- \
-            nix shell nixpkgs#jq -c -- bash ./scripts/populate_cache.sh \
-            2>&1 | tee "$LOG"
-          STATUS=$?
-          set -e
-
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-
-          tail -n 120 "$LOG" > ci-logs/tail.log || true
-          awk '
-            /error:/ {show=1; n=0}
-            show {print; if (n++ > 80) exit}
-          ' "$LOG" > ci-logs/first-error-snippet.log || true
-
-          exit $STATUS
-
-      - name: Upload logs (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: populate-cache-logs
-          path: ci-logs/
-
-      - name: Update single PR status comment (always)
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          MARKER="<!-- bot:rolling-status -->"
-
-          status="${{ steps.build.outputs.status }}"
-          if [ "$status" = "0" ]; then
-            SUMMARY="✅ Cache populate succeeded."
-            DETAILS="All builds completed and were pushed to Cachix."
-          else
-            SUMMARY="❌ Cache populate failed."
-            SNIP=$( (echo '```'; cat ci-logs/first-error-snippet.log; echo '```') || true )
-            TAIL=$( (echo '<details><summary>Log tail</summary>'; echo; echo '```'; cat ci-logs/tail.log; echo '```'; echo '</details>') || true )
-            DETAILS="First error snippet:\n${SNIP}\n\n${TAIL}\n\nArtifacts: attach \"populate-cache-logs\" from this run."
-          fi
-
-          NEW_BODY="${MARKER}
-          ${SUMMARY}
-
-          ${DETAILS}
-          ${MARKER}
-          "
-
-          CMT_ID="$(gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
-              --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | head -n1 || true)"
-
-          if [ -n "$CMT_ID" ]; then
-            gh api repos/${{ github.repository }}/issues/comments/"$CMT_ID" \
-              -X PATCH -f body="$NEW_BODY" >/dev/null
-          else
-            gh pr comment "$PR_NUMBER" --body "$NEW_BODY" >/dev/null
-          fi
+            nix shell nixpkgs#jq -c bash ./scripts/populate_cache.sh
