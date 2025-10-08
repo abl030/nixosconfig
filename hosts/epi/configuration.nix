@@ -27,6 +27,11 @@
     ../../docker/tdarr/epi/docker-compose.nix
   ];
 
+  homelab.nixCaches = {
+    enable = true;
+    profile = "internal"; # or "external"
+  };
+
   # Group all boot-related settings into a single block.
   boot = {
     # 2. Use the LATEST kernel for best Arc support
