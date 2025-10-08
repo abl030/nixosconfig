@@ -1,5 +1,98 @@
 # LLM patch prompt: remaining Nix lints
 
-_Generated: 2025-10-08 06:40:54 UTC_
+_Generated: 2025-10-08 06:45:42 UTC_
 
-No remaining issues after deadnix/statix autofix 🎉
+Autofixes done with:
+  • deadnix --edit
+  • statix fix
+
+For each file: **errors first**, then **full file**. Return either:
+  1) a unified diff (preferred), or
+  2) full file replacements (only for the files listed).
+
+Constraints: minimal edits to make both `deadnix` and `statix check` pass.
+
+
+================================================================
+FILE: hosts/proxmox-vm/configuration.nix>32
+----------------------------------------------------------------
+Statix (errfmt):
+  ./hosts/proxmox-vm/configuration.nix>32:3:W:20:The key `homelab` is first assigned here ...
+
+Deadnix (context):
+
+----- BEGIN FILE hosts/proxmox-vm/configuration.nix>32 -----
+```nix
+```
+----- END FILE hosts/proxmox-vm/configuration.nix>32 -----
+
+================================================================
+FILE: hosts/proxmox-vm/configuration.nix>37
+----------------------------------------------------------------
+Statix (errfmt):
+  ./hosts/proxmox-vm/configuration.nix>37:3:W:20:... repeated here ...
+
+Deadnix (context):
+
+----- BEGIN FILE hosts/proxmox-vm/configuration.nix>37 -----
+```nix
+```
+----- END FILE hosts/proxmox-vm/configuration.nix>37 -----
+
+================================================================
+FILE: hosts/proxmox-vm/configuration.nix>51
+----------------------------------------------------------------
+Statix (errfmt):
+  ./hosts/proxmox-vm/configuration.nix>51:3:W:20:... and here (`1` occurrence omitted). Try `homelab = { ci.rollingFlakeUpdate=...; cache=...; nixCaches=...; }` instead.
+
+Deadnix (context):
+
+----- BEGIN FILE hosts/proxmox-vm/configuration.nix>51 -----
+```nix
+```
+----- END FILE hosts/proxmox-vm/configuration.nix>51 -----
+
+================================================================
+FILE: modules/nixos/nix_caches/nix_cache.nix>217
+----------------------------------------------------------------
+Statix (errfmt):
+  ./modules/nixos/nix_caches/nix_cache.nix>217:15:W:20:The key `locations` is first assigned here ...
+
+Deadnix (context):
+
+----- BEGIN FILE modules/nixos/nix_caches/nix_cache.nix>217 -----
+```nix
+```
+----- END FILE modules/nixos/nix_caches/nix_cache.nix>217 -----
+
+================================================================
+FILE: modules/nixos/nix_caches/nix_cache.nix>224
+----------------------------------------------------------------
+Statix (errfmt):
+  ./modules/nixos/nix_caches/nix_cache.nix>224:15:W:20:... repeated here ...
+
+Deadnix (context):
+
+----- BEGIN FILE modules/nixos/nix_caches/nix_cache.nix>224 -----
+```nix
+```
+----- END FILE modules/nixos/nix_caches/nix_cache.nix>224 -----
+
+================================================================
+FILE: modules/nixos/nix_caches/nix_cache.nix>233
+----------------------------------------------------------------
+Statix (errfmt):
+  ./modules/nixos/nix_caches/nix_cache.nix>233:15:W:20:... and here. Try `locations = { "~ \\.narinfo$".extraConfig=...; "= /nix-cache-info".extraConfig=...; "~ ^/nar/.+$".extraConfig=...; }` instead.
+
+Deadnix (context):
+
+----- BEGIN FILE modules/nixos/nix_caches/nix_cache.nix>233 -----
+```nix
+```
+----- END FILE modules/nixos/nix_caches/nix_cache.nix>233 -----
+
+== Final instructions to the LLM ==
+Apply surgical edits so that:
+  • deadnix (no flags) reports zero unused declarations
+  • statix check (default) reports zero lints
+Output a patch or full-file replacements for ONLY the files above.
