@@ -1,13 +1,9 @@
 {
   pkgs,
-  lib,
   ...
 }:
 # Intentionally "bad" to exercise the workflow.
-let
-  # deadnix: unused binding (will be auto-removed)
-  topUnused = "remove me";
-in {
+{
   # statix: duplicate top-level key (will NOT be auto-fixed)
   homelab = {
     enable = true;
