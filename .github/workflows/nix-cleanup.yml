@@ -71,7 +71,7 @@ jobs:
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Find Comment
-        if: steps.lint.outputs.status = '0'
+        if: steps.lint.outputs.status == '0'
         uses: peter-evans/find-comment@v3
         id: fc
         with:
