@@ -4,20 +4,15 @@
   lib,
   cfg ? {},
   ...
-}: let
-  # Triggers: deprecated_to_path (introduced in statix v0.5.3).
-  # Expect statix to complain; many versions don't auto-fix it.
-  sysEtc = builtins.toPath "/etc";
-in {
+}: {
   # Triggers: empty_inherit (noop inherit-from with no names).
   # Intentionally empty — this should survive `statix fix`.
-  inherit (pkgs);
 
   # Triggers: manual_inherit_from (fixable; statix will rewrite to `inherit (pkgs) jq;`)
-  jq = pkgs.jq;
+  inherit (pkgs) jq;
 
   # Triggers: bool_comparison (fixable to just `cfg.enable`)
-  enableIt = cfg.enable == true;
+  enableIt = cfg.enable;
 
   # Triggers: useless_has_attr (statix often prefers `cfg ? foo`; may or may not auto-fix)
   maybeFoo =
