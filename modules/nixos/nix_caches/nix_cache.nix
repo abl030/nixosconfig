@@ -45,7 +45,6 @@ let
     set -euo pipefail
     ROOT=${lib.escapeShellArg cfg.mirrorCacheRoot}
     DAYS=${toString cfg.mirrorRetentionDays}
-
     [ "$DAYS" -gt 0 ] || exit 0
 
     mp="$(${pkgs.coreutils}/bin/df -P "$ROOT" | ${pkgs.gawk}/bin/awk 'NR==2{print $6}')"
@@ -153,6 +152,7 @@ in {
     # ACME + Cloudflare secret only when any hostnames are enabled.
     (lib.mkIf anyHosts {
       sops.age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
+
       sops.secrets.${secretName} = {
         sopsFile = cfg.cloudflareSopsFile;
         format = "dotenv";
@@ -168,7 +168,6 @@ in {
       security.acme = {
         acceptTerms = true;
         defaults.email = lib.mkDefault cfg.acmeEmail;
-
         certs = lib.mkMerge [
           (lib.mkIf haveMirror {
             "${cfg.mirrorHost}" = {
@@ -214,26 +213,28 @@ in {
 
               # Narinfo metadata (requested first by Nix); cache it too
               # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_narinfo.
-              locations."~ \\.narinfo$".extraConfig = ''
-                root        ${cfg.mirrorCacheRoot}/narinfo/store;
-                try_files   $uri @fetch_narinfo;
-              '';
+              locations = {
+                "~ \\.narinfo$".extraConfig = ''
+                  root        ${cfg.mirrorCacheRoot}/narinfo/store;
+                  try_files   $uri @fetch_narinfo;
+                '';
 
-              # nix-cache-info
-              # CHANGED: Always fetch from upstream (don't store). Guarantees upstream Priority and avoids divergence.
-              locations."= /nix-cache-info".extraConfig = ''
-                proxy_set_header   Host "cache.nixos.org";
-                proxy_pass         https://cache.nixos.org;
-                proxy_no_cache     1;
-                proxy_cache_bypass 1;
-              '';
+                # nix-cache-info
+                # CHANGED: Always fetch from upstream (don't store). Guarantees upstream Priority and avoids divergence.
+                "= /nix-cache-info".extraConfig = ''
+                  proxy_set_header   Host "cache.nixos.org";
+                  proxy_pass         https://cache.nixos.org;
+                  proxy_no_cache     1;
+                  proxy_cache_bypass 1;
+                '';
 
-              # NAR payloads
-              # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
-              locations."~ ^/nar/.+$".extraConfig = ''
-                root        ${cfg.mirrorCacheRoot}/nar/store;
-                try_files   $uri @fetch_nar;
-              '';
+                # NAR payloads
+                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
+                "~ ^/nar/.+$".extraConfig = ''
+                  root        ${cfg.mirrorCacheRoot}/nar/store;
+                  try_files   $uri @fetch_nar;
+                '';
+              };
 
               # NEW: Named fetch locations that do the one-time upstream proxy + write-through store.
               extraConfig = ''
@@ -241,7 +242,6 @@ in {
                 location @fetch_narinfo {
                   proxy_set_header   Host "cache.nixos.org";
                   proxy_pass         https://cache.nixos.org;
-
                   proxy_store        on;
                   proxy_store_access user:rw group:rw all:r;
                   proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
@@ -252,7 +252,6 @@ in {
                 location @fetch_nar {
                   proxy_set_header   Host "cache.nixos.org";
                   proxy_pass         https://cache.nixos.org;
-
                   proxy_store        on;
                   proxy_store_access user:rw group:rw all:r;
                   proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
@@ -261,6 +260,7 @@ in {
               '';
             };
           })
+
           (lib.mkIf haveLocal {
             "${cfg.localHost}" = {
               useACMEHost = cfg.localHost;
