@@ -70,6 +70,23 @@ jobs:
           # Only push if there are commits to push; harmless if none.
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
+      - name: Find Comment
+        if: steps.lint.outputs.status = '0'
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          comment-author: "github-actions[bot]"
+          body-includes: Test
+
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            Test
+            ${{ steps.files.outputs.lists }}
+          edit-mode: replace
+
       # --- RE-FAIL AFTER PUSH IF LINT REPORTED REMAINING ISSUES --------------
       - name: Fail if linting requires manual changes
         if: steps.files.outputs.count != '0' && steps.lint.outputs.status != '0'
