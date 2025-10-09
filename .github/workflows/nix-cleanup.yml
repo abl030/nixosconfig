@@ -1,16 +1,18 @@
 name: Nix cleanup (deadnix + statix) on PR
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write # needed to push commits back to the PR branch
+  contents: write
   pull-requests: write
 
 jobs:
   cleanup:
-    runs-on: self-hosted # or 'ubuntu-latest' if you prefer
+    # Optional: avoid running untrusted fork code on self-hosted
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: self-hosted
+
     steps:
       - name: Checkout PR HEAD (exact commit)
         uses: actions/checkout@v4
@@ -19,12 +21,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
           clean: true
-
-      # If your self-hosted runner doesn't already have Nix, add an installer step here.
+          persist-credentials: true
 
       - name: Fetch base commit object
         run: |
-          git fetch --no-tags --depth=1 origin ${{ github.event.pull_request.base.sha }}
+          git remote add upstream "${{ github.event.pull_request.base.repo.clone_url }}" || true
+          git fetch --no-tags --depth=1 upstream ${{ github.event.pull_request.base.sha }}
 
       - name: Compute PR .nix file list (no merge-base; compare trees)
         id: files
@@ -32,10 +34,11 @@ jobs:
         run: |
           BASE=${{ github.event.pull_request.base.sha }}
           HEAD=${{ github.event.pull_request.head.sha }}
-          git diff --name-only "$BASE" "$HEAD" -- '*.nix' | sed '/^$/d' > changed.txt
-          echo "count=$(wc -l < changed.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
-          echo "Changed .nix files:"
-          cat changed.txt || true
+          LIST="$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$BASE" "$HEAD" -- '*.nix' | sed '/^$/d' > "$LIST"
+          echo "list=$LIST" >> "$GITHUB_OUTPUT"
+          echo "count=$(wc -l < "$LIST" | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          echo "Changed .nix files:"; cat "$LIST" || true
 
       - name: Exit if no .nix changes
         if: steps.files.outputs.count == '0'
@@ -47,16 +50,29 @@ jobs:
           git config user.name "nix-cleanup-bot"
           git config user.email "ci@ablz.au"
 
+      # --- SOFT-FAIL LINT STEP ------------------------------------------------
       - name: Run linting (scoped to PR files)
         if: steps.files.outputs.count != '0'
+        id: lint
+        continue-on-error: true
+        shell: bash
         run: |
-          bash scripts/linting.sh --files-from changed.txt
+          set +e
+          bash scripts/linting.sh --files-from "${{ steps.files.outputs.list }}"
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          # Never stop the job here; we want to push any commits produced.
+          exit 0
 
       - name: Push back to PR branch (same-repo PRs only)
-        if: steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.files.outputs.count != '0'
         run: |
+          # Only push if there are commits to push; harmless if none.
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
-      - name: Skip push for forks
-        if: steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name != github.repository
-        run: echo "PR is from a fork; skipping push."
+      # --- RE-FAIL AFTER PUSH IF LINT REPORTED REMAINING ISSUES --------------
+      - name: Fail if linting requires manual changes
+        if: steps.files.outputs.count != '0' && steps.lint.outputs.status != '0'
+        run: |
+          echo "Nix lint fails after autofix; manual changes required. See .github/llm/NIX_LINT_PATCH_PROMPT.txt" >&2
+          exit 1
