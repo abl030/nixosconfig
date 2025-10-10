@@ -5,12 +5,13 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write # needed to push commits back to the PR branch
+  contents: write # needed to push autofix commits back to PR branch
   pull-requests: write
 
 jobs:
   cleanup:
-    runs-on: self-hosted # or 'ubuntu-latest' if you prefer
+    runs-on: self-hosted
+
     steps:
       - name: Checkout PR HEAD (exact commit)
         uses: actions/checkout@v4
@@ -38,25 +39,85 @@ jobs:
           cat changed.txt || true
 
       - name: Exit if no .nix changes
-        if: steps.files.outputs.count == '0'
+        if: ${{ steps.files.outputs.count == '0' }}
         run: echo "No .nix changes in this PR."
 
       - name: Configure git author (for commits)
-        if: steps.files.outputs.count != '0'
+        if: ${{ steps.files.outputs.count != '0' }}
         run: |
           git config user.name "nix-cleanup-bot"
           git config user.email "ci@ablz.au"
 
       - name: Run linting (scoped to PR files)
-        if: steps.files.outputs.count != '0'
+        id: lint
+        if: ${{ steps.files.outputs.count != '0' }}
+        env:
+          # Do NOT commit reports; DO commit autofixes.
+          COMMIT_REPORT: "0"
+          COMMIT_AUTOFIX: "1"
+          FAIL_ON_REMAINING: "1"
+          REPORT_PATH: ".github/llm/NIX_LINT_PATCH_PROMPT.txt"
         run: |
-          bash scripts/linting.sh --files-from changed.txt
+          set -euo pipefail
+          status=0
+          bash scripts/linting.sh --files-from changed.txt || status=$?
+          rm -f changed.txt || true
+          exit $status
 
       - name: Push back to PR branch (same-repo PRs only)
-        if: steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name == github.repository
+        # still push autofix commit even if lint step failed
+        if: ${{ steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name == github.repository && always() }}
         run: |
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          # Only push if there are commits to push
+          if ! git diff --quiet origin/${{ github.event.pull_request.head.ref }}..HEAD; then
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          else
+            echo "Nothing new to push."
+          fi
 
       - name: Skip push for forks
-        if: steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name != github.repository
+        if: ${{ steps.files.outputs.count != '0' && github.event.pull_request.head.repo.full_name != github.repository && always() }}
         run: echo "PR is from a fork; skipping push."
+
+      - name: Comment remaining lint issues on the PR
+        # only when the linting step failed (i.e., findings remain)
+        if: ${{ failure() && steps.files.outputs.count != '0' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.github/llm/NIX_LINT_PATCH_PROMPT.txt';
+
+            let fileList = [];
+            try {
+              const txt = fs.readFileSync(path, 'utf8');
+              fileList = Array.from(txt.matchAll(/^FILE:\s+(.+)\s*$/gm)).map(m => m[1]);
+            } catch (e) {
+              // If report missing, still leave a helpful comment.
+            }
+
+            let body = '### Nix lint: manual edits required ❌\n';
+            if (fileList.length) {
+              body += `Files with findings (${fileList.length}):\n`;
+              body += fileList.map(f => `- \`${f}\``).join('\n') + '\n\n';
+            } else {
+              body += '_Could not parse file list from report; see job logs._\n\n';
+            }
+
+            body += 'Print the generated patch prompt locally:\n\n';
+            body += '```bash\ncat .github/llm/NIX_LINT_PATCH_PROMPT.txt\n```\n';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body
+            });
+
+      - name: Upload patch prompt as artifact (optional)
+        if: ${{ failure() && steps.files.outputs.count != '0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-lint-prompt
+          path: .github/llm/NIX_LINT_PATCH_PROMPT.txt
+          if-no-files-found: ignore

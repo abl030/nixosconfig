@@ -4,7 +4,7 @@
 # 1) deadnix --edit + statix fix (in place)
 # 2) Re-run to gather remaining findings
 # 3) Build single LLM-ready prompt with errors + full files (no diffs)
-# 4) Autocommit any changes (autofixes + prompt)
+# 4) Autocommit any changes (autofixes only, reports never by default)
 #
 # Modes:
 #   - No args           -> scan whole repo (tracked *.nix)
@@ -14,9 +14,13 @@
 # Safety toggles (env vars):
 #   SAFE_CI_ONLY=1              # refuse outside CI (default 1)
 #   REQUIRE_EXPLICIT_ON_LOCAL=1 # require explicit file list when local (default 1)
-#   NO_COMMIT=0                 # 1 = do not commit (dry-run)
-#   FAIL_ON_REMAINING=1         # 1 = exit 1 if findings remain (default 1)
-#   WRITE_STEP_SUMMARY=1        # 1 = append summary to $GITHUB_STEP_SUMMARY if set
+#   COMMIT_AUTOFIX=1            # commit deadnix/statix edits (default 1)
+#   COMMIT_REPORT=0             # commit report file (default 0)  ← prevents noisy emails
+#   FAIL_ON_REMAINING=1         # exit 1 if findings remain (default 1)
+#   WRITE_STEP_SUMMARY=1        # append summary to $GITHUB_STEP_SUMMARY if set
+#
+# Back-compat:
+#   NO_COMMIT=1                 # sets COMMIT_AUTOFIX=0 and COMMIT_REPORT=0
 
 set -euo pipefail
 
@@ -25,14 +29,20 @@ REPORT_PATH="${REPORT_PATH:-.github/llm/NIX_LINT_PATCH_PROMPT.txt}"
 AUTHOR_NAME="${AUTHOR_NAME:-nix-cleanup-bot}"
 AUTHOR_EMAIL="${AUTHOR_EMAIL:-ci@ablz.au}"
 
-# Safety rails
 SAFE_CI_ONLY="${SAFE_CI_ONLY:-1}"
 REQUIRE_EXPLICIT_ON_LOCAL="${REQUIRE_EXPLICIT_ON_LOCAL:-1}"
-NO_COMMIT="${NO_COMMIT:-0}"
+COMMIT_AUTOFIX="${COMMIT_AUTOFIX:-1}"
+COMMIT_REPORT="${COMMIT_REPORT:-0}"
 FAIL_ON_REMAINING="${FAIL_ON_REMAINING:-1}"
 WRITE_STEP_SUMMARY="${WRITE_STEP_SUMMARY:-1}"
 
-# If you prefer pinned tool paths, set STATIX_BIN/DEADNIX_BIN to absolute paths.
+# Back-compat shim
+if [[ "${NO_COMMIT:-0}" = "1" ]]; then
+  COMMIT_AUTOFIX=0
+  COMMIT_REPORT=0
+fi
+
+# Tool runners (override with STATIX_BIN/DEADNIX_BIN for pinned paths)
 run_statix() { ${STATIX_BIN:-nix run --quiet nixpkgs#statix --} "$@"; }
 run_deadnix() { ${DEADNIX_BIN:-nix run --quiet nixpkgs#deadnix --} "$@"; }
 
@@ -64,13 +74,9 @@ while (($# > 0)); do
       exit 2
     }
     if [[ "$src" == "-" ]]; then
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}")
-      done
+      while IFS= read -r line; do [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}"); done
     else
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}")
-      done <"$src"
+      while IFS= read -r line; do [[ -n "$line" ]] && INPUT_FILES+=("${line%$'\r'}"); done <"$src"
     fi
     INPUT_MODE="explicit"
     shift || true
@@ -128,7 +134,7 @@ else
   echo "▶ Auto-scan: ${#NIX_FILES[@]} tracked .nix file(s)"
 fi
 
-# Targets for the re-check step (scope to files if provided)
+# Targets for the re-check step
 if [[ "$INPUT_MODE" == "explicit" ]]; then
   STATIX_TARGETS=("${NIX_FILES[@]}")
   DEADNIX_TARGETS=("${NIX_FILES[@]}")
@@ -147,7 +153,7 @@ for f in "${NIX_FILES[@]}"; do
 done
 
 # Commit autofixed changes (if any)
-if [[ "$NO_COMMIT" != "1" ]]; then
+if [[ "$COMMIT_AUTOFIX" = "1" ]]; then
   if ! git diff --quiet; then
     git add -A
     GIT_AUTHOR_NAME="$AUTHOR_NAME" \
@@ -157,7 +163,7 @@ if [[ "$NO_COMMIT" != "1" ]]; then
       git commit -m "chore(nix): autofix with deadnix --edit & statix fix"
   fi
 else
-  echo "↪ NO_COMMIT=1 (skipping autofix commit)"
+  echo "↪ COMMIT_AUTOFIX=0 (skipping autofix commit)"
 fi
 
 # --- Phase 2: collect remaining issues -----------------------------------
@@ -166,7 +172,6 @@ STATIX_OUT="$(mktemp)"
 DEADNIX_JSON="$(mktemp)"
 DEADNIX_HUMAN="$(mktemp)"
 
-# statix check: single target only → loop for scoped runs; single dot for auto.
 : >"$STATIX_OUT"
 if [[ "${STATIX_TARGETS[*]}" == "." ]]; then
   NO_COLOR=1 run_statix check -o errfmt . 2>&1 | tee -a "$STATIX_OUT" || true
@@ -176,14 +181,12 @@ else
   done
 fi
 
-# deadnix machine-parse + human-readable for context slicing
 NO_COLOR=1 run_deadnix -o json "${DEADNIX_TARGETS[@]}" >"$DEADNIX_JSON" || true
 NO_COLOR=1 run_deadnix -o human-readable "${DEADNIX_TARGETS[@]}" >"$DEADNIX_HUMAN" || true
 
-# Build unique file list from both tools
 declare -A NEED_FILES=()
 
-# From statix (errfmt): only accept real *.nix hits with >line:col or :line:col
+# From statix (errfmt)
 if [[ -s "$STATIX_OUT" ]]; then
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
@@ -195,7 +198,7 @@ if [[ -s "$STATIX_OUT" ]]; then
   )
 fi
 
-# From deadnix (json). Extract "file": "…"
+# From deadnix (json)
 if [[ -s "$DEADNIX_JSON" ]]; then
   while IFS= read -r f; do
     [[ -n "$f" ]] && NEED_FILES["$f"]=1
@@ -205,7 +208,6 @@ fi
 
 mkdir -p "$(dirname "$REPORT_PATH")"
 
-# --- helper: write a brief CI summary if available ------------------------
 write_summary() {
   local title="$1"
   shift
@@ -216,7 +218,7 @@ write_summary() {
       if ((${#files[@]})); then
         printf "Files with remaining issues (%d):\n\n" "${#files[@]}"
         for x in "${files[@]}"; do printf " %s\n" "$x"; done
-        printf "\nReport saved to \`%s\`.\n" "$REPORT_PATH"
+        printf "\nReport saved to \`%s\` (not committed).\n" "$REPORT_PATH"
       else
         printf "No remaining issues after autofix.\n"
       fi
@@ -224,32 +226,33 @@ write_summary() {
   fi
 }
 
-# --- Emit "clean" report & exit -------------------------------------------
+# --- Clean path -----------------------------------------------------------
 if ((${#NEED_FILES[@]} == 0)); then
   {
     printf "%s\n\n" "# LLM patch prompt: remaining Nix lints"
     printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
     printf "%s\n" "No remaining issues after deadnix/statix autofix 🎉"
   } >"$REPORT_PATH"
-  if [[ "$NO_COMMIT" != "1" ]]; then
+
+  if [[ "$COMMIT_REPORT" = "1" ]]; then
     git add -A "$REPORT_PATH" || true
     if ! git diff --cached --quiet; then
       git commit -m "ci: add lint report (clean)"
     fi
   else
-    echo "↪ NO_COMMIT=1 (skipping report commit)"
+    echo "↪ COMMIT_REPORT=0 (not committing clean report)"
   fi
+
   write_summary "Nix lint: clean ✅"
   echo "✓ Clean. Wrote $REPORT_PATH"
   exit 0
 fi
 
-# --- Phase 3: construct LLM prompt (FULL FILES ONLY) ----------------------
+# --- Findings path: construct FULL-FILE prompt ----------------------------
 FILES=("${!NEED_FILES[@]}")
 IFS=$'\n' FILES=($(printf "%s\n" "${FILES[@]}" | sort))
 unset IFS
 
-# Header
 {
   printf "%s\n\n" "# LLM patch prompt: remaining Nix lints"
   printf "_Generated: %s_\n\n" "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
@@ -269,7 +272,6 @@ unset IFS
   printf "%s\n" "Preserve comments, semantics, and style; avoid churn."
 } >"$REPORT_PATH"
 
-# Per-file sections
 for f in "${FILES[@]}"; do
   {
     printf "\n%s\n" "================================================================"
@@ -310,27 +312,24 @@ for f in "${FILES[@]}"; do
   } >>"$REPORT_PATH"
 done
 
-# Commit the LLM prompt
-if [[ "$NO_COMMIT" != "1" ]]; then
+# Do not commit the report by default
+if [[ "$COMMIT_REPORT" = "1" ]]; then
   git add -A "$REPORT_PATH" || true
   if ! git diff --cached --quiet; then
     GIT_AUTHOR_NAME="$AUTHOR_NAME" \
       GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL" \
       GIT_COMMITTER_NAME="$AUTHOR_NAME" \
       GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL" \
-      git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only, dedup + placeholders)"
+      git commit -m "ci: add LLM lint patch prompt for remaining statix/deadnix issues (full files only)"
   fi
 else
-  echo "↪ NO_COMMIT=1 (skipping report commit)"
+  echo "↪ COMMIT_REPORT=0 (not committing findings report)"
 fi
 
 # CI signals: annotate + summary + FAIL if requested
 write_summary "Nix lint: manual edits required ❌" "${FILES[@]}"
-
-# GitHub annotation for quick visibility
 printf '%s\n' "::error ::Nix lint fails after autofix; manual changes required in ${#FILES[@]} file(s). See ${REPORT_PATH}"
 
-# Exit non-zero to fail the job (unless disabled)
 if [[ "$FAIL_ON_REMAINING" = "1" ]]; then
   exit 1
 fi
