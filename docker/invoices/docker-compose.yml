@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  # 1️⃣ Dummy container that owns the network namespace
+  network-holder:
+    image: k8s.gcr.io/pause:3.9
+    container_name: invoices_network_holder
+    hostname: invoices
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 2️⃣ Tailscale sidecar, joins the tailnet and gives Caddy a 100.x IP
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: ts-invoices
+    network_mode: service:network-holder
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_HOSTNAME=invoices
+    volumes:
+      - /mnt/docker/invoices/ts-state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+    healthcheck:
+      test: tailscale status --peers=false --json | grep -q '"Online":true'
+    #start_period: 60s
+    depends_on:
+      - network-holder
+
+  # 3️⃣ Caddy with Cloudflare DNS + IP-trust modules (auto TLS)
+  caddy:
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    container_name: caddy-invoices
+    network_mode: service:network-holder
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - /mnt/docker/invoices/caddy_data:/data
+      - /mnt/docker/invoices/caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      tailscale:
+        condition: service_started
+      network-holder:
+        condition: service_started
