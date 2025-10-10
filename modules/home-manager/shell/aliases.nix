@@ -29,6 +29,7 @@
     ytsum = "ytsum";
     update = "sudo nixos-rebuild switch --flake .#$HOSTNAME";
     gc = "sudo nix-collect-garbage -d; and sudo fstrim -av";
+    dc = "sudo -E SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys.txt sops";
   };
 
   # --- Transformations for POSIX-like shells (bash, zsh) ---
