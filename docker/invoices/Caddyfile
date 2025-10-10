@@ -1,3 +1,20 @@
+# Public site on your tailnet IP (DNS-01 via Cloudflare)
+invoices.ablz.au {
+  tls {
+    # Uses CLOUDFLARE_API_TOKEN from the env file you decrypt to /run/secrets/invoices-stack.env
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+
+  @health path /health
+  respond @health 200
+
+  # Reverse-proxy Docspell UI/API
+  handle {
+    reverse_proxy http://docspell-restserver:7880
+  }
+}
+
+# Optional local debug endpoint
 :8080 {
   @health path /health
   respond @health 200
@@ -7,3 +24,4 @@
     file_server browse
   }
 }
+
