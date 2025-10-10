@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  # 1️⃣ Network namespace anchor (shared with tailscale & caddy)
+  # 1️⃣ Dummy container that owns the network namespace
   network-holder:
     image: k8s.gcr.io/pause:3.9
     container_name: invoices_network_holder
@@ -10,7 +10,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # 2️⃣ Tailscale sidecar (shares netns with network-holder)
+  # 2️⃣ Tailscale sidecar, joins the tailnet and gives Caddy a 100.x IP
   tailscale:
     image: tailscale/tailscale:latest
     container_name: ts-invoices
@@ -25,10 +25,13 @@ services:
       - net_admin
       - sys_module
     restart: unless-stopped
+    healthcheck:
+      test: tailscale status --peers=false --json | grep -q '"Online":true'
+    #start_period: 60s
     depends_on:
       - network-holder
 
-  # 3️⃣ Caddy (shares netns; serves Docspell/Firefly/FIDI via *.ablz.au)
+  # 3️⃣ Caddy with Cloudflare DNS + IP-trust modules (auto TLS)
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     container_name: caddy-invoices
@@ -36,7 +39,7 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile
       - /mnt/docker/invoices/caddy_data:/data
       - /mnt/docker/invoices/caddy_config:/config
     restart: unless-stopped
@@ -44,229 +47,4 @@ services:
       tailscale:
         condition: service_started
       network-holder:
-        condition: service_started
-      docspell-restserver:
-        condition: service_started
-      ff-app:
-        condition: service_started
-      ff-importer:
-        condition: service_started
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # DOCSPELL
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  # 4️⃣ Docspell REST server (UI/API)
-  docspell-restserver:
-    image: ghcr.io/docspell/restserver:latest
-    hostname: docspell-restserver
-    container_name: docspell-restserver
-    restart: unless-stopped
-    environment:
-      TZ: "Australia/Perth"
-      DOCSPELL_SERVER_INTERNAL__URL: "http://docspell-restserver:7880"
-      DOCSPELL_SERVER_BIND_ADDRESS: "0.0.0.0"
-      DOCSPELL_SERVER_ADMIN__ENDPOINT_SECRET: ${DOCSPELL_SERVER_ADMIN__ENDPOINT_SECRET}
-      DOCSPELL_SERVER_AUTH_SERVER__SECRET: ${DOCSPELL_SERVER_AUTH_SERVER__SECRET}
-      DOCSPELL_SERVER_INTEGRATION__ENDPOINT_ENABLED: "true"
-      DOCSPELL_SERVER_INTEGRATION__ENDPOINT_HTTP__HEADER_ENABLED: "true"
-      DOCSPELL_SERVER_INTEGRATION__ENDPOINT_HTTP__HEADER_HEADER__VALUE: ${DOCSPELL_SERVER_INTEGRATION__ENDPOINT_HTTP__HEADER_HEADER__VALUE}
-      DOCSPELL_SERVER_BACKEND_SIGNUP_MODE: ${DOCSPELL_SERVER_BACKEND_SIGNUP_MODE:-invite}
-      DOCSPELL_SERVER_BACKEND_SIGNUP_NEW__INVITE__PASSWORD: ${DOCSPELL_SERVER_BACKEND_SIGNUP_NEW__INVITE__PASSWORD}
-      DOCSPELL_SERVER_BACKEND_JDBC_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB}"
-      DOCSPELL_SERVER_BACKEND_JDBC_USER: ${POSTGRES_USER}
-      DOCSPELL_SERVER_BACKEND_JDBC_PASSWORD: ${POSTGRES_PASSWORD}
-      DOCSPELL_SERVER_FULL__TEXT__SEARCH_ENABLED: "true"
-      DOCSPELL_SERVER_FULL__TEXT__SEARCH_SOLR_URL: "http://docspell-solr:8983/solr/docspell"
-      DOCSPELL_SERVER_BACKEND_ADDONS_ENABLED: "false"
-    depends_on:
-      db:
-        condition: service_started
-      docspell-solr:
-        condition: service_started
-
-  # 5️⃣ Docspell worker
-  docspell-joex:
-    image: ghcr.io/docspell/joex:latest
-    hostname: docspell-joex
-    container_name: docspell-joex
-    restart: unless-stopped
-    environment:
-      TZ: "Australia/Perth"
-      DOCSPELL_JOEX_APP__ID: "joex1"
-      DOCSPELL_JOEX_PERIODIC__SCHEDULER_NAME: "joex1"
-      DOCSPELL_JOEX_SCHEDULER_NAME: "joex1"
-      DOCSPELL_JOEX_BASE__URL: "http://docspell-joex:7878"
-      DOCSPELL_JOEX_BIND_ADDRESS: "0.0.0.0"
-      DOCSPELL_JOEX_FULL__TEXT__SEARCH_ENABLED: "true"
-      DOCSPELL_JOEX_FULL__TEXT__SEARCH_SOLR_URL: "http://docspell-solr:8983/solr/docspell"
-      DOCSPELL_JOEX_JDBC_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB}"
-      DOCSPELL_JOEX_JDBC_USER: ${POSTGRES_USER}
-      DOCSPELL_JOEX_JDBC_PASSWORD: ${POSTGRES_PASSWORD}
-      DOCSPELL_JOEX_ADDONS_EXECUTOR__CONFIG_RUNNER: "docker,trivial"
-    depends_on:
-      db:
-        condition: service_started
-      docspell-solr:
-        condition: service_started
-
-  # 6️⃣ Drop files here to auto-ingest
-  docspell-consumedir:
-    image: docspell/dsc:latest
-    container_name: docspell-consumedir
-    command:
-      - dsc
-      - "-d"
-      - "http://docspell-restserver:7880"
-      - "watch"
-      - "--delete"
-      - "-ir"
-      - "--not-matches"
-      - "**/.*"
-      - "--header"
-      - "Docspell-Integration:${DOCSPELL_SERVER_INTEGRATION__ENDPOINT_HTTP__HEADER_HEADER__VALUE}"
-      - "/opt/docs"
-    restart: unless-stopped
-    volumes:
-      - /mnt/docker/invoices/docspell/inbox:/opt/docs
-    depends_on:
-      docspell-restserver:
-        condition: service_started
-
-  # 7️⃣ Docspell Postgres (persistent)
-  db:
-    image: postgres:16-alpine
-    container_name: postgres_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - /mnt/docker/invoices/postgres/data:/var/lib/postgresql/data
-
-  # 8️⃣ Docspell Solr
-  docspell-solr:
-    image: solr:9
-    container_name: docspell-solr
-    restart: unless-stopped
-    volumes:
-      - /mnt/docker/invoices/solr/data:/var/solr
-    command:
-      - bash
-      - -c
-      - "precreate-core docspell; exec solr -f -Dsolr.modules=analysis-extras"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # FIREFLY III (+ importer, cron, redis)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  # 9️⃣ Firefly app
-  ff-app:
-    image: fireflyiii/core:latest
-    hostname: ff-app
-    container_name: firefly_iii_core
-    restart: unless-stopped
-    environment:
-      # App basics
-      APP_ENV: production
-      APP_DEBUG: "false"
-      APP_KEY: ${APP_KEY}
-      APP_URL: https://accounts.ablz.au
-      TZ: "Australia/Perth"
-      DEFAULT_LANGUAGE: en_AU
-      DEFAULT_LOCALE: en_AU
-
-      LANG: en_AU.UTF-8
-      LC_ALL: en_AU.UTF-8
-      LOCALE_ARCHIVE: /usr/lib/locale/locale-archive
-
-      TRUSTED_PROXIES: "**"
-
-      # DB (Postgres)
-      DB_CONNECTION: pgsql
-      DB_HOST: ff-db
-      DB_PORT: 5432
-      DB_DATABASE: ${FF_DB_NAME}
-      DB_USERNAME: ${FF_DB_USER}
-      DB_PASSWORD: ${FF_DB_PASS}
-
-      # Redis (optional, enabled per your request)
-      CACHE_DRIVER: redis
-      SESSION_DRIVER: redis
-      REDIS_SCHEME: tcp
-      REDIS_HOST: ff-redis
-      REDIS_PORT: 6379
-      REDIS_USERNAME:
-      REDIS_PASSWORD:
-      REDIS_DB: "0"
-      REDIS_CACHE_DB: "1"
-    volumes:
-      - /mnt/docker/invoices/firefly/app_uploads:/var/www/html/storage/upload
-      - /run/current-system/sw/lib/locale/locale-archive:/usr/lib/locale/locale-archive:ro
-    depends_on:
-      ff-db:
-        condition: service_started
-      ff-redis:
-        condition: service_started
-
-  # 🔟 Firefly Postgres (separate per-app DB container)
-  ff-db:
-    image: postgres:16-alpine
-    container_name: firefly_iii_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${FF_DB_NAME}
-      POSTGRES_USER: ${FF_DB_USER}
-      POSTGRES_PASSWORD: ${FF_DB_PASS}
-    volumes:
-      - /mnt/docker/invoices/firefly/postgres/data:/var/lib/postgresql/data
-
-  # 1️⃣1️⃣ Redis (optional)
-  ff-redis:
-    image: redis:7-alpine
-    container_name: firefly_iii_redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "no"]
-    tmpfs:
-      - /data
-
-  # 1️⃣2️⃣ Firefly Data Importer (PAT mode; no host ports)
-  ff-importer:
-    image: fireflyiii/data-importer:latest
-    hostname: ff-importer
-    container_name: firefly_iii_importer
-    restart: unless-stopped
-    environment:
-      TZ: "Australia/Perth"
-      # For PAT mode:
-      FIREFLY_III_URL: http://ff-app:8080
-      VANITY_URL: https://importer.ablz.au
-      # Optional (set after you create a PAT in Firefly):
-      FIREFLY_III_ACCESS_TOKEN: ${FIREFLY_III_ACCESS_TOKEN:-}
-      TRUSTED_PROXIES: "**"
-      SESSION_DRIVER: file
-      SESSION_SECURE_COOKIE: "true"
-      COOKIE_SECURE: "true"
-    depends_on:
-      ff-app:
-        condition: service_started
-
-  # 1️⃣3️⃣ Firefly cron (kept, default schedule 03:00; safe to keep running)
-  ff-cron:
-    image: alpine
-    container_name: firefly_iii_cron
-    restart: unless-stopped
-    environment:
-      TZ: "Australia/Perth"
-      STATIC_CRON_TOKEN: ${STATIC_CRON_TOKEN}
-    command: >
-      sh -c "
-      apk add --no-cache tzdata wget &&
-      (ln -fs /usr/share/zoneinfo/$$TZ /etc/localtime || true) &&
-      echo '0 3 * * * wget -qO- http://ff-app:8080/api/v1/cron/'\"$$STATIC_CRON_TOKEN\"'; echo' | crontab - &&
-      crond -f -L /dev/stdout
-      "
-    depends_on:
-      ff-app:
         condition: service_started
