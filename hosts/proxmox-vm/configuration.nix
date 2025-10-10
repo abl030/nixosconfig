@@ -25,6 +25,7 @@
     ../../docker/jdownloader2/docker-compose.nix
     ../../docker/smokeping/docker-compose.nix
     ../../docker/tautulli/docker-compose.nix
+    ../../docker/invoices/docker-compose.nix
   ];
 
   homelab = {
