@@ -40,14 +40,4 @@ importer.ablz.au {
   }
 }
 
-# Optional local debug endpoint (unchanged)
-:8080 {
-  @health path /health
-  respond @health 200
-
-  handle {
-    root * /srv
-    file_server browse
-  }
-}
 
