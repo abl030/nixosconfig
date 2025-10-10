@@ -27,6 +27,8 @@
     lzg = "lazygit";
     ytslisten = "ytlisten";
     ytsum = "ytsum";
+    update = "sudo nixos-rebuild switch --flake .#$HOSTNAME";
+    gc = "sudo nix-collect-garbage -d; and sudo fstrim -av";
   };
 
   # --- Transformations for POSIX-like shells (bash, zsh) ---

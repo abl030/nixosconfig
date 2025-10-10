@@ -9,9 +9,7 @@
     # mum backup mount
     ../services/mounts/ext.nix
     # ../services/mounts/cifs.nix
-
     ../common/configuration.nix
-
     # Here's we'll organise our docker services
     ../../docker/tailscale/caddy/docker-compose.nix
     ../../docker/immich/docker-compose.nix
@@ -29,36 +27,35 @@
     ../../docker/tautulli/docker-compose.nix
   ];
 
-  homelab.ci.rollingFlakeUpdate = {
-    enable = true;
-    repoDir = "/home/abl030/nixosconfig";
-  };
+  homelab = {
+    ci.rollingFlakeUpdate = {
+      enable = true;
+      repoDir = "/home/abl030/nixosconfig";
+    };
 
-  homelab.cache = {
-    enable = true;
+    cache = {
+      enable = true;
+      acmeEmail = "acme@ablz.au";
+      cloudflareSopsFile = ../../secrets/secrets/acme-cloudflare.env;
+      mirrorHost = "nix-mirror.ablz.au";
+      mirrorCacheRoot = "/var/cache/nginx-nix-mirror";
+      mirrorRetentionDays = 45; # set 0 to disable pruning
+      localHost = "nixcache.ablz.au";
+      nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
+    };
 
-    acmeEmail = "acme@ablz.au";
-    cloudflareSopsFile = ../../secrets/secrets/acme-cloudflare.env;
+    nixCaches = {
+      enable = true;
+      profile = "server"; # or "external"
+    };
 
-    mirrorHost = "nix-mirror.ablz.au";
-    mirrorCacheRoot = "/var/cache/nginx-nix-mirror";
-    mirrorRetentionDays = 45; # set 0 to disable pruning
-
-    localHost = "nixcache.ablz.au";
-    nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
-  };
-
-  homelab.nixCaches = {
-    enable = true;
-    profile = "server"; # or "external"
-  };
-
-  # Enable our github runner
-  homelab.services.githubRunner = {
-    enable = true;
-    repoUrl = "https://github.com/abl030/nixosconfig";
-    tokenFile = "/var/lib/github-runner/registration-token";
-    runnerName = "proxmox-bastion";
+    # Enable our github runner
+    services.githubRunner = {
+      enable = true;
+      repoUrl = "https://github.com/abl030/nixosconfig";
+      tokenFile = "/var/lib/github-runner/registration-token";
+      runnerName = "proxmox-bastion";
+    };
   };
 
   #enable docker
@@ -92,7 +89,6 @@
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_GB.UTF-8";
-
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "en_AU.UTF-8";
     LC_IDENTIFICATION = "en_AU.UTF-8";
@@ -136,10 +132,8 @@
   };
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [
-  # ];
-  # networking.firewall.allowedUDPPorts = [ ];
-  #
+  # networking.firewall.allowedTCPPorts = [  ];
+
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos"; # Match label during formatting
     fsType = "ext4";
@@ -156,5 +150,6 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.05"; # Did you read the comment?
+
   nix.settings.experimental-features = ["nix-command" "flakes"];
 }
