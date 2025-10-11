@@ -176,6 +176,11 @@ services:
       TZ: "Australia/Perth"
       DEFAULT_LANGUAGE: en_AU
       DEFAULT_LOCALE: en_AU
+
+      LANG: en_AU.UTF-8
+      LC_ALL: en_AU.UTF-8
+      LOCALE_ARCHIVE: /usr/lib/locale/locale-archive
+
       TRUSTED_PROXIES: "**"
 
       # DB (Postgres)
@@ -198,6 +203,7 @@ services:
       REDIS_CACHE_DB: "1"
     volumes:
       - /mnt/docker/invoices/firefly/app_uploads:/var/www/html/storage/upload
+      - /run/current-system/sw/lib/locale/locale-archive:/usr/lib/locale/locale-archive:ro
     depends_on:
       ff-db:
         condition: service_started
@@ -238,6 +244,10 @@ services:
       VANITY_URL: https://importer.ablz.au
       # Optional (set after you create a PAT in Firefly):
       FIREFLY_III_ACCESS_TOKEN: ${FIREFLY_III_ACCESS_TOKEN:-}
+      TRUSTED_PROXIES: "**"
+      SESSION_DRIVER: file
+      SESSION_SECURE_COOKIE: "true"
+      COOKIE_SECURE: "true"
     depends_on:
       ff-app:
         condition: service_started
