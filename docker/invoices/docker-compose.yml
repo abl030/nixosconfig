@@ -228,8 +228,8 @@ services:
     container_name: firefly_iii_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "no"]
-    volumes:
-      - /mnt/docker/invoices/firefly/redis/data:/data
+    tmpfs:
+      - /data
 
   # 1️⃣2️⃣ Firefly Data Importer (PAT mode; no host ports)
   ff-importer:
