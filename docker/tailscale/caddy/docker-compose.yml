@@ -41,10 +41,7 @@ services:
 
   # The Caddy container, also using the holder container's network
   caddy:
-    # image: caddy:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     container_name: caddy-reverse-proxy
     # CRITICAL: Now uses the network stack of the 'network-holder' service container
     network_mode: service:network-holder
