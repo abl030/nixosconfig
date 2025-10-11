@@ -17,7 +17,6 @@ local default_servers = {
 	"html",
 	"cssls",
 	"ts_ls",
-	"yamlls",
 	"marksman",
 	"pyright",
 	-- "bashls",
@@ -95,6 +94,33 @@ lspconfig.lua_ls.setup({
 				},
 				maxPreload = 100000,
 				preloadFileSize = 10000,
+			},
+		},
+	},
+})
+
+-- 2) YAML LS with Docker Compose schema + schemastore
+lspconfig.yamlls.setup({
+	on_attach = custom_on_attach,
+	on_init = nvlsp.on_init,
+	capabilities = nvlsp.capabilities,
+	settings = {
+		yaml = {
+			validate = true,
+			hover = true,
+			completion = true,
+			-- Pull lots of common schemas automatically (GitHub Actions, Ansible, etc.)
+			schemaStore = {
+				enable = true,
+				url = "https://www.schemastore.org/api/json/catalog.json",
+			},
+			-- Explicit Compose schema mapping (v2 spec)
+			schemas = {
+				-- Official Compose JSON Schema:
+				["https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json"] = {
+					"docker-compose*.y*ml",
+					"compose*.y*ml",
+				},
 			},
 		},
 	},
