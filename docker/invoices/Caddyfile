@@ -1,14 +1,12 @@
-# Public site on your tailnet IP (DNS-01 via Cloudflare)
+# invoices (Docspell) — tailnet-only hostname, DNS-01 via Cloudflare
 invoices.ablz.au {
   tls {
-    # Uses CLOUDFLARE_API_TOKEN from the env file you decrypt to /run/secrets/invoices-stack.env
     dns cloudflare {env.CLOUDFLARE_API_TOKEN}
   }
 
   @health path /health
   respond @health 200
 
-  # Reverse-proxy Docspell UI/API
   handle {
     reverse_proxy http://docspell-restserver:7880
   }
@@ -20,6 +18,30 @@ accounts.ablz.au {
     dns cloudflare {env.CLOUDFLARE_API_TOKEN}
   }
 
+  @health path /health
+  respond @health 200
+
+  handle {
+    reverse_proxy http://ff-app:8080
+  }
+}
+
+# Firefly Data Importer (importer) — tailnet-only
+importer.ablz.au {
+  tls {
+    dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+  }
+
+  @health path /health
+  respond @health 200
+
+  handle {
+    reverse_proxy http://ff-importer:8080
+  }
+}
+
+# Optional local debug endpoint (unchanged)
+:8080 {
   @health path /health
   respond @health 200
 
