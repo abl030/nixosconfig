@@ -120,4 +120,6 @@ fi
 # (If branch protection requires checks, this just arms auto-merge.)
 gh pr merge "$PR_URL" --auto --squash --delete-branch=false
 
+git switch master
+
 echo "Updated PR: $PR_URL"
