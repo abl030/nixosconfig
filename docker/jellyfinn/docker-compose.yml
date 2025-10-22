@@ -30,7 +30,7 @@ services:
       - TZ=Australia/Perth
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
-      - /mnt/docker/jellyfin:/config
+      - /mnt/docker/jellyfin/jellyfin:/config
       - "/mnt/fuse/Media/TV_Shows:/data/tvshows"
       - "/mnt/fuse/Media/Movies:/data/movies"
       - "/mnt/fuse/Media/Music:/data/music"
@@ -65,25 +65,19 @@ services:
       - jellyfin-network-holder
 
   caddy:
-    build:
-      context: .
-      dockerfile: ../tailscale/caddy/Dockerfile
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     container_name: jellyfin-caddy
     network_mode: "service:jellyfin-network-holder"
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
       - /mnt/docker/jellyfin/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - /mnt/docker/jellyfin/caddy_data:/data
-      - /mnt/docker/jellyfin/caddy_config:/config
+      - /mnt/docker/jellyfin/caddy/data:/data
+      - /mnt/docker/jellyfin/caddy/config:/config
       - /etc/localtime:/etc/localtime:ro
-    restart: always
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
+    restart: unless-stopped
     depends_on:
       - jellyfin-network-holder
-    stdin_open: true
-    tty: true
 
   # autoscan:
   #   image: ghcr.io/niniyas/autoscan:latest
@@ -125,7 +119,7 @@ services:
       - POSTGRES_USER=jellystat
       - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
     volumes:
-      - "/mnt/docker/jellystat/postgres-data:/var/lib/postgresql/data"
+      - "/mnt/docker/jellyfin/jellystat/postgres-data:/var/lib/postgresql/data"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jellystat"]
       interval: 10s
@@ -149,7 +143,7 @@ services:
       - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
       - TZ=Australia/Perth
     volumes:
-      - "/mnt/docker/jellystat/backup-data:/app/backend/backup-data"
+      - "/mnt/docker/jellyfin/jellystat/backup-data:/app/backend/backup-data"
     depends_on:
       jellystat-db:
         condition: service_healthy
