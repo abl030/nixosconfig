@@ -185,10 +185,12 @@ in {
   apps.lint-nix = {
     type = "app";
     program = "${lib.getExe lintNix}";
+    meta.description = "Run deadnix + statix with robust flags and panic detection.";
   };
   apps.fmt-nix = {
     type = "app";
     program = "${lib.getExe fmtNix}";
+    meta.description = "Format Nix files with Alejandra.";
   };
 
   # Standard dev shell for this repo.
