@@ -26,14 +26,14 @@
   ];
 
   homelab.home.ssh.enable = true;
-
-  nixpkgs = {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = _: true;
-    };
-  };
-
+  #
+  # nixpkgs = {
+  #   config = {
+  #     allowUnfree = true;
+  #     allowUnfreePredicate = _: true;
+  #   };
+  # };
+  #
   # Group all home-manager options into a single `home` attribute set.
   home = {
     # This value determines the Home Manager release that your configuration is
