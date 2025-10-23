@@ -30,7 +30,7 @@
 
   homelab.nixCaches = {
     enable = true;
-    profile = "internal"; # or "external"
+    profile = "external"; # or "external"
   };
 
   # Grouping boot options logically improves readability and follows Nix best practices.
