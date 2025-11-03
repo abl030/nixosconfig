@@ -146,3 +146,176 @@ ytlisten() {
         return 1
     fi
 }
+
+# ──────────────────────────────────────────────────────────────────────────────
+# commit_this: turn current HEAD commits into a PR to master with auto-merge
+# Usage:
+#   commit_this [-w] [-b BRANCH] [-B BASE] [--merge|--rebase]
+# Defaults:
+#   BASE=master, strategy=squash, BRANCH auto-generated.
+# Options:
+#   -w/--watch     Watch checks and, when merged, fast-forward local master & prune.
+#   -b/--branch    Provide a topic branch name (else we timestamp one).
+#   -B/--base      Change base branch (default: master).
+#   --merge        Use merge commit instead of squash.
+#   --rebase       Use rebase merge instead of squash.
+# Requires: git, gh (GitHub CLI) logged in, and origin set.
+# ──────────────────────────────────────────────────────────────────────────────
+commit_this() {
+    local base="master" strategy="squash" watch=0 topic=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -w | --watch)
+                watch=1
+                shift
+                ;;
+            -b | --branch)
+                topic="$2"
+                shift 2
+                ;;
+            -B | --base)
+                base="$2"
+                shift 2
+                ;;
+            --merge)
+                strategy="merge"
+                shift
+                ;;
+            --rebase)
+                strategy="rebase"
+                shift
+                ;;
+            -h | --help)
+                echo "Usage: commit_this [-w] [-b BRANCH] [-B BASE] [--merge|--rebase]"
+                return 0
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Preconditions
+    command -v git >/dev/null 2>&1 || {
+        echo "git not found"
+        return 1
+    }
+    command -v gh >/dev/null 2>&1 || {
+        echo "gh (GitHub CLI) not found"
+        return 1
+    }
+    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+        echo "Not a git repo"
+        return 1
+    }
+    git remote get-url origin >/dev/null 2>&1 || {
+        echo "No 'origin' remote"
+        return 1
+    }
+
+    # Ensure we have no uncommitted changes
+    if ! git diff-index --quiet HEAD --; then
+        echo "Working tree is dirty; commit or stash first." >&2
+        return 1
+    fi
+
+    # Current branch & fetch latest base
+    local cur_branch
+    cur_branch="$(git rev-parse --abbrev-ref HEAD)"
+    git fetch origin "$base" --quiet || {
+        echo "Failed to fetch origin/$base"
+        return 1
+    }
+
+    # Generate topic branch name if not provided
+    if [[ -z "$topic" ]]; then
+        local ts
+        ts="$(date +%Y%m%d-%H%M%S)"
+        topic="ab/auto-${cur_branch}-${ts}"
+    fi
+
+    # Create topic branch at current HEAD (where your commits live)
+    git switch -c "$topic" || {
+        echo "Could not create/switch to $topic"
+        return 1
+    }
+
+    # (Nice hygiene) If you *were* on $base when you ran this, move local $base back to origin/$base
+    if [[ "$cur_branch" == "$base" ]]; then
+        git branch -f "$base" "origin/$base" >/dev/null 2>&1 || true
+    fi
+
+    # Push topic branch
+    git push -u origin HEAD || {
+        echo "Push failed"
+        return 1
+    }
+
+    # Build a sensible PR title/body from the commit range
+    local merge_base
+    merge_base="$(git merge-base "origin/$base" HEAD)"
+    local range="${merge_base}..HEAD"
+    local ncommits
+    ncommits="$(git rev-list --count "$range")"
+    local first_subject
+    first_subject="$(git log -1 --pretty='%s')"
+
+    local pr_title pr_body
+    if [[ "$ncommits" -eq 1 ]]; then
+        pr_title="$first_subject"
+    else
+        pr_title="PR: ${ncommits} commits → ${base}"
+    fi
+    pr_body="$(git log --no-decorate --pretty='* %h %s' "$range")"
+
+    # Create PR to base
+    if ! gh pr create --base "$base" --title "$pr_title" --body "$pr_body" >/dev/null; then
+        echo "Failed to create PR. (Is gh authenticated? Do you have push rights?)" >&2
+        return 1
+    fi
+
+    # Grab PR number and URL
+    local pr_num pr_url
+    pr_num="$(gh pr view --json number -q '.number')" || {
+        echo "Could not read PR number"
+        return 1
+    }
+    pr_url="$(gh pr view --json url -q '.url')" || pr_url="(unknown url)"
+
+    echo "Opened PR #$pr_num → $pr_url"
+
+    # Enable auto-merge
+    if ! gh pr merge "$pr_num" --auto --"$strategy" --delete-branch >/dev/null; then
+        echo "Could not enable auto-merge. Ensure repo allows auto-merge and required checks are set." >&2
+        echo "PR is still open: $pr_url"
+        return 1
+    fi
+    echo "Auto-merge enabled using strategy: $strategy"
+
+    # Optional: watch checks and finish up if merged
+    if [[ "$watch" -eq 1 ]]; then
+        echo "Watching checks for PR #$pr_num…"
+        gh pr checks --watch "$pr_num" || true
+        # Poll merge state (MERGED/CLOSED/OPEN)
+        local state
+        while true; do
+            state="$(gh pr view "$pr_num" --json state -q '.state' 2>/dev/null || echo OPEN)"
+            if [[ "$state" == "MERGED" ]]; then
+                echo "PR merged. Updating local $base…"
+                git fetch --prune --quiet
+                git switch "$base" && git pull --ff-only
+                # Delete local topic branch if it still exists and is merged
+                git branch --merged | grep -q "^[* ]\s\+$topic$" && git branch -d "$topic" || true
+                echo "Done."
+                break
+            elif [[ "$state" == "CLOSED" ]]; then
+                echo "PR closed without merge: $pr_url"
+                break
+            fi
+            sleep 5
+        done
+    else
+        echo "PR will merge automatically once checks/reviews pass."
+    fi
+}
