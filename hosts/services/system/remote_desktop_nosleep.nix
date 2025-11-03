@@ -25,7 +25,7 @@
 
     cleanup() {
       if [ -f ${PID_PATH} ]; then
-        ${pkgs.utillinux}/bin/logger "RDP Monitor: Cleaning up sleep inhibitor PID $(cat ${PID_PATH})"
+        ${pkgs.util-linux}/bin/logger "RDP Monitor: Cleaning up sleep inhibitor PID $(cat ${PID_PATH})"
         kill -9 $(cat ${PID_PATH}) 2>/dev/null
         rm -f ${PID_PATH}
       fi
@@ -39,15 +39,15 @@
 
       if [ "$num_sessions" -gt 0 ]; then
         if [ ! -f ${PID_PATH} ]; then
-          ${pkgs.utillinux}/bin/logger "RDP Monitor: Starting sleep inhibitor for Remote Desktop session"
+          ${pkgs.util-linux}/bin/logger "RDP Monitor: Starting sleep inhibitor for Remote Desktop session"
           mkfifo ${PID_PIPE}
           ${inhibit_script}
-          ${pkgs.utillinux}/bin/logger "RDP Monitor: Sleep inhibitor started with PID $(cat ${PID_PIPE})"
+          ${pkgs.util-linux}/bin/logger "RDP Monitor: Sleep inhibitor started with PID $(cat ${PID_PIPE})"
           rm -f ${PID_PIPE}
         fi
       else
         if [ -f ${PID_PATH} ]; then
-          ${pkgs.utillinux}/bin/logger "RDP Monitor: Killing sleep inhibitor PID $(cat ${PID_PATH})"
+          ${pkgs.util-linux}/bin/logger "RDP Monitor: Killing sleep inhibitor PID $(cat ${PID_PATH})"
           kill -9 $(cat ${PID_PATH}) 2>/dev/null
           rm -f ${PID_PATH}
         fi
@@ -65,7 +65,7 @@ in {
     path = with pkgs; [
       nettools
       gawk
-      utillinux
+      util-linux
     ];
 
     serviceConfig = {
