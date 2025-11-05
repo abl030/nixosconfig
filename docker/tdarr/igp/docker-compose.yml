@@ -16,8 +16,8 @@ services:
       - inContainer=true
       - ffmpegVersion=7
     volumes:
-      - /docker/tdarr/configs:/app/configs
-      - /docker/tdarr/logs:/app/logs
+      - /mnt/docker/tdarr/configs:/app/configs
+      - /mnt/docker/tdarr/logs:/app/logs
       - /mnt/data/Media:/mnt/media # Critical mount
       - /mnt/data/Media/Transcode Temp/:/temp # Assumes this is inside /mnt/data/Media
       # Consider relative path for temp if it's always inside the media mount:
