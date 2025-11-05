@@ -22,9 +22,6 @@
     # ../framework/hibernatefix2.nix
     # Nosleep scripts
     ../services/system/remote_desktop_nosleep.nix
-
-    ../../docker/management/epi_management/docker_compose.nix
-    ../../docker/tdarr/epi/docker-compose.nix
   ];
 
   homelab.nixCaches = {
