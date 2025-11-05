@@ -10,7 +10,7 @@ services:
       # - PUID=${PUID} # Ensure these are uncommented and set if needed for permissions
       # - PGID=${PGID} # Ensure these are uncommented and set if needed for permissions
       - UMASK_SET=002
-      - nodeName=EpiNode
+      - nodeName=IGPNode
       - serverIP=192.168.1.2
       - serverPort=8266
       - inContainer=true
