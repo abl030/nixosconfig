@@ -21,3 +21,6 @@ ansible-playbook -i inventory.ini nvme.yml \
   -e ansible_ssh_pipelining=true \
   --ssh-extra-args='-o RequestTTY=no'
 
+Also there are some duplicate somethings somethings.
+This script needs work. but lets see if our nvme drive drops out again first.
+
