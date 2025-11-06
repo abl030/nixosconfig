@@ -1,0 +1,201 @@
+# ansible/prom_prox/nvme_power_fixes.yml
+---
+- name: NVMe power behavior hardening (APST cap + no runtime D3)
+  hosts: proxmox_hosts
+  remote_user: root # connect as root on Proxmox
+  become: false # no sudo, avoids password prompts
+  gather_facts: false
+
+  vars:
+    # --- Tunables ---
+    # Start with 0 (fully disables APST). If stable, later change to 5500 and re-run.
+    nvme_max_latency_us: 0
+
+    # Keep NVMe PCI functions out of runtime D3.
+    enforce_runtime_pm_for_nvme: true
+
+    # Optional: set global PCIe ASPM policy ("off" or "performance"); "" skips it.
+    pcie_aspm_policy: ""
+
+    # Scope runtime-PM rule to vendors if you like (e.g., ["144d"] for Samsung).
+    nvme_vendor_filter: [] # [] = all NVMe (class 0x010802)
+
+    kernel_cmdline_path: /etc/kernel/cmdline
+    modprobe_dropin: /etc/modprobe.d/nvme-power.conf
+    udev_rule_path: /etc/udev/rules.d/99-nvme-runtime-pm.rules
+    svc_name: nvme-runtime-pm.service
+    svc_path: /etc/systemd/system/nvme-runtime-pm.service
+
+  handlers:
+    - name: Refresh proxmox-boot-tool
+      ansible.builtin.command: proxmox-boot-tool refresh
+      changed_when: true
+
+    - name: Update initramfs
+      ansible.builtin.command: update-initramfs -u -k all
+      changed_when: true
+
+    - name: Reload udev rules
+      ansible.builtin.shell: udevadm control --reload-rules && udevadm trigger
+      changed_when: true
+
+    - name: Systemd daemon-reload
+      ansible.builtin.command: systemctl daemon-reload
+      changed_when: true
+
+    - name: Enable + start nvme-runtime-pm
+      ansible.builtin.systemd:
+        name: "{{ svc_name }}"
+        enabled: true
+        state: started
+
+    - name: Reboot to apply kernel parameters
+      ansible.builtin.reboot:
+        msg: "Rebooting to apply NVMe/APST kernel parameters."
+        reboot_timeout: 480
+
+  tasks:
+    # ---------- nvme_core drop-in (harmless if driver is built-in) ----------
+    - name: Write nvme_core modprobe options (APST cap)
+      ansible.builtin.copy:
+        dest: "{{ modprobe_dropin }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible
+          # Keep NVMe out of deep APST states; 0 fully disables APST.
+          options nvme_core default_ps_max_latency_us={{ nvme_max_latency_us }}
+      notify: Update initramfs
+
+    # ---------- Kernel cmdline: ensure nvme_core.default_ps_max_latency_us=... ----------
+    - name: Ensure {{ kernel_cmdline_path }} exists
+      ansible.builtin.file:
+        path: "{{ kernel_cmdline_path }}"
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Replace existing nvme_core.default_ps_max_latency_us (if present)
+      ansible.builtin.replace:
+        path: "{{ kernel_cmdline_path }}"
+        regexp: '(?<!\S)nvme_core\.default_ps_max_latency_us=\S+'
+        replace: "nvme_core.default_ps_max_latency_us={{ nvme_max_latency_us }}"
+      register: cmdline_nvme_replace
+
+    - name: Append nvme_core.default_ps_max_latency_us if missing
+      ansible.builtin.replace:
+        path: "{{ kernel_cmdline_path }}"
+        regexp: '^(?!.*\bnvme_core\.default_ps_max_latency_us=)(.*)$'
+        replace: '\1 nvme_core.default_ps_max_latency_us={{ nvme_max_latency_us }}'
+      register: cmdline_nvme_append
+      when: cmdline_nvme_replace is not changed
+
+    # ---------- Optional: ASPM policy ----------
+    - name: Replace existing pcie_aspm policy (if present)
+      when: pcie_aspm_policy | length > 0
+      ansible.builtin.replace:
+        path: "{{ kernel_cmdline_path }}"
+        regexp: '(?<!\S)pcie_aspm=\S+'
+        replace: "pcie_aspm={{ pcie_aspm_policy }}"
+      register: cmdline_aspm_replace
+
+    - name: Append pcie_aspm policy (if absent and requested)
+      when: pcie_aspm_policy | length > 0
+      ansible.builtin.replace:
+        path: "{{ kernel_cmdline_path }}"
+        regexp: '^(?!.*\bpcie_aspm=)(.*)$'
+        replace: '\1 pcie_aspm={{ pcie_aspm_policy }}'
+      register: cmdline_aspm_append
+
+    # ---------- Runtime PM: keep NVMe out of D3 (udev rule + oneshot service) ----------
+    - name: Install udev rule to force NVMe power/control=on
+      when: enforce_runtime_pm_for_nvme
+      ansible.builtin.copy:
+        dest: "{{ udev_rule_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible
+          # Keep NVMe PCI devices out of runtime D3 (class 0x010802).
+          {% if nvme_vendor_filter | length > 0 %}
+          {% for vid in nvme_vendor_filter %}
+          ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x{{ '%s'|format(vid|lower) }}", ATTR{class}=="0x010802", TEST=="power/control", ATTR{power/control}="on"
+          {% endfor %}
+          {% else %}
+          ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x010802", TEST=="power/control", ATTR{power/control}="on"
+          {% endif %}
+      notify: Reload udev rules
+
+    - name: Deploy oneshot service to enforce power/control=on at boot
+      when: enforce_runtime_pm_for_nvme
+      ansible.builtin.copy:
+        dest: "{{ svc_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible
+          [Unit]
+          Description=Force NVMe controllers to runtime PM 'on' (no D3)
+          DefaultDependencies=no
+          After=local-fs.target
+          Before=multi-user.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/bin/sh -c '\
+            for d in /sys/bus/pci/devices/*; do \
+              [ -r "$d/class" ] && c=$(cat "$d/class"); \
+              if [ "$c" = "0x010802" ] && [ -w "$d/power/control" ]; then \
+                echo on > "$d/power/control"; \
+              fi; \
+            done'
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Systemd daemon-reload
+        - Enable + start nvme-runtime-pm
+
+    # ---------- Runtime apply now (no reboot needed for testing) ----------
+    - name: Ensure nvme-cli present
+      ansible.builtin.package:
+        name: nvme-cli
+        state: present
+
+    - name: Runtime disable APST immediately (persists until reboot)
+      ansible.builtin.shell: |
+        if [ -e /sys/module/nvme_core/parameters/default_ps_max_latency_us ]; then
+          echo {{ nvme_max_latency_us }} > /sys/module/nvme_core/parameters/default_ps_max_latency_us
+        fi
+        for d in /dev/nvme[0-9]; do nvme set-feature -f 0x0c -v 0 "$d" >/dev/null 2>&1 || true; done
+      changed_when: false
+
+    - name: Runtime force NVMe devices out of D3 now
+      when: enforce_runtime_pm_for_nvme
+      ansible.builtin.shell: |
+        for p in /sys/class/nvme/nvme*/device/power/control; do
+          [ -w "$p" ] && echo on > "$p"
+        done
+      changed_when: false
+
+    # ---------- Finalise + conditional reboot if kernel params changed ----------
+    - name: Decide if cmdline changed
+      ansible.builtin.set_fact:
+        cmdline_changed:
+          "{{ (cmdline_nvme_replace is changed) or (cmdline_nvme_append is changed) or
+          (pcie_aspm_policy | length > 0 and ((cmdline_aspm_replace is changed) or (cmdline_aspm_append is changed))) }}"
+
+    - name: Refresh bootloader if cmdline changed
+      ansible.builtin.command: proxmox-boot-tool refresh
+      when: cmdline_changed
+      changed_when: true
+
+    - name: Reboot to apply kernel parameters
+      when: cmdline_changed
+      ansible.builtin.reboot:
+        msg: "Rebooting to apply NVMe/APST kernel parameters."
+        reboot_timeout: 480
