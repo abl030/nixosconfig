@@ -1,6 +1,5 @@
 {
   config,
-  pkgs,
   ...
 }: let
   # ── Per-stack knobs ─────────────────────────────────────────
@@ -10,7 +9,7 @@
   requiresBase = [
     "docker.service"
     "network-online.target"
-    "mnt-data.automount"
+    "mnt-data.mount"
   ];
 
   # ── Derived ────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # Edit this configuration file to define what should be installed on
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-{ pkgs, ... }: {
+{pkgs, ...}: {
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
@@ -17,6 +17,7 @@
     ../../docker/jellyfinn/docker-compose.nix
     ../../docker/management/igpu/docker_compose.nix
     ../../docker/plex/docker-compose.nix
+    ../../docker/tdarr/igp/docker-compose.nix
   ];
 
   # Grouping all boot loader and kernel options under a single 'boot' attribute set.
@@ -30,14 +31,13 @@
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
-
   homelab.nixCaches = {
     enable = true;
     profile = "internal"; # or "external"
   };
   # Use Flakes
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = ["nix-command" "flakes"];
   };
 
   # Consolidating hardware settings into a single attribute set improves clarity.
@@ -97,7 +97,7 @@
   users.users.abl030 = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "docker" "wheel" "video" "render" ]; # Enable ‘sudo’ for the user.
+    extraGroups = ["docker" "wheel" "video" "render"]; # Enable ‘sudo’ for the user.
     packages = with pkgs; [
       git
     ];
