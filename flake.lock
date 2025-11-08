@@ -134,11 +134,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1762561611,
-        "narHash": "sha256-9WmVJ234M7exuQZjH2eSphwNU3RLvtqePibWuBJsr8A=",
+        "lastModified": 1762607916,
+        "narHash": "sha256-dsrHCd+QJWR1MPhyFqesx6jB1IFuegYc7L4eQ6GStBg=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "c17d0d9d734ec1993e63ec98437361bafbc4f4a5",
+        "rev": "dd1d9445d37ab680bf2bc3d682a4a8a7dcf9147b",
         "type": "gitlab"
       },
       "original": {
@@ -601,11 +601,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1762579843,
-        "narHash": "sha256-0gcfjMAap0J4PwKOEjoGhB7fWu7hjes06EVkddxF+Pc=",
+        "lastModified": 1762598477,
+        "narHash": "sha256-1PWQ5uLcGN2ofchdrLXLzT11v6kTOAgvKCn/SslL2+E=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "5767fb4ab108dddb07fc839a3b0f4d323a7c4bea",
+        "rev": "a86eeaadf236ceaf6bb232eb410cf21572538aa6",
         "type": "github"
       },
       "original": {
