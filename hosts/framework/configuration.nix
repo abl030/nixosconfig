@@ -28,9 +28,16 @@
     ../services/system/remote_desktop_nosleep.nix
   ];
 
-  homelab.nixCaches = {
-    enable = true;
-    profile = "external"; # or "external"
+  homelab = {
+    nixCaches = {
+      enable = true;
+      profile = "internal"; # or "external"
+    };
+    update = {
+      enable = true;
+      collectGarbage = true;
+      trim = true;
+    };
   };
 
   # Grouping boot options logically improves readability and follows Nix best practices.

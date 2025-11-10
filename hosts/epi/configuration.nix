@@ -24,9 +24,16 @@
     ../services/system/remote_desktop_nosleep.nix
   ];
 
-  homelab.nixCaches = {
-    enable = true;
-    profile = "internal"; # or "external"
+  homelab = {
+    nixCaches = {
+      enable = true;
+      profile = "internal"; # or "external"
+    };
+    update = {
+      enable = true;
+      collectGarbage = true;
+      trim = true;
+    };
   };
 
   # Group all boot-related settings into a single block.
