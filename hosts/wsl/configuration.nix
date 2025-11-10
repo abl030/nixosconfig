@@ -14,6 +14,18 @@
     inputs.nixos-wsl.nixosModules.default
   ];
 
+  homelab = {
+    nixCaches = {
+      enable = true;
+      profile = "internal"; # or "external"
+    };
+    update = {
+      enable = true;
+      collectGarbage = true;
+      trim = true;
+    };
+  };
+
   wsl.enable = true;
   wsl.defaultUser = "nixos";
   programs.bash.blesh.enable = true;

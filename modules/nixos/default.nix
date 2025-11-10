@@ -4,5 +4,6 @@
   imports = [
     ./nix_caches
     ./ci
+    ./autoupdate
   ];
 }

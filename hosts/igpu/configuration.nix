@@ -31,9 +31,16 @@
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
-  homelab.nixCaches = {
-    enable = true;
-    profile = "internal"; # or "external"
+  homelab = {
+    nixCaches = {
+      enable = true;
+      profile = "internal"; # or "external"
+    };
+    update = {
+      enable = true;
+      collectGarbage = true;
+      trim = true;
+    };
   };
   # Use Flakes
   nix.settings = {

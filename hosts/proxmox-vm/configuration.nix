@@ -34,6 +34,12 @@
       repoDir = "/home/abl030/nixosconfig";
     };
 
+    update = {
+      enable = true;
+      collectGarbage = false;
+      trim = true;
+    };
+
     cache = {
       enable = true;
       acmeEmail = "acme@ablz.au";
