@@ -6,16 +6,16 @@
 }: let
   cfg = config.homelab.update;
 
-  # Worker: build (from remote flake) → switch → GC → TRIM
+  # Worker: build (remote flake) → switch → GC → TRIM
   workerScript = pkgs.writeShellScript "homelab-auto-update-worker.sh" ''
     set -euo pipefail
     umask 077
 
-    # Default to GitHub flake; allow overrides:
+    # Defaults – override with env if needed:
     #   NIXOS_AUTO_UPDATE_FLAKE=github:owner/repo
-    #   NIXOS_AUTO_UPDATE_REF=main|master|branch|tag
+    #   NIXOS_AUTO_UPDATE_REF=main|branch|tag
     base_flake="''${NIXOS_AUTO_UPDATE_FLAKE:-github:abl030/nixosconfig}"
-    flake="''${base_flake}''${NIXOS_AUTO_UPDATE_REF:+?ref=${NIXOS_AUTO_UPDATE_REF}}"
+    flake="''${base_flake}''${NIXOS_AUTO_UPDATE_REF:+?ref=''${NIXOS_AUTO_UPDATE_REF}}"
 
     host="''${NIXOS_AUTO_UPDATE_HOST:-$(${pkgs.inetutils}/bin/hostname)}"
     attr="nixosConfigurations.''${host}.config.system.build.toplevel"
@@ -40,7 +40,7 @@
     echo "[homelab-auto-update] Done."
   '';
 
-  # Launcher: spawns the worker in a transient unit, returns quickly
+  # Launcher: spawns the worker in a transient unit and exits quickly
   launcherScript = pkgs.writeShellScript "homelab-auto-update-launcher.sh" ''
     set -euo pipefail
     unit="homelab-auto-update-worker-$(${pkgs.coreutils}/bin/date +%s)-$$"
@@ -86,7 +86,7 @@ in {
         CacheDirectory = "nixos-auto-update"; # /var/cache/nixos-auto-update
         WorkingDirectory = "/var/lib/nixos-auto-update";
         Environment = [
-          # Defaults to the remote GitHub flake; override at start time if needed:
+          # Default remote flake; override at start if needed:
           #   sudo env NIXOS_AUTO_UPDATE_FLAKE=github:your/repo NIXOS_AUTO_UPDATE_REF=main systemctl start homelab-auto-update
           "NIXOS_AUTO_UPDATE_FLAKE=github:abl030/nixosconfig"
           "HOME=/var/lib/nixos-auto-update"
@@ -112,7 +112,7 @@ in {
       };
     };
 
-    # Ensure old unit names stay off
+    # Keep the old names off
     systemd.services.nixos-auto-update.enable = lib.mkForce false;
     systemd.timers.nixos-auto-update.enable = lib.mkForce false;
   };
