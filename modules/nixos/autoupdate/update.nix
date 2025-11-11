@@ -6,24 +6,19 @@
 }: let
   cfg = config.homelab.update;
 
-  # Worker does clone/build/switch/GC/TRIM.
+  # Worker does: build (from remote flake) → switch → GC → TRIM
   workerScript = pkgs.writeShellScript "homelab-auto-update-worker.sh" ''
     set -euo pipefail
     umask 077
 
-    # Flake source: allow override; default to local checkout while iterating.
-    flake="''${NIXOS_AUTO_UPDATE_FLAKE:-/home/abl030/nixosconfig}"
+    # Build from REMOTE by default; override with NIXOS_AUTO_UPDATE_FLAKE if needed.
+    flake="''${NIXOS_AUTO_UPDATE_FLAKE:-https://github.com/abl030/nixosconfig}"
 
-    if [ ! -e "''${flake}" ]; then
-      echo "[homelab-auto-update] flake path ''${flake} does not exist" >&2
-      exit 1
-    fi
-
-    # Hostname (inetutils on NixOS)
+    # Host to build; override with NIXOS_AUTO_UPDATE_HOST if you like.
     host="''${NIXOS_AUTO_UPDATE_HOST:-$(${pkgs.inetutils}/bin/hostname)}"
     attr="nixosConfigurations.''${host}.config.system.build.toplevel"
 
-    echo "[homelab-auto-update] Building toplevel for: ''${host} from ''${flake}"
+    echo "[homelab-auto-update] Building toplevel for host ''${host} from ''${flake}"
     out="$(${pkgs.nix}/bin/nix --extra-experimental-features 'nix-command flakes' \
       build --no-link --print-out-paths "''${flake}#''${attr}")"
 
@@ -43,8 +38,7 @@
     echo "[homelab-auto-update] Done."
   '';
 
-  # Launcher spawns the worker as a transient unit and returns quickly,
-  # so it won’t kill itself during switch-to-configuration.
+  # Launcher spawns the worker in its own transient unit and exits quickly.
   launcherScript = pkgs.writeShellScript "homelab-auto-update-launcher.sh" ''
     set -euo pipefail
     unit="homelab-auto-update-worker-$(${pkgs.coreutils}/bin/date +%s)-$$"
@@ -83,17 +77,18 @@ in {
       wants = ["network-online.target"];
       after = ["network-online.target"];
 
-      # Force clean, unsandboxed launcher
+      # Clean, unsandboxed launcher
       serviceConfig = lib.mkForce {
         Type = "oneshot";
         ExecStart = launcherScript;
 
-        StateDirectory = "nixos-auto-update";
-        CacheDirectory = "nixos-auto-update";
+        StateDirectory = "nixos-auto-update"; # /var/lib/nixos-auto-update
+        CacheDirectory = "nixos-auto-update"; # /var/cache/nixos-auto-update
         WorkingDirectory = "/var/lib/nixos-auto-update";
         Environment = [
-          # Default to local tree while you iterate; override to Git when ready.
-          "NIXOS_AUTO_UPDATE_FLAKE=/home/abl030/nixosconfig"
+          # Default to REMOTE flake; override at start time if needed:
+          #   sudo env NIXOS_AUTO_UPDATE_FLAKE=/home/abl030/nixosconfig systemctl start homelab-auto-update
+          "NIXOS_AUTO_UPDATE_FLAKE=https://github.com/abl030/nixosconfig"
           "HOME=/var/lib/nixos-auto-update"
           "XDG_CONFIG_HOME=/var/lib/nixos-auto-update"
           "XDG_CACHE_HOME=/var/cache/nixos-auto-update"
@@ -117,8 +112,8 @@ in {
       };
     };
 
-    # Make sure the old unit isn’t reintroduced by another module
-    systemd.services.nixos-auto-update.enable = lib.mkDefault false;
-    systemd.timers.nixos-auto-update.enable = lib.mkDefault false;
+    # Make sure the old unit names stay off
+    systemd.services.nixos-auto-update.enable = lib.mkForce false;
+    systemd.timers.nixos-auto-update.enable = lib.mkForce false;
   };
 }
