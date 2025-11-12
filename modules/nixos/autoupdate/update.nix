@@ -7,6 +7,8 @@
   cfg = config.homelab.update;
 
   # Worker: build (remote flake) → switch → GC → TRIM
+  # NOTE: This script is now run *directly* by the service (no sub-worker),
+  # so all logs stay under homelab-auto-update.service for easy journalctl tracking.
   workerScript = pkgs.writeShellScript "homelab-auto-update-worker.sh" ''
     set -euo pipefail
     umask 077
@@ -16,7 +18,6 @@
     #   NIXOS_AUTO_UPDATE_REF=main|branch|tag
     base_flake="''${NIXOS_AUTO_UPDATE_FLAKE:-github:abl030/nixosconfig}"
     flake="''${base_flake}''${NIXOS_AUTO_UPDATE_REF:+?ref=''${NIXOS_AUTO_UPDATE_REF}}"
-
     host="''${NIXOS_AUTO_UPDATE_HOST:-$(${pkgs.inetutils}/bin/hostname)}"
     attr="nixosConfigurations.''${host}.config.system.build.toplevel"
 
@@ -39,20 +40,6 @@
 
     echo "[homelab-auto-update] Done."
   '';
-
-  # Launcher: spawns the worker in a transient unit and exits quickly
-  launcherScript = pkgs.writeShellScript "homelab-auto-update-launcher.sh" ''
-    set -euo pipefail
-    unit="homelab-auto-update-worker-$(${pkgs.coreutils}/bin/date +%s)-$$"
-    echo "[homelab-auto-update] Spawning transient unit: ''${unit}"
-    /run/current-system/systemd/bin/systemd-run \
-      --collect \
-      --property=Type=exec \
-      --property=Description="Homelab auto-update worker" \
-      --unit="''${unit}" \
-      "${workerScript}"
-    echo "[homelab-auto-update] Launched ''${unit}; exiting launcher."
-  '';
 in {
   options.homelab.update = {
     enable = lib.mkEnableOption "Nightly flake switch with jittered schedule";
@@ -71,8 +58,10 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Ensure fstrim is available if requested by the worker script
     services.fstrim.enable = true;
 
+    # Single service (no transient sub-worker). Only change: ExecStart now runs workerScript directly.
     systemd.services.homelab-auto-update = {
       description = "Homelab nightly flake switch";
       wants = ["network-online.target"];
@@ -80,11 +69,11 @@ in {
 
       serviceConfig = lib.mkForce {
         Type = "oneshot";
-        ExecStart = launcherScript;
-
+        ExecStart = workerScript; # Run the worker inline so all logs stay in this unit
         StateDirectory = "nixos-auto-update"; # /var/lib/nixos-auto-update
         CacheDirectory = "nixos-auto-update"; # /var/cache/nixos-auto-update
         WorkingDirectory = "/var/lib/nixos-auto-update";
+
         Environment = [
           # Default remote flake; override at start if needed:
           #   sudo env NIXOS_AUTO_UPDATE_FLAKE=github:your/repo NIXOS_AUTO_UPDATE_REF=main systemctl start homelab-auto-update
@@ -95,7 +84,7 @@ in {
           "GIT_TERMINAL_PROMPT=0"
         ];
 
-        TimeoutStartSec = "5m"; # launcher returns quickly
+        TimeoutStartSec = "5m"; # Unchanged; note this may be short if builds take longer.
         StandardOutput = "journal";
         StandardError = "journal";
       };
