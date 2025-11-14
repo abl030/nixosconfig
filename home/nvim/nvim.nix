@@ -38,7 +38,7 @@
     pkgs.eslint_d
     pkgs.typescript-language-server
     pkgs.yamllint
-    pkgs.nodePackages.jsonlint
+    pkgs.python3Packages.demjson3
     pkgs.markdownlint-cli
     pkgs.shfmt
     pkgs.alejandra
