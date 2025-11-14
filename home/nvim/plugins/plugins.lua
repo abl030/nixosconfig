@@ -92,7 +92,7 @@ local plugins = {
 				markdown = { "markdownlint" },
 				yaml = { "yamllint" },
 				nix = { "nix" },
-				-- json = { "jsonlint" },
+				json = { "jsonlint" },
 			}
 
 			-- Autocmd for linting on BufWritePost, but skip if in 'Diary' directory
