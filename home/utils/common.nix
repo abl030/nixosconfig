@@ -24,6 +24,7 @@
     pkgs.gnome-disk-utility
     pkgs.ansible
     pkgs.tldr
+    pkgs.beets
 
     # Rust Utils
     pkgs.fzf
