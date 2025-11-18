@@ -30,6 +30,7 @@
   wsl.defaultUser = "nixos";
   programs.bash.blesh.enable = true;
 
+  time.timeZone = "Australia/Perth";
   networking.hostName = "wsl";
   nixpkgs.config.allowUnfree = true;
 
