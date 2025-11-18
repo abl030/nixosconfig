@@ -7,7 +7,7 @@
   ...
 }: {
   imports = [
-    ./auto_update.nix
+    # ./auto_update.nix
     ./printing.nix
     ./ssh.nix
   ];
@@ -72,11 +72,11 @@
     };
 
     # Automate garbage collection
-    gc = {
-      automatic = true;
-      dates = "weekly";
-      options = "--delete-older-than 7d";
-    };
+    # gc = {
+    #   automatic = true;
+    #   dates = "weekly";
+    #   options = "--delete-older-than 7d";
+    # };
 
     # Make our download buffer size bigger. Gigabit.
     settings = {
