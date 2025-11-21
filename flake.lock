@@ -134,11 +134,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1763646291,
-        "narHash": "sha256-fEJbPO3PHhoKUDee5emq9OiSjFd34GD55WVsvCn+kRQ=",
+        "lastModified": 1763733617,
+        "narHash": "sha256-IFcZrRDx1r1Dn86adHGlCxIUIC6ryRJ8TksChC19R90=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "4a8c8c3d77c9d483d1605f2fea1ab7b4f5738fe6",
+        "rev": "acbcf659aa876b7046904f03355379ebc8310a28",
         "type": "gitlab"
       },
       "original": {
@@ -340,11 +340,11 @@
     },
     "nixpkgs_4": {
       "locked": {
-        "lastModified": 1763464769,
-        "narHash": "sha256-AJHrsT7VoeQzErpBRlLJM1SODcaayp0joAoEA35yiwM=",
+        "lastModified": 1763618868,
+        "narHash": "sha256-v5afmLjn/uyD9EQuPBn7nZuaZVV9r+JerayK/4wvdWA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "6f374686605df381de8541c072038472a5ea2e2d",
+        "rev": "a8d610af3f1a5fb71e23e08434d8d61a466fc942",
         "type": "github"
       },
       "original": {
@@ -379,11 +379,11 @@
         "nvchad-starter": "nvchad-starter"
       },
       "locked": {
-        "lastModified": 1763648105,
-        "narHash": "sha256-+6bdpAPVU1cI/aybVA/44CgqQCP2XnDU7580iWfBvYc=",
+        "lastModified": 1763694739,
+        "narHash": "sha256-zpT3XysPItqHuYvygFfC8ASzKNGExARZCrfDQUul1v4=",
         "owner": "nix-community",
         "repo": "nix4nvchad",
-        "rev": "d0475529ad437352c1a7aabf7706bbcad477d1bc",
+        "rev": "713a3693da4832c169aa90e8cae6e7a45b8c7949",
         "type": "github"
       },
       "original": {
@@ -601,11 +601,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1763576249,
-        "narHash": "sha256-DVJv5eW6dVzN0wB9agOs6kX4ZTCK3B/7VrOeBmzNbQQ=",
+        "lastModified": 1763665267,
+        "narHash": "sha256-K7vx78Y7xWEQFryzb9etoUr9EM84tlSaggYwGQAMoME=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "2c9f0c3456057aff0631d9ea6d3eda70ffd8aabe",
+        "rev": "6842620d56e4c4e6affb90c2f8dff8a36dee852c",
         "type": "github"
       },
       "original": {
