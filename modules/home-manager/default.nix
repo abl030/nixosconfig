@@ -3,5 +3,6 @@
   imports = [
     ./ssh.nix
     # Add any new module you create here.
+    ./display/hyprland.nix
   ];
 }
