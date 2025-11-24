@@ -27,6 +27,9 @@
   };
 
   homelab = {
+    hyprland = {
+      enable = true;
+    };
     tailscale = {
       enable = true;
       tpmOverride = true;
@@ -79,12 +82,12 @@
 
   services = {
     fstrim.enable = true;
-    xserver = {
-      enable = true;
-      xkb.layout = "us";
-    };
-    displayManager.gdm.enable = true;
-    desktopManager.gnome.enable = true;
+    # xserver = {
+    #   enable = true;
+    #   xkb.layout = "us";
+    # };
+    # displayManager.gdm.enable = true;
+    # desktopManager.gnome.enable = true;
     printing.enable = true;
     pulseaudio.enable = false;
     pipewire = {
