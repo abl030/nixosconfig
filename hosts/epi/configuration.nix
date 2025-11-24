@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ../services/mounts/nfs.nix
@@ -99,6 +103,17 @@
     openssh.enable = true;
     # The agent is enabled in the specialisation, but safe to leave here too
     qemuGuest.enable = true;
+    # 1. Force SDDM to use X11 (required for xrandr to work)
+    displayManager.sddm.wayland.enable = lib.mkForce false;
+
+    # 2. Apply Monitor Layout via XServer Display Manager
+    # Note: This runs before the login screen appears.
+    xserver.displayManager.setupCommands = ''
+      ${pkgs.xorg.xrandr}/bin/xrandr --auto
+      ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1920x1080 --rotate right --pos 0x0
+      ${pkgs.xorg.xrandr}/bin/xrandr --output DP-3 --mode 2560x1440 --primary --pos 1080x0
+      ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-3 --mode 1920x1080 --pos 3640x0
+    '';
   };
 
   virtualisation.docker.enable = true;
