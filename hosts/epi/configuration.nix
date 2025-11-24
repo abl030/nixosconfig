@@ -1,7 +1,6 @@
 {pkgs, ...}: {
   imports = [
     ./hardware-configuration.nix
-    ../services/tailscale/tailscale.nix
     ../services/mounts/nfs.nix
     ../services/nvidia/intel.nix
     ../common/configuration.nix
@@ -28,6 +27,11 @@
   };
 
   homelab = {
+    tailscale = {
+      enable = true;
+      tpmOverride = true;
+    };
+
     nixCaches = {
       enable = true;
       profile = "internal";
