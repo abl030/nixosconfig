@@ -6,4 +6,6 @@
     ../../home/display_managers/gnome.nix
     ./epi_home_specific.nix
   ];
+
+  homelab.hyprland.enable = true;
 }
