@@ -7,7 +7,10 @@
     ./epi_home_specific.nix
   ];
 
-  homelab.hyprland.enable = true;
+  homelab.hyprland = {
+    enable = true;
+    vnc = true; # <--- Add this
+  };
 
   # --- Monitor Config (Left -> Middle -> Right) ---
   wayland.windowManager.hyprland.settings.monitor = lib.mkForce [
