@@ -49,7 +49,7 @@
     };
     update = {
       enable = true;
-      collectGarbage = true;
+      collectGarbage = false;
       trim = true;
     };
   };
