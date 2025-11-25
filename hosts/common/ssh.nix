@@ -7,7 +7,7 @@
     enable = true;
     ports = [22];
     # Be careful here. You can lock yourself out of a host if tailscale is down.
-    openFirewall = false;
+    openFirewall = true;
     listenAddresses = [
       {
         addr = "0.0.0.0";
