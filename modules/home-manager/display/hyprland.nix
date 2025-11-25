@@ -9,44 +9,56 @@ with lib; let
 in {
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland User Configuration";
+    # Add the matching toggle here
+    vnc = mkEnableOption "Enable WayVNC Server";
   };
 
   config = mkIf cfg.enable {
-    # 1. Install the packages we need for the user
     home.packages = with pkgs; [
       ghostty
       wofi
       dunst
       libnotify
       wl-clipboard
+      # Only install if VNC is enabled
+      (
+        if cfg.vnc
+        then pkgs.wayvnc
+        else null
+      )
     ];
 
-    # 2. Configure Hyprland
+    # Create wayvnc config file
+    # We bind to 0.0.0.0 to allow external connections.
+    # WARNING: enable_auth=false is insecure (no password).
+    xdg.configFile."wayvnc/config" = mkIf cfg.vnc {
+      text = ''
+        address=0.0.0.0
+        port=5900
+        enable_auth=false
+      '';
+    };
+
     wayland.windowManager.hyprland = {
       enable = true;
-
-      # IMPORTANT: We set package to null because we enabled `programs.hyprland.enable = true`
-      # in the system configuration. This prevents version conflicts or double installs.
       package = null;
       portalPackage = null;
 
-      # 3. The Configuration (Translated from hyprland.conf to Nix)
       settings = {
-        # Variables
         "$mod" = "SUPER";
-        "$terminal" = "ghostty"; # <--- Your Ghostty requirement
+        "$terminal" = "ghostty";
         "$menu" = "wofi --show drun";
 
-        # Monitor Settings
+        # Add this line to start wayvnc automatically if enabled
+        exec-once = optionals cfg.vnc ["wayvnc"];
+
         monitor = ",preferred,auto,auto";
 
-        # Environment Variables
         env = [
           "XCURSOR_SIZE,24"
           "NIXOS_OZONE_WL,1"
         ];
 
-        # Look and Feel
         general = {
           gaps_in = 5;
           gaps_out = 20;
@@ -58,18 +70,11 @@ in {
 
         decoration = {
           rounding = 10;
-
           blur = {
             enabled = true;
             size = 3;
             passes = 1;
           };
-
-          # Drop Shadow is now just 'shadow' in newer Hyprland versions
-          # drop_shadow = true;
-          # shadow_range = 4;
-          # shadow_render_power = 3;
-          # "col.shadow" = "rgba(1a1a1aee)";
         };
 
         animations = {
@@ -90,7 +95,6 @@ in {
           preserve_split = true;
         };
 
-        # Input config
         input = {
           kb_layout = "us";
           follow_mouse = 1;
@@ -99,7 +103,6 @@ in {
           };
         };
 
-        # Keybindings
         bind = [
           "$mod, Q, exec, $terminal"
           "$mod, C, killactive,"
@@ -107,16 +110,12 @@ in {
           "$mod, E, exec, dolphin"
           "$mod, V, togglefloating,"
           "$mod, R, exec, $menu"
-          "$mod, P, pseudo," # dwindle
-          "$mod, J, togglesplit," # dwindle
-
-          # Move focus with mod + arrow keys
+          "$mod, P, pseudo,"
+          "$mod, J, togglesplit,"
           "$mod, left, movefocus, l"
           "$mod, right, movefocus, r"
           "$mod, up, movefocus, u"
           "$mod, down, movefocus, d"
-
-          # Switch workspaces with mod + [0-9]
           "$mod, 1, workspace, 1"
           "$mod, 2, workspace, 2"
           "$mod, 3, workspace, 3"
@@ -127,8 +126,6 @@ in {
           "$mod, 8, workspace, 8"
           "$mod, 9, workspace, 9"
           "$mod, 0, workspace, 10"
-
-          # Move active window to a workspace with mod + SHIFT + [0-9]
           "$mod SHIFT, 1, movetoworkspace, 1"
           "$mod SHIFT, 2, movetoworkspace, 2"
           "$mod SHIFT, 3, movetoworkspace, 3"
@@ -139,13 +136,10 @@ in {
           "$mod SHIFT, 8, movetoworkspace, 8"
           "$mod SHIFT, 9, movetoworkspace, 9"
           "$mod SHIFT, 0, movetoworkspace, 10"
-
-          # Scroll through existing workspaces with mod + scroll
           "$mod, mouse_down, workspace, e+1"
           "$mod, mouse_up, workspace, e-1"
         ];
 
-        # Mouse bindings
         bindm = [
           "$mod, mouse:272, movewindow"
           "$mod, mouse:273, resizewindow"
