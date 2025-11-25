@@ -12,7 +12,97 @@ pull_dotfiles() {
     fi
 }
 
-# ──────────────────────────────────────────────────────────────────────────────
+dc() {
+    # If caller already exported a SOPS env var, respect it.
+    if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" ]]; then
+        if [[ "$(id -u)" -eq 0 ]]; then
+            EDITOR=nvim VISUAL=nvim sops "$@"
+        else
+            sudo EDITOR=nvim VISUAL=nvim sops "$@"
+        fi
+        return
+    fi
+
+    # 1) AGE KEY FILES (SOPS_AGE_KEY_FILE)
+    #    - root-only paths checked with sudo test -r
+    #    - user-local checked directly
+    local keyfile
+
+    # Root-ish keyfile locations (declarative on some hosts; harmless if absent)
+    for keyfile in \
+        "/root/.config/sops/age/keys.txt" \
+        "/var/lib/sops-nix/key.txt"; do
+        if sudo test -r "$keyfile" 2>/dev/null; then
+            if [[ "$(id -u)" -eq 0 ]]; then
+                SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+            else
+                sudo SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+            fi
+            return
+        fi
+    done
+
+    # User-local keyfile
+    keyfile="$HOME/.config/sops/age/keys.txt"
+    if [[ -r "$keyfile" ]]; then
+        SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+        return
+    fi
+
+    # 2) Ephemeral host SSH → age key (no persistent state)
+    #    Use /etc/ssh/ssh_host_ed25519_key if ssh-to-age is available.
+    if command -v ssh-to-age >/dev/null 2>&1 &&
+    sudo test -r /etc/ssh/ssh_host_ed25519_key 2>/dev/null; then
+        local tmp_key rc
+        tmp_key="$(mktemp -t dc-sops-XXXXXX.age)"
+        # Redirection happens as the user, ssh-to-age runs as root.
+        if sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key >"$tmp_key" 2>/dev/null; then
+            chmod 600 "$tmp_key"
+            if [[ "$(id -u)" -eq 0 ]]; then
+                SOPS_AGE_KEY_FILE="$tmp_key" EDITOR=nvim VISUAL=nvim sops "$@"
+                rc=$?
+            else
+                sudo SOPS_AGE_KEY_FILE="$tmp_key" EDITOR=nvim VISUAL=nvim sops "$@"
+                rc=$?
+            fi
+            rm -f "$tmp_key"
+            return "$rc"
+        else
+            rm -f "$tmp_key"
+        fi
+    fi
+
+    # 3) SSH KEYS via age-plugin-ssh (if present)
+    #    These use SOPS_AGE_SSH_PRIVATE_KEY_FILE.
+    local sshkey
+
+    sshkey="/etc/ssh/ssh_host_ed25519_key"
+    if sudo test -r "$sshkey" 2>/dev/null; then
+        sudo SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
+        return
+    fi
+
+    sshkey="/root/.ssh/id_ed25519"
+    if sudo test -r "$sshkey" 2>/dev/null; then
+        sudo SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
+        return
+    fi
+
+    sshkey="$HOME/.ssh/id_ed25519"
+    if [[ -r "$sshkey" ]]; then
+        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
+        return
+    fi
+
+    # 4) Fallback: no explicit key — defer to sops defaults
+    if [[ "$(id -u)" -eq 0 ]]; then
+        EDITOR=nvim VISUAL=nvim sops "$@"
+    else
+        sudo EDITOR=nvim VISUAL=nvim sops "$@"
+    fi
+}
+
+## ──────────────────────────────────────────────────────────────────────────────
 #  Quick “edit” helper – open common configs with one command
 # ──────────────────────────────────────────────────────────────────────────────
 edit() {
