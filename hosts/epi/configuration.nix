@@ -27,6 +27,10 @@
       # But generally, the main config handles the Arc GPU.
       # If you need specific VM-only kernel params, add them here:
       # boot.kernelParams = [ "example_param_for_vm" ];
+      system.activationScripts.update-bootloader = ''
+        echo "Updating Virtual EFI Bootloader..."
+        /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+      '';
     };
   };
 
@@ -45,7 +49,7 @@
     };
     update = {
       enable = true;
-      collectGarbage = true;
+      collectGarbage = false;
       trim = true;
     };
   };
