@@ -37,6 +37,7 @@
   homelab = {
     hyprland = {
       enable = true;
+      vnc = true;
     };
     tailscale = {
       enable = true;
