@@ -37,7 +37,12 @@
   homelab = {
     hyprland = {
       enable = true;
-      vnc = true;
+    };
+    # Configure VNC here
+    vnc = {
+      enable = true;
+      secure = true; # Set to false if bootstrapping a new host without keys
+      openFirewall = false; # Tailscale trusted only
     };
     tailscale = {
       enable = true;

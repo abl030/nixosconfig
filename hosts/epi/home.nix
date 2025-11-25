@@ -7,9 +7,14 @@
     ./epi_home_specific.nix
   ];
 
-  homelab.hyprland = {
-    enable = true;
-    vnc = true; # <--- Add this
+  homelab = {
+    hyprland = {
+      enable = true;
+    };
+    vnc = {
+      enable = true;
+      secure = true;
+    };
   };
 
   # --- Monitor Config (Left -> Middle -> Right) ---
