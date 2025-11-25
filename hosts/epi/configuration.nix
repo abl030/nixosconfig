@@ -110,7 +110,11 @@
     qemuGuest.enable = true;
     # 1. Force SDDM to use X11 (required for xrandr to work)
     displayManager.sddm.wayland.enable = lib.mkForce false;
-
+    # Force SDDM to autologin into Hyprland session as abl030
+    displayManager.autoLogin = {
+      enable = true;
+      user = "abl030";
+    };
     # 2. Apply Monitor Layout via XServer Display Manager
     # Note: This runs before the login screen appears.
     xserver.displayManager.setupCommands = ''

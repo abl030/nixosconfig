@@ -31,6 +31,9 @@ in {
       extraPortals = [pkgs.xdg-desktop-portal-gtk];
     };
 
+    # PAM service so hyprlock can use pam:module = "hyprlock"
+    security.pam.services.hyprlock = {};
+
     # 2. VNC Infrastructure (Only if VNC is enabled)
     security.pam.services.wayvnc = mkIf cfg.vnc {};
 
