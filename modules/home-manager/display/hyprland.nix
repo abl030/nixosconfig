@@ -35,7 +35,13 @@ in {
       text = ''
         address=0.0.0.0
         port=5900
-        enable_auth=false
+        enable_auth=true
+        enable_pam=true
+
+        # Point to the runtime secrets mounted by System SOPS
+        # Note: We use the names defined in sops.secrets
+        private_key_file=/run/secrets/wayvnc_key
+        certificate_file=/run/secrets/wayvnc_cert
       '';
     };
 
