@@ -1,6 +1,41 @@
 # This file is managed by Nix but edited directly for syntax highlighting.
 # Remember to keep all these functions compliant with BASH.
 # It will be imported directly into our bash config as well.
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Clipboard Shim: OSC 52 support for SSH/Ghostty/Windows Terminal
+#  Works in Bash, Zsh, and Fish (via wrapper)
+# ──────────────────────────────────────────────────────────────────────────────
+xclip() {
+    local input
+    # Read all stdin into variable (preserving trailing newlines)
+    input=$(cat) || return 1
+
+    if [[ -n "$SSH_CONNECTION" ]]; then
+        # OSC 52 Copy for Ghostty / Windows Terminal / iTerm
+        local b64data
+        b64data=$(echo -n "$input" | base64 | tr -d '\n')
+        printf "\033]52;c;%s\007" "$b64data"
+    elif [[ -n "$WAYLAND_DISPLAY" ]]; then
+        # Wayland Local
+        if command -v wl-copy >/dev/null; then
+            echo -n "$input" | wl-copy
+        else
+            echo "Error: Wayland detected but wl-copy not found." >&2
+            return 1
+        fi
+    else
+        # Fallback to real xclip binary (X11)
+        # We use 'command' to bypass this function and find the binary in PATH
+        if command -v xclip >/dev/null; then
+            echo -n "$input" | command xclip "$@"
+        else
+            echo "Error: No xclip binary found in PATH." >&2
+            return 1
+        fi
+    fi
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 #  Pull dotfiles from Git and rebuild helpers
 # ──────────────────────────────────────────────────────────────────────────────

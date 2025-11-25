@@ -40,7 +40,7 @@
               echo '# Wraps Bash functions using __bash_call; guarded to avoid shadowing.'
               while IFS= read -r name; do
                 cat <<EOF
-      if not functions -q $name; and not type -q $name
+      if not functions -q $name
         function $name
           __bash_call $name \$argv
         end

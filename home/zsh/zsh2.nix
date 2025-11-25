@@ -24,27 +24,7 @@
             # Nix expands ${config.home.homeDirectory} *here*.
             _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
 
-            # --- CLIPBOARD SHIM FOR SSH/GHOSTTY ---
-            # This makes 'xclip' calls work over SSH without X11 forwarding.
-            function xclip() {
-                local input=$(cat)
-                if [[ -n "$SSH_CONNECTION" ]]; then
-                    # OSC 52 Copy for Ghostty / Windows Terminal / iTerm
-                    local b64data=$(echo -n "$input" | base64 | tr -d '\n')
-                    printf "\033]52;c;%s\007" "$b64data"
-                elif [[ -n "$WAYLAND_DISPLAY" ]]; then
-                    # Wayland Local
-                    echo -n "$input" | wl-copy
-                else
-                    # Fallback to real xclip binary
-                    if command -v /usr/bin/xclip >/dev/null; then
-                        echo -n "$input" | /usr/bin/xclip "$@"
-                    else
-                        # If using Nix path
-                        echo -n "$input" | ${pkgs.xclip}/bin/xclip "$@"
-                    fi
-                fi
-            }
+
             # Assert per-shell Starship theme for zsh:
             # Inherited environments (e.g., launching zsh from fish/bash) may carry a
             # STARSHIP_CONFIG pointing at another shell’s theme. By setting it here to the
