@@ -25,8 +25,3 @@ services:
       timeout: 10s # How long to wait for the command to complete
       retries: 3 # How many consecutive failures to allow before marking as unhealthy
       start_period: 60s # Grace period for the container to start before checks begin
-
-# Note: Assumes the default 'bridge' network. Define networks explicitly if needed.
-# networks:
-#  default:
-#    driver: bridge
