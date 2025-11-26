@@ -1,0 +1,23 @@
+# Global Options Block
+{
+    # Use Cloudflare DNS challenge for all sites needing certificates via DNS
+    acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+
+}
+
+overseer.ablz.au {
+    reverse_proxy 192.168.1.2:5055
+}
+
+
+
+# Reverse-proxy for the internal Nix cache.
+nixcache.ablz.au {
+    # DNS-01 via Cloudflare; the token is passed via env in your compose.
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+
+    # Keep it simple; nix-serve is fast and streams large NARs.
+    reverse_proxy host.docker.internal:5000
+}
