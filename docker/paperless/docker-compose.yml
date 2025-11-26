@@ -1,41 +1,13 @@
 # Docker Compose file for running paperless from the docker container registry.
-# This file contains everything paperless needs to run.
-# Paperless supports amd64, arm and arm64 hardware.
-#
-# All compose files of paperless configure paperless in the following way:
-#
-# - Paperless is (re)started on system boot, if it was running before shutdown.
-# - Docker volumes for storing data are managed by Docker.
-# - Folders for importing and exporting files are created in the same directory
-#   as this file and mounted to the correct folders inside the container.
-# - Paperless listens on port 8000.
-#
-# In addition to that, this Docker Compose file adds the following optional
-# configurations:
-#
-# - Instead of SQLite (default), PostgreSQL is used as the database server.
-# - Apache Tika and Gotenberg servers are started with paperless and paperless
-#   is configured to use these services. These provide support for consuming
-#   Office documents (Word, Excel, Power Point and their LibreOffice counter-
-#   parts.
-#
-# To install and update paperless with this file, do the following:
-#
-# - Copy this file as 'docker-compose.yml' and the files 'docker-compose.env'
-#   and '.env' into a folder.
-# - Run 'docker compose pull'.
-# - Run 'docker compose run --rm webserver createsuperuser' to create a user.
-# - Run 'docker compose up -d'.
-#
-# For more extensive installation and update instructions, refer to the
-# documentation.
-
 services:
   broker:
     image: docker.io/library/redis:7
     restart: unless-stopped
-    volumes:
-      - redisdata:/data
+    # Use RAM instead of Disk for the message broker
+    tmpfs:
+      - /data
+    # Disable RDB snapshots and AOF logs to prevent disk writes
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
 
   db:
     image: docker.io/library/postgres:16
@@ -66,14 +38,14 @@ services:
       - "/mnt/data/Life/Meg and Andy/Paperless/Import:/usr/src/paperless/consume"
       # Mount originating from /mnt/data on host -> /usr/src/paperless/consume/scans in container
       - "/mnt/data/Life/Meg and Andy/Scans:/usr/src/paperless/consume/scans"
-    env_file: .env
+    # env_file: .env  <-- REMOVED (Handled by Nix/SOPS)
     environment:
       PAPERLESS_REDIS: redis://broker:6379
       PAPERLESS_DBHOST: db
       PAPERLESS_TIKA_ENABLED: 1
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
       PAPERLESS_TIKA_ENDPOINT: http://tika:9998
-    # --- ADDED FOR MOUNT MONITORING ---
+
     healthcheck:
       # Test the container paths that correspond to host /mnt/data mounts
       # Combine checks: If any fail (or timeout), the whole check fails (exit 1).
@@ -86,17 +58,10 @@ services:
       timeout: 20s # Wait up to 20 seconds for the check command
       retries: 5 # Consider unhealthy after 5 consecutive failures
       start_period: 60s # Wait 60 seconds after container start before first check
-    # labels:
-    #   # Tell autoheal (running separately) to monitor this container
-    #   - autoheal=true
-    # # --- END OF ADDED SECTION ---
 
   gotenberg:
     image: docker.io/gotenberg/gotenberg:8.7
     restart: unless-stopped
-
-    # The gotenberg chromium route is used to convert .eml files. We do not
-    # want to allow external content like tracking pixels or even javascript.
     command:
       - "gotenberg"
       - "--chromium-disable-javascript=true"
@@ -107,77 +72,44 @@ services:
     restart: unless-stopped
 
   paperless-gpt:
-    # Use one of these image sources:
-    image: icereed/paperless-gpt:latest # Docker Hub
+    image: icereed/paperless-gpt:latest
     restart: unless-stopped
-    # image: ghcr.io/icereed/paperless-gpt:latest  # GitHub Container Registry
-    env_file: .env
+    # env_file: .env <-- REMOVED (Handled by Nix/SOPS)
     environment:
       PAPERLESS_BASE_URL: "http://webserver:8000"
-      MANUAL_TAG: "paperless-gpt" # Optional, default: paperless-gpt
-      AUTO_TAG: "paperless-gpt-auto" # Optional, default: paperless-gpt-auto
-      # LLM Configuration - Choose one:
+      MANUAL_TAG: "paperless-gpt"
+      AUTO_TAG: "paperless-gpt-auto"
 
-      # Option 3: Ollama (Local)
+      # LLM Configuration
       LLM_PROVIDER: "ollama"
       LLM_MODEL: "gemma3:12b"
       OLLAMA_HOST: "http://192.168.1.27:11434"
-      # TOKEN_LIMIT: 1000 # Recommended for smaller models
 
-      # Optional LLM Settings
-      # LLM_LANGUAGE: "English" # Optional, default: English
-
-      # OCR Configuration - Choose one:
-      # Option 1: LLM-based OCR
-      OCR_PROVIDER: "llm" # Default OCR provider
-      VISION_LLM_PROVIDER: "ollama" # openai or ollama
-      VISION_LLM_MODEL: "minicpm-v" # minicpm-v (ollama) or gpt-4o (openai)
-
-      # OCR Processing Mode
-      OCR_PROCESS_MODE: "image" # Optional, default: image, other options: pdf, whole_pdf
-      PDF_SKIP_EXISTING_OCR: "false" # Optional, skip OCR for PDFs with existing OCR
-
-      # Option 2: Google Document AI
-      # OCR_PROVIDER: 'google_docai'       # Use Google Document AI
-      # GOOGLE_PROJECT_ID: 'your-project'  # Your GCP project ID
-      # GOOGLE_LOCATION: 'us'              # Document AI region
-      # GOOGLE_PROCESSOR_ID: 'processor-id' # Your processor ID
-      # GOOGLE_APPLICATION_CREDENTIALS: '/app/credentials.json' # Path to service account key
-
-      # Option 3: Azure Document Intelligence
-      # OCR_PROVIDER: 'azure'              # Use Azure Document Intelligence
-      # AZURE_DOCAI_ENDPOINT: 'your-endpoint' # Your Azure endpoint URL
-      # AZURE_DOCAI_KEY: 'your-key'        # Your Azure API key
-      # AZURE_DOCAI_MODEL_ID: 'prebuilt-read' # Optional, defaults to prebuilt-read
-      # AZURE_DOCAI_TIMEOUT_SECONDS: '120'  # Optional, defaults to 120 seconds
-      # AZURE_DOCAI_OUTPUT_CONTENT_FORMAT: 'text' # Optional, defaults to 'text', other valid option is 'markdown'
-      # 'markdown' requires the 'prebuilt-layout' model
+      # OCR Configuration
+      OCR_PROVIDER: "llm"
+      VISION_LLM_PROVIDER: "ollama"
+      VISION_LLM_MODEL: "minicpm-v"
+      OCR_PROCESS_MODE: "image"
+      PDF_SKIP_EXISTING_OCR: "false"
 
       # Enhanced OCR Features
-      CREATE_LOCAL_HOCR: "false" # Optional, save hOCR files locally
-      LOCAL_HOCR_PATH: "/app/hocr" # Optional, path for hOCR files
-      CREATE_LOCAL_PDF: "false" # Optional, save enhanced PDFs locally
-      LOCAL_PDF_PATH: "/app/pdf" # Optional, path for PDF files
-      PDF_UPLOAD: "false" # Optional, upload enhanced PDFs to paperless-ngx
-      PDF_REPLACE: "false" # Optional and DANGEROUS, delete original after upload
-      PDF_COPY_METADATA: "true" # Optional, copy metadata from original document
-      PDF_OCR_TAGGING: "true" # Optional, add tag to processed documents
-      PDF_OCR_COMPLETE_TAG: "paperless-gpt-ocr-complete" # Optional, tag name
+      CREATE_LOCAL_HOCR: "false"
+      LOCAL_HOCR_PATH: "/app/hocr"
+      CREATE_LOCAL_PDF: "false"
+      LOCAL_PDF_PATH: "/app/pdf"
+      PDF_UPLOAD: "false"
+      PDF_REPLACE: "false"
+      PDF_COPY_METADATA: "true"
+      PDF_OCR_TAGGING: "true"
+      PDF_OCR_COMPLETE_TAG: "paperless-gpt-ocr-complete"
 
-      # Option 4: Docling Server
-      # OCR_PROVIDER: 'docling'              # Use a Docling server
-      # DOCLING_URL: 'http://your-docling-server:port' # URL of your Docling instance
-
-      AUTO_OCR_TAG: "paperless-gpt-ocr-auto" # Optional, default: paperless-gpt-ocr-auto
-      OCR_LIMIT_PAGES: "5" # Optional, default: 5. Set to 0 for no limit.
-      LOG_LEVEL: "info" # Optional: debug, warn, error
+      AUTO_OCR_TAG: "paperless-gpt-ocr-auto"
+      OCR_LIMIT_PAGES: "5"
+      LOG_LEVEL: "info"
 
     volumes:
-      - /mnt/docker/paperlessgpt/prompts:/app/prompts # Mount the prompts directory
-      # For local hOCR and PDF saving:
+      - /mnt/docker/paperlessgpt/prompts:/app/prompts
     ports:
       - "8081:8080"
     depends_on:
       - webserver
-volumes:
-  redisdata:
