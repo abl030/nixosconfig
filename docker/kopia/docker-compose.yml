@@ -7,7 +7,6 @@ services:
     restart: always
     ports:
       - 51515:51515
-    # Setup the server that provides the web gui
     command:
       - server
       - start
@@ -17,22 +16,17 @@ services:
       - --server-username=${KOPIA_SERVER_USER}
       - --server-password=${KOPIA_SERVER_PASSWORD}
     healthcheck:
-      # Checks if the /photos mount (from /mnt/data/Life/Photos) is accessible
       test: ["CMD-SHELL", "test -d /photos"]
       interval: 30s
       timeout: 10s
       retries: 3
     environment:
-      # Set repository password
-      # Set repository password
-      KOPIA_PASSWORD: $KOPIA_PASSWORD
+      KOPIA_PASSWORD: ${KOPIA_PASSWORD}
       USER: "abc"
     volumes:
       - /mnt/docker/kopiaphotos/config:/app/config
       - /mnt/docker/kopiaphotos/cache:/app/cache
       - /mnt/docker/kopiaphotos/logs:/app/logs
-      # - /mnt/docker/kopiaphotos/repository:/repository
-      # Mount path for browsing mounted snaphots, path pulled from .env file
       - /mnt/docker/kopiaphotos/tmp:/tmp:shared
       - /mnt/data/Life/Photos:/photos:ro
 
@@ -43,7 +37,6 @@ services:
     restart: always
     ports:
       - 51516:51515
-    # Setup the server that provides the web gui
     command:
       - server
       - start
@@ -53,23 +46,17 @@ services:
       - --server-username=${KOPIA_SERVER_USER}
       - --server-password=${KOPIA_SERVER_PASSWORD}
     healthcheck:
-      # Checks if both the /data and /mum mounts are accessible.
-      # Uses a longer timeout and interval because /mum is a remote mount.
       test: ["CMD-SHELL", "test -d /data && test -d /mum"]
       interval: 1m
       timeout: 2m
       retries: 5
     environment:
-      # Set repository password
-      # Set repository password
-      KOPIA_PASSWORD: $KOPIA_PASSWORD
+      KOPIA_PASSWORD: ${KOPIA_PASSWORD}
       USER: "abc"
     volumes:
       - /mnt/docker/kopiamum/config:/app/config
       - /mnt/docker/kopiamum/cache:/app/cache
       - /mnt/docker/kopiamum/logs:/app/logs
-      # Mount path for browsing mounted snaphots, path pulled from .env file
       - /mnt/docker/kopiamum/tmp:/tmp:shared
-
       - /mnt/data/:/data:ro
       - /mnt/mum/:/mum
