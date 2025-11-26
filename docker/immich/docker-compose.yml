@@ -1,20 +1,9 @@
-#
-# WARNING: Make sure to use the docker-compose.yml of the current release:
-#
-# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
-#
-# The compose file on main may not be compatible with the latest release.
-#
-
 name: immich
 
 services:
   immich-network-holder:
-    # This container's only job is to hold the network stack.
-    # We use a minimal, stable image. 'pause' is designed for this.
     image: k8s.gcr.io/pause:3.9
     container_name: immich_network_holder
-    # The ports are exposed here, on the container that owns the network.
     ports:
       - 2283:2283
     restart: unless-stopped
@@ -22,22 +11,11 @@ services:
   immich-server:
     container_name: immich-server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    # extends:
-    #   file: hwaccel.transcoding.yml
-    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
-    # runtime: nvidia
-    # environment:
-    #   - NVIDIA_VISIBLE_DEVICES=GPU-85eff454-7a75-fa3c-7732-b385fd62723f
-    #   - NVIDIA_DRIVER_CAPABILITIES=all
-    # devices:
-    # - /dev/dri:/dev/dri
-
     network_mode: "service:immich-network-holder"
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
-    env_file:
-      - .env
+    # env_file: .env  <-- REMOVED
     depends_on:
       redis:
         condition: service_healthy
@@ -54,23 +32,22 @@ services:
 
   immich-tailscale-sidecar:
     container_name: immich_tailscale_sidecar
-    image: tailscale/tailscale:stable # Using stable tag is generally recommended
-    # Shares the network stack with the immich-server service.
+    image: tailscale/tailscale:stable
     network_mode: "service:immich-network-holder"
-    # Remember ports are exposed on the immich-network-holder container.
     cap_add:
       - NET_ADMIN
-      - SYS_MODULE # Required for TUN device
+      - SYS_MODULE
     volumes:
-      - /mnt/docker/tailscale/immich/:/var/lib/tailscale # Persists Tailscale state
-      - /dev/net/tun:/dev/net/tun # Allows Tailscale to create a TUN interface
-      - ./immich-tailscale-serve.json:/config/immich-serve.json:ro # Tailscale serve config
-      - /etc/localtime:/etc/localtime:ro # <--- ADD THIS LINE
+      - /mnt/docker/tailscale/immich/:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      # Use the variable from Nix
+      - ${TAILSCALE_JSON}:/config/immich-serve.json:ro
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - TS_HOSTNAME=immich
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/immich-serve.json
-      - TS_ACCEPT_DNS=false # Optional: set to true if you want this node to use Tailscale's MagicDNS for resolving other Tailnet hosts
+      - TS_ACCEPT_DNS=false
     restart: always
     healthcheck:
       test: tailscale status --peers=false --json | grep -q 'Online.*true'
@@ -79,29 +56,20 @@ services:
         condition: service_started
 
   caddy:
-    # image: caddy:latest
-    build:
-      context: .
-      dockerfile: ../tailscale/caddy/Dockerfile
+    # Use pre-built image instead of building locally
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
     container_name: immich-caddy
-    # CRITICAL: Uses the network stack of the 'tailscale' service container
     network_mode: "service:immich-network-holder"
     environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN} # Will be read from .env file or shell
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
-      - /mnt/docker/tailscale/immich/Caddyfile:/etc/caddy/Caddyfile # Mount your Caddy configuration
-      - /mnt/docker/tailscale/immich/caddy_data:/data # Persist Caddy's state (certs, etc.)
-      - /mnt/docker/tailscale/immich/caddy_config:/config # Persist Caddy's config (if needed)
+      # Use the variable from Nix
+      - ${CADDY_FILE}:/etc/caddy/Caddyfile
+      - /mnt/docker/tailscale/immich/caddy_data:/data
+      - /mnt/docker/tailscale/immich/caddy_config:/config
     restart: always
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
-    # healthcheck:
-    #   # This command checks if Caddy's admin API is responsive.
-    #   test: ["CMD", "caddy", "api", "get", "--endpoint", "/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 10s # Give Caddy time to start before the first check
     depends_on:
       immich-network-holder:
         condition: service_started
@@ -110,34 +78,13 @@ services:
 
   immich-machine-learning:
     container_name: immich_machine_learning
-    # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
-    # Example tag: ${IMMICH_VERSION:-release}-cuda
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-
-    # runtime: nvidia
-    # environment:
-    #   - NVIDIA_VISIBLE_DEVICES=GPU-85eff454-7a75-fa3c-7732-b385fd62723f
-    # #  - NVIDIA_DRIVER_CAPABILITIES=all
-    # cpuset: "0-5"
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities:
-    #             - gpu
-
     device_cgroup_rules:
       - "c 189:* rmw"
-    # devices:
-    # - /dev/dri:/dev/dri
-
     volumes:
       - /mnt/docker/AI/immich:/cache
       - /dev/bus/usb:/dev/bus/usb
-    env_file:
-      - .env
+    # env_file: .env <-- REMOVED
     restart: always
     healthcheck:
       disable: false
@@ -160,15 +107,6 @@ services:
     volumes:
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
     restart: always
-
-  # Other services...
-  # power-tools:
-  #   container_name: immich_power_tools
-  #   image: ghcr.io/varun-raj/immich-power-tools:latest
-  #   ports:
-  #     - "8001:3000"
-  #   env_file:
-  #     - .env
 
 volumes:
   model-cache:
