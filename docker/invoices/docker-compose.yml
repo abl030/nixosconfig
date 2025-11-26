@@ -36,7 +36,9 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # ─── UPDATED ───
+      - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
+      # ───────────────
       - /mnt/docker/invoices/caddy_data:/data
       - /mnt/docker/invoices/caddy_config:/config
     restart: unless-stopped

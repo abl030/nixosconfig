@@ -1,17 +1,14 @@
 services:
   mealie:
-    image: ghcr.io/mealie-recipes/mealie:v2.8.0 #
-
+    image: ghcr.io/mealie-recipes/mealie:v2.8.0
     container_name: mealie
     restart: always
     ports:
-      - "9925:9000" #
-
+      - "9925:9000"
     deploy:
       resources:
         limits:
-          memory: 1000M #
-
+          memory: 1000M
     volumes:
       - /mnt/docker/mealie/data:/app/data/
     environment:
@@ -25,11 +22,11 @@ services:
       BASE_URL: https://cooking.ablz.au
       # Database Settings
       DB_ENGINE: postgres
-      POSTGRES_USER: mealie
-      POSTGRES_PASSWORD: mealie
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_SERVER: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_DB: mealie
+      POSTGRES_DB: ${POSTGRES_DB}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,9 +38,9 @@ services:
     volumes:
       - /mnt/docker/mealie/pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: mealie
-      POSTGRES_USER: mealie
-      PGUSER: mealie
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      PGUSER: ${POSTGRES_USER}
     healthcheck:
       test: ["CMD", "pg_isready"]
       interval: 30s

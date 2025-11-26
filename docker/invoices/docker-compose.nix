@@ -3,34 +3,39 @@
   pkgs,
   ...
 }: let
-  # ── Per-stack knobs ────────────────────────────────────────
   stackName = "invoices-stack";
-  stackDir = "/home/abl030/nixosconfig/docker/invoices";
-  encEnv = "/home/abl030/nixosconfig/secrets/secrets/invoices.env"; # SOPS-encrypted
-  ageKey = "/root/.config/sops/age/keys.txt"; # your AGE key
+
+  # Nix tracked files
+  composeFile = ./docker-compose.yml;
+  caddyFile = ./Caddyfile;
+
+  # Secrets (Relative path to this nix file)
+  encEnv = ../../secrets/secrets/invoices.env;
+
+  ageKey = "/root/.config/sops/age/keys.txt";
   requiresBase = ["docker.service" "network-online.target"];
 
-  # ── Derived (usually no need to touch) ────────────────────────────────────────
+  # ── Derived ────────────────────────────────────────────────
   dockerBin = "${config.virtualisation.docker.package}/bin/docker";
   runEnv = "/run/secrets/${stackName}.env";
   afterBase = requiresBase;
 in {
   systemd.services.${stackName} = {
     description = "Invoices Docker Compose Stack";
-
     restartIfChanged = false;
     reloadIfChanged = true;
-
     requires = requiresBase;
     after = afterBase;
 
     serviceConfig = {
-      # oneshot pattern for docker compose up -d
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # Where docker-compose.yml lives
-      WorkingDirectory = stackDir;
+      # Set Project Name and pass Caddyfile path
+      Environment = [
+        "COMPOSE_PROJECT_NAME=invoices"
+        "CADDY_FILE=${caddyFile}"
+      ];
 
       # Decrypt env → /run (tmpfs) and lock perms before starting
       ExecStartPre = [
@@ -39,16 +44,19 @@ in {
         "/run/current-system/sw/bin/chmod 600 ${runEnv}"
       ];
 
-      # Start / reload with always-pull for :latest images
-      ExecStart = "${dockerBin} compose --env-file ${runEnv} up -d --remove-orphans";
-      ExecReload = "${dockerBin} compose --env-file ${runEnv} up -d --remove-orphans";
+      # Start
+      ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
 
-      # Stop the stack
-      ExecStop = "${dockerBin} compose down";
+      # Stop
+      ExecStop = "${dockerBin} compose -f ${composeFile} down";
 
-      # Auto-retry on failure
+      # Reload
+      ExecReload = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
+
       Restart = "on-failure";
       RestartSec = "30s";
+      StandardOutput = "journal";
+      StandardError = "journal";
     };
 
     wantedBy = ["multi-user.target"];
