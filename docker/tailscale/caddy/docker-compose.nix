@@ -1,103 +1,62 @@
-{config, ...}: {
-  # Group all systemd units under a single attribute set.
-  # This avoids key collisions and makes it clear all units are related.
-  systemd = {
-    services = {
-      "caddy-tailscale-stack" = {
-        description = "Caddy Tailscale Docker Compose Stack";
+{
+  config,
+  pkgs,
+  ...
+}: let
+  # ── Per-stack knobs ────────────────────────────────────────
+  stackName = "caddy-tailscale-stack";
 
-        restartIfChanged = false;
-        reloadIfChanged = true;
+  composeFile = ./docker-compose.yml;
+  caddyFile = ./Caddyfile; # <--- NEW: Track the Caddyfile
 
-        # This service requires the Docker daemon to be running.
-        requires = ["docker.service" "network-online.target"];
+  encEnv = ../../../secrets/secrets/caddy-tailscale.env;
+  ageKey = "/root/.config/sops/age/keys.txt";
+  requiresBase = ["docker.service" "network-online.target"];
 
-        # It should start after the Docker daemon and network are ready.
-        # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
-        after = ["docker.service" "network-online.target"];
+  # ── Derived ────────────────────────────────────────────────
+  dockerBin = "${config.virtualisation.docker.package}/bin/docker";
+  runEnv = "/run/secrets/${stackName}.env";
+  afterBase = requiresBase;
+in {
+  systemd.services.${stackName} = {
+    description = "Caddy Tailscale Docker Compose Stack";
 
-        # This section corresponds to the [Service] block in a systemd unit file.
-        serviceConfig = {
-          # 'oneshot' is perfect for commands that start a process and then exit.
-          # 'docker compose up -d' does exactly this.
-          Type = "oneshot";
+    restartIfChanged = false;
+    reloadIfChanged = true;
 
-          # This tells systemd that even though the start command exited,
-          # the service should be considered 'active' until the stop command is run.
-          RemainAfterExit = true;
+    requires = requiresBase;
+    after = afterBase;
 
-          # The working directory where docker-compose.yml is located.
-          WorkingDirectory = "/home/abl030/nixosconfig/docker/tailscale/caddy";
+    serviceConfig = {
+      # ─── ADDED ENVIRONMENT VARIABLES ───
+      # 1. Set the project name to prevent collisions
+      # 2. Pass the absolute Nix Store path of the Caddyfile to Docker
+      Environment = [
+        "COMPOSE_PROJECT_NAME=caddy-tailscale"
+        "CADDY_FILE=${caddyFile}"
+      ];
+      # ───────────────────────────────────
 
-          # Command to start the containers.
-          # We use config.virtualisation.docker.package to get the correct path to the Docker binary.
-          # --build: Rebuilds the Caddy image if the Dockerfile changes.
-          # --remove-orphans: Cleans up containers for services that are no longer in the compose file.
-          ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
+      Type = "oneshot";
+      RemainAfterExit = true;
 
-          # Command to stop and remove the containers.
-          ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
+      ExecStartPre = [
+        "/run/current-system/sw/bin/mkdir -p /run/secrets"
+        ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
+        "/run/current-system/sw/bin/chmod 600 ${runEnv}"
+      ];
 
-          # Optional: Command to reload the service, useful for applying changes.
-          ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --build --remove-orphans";
+      ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
+      ExecStop = "${dockerBin} compose -f ${composeFile} down";
+      ExecReload = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
 
-          # StandardOutput and StandardError can be useful for debugging with journalctl.
-          StandardOutput = "journal";
-          StandardError = "journal";
-        };
+      Restart = "on-failure";
+      RestartSec = "30s";
 
-        # This section corresponds to the [Install] block in a systemd unit file.
-        # This ensures the service is started automatically on boot.
-        wantedBy = ["multi-user.target"];
-      };
-
-      # --- NEW ---
-      # The service that performs the update.
-      # This service is only meant to be run by the timer or manually.
-      "caddy-tailscale-updater" = {
-        description = "Weekly updater for the Caddy Tailscale Docker stack";
-        serviceConfig = {
-          Type = "oneshot";
-          # The WorkingDirectory is critical, so docker-compose finds the right files.
-          WorkingDirectory = "/home/abl030/nixosconfig/docker/tailscale/caddy";
-        };
-        # We create a self-contained script to be executed.
-        script = ''
-          set -e  # Exit immediately if a command exits with a non-zero status.
-          echo "--- [$(date)] Starting scheduled Caddy update ---"
-
-          # Get the full path to the docker binary
-          DOCKER_BIN="${config.virtualisation.docker.package}/bin/docker"
-
-          # Step 1: Rebuild the caddy service, pulling its base images.
-          echo "Building 'caddy' service with --pull..."
-          $DOCKER_BIN compose build --pull caddy
-
-          # Step 2: Restart the stack to apply the newly built image.
-          echo "Restarting stack to apply new image..."
-          $DOCKER_BIN compose up -d --force-recreate --remove-orphans
-
-          # Step 3: Prune old images.
-          echo "Pruning old Docker images..."
-          $DOCKER_BIN image prune -f
-
-          echo "--- [$(date)] Scheduled Caddy update complete ---"
-        '';
-      };
+      StandardOutput = "journal";
+      StandardError = "journal";
     };
 
-    # --- NEW ---
-    # The timer that triggers the updater service.
-    timers."caddy-tailscale-updater" = {
-      description = "Weekly timer to update the Caddy Tailscale Docker stack";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        # Runs at 1:00 AM every Sunday.
-        OnCalendar = "Sun 01:00:00";
-        # If the system was down at the scheduled time, run the job
-        # as soon as it's up again.
-        Persistent = true;
-      };
-    };
+    wantedBy = ["multi-user.target"];
   };
 }
