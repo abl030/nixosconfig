@@ -1,53 +1,64 @@
-{config, ...}: {
-  systemd.services.paperless-stack = {
+{
+  config,
+  pkgs,
+  ...
+}: let
+  # ── Per-stack knobs ────────────────────────────────────────
+  stackName = "paperless-stack";
+
+  # Nix will copy these files to the Nix Store.
+  # This removes the dependency on /home/abl030 at runtime.
+  composeFile = ./docker-compose.yml;
+  encEnv = ../../secrets/secrets/paperless.env;
+
+  ageKey = "/root/.config/sops/age/keys.txt";
+
+  # Paperless relies on physical mounts, so we keep mnt-data.mount
+  requiresBase = ["docker.service" "network-online.target" "mnt-data.mount"];
+
+  # ── Derived ────────────────────────────────────────────────
+  dockerBin = "${config.virtualisation.docker.package}/bin/docker";
+  runEnv = "/run/secrets/${stackName}.env";
+  afterBase = requiresBase;
+in {
+  systemd.services.${stackName} = {
     description = "Paperless Docker Compose Stack";
 
     restartIfChanged = false;
     reloadIfChanged = true;
 
-    # This service requires the Docker daemon to be running.
-    requires = ["docker.service" "network-online.target" "mnt-data.mount"];
+    requires = requiresBase;
+    after = afterBase;
 
-    # It should start after the Docker daemon and network are ready.
-    # We also add the mount point dependency to ensure the Caddyfile, etc. are available.
-    after = ["docker.service" "network-online.target" "mnt-data.mount"];
-
-    # This section corresponds to the [Service] block in a systemd unit file.
     serviceConfig = {
       # 'oneshot' is perfect for commands that start a process and then exit.
-      # 'docker compose up -d' does exactly this.
       Type = "oneshot";
-
-      # This tells systemd that even though the start command exited,
-      # the service should be considered 'active' until the stop command is run.
       RemainAfterExit = true;
 
-      # The working directory where docker-compose.yml is located.
-      WorkingDirectory = "/home/abl030/nixosconfig/docker/paperless";
+      # Decrypt env from the Nix store location → /run (tmpfs)
+      ExecStartPre = [
+        "/run/current-system/sw/bin/mkdir -p /run/secrets"
+        ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
+        "/run/current-system/sw/bin/chmod 600 ${runEnv}"
+      ];
 
-      # Command to start the containers.
-      # We use config.virtualisation.docker.package to get the correct path to the Docker binary.
-      # --build: Rebuilds the Caddy image if the Dockerfile changes.
-      # --remove-orphans: Cleans up containers for services that are no longer in the compose file.
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
+      # Start using the specific compose file from the Nix Store
+      ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
 
-      # Command to stop and remove the containers.
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
+      # Stop the stack
+      ExecStop = "${dockerBin} compose -f ${composeFile} down";
 
-      # Optional: Command to reload the service, useful for applying changes.
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
+      # Reload the service
+      ExecReload = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
 
       # Restart the service automatically if it fails
       Restart = "on-failure";
       RestartSec = "30s";
 
-      # StandardOutput and StandardError can be useful for debugging with journalctl.
       StandardOutput = "journal";
       StandardError = "journal";
     };
 
-    # This section corresponds to the [Install] block in a systemd unit file.
-    # This ensures the service is started automatically on boot.
     wantedBy = ["multi-user.target"];
   };
 }
