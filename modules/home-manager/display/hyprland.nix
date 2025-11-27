@@ -122,20 +122,39 @@ in {
           };
         };
 
-        # RESTORED BINDS FROM HISTORY
+        # OMARCHY KEYBINDINGS
         bind = [
-          "$mod, Q, exec, $terminal"
-          "$mod, C, killactive,"
+          # System / Launchers
+          "$mod, Return, exec, $terminal"
+          "$mod, Space, exec, $menu"
+          "$mod SHIFT, F, exec, dolphin"
           "$mod, M, exit,"
-          "$mod, E, exec, dolphin"
-          "$mod, V, togglefloating,"
-          "$mod, R, exec, $menu"
-          "$mod, P, pseudo,"
+
+          # Window Management
+          "$mod, W, killactive,"
+          "$mod, F, fullscreen,"
+          "$mod, T, togglefloating,"
+          "$mod, O, pseudo,"
           "$mod, J, togglesplit,"
+          "$mod, G, togglegroup,"
+
+          # Scratchpad / Special Workspace
+          "$mod, S, togglespecialworkspace, magic"
+          "$mod ALT, S, movetoworkspace, special:magic"
+
+          # Focus
           "$mod, left, movefocus, l"
           "$mod, right, movefocus, r"
           "$mod, up, movefocus, u"
           "$mod, down, movefocus, d"
+
+          # Move Window
+          "$mod SHIFT, left, movewindow, l"
+          "$mod SHIFT, right, movewindow, r"
+          "$mod SHIFT, up, movewindow, u"
+          "$mod SHIFT, down, movewindow, d"
+
+          # Workspaces
           "$mod, 1, workspace, 1"
           "$mod, 2, workspace, 2"
           "$mod, 3, workspace, 3"
@@ -146,6 +165,8 @@ in {
           "$mod, 8, workspace, 8"
           "$mod, 9, workspace, 9"
           "$mod, 0, workspace, 10"
+
+          # Move to Workspace
           "$mod SHIFT, 1, movetoworkspace, 1"
           "$mod SHIFT, 2, movetoworkspace, 2"
           "$mod SHIFT, 3, movetoworkspace, 3"
@@ -156,6 +177,12 @@ in {
           "$mod SHIFT, 8, movetoworkspace, 8"
           "$mod SHIFT, 9, movetoworkspace, 9"
           "$mod SHIFT, 0, movetoworkspace, 10"
+
+          # Cycle Workspaces
+          "$mod, Tab, workspace, m+1"
+          "$mod SHIFT, Tab, workspace, m-1"
+
+          # Scroll
           "$mod, mouse_down, workspace, e+1"
           "$mod, mouse_up, workspace, e-1"
         ];
