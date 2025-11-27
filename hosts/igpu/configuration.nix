@@ -29,6 +29,11 @@
 
     # Use latest kernel.
     kernelPackages = pkgs.linuxPackages_latest;
+
+    # Increase inotify limits for large Jellyfin libraries
+    kernel.sysctl = {
+      "fs.inotify.max_user_watches" = 2097152;
+    };
   };
 
   homelab = {
