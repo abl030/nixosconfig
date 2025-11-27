@@ -1,13 +1,8 @@
 {config, ...}: {
-  # ===================================================================
-  # This service starts and stops the Plex stack.
-  # It is activated on boot and managed by `systemctl`.
-  # ===================================================================
   systemd.services.plex-stack = {
     description = "Plex Docker Compose Stack";
-    # Ensures this service doesn't restart automatically during a nixos-rebuild
     restartIfChanged = false;
-    reloadIfChanged = false; # Set to false as reload is not explicitly defined differently than start
+    reloadIfChanged = false;
 
     requires = [
       "docker.service"
@@ -30,15 +25,13 @@
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # Set the working directory to where your docker-compose.yml is located
-      WorkingDirectory = "/home/abl030/nixosconfig/docker/plex/";
+      # ─── ADDED ───
+      Environment = "COMPOSE_PROJECT_NAME=plex";
+      # ─────────────
 
-      # docker-compose.yml is the default filename, so the -f flag is not needed
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose down";
-
-      # A simple reload is just to bring the stack up again with any new images
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose up -d --remove-orphans";
+      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
+      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} down";
+      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
 
       Restart = "on-failure";
       RestartSec = "30s";
@@ -46,7 +39,6 @@
       StandardError = "journal";
     };
 
-    # Enable the service to start on boot
     wantedBy = ["multi-user.target"];
   };
 }
