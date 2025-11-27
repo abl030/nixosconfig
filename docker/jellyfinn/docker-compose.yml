@@ -71,7 +71,9 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
     volumes:
-      - /mnt/docker/jellyfin/caddy/Caddyfile:/etc/caddy/Caddyfile
+      # ─── UPDATED ───
+      - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
+      # ───────────────
       - /mnt/docker/jellyfin/caddy/data:/data
       - /mnt/docker/jellyfin/caddy/config:/config
       - /etc/localtime:/etc/localtime:ro
@@ -162,7 +164,9 @@ services:
       - "/mnt/fuse/Media/TV_Shows:/data/tv:rw"
       - "/mnt/fuse/Media/Movies:/data/movies:rw"
       - "/mnt/fuse/Media/Music:/data/music:rw"
-      - /home/abl030/nixosconfig/docker/jellyfinn/inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
+      # ─── UPDATED ───
+      - ${INOTIFY_SCRIPT}:/usr/local/bin/inotify-recv.sh:ro
+      # ───────────────
     environment:
       - HEALTH_INTERVAL=30
       - HEALTH_WINDOW=180
