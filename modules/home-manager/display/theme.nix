@@ -1,11 +1,5 @@
-{
-  lib,
-  config,
-  ...
-}:
-with lib; let
-  cfg = config.homelab.theme;
-in {
+{lib, ...}:
+with lib; {
   options.homelab.theme = {
     colors = {
       # Base Logic

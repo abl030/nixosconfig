@@ -7,7 +7,9 @@
 with lib; let
   cfg = config.homelab.hyprland;
   vncCfg = config.homelab.vnc;
-  colors = config.homelab.theme.colors;
+
+  # Inherit colors to satisfy statix
+  inherit (config.homelab.theme) colors;
 
   # HELPER: Converts "#RRGGBB" to "rgba(RRGGBB[alpha])"
   # Usage: rgb "aa" "#ffffff" -> "rgba(ffffffaa)"
