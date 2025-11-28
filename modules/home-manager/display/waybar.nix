@@ -6,7 +6,7 @@
 }:
 with lib; let
   cfg = config.homelab.waybar;
-  colors = config.homelab.theme.colors;
+  inherit (config.homelab.theme) colors;
 in {
   options.homelab.waybar = {
     enable = mkEnableOption "Enable Waybar Status Bar";

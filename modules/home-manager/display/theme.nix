@@ -3,9 +3,7 @@
   config,
   ...
 }:
-with lib; let
-  cfg = config.homelab.theme;
-in {
+with lib; {
   options.homelab.theme = {
     colors = {
       # Base Logic
