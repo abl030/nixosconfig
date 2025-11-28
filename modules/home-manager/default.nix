@@ -5,5 +5,6 @@
     # Add any new module you create here.
     ./display/hyprland.nix
     ./display/wayvnc.nix
+    ./display/waybar.nix
   ];
 }
