@@ -7,6 +7,20 @@
 with lib; let
   cfg = config.homelab.hyprland;
   vncCfg = config.homelab.vnc;
+  colors = config.homelab.theme.colors;
+
+  # HELPER: Converts "#RRGGBB" to "rgba(RRGGBB[alpha])"
+  # Usage: rgb "aa" "#ffffff" -> "rgba(ffffffaa)"
+  # Usage: rgb ""   "#ffffff" -> "rgb(ffffff)"
+  rgb = alpha: hex: let
+    hexNoHash =
+      if lib.hasPrefix "#" hex
+      then builtins.substring 1 (builtins.stringLength hex) hex
+      else hex;
+  in
+    if alpha != ""
+    then "rgba(${hexNoHash}${alpha})"
+    else "rgb(${hexNoHash})";
 in {
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland User Configuration";
@@ -41,7 +55,7 @@ in {
       }
       background {
         monitor =
-        color = rgba(0, 0, 0, 1.0)
+        color = ${rgb "" colors.background}
       }
       input-field {
         monitor =
@@ -49,6 +63,9 @@ in {
         position = 0, 0
         halign = center
         valign = center
+        outer_color = ${rgb "" colors.primary}
+        inner_color = ${rgb "" colors.backgroundAlt}
+        font_color = ${rgb "" colors.foreground}
       }
       label {
         monitor =
@@ -57,6 +74,7 @@ in {
         halign = center
         valign = center
         font_size = 24
+        color = ${rgb "" colors.foreground}
       }
     '';
 
@@ -90,8 +108,14 @@ in {
           gaps_in = 5;
           gaps_out = 20;
           border_size = 2;
-          "col.active_border" = "rgba(33ccffee) rgba(00ff99ee) 45deg";
-          "col.inactive_border" = "rgba(595959aa)";
+
+          # Dynamic Colors using the helper function
+          # Primary + Info gradient with slight transparency (ee = ~93% opacity)
+          "col.active_border" = "${rgb "ee" colors.primary} ${rgb "ee" colors.info} 45deg";
+
+          # Inactive border with transparency (aa = ~66% opacity)
+          "col.inactive_border" = "${rgb "aa" colors.border}";
+
           layout = "dwindle";
         };
 
