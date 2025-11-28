@@ -97,8 +97,8 @@ in {
       # Since we installed the system module (which installs the flake package),
       # we can set this to null to avoid collisions, or explicitly set it to the flake package.
       # Setting it to the flake package ensures HM config generation sees the right version.
-      package = inputs.hyprland.packages.${pkgs.system}.hyprland;
-      portalPackage = inputs.hyprland.packages.${pkgs.system}.xdg-desktop-portal-hyprland;
+      package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 
       settings = {
         "$mod" = "SUPER";
