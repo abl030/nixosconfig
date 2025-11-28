@@ -67,9 +67,10 @@ in {
         "$menu" = "wofi --show drun";
 
         # REFACTORED: Use the new vncCfg to decide if we auto-start wayvnc
+        # We bind wayvnc explicitly to the right-most 1080p monitor (HDMI-A-3)
         exec-once =
           ["hyprlock --immediate-render"]
-          ++ optionals vncCfg.enable ["wayvnc"];
+          ++ optionals vncCfg.enable ["wayvnc --output=HDMI-A-3"];
 
         monitor = ",preferred,auto,auto";
 
