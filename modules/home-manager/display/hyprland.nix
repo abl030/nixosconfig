@@ -6,13 +6,17 @@
 }:
 with lib; let
   cfg = config.homelab.hyprland;
-  vncCfg = config.homelab.vnc; # Access the sibling module configuration
+  vncCfg = config.homelab.vnc;
 in {
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland User Configuration";
   };
 
   config = mkIf cfg.enable {
+    # 0. Automatically enable Waybar module when Hyprland is enabled
+    homelab.waybar.enable = true;
+
+    # 1. Install necessary packages
     home.packages = with pkgs;
       [
         ghostty
@@ -21,11 +25,11 @@ in {
         libnotify
         wl-clipboard
         hyprlock
+        # waybar and font-awesome are now handled in waybar.nix
       ]
-      # We conditionally install wayvnc if the VNC module is enabled
       ++ optionals vncCfg.enable [wayvnc];
 
-    # Hyprlock config
+    # 2. Configure Hyprlock
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
         immediate_render = true
@@ -56,6 +60,7 @@ in {
       }
     '';
 
+    # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
       package = null;
@@ -66,10 +71,13 @@ in {
         "$terminal" = "ghostty";
         "$menu" = "wofi --show drun";
 
-        # REFACTORED: Use the new vncCfg to decide if we auto-start wayvnc
+        # FORCE LAUNCH WAYBAR HERE
         exec-once =
-          ["hyprlock --immediate-render"]
-          ++ optionals vncCfg.enable ["wayvnc"];
+          [
+            "hyprlock --immediate-render"
+            "waybar"
+          ]
+          ++ optionals vncCfg.enable ["wayvnc --output=HDMI-A-3"];
 
         monitor = ",preferred,auto,auto";
 
