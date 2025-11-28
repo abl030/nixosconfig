@@ -14,6 +14,7 @@
     vnc = {
       enable = true;
       secure = true;
+      output = "HDMI-A-3";
     };
   };
 

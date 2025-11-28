@@ -10,6 +10,12 @@ in {
   options.homelab.vnc = {
     enable = mkEnableOption "Enable WayVNC User Service";
     secure = mkEnableOption "Enable Secure Mode (PAM Auth & TLS Encryption)";
+
+    output = mkOption {
+      type = types.str;
+      default = "";
+      description = "Specific Wayland output to bind WayVNC to (e.g., HDMI-A-1). Leave empty to use the default output.";
+    };
   };
 
   config = mkIf cfg.enable {

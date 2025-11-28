@@ -24,6 +24,13 @@ with lib; let
     then "rgba(${hexNoHash}${alpha})"
     else "rgb(${hexNoHash})";
 in {
+  # Import sibling modules to ensure options (waybar, vnc, theme) are defined
+  imports = [
+    ./theme.nix
+    ./waybar.nix
+    ./wayvnc.nix
+  ];
+
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland User Configuration";
   };
@@ -97,7 +104,14 @@ in {
             "hyprlock --immediate-render"
             "waybar"
           ]
-          ++ optionals vncCfg.enable ["wayvnc --output=HDMI-A-3"];
+          # Conditionally launch wayvnc with or without a specific output
+          ++ optionals vncCfg.enable [
+            (
+              if vncCfg.output != ""
+              then "wayvnc --output=${vncCfg.output}"
+              else "wayvnc"
+            )
+          ];
 
         monitor = ",preferred,auto,auto";
 
