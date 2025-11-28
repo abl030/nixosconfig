@@ -6,13 +6,14 @@
 }:
 with lib; let
   cfg = config.homelab.hyprland;
-  vncCfg = config.homelab.vnc; # Access the sibling module configuration
+  vncCfg = config.homelab.vnc;
 in {
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland User Configuration";
   };
 
   config = mkIf cfg.enable {
+    # 1. Install necessary packages
     home.packages = with pkgs;
       [
         ghostty
@@ -21,11 +22,107 @@ in {
         libnotify
         wl-clipboard
         hyprlock
+        waybar # The bar itself
+        font-awesome # Icons for the bar
       ]
-      # We conditionally install wayvnc if the VNC module is enabled
       ++ optionals vncCfg.enable [wayvnc];
 
-    # Hyprlock config
+    # 2. Configure Waybar (The Top Bar) directly here
+    programs.waybar = {
+      enable = true;
+      systemd.enable = false; # FIXED: Disable systemd to prevent double-starting (Hyprland exec-once handles it)
+
+      settings = {
+        mainBar = {
+          layer = "top";
+          position = "top";
+          height = 30;
+          spacing = 4;
+
+          modules-left = ["hyprland/workspaces" "hyprland/window"];
+          modules-center = ["clock"];
+          modules-right = ["network" "cpu" "memory" "pulseaudio" "tray"];
+
+          "hyprland/workspaces" = {
+            disable-scroll = true;
+            on-click = "activate";
+          };
+
+          "clock" = {
+            tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{:%Y-%m-%d}</small></tt>";
+            format-alt = "{:%Y-%m-%d}";
+          };
+
+          "cpu" = {
+            interval = 5;
+            format = "CPU {usage}%";
+            tooltip = true;
+          };
+
+          "memory" = {
+            interval = 30;
+            format = "RAM {}%";
+          };
+
+          "network" = {
+            interval = 2;
+            # Shows download/upload speed
+            format-ethernet = "In: {bandwidthDownBytes} Out: {bandwidthUpBytes}";
+            format-wifi = "{essid} ({signalStrength}%) ⬇{bandwidthDownBytes} ⬆{bandwidthUpBytes}";
+            format-disconnected = "Disconnected";
+            tooltip-format = "{ifname} via {gwaddr}";
+          };
+
+          "pulseaudio" = {
+            format = "Vol {volume}%";
+            format-muted = "Muted";
+            on-click = "pavucontrol";
+          };
+
+          "tray" = {
+            spacing = 10;
+          };
+        };
+      };
+
+      style = ''
+        * {
+            border: none;
+            border-radius: 0;
+            font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+            font-size: 13px;
+            min-height: 0;
+        }
+
+        window#waybar {
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+        }
+
+        #workspaces button {
+            padding: 0 5px;
+            color: #ffffff;
+        }
+
+        #workspaces button.active {
+            color: #33ccff;
+            border-bottom: 2px solid #33ccff;
+        }
+
+        #clock, #cpu, #memory, #network, #pulseaudio, #tray {
+            padding: 0 10px;
+            margin: 0 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        #network { background-color: #2980b9; }
+        #cpu { background-color: #27ae60; }
+        #memory { background-color: #8e44ad; }
+      '';
+    };
+
+    # 3. Configure Hyprlock
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
         immediate_render = true
@@ -56,6 +153,7 @@ in {
       }
     '';
 
+    # 4. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
       package = null;
@@ -66,10 +164,12 @@ in {
         "$terminal" = "ghostty";
         "$menu" = "wofi --show drun";
 
-        # REFACTORED: Use the new vncCfg to decide if we auto-start wayvnc
-        # We bind wayvnc explicitly to the right-most 1080p monitor (HDMI-A-3)
+        # FORCE LAUNCH WAYBAR HERE
         exec-once =
-          ["hyprlock --immediate-render"]
+          [
+            "hyprlock --immediate-render"
+            "waybar"
+          ]
           ++ optionals vncCfg.enable ["wayvnc --output=HDMI-A-3"];
 
         monitor = ",preferred,auto,auto";
