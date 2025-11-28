@@ -30,13 +30,13 @@ in {
     # 2. Configure Waybar (The Top Bar) directly here
     programs.waybar = {
       enable = true;
-      systemd.enable = false; # FIXED: Disable systemd to prevent double-starting (Hyprland exec-once handles it)
+      systemd.enable = false; # Disable systemd to let Hyprland exec-once handle startup
 
       settings = {
         mainBar = {
           layer = "top";
           position = "top";
-          height = 30;
+          height = 36; # Increased slightly to accommodate borders
           spacing = 4;
 
           modules-left = ["hyprland/workspaces" "hyprland/window"];
@@ -86,39 +86,104 @@ in {
       };
 
       style = ''
+        /* Colors from inspiration */
+        @define-color background #2C2A24;
+        @define-color second-background #3A372F;
+        @define-color text #DDD5C4;
+        @define-color borders #A0907A;
+        @define-color focused #D08B57;
+        @define-color focused2 #BFAA80;
+        @define-color color1 #7699A3;
+        @define-color color2 #8D7AAE;
+        @define-color color3 #78997A;
+        @define-color urgent #B05A5A;
+
         * {
             border: none;
             border-radius: 0;
-            font-family: "Roboto", "Helvetica", "Arial", sans-serif;
-            font-size: 13px;
+            font-family: "Iosevka Nerd Font", "JetBrainsMono Nerd Font", "Roboto", sans-serif;
+            font-size: 14px;
             min-height: 0;
         }
 
         window#waybar {
-            background: rgba(0, 0, 0, 0.8);
-            color: #ffffff;
+            background-color: transparent; /* Transparent so we see the islands */
+            color: @text;
+            transition: background-color 0.5s;
         }
 
+        /* ISLAND STYLING: mimic the structure of the inspiration */
+        .modules-left, .modules-center, .modules-right {
+            background-color: @background;
+            border: 2px solid @focused; /* The orange border */
+            border-radius: 10px;
+            padding: 2px 10px;
+            margin-top: 5px;
+            margin-bottom: 0px;
+        }
+
+        .modules-left {
+            margin-left: 10px;
+        }
+
+        .modules-right {
+            margin-right: 10px;
+        }
+
+        /* Workspaces */
         #workspaces button {
-            padding: 0 5px;
-            color: #ffffff;
+            padding: 0 8px;
+            color: @text;
+            background-color: transparent;
+        }
+
+        #workspaces button:hover {
+            background-color: @second-background;
+            border-radius: 5px;
         }
 
         #workspaces button.active {
-            color: #33ccff;
-            border-bottom: 2px solid #33ccff;
+            color: @focused2;
+            background-color: @second-background;
+            border-radius: 5px;
         }
 
-        #clock, #cpu, #memory, #network, #pulseaudio, #tray {
+        #workspaces button.urgent {
+            background-color: @urgent;
+        }
+
+        /* Standard Modules (CPU, RAM, Net, etc) - Remove individual backgrounds */
+        #clock,
+        #cpu,
+        #memory,
+        #network,
+        #pulseaudio,
+        #tray,
+        #window {
             padding: 0 10px;
-            margin: 0 4px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
+            background-color: transparent;
+            color: @text;
         }
 
-        #network { background-color: #2980b9; }
-        #cpu { background-color: #27ae60; }
-        #memory { background-color: #8e44ad; }
+        /* Hover effects from inspiration */
+        #clock:hover,
+        #cpu:hover,
+        #memory:hover,
+        #network:hover,
+        #pulseaudio:hover,
+        #tray:hover {
+            color: @color1; /* Blue accent on hover */
+        }
+
+        /* Network specific colors */
+        #network.disconnected {
+            color: @urgent;
+        }
+
+        /* Audio specific */
+        #pulseaudio.muted {
+            color: @color2; /* Purpleish for muted */
+        }
       '';
     };
 
