@@ -6,5 +6,6 @@
     ./display/hyprland.nix
     ./display/wayvnc.nix
     ./display/waybar.nix
+    ./display/theme.nix
   ];
 }
