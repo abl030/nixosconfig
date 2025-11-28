@@ -2,6 +2,7 @@
   lib,
   config,
   pkgs,
+  inputs,
   ...
 }:
 with lib; let
@@ -26,6 +27,7 @@ with lib; let
 in {
   # Import sibling modules to ensure options (waybar, vnc, theme) are defined
   imports = [
+    inputs.hyprland.homeManagerModules.default
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
@@ -90,8 +92,13 @@ in {
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
-      package = null;
-      portalPackage = null;
+
+      # Use the flake package if HM is managing it, or null if system manages it.
+      # Since we installed the system module (which installs the flake package),
+      # we can set this to null to avoid collisions, or explicitly set it to the flake package.
+      # Setting it to the flake package ensures HM config generation sees the right version.
+      package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 
       settings = {
         "$mod" = "SUPER";
