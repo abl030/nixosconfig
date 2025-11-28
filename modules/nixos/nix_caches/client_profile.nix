@@ -10,6 +10,7 @@ Purpose:
 - Default public keys are hard-coded for:
     • Cachix  : nixosconfig.cachix.org-1:whoVlEsbDSqKiGUejiPzv2Vha7IcWIZWXue0grLsl2k=
     • nix-serve: ablz.au-1:EYnQ/c34qSA7oVBHC1i+WYh4IEkFSbLQdic+vhP4k54=
+    • Hyprland: hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=
 - You can still override any value via options if needed later.
 
 Notes:
@@ -37,6 +38,7 @@ let
         mirror = cfg.mirror.priorityInternal;
         upstream = cfg.upstream.priority;
         cachix = cfg.cachix.priorityInternal;
+        hyprland = cfg.hyprland.priorityInternal;
       }
       else if profile == "external"
       then {
@@ -44,6 +46,7 @@ let
         mirror = cfg.mirror.priorityExternal;
         upstream = cfg.upstream.priority;
         cachix = cfg.cachix.priorityExternal;
+        hyprland = cfg.hyprland.priorityExternal;
       }
       else {
         # "server": no direct cache.nixos.org, no nix-serve
@@ -51,6 +54,7 @@ let
         mirror = cfg.mirror.priorityInternal; # prefer LAN mirror on servers
         upstream = 999; # unused
         cachix = cfg.cachix.priorityInternal; # keep Cachix last
+        hyprland = cfg.hyprland.priorityInternal;
       };
 
     urls = lib.flatten [
@@ -69,6 +73,10 @@ let
       # Cachix LAST on purpose (only for our custom pre-computed stuff)
       (lib.optional cfg.cachix.enable
         (addPriority "https://${cfg.cachix.name}.cachix.org" prio.cachix))
+
+      # Hyprland Official Cache
+      (lib.optional cfg.hyprland.enable
+        (addPriority "https://hyprland.cachix.org" prio.hyprland))
     ];
   in
     urls;
@@ -76,6 +84,7 @@ let
   publicKeys = lib.flatten [
     (lib.optional cfg.nixServe.enable cfg.nixServe.publicKey)
     (lib.optional cfg.cachix.enable cfg.cachix.publicKey)
+    (lib.optional cfg.hyprland.enable cfg.hyprland.publicKey)
     cfg.upstream.publicKey
   ];
 in {
@@ -139,6 +148,29 @@ in {
       priorityExternal = lib.mkOption {
         type = lib.types.ints.positive;
         default = 50;
+      };
+    };
+
+    # Hyprland Official Cache
+    hyprland = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable Hyprland official binary cache.";
+      };
+      publicKey = lib.mkOption {
+        type = lib.types.str;
+        default = "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=";
+        description = "Hyprland Cachix public key.";
+      };
+      # High priority to ensure we grab the pinned binaries
+      priorityInternal = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 15;
+      };
+      priorityExternal = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 15;
       };
     };
 

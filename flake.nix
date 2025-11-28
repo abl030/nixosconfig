@@ -23,6 +23,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Hyprland - Bleeding edge
+    # We do NOT follow nixpkgs here to ensure we use the cached binaries and the pinned Mesa version
+    # that Hyprland CI verified.
+    hyprland = {
+      url = "github:hyprwm/Hyprland";
+    };
+
     # plasma-manager = {
     #   url = "github:nix-community/plasma-manager";
     #   inputs.nixpkgs.follows = "nixpkgs";
