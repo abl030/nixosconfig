@@ -11,6 +11,12 @@
     hyprland = {
       enable = true;
     };
+    # Enable Hypridle
+    hypridle = {
+      enable = true;
+      lockTimeout = 300; # 5 Minutes
+      # suspendTimeout = 900; # 15 Minutes (Default, but disabled in logic)
+    };
     vnc = {
       enable = true;
       secure = true;
@@ -21,15 +27,12 @@
   # --- Monitor Config (Left -> Middle -> Right) ---
   wayland.windowManager.hyprland.settings.monitor = lib.mkForce [
     # 1. Left: Acer (Portrait)
-    # 1080px wide after rotation
     "HDMI-A-2, 1920x1080@75, 0x0, 1, transform, 3"
 
     # 2. Middle: Philips 32" (1440p @ 144Hz)
-    # Starts at 1080px (right after the portrait monitor)
     "DP-3, 2560x1440@144, 1080x0, 1"
 
     # 3. Right: Philips 24" (1080p)
-    # Starts at 1080 + 2560 = 3640px
     "HDMI-A-3, 1920x1080@60, 3640x0, 1"
 
     # Fallback for anything else
