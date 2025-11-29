@@ -30,6 +30,15 @@
       url = "github:hyprwm/Hyprland";
     };
 
+    hyprlock = {
+      url = "github:hyprwm/hyprlock";
+      inputs.nixpkgs.follows = "hyprland/nixpkgs"; # <--- CRITICAL: Use same pkgs as Hyprland
+    };
+
+    hypridle = {
+      url = "github:hyprwm/hypridle";
+      inputs.nixpkgs.follows = "hyprland/nixpkgs"; # <--- CRITICAL
+    };
     # plasma-manager = {
     #   url = "github:nix-community/plasma-manager";
     #   inputs.nixpkgs.follows = "nixpkgs";
