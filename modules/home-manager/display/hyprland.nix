@@ -8,13 +8,12 @@
 with lib; let
   cfg = config.homelab.hyprland;
   vncCfg = config.homelab.vnc;
-  # Helper for safe access to hypridle config
   idleCfg = config.homelab.hypridle or {enable = false;};
+  paperCfg = config.homelab.hyprpaper or {enable = false;};
 
   # Inherit colors to satisfy statix
   inherit (config.homelab.theme) colors;
 
-  # HELPER: Converts "#RRGGBB" to "rgba(RRGGBB[alpha])"
   rgb = alpha: hex: let
     hexNoHash =
       if lib.hasPrefix "#" hex
@@ -25,13 +24,13 @@ with lib; let
     then "rgba(${hexNoHash}${alpha})"
     else "rgb(${hexNoHash})";
 in {
-  # Import sibling modules to ensure options are defined
   imports = [
     inputs.hyprland.homeManagerModules.default
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
-    ./hypridle.nix # <--- Added Import
+    ./hypridle.nix
+    ./hyprpaper.nix
   ];
 
   options.homelab.hyprland = {
@@ -39,23 +38,37 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # 0. Automatically enable Waybar module when Hyprland is enabled
     homelab.waybar.enable = true;
+    homelab.hyprpaper.enable = true;
 
-    # 1. Install necessary packages
+    # 1. Install Ecosystem Packages
     home.packages = with pkgs;
       [
+        # Core
         ghostty
         wofi
         dunst
         libnotify
+        # hyprlock removed from here, added below via inputs
+
+        # Utilities
         wl-clipboard
-        hyprlock
-        # waybar and font-awesome are now handled in waybar.nix
+        cliphist
+        hyprpicker
+        grim
+        slurp
+
+        # Polkit Agent
+        kdePackages.polkit-kde-agent-1
+      ]
+      ++ [
+        # Use Hyprlock from flake input to match graphics drivers
+        inputs.hyprlock.packages.${pkgs.system}.hyprlock
       ]
       ++ optionals vncCfg.enable [wayvnc];
 
     # 2. Configure Hyprlock
+    # NOTE: "auth" block requires very recent hyprlock, which the flake input provides.
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
         immediate_render = true
@@ -78,6 +91,8 @@ in {
         outer_color = ${rgb "" colors.primary}
         inner_color = ${rgb "" colors.backgroundAlt}
         font_color = ${rgb "" colors.foreground}
+        fade_on_empty = false
+        placeholder_text = Input Password...
       }
       label {
         monitor =
@@ -93,7 +108,6 @@ in {
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
-
       package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
       portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 
@@ -102,15 +116,15 @@ in {
         "$terminal" = "ghostty";
         "$menu" = "wofi --show drun";
 
-        # FORCE LAUNCH WAYBAR HERE
         exec-once =
           [
             "hyprlock --immediate-render"
             "waybar"
+            "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
+            "wl-paste --watch cliphist store"
           ]
-          # Launch hypridle if enabled
           ++ optionals idleCfg.enable ["hypridle"]
-          # Conditionally launch wayvnc with or without a specific output
+          ++ optionals paperCfg.enable ["hyprpaper"]
           ++ optionals vncCfg.enable [
             (
               if vncCfg.output != ""
@@ -130,11 +144,8 @@ in {
           gaps_in = 5;
           gaps_out = 20;
           border_size = 2;
-
-          # Dynamic Colors using the helper function
           "col.active_border" = "${rgb "ee" colors.primary} ${rgb "ee" colors.info} 45deg";
           "col.inactive_border" = "${rgb "aa" colors.border}";
-
           layout = "dwindle";
         };
 
@@ -173,13 +184,18 @@ in {
           };
         };
 
-        # OMARCHY KEYBINDINGS
         bind = [
           # System / Launchers
           "$mod, Return, exec, $terminal"
           "$mod, Space, exec, $menu"
           "$mod SHIFT, F, exec, dolphin"
           "$mod, M, exit,"
+
+          # Utilities
+          "$mod, V, exec, cliphist list | wofi --dmenu | cliphist decode | wl-copy"
+          "$mod, P, exec, hyprpicker -a"
+          ", Print, exec, grim -g \"$(slurp)\" - | wl-copy"
+          "SHIFT, Print, exec, grim -g \"$(slurp)\" ~/Pictures/Screenshots/$(date +'%Y%m%d_%H%M%S').png"
 
           # Window Management
           "$mod, W, killactive,"
@@ -189,7 +205,7 @@ in {
           "$mod, J, togglesplit,"
           "$mod, G, togglegroup,"
 
-          # Scratchpad / Special Workspace
+          # Scratchpad
           "$mod, S, togglespecialworkspace, magic"
           "$mod ALT, S, movetoworkspace, special:magic"
 
@@ -236,6 +252,21 @@ in {
           # Scroll
           "$mod, mouse_down, workspace, e+1"
           "$mod, mouse_up, workspace, e-1"
+        ];
+
+        bindel = [
+          ", XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"
+          ", XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+          ", XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+          ", XF86AudioMicMute, exec, wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+          ", XF86MonBrightnessUp, exec, brightnessctl s 10%+"
+          ", XF86MonBrightnessDown, exec, brightnessctl s 10%-"
+        ];
+
+        bindl = [
+          ", XF86AudioPlay, exec, playerctl play-pause"
+          ", XF86AudioNext, exec, playerctl next"
+          ", XF86AudioPrev, exec, playerctl previous"
         ];
 
         bindm = [

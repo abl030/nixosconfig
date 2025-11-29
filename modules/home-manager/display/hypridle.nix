@@ -2,6 +2,7 @@
   lib,
   config,
   pkgs,
+  inputs, # <--- Add inputs here
   ...
 }:
 with lib; let
@@ -24,14 +25,13 @@ in {
   };
 
   config = mkIf cfg.enable {
-    home.packages = [pkgs.hypridle];
+    # Use the flake package that matches your graphics drivers
+    home.packages = [inputs.hypridle.packages.${pkgs.system}.hypridle];
 
     # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
-    # This injects rules into the main Hyprland config to prevent idling
     wayland.windowManager.hyprland.settings.windowrulev2 = [
       "idleinhibit fullscreen, class:^(firefox)$"
       "idleinhibit fullscreen, class:^(mpv)$"
-      # "idleinhibit fullscreen, class:^(google-chrome)$" # Example for future use
     ];
 
     xdg.configFile."hypr/hypridle.conf".text = ''
@@ -42,10 +42,10 @@ in {
           # Lock before suspend.
           before_sleep_cmd = loginctl lock-session
 
-          # Turn on display after sleep (to avoid having to press a key twice).
+          # Turn on display after sleep.
           after_sleep_cmd = hyprctl dispatch dpms on
 
-          # Required for Firefox/MPV to inhibit idle (when watching videos)
+          # Required for Firefox/MPV to inhibit idle
           ignore_dbus_inhibit = false
       }
 
@@ -63,7 +63,6 @@ in {
       }
 
       # 3. Suspend (${toString cfg.suspendTimeout}s)
-      # Commented out per configuration instruction (desktop does not wake)
       # listener {
       #     timeout = ${toString cfg.suspendTimeout}
       #     on-timeout = systemctl suspend
