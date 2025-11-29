@@ -7,5 +7,6 @@
     ./display/wayvnc.nix
     ./display/waybar.nix
     ./display/theme.nix
+    ./display/hypridle.nix
   ];
 }

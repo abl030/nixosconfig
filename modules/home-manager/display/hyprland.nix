@@ -8,13 +8,13 @@
 with lib; let
   cfg = config.homelab.hyprland;
   vncCfg = config.homelab.vnc;
+  # Helper for safe access to hypridle config
+  idleCfg = config.homelab.hypridle or {enable = false;};
 
   # Inherit colors to satisfy statix
   inherit (config.homelab.theme) colors;
 
   # HELPER: Converts "#RRGGBB" to "rgba(RRGGBB[alpha])"
-  # Usage: rgb "aa" "#ffffff" -> "rgba(ffffffaa)"
-  # Usage: rgb ""   "#ffffff" -> "rgb(ffffff)"
   rgb = alpha: hex: let
     hexNoHash =
       if lib.hasPrefix "#" hex
@@ -25,12 +25,13 @@ with lib; let
     then "rgba(${hexNoHash}${alpha})"
     else "rgb(${hexNoHash})";
 in {
-  # Import sibling modules to ensure options (waybar, vnc, theme) are defined
+  # Import sibling modules to ensure options are defined
   imports = [
     inputs.hyprland.homeManagerModules.default
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
+    ./hypridle.nix # <--- Added Import
   ];
 
   options.homelab.hyprland = {
@@ -93,10 +94,6 @@ in {
     wayland.windowManager.hyprland = {
       enable = true;
 
-      # Use the flake package if HM is managing it, or null if system manages it.
-      # Since we installed the system module (which installs the flake package),
-      # we can set this to null to avoid collisions, or explicitly set it to the flake package.
-      # Setting it to the flake package ensures HM config generation sees the right version.
       package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
       portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 
@@ -111,6 +108,8 @@ in {
             "hyprlock --immediate-render"
             "waybar"
           ]
+          # Launch hypridle if enabled
+          ++ optionals idleCfg.enable ["hypridle"]
           # Conditionally launch wayvnc with or without a specific output
           ++ optionals vncCfg.enable [
             (
@@ -133,10 +132,7 @@ in {
           border_size = 2;
 
           # Dynamic Colors using the helper function
-          # Primary + Info gradient with slight transparency (ee = ~93% opacity)
           "col.active_border" = "${rgb "ee" colors.primary} ${rgb "ee" colors.info} 45deg";
-
-          # Inactive border with transparency (aa = ~66% opacity)
           "col.inactive_border" = "${rgb "aa" colors.border}";
 
           layout = "dwindle";
