@@ -15,18 +15,10 @@
   ];
 
   # --- INCEPTION MODE: VM Specialisation ---
-  # This creates a second boot entry. Use this when booting as a VM.
   specialisation = {
     vm.configuration = {
       system.nixos.tags = ["vm"];
-
-      # Force QEMU Guest Agent inside the VM
       services.qemuGuest.enable = true;
-
-      # In VM mode, we might want to ensure PCI passthrough drivers are happy
-      # But generally, the main config handles the Arc GPU.
-      # If you need specific VM-only kernel params, add them here:
-      # boot.kernelParams = [ "example_param_for_vm" ];
       system.activationScripts.update-bootloader = ''
         echo "Updating Virtual EFI Bootloader..."
         /nix/var/nix/profiles/system/bin/switch-to-configuration boot
@@ -38,17 +30,15 @@
     hyprland = {
       enable = true;
     };
-    # Configure VNC here
     vnc = {
       enable = true;
-      secure = true; # Set to false if bootstrapping a new host without keys
-      openFirewall = false; # Tailscale trusted only
+      secure = true;
+      openFirewall = false;
     };
     tailscale = {
       enable = true;
       tpmOverride = true;
     };
-
     nixCaches = {
       enable = true;
       profile = "internal";
@@ -60,13 +50,29 @@
     };
   };
 
+  # Keep persistent logs just in case
+  services.journald.extraConfig = "Storage=persistent";
+
   boot = {
     kernelPackages = pkgs.linuxPackages_latest;
-    # Essential for Arc A310
+
+    # --- KERNEL PARAMS ---
     kernelParams = [
+      # Intel Arc Requirements
       "i915.force_probe=56a6"
-      "i915.enable_guc=3"
+      # "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+
+      # Suspend/Crash Fixes
+      "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
+      "nowatchdog" # Disable watchdog timers that might bite during wake
     ];
+
+    # Blacklist modules known to crash on wake on AMD/Intel mix
+    blacklistedKernelModules = [
+      "sp5100_tco" # AMD Watchdog - notorious for wake crashes
+      "iTCO_wdt" # Intel Watchdog
+    ];
+
     initrd.kernelModules = ["i915"];
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
@@ -77,7 +83,6 @@
     bluetooth.enable = true;
     graphics = {
       enable = true;
-      # enable32Bit = true; # (Uncomment if needed, 'hardware.opengl' is deprecated in newer nixpkgs for 'hardware.graphics')
     };
     logitech.wireless = {
       enable = true;
@@ -96,12 +101,6 @@
 
   services = {
     fstrim.enable = true;
-    # xserver = {
-    #   enable = true;
-    #   xkb.layout = "us";
-    # };
-    # displayManager.gdm.enable = true;
-    # desktopManager.gnome.enable = true;
     printing.enable = true;
     pulseaudio.enable = false;
     pipewire = {
@@ -111,17 +110,14 @@
       pulse.enable = true;
     };
     openssh.enable = true;
-    # The agent is enabled in the specialisation, but safe to leave here too
     qemuGuest.enable = true;
-    # 1. Force SDDM to use X11 (required for xrandr to work)
+
     displayManager.sddm.wayland.enable = lib.mkForce false;
-    # Force SDDM to autologin into Hyprland session as abl030
     displayManager.autoLogin = {
       enable = true;
       user = "abl030";
     };
-    # 2. Apply Monitor Layout via XServer Display Manager
-    # Note: This runs before the login screen appears.
+
     xserver.displayManager.setupCommands = ''
       ${pkgs.xorg.xrandr}/bin/xrandr --auto
       ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1920x1080 --rotate right --pos 0x0

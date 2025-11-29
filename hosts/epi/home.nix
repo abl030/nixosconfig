@@ -15,7 +15,7 @@
     hypridle = {
       enable = true;
       lockTimeout = 300; # 5 Minutes
-      # suspendTimeout = 900; # 15 Minutes (Default, but disabled in logic)
+      suspendTimeout = 900; # 15 Minutes (Default, but disabled in logic)
     };
     vnc = {
       enable = true;
