@@ -63,10 +63,10 @@ in {
       }
 
       # 3. Suspend (${toString cfg.suspendTimeout}s)
-      # listener {
-      #     timeout = ${toString cfg.suspendTimeout}
-      #     on-timeout = systemctl suspend
-      # }
+      listener {
+          timeout = ${toString cfg.suspendTimeout}
+          on-timeout = systemctl suspend
+      }
     '';
   };
 }
