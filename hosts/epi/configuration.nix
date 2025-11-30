@@ -54,7 +54,7 @@
   services.journald.extraConfig = "Storage=persistent";
 
   boot = {
-    kernelPackages = pkgs.linuxPackages_latest;
+    # kernelPackages = pkgs.linuxPackages_latest;
 
     # --- KERNEL PARAMS ---
     kernelParams = [
