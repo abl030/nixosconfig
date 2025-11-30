@@ -21,6 +21,7 @@
     pkgs.ansible
     pkgs.tldr
     pkgs.beets
+    pkgs.wl-clipboard
 
     # Rust Utils
     pkgs.fzf
