@@ -26,18 +26,20 @@
     # Hyprland - Bleeding edge
     # We do NOT follow nixpkgs here to ensure we use the cached binaries and the pinned Mesa version
     # that Hyprland CI verified.
+    # EDIT: We now follow nixpkgs to avoid dependency bloat and build failures.
     hyprland = {
       url = "github:hyprwm/Hyprland";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     hyprlock = {
       url = "github:hyprwm/hyprlock";
-      inputs.nixpkgs.follows = "hyprland/nixpkgs"; # <--- CRITICAL: Use same pkgs as Hyprland
+      inputs.nixpkgs.follows = "nixpkgs"; # <--- CRITICAL: Use same pkgs as Hyprland
     };
 
     hypridle = {
       url = "github:hyprwm/hypridle";
-      inputs.nixpkgs.follows = "hyprland/nixpkgs"; # <--- CRITICAL
+      inputs.nixpkgs.follows = "nixpkgs"; # <--- CRITICAL
     };
     # plasma-manager = {
     #   url = "github:nix-community/plasma-manager";

@@ -25,7 +25,7 @@ with lib; let
     else "rgb(${hexNoHash})";
 in {
   imports = [
-    inputs.hyprland.homeManagerModules.default
+    # inputs.hyprland.homeManagerModules.default # Removed to use standard HM module + pkgs.hyprland
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
@@ -49,7 +49,6 @@ in {
         wofi
         dunst
         libnotify
-        # hyprlock removed from here, added below via inputs
 
         # Utilities
         wl-clipboard
@@ -63,7 +62,8 @@ in {
       ]
       ++ [
         # Use Hyprlock from flake input to match graphics drivers
-        inputs.hyprlock.packages.${pkgs.system}.hyprlock
+        # inputs.hyprlock.packages.${pkgs.system}.hyprlock
+        pkgs.hyprlock
       ]
       ++ optionals vncCfg.enable [wayvnc];
 
@@ -71,7 +71,7 @@ in {
     # NOTE: "auth" block requires very recent hyprlock, which the flake input provides.
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
-        immediate_render = true
+        immediate_render = false   # FIX: Intel Arc stability
         hide_cursor = false
       }
       auth {
@@ -80,6 +80,8 @@ in {
       }
       background {
         monitor =
+        # path = screenshot
+        blur_passes = 0            # FIX: Disable blur for Intel Arc
         color = ${rgb "" colors.background}
       }
       input-field {
@@ -91,7 +93,10 @@ in {
         outer_color = ${rgb "" colors.primary}
         inner_color = ${rgb "" colors.backgroundAlt}
         font_color = ${rgb "" colors.foreground}
+
         fade_on_empty = false
+        shadow_passes = 0          # FIX: Disable shadows for Intel Arc
+
         placeholder_text = Input Password...
       }
       label {
@@ -108,8 +113,8 @@ in {
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
-      package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
-      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+      package = pkgs.hyprland; # inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+      portalPackage = pkgs.xdg-desktop-portal-hyprland; # inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 
       settings = {
         "$mod" = "SUPER";
@@ -118,7 +123,9 @@ in {
 
         exec-once =
           [
-            "hyprlock --immediate-render"
+            # FIX: Force CPU rendering on startup
+            "WLR_RENDERER=pixman hyprlock"
+
             "waybar"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --watch cliphist store"

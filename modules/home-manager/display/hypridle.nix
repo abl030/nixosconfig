@@ -2,7 +2,7 @@
   lib,
   config,
   pkgs,
-  inputs, # <--- Add inputs here
+  inputs,
   ...
 }:
 with lib; let
@@ -26,7 +26,8 @@ in {
 
   config = mkIf cfg.enable {
     # Use the flake package that matches your graphics drivers
-    home.packages = [inputs.hypridle.packages.${pkgs.system}.hypridle];
+    # home.packages = [inputs.hypridle.packages.${pkgs.system}.hypridle];
+    home.packages = [pkgs.hypridle];
 
     # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
     wayland.windowManager.hyprland.settings.windowrulev2 = [
@@ -36,14 +37,15 @@ in {
 
     xdg.configFile."hypr/hypridle.conf".text = ''
       general {
-          # Avoid starting multiple hyprlock instances.
-          lock_cmd = pidof hyprlock || hyprlock
+          # FIX: Force CPU rendering (Pixman) for Intel Arc stability
+          lock_cmd = pidof hyprlock || WLR_RENDERER=pixman hyprlock
 
           # Lock before suspend.
           before_sleep_cmd = loginctl lock-session
 
           # Turn on display after sleep.
-          after_sleep_cmd = hyprctl dispatch dpms on
+          # Workaround: Run user-provided recovery commands for hyprlock crashes on resume
+          after_sleep_cmd = hyprctl dispatch dpms on; hyprctl keyword misc:allow_session_lock_restore 1; hyprctl dispatch exec hyprlock
 
           # Required for Firefox/MPV to inhibit idle
           ignore_dbus_inhibit = false
