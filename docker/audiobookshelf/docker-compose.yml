@@ -22,4 +22,3 @@ services:
     labels:
       # REQUIRED: Label for autoheal to find this container
       - autoheal=true
-      - kuma.docker.name=audiobookshelf

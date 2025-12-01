@@ -22,8 +22,6 @@ services:
   webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=webserver
     depends_on:
       - db
       - broker

@@ -7,8 +7,6 @@ services:
       dockerfile: Dockerfile
     container_name: domain-monitor-app
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=domain-monitor-app
     volumes:
       - ${DOMAIN_MONITOR_SRC}:/usr/src/domain-monitor:ro
       - /mnt/docker/domain-monitor/www:/var/www/html

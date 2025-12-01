@@ -4,8 +4,6 @@ services:
     image: ghcr.io/tautulli/tautulli
     container_name: tautulli
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=tautulli
     volumes:
       - /mnt/docker/tautulli/:/config
     environment:

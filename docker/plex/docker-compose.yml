@@ -54,8 +54,6 @@ services:
       # Pass through the GPU for hardware transcoding, same as Jellyfin
       - /dev/dri:/dev/dri
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=plex
     depends_on:
       - plex-network-holder
 
