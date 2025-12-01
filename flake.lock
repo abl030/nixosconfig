@@ -33,6 +33,22 @@
         "type": "github"
       }
     },
+    "domain-monitor-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1763746791,
+        "narHash": "sha256-oF5s18N8TaOXakjhtGmF10PtDsuDoNNepy7REUNE2Ts=",
+        "owner": "Hosteroid",
+        "repo": "domain-monitor",
+        "rev": "bcd956a495858e6f6f14cc8929ef613f264f72b5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Hosteroid",
+        "repo": "domain-monitor",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -1142,6 +1158,7 @@
     },
     "root": {
       "inputs": {
+        "domain-monitor-src": "domain-monitor-src",
         "flake-parts": "flake-parts",
         "fzf-preview": "fzf-preview",
         "gaj-shared": "gaj-shared",

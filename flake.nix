@@ -11,6 +11,11 @@
     #nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
+    domain-monitor-src = {
+      url = "github:Hosteroid/domain-monitor";
+      flake = false;
+    };
+
     #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
