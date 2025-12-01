@@ -26,6 +26,7 @@
     ../../docker/smokeping/docker-compose.nix
     ../../docker/tautulli/docker-compose.nix
     ../../docker/invoices/docker-compose.nix
+    ../../docker/domain-monitor/docker-compose.nix
   ];
 
   homelab = {
