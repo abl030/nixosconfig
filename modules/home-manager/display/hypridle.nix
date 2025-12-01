@@ -2,7 +2,6 @@
   lib,
   config,
   pkgs,
-  inputs, # <--- Add inputs here
   ...
 }:
 with lib; let
@@ -25,8 +24,8 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Use the flake package that matches your graphics drivers
-    home.packages = [inputs.hypridle.packages.${pkgs.system}.hypridle];
+    # Use the standard package from nixpkgs
+    home.packages = [pkgs.hypridle];
 
     # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
     wayland.windowManager.hyprland.settings.windowrulev2 = [

@@ -2,7 +2,6 @@
   lib,
   config,
   pkgs,
-  inputs,
   ...
 }:
 with lib; let
@@ -25,7 +24,7 @@ with lib; let
     else "rgb(${hexNoHash})";
 in {
   imports = [
-    inputs.hyprland.homeManagerModules.default
+    # inputs.hyprland.homeManagerModules.default # DISABLED: Use standard HM module to avoid flake build issues
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
@@ -49,7 +48,10 @@ in {
         wofi
         dunst
         libnotify
-        # hyprlock removed from here, added below via inputs
+
+        # System Settings GUIs
+        pavucontrol # Audio Control
+        blueman # Bluetooth Manager
 
         # Utilities
         wl-clipboard
@@ -62,13 +64,12 @@ in {
         kdePackages.polkit-kde-agent-1
       ]
       ++ [
-        # Use Hyprlock from flake input to match graphics drivers
-        inputs.hyprlock.packages.${pkgs.system}.hyprlock
+        # Use Standard Hyprlock from nixpkgs
+        pkgs.hyprlock
       ]
       ++ optionals vncCfg.enable [wayvnc];
 
     # 2. Configure Hyprlock
-    # NOTE: "auth" block requires very recent hyprlock, which the flake input provides.
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
         immediate_render = true
@@ -108,8 +109,9 @@ in {
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
-      package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
-      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+      # Use system packages (cached) instead of flake inputs (compiling)
+      package = pkgs.hyprland;
+      portalPackage = pkgs.xdg-desktop-portal-hyprland;
 
       settings = {
         "$mod" = "SUPER";
@@ -122,6 +124,7 @@ in {
             "waybar"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --watch cliphist store"
+            "blueman-applet" # Starts the bluetooth tray icon
           ]
           ++ optionals idleCfg.enable ["hypridle"]
           ++ optionals paperCfg.enable ["hyprpaper"]
@@ -191,35 +194,39 @@ in {
           "$mod SHIFT, F, exec, dolphin"
           "$mod, M, exit,"
 
-          # Utilities
+          # Quick Settings
+          "$mod, A, exec, pavucontrol" # Audio Settings
+          "$mod, B, exec, blueman-manager" # Bluetooth Settings
+
+          # Window Management
+          "$mod, Q, killactive," # Changed from W to Q
+          "$mod, F, fullscreen,"
+          "$mod, T, togglefloating,"
+          "$mod, O, pseudo,"
+          "$mod, U, togglesplit," # Changed from J to U (to free up J)
+          "$mod, G, togglegroup,"
+
+          # Clipboard / Screenshots
           "$mod, V, exec, cliphist list | wofi --dmenu | cliphist decode | wl-copy"
           "$mod, P, exec, hyprpicker -a"
           ", Print, exec, grim -g \"$(slurp)\" - | wl-copy"
           "SHIFT, Print, exec, grim -g \"$(slurp)\" ~/Pictures/Screenshots/$(date +'%Y%m%d_%H%M%S').png"
 
-          # Window Management
-          "$mod, W, killactive,"
-          "$mod, F, fullscreen,"
-          "$mod, T, togglefloating,"
-          "$mod, O, pseudo,"
-          "$mod, J, togglesplit,"
-          "$mod, G, togglegroup,"
-
           # Scratchpad
           "$mod, S, togglespecialworkspace, magic"
           "$mod ALT, S, movetoworkspace, special:magic"
 
-          # Focus
-          "$mod, left, movefocus, l"
-          "$mod, right, movefocus, r"
-          "$mod, up, movefocus, u"
-          "$mod, down, movefocus, d"
+          # Focus (Vim Style)
+          "$mod, H, movefocus, l"
+          "$mod, L, movefocus, r"
+          "$mod, K, movefocus, u"
+          "$mod, J, movefocus, d"
 
-          # Move Window
-          "$mod SHIFT, left, movewindow, l"
-          "$mod SHIFT, right, movewindow, r"
-          "$mod SHIFT, up, movewindow, u"
-          "$mod SHIFT, down, movewindow, d"
+          # Move Window (Vim Style)
+          "$mod SHIFT, H, movewindow, l"
+          "$mod SHIFT, L, movewindow, r"
+          "$mod SHIFT, K, movewindow, u"
+          "$mod SHIFT, J, movewindow, d"
 
           # Workspaces
           "$mod, 1, workspace, 1"
