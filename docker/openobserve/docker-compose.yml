@@ -6,8 +6,6 @@ services:
     image: public.ecr.aws/zinclabs/openobserve:latest-simd
     container_name: openobserve
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=openobserve
     ports:
       # Exposes the OpenObserve UI and API on port 5080
       - "5080:5080"

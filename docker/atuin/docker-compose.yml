@@ -2,8 +2,6 @@ version: "3.5"
 services:
   atuin:
     restart: always
-    labels:
-      - kuma.docker.name=atuin
     image: ghcr.io/atuinsh/atuin:latest
     command: server start
     volumes:

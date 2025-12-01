@@ -37,8 +37,6 @@ services:
     devices:
       - /dev/dri:/dev/dri
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=jellyfin
     deploy:
       resources:
         limits:
@@ -137,8 +135,6 @@ services:
     image: "cyfershepard/jellystat:latest"
     container_name: jellystat
     restart: unless-stopped
-    labels:
-      - kuma.docker.name=jellystat
     ports:
       - "3000:3000"
     environment:
