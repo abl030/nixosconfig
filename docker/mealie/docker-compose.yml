@@ -3,6 +3,8 @@ services:
     image: ghcr.io/mealie-recipes/mealie:v2.8.0
     container_name: mealie
     restart: always
+    labels:
+      - kuma.docker.name=mealie
     ports:
       - "9925:9000"
     deploy:
