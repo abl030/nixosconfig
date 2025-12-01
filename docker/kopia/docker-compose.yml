@@ -5,6 +5,8 @@ services:
     hostname: kopia
     container_name: kopiaphotos
     restart: always
+    labels:
+      - kuma.docker.name=kopiaphotos
     ports:
       - 51515:51515
     command:
@@ -35,6 +37,8 @@ services:
     hostname: kopia
     container_name: kopiamum
     restart: always
+    labels:
+      - kuma.docker.name=kopiamum
     ports:
       - 51516:51515
     command:
