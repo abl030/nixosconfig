@@ -76,6 +76,8 @@ services:
     volumes:
       - "graylog_data:/usr/share/graylog/data/data"
     restart: "on-failure"
+    labels:
+      - kuma.docker.name=graylog
 
 networks:
   graylog:

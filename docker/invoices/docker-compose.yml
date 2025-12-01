@@ -64,6 +64,8 @@ services:
     hostname: docspell-restserver
     container_name: docspell-restserver
     restart: unless-stopped
+    labels:
+      - kuma.docker.name=docspell-restserver
     environment:
       TZ: "Australia/Perth"
       DOCSPELL_SERVER_INTERNAL__URL: "http://docspell-restserver:7880"
@@ -169,6 +171,8 @@ services:
     hostname: ff-app
     container_name: firefly_iii_core
     restart: unless-stopped
+    labels:
+      - kuma.docker.name=firefly_iii_core
     environment:
       # App basics
       APP_ENV: production

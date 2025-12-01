@@ -24,6 +24,8 @@ services:
       immich-network-holder:
         condition: service_started
     restart: unless-stopped
+    labels:
+      - kuma.docker.name=immich-server
     healthcheck:
       test: ["CMD-SHELL", "test -d /usr/src/app/upload"]
       interval: 30s

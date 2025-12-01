@@ -2,6 +2,8 @@ version: "3.3"
 services:
   stirling-pdf:
     image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
+    labels:
+      - kuma.docker.name=stirling-pdf
     ports:
       - "8083:8080"
     volumes:

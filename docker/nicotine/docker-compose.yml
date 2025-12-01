@@ -30,6 +30,8 @@ services:
       # - TZ=Etc/UTC # Or your specific timezone
 
     restart: unless-stopped # Automatically restart the container unless it's stopped manually
+    labels:
+      - kuma.docker.name=nicotine-plus
 
 
     # Other Unraid XML parameters like <Privileged>false</Privileged> are default in Docker

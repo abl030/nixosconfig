@@ -16,6 +16,8 @@ services:
       PGID: 33
       UMASK: "0000"
     restart: unless-stopped
+    labels:
+      - kuma.docker.name=webdav
     healthcheck:
       # The command to run to check health. 'stat' is a lightweight way
       # to check if a directory is accessible. If the NFS mount is stale,

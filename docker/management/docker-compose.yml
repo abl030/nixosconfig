@@ -35,6 +35,8 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     restart: unless-stopped
+    labels:
+      - kuma.docker.name=dozzle
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /mnt/docker/dozzle/data:/data
