@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - /mnt/docker/uptime-kuma:/app/data
+      - /etc/localtime:/etc/localtime:ro
+      # Required to monitor local Docker containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3002:3001"
