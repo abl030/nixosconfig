@@ -33,6 +33,7 @@
     # that Hyprland CI verified.
     hyprland = {
       url = "github:hyprwm/Hyprland";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     hyprlock = {
