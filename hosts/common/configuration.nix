@@ -102,6 +102,7 @@
     pkgs.xorg.xauth
     pkgs.home-manager
     pkgs.parted
+    pkgs.killall
   ];
   # need to run fc-cache -fv to update font fc-cache
 
