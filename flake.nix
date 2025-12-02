@@ -46,6 +46,12 @@
       flake = false;
     };
 
+    # Spicetify for Spotify Theming
+    spicetify-nix = {
+      url = "github:Gerg-L/spicetify-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Structure helper
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
@@ -76,6 +82,7 @@
         pkgs = import nixpkgs {
           inherit system;
           inherit overlays;
+          config.allowUnfree = true; # Ensure unfree is allowed for Spotify
         };
 
         hosts = import ./hosts.nix;
