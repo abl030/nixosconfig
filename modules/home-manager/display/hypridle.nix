@@ -1,4 +1,15 @@
 # modules/home-manager/display/hypridle.nix
+#
+# DEBUGGING HYPRLOCK CRASHES:
+# If hyprlock starts crashing, set `homelab.hypridle.debug = true;` in your home.nix.
+#
+# This will stream logs to /tmp/hyprlock.log.
+# NOTE: The script below automatically filters out high-volume "polling" noise
+# (timer threads, surface configuration, poll events) so the file remains readable.
+#
+# To watch the logs in real-time:
+#   tail -f /tmp/hyprlock.log
+#
 {
   lib,
   config,
@@ -8,11 +19,17 @@
 with lib; let
   cfg = config.homelab.hypridle;
 
-  # 1. The Debug Script (Aggressive logging, no buffering)
+  # 1. The Debug Script (Aggressive logging, filtered, no buffering)
   # Only used if cfg.debug is true
   debugScript = pkgs.writeShellScript "hyprlock-debug" ''
     echo "--- Triggered at $(date) ---" >> /tmp/hyprlock.log
-    ${pkgs.coreutils}/bin/stdbuf -o0 -e0 ${pkgs.hyprlock}/bin/hyprlock --verbose >> /tmp/hyprlock.log 2>&1
+
+    # We pipe hyprlock output to grep to filter noise before writing to disk.
+    # --line-buffered ensures we don't lose the last line (the crash) in a buffer.
+    # Added "got poll event" to the exclusion list.
+    ${pkgs.coreutils}/bin/stdbuf -o0 -e0 ${pkgs.hyprlock}/bin/hyprlock --verbose 2>&1 \
+      | ${pkgs.gnugrep}/bin/grep --line-buffered -vE "timer thread firing|output .* done|configure with serial|Configuring surface|got poll event" \
+      >> /tmp/hyprlock.log
   '';
 
   # 2. The Standard Command (Clean, checks for existing instances)
