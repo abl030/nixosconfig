@@ -4,11 +4,16 @@
     ../../home/utils/common.nix
     ../../home/utils/desktop.nix
     ../../home/display_managers/gnome.nix
+    ../../modules/home-manager/multimedia/spicetify.nix # Import the new module
     ./epi_home_specific.nix
   ];
 
   homelab = {
     hyprland = {
+      enable = true;
+    };
+    # Enable Spicetify with our theme
+    spicetify = {
       enable = true;
     };
     # Enable Hypridle
