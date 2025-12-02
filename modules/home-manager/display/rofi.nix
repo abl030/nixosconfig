@@ -6,9 +6,9 @@
 }:
 with lib; let
   cfg = config.homelab.rofi;
-  colors = config.homelab.theme.colors;
+  inherit (config.homelab.theme) colors;
 
-  inherit (colors) background backgroundAlt foreground primary secondary urgent border;
+  inherit (colors) background backgroundAlt foreground primary secondary border;
 in {
   options.homelab.rofi = {
     enable = mkEnableOption "Enable Rofi (App Launcher)";
