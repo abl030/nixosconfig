@@ -11,6 +11,41 @@ local plugins = {
 	-- 	event = { "BufRead", "BufNewFile" },
 	-- },
 
+	-- OSC52 Clipboard Provider for Ghostty/Windows Terminal
+	{
+		"ojroques/nvim-osc52",
+		lazy = false, -- Must load at startup to register provider before usage
+		config = function()
+			local osc52 = require("osc52")
+			osc52.setup({
+				max_length = 0, -- Unlimited length
+				silent = true, -- No message on copy
+				trim = false, -- Don't trim whitespace
+			})
+
+			-- Configure the clipboard provider to use OSC 52
+			local function copy(lines, _)
+				osc52.copy(table.concat(lines, "\n"))
+			end
+
+			local function paste()
+				-- OSC 52 is generally write-only for security.
+				-- We return the internal register content as a fallback.
+				-- To paste FROM Windows/Ghostty, use your terminal's paste key (Ctrl+V / Shift+Insert).
+				return { vim.fn.split(vim.fn.getreg(""), "\n"), vim.fn.getregtype("") }
+			end
+
+			vim.g.clipboard = {
+				name = "osc52",
+				copy = { ["+"] = copy, ["*"] = copy },
+				paste = { ["+"] = paste, ["*"] = paste },
+			}
+
+			-- NOW we enable the clipboard option, ensuring the provider is already set.
+			vim.opt.clipboard = "unnamedplus"
+		end,
+	},
+
 	{
 		"backdround/improved-ft.nvim",
 		opts = function()

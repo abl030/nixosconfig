@@ -6,7 +6,8 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	end,
 })
 
--- This just forces nvim to use the clipboard all the time. I am unsure if this is the best method
+-- DISABLE HERE: We handle this in plugins/plugins.lua inside the osc52 config
+-- to prevent Neovim from defaulting to xclip before the plugin loads.
 -- vim.opt.clipboard = "unnamedplus"
 
 --This sources our crusty old vimrc that needs to be updated
