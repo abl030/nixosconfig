@@ -93,8 +93,7 @@ in {
           before_sleep_cmd = loginctl lock-session
 
           # Turn on display after sleep.
-          # Workaround: Run user-provided recovery commands for hyprlock crashes on resume
-          after_sleep_cmd = hyprctl dispatch dpms on; wait 10; hyprctl keyword misc:allow_session_lock_restore 1; hyprctl dispatch exec ${finalRestoreCmd}
+          after_sleep_cmd = hyprctl dispatch dpms on
 
           ignore_dbus_inhibit = false
       }
