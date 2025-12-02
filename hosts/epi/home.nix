@@ -4,7 +4,8 @@
     ../../home/utils/common.nix
     ../../home/utils/desktop.nix
     ../../home/display_managers/gnome.nix
-    ../../modules/home-manager/multimedia/spicetify.nix # Import the new module
+    ../../modules/home-manager/multimedia/spicetify.nix
+    ../../modules/home-manager/display/rofi.nix # <-- Import new module
     ./epi_home_specific.nix
   ];
 
@@ -12,15 +13,16 @@
     hyprland = {
       enable = true;
     };
-    # Enable Spicetify with our theme
     spicetify = {
       enable = true;
     };
-    # Enable Hypridle
+    rofi = {
+      enable = true; # <-- Enable Rofi
+    };
     hypridle = {
       enable = true;
-      lockTimeout = 300; # 5 Minutes
-      suspendTimeout = 900; # 15 Minutes (Default, but disabled in logic)
+      lockTimeout = 300;
+      suspendTimeout = 900;
     };
     vnc = {
       enable = true;
