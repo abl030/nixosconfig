@@ -10,7 +10,6 @@ with lib; let
   idleCfg = config.homelab.hypridle or {enable = false;};
   paperCfg = config.homelab.hyprpaper or {enable = false;};
 
-  # Inherit colors to satisfy statix
   inherit (config.homelab.theme) colors;
 
   rgb = alpha: hex: let
@@ -24,7 +23,6 @@ with lib; let
     else "rgb(${hexNoHash})";
 in {
   imports = [
-    # inputs.hyprland.homeManagerModules.default # DISABLED: Use standard HM module to avoid flake build issues
     ./theme.nix
     ./waybar.nix
     ./wayvnc.nix
@@ -45,13 +43,13 @@ in {
       [
         # Core
         ghostty
-        wofi
+        # wofi    <-- REMOVED
         dunst
         libnotify
 
         # System Settings GUIs
-        pavucontrol # Audio Control
-        blueman # Bluetooth Manager
+        pavucontrol
+        blueman
 
         # Utilities
         wl-clipboard
@@ -64,7 +62,6 @@ in {
         kdePackages.polkit-kde-agent-1
       ]
       ++ [
-        # Use Standard Hyprlock from nixpkgs
         pkgs.hyprlock
       ]
       ++ optionals vncCfg.enable [wayvnc];
@@ -109,14 +106,13 @@ in {
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
-      # Use system packages (cached) instead of flake inputs (compiling)
       package = pkgs.hyprland;
       portalPackage = pkgs.xdg-desktop-portal-hyprland;
 
       settings = {
         "$mod" = "SUPER";
         "$terminal" = "ghostty";
-        "$menu" = "wofi --show drun";
+        "$menu" = "rofi -show drun"; # <-- UPDATED
 
         exec-once =
           [
@@ -124,7 +120,7 @@ in {
             "waybar"
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --watch cliphist store"
-            "blueman-applet" # Starts the bluetooth tray icon
+            "blueman-applet"
           ]
           ++ optionals idleCfg.enable ["hypridle"]
           ++ optionals paperCfg.enable ["hyprpaper"]
@@ -195,19 +191,20 @@ in {
           "$mod, M, exit,"
 
           # Quick Settings
-          "$mod, A, exec, pavucontrol" # Audio Settings
-          "$mod, B, exec, blueman-manager" # Bluetooth Settings
+          "$mod, A, exec, pavucontrol"
+          "$mod, B, exec, blueman-manager"
 
           # Window Management
-          "$mod, Q, killactive," # Changed from W to Q
+          "$mod, Q, killactive,"
           "$mod, F, fullscreen,"
           "$mod, T, togglefloating,"
           "$mod, O, pseudo,"
-          "$mod, U, togglesplit," # Changed from J to U (to free up J)
+          "$mod, U, togglesplit,"
           "$mod, G, togglegroup,"
 
           # Clipboard / Screenshots
-          "$mod, V, exec, cliphist list | wofi --dmenu | cliphist decode | wl-copy"
+          # UPDATED: Use Rofi for clipboard history
+          "$mod, V, exec, cliphist list | rofi -dmenu | cliphist decode | wl-copy"
           "$mod, P, exec, hyprpicker -a"
           ", Print, exec, grim -g \"$(slurp)\" - | wl-copy"
           "SHIFT, Print, exec, grim -g \"$(slurp)\" ~/Pictures/Screenshots/$(date +'%Y%m%d_%H%M%S').png"
@@ -216,13 +213,13 @@ in {
           "$mod, S, togglespecialworkspace, magic"
           "$mod ALT, S, movetoworkspace, special:magic"
 
-          # Focus (Vim Style)
+          # Focus
           "$mod, H, movefocus, l"
           "$mod, L, movefocus, r"
           "$mod, K, movefocus, u"
           "$mod, J, movefocus, d"
 
-          # Move Window (Vim Style)
+          # Move Window
           "$mod SHIFT, H, movewindow, l"
           "$mod SHIFT, L, movewindow, r"
           "$mod SHIFT, K, movewindow, u"
@@ -253,7 +250,9 @@ in {
           "$mod SHIFT, 0, movetoworkspace, 10"
 
           # Cycle Workspaces
-          "$mod, Tab, workspace, m+1"
+          # "$mod, Tab, workspace, m+1"
+          "$mod, Tab, exec, rofi -show window"
+
           "$mod SHIFT, Tab, workspace, m-1"
 
           # Scroll
