@@ -12,6 +12,41 @@ pull_dotfiles() {
     fi
 }
 
+# ──────────────────────────────────────────────────────────────────────────────
+#  CLIPBOARD SHIM - Makes 'xclip' calls work over SSH (OSC 52) and Wayland
+# ──────────────────────────────────────────────────────────────────────────────
+xclip() {
+    # If standard input is a pipe, read it; otherwise rely on args (though xclip usually reads stdin)
+    local input
+    # Check if data is being piped in
+    if [[ ! -t 0 ]]; then
+        input=$(cat)
+    else
+        # If running interactively without input, just return (or handle args if needed)
+        return 0
+    fi
+
+    if [[ -n "$SSH_CONNECTION" ]]; then
+        # OSC 52 Copy for Ghostty / Windows Terminal / iTerm
+        local b64data=$(echo -n "$input" | base64 | tr -d '\n')
+        printf "\033]52;c;%s\a" "$b64data"
+    elif [[ -n "$WAYLAND_DISPLAY" ]]; then
+        # Wayland Local
+        echo -n "$input" | wl-copy
+    else
+        # Fallback to real xclip binary
+        # We assume xclip is in the path, possibly via Nix
+        if command -v /usr/bin/xclip >/dev/null; then
+            echo -n "$input" | /usr/bin/xclip "$@"
+        elif command -v xclip >/dev/null; then
+            echo -n "$input" | command xclip "$@"
+        else
+            echo "Error: xclip binary not found" >&2
+            return 1
+        fi
+    fi
+}
+
 dc() {
     # If caller already exported a SOPS env var, respect it.
     if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" ]]; then
