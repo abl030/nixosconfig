@@ -1,4 +1,30 @@
 # modules/home-manager/display/hypridle.nix
+/*
+===================================================================================
+HYPRIDLE DEBUGGING & CRASH LOGGING
+===================================================================================
+
+We have implemented a robust debug mode for Hyprlock. When enabled, instead of
+running the binary directly, Hypridle executes a wrapper script that:
+1. Unbuffers output (stdbuf) so logs are written instantly before a crash.
+2. Redirects stderr to stdout.
+3. Filters out high-frequency noise ("poll event", "frame") using grep.
+4. Appends the clean logs to /tmp/hyprlock.log.
+
+HOW TO ENABLE:
+In your home configuration (e.g., home.nix), set:
+    homelab.hypridle = {
+      enable = true;
+      debug = true;  <-- Enable this
+    };
+
+HOW TO VIEW LOGS:
+Run this command to see the last 50 lines of the crash log:
+
+    tail -n 50 /tmp/hyprlock.log
+
+===================================================================================
+*/
 {
   lib,
   config,
