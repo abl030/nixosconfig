@@ -65,7 +65,7 @@
     kernelParams = [
       # Intel Arc Requirements
       "i915.force_probe=56a6"
-      # "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+      "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
 
       # Suspend/Crash Fixes
       "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
