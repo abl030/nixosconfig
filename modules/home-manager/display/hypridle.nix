@@ -9,13 +9,14 @@ with lib; let
   cfg = config.homelab.hypridle;
 
   # Create a dedicated script to handle the logging.
-  # This guarantees the shell environment is correct and permissions are handled.
   debugScript = pkgs.writeShellScript "hyprlock-debug" ''
-    # echo a timestamp so we know the script actually triggered
     echo "--- Triggered at $(date) ---" >> /tmp/hyprlock.log
 
-    # Run hyprlock with no buffering, appending to the log
-    ${pkgs.coreutils}/bin/stdbuf -o0 -e0 ${pkgs.hyprlock}/bin/hyprlock --verbose >> /tmp/hyprlock.log 2>&1
+    # 1. Run hyprlock unbuffered (stdbuf)
+    # 2. Redirect stderr to stdout (2>&1) so grep catches errors too
+    # 3. Filter out "poll event" and "frame" noise using line-buffered grep
+    ${pkgs.coreutils}/bin/stdbuf -o0 -e0 ${pkgs.hyprlock}/bin/hyprlock --verbose 2>&1 \
+      | ${pkgs.gnugrep}/bin/grep --line-buffered -vE "poll event|frame" >> /tmp/hyprlock.log
   '';
 in {
   options.homelab.hypridle = {
@@ -46,8 +47,6 @@ in {
 
     xdg.configFile."hypr/hypridle.conf".text = ''
       general {
-          # We removed 'pidof hyprlock ||' to force the script to run every time
-          # so we definitely get logs, even if a zombie process exists.
           lock_cmd = ${debugScript}
 
           # Lock before suspend.
