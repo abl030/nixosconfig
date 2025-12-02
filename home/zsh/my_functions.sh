@@ -304,9 +304,10 @@ commit_this() {
         return 1
     }
 
-    # Ensure we have no uncommitted changes
-    if ! git diff-index --quiet HEAD --; then
-        echo "Working tree is dirty; commit or stash first." >&2
+    # Ensure we have no uncommitted changes (including staged + untracked)
+    if [[ -n "$(git status --porcelain=v1)" ]]; then
+        echo "Working tree is dirty; commit or stash first. Offending paths:" >&2
+        git status --short >&2
         return 1
     fi
 
