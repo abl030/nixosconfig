@@ -69,7 +69,7 @@ in {
     # 2. Configure Hyprlock
     xdg.configFile."hypr/hyprlock.conf".text = ''
       general {
-        immediate_render = true
+        immediate_render = false
         hide_cursor = false
       }
       auth {

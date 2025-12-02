@@ -23,6 +23,7 @@
       enable = true;
       lockTimeout = 300;
       suspendTimeout = 900;
+      debug = false;
     };
     vnc = {
       enable = true;
