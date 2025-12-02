@@ -68,8 +68,8 @@
       "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
 
       # Suspend/Crash Fixes
-      "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
-      "nowatchdog" # Disable watchdog timers that might bite during wake
+      # "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
+      # "nowatchdog" # Disable watchdog timers that might bite during wake
     ];
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
