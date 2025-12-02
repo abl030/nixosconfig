@@ -7,7 +7,7 @@
 }:
 with lib; let
   cfg = config.homelab.spicetify;
-  colors = config.homelab.theme.colors;
+  inherit (config.homelab.theme) colors;
 
   # Safe helper to remove the '#' from hex codes
   stripHash = hex: lib.removePrefix "#" hex;
