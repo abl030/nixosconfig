@@ -250,7 +250,9 @@ in {
           "$mod SHIFT, 0, movetoworkspace, 10"
 
           # Cycle Workspaces
-          "$mod, Tab, workspace, m+1"
+          # "$mod, Tab, workspace, m+1"
+          "$mod, Tab, exec, rofi -show window"
+
           "$mod SHIFT, Tab, workspace, m-1"
 
           # Scroll
