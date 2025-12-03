@@ -13,6 +13,10 @@
     hyprland = {
       enable = true;
     };
+    hyprpaper = {
+      enable = true;
+      wallpaper = ../../modules/home-manager/display/back.jpg;
+    };
     spicetify = {
       enable = true;
     };

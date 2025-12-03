@@ -48,13 +48,12 @@ with lib; let
     if cfg.debug
     then "${debugScript}"
     else "pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock";
-
   # 3. Logic for the "Restore" command (used in after_sleep_cmd)
   #    We want to use the debug script there too if debugging is on.
-  finalRestoreCmd =
-    if cfg.debug
-    then "${debugScript}"
-    else "${pkgs.hyprlock}/bin/hyprlock";
+  #   finalRestoreCmd =
+  #     if cfg.debug
+  #     then "${debugScript}"
+  #     else "${pkgs.hyprlock}/bin/hyprlock";
 in {
   options.homelab.hypridle = {
     enable = mkEnableOption "Enable Hypridle idle daemon";
@@ -93,8 +92,7 @@ in {
           before_sleep_cmd = loginctl lock-session
 
           # Turn on display after sleep.
-          # Workaround: Run user-provided recovery commands for hyprlock crashes on resume
-          after_sleep_cmd = hyprctl dispatch dpms on; wait 10; hyprctl keyword misc:allow_session_lock_restore 1; hyprctl dispatch exec ${finalRestoreCmd}
+          after_sleep_cmd = hyprctl dispatch dpms on
 
           ignore_dbus_inhibit = false
       }
