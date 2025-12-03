@@ -51,10 +51,6 @@ with lib; let
 
   # 3. Logic for the "Restore" command (used in after_sleep_cmd)
   #    We want to use the debug script there too if debugging is on.
-  finalRestoreCmd =
-    if cfg.debug
-    then "${debugScript}"
-    else "${pkgs.hyprlock}/bin/hyprlock";
 in {
   options.homelab.hypridle = {
     enable = mkEnableOption "Enable Hypridle idle daemon";
