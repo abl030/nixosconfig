@@ -55,6 +55,26 @@ with lib; let
     if cfg.debug
     then "${debugScript}"
     else "${pkgs.hyprlock}/bin/hyprlock";
+
+  # 4. Suspend Loop Script (Generic Retry Logic)
+  #    Attempts to suspend. If systemctl fails (due to inhibitors), it waits
+  #    the full timeout duration again before retrying.
+  suspendScript = pkgs.writeShellScript "hypridle-suspend-loop" ''
+    TIMEOUT=${toString cfg.suspendTimeout}
+
+    while true; do
+      if systemctl suspend; then
+        # If suspend succeeds, the system sleeps. The script pauses here.
+        # When woken, 'on-resume' (below) kills this script.
+        # If we somehow get here without being killed, exit cleanly.
+        exit 0
+      else
+        # If suspend failed (inhibited), wait and retry.
+        echo "Suspend failed/inhibited. Retrying in $TIMEOUT seconds..."
+        sleep $TIMEOUT
+      fi
+    done
+  '';
 in {
   options.homelab.hypridle = {
     enable = mkEnableOption "Enable Hypridle idle daemon";
@@ -76,7 +96,12 @@ in {
 
   config = mkIf cfg.enable {
     # Use the standard package from nixpkgs
-    home.packages = [pkgs.hypridle];
+    # Added brightnessctl for dimming, procps for pkill in on-resume
+    home.packages = [
+      pkgs.hypridle
+      pkgs.brightnessctl
+      pkgs.procps
+    ];
 
     # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
     wayland.windowManager.hyprland.settings.windowrulev2 = [
@@ -104,17 +129,22 @@ in {
           on-timeout = ${finalLockCmd}
       }
 
-      # 2. Screen Off (Lock time + 30s)
+      # 2. Dim Screen (Lock time - 30s)
+      # Replaced DPMS off (which was causing crashes) with a brightness warning.
+      # This dims the screen to 10% to suggest we are going idle.
       listener {
-          timeout = ${toString (cfg.lockTimeout + 30)}
-          on-timeout = hyprctl dispatch dpms off
-          on-resume = hyprctl dispatch dpms on
+          timeout = ${toString (cfg.lockTimeout - 30)}
+          on-timeout = ${pkgs.brightnessctl}/bin/brightnessctl -s set 10%
+          on-resume = ${pkgs.brightnessctl}/bin/brightnessctl -r
       }
 
       # 3. Suspend (${toString cfg.suspendTimeout}s)
+      # Executes the loop script. If blocked by inhibitors, it retries every ${toString cfg.suspendTimeout}s.
+      # We kill the script on resume so it doesn't loop forever after wake.
       listener {
           timeout = ${toString cfg.suspendTimeout}
-          on-timeout = systemctl suspend
+          on-timeout = ${suspendScript}
+          on-resume = ${pkgs.procps}/bin/pkill -f hypridle-suspend-loop
       }
     '';
   };
