@@ -62,6 +62,9 @@
       # Suspend/Crash Fixes
       # "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
       # "nowatchdog" # Disable watchdog timers that might bite during wake
+      "video=HDMI-A-2:1920x1080@75e"
+      "video=DP-3:2560x1440@144e"
+      "video=HDMI-A-3:1920x1080@60e"
     ];
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
