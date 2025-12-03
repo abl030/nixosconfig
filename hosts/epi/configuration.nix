@@ -9,8 +9,8 @@
     ../services/nvidia/intel.nix
     ../common/configuration.nix
     ../common/desktop.nix
-    ../services/display/sunshine.nix
-    ../services/display/gnome-remote-desktop.nix
+    # ../services/display/sunshine.nix
+    # ../services/display/gnome-remote-desktop.nix
     ../services/system/remote_desktop_nosleep.nix
   ];
 
