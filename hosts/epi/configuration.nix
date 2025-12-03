@@ -9,8 +9,8 @@
     ../services/nvidia/intel.nix
     ../common/configuration.nix
     ../common/desktop.nix
-    ../services/display/sunshine.nix
-    ../services/display/gnome-remote-desktop.nix
+    # ../services/display/sunshine.nix
+    # ../services/display/gnome-remote-desktop.nix
     ../services/system/remote_desktop_nosleep.nix
   ];
 
@@ -50,14 +50,6 @@
     };
   };
 
-  # Keep persistent logs just in case
-  services = {
-    journald.extraConfig = "Storage=persistent";
-    udev.extraRules = ''      # Block internal Intel Bluetooth (8087:0025) so the system uses the TP-Link
-          SUBSYSTEM=="usb", ATTRS{idVendor}=="8087", ATTRS{idProduct}=="0025", ATTR{authorized}="0"
-    '';
-  };
-
   boot = {
     kernelPackages = pkgs.linuxPackages_latest;
 
@@ -65,11 +57,14 @@
     kernelParams = [
       # Intel Arc Requirements
       "i915.force_probe=56a6"
-      # "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+      "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
 
       # Suspend/Crash Fixes
-      "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
-      "nowatchdog" # Disable watchdog timers that might bite during wake
+      # "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
+      # "nowatchdog" # Disable watchdog timers that might bite during wake
+      "video=HDMI-A-2:1920x1080@75e"
+      "video=DP-3:2560x1440@144e"
+      "video=HDMI-A-3:1920x1080@60e"
     ];
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
@@ -105,6 +100,10 @@
   };
 
   services = {
+    udev.extraRules = ''
+      # Block internal Intel Bluetooth (8087:0025) so the system uses the TP-Link
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="8087", ATTRS{idProduct}=="0025", ATTR{authorized}="0"
+    '';
     fstrim.enable = true;
     printing.enable = true;
     pulseaudio.enable = false;
