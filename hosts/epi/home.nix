@@ -24,9 +24,9 @@
       enable = true; # <-- Enable Rofi
     };
     hypridle = {
-      enable = false;
-      lockTimeout = 10;
-      suspendTimeout = 15;
+      enable = true;
+      lockTimeout = 300;
+      suspendTimeout = 900;
       # debug = true;
     };
     vnc = {
