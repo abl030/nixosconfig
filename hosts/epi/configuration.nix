@@ -50,14 +50,6 @@
     };
   };
 
-  # Keep persistent logs just in case
-  services = {
-    journald.extraConfig = "Storage=persistent";
-    udev.extraRules = ''      # Block internal Intel Bluetooth (8087:0025) so the system uses the TP-Link
-          SUBSYSTEM=="usb", ATTRS{idVendor}=="8087", ATTRS{idProduct}=="0025", ATTR{authorized}="0"
-    '';
-  };
-
   boot = {
     kernelPackages = pkgs.linuxPackages_latest;
 
@@ -105,6 +97,10 @@
   };
 
   services = {
+    udev.extraRules = ''
+      # Block internal Intel Bluetooth (8087:0025) so the system uses the TP-Link
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="8087", ATTRS{idProduct}=="0025", ATTR{authorized}="0"
+    '';
     fstrim.enable = true;
     printing.enable = true;
     pulseaudio.enable = false;
