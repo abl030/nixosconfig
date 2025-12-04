@@ -56,14 +56,25 @@
     # --- KERNEL PARAMS ---
     kernelParams = [
       # Intel Arc Requirements
-      "i915.force_probe=56a6"
+      # "i915.force_probe=56a6"
       # "i915.force_probe=!56a6"
-      "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
-      # "xe.force_probe=56a6"
-      "mem_sleep_default=s2idle"
+      # "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+      "xe.force_probe=56a6"
+      # "mem_sleep_default=s2idle"
 
-      # Suspend/Crash Fixes
-      # "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
+      "pcie_aspm=off"
+      # NEW: Fix for PNP0C02 / device:0f crash
+      # This tells the kernel not to use the ACPI resource conflict check for the SMBus/Backlight
+      "acpi_enforce_resources=lax"
+
+      # NEW: Stop PCI errors from panicking the kernel
+      "pci=noaer"
+
+      # CRITICAL MISSING FIX: Prevent Micron P3 NVMe from sleeping too deeply.
+      # This prevents the hard freeze (fans spinning) on wake.
+      "nvme_core.default_ps_max_latency_us=0"
+      # Helps prevent the IOMMU from blocking device wake-up on Ryzen.
+      "iommu=pt"
       # "nowatchdog" # Disable watchdog timers that might bite during wake
       "video=HDMI-A-2:1920x1080@75e"
       "video=DP-3:2560x1440@144e"
@@ -71,16 +82,69 @@
     ];
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
-    # blacklistedKernelModules = [
-    # "sp5100_tco" # AMD Watchdog - notorious for wake crashes
-    # "iTCO_wdt" # Intel Watchdog
-    # ];
+    blacklistedKernelModules = [
+      "i915"
+      "sp5100_tco" # THE PRIME SUSPECT: AMD Watchdog Timer (Part of PNP0C02)
+      "ccp" # AMD Cryptographic Coprocessor (The device at 0f:00.1)
+      "i2c_piix4" # AMD SMBus driver (Often conflicts with PNP0C02)
+      # "xe"
+      # "sp5100_tco" # AMD Watchdog - notorious for wake crashes
+      # "iTCO_wdt" # Intel Watchdog
+    ];
 
-    initrd.kernelModules = ["i915" "xe"];
+    initrd.kernelModules = [
+      "xe"
+      # "i915"
+    ];
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
 
+  powerManagement = {
+    enable = true;
+    powerDownCommands = ''
+      # FUNCTION: Unbind a device if it exists
+      unbind_dev() {
+        if [ -e "/sys/bus/pci/devices/$1/driver/unbind" ]; then
+          echo -n "$1" > "/sys/bus/pci/devices/$1/driver/unbind"
+        fi
+      }
+
+      # 1. The Noisy Chipset USB (02:00.0)
+      # unbind_dev "0000:02:00.0"
+
+      # 2. THE SILENT KILLER: CPU USB Controller (0f:00.3)
+      # This lives on the bus identified by your pm_trace
+      unbind_dev "0000:0f:00.3"
+
+      # 3. Audio Controllers (Common cause of hangs)
+      # AMD Motherboard Audio (0f:00.4)
+      unbind_dev "0000:0f:00.4"
+      # Intel Arc Audio (0d:00.0)
+      unbind_dev "0000:0d:00.0"
+
+      # 4. WiFi (Optional, but safer to kill)
+      unbind_dev "0000:07:00.0"
+
+      sleep 1
+    '';
+
+    resumeCommands = ''
+      # Rebind everything.
+      # We use '|| true' so the script continues even if one fails.
+
+      # USB Controllers
+      # echo -n "0000:02:00.0" > /sys/bus/pci/drivers/xhci_hcd/bind || true
+      echo -n "0000:0f:00.3" > /sys/bus/pci/drivers/xhci_hcd/bind || true
+
+      # Audio Controllers
+      echo -n "0000:0f:00.4" > /sys/bus/pci/drivers/snd_hda_intel/bind || true
+      echo -n "0000:0d:00.0" > /sys/bus/pci/drivers/snd_hda_intel/bind || true
+
+      # WiFi
+      echo -n "0000:07:00.0" > /sys/bus/pci/drivers/iwlwifi/bind || true
+    '';
+  };
   hardware = {
     enableRedistributableFirmware = true;
     bluetooth.enable = true;
