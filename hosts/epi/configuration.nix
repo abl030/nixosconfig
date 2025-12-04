@@ -111,7 +111,7 @@
       }
 
       # 1. The Noisy Chipset USB (02:00.0)
-      unbind_dev "0000:02:00.0"
+      # unbind_dev "0000:02:00.0"
 
       # 2. THE SILENT KILLER: CPU USB Controller (0f:00.3)
       # This lives on the bus identified by your pm_trace
@@ -134,7 +134,7 @@
       # We use '|| true' so the script continues even if one fails.
 
       # USB Controllers
-      echo -n "0000:02:00.0" > /sys/bus/pci/drivers/xhci_hcd/bind || true
+      # echo -n "0000:02:00.0" > /sys/bus/pci/drivers/xhci_hcd/bind || true
       echo -n "0000:0f:00.3" > /sys/bus/pci/drivers/xhci_hcd/bind || true
 
       # Audio Controllers
