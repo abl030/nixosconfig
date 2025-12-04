@@ -57,7 +57,10 @@
     kernelParams = [
       # Intel Arc Requirements
       "i915.force_probe=56a6"
+      # "i915.force_probe=!56a6"
       "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+      # "xe.force_probe=56a6"
+      "mem_sleep_default=s2idle"
 
       # Suspend/Crash Fixes
       # "pcie_aspm=off" # Disable PCIe Active State Power Management (Common cause of wake crashes)
@@ -68,12 +71,12 @@
     ];
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
-    blacklistedKernelModules = [
-      "sp5100_tco" # AMD Watchdog - notorious for wake crashes
-      "iTCO_wdt" # Intel Watchdog
-    ];
+    # blacklistedKernelModules = [
+    # "sp5100_tco" # AMD Watchdog - notorious for wake crashes
+    # "iTCO_wdt" # Intel Watchdog
+    # ];
 
-    initrd.kernelModules = ["i915"];
+    initrd.kernelModules = ["i915" "xe"];
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };

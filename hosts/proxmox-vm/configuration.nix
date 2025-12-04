@@ -40,6 +40,7 @@
       enable = true;
       collectGarbage = false;
       trim = true;
+      rebootOnKernelUpdate = true;
     };
 
     cache = {
