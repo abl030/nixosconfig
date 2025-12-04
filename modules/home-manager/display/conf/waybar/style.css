@@ -1,0 +1,98 @@
+/* Colors mapped from theme.nix */
+@define-color background #2C2A24;
+@define-color second-background #3A372F;
+@define-color text #DDD5C4;
+@define-color borders #A0907A;
+@define-color focused #D08B57;
+@define-color focused2 #BFAA80;
+@define-color color1 #7699A3;
+@define-color color2 #8D7AAE;
+@define-color color3 #78997A;
+@define-color urgent #B05A5A;
+
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "Iosevka Nerd Font", "JetBrainsMono Nerd Font", "Roboto", sans-serif;
+    font-size: 14px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: transparent; /* Transparent so we see the islands */
+    color: @text;
+    transition: background-color 0.5s;
+}
+
+/* ISLAND STYLING: mimic the structure of the inspiration */
+.modules-left, .modules-center, .modules-right {
+    background-color: @background;
+    border: 2px solid @focused; /* The orange border */
+    border-radius: 10px;
+    padding: 2px 10px;
+    margin-top: 5px;
+    margin-bottom: 0px;
+}
+
+.modules-left {
+    margin-left: 10px;
+}
+
+.modules-right {
+    margin-right: 10px;
+}
+
+/* Workspaces */
+#workspaces button {
+    padding: 0 8px;
+    color: @text;
+    background-color: transparent;
+}
+
+#workspaces button:hover {
+    background-color: @second-background;
+    border-radius: 5px;
+}
+
+#workspaces button.active {
+    color: @focused2;
+    background-color: @second-background;
+    border-radius: 5px;
+}
+
+#workspaces button.urgent {
+    background-color: @urgent;
+}
+
+/* Standard Modules (CPU, RAM, Net, etc) - Remove individual backgrounds */
+#clock,
+#cpu,
+#memory,
+#network,
+#pulseaudio,
+#tray,
+#window {
+    padding: 0 10px;
+    background-color: transparent;
+    color: @text;
+}
+
+/* Hover effects from inspiration */
+#clock:hover,
+#cpu:hover,
+#memory:hover,
+#network:hover,
+#pulseaudio:hover,
+#tray:hover {
+    color: @color1; /* Blue accent on hover */
+}
+
+/* Network specific colors */
+#network.disconnected {
+    color: @urgent;
+}
+
+/* Audio specific */
+#pulseaudio.muted {
+    color: @color2; /* Purpleish for muted */
+}

@@ -146,21 +146,36 @@ dc() {
     _dc_run_sops "$@"
 }
 
-## ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 #  Quick “edit” helper – open common configs with one command
 # ──────────────────────────────────────────────────────────────────────────────
 edit() {
     if [[ -z "$1" ]]; then
-        echo "Usage: edit <zsh|caddy|diary|cullen|nvim|nix>"
+        echo "Usage: edit <zsh|caddy|diary|nvim|nix|hy>"
         return 1
     fi
 
     case "$1" in
-        zsh) nvim ~/nixosconfig/home/zsh/.zshrc2 ;;
-        caddy) nvim ~/DotFiles/Caddy/Caddyfile ;;
-        diary) cd /mnt/data/Life/Zet/Projects/Diary && nvim ;;
-        nvim) nvim ~/nixosconfig/home/nvim/options.lua ;;
-        nix) cd ~/nixosconfig && nvim ;;
+        zsh)
+            nvim ~/nixosconfig/home/zsh/.zshrc2
+            ;;
+        caddy)
+            nvim ~/DotFiles/Caddy/Caddyfile
+            ;;
+        diary)
+            cd /mnt/data/Life/Zet/Projects/Diary && nvim
+            ;;
+        nvim)
+            nvim ~/nixosconfig/home/nvim/options.lua
+            ;;
+        nix)
+            cd ~/nixosconfig && nvim
+            ;;
+        hy)
+            # Hyprland/Waybar prototype configs in nixosconfig
+            local conf_dir="$HOME/nixosconfig/modules/home-manager/display/conf"
+            nvim -c "cd $conf_dir"
+            ;;
         *)
             echo "Unknown argument: $1"
             return 1
@@ -453,4 +468,77 @@ commit_this() {
     else
         echo "PR will merge automatically once checks/reviews pass."
     fi
+}
+# ──────────────────────────────────────────────────────────────────────────────
+#  hypr_proto: copy live Hypr/Waybar configs into repo and replace with symlinks
+# ──────────────────────────────────────────────────────────────────────────────
+hypr_proto() {
+    local mode="${1:-}"
+
+    if [[ "$mode" != "create" ]]; then
+        cat <<EOF
+Usage: hypr_proto create
+
+  create  - Copy current Hypr/Waybar config files into:
+              modules/home-manager/display/conf/
+            and replace live configs with symlinks to those files.
+
+This is destructive: existing files/symlinks in ~/.config are replaced.
+You can always rebuild/switch to go back to pure Nix.
+EOF
+        return 1
+    fi
+
+    # 1. Find repo root
+    local repo_root conf_root
+    if ! repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+        echo "hypr_proto: not inside a git repo (run from your nixosconfig tree)" >&2
+        return 1
+    fi
+
+    conf_root="$repo_root/modules/home-manager/display/conf"
+    mkdir -p "$conf_root"
+
+    echo "hypr_proto: repo root is  $repo_root"
+    echo "hypr_proto: conf root is  $conf_root"
+    echo
+
+    # 2. List of config files we care about
+    local files=(
+        "$HOME/.config/hypr/hyprland.conf"
+        "$HOME/.config/hypr/hypridle.conf"
+        "$HOME/.config/hypr/hyprlock.conf"
+        "$HOME/.config/hypr/hyprpaper.conf"
+        "$HOME/.config/waybar/config"
+        "$HOME/.config/waybar/style.css"
+    )
+
+    local src rel target
+    for src in "${files[@]}"; do
+        if [[ ! -e "$src" ]]; then
+            echo "[-] Missing, skipping: $src"
+            continue
+        fi
+
+        # Compute relative path under ~/.config, then mirror that under conf_root
+        rel="${src#$HOME/.config/}" # /home/.../.config/hypr/hyprland.conf -> hypr/hyprland.conf
+        target="$conf_root/$rel"
+
+        mkdir -p "$(dirname "$target")"
+
+        echo "[*] Copying $src -> $target"
+        cp "$src" "$target"
+
+        echo "    Removing $src and creating symlink"
+        rm -f "$src"
+        ln -s "$target" "$src"
+        echo
+    done
+
+    echo "hypr_proto: done."
+    echo
+    echo "Now you can edit files under:"
+    echo "  $conf_root"
+    echo "and Hyprland/Waybar will read them via the symlinks."
+    echo "Use 'hyprctl reload' (and restart hypridle/waybar) to apply changes live."
 }
