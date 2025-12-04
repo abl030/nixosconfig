@@ -48,30 +48,40 @@ xclip() {
 }
 
 dc() {
+    local uid keyfile tmp_key sshkey rc
+    uid="$(id -u)"
+
     # If caller already exported a SOPS env var, respect it.
+    # But always run sops as *current* user so OSC52 works.
     if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" ]]; then
-        if [[ "$(id -u)" -eq 0 ]]; then
-            EDITOR=nvim VISUAL=nvim sops "$@"
-        else
-            sudo EDITOR=nvim VISUAL=nvim sops "$@"
-        fi
+        EDITOR=nvim VISUAL=nvim sops "$@"
         return
     fi
 
-    # 1) AGE KEY FILES (SOPS_AGE_KEY_FILE)
-    #    - root-only paths checked with sudo test -r
-    #    - user-local checked directly
-    local keyfile
+    # Helper: run sops with our normal editor
+    _dc_run_sops() {
+        EDITOR=nvim VISUAL=nvim sops "$@"
+    }
 
-    # Root-ish keyfile locations (declarative on some hosts; harmless if absent)
+    # 1) AGE KEY FILES (SOPS_AGE_KEY_FILE)
+    #    - root-only paths: copy to a user-owned temp file
+    #    - user-local checked directly
     for keyfile in \
         "/root/.config/sops/age/keys.txt" \
         "/var/lib/sops-nix/key.txt"; do
         if sudo test -r "$keyfile" 2>/dev/null; then
-            if [[ "$(id -u)" -eq 0 ]]; then
-                SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+            if [[ "$uid" -eq 0 ]]; then
+                # Already root: just use the keyfile directly
+                SOPS_AGE_KEY_FILE="$keyfile" _dc_run_sops "$@"
             else
-                sudo SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+                # Non-root: copy root-only key into a temp file we own
+                tmp_key="$(mktemp -t dc-sops-rootkey-XXXXXX.age)"
+                sudo cat "$keyfile" >"$tmp_key"
+                chmod 600 "$tmp_key"
+                SOPS_AGE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
+                rc=$?
+                rm -f "$tmp_key"
+                return "$rc"
             fi
             return
         fi
@@ -80,7 +90,7 @@ dc() {
     # User-local keyfile
     keyfile="$HOME/.config/sops/age/keys.txt"
     if [[ -r "$keyfile" ]]; then
-        SOPS_AGE_KEY_FILE="$keyfile" EDITOR=nvim VISUAL=nvim sops "$@"
+        SOPS_AGE_KEY_FILE="$keyfile" _dc_run_sops "$@"
         return
     fi
 
@@ -88,18 +98,12 @@ dc() {
     #    Use /etc/ssh/ssh_host_ed25519_key if ssh-to-age is available.
     if command -v ssh-to-age >/dev/null 2>&1 &&
     sudo test -r /etc/ssh/ssh_host_ed25519_key 2>/dev/null; then
-        local tmp_key rc
         tmp_key="$(mktemp -t dc-sops-XXXXXX.age)"
         # Redirection happens as the user, ssh-to-age runs as root.
         if sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key >"$tmp_key" 2>/dev/null; then
             chmod 600 "$tmp_key"
-            if [[ "$(id -u)" -eq 0 ]]; then
-                SOPS_AGE_KEY_FILE="$tmp_key" EDITOR=nvim VISUAL=nvim sops "$@"
-                rc=$?
-            else
-                sudo SOPS_AGE_KEY_FILE="$tmp_key" EDITOR=nvim VISUAL=nvim sops "$@"
-                rc=$?
-            fi
+            SOPS_AGE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
+            rc=$?
             rm -f "$tmp_key"
             return "$rc"
         else
@@ -109,32 +113,37 @@ dc() {
 
     # 3) SSH KEYS via age-plugin-ssh (if present)
     #    These use SOPS_AGE_SSH_PRIVATE_KEY_FILE.
-    local sshkey
-
     sshkey="/etc/ssh/ssh_host_ed25519_key"
     if sudo test -r "$sshkey" 2>/dev/null; then
-        sudo SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
-        return
+        tmp_key="$(mktemp -t dc-sops-ssh-XXXXXX)"
+        sudo cat "$sshkey" >"$tmp_key"
+        chmod 600 "$tmp_key"
+        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
+        rc=$?
+        rm -f "$tmp_key"
+        return "$rc"
     fi
 
     sshkey="/root/.ssh/id_ed25519"
     if sudo test -r "$sshkey" 2>/dev/null; then
-        sudo SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
-        return
+        tmp_key="$(mktemp -t dc-sops-ssh-XXXXXX)"
+        sudo cat "$sshkey" >"$tmp_key"
+        chmod 600 "$tmp_key"
+        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
+        rc=$?
+        rm -f "$tmp_key"
+        return "$rc"
     fi
 
     sshkey="$HOME/.ssh/id_ed25519"
     if [[ -r "$sshkey" ]]; then
-        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" EDITOR=nvim VISUAL=nvim sops "$@"
+        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" _dc_run_sops "$@"
         return
     fi
 
-    # 4) Fallback: no explicit key — defer to sops defaults
-    if [[ "$(id -u)" -eq 0 ]]; then
-        EDITOR=nvim VISUAL=nvim sops "$@"
-    else
-        sudo EDITOR=nvim VISUAL=nvim sops "$@"
-    fi
+    # 4) Fallback: no explicit key — defer to sops defaults,
+    #    but still run sops as the *current* user.
+    _dc_run_sops "$@"
 }
 
 ## ──────────────────────────────────────────────────────────────────────────────
