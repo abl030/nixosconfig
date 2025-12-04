@@ -30,6 +30,7 @@
     update = "sudo nixos-rebuild switch --flake .#$HOSTNAME";
     gc = "sudo nix-collect-garbage -d; and sudo fstrim -av";
     hr = "hyprctl --instance 0 'keyword misc:allow_session_lock_restore 1'; and hyprctl --instance 0 'dispatch exec hyprlock'";
+    e = "edit";
   };
 
   # --- Transformations for POSIX-like shells (bash, zsh) ---

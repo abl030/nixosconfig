@@ -1,7 +1,7 @@
 -- ~/custom/configs/lspconfig.lua
 
 local nvlsp = require("nvchad.configs.lspconfig")
-local lspconfig = require("lspconfig")
+-- local lspconfig = require("lspconfig") -- DEPRECATED: usage replaced by vim.lsp.config
 
 -- Load NvChad's default LSP configurations
 nvlsp.defaults()
@@ -10,6 +10,12 @@ nvlsp.defaults()
 local custom_on_attach = function(client, bufnr)
 	nvlsp.on_attach(client, bufnr) -- Preserve default keymaps
 	vim.lsp.inlay_hint.enable(true) -- Your custom inlay hints
+end
+
+-- Helper function to configure and enable LSP using the new API
+local function setup_lsp(name, opts)
+	vim.lsp.config(name, opts)
+	vim.lsp.enable(name)
 end
 
 -- List of standard LSP servers with default config
@@ -25,7 +31,7 @@ local default_servers = {
 
 -- Configure default servers
 for _, lsp in ipairs(default_servers) do
-	lspconfig[lsp].setup({
+	setup_lsp(lsp, {
 		on_attach = custom_on_attach,
 		on_init = nvlsp.on_init,
 		capabilities = nvlsp.capabilities,
@@ -35,7 +41,7 @@ end
 -- Special configurations ------------------------------------------------------
 
 -- This allows us to specify which filetypes it should attach to.
-lspconfig.bashls.setup({
+setup_lsp("bashls", {
 	on_attach = custom_on_attach,
 	on_init = nvlsp.on_init,
 	capabilities = nvlsp.capabilities,
@@ -46,7 +52,7 @@ lspconfig.bashls.setup({
 local username = vim.fn.getenv("USER") or "user"
 local hostname = vim.fn.hostname()
 
-lspconfig.nixd.setup({
+setup_lsp("nixd", {
 	cmd = { "nixd", "--inlay-hints=true" },
 	on_attach = custom_on_attach,
 	capabilities = nvlsp.capabilities,
@@ -68,9 +74,9 @@ lspconfig.nixd.setup({
 	},
 })
 
--- Gave up on mergin the default NVChad LSP config for Lua. All we are doing here is recreating the NVChad
+-- Gave up on merging the default NVChad LSP config for Lua. All we are doing here is recreating the NVChad
 -- default on_attach and adding the inlay hints.
-lspconfig.lua_ls.setup({
+setup_lsp("lua_ls", {
 	on_attach = custom_on_attach,
 	capabilities = nvlsp.capabilities,
 	on_init = nvlsp.on_init,
@@ -100,7 +106,7 @@ lspconfig.lua_ls.setup({
 })
 
 -- 2) YAML LS with Docker Compose schema + schemastore
-lspconfig.yamlls.setup({
+setup_lsp("yamlls", {
 	on_attach = custom_on_attach,
 	on_init = nvlsp.on_init,
 	capabilities = nvlsp.capabilities,
