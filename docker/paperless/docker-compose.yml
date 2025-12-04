@@ -45,6 +45,20 @@ services:
       PAPERLESS_TIKA_ENABLED: 1
       PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
       PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+      # ─────────────────────────────────────────────────────────────
+      # Pass-through variables from the encrypted .env file (SOPS)
+      # Leaving these values empty tells Docker Compose to inherit
+      # them from the --env-file passed by the systemd service.
+      # ─────────────────────────────────────────────────────────────
+      PAPERLESS_CONSUMER_POLLING:
+      PAPERLESS_CONSUMER_RECURSIVE:
+      PAPERLESS_ADMIN_USER:
+      PAPERLESS_ADMIN_PASSWORD:
+      PAPERLESS_TIME_ZONE:
+      PAPERLESS_URL:
+      # UID/GID mapping is crucial for NFS/Unraid shares to avoid permission errors
+      USERMAP_UID:
+      USERMAP_GID:
 
     healthcheck:
       # Test the container paths that correspond to host /mnt/data mounts
