@@ -44,7 +44,7 @@
       profile = "internal";
     };
     update = {
-      enable = false;
+      enable = true;
       collectGarbage = false;
       trim = true;
     };
