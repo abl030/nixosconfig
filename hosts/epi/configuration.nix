@@ -56,10 +56,10 @@
     # --- KERNEL PARAMS ---
     kernelParams = [
       # Intel Arc Requirements
-      # "i915.force_probe=56a6"
+      "i915.force_probe=56a6"
       # "i915.force_probe=!56a6"
-      # "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
-      "xe.force_probe=56a6"
+      "i915.enable_guc=3" # DISABLED: Try booting without GuC first to rule it out for suspend
+      # "xe.force_probe=56a6"
       # "mem_sleep_default=s2idle"
 
       # "pcie_aspm=off"
@@ -88,18 +88,18 @@
 
     # Blacklist modules known to crash on wake on AMD/Intel mix
     blacklistedKernelModules = [
-      "i915"
+      # "i915"
       # "sp5100_tco" # THE PRIME SUSPECT: AMD Watchdog Timer (Part of PNP0C02)
       # "ccp" # AMD Cryptographic Coprocessor (The device at 0f:00.1)
       # "i2c_piix4" # AMD SMBus driver (Often conflicts with PNP0C02)
-      # "xe"
+      "xe"
       # "sp5100_tco" # AMD Watchdog - notorious for wake crashes
       # "iTCO_wdt" # Intel Watchdog
     ];
 
     initrd.kernelModules = [
-      "xe"
-      # "i915"
+      # "xe"
+      "i915"
       # "pci_stub"
     ];
     loader.systemd-boot.enable = true;
