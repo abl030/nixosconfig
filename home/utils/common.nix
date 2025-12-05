@@ -22,6 +22,7 @@
     pkgs.tldr
     pkgs.beets
     pkgs.wl-clipboard
+    pkgs.tigervnc
 
     # Rust Utils
     pkgs.fzf
