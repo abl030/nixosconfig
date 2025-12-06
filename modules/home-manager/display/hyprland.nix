@@ -137,7 +137,7 @@ in {
         env = [
           "XCURSOR_SIZE,24"
           "NIXOS_OZONE_WL,1"
-          "QT_QPA_PLATFORMTHEME,qt6ct" # <--- Force Qt apps to use qt6ct
+          # "QT_QPA_PLATFORMTHEME,qt6ct" # <--- Force Qt apps to use qt6ct
           "XDG_CURRENT_DESKTOP,Hyprland"
           "XDG_SESSION_TYPE,wayland"
         ];

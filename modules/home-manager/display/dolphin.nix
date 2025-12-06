@@ -6,41 +6,59 @@
 }:
 with lib; let
   cfg = config.homelab.dolphin;
+
+  # 1. Fetch the Dracula GTK Theme (which contains the Kvantum theme)
+  draculaThemeSource = pkgs.fetchFromGitHub {
+    owner = "dracula";
+    repo = "gtk";
+    rev = "master"; # Using master to get the latest
+    sha256 = "sha256-eT0j//ALSqyhHMOBqTYtr9z/erov8IKHDd697vybMAo="; # <--- RUN ONCE, COPY ERROR HASH, REPLACE THIS
+  };
 in {
   options.homelab.dolphin = {
-    enable = mkEnableOption "Enable Dolphin File Manager (with thumbnailers & Wayland support)";
+    enable = mkEnableOption "Enable Dolphin File Manager";
   };
 
   config = mkIf cfg.enable {
+    # 2. Configure Qt to use Kvantum
+    qt = {
+      enable = true;
+      style.name = "kvantum";
+      # platformTheme.name = "gtk"; # Optional: try enabling this if fonts look wrong later
+    };
+
+    # 3. Configure Kvantum
+    # The Kvantum theme is usually located in the 'kde/kvantum' folder of the repo
+    xdg.configFile = {
+      "Kvantum/Dracula".source = "${draculaThemeSource}/kde/kvantum/Dracula-purple";
+      # Note: The folder name inside might be 'Dracula-purple' or just 'Dracula'.
+      # If the build fails saying "path does not exist", check the repo structure.
+
+      "Kvantum/kvantum.kvconfig".text = ''
+        [General]
+        theme=Dracula
+      '';
+    };
+
+    # 4. Packages
     home.packages = with pkgs; [
-      # Core
       kdePackages.dolphin
       kdePackages.dolphin-plugins
       kdePackages.kio-extras
       kdePackages.kio-admin
-
-      # Thumbnails & Support
+      kdePackages.qtstyleplugin-kvantum
+      pkgs.libsForQt5.qtstyleplugin-kvantum
+      kdePackages.breeze-icons
       kdePackages.kdegraphics-thumbnailers
       kdePackages.ffmpegthumbs
       kdePackages.qtimageformats
       kdePackages.qtsvg
       shared-mime-info
-
-      # System Integration (Hyprland/Qt6)
-      kdePackages.qtwayland
-      kdePackages.qt6ct
-
-      # Theming Packages (Required for Dark Mode)
-      kdePackages.breeze # The Breeze Style
-      kdePackages.breeze-icons # The Breeze Icons
     ];
 
     home.sessionVariables = {
-      # 2. THE FIX: Explicitly inject the Store Paths for qt6ct and breeze into the plugin path.
-      #    This guarantees Dolphin finds libqt6ct.so and Breeze styles without relying on profile symlinks.
-      QT_PLUGIN_PATH = "${pkgs.kdePackages.qt6ct}/lib/qt-6/plugins:${pkgs.kdePackages.breeze}/lib/qt-6/plugins:${config.home.profileDirectory}/lib/qt-6/plugins";
-      # Tells Dolphin to use qt6ct for configuration
-      QT_QPA_PLATFORMTHEME = "qt6ct";
+      XDG_CURRENT_DESKTOP = "Hyprland";
+      XDG_SESSION_TYPE = "wayland";
     };
   };
 }
