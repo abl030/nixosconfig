@@ -41,4 +41,5 @@
   imports = [
     # ../ssh/ssh.nix
   ];
+  homelab.dolphin.enable = true;
 }
