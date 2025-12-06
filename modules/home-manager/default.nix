@@ -8,5 +8,6 @@
     ./display/waybar.nix
     ./display/theme.nix
     ./display/hypridle.nix
+    ./display/dolphin.nix
   ];
 }
