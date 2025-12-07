@@ -22,13 +22,13 @@
     # ./gnome_configs/${hostname}.nix
   ];
 
-  # This themes Dolphin to dark mode.
-  qt = {
-    enable = true;
-    platformTheme.name = "adwaita-dark";
-    style.name = "adwaita-dark";
-  };
-
-  # Fixes the background colour issue with Dolphin
-  home.file.".config/kdeglobals".source = ./kdeglobals;
+  # # This themes Dolphin to dark mode.
+  # qt = {
+  #   enable = true;
+  #   platformTheme.name = "adwaita-dark";
+  #   style.name = "adwaita-dark";
+  # };
+  #
+  # # Fixes the background colour issue with Dolphin
+  # home.file.".config/kdeglobals".source = ./kdeglobals;
 }

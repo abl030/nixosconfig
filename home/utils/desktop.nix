@@ -40,4 +40,6 @@
     ../terminals/ghostty/ghostty.nix
     ../utils/vscode.nix
   ];
+
+  homelab.dolphin.enable = true;
 }
