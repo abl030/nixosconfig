@@ -66,28 +66,36 @@ in {
 
       # --- ACTIVATION SCRIPT ---
       # This runs every time you 'home-manager switch'.
-      # It manually creates the kdeglobals file and ensures it is WRITABLE.
+      # UPDATED LOGIC: Respects existing user settings.
       activation.configureKdeGlobals = lib.hm.dag.entryAfter ["writeBoundary"] ''
         verboseEcho "Configuring Mutable KDE Globals..."
 
         DEST="$HOME/.config/kdeglobals"
         SOURCE="${breezeDarkColors}"
 
-        # 1. If it was a symlink (from previous Nix setup), remove it
+        # 1. If it is a symlink (from old Nix generation), remove it so we can create a real file.
         if [ -L "$DEST" ]; then
+          verboseEcho "Removing read-only kdeglobals symlink..."
           rm "$DEST"
         fi
 
-        # 2. Force overwrite the file with the Breeze Dark base (Resetting it)
-        # We do this to ensure your "White Background" patch is always applied on update.
-        cat "$SOURCE" > "$DEST"
+        # 2. If the file does NOT exist, create it from the template.
+        # This ensures we don't overwrite your settings if the file is already there.
+        if [ ! -f "$DEST" ]; then
+             verboseEcho "Initializing kdeglobals from Breeze Dark template..."
+             cat "$SOURCE" > "$DEST"
+        fi
 
-        # 3. Append the "White Background" Fix
-        # Using echo to append to the file
-        echo "" >> "$DEST"
-        echo "[Colors:View]" >> "$DEST"
-        echo "BackgroundNormal=30,31,33" >> "$DEST"
-        echo "BackgroundAlternate=35,36,38" >> "$DEST"
+        # 3. Apply the "White Background" Fix safely.
+        # We grep to see if the fix is already there. If not, we append it.
+        # This allows the file to persist across generations without losing the fix.
+        if ! grep -q "BackgroundNormal=30,31,33" "$DEST"; then
+          verboseEcho "Applying White Background Fix..."
+          echo "" >> "$DEST"
+          echo "[Colors:View]" >> "$DEST"
+          echo "BackgroundNormal=30,31,33" >> "$DEST"
+          echo "BackgroundAlternate=35,36,38" >> "$DEST"
+        fi
 
         # 4. CRITICAL: Make it writable so Dolphin can save settings
         chmod 644 "$DEST"
