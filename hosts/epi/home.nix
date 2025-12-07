@@ -3,7 +3,7 @@
     ../../home/home.nix
     ../../home/utils/common.nix
     ../../home/utils/desktop.nix
-    ../../home/display_managers/gnome.nix
+    # ../../home/display_managers/gnome.nix
     ../../modules/home-manager/multimedia/spicetify.nix
     ../../modules/home-manager/display/rofi.nix # <-- Import new module
     ./epi_home_specific.nix
