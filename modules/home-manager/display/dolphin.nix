@@ -55,43 +55,46 @@ in {
     };
 
     # --- Phase III: Declarative File Synthesis ---
+    xdg = {
+      configFile = {
+        # 1. Synthesize ~/.config/kdeglobals
+        # We read the official file and append our override to the end.
+        "kdeglobals".text =
+          (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
 
-    # 1. Synthesize ~/.config/kdeglobals
-    # We read the official file and append our override to the end.
-    xdg.configFile."kdeglobals".text =
-      (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
+        # 2. Synthesize ~/.config/qt6ct/qt6ct.conf
+        # This ensures qt6ct actually selects the "Breeze" style and "Breeze" icon theme
+        # without you having to open the GUI manually.
+        "qt6ct/qt6ct.conf".text = ''
+          [Appearance]
+          color_scheme_path=${config.xdg.configHome}/kdeglobals
+          custom_palette=true
+          icon_theme=breeze-dark
+          standard_dialogs=default
+          style=Breeze
 
-    # 2. Synthesize ~/.config/qt6ct/qt6ct.conf
-    # This ensures qt6ct actually selects the "Breeze" style and "Breeze" icon theme
-    # without you having to open the GUI manually.
-    xdg.configFile."qt6ct/qt6ct.conf".text = ''
-      [Appearance]
-      color_scheme_path=${config.xdg.configHome}/kdeglobals
-      custom_palette=true
-      icon_theme=breeze-dark
-      standard_dialogs=default
-      style=Breeze
+          [Interface]
+          cursor_flash_time=1000
+          dialog_buttons_have_icons=1
+          double_click_interval=400
+          gui_effects=@Invalid()
+          keyboard_scheme=2
+          menus_have_icons=true
+          show_shortcuts_in_context_menus=true
+          stylesheets=@Invalid()
+          toolbutton_style=4
+          underline_shortcut=1
+          wheel_scroll_lines=3
+        '';
+      };
 
-      [Interface]
-      cursor_flash_time=1000
-      dialog_buttons_have_icons=1
-      double_click_interval=400
-      gui_effects=@Invalid()
-      keyboard_scheme=2
-      menus_have_icons=true
-      show_shortcuts_in_context_menus=true
-      stylesheets=@Invalid()
-      toolbutton_style=4
-      underline_shortcut=1
-      wheel_scroll_lines=3
-    '';
-
-    # --- Phase IV: Portals ---
-    # Ensure the GTK portal exists so file pickers look correct in non-KDE apps too
-    xdg.portal = {
-      enable = true;
-      extraPortals = [pkgs.xdg-desktop-portal-gtk];
-      config.common.default = ["hyprland" "gtk"];
+      # --- Phase IV: Portals ---
+      # Ensure the GTK portal exists so file pickers look correct in non-KDE apps too
+      portal = {
+        enable = true;
+        extraPortals = [pkgs.xdg-desktop-portal-gtk];
+        config.common.default = ["hyprland" "gtk"];
+      };
     };
   };
 }
