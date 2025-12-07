@@ -8,12 +8,6 @@ with lib; let
   cfg = config.homelab.dolphin;
 
   breezeDarkColors = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
-
-  kdeglobalsOverride = ''
-    [Colors:View]
-    BackgroundNormal=30,31,33
-    BackgroundAlternate=35,36,38
-  '';
 in {
   options.homelab.dolphin = {
     enable = mkEnableOption "Enable Dolphin File Manager with Declarative Dark Mode";
