@@ -5,5 +5,6 @@
     ./tailscale.nix
     ./display/hyprland.nix
     ./display/wayvnc.nix
+    ./system/storage.nix
   ];
 }
