@@ -7,12 +7,8 @@
 with lib; let
   cfg = config.homelab.dolphin;
 
-  # 1. Define path to the official Breeze Dark assets from the package
   breezeDarkColors = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
 
-  # 2. Define the crucial override
-  # This fixes the "White Background" bug by forcing the View background to dark gray (30,31,33).
-  # We also set the Alternate background for list views.
   kdeglobalsOverride = ''
     [Colors:View]
     BackgroundNormal=30,31,33
@@ -24,7 +20,17 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # --- Phase I: Dependencies ---
+    # --- AUTOMOUNTING SERVICE ---
+    # Udiskie sits in the background, talks to UDisks2 (enabled in NixOS),
+    # and automatically mounts USBs when plugged in.
+    services.udiskie = {
+      enable = true;
+      tray = "auto"; # Only show tray icon if a device is mounted
+      automount = true;
+      notify = true; # Uses libnotify (dunst)
+    };
+
+    # --- PACKAGES ---
     home.packages = with pkgs; [
       # Core App
       kdePackages.dolphin
@@ -32,12 +38,20 @@ in {
       kdePackages.kio-extras
       kdePackages.kio-admin
 
+      # --- NEW: Archive Management ---
+      kdePackages.ark # The actual archiving tool (Zip/Tar/7z)
+
+      # --- NEW: Service Menus (Context Menu Fix) ---
+      # 'kservice' is strictly required for Dolphin to find Ark's
+      # "Extract Here" and "Compress" right-click actions in a non-Plasma session.
+      kdePackages.kservice
+
       # Theming Infrastructure
-      qt6Packages.qt6ct # The configuration tool
-      kdePackages.breeze # The asset provider (Icons, Styles, Color Schemes)
+      qt6Packages.qt6ct
+      kdePackages.breeze
       kdePackages.breeze-icons
-      qt6Packages.qtwayland # Native Wayland rendering
-      dconf # Required for GSettings/Portal compatibility
+      qt6Packages.qtwayland
+      dconf
 
       # Thumbnailers
       kdePackages.kdegraphics-thumbnailers
@@ -46,25 +60,17 @@ in {
       kdePackages.qtimageformats
     ];
 
-    # --- Phase II: Environment Variables ---
+    # --- Environment Variables ---
     home.sessionVariables = {
-      # Tell Qt6 to use qt6ct to resolve themes (instead of expecting a running Plasma session)
       QT_QPA_PLATFORMTHEME = "qt6ct";
-      # Force native Wayland instead of XWayland
       QT_QPA_PLATFORM = "wayland";
     };
 
-    # --- Phase III: Declarative File Synthesis ---
+    # --- Declarative File Synthesis (Existing logic) ---
     xdg = {
       configFile = {
-        # 1. Synthesize ~/.config/kdeglobals
-        # We read the official file and append our override to the end.
-        "kdeglobals".text =
-          (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
+        "kdeglobals".text = (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
 
-        # 2. Synthesize ~/.config/qt6ct/qt6ct.conf
-        # This ensures qt6ct actually selects the "Breeze" style and "Breeze" icon theme
-        # without you having to open the GUI manually.
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
           color_scheme_path=${config.xdg.configHome}/kdeglobals
@@ -88,8 +94,6 @@ in {
         '';
       };
 
-      # --- Phase IV: Portals ---
-      # Ensure the GTK portal exists so file pickers look correct in non-KDE apps too
       portal = {
         enable = true;
         extraPortals = [pkgs.xdg-desktop-portal-gtk];

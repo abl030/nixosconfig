@@ -7,12 +7,21 @@
 with lib; let
   cfg = config.homelab.hyprland;
 in {
+  # 1. Import the storage definition here so Hyprland knows about it
+  #    (Assuming you placed storage.nix in modules/nixos/services/system/storage.nix)
+  imports = [
+    ../system/storage.nix
+  ];
+
   options.homelab.hyprland = {
     enable = mkEnableOption "Enable Hyprland System Infrastructure";
-    # vnc option removed
   };
 
   config = mkIf cfg.enable {
+    # 2. Trigger the "On" switch for storage automatically
+    homelab.storage.enable = true;
+
+    # --- Existing Hyprland Config ---
     programs.hyprland = {
       enable = true;
       xwayland.enable = true;
