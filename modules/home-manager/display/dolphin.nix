@@ -58,18 +58,20 @@ in {
       kdePackages.ffmpegthumbs
       kdePackages.qtsvg
       kdePackages.qtimageformats
+      shared-mime-info
     ];
 
     # --- Environment Variables ---
     home.sessionVariables = {
       QT_QPA_PLATFORMTHEME = "qt6ct";
       QT_QPA_PLATFORM = "wayland";
+      QT_PLUGIN_PATH = "${config.home.profileDirectory}/lib/qt-6/plugins:$QT_PLUGIN_PATH";
     };
 
     # --- Declarative File Synthesis (Existing logic) ---
     xdg = {
       configFile = {
-        "kdeglobals".text = (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
+        # "kdeglobals".text = (builtins.readFile breezeDarkColors) + "\n" + kdeglobalsOverride;
 
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
@@ -100,5 +102,30 @@ in {
         config.common.default = ["hyprland" "gtk"];
       };
     };
+    home.activation.configureKdeGlobals = lib.hm.dag.entryAfter ["writeBoundary"] ''
+      verboseEcho "Configuring Mutable KDE Globals..."
+
+      DEST="$HOME/.config/kdeglobals"
+      SOURCE="${breezeDarkColors}"
+
+      # 1. If it was a symlink (from previous Nix setup), remove it
+      if [ -L "$DEST" ]; then
+        rm "$DEST"
+      fi
+
+      # 2. Force overwrite the file with the Breeze Dark base (Resetting it)
+      # We do this to ensure your "White Background" patch is always applied on update.
+      cat "$SOURCE" > "$DEST"
+
+      # 3. Append the "White Background" Fix
+      # Using echo to append to the file
+      echo "" >> "$DEST"
+      echo "[Colors:View]" >> "$DEST"
+      echo "BackgroundNormal=30,31,33" >> "$DEST"
+      echo "BackgroundAlternate=35,36,38" >> "$DEST"
+
+      # 4. CRITICAL: Make it writable so Dolphin can save settings
+      chmod 644 "$DEST"
+    '';
   };
 }
