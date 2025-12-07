@@ -53,6 +53,7 @@ in {
         kdePackages.ffmpegthumbs
         kdePackages.qtsvg
         kdePackages.qtimageformats
+        kdePackages.calligra
         shared-mime-info
       ];
 
