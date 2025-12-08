@@ -37,7 +37,7 @@ with lib; let
     c1 = builtins.substring 0 1 v;
     c2 = builtins.substring 1 1 v;
   in
-    (hexToInt.${c1} * 16) + hexToInt.${c2};
+    (hexToInt.${c1} * 16) + (hexToInt.${c2});
 
   toRGB = hex: let
     clean = lib.removePrefix "#" hex;
@@ -54,7 +54,7 @@ with lib; let
   secondary = toRGB theme.secondary; # Beige
   border = toRGB theme.border;
 
-  # --- SHARED .colors CONTENT (used by both Dolphin + Qt/KDE) ---
+  # --- SHARED .colors CONTENT (used by Dolphin + Qt/KDE) ---
   schemeText = ''
     [General]
     Name=NixOSTheme
@@ -147,16 +147,15 @@ in {
         qt6Packages.qtwayland
         dconf
 
-        # Thumbnailers
+        # Thumbnailers (already installed, no changes)
         kdePackages.kdegraphics-thumbnailers
         kdePackages.ffmpegthumbs
-        kdePackages.qtsvg
-        kdePackages.qtimageformats
+        kdePackages.kdesdk-thumbnailers
+        kdePackages.kio-extras
         kdePackages.calligra
         shared-mime-info
       ];
 
-      # Optional: plugin path hints for Breeze, mostly harmless
       sessionVariables = {
         QT_PLUGIN_PATH =
           "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
@@ -165,12 +164,7 @@ in {
     };
 
     xdg = {
-      # ---------------------------
-      # CONFIG FILES (~/.config)
-      # ---------------------------
       configFile = {
-        # 1) qt6ct: installed, but colors driven by our .colors file.
-        # We explicitly *disable* custom palette so KDE/Breeze colors win.
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
           custom_palette=false
@@ -192,7 +186,6 @@ in {
           wheel_scroll_lines=3
         '';
 
-        # 2) Global KDE “pointer” to our color scheme + icon theme + preview limits
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
@@ -205,62 +198,52 @@ in {
           [Icons]
           Theme=breeze-dark
 
+          [UiSettings]
+          ColorScheme=NixOSTheme
+
           [PreviewSettings]
-          # Large limits so Dolphin / KIO can preview big local + remote files
-          MaximumSize=52428800000
-          MaximumRemoteSize=52428800000
+          # Remote previews: 50 GiB
+          MaximumRemoteSize=53687091200
+
+          # Local: effectively unlimited (~100 GiB)
+          MaximumSize=107374182400
+
+          # Enable thumbnails in file dialogs and friends
+          UseFileThumbnails=true
+
+          # Enable folder previews, including remote ones
+          EnableRemoteFolderThumbnail=true
+
+          camera=true
+          file=true
+          fonts=true
+
+          # Plugins: superset to tick all relevant document/office/ebook/translation/image types
+          # - opendocumentthumbnail: OpenDocument
+          # - comicbookthumbnail: comic archives
+          # - windowsimagethumbnail, windowsexethumbnail: Windows images/EXEs
+          # - directorythumbnail: folder previews
+          # - rawthumbnail, exrthumbnail, svgthumbnail, imagethumbnail, jpegthumbnail: image formats
+          # - appimagethumbnail: AppImage
+          # - audiothumbnail: audio
+          # - blenderthumbnail: Blender .blend
+          # - ebookthumbnail, mobithumbnail: eBooks / Mobipocket
+          # - kraorathumbnail: Krita / OpenRaster
+          # - gettextthumbnail: Gettext translation files
+          # - gsthumbnail, ffmpegthumbs: video previews
+          Plugins=appimagethumbnail,audiothumbnail,blenderthumbnail,comicbookthumbnail,cursorthumbnail,desktopthumbnail,directorythumbnail,djvuthumbnail,ebookthumbnail,exrthumbnail,fontthumbnail,imagethumbnail,jpegthumbnail,kraorathumbnail,mobithumbnail,opendocumentthumbnail,rawthumbnail,svgthumbnail,textthumbnail,windowsimagethumbnail,windowsexethumbnail,gsthumbnail,ffmpegthumbs,gettextthumbnail
         '';
       };
 
-      # ---------------------------
-      # DATA FILES (~/.local/share)
-      # ---------------------------
       dataFile = {
-        # 3) The actual color scheme file Dolphin + KDE will load
         "color-schemes/NixOSTheme.colors".text = schemeText;
       };
 
-      # Portals for file dialogs etc. when under Hyprland
       portal = {
         enable = true;
         extraPortals = [pkgs.xdg-desktop-portal-gtk];
         config.common.default = ["hyprland" "gtk"];
       };
     };
-
-    # ---------------------------------------------------
-    # MUTABLE dolphinrc with FIRST-RUN / MISSING-FIELD seeding
-    # ---------------------------------------------------
-    home.activation.seedDolphinRC = lib.hm.dag.entryAfter ["writeBoundary"] ''
-            cfgFile="$HOME/.config/dolphinrc"
-            mkdir -p "$HOME/.config"
-
-            # If file doesn't exist at all: create a minimal one.
-            if [ ! -f "$cfgFile" ]; then
-              cat > "$cfgFile" <<EOF
-      [UiSettings]
-      ColorScheme=NixOSTheme
-      EOF
-              exit 0
-            fi
-
-            # If it already declares a ColorScheme anywhere, leave it alone.
-            if grep -q "^ColorScheme=" "$cfgFile"; then
-              exit 0
-            fi
-
-            # If there's already a [UiSettings] section, inject ColorScheme under it.
-            if grep -q "^\[UiSettings\]" "$cfgFile"; then
-              # Insert only once, immediately after the [UiSettings] line.
-              ${pkgs.gnused}/bin/sed -i '/^\[UiSettings\]/a ColorScheme=NixOSTheme' "$cfgFile"
-            else
-              # No UiSettings block yet: append a new one.
-              cat >> "$cfgFile" <<EOF
-
-      [UiSettings]
-      ColorScheme=NixOSTheme
-      EOF
-            fi
-    '';
   };
 }
