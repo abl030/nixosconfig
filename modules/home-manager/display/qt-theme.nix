@@ -1,3 +1,4 @@
+# modules/home-manager/display/qt-theme.nix
 {
   pkgs,
   lib,
@@ -6,7 +7,8 @@
 }:
 with lib; let
   cfg = config.homelab.theme;
-  # Helper: Hex to RGB
+
+  # --- 1. Color Logic (Hex -> RGB) ---
   hexToDec = v: let
     hexToInt = {
       "0" = 0;
@@ -44,7 +46,7 @@ with lib; let
     b = toString (hexToDec (builtins.substring 4 2 clean));
   in "${r},${g},${b}";
 
-  # Colors from your central theme
+  # Colors from Theme
   bg = toRGB cfg.colors.background;
   bgAlt = toRGB cfg.colors.backgroundAlt;
   fg = toRGB cfg.colors.foreground;
@@ -52,12 +54,12 @@ with lib; let
   secondary = toRGB cfg.colors.secondary;
   border = toRGB cfg.colors.border;
 
-  # The .colors file content
-  schemeText = ''
-    [General]
-    Name=NixOSTheme
-    ColorScheme=NixOSTheme
+  accentRGB = accent;
 
+  # --- 2. The Palette Block ---
+  # We inject this into kdeglobals so the KDE Platform Theme plugin
+  # can read the "Selection" color and apply it to Breeze Icons.
+  commonPalette = ''
     [Colors:Window]
     BackgroundNormal=${bg}
     BackgroundAlternate=${bgAlt}
@@ -113,10 +115,15 @@ with lib; let
     inactiveBackground=${bgAlt}
     inactiveForeground=${border}
   '';
+
+  schemeText = ''
+    [General]
+    Name=NixOSTheme
+    ColorScheme=NixOSTheme
+    ${commonPalette}
+  '';
 in {
   options.homelab.theme = {
-    # We add a new option here to allow other modules (like dolphin.nix)
-    # to inject their own settings into kdeglobals.
     kdeglobals = {
       extraConfig = mkOption {
         type = types.lines;
@@ -127,56 +134,57 @@ in {
   };
 
   config = {
-    # 1. Install Qt/KDE Foundation Packages
+    # 3. Install Packages (REMOVED: qt6ct)
     home.packages = with pkgs; [
-      qt6Packages.qt6ct
+      qt6Packages.qtwayland
+
+      # Icons & Styles
       kdePackages.breeze
       kdePackages.breeze-icons
-      qt6Packages.qtwayland
-      dconf
+
+      # KDE Platform Integration (The mechanism that makes this work)
+      kdePackages.plasma-integration
+      kdePackages.qqc2-desktop-style
     ];
 
+    # 4. Session Variables
     home.sessionVariables = {
+      # Force KDE integration (Dolphin will read kdeglobals)
+      QT_QPA_PLATFORMTHEME = "KDE";
+      XDG_MENU_PREFIX = "plasma-";
+
       QT_PLUGIN_PATH =
         "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
+        + "${pkgs.kdePackages.plasma-integration}/lib/qt-6/plugins:"
         + "${config.home.profileDirectory}/lib/qt-6/plugins";
     };
 
-    # 2. Config Files Generation
+    # 5. Config Files (REMOVED: qt6ct.conf)
     xdg = {
-      # The Color Scheme File (Source of Truth for KDE apps)
       dataFile."color-schemes/NixOSTheme.colors".text = schemeText;
 
       configFile = {
-        # qt6ct config
-        "qt6ct/qt6ct.conf".text = ''
-          [Appearance]
-          custom_palette=false
-          icon_theme=breeze-dark
-          standard_dialogs=default
-          style=Breeze
-
-          [Interface]
-          menus_have_icons=true
-          toolbutton_style=4
-        '';
-
-        # kdeglobals: The System + Theme Settings
-        # We merge the base settings with anything added via `extraConfig`
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
           Name=NixOSTheme
           shadeSortColumn=true
+          AccentColor=${accentRGB}
 
           [KDE]
           SingleClick=true
 
           [Icons]
-          Theme=breeze-dark
+          Theme=breeze
 
           [UiSettings]
           ColorScheme=NixOSTheme
+
+          # NOTE: To manually force icon colors independent of the Accent,
+          # you would add a [DesktopIcons] section here with DefaultColor=R,G,B.
+          # Since we want them to match the accent, we rely on standard inheritance.
+
+          ${commonPalette}
 
           ${cfg.kdeglobals.extraConfig}
         '';
