@@ -17,6 +17,11 @@ in {
   };
 
   config = mkIf cfg.enable {
+    # FIX: Link the Plasma Applications Menu
+    # This file allows Dolphin/KService to index .desktop files properly.
+    # Without this, "Open With" is empty and "Service not found" errors occur.
+    environment.etc."xdg/menus/applications.menu".source = "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
+
     # Turn on our storage helpers for Dolphin automounting
     homelab.storage.enable = true;
 

@@ -104,11 +104,34 @@ in {
       }
     '';
 
+    xdg.portal = {
+      enable = true;
+      extraPortals = [
+        pkgs.xdg-desktop-portal-hyprland
+        pkgs.kdePackages.xdg-desktop-portal-kde # <--- The Missing Piece
+        pkgs.xdg-desktop-portal-gtk # Fallback for GTK apps
+      ];
+      config = {
+        common = {
+          # Use Hyprland for screenshots/screencasts
+          # Use KDE for file dialogs (matching your theme)
+          default = ["hyprland"];
+          "org.freedesktop.impl.portal.FileChooser" = ["kde"];
+          "org.freedesktop.impl.portal.OpenURI" = ["kde"];
+          "org.freedesktop.impl.portal.Secret" = ["kde"];
+        };
+      };
+    };
+
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
       package = pkgs.hyprland;
       portalPackage = pkgs.xdg-desktop-portal-hyprland;
+      # FIX: Pass all environment variables to D-Bus/Systemd
+      # This ensures Dolphin sees the same PATH as your terminal
+      systemd.enable = true;
+      systemd.variables = ["--all"];
 
       settings = {
         "$mod" = "SUPER";
@@ -122,6 +145,9 @@ in {
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --watch cliphist store"
             "blueman-applet"
+            # Starts the activity manager so "Recent Files" works in Dolphin
+            # "${pkgs.kdePackages.kactivitymanagerd}/bin/kactivitymanagerd"
+            "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
           ]
           ++ optionals idleCfg.enable ["hypridle"]
           ++ optionals paperCfg.enable ["hyprpaper"]
