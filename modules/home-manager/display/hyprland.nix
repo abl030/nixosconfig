@@ -28,6 +28,7 @@ in {
     ./wayvnc.nix
     ./hypridle.nix
     ./hyprpaper.nix
+    ./qt-theme.nix
   ];
 
   options.homelab.hyprland = {
