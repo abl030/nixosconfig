@@ -104,6 +104,23 @@ in {
       }
     '';
 
+    xdg.portal = {
+      enable = true;
+      extraPortals = [
+        pkgs.xdg-desktop-portal-hyprland
+        pkgs.kdePackages.xdg-desktop-portal-kde # <--- The Missing Piece
+        pkgs.xdg-desktop-portal-gtk # Fallback for GTK apps
+      ];
+      config = {
+        common = {
+          # Use Hyprland for screenshots/screencasts
+          # Use KDE for file dialogs (matching your theme)
+          default = ["hyprland"];
+          "org.freedesktop.impl.portal.FileChooser" = ["kde"];
+        };
+      };
+    };
+
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
       enable = true;
