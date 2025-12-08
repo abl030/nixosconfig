@@ -54,7 +54,7 @@ with lib; let
   secondary = toRGB theme.secondary; # Beige
   border = toRGB theme.border;
 
-  # --- SHARED .colors CONTENT (used by both Dolphin + Qt/KDE) ---
+  # --- SHARED .colors CONTENT (used by Dolphin + Qt/KDE) ---
   schemeText = ''
     [General]
     Name=NixOSTheme
@@ -147,16 +147,15 @@ in {
         qt6Packages.qtwayland
         dconf
 
-        # Thumbnailers
+        # Thumbnailers (already installed, no changes)
         kdePackages.kdegraphics-thumbnailers
         kdePackages.ffmpegthumbs
-        kdePackages.qtsvg
-        kdePackages.qtimageformats
+        kdePackages.kdesdk-thumbnailers
+        kdePackages.kio-extras
         kdePackages.calligra
         shared-mime-info
       ];
 
-      # Optional: plugin path hints for Breeze, mostly harmless
       sessionVariables = {
         QT_PLUGIN_PATH =
           "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
@@ -165,12 +164,7 @@ in {
     };
 
     xdg = {
-      # ---------------------------
-      # CONFIG FILES (~/.config)
-      # ---------------------------
       configFile = {
-        # 1) qt6ct: still installed, but colors now driven by our .colors file.
-        # We explicitly *disable* custom palette so KDE/Breeze colors win.
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
           custom_palette=false
@@ -192,7 +186,6 @@ in {
           wheel_scroll_lines=3
         '';
 
-        # 2) Global KDE “pointer” to our color scheme + icon theme
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
@@ -204,27 +197,48 @@ in {
 
           [Icons]
           Theme=breeze-dark
-        '';
 
-        # 3) Dolphin-specific settings — THIS is what modern Dolphin reads.
-        "dolphinrc".text = ''
           [UiSettings]
           ColorScheme=NixOSTheme
 
-          [Icons]
-          Theme=breeze-dark
+          [PreviewSettings]
+          # Remote previews: 50 GiB
+          MaximumRemoteSize=53687091200
+
+          # Local: effectively unlimited (~100 GiB)
+          MaximumSize=107374182400
+
+          # Enable thumbnails in file dialogs and friends
+          UseFileThumbnails=true
+
+          # Enable folder previews, including remote ones
+          EnableRemoteFolderThumbnail=true
+
+          camera=true
+          file=true
+          fonts=true
+
+          # Plugins: superset to tick all relevant document/office/ebook/translation/image types
+          # - opendocumentthumbnail: OpenDocument
+          # - comicbookthumbnail: comic archives
+          # - windowsimagethumbnail, windowsexethumbnail: Windows images/EXEs
+          # - directorythumbnail: folder previews
+          # - rawthumbnail, exrthumbnail, svgthumbnail, imagethumbnail, jpegthumbnail: image formats
+          # - appimagethumbnail: AppImage
+          # - audiothumbnail: audio
+          # - blenderthumbnail: Blender .blend
+          # - ebookthumbnail, mobithumbnail: eBooks / Mobipocket
+          # - kraorathumbnail: Krita / OpenRaster
+          # - gettextthumbnail: Gettext translation files
+          # - gsthumbnail, ffmpegthumbs: video previews
+          Plugins=appimagethumbnail,audiothumbnail,blenderthumbnail,comicbookthumbnail,cursorthumbnail,desktopthumbnail,directorythumbnail,djvuthumbnail,ebookthumbnail,exrthumbnail,fontthumbnail,imagethumbnail,jpegthumbnail,kraorathumbnail,mobithumbnail,opendocumentthumbnail,rawthumbnail,svgthumbnail,textthumbnail,windowsimagethumbnail,windowsexethumbnail,gsthumbnail,ffmpegthumbs,gettextthumbnail
         '';
       };
 
-      # ---------------------------
-      # DATA FILES (~/.local/share)
-      # ---------------------------
       dataFile = {
-        # 4) The actual color scheme file Dolphin + KDE will load
         "color-schemes/NixOSTheme.colors".text = schemeText;
       };
 
-      # Portals for file dialogs etc. when under Hyprland
       portal = {
         enable = true;
         extraPortals = [pkgs.xdg-desktop-portal-gtk];
