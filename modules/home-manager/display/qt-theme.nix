@@ -1,3 +1,4 @@
+# modules/home-manager/display/qt-theme.nix
 {
   pkgs,
   lib,
@@ -45,7 +46,7 @@ with lib; let
     b = toString (hexToDec (builtins.substring 4 2 clean));
   in "${r},${g},${b}";
 
-  # Colors
+  # Colors from Theme
   bg = toRGB cfg.colors.background;
   bgAlt = toRGB cfg.colors.backgroundAlt;
   fg = toRGB cfg.colors.foreground;
@@ -55,7 +56,9 @@ with lib; let
 
   accentRGB = accent;
 
-  # --- 2. The Palette Block (Injected into both .colors and kdeglobals) ---
+  # --- 2. The Palette Block ---
+  # We inject this into kdeglobals so the KDE Platform Theme plugin
+  # can read the "Selection" color and apply it to Breeze Icons.
   commonPalette = ''
     [Colors:Window]
     BackgroundNormal=${bg}
@@ -131,53 +134,36 @@ in {
   };
 
   config = {
-    # 3. Install Packages
+    # 3. Install Packages (REMOVED: qt6ct)
     home.packages = with pkgs; [
-      # Core Theme Tools
-      qt6Packages.qt6ct
       qt6Packages.qtwayland
 
       # Icons & Styles
       kdePackages.breeze
       kdePackages.breeze-icons
 
-      # CRITICAL: This package provides the "KDE" platform theme plugin
-      # Without this, QT_QPA_PLATFORMTHEME="KDE" fails and falls back to generic.
+      # KDE Platform Integration (The mechanism that makes this work)
       kdePackages.plasma-integration
-
-      # Optional: QML styling
       kdePackages.qqc2-desktop-style
     ];
 
     # 4. Session Variables
     home.sessionVariables = {
+      # Force KDE integration (Dolphin will read kdeglobals)
       QT_QPA_PLATFORMTHEME = "KDE";
       XDG_MENU_PREFIX = "plasma-";
 
-      # Ensure the system finds the plugins we just installed
       QT_PLUGIN_PATH =
         "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
         + "${pkgs.kdePackages.plasma-integration}/lib/qt-6/plugins:"
         + "${config.home.profileDirectory}/lib/qt-6/plugins";
     };
 
-    # 5. Config Files
+    # 5. Config Files (REMOVED: qt6ct.conf)
     xdg = {
       dataFile."color-schemes/NixOSTheme.colors".text = schemeText;
 
       configFile = {
-        "qt6ct/qt6ct.conf".text = ''
-          [Appearance]
-          custom_palette=false
-          icon_theme=breeze
-          standard_dialogs=default
-          style=Breeze
-
-          [Interface]
-          menus_have_icons=true
-          toolbutton_style=4
-        '';
-
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
@@ -189,12 +175,14 @@ in {
           SingleClick=true
 
           [Icons]
-          # "breeze" is the adaptive theme that takes colors from kdeglobals.
-          # "breeze-dark" forces hardcoded colors.
           Theme=breeze
 
           [UiSettings]
           ColorScheme=NixOSTheme
+
+          # NOTE: To manually force icon colors independent of the Accent,
+          # you would add a [DesktopIcons] section here with DefaultColor=R,G,B.
+          # Since we want them to match the accent, we rely on standard inheritance.
 
           ${commonPalette}
 
