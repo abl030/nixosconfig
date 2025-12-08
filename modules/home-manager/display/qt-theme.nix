@@ -6,7 +6,8 @@
 }:
 with lib; let
   cfg = config.homelab.theme;
-  # Helper: Hex to RGB
+
+  # --- 1. Color Logic (Hex -> RGB) ---
   hexToDec = v: let
     hexToInt = {
       "0" = 0;
@@ -44,7 +45,7 @@ with lib; let
     b = toString (hexToDec (builtins.substring 4 2 clean));
   in "${r},${g},${b}";
 
-  # Colors from your central theme
+  # Colors
   bg = toRGB cfg.colors.background;
   bgAlt = toRGB cfg.colors.backgroundAlt;
   fg = toRGB cfg.colors.foreground;
@@ -52,12 +53,10 @@ with lib; let
   secondary = toRGB cfg.colors.secondary;
   border = toRGB cfg.colors.border;
 
-  # The .colors file content
-  schemeText = ''
-    [General]
-    Name=NixOSTheme
-    ColorScheme=NixOSTheme
+  accentRGB = accent;
 
+  # --- 2. The Palette Block (Injected into both .colors and kdeglobals) ---
+  commonPalette = ''
     [Colors:Window]
     BackgroundNormal=${bg}
     BackgroundAlternate=${bgAlt}
@@ -113,10 +112,15 @@ with lib; let
     inactiveBackground=${bgAlt}
     inactiveForeground=${border}
   '';
+
+  schemeText = ''
+    [General]
+    Name=NixOSTheme
+    ColorScheme=NixOSTheme
+    ${commonPalette}
+  '';
 in {
   options.homelab.theme = {
-    # We add a new option here to allow other modules (like dolphin.nix)
-    # to inject their own settings into kdeglobals.
     kdeglobals = {
       extraConfig = mkOption {
         type = types.lines;
@@ -127,32 +131,45 @@ in {
   };
 
   config = {
-    # 1. Install Qt/KDE Foundation Packages
+    # 3. Install Packages
     home.packages = with pkgs; [
+      # Core Theme Tools
       qt6Packages.qt6ct
+      qt6Packages.qtwayland
+
+      # Icons & Styles
       kdePackages.breeze
       kdePackages.breeze-icons
-      qt6Packages.qtwayland
-      dconf
+
+      # CRITICAL: This package provides the "KDE" platform theme plugin
+      # Without this, QT_QPA_PLATFORMTHEME="KDE" fails and falls back to generic.
+      kdePackages.plasma-integration
+
+      # Optional: QML styling
+      kdePackages.qqc2-desktop-style
     ];
 
+    # 4. Session Variables
     home.sessionVariables = {
+      QT_QPA_PLATFORMTHEME = "KDE";
+      XDG_MENU_PREFIX = "plasma-";
+
+      # Ensure the system finds the plugins we just installed
       QT_PLUGIN_PATH =
         "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
+        + "${pkgs.kdePackages.plasma-integration}/lib/qt-6/plugins:"
         + "${config.home.profileDirectory}/lib/qt-6/plugins";
     };
 
-    # 2. Config Files Generation
+    # 5. Config Files
     xdg = {
-      # The Color Scheme File (Source of Truth for KDE apps)
       dataFile."color-schemes/NixOSTheme.colors".text = schemeText;
 
       configFile = {
-        # qt6ct config
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
           custom_palette=false
-          icon_theme=breeze-dark
+          icon_theme=breeze
           standard_dialogs=default
           style=Breeze
 
@@ -161,22 +178,25 @@ in {
           toolbutton_style=4
         '';
 
-        # kdeglobals: The System + Theme Settings
-        # We merge the base settings with anything added via `extraConfig`
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
           Name=NixOSTheme
           shadeSortColumn=true
+          AccentColor=${accentRGB}
 
           [KDE]
           SingleClick=true
 
           [Icons]
-          Theme=breeze-dark
+          # "breeze" is the adaptive theme that takes colors from kdeglobals.
+          # "breeze-dark" forces hardcoded colors.
+          Theme=breeze
 
           [UiSettings]
           ColorScheme=NixOSTheme
+
+          ${commonPalette}
 
           ${cfg.kdeglobals.extraConfig}
         '';
