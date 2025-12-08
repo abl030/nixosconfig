@@ -117,6 +117,8 @@ in {
           # Use KDE for file dialogs (matching your theme)
           default = ["hyprland"];
           "org.freedesktop.impl.portal.FileChooser" = ["kde"];
+          "org.freedesktop.impl.portal.OpenURI" = ["kde"];
+          "org.freedesktop.impl.portal.Secret" = ["kde"];
         };
       };
     };
@@ -126,6 +128,10 @@ in {
       enable = true;
       package = pkgs.hyprland;
       portalPackage = pkgs.xdg-desktop-portal-hyprland;
+      # FIX: Pass all environment variables to D-Bus/Systemd
+      # This ensures Dolphin sees the same PATH as your terminal
+      systemd.enable = true;
+      systemd.variables = ["--all"];
 
       settings = {
         "$mod" = "SUPER";
