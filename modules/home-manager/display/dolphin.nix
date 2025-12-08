@@ -37,7 +37,7 @@ with lib; let
     c1 = builtins.substring 0 1 v;
     c2 = builtins.substring 1 1 v;
   in
-    (hexToInt.${c1} * 16) + (hexToInt.${c2});
+    (hexToInt.${c1} * 16) + hexToInt.${c2};
 
   toRGB = hex: let
     clean = lib.removePrefix "#" hex;
