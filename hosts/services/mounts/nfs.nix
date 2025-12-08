@@ -12,7 +12,7 @@
   };
 
   fileSystems."/mnt/data" = {
-    device = "tower:/mnt/user/data/";
+    device = "tower:/mnt/user/data";
     fsType = "nfs";
     options = [
       # We need this bit so that the mount works on tailscale.
@@ -36,7 +36,7 @@
     ];
   };
   fileSystems."/mnt/appdata" = {
-    device = "tower:/mnt/user/appdata/";
+    device = "tower:/mnt/user/appdata";
     fsType = "nfs";
     options = [
       # We need this bit so that the mount works on tailscale.
