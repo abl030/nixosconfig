@@ -7,6 +7,10 @@
 with lib; let
   cfg = config.homelab.dolphin;
 in {
+  imports = [
+    ./mime.nix
+  ];
+
   options.homelab.dolphin = {
     enable = mkEnableOption "Enable Dolphin File Manager";
   };
@@ -28,6 +32,8 @@ in {
       kdePackages.kio-admin
       kdePackages.ark
       kdePackages.kservice
+      kdePackages.kactivitymanagerd
+      kdePackages.qtbase
 
       # Thumbnailers
       kdePackages.kdegraphics-thumbnailers
