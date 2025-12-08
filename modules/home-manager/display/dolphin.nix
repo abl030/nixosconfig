@@ -28,6 +28,8 @@ in {
       kdePackages.kio-admin
       kdePackages.ark
       kdePackages.kservice
+      kdePackages.kactivitymanagerd
+      kdePackages.qtbase
 
       # Thumbnailers
       kdePackages.kdegraphics-thumbnailers

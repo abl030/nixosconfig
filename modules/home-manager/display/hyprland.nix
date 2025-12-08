@@ -122,6 +122,9 @@ in {
             "${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1"
             "wl-paste --watch cliphist store"
             "blueman-applet"
+            # Starts the activity manager so "Recent Files" works in Dolphin
+            # "${pkgs.kdePackages.kactivitymanagerd}/bin/kactivitymanagerd"
+            "${pkgs.kdePackages.kactivitymanagerd}/libexec/kactivitymanagerd"
           ]
           ++ optionals idleCfg.enable ["hypridle"]
           ++ optionals paperCfg.enable ["hyprpaper"]
