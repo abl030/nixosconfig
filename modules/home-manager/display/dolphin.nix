@@ -6,8 +6,115 @@
 }:
 with lib; let
   cfg = config.homelab.dolphin;
+  theme = config.homelab.theme.colors;
 
-  breezeDarkColors = "${pkgs.kdePackages.breeze}/share/color-schemes/BreezeDark.colors";
+  # --- HELPER: Hex to RGB Conversion ---
+  hexToDec = v: let
+    hexToInt = {
+      "0" = 0;
+      "1" = 1;
+      "2" = 2;
+      "3" = 3;
+      "4" = 4;
+      "5" = 5;
+      "6" = 6;
+      "7" = 7;
+      "8" = 8;
+      "9" = 9;
+      "a" = 10;
+      "b" = 11;
+      "c" = 12;
+      "d" = 13;
+      "e" = 14;
+      "f" = 15;
+      "A" = 10;
+      "B" = 11;
+      "C" = 12;
+      "D" = 13;
+      "E" = 14;
+      "F" = 15;
+    };
+    c1 = builtins.substring 0 1 v;
+    c2 = builtins.substring 1 1 v;
+  in
+    (hexToInt.${c1} * 16) + hexToInt.${c2};
+
+  toRGB = hex: let
+    clean = lib.removePrefix "#" hex;
+    r = toString (hexToDec (builtins.substring 0 2 clean));
+    g = toString (hexToDec (builtins.substring 2 2 clean));
+    b = toString (hexToDec (builtins.substring 4 2 clean));
+  in "${r},${g},${b}";
+
+  # --- COLOR MAPPING (from homelab.theme) ---
+  bg = toRGB theme.background;
+  bgAlt = toRGB theme.backgroundAlt;
+  fg = toRGB theme.foreground;
+  accent = toRGB theme.primary; # Orange
+  secondary = toRGB theme.secondary; # Beige
+  border = toRGB theme.border;
+
+  # --- SHARED .colors CONTENT (used by both Dolphin + Qt/KDE) ---
+  schemeText = ''
+    [General]
+    Name=NixOSTheme
+    ColorScheme=NixOSTheme
+
+    [Colors:Window]
+    BackgroundNormal=${bg}
+    BackgroundAlternate=${bgAlt}
+    ForegroundNormal=${fg}
+    ForegroundInactive=${border}
+    ForegroundActive=${accent}
+    DecorationFocus=${accent}
+    DecorationHover=${secondary}
+
+    [Colors:View]
+    BackgroundNormal=${bg}
+    BackgroundAlternate=${bgAlt}
+    ForegroundNormal=${fg}
+    ForegroundInactive=${border}
+    ForegroundActive=${accent}
+    DecorationFocus=${accent}
+    DecorationHover=${secondary}
+
+    [Colors:Button]
+    BackgroundNormal=${bgAlt}
+    BackgroundAlternate=${bg}
+    ForegroundNormal=${fg}
+    ForegroundInactive=${border}
+    ForegroundActive=${accent}
+    DecorationFocus=${accent}
+    DecorationHover=${secondary}
+
+    [Colors:Selection]
+    BackgroundNormal=${accent}
+    BackgroundAlternate=${secondary}
+    ForegroundNormal=${bg}
+    ForegroundInactive=${bg}
+    ForegroundActive=${bg}
+    DecorationFocus=${accent}
+    DecorationHover=${secondary}
+
+    [Colors:Tooltip]
+    BackgroundNormal=${bgAlt}
+    BackgroundAlternate=${bg}
+    ForegroundNormal=${fg}
+    ForegroundInactive=${border}
+    ForegroundActive=${accent}
+    DecorationFocus=${accent}
+    DecorationHover=${secondary}
+
+    [Colors:Complementary]
+    BackgroundNormal=${bg}
+    ForegroundNormal=${fg}
+
+    [WM]
+    activeBackground=${accent}
+    activeForeground=${fg}
+    inactiveBackground=${bgAlt}
+    inactiveForeground=${border}
+  '';
 in {
   options.homelab.dolphin = {
     enable = mkEnableOption "Enable Dolphin File Manager with Declarative Dark Mode";
@@ -15,33 +122,25 @@ in {
 
   config = mkIf cfg.enable {
     # --- AUTOMOUNTING SERVICE ---
-    # Udiskie sits in the background, talks to UDisks2 (enabled in NixOS),
-    # and automatically mounts USBs when plugged in.
     services.udiskie = {
       enable = true;
-      tray = "auto"; # Only show tray icon if a device is mounted
+      tray = "auto";
       automount = true;
-      notify = true; # Uses libnotify (dunst)
+      notify = true;
     };
 
     home = {
       # --- PACKAGES ---
       packages = with pkgs; [
-        # Core App
+        # Core Dolphin + friends
         kdePackages.dolphin
         kdePackages.dolphin-plugins
         kdePackages.kio-extras
         kdePackages.kio-admin
-
-        # --- NEW: Archive Management ---
-        kdePackages.ark # The actual archiving tool (Zip/Tar/7z)
-
-        # --- NEW: Service Menus (Context Menu Fix) ---
-        # 'kservice' is strictly required for Dolphin to find Ark's
-        # "Extract Here" and "Compress" right-click actions in a non-Plasma session.
+        kdePackages.ark
         kdePackages.kservice
 
-        # Theming Infrastructure
+        # Theming infrastructure
         qt6Packages.qt6ct
         kdePackages.breeze
         kdePackages.breeze-icons
@@ -57,60 +156,24 @@ in {
         shared-mime-info
       ];
 
-      # --- Environment Variables ---
+      # Optional: plugin path hints for Breeze, mostly harmless
       sessionVariables = {
-        QT_QPA_PLATFORMTHEME = "qt6ct";
-        QT_QPA_PLATFORM = "wayland";
-        QT_PLUGIN_PATH = "${config.home.profileDirectory}/lib/qt-6/plugins:$QT_PLUGIN_PATH";
+        QT_PLUGIN_PATH =
+          "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
+          + "${config.home.profileDirectory}/lib/qt-6/plugins";
       };
-
-      # --- ACTIVATION SCRIPT ---
-      # This runs every time you 'home-manager switch'.
-      # UPDATED LOGIC: Respects existing user settings.
-      activation.configureKdeGlobals = lib.hm.dag.entryAfter ["writeBoundary"] ''
-        verboseEcho "Configuring Mutable KDE Globals..."
-
-        DEST="$HOME/.config/kdeglobals"
-        SOURCE="${breezeDarkColors}"
-
-        # 1. If it is a symlink (from old Nix generation), remove it so we can create a real file.
-        if [ -L "$DEST" ]; then
-          verboseEcho "Removing read-only kdeglobals symlink..."
-          rm "$DEST"
-        fi
-
-        # 2. If the file does NOT exist, create it from the template.
-        # This ensures we don't overwrite your settings if the file is already there.
-        if [ ! -f "$DEST" ]; then
-             verboseEcho "Initializing kdeglobals from Breeze Dark template..."
-             cat "$SOURCE" > "$DEST"
-        fi
-
-        # 3. Apply the "White Background" Fix safely.
-        # We grep to see if the fix is already there. If not, we append it.
-        # This allows the file to persist across generations without losing the fix.
-        if ! grep -q "BackgroundNormal=30,31,33" "$DEST"; then
-          verboseEcho "Applying White Background Fix..."
-          echo "" >> "$DEST"
-          echo "[Colors:View]" >> "$DEST"
-          echo "BackgroundNormal=30,31,33" >> "$DEST"
-          echo "BackgroundAlternate=35,36,38" >> "$DEST"
-        fi
-
-        # 4. CRITICAL: Make it writable so Dolphin can save settings
-        chmod 644 "$DEST"
-      '';
     };
 
-    # --- Declarative File Synthesis (Existing logic) ---
     xdg = {
+      # ---------------------------
+      # CONFIG FILES (~/.config)
+      # ---------------------------
       configFile = {
-        # "kdeglobals".text = ... (Logic moved to activation script above)
-
+        # 1) qt6ct: still installed, but colors now driven by our .colors file.
+        # We explicitly *disable* custom palette so KDE/Breeze colors win.
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
-          color_scheme_path=${config.xdg.configHome}/kdeglobals
-          custom_palette=true
+          custom_palette=false
           icon_theme=breeze-dark
           standard_dialogs=default
           style=Breeze
@@ -128,8 +191,40 @@ in {
           underline_shortcut=1
           wheel_scroll_lines=3
         '';
+
+        # 2) Global KDE “pointer” to our color scheme + icon theme
+        "kdeglobals".text = ''
+          [General]
+          ColorScheme=NixOSTheme
+          Name=NixOSTheme
+          shadeSortColumn=true
+
+          [KDE]
+          SingleClick=true
+
+          [Icons]
+          Theme=breeze-dark
+        '';
+
+        # 3) Dolphin-specific settings — THIS is what modern Dolphin reads.
+        "dolphinrc".text = ''
+          [UiSettings]
+          ColorScheme=NixOSTheme
+
+          [Icons]
+          Theme=breeze-dark
+        '';
       };
 
+      # ---------------------------
+      # DATA FILES (~/.local/share)
+      # ---------------------------
+      dataFile = {
+        # 4) The actual color scheme file Dolphin + KDE will load
+        "color-schemes/NixOSTheme.colors".text = schemeText;
+      };
+
+      # Portals for file dialogs etc. when under Hyprland
       portal = {
         enable = true;
         extraPortals = [pkgs.xdg-desktop-portal-gtk];

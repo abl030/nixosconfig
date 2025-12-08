@@ -7,8 +7,7 @@
 with lib; let
   cfg = config.homelab.hyprland;
 in {
-  # 1. Import the storage definition here so Hyprland knows about it
-  #    (Assuming you placed storage.nix in modules/nixos/services/system/storage.nix)
+  # 1. Import storage (UDisks2) so Dolphin can mount drives
   imports = [
     ../system/storage.nix
   ];
@@ -18,27 +17,40 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # 2. Trigger the "On" switch for storage automatically
+    # Turn on our storage helpers for Dolphin automounting
     homelab.storage.enable = true;
 
-    # --- Existing Hyprland Config ---
+    # --- ENVIRONMENT VARIABLES (System Authority) ---
+    environment.sessionVariables = {
+      # Use the KDE platform theme plugin (works outside Plasma)
+      QT_QPA_PLATFORMTHEME = "KDE";
+
+      # Critical for Dolphin "Open With" and MIME integration
+      XDG_MENU_PREFIX = "plasma-";
+    };
+
+    # Hyprland compositor + Xwayland
     programs.hyprland = {
       enable = true;
       xwayland.enable = true;
     };
 
+    # SDDM on Wayland
     services.displayManager.sddm = {
       enable = true;
       wayland.enable = true;
     };
 
+    # Leave X server enabled (some apps and tools still want it)
     services.xserver.enable = true;
 
+    # Portals for screensharing etc.
     xdg.portal = {
       enable = true;
       extraPortals = [pkgs.xdg-desktop-portal-gtk];
     };
 
+    # PAM entry so hyprlock can authenticate
     security.pam.services.hyprlock = {};
   };
 }
