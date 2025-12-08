@@ -169,7 +169,7 @@ in {
       # CONFIG FILES (~/.config)
       # ---------------------------
       configFile = {
-        # 1) qt6ct: still installed, but colors now driven by our .colors file.
+        # 1) qt6ct: installed, but colors driven by our .colors file.
         # We explicitly *disable* custom palette so KDE/Breeze colors win.
         "qt6ct/qt6ct.conf".text = ''
           [Appearance]
@@ -192,7 +192,7 @@ in {
           wheel_scroll_lines=3
         '';
 
-        # 2) Global KDE “pointer” to our color scheme + icon theme
+        # 2) Global KDE “pointer” to our color scheme + icon theme + preview limits
         "kdeglobals".text = ''
           [General]
           ColorScheme=NixOSTheme
@@ -204,15 +204,11 @@ in {
 
           [Icons]
           Theme=breeze-dark
-        '';
 
-        # 3) Dolphin-specific settings — THIS is what modern Dolphin reads.
-        "dolphinrc".text = ''
-          [UiSettings]
-          ColorScheme=NixOSTheme
-
-          [Icons]
-          Theme=breeze-dark
+          [PreviewSettings]
+          # Large limits so Dolphin / KIO can preview big local + remote files
+          MaximumSize=52428800000
+          MaximumRemoteSize=52428800000
         '';
       };
 
@@ -220,7 +216,7 @@ in {
       # DATA FILES (~/.local/share)
       # ---------------------------
       dataFile = {
-        # 4) The actual color scheme file Dolphin + KDE will load
+        # 3) The actual color scheme file Dolphin + KDE will load
         "color-schemes/NixOSTheme.colors".text = schemeText;
       };
 
@@ -231,5 +227,40 @@ in {
         config.common.default = ["hyprland" "gtk"];
       };
     };
+
+    # ---------------------------------------------------
+    # MUTABLE dolphinrc with FIRST-RUN / MISSING-FIELD seeding
+    # ---------------------------------------------------
+    home.activation.seedDolphinRC = lib.hm.dag.entryAfter ["writeBoundary"] ''
+            cfgFile="$HOME/.config/dolphinrc"
+            mkdir -p "$HOME/.config"
+
+            # If file doesn't exist at all: create a minimal one.
+            if [ ! -f "$cfgFile" ]; then
+              cat > "$cfgFile" <<EOF
+      [UiSettings]
+      ColorScheme=NixOSTheme
+      EOF
+              exit 0
+            fi
+
+            # If it already declares a ColorScheme anywhere, leave it alone.
+            if grep -q "^ColorScheme=" "$cfgFile"; then
+              exit 0
+            fi
+
+            # If there's already a [UiSettings] section, inject ColorScheme under it.
+            if grep -q "^\[UiSettings\]" "$cfgFile"; then
+              # Insert only once, immediately after the [UiSettings] line.
+              ${pkgs.gnused}/bin/sed -i '/^\[UiSettings\]/a ColorScheme=NixOSTheme' "$cfgFile"
+            else
+              # No UiSettings block yet: append a new one.
+              cat >> "$cfgFile" <<EOF
+
+      [UiSettings]
+      ColorScheme=NixOSTheme
+      EOF
+            fi
+    '';
   };
 }
