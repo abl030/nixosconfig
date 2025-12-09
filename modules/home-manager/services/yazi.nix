@@ -66,27 +66,22 @@ in {
         bgAlt = colors.backgroundAlt;
         fg = colors.foreground;
         accent = colors.primary;
-        secondary = colors.secondary;
-        border = colors.border;
-        info = colors.info;
-        success = colors.success;
-        warning = colors.warning;
-        urgent = colors.urgent;
+        inherit (colors) secondary border info success warning urgent;
       in {
         # Main file list + preview pane styling
         mgr = {
           cwd = {
             fg = accent;
-            bg = bg;
+            inherit bg;
             bold = true;
           };
           hovered = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
             bold = true;
           };
           preview_hovered = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
           find_keyword = {
@@ -105,11 +100,11 @@ in {
           };
           marker_copied = {
             fg = info;
-            bg = bg;
+            inherit bg;
           };
           marker_cut = {
             fg = warning;
-            bg = bg;
+            inherit bg;
           };
           border_symbol = "│";
           border_style = {fg = border;};
@@ -123,7 +118,7 @@ in {
             bold = true;
           };
           inactive = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
           sep_inner = {
@@ -144,7 +139,7 @@ in {
             bold = true;
           };
           normal_alt = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
           select_main = {
@@ -153,7 +148,7 @@ in {
             bold = true;
           };
           select_alt = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
           unset_main = {
@@ -161,7 +156,7 @@ in {
             bg = border;
           };
           unset_alt = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
         };
@@ -169,7 +164,7 @@ in {
         # Status bar (permissions, progress, etc.)
         status = {
           overall = {
-            fg = fg;
+            inherit fg;
             bg = bgAlt;
           };
           perm_type = {fg = secondary;};
@@ -179,7 +174,7 @@ in {
           perm_sep = {fg = border;};
 
           progress_label = {
-            fg = fg;
+            inherit fg;
             bold = true;
           };
           progress_normal = {
@@ -206,13 +201,13 @@ in {
           cols = 2;
           mask = {
             fg = "reset";
-            bg = bg;
+            inherit bg;
           };
           cand = {
             fg = accent;
             bold = true;
           };
-          rest = {fg = fg;};
+          rest = {inherit fg;};
           desc = {fg = secondary;};
           separator = " → ";
           separator_style = {fg = border;};
@@ -226,8 +221,7 @@ in {
             bold = true;
           };
           value = {
-            fg = fg;
-            bg = bg;
+            inherit fg bg;
           };
           selected = {
             fg = bg;
@@ -243,8 +237,8 @@ in {
             fg = accent;
             bold = true;
           };
-          content = {fg = fg;};
-          list = {fg = fg;};
+          content = {inherit fg;};
+          list = {inherit fg;};
           btn_yes = {
             fg = bg;
             bg = success;
@@ -266,8 +260,7 @@ in {
             bold = true;
           };
           inactive = {
-            fg = fg;
-            bg = bg;
+            inherit fg bg;
           };
         };
 
@@ -292,7 +285,7 @@ in {
             bold = true;
           };
           run = {fg = info;};
-          desc = {fg = fg;};
+          desc = {inherit fg;};
           hovered = {
             fg = bg;
             bg = bgAlt;
@@ -357,7 +350,7 @@ in {
             # Default
             {
               name = "*";
-              fg = fg;
+              inherit fg;
             }
           ];
         };
