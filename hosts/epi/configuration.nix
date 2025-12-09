@@ -30,6 +30,9 @@
     hyprland = {
       enable = true;
     };
+    sunshine = {
+      enable = true;
+    };
     vnc = {
       enable = true;
       secure = true;
