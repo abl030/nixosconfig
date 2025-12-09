@@ -190,5 +190,15 @@ in {
         '';
       };
     };
+    home.sessionVariables = {
+      # 1. Force the KDE6 integration plugin.
+      # This reads your 'kdeglobals' for UI colors (Dark Menus).
+      # If LO fails to launch, try "qt6" or "kf5" instead.
+      SAL_USE_VCLPLUGIN = "kf6";
+
+      # 2. Force Dark Icons.
+      # Without this, you might get dark icons on your dark menus.
+      SAL_ICON_THEME = "breeze";
+    };
   };
 }
