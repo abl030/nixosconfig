@@ -13,6 +13,9 @@
     hyprland = {
       enable = true;
     };
+    remote-desktop = {
+      enable = true;
+    };
     hyprpaper = {
       enable = true;
       wallpaper = ../../modules/home-manager/display/back.jpg;

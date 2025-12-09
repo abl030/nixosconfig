@@ -134,29 +134,39 @@ in {
   };
 
   config = {
-    # 3. Install Packages (REMOVED: qt6ct)
-    home.packages = with pkgs; [
-      qt6Packages.qtwayland
+    # 3. Install Packages & Session Variables (Consolidated)
+    home = {
+      packages = with pkgs; [
+        qt6Packages.qtwayland
 
-      # Icons & Styles
-      kdePackages.breeze
-      kdePackages.breeze-icons
+        # Icons & Styles
+        kdePackages.breeze
+        kdePackages.breeze-icons
 
-      # KDE Platform Integration (The mechanism that makes this work)
-      kdePackages.plasma-integration
-      kdePackages.qqc2-desktop-style
-    ];
+        # KDE Platform Integration (The mechanism that makes this work)
+        kdePackages.plasma-integration
+        kdePackages.qqc2-desktop-style
+      ];
 
-    # 4. Session Variables
-    home.sessionVariables = {
-      # Force KDE integration (Dolphin will read kdeglobals)
-      QT_QPA_PLATFORMTHEME = "KDE";
-      XDG_MENU_PREFIX = "plasma-";
+      sessionVariables = {
+        # Force KDE integration (Dolphin will read kdeglobals)
+        QT_QPA_PLATFORMTHEME = "KDE";
+        XDG_MENU_PREFIX = "plasma-";
 
-      QT_PLUGIN_PATH =
-        "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
-        + "${pkgs.kdePackages.plasma-integration}/lib/qt-6/plugins:"
-        + "${config.home.profileDirectory}/lib/qt-6/plugins";
+        QT_PLUGIN_PATH =
+          "${pkgs.kdePackages.breeze}/lib/qt-6/plugins:"
+          + "${pkgs.kdePackages.plasma-integration}/lib/qt-6/plugins:"
+          + "${config.home.profileDirectory}/lib/qt-6/plugins";
+
+        # 1. Force the KDE6 integration plugin.
+        # This reads your 'kdeglobals' for UI colors (Dark Menus).
+        # If LO fails to launch, try "qt6" or "kf5" instead.
+        SAL_USE_VCLPLUGIN = "kf6";
+
+        # 2. Force Dark Icons.
+        # Without this, you might get dark icons on your dark menus.
+        SAL_ICON_THEME = "breeze";
+      };
     };
 
     # 5. Config Files (REMOVED: qt6ct.conf)

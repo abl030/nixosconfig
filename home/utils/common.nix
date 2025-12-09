@@ -41,4 +41,8 @@
   imports = [
     # ../ssh/ssh.nix
   ];
+
+  homelab.yazi = {
+    enable = true;
+  };
 }

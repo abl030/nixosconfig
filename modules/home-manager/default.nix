@@ -9,5 +9,7 @@
     ./display/theme.nix
     ./display/hypridle.nix
     ./display/dolphin.nix
+    ./services/yazi.nix
+    ./display/remote-desktop.nix
   ];
 }

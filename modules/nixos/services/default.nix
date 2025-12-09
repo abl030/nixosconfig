@@ -6,5 +6,6 @@
     ./display/hyprland.nix
     ./display/wayvnc.nix
     ./system/storage.nix
+    ./display/sunshine.nix
   ];
 }
