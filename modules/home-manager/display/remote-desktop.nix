@@ -11,8 +11,7 @@ with lib; let
   remoteWorkspaces = "1 2 3 4";
   primaryMonitor = "DP-3";
 
-  # Hardcoded list of physical monitors to Disable/Enable
-  # We need this because once disabled, 'hyprctl monitors' won't list them anymore!
+  # Physical monitors to Disable/Enable
   physicalMonitors = "HDMI-A-2 DP-3 HDMI-A-3";
 
   # --- Helper to find Hyprland Socket ---
@@ -47,9 +46,9 @@ with lib; let
     # 2. Force Resolution
     ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},${headlessRes},0x0,1
 
-    # 3. Reload Wallpaper (Fixes black background)
-    # We run it directly in background, bypassing dispatcher issues
-    nohup ${pkgs.hyprpaper}/bin/hyprpaper >/dev/null 2>&1 &
+    # 3. Reload Wallpaper
+    # Using dispatch exec ensures it runs in the compositor environment
+    ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
 
     # 4. Move Workspaces
     ACTIVE_WS=$(${pkgs.hyprland}/bin/hyprctl workspaces -j | jq -r '.[].id')
@@ -60,22 +59,20 @@ with lib; let
       fi
     done
 
-    # 5. DISABLE Physical Monitors (The Fix)
-    # This removes them from the compositor layout, forcing Sunshine to ignore them.
+    # 5. DISABLE Physical Monitors
     for mon in ${physicalMonitors}; do
       echo "Disabling physical monitor: $mon"
       ${pkgs.hyprland}/bin/hyprctl keyword monitor $mon,disable
     done
 
-    # 6. Restart VNC on Headless
+    # 6. Restart VNC on Headless (FIXED)
     echo "Restarting VNC on ${headlessName}..."
     pkill wayvnc || true
     sleep 0.5
-    # Bind explicitly to headless
-    setsid ${pkgs.wayvnc}/bin/wayvnc --output=${headlessName} >/dev/null 2>&1 &
+    # Use dispatch exec so Hyprland spawns it (inheriting correct env/lifecycle)
+    ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.wayvnc}/bin/wayvnc --output=${headlessName}"
 
     # 7. Dynamic Sunshine Config
-    # We must wait a moment for the disable commands to settle
     sleep 1
     HEADLESS_ID=$(${pkgs.hyprland}/bin/hyprctl monitors -j | jq -r '.[] | select(.name == "${headlessName}") | .id')
 
@@ -98,22 +95,14 @@ with lib; let
     echo "Restoring Local Mode..."
 
     # 1. RE-ENABLE Physical Monitors
-    # We restore them to "preferred,auto,1" or specific configs if needed.
-    # Based on your home.nix, we try to restore them to defaults or specific layouts.
-    # To keep it simple and robust, we use 'preferred,auto,1'.
-    # Hyprland's config will likely override positions on next reload, or this is enough.
-
-    # Left (Portrait)
+    # Restore specific layouts
     ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
-    # Middle (Primary)
     ${pkgs.hyprland}/bin/hyprctl keyword monitor DP-3,2560x1440@144,1080x0,1
-    # Right
     ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-3,1920x1080@60,3640x0,1
 
     echo "Physical monitors re-enabled."
 
     # 2. Move Workspaces Back
-    # We wait a second for monitors to wake up
     sleep 2
     ACTIVE_WS=$(${pkgs.hyprland}/bin/hyprctl workspaces -j | jq -r '.[].id')
     for ws in ${remoteWorkspaces}; do
@@ -129,10 +118,9 @@ with lib; let
       ${pkgs.hyprland}/bin/hyprctl output remove ${headlessName}
     fi
 
-    # 4. Restore VNC (Standard Mode)
+    # 4. Restore Standard VNC
     echo "Restoring Standard VNC..."
     pkill wayvnc || true
-    # We launch it via dispatch so it behaves like the config exec-once
     ${pkgs.hyprland}/bin/hyprctl dispatch exec wayvnc
 
     # 5. Reset Sunshine
