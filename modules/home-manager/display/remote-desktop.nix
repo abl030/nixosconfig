@@ -33,9 +33,10 @@ USAGE (Host Configuration):
   };
 
 CLI COMMANDS:
-  - Enter Remote Mode:  `remote-mode -r [1080p|1440p|4k|framework] -m [flat|default]`
-      -r : Resolution (Default: 1080p). 'framework' sets 2256x1504.
-      -m : Mouse Profile (Default: default/accel). Use 'flat' to disable acceleration.
+  - Enter Remote Mode:  `remote-mode -r [RES] -m [MOUSE] -s [SCALE]`
+      -r : Resolution (1080p, 1440p, 4k, framework). Default: 1080p.
+      -m : Mouse Profile (flat, default). Default: default. Use 'flat' for Windows.
+      -s : UI Scale (1, 1.25, 1.5, 2, etc). Default: 1.
 
   - Return to Local:    `local-mode` (or press Super+Shift+D locally)
 
@@ -115,13 +116,15 @@ with lib; let
     # --- Defaults ---
     RES="1080p"
     MOUSE="default"
+    SCALE="1"
 
     # --- Parse Flags ---
-    while getopts "r:m:" opt; do
+    while getopts "r:m:s:" opt; do
       case $opt in
         r) RES="$OPTARG" ;;
         m) MOUSE="$OPTARG" ;;
-        *) echo "Usage: remote-mode [-r 1080p|1440p|4k|framework] [-m flat]"; exit 1 ;;
+        s) SCALE="$OPTARG" ;;
+        *) echo "Usage: remote-mode [-r 1080p|1440p|4k|framework] [-m flat] [-s 1|1.5|2]"; exit 1 ;;
       esac
     done
 
@@ -141,6 +144,7 @@ with lib; let
     fi
 
     echo "Activating Remote Mode..."
+    echo ">> UI Scale: $SCALE"
 
     # 0. Optimize Mouse for Remote Clients
     # If -m flat is passed, we disable acceleration (useful for Windows clients).
@@ -159,7 +163,8 @@ with lib; let
     fi
 
     # 2. Force Resolution & Position (20,000 to avoid overlap)
-    hyprctl keyword monitor ${headlessName},$MODE,20000x0,1
+    # Applied Scale from -s flag
+    hyprctl keyword monitor ${headlessName},$MODE,20000x0,$SCALE
 
     # 3. Reload Wallpaper
     hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
