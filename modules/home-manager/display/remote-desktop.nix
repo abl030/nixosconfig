@@ -1,3 +1,71 @@
+/*
+===================================================================================
+HYPRLAND HEADLESS REMOTE DESKTOP MODULE
+===================================================================================
+
+PURPOSE:
+  Enables a "Game Console" like experience where the host machine switches to a
+  virtual headless monitor for streaming, turning off physical screens for privacy
+  and resource management.
+
+USAGE (Host Configuration):
+  Import this module and configure it in your host's 'home.nix':
+
+  homelab.remote-desktop = {
+    enable = true;
+    settings = {
+      # Workspaces to migrate to the headless session
+      workspaces = [ 1 2 3 4 ];
+
+      # List of physical monitors to DISABLE (Crucial for Sunshine capture)
+      physicalMonitors = [ "HDMI-A-1" "DP-1" ];
+
+      # Monitor to move windows back to when returning home
+      primaryMonitor = "DP-1";
+
+      # Commands to restore physical monitor layout (copy from hyprland.conf)
+      restoreCommands = ''
+        hyprctl keyword monitor DP-1,2560x1440@144,0x0,1
+        hyprctl keyword monitor HDMI-A-1,1920x1080@60,2560x0,1
+      '';
+    };
+  };
+
+CLI COMMANDS:
+  - Enter Remote Mode:  `remote-mode [1080p|1440p|4k]`
+  - Return to Local:    `local-mode` (or press Super+Shift+D locally)
+
+DESIGN DECISIONS & LEARNINGS:
+  1. WHY DISABLE MONITORS?
+     Simply using `dpms off` is insufficient. Sunshine's KMS capture prefers
+     physical connectors even if they are "off", resulting in a black screen stream.
+     We must use `hyprctl keyword monitor <name>,disable` to structurally remove
+     them from the compositor, forcing Sunshine to fallback to the Headless output.
+
+  2. SUNSHINE CONFIGURATION:
+     Sunshine doesn't automatically detect new virtual outputs added at runtime.
+     We must:
+     a) Restart Sunshine after creating the output.
+     b) Dynamically inject `output_name = <ID>` into ~/.config/sunshine/sunshine.conf.
+     c) Ensure Sunshine is running with `capture = "wlr"` (wlroots) backend.
+
+  3. VNC HANDLING:
+     WayVNC binds to a specific output. When we disable physical monitors, the
+     old VNC instance breaks. We actively `pkill` it and launch a new instance
+     bound explicitly to `HEADLESS-2`.
+
+  4. OVERLAP PREVENTION:
+     We create `HEADLESS-2` at position `20000x0`. If created at `0x0`, it might
+     briefly overlap with an existing monitor before disable commands run, causing
+     Hyprland errors.
+
+  5. SSH COMPATIBILITY:
+     SSH sessions do not have `$HYPRLAND_INSTANCE_SIGNATURE` set. The scripts
+     manually detect the active socket in `$XDG_RUNTIME_DIR/hypr` to allow
+     remote execution.
+
+===================================================================================
+*/
 {
   config,
   lib,
