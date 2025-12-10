@@ -13,8 +13,21 @@
     hyprland = {
       enable = true;
     };
+    # --- NEW: Remote Desktop Configuration ---
     remote-desktop = {
       enable = true;
+      settings = {
+        workspaces = [1 2 3 4];
+        physicalMonitors = ["HDMI-A-2" "DP-3" "HDMI-A-3"];
+        primaryMonitor = "DP-3";
+
+        # We define the specific restoration logic for Epi's complex triple monitor setup here
+        restoreCommands = ''
+          hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
+          hyprctl keyword monitor DP-3,2560x1440@144,1080x0,1
+          hyprctl keyword monitor HDMI-A-3,1920x1080@60,3640x0,1
+        '';
+      };
     };
     hyprpaper = {
       enable = true;
