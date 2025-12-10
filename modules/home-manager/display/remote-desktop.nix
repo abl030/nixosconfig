@@ -7,7 +7,7 @@
 with lib; let
   # --- Configuration ---
   headlessName = "HEADLESS-2";
-  headlessRes = "1920x1080@60";
+  # Resolution is now handled dynamically in the script
   remoteWorkspaces = "1 2 3 4";
   primaryMonitor = "DP-3";
 
@@ -34,6 +34,21 @@ with lib; let
     ${findSocket}
     export PATH=${pkgs.jq}/bin:${pkgs.procps}/bin:$PATH
 
+    # --- Resolution Logic ---
+    # Default
+    MODE="1920x1080@60"
+
+    if [[ "$1" == "4k" ]]; then
+      MODE="3840x2160@60"
+      echo ">> Mode Selected: 4K ($MODE)"
+    elif [[ "$1" == "1440p" ]]; then
+      MODE="2560x1440@60"
+      echo ">> Mode Selected: 1440p ($MODE)"
+    else
+      echo ">> Mode Selected: 1080p (Default)"
+    fi
+    # ------------------------
+
     echo "Activating Remote Mode..."
 
     # 1. Create headless output
@@ -42,8 +57,8 @@ with lib; let
       ${pkgs.hyprland}/bin/hyprctl output create headless ${headlessName}
     fi
 
-    # 2. Force Resolution & Position (FIX: Move to 20,000 to avoid overlap)
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},${headlessRes},20000x0,1
+    # 2. Force Resolution & Position (20,000 to avoid overlap)
+    ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},$MODE,20000x0,1
 
     # 3. Reload Wallpaper
     ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
