@@ -21,8 +21,14 @@ USAGE (Host Configuration):
       # List of physical monitors to DISABLE (Crucial for Sunshine capture)
       physicalMonitors = [ "HDMI-A-1" "DP-1" ];
 
-      # Monitor to move windows back to when returning home
+      # Monitor to move windows back to when returning home (Fallback)
       primaryMonitor = "DP-1";
+
+      # NEW: Explicitly map workspaces to monitors for restoration
+      workspaceMaps = {
+        "1" = "HDMI-A-1";
+        "2" = "DP-1";
+      };
 
       # Commands to restore physical monitor layout (copy from hyprland.conf)
       restoreCommands = ''
@@ -109,6 +115,23 @@ with lib; let
     fi
   '';
 
+  # --- Build Restore Logic (Nix -> Bash) ---
+  # Iterate over configured workspaces. Check if a specific map exists, otherwise fallback to primary.
+  restoreLogic =
+    concatMapStringsSep "\n" (ws: let
+      wsStr = toString ws;
+      targetMon =
+        if hasAttr wsStr cfg.settings.workspaceMaps
+        then cfg.settings.workspaceMaps.${wsStr}
+        else cfg.settings.primaryMonitor;
+    in ''
+      if echo "$ACTIVE_WS" | grep -q "^${wsStr}$"; then
+        echo "Moving workspace ${wsStr} back to ${targetMon}"
+        hyprctl dispatch moveworkspacetomonitor ${wsStr} ${targetMon}
+      fi
+    '')
+    cfg.settings.workspaces;
+
   # --- Script 2: Enter Local Mode (Revert) ---
   localModeScript = pkgs.writeShellScriptBin "local-mode" ''
     ${findSocket}
@@ -123,16 +146,14 @@ with lib; let
     echo "Physical monitors re-enabled."
 
     # 2. Move Workspaces Back
+    # We wait slightly for monitors to wake up and be registered by Hyprland
     sleep 2
-    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
+
+    # Get currently active workspaces JSON once to prevent spamming hyprctl
     ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
 
-    for ws in $TARGET_WORKSPACES; do
-      if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
-        echo "Moving workspace $ws back to ${cfg.settings.primaryMonitor}"
-        hyprctl dispatch moveworkspacetomonitor $ws ${cfg.settings.primaryMonitor}
-      fi
-    done
+    # Execute generated restore logic
+    ${restoreLogic}
 
     # 3. Remove Headless Output
     if hyprctl monitors | grep -q "${headlessName}"; then
@@ -271,7 +292,17 @@ in {
       primaryMonitor = mkOption {
         type = types.str;
         default = "0";
-        description = "Monitor name/ID to return workspaces to in local mode.";
+        description = "Fallback Monitor name to return workspaces to in local mode.";
+      };
+
+      workspaceMaps = mkOption {
+        type = types.attrsOf types.str;
+        default = {};
+        description = "Explicit mapping of Workspace ID to Monitor Name for restoration.";
+        example = {
+          "1" = "DP-1";
+          "2" = "HDMI-A-1";
+        };
       };
 
       restoreCommands = mkOption {
