@@ -1,3 +1,4 @@
+# modules/home-manager/display/remote-desktop.nix
 /*
 ===================================================================================
 HYPRLAND HEADLESS REMOTE DESKTOP MODULE
@@ -20,8 +21,14 @@ USAGE (Host Configuration):
       # List of physical monitors to DISABLE (Crucial for Sunshine capture)
       physicalMonitors = [ "HDMI-A-1" "DP-1" ];
 
-      # Monitor to move windows back to when returning home
+      # Monitor to move windows back to when returning home (Fallback)
       primaryMonitor = "DP-1";
+
+      # NEW: Explicitly map workspaces to monitors for restoration
+      workspaceMaps = {
+        "1" = "HDMI-A-1";
+        "2" = "DP-1";
+      };
 
       # Commands to restore physical monitor layout (copy from hyprland.conf)
       restoreCommands = ''
@@ -32,8 +39,15 @@ USAGE (Host Configuration):
   };
 
 CLI COMMANDS:
-  - Enter Remote Mode:  `remote-mode [1080p|1440p|4k]`
+  - Enter Remote Mode:  `remote-mode -r [RES] -m [MOUSE] -s [SCALE]`
+      -r : Resolution (1080p, 1440p, 4k, framework). Default: 1080p.
+      -m : Mouse Profile (flat, default). Default: default. Use 'flat' for Windows.
+      -s : UI Scale (1, 1.25, 1.5, 2, etc). Default: 1.
+
   - Return to Local:    `local-mode` (or press Super+Shift+D locally)
+
+FAILSAFES:
+  1. Shortcut: Press Super+Shift+D (Win+Shift+D) to blindly restore local mode.
 
 DESIGN DECISIONS & LEARNINGS:
   1. WHY DISABLE MONITORS?
@@ -63,6 +77,13 @@ DESIGN DECISIONS & LEARNINGS:
      SSH sessions do not have `$HYPRLAND_INSTANCE_SIGNATURE` set. The scripts
      manually detect the active socket in `$XDG_RUNTIME_DIR/hypr` to allow
      remote execution.
+
+  6. MOUSE ACCELERATION (WINDOWS CLIENTS):
+     When connecting from Windows via Sunshine/Moonlight, the client applies its own
+     "Enhance Pointer Precision". If Hyprland also applies acceleration, the mouse
+     feels "floaty" and overshoots.
+     We use `-m flat` to inject `input:accel_profile flat` + `input:force_no_accel 1`
+     into Hyprland dynamically.
 
 ===================================================================================
 */
@@ -94,25 +115,112 @@ with lib; let
     fi
   '';
 
+  # --- Build Restore Logic (Nix -> Bash) ---
+  # Iterate over configured workspaces. Check if a specific map exists, otherwise fallback to primary.
+  restoreLogic =
+    concatMapStringsSep "\n" (ws: let
+      wsStr = toString ws;
+      targetMon =
+        if hasAttr wsStr cfg.settings.workspaceMaps
+        then cfg.settings.workspaceMaps.${wsStr}
+        else cfg.settings.primaryMonitor;
+    in ''
+      if echo "$ACTIVE_WS" | grep -q "^${wsStr}$"; then
+        echo "Moving workspace ${wsStr} back to ${targetMon}"
+        hyprctl dispatch moveworkspacetomonitor ${wsStr} ${targetMon}
+      fi
+    '')
+    cfg.settings.workspaces;
+
+  # --- Script 2: Enter Local Mode (Revert) ---
+  localModeScript = pkgs.writeShellScriptBin "local-mode" ''
+    ${findSocket}
+    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
+
+    echo "Restoring Local Mode..."
+
+    # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
+    echo "Executing host-specific restore commands..."
+    ${cfg.settings.restoreCommands}
+
+    echo "Physical monitors re-enabled."
+
+    # 2. Move Workspaces Back
+    # We wait slightly for monitors to wake up and be registered by Hyprland
+    sleep 2
+
+    # Get currently active workspaces JSON once to prevent spamming hyprctl
+    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
+
+    # Execute generated restore logic
+    ${restoreLogic}
+
+    # 3. Remove Headless Output
+    if hyprctl monitors | grep -q "${headlessName}"; then
+      echo "Removing Headless Output: ${headlessName}"
+      hyprctl output remove ${headlessName}
+    fi
+
+    # 4. Restore Standard VNC
+    echo "Restoring Standard VNC..."
+    pkill wayvnc || true
+    hyprctl dispatch exec wayvnc
+
+    # 5. Reset Sunshine
+    if [ -f ~/.config/sunshine/sunshine.conf ]; then
+      rm ~/.config/sunshine/sunshine.conf
+      echo "Reset Sunshine config."
+      systemctl --user restart sunshine
+    fi
+  '';
+
   # --- Script 1: Enter Remote Mode ---
   remoteModeScript = pkgs.writeShellScriptBin "remote-mode" ''
     ${findSocket}
     # Ensure standard tools and Hyprland are in PATH
     export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
 
+    # --- Defaults ---
+    RES="1080p"
+    MOUSE="default"
+    SCALE="1"
+
+    # --- Parse Flags ---
+    while getopts "r:m:s:" opt; do
+      case $opt in
+        r) RES="$OPTARG" ;;
+        m) MOUSE="$OPTARG" ;;
+        s) SCALE="$OPTARG" ;;
+        *) echo "Usage: remote-mode [-r 1080p|1440p|4k|framework] [-m flat] [-s 1|1.5|2]"; exit 1 ;;
+      esac
+    done
+
     # --- Resolution Logic ---
     MODE="1920x1080@60"
-    if [[ "$1" == "4k" ]]; then
+    if [[ "$RES" == "4k" ]]; then
       MODE="3840x2160@60"
       echo ">> Mode Selected: 4K ($MODE)"
-    elif [[ "$1" == "1440p" ]]; then
+    elif [[ "$RES" == "1440p" ]]; then
       MODE="2560x1440@60"
       echo ">> Mode Selected: 1440p ($MODE)"
+    elif [[ "$RES" == "framework" ]]; then
+      MODE="2256x1504@60"
+      echo ">> Mode Selected: Framework 3:2 ($MODE)"
     else
       echo ">> Mode Selected: 1080p (Default)"
     fi
 
     echo "Activating Remote Mode..."
+    echo ">> UI Scale: $SCALE"
+
+    # 0. Optimize Mouse for Remote Clients
+    if [[ "$MOUSE" == "flat" ]]; then
+      echo ">> Mouse Profile: FLAT (No Acceleration)"
+      hyprctl keyword input:accel_profile flat
+      hyprctl keyword input:force_no_accel 1
+    else
+      echo ">> Mouse Profile: DEFAULT (Acceleration On)"
+    fi
 
     # 1. Create headless output
     if ! hyprctl monitors | grep -q "${headlessName}"; then
@@ -120,14 +228,13 @@ with lib; let
       hyprctl output create headless ${headlessName}
     fi
 
-    # 2. Force Resolution & Position (20,000 to avoid overlap)
-    hyprctl keyword monitor ${headlessName},$MODE,20000x0,1
+    # 2. Force Resolution & Position (20,000 to avoid overlap) & Scale
+    hyprctl keyword monitor ${headlessName},$MODE,20000x0,$SCALE
 
     # 3. Reload Wallpaper
     hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
 
     # 4. Move Configured Workspaces
-    # We convert the Nix list to a space-separated string
     TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
     ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
 
@@ -165,50 +272,6 @@ with lib; let
     echo "Restarting Sunshine..."
     systemctl --user restart sunshine
   '';
-
-  # --- Script 2: Enter Local Mode (Revert) ---
-  localModeScript = pkgs.writeShellScriptBin "local-mode" ''
-    ${findSocket}
-    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
-
-    echo "Restoring Local Mode..."
-
-    # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
-    echo "Executing host-specific restore commands..."
-    ${cfg.settings.restoreCommands}
-
-    echo "Physical monitors re-enabled."
-
-    # 2. Move Workspaces Back
-    sleep 2
-    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
-    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
-
-    for ws in $TARGET_WORKSPACES; do
-      if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
-        echo "Moving workspace $ws back to ${cfg.settings.primaryMonitor}"
-        hyprctl dispatch moveworkspacetomonitor $ws ${cfg.settings.primaryMonitor}
-      fi
-    done
-
-    # 3. Remove Headless Output
-    if hyprctl monitors | grep -q "${headlessName}"; then
-      echo "Removing Headless Output: ${headlessName}"
-      hyprctl output remove ${headlessName}
-    fi
-
-    # 4. Restore Standard VNC
-    echo "Restoring Standard VNC..."
-    pkill wayvnc || true
-    hyprctl dispatch exec wayvnc
-
-    # 5. Reset Sunshine
-    if [ -f ~/.config/sunshine/sunshine.conf ]; then
-      rm ~/.config/sunshine/sunshine.conf
-      echo "Reset Sunshine config."
-      systemctl --user restart sunshine
-    fi
-  '';
 in {
   options.homelab.remote-desktop = {
     enable = mkEnableOption "Enable Hyprland Remote Desktop Logic";
@@ -229,7 +292,17 @@ in {
       primaryMonitor = mkOption {
         type = types.str;
         default = "0";
-        description = "Monitor name/ID to return workspaces to in local mode.";
+        description = "Fallback Monitor name to return workspaces to in local mode.";
+      };
+
+      workspaceMaps = mkOption {
+        type = types.attrsOf types.str;
+        default = {};
+        description = "Explicit mapping of Workspace ID to Monitor Name for restoration.";
+        example = {
+          "1" = "DP-1";
+          "2" = "HDMI-A-1";
+        };
       };
 
       restoreCommands = mkOption {
@@ -250,6 +323,7 @@ in {
 
     wayland.windowManager.hyprland.settings = {
       bind = [
+        # Manual Trigger
         "$mod SHIFT, D, exec, ${localModeScript}/bin/local-mode"
       ];
     };

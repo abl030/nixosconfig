@@ -20,7 +20,11 @@
         workspaces = [1 2 3 4];
         physicalMonitors = ["HDMI-A-2" "DP-3" "HDMI-A-3"];
         primaryMonitor = "DP-3";
-
+        workspaceMaps = {
+          "1" = "HDMI-A-2"; # Left
+          "2" = "DP-3"; # Middle
+          "3" = "HDMI-A-3"; # Right
+        };
         # We define the specific restoration logic for Epi's complex triple monitor setup here
         restoreCommands = ''
           hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
