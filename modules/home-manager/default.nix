@@ -11,5 +11,6 @@
     ./display/dolphin.nix
     ./services/yazi.nix
     ./display/remote-desktop.nix
+    ./services/pdf.nix
   ];
 }
