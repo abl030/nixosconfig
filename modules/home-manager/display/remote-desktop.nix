@@ -33,7 +33,10 @@ USAGE (Host Configuration):
   };
 
 CLI COMMANDS:
-  - Enter Remote Mode:  `remote-mode [1080p|1440p|4k|framework]`
+  - Enter Remote Mode:  `remote-mode -r [1080p|1440p|4k|framework] -m [flat|default]`
+      -r : Resolution (Default: 1080p). 'framework' sets 2256x1504.
+      -m : Mouse Profile (Default: default/accel). Use 'flat' to disable acceleration.
+
   - Return to Local:    `local-mode` (or press Super+Shift+D locally)
 
 DESIGN DECISIONS & LEARNINGS:
@@ -64,6 +67,14 @@ DESIGN DECISIONS & LEARNINGS:
      SSH sessions do not have `$HYPRLAND_INSTANCE_SIGNATURE` set. The scripts
      manually detect the active socket in `$XDG_RUNTIME_DIR/hypr` to allow
      remote execution.
+
+  6. MOUSE ACCELERATION (WINDOWS CLIENTS):
+     When connecting from Windows via Sunshine/Moonlight, the client applies its own
+     "Enhance Pointer Precision". If Hyprland also applies acceleration, the mouse
+     feels "floaty" and overshoots.
+     We use `-m flat` to inject `input:accel_profile flat` + `input:force_no_accel 1`
+     into Hyprland dynamically. This ensures 1:1 raw input mapping for the remote session,
+     while `local-mode` restores standard acceleration for physical usage.
 
 ===================================================================================
 */
@@ -101,15 +112,28 @@ with lib; let
     # Ensure standard tools and Hyprland are in PATH
     export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
 
+    # --- Defaults ---
+    RES="1080p"
+    MOUSE="default"
+
+    # --- Parse Flags ---
+    while getopts "r:m:" opt; do
+      case $opt in
+        r) RES="$OPTARG" ;;
+        m) MOUSE="$OPTARG" ;;
+        *) echo "Usage: remote-mode [-r 1080p|1440p|4k|framework] [-m flat]"; exit 1 ;;
+      esac
+    done
+
     # --- Resolution Logic ---
     MODE="1920x1080@60"
-    if [[ "$1" == "4k" ]]; then
+    if [[ "$RES" == "4k" ]]; then
       MODE="3840x2160@60"
       echo ">> Mode Selected: 4K ($MODE)"
-    elif [[ "$1" == "1440p" ]]; then
+    elif [[ "$RES" == "1440p" ]]; then
       MODE="2560x1440@60"
       echo ">> Mode Selected: 1440p ($MODE)"
-    elif [[ "$1" == "framework" ]]; then
+    elif [[ "$RES" == "framework" ]]; then
       MODE="2256x1504@60"
       echo ">> Mode Selected: Framework 3:2 ($MODE)"
     else
@@ -117,6 +141,16 @@ with lib; let
     fi
 
     echo "Activating Remote Mode..."
+
+    # 0. Optimize Mouse for Remote Clients
+    # If -m flat is passed, we disable acceleration (useful for Windows clients).
+    if [[ "$MOUSE" == "flat" ]]; then
+      echo ">> Mouse Profile: FLAT (No Acceleration)"
+      hyprctl keyword input:accel_profile flat
+      hyprctl keyword input:force_no_accel 1
+    else
+      echo ">> Mouse Profile: DEFAULT (Acceleration On)"
+    fi
 
     # 1. Create headless output
     if ! hyprctl monitors | grep -q "${headlessName}"; then
@@ -178,6 +212,8 @@ with lib; let
     echo "Restoring Local Mode..."
 
     # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
+    # NOTE: hyprctl reload (default) will automatically reset mouse acceleration
+    # back to the defaults in hyprland.nix
     echo "Executing host-specific restore commands..."
     ${cfg.settings.restoreCommands}
 
