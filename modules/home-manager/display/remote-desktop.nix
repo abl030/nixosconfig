@@ -5,13 +5,10 @@
   ...
 }:
 with lib; let
-  # --- Configuration ---
-  headlessName = "HEADLESS-2";
-  # Resolution is now handled dynamically in the script
-  remoteWorkspaces = "1 2 3 4";
-  primaryMonitor = "DP-3";
+  cfg = config.homelab.remote-desktop;
 
-  physicalMonitors = "HDMI-A-2 DP-3 HDMI-A-3";
+  # Internal Constants
+  headlessName = "HEADLESS-2";
 
   # --- Helper to find Hyprland Socket ---
   findSocket = ''
@@ -32,12 +29,11 @@ with lib; let
   # --- Script 1: Enter Remote Mode ---
   remoteModeScript = pkgs.writeShellScriptBin "remote-mode" ''
     ${findSocket}
-    export PATH=${pkgs.jq}/bin:${pkgs.procps}/bin:$PATH
+    # Ensure standard tools and Hyprland are in PATH
+    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
 
     # --- Resolution Logic ---
-    # Default
     MODE="1920x1080@60"
-
     if [[ "$1" == "4k" ]]; then
       MODE="3840x2160@60"
       echo ">> Mode Selected: 4K ($MODE)"
@@ -47,46 +43,49 @@ with lib; let
     else
       echo ">> Mode Selected: 1080p (Default)"
     fi
-    # ------------------------
 
     echo "Activating Remote Mode..."
 
     # 1. Create headless output
-    if ! ${pkgs.hyprland}/bin/hyprctl monitors | grep -q "${headlessName}"; then
+    if ! hyprctl monitors | grep -q "${headlessName}"; then
       echo "Creating Headless Output: ${headlessName}"
-      ${pkgs.hyprland}/bin/hyprctl output create headless ${headlessName}
+      hyprctl output create headless ${headlessName}
     fi
 
     # 2. Force Resolution & Position (20,000 to avoid overlap)
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},$MODE,20000x0,1
+    hyprctl keyword monitor ${headlessName},$MODE,20000x0,1
 
     # 3. Reload Wallpaper
-    ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
+    hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
 
-    # 4. Move Workspaces
-    ACTIVE_WS=$(${pkgs.hyprland}/bin/hyprctl workspaces -j | jq -r '.[].id')
-    for ws in ${remoteWorkspaces}; do
+    # 4. Move Configured Workspaces
+    # We convert the Nix list to a space-separated string
+    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
+    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
+
+    for ws in $TARGET_WORKSPACES; do
       if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
         echo "Moving workspace $ws to ${headlessName}"
-        ${pkgs.hyprland}/bin/hyprctl dispatch moveworkspacetomonitor $ws ${headlessName}
+        hyprctl dispatch moveworkspacetomonitor $ws ${headlessName}
       fi
     done
 
-    # 5. DISABLE Physical Monitors
-    for mon in ${physicalMonitors}; do
+    # 5. DISABLE Configured Physical Monitors
+    TARGET_MONITORS="${toString cfg.settings.physicalMonitors}"
+    for mon in $TARGET_MONITORS; do
       echo "Disabling physical monitor: $mon"
-      ${pkgs.hyprland}/bin/hyprctl keyword monitor $mon,disable
+      hyprctl keyword monitor $mon,disable
     done
 
     # 6. Restart VNC on Headless
     echo "Restarting VNC on ${headlessName}..."
     pkill wayvnc || true
     sleep 0.5
-    ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.wayvnc}/bin/wayvnc --output=${headlessName}"
+    hyprctl dispatch exec "${pkgs.wayvnc}/bin/wayvnc --output=${headlessName}"
 
     # 7. Dynamic Sunshine Config
     sleep 1
-    HEADLESS_ID=$(${pkgs.hyprland}/bin/hyprctl monitors -j | jq -r '.[] | select(.name == "${headlessName}") | .id')
+    HEADLESS_ID=$(hyprctl monitors -j | jq -r '.[] | select(.name == "${headlessName}") | .id')
 
     if [ -n "$HEADLESS_ID" ]; then
       echo "Configuring Sunshine to use Monitor ID: $HEADLESS_ID"
@@ -102,37 +101,38 @@ with lib; let
   # --- Script 2: Enter Local Mode (Revert) ---
   localModeScript = pkgs.writeShellScriptBin "local-mode" ''
     ${findSocket}
-    export PATH=${pkgs.jq}/bin:${pkgs.procps}/bin:$PATH
+    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
 
     echo "Restoring Local Mode..."
 
-    # 1. RE-ENABLE Physical Monitors
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor DP-3,2560x1440@144,1080x0,1
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-3,1920x1080@60,3640x0,1
+    # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
+    echo "Executing host-specific restore commands..."
+    ${cfg.settings.restoreCommands}
 
     echo "Physical monitors re-enabled."
 
     # 2. Move Workspaces Back
     sleep 2
-    ACTIVE_WS=$(${pkgs.hyprland}/bin/hyprctl workspaces -j | jq -r '.[].id')
-    for ws in ${remoteWorkspaces}; do
+    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
+    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
+
+    for ws in $TARGET_WORKSPACES; do
       if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
-        echo "Moving workspace $ws back to ${primaryMonitor}"
-        ${pkgs.hyprland}/bin/hyprctl dispatch moveworkspacetomonitor $ws ${primaryMonitor}
+        echo "Moving workspace $ws back to ${cfg.settings.primaryMonitor}"
+        hyprctl dispatch moveworkspacetomonitor $ws ${cfg.settings.primaryMonitor}
       fi
     done
 
     # 3. Remove Headless Output
-    if ${pkgs.hyprland}/bin/hyprctl monitors | grep -q "${headlessName}"; then
+    if hyprctl monitors | grep -q "${headlessName}"; then
       echo "Removing Headless Output: ${headlessName}"
-      ${pkgs.hyprland}/bin/hyprctl output remove ${headlessName}
+      hyprctl output remove ${headlessName}
     fi
 
     # 4. Restore Standard VNC
     echo "Restoring Standard VNC..."
     pkill wayvnc || true
-    ${pkgs.hyprland}/bin/hyprctl dispatch exec wayvnc
+    hyprctl dispatch exec wayvnc
 
     # 5. Reset Sunshine
     if [ -f ~/.config/sunshine/sunshine.conf ]; then
@@ -144,9 +144,35 @@ with lib; let
 in {
   options.homelab.remote-desktop = {
     enable = mkEnableOption "Enable Hyprland Remote Desktop Logic";
+
+    settings = {
+      workspaces = mkOption {
+        type = types.listOf (types.oneOf [types.int types.str]);
+        default = [1 2 3 4];
+        description = "List of workspace IDs to move to the remote session.";
+      };
+
+      physicalMonitors = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "List of physical monitor names to disable in remote mode.";
+      };
+
+      primaryMonitor = mkOption {
+        type = types.str;
+        default = "0";
+        description = "Monitor name/ID to return workspaces to in local mode.";
+      };
+
+      restoreCommands = mkOption {
+        type = types.lines;
+        default = "hyprctl reload";
+        description = "Bash commands to execute to restore physical monitor layout (e.g. hyprctl keyword monitor ...).";
+      };
+    };
   };
 
-  config = mkIf config.homelab.remote-desktop.enable {
+  config = mkIf cfg.enable {
     home.packages = [
       remoteModeScript
       localModeScript
