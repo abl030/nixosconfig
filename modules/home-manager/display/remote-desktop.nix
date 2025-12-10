@@ -1,3 +1,4 @@
+# modules/home-manager/display/remote-desktop.nix
 /*
 ===================================================================================
 HYPRLAND HEADLESS REMOTE DESKTOP MODULE
@@ -32,7 +33,7 @@ USAGE (Host Configuration):
   };
 
 CLI COMMANDS:
-  - Enter Remote Mode:  `remote-mode [1080p|1440p|4k]`
+  - Enter Remote Mode:  `remote-mode [1080p|1440p|4k|framework]`
   - Return to Local:    `local-mode` (or press Super+Shift+D locally)
 
 DESIGN DECISIONS & LEARNINGS:
@@ -108,6 +109,9 @@ with lib; let
     elif [[ "$1" == "1440p" ]]; then
       MODE="2560x1440@60"
       echo ">> Mode Selected: 1440p ($MODE)"
+    elif [[ "$1" == "framework" ]]; then
+      MODE="2256x1504@60"
+      echo ">> Mode Selected: Framework 3:2 ($MODE)"
     else
       echo ">> Mode Selected: 1080p (Default)"
     fi
