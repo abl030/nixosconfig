@@ -11,7 +11,6 @@ with lib; let
   remoteWorkspaces = "1 2 3 4";
   primaryMonitor = "DP-3";
 
-  # Physical monitors to Disable/Enable
   physicalMonitors = "HDMI-A-2 DP-3 HDMI-A-3";
 
   # --- Helper to find Hyprland Socket ---
@@ -43,11 +42,10 @@ with lib; let
       ${pkgs.hyprland}/bin/hyprctl output create headless ${headlessName}
     fi
 
-    # 2. Force Resolution
-    ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},${headlessRes},0x0,1
+    # 2. Force Resolution & Position (FIX: Move to 20,000 to avoid overlap)
+    ${pkgs.hyprland}/bin/hyprctl keyword monitor ${headlessName},${headlessRes},20000x0,1
 
     # 3. Reload Wallpaper
-    # Using dispatch exec ensures it runs in the compositor environment
     ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
 
     # 4. Move Workspaces
@@ -65,11 +63,10 @@ with lib; let
       ${pkgs.hyprland}/bin/hyprctl keyword monitor $mon,disable
     done
 
-    # 6. Restart VNC on Headless (FIXED)
+    # 6. Restart VNC on Headless
     echo "Restarting VNC on ${headlessName}..."
     pkill wayvnc || true
     sleep 0.5
-    # Use dispatch exec so Hyprland spawns it (inheriting correct env/lifecycle)
     ${pkgs.hyprland}/bin/hyprctl dispatch exec "${pkgs.wayvnc}/bin/wayvnc --output=${headlessName}"
 
     # 7. Dynamic Sunshine Config
@@ -95,7 +92,6 @@ with lib; let
     echo "Restoring Local Mode..."
 
     # 1. RE-ENABLE Physical Monitors
-    # Restore specific layouts
     ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
     ${pkgs.hyprland}/bin/hyprctl keyword monitor DP-3,2560x1440@144,1080x0,1
     ${pkgs.hyprland}/bin/hyprctl keyword monitor HDMI-A-3,1920x1080@60,3640x0,1
