@@ -25,7 +25,16 @@
     ./utils/common.nix
   ];
 
-  homelab.home.ssh.enable = true;
+  homelab = {
+    home = {
+      ssh = {
+        enable = true;
+      };
+    };
+    pdf = {
+      enable = true;
+    };
+  };
   #
   # nixpkgs = {
   #   config = {
