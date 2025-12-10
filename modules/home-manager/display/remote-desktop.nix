@@ -40,6 +40,9 @@ CLI COMMANDS:
 
   - Return to Local:    `local-mode` (or press Super+Shift+D locally)
 
+FAILSAFES:
+  1. Shortcut: Press Super+Shift+D (Win+Shift+D) to blindly restore local mode.
+
 DESIGN DECISIONS & LEARNINGS:
   1. WHY DISABLE MONITORS?
      Simply using `dpms off` is insufficient. Sunshine's KMS capture prefers
@@ -74,8 +77,7 @@ DESIGN DECISIONS & LEARNINGS:
      "Enhance Pointer Precision". If Hyprland also applies acceleration, the mouse
      feels "floaty" and overshoots.
      We use `-m flat` to inject `input:accel_profile flat` + `input:force_no_accel 1`
-     into Hyprland dynamically. This ensures 1:1 raw input mapping for the remote session,
-     while `local-mode` restores standard acceleration for physical usage.
+     into Hyprland dynamically.
 
 ===================================================================================
 */
@@ -104,6 +106,50 @@ with lib; let
         exit 1
       fi
       echo "Targeting Hyprland Instance: $HYPRLAND_INSTANCE_SIGNATURE"
+    fi
+  '';
+
+  # --- Script 2: Enter Local Mode (Revert) ---
+  localModeScript = pkgs.writeShellScriptBin "local-mode" ''
+    ${findSocket}
+    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
+
+    echo "Restoring Local Mode..."
+
+    # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
+    echo "Executing host-specific restore commands..."
+    ${cfg.settings.restoreCommands}
+
+    echo "Physical monitors re-enabled."
+
+    # 2. Move Workspaces Back
+    sleep 2
+    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
+    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
+
+    for ws in $TARGET_WORKSPACES; do
+      if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
+        echo "Moving workspace $ws back to ${cfg.settings.primaryMonitor}"
+        hyprctl dispatch moveworkspacetomonitor $ws ${cfg.settings.primaryMonitor}
+      fi
+    done
+
+    # 3. Remove Headless Output
+    if hyprctl monitors | grep -q "${headlessName}"; then
+      echo "Removing Headless Output: ${headlessName}"
+      hyprctl output remove ${headlessName}
+    fi
+
+    # 4. Restore Standard VNC
+    echo "Restoring Standard VNC..."
+    pkill wayvnc || true
+    hyprctl dispatch exec wayvnc
+
+    # 5. Reset Sunshine
+    if [ -f ~/.config/sunshine/sunshine.conf ]; then
+      rm ~/.config/sunshine/sunshine.conf
+      echo "Reset Sunshine config."
+      systemctl --user restart sunshine
     fi
   '';
 
@@ -147,7 +193,6 @@ with lib; let
     echo ">> UI Scale: $SCALE"
 
     # 0. Optimize Mouse for Remote Clients
-    # If -m flat is passed, we disable acceleration (useful for Windows clients).
     if [[ "$MOUSE" == "flat" ]]; then
       echo ">> Mouse Profile: FLAT (No Acceleration)"
       hyprctl keyword input:accel_profile flat
@@ -162,15 +207,13 @@ with lib; let
       hyprctl output create headless ${headlessName}
     fi
 
-    # 2. Force Resolution & Position (20,000 to avoid overlap)
-    # Applied Scale from -s flag
+    # 2. Force Resolution & Position (20,000 to avoid overlap) & Scale
     hyprctl keyword monitor ${headlessName},$MODE,20000x0,$SCALE
 
     # 3. Reload Wallpaper
     hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
 
     # 4. Move Configured Workspaces
-    # We convert the Nix list to a space-separated string
     TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
     ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
 
@@ -207,52 +250,6 @@ with lib; let
     # 8. Restart Sunshine
     echo "Restarting Sunshine..."
     systemctl --user restart sunshine
-  '';
-
-  # --- Script 2: Enter Local Mode (Revert) ---
-  localModeScript = pkgs.writeShellScriptBin "local-mode" ''
-    ${findSocket}
-    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
-
-    echo "Restoring Local Mode..."
-
-    # 1. EXECUTE RESTORE COMMANDS (Injected from Config)
-    # NOTE: hyprctl reload (default) will automatically reset mouse acceleration
-    # back to the defaults in hyprland.nix
-    echo "Executing host-specific restore commands..."
-    ${cfg.settings.restoreCommands}
-
-    echo "Physical monitors re-enabled."
-
-    # 2. Move Workspaces Back
-    sleep 2
-    TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
-    ACTIVE_WS=$(hyprctl workspaces -j | jq -r '.[].id')
-
-    for ws in $TARGET_WORKSPACES; do
-      if echo "$ACTIVE_WS" | grep -q "^$ws$"; then
-        echo "Moving workspace $ws back to ${cfg.settings.primaryMonitor}"
-        hyprctl dispatch moveworkspacetomonitor $ws ${cfg.settings.primaryMonitor}
-      fi
-    done
-
-    # 3. Remove Headless Output
-    if hyprctl monitors | grep -q "${headlessName}"; then
-      echo "Removing Headless Output: ${headlessName}"
-      hyprctl output remove ${headlessName}
-    fi
-
-    # 4. Restore Standard VNC
-    echo "Restoring Standard VNC..."
-    pkill wayvnc || true
-    hyprctl dispatch exec wayvnc
-
-    # 5. Reset Sunshine
-    if [ -f ~/.config/sunshine/sunshine.conf ]; then
-      rm ~/.config/sunshine/sunshine.conf
-      echo "Reset Sunshine config."
-      systemctl --user restart sunshine
-    fi
   '';
 in {
   options.homelab.remote-desktop = {
@@ -295,6 +292,7 @@ in {
 
     wayland.windowManager.hyprland.settings = {
       bind = [
+        # Manual Trigger
         "$mod SHIFT, D, exec, ${localModeScript}/bin/local-mode"
       ];
     };
