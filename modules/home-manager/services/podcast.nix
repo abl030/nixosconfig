@@ -167,7 +167,7 @@ in {
 
   # 7. ACME Certificate (DNS-01 Challenge)
   security.acme.certs."${domain}" = {
-    domain = domain;
+    inherit domain;
     group = "nginx";
     dnsProvider = "cloudflare";
     credentialsFile = config.sops.secrets."acme-cloudflare-podcast".path;
