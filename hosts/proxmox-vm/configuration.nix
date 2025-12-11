@@ -28,6 +28,7 @@
     ../../docker/invoices/docker-compose.nix
     ../../docker/domain-monitor/docker-compose.nix
     ../../docker/uptime-kuma/docker-compose.nix
+    ../../modules/home-manager/services/podcast.nix
   ];
 
   homelab = {

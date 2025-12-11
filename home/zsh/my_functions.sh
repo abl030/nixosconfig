@@ -542,3 +542,21 @@ EOF
     echo "and Hyprland/Waybar will read them via the symlinks."
     echo "Use 'hyprctl reload' (and restart hypridle/waybar) to apply changes live."
 }
+
+pod() {
+    # 1. Check if a URL was provided
+    if [ -z "$1" ]; then
+        echo "Usage: pod <youtube_url>"
+        return 1
+    fi
+
+    echo "Sending '$1' to podcast server..."
+
+    # 2. Send the request to the NixOS VM (IP: 192.168.1.29, Port: 9000)
+    # -f: Fail silently on server errors (so we don't see raw HTML)
+    # -S: Show error message if it fails
+    curl -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"url\": \"$1\"}" \
+        http://192.168.1.29:9000/hooks/download-audio
+}
