@@ -560,3 +560,18 @@ pod() {
         -d "{\"url\": \"$1\"}" \
         http://192.168.1.29:9000/hooks/download-audio
 }
+
+pod_play() {
+    # 1. Check if a URL was provided
+    if [ -z "$1" ]; then
+        echo "Usage: pod_play <playlist_url>"
+        return 1
+    fi
+
+    echo "Sending playlist '$1' to podcast server..."
+
+    curl -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"url\": \"$1\"}" \
+        http://192.168.1.29:9000/hooks/download-playlist
+}
