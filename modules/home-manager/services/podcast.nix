@@ -188,7 +188,7 @@ in {
 
   # 7. ACME Certificate (DNS-01 Challenge)
   security.acme.certs."${domain}" = {
-    domain = domain;
+    inherit domain; # Fixed statix warning: Assignment instead of inherit
     group = "nginx";
     dnsProvider = "cloudflare";
     credentialsFile = config.sops.secrets."acme-cloudflare-podcast".path;
