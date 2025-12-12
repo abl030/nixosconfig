@@ -4,7 +4,9 @@
   lib,
   ...
 }: let
-  podcastDir = "/var/lib/my-podcast";
+  # CHANGED: Moved to NFS Mount
+  podcastDir = "/mnt/data/Media/Podcasts";
+
   domain = "podcast.ablz.au";
   gotifyUrl = "https://gotify.ablz.au/message";
   gotifyToken = "AwE0qWRpsCU9tPk";
@@ -44,7 +46,7 @@
 
       for f in files:
           filename = os.path.basename(f)
-          # Verify permissions
+          # Verify permissions (Best effort on NFS)
           try:
               os.chmod(f, 0o644)
           except Exception:
@@ -116,6 +118,9 @@
     exec 1> >(${pkgs.util-linux}/bin/logger -t podcast-dl) 2>&1
     export PATH=$PATH:${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${genRss}/bin
 
+    # Ensure NFS root exists (webhook user must have write perms on parent)
+    mkdir -p "${podcastDir}"
+
     export XDG_CACHE_HOME=${podcastDir}/.cache
     mkdir -p "$XDG_CACHE_HOME"
 
@@ -137,10 +142,13 @@
       --title "My YouTube Drops"
   '';
 
-  # 3. Playlist Downloader (Fixed Slug Logic)
+  # 3. Playlist Downloader
   playlistDownloader = pkgs.writeShellScriptBin "playlist-downloader" ''
     exec 1> >(${pkgs.util-linux}/bin/logger -t podcast-playlist) 2>&1
     export PATH=$PATH:${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${genRss}/bin:${pkgs.curl}/bin:${pkgs.jq}/bin:${pkgs.coreutils}/bin
+
+    # Ensure NFS root exists
+    mkdir -p "${podcastDir}"
 
     export XDG_CACHE_HOME=${podcastDir}/.cache
     mkdir -p "$XDG_CACHE_HOME"
@@ -152,17 +160,15 @@
 
     echo "Fetching playlist metadata..."
 
-    # Get playlist title
     PL_TITLE=$(yt-dlp --flat-playlist --print "playlist_title" "$URL" | head -n 1)
 
     if [ -z "$PL_TITLE" ]; then
         PL_TITLE="playlist-$(date +%s)"
     fi
 
-    # Slugify: Lowercase -> Replace non-alphanumeric with - -> Squeeze dashes -> Trim dashes
+    # Robust Slugify (sed/tr only)
     SLUG=$(echo "$PL_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\{1,\}/-/g' | sed 's/^-\|-$//g')
 
-    # Safety fallback
     if [ -z "$SLUG" ]; then
         SLUG="playlist-$(date +%s)"
     fi
@@ -172,18 +178,14 @@
 
     echo "Downloading playlist '$PL_TITLE' to '$TARGET_DIR'..."
 
-    # Download into subdirectory
     yt-dlp \
       --extract-audio --audio-format mp3 --write-description --add-metadata \
       --embed-thumbnail --restrict-filenames --progress --yes-playlist \
+      --ignore-errors \
       -o "$TARGET_DIR/%(title)s.%(ext)s" \
       "$URL"
 
-    # XML lives in root: /var/lib/my-podcast/slug.xml
     XML_FILE="${podcastDir}/$SLUG.xml"
-
-    # RSS Link: domain.com/slug.xml (The feed itself)
-    # Enclosure base: domain.com/slug/ (Where files are)
     WEB_URL="https://${domain}/$SLUG"
 
     echo "Generating RSS feed at $XML_FILE..."
@@ -215,10 +217,8 @@ in {
   ];
 
   # 4. Directory Permissions
-  systemd.tmpfiles.rules = [
-    "d ${podcastDir} 0755 nginx nginx -"
-    "d ${podcastDir}/.cache 0755 nginx nginx -"
-  ];
+  # REMOVED: systemd.tmpfiles.rules to avoid creating local dirs over NFS mounts.
+  # Rely on the scripts 'mkdir -p' or manual creation.
 
   # 5. Webhook Service
   services.webhook = {
@@ -249,9 +249,11 @@ in {
     };
   };
 
+  # Ensure Webhook doesn't start until NFS is ready
   systemd.services.webhook.serviceConfig = {
     User = lib.mkForce "nginx";
     Group = lib.mkForce "nginx";
+    RequiresMountsFor = "/mnt/data";
   };
 
   # 6. SOPS Secret
@@ -275,7 +277,6 @@ in {
         extraConfig = "autoindex on;";
       };
 
-      # Allow serving all XML files as RSS
       locations."~ \\.xml$" = {
         extraConfig = ''
           types { application/rss+xml xml; }
