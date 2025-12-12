@@ -81,12 +81,29 @@
           pass
     '';
 
-  # 2. Downloader (Same as before)
+  # 2. Downloader
   downloader = pkgs.writeShellScriptBin "podcast-downloader" ''
+    # --- LOGGING MAGIC ---
+    # Redirect all stdout (1) and stderr (2) to the system journal
+    # Tag lines with 'podcast-dl' so they are easy to find
+    exec 1> >(${pkgs.util-linux}/bin/logger -t podcast-dl) 2>&1
+
+    # Print start message to verify it's working
+    echo "Triggered downloader with arguments: $@"
+
     export PATH=$PATH:${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${genRss}/bin
 
     URL=$1
+
+    # Check if URL is empty (common debugging issue)
+    if [ -z "$URL" ]; then
+      echo "Error: No URL provided."
+      exit 1
+    fi
+
     cd ${podcastDir}
+
+    echo "Starting yt-dlp for $URL..."
 
     yt-dlp \
       --extract-audio \
@@ -94,10 +111,14 @@
       --add-metadata \
       --embed-thumbnail \
       --restrict-filenames \
+      --progress \
+      --no-playlist \
       -o "%(title)s.%(ext)s" \
       "$URL"
 
+    echo "Download complete. Generating RSS..."
     gen-rss
+    echo "RSS Generated. Done."
   '';
 in {
   environment.systemPackages = [pkgs.yt-dlp pkgs.ffmpeg genRss downloader];
@@ -167,7 +188,7 @@ in {
 
   # 7. ACME Certificate (DNS-01 Challenge)
   security.acme.certs."${domain}" = {
-    domain = domain;
+    inherit domain; # Fixed statix warning: Assignment instead of inherit
     group = "nginx";
     dnsProvider = "cloudflare";
     credentialsFile = config.sops.secrets."acme-cloudflare-podcast".path;
