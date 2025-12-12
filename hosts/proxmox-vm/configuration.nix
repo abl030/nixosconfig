@@ -39,7 +39,10 @@
 
     update = {
       enable = true;
-      collectGarbage = false;
+      # Re-enable GC and move schedule to 3am block
+      collectGarbage = true;
+      updateDates = "03:00"; # Update first
+      gcDates = "03:30"; # Cleanup after update
       trim = true;
       rebootOnKernelUpdate = true;
     };

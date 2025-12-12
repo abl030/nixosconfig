@@ -9,6 +9,17 @@ in {
   options.homelab.update = {
     enable = lib.mkEnableOption "Nightly flake switch & housekeeping (via system.autoUpgrade + timers)";
 
+    # New option: Configurable update time
+    updateDates = lib.mkOption {
+      type = lib.types.str;
+      default = "01:00";
+      example = "03:00";
+      description = ''
+        OnCalendar expression for system.autoUpgrade.
+        Default is "01:00" (1 AM).
+      '';
+    };
+
     collectGarbage = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -87,8 +98,8 @@ in {
         "true"
       ];
 
-      # Run once a day around 01:00, with up to 60min jitter.
-      dates = "01:00";
+      # Run once a day at the configured time (default 01:00), with up to 60min jitter.
+      dates = cfg.updateDates;
       randomizedDelaySec = "60min";
     };
 
