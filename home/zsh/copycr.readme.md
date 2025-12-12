@@ -1,78 +1,87 @@
-# `copycr` — selective context copier (with TUI)
+# `copycr` & `copycf` — selective context copiers (with TUI)
 
 ## User guide
 
-**What it does:** Copies a snapshot of files/directories to your clipboard in a stable, LLM-friendly text format.
+**What they do:** Create a snapshot of files or directories for your clipboard in a stable, LLM-friendly text format.
+
+*   **`copycr`** (Copy Context **Recursive**): Select **directories** to dump recursively.
+*   **`copycf`** (Copy Context **Files**): Select specific **files** to dump individually.
 
 **Invocation modes**
 
-* **Pipe:** `… | copycr` → copies stdin as-is. *(No TUI.)*
-* **Args:** `copycr [options] <path …>` → copies those paths. *(No TUI.)*
-* **Interactive:** `copycr [options]` → opens a TUI to pick subdirectories.
+*   **Pipe:** `… | copycr` (or `copycf`) → copies stdin as-is. *(No TUI.)*
+*   **Args:** `copycr [options] <path …>` → copies those paths. *(No TUI.)*
+*   **Interactive:** `copycr` or `copycf` [options] → opens a TUI to pick targets.
 
 **Options**
 
-* `-d N`, `--depth N` — show subdirs up to depth **N** in the TUI (default `1`).
-* `--include-hidden` — include hidden dirs in the TUI.
-* `-R`, `--include-root` — also dump the **current directory `.`** (non-recursive).
-* `--` — end of options; everything after is treated as a path.
+*   `-d N`, `--depth N` — show targets up to depth **N** in the TUI (default `1`).
+*   `--include-hidden` — include hidden files/dirs in the TUI.
+*   `-R`, `--include-root` — also dump the **current directory `.`** (non-recursive).
+*   `--` — end of options; everything after is treated as a path.
 
 **Behaviour**
 
-* Selected/arg **directories** are dumped **recursively** (pruning `.git`, `result`, `node_modules`).
-* `-R/--include-root` dumps **`.` only at top level** (non-recursive).
-* Selected/arg **files** are dumped directly.
-* Binary files are **detected and skipped** with a note.
-* Output includes an `ls -la`/`ls -laR` header and a `FILE CONTENTS` section with `===== ./path =====` markers.
-* TUI controls (fzf): *Space* toggle • *Ctrl-A* select all • *Ctrl-D* deselect all • *Enter* confirm • *Esc* abort.
+*   **`copycr` (Directories):**
+    *   Selected directories are dumped **recursively**.
+    *   Prunes noisy trees (`.git`, `result`, `node_modules`) to keep snapshots small.
+*   **`copycf` (Files):**
+    *   Lists **individual files** for selection.
+    *   Aggressively filters noisy files during selection to keep the list usable.
+    *   TUI preview shows the first 100 lines of text files.
+*   **General:**
+    *   `-R/--include-root` dumps **`.` only at top level** (non-recursive).
+    *   Binary files are **detected and skipped** with a note.
+    *   Output includes an `ls -l` header and a `FILE CONTENTS` section with `===== ./path =====` markers.
+    *   TUI controls (fzf): *Space* toggle • *Ctrl-A* select all • *Ctrl-D* deselect all • *Enter* confirm • *Esc* abort.
 
 **Examples**
 
 ```bash
-copycr                      # Pick top-level subdirs to copy (recursive)
-copycr -d 2                # Pick subdirs up to 2 levels deep
-copycr --include-hidden    # Show hidden dirs in the picker
-copycr -R                  # Also include '.' (shallow) when copying selection
-copycr -R docker ha        # Include '.' (shallow) + recursively dump docker/ and ha/
-printf 'hello' | copycr    # Copy stdin, no TUI
+# Directory Selection (Recursive)
+copycr                      # Pick top-level subdirs
+copycr -d 2                 # Pick subdirs up to 2 levels deep
+copycr -R docker ha         # Explicit paths + root context
+
+# File Selection (Individual)
+copycf                      # Pick files in current dir
+copycf -d 4                 # Deep dive to pick specific files anywhere in tree
+
+# Piping
+printf 'hello' | copycr     # Copy stdin, no TUI
 ```
 
 ---
 
 ## Expected output shape
 
-* For a directory (recursive):
+```text
+<ls -laR target>
 
-  ```
-  <ls -laR target>
+FILE CONTENTS
+===== ./target/sub/file.txt =====
+<file contents>
 
-  FILE CONTENTS
-  ===== ./target/sub/file.txt =====
-  <file contents>
-  ```
-* For root `.` with `-R` (non-recursive): only `ls -la .` and top-level **files** (no recursion).
+===== ./target/binary.png (SKIPPED BINARY) =====
+```
 
 ---
 
 ## Design decisions (notes to future me)
 
-* **Non-breaking UX:** pipe → clipboard; args → exact targets; no args → TUI.
-* **Separation of concerns:**
-
-  * `_copycr_select_dirs` builds the TUI list (depth-limited);
-  * `_copycr_dump_target` handles dumping (recursive vs shallow);
-  * `copycr` is a thin dispatcher.
-* **Recursive by default** for selected dirs (so picking `docker` includes all its children).
-  Root `.` is **shallow** with `-R` to avoid overwhelming output.
-* **Stable, grep-friendly format:** explicit `./path` markers, binary-skip notices.
-* **Prunes noisy trees** (`.git`, `result`, `node_modules`) to keep snapshots small.
-* **Dependencies:** `xclip` required; **fzf preferred** for TUI (gum fallback supported).
+*   **Non-breaking UX:** pipe → clipboard; args → exact targets; no args → TUI.
+*   **Separation of concerns:**
+    *   `_copycr_select_dirs` / `_copycr_select_files`: Build TUI lists.
+    *   `_copycr_dump_target`: Handles formatting and binary detection.
+    *   `copycr` / `copycf`: Thin dispatchers.
+*   **Stable, grep-friendly format:** Explicit `./path` markers.
+*   **Performance:** `copycf` applies pruning *during* the `find` command to prevent `node_modules` or `.git` internals from flooding `fzf`.
+*   **Dependencies:** `xclip` required; **fzf preferred** for TUI (gum fallback supported).
 
 ---
 
 ## Troubleshooting
 
-* “No directories selected” → you hit Enter without selections; use `-R` if you only want `.`.
-* Depth shows wrong number → ensure you’re on the latest version (option parser fixed to be robust).
-* Want depth-limited dumps? Add a future `--dump-depth N` to `_copycr_dump_target` (currently always recursive for selections).
-
+*   **"No files/directories selected":** You hit Enter without selecting items (use Space to toggle).
+*   **"command not found: --preview":** Ensure you are using the latest version of the script (fixed a comment parsing issue in the fzf arguments).
+*   **TUI looks empty:** Check if your depth (`-d`) is high enough, or if `.gitignore` equivalent patterns (like `result` or `node_modules`) are hiding the files you expect.
