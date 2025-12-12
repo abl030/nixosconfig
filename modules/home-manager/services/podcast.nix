@@ -6,8 +6,10 @@
 }: let
   podcastDir = "/var/lib/my-podcast";
   domain = "podcast.ablz.au";
+  gotifyUrl = "https://gotify.ablz.au/message";
+  gotifyToken = "AwE0qWRpsCU9tPk";
 
-  # 1. Python Script (Updated: Reads sidecar .description files)
+  # 1. Python Script (Generic RSS Generator)
   genRss =
     pkgs.writers.writePython3Bin "gen-rss" {
       libraries = [pkgs.python3Packages.mutagen];
@@ -15,26 +17,29 @@
     } ''
       import os
       import glob
+      import argparse
       from email.utils import formatdate
       from mutagen.mp3 import MP3
       import html
 
-      BASE_URL = "https://${domain}"
-      DIR = "${podcastDir}"
-      FEED_FILE = os.path.join(DIR, "feed.xml")
+      parser = argparse.ArgumentParser()
+      parser.add_argument("--dir", required=True, help="Directory containing mp3s")
+      parser.add_argument("--out", required=True, help="Output XML file path")
+      parser.add_argument("--url", required=True, help="Base URL for enclosures")
+      parser.add_argument("--title", default="My YouTube Drops", help="Feed Title")
+      args = parser.parse_args()
 
-      header = """<?xml version="1.0" encoding="UTF-8"?>
+      header = f"""<?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
       <channel>
-      <title>My YouTube Drops</title>
-      <description>Links dropped from CLI</description>
+      <title>{html.escape(args.title)}</title>
+      <description>Generated Podcast Feed</description>
       <language>en-us</language>
-      <link>""" + BASE_URL + """</link>
+      <link>{args.url}</link>
       """
 
       items = ""
-      files = glob.glob(os.path.join(DIR, "*.mp3"))
-      # Sort by modification time (newest first)
+      files = glob.glob(os.path.join(args.dir, "*.mp3"))
       files.sort(key=os.path.getmtime, reverse=True)
 
       for f in files:
@@ -45,31 +50,27 @@
           except Exception:
               pass
 
-          url = f"{BASE_URL}/{filename}"
+          clean_base = args.url.rstrip("/")
+          url = f"{clean_base}/{filename}"
+
           stat = os.stat(f)
           size = stat.st_size
           pubDate = formatdate(stat.st_mtime)
 
-          # Default metadata
           duration = "0"
           title = filename
           description = ""
 
-          # 1. Try to read title/duration from MP3 tags
           try:
               audio = MP3(f)
               duration = str(int(audio.info.length))
-              # TIT2 is the Title frame
               if 'TIT2' in audio:
                   title = audio['TIT2'].text[0]
           except Exception:
               pass
 
-          # 2. Try to read description from sidecar file (reliable)
-          # The downloader writes 'Title.description' alongside 'Title.mp3'
           base_path = os.path.splitext(f)[0]
           desc_path = base_path + ".description"
-
           if os.path.exists(desc_path):
               try:
                   with open(desc_path, "r", encoding="utf-8") as df:
@@ -77,24 +78,17 @@
               except Exception:
                   pass
 
-          # 3. Fallback: Try ID3 COMM tags if description is still empty
           if not description:
               try:
                   audio = MP3(f)
-                  comm_frames = []
-                  for key in audio.keys():
-                      if key.startswith("COMM"):
-                          comm_frames.append(audio[key])
-
+                  comm_frames = [audio[k] for k in audio.keys() if k.startswith("COMM")]
                   if comm_frames:
-                      # Sort by length, assume longest is the description
                       comm_frames.sort(key=lambda x: len(x.text[0]) if x.text else 0, reverse=True)
                       if comm_frames[0].text:
                           description = comm_frames[0].text[0]
               except Exception:
                   pass
 
-          # Generate RSS Item
           items += f"""
           <item>
               <title>{html.escape(title)}</title>
@@ -108,64 +102,125 @@
 
       footer = "</channel></rss>"
 
-      with open(FEED_FILE, "w") as f:
+      with open(args.out, "w") as f:
           f.write(header + items + footer)
 
       try:
-          os.chmod(FEED_FILE, 0o644)
+          os.chmod(args.out, 0o644)
       except Exception:
           pass
     '';
 
-  # 2. Downloader (Updated: Writes description file)
+  # 2. Main Downloader
   downloader = pkgs.writeShellScriptBin "podcast-downloader" ''
     exec 1> >(${pkgs.util-linux}/bin/logger -t podcast-dl) 2>&1
-    echo "Triggered downloader with arguments: $@"
-
     export PATH=$PATH:${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${genRss}/bin
 
-    # Fix permission errors by setting a writable cache directory
     export XDG_CACHE_HOME=${podcastDir}/.cache
     mkdir -p "$XDG_CACHE_HOME"
 
     URL=$1
-
-    if [ -z "$URL" ]; then
-      echo "Error: No URL provided."
-      exit 1
-    fi
+    if [ -z "$URL" ]; then echo "Error: No URL provided."; exit 1; fi
 
     cd ${podcastDir}
 
-    echo "Starting yt-dlp for $URL..."
-
-    # Added --write-description
     yt-dlp \
-      --extract-audio \
-      --audio-format mp3 \
-      --write-description \
-      --add-metadata \
-      --embed-thumbnail \
-      --restrict-filenames \
-      --progress \
-      --no-playlist \
+      --extract-audio --audio-format mp3 --write-description --add-metadata \
+      --embed-thumbnail --restrict-filenames --progress --no-playlist \
       -o "%(title)s.%(ext)s" \
       "$URL"
 
-    echo "Download complete. Generating RSS..."
-    gen-rss
-    echo "RSS Generated. Done."
+    gen-rss \
+      --dir "${podcastDir}" \
+      --out "${podcastDir}/feed.xml" \
+      --url "https://${domain}" \
+      --title "My YouTube Drops"
+  '';
+
+  # 3. Playlist Downloader (Fixed Slug Logic)
+  playlistDownloader = pkgs.writeShellScriptBin "playlist-downloader" ''
+    exec 1> >(${pkgs.util-linux}/bin/logger -t podcast-playlist) 2>&1
+    export PATH=$PATH:${pkgs.yt-dlp}/bin:${pkgs.ffmpeg}/bin:${genRss}/bin:${pkgs.curl}/bin:${pkgs.jq}/bin:${pkgs.coreutils}/bin
+
+    export XDG_CACHE_HOME=${podcastDir}/.cache
+    mkdir -p "$XDG_CACHE_HOME"
+
+    URL=$1
+    if [ -z "$URL" ]; then echo "Error: No URL provided."; exit 1; fi
+
+    cd ${podcastDir}
+
+    echo "Fetching playlist metadata..."
+
+    # Get playlist title
+    PL_TITLE=$(yt-dlp --flat-playlist --print "playlist_title" "$URL" | head -n 1)
+
+    if [ -z "$PL_TITLE" ]; then
+        PL_TITLE="playlist-$(date +%s)"
+    fi
+
+    # Slugify: Lowercase -> Replace non-alphanumeric with - -> Squeeze dashes -> Trim dashes
+    SLUG=$(echo "$PL_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\{1,\}/-/g' | sed 's/^-\|-$//g')
+
+    # Safety fallback
+    if [ -z "$SLUG" ]; then
+        SLUG="playlist-$(date +%s)"
+    fi
+
+    TARGET_DIR="${podcastDir}/$SLUG"
+    mkdir -p "$TARGET_DIR"
+
+    echo "Downloading playlist '$PL_TITLE' to '$TARGET_DIR'..."
+
+    # Download into subdirectory
+    yt-dlp \
+      --extract-audio --audio-format mp3 --write-description --add-metadata \
+      --embed-thumbnail --restrict-filenames --progress --yes-playlist \
+      -o "$TARGET_DIR/%(title)s.%(ext)s" \
+      "$URL"
+
+    # XML lives in root: /var/lib/my-podcast/slug.xml
+    XML_FILE="${podcastDir}/$SLUG.xml"
+
+    # RSS Link: domain.com/slug.xml (The feed itself)
+    # Enclosure base: domain.com/slug/ (Where files are)
+    WEB_URL="https://${domain}/$SLUG"
+
+    echo "Generating RSS feed at $XML_FILE..."
+
+    gen-rss \
+      --dir "$TARGET_DIR" \
+      --out "$XML_FILE" \
+      --url "$WEB_URL" \
+      --title "$PL_TITLE"
+
+    echo "RSS Generated. Sending notification..."
+
+    curl -X POST "${gotifyUrl}?token=${gotifyToken}" \
+      -F "title=Podcast Ready: $PL_TITLE" \
+      -F "message=Playlist downloaded. Feed available at: https://${domain}/$SLUG.xml" \
+      -F "priority=5"
+
+    echo "Done."
   '';
 in {
-  environment.systemPackages = [pkgs.yt-dlp pkgs.ffmpeg genRss downloader];
+  environment.systemPackages = [
+    pkgs.yt-dlp
+    pkgs.ffmpeg
+    pkgs.curl
+    pkgs.jq
+    genRss
+    downloader
+    playlistDownloader
+  ];
 
-  # 3. Directory Permissions
+  # 4. Directory Permissions
   systemd.tmpfiles.rules = [
     "d ${podcastDir} 0755 nginx nginx -"
     "d ${podcastDir}/.cache 0755 nginx nginx -"
   ];
 
-  # 4. Webhook Service
+  # 5. Webhook Service
   services.webhook = {
     enable = true;
     port = 9000;
@@ -173,6 +228,16 @@ in {
     hooks = {
       download-audio = {
         execute-command = "${downloader}/bin/podcast-downloader";
+        command-working-directory = podcastDir;
+        pass-arguments-to-command = [
+          {
+            source = "payload";
+            name = "url";
+          }
+        ];
+      };
+      download-playlist = {
+        execute-command = "${playlistDownloader}/bin/playlist-downloader";
         command-working-directory = podcastDir;
         pass-arguments-to-command = [
           {
@@ -189,7 +254,7 @@ in {
     Group = lib.mkForce "nginx";
   };
 
-  # 5. SOPS Secret
+  # 6. SOPS Secret
   sops.secrets."acme-cloudflare-podcast" = {
     sopsFile = ../../../secrets/secrets/acme-cloudflare.env;
     format = "dotenv";
@@ -197,7 +262,7 @@ in {
     group = "nginx";
   };
 
-  # 6. Nginx Configuration
+  # 7. Nginx Configuration
   services.nginx = {
     enable = true;
 
@@ -210,7 +275,8 @@ in {
         extraConfig = "autoindex on;";
       };
 
-      locations."/feed.xml" = {
+      # Allow serving all XML files as RSS
+      locations."~ \\.xml$" = {
         extraConfig = ''
           types { application/rss+xml xml; }
         '';
@@ -218,7 +284,7 @@ in {
     };
   };
 
-  # 7. ACME Certificate
+  # 8. ACME Certificate
   security.acme.certs."${domain}" = {
     inherit domain;
     group = "nginx";
