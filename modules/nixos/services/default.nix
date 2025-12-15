@@ -7,7 +7,6 @@
     ./display/wayvnc.nix
     ./system/storage.nix
     ./display/sunshine.nix
-    ./podcast.nix
     ./nginx.nix
   ];
 }
