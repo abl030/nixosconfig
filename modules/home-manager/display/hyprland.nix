@@ -61,6 +61,13 @@ in {
 
         # Polkit Agent
         kdePackages.polkit-kde-agent-1
+
+        (pkgs.writeShellScriptBin "plexamp-debug" ''
+          echo "--- ENVIRONMENT (ROFI) ---" > /tmp/plexamp-debug.log
+          env >> /tmp/plexamp-debug.log
+          echo "--- LAUNCHING PLEXAMP ---" >> /tmp/plexamp-debug.log
+          ${pkgs.plexamp}/bin/plexamp >> /tmp/plexamp-debug.log 2>&1
+        '')
       ]
       ++ [
         pkgs.hyprlock
@@ -122,6 +129,13 @@ in {
         };
       };
     };
+
+    # CONFIG: Auto-switch to Bluetooth/USB audio when connected
+    xdg.configFile."pipewire/pipewire-pulse.conf.d/switch-on-connect.conf".text = ''
+      pulse.cmd = [
+        { cmd = "load-module" args = "module-switch-on-connect" }
+      ]
+    '';
 
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
