@@ -74,68 +74,72 @@ in {
       ]
       ++ optionals vncCfg.enable [wayvnc];
 
-    # 2. Configure Hyprlock
-    xdg.configFile."hypr/hyprlock.conf".text = ''
-      general {
-        immediate_render = false
-        hide_cursor = false
-      }
-      auth {
-        pam:enabled = true
-        pam:module = hyprlock
-      }
-      background {
-        monitor =
-        color = ${rgb "" colors.background}
-      }
-      input-field {
-        monitor =
-        size = 300, 60
-        position = 0, 0
-        halign = center
-        valign = center
-        outer_color = ${rgb "" colors.primary}
-        inner_color = ${rgb "" colors.backgroundAlt}
-        font_color = ${rgb "" colors.foreground}
-        fade_on_empty = false
-        placeholder_text = Input Password...
-      }
-      label {
-        monitor =
-        text = Hello, $USER
-        position = 0, -100
-        halign = center
-        valign = center
-        font_size = 24
-        color = ${rgb "" colors.foreground}
-      }
-    '';
+    # 2. Configure Hyprlock, Portals & Audio
+    xdg = {
+      configFile = {
+        "hypr/hyprlock.conf".text = ''
+          general {
+            immediate_render = false
+            hide_cursor = false
+          }
+          auth {
+            pam:enabled = true
+            pam:module = hyprlock
+          }
+          background {
+            monitor =
+            color = ${rgb "" colors.background}
+          }
+          input-field {
+            monitor =
+            size = 300, 60
+            position = 0, 0
+            halign = center
+            valign = center
+            outer_color = ${rgb "" colors.primary}
+            inner_color = ${rgb "" colors.backgroundAlt}
+            font_color = ${rgb "" colors.foreground}
+            fade_on_empty = false
+            placeholder_text = Input Password...
+          }
+          label {
+            monitor =
+            text = Hello, $USER
+            position = 0, -100
+            halign = center
+            valign = center
+            font_size = 24
+            color = ${rgb "" colors.foreground}
+          }
+        '';
 
-    xdg.portal = {
-      enable = true;
-      extraPortals = [
-        pkgs.xdg-desktop-portal-hyprland
-        pkgs.kdePackages.xdg-desktop-portal-kde # <--- The Missing Piece
-        pkgs.xdg-desktop-portal-gtk # Fallback for GTK apps
-      ];
-      config = {
-        common = {
-          # Use Hyprland for screenshots/screencasts
-          # Use KDE for file dialogs (matching your theme)
-          default = ["hyprland"];
-          "org.freedesktop.impl.portal.FileChooser" = ["kde"];
-          "org.freedesktop.impl.portal.OpenURI" = ["kde"];
-          "org.freedesktop.impl.portal.Secret" = ["kde"];
+        # CONFIG: Auto-switch to Bluetooth/USB audio when connected
+        "pipewire/pipewire-pulse.conf.d/switch-on-connect.conf".text = ''
+          pulse.cmd = [
+            { cmd = "load-module" args = "module-switch-on-connect" }
+          ]
+        '';
+      };
+
+      portal = {
+        enable = true;
+        extraPortals = [
+          pkgs.xdg-desktop-portal-hyprland
+          pkgs.kdePackages.xdg-desktop-portal-kde # <--- The Missing Piece
+          pkgs.xdg-desktop-portal-gtk # Fallback for GTK apps
+        ];
+        config = {
+          common = {
+            # Use Hyprland for screenshots/screencasts
+            # Use KDE for file dialogs (matching your theme)
+            default = ["hyprland"];
+            "org.freedesktop.impl.portal.FileChooser" = ["kde"];
+            "org.freedesktop.impl.portal.OpenURI" = ["kde"];
+            "org.freedesktop.impl.portal.Secret" = ["kde"];
+          };
         };
       };
     };
-
-    # CONFIG: Auto-switch to Bluetooth/USB audio when connected
-    xdg.configFile."pipewire/pipewire-pulse.conf.d/switch-on-connect.conf".text = ''
-      pulse.cmd = [
-        { cmd = "load-module" args = "module-switch-on-connect" }
-      ]
-    '';
 
     # 3. Configure Hyprland
     wayland.windowManager.hyprland = {
