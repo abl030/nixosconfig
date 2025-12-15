@@ -28,7 +28,7 @@
     ../../docker/invoices/docker-compose.nix
     ../../docker/domain-monitor/docker-compose.nix
     ../../docker/uptime-kuma/docker-compose.nix
-    ../../modules/home-manager/services/podcast.nix
+    ../../modules/nixos/services/podcast.nix
   ];
 
   homelab = {
@@ -49,11 +49,7 @@
 
     cache = {
       enable = true;
-      acmeEmail = "acme@ablz.au";
-      cloudflareSopsFile = ../../secrets/secrets/acme-cloudflare.env;
       mirrorHost = "nix-mirror.ablz.au";
-      mirrorCacheRoot = "/var/cache/nginx-nix-mirror";
-      mirrorRetentionDays = 45; # set 0 to disable pruning
       localHost = "nixcache.ablz.au";
       nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
     };
