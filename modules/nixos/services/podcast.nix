@@ -1,6 +1,5 @@
 # modules/nixos/services/podcast.nix
 {
-  config,
   pkgs,
   lib,
   ...
