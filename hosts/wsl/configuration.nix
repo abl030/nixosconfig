@@ -26,6 +26,11 @@
     };
   };
 
+  # Stops SOPS complaing about key file not being set.
+  # if we ever want to use SOPS, we can uncomment This
+  # and set the key file to the path of the age key
+  sops.age.keyFile = "/dev/null";
+
   wsl.enable = true;
   wsl.defaultUser = "nixos";
   programs.bash.blesh.enable = true;
