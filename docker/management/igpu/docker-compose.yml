@@ -14,7 +14,6 @@ services:
       - AUTOHEAL_INTERVAL=30
       # Optional: Stop timeout before sending SIGKILL (default 10 seconds)
       - AUTOHEAL_STOP_TIMEOUT=10
-      - DOCKER_API_VERSION=1.44
     volumes:
       # REQUIRED: Mount the docker socket so autoheal can interact with docker daemon
       - /var/run/docker.sock:/var/run/docker.sock
@@ -31,6 +30,7 @@ services:
       - WATCHTOWER_INCLUDE_STOPPED=true
       # - WATCHTOWER_REVIVE_STOPPED=true # Uncomment if you want stopped containers to start after update
       - WATCHTOWER_SCHEDULE=0 0 3 * * * # Runs daily at 3:00 AM according to host time
+      - DOCKER_API_VERSION=1.44
     restart: unless-stopped
 
   dozzle-agent:
