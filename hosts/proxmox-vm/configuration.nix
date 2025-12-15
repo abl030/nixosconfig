@@ -145,6 +145,12 @@
     zsh.enable = true;
   };
 
+  networking.interfaces.ens18 = {
+    mtu = 1400;
+    # (Keep useDHCP or ipv4 settings if you already have them here)
+    # useDHCP = true;
+  };
+
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [  ];
 
