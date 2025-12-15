@@ -14,6 +14,7 @@ services:
       - AUTOHEAL_INTERVAL=30
       # Optional: Stop timeout before sending SIGKILL (default 10 seconds)
       - AUTOHEAL_STOP_TIMEOUT=10
+      - DOCKER_API_VERSION=1.44
     volumes:
       # REQUIRED: Mount the docker socket so autoheal can interact with docker daemon
       - /var/run/docker.sock:/var/run/docker.sock
