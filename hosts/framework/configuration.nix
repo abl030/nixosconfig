@@ -29,6 +29,10 @@
   ];
 
   homelab = {
+    ssh = {
+      enable = true;
+      secure = false;
+    };
     nixCaches = {
       enable = true;
       profile = "internal"; # or "external"

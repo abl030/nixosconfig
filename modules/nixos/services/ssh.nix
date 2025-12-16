@@ -14,7 +14,7 @@ in {
   options.homelab.ssh = {
     enable = lib.mkEnableOption "Standard SSH Configuration";
     secure = lib.mkOption {
-      type = lib.types.Bool;
+      type = lib.types.bool;
       default = true;
       description = "If true, disable password auth and root login. Set false for new installs.";
     };
