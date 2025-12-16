@@ -8,5 +8,6 @@
     ./system/storage.nix
     ./display/sunshine.nix
     ./nginx.nix
+    ./ssh.nix
   ];
 }

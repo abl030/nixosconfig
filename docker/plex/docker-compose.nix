@@ -1,7 +1,7 @@
 {config, ...}: {
   systemd.services.plex-stack = {
     description = "Plex Docker Compose Stack";
-    restartIfChanged = false;
+    restartIfChanged = true;
     reloadIfChanged = false;
 
     requires = [

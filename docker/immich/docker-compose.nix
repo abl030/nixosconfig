@@ -29,8 +29,8 @@ in {
     # ===================================================================
     services.${stackName} = {
       description = "Immich Docker Compose Stack";
-      restartIfChanged = false;
-      reloadIfChanged = true;
+      restartIfChanged = true;
+      reloadIfChanged = false;
       requires = requiresBase;
       after = requiresBase;
 

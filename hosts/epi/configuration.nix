@@ -27,6 +27,10 @@
   };
 
   homelab = {
+    ssh = {
+      enable = true;
+      secure = false;
+    };
     hyprland = {
       enable = true;
     };

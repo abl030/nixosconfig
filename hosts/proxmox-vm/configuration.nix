@@ -37,6 +37,10 @@
       repoDir = "/home/abl030/nixosconfig";
     };
 
+    ssh = {
+      enable = true;
+      secure = false;
+    };
     update = {
       enable = true;
       # Re-enable GC and move schedule to 3am block

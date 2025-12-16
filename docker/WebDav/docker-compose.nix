@@ -23,8 +23,8 @@
 in {
   systemd.services.${stackName} = {
     description = "WebDav Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = requiresBase;
     after = requiresBase;
 

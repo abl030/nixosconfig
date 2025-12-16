@@ -1,8 +1,8 @@
 {config, ...}: {
   systemd.services.management-stack = {
     description = "Docker Management Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = ["docker.service" "network-online.target"];
     after = ["docker.service" "network-online.target"];
 
