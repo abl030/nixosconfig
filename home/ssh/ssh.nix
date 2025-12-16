@@ -40,7 +40,7 @@ _: {
         user = "abl030";
       };
       "doc1" = {
-        hostname = "proxmox-vm";
+        hostname = "nixos";
         user = "abl030";
       };
       "wsl" = {
