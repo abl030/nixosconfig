@@ -1,8 +1,8 @@
 {config, ...}: {
   systemd.services."tdarr-igp-stack" = {
     description = "Tdarr IGP Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = ["docker.service" "network-online.target" "mnt-data.mount"];
     after = ["docker.service" "network-online.target" "mnt-data.mount"];
 

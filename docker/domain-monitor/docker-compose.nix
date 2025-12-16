@@ -28,8 +28,8 @@ in {
       # 1. The Stack
       ${stackName} = {
         description = "Domain Monitor Docker Compose Stack";
-        restartIfChanged = false;
-        reloadIfChanged = true;
+        restartIfChanged = true;
+        reloadIfChanged = false;
         requires = requiresBase;
         after = requiresBase;
 

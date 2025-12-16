@@ -31,8 +31,8 @@
 in {
   systemd.services.${stackName} = {
     description = "Jellyfin Docker Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = requiresBase;
     after = afterBase;
 

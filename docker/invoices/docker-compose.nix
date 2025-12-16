@@ -22,8 +22,8 @@
 in {
   systemd.services.${stackName} = {
     description = "Invoices Docker Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = requiresBase;
     after = afterBase;
 
