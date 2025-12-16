@@ -1,8 +1,4 @@
-{
-  lib,
-  config,
-  ...
-}: {
+_: {
   # sops = {
   #   # Make HM's sops-nix happy (HM reads its own sops.* options)
   #   # age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
