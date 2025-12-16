@@ -1,8 +1,12 @@
 {
+  lib,
   config,
-  inputs,
   ...
 }: {
+  # Make HM's sops-nix happy (HM reads its own sops.* options)
+  sops.age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
+  sops.age.generateKey = lib.mkDefault true;
+
   # 1. Inject the Master Private Key via Sops
   # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
   sops = {
@@ -49,12 +53,12 @@
 
       # Global Defaults
       "*" = {
-        ForwardAgent = true; # Useful for git
-        SetEnv = {TERM = "xterm-256color";};
+        forwardAgent = true; # Useful for git
+        setEnv = {TERM = "xterm-256color";};
 
         # Explicitly disable X11
-        ForwardX11 = false;
-        ForwardX11Trusted = false;
+        forwardX11 = false;
+        forwardX11Trusted = false;
       };
     };
   };
