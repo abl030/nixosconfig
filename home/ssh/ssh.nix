@@ -1,88 +1,60 @@
-# We are 100% in on tailscale SSH. The biggest problem is X11 forwarding. See: https://github.com/tailscale/tailscale/issues/5160
-# So, what we do is make sure the normal sshd is running and either block it at the firewall for nix hosts or just set a unique 127.0.0.0/0 address for non-nix hosts.
-# The hostname address in the matchblocks must be unique for each host, otherwise it will check known_hosts and fail.
-# So we now have no open ports but still use X11 forwarding. #SECURE.
-# Use `_:` for unused function arguments for clarity and convention.
-_: {
-  home.file = {
-    # ".ssh/authorized_keys".source = ./authorized_keys;
-    # ".ssh/config".source = ./config;
+{
+  config,
+  inputs,
+  ...
+}: {
+  # 1. Inject the Master Private Key via Sops
+  # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
+  sops = {
+    defaultSopsFile = ../../secrets/secrets/ssh_key_abl030;
+    defaultSopsFormat = "binary";
+
+    secrets.ssh_key_abl030 = {
+      path = "${config.home.homeDirectory}/.ssh/id_ed25519";
+      mode = "0600";
+    };
   };
+
+  # 2. Clean SSH Client Config
   programs.ssh = {
     enable = true;
-    # This disables the implicit default settings that will be removed in a future
-    # version of Home Manager, thereby resolving the warning.
-    enableDefaultConfig = false;
+    enableDefaultConfig = false; # We control the config
 
+    # Standard Aliases (DNS/Tailscale names, no localhots hacks)
     matchBlocks = {
-      "*" = {
-        forwardX11 = true;
-        forwardX11Trusted = true;
-        setEnv = {
-          # Needed for sudo on remote hosts to work with ghostty. Check removing it as ncurses is adopted.
-          TERM = "xterm-256color";
-        };
+      "epi" = {
+        hostname = "epimetheus";
+        user = "abl030";
       };
       "cad" = {
-        proxyJump = "abl030@caddy";
-        # Non nix hosts need a unique 127 address. Set this up in /etc/ssh/sshd_config
-        hostname = "127.0.0.1";
+        hostname = "caddy";
         user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
-      };
-      "tow" = {
-        # proxyJump = "root@tower";
-        # hostname = "127.0.0.1";
-        # user = "root";
-        # forwardX11 = true;
-        # forwardX11Trusted = true;
-        user = "root";
-        hostname = "tower";
-      };
-      "dow" = {
-        proxyJump = "abl030@downloader";
-        hostname = "127.0.0.2";
-        user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
-      };
-      "epi" = {
-        proxyJump = "abl030@epimetheus";
-        hostname = "127.0.0.6";
-        user = "abl030";
-        port = 22;
-        forwardX11 = true;
-        forwardX11Trusted = true;
       };
       "fra" = {
-        proxyJump = "abl030@framework";
-        # This is a laptop and the IP will change. Hence unique 127.0.0.0/0 address and we bind to 0.0.0.0
-        hostname = "127.0.0.3";
+        hostname = "framework";
         user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
       };
-      "kal" = {
-        proxyJump = "abl030@kali";
-        hostname = "127.0.0.4";
+      "igp" = {
+        hostname = "igpu";
         user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
       };
-      "doc1" = {
-        proxyJump = "abl030@nixos";
-        hostname = "127.0.0.5";
+      "prox" = {
+        hostname = "proxmox-vm";
         user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
       };
-      "dow2" = {
-        proxyJump = "abl030@downloader2";
-        hostname = "127.0.0.5";
-        user = "abl030";
-        forwardX11 = true;
-        forwardX11Trusted = true;
+      "wsl" = {
+        hostname = "nixos";
+        user = "nixos";
+      };
+
+      # Global Defaults
+      "*" = {
+        ForwardAgent = true; # Useful for git
+        SetEnv = {TERM = "xterm-256color";};
+
+        # Explicitly disable X11
+        ForwardX11 = false;
+        ForwardX11Trusted = false;
       };
     };
   };
