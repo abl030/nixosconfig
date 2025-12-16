@@ -3,22 +3,22 @@
   config,
   ...
 }: {
-  sops = {
-    # Make HM's sops-nix happy (HM reads its own sops.* options)
-    age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
-    age.generateKey = lib.mkDefault true;
-
-    # 1. Inject the Master Private Key via Sops
-    # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
-
-    defaultSopsFile = ../../secrets/secrets/ssh_key_abl030;
-    defaultSopsFormat = "binary";
-
-    secrets.ssh_key_abl030 = {
-      path = "${config.home.homeDirectory}/.ssh/id_ed25519";
-      mode = "0600";
-    };
-  };
+  # sops = {
+  #   # Make HM's sops-nix happy (HM reads its own sops.* options)
+  #   # age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
+  #   # age.generateKey = lib.mkDefault true;
+  #
+  #   # 1. Inject the Master Private Key via Sops
+  #   # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
+  #
+  #   defaultSopsFile = ../../secrets/secrets/ssh_key_abl030;
+  #   defaultSopsFormat = "binary";
+  #
+  #   secrets.ssh_key_abl030 = {
+  #     path = "${config.home.homeDirectory}/.ssh/id_ed25519";
+  #     mode = "0600";
+  #   };
+  # };
 
   # 2. Clean SSH Client Config
   programs.ssh = {

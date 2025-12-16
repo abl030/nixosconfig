@@ -5,7 +5,6 @@
 }: let
   cfg = config.homelab.ssh;
 in {
-  # FIX: Go up 3 levels because this file is in modules/nixos/services/
   imports = [
     ../../../hosts/common/user_keys.nix
     ../../../hosts/services/system/ssh_nosleep.nix
@@ -21,6 +20,7 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # 1. Enable OpenSSH
     services.openssh = {
       enable = true;
       openFirewall = true;
@@ -34,6 +34,16 @@ in {
         KbdInteractiveAuthentication = !cfg.secure;
         X11Forwarding = false;
       };
+    };
+
+    # 2. Decrypt the Master Identity (System Level)
+    # We do this here because only root can read the Host Key needed to decrypt it
+    sops.secrets.ssh_key_abl030 = {
+      sopsFile = ../../../secrets/secrets/ssh_key_abl030;
+      format = "binary";
+      owner = "abl030"; # We set the owner to your user
+      path = "/home/abl030/.ssh/id_ed25519"; # We force the path to your SSH dir
+      mode = "0600";
     };
   };
 }
