@@ -43,7 +43,7 @@
         hostname = "igpu";
         user = "abl030";
       };
-      "prox" = {
+      "doc1" = {
         hostname = "proxmox-vm";
         user = "abl030";
       };
