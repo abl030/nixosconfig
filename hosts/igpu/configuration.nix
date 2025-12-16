@@ -11,7 +11,6 @@
     ../services/mounts/fuse.nix
 
     ../services/tailscale/tailscale.nix
-    ../common/ssh.nix
 
     # Our docker services
     ../../docker/jellyfinn/docker-compose.nix
@@ -37,6 +36,10 @@
   };
 
   homelab = {
+    ssh = {
+      enable = true;
+      secure = false;
+    };
     nixCaches = {
       enable = true;
       profile = "internal"; # or "external"
@@ -140,12 +143,6 @@
   services = {
     qemuGuest.enable = true;
     # Enable the OpenSSH daemon.
-    openssh = {
-      enable = true;
-      settings = {
-        X11Forwarding = true;
-      };
-    };
   };
 
   # Open ports in the firewall.

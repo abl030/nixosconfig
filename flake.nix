@@ -120,6 +120,7 @@
                       users.${cfg.user} = {
                         imports = [
                           home-manager-diff.hmModules.default
+                          inputs.sops-nix.homeManagerModules.sops
                           cfg.homeFile
                           ./modules/home-manager
                         ];
@@ -145,6 +146,7 @@
                   };
                 modules = [
                   home-manager-diff.hmModules.default
+                  inputs.sops-nix.homeManagerModules.sops
                   cfg.homeFile
                   ./modules/home-manager
                   {

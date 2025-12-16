@@ -9,7 +9,7 @@
   imports = [
     # ./auto_update.nix
     ./printing.nix
-    ./ssh.nix
+    # ./ssh.nix
   ];
 
   # for Zsh autocompletion

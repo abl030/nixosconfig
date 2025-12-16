@@ -1,8 +1,8 @@
 {config, ...}: {
   systemd.services.tautulli-stack = {
     description = "Tautulli Docker Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = ["docker.service" "network-online.target"];
     after = ["docker.service" "network-online.target"];
 

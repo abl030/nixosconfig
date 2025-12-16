@@ -1,8 +1,8 @@
 {config, ...}: {
   systemd.services.jdownloader2-stack = {
     description = "JDownloader2 Docker Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
+    restartIfChanged = true;
+    reloadIfChanged = false;
     requires = ["docker.service" "network-online.target" "mnt-data.mount"];
     after = ["docker.service" "network-online.target" "mnt-data.mount"];
 

@@ -1,61 +1,39 @@
-# Edit this configuration file to define what should be installed on
-# your system. Help is available in the configuration.nix(5) man page, on
-# https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-# NixOS-WSL specific options are documented on the NixOS-WSL repository:
-# https://github.com/nix-community/NixOS-WSL
 {
   pkgs,
-  inputs, # Make flake inputs available to this module.
+  inputs,
   ...
 }: {
   imports = [
-    # Use the flake input directly for a pure, reproducible import.
-    # This replaces the impure <nixos-wsl/modules> lookup.
     inputs.nixos-wsl.nixosModules.default
   ];
 
-  homelab = {
-    nixCaches = {
-      enable = true;
-      profile = "internal"; # or "external"
-    };
-    update = {
-      enable = true;
-      collectGarbage = true;
-      trim = true;
-    };
+  # 2. FIX: Satisfy User Assertion
+  users.users.abl030 = {
+    isNormalUser = true;
+    description = "Admin User (Fleet Identity)";
+    extraGroups = ["wheel" "docker"];
+    shell = pkgs.bash;
   };
 
-  # Stops SOPS complaing about key file not being set.
-  # if we ever want to use SOPS, we can uncomment This
-  # and set the key file to the path of the age key
-  sops.age.keyFile = "/dev/null";
-
+  # 3. Standard WSL Configuration
   wsl.enable = true;
   wsl.defaultUser = "nixos";
-  programs.bash.blesh.enable = true;
 
-  time.timeZone = "Australia/Perth";
   networking.hostName = "wsl";
-  nixpkgs.config.allowUnfree = true;
+  time.timeZone = "Australia/Perth";
 
+  nixpkgs.config.allowUnfree = true;
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
-  # users.defaultUserShell = pkgs.zsh;
-
-  # programs.zsh.enable = true;
+  # Basic packages
   environment.systemPackages = [
     pkgs.neovim
-    pkgs.gh
     pkgs.git
     pkgs.home-manager
+    pkgs.wget
   ];
 
-  # This value determines the NixOS release from which the default
-  # settings for stateful data, like file locations and database versions
-  # on your system were taken. It's perfectly fine and recommended to leave
-  # this value at the release version of the first install of this system.
-  # Before changing this value read the documentation for this option
-  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "25.05"; # Did you read the comment?
+  programs.bash.blesh.enable = true;
+
+  system.stateVersion = "25.05";
 }
