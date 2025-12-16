@@ -1,4 +1,3 @@
-# modules/nixos/core/nginx.nix
 {
   lib,
   config,
@@ -20,7 +19,7 @@ in {
 
     cloudflareSopsFile = lib.mkOption {
       type = lib.types.path;
-      # FIXED: Added the extra 'secrets' directory to match your actual structure
+      # Adjust path if your file structure differs, but ../../../ goes to repo root from modules/nixos/services/
       default = ../../../secrets/secrets/acme-cloudflare.env;
       description = "Path to sops file containing CLOUDFLARE_DNS_API_TOKEN.";
     };
@@ -30,14 +29,12 @@ in {
     # 1. Open Firewall
     networking.firewall.allowedTCPPorts = [80 443];
 
-    # 2. Decrypt Cloudflare Credentials ONCE
+    # 2. Decrypt Cloudflare Credentials
     sops.secrets."acme/cloudflare" = {
       sopsFile = cfg.cloudflareSopsFile;
       format = "dotenv";
       owner = "acme";
-      group = "nginx";
-      # Restart nginx if credentials change
-      restartUnits = ["nginx.service"];
+      # Note: We removed restartUnits = ["nginx.service"] to prevent reload failures
     };
 
     # 3. Global ACME Configuration
@@ -47,6 +44,8 @@ in {
         email = cfg.acmeEmail;
         dnsProvider = "cloudflare";
         credentialsFile = config.sops.secrets."acme/cloudflare".path;
+        # Reload nginx when certs change
+        reloadServices = ["nginx"];
       };
     };
 
