@@ -48,12 +48,11 @@ xclip() {
 }
 
 dc() {
-    local uid keyfile tmp_key sshkey rc
+    local uid keyfile tmp_key sshkey rc age_key
     uid="$(id -u)"
 
     # If caller already exported a SOPS env var, respect it.
-    # But always run sops as *current* user so OSC52 works.
-    if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" ]]; then
+    if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" || -n "${SOPS_AGE_KEY:-}" ]]; then
         EDITOR=nvim VISUAL=nvim sops "$@"
         return
     fi
@@ -63,18 +62,19 @@ dc() {
         EDITOR=nvim VISUAL=nvim sops "$@"
     }
 
+    # Prerequisite check
+    if ! command -v ssh-to-age >/dev/null 2>&1; then
+        echo "❌ Error: 'ssh-to-age' is not installed. Please install it to decrypt secrets."
+        return 1
+    fi
+
     # 1) AGE KEY FILES (SOPS_AGE_KEY_FILE)
-    #    - root-only paths: copy to a user-owned temp file
-    #    - user-local checked directly
-    for keyfile in \
-        "/root/.config/sops/age/keys.txt" \
-        "/var/lib/sops-nix/key.txt"; do
+    #    Used by sops-nix system module (usually derived from Host Key)
+    for keyfile in "/root/.config/sops/age/keys.txt" "/var/lib/sops-nix/key.txt"; do
         if sudo test -r "$keyfile" 2>/dev/null; then
             if [[ "$uid" -eq 0 ]]; then
-                # Already root: just use the keyfile directly
                 SOPS_AGE_KEY_FILE="$keyfile" _dc_run_sops "$@"
             else
-                # Non-root: copy root-only key into a temp file we own
                 tmp_key="$(mktemp -t dc-sops-rootkey-XXXXXX.age)"
                 sudo cat "$keyfile" >"$tmp_key"
                 chmod 600 "$tmp_key"
@@ -87,63 +87,29 @@ dc() {
         fi
     done
 
-    # User-local keyfile
-    keyfile="$HOME/.config/sops/age/keys.txt"
-    if [[ -r "$keyfile" ]]; then
-        SOPS_AGE_KEY_FILE="$keyfile" _dc_run_sops "$@"
-        return
-    fi
-
-    # 2) Ephemeral host SSH → age key (no persistent state)
-    #    Use /etc/ssh/ssh_host_ed25519_key if ssh-to-age is available.
-    if command -v ssh-to-age >/dev/null 2>&1 &&
-    sudo test -r /etc/ssh/ssh_host_ed25519_key 2>/dev/null; then
-        tmp_key="$(mktemp -t dc-sops-XXXXXX.age)"
-        # Redirection happens as the user, ssh-to-age runs as root.
-        if sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key >"$tmp_key" 2>/dev/null; then
-            chmod 600 "$tmp_key"
-            SOPS_AGE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
-            rc=$?
-            rm -f "$tmp_key"
-            return "$rc"
-        else
-            rm -f "$tmp_key"
+    # 2) HOST SSH KEY (/etc/ssh/ssh_host_ed25519_key)
+    #    Convert Host SSH Key -> Age Key on the fly
+    if sudo test -r /etc/ssh/ssh_host_ed25519_key 2>/dev/null; then
+        # We capture the output of ssh-to-age running as root
+        if age_key=$(sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key 2>/dev/null); then
+            # Pass via env var (secure enough for local interactive use)
+            SOPS_AGE_KEY="$age_key" _dc_run_sops "$@"
+            return
         fi
     fi
 
-    # 3) SSH KEYS via age-plugin-ssh (if present)
-    #    These use SOPS_AGE_SSH_PRIVATE_KEY_FILE.
-    sshkey="/etc/ssh/ssh_host_ed25519_key"
-    if sudo test -r "$sshkey" 2>/dev/null; then
-        tmp_key="$(mktemp -t dc-sops-ssh-XXXXXX)"
-        sudo cat "$sshkey" >"$tmp_key"
-        chmod 600 "$tmp_key"
-        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
-        rc=$?
-        rm -f "$tmp_key"
-        return "$rc"
-    fi
-
-    sshkey="/root/.ssh/id_ed25519"
-    if sudo test -r "$sshkey" 2>/dev/null; then
-        tmp_key="$(mktemp -t dc-sops-ssh-XXXXXX)"
-        sudo cat "$sshkey" >"$tmp_key"
-        chmod 600 "$tmp_key"
-        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$tmp_key" _dc_run_sops "$@"
-        rc=$?
-        rm -f "$tmp_key"
-        return "$rc"
-    fi
-
+    # 3) USER SSH KEY (~/.ssh/id_ed25519)
+    #    Convert User SSH Key -> Age Key on the fly (SSH Nirvana method)
     sshkey="$HOME/.ssh/id_ed25519"
     if [[ -r "$sshkey" ]]; then
-        SOPS_AGE_SSH_PRIVATE_KEY_FILE="$sshkey" _dc_run_sops "$@"
-        return
+        if age_key=$(ssh-to-age -private-key -i "$sshkey" 2>/dev/null); then
+            SOPS_AGE_KEY="$age_key" _dc_run_sops "$@"
+            return
+        fi
     fi
 
-    # 4) Fallback: no explicit key — defer to sops defaults,
-    #    but still run sops as the *current* user.
-    _dc_run_sops "$@"
+    echo "❌ No valid keys found for decryption."
+    return 1
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
