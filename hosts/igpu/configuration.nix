@@ -33,6 +33,8 @@
     kernel.sysctl = {
       "fs.inotify.max_user_watches" = 2097152;
     };
+
+    kernelParams = ["cgroup_disable=hugetlb"];
   };
 
   homelab = {
