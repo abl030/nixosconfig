@@ -78,9 +78,13 @@
     liveRestore = false;
   };
 
-  # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot = {
+    loader = {
+      systemd-boot.enable = true;
+      efi.canTouchEfiVariables = true;
+    };
+    kernelParams = ["cgroup_disable=hugetlb"];
+  };
 
   # Group network settings into a single attribute set to avoid repetition.
   networking = {
