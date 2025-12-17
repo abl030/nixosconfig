@@ -63,6 +63,12 @@
     };
   };
 
+  services.journald.extraConfig = ''
+    SystemMaxUse=1G
+    SystemKeepFree=2G
+    MaxRetentionSec=7daily
+  '';
+
   # Group all nix-related options into a single attribute set.
   nix = {
     # Optimise nix store to save space daily.
