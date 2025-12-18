@@ -1,9 +1,20 @@
-# define our hosts
-# Our hostkey must match our hostname so that NIXD home completions work.
-# Note this does mean at the moment we are limited to one user per host.
-# In NVIM/lspconfig.lua you can see we pull in our home_manager completions
-# programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se
-# but merely this host key and the username must be the same.
+# Host Definitions & Fleet Trust
+# ============================
+#
+# 1. Host Identity
+#    The attribute name (e.g., "epimetheus") serves as the unique ID for the host.
+#    The 'sshAlias' is used for SSH config shortcuts (e.g., `ssh epi`).
+#    The 'hostname' must match the machine's actual hostname (for NixOS config).
+#
+# 2. Host Trust (Public Keys)
+#    This file acts as the source of truth for the fleet's 'known_hosts'.
+#    Each host entry must have a 'publicKey' attribute containing its
+#    /etc/ssh/ssh_host_ed25519_key.pub.
+#
+#    MANUAL KEY RETRIEVAL:
+#    If the script fails, run this on the target host to get the string:
+#      $ cat /etc/ssh/ssh_host_ed25519_key.pub
+#
 let
   masterKeys = [
     # Master Fleet Identity
