@@ -1,4 +1,8 @@
-_: {
+{
+  allHosts,
+  lib,
+  ...
+}: {
   # sops = {
   #   # Make HM's sops-nix happy (HM reads its own sops.* options)
   #   # age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
@@ -21,42 +25,31 @@ _: {
     enable = true;
     enableDefaultConfig = false; # We control the config
 
-    # Standard Aliases (DNS/Tailscale names, no localhots hacks)
-    matchBlocks = {
-      "epi" = {
-        hostname = "epimetheus";
-        user = "abl030";
-      };
-      "cad" = {
-        hostname = "caddy";
-        user = "abl030";
-      };
-      "fra" = {
-        hostname = "framework";
-        user = "abl030";
-      };
-      "igp" = {
-        hostname = "igpu";
-        user = "abl030";
-      };
-      "doc1" = {
-        hostname = "nixos";
-        user = "abl030";
-      };
-      "wsl" = {
-        hostname = "nixos";
-        user = "nixos";
-      };
+    # Generate matchBlocks dynamically from hosts.nix
+    matchBlocks = let
+      # Helper to generate blocks for every host defined in hosts.nix
+      # We use mapAttrs' (prime) to rename the key from the internal ID (e.g. "epimetheus")
+      # to the sshAlias (e.g. "epi").
+      generatedHosts =
+        lib.mapAttrs' (_: cfg: {
+          name = cfg.sshAlias;
+          value = {
+            inherit (cfg) hostname user;
+          };
+        })
+        allHosts;
+    in
+      generatedHosts
+      // {
+        # Global Defaults (merged at the end)
+        "*" = {
+          forwardAgent = true; # Useful for git
+          setEnv = {TERM = "xterm-256color";};
 
-      # Global Defaults
-      "*" = {
-        forwardAgent = true; # Useful for git
-        setEnv = {TERM = "xterm-256color";};
-
-        # Explicitly disable X11
-        forwardX11 = false;
-        forwardX11Trusted = false;
+          # Explicitly disable X11
+          forwardX11 = false;
+          forwardX11Trusted = false;
+        };
       };
-    };
   };
 }
