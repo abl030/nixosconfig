@@ -3,7 +3,6 @@
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     # Our modulat tailscale setup that should work anywhere.
-    ../services/tailscale/tailscale.nix
     # Our mounts
     ../services/mounts/nfs_local.nix
     # mum backup mount
@@ -40,6 +39,9 @@
     ssh = {
       enable = true;
       secure = false;
+    };
+    tailscale = {
+      enable = true;
     };
     update = {
       enable = true;

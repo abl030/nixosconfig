@@ -9,9 +9,6 @@
     ../services/mounts/nfs_local.nix
     # We need fuse mounts for jellyfin inotify
     ../services/mounts/fuse.nix
-
-    ../services/tailscale/tailscale.nix
-
     # Our docker services
     ../../docker/jellyfinn/docker-compose.nix
     ../../docker/management/igpu/docker_compose.nix
@@ -41,6 +38,9 @@
     ssh = {
       enable = true;
       secure = false;
+    };
+    tailscale = {
+      enable = true;
     };
     nixCaches = {
       enable = true;
