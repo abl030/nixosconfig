@@ -4,7 +4,14 @@
 # In NVIM/lspconfig.lua you can see we pull in our home_manager completions
 # programatticaly and this was the easiest way. Note that this is does not have to be the 'hostname' per se
 # but merely this host key and the username must be the same.
-{
+let
+  masterKeys = [
+    # Master Fleet Identity
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
+    # Manual Keys
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
+  ];
+in {
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
     homeFile = ./hosts/epi/home.nix;
@@ -12,6 +19,7 @@
     homeDirectory = "/home/abl030";
     hostname = "epimetheus";
     sshAlias = "epi";
+    authorizedKeys = masterKeys;
   };
 
   caddy = {
@@ -20,6 +28,7 @@
     homeDirectory = "/home/abl030";
     hostname = "caddy";
     sshAlias = "cad";
+    authorizedKeys = masterKeys;
   };
 
   framework = {
@@ -29,6 +38,7 @@
     homeDirectory = "/home/abl030"; # keep as a plain string for Home Manager
     hostname = "framework";
     sshAlias = "fra";
+    authorizedKeys = masterKeys;
   };
 
   wsl = {
@@ -38,6 +48,7 @@
     homeDirectory = "/home/nixos";
     hostname = "nixos"; # Added to match ssh.nix
     sshAlias = "wsl"; # Added to match ssh.nix
+    authorizedKeys = masterKeys;
   };
 
   proxmox-vm = {
@@ -47,6 +58,7 @@
     homeDirectory = "/home/abl030";
     hostname = "proxmox-vm"; # Note: ssh.nix used "nixos", assuming "proxmox-vm" is the correct Tailscale name
     sshAlias = "doc1";
+    authorizedKeys = masterKeys;
   };
 
   igpu = {
@@ -56,5 +68,6 @@
     homeDirectory = "/home/abl030";
     hostname = "igpu";
     sshAlias = "igp";
+    authorizedKeys = masterKeys;
   };
 }

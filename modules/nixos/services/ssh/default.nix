@@ -7,7 +7,7 @@
 }: let
   cfg = config.homelab.ssh;
   hostConfig = allHosts.${hostname};
-  inherit (hostConfig) user homeDirectory;
+  inherit (hostConfig) user homeDirectory authorizedKeys;
 in {
   imports = [
     ./inhibitors.nix
@@ -51,14 +51,8 @@ in {
       };
     };
 
-    # 2. Authorized Keys (Merged from hosts/common/user_keys.nix)
-    users.users.${user}.openssh.authorizedKeys.keys = [
-      # Master Fleet Identity
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
-      # Manual Keys (from home/ssh/authorized_keys)
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK9aE9VRI+2to5Iy04f/MvPfbs6E5q0xTjnErPC4pEjR cullenwines ndy.b@CW-PC001"
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
-    ];
+    # 2. Authorized Keys (Sourced from hosts.nix)
+    users.users.${user}.openssh.authorizedKeys.keys = authorizedKeys;
 
     # 3. Decrypt the Master Identity (System Level)
     # We do this here because only root can read the Host Key needed to decrypt it
