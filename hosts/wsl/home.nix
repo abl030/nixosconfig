@@ -7,10 +7,15 @@ _: {
     ../../home/fish/fish.nix
     ../../home/nvim/nvim.nix
     #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
-    ../../home/ssh/ssh.nix
     # ../secrets/sops_home.nix
     ../../home/utils/common.nix
   ];
+
+  homelab = {
+    ssh = {
+      enable = true;
+    };
+  };
 
   # Group all home-manager settings into a single `home` block to avoid repeated keys.
   home = {

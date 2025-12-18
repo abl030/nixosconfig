@@ -19,14 +19,15 @@
 
     # ./fish/fish.nix
     ./nvim/nvim.nix
-    #It doesn't make sense to use home-manager for our authorized keys file. It's weird but
-    ./ssh/ssh.nix
     # ../secrets/sops_home.nix
     ./utils/common.nix
   ];
 
   homelab = {
     pdf = {
+      enable = true;
+    };
+    ssh = {
       enable = true;
     };
   };

@@ -10,6 +10,7 @@
     ./display/dolphin.nix
     ./services/yazi.nix
     ./display/remote-desktop.nix
+    ./services/ssh.nix
     ./services/pdf.nix
   ];
 }
