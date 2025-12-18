@@ -23,6 +23,9 @@
     pkgs.beets
     pkgs.wl-clipboard
     pkgs.tigervnc
+    pkgs.statix
+    pkgs.deadnix
+    pkgs.alejandra
 
     # Rust Utils
     pkgs.fzf

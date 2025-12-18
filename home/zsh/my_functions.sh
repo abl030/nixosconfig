@@ -541,3 +541,62 @@ pod_play() {
         -d "{\"url\": \"$1\"}" \
         http://192.168.1.29:9000/hooks/download-playlist
 }
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Local CI Check - Runs formatting, linting, and flake checks
+#  Requires: alejandra, deadnix, statix
+# ──────────────────────────────────────────────────────────────────────────────
+check() {
+    # 0. Ensure we are in a flake repo
+    if [[ ! -f "flake.nix" ]]; then
+        echo "❌ No flake.nix found in current directory."
+        return 1
+    fi
+
+    # 1. Dependency Check
+    local deps=(alejandra deadnix statix git nix)
+    local missing=()
+    for cmd in "${deps[@]}"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing+=("$cmd")
+        fi
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo "❌ Missing dependencies for 'check': ${missing[*]}"
+        echo "👉 Please add these to your universal package list."
+        return 1
+    fi
+
+    # 2. Format Check (Alejandra)
+    echo "🧹 Running Format Check (alejandra)..."
+    # --check exits non-zero if changes are needed, without modifying files
+    if ! alejandra --check --quiet . >/dev/null 2>&1; then
+        echo "❌ Formatting issues detected."
+        echo "   Run 'nix fmt' or 'alejandra .' to fix them."
+        return 1
+    fi
+
+    # 3. Linting (Deadnix)
+    echo "🔍 Running Linting (deadnix)..."
+    # --fail exits non-zero if dead code is found
+    if ! deadnix --fail .; then
+        return 1
+    fi
+
+    # 4. Linting (Statix)
+    echo "🔍 Running Linting (statix)..."
+    if ! statix check .; then
+        return 1
+    fi
+
+    # 5. Flake Check
+    echo "❄️  Running Flake Checks..."
+    # --print-build-logs ensures you see the error if a check fails
+    if ! nix flake check --print-build-logs; then
+        echo "❌ Flake check failed."
+        return 1
+    fi
+
+    echo "✅ All local checks passed. Ready to commit."
+}
