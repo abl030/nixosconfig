@@ -62,6 +62,7 @@ in {
     homeDirectory = "/home/nixos";
     hostname = "nixos"; # Added to match ssh.nix
     sshAlias = "wsl"; # Added to match ssh.nix
+    publicKey = ""; # Placeholder: Populate with `cat /etc/ssh/ssh_host_ed25519_key.pub` from WSL
     authorizedKeys = masterKeys;
   };
 
