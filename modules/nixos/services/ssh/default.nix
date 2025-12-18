@@ -64,5 +64,27 @@ in {
       path = "${homeDirectory}/.ssh/id_ed25519"; # Dynamically set path to the correct home
       mode = "0600";
     };
+
+    # 4. Declarative Known Hosts
+    # Automatically trust all other hosts in the fleet defined in hosts.nix
+    programs.ssh.knownHosts = let
+      # Filter to find other hosts that have a valid public key
+      otherHostsWithKeys =
+        lib.filterAttrs (
+          name: host:
+            name != hostname && (host ? publicKey) && host.publicKey != ""
+        )
+        allHosts;
+    in
+      lib.mapAttrs' (
+        name: host:
+          lib.nameValuePair "homelab-${name}" {
+            # Trust the hostname and the sshAlias.
+            # Note: IP addresses are not currently in hosts.nix, so they are not added here.
+            hostNames = [host.hostname host.sshAlias];
+            inherit (host) publicKey;
+          }
+      )
+      otherHostsWithKeys;
   };
 }
