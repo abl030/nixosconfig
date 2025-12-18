@@ -5,6 +5,10 @@
 }: let
   cfg = config.homelab.tailscale;
 in {
+  imports = [
+    # ./subnet-priority.nix
+  ];
+
   options.homelab.tailscale = {
     enable = lib.mkEnableOption "Homelab Tailscale configuration";
 
@@ -32,7 +36,6 @@ in {
     };
 
     # 3. The Conditional TPM Override
-    # This only applies if you set tpmOverride = true in your host config
     systemd.services.tailscaled.environment = lib.mkIf cfg.tpmOverride {
       TS_NO_TPM = "true";
     };

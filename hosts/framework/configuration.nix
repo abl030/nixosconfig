@@ -9,8 +9,6 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
-    # Our modulat tailscale setup that should work anywhere.
-    ../services/tailscale/tailscale.nix
     # Our mounts
     ../services/mounts/nfs.nix
     # ../services/mounts/cifs.nix
@@ -24,7 +22,6 @@
     # ../framework/hibernate-fix.nix
     # ../framework/hibernatefix2.nix
     # Nosleep scripts
-    ../services/system/ssh_nosleep.nix
     ../services/system/remote_desktop_nosleep.nix
   ];
 
@@ -32,6 +29,9 @@
     ssh = {
       enable = true;
       secure = false;
+    };
+    tailscale = {
+      enable = true;
     };
     nixCaches = {
       enable = true;
