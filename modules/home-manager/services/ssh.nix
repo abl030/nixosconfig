@@ -11,33 +11,12 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # sops = {
-    #   # Make HM's sops-nix happy (HM reads its own sops.* options)
-    #   # age.keyFile = lib.mkDefault "${config.xdg.configHome}/sops/age/keys.txt";
-    #   # age.generateKey = lib.mkDefault true;
-    #
-    #   # 1. Inject the Master Private Key via Sops
-    #   # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
-    #
-    #   defaultSopsFile = ../../secrets/secrets/ssh_key_abl030;
-    #   defaultSopsFormat = "binary";
-    #
-    #   secrets.ssh_key_abl030 = {
-    #     path = "${config.home.homeDirectory}/.ssh/id_ed25519";
-    #     mode = "0600";
-    #   };
-    # };
-
-    # 2. Clean SSH Client Config
     programs.ssh = {
       enable = true;
-      enableDefaultConfig = false; # We control the config
+      enableDefaultConfig = false;
 
-      # Generate matchBlocks dynamically from hosts.nix
+      # 1. Dynamic Host Configuration (Config File)
       matchBlocks = let
-        # Helper to generate blocks for every host defined in hosts.nix
-        # We use mapAttrs' (prime) to rename the key from the internal ID (e.g. "epimetheus")
-        # to the sshAlias (e.g. "epi").
         generatedHosts =
           lib.mapAttrs' (_: hostConfig: {
             name = hostConfig.sshAlias;
@@ -49,16 +28,24 @@ in {
       in
         generatedHosts
         // {
-          # Global Defaults (merged at the end)
           "*" = {
-            forwardAgent = true; # Useful for git
+            forwardAgent = true;
             setEnv = {TERM = "xterm-256color";};
-
-            # Explicitly disable X11
             forwardX11 = false;
             forwardX11Trusted = false;
           };
         };
+
+      # 2. Dynamic Host Trust (Known Hosts)
+      # Iterate over all hosts, check if they have a publicKey, and add them to known_hosts.
+      knownHosts = let
+        hostsWithKeys = lib.filterAttrs (_: host: host ? publicKey) allHosts;
+      in
+        lib.mapAttrs (name: host: {
+          hostNames = [host.hostname host.sshAlias];
+          publicKey = host.publicKey;
+        })
+        hostsWithKeys;
     };
   };
 }
