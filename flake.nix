@@ -95,7 +95,13 @@
             _hostname: cfg:
               lib.nixosSystem {
                 inherit system;
-                specialArgs = extraSpecialArgs;
+                # Pass host metadata to NixOS modules
+                specialArgs =
+                  extraSpecialArgs
+                  // {
+                    hostname = _hostname;
+                    allHosts = hosts;
+                  };
 
                 modules = [
                   cfg.configurationFile

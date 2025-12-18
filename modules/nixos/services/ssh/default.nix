@@ -1,9 +1,13 @@
 {
   lib,
   config,
+  allHosts,
+  hostname,
   ...
 }: let
   cfg = config.homelab.ssh;
+  hostConfig = allHosts.${hostname};
+  inherit (hostConfig) user homeDirectory;
 in {
   imports = [
     ./inhibitors.nix
@@ -48,11 +52,11 @@ in {
     };
 
     # 2. Authorized Keys (Merged from hosts/common/user_keys.nix)
-    users.users.abl030.openssh.authorizedKeys.keys = [
+    users.users.${user}.openssh.authorizedKeys.keys = [
       # Master Fleet Identity
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
       # Manual Keys (from home/ssh/authorized_keys)
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK9aE9VRI+2to5Iy04f/MvPfbs6E5q0xTjnErPC4pEjR cullenwines\andy.b@CW-PC001"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK9aE9VRI+2to5Iy04f/MvPfbs6E5q0xTjnErPC4pEjR cullenwines ndy.b@CW-PC001"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
     ];
 
@@ -62,8 +66,8 @@ in {
       # FIXED: Added one more "../" to reach the project root from modules/nixos/services/ssh/
       sopsFile = ../../../../secrets/secrets/ssh_key_abl030;
       format = "binary";
-      owner = "abl030"; # We set the owner to your user
-      path = "/home/abl030/.ssh/id_ed25519"; # We force the path to your SSH dir
+      owner = user; # Dynamically set to the host user (e.g., abl030 or nixos)
+      path = "${homeDirectory}/.ssh/id_ed25519"; # Dynamically set path to the correct home
       mode = "0600";
     };
   };
