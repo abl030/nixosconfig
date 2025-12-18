@@ -11,7 +11,6 @@
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "epimetheus";
-    jumpAddress = "epimetheus";
     sshAlias = "epi";
   };
 
@@ -20,7 +19,6 @@
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "caddy";
-    jumpAddress = "caddy";
     sshAlias = "cad";
   };
 
@@ -30,7 +28,6 @@
     user = "abl030";
     homeDirectory = "/home/abl030"; # keep as a plain string for Home Manager
     hostname = "framework";
-    jumpAddress = "framework";
     sshAlias = "fra";
   };
 
@@ -39,6 +36,8 @@
     homeFile = ./hosts/wsl/home.nix;
     user = "nixos";
     homeDirectory = "/home/nixos";
+    hostname = "nixos"; # Added to match ssh.nix
+    sshAlias = "wsl"; # Added to match ssh.nix
   };
 
   proxmox-vm = {
@@ -46,8 +45,7 @@
     homeFile = ./hosts/proxmox-vm/home.nix;
     user = "abl030";
     homeDirectory = "/home/abl030";
-    hostname = "proxmox-vm";
-    jumpAddress = "nixos";
+    hostname = "proxmox-vm"; # Note: ssh.nix used "nixos", assuming "proxmox-vm" is the correct Tailscale name
     sshAlias = "doc1";
   };
 
@@ -57,7 +55,6 @@
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "igpu";
-    jumpAddress = "igpu";
     sshAlias = "igp";
   };
 }
