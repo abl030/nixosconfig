@@ -26,11 +26,6 @@
   ];
 
   homelab = {
-    home = {
-      # ssh = {
-      # enable = true;
-      # };
-    };
     pdf = {
       enable = true;
     };
