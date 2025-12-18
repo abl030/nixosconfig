@@ -6,7 +6,7 @@
   cfg = config.homelab.tailscale;
 in {
   imports = [
-    # ./subnet-priority.nix
+    ./subnet-priority.nix
   ];
 
   options.homelab.tailscale = {
