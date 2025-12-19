@@ -22,8 +22,8 @@ in {
     };
     identitySecretName = lib.mkOption {
       type = lib.types.str;
-      default = "ssh_key_abl030";
-      description = "The name of the SOPS secret file and the resulting attribute name for the SSH private key.";
+      default = hostConfig.sshKeyName or "ssh_key_abl030";
+      description = "The name of the SOPS secret file. Defaults to the value in hosts.nix.";
     };
   };
 
