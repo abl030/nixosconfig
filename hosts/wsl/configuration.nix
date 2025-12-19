@@ -17,6 +17,10 @@
       collectGarbage = true;
       trim = true;
     };
+    ssh = {
+      enable = true;
+      identitySecretName = "ssh_key_abl030";
+    };
   };
 
   # 2. FIX: Satisfy User Assertion

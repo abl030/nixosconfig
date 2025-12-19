@@ -20,6 +20,11 @@ in {
       default = true;
       description = "If true, disable password auth and root login. Set false for new installs or internal VMs.";
     };
+    identitySecretName = lib.mkOption {
+      type = lib.types.str;
+      default = "ssh_key_abl030";
+      description = "The name of the SOPS secret file and the resulting attribute name for the SSH private key.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -56,9 +61,9 @@ in {
 
     # 3. Decrypt the Master Identity (System Level)
     # We do this here because only root can read the Host Key needed to decrypt it
-    sops.secrets.ssh_key_abl030 = {
-      # FIXED: Added one more "../" to reach the project root from modules/nixos/services/ssh/
-      sopsFile = ../../../../secrets/secrets/ssh_key_abl030;
+    sops.secrets."${cfg.identitySecretName}" = {
+      # Path is dynamically constructed based on the identitySecretName option
+      sopsFile = ../../../../secrets/secrets/${cfg.identitySecretName};
       format = "binary";
       owner = user; # Dynamically set to the host user (e.g., abl030 or nixos)
       path = "${homeDirectory}/.ssh/id_ed25519"; # Dynamically set path to the correct home
