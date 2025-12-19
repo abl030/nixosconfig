@@ -19,7 +19,6 @@
     };
     ssh = {
       enable = true;
-      identitySecretName = "ssh_key_abl030";
     };
   };
 
