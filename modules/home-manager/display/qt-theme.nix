@@ -1,4 +1,3 @@
-# modules/home-manager/display/qt-theme.nix
 {
   pkgs,
   lib,
@@ -7,6 +6,7 @@
 }:
 with lib; let
   cfg = config.homelab.theme;
+  qtCfg = config.homelab.qt;
 
   # --- 1. Color Logic (Hex -> RGB) ---
   hexToDec = v: let
@@ -123,8 +123,10 @@ with lib; let
     ${commonPalette}
   '';
 in {
-  options.homelab.theme = {
-    kdeglobals = {
+  options.homelab = {
+    qt.enable = mkEnableOption "Enable Qt Theming & Integration";
+
+    theme.kdeglobals = {
       extraConfig = mkOption {
         type = types.lines;
         default = "";
@@ -133,7 +135,7 @@ in {
     };
   };
 
-  config = {
+  config = mkIf qtCfg.enable {
     # 3. Install Packages & Session Variables (Consolidated)
     home = {
       packages = with pkgs; [

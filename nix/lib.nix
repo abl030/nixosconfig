@@ -20,13 +20,18 @@ in {
   # --------------------------------
   mkNixosSystem = hostname: cfg: allHosts:
     lib.nixosSystem {
-      inherit system;
+      # REMOVED: inherit system; (Deprecated legacy argument)
+
       # Pass host metadata to NixOS modules
       specialArgs = {
         inherit inputs system hostname allHosts;
+        hostConfig = cfg; # Inject the specific host config
       };
 
       modules = [
+        # NEW: Set the host platform via module option
+        {nixpkgs.hostPlatform = system;}
+
         cfg.configurationFile
         ../modules/nixos
         inputs.sops-nix.nixosModules.sops
@@ -42,6 +47,7 @@ in {
             useUserPackages = true;
             extraSpecialArgs = {
               inherit inputs system hostname allHosts;
+              hostConfig = cfg; # Inject into HM modules as well
             };
             users.${cfg.user} = {
               imports = [
@@ -63,6 +69,7 @@ in {
       inherit pkgs;
       extraSpecialArgs = {
         inherit inputs system hostname allHosts;
+        hostConfig = cfg; # Inject the specific host config
       };
       modules = [
         inputs.home-manager-diff.hmModules.default
