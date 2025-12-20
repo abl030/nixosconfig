@@ -1,63 +1,70 @@
 # ./modules/home-manager/shell/aliases.nix
-{
-  lib,
-  config,
-}: let
-  scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
-
+{lib, ...}: let
+  # ==========================================
+  # 1. Shell Inventory (Base Definitions)
+  # ==========================================
+  # Define aliases using Fish syntax (e.g., `; and`).
+  # Logic below automatically converts this to POSIX (`&&`) for Bash/Zsh.
   base = {
+    # --- SSH / Network ---
     "epi!" = "ssh abl030@caddy 'wakeonlan 18:c0:4d:65:86:e8'";
     epi = "wakeonlan 18:c0:4d:65:86:e8";
+    ssh_epi = "epi!; and ssh epi"; # Logic will convert '; and' to '&&' for bash
+
+    # --- Navigation ---
     cd = "z";
     cdi = "zi";
-    restart_bluetooth = "bash ${scriptsPath}/bluetooth_restart.sh";
-    tb = "bash ${scriptsPath}/trust_buds.sh";
+    ls = "lsd -A -F -l --group-directories-first --color=always";
+
+    # --- Scripts (Project 5: Assumed in $PATH) ---
+    restart_bluetooth = "bluetooth_restart.sh";
+    tb = "trust_buds.sh";
+    rb = "repair_buds.sh";
+    pb = "pair_buds.sh";
+
+    # --- Bluetooth ---
     cb = "bluetoothctl connect 24:24:B7:58:C6:49";
     dcb = "bluetoothctl disconnect 24:24:B7:58:C6:49";
-    rb = "bash ${scriptsPath}/repair_buds.sh";
-    pb = "bash ${scriptsPath}/pair_buds.sh";
-    clear_dots = "git stash; and git stash clear";
 
-    # CHANGED: pull_dotfiles -> pull-dotfiles (dash)
-    clear_flake = "git restore flake.lock && pull-dotfiles";
-
-    lzd = "lazydocker";
-    v = "nvim";
-    ls = "lsd -A -F -l --group-directories-first --color=always";
+    # --- Git / Flake ---
     lzg = "lazygit";
+    lzd = "lazydocker";
+
+    # --- Editors ---
+    v = "nvim";
+    e = "edit";
+
+    # --- Media ---
     ytslisten = "ytlisten";
     ytsum = "ytsum";
+
+    # --- System ---
     update = "sudo nixos-rebuild switch --flake .#$HOSTNAME";
-    gc = "sudo nix-collect-garbage -d; and sudo fstrim -av";
-    hr = "hyprctl --instance 0 'keyword misc:allow_session_lock_restore 1'; and hyprctl --instance 0 'dispatch exec hyprlock'";
-    e = "edit";
   };
 
-  toSh =
-    lib.mapAttrs
-    (
-      _: v:
-        lib.replaceStrings ["; and "] [" && "] v
-    )
-    base
-    // {
-      ssh_epi = "epi! && ssh epi";
-    };
+  # ==========================================
+  # 2. Transformation Logic
+  # ==========================================
 
-  toFish =
-    base
-    // {
-      ssh_epi = "epi!; and ssh epi";
-    };
+  # Helper: Convert Fish chaining to POSIX chaining
+  fishToPosix = cmd: lib.replaceStrings ["; and "] [" && "] cmd;
 
-  toZsh =
-    toSh
+  # Generate Bash/POSIX aliases
+  # Linter fix: eta reduction (_: v: fishToPosix v) -> (_: fishToPosix)
+  mkSh = lib.mapAttrs (_: fishToPosix) base;
+
+  # Generate Fish aliases (Base is already Fish-syntax)
+  mkFish = base;
+
+  # Generate Zsh aliases (Bash + Overrides)
+  mkZsh =
+    mkSh
     // {
       ytsum = "noglob ytsum";
       ytlisten = "noglob ytlisten";
     };
 in {
-  sh = toSh;
-  fish = toFish;
-  zsh = toZsh;
+  sh = mkSh;
+  fish = mkFish;
+  zsh = mkZsh;
 }
