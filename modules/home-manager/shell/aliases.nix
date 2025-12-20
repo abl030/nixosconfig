@@ -5,9 +5,6 @@
 }: let
   scriptsPath = "${config.home.homeDirectory}/nixosconfig/scripts";
 
-  # --- Base commands written once ---
-  # These are the "source of truth".
-  # We'll use fish-style `and` for chaining as it's easy to search/replace.
   base = {
     "epi!" = "ssh abl030@caddy 'wakeonlan 18:c0:4d:65:86:e8'";
     epi = "wakeonlan 18:c0:4d:65:86:e8";
@@ -20,7 +17,10 @@
     rb = "bash ${scriptsPath}/repair_buds.sh";
     pb = "bash ${scriptsPath}/pair_buds.sh";
     clear_dots = "git stash; and git stash clear";
-    clear_flake = "git restore flake.lock && pull_dotfiles";
+
+    # CHANGED: pull_dotfiles -> pull-dotfiles (dash)
+    clear_flake = "git restore flake.lock && pull-dotfiles";
+
     lzd = "lazydocker";
     v = "nvim";
     ls = "lsd -A -F -l --group-directories-first --color=always";
@@ -33,8 +33,6 @@
     e = "edit";
   };
 
-  # --- Transformations for POSIX-like shells (bash, zsh) ---
-  # Replaces "; and " with " && " and adds shell-specific overrides.
   toSh =
     lib.mapAttrs
     (
@@ -46,16 +44,12 @@
       ssh_epi = "epi! && ssh epi";
     };
 
-  # --- Transformations for Fish ---
-  # Fish keeps `; and` and has its own overrides.
   toFish =
     base
     // {
       ssh_epi = "epi!; and ssh epi";
     };
 
-  # --- Transformations for Zsh ---
-  # Zsh is like other sh shells, but with a `noglob` tweak.
   toZsh =
     toSh
     // {
@@ -63,7 +57,6 @@
       ytlisten = "noglob ytlisten";
     };
 in {
-  # The final, exported attribute set for consumption by other modules.
   sh = toSh;
   fish = toFish;
   zsh = toZsh;
