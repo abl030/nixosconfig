@@ -18,9 +18,9 @@
 
     # --- Scripts (Project 5: Assumed in $PATH) ---
     restart_bluetooth = "bluetooth_restart.sh";
-    tb = "trust_buds.sh";
-    rb = "repair_buds.sh";
-    pb = "pair_buds.sh";
+    tb = "trust_buds";
+    rb = "repair_buds";
+    pb = "pair_buds";
 
     # --- Bluetooth ---
     cb = "bluetoothctl connect 24:24:B7:58:C6:49";

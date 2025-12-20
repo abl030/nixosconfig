@@ -57,6 +57,7 @@
   };
 
   outputs = inputs @ {
+    self,
     nixpkgs,
     flake-parts,
     ...
@@ -86,7 +87,11 @@
         hosts = import ./hosts.nix;
 
         # Import the Configuration Factory Library
-        mylib = import ./nix/lib.nix {inherit inputs overlays;};
+        # Pass 'self' as flake-root so modules can access absolute paths in the flake
+        mylib = import ./nix/lib.nix {
+          inherit inputs overlays;
+          flake-root = self;
+        };
       in {
         nixosConfigurations =
           lib.mapAttrs

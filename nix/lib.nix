@@ -6,12 +6,13 @@
 #
 # It automatically injects:
 # - Standard Module Sets (NixOS, Home Manager, Sops, etc.)
-# - Special Arguments (inputs, hostname, allHosts, system)
+# - Special Arguments (inputs, hostname, allHosts, system, flake-root)
 # - Overlays and Registry Settings
 #
 {
   inputs,
   overlays,
+  flake-root,
 }: let
   inherit (inputs.nixpkgs) lib;
   system = "x86_64-linux"; # Standard system for this fleet
@@ -24,7 +25,7 @@ in {
 
       # Pass host metadata to NixOS modules
       specialArgs = {
-        inherit inputs system hostname allHosts;
+        inherit inputs system hostname allHosts flake-root;
         hostConfig = cfg; # Inject the specific host config
       };
 
@@ -46,7 +47,7 @@ in {
             useGlobalPkgs = true;
             useUserPackages = true;
             extraSpecialArgs = {
-              inherit inputs system hostname allHosts;
+              inherit inputs system hostname allHosts flake-root;
               hostConfig = cfg; # Inject into HM modules as well
             };
             users.${cfg.user} = {
@@ -68,7 +69,7 @@ in {
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       extraSpecialArgs = {
-        inherit inputs system hostname allHosts;
+        inherit inputs system hostname allHosts flake-root;
         hostConfig = cfg; # Inject the specific host config
       };
       modules = [
