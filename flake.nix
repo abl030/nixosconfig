@@ -58,8 +58,6 @@
 
   outputs = inputs @ {
     nixpkgs,
-    home-manager,
-    home-manager-diff,
     flake-parts,
     ...
   }:
@@ -87,82 +85,17 @@
 
         hosts = import ./hosts.nix;
 
-        extraSpecialArgs = {inherit system inputs;};
+        # Import the Configuration Factory Library
+        mylib = import ./nix/lib.nix {inherit inputs overlays;};
       in {
         nixosConfigurations =
           lib.mapAttrs
-          (
-            _hostname: cfg:
-              lib.nixosSystem {
-                inherit system;
-                # Pass host metadata to NixOS modules
-                specialArgs =
-                  extraSpecialArgs
-                  // {
-                    hostname = _hostname;
-                    allHosts = hosts;
-                  };
-
-                modules = [
-                  cfg.configurationFile
-                  ./modules/nixos
-                  inputs.sops-nix.nixosModules.sops
-                  {
-                    nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
-                    nix.registry.nixpkgs.flake = inputs.nixpkgs;
-                    nixpkgs.overlays = overlays;
-                  }
-                  home-manager.nixosModules.home-manager
-                  {
-                    home-manager = {
-                      useGlobalPkgs = true;
-                      useUserPackages = true;
-                      extraSpecialArgs =
-                        extraSpecialArgs
-                        // {
-                          hostname = _hostname;
-                          allHosts = hosts;
-                        };
-                      users.${cfg.user} = {
-                        imports = [
-                          home-manager-diff.hmModules.default
-                          inputs.sops-nix.homeManagerModules.sops
-                          cfg.homeFile
-                          ./modules/home-manager
-                        ];
-                      };
-                    };
-                  }
-                ];
-              }
-          )
+          (hostname: cfg: mylib.mkNixosSystem hostname cfg hosts)
           (lib.filterAttrs (_hostname: cfg: cfg ? "configurationFile") hosts);
 
         homeConfigurations =
           lib.mapAttrs
-          (
-            hostname: cfg:
-              home-manager.lib.homeManagerConfiguration {
-                inherit pkgs;
-                extraSpecialArgs =
-                  extraSpecialArgs
-                  // {
-                    inherit hostname;
-                    allHosts = hosts;
-                  };
-                modules = [
-                  home-manager-diff.hmModules.default
-                  inputs.sops-nix.homeManagerModules.sops
-                  cfg.homeFile
-                  ./modules/home-manager
-                  {
-                    home.username = cfg.user;
-                    home.homeDirectory = cfg.homeDirectory;
-                    nixpkgs.overlays = overlays;
-                  }
-                ];
-              }
-          )
+          (hostname: cfg: mylib.mkHomeConfiguration hostname cfg hosts pkgs)
           (lib.filterAttrs (_: cfg: !(cfg ? "configurationFile")) hosts);
       };
     };
