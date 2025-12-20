@@ -1,33 +1,31 @@
+# ./home/bash/bash.nix
 {
   lib,
   config,
   ...
-  # The empty let block was removed as it served no purpose and added noise.
 }: {
   # Import modules for tools that will be integrated into the shell.
   imports = [
     ../utils/starship.nix # Starship config is shell-agnostic, we can reuse it.
     ../utils/atuin.nix
+    ../../modules/home-manager/shell/scripts.nix
   ];
 
   # All program configurations are grouped under a single 'programs' attribute set.
-  # This is the standard Nix structure, preventing merge conflicts and improving clarity.
   programs = {
     bash = {
       enable = true;
 
       # --- Quality of Life Features ---
-      enableCompletion = true; # Enable standard bash-completion.
-      enableVteIntegration = true; # Helps terminals track the current directory.
+      enableCompletion = true;
+      enableVteIntegration = true;
 
       # --- History Settings ---
-      # Replicate some of Zsh's sensible history defaults.
       historyControl = ["ignoredups" "erasedups"];
       historySize = 10000;
       historyFileSize = 10000;
 
       # --- Aliases ---
-      # Directly translated from your zsh config.
       shellAliases = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).sh;
 
       # --- Custom Scripts and Initialization ---
@@ -36,7 +34,6 @@
         export STARSHIP_CONFIG="${config.home.homeDirectory}/.config/starship-bash.toml"
 
         # Define the flake path variable for our functions.
-        # This is the Bash equivalent of the 'set -l' in your Zsh functions.
         export _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
 
         # Source our custom functions file.
@@ -56,9 +53,4 @@
       enableBashIntegration = true;
     };
   };
-
-  # Note on Autocomplete:
-  # Bash does not have a direct equivalent to Zsh's powerful autosuggestions
-  # or syntax highlighting out of the box. `enableCompletion` provides
-  # standard tab-completion, which is the primary QoL feature for Bash.
 }

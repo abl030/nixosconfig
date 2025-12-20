@@ -53,6 +53,7 @@ in {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
+    ../../modules/home-manager/shell/scripts.nix
   ];
 
   # Group all program configurations into a single `programs` attribute set to avoid linter warnings about repeated keys.
