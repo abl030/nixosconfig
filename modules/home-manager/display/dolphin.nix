@@ -16,6 +16,9 @@ in {
   };
 
   config = mkIf cfg.enable {
+    # 0. Dependencies
+    homelab.qt.enable = true; # Ensure kdeglobals/theming is active
+
     # 1. Automounting
     services.udiskie = {
       enable = true;

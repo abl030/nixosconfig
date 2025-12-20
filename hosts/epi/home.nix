@@ -10,9 +10,6 @@
   ];
 
   homelab = {
-    hyprland = {
-      enable = true;
-    };
     # --- NEW: Remote Desktop Configuration ---
     remote-desktop = {
       enable = true;
