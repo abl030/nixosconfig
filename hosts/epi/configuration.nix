@@ -7,8 +7,7 @@
     ./hardware-configuration.nix
     ../services/mounts/nfs.nix
     ../services/nvidia/intel.nix
-    ../common/configuration.nix
-    ../common/desktop.nix
+    ../common/desktop.nix # Includes Printing, Fonts, Spotify
     ../services/system/remote_desktop_nosleep.nix
   ];
 
@@ -29,12 +28,8 @@
       enable = true;
       secure = false;
     };
-    hyprland = {
-      enable = true;
-    };
-    sunshine = {
-      enable = true;
-    };
+    hyprland.enable = true;
+    sunshine.enable = true;
     vnc = {
       enable = true;
       secure = true;
@@ -57,8 +52,6 @@
 
   boot = {
     kernelPackages = pkgs.linuxPackages_latest;
-
-    # --- KERNEL PARAMS ---
     kernelParams = [
       "i915.force_probe=56a6"
       "i915.enable_guc=3"
@@ -67,14 +60,9 @@
       "video=DP-3:2560x1440@144e"
       "video=HDMI-A-3:1920x1080@60e"
     ];
+    blacklistedKernelModules = ["xe"];
+    initrd.kernelModules = ["i915"];
 
-    blacklistedKernelModules = [
-      "xe"
-    ];
-
-    initrd.kernelModules = [
-      "i915"
-    ];
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
   };
@@ -82,9 +70,7 @@
   hardware = {
     enableRedistributableFirmware = true;
     bluetooth.enable = true;
-    graphics = {
-      enable = true;
-    };
+    graphics.enable = true;
     logitech.wireless = {
       enable = true;
       enableGraphical = true;
@@ -102,11 +88,11 @@
 
   services = {
     udev.extraRules = ''
-      # Block internal Intel Bluetooth (8087:0025) so the system uses the TP-Link
       SUBSYSTEM=="usb", ATTRS{idVendor}=="8087", ATTRS{idProduct}=="0025", ATTR{authorized}="0"
     '';
     fstrim.enable = true;
-    printing.enable = true;
+
+    # Audio
     pulseaudio.enable = false;
     pipewire = {
       enable = true;
@@ -114,9 +100,6 @@
       alsa.support32Bit = true;
       pulse.enable = true;
     };
-
-    # OpenSSH is now managed via homelab.ssh
-    # openssh.enable = true;
 
     qemuGuest.enable = true;
 
@@ -137,45 +120,19 @@
   virtualisation.docker.enable = true;
   virtualisation.docker.liveRestore = false;
 
-  time.timeZone = "Australia/Perth";
-  i18n.defaultLocale = "en_GB.UTF-8";
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS = "en_AU.UTF-8";
-    LC_IDENTIFICATION = "en_AU.UTF-8";
-    LC_MEASUREMENT = "en_AU.UTF-8";
-    LC_MONETARY = "en_AU.UTF-8";
-    LC_NAME = "en_AU.UTF-8";
-    LC_NUMERIC = "en_AU.UTF-8";
-    LC_PAPER = "en_AU.UTF-8";
-    LC_TELEPHONE = "en_AU.UTF-8";
-    LC_TIME = "en_AU.UTF-8";
-  };
-
   systemd.services."gnome-remote-desktop".wantedBy = ["graphical.target"];
   security.rtkit.enable = true;
 
   users.users.abl030 = {
-    isNormalUser = true;
-    description = "Andy";
-    extraGroups = ["networkmanager" "wheel" "libvirtd" "vboxusers" "docker"];
-    shell = pkgs.zsh;
-    packages = with pkgs; [];
+    extraGroups = ["libvirtd" "vboxusers" "docker"];
   };
 
-  nixpkgs.config.allowUnfree = true;
-
   environment.systemPackages = with pkgs; [
-    git
-    vim
     gnome-remote-desktop
     kdiskmark
   ];
 
-  programs = {
-    firefox.enable = true;
-    zsh.enable = true;
-  };
+  programs.firefox.enable = true;
 
   system.stateVersion = "24.05";
-  nix.settings.experimental-features = ["nix-command" "flakes"];
 }

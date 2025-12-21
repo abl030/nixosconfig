@@ -33,8 +33,15 @@ in {
         # NEW: Set the host platform via module option
         {nixpkgs.hostPlatform = system;}
 
+        # 1. The Host Specific Config
         cfg.configurationFile
+
+        # 2. The Global Base Profile (Phase A)
+        ../modules/nixos/profiles/base.nix
+
+        # 3. The Custom Module Library
         ../modules/nixos
+
         inputs.sops-nix.nixosModules.sops
         {
           nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
