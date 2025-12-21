@@ -85,7 +85,7 @@
   # Dynamically configure the user defined in hosts.nix
   users.users.${hostConfig.user} = {
     isNormalUser = true;
-    description = "Fleet Admin";
+    description = "Andy";
     shell = pkgs.zsh;
 
     # Core groups. Hosts can add more (e.g. docker) via extraGroups in their own config
