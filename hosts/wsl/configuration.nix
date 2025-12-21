@@ -1,55 +1,37 @@
 {
   pkgs,
   inputs,
+  hostConfig, # NEW: Inject hostConfig
   ...
 }: {
   imports = [
     inputs.nixos-wsl.nixosModules.default
+    ../common/desktop.nix
   ];
 
   homelab = {
     nixCaches = {
       enable = true;
-      profile = "internal"; # or "external"
+      profile = "internal";
     };
     update = {
       enable = true;
       collectGarbage = true;
       trim = true;
     };
-    ssh = {
-      enable = true;
-    };
-  };
-
-  # 2. FIX: Satisfy User Assertion
-  users.users.abl030 = {
-    isNormalUser = true;
-    description = "Admin User (Fleet Identity)";
-    extraGroups = ["wheel" "docker"];
-    shell = pkgs.bash;
+    ssh.enable = true;
   };
 
   # 3. Standard WSL Configuration
   wsl.enable = true;
-  wsl.defaultUser = "nixos";
+  wsl.defaultUser = hostConfig.user; # CHANGED: Dynamic from SSOT
 
-  networking.hostName = "wsl";
-  time.timeZone = "Australia/Perth";
+  # REMOVED: networking.hostName (Now handled by base.nix)
 
-  nixpkgs.config.allowUnfree = true;
-  nix.settings.experimental-features = ["nix-command" "flakes"];
-
-  # Basic packages
   environment.systemPackages = [
     pkgs.neovim
-    pkgs.git
-    pkgs.home-manager
-    pkgs.wget
     pkgs.gh
   ];
-
-  programs.bash.blesh.enable = true;
 
   system.stateVersion = "25.05";
 }

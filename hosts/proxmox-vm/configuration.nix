@@ -1,15 +1,9 @@
 {pkgs, ...}: {
   imports = [
-    # Include the results of the hardware scan.
     ./hardware-configuration.nix
-    # Our modulat tailscale setup that should work anywhere.
-    # Our mounts
     ../services/mounts/nfs_local.nix
-    # mum backup mount
     ../services/mounts/ext.nix
-    # ../services/mounts/cifs.nix
-    ../common/configuration.nix
-    # Here's we'll organise our docker services
+    # REMOVED: ../common/configuration.nix
     ../../docker/tailscale/caddy/docker-compose.nix
     ../../docker/immich/docker-compose.nix
     ../../docker/management/docker-compose.nix
@@ -35,37 +29,29 @@
       enable = true;
       repoDir = "/home/abl030/nixosconfig";
     };
-
     ssh = {
       enable = true;
       secure = false;
     };
-    tailscale = {
-      enable = true;
-    };
+    tailscale.enable = true;
     update = {
       enable = true;
-      # Re-enable GC and move schedule to 3am block
       collectGarbage = true;
-      updateDates = "03:00"; # Update first
-      gcDates = "03:30"; # Cleanup after update
+      updateDates = "03:00";
+      gcDates = "03:30";
       trim = true;
       rebootOnKernelUpdate = true;
     };
-
     cache = {
       enable = true;
       mirrorHost = "nix-mirror.ablz.au";
       localHost = "nixcache.ablz.au";
       nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
     };
-
     nixCaches = {
       enable = true;
-      profile = "server"; # or "external"
+      profile = "server";
     };
-
-    # Enable our github runner
     services.githubRunner = {
       enable = true;
       repoUrl = "https://github.com/abl030/nixosconfig";
@@ -74,7 +60,6 @@
     };
   };
 
-  #enable docker
   virtualisation.docker = {
     enable = true;
     liveRestore = false;
@@ -88,94 +73,36 @@
     kernelParams = ["cgroup_disable=hugetlb"];
   };
 
-  # Group network settings into a single attribute set to avoid repetition.
   networking = {
     networkmanager.enable = true;
     hostName = "proxmox-vm";
     firewall.enable = false;
+    interfaces.ens18.mtu = 1400;
   };
 
-  # Group services into a single block for better organization.
   services = {
-    # Enable the qemu agent
     qemuGuest.enable = true;
     fstrim.enable = true;
-    # Enable the OpenSSH daemon.
     openssh.enable = true;
   };
 
-  # Set your time zone.
-  time.timeZone = "Australia/Perth";
-
-  # Select internationalisation properties.
-  i18n.defaultLocale = "en_GB.UTF-8";
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS = "en_AU.UTF-8";
-    LC_IDENTIFICATION = "en_AU.UTF-8";
-    LC_MEASUREMENT = "en_AU.UTF-8";
-    LC_MONETARY = "en_AU.UTF-8";
-    LC_NAME = "en_AU.UTF-8";
-    LC_NUMERIC = "en_AU.UTF-8";
-    LC_PAPER = "en_AU.UTF-8";
-    LC_TELEPHONE = "en_AU.UTF-8";
-    LC_TIME = "en_AU.UTF-8";
-  };
-
-  # Define a user account. Don't forget to set a password with ‘passwd’.
+  # ADD ONLY HOST SPECIFIC GROUPS
   users.users.abl030 = {
-    isNormalUser = true;
-    description = "Andy";
-    extraGroups = ["networkmanager" "wheel" "libvirtd" "vboxusers" "docker"];
-    shell = pkgs.zsh;
-    packages = with pkgs; [
-      #  thunderbird
-    ];
+    extraGroups = ["libvirtd" "vboxusers" "docker"];
   };
 
-  # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
-
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
   environment.systemPackages = with pkgs; [
-    #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    #  wget
-    git
-    vim
     butane
   ];
 
-  # Group related programs to avoid repeating the `programs` key.
-  programs = {
-    fish.enable = true;
-    zsh.enable = true;
-  };
-
-  networking.interfaces.ens18 = {
-    mtu = 1400;
-    # (Keep useDHCP or ipv4 settings if you already have them here)
-    # useDHCP = true;
-  };
-
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [  ];
-
   fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos"; # Match label during formatting
+    device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
   };
   fileSystems."/boot" = {
-    device = "/dev/disk/by-label/BOOT"; # Match label during formatting
+    device = "/dev/disk/by-label/BOOT";
     fsType = "vfat";
   };
 
-  # This value determines the NixOS release from which the default
-  # settings for stateful data, like file locations and database versions
-  # on your system were taken. It‘s perfectly fine and recommended to leave
-  # this value at the release version of the first install of this system.
-  # Before changing this value read the documentation for this option
-  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "24.05"; # Did you read the comment?
-
-  nix.settings.experimental-features = ["nix-command" "flakes"];
+  system.stateVersion = "24.05";
 }
