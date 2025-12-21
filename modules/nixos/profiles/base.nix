@@ -51,14 +51,13 @@
   # 3. SHELL & ENVIRONMENT
   # ---------------------------------------------------------
   # Enforce Zsh for everything
-  programs.zsh.enable = true;
   environment.pathsToLink = ["/share/zsh"];
 
-  # Enable blesh for good bash
-  programs.bash.blesh.enable = true;
-
-  # Run unpatched binaries (compatibility)
-  programs.nix-ld.enable = true;
+  programs = {
+    zsh.enable = true;
+    bash.blesh.enable = true;
+    nix-ld.enable = true;
+  };
 
   environment.systemPackages = with pkgs; [
     git
