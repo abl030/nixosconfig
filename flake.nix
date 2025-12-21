@@ -1,24 +1,20 @@
+# ===== ./flake.nix =====
 {
   description = "My first flake!";
 
   inputs = {
+    # --- 1. The Anchors (Standard Libraries) ---
     # use the following for unstable:
-    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-    home-manager.url = "github:nix-community/home-manager/master";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    # We add these explicitly so we can force others to follow them
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-utils.url = "github:numtide/flake-utils";
+    systems.url = "github:nix-systems/default";
 
-    #nixos-hardware
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
-
-    domain-monitor-src = {
-      url = "github:Hosteroid/domain-monitor";
-      flake = false;
-    };
-
-    #NVCHAD is best chad.
-    nvchad4nix = {
-      url = "github:nix-community/nix4nvchad";
+    # --- 2. Primary Tools ---
+    home-manager = {
+      url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -28,13 +24,58 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixos-wsl.url = "github:nix-community/NixOS-WSL/main";
-    home-manager-diff.url = "github:pedorich-n/home-manager-diff";
+    home-manager-diff = {
+      url = "github:pedorich-n/home-manager-diff";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-parts.follows = "flake-parts";
+        flake-utils.follows = "flake-utils";
+      };
+    };
 
-    fzf-preview.url = "github:niksingh710/fzf-preview";
-    fzf-preview.inputs.nixpkgs.follows = "nixpkgs";
+    # --- 3. Hardware & WSL ---
+    #nixos-hardware
+    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
-    isd.url = "github:isd-project/isd";
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # --- 4. Applications & Extensions ---
+    #NVCHAD is best chad.
+    nvchad4nix = {
+      url = "github:nix-community/nix4nvchad";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
+
+    fzf-preview = {
+      url = "github:niksingh710/fzf-preview";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-parts.follows = "flake-parts";
+      };
+    };
+
+    isd = {
+      url = "github:isd-project/isd";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Spicetify for Spotify Theming
+    spicetify-nix = {
+      url = "github:Gerg-L/spicetify-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # --- 5. Static Sources (Non-flake) ---
+    domain-monitor-src = {
+      url = "github:Hosteroid/domain-monitor";
+      flake = false;
+    };
 
     gaj-shared = {
       url = "gitlab:gaj-nixos/shared";
@@ -45,15 +86,6 @@
       url = "github:yt-dlp/yt-dlp";
       flake = false;
     };
-
-    # Spicetify for Spotify Theming
-    spicetify-nix = {
-      url = "github:Gerg-L/spicetify-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # Structure helper
-    flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
   outputs = inputs @ {
@@ -87,7 +119,7 @@
         hosts = import ./hosts.nix;
 
         # Import the Configuration Factory Library
-        # Pass 'self' as flake-root so modules can access absolute paths in the flake
+        # Pass self as flake-root to match what nix/lib.nix expects
         mylib = import ./nix/lib.nix {
           inherit inputs overlays;
           flake-root = self;
