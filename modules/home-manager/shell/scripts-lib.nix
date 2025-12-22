@@ -233,7 +233,7 @@ in {
   # ──────────────────────────────────────────────────────────────────────────────
   #  Xclip Shim
   # ──────────────────────────────────────────────────────────────────────────────
-  xclip-shim = {
+  xclip = {
     # We call this "xclip" in the output binary name to act as a shim
     name = "xclip";
     runtimeInputs = [pkgs.coreutils]; # for base64
@@ -247,7 +247,7 @@ in {
       # 1. SSH / Remote (OSC 52)
       if [[ -n "''${SSH_CONNECTION:-}" ]]; then
           b64data=$(echo -n "$input" | base64 | tr -d '\n')
-          printf " ]52;c;%s " "$b64data"
+          printf "\033]52;c;%s\007" "$b64data"
 
       # 2. Wayland
       elif [[ -n "''${WAYLAND_DISPLAY:-}" ]]; then
