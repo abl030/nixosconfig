@@ -14,7 +14,6 @@
     #Need ripgrep
     pkgs.ripgrep
     #XClip is needed to yank through X11 through ssh sessions
-    pkgs.xclip
 
     #And these are all our lovely language server types things. These all need to be installed here as mason simply does not work
     #Well it might but it will super stuff up your install so don't do it.
