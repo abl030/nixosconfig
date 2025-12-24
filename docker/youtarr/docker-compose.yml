@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  youtarr:
+    image: dialmaster/youtarr:latest
+    container_name: youtarr
+    restart: unless-stopped
+    ports:
+      # Host Port : Container Port (3011 is hardcoded in the app)
+      - "3087:3011"
+    environment:
+      - TZ=Australia/Perth
+      # Permissions for Media/YouTube write access
+      - YOUTARR_UID=99
+      - YOUTARR_GID=100
+      # Internal path configuration (Must match the volume mount target)
+      - YOUTUBE_OUTPUT_DIR=/usr/src/app/data
+      # Database Connection (Variables populated via SOPS .env)
+      - DB_HOST=youtarr-db
+      - DB_PORT=3306
+      - DB_NAME=youtarr
+      - DB_USER=youtarr
+      - DB_PASSWORD=youtarr
+      - AUTH_ENABLED=false
+
+    volumes:
+      # Video Storage (Host Path -> Container Path)
+      - /mnt/data/Media/YouTube:/usr/src/app/data
+      # App Data
+      - /mnt/docker/youtarr/config:/app/config
+      - /mnt/docker/youtarr/images:/app/server/images
+      - /mnt/docker/youtarr/jobs:/app/jobs
+    depends_on:
+      - youtarr-db
+
+  youtarr-db:
+    image: mariadb:10.3
+    container_name: youtarr-db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      - MYSQL_DATABASE=youtarr
+      - MYSQL_USER=youtarr
+      - MYSQL_PASSWORD=youtarr
+      - MYSQL_ROOT_PASSWORD=youtarr
+    volumes:
+      - /mnt/docker/youtarr/database:/var/lib/mysql
