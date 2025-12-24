@@ -21,6 +21,7 @@
     ../../docker/invoices/docker-compose.nix
     ../../docker/domain-monitor/docker-compose.nix
     ../../docker/uptime-kuma/docker-compose.nix
+    ../../docker/youtarr/docker-compose.nix
     ../../modules/nixos/services/podcast.nix
   ];
 
