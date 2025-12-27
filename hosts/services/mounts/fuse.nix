@@ -23,10 +23,15 @@
   brTV = "/mnt/data/Media/Metadata/TV Shows=RW:/mnt/data/Media/TV Shows=RO";
   brMusic = "/mnt/data/Media/Metadata/Music=RW:/mnt/data/Media/Music=RO";
 
+  # --- NEW: Writable Music Branch for Lidarr/Music-Stack ---
+  # Just wraps the remote share in mergerfs to generate local inotify events on write
+  brMusicRW = "/mnt/data/Media/Music=RW";
+
   # Destinations
   dstMovies = "/mnt/fuse/Media/Movies";
   dstTV = "/mnt/fuse/Media/TV_Shows";
   dstMusic = "/mnt/fuse/Media/Music";
+  dstMusicRW = "/mnt/fuse/Media/Music_RW"; # <--- New Mountpoint
 
   # Build a shell-wrapped ExecStart so quoted args with spaces work reliably
   mkExecStart = branchArgs: dest:
@@ -45,6 +50,7 @@ in {
       "d /mnt/fuse/Media/Movies 0755 root root -"
       "d /mnt/fuse/Media/TV_Shows 0755 root root -"
       "d /mnt/fuse/Media/Music 0755 root root -"
+      "d /mnt/fuse/Media/Music_RW 0755 root root -" # <--- New directory
     ];
 
     services = {
@@ -79,7 +85,7 @@ in {
         wantedBy = ["multi-user.target"];
       };
 
-      # Music
+      # Music (Read-Only Media / Metadata RW)
       "fuse-mergerfs-music" = {
         description = "mergerfs union for Music (Metadata=RW, Media=RO)";
         after = ["mnt-data.mount"];
@@ -89,6 +95,21 @@ in {
           Type = "simple";
           ExecStart = mkExecStart brMusic dstMusic;
           ExecStop = "${umnt} ${dstMusic}";
+          Restart = "on-failure";
+        };
+        wantedBy = ["multi-user.target"];
+      };
+
+      # --- NEW: Music RW (For Lidarr Stack) ---
+      "fuse-mergerfs-music-rw" = {
+        description = "mergerfs wrapper for Music (RW for Lidarr)";
+        after = ["mnt-data.mount"];
+        requires = ["mnt-data.mount"];
+        bindsTo = ["mnt-data.mount"];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = mkExecStart brMusicRW dstMusicRW;
+          ExecStop = "${umnt} ${dstMusicRW}";
           Restart = "on-failure";
         };
         wantedBy = ["multi-user.target"];

@@ -3,6 +3,7 @@
     ./hardware-configuration.nix
     ../services/mounts/nfs_local.nix
     ../services/mounts/ext.nix
+    ../services/mounts/fuse.nix
     # REMOVED: ../common/configuration.nix
     ../../docker/tailscale/caddy/docker-compose.nix
     ../../docker/immich/docker-compose.nix
@@ -22,6 +23,8 @@
     ../../docker/domain-monitor/docker-compose.nix
     ../../docker/uptime-kuma/docker-compose.nix
     ../../docker/youtarr/docker-compose.nix
+    ../../docker/music/docker-compose.nix
+
     ../../modules/nixos/services/podcast.nix
   ];
 
