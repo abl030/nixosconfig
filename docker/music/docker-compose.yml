@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=99
+      - PGID=100
+      - TZ=Australia/Perth
+    volumes:
+      - /mnt/docker/music/lidarr:/config
+      # Same as nzb
+      - /mnt/data/Media/Temp:/downloads
+      # FUSE RW mount for the library (Writes go to network, events stay local)
+      - /mnt/fuse/Media/Music_RW:/music
+    ports:
+      - 8686:8686
+    restart: unless-stopped
+    healthcheck:
+      # Simple check to ensure the UI port is responding
+      test: ["CMD", "curl", "-f", "http://localhost:8686/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - autoheal=true
+    networks:
+      - music-net
+
+networks:
+  music-net:
+    driver: bridge
