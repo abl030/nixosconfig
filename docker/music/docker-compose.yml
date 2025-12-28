@@ -31,7 +31,7 @@ services:
     volumes:
       - /mnt/docker/music/lidarr:/config
       - /mnt/data/Media/Temp:/downloads
-      - /mnt/fuse/Media/Music_RW:/music
+      - /mnt/fuse/Media/Music_RW/Ali/:/music
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
