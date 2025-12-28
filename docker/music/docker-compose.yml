@@ -10,8 +10,8 @@ services:
     ports:
       - "8686:8686" # Lidarr
       - "3579:3579" # Ombi internal port
+      - "8085:8085" # Filebrowser
     restart: unless-stopped
-    # FIX 1: Explicit DNS often resolves routing weirdness in nested stacks
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -59,7 +59,6 @@ services:
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     depends_on:
-      # FIX 2: Wait for DB to be actually ready, not just started
       ombi-db:
         condition: service_healthy
       music-network-holder:
@@ -77,13 +76,38 @@ services:
       - /mnt/docker/ombi/db:/var/lib/mysql
       - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
     network_mode: "service:music-network-holder"
-    # FIX 3: Healthcheck ensures DB is ready before Ombi starts
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    depends_on:
+      - music-network-holder
+
+  # ---------------------------------------------------------------
+  # Filebrowser
+  # ---------------------------------------------------------------
+  filebrowser:
+    image: filebrowser/filebrowser:v2
+    container_name: music-filebrowser
+    # Run as user 99 (nobody) to match host permissions
+    user: "99:100"
+    network_mode: "service:music-network-holder"
+    environment:
+      - FB_DATABASE=/config/filebrowser.db
+      - FB_ROOT=/srv
+      - FB_LOG=stdout
+      - FB_PORT=8085
+      - FB_ADDRESS=0.0.0.0
+    volumes:
+      # Mount the folder created by Nix (owned by 99:100) to /config
+      - /mnt/docker/music/filebrowser:/config
+      # Mount music as Read-Only
+      - /mnt/fuse/Media/Music_RW:/srv:ro
+      # Fix for timezone if needed
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
     depends_on:
       - music-network-holder
 
@@ -104,9 +128,6 @@ services:
     environment:
       - TS_HOSTNAME=music
       - TS_STATE_DIR=/var/lib/tailscale
-      # FIX 4: Use Userspace mode.
-      # This prevents Tailscale from hijacking the kernel routing table,
-      # allowing Ombi to reach the internet (MusicBrainz) via the Docker bridge.
       - TS_USERSPACE=true
       - TS_ACCEPT_DNS=false
     restart: unless-stopped

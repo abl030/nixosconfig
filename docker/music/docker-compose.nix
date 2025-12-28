@@ -32,7 +32,7 @@
   gettextBin = "${pkgs.gettext}/bin/envsubst";
 in {
   systemd.services.${stackName} = {
-    description = "Music Stack (Lidarr + Ombi) Docker Compose";
+    description = "Music Stack (Lidarr + Ombi + Filebrowser) Docker Compose";
     restartIfChanged = true;
     reloadIfChanged = false;
     requires = requiresBase;
@@ -51,9 +51,11 @@ in {
       ExecStartPre = [
         "/run/current-system/sw/bin/mkdir -p /run/secrets"
 
-        # Create directories for Ombi
+        # Create directories
         "/run/current-system/sw/bin/mkdir -p /mnt/docker/ombi/config"
         "/run/current-system/sw/bin/mkdir -p /mnt/docker/ombi/db"
+        "/run/current-system/sw/bin/mkdir -p /mnt/docker/music/lidarr"
+        "/run/current-system/sw/bin/mkdir -p /mnt/docker/music/filebrowser"
 
         # Decrypt secrets
         ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
@@ -68,8 +70,10 @@ in {
           ${gettextBin} < ${dbTemplate} > /mnt/docker/ombi/config/database.json
         '')
 
-        # Ensure permissions (PUID 99 for LinuxServer images)
+        # Ensure permissions
         "/run/current-system/sw/bin/chown -R 99:100 /mnt/docker/ombi/config"
+        "/run/current-system/sw/bin/chown -R 99:100 /mnt/docker/music/lidarr"
+        "/run/current-system/sw/bin/chown -R 99:100 /mnt/docker/music/filebrowser"
       ];
 
       # Start
