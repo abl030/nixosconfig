@@ -1,0 +1,14 @@
+{
+  "OmbiDatabase": {
+    "Type": "MySQL",
+    "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi;User=${OMBI_DB_USER};Password=${OMBI_DB_PASSWORD}"
+  },
+  "SettingsDatabase": {
+    "Type": "MySQL",
+    "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi_Settings;User=${OMBI_DB_USER};Password=${OMBI_DB_PASSWORD}"
+  },
+  "ExternalDatabase": {
+    "Type": "MySQL",
+    "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi_External;User=${OMBI_DB_USER};Password=${OMBI_DB_PASSWORD}"
+  }
+}

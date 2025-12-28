@@ -8,13 +8,12 @@
   # Nix tracked files
   composeFile = ./docker-compose.yml;
   caddyFile = ./Caddyfile;
+  dbTemplate = ./database.json.template;
+  initSql = ./init.sql;
 
   # Secrets
-  # 1. Stack-specific secrets
   encEnv = ../../secrets/secrets/music.env;
-  # 2. Shared ACME/Cloudflare secrets
   encAcmeEnv = ../../secrets/secrets/acme-cloudflare.env;
-
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Paths
@@ -30,9 +29,10 @@
 
   # Helper for the docker binary
   dockerBin = "${config.virtualisation.docker.package}/bin/docker";
+  gettextBin = "${pkgs.gettext}/bin/envsubst";
 in {
   systemd.services.${stackName} = {
-    description = "Music Stack (Lidarr+) Docker Compose";
+    description = "Music Stack (Lidarr + Ombi) Docker Compose";
     restartIfChanged = true;
     reloadIfChanged = false;
     requires = requiresBase;
@@ -42,27 +42,37 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # Set Project Name and pass Caddyfile path
       Environment = [
         "COMPOSE_PROJECT_NAME=music"
         "CADDY_FILE=${caddyFile}"
+        "INIT_SQL=${initSql}"
       ];
 
-      # Decrypt secrets
       ExecStartPre = [
         "/run/current-system/sw/bin/mkdir -p /run/secrets"
 
-        # 1. Decrypt Music Env
-        ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
-        "/run/current-system/sw/bin/chmod 600 ${runEnv}"
+        # Create directories for Ombi
+        "/run/current-system/sw/bin/mkdir -p /mnt/docker/ombi/config"
+        "/run/current-system/sw/bin/mkdir -p /mnt/docker/ombi/db"
 
-        # 2. Decrypt Shared Acme Env
+        # Decrypt secrets
+        ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
         ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runAcmeEnv} ${encAcmeEnv}''
-        "/run/current-system/sw/bin/chmod 600 ${runAcmeEnv}"
+        "/run/current-system/sw/bin/chmod 600 ${runEnv} ${runAcmeEnv}"
+
+        # Generate Ombi database.json from template
+        (pkgs.writeShellScript "generate-ombi-json" ''
+          set -a
+          source ${runEnv}
+          set +a
+          ${gettextBin} < ${dbTemplate} > /mnt/docker/ombi/config/database.json
+        '')
+
+        # Ensure permissions (PUID 99 for LinuxServer images)
+        "/run/current-system/sw/bin/chown -R 99:100 /mnt/docker/ombi/config"
       ];
 
       # Start
-      # We pass both env files.
       ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runAcmeEnv} --env-file ${runEnv} up -d --remove-orphans";
 
       # Stop
