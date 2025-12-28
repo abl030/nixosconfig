@@ -1,0 +1,9 @@
+# Global Options Block
+{
+    # Use Cloudflare DNS challenge for all sites needing certificates via DNS
+    acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+}
+
+music.ablz.au {
+    reverse_proxy localhost:8686
+}

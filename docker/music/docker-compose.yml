@@ -1,6 +1,21 @@
 version: "3.8"
 
 services:
+  # ---------------------------------------------------------------
+  # Network holder for the stack
+  # ---------------------------------------------------------------
+  music-network-holder:
+    image: k8s.gcr.io/pause:3.9
+    container_name: music_network_holder
+    ports:
+      - "8686:8686"
+    restart: unless-stopped
+    networks:
+      - music-net
+
+  # ---------------------------------------------------------------
+  # Lidarr
+  # ---------------------------------------------------------------
   lidarr:
     image: lscr.io/linuxserver/lidarr:latest
     container_name: lidarr
@@ -10,23 +25,64 @@ services:
       - TZ=Australia/Perth
     volumes:
       - /mnt/docker/music/lidarr:/config
-      # Same as nzb
+      # Downloads folder
       - /mnt/data/Media/Temp:/downloads
-      # FUSE RW mount for the library (Writes go to network, events stay local)
+      # FUSE RW mount for the library
       - /mnt/fuse/Media/Music_RW:/music
-    ports:
-      - 8686:8686
+    network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
-      # Simple check to ensure the UI port is responding
       test: ["CMD", "curl", "-f", "http://localhost:8686/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
     labels:
       - autoheal=true
-    networks:
-      - music-net
+    depends_on:
+      - music-network-holder
+
+  # ---------------------------------------------------------------
+  # Tailscale Sidecar
+  # ---------------------------------------------------------------
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: music-tailscale-sidecar
+    network_mode: "service:music-network-holder"
+    volumes:
+      - /mnt/docker/tailscale/music:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+      - /etc/localtime:/etc/localtime:ro
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TS_HOSTNAME=music
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_ACCEPT_DNS=false
+    restart: unless-stopped
+    depends_on:
+      - music-network-holder
+
+  # ---------------------------------------------------------------
+  # Caddy Reverse Proxy
+  # ---------------------------------------------------------------
+  caddy:
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    container_name: music-caddy
+    network_mode: "service:music-network-holder"
+    environment:
+      # FIX: Map the variable from the env file (right) to what Caddy expects (left)
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
+    volumes:
+      # Caddyfile injected by Nix
+      - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
+      - /mnt/docker/music/caddy/data:/data
+      - /mnt/docker/music/caddy/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    depends_on:
+      - music-network-holder
 
 networks:
   music-net:

@@ -7,20 +7,21 @@
 
   # Nix tracked files
   composeFile = ./docker-compose.yml;
+  caddyFile = ./Caddyfile;
 
-  # Secrets (Using the same age key location as other stacks)
-  # Ensure you create a 'music.env' or reuse an existing one if suitable,
-  # though Lidarr doesn't strictly need one for basic setup.
-  # I will placeholder it here; if you don't have secrets yet,
-  # you can comment out the SOPS lines or create an empty env file.
+  # Secrets
+  # 1. Stack-specific secrets
   encEnv = ../../secrets/secrets/music.env;
+  # 2. Shared ACME/Cloudflare secrets
+  encAcmeEnv = ../../secrets/secrets/acme-cloudflare.env;
+
   ageKey = "/root/.config/sops/age/keys.txt";
 
-  # Runtime Env Path
+  # Runtime Env Paths
   runEnv = "/run/secrets/${stackName}.env";
+  runAcmeEnv = "/run/secrets/${stackName}-acme.env";
 
   # Dependencies
-  # We require the new RW fuse mount and the network online
   requiresBase = [
     "docker.service"
     "network-online.target"
@@ -41,24 +42,34 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
 
-      # Set Project Name
-      Environment = "COMPOSE_PROJECT_NAME=music";
+      # Set Project Name and pass Caddyfile path
+      Environment = [
+        "COMPOSE_PROJECT_NAME=music"
+        "CADDY_FILE=${caddyFile}"
+      ];
 
       # Decrypt secrets
       ExecStartPre = [
         "/run/current-system/sw/bin/mkdir -p /run/secrets"
+
+        # 1. Decrypt Music Env
         ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runEnv} ${encEnv}''
         "/run/current-system/sw/bin/chmod 600 ${runEnv}"
+
+        # 2. Decrypt Shared Acme Env
+        ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${pkgs.sops}/bin/sops -d --output ${runAcmeEnv} ${encAcmeEnv}''
+        "/run/current-system/sw/bin/chmod 600 ${runAcmeEnv}"
       ];
 
       # Start
-      ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
+      # We pass both env files.
+      ExecStart = "${dockerBin} compose -f ${composeFile} --env-file ${runAcmeEnv} --env-file ${runEnv} up -d --remove-orphans";
 
       # Stop
-      ExecStop = "${dockerBin} compose -f ${composeFile} down";
+      ExecStop = "${dockerBin} compose -f ${composeFile} --env-file ${runAcmeEnv} --env-file ${runEnv} down";
 
       # Reload
-      ExecReload = "${dockerBin} compose -f ${composeFile} --env-file ${runEnv} up -d --remove-orphans";
+      ExecReload = "${dockerBin} compose -f ${composeFile} --env-file ${runAcmeEnv} --env-file ${runEnv} up -d --remove-orphans";
 
       Restart = "on-failure";
       RestartSec = "30s";
