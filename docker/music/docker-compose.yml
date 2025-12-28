@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   # ---------------------------------------------------------------
-  # Network holder for the stack
+  # Network Holder
   # ---------------------------------------------------------------
   music-network-holder:
     image: k8s.gcr.io/pause:3.9
@@ -11,6 +11,10 @@ services:
       - "8686:8686" # Lidarr
       - "3579:3579" # Ombi internal port
     restart: unless-stopped
+    # FIX 1: Explicit DNS often resolves routing weirdness in nested stacks
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     networks:
       - music-net
 
@@ -55,8 +59,9 @@ services:
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     depends_on:
+      # FIX 2: Wait for DB to be actually ready, not just started
       ombi-db:
-        condition: service_started
+        condition: service_healthy
       music-network-holder:
         condition: service_started
 
@@ -70,9 +75,15 @@ services:
       MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
     volumes:
       - /mnt/docker/ombi/db:/var/lib/mysql
-      # Auto-init script
       - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
     network_mode: "service:music-network-holder"
+    # FIX 3: Healthcheck ensures DB is ready before Ombi starts
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       - music-network-holder
 
@@ -93,7 +104,10 @@ services:
     environment:
       - TS_HOSTNAME=music
       - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=false
+      # FIX 4: Use Userspace mode.
+      # This prevents Tailscale from hijacking the kernel routing table,
+      # allowing Ombi to reach the internet (MusicBrainz) via the Docker bridge.
+      - TS_USERSPACE=true
       - TS_ACCEPT_DNS=false
     restart: unless-stopped
     depends_on:
