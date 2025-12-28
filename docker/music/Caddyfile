@@ -11,3 +11,7 @@ lidarr.ablz.au {
 ombi.ablz.au {
     reverse_proxy localhost:3579
 }
+
+music.ablz.au {
+    reverse_proxy localhost:8085
+}
