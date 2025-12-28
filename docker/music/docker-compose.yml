@@ -8,7 +8,8 @@ services:
     image: k8s.gcr.io/pause:3.9
     container_name: music_network_holder
     ports:
-      - "8686:8686"
+      - "8686:8686" # Lidarr
+      - "3579:3579" # Ombi internal port
     restart: unless-stopped
     networks:
       - music-net
@@ -25,9 +26,7 @@ services:
       - TZ=Australia/Perth
     volumes:
       - /mnt/docker/music/lidarr:/config
-      # Downloads folder
       - /mnt/data/Media/Temp:/downloads
-      # FUSE RW mount for the library
       - /mnt/fuse/Media/Music_RW:/music
     network_mode: "service:music-network-holder"
     restart: unless-stopped
@@ -38,6 +37,42 @@ services:
       retries: 3
     labels:
       - autoheal=true
+    depends_on:
+      - music-network-holder
+
+  # ---------------------------------------------------------------
+  # Ombi
+  # ---------------------------------------------------------------
+  ombi:
+    image: lscr.io/linuxserver/ombi:latest
+    container_name: ombi
+    environment:
+      - PUID=99
+      - PGID=100
+      - TZ=Australia/Perth
+    volumes:
+      - /mnt/docker/ombi/config:/config
+    network_mode: "service:music-network-holder"
+    restart: unless-stopped
+    depends_on:
+      ombi-db:
+        condition: service_started
+      music-network-holder:
+        condition: service_started
+
+  ombi-db:
+    image: mariadb:10.11
+    container_name: ombi-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${OMBI_DB_ROOT_PASSWORD}
+      MYSQL_USER: ${OMBI_DB_USER}
+      MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
+    volumes:
+      - /mnt/docker/ombi/db:/var/lib/mysql
+      # Auto-init script
+      - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
+    network_mode: "service:music-network-holder"
     depends_on:
       - music-network-holder
 
@@ -72,10 +107,8 @@ services:
     container_name: music-caddy
     network_mode: "service:music-network-holder"
     environment:
-      # FIX: Map the variable from the env file (right) to what Caddy expects (left)
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
     volumes:
-      # Caddyfile injected by Nix
       - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
       - /mnt/docker/music/caddy/data:/data
       - /mnt/docker/music/caddy/config:/config
