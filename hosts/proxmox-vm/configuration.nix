@@ -4,7 +4,6 @@
     ../services/mounts/nfs_local.nix
     ../services/mounts/ext.nix
     ../services/mounts/fuse.nix
-    # REMOVED: ../common/configuration.nix
     ../../docker/tailscale/caddy/docker-compose.nix
     ../../docker/immich/docker-compose.nix
     ../../docker/management/docker-compose.nix
@@ -29,32 +28,33 @@
   ];
 
   homelab = {
-    ci.rollingFlakeUpdate = {
-      enable = true;
-      repoDir = "/home/abl030/nixosconfig";
-    };
-    ssh = {
-      enable = true;
-      secure = false;
-    };
-    tailscale.enable = true;
+    # Base.nix enables ssh=true/secure=true.
+    # We override secure to false here matching your previous config.
+    ssh.secure = false;
+
+    # Base.nix enables tailscale=true.
+
+    # Base.nix enables update=true.
+    # We just add specific timing/dates here.
     update = {
-      enable = true;
-      collectGarbage = true;
       updateDates = "03:00";
       gcDates = "03:30";
-      trim = true;
       rebootOnKernelUpdate = true;
     };
+
     cache = {
       enable = true;
       mirrorHost = "nix-mirror.ablz.au";
       localHost = "nixcache.ablz.au";
       nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
     };
-    nixCaches = {
+
+    # Override profile from "internal" (base default) to "server"
+    nixCaches.profile = "server";
+
+    ci.rollingFlakeUpdate = {
       enable = true;
-      profile = "server";
+      repoDir = "/home/abl030/nixosconfig";
     };
     services.githubRunner = {
       enable = true;
@@ -64,30 +64,18 @@
     };
   };
 
+  # Base.nix enables NetworkManager.
+  # We just set interface specifics here.
+  networking.interfaces.ens18.mtu = 1400;
+  networking.firewall.enable = false;
+
+  # VM Specifics
+  services.qemuGuest.enable = true;
+
+  # Workloads
   virtualisation.docker = {
     enable = true;
     liveRestore = false;
-  };
-
-  boot = {
-    loader = {
-      systemd-boot.enable = true;
-      efi.canTouchEfiVariables = true;
-    };
-    kernelParams = ["cgroup_disable=hugetlb"];
-  };
-
-  networking = {
-    networkmanager.enable = true;
-    hostName = "proxmox-vm";
-    firewall.enable = false;
-    interfaces.ens18.mtu = 1400;
-  };
-
-  services = {
-    qemuGuest.enable = true;
-    fstrim.enable = true;
-    openssh.enable = true;
   };
 
   # ADD ONLY HOST SPECIFIC GROUPS
