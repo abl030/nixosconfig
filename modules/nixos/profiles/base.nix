@@ -7,9 +7,15 @@
   ...
 }: {
   # ---------------------------------------------------------
-  # 0. IDENTITY
+  # 0. IDENTITY & BOOTSTRAP
   # ---------------------------------------------------------
   networking.hostName = hostConfig.hostname;
+
+  # Default Bootloader (Standard UEFI)
+  # WSL and specialty hosts should override this to false
+  boot.loader.systemd-boot.enable = lib.mkDefault true;
+  boot.loader.efi.canTouchEfiVariables = lib.mkDefault true;
+
   # ---------------------------------------------------------
   # 1. LOCALES & TIME
   # ---------------------------------------------------------
@@ -39,7 +45,8 @@
       auto-optimise-store = true;
     };
 
-    # Garbage Collection (Weekly)
+    # Garbage Collection (Weekly fallback)
+    # The homelab.update module below will take precedence if enabled
     gc = {
       automatic = lib.mkDefault true;
       dates = lib.mkDefault "02:00";
@@ -48,7 +55,53 @@
   };
 
   # ---------------------------------------------------------
-  # 3. SHELL & ENVIRONMENT
+  # 3. CORE SERVICES & HARDWARE
+  # ---------------------------------------------------------
+  # Reasonable default for most servers/desktops (SSDs/VirtIO)
+  services.fstrim.enable = lib.mkDefault true;
+
+  # Standard Networking
+  networking.networkmanager.enable = lib.mkDefault true;
+
+  # ---------------------------------------------------------
+  # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
+  # ---------------------------------------------------------
+  # By using mkDefault, we ensure every new machine is manageable
+  # immediately, but power users (Epi/Framework) can tune settings.
+
+  homelab = {
+    # 1. Access
+    ssh = {
+      enable = lib.mkDefault true;
+      # Default to secure (keys only), override to false for debug/install
+      secure = lib.mkDefault true;
+    };
+
+    tailscale = {
+      enable = lib.mkDefault true;
+      # Base server doesn't need TPM override usually, unless it's a VM hopping hosts
+      tpmOverride = lib.mkDefault false;
+    };
+
+    # 2. Maintenance
+    update = {
+      enable = lib.mkDefault true;
+      collectGarbage = lib.mkDefault true;
+      trim = lib.mkDefault true;
+      # Don't reboot by default, let specific servers opt-in
+      rebootOnKernelUpdate = lib.mkDefault false;
+    };
+
+    # 3. Caching
+    nixCaches = {
+      enable = lib.mkDefault true;
+      # "internal" is safe for everything inside the LAN
+      profile = lib.mkDefault "internal";
+    };
+  };
+
+  # ---------------------------------------------------------
+  # 5. SHELL & ENVIRONMENT
   # ---------------------------------------------------------
   # Enforce Zsh for everything
   environment.pathsToLink = ["/share/zsh"];
@@ -80,7 +133,7 @@
   '';
 
   # ---------------------------------------------------------
-  # 4. ADMIN USER
+  # 6. ADMIN USER
   # ---------------------------------------------------------
   # Dynamically configure the user defined in hosts.nix
   users.users.${hostConfig.user} = {
