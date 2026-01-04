@@ -9,15 +9,10 @@ in {
   options.homelab.update = {
     enable = lib.mkEnableOption "Nightly flake switch & housekeeping (via system.autoUpgrade + timers)";
 
-    # New option: Configurable update time
     updateDates = lib.mkOption {
       type = lib.types.str;
       default = "01:00";
-      example = "03:00";
-      description = ''
-        OnCalendar expression for system.autoUpgrade.
-        Default is "01:00" (1 AM).
-      '';
+      description = "OnCalendar expression for system.autoUpgrade.";
     };
 
     collectGarbage = lib.mkOption {
@@ -29,14 +24,7 @@ in {
     gcDates = lib.mkOption {
       type = lib.types.str;
       default = "02:00";
-      example = "daily";
-      description = ''
-        OnCalendar expression for nix.gc automatic GC.
-        Examples:
-          "daily"          – run once per day
-          "02:00"          – run every day at 02:00
-          "Sun 03:00"      – weekly on Sundays at 03:00
-      '';
+      description = "OnCalendar expression for nix.gc automatic GC.";
     };
 
     trim = lib.mkOption {
@@ -48,48 +36,46 @@ in {
     trimInterval = lib.mkOption {
       type = lib.types.str;
       default = "daily";
-      example = "weekly";
-      description = ''
-        OnCalendar-style interval for fstrim.
-        Common values: "daily", "weekly", or e.g. "Mon *-*-* 03:00:00".
-      '';
+      description = "OnCalendar-style interval for fstrim.";
     };
 
-    # New option: Wake from sleep/s2idle
     wakeOnUpdate = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = ''
-        Whether to configure the systemd timer to wake the system from sleep
-        (e.g. s2idle) to perform the update.
-      '';
+      description = "Wake the system for the update window.";
     };
 
-    # New option: Reboot on kernel change
     rebootOnKernelUpdate = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = ''
-        If enabled, the system will automatically reboot after a successful update
-        ONLY if the kernel version (store path) has changed.
-      '';
+      description = "Reboot if kernel changes.";
+    };
+
+    # --- SMART UPDATE GATES ---
+    checkWifi = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "List of allowed SSIDs.";
+    };
+
+    minBattery = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Minimum battery percentage required (if not on AC).";
+    };
+
+    frequency = lib.mkOption {
+      type = lib.types.int;
+      default = 0;
+      description = "Minimum days elapsed since last successful update.";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    #### 1. Flake-based auto-upgrade using official machinery ####
-    #
-    # This uses nixos-upgrade.service/timer instead of our own
-    # switch-to-configuration wrapper, avoiding the “service kills itself
-    # mid-switch” problem.
-    #
+    # 1. Base autoUpgrade setup
     system.autoUpgrade = {
       enable = true;
-
-      # Use your GitHub flake and select the host by hostname.
       flake = "github:abl030/nixosconfig#${config.networking.hostName}";
-
-      # Don't try to write flake.lock back to the remote; accept flake config.
       flags = [
         "--no-write-lock-file"
         "-L"
@@ -97,99 +83,178 @@ in {
         "accept-flake-config"
         "true"
       ];
-
-      # Run once a day at the configured time (default 01:00), with up to 60min jitter.
       dates = cfg.updateDates;
       randomizedDelaySec = "60min";
     };
 
-    #
-    # NEW LOGIC: Wake from sleep
-    #
     systemd.timers.nixos-upgrade.timerConfig = {
-      # If true, sets an RTC alarm to wake the system for the update window.
       WakeSystem = cfg.wakeOnUpdate;
     };
 
-    #
-    # NEW LOGIC: Conditional Kernel Reboot
-    #
-    # We append an ExecStartPost script to the official nixos-upgrade service.
-    # This script runs only if the update (ExecStart) succeeded.
-    # It compares the booted kernel against the new system kernel.
-    #
-    systemd.services.nixos-upgrade.serviceConfig.ExecStartPost = lib.mkIf cfg.rebootOnKernelUpdate [
-      (lib.getExe (pkgs.writeShellScriptBin "post-update-kernel-check" ''
-        # Resolve the paths to the kernels
-        BOOTED_KERNEL=$(readlink -f /run/booted-system/kernel)
-        NEW_KERNEL=$(readlink -f /nix/var/nix/profiles/system/kernel)
+    # 2. Logic Overhaul: Gates + Hibernate Logic
+    systemd.services.nixos-upgrade = {
+      path = with pkgs; [
+        coreutils
+        gnugrep
+        networkmanager
+        gawk
+        systemd # for systemctl
+      ];
 
-        if [ "$BOOTED_KERNEL" != "$NEW_KERNEL" ]; then
-          echo "[AutoUpdate] Kernel change detected:"
-          echo "  Old: $BOOTED_KERNEL"
-          echo "  New: $NEW_KERNEL"
-          echo "[AutoUpdate] Scheduling reboot in 1 minute..."
-          ${pkgs.systemd}/bin/shutdown -r +1 "Auto-update installed a new kernel. Rebooting..."
-        else
-          echo "[AutoUpdate] No kernel change detected. Skipping reboot."
+      # We override the script entirely to handle the flow:
+      # Check Gates -> (Fail? Hibernate) -> Update -> (Success? Hibernate)
+      serviceConfig.ExecStart = lib.mkForce (lib.getExe (pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
+        # Logging helper
+        log() {
+            echo "[SmartUpdate] $1"
+        }
+
+        # --- HELPER: Hibernation Safety ---
+        # Only hibernate if the lid is CLOSED.
+        # This prevents the laptop from sleeping if you are actively using it during the update window.
+        function attempt_hibernate() {
+           log "Checking post-operation hibernation eligibility..."
+           # Check for any closed lid in /proc/acpi
+           if grep -q "closed" /proc/acpi/button/lid/*/state 2>/dev/null; then
+               log "ACTION: Lid is CLOSED. Initiating system hibernation."
+               systemctl hibernate
+           else
+               log "ACTION: Lid is OPEN (or undetected). Staying awake to avoid user interruption."
+           fi
+        }
+
+        log "--- STARTING SMART UPDATE SEQUENCE ---"
+
+        # 1. Frequency Gate
+        if [ "${toString cfg.frequency}" -gt 0 ]; then
+          TIMESTAMP_FILE="/var/lib/nixos-upgrade/last-success-timestamp"
+          if [ -f "$TIMESTAMP_FILE" ]; then
+            LAST_EPOCH=$(cat "$TIMESTAMP_FILE")
+            NOW_EPOCH=$(date +%s)
+            MIN_SECONDS=$((${toString cfg.frequency} * 86400))
+            DIFF=$((NOW_EPOCH - LAST_EPOCH))
+            DAYS=$((DIFF / 86400))
+
+            if [ "$DIFF" -lt "$MIN_SECONDS" ]; then
+              log "GATE FAIL: Frequency Check"
+              log "  - Last update: $DAYS days ago ($DIFF seconds)"
+              log "  - Required: ${toString cfg.frequency} days"
+              log "  - Result: SKIPPING update."
+              attempt_hibernate
+              exit 0
+            else
+               log "GATE PASS: Frequency Check ($DAYS days elapsed >= ${toString cfg.frequency})"
+            fi
+          else
+            log "GATE PASS: Frequency Check (First run or no timestamp found)"
+          fi
         fi
-      ''))
-    ];
 
-    #### 2. Daily GC ####
+        # 2. SSID Gate
+        ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
+        if [ -n "$ALLOWED_SSIDS" ]; then
+           # Wait a moment for network if we just woke up
+           sleep 10
+           CURRENT_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2- || echo "")
+
+           if [ -z "$CURRENT_SSID" ]; then
+              log "GATE FAIL: WiFi Check"
+              log "  - Current: No connection"
+              log "  - Result: SKIPPING update."
+              attempt_hibernate
+              exit 0
+           fi
+
+           if ! echo "$CURRENT_SSID" | grep -qE "^($ALLOWED_SSIDS)$"; then
+              log "GATE FAIL: WiFi Check"
+              log "  - Current: '$CURRENT_SSID'"
+              log "  - Allowed: [$ALLOWED_SSIDS]"
+              log "  - Result: SKIPPING update."
+              attempt_hibernate
+              exit 0
+           fi
+           log "GATE PASS: WiFi Check (Connected to '$CURRENT_SSID')"
+        fi
+
+        # 3. Power Gate
+        MIN_BAT=${toString cfg.minBattery}
+        ON_AC=0
+        for s in /sys/class/power_supply/*; do
+          if [ -e "$s/type" ] && [ "$(cat "$s/type")" = "Mains" ]; then
+             ONLINE=$(cat "$s/online" 2>/dev/null || echo 0)
+             if [ "$ONLINE" -eq 1 ]; then ON_AC=1; break; fi
+          fi
+        done
+
+        if [ "$ON_AC" -eq 1 ]; then
+           log "GATE PASS: Power Check (Connected to AC Mains)"
+        elif [ "$MIN_BAT" -gt 0 ]; then
+           CAPACITY=0
+           for b in /sys/class/power_supply/BAT*; do
+              if [ -e "$b/capacity" ]; then
+                 c=$(cat "$b/capacity")
+                 if [ "$c" -gt "$CAPACITY" ]; then CAPACITY=$c; fi
+              fi
+           done
+
+           if [ "$CAPACITY" -lt "$MIN_BAT" ]; then
+              log "GATE FAIL: Power Check"
+              log "  - Source: Battery"
+              log "  - Level: $CAPACITY%"
+              log "  - Required: $MIN_BAT%"
+              log "  - Result: SKIPPING update."
+              attempt_hibernate
+              exit 0
+           else
+              log "GATE PASS: Power Check (Battery $CAPACITY% >= $MIN_BAT%)"
+           fi
+        fi
+
+        log "--- ALL GATES PASSED. EXECUTING NIXOS REBUILD ---"
+        log "Target Flake: ${config.system.autoUpgrade.flake}"
+
+        # Run the original nixos-rebuild command
+        ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
+          --flake ${config.system.autoUpgrade.flake} \
+          ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
+
+        UPDATE_EXIT_CODE=$?
+
+        if [ $UPDATE_EXIT_CODE -eq 0 ]; then
+           log "--- UPDATE SUCCESS ---"
+           mkdir -p /var/lib/nixos-upgrade
+           date +%s > /var/lib/nixos-upgrade/last-success-timestamp
+
+           # Check Kernel Reboot
+           if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
+              BOOTED=$(readlink -f /run/booted-system/kernel)
+              NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
+              if [ "$BOOTED" != "$NEW" ]; then
+                 log "ACTION: Kernel change detected. Rebooting system..."
+                 /run/current-system/sw/bin/reboot
+                 exit 0 # Reboot takes precedence over hibernate
+              fi
+           fi
+        else
+           log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
+           log "Check journal above for nixos-rebuild errors."
+        fi
+
+        # Cleanup: Go back to sleep if the lid is closed
+        attempt_hibernate
+      ''));
+    };
+
+    # GC and Trim settings remain unchanged
     nix.gc = lib.mkIf cfg.collectGarbage {
       automatic = true;
-      # Daily (or whatever cfg.gcDates is set to).
       dates = cfg.gcDates;
-      # Keep some history so you can still roll back.
       options = "--delete-older-than 3d";
     };
 
-    #### 3. Daily TRIM ####
     services.fstrim = lib.mkIf cfg.trim {
       enable = true;
-      # Systemd OnCalendar expression – "daily" by default.
       interval = cfg.trimInterval;
     };
   };
 }
-# ---------------------------------------------------------------------------
-# Usage notes / examples
-#
-# 1. Standard Server/Desktop:
-#    Enable updates, wake from sleep if necessary, and reboot if the kernel changes.
-#
-#   homelab.update = {
-#     enable = true;
-#     rebootOnKernelUpdate = true;
-#     # wakeOnUpdate = true; # default
-#   };
-#
-# 2. Laptop (Power saving):
-#    Enable updates, but DO NOT wake the system from sleep (prevents heating up
-#    in a backpack). Only updates when the machine is already on.
-#
-#   homelab.update = {
-#     enable = true;
-#     wakeOnUpdate = false;
-#   };
-#
-# 3. WSL / Container:
-#    GC daily, no TRIM (often unsupported), no wake (handled by host/Windows),
-#    and usually no reboot logic needed.
-#
-#   homelab.update = {
-#     enable = true;
-#     collectGarbage = true;
-#     gcDates = "daily";
-#     trim = false;
-#     wakeOnUpdate = false;
-#   };
-#
-# Checking logs for auto-upgrade activity:
-#
-#   journalctl -u nixos-upgrade.service -u nixos-upgrade.timer -f
-#
-# (Drop the -f if you just want historical logs instead of live tail.)
-# ---------------------------------------------------------------------------
-
