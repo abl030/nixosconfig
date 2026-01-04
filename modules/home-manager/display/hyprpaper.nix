@@ -6,14 +6,12 @@
 }:
 with lib; let
   cfg = config.homelab.hyprpaper;
+  wallPath = builtins.toString cfg.wallpaper;
 in {
   options.homelab.hyprpaper = {
     enable = mkEnableOption "Enable Hyprpaper wallpaper engine";
-
-    # Simple option to set one wallpaper for all screens
     wallpaper = mkOption {
       type = types.path;
-      # Added .png extension to name and png: prefix to command to fix build error
       default = pkgs.runCommand "fallback-wall.png" {} ''
         ${pkgs.imagemagick}/bin/convert -size 1920x1080 xc:#2C2A24 png:$out
       '';
@@ -25,9 +23,18 @@ in {
     home.packages = [pkgs.hyprpaper];
 
     xdg.configFile."hypr/hyprpaper.conf".text = ''
-      preload = ${cfg.wallpaper}
-      wallpaper = ,${cfg.wallpaper}
+      ipc = on
       splash = false
+
+      # v0.8.0 requires preloading before assignment
+      preload = ${wallPath}
+
+      # Use the new block syntax for the fallback/wildcard
+      wallpaper {
+          monitor =
+          path = ${wallPath}
+          # fit_mode = cover (optional: cover | contain | tile | fill)
+      }
     '';
   };
 }
