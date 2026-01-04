@@ -69,6 +69,20 @@
 
   networking.networkmanager.enable = true;
 
+  # FIX: Prevent system hangs during rebuild/shutdown
+  systemd.services = {
+    # 1. Disable the "Wait for Online" check. This prevents the rebuild from hanging
+    #    indefinitely if Tailscale interferes with connectivity checks.
+    NetworkManager-wait-online.enable = false;
+
+    # 2. Force Tailscale to stop in 3 seconds.
+    #    This breaks the deadlock where Tailscale waits for network, but network waits for Tailscale.
+    tailscaled.serviceConfig.TimeoutStopSec = 3;
+
+    # 3. Optimize Polkit cleanup to prevent D-Bus timeouts during switch
+    polkit.serviceConfig.TimeoutStopSec = 5;
+  };
+
   security.rtkit.enable = true;
 
   users.users.abl030 = {
