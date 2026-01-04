@@ -43,8 +43,15 @@
     resumeDevice = "/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00";
 
     # FORCE the resume argument and the GPU fix directly into the kernel command line
+    # Kernel Parameters
     kernelParams = [
+      # 1. PREVENT: Fix the memory race condition on Hibernate/Resume
       "amdgpu.sg_display=0"
+
+      # 2. PARACHUTE: If the GPU crashes, reset it instead of freezing the OS
+      "amdgpu.gpu_recovery=1"
+
+      # 3. RESUME: Explicitly tell the kernel where to look for the hibernation image
       "resume=/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00"
     ];
   };
