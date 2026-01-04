@@ -177,8 +177,8 @@ with lib; let
   # --- Script 1: Enter Remote Mode ---
   remoteModeScript = pkgs.writeShellScriptBin "remote-mode" ''
     ${findSocket}
-    # Ensure standard tools and Hyprland are in PATH
-    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland]}:$PATH
+    # Ensure standard tools, Hyprland, and Hyprpaper are in PATH
+    export PATH=${makeBinPath [pkgs.jq pkgs.procps pkgs.hyprland pkgs.hyprpaper]}:$PATH
 
     # --- Defaults ---
     RES="1080p"
@@ -231,8 +231,19 @@ with lib; let
     # 2. Force Resolution & Position (20,000 to avoid overlap) & Scale
     hyprctl keyword monitor ${headlessName},$MODE,20000x0,$SCALE
 
-    # 3. Reload Wallpaper
-    hyprctl dispatch exec "${pkgs.hyprpaper}/bin/hyprpaper"
+    # 3. Reload Wallpaper (v0.8.0 optimized IPC call)
+    # FIX: Hyprpaper v0.8.0 fails if we launch a second instance.
+    # We use the 'hyprpaper' subcommand in hyprctl to live-update the headless monitor.
+    if pgrep -x "hyprpaper" > /dev/null; then
+      echo ">> Updating hyprpaper via IPC for ${headlessName}..."
+      # We attempt to preload (fails silently/gracefully if already in memory)
+      hyprctl hyprpaper preload "${config.homelab.hyprpaper.wallpaper}" || true
+      # Map the wallpaper to our new virtual monitor
+      hyprctl hyprpaper wallpaper "${headlessName},${config.homelab.hyprpaper.wallpaper}"
+    else
+      echo ">> Hyprpaper not running. Starting process..."
+      hyprctl dispatch exec hyprpaper
+    fi
 
     # 4. Move Configured Workspaces
     TARGET_WORKSPACES="${toString cfg.settings.workspaces}"
@@ -256,7 +267,7 @@ with lib; let
     echo "Restarting VNC on ${headlessName}..."
     pkill wayvnc || true
     sleep 0.5
-    hyprctl dispatch exec "${pkgs.wayvnc}/bin/wayvnc --output=${headlessName}"
+    hyprctl dispatch exec "wayvnc --output=${headlessName}"
 
     # 7. Dynamic Sunshine Config
     sleep 1
