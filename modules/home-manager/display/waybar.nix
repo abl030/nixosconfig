@@ -33,11 +33,23 @@ in {
 
           modules-left = ["hyprland/workspaces" "hyprland/window"];
           modules-center = ["clock"];
-          modules-right = ["network" "cpu" "memory" "pulseaudio" "tray"];
+          # Added idle_inhibitor to the beginning of the right module group
+          modules-right = ["idle_inhibitor" "network" "cpu" "memory" "pulseaudio" "tray"];
 
           "hyprland/workspaces" = {
             disable-scroll = true;
             on-click = "activate";
+          };
+
+          "idle_inhibitor" = {
+            format = "{icon}";
+            format-icons = {
+              activated = ""; # Eye Open (Awake/Inhibited)
+              deactivated = ""; # Eye Closed (Sleep allowed)
+            };
+            tooltip = true;
+            tooltip-format-activated = "Sleep Inhibited (Presentation Mode)";
+            tooltip-format-deactivated = "Sleep Enabled";
           };
 
           "clock" = {
@@ -144,6 +156,7 @@ in {
         }
 
         /* Standard Modules (CPU, RAM, Net, etc) - Remove individual backgrounds */
+        #idle_inhibitor,
         #clock,
         #cpu,
         #memory,
@@ -156,7 +169,17 @@ in {
             color: @text;
         }
 
+        /* Idle Inhibitor Specifics */
+        #idle_inhibitor.activated {
+            color: @focused2; /* Beige/Gold when sleep is inhibited */
+        }
+        #idle_inhibitor.deactivated {
+            color: @text; /* Standard text color when sleep is enabled */
+            opacity: 0.5;
+        }
+
         /* Hover effects from inspiration */
+        #idle_inhibitor:hover,
         #clock:hover,
         #cpu:hover,
         #memory:hover,
@@ -164,6 +187,7 @@ in {
         #pulseaudio:hover,
         #tray:hover {
             color: @color1; /* Blue accent on hover */
+            opacity: 1;
         }
 
         /* Network specific colors */
