@@ -6,7 +6,7 @@
   imports = [
     ./hardware-configuration.nix
     ../services/mounts/nfs.nix
-    ../common/desktop.nix # Includes Printing, Fonts, Spotify
+    ../common/desktop.nix
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ../framework/sleep-then-hibernate.nix
     ../services/system/remote_desktop_nosleep.nix
@@ -38,6 +38,15 @@
     kernelPackages = pkgs.linuxPackages_latest;
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
+
+    # We keep this for the initrd generator
+    resumeDevice = "/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00";
+
+    # FORCE the resume argument and the GPU fix directly into the kernel command line
+    kernelParams = [
+      "amdgpu.sg_display=0"
+      "resume=/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00"
+    ];
   };
 
   services = {
@@ -70,15 +79,9 @@
   networking.networkmanager.enable = true;
 
   # FIX: Prevent system hangs during rebuild/shutdown
-  # We use pkgs.lib.mkForce to override defaults set by other modules.
   systemd.services = {
-    # 1. Disable the "Wait for Online" check.
     NetworkManager-wait-online.enable = pkgs.lib.mkForce false;
-
-    # 2. Force Tailscale to stop in 3 seconds.
     tailscaled.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 3;
-
-    # 3. Optimize Polkit cleanup
     polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
   };
 
