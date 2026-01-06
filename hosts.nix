@@ -66,7 +66,7 @@ in {
     hostname = "wsl"; # Added to match ssh.nix
     sshAlias = "wsl"; # Added to match ssh.nix
     sshKeyName = "ssh_key_abl030";
-    publicKey = ""; # Placeholder: Populate with `cat /etc/ssh/ssh_host_ed25519_key.pub` from WSL
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
     authorizedKeys = masterKeys;
   };
 
