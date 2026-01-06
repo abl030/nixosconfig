@@ -53,6 +53,7 @@
       "amdgpu.sg_display=0"
       "amdgpu.gpu_recovery=1"
       "resume=/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00"
+      "rtc_cmos.use_acpi_alarm=1"
     ];
   };
 
@@ -89,6 +90,12 @@
     NetworkManager-wait-online.enable = pkgs.lib.mkForce false;
     tailscaled.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 3;
     polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
+  };
+
+  # Fix for fprintd keeping device busy
+  systemd.services.fprintd = {
+    wantedBy = ["multi-user.target"];
+    serviceConfig.Type = "simple";
   };
 
   security.rtkit.enable = true;
