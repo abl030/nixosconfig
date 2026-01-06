@@ -1,58 +1,113 @@
-# This module is a simple configuration snippet and doesn't use any inputs like `pkgs` or `config`.
-# The function signature is changed from `{...}:` to `_:`, and the empty `let-in` block is removed
-# to make it clear that no external arguments are being used.
-_: {
-  # Old way using a custom systemd service.
-  # systemd.services."awake-after-suspend-for-a-time" = {
-  #   description = "Sets up the suspend so that it'll wake for hibernation";
-  #   wantedBy = [ "suspend.target" ];
-  #   before = [ "systemd-suspend.service" ];
-  #   environment = hibernateEnvironment;
-  #   script = ''
-  #     curtime=$(date +%s)
-  #     echo "$curtime $1" >> /tmp/autohibernate.log
-  #     echo "$curtime" > $HIBERNATE_LOCK
-  #     ${pkgs.utillinux}/bin/rtcwake -m no -s $HIBERNATE_SECONDS
-  #   '';
-  #   serviceConfig.Type = "simple";
-  # };
-  # systemd.services."hibernate-after-recovery" = {
-  #   description = "Hibernates after a suspend recovery due to timeout";
-  #   wantedBy = [ "suspend.target" ];
-  #   after = [ "systemd-suspend.service" ];
-  #   environment = hibernateEnvironment;
-  #   script = ''
-  #     curtime=$(date +%s)
-  #     sustime=$(cat $HIBERNATE_LOCK)
-  #     rm $HIBERNATE_LOCK
-  #     if [ $(($curtime - $sustime)) -ge $HIBERNATE_SECONDS ] ; then
-  #       systemctl hibernate
-  #     else
-  #       ${pkgs.utillinux}/bin/rtcwake -m no -s 1
-  #     fi
-  #   '';
-  #   serviceConfig.Type = "simple";
-  # };
-  #
+{
+  pkgs,
+  config,
+  ...
+}: let
+  # === CONFIGURATION ===
+  checkIntervalSeconds = "3600"; # Wake up every hour to check status
+  settleDownSeconds = "20"; # Wait time to prevent GPU/NVMe panic before Hibernate
 
-  # https://gist.github.com/mattdenner/befcf099f5cfcc06ea04dcdd4969a221?permalink_comment_id=5275164#gistcomment-5275164
-  # actually lets let systemd do the hibernation for us
-  #
-  #
-  # There are a couple more lid options in NixOS:
-  # https://search.nixos.org/options?channel=24.05&from=0&size=50&sort=relevance&type=packages&query=services.logind.lidSwitch
-  #
-  # services.logind.lidSwitchExternalPower defaults to what is set for services.logind.lidSwitch so I’m fine with this setting.
-  #
-  # services.logind.lidSwitchDocked defaults to ignore which I like as well since I’m often docked to an external monitor so this means I can put the lid down and it doesn’t Suspend.
+  # === LOGGING HELPER ===
+  # Logs to journalctl with tag "PowerSentry".
+  # Usage: journalctl -t PowerSentry
+  log = msg: "${pkgs.util-linux}/bin/logger -t PowerSentry \"${msg}\"";
 
+  # === POWER CHECK HELPER ===
+  # Returns 0 (true) if plugged in, 1 (false) if on battery
+  isPluggedIn = pkgs.writeShellScript "check-ac-power" ''
+    for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
+      if [ -f "$supply/online" ]; then
+        status=$(cat "$supply/online")
+        if [ "$status" -eq 1 ]; then
+          exit 0 # Plugged in
+        fi
+      fi
+    done
+    exit 1 # On Battery
+  '';
+in {
+  # 1. DISABLE SYSTEMD AUTO-HIBERNATION
+  # We are taking full manual control.
   systemd.sleep.extraConfig = ''
-    HibernateDelaySec=60min
+    HibernateDelaySec=0
   '';
 
   services.logind.settings = {
     Login = {
-      HandleLidSwitch = "suspend-then-hibernate";
+      HandleLidSwitch = "suspend";
+      HandleLidSwitchExternalPower = "suspend";
     };
+  };
+
+  # 2. BEFORE SUSPEND: Set the Alarm
+  systemd.services."suspend-set-timer" = {
+    description = "Sets RTC wake timer for 1 hour check";
+    wantedBy = ["suspend.target"];
+    before = ["systemd-suspend.service"];
+    script = ''
+      # 1. Clear old alarms
+      ${pkgs.util-linux}/bin/rtcwake -m disable
+
+      # 2. Record suspend time
+      date +%s > /tmp/last_suspend_time
+
+      # 3. Log intention
+      ${log "System suspending. Setting RTC wake alarm for ${checkIntervalSeconds} seconds."}
+
+      # 4. Set alarm for 1 hour
+      ${pkgs.util-linux}/bin/rtcwake -m no -s ${checkIntervalSeconds}
+    '';
+    serviceConfig.Type = "oneshot";
+  };
+
+  # 3. AFTER RESUME: The Decision Matrix
+  systemd.services."suspend-wake-handler" = {
+    description = "Checks if we should Hibernate, Sleep again, or Stay Awake";
+    wantedBy = ["suspend.target"];
+    after = ["systemd-suspend.service"];
+    script = ''
+      # Safety check: if time file missing, assume manual wake
+      if [ ! -f /tmp/last_suspend_time ]; then
+        ${log "Wake detected, but no timestamp found. Assuming manual wake."}
+        exit 0
+      fi
+
+      suspend_time=$(cat /tmp/last_suspend_time)
+      current_time=$(date +%s)
+      elapsed=$((current_time - suspend_time))
+      rm /tmp/last_suspend_time
+
+      # Allow for 5 seconds variance in wake time execution
+      threshold=$((${checkIntervalSeconds} - 5))
+
+      ${log "System woke up. Slept for $elapsed seconds."}
+
+      if [ "$elapsed" -ge "$threshold" ]; then
+        # === SCENARIO: TIMER WOKE US UP ===
+        if ${isPluggedIn}; then
+          # --- PATH A: PLUGGED IN ---
+          ${log "Timer wake caused by RTC. Power: AC DETECTED. Action: Re-suspending loop."}
+
+          # We don't need to manually set the alarm here because
+          # 'systemctl suspend' will trigger 'suspend-set-timer' again automatically.
+          systemctl suspend
+        else
+          # --- PATH B: BATTERY ---
+          ${log "Timer wake caused by RTC. Power: BATTERY DETECTED. Action: Hibernating."}
+
+          # === THE CRASH FIX ===
+          ${log "Waiting ${settleDownSeconds}s for AMDGPU/NVMe to stabilize..."}
+          sleep ${settleDownSeconds}
+
+          ${log "Hardware settled. Triggering hibernation."}
+          systemctl hibernate
+        fi
+      else
+        # === SCENARIO: USER WOKE US UP ===
+        ${log "Wake was manual (Lid/Keyboard). Cancelled auto-hibernate logic."}
+        ${pkgs.util-linux}/bin/rtcwake -m disable
+      fi
+    '';
+    serviceConfig.Type = "oneshot";
   };
 }
