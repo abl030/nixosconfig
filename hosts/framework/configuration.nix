@@ -34,8 +34,6 @@
 
       # Smart Update Gates
       checkWifi = ["theblackduck"];
-      minBattery = 50;
-      frequency = 2;
     };
   };
 
