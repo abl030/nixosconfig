@@ -26,6 +26,7 @@
     pkgs.statix
     pkgs.deadnix
     pkgs.alejandra
+    pkgs.claude-code
 
     # Rust Utils
     pkgs.fzf
