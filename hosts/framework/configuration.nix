@@ -53,6 +53,9 @@
       "amdgpu.gpu_recovery=1"
       "resume=/dev/disk/by-uuid/eced9c09-7bfe-4db4-ad4b-54f155dd1b00"
       # "rtc_cmos.use_acpi_alarm=1"
+
+      "amdgpu.abmlevel=0" # new
+      "iommu=pt" # new - key addition
     ];
   };
 
@@ -176,6 +179,25 @@
 
       # Restart the automounts on resume so they work again
       ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount";
+    };
+  };
+
+  # FIX: Fingerprint Reader fails on resume
+  # 1. Disable USB autosuspend for the Goodix reader (ID 27c6:609c)
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="27c6", ATTR{idProduct}=="609c", ATTR{power/control}="on"
+  '';
+
+  # 2. Restart fprintd after resume to pick up the device again
+  systemd.services.fprintd-restart-resume = {
+    description = "Restart fprintd after resume to fix Goodix connection";
+    after = ["suspend.target" "hibernate.target" "hybrid-sleep.target" "suspend-then-hibernate.target"];
+    wantedBy = ["suspend.target" "hibernate.target" "hybrid-sleep.target" "suspend-then-hibernate.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      # Wait 2 seconds for USB bus to settle, then restart
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart fprintd.service";
     };
   };
 }
