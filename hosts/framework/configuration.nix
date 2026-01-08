@@ -34,6 +34,7 @@
 
       # Smart Update Gates
       checkWifi = ["theblackduck"];
+      checkAcPower = true;
     };
   };
 
