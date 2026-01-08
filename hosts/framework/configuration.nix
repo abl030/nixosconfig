@@ -10,6 +10,8 @@
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ../framework/sleep-then-hibernate.nix
     ../services/system/remote_desktop_nosleep.nix
+
+    # ./fingerprint-fix.nix
   ];
 
   homelab = {
