@@ -52,6 +52,12 @@ in {
     };
 
     # --- SMART UPDATE GATES ---
+    checkAcPower = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Only update if on AC power (useful for laptops).";
+    };
+
     checkWifi = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
@@ -80,24 +86,45 @@ in {
       WakeSystem = cfg.wakeOnUpdate;
     };
 
-    # 2. Logic Overhaul: Wifi Gate -> Update
+    # 2. Logic Overhaul: Power Gate -> Wifi Gate -> Update
     systemd.services.nixos-upgrade = {
       path = with pkgs; [
         coreutils
         gnugrep
         networkmanager
         gawk
-        systemd # for systemctl reboot
+        systemd
       ];
 
-      # We override the script to handle Gates and Kernel checks
       serviceConfig.ExecStart = lib.mkForce (lib.getExe (pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
-        # Logging helper
         log() {
             echo "[SmartUpdate] $1"
         }
 
         log "--- STARTING SMART UPDATE SEQUENCE ---"
+
+        # 0. AC POWER GATE (runs first - fastest check)
+        ${lib.optionalString cfg.checkAcPower ''
+          log "Checking AC Power..."
+          AC_ONLINE=0
+          for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
+            if [ -f "$supply/online" ]; then
+              status=$(cat "$supply/online")
+              if [ "$status" -eq 1 ]; then
+                AC_ONLINE=1
+                break
+              fi
+            fi
+          done
+
+          if [ "$AC_ONLINE" -eq 0 ]; then
+            log "GATE FAIL: AC Power Check"
+            log "  - Status: On Battery"
+            log "  - Result: SKIPPING update."
+            exit 0
+          fi
+          log "GATE PASS: AC Power Check (Plugged In)"
+        ''}
 
         # 1. SSID Gate
         ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
@@ -105,7 +132,6 @@ in {
            log "Checking Network..."
 
            # WAIT LOOP: Wait up to 45 seconds for NetworkManager to settle
-           # This solves the issue where the check runs before Wifi re-associates after wake.
            for i in {1..45}; do
                STATE=$(nmcli -t -f state general 2>/dev/null || echo "unknown")
                if [[ "$STATE" == "connected" ]]; then
@@ -137,7 +163,6 @@ in {
         log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
         log "Target Flake: ${config.system.autoUpgrade.flake}"
 
-        # Run the original nixos-rebuild command
         ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
           --flake ${config.system.autoUpgrade.flake} \
           ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
@@ -149,7 +174,6 @@ in {
            mkdir -p /var/lib/nixos-upgrade
            date +%s > /var/lib/nixos-upgrade/last-success-timestamp
 
-           # Check Kernel Reboot
            if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
               BOOTED=$(readlink -f /run/booted-system/kernel)
               NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
@@ -166,7 +190,6 @@ in {
       ''));
     };
 
-    # GC and Trim settings remain unchanged
     nix.gc = lib.mkIf cfg.collectGarbage {
       automatic = true;
       dates = cfg.gcDates;
