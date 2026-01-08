@@ -34,6 +34,7 @@
     pkgs.pinta
     pkgs.usbutils
     # pkgs.pulseaudioFull
+    pkgs.digikam
   ];
 
   imports = [
