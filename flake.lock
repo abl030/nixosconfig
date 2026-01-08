@@ -3,11 +3,11 @@
     "domain-monitor-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1766061435,
-        "narHash": "sha256-v/5llABZ5WReBleiv1UEkHoYpcUp62rCIxuVLT1g+q8=",
+        "lastModified": 1767875020,
+        "narHash": "sha256-MnecwSQAZEPZU+Ighkv/kW0OMmKVlq9SJz+0c2g8T6s=",
         "owner": "Hosteroid",
         "repo": "domain-monitor",
-        "rev": "24d5479dcf73ac22362892bd7193a8c6f2426f2a",
+        "rev": "50e273dfcb7fe95706b94fc32804925e5543e673",
         "type": "github"
       },
       "original": {
@@ -115,11 +115,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1767824564,
-        "narHash": "sha256-DRhbz2dZaEmj5MgLFMXjEPfmKYfMG6LwNT9Bv8zeLPQ=",
+        "lastModified": 1767878997,
+        "narHash": "sha256-pOWcb+hKeRM40eo6+aqTVcGPS1pCPoMOJHvP3So7VBM=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "4fee4bd14b5e4178855ad0041df89fa44f3f2bea",
+        "rev": "d1da1de5c27bcedfbf8d8f260b63b51ee5442550",
         "type": "github"
       },
       "original": {
