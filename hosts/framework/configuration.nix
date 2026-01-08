@@ -113,4 +113,69 @@
   programs.firefox.enable = true;
 
   system.stateVersion = "24.05";
+
+  # =======================================================================
+  # FIX: AMDGPU Suspend Crash Prevention (NFS/Tailscale Hang)
+  # =======================================================================
+
+  # 1. DEFENSE IN DEPTH: Soft Mounts
+  # Ensure the mounts themselves are less likely to hang the kernel
+  # even if our service fails.
+  fileSystems."/mnt/data".options = [
+    "x-systemd.automount"
+    "noauto"
+    "_netdev"
+    "soft"
+    "timeo=30"
+    "retrans=2" # Fail fast if network is gone
+    "noatime"
+  ];
+  fileSystems."/mnt/appdata".options = [
+    "x-systemd.automount"
+    "noauto"
+    "_netdev"
+    "soft"
+    "timeo=30"
+    "retrans=2"
+    "noatime"
+  ];
+
+  # 2. THE CIRCUIT BREAKER SERVICE
+  systemd.services.nfs-suspend-prepare = {
+    description = "Detach NFS and stop Automounts before sleep to prevent GPU crash";
+
+    # We want to run when the system is trying to sleep
+    wantedBy = ["suspend.target" "hibernate.target" "hybrid-sleep.target" "suspend-then-hibernate.target"];
+
+    # CRITICAL ORDERING: We must run BEFORE the service that actually
+    # tells the kernel to sleep.
+    before = [
+      "systemd-suspend.service"
+      "systemd-hibernate.service"
+      "systemd-hybrid-sleep.service"
+      "systemd-suspend-then-hibernate.service"
+    ];
+
+    unitConfig = {
+      # Run this even if network/other dependencies are already stopping
+      DefaultDependencies = "no";
+    };
+
+    serviceConfig = {
+      Type = "oneshot";
+      TimeoutSec = "5s";
+
+      # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
+      # 1. Stop the automount triggers so nothing can re-mount during suspend
+      ExecStart = [
+        "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount"
+
+        # 2. The Hammer: Lazy (-l) and Force (-f) unmount all NFS shares immediately
+        "-${pkgs.util-linux}/bin/umount -l -f -a -t nfs,nfs4"
+      ];
+
+      # Restart the automounts on resume so they work again
+      ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount";
+    };
+  };
 }
