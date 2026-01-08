@@ -27,6 +27,7 @@
     pkgs.deadnix
     pkgs.alejandra
     pkgs.claude-code
+    pkgs.exiftool
 
     # Rust Utils
     pkgs.fzf
