@@ -57,7 +57,7 @@
       # "rtc_cmos.use_acpi_alarm=1"
 
       "amdgpu.abmlevel=0" # new
-      "iommu=pt" # new - key addition
+      # "iommu=pt" # new - key addition
 
       # S3 Sleep trial
       # "mem_sleep_default=deep"
