@@ -60,7 +60,7 @@
       "iommu=pt" # new - key addition
 
       # S3 Sleep trial
-      "mem_sleep_default=deep"
+      # "mem_sleep_default=deep"
     ];
   };
 
