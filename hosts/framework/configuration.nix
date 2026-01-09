@@ -99,12 +99,6 @@
     polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
   };
 
-  # Fix for fprintd keeping device busy
-  systemd.services.fprintd = {
-    wantedBy = ["multi-user.target"];
-    serviceConfig.Type = "simple";
-  };
-
   security.rtkit.enable = true;
 
   users.users.abl030 = {
