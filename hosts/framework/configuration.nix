@@ -58,6 +58,9 @@
 
       "amdgpu.abmlevel=0" # new
       "iommu=pt" # new - key addition
+
+      # S3 Sleep trial
+      "mem_sleep_default=deep"
     ];
   };
 
