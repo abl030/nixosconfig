@@ -9,6 +9,7 @@
     ../common/desktop.nix
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ../framework/sleep-then-hibernate.nix
+    ../framework/hibernate_fix.nix
     ../services/system/remote_desktop_nosleep.nix
 
     # ./fingerprint-fix.nix
@@ -59,8 +60,9 @@
       "amdgpu.abmlevel=0" # new
       # "iommu=pt" # new - key addition
 
-      # S3 Sleep trial
-      # "mem_sleep_default=deep"
+      # DEBUGGING
+      "no_console_suspend" # Keep console alive during suspend for debugging
+      "pm_debug_messages" # More PM debugging output
     ];
   };
 
