@@ -30,6 +30,9 @@ _: {
     HibernateDelaySec=3h
     SuspendEstimationSec=1h
     HibernateOnACPower=no
+
+    HibernateMode=shutdown
+    SuspendState=freeze
   '';
 
   # Trigger suspend-then-hibernate on lid close (not plain suspend)
