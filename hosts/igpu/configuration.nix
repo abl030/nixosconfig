@@ -12,7 +12,7 @@
   boot = {
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
-    # kernelPackages = pkgs.linuxPackages_latest;
+    kernelPackages = pkgs.linuxPackages_latest;
     kernel.sysctl = {
       "fs.inotify.max_user_watches" = 2097152;
     };
@@ -33,7 +33,7 @@
       enable = true;
       collectGarbage = true;
       trim = true;
-      rebootOnKernelUpdate = false;
+      rebootOnKernelUpdate = true;
     };
   };
 
