@@ -163,9 +163,16 @@ in {
         log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
         log "Target Flake: ${config.system.autoUpgrade.flake}"
 
-        ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
-          --flake ${config.system.autoUpgrade.flake} \
-          ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
+        # FIX: Inhibit sleep/idle while update runs to prevent suspend-then-hibernate
+        # from putting the system back to sleep mid-download
+        ${pkgs.systemd}/bin/systemd-inhibit \
+          --what=sleep:idle \
+          --who="NixOS Upgrade" \
+          --why="System update in progress" \
+          -- \
+          ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
+            --flake ${config.system.autoUpgrade.flake} \
+            ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
 
         UPDATE_EXIT_CODE=$?
 
