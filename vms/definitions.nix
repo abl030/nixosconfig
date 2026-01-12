@@ -128,17 +128,16 @@
   # Add new VMs here. They will be created, configured, and tracked.
   # These VMs are fully managed: creation, updates, and lifecycle.
   managed = {
-    # Example structure (commented out):
-    # test-vm = {
-    #   vmid = 110;  # Must be unique and not in use
-    #   cores = 2;
-    #   memory = 4096;  # MB
-    #   disk = "20G";
-    #   storage = "nvmeprom";  # Optional, defaults to proxmox.defaultStorage
-    #   nixosConfig = "test-vm";  # Must match hosts/{name}/ directory
-    #   purpose = "Testing automated provisioning system";
-    #   services = [];  # List services this VM will run
-    # };
+    test-automation = {
+      vmid = 110;
+      cores = 2;
+      memory = 4096; # MB
+      disk = "20G";
+      storage = "nvmeprom";
+      nixosConfig = "test-automation";
+      purpose = "Testing automated VM provisioning system";
+      services = ["Testing" "Validation"];
+    };
   };
 
   # Template Configuration
