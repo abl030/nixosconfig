@@ -63,12 +63,6 @@ in {
       default = [];
       description = "List of allowed SSIDs. If empty, allows any connection.";
     };
-
-    suspendAfterUpdate = lib.mkOption {
-      type = lib.types.bool;
-      default = true;
-      description = "After update finishes, suspend again if lid is closed (only on AC-gated hosts).";
-    };
   };
 
   config = lib.mkIf cfg.enable (let
@@ -78,9 +72,6 @@ in {
       log() { echo "[SmartUpdate] $1"; }
 
       log "--- STARTING SMART UPDATE SEQUENCE ---"
-
-      # Marker used to avoid post-suspend if we are about to reboot.
-      rm -f /run/smartupdate-reboot-requested 2>/dev/null || true
 
       # 0. AC POWER GATE (runs first - fastest check)
       ${lib.optionalString cfg.checkAcPower ''
@@ -158,7 +149,6 @@ in {
           NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
           if [ "$BOOTED" != "$NEW" ]; then
             log "ACTION: Kernel change detected. Rebooting system..."
-            touch /run/smartupdate-reboot-requested
             /run/current-system/sw/bin/reboot
             exit 0
           fi
@@ -193,53 +183,11 @@ in {
         "--mode=block"
       )
 
-      # 2) Acquire inhibitor robustly (retry the known race).
-      for i in $(seq 1 30); do
-        err="$(${pkgs.coreutils}/bin/mktemp)"
-        if "''${INHIBIT[@]}" -- ${pkgs.coreutils}/bin/true 2> "$err"; then
-          rm -f "$err"
-          break
-        fi
-
-        if grep -q "Failed to inhibit: The operation inhibition has been requested for is already running" "$err"; then
-          rm -f "$err"
-          log "inhibit race on resume; retrying..."
-          sleep 1
-          continue
-        fi
-
-        log "Unexpected inhibit failure:"
-        cat "$err" >&2
-        rm -f "$err"
-        exit 1
-      done
-
-      set +e
+      # 2) Acquire inhibitor and run upgrade
       "''${INHIBIT[@]}" -- ${lib.getExe smartUpgrade}
-      rc=$?
-      set -e
 
-      # 3) If lid is closed, we woke for update, and we're not rebooting — suspend again, detached.
-      if ${lib.boolToString cfg.suspendAfterUpdate}; then
-        if [ -e /run/smartupdate-reboot-requested ]; then
-          log "Reboot requested; skipping post-suspend."
-          exit "$rc"
-        fi
-
-        lid="$(loginctl show -p LidClosed --value 2>/dev/null || echo no)"
-        docked="$(loginctl show -p Docked --value 2>/dev/null || echo no)"
-
-        if [ "$lid" = "yes" ] && [ "$docked" != "yes" ]; then
-          log "Lid closed and not docked → requesting suspend-then-hibernate (detached)"
-          unit="smartupdate-suspend-$(${pkgs.coreutils}/bin/date +%s)"
-          ${pkgs.systemd}/bin/systemd-run --no-block --collect --unit="$unit" \
-            ${pkgs.systemd}/bin/loginctl suspend-then-hibernate || true
-        else
-          log "Not suspending (lid=$lid docked=$docked)"
-        fi
-      fi
-
-      exit "$rc"
+      # When we exit, the inhibitor releases and logind will handle
+      # suspend automatically if the lid is still closed.
     '';
   in {
     # 1) Base autoUpgrade setup
@@ -263,21 +211,15 @@ in {
     # 3) Logind: ONLY adjust lid inhibitor semantics on AC-gated hosts (i.e. laptops)
     services.logind.settings.Login = lib.mkIf cfg.checkAcPower {
       LidSwitchIgnoreInhibited = "no";
-      # Optional: give a bit more time post-resume; default is usually 30s
-      # HoldoffTimeoutSec = "60s";
     };
 
     # 4) Override nixos-upgrade ExecStart:
-    #    - on laptops (checkAcPower=true): wrapper (wait+inhibit+post-suspend)
+    #    - on laptops (checkAcPower=true): wrapper (wait+inhibit)
     #    - elsewhere: just run the upgrade script (no logind dependency)
+    # Order after sleep services so we only run AFTER resume completes.
+    # Do NOT use Wants= here - that would TRIGGER these services to start!
     systemd.services.nixos-upgrade = {
       after = lib.mkAfter [
-        "systemd-suspend.service"
-        "systemd-hibernate.service"
-        "systemd-hybrid-sleep.service"
-        "systemd-suspend-then-hibernate.service"
-      ];
-      wants = lib.mkAfter [
         "systemd-suspend.service"
         "systemd-hibernate.service"
         "systemd-hybrid-sleep.service"
