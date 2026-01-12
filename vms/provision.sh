@@ -27,11 +27,11 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}==>${NC} $*"
+    echo -e "${BLUE}==>${NC} $*" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}✓${NC} $*"
+    echo -e "${GREEN}✓${NC} $*" >&2
 }
 
 log_error() {
@@ -39,15 +39,28 @@ log_error() {
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠${NC} $*"
+    echo -e "${YELLOW}⚠${NC} $*" >&2
 }
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Proxmox operations script
-PROXMOX_OPS="$SCRIPT_DIR/proxmox-ops.sh"
+# Find repository root (must be in nixosconfig git repo)
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+else
+    # Fallback: assume we're one level down from repo root
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
+# Proxmox operations command
+# When running from Nix package, use command from PATH
+# When running directly, use script from same directory
+if command -v proxmox-ops >/dev/null 2>&1; then
+    PROXMOX_OPS="proxmox-ops"
+else
+    PROXMOX_OPS="$SCRIPT_DIR/proxmox-ops.sh"
+fi
 
 # Check prerequisites
 check_prerequisites() {
@@ -60,13 +73,26 @@ check_prerequisites() {
     command -v jq >/dev/null 2>&1 || missing+=("jq")
     command -v git >/dev/null 2>&1 || missing+=("git")
 
-    if [[ ! -f "$PROXMOX_OPS" ]]; then
+    # Check if proxmox-ops is available
+    if [[ "$PROXMOX_OPS" == "proxmox-ops" ]]; then
+        command -v proxmox-ops >/dev/null 2>&1 || missing+=("proxmox-ops")
+    elif [[ ! -f "$PROXMOX_OPS" ]]; then
         log_error "proxmox-ops.sh not found at $PROXMOX_OPS"
         return 1
     fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         log_error "Missing required commands: ${missing[*]}"
+        return 1
+    fi
+
+    # Check if we're in the nixosconfig repository
+    if [[ ! -f "vms/definitions.nix" ]] || [[ ! -f "hosts.nix" ]]; then
+        log_error "Must be run from the nixosconfig repository root"
+        log_error "Required files not found: vms/definitions.nix, hosts.nix"
+        log_error ""
+        log_error "Run this command from your nixosconfig directory:"
+        log_error "  cd /path/to/nixosconfig && nix run .#provision-vm <vm-name>"
         return 1
     fi
 
@@ -80,10 +106,11 @@ load_vm_definition() {
     log_info "Loading VM definition for '$vm_name'..."
 
     # Use Nix to extract VM definition
+    # Use absolute paths from repository root
     local nix_expr="
         let
           lib = (import <nixpkgs> {}).lib;
-          vmLib = import $SCRIPT_DIR/lib.nix { inherit lib; };
+          vmLib = import $REPO_ROOT/vms/lib.nix { inherit lib; };
           defs = vmLib.loadDefinitions;
           vm = vmLib.getVM defs \"$vm_name\";
         in
@@ -161,7 +188,7 @@ generate_cloudinit() {
         let
           pkgs = import <nixpkgs> {};
           lib = pkgs.lib;
-          cloudinit = import $SCRIPT_DIR/cloudinit.nix { inherit lib pkgs; };
+          cloudinit = import $REPO_ROOT/vms/cloudinit.nix { inherit lib pkgs; };
           hosts = import $REPO_ROOT/hosts.nix;
           config = cloudinit.generateCloudInitConfig {
             vmName = \"$vm_name\";

@@ -93,4 +93,16 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = masterKeys;
   };
+
+  test-automation = {
+    configurationFile = ./hosts/test-automation/configuration.nix;
+    homeFile = ./hosts/test-automation/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "test-automation";
+    sshAlias = "test-automation";
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 PLACEHOLDER_KEY_WILL_BE_ADDED_DURING_PROVISIONING";
+    authorizedKeys = masterKeys;
+  };
 }
