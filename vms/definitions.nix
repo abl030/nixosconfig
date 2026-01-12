@@ -143,14 +143,19 @@
   # Template Configuration
   # This template is cloned when creating new VMs
   template = {
-    vmid = 9001;
-    name = "NixosServerBlank";
-    description = "Base NixOS server template for cloning";
+    vmid = 9002;
+    name = "ubuntu-cloud-template";
+    description = "Ubuntu cloud image with cloud-init for bootstrapping";
     specs = {
-      cores = 8;
-      memory = 8096;
-      # No disk - clones get fresh disks
+      cores = 2;
+      memory = 2048;
+      disk = "3584M"; # Base Ubuntu cloud image, will be resized during provisioning
     };
+    notes = [
+      "Cloud-init pre-configured - SSH keys injected automatically"
+      "QEMU guest agent enabled for IP detection"
+      "nixos-anywhere replaces Ubuntu with NixOS after SSH bootstrap"
+    ];
   };
 
   # Reserved VMID Ranges

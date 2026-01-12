@@ -215,9 +215,9 @@ clone_vm() {
     local vm_name="$2"
     local storage="$3"
 
-    log_info "Cloning template (VMID 9001) to VMID $vmid..."
+    log_info "Cloning template (VMID 9002) to VMID $vmid..."
 
-    if ! "$PROXMOX_OPS" clone 9001 "$vmid" "$vm_name" "$storage"; then
+    if ! "$PROXMOX_OPS" clone 9002 "$vmid" "$vm_name" "$storage"; then
         log_error "Failed to clone template"
         return 1
     fi
@@ -241,37 +241,32 @@ configure_vm() {
     log_success "VM resources configured"
 }
 
-# Create and attach disk
-create_vm_disk() {
+# Resize VM disk to target size
+resize_vm_disk() {
     local vmid="$1"
     local disk="$2"
-    local storage="$3"
 
-    log_info "Creating disk ($disk)..."
+    log_info "Resizing disk to $disk..."
 
-    if ! "$PROXMOX_OPS" create-disk "$vmid" "$disk" "$storage"; then
-        log_error "Failed to create disk"
+    if ! "$PROXMOX_OPS" resize "$vmid" scsi0 "$disk"; then
+        log_error "Failed to resize disk"
         return 1
     fi
 
-    log_success "Disk created and attached"
+    log_success "Disk resized to $disk"
 }
 
 # Setup cloud-init
 setup_cloudinit() {
     local vmid="$1"
     local ssh_keys="$2"
-    local storage="$3"
+    # storage parameter kept for API compatibility but not used
+    # (cloud-init drive inherited from template)
 
-    log_info "Setting up cloud-init..."
-
-    # Create cloud-init drive
-    if ! "$PROXMOX_OPS" cloudinit-drive "$vmid" "$storage"; then
-        log_error "Failed to create cloud-init drive"
-        return 1
-    fi
+    log_info "Configuring cloud-init with SSH keys..."
 
     # Configure cloud-init with SSH keys
+    # (cloud-init drive already exists from template clone)
     if ! "$PROXMOX_OPS" cloudinit-config "$vmid" "$ssh_keys"; then
         log_error "Failed to configure cloud-init"
         return 1
@@ -383,8 +378,8 @@ provision_vm() {
         return 1
     fi
 
-    # Create disk
-    if ! create_vm_disk "$VMID" "$DISK" "$STORAGE"; then
+    # Resize disk (template already has base disk from cloud image)
+    if ! resize_vm_disk "$VMID" "$DISK"; then
         return 1
     fi
 

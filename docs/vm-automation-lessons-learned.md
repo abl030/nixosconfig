@@ -1,425 +1,204 @@
-# VM Automation - Lessons Learned (2026-01-12)
+# VM Automation - Lessons Learned
 
-**Status**: End-to-end testing revealed multiple automation gaps
+## Current Working Approach
 
----
+**Template 9002** (Ubuntu cloud image) solves the chicken-and-egg problem:
+- Cloud-init needs an OS to configure
+- Ubuntu cloud image provides that OS
+- nixos-anywhere then replaces it with NixOS
 
-## What We Attempted
-
-Full automated provisioning of test-automation VM (VMID 110):
-1. Clone template → Configure resources → Setup cloud-init → Start VM
-2. Boot into live environment with SSH
-3. Deploy NixOS via nixos-anywhere
-4. Post-provision fleet integration
-
----
-
-## Issues Discovered
-
-### 1. Template Had Disk ✅ FIXED
-
-**Problem**: Template VM (VMID 9001) had a 150GB disk attached
-- When cloning, new VM inherited the disk
-- Script tried to CREATE a new disk, failed with "unable to parse zfs volume name '20G'"
-
-**Root Cause**: Template wasn't diskless as expected
-
-**Fix**: Removed disk from template 9001
-- VMs now clone without disks
-- Provision script creates disk with correct size (20G)
-
-**Status**: ✅ RESOLVED
-
----
-
-### 2. Cloud-init Doesn't Install OS ⚠️ FUNDAMENTAL ISSUE
-
-**Problem**: We configured cloud-init with SSH keys, but VM has no OS on disk
-- VM boots and tries to use cloud-init
-- But cloud-init only configures EXISTING operating systems
-- It doesn't install an OS from scratch
-
-**What Actually Happens**:
-1. VM clones from diskless template
-2. New 20GB disk is created (empty, no filesystem)
-3. Cloud-init drive is attached with SSH keys
-4. VM starts → no bootable OS → falls back to PXE boot
-
-**Realization**: Cloud-init is for **post-install configuration**, not OS installation
-
-**Status**: ⚠️ ARCHITECTURAL ISSUE
-
----
-
-### 3. Live ISO Boot is Not Automated 🔴 BLOCKER
-
-**Attempted Solutions**:
-
-#### Option A: NixOS Minimal ISO
-- Boots into live environment
-- SSH daemon NOT running by default
-- Requires manual console access to:
-  - `sudo passwd` (set root password)
-  - `systemctl start sshd` (enable SSH)
-  - Get IP address
-- **Not automatic**
-
-#### Option B: Ubuntu Server ISO
-- Has cloud-init support
-- BUT: Boots into installer TUI (text user interface)
-- Doesn't automatically apply cloud-init in live mode
-- Requires manual interaction
-- **Not automatic**
-
-#### Option C: Custom ISO
-- Could create custom NixOS ISO with:
-  - SSH pre-enabled
-  - Fleet keys baked in
-  - Auto-DHCP and qemu-guest-agent
-- **One-time effort, then automatic**
-- Not yet implemented
-
-**Current Workaround**: Manual console access to enable SSH in live environment
-
-**Status**: 🔴 REQUIRES MANUAL INTERVENTION
-
----
-
-### 4. SSH Authentication Loops 🔴 BLOCKER
-
-**Problem**: nixos-anywhere can't authenticate to live ISO
-
-**What Happens**:
+### Provisioning Flow
 ```
-ssh-copy-id attempts key auth with ALL available SSH keys
-→ Hits "Too many authentication failures"
-→ Connection refused before password prompt
-→ Retries infinitely
-→ Never succeeds
+Clone template 9002 → Resize disk → Inject SSH keys via cloud-init → Start → Find IP → SSH in → nixos-anywhere
 ```
 
-**Root Cause**: SSH agent has multiple keys, tries them all before password
-
-**Attempted Workarounds**:
-- Disable SSH agent: Failed
-- Force password auth only: Failed
-- Use sshpass: Not installed
-
-**Working Solution**: Manually add fleet key to `/root/.ssh/authorized_keys` in live environment
-
-**Status**: 🔴 REQUIRES MANUAL INTERVENTION
-
 ---
 
-## Current Workflow (Reality)
+## Key Learnings
 
-### Automated Steps ✅
-1. Clone template VM from diskless 9001
-2. Configure CPU/RAM (2 cores, 4GB)
-3. Create disk (20G on nvmeprom)
-4. Attach cloud-init drive with fleet SSH keys
-5. Start VM
+### 1. Template Must Have an OS
 
-**Time**: ~30 seconds
-**Success**: 100%
+**Wrong**: Blank UEFI template (9001) - cloud-init can't configure nothing
+**Right**: Ubuntu cloud image (9002) - boots, runs cloud-init, accepts SSH
 
-### Manual Steps Required 🔴
-
-**Step 1: Boot Live Environment** (5 minutes)
-1. Attach NixOS ISO via Proxmox console:
-   ```bash
-   qm set 110 --ide0 local:iso/latest-nixos-minimal-x86_64-linux.iso,media=cdrom
-   qm set 110 --boot order=ide0;scsi0
-   qm stop 110 && qm start 110
-   ```
-
-2. Wait for boot (watch console)
-
-3. In VM console, enable SSH:
-   ```bash
-   sudo passwd  # Set password
-   systemctl start sshd
-   ip addr show | grep inet  # Get IP
-   ```
-
-**Step 2: Add SSH Key** (1 minute)
-In VM console:
+Template setup:
 ```bash
-mkdir -p /root/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity" > /root/.ssh/authorized_keys
-chmod 700 /root/.ssh
-chmod 600 /root/.ssh/authorized_keys
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+qm create 9002 --name "ubuntu-cloud-template" ...
+qm importdisk 9002 noble-server-cloudimg-amd64.img nvmeprom
+qm set 9002 --ide2 nvmeprom:cloudinit --agent enabled=1
+qm template 9002
 ```
 
-**Step 3: Run nixos-anywhere** (5-10 minutes)
+### 2. IP Discovery Without Guest Agent
+
+Guest agent isn't running on first boot. Use MAC/ARP fallback:
+
 ```bash
-nix run github:nix-community/nixos-anywhere -- --flake .#test-automation root@<IP>
+# Get VM MAC
+MAC=$(qm config 110 | grep -oP 'virtio=\K[^,]+')
+
+# Ping sweep to populate ARP
+for i in $(seq 1 254); do ping -c1 -W1 192.168.1.$i &>/dev/null & done; wait
+
+# Find IP by MAC
+ip neigh | grep -i "$MAC"
 ```
 
-**Step 4: Post-provision** (2 minutes)
-```bash
-bash vms/post-provision.sh test-automation <new-IP> 110
-```
+This is now built into `proxmox-ops.sh get-ip`.
 
-**Total Manual Time**: ~15-20 minutes per VM
+### 3. Cloud Image Auth
 
----
+- Ubuntu cloud images have **no default password**
+- SSH key injection is the only access method
+- Console login requires explicitly setting `--cipassword`
 
-## Why This Matters
+### 4. Resize, Don't Create Disk
 
-### Current State
-- **First 30 seconds**: Fully automated ✅
-- **Next 15-20 minutes**: Manual console interaction required 🔴
+When cloning from cloud image:
+- Template already has a disk (3.5GB)
+- Use `qm resize` not `qm set --scsi0`
 
-### Expected State
-- **End-to-end**: Fully automated ✅
-- **User action**: None (or single confirmation prompt)
+### 5. nixos-anywhere Requires Disko
 
-**Gap**: 15-20 minutes of manual work per VM
+nixos-anywhere needs disko for disk partitioning. Each host config needs:
 
----
-
-## Root Cause Analysis
-
-### The Chicken-and-Egg Problem
-
-```
-Need: Automated OS installation
-Requires: SSH access to live environment
-Problem: Live environments don't auto-enable SSH
-Solution 1: Manual console access (current)
-Solution 2: Custom ISO with SSH pre-configured (future)
-```
-
-### Why Cloud-init Didn't Solve This
-
-Cloud-init configuration flow:
-1. OS boots from disk
-2. Cloud-init runs during boot
-3. Applies configuration (users, SSH keys, network)
-4. OS is now configured
-
-Our flow:
-1. No OS on disk
-2. Need to INSTALL OS first
-3. Then cloud-init can configure it
-
-**Mismatch**: Cloud-init = post-install config, not installer
-
----
-
-## Proposed Solutions
-
-### Option 1: Custom NixOS ISO (Recommended)
-
-**Create once, use forever**
-
-Build custom ISO with:
+1. Add disko to flake inputs:
 ```nix
-# custom-installer.nix
+disko = {
+  url = "github:nix-community/disko";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+2. Create `hosts/<name>/disko.nix`:
+```nix
 {
-  # Enable SSH by default
-  services.openssh.enable = true;
-  services.openssh.settings.PermitRootLogin = "yes";
-
-  # Add fleet keys
-  users.users.root.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
-  ];
-
-  # Auto-DHCP
-  networking.useDHCP = true;
-
-  # QEMU guest agent
-  services.qemuGuest.enable = true;
+  disko.devices.disk.main = {
+    type = "disk";
+    device = "/dev/sda";
+    content = {
+      type = "gpt";
+      partitions = {
+        ESP = { size = "512M"; type = "EF00"; content = { type = "filesystem"; format = "vfat"; mountpoint = "/boot"; }; };
+        root = { size = "100%"; content = { type = "filesystem"; format = "ext4"; mountpoint = "/"; }; };
+      };
+    };
+  };
 }
 ```
 
-**Build**: `nix build .#custom-installer-iso`
-**Upload to Proxmox**: Once
-**Benefit**: Fully automated thereafter
-
-**Effort**: 2-4 hours one-time setup
-**Savings**: 15 minutes per VM forever
-
----
-
-### Option 2: Automated Console Interaction
-
-Use `expect` or similar to automate console commands:
-```bash
-expect <<EOF
-spawn qm terminal 110
-expect "login:"
-send "root\r"
-expect "Password:"
-send "passwd\r"
-# ... etc
-EOF
+3. Import in configuration.nix:
+```nix
+{pkgs, inputs, ...}: {
+  imports = [
+    inputs.disko.nixosModules.disko
+    ./disko.nix
+    ./hardware-configuration.nix
+  ];
+  # ...
+}
 ```
 
-**Pros**: No custom ISO needed
-**Cons**: Fragile, timing-dependent, complex
+4. Remove `fileSystems` from hardware-configuration.nix (disko handles it)
+
+**TODO**: Automate disko.nix generation during `provision-vm`
+
+### 6. Template VGA Setting
+
+Ubuntu cloud template (9002) has `vga: serial0` for serial console. After nixos-anywhere, this can cause console access issues.
+
+**Fix**: Set VGA to standard after provisioning:
+```bash
+qm set <vmid> --vga std
+```
+
+**TODO**: Add this to provision script or update template.
+
+### 7. Sops Secrets on New VMs
+
+nixos-anywhere shows sops errors on first install - this is expected:
+```
+Cannot read ssh key '/etc/ssh/ssh_host_ed25519_key': no such file or directory
+```
+
+The VM doesn't have its SSH host key in `.sops.yaml` yet. Run post-provision to:
+1. Extract SSH host key
+2. Add to `.sops.yaml`
+3. Re-encrypt secrets
 
 ---
 
-### Option 3: Accept Manual Step
+## Commands Reference
 
-Document the 15-minute manual process as required:
-- "First boot requires console access to enable SSH"
-- Provide clear step-by-step instructions
-- Automate everything after SSH is available
+```bash
+# Provision VM
+./vms/provision.sh test-automation
 
-**Pros**: No additional work
-**Cons**: Not truly automated
+# Or manually:
+./vms/proxmox-ops.sh clone 9002 110 test-automation nvmeprom
+./vms/proxmox-ops.sh configure 110 2 4096
+./vms/proxmox-ops.sh resize 110 scsi0 20G
+./vms/proxmox-ops.sh cloudinit-config 110 "$SSH_KEYS"
+./vms/proxmox-ops.sh start 110
 
----
+# Get IP (uses MAC/ARP fallback automatically)
+./vms/proxmox-ops.sh get-ip 110
 
-### Option 4: Pre-installed Template
-
-Instead of diskless template, maintain a template WITH NixOS installed:
-- Template has minimal NixOS installation
-- Cloud-init configures on first boot
-- nixos-anywhere updates to our config
-
-**Pros**: Boots directly, SSH available immediately
-**Cons**: Template maintenance, must update periodically
+# Deploy NixOS
+nixos-anywhere --flake .#test-automation root@<ip>
+```
 
 ---
 
-## Recommendations
+## What's Automated vs Manual
 
-### Immediate (Testing)
-1. Accept manual SSH setup for now
-2. Complete end-to-end test with test-automation VM
-3. Validate post-provision automation works
-4. Document actual workflow
+| Step | Status |
+|------|--------|
+| Clone template | Automated |
+| Configure resources | Automated |
+| Resize disk | Automated |
+| Inject SSH keys | Automated |
+| Start VM | Automated |
+| Find IP | Automated (MAC/ARP) |
+| SSH access | Automated (fleet keys) |
+| NixOS install | Manual command |
+| Post-provision | Manual command |
 
-### Short-term (Production Readiness)
-1. **Build custom NixOS installer ISO** (Option 1)
-   - 2-4 hours of work
-   - Solves the automation gap completely
-   - Best ROI for regular VM creation
-
-2. Update provision script to:
-   - Detect if custom ISO exists
-   - Use it automatically
-   - Fall back to manual with clear instructions
-
-### Long-term (Nice-to-have)
-1. Investigate PXE boot as alternative
-2. Consider automated console interaction (Option 2)
-3. Create multiple ISOs for different VM types
+**Total manual work**: 2 commands after VM boots
 
 ---
 
-## What We Learned
+## Historical Context
 
-### About Proxmox/KVM VMs
-- Template cloning works great
-- Cloud-init configuration applied correctly
-- Resource configuration straightforward
-- QEMU guest agent needed for IP detection
+Previously tried blank template + custom ISO approach. Problems:
+- Blank template = no OS for cloud-init to configure
+- NixOS ISO = SSH not enabled by default
+- Required console access to enable SSH manually
 
-### About NixOS Deployment
-- nixos-anywhere requires SSH access to live environment
-- No standard way to auto-enable SSH in ISO
-- Custom ISOs are the standard solution
-- Community has examples (search "nixos custom installer")
-
-### About Automation
-- "Fully automated" means NO manual steps
-- 95% automated still requires manual work
-- First-boot automation is hard
-- One-time setup (custom ISO) is worth it
+**Solution**: Ubuntu cloud image template sidesteps all of this.
 
 ---
 
-## Current Status
+## Current Status (2026-01-12)
 
-### Phase 1: Foundation ✅
-- VM definitions, operations library, documentation
-- **100% complete**
+**VM 110 (test-automation)**: NixOS installed via nixos-anywhere, but VM fails to boot.
 
-### Phase 2: Orchestration ✅
-- Cloud-init, provision script, post-provision, flake integration
-- **100% complete** (code works as designed)
+### What Worked
+- Template 9002 clone and cloud-init SSH key injection
+- MAC/ARP IP discovery (192.168.1.151)
+- SSH to Ubuntu cloud image
+- nixos-anywhere kexec and NixOS installation completed
+- nixos-anywhere reported "installation finished!" and "### Done! ###"
 
-### Phase 3: Testing 🟡
-- VM created successfully (VMID 110)
-- **Blocked at**: Manual SSH setup required
-- **Completion**: 30% (automated portion works)
+### What's Broken
+- **VM stuck at "booting from hard-disk"** - never gets past bootloader
+- Likely disko/boot partition configuration issue
+- May be EFI vs BIOS mismatch, or partition table issue
 
-### Phase 4: Production Readiness 🔴
-- **Blocked**: Not truly automated without custom ISO
-- **Required**: Build custom installer ISO
-- **Status**: Not started
-
----
-
-## Next Actions
-
-### To Complete Current Test
-
-1. ✅ Template made diskless
-2. ✅ VM cloned and configured
-3. 🔄 Manual SSH setup (in progress)
-4. ⏳ Run nixos-anywhere
-5. ⏳ Run post-provision
-6. ⏳ Test SSH to finished VM
-7. ⏳ Document results
-
-### To Achieve Full Automation
-
-1. ❌ Build custom NixOS installer ISO with SSH
-2. ❌ Upload to Proxmox storage
-3. ❌ Update provision script to use custom ISO
-4. ❌ Test fully automated workflow
-5. ❌ Document and commit
-
----
-
-## Time Investment Analysis
-
-### Current Manual Process
-- **Per VM**: 15-20 minutes manual work
-- **10 VMs/year**: 150-200 minutes = 2.5-3.5 hours/year
-- **Scalability**: Poor (linear time per VM)
-
-### With Custom ISO
-- **One-time**: 2-4 hours to build and test ISO
-- **Per VM**: 0 minutes manual work (fully automated)
-- **10 VMs**: Break-even after 10 VMs
-- **Scalability**: Excellent (constant time)
-
-**Recommendation**: Build custom ISO if planning to create 10+ VMs
-
----
-
-## Documentation Gaps Identified
-
-1. ❌ Custom installer ISO creation guide
-2. ❌ Manual provisioning fallback procedure
-3. ❌ Troubleshooting SSH authentication issues
-4. ❌ Template maintenance procedures
-5. ✅ This lessons learned document
-
----
-
-## Conclusion
-
-**What Works**:
-- Proxmox VM creation and configuration
-- Cloud-init setup
-- Post-provision automation (untested but code complete)
-
-**What Doesn't Work Automatically**:
-- Getting SSH access to fresh VM
-- First-boot automation without custom ISO
-
-**Path Forward**:
-1. **Short-term**: Complete test with manual SSH setup
-2. **Medium-term**: Build custom installer ISO for full automation
-3. **Long-term**: Maintain ISO, consider additional solutions
-
-**Key Insight**: The hard part isn't Proxmox or NixOS - it's the gap between "empty VM" and "SSH-accessible environment". This is a solved problem (custom ISOs), we just need to implement the solution.
+### Next Steps (Tomorrow)
+1. Investigate disko.nix config - check EFI partition setup
+2. Verify template 9002 boot settings (UEFI vs SeaBIOS)
+3. Check if boot partition was created correctly
+4. May need to adjust disko config or template settings
+5. Consider testing disko config in a throwaway VM first
