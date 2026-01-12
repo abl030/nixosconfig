@@ -6,8 +6,14 @@
 
 
 
-1. Make it easier to spin up new proxmox vm's.
-    - Do we git commit hardware.nix?
-    - Need a clone with Nix installed
-    - Need a simple command to do it all, make it as simple and frictionless as possible.
-    - 
+1. ~~Make it easier to spin up new proxmox vm's~~ **[IN PROGRESS - See vm-automation-plan.md]**
+    - ✅ Git commit hardware.nix and all configs automatically
+    - ✅ Template with NixOS ready (VMID 9001: NixosServerBlank)
+    - ✅ VM definitions structure created (vms/definitions.nix)
+    - ✅ Proxmox operations library (vms/proxmox-ops.sh)
+    - ✅ Knowledge base for tracking VMs (docs/machines.md)
+    - 🚧 Single command provisioning: `nix run .#provision-vm <name>` (in progress)
+    - 🚧 Automated nixos-anywhere installation
+    - 🚧 Automatic secret management (sops updatekeys)
+    - **See**: `docs/vm-automation-plan.md` for full details
+    - **Wishlist**: `docs/vm-automation-wishlist.md` for future enhancements
