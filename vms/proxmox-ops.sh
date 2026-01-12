@@ -218,7 +218,7 @@ destroy_vm() {
     ssh_exec "qm destroy ${vmid} --purge"
 }
 
-# Get VM IP address (from QEMU agent or cloud-init)
+# Get VM IP address (from QEMU agent, or MAC/ARP fallback)
 get_vm_ip() {
     local vmid="$1"
 
@@ -227,10 +227,21 @@ get_vm_ip() {
     ip=$(ssh_exec "qm guest cmd ${vmid} network-get-interfaces" 2>/dev/null | \
          grep -oP '"ip-address":\s*"\K[0-9.]+' | head -1 || echo "")
 
-    if [[ -z "$ip" ]]; then
-        # Fallback: try to parse from cloud-init
-        ip=$(ssh_exec "qm cloudinit dump ${vmid} user" 2>/dev/null | \
-             grep -oP 'ip=\K[0-9.]+' || echo "")
+    if [[ -z "$ip" || "$ip" == "127.0.0.1" ]]; then
+        # Fallback: lookup via MAC address in ARP table
+        # This works even when guest agent isn't running yet
+        local mac
+        mac=$(ssh_exec "qm config ${vmid}" 2>/dev/null | \
+              grep -oP 'net0:.*virtio=\K[^,]+' | tr '[:upper:]' '[:lower:]' || echo "")
+
+        if [[ -n "$mac" ]]; then
+            # Ping sweep to populate ARP table (run in background, quick)
+            ssh_exec "for i in \$(seq 1 254); do (ping -c 1 -W 1 192.168.1.\$i &>/dev/null) & done; wait" &>/dev/null
+
+            # Look up MAC in ARP table
+            ip=$(ssh_exec "ip neigh show | grep -i '${mac}'" 2>/dev/null | \
+                 grep -oP '^[0-9.]+' | head -1 || echo "")
+        fi
     fi
 
     echo "$ip"
@@ -297,6 +308,7 @@ main() {
         echo "  clone <template_vmid> <new_vmid> <name> [storage]" >&2
         echo "  configure <vmid> <cores> <memory>" >&2
         echo "  create-disk <vmid> <size> [storage] [disk]" >&2
+        echo "  resize <vmid> <disk> <size>       Resize VM disk" >&2
         echo "  cloudinit-drive <vmid> [storage]" >&2
         echo "  cloudinit-config <vmid> <ssh_keys> [hostname]" >&2
         echo "  start <vmid>" >&2
@@ -319,6 +331,7 @@ main() {
         clone)          clone_vm "$@" ;;
         configure)      configure_vm "$@" ;;
         create-disk)    create_vm_disk "$@" ;;
+        resize)         resize_vm_disk "$@" ;;
         cloudinit-drive) create_cloudinit_drive "$@" ;;
         cloudinit-config) configure_cloudinit "$@" ;;
         start)          start_vm "$@" ;;

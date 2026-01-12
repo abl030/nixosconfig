@@ -2,7 +2,7 @@
 
 **Goal**: Fully declarative, Nix-based VM provisioning for Proxmox infrastructure
 
-**Status**: Phase 2 (Orchestration) complete - Ready for testing
+**Status**: Phase 3 (Testing) in progress - VM fails to boot after nixos-anywhere (disko issue)
 
 **Last Updated**: 2026-01-12
 
@@ -212,19 +212,36 @@ provision-vm <vm-name>
 
 ---
 
-### 📋 Phase 3: Testing & Refinement (PLANNED)
+### 🔄 Phase 3: Testing & Refinement (IN PROGRESS)
 
 **Target**: Validate end-to-end workflow
 
-#### Tasks
+**Status**: nixos-anywhere completed but VM inaccessible after reboot (VGA/network issue)
 
-- [ ] Test VM creation with minimal config
+#### Completed
+- [x] Template 9002 (Ubuntu cloud image) working
+- [x] Cloud-init SSH key injection working
+- [x] MAC/ARP IP discovery implemented in proxmox-ops.sh
+- [x] Disko added to flake and test-automation config
+- [x] nixos-anywhere successfully installed NixOS
+
+#### Blocked/Investigating
+- [ ] **VM 110 stuck at "booting from hard-disk"** - disko/boot config issue
+- [ ] Likely EFI partition or bootloader configuration problem
+- [ ] Need to check template 9002 BIOS settings vs disko EFI config
+
+#### Remaining Tasks
 - [ ] Verify secret management integration
 - [ ] Test VMID conflict detection
 - [ ] Test readonly VM protection
 - [ ] Validate knowledge base updates
 - [ ] Test git commit automation
 - [ ] Document any edge cases or issues
+
+#### Automation TODOs Discovered
+1. **Disko generation**: Auto-generate `disko.nix` for new VMs (currently manual)
+2. **VGA setting**: Template 9002 has `vga: serial0`, need to set `vga: std` during provision
+3. **hardware-configuration.nix**: Auto-generate without conflicting fileSystems when using disko
 
 #### Test VM Definition
 
