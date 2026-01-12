@@ -63,10 +63,186 @@ in {
       default = [];
       description = "List of allowed SSIDs. If empty, allows any connection.";
     };
+
+    suspendAfterUpdate = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "After update finishes, suspend again if lid is closed (only on AC-gated hosts).";
+    };
   };
 
-  config = lib.mkIf cfg.enable {
-    # 1. Base autoUpgrade setup
+  config = lib.mkIf cfg.enable (let
+    smartUpgrade = pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
+      set -euo pipefail
+
+      log() { echo "[SmartUpdate] $1"; }
+
+      log "--- STARTING SMART UPDATE SEQUENCE ---"
+
+      # Marker used to avoid post-suspend if we are about to reboot.
+      rm -f /run/smartupdate-reboot-requested 2>/dev/null || true
+
+      # 0. AC POWER GATE (runs first - fastest check)
+      ${lib.optionalString cfg.checkAcPower ''
+        log "Checking AC Power..."
+        AC_ONLINE=0
+        for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
+          if [ -f "$supply/online" ]; then
+            status=$(cat "$supply/online")
+            if [ "$status" -eq 1 ]; then
+              AC_ONLINE=1
+              break
+            fi
+          fi
+        done
+
+        if [ "$AC_ONLINE" -eq 0 ]; then
+          log "GATE FAIL: AC Power Check"
+          log "  - Status: On Battery"
+          log "  - Result: SKIPPING update."
+          exit 0
+        fi
+        log "GATE PASS: AC Power Check (Plugged In)"
+      ''}
+
+      # 1. SSID Gate
+      ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
+      if [ -n "$ALLOWED_SSIDS" ]; then
+        log "Checking Network..."
+
+        # WAIT LOOP: Wait up to 45 seconds for NetworkManager to settle
+        for i in {1..45}; do
+          STATE=$(nmcli -t -f state general 2>/dev/null || echo "unknown")
+          if [[ "$STATE" == "connected" ]]; then
+            break
+          fi
+          if [ "$i" -eq 1 ]; then log "Waiting for connection (max 45s)..."; fi
+          sleep 1
+        done
+
+        CURRENT_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2- || echo "")
+
+        if [ -z "$CURRENT_SSID" ]; then
+          log "GATE FAIL: WiFi Check"
+          log "  - Current: No connection (or timed out)"
+          log "  - Result: SKIPPING update."
+          exit 0
+        fi
+
+        if ! echo "$CURRENT_SSID" | grep -qE "^($ALLOWED_SSIDS)$"; then
+          log "GATE FAIL: WiFi Check"
+          log "  - Current: '$CURRENT_SSID'"
+          log "  - Allowed: [$ALLOWED_SSIDS]"
+          log "  - Result: SKIPPING update."
+          exit 0
+        fi
+        log "GATE PASS: WiFi Check (Connected to '$CURRENT_SSID')"
+      fi
+
+      log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
+      log "Target Flake: ${config.system.autoUpgrade.flake}"
+
+      ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
+        --flake ${config.system.autoUpgrade.flake} \
+        ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
+
+      UPDATE_EXIT_CODE=$?
+
+      if [ $UPDATE_EXIT_CODE -eq 0 ]; then
+        log "--- UPDATE SUCCESS ---"
+        mkdir -p /var/lib/nixos-upgrade
+        date +%s > /var/lib/nixos-upgrade/last-success-timestamp
+
+        if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
+          BOOTED=$(readlink -f /run/booted-system/kernel)
+          NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
+          if [ "$BOOTED" != "$NEW" ]; then
+            log "ACTION: Kernel change detected. Rebooting system..."
+            touch /run/smartupdate-reboot-requested
+            /run/current-system/sw/bin/reboot
+            exit 0
+          fi
+        fi
+      else
+        log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
+        log "Check journal above for nixos-rebuild errors."
+      fi
+
+      exit "$UPDATE_EXIT_CODE"
+    '';
+
+    laptopWrapper = pkgs.writeShellScriptBin "smart-nixos-upgrade-wrapper" ''
+      set -euo pipefail
+
+      log() { echo "[SmartUpdate] $*"; }
+
+      # 1) Wait for logind to finish resume (bounded, no infinite hang).
+      for i in $(seq 1 30); do
+        pfs="$(loginctl show -p PreparingForSleep --value 2>/dev/null || true)"
+        if [ -z "$pfs" ] || [ "$pfs" = "no" ]; then
+          break
+        fi
+        [ "$i" -eq 1 ] && log "logind PreparingForSleep=yes; waiting..."
+        sleep 1
+      done
+
+      INHIBIT=("${pkgs.systemd}/bin/systemd-inhibit"
+        "--what=sleep:idle:handle-lid-switch"
+        "--who=NixOS Upgrade"
+        "--why=System update in progress"
+        "--mode=block"
+      )
+
+      # 2) Acquire inhibitor robustly (retry the known race).
+      for i in $(seq 1 30); do
+        err="$(${pkgs.coreutils}/bin/mktemp)"
+        if "''${INHIBIT[@]}" -- ${pkgs.coreutils}/bin/true 2> "$err"; then
+          rm -f "$err"
+          break
+        fi
+
+        if grep -q "Failed to inhibit: The operation inhibition has been requested for is already running" "$err"; then
+          rm -f "$err"
+          log "inhibit race on resume; retrying..."
+          sleep 1
+          continue
+        fi
+
+        log "Unexpected inhibit failure:"
+        cat "$err" >&2
+        rm -f "$err"
+        exit 1
+      done
+
+      set +e
+      "''${INHIBIT[@]}" -- ${lib.getExe smartUpgrade}
+      rc=$?
+      set -e
+
+      # 3) If lid is closed, we woke for update, and we're not rebooting — suspend again, detached.
+      if ${lib.boolToString cfg.suspendAfterUpdate}; then
+        if [ -e /run/smartupdate-reboot-requested ]; then
+          log "Reboot requested; skipping post-suspend."
+          exit "$rc"
+        fi
+
+        lid="$(loginctl show -p LidClosed --value 2>/dev/null || echo no)"
+        docked="$(loginctl show -p Docked --value 2>/dev/null || echo no)"
+
+        if [ "$lid" = "yes" ] && [ "$docked" != "yes" ]; then
+          log "Lid closed and not docked → requesting suspend-then-hibernate (detached)"
+          unit="smartupdate-suspend-$(${pkgs.coreutils}/bin/date +%s)"
+          ${pkgs.systemd}/bin/systemd-run --no-block --collect --unit="$unit" \
+            ${pkgs.systemd}/bin/loginctl suspend-then-hibernate || true
+        else
+          log "Not suspending (lid=$lid docked=$docked)"
+        fi
+      fi
+
+      exit "$rc"
+    '';
+  in {
+    # 1) Base autoUpgrade setup
     system.autoUpgrade = {
       enable = true;
       flake = "github:abl030/nixosconfig#${config.networking.hostName}";
@@ -81,13 +257,33 @@ in {
       randomizedDelaySec = "60min";
     };
 
-    # Ensure the timer wakes the system
-    systemd.timers.nixos-upgrade.timerConfig = {
-      WakeSystem = cfg.wakeOnUpdate;
+    # 2) Timer wake
+    systemd.timers.nixos-upgrade.timerConfig.WakeSystem = cfg.wakeOnUpdate;
+
+    # 3) Logind: ONLY adjust lid inhibitor semantics on AC-gated hosts (i.e. laptops)
+    services.logind.settings.Login = lib.mkIf cfg.checkAcPower {
+      LidSwitchIgnoreInhibited = "no";
+      # Optional: give a bit more time post-resume; default is usually 30s
+      # HoldoffTimeoutSec = "60s";
     };
 
-    # 2. Logic Overhaul: Power Gate -> Wifi Gate -> Update
+    # 4) Override nixos-upgrade ExecStart:
+    #    - on laptops (checkAcPower=true): wrapper (wait+inhibit+post-suspend)
+    #    - elsewhere: just run the upgrade script (no logind dependency)
     systemd.services.nixos-upgrade = {
+      after = lib.mkAfter [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+        "systemd-hybrid-sleep.service"
+        "systemd-suspend-then-hibernate.service"
+      ];
+      wants = lib.mkAfter [
+        "systemd-suspend.service"
+        "systemd-hibernate.service"
+        "systemd-hybrid-sleep.service"
+        "systemd-suspend-then-hibernate.service"
+      ];
+
       path = with pkgs; [
         coreutils
         gnugrep
@@ -96,118 +292,14 @@ in {
         systemd
       ];
 
-      # FIX: Wrap the ENTIRE service execution in systemd-inhibit.
-      # This ensures the inhibitor is active from service start (including during
-      # the network wait loop) rather than only during the rebuild phase.
-      #
-      # We block three things:
-      #   - sleep: prevents suspend/hibernate
-      #   - idle: prevents idle-triggered sleep
-      #   - handle-lid-switch: prevents lid-close from triggering suspend
-      #
-      # Without handle-lid-switch, logind sees "lid closed" after WakeSystem
-      # brings the laptop up and immediately re-suspends (suspend-then-hibernate).
-      serviceConfig.ExecStart = lib.mkForce (
-        "${pkgs.systemd}/bin/systemd-inhibit "
-        + "--what=sleep:idle:handle-lid-switch "
-        + "--who='NixOS Upgrade' "
-        + "--why='System update in progress' "
-        + "--mode=block "
-        + (lib.getExe (pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
-          log() {
-              echo "[SmartUpdate] $1"
-          }
-
-          log "--- STARTING SMART UPDATE SEQUENCE ---"
-
-          # 0. AC POWER GATE (runs first - fastest check)
-          ${lib.optionalString cfg.checkAcPower ''
-            log "Checking AC Power..."
-            AC_ONLINE=0
-            for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
-              if [ -f "$supply/online" ]; then
-                status=$(cat "$supply/online")
-                if [ "$status" -eq 1 ]; then
-                  AC_ONLINE=1
-                  break
-                fi
-              fi
-            done
-
-            if [ "$AC_ONLINE" -eq 0 ]; then
-              log "GATE FAIL: AC Power Check"
-              log "  - Status: On Battery"
-              log "  - Result: SKIPPING update."
-              exit 0
-            fi
-            log "GATE PASS: AC Power Check (Plugged In)"
-          ''}
-
-          # 1. SSID Gate
-          ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
-          if [ -n "$ALLOWED_SSIDS" ]; then
-             log "Checking Network..."
-
-             # WAIT LOOP: Wait up to 45 seconds for NetworkManager to settle
-             for i in {1..45}; do
-                 STATE=$(nmcli -t -f state general 2>/dev/null || echo "unknown")
-                 if [[ "$STATE" == "connected" ]]; then
-                     break
-                 fi
-                 if [ "$i" -eq 1 ]; then log "Waiting for connection (max 45s)..."; fi
-                 sleep 1
-             done
-
-             CURRENT_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2- || echo "")
-
-             if [ -z "$CURRENT_SSID" ]; then
-                log "GATE FAIL: WiFi Check"
-                log "  - Current: No connection (or timed out)"
-                log "  - Result: SKIPPING update."
-                exit 0
-             fi
-
-             if ! echo "$CURRENT_SSID" | grep -qE "^($ALLOWED_SSIDS)$"; then
-                log "GATE FAIL: WiFi Check"
-                log "  - Current: '$CURRENT_SSID'"
-                log "  - Allowed: [$ALLOWED_SSIDS]"
-                log "  - Result: SKIPPING update."
-                exit 0
-             fi
-             log "GATE PASS: WiFi Check (Connected to '$CURRENT_SSID')"
-          fi
-
-          log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
-          log "Target Flake: ${config.system.autoUpgrade.flake}"
-
-          # NOTE: No inner systemd-inhibit needed here anymore - the entire
-          # service is already wrapped by the outer inhibitor.
-          ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
-              --flake ${config.system.autoUpgrade.flake} \
-              ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
-
-          UPDATE_EXIT_CODE=$?
-
-          if [ $UPDATE_EXIT_CODE -eq 0 ]; then
-             log "--- UPDATE SUCCESS ---"
-             mkdir -p /var/lib/nixos-upgrade
-             date +%s > /var/lib/nixos-upgrade/last-success-timestamp
-
-             if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
-                BOOTED=$(readlink -f /run/booted-system/kernel)
-                NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
-                if [ "$BOOTED" != "$NEW" ]; then
-                   log "ACTION: Kernel change detected. Rebooting system..."
-                   /run/current-system/sw/bin/reboot
-                   exit 0
-                fi
-             fi
-          else
-             log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
-             log "Check journal above for nixos-rebuild errors."
-          fi
-        ''))
-      );
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = lib.mkForce (
+          if cfg.checkAcPower
+          then lib.getExe laptopWrapper
+          else lib.getExe smartUpgrade
+        );
+      };
     };
 
     nix.gc = lib.mkIf cfg.collectGarbage {
@@ -220,5 +312,5 @@ in {
       enable = true;
       interval = cfg.trimInterval;
     };
-  };
+  });
 }
