@@ -96,105 +96,118 @@ in {
         systemd
       ];
 
-      serviceConfig.ExecStart = lib.mkForce (lib.getExe (pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
-        log() {
-            echo "[SmartUpdate] $1"
-        }
+      # FIX: Wrap the ENTIRE service execution in systemd-inhibit.
+      # This ensures the inhibitor is active from service start (including during
+      # the network wait loop) rather than only during the rebuild phase.
+      #
+      # We block three things:
+      #   - sleep: prevents suspend/hibernate
+      #   - idle: prevents idle-triggered sleep
+      #   - handle-lid-switch: prevents lid-close from triggering suspend
+      #
+      # Without handle-lid-switch, logind sees "lid closed" after WakeSystem
+      # brings the laptop up and immediately re-suspends (suspend-then-hibernate).
+      serviceConfig.ExecStart = lib.mkForce (
+        "${pkgs.systemd}/bin/systemd-inhibit "
+        + "--what=sleep:idle:handle-lid-switch "
+        + "--who='NixOS Upgrade' "
+        + "--why='System update in progress' "
+        + "--mode=block "
+        + (lib.getExe (pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
+          log() {
+              echo "[SmartUpdate] $1"
+          }
 
-        log "--- STARTING SMART UPDATE SEQUENCE ---"
+          log "--- STARTING SMART UPDATE SEQUENCE ---"
 
-        # 0. AC POWER GATE (runs first - fastest check)
-        ${lib.optionalString cfg.checkAcPower ''
-          log "Checking AC Power..."
-          AC_ONLINE=0
-          for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
-            if [ -f "$supply/online" ]; then
-              status=$(cat "$supply/online")
-              if [ "$status" -eq 1 ]; then
-                AC_ONLINE=1
-                break
+          # 0. AC POWER GATE (runs first - fastest check)
+          ${lib.optionalString cfg.checkAcPower ''
+            log "Checking AC Power..."
+            AC_ONLINE=0
+            for supply in /sys/class/power_supply/AC* /sys/class/power_supply/ADP*; do
+              if [ -f "$supply/online" ]; then
+                status=$(cat "$supply/online")
+                if [ "$status" -eq 1 ]; then
+                  AC_ONLINE=1
+                  break
+                fi
               fi
+            done
+
+            if [ "$AC_ONLINE" -eq 0 ]; then
+              log "GATE FAIL: AC Power Check"
+              log "  - Status: On Battery"
+              log "  - Result: SKIPPING update."
+              exit 0
             fi
-          done
+            log "GATE PASS: AC Power Check (Plugged In)"
+          ''}
 
-          if [ "$AC_ONLINE" -eq 0 ]; then
-            log "GATE FAIL: AC Power Check"
-            log "  - Status: On Battery"
-            log "  - Result: SKIPPING update."
-            exit 0
+          # 1. SSID Gate
+          ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
+          if [ -n "$ALLOWED_SSIDS" ]; then
+             log "Checking Network..."
+
+             # WAIT LOOP: Wait up to 45 seconds for NetworkManager to settle
+             for i in {1..45}; do
+                 STATE=$(nmcli -t -f state general 2>/dev/null || echo "unknown")
+                 if [[ "$STATE" == "connected" ]]; then
+                     break
+                 fi
+                 if [ "$i" -eq 1 ]; then log "Waiting for connection (max 45s)..."; fi
+                 sleep 1
+             done
+
+             CURRENT_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2- || echo "")
+
+             if [ -z "$CURRENT_SSID" ]; then
+                log "GATE FAIL: WiFi Check"
+                log "  - Current: No connection (or timed out)"
+                log "  - Result: SKIPPING update."
+                exit 0
+             fi
+
+             if ! echo "$CURRENT_SSID" | grep -qE "^($ALLOWED_SSIDS)$"; then
+                log "GATE FAIL: WiFi Check"
+                log "  - Current: '$CURRENT_SSID'"
+                log "  - Allowed: [$ALLOWED_SSIDS]"
+                log "  - Result: SKIPPING update."
+                exit 0
+             fi
+             log "GATE PASS: WiFi Check (Connected to '$CURRENT_SSID')"
           fi
-          log "GATE PASS: AC Power Check (Plugged In)"
-        ''}
 
-        # 1. SSID Gate
-        ALLOWED_SSIDS="${lib.concatStringsSep "|" cfg.checkWifi}"
-        if [ -n "$ALLOWED_SSIDS" ]; then
-           log "Checking Network..."
+          log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
+          log "Target Flake: ${config.system.autoUpgrade.flake}"
 
-           # WAIT LOOP: Wait up to 45 seconds for NetworkManager to settle
-           for i in {1..45}; do
-               STATE=$(nmcli -t -f state general 2>/dev/null || echo "unknown")
-               if [[ "$STATE" == "connected" ]]; then
-                   break
-               fi
-               if [ "$i" -eq 1 ]; then log "Waiting for connection (max 45s)..."; fi
-               sleep 1
-           done
-
-           CURRENT_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2- || echo "")
-
-           if [ -z "$CURRENT_SSID" ]; then
-              log "GATE FAIL: WiFi Check"
-              log "  - Current: No connection (or timed out)"
-              log "  - Result: SKIPPING update."
-              exit 0
-           fi
-
-           if ! echo "$CURRENT_SSID" | grep -qE "^($ALLOWED_SSIDS)$"; then
-              log "GATE FAIL: WiFi Check"
-              log "  - Current: '$CURRENT_SSID'"
-              log "  - Allowed: [$ALLOWED_SSIDS]"
-              log "  - Result: SKIPPING update."
-              exit 0
-           fi
-           log "GATE PASS: WiFi Check (Connected to '$CURRENT_SSID')"
-        fi
-
-        log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
-        log "Target Flake: ${config.system.autoUpgrade.flake}"
-
-        # FIX: Inhibit sleep/idle while update runs to prevent suspend-then-hibernate
-        # from putting the system back to sleep mid-download
-        ${pkgs.systemd}/bin/systemd-inhibit \
-          --what=sleep:idle \
-          --who="NixOS Upgrade" \
-          --why="System update in progress" \
-          -- \
+          # NOTE: No inner systemd-inhibit needed here anymore - the entire
+          # service is already wrapped by the outer inhibitor.
           ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
-            --flake ${config.system.autoUpgrade.flake} \
-            ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
+              --flake ${config.system.autoUpgrade.flake} \
+              ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
 
-        UPDATE_EXIT_CODE=$?
+          UPDATE_EXIT_CODE=$?
 
-        if [ $UPDATE_EXIT_CODE -eq 0 ]; then
-           log "--- UPDATE SUCCESS ---"
-           mkdir -p /var/lib/nixos-upgrade
-           date +%s > /var/lib/nixos-upgrade/last-success-timestamp
+          if [ $UPDATE_EXIT_CODE -eq 0 ]; then
+             log "--- UPDATE SUCCESS ---"
+             mkdir -p /var/lib/nixos-upgrade
+             date +%s > /var/lib/nixos-upgrade/last-success-timestamp
 
-           if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
-              BOOTED=$(readlink -f /run/booted-system/kernel)
-              NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
-              if [ "$BOOTED" != "$NEW" ]; then
-                 log "ACTION: Kernel change detected. Rebooting system..."
-                 /run/current-system/sw/bin/reboot
-                 exit 0
-              fi
-           fi
-        else
-           log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
-           log "Check journal above for nixos-rebuild errors."
-        fi
-      ''));
+             if ${lib.boolToString cfg.rebootOnKernelUpdate}; then
+                BOOTED=$(readlink -f /run/booted-system/kernel)
+                NEW=$(readlink -f /nix/var/nix/profiles/system/kernel)
+                if [ "$BOOTED" != "$NEW" ]; then
+                   log "ACTION: Kernel change detected. Rebooting system..."
+                   /run/current-system/sw/bin/reboot
+                   exit 0
+                fi
+             fi
+          else
+             log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
+             log "Check journal above for nixos-rebuild errors."
+          fi
+        ''))
+      );
     };
 
     nix.gc = lib.mkIf cfg.collectGarbage {
