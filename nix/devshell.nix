@@ -174,6 +174,9 @@
       exit "$ec"
     '';
   };
+
+  # VM Provisioning Tools
+  vmTools = import ../vms/package.nix {inherit pkgs;};
 in {
   # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
@@ -181,6 +184,11 @@ in {
   # Expose helpers as packages + apps so you can `nix run .#...`
   packages.lint-nix = lintNix;
   packages.fmt-nix = fmtNix;
+
+  # VM Provisioning packages
+  packages.proxmox-ops = vmTools.proxmox-ops;
+  packages.provision-vm = vmTools.provision-vm;
+  packages.post-provision-vm = vmTools.post-provision-vm;
 
   apps.lint-nix = {
     type = "app";
@@ -191,6 +199,23 @@ in {
     type = "app";
     program = "${lib.getExe fmtNix}";
     meta.description = "Format Nix files with Alejandra.";
+  };
+
+  # VM Provisioning apps
+  apps.proxmox-ops = {
+    type = "app";
+    program = "${lib.getExe vmTools.proxmox-ops}";
+    meta.description = "Proxmox VM operations via SSH";
+  };
+  apps.provision-vm = {
+    type = "app";
+    program = "${lib.getExe vmTools.provision-vm}";
+    meta.description = "Provision a new VM from definition";
+  };
+  apps.post-provision-vm = {
+    type = "app";
+    program = "${lib.getExe vmTools.post-provision-vm}";
+    meta.description = "Post-provisioning fleet integration";
   };
 
   # Standard dev shell for this repo.
@@ -204,6 +229,10 @@ in {
       pkgs.statix
       lintNix
       fmtNix
+      # VM Provisioning tools
+      vmTools.proxmox-ops
+      vmTools.provision-vm
+      vmTools.post-provision-vm
     ];
     shellHook = ''
       echo "Dev shell ready."
@@ -211,6 +240,11 @@ in {
       echo "  - nix fmt                (write with Alejandra)"
       echo "  - nix run .#fmt-nix -- --check"
       echo "  - nix run .#fmt-nix -- --diff"
+      echo ""
+      echo "VM Provisioning:"
+      echo "  - provision-vm <name>         Provision a new VM"
+      echo "  - post-provision-vm <name> <ip> <vmid>  Integrate VM into fleet"
+      echo "  - proxmox-ops <command>       Proxmox operations"
     '';
   };
 }
