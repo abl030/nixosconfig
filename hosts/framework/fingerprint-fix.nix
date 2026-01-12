@@ -7,7 +7,6 @@
 #
 # Import this module from your host config.
 {
-  config,
   lib,
   pkgs,
   ...
