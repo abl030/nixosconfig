@@ -1,204 +1,96 @@
 # VM Automation - Lessons Learned
 
-## Current Working Approach
+**Last Updated**: 2026-01-13
 
-**Template 9002** (Ubuntu cloud image) solves the chicken-and-egg problem:
-- Cloud-init needs an OS to configure
-- Ubuntu cloud image provides that OS
-- nixos-anywhere then replaces it with NixOS
+## The Working Solution
+
+**Template 9002** (Ubuntu cloud image with UEFI) + **two-phase nixos-anywhere** deployment.
 
 ### Provisioning Flow
+
 ```
-Clone template 9002 → Resize disk → Inject SSH keys via cloud-init → Start → Find IP → SSH in → nixos-anywhere
+Clone 9002 → cloud-init boots Ubuntu → get IP A
+    ↓
+nixos-anywhere --phases kexec → IP changes to B (kills process)
+    ↓
+Find new IP via MAC lookup
+    ↓
+nixos-anywhere --phases disko,install root@IP_B
+    ↓
+Reboot → NixOS boots → IP C → SSH as abl030
 ```
 
----
+## Key Issues & Solutions
 
-## Key Learnings
+### 1. Template Must Use UEFI
 
-### 1. Template Must Have an OS
+**Problem**: SeaBIOS template + EFI partition in disko = boot failure
 
-**Wrong**: Blank UEFI template (9001) - cloud-init can't configure nothing
-**Right**: Ubuntu cloud image (9002) - boots, runs cloud-init, accepts SSH
-
-Template setup:
+**Solution**: Template 9002 with UEFI:
 ```bash
-wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-qm create 9002 --name "ubuntu-cloud-template" ...
-qm importdisk 9002 noble-server-cloudimg-amd64.img nvmeprom
-qm set 9002 --ide2 nvmeprom:cloudinit --agent enabled=1
-qm template 9002
+qm create 9002 --bios ovmf --machine q35 \
+  --efidisk0 nvmeprom:1,format=raw,efitype=4m,pre-enrolled-keys=0
 ```
 
-### 2. IP Discovery Without Guest Agent
+### 2. IP Changes After Kexec
 
-Guest agent isn't running on first boot. Use MAC/ARP fallback:
+**Problem**: NixOS installer gets different DHCP IP, nixos-anywhere hangs
 
+**Solution**: Two-phase deployment:
+1. `--phases kexec` only (process will hang after kexec)
+2. Kill hung process, find new IP via MAC/ARP lookup
+3. `--phases disko,install` on new IP
+
+Built into `provision.sh` - handles automatically.
+
+### 3. SSH Access Pattern
+
+**Problem**: Root SSH would expose root access fleet-wide
+
+**Solution**: Use abl030 user (created by base profile):
+- Base profile sets up user with SSH keys from hosts.nix
+- provision.sh verifies SSH as abl030, not root
+- Root only accessible during cloud-init phase (for nixos-anywhere)
+- Test VM has `security.sudo.wheelNeedsPassword = false` for automation testing
+
+### 4. IP Discovery Without Guest Agent
+
+Guest agent not running on first boot. Use MAC/ARP fallback:
 ```bash
-# Get VM MAC
-MAC=$(qm config 110 | grep -oP 'virtio=\K[^,]+')
-
-# Ping sweep to populate ARP
-for i in $(seq 1 254); do ping -c1 -W1 192.168.1.$i &>/dev/null & done; wait
-
-# Find IP by MAC
-ip neigh | grep -i "$MAC"
+# Built into proxmox-ops.sh get-ip
+# Flushes stale ARP, does ping sweep, finds IP by MAC
 ```
 
-This is now built into `proxmox-ops.sh get-ip`.
+### 5. Disko Required
 
-### 3. Cloud Image Auth
+nixos-anywhere needs disko. Each host needs:
+- `disko.nix` with EFI + root partitions
+- Import `inputs.disko.nixosModules.disko` in configuration.nix
+- Remove `fileSystems` from hardware-configuration.nix
 
-- Ubuntu cloud images have **no default password**
-- SSH key injection is the only access method
-- Console login requires explicitly setting `--cipassword`
-
-### 4. Resize, Don't Create Disk
-
-When cloning from cloud image:
-- Template already has a disk (3.5GB)
-- Use `qm resize` not `qm set --scsi0`
-
-### 5. nixos-anywhere Requires Disko
-
-nixos-anywhere needs disko for disk partitioning. Each host config needs:
-
-1. Add disko to flake inputs:
-```nix
-disko = {
-  url = "github:nix-community/disko";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
-```
-
-2. Create `hosts/<name>/disko.nix`:
-```nix
-{
-  disko.devices.disk.main = {
-    type = "disk";
-    device = "/dev/sda";
-    content = {
-      type = "gpt";
-      partitions = {
-        ESP = { size = "512M"; type = "EF00"; content = { type = "filesystem"; format = "vfat"; mountpoint = "/boot"; }; };
-        root = { size = "100%"; content = { type = "filesystem"; format = "ext4"; mountpoint = "/"; }; };
-      };
-    };
-  };
-}
-```
-
-3. Import in configuration.nix:
-```nix
-{pkgs, inputs, ...}: {
-  imports = [
-    inputs.disko.nixosModules.disko
-    ./disko.nix
-    ./hardware-configuration.nix
-  ];
-  # ...
-}
-```
-
-4. Remove `fileSystems` from hardware-configuration.nix (disko handles it)
-
-**TODO**: Automate disko.nix generation during `provision-vm`
-
-### 6. Template VGA Setting
-
-Ubuntu cloud template (9002) has `vga: serial0` for serial console. After nixos-anywhere, this can cause console access issues.
-
-**Fix**: Set VGA to standard after provisioning:
-```bash
-qm set <vmid> --vga std
-```
-
-**TODO**: Add this to provision script or update template.
-
-### 7. Sops Secrets on New VMs
-
-nixos-anywhere shows sops errors on first install - this is expected:
-```
-Cannot read ssh key '/etc/ssh/ssh_host_ed25519_key': no such file or directory
-```
-
-The VM doesn't have its SSH host key in `.sops.yaml` yet. Run post-provision to:
-1. Extract SSH host key
-2. Add to `.sops.yaml`
-3. Re-encrypt secrets
-
----
-
-## Commands Reference
-
-```bash
-# Provision VM
-./vms/provision.sh test-automation
-
-# Or manually:
-./vms/proxmox-ops.sh clone 9002 110 test-automation nvmeprom
-./vms/proxmox-ops.sh configure 110 2 4096
-./vms/proxmox-ops.sh resize 110 scsi0 20G
-./vms/proxmox-ops.sh cloudinit-config 110 "$SSH_KEYS"
-./vms/proxmox-ops.sh start 110
-
-# Get IP (uses MAC/ARP fallback automatically)
-./vms/proxmox-ops.sh get-ip 110
-
-# Deploy NixOS
-nixos-anywhere --flake .#test-automation root@<ip>
-```
-
----
-
-## What's Automated vs Manual
+## What's Automated
 
 | Step | Status |
 |------|--------|
 | Clone template | Automated |
 | Configure resources | Automated |
-| Resize disk | Automated |
-| Inject SSH keys | Automated |
-| Start VM | Automated |
-| Find IP | Automated (MAC/ARP) |
-| SSH access | Automated (fleet keys) |
-| NixOS install | Manual command |
-| Post-provision | Manual command |
+| Cloud-init SSH keys | Automated |
+| Find IP (MAC/ARP) | Automated |
+| NixOS install (two-phase) | Automated |
+| Reboot | Automated |
+| Final SSH verification | Automated |
+| Post-provision | Manual |
 
-**Total manual work**: 2 commands after VM boots
+## Commands
 
----
+```bash
+# Full provision
+./vms/provision.sh <vm-name>
 
-## Historical Context
-
-Previously tried blank template + custom ISO approach. Problems:
-- Blank template = no OS for cloud-init to configure
-- NixOS ISO = SSH not enabled by default
-- Required console access to enable SSH manually
-
-**Solution**: Ubuntu cloud image template sidesteps all of this.
-
----
-
-## Current Status (2026-01-12)
-
-**VM 110 (test-automation)**: NixOS installed via nixos-anywhere, but VM fails to boot.
-
-### What Worked
-- Template 9002 clone and cloud-init SSH key injection
-- MAC/ARP IP discovery (192.168.1.151)
-- SSH to Ubuntu cloud image
-- nixos-anywhere kexec and NixOS installation completed
-- nixos-anywhere reported "installation finished!" and "### Done! ###"
-
-### What's Broken
-- **VM stuck at "booting from hard-disk"** - never gets past bootloader
-- Likely disko/boot partition configuration issue
-- May be EFI vs BIOS mismatch, or partition table issue
-
-### Next Steps (Tomorrow)
-1. Investigate disko.nix config - check EFI partition setup
-2. Verify template 9002 boot settings (UEFI vs SeaBIOS)
-3. Check if boot partition was created correctly
-4. May need to adjust disko config or template settings
-5. Consider testing disko config in a throwaway VM first
+# Manual operations
+./vms/proxmox-ops.sh clone 9002 <vmid> <name> nvmeprom
+./vms/proxmox-ops.sh configure <vmid> <cores> <memory>
+./vms/proxmox-ops.sh resize <vmid> scsi0 <size>
+./vms/proxmox-ops.sh get-ip <vmid>
+./vms/proxmox-ops.sh wait-ssh <ip> [timeout] [user]
+```
