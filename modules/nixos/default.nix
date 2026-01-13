@@ -6,5 +6,6 @@
     ./ci
     ./autoupdate
     ./services
+    ./shell
   ];
 }

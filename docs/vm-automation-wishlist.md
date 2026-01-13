@@ -218,6 +218,31 @@ vm-new my-media --template media-server
 
 ---
 
+### 4.5. Real-Time Resource Stats
+
+**Goal**: Show actual resource usage in addition to on/off status
+
+**Current**: `pve ps` shows only allocated resources (max CPU, max RAM)
+
+**Desired**: Show real-time usage statistics
+
+```bash
+$ pve ps --live
+
+VMID │ NAME      │ STATUS  │ CPU%   │ RAM USED/MAX      │ DISK I/O
+─────┼───────────┼─────────┼────────┼───────────────────┼──────────
+ 104 │ Doc1      │ Running │ 12.5%  │ 18GB / 32GB (56%) │ 45 MB/s
+ 109 │ igpu      │ Running │ 3.2%   │ 4GB / 8GB (50%)   │ 2 MB/s
+ 110 │ dev       │ Running │ 0.8%   │ 2GB / 8GB (25%)   │ <1 MB/s
+```
+
+**Implementation**:
+- Query Proxmox RRD (Round Robin Database) for metrics
+- Use `qm status <vmid> --verbose` for detailed stats
+- Add `--live` or `-l` flag to `pve ps` and `pve list`
+
+---
+
 ### 5. Resource Monitoring Dashboard
 
 **Goal**: Overview of Proxmox resource usage
