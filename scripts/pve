@@ -39,6 +39,7 @@ PROXMOX_NODE="prom"
 # Returns JSON with cpu, mem, diskread, diskwrite, netin, netout, uptime
 get_vm_stats() {
     local vmid=$1
+    # shellcheck disable=SC2029
     ssh "root@$PROXMOX_HOST" "pvesh get /nodes/$PROXMOX_NODE/qemu/$vmid/status/current --output-format json 2>/dev/null"
 }
 
