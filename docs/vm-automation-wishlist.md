@@ -2,131 +2,11 @@
 
 Future enhancements and ideas for the VM automation system.
 
-**Status**: Ideas and proposals (not yet implemented)
-
-**Last Updated**: 2026-01-12
+**Last Updated**: 2026-01-13
 
 ---
 
 ## High Priority
-
-### 1. CLI Wrapper for Proxmox Operations
-
-**Goal**: Easy, typed CLI access to Proxmox operations
-
-**Problem**: Currently need to run `./vms/proxmox-ops.sh <command>` with full paths
-
-**Solution**: Add to shell aliases and make available system-wide
-
-#### Implementation
-
-**Add to NixOS/Home Manager configuration:**
-
-```nix
-# In modules or host config
-environment.shellAliases = {
-  # Proxmox VM operations
-  pve = "proxmox-ops";
-  pve-ls = "proxmox-ops list | jq -r '.[] | select(.type==\"qemu\") | [.vmid, .name, .status] | @tsv' | column -t";
-  pve-status = "proxmox-ops status";
-  pve-start = "proxmox-ops start";
-  pve-stop = "proxmox-ops stop";
-  pve-ip = "proxmox-ops get-ip";
-  pve-ssh = "proxmox-ops get-ip"; # Usage: ssh root@$(pve-ssh 110)
-
-  # Provisioning
-  vm-new = "nix run .#provision-vm";
-  vm-list = "nix eval --json .#vms --apply 'v: builtins.attrNames v.managed' | jq -r '.[]'";
-  vm-info = "nix eval --json .#vms --apply 'v: name: v.managed.\${name}'";
-};
-```
-
-**Enhanced CLI with subcommands:**
-
-Create `scripts/pve` wrapper:
-
-```bash
-#!/usr/bin/env bash
-# Enhanced Proxmox CLI
-
-case "$1" in
-  ls|list)
-    proxmox-ops list | jq -r '.[] | select(.type=="qemu") |
-      [.vmid, .name, .status, .maxcpu, (.maxmem/1024/1024/1024|floor)] |
-      @tsv' | column -t -N "VMID,NAME,STATUS,CPU,RAM(GB)"
-    ;;
-
-  ps)
-    # Show only running VMs
-    proxmox-ops list | jq -r '.[] | select(.type=="qemu" and .status=="running") |
-      [.vmid, .name, .cpu, (.mem/1024/1024/1024|floor)] |
-      @tsv' | column -t -N "VMID,NAME,CPU%,MEM(GB)"
-    ;;
-
-  ssh)
-    # SSH to VM by name or VMID
-    vm="$2"
-    ip=$(proxmox-ops get-ip "$vm")
-    if [[ -n "$ip" ]]; then
-      ssh "root@$ip"
-    else
-      echo "Could not get IP for VM $vm" >&2
-      exit 1
-    fi
-    ;;
-
-  console)
-    # Open VNC console (requires vncviewer)
-    vmid="$2"
-    echo "Opening console for VMID $vmid..."
-    ssh root@192.168.1.12 "qm terminal $vmid"
-    ;;
-
-  new)
-    # Quick VM creation wizard
-    shift
-    nix run .#provision-vm "$@"
-    ;;
-
-  info)
-    vmid="$2"
-    proxmox-ops config "$vmid" | grep -E "^(cores|memory|net0|scsi0|ide2)"
-    ;;
-
-  *)
-    # Pass through to proxmox-ops
-    proxmox-ops "$@"
-    ;;
-esac
-```
-
-**Usage examples:**
-
-```bash
-pve ls                    # List all VMs in table format
-pve ps                    # Show running VMs with resource usage
-pve status 110            # Get status of VMID 110
-pve start 110             # Start VMID 110
-pve ssh 110               # SSH to VMID 110 (auto-resolve IP)
-pve console 110           # Open serial console
-pve new my-vm             # Provision new VM
-pve info 110              # Show VM configuration
-```
-
-**Files to create:**
-- `scripts/pve` - Enhanced CLI wrapper
-- `modules/nixos/shell/aliases.nix` - Shell aliases module
-- Update `flake.nix` to include pve in packages
-
-**Benefits:**
-- Fast, ergonomic CLI
-- Integrates with existing tools (jq, column)
-- Extensible with new subcommands
-- Consistent with modern CLI patterns
-
----
-
-## Medium Priority
 
 ### 3. Interactive VM Builder
 
@@ -169,9 +49,7 @@ Your VM is ready:
   Config: hosts/my-service/
 ```
 
----
-
-### 4. VM Templates Library
+### 2. VM Templates Library
 
 **Goal**: Pre-configured templates for common use cases
 
@@ -218,27 +96,9 @@ vm-new my-media --template media-server
 
 ---
 
-### 4.5. Real-Time Resource Stats ✅ **IMPLEMENTED**
+## Medium Priority
 
-**Goal**: Show actual resource usage in addition to on/off status
-
-**Status**: ✅ Implemented in commit `XXXXXX`
-
-**Features**:
-- `pve ps --live` - Show CPU%, memory usage, and uptime
-- `pve ps --throughput` - Show disk/network I/O rates (samples 1s apart)
-- `pve stats <vmid>` - Detailed per-VM statistics with current rates
-- `pve top` - Continuous live monitoring (refreshes every 2s)
-
-**Implementation**:
-- Uses `pvesh get /nodes/prom/qemu/<vmid>/status/current` for real-time data
-- Samples twice with 1-second interval to calculate throughput rates
-- Formats bytes to human-readable (KB, MB, GB)
-- Guest agent data (balloon) for internal memory stats
-
----
-
-### 5. Resource Monitoring Dashboard
+### 3. Resource Monitoring Dashboard
 
 **Goal**: Overview of Proxmox resource usage
 
@@ -265,9 +125,7 @@ $ pve dashboard
 ╚═══════════════════════════════════════════════════════════╝
 ```
 
----
-
-### 6. VM Lifecycle Management
+### 4. VM Lifecycle Management
 
 **Goal**: Full lifecycle operations beyond provisioning
 
@@ -294,9 +152,7 @@ pve clone my-service my-service-staging
 pve destroy my-service
 ```
 
----
-
-### 7. Backup Integration
+### 5. Backup Integration
 
 **Goal**: Automated backup to Proxmox Backup Server
 
@@ -324,187 +180,4 @@ pve restore my-service 2026-01-12        # Restore from backup
 
 ---
 
-## Low Priority / Future Ideas
-
-### 8. Multi-Host Support
-
-Support multiple Proxmox hosts in a cluster
-
-```nix
-proxmox.hosts = {
-  prom = {
-    ip = "192.168.1.12";
-    primary = true;
-  };
-  prom2 = {
-    ip = "192.168.1.13";
-  };
-};
-
-managed.my-vm = {
-  host = "prom2"; # Explicitly assign
-  # Or use auto-placement based on resources
-};
-```
-
----
-
-### 9. Cost Tracking
-
-Track resource costs and allocation
-
-```bash
-$ pve cost-report
-
-Monthly Resource Allocation:
-  Doc1:      $45/mo (32GB RAM, 8 cores, 250GB)
-  igpu:      $25/mo (8GB RAM, 8 cores)
-  Mailstore: $15/mo (4GB RAM, 4 cores, 40GB)
-
-Total: $85/mo equivalent
-```
-
----
-
-### 10. Auto-scaling
-
-Dynamic resource adjustment based on load
-
-```nix
-managed.my-service = {
-  autoscale = {
-    enable = true;
-    cpu = {
-      min = 2;
-      max = 8;
-      threshold = 80; # percent
-    };
-    memory = {
-      min = 4096;
-      max = 16384;
-      threshold = 85; # percent
-    };
-  };
-};
-```
-
----
-
-### 11. Terraform Alternative
-
-Generate Terraform configs from Nix definitions
-
-```bash
-nix build .#terraform-config
-
-# Generates terraform files:
-terraform/
-  ├── main.tf
-  ├── variables.tf
-  └── proxmox-vms.tf
-```
-
----
-
-### 12. Web UI
-
-Simple web interface for VM management
-
-- Dashboard view
-- VM provisioning form
-- Real-time status updates
-- Log viewing
-- SSH web terminal
-
----
-
-### 13. Ansible Integration
-
-Generate Ansible playbooks from VM definitions
-
-```bash
-nix run .#generate-ansible-playbooks
-
-# Generates:
-ansible/
-  └── vms/
-      ├── inventory.ini
-      ├── deploy-my-service.yml
-      └── configure-my-service.yml
-```
-
----
-
-### 14. Testing Framework
-
-Automated testing for VM configurations
-
-```nix
-tests.my-service = {
-  provisioning = {
-    canCreate = true;
-    timeoutSeconds = 600;
-  };
-
-  configuration = {
-    nixosVersion = "25.05";
-    services.caddy.enable = true;
-    networking.firewall.allowedTCPPorts = [ 80 443 ];
-  };
-
-  integration = [
-    "curl -f http://localhost"
-    "systemctl is-active caddy"
-  ];
-};
-```
-
-```bash
-nix run .#test-vm my-service
-```
-
----
-
-### 15. Mobile App / Notifications
-
-Push notifications for VM events
-
-- VM status changes
-- Resource alerts (high CPU, low disk)
-- Backup completion/failures
-- Security updates available
-
----
-
-## Implementation Priority
-
-**Phase 1 (Next)**: High Priority items
-1. CLI Wrapper (#1)
-
-**Phase 2**: Medium Priority
-3. Interactive Builder (#3)
-4. Templates Library (#4)
-5. Resource Dashboard (#5)
-6. Lifecycle Management (#6)
-
-**Phase 3**: Low Priority / As Needed
-7. Multi-host, Backup, Scaling, etc.
-
----
-
-## Contributing Ideas
-
-Add new wishlist items with:
-- **Goal**: What are we trying to achieve?
-- **Problem**: What problem does it solve?
-- **Solution**: How would it work?
-- **Benefits**: Why is it valuable?
-- **Implementation**: Rough technical approach
-
----
-
-## Notes
-
-This wishlist reflects the evolution from basic automation to a comprehensive infrastructure management system. Not all items will be implemented - prioritize based on actual needs and pain points.
-
-The core goal remains: **Declarative, safe, ergonomic VM management**.
+``
