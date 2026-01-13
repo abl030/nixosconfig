@@ -13,7 +13,7 @@ with lib; let
   stripHash = hex: lib.removePrefix "#" hex;
 
   # Get the spicePkgs from the flake input
-  spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.system};
+  spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
 in {
   # Import the module from the flake input
   imports = [
