@@ -102,7 +102,7 @@ in {
     hostname = "test-automation";
     sshAlias = "test-automation";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 PLACEHOLDER_KEY_WILL_BE_ADDED_DURING_PROVISIONING";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICA9gKDADs6NCmE4jkcck3G5R7tV5H2fKuYd3+ZVaHfb";
     authorizedKeys = masterKeys;
   };
 }

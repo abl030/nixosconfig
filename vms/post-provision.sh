@@ -78,16 +78,16 @@ check_prerequisites() {
 extract_ssh_host_key() {
     local vm_ip="$1"
 
-    log_info "Extracting SSH host key from $vm_ip..."
+    log_info "Extracting SSH host key from $vm_ip..." >&2
 
     # SSH options for non-interactive use (as array to avoid quoting issues)
     local ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 
-    # Extract the ed25519 public key
+    # Extract the ed25519 public key (use abl030 user, public key is world-readable)
     local ssh_key
-    if ! ssh_key=$(ssh "${ssh_opts[@]}" "root@$vm_ip" "cat /etc/ssh/ssh_host_ed25519_key.pub" 2>/dev/null); then
+    if ! ssh_key=$(ssh "${ssh_opts[@]}" "abl030@$vm_ip" "cat /etc/ssh/ssh_host_ed25519_key.pub" 2>/dev/null); then
         log_error "Failed to extract SSH host key"
-        log_error "Make sure the VM is running and accessible"
+        log_error "Make sure the VM is running and accessible via: ssh abl030@$vm_ip"
         return 1
     fi
 
@@ -97,7 +97,7 @@ extract_ssh_host_key() {
         return 1
     fi
 
-    log_success "SSH host key extracted"
+    log_success "SSH host key extracted" >&2
     echo "$ssh_key"
 }
 
@@ -105,15 +105,22 @@ extract_ssh_host_key() {
 ssh_to_age_key() {
     local ssh_key="$1"
 
-    log_info "Converting SSH key to age key..."
+    log_info "Converting SSH key to age key..." >&2
 
     local age_key
-    if ! age_key=$(echo "$ssh_key" | ssh-to-age 2>/dev/null); then
+    # ssh-to-age outputs to stdout, errors to stderr
+    if ! age_key=$(echo "$ssh_key" | ssh-to-age); then
         log_error "Failed to convert SSH key to age key"
+        log_error "Input was: $ssh_key"
         return 1
     fi
 
-    log_success "Age key generated: $age_key"
+    if [[ -z "$age_key" ]]; then
+        log_error "ssh-to-age returned empty result"
+        return 1
+    fi
+
+    log_success "Age key generated: $age_key" >&2
     echo "$age_key"
 }
 
@@ -201,7 +208,7 @@ update_sops_yaml() {
 
     log_info "Updating .sops.yaml..."
 
-    local sops_file="$REPO_ROOT/.sops.yaml"
+    local sops_file="$REPO_ROOT/secrets/.sops.yaml"
 
     if [[ ! -f "$sops_file" ]]; then
         log_error ".sops.yaml not found at $sops_file"
@@ -214,32 +221,28 @@ update_sops_yaml() {
         return 0
     fi
 
-    # Add the age key to the keys section
-    # This is a simple approach - adds to the end of the keys list
+    # Add the age key to the age: list under key_groups:
+    # Format: "          - &vm-name age1... # vm-name"
     local temp_file
     temp_file=$(mktemp)
 
-    # Find the keys section and add the new key
+    # Find the age: list and add the new key at the end
     awk -v key="$age_key" -v name="$vm_name" '
-        /^keys:/ {
-            print
-            in_keys=1
-            next
+        /^          - age1/ || /^          - &/ {
+            # Inside the age key list - track last line
+            last_age_line = NR
+            age_lines[NR] = $0
         }
-        in_keys && /^  - &/ {
-            print
-            next
+        {
+            lines[NR] = $0
         }
-        in_keys && /^[^ ]/ {
-            # End of keys section, add new key before this line
-            print "  - &" name " " key
-            in_keys=0
-        }
-        { print }
         END {
-            # If we are still in keys section at end of file
-            if (in_keys) {
-                print "  - &" name " " key
+            for (i = 1; i <= NR; i++) {
+                print lines[i]
+                if (i == last_age_line) {
+                    # Add new key after the last age key
+                    print "          - &" name " " key " # " name
+                }
             }
         }
     ' "$sops_file" > "$temp_file"
@@ -253,21 +256,19 @@ update_sops_yaml() {
 reencrypt_secrets() {
     log_info "Re-encrypting all secrets with new key..."
 
-    cd "$REPO_ROOT"
+    local secrets_dir="$REPO_ROOT/secrets"
+    local sops_config="$secrets_dir/.sops.yaml"
 
-    if ! sops updatekeys --yes secrets/secrets.yaml 2>&1; then
-        log_warning "Note: sops updatekeys may show warnings, this is usually fine"
+    if [[ ! -d "$secrets_dir/secrets" ]]; then
+        log_warning "No secrets directory found at $secrets_dir/secrets"
+        return 0
     fi
 
-    # Update other secret files if they exist
-    if [[ -d "$REPO_ROOT/secrets" ]]; then
-        find "$REPO_ROOT/secrets" -name "*.yaml" -o -name "*.yml" | while read -r secret_file; do
-            if [[ -f "$secret_file" ]]; then
-                log_info "Updating keys for $secret_file..."
-                sops updatekeys --yes "$secret_file" 2>&1 || true
-            fi
-        done
-    fi
+    # Update all secret files using explicit config path
+    find "$secrets_dir/secrets" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" \) | while read -r secret_file; do
+        log_info "Updating keys for $(basename "$secret_file")..."
+        sops --config "$sops_config" updatekeys --yes "$secret_file" 2>&1 || true
+    done
 
     log_success "Secrets re-encrypted"
 }
