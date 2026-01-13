@@ -3,17 +3,15 @@
 #
 # Nix package that wraps proxmox-ops.sh for use in the flake.
 # Provides SSH-based Proxmox VM management operations.
-
-{ pkgs, ... }:
-
+{pkgs, ...}:
 pkgs.writeShellApplication {
   name = "proxmox-ops";
 
   runtimeInputs = with pkgs; [
-    openssh     # SSH client
-    jq          # JSON parsing
-    gawk        # Text processing
-    coreutils   # Basic utilities
+    openssh # SSH client
+    jq # JSON parsing
+    gawk # Text processing
+    coreutils # Basic utilities
   ];
 
   text = builtins.readFile ./proxmox-ops.sh;

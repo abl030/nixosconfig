@@ -182,40 +182,38 @@ in {
   formatter = fmtNix;
 
   # Expose helpers as packages + apps so you can `nix run .#...`
-  packages.lint-nix = lintNix;
-  packages.fmt-nix = fmtNix;
-
-  # VM Provisioning packages
-  packages.proxmox-ops = vmTools.proxmox-ops;
-  packages.provision-vm = vmTools.provision-vm;
-  packages.post-provision-vm = vmTools.post-provision-vm;
-
-  apps.lint-nix = {
-    type = "app";
-    program = "${lib.getExe lintNix}";
-    meta.description = "Run deadnix + statix with robust flags and panic detection.";
-  };
-  apps.fmt-nix = {
-    type = "app";
-    program = "${lib.getExe fmtNix}";
-    meta.description = "Format Nix files with Alejandra.";
+  packages = {
+    lint-nix = lintNix;
+    fmt-nix = fmtNix;
+    inherit (vmTools) proxmox-ops provision-vm post-provision-vm;
   };
 
-  # VM Provisioning apps
-  apps.proxmox-ops = {
-    type = "app";
-    program = "${lib.getExe vmTools.proxmox-ops}";
-    meta.description = "Proxmox VM operations via SSH";
-  };
-  apps.provision-vm = {
-    type = "app";
-    program = "${lib.getExe vmTools.provision-vm}";
-    meta.description = "Provision a new VM from definition";
-  };
-  apps.post-provision-vm = {
-    type = "app";
-    program = "${lib.getExe vmTools.post-provision-vm}";
-    meta.description = "Post-provisioning fleet integration";
+  apps = {
+    lint-nix = {
+      type = "app";
+      program = "${lib.getExe lintNix}";
+      meta.description = "Run deadnix + statix with robust flags and panic detection.";
+    };
+    fmt-nix = {
+      type = "app";
+      program = "${lib.getExe fmtNix}";
+      meta.description = "Format Nix files with Alejandra.";
+    };
+    proxmox-ops = {
+      type = "app";
+      program = "${lib.getExe vmTools.proxmox-ops}";
+      meta.description = "Proxmox VM operations via SSH";
+    };
+    provision-vm = {
+      type = "app";
+      program = "${lib.getExe vmTools.provision-vm}";
+      meta.description = "Provision a new VM from definition";
+    };
+    post-provision-vm = {
+      type = "app";
+      program = "${lib.getExe vmTools.post-provision-vm}";
+      meta.description = "Post-provisioning fleet integration";
+    };
   };
 
   # Standard dev shell for this repo.

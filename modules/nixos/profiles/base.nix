@@ -136,22 +136,24 @@
   # 6. ADMIN USER
   # ---------------------------------------------------------
   # Dynamically configure the user defined in hosts.nix
-  users.users.${hostConfig.user} = {
-    isNormalUser = true;
-    description = "Andy";
-    shell = pkgs.zsh;
+  users.users.${hostConfig.user} =
+    {
+      isNormalUser = true;
+      description = "Andy";
+      shell = pkgs.zsh;
 
-    # Core groups. Hosts can add more (e.g. docker) via extraGroups in their own config
-    extraGroups = ["wheel" "networkmanager"];
+      # Core groups. Hosts can add more (e.g. docker) via extraGroups in their own config
+      extraGroups = ["wheel" "networkmanager"];
 
-    # Automatically pull authorized keys from hosts.nix
-    openssh.authorizedKeys.keys = hostConfig.authorizedKeys or [];
-  } // lib.optionalAttrs (hostConfig ? initialHashedPassword) {
-    # Optional per-host initial password hash (set in hosts.nix).
-    # This allows initial access without passwordless sudo and won't
-    # overwrite a password you've already changed on the host.
-    initialHashedPassword = hostConfig.initialHashedPassword;
-  };
+      # Automatically pull authorized keys from hosts.nix
+      openssh.authorizedKeys.keys = hostConfig.authorizedKeys or [];
+    }
+    // lib.optionalAttrs (hostConfig ? initialHashedPassword) {
+      # Optional per-host initial password hash (set in hosts.nix).
+      # This allows initial access without passwordless sudo and won't
+      # overwrite a password you've already changed on the host.
+      inherit (hostConfig) initialHashedPassword;
+    };
 
   # ---------------------------------------------------------
   # 7. SUDO POLICY
@@ -161,5 +163,4 @@
     enable = lib.mkDefault true;
     wheelNeedsPassword = lib.mkDefault (!(hostConfig.sudoPasswordless or false));
   };
-
 }

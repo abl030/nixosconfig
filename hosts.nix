@@ -94,8 +94,6 @@ in {
     authorizedKeys = masterKeys;
   };
 
-
-
   dev = {
     configurationFile = ./hosts/dev/configuration.nix;
     homeFile = ./hosts/dev/home.nix;
@@ -107,6 +105,4 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
     authorizedKeys = masterKeys;
   };
-
-
 }
