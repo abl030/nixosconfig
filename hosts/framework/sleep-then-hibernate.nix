@@ -36,9 +36,9 @@ _: {
   '';
 
   # Trigger suspend-then-hibernate on lid close (not plain suspend)
-  services.logind = {
-    lidSwitch = "suspend-then-hibernate";
-    lidSwitchExternalPower = "suspend-then-hibernate";
+  services.logind.settings.Login = {
+    HandleLidSwitch = "suspend-then-hibernate";
+    HandleLidSwitchExternalPower = "suspend-then-hibernate";
   };
 
   # FIX: Clear stale RTC alarms on boot
