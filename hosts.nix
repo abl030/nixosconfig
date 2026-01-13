@@ -94,15 +94,15 @@ in {
     authorizedKeys = masterKeys;
   };
 
-  test-automation = {
-    configurationFile = ./hosts/test-automation/configuration.nix;
-    homeFile = ./hosts/test-automation/home.nix;
+  dev = {
+    configurationFile = ./hosts/dev/configuration.nix;
+    homeFile = ./hosts/dev/home.nix;
     user = "abl030";
     homeDirectory = "/home/abl030";
-    hostname = "test-automation";
-    sshAlias = "test-automation";
+    hostname = "dev";
+    sshAlias = "dev";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICA9gKDADs6NCmE4jkcck3G5R7tV5H2fKuYd3+ZVaHfb";
+    publicKey = "ssh-ed25519 PLACEHOLDER_KEY_WILL_BE_ADDED_DURING_PROVISIONING";
     authorizedKeys = masterKeys;
   };
 }

@@ -128,15 +128,15 @@
   # Add new VMs here. They will be created, configured, and tracked.
   # These VMs are fully managed: creation, updates, and lifecycle.
   managed = {
-    test-automation = {
+    dev = {
       vmid = 110;
-      cores = 2;
-      memory = 4096; # MB
-      disk = "20G";
+      cores = 4;
+      memory = 8192; # MB
+      disk = "64G";
       storage = "nvmeprom";
-      nixosConfig = "test-automation";
-      purpose = "Testing automated VM provisioning system";
-      services = ["Testing" "Validation"];
+      nixosConfig = "dev";
+      purpose = "Development VM";
+      services = ["Development" "Testing"];
     };
   };
 

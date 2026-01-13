@@ -31,14 +31,13 @@
   # Enable QEMU guest agent for Proxmox integration
   services.qemuGuest.enable = true;
 
-  # TESTING ONLY: Passwordless sudo for automation testing
-  # Remove this once provisioning workflow is validated
-  security.sudo.wheelNeedsPassword = false;
-
-  # Minimal packages for testing
+  # Development tools
   environment.systemPackages = with pkgs; [
     htop
     vim
+    git
+    curl
+    jq
   ];
 
   system.stateVersion = "25.05";
