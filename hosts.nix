@@ -95,6 +95,7 @@ in {
   };
 
 
+
   dev = {
     configurationFile = ./hosts/dev/configuration.nix;
     homeFile = ./hosts/dev/home.nix;
@@ -103,9 +104,9 @@ in {
     hostname = "dev";
     sshAlias = "dev";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIAc8A4kOwfqGU34bSJJmQRonm9XeveKFSy/wBgeHLtA";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
     authorizedKeys = masterKeys;
-    initialHashedPassword = "$6$gn/yaUvPrp/YKMRc$aLsT55oG/2.FcEOfooeDVvrtWH4mxZ68JoVAcJP8OibH8hd9elWUvt9unwVT2mnXIGA7qeqDthusqmWK9iiHo1";
   };
+
 
 }
