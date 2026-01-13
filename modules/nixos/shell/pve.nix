@@ -22,7 +22,7 @@ in {
       [
         pve-cli
         pkgs.jq # Required for pve's jq formatting
-        pkgs.column # Required for table formatting
+        pkgs.util-linux # Provides column command for table formatting
       ]
       ++ (
         if pathExists ../../../vms/proxmox-ops.sh

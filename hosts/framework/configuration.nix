@@ -21,6 +21,7 @@
       secure = false;
     };
     tailscale.enable = true;
+    pve.enable = true;
     nixCaches = {
       enable = true;
       profile = "internal";
