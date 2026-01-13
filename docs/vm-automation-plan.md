@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Working - Full hands-off provisioning complete
+**Status**: Working - Provisioning and post-provision complete
 **Last Updated**: 2026-01-13
 
 ## Quick Start
@@ -92,17 +92,16 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 
 ## Next Steps
 
-- [ ] Test post-provision workflow (`nix run .#post-provision-vm`)
-- [ ] Verify SSH host key extraction
-- [ ] Verify hosts.nix update with real public key
-- [ ] Verify .sops.yaml age key integration
-- [ ] Verify secrets re-encryption
-- [ ] Test full fleet integration (SSH alias, secrets access)
+- [x] Test post-provision workflow (`nix run .#post-provision-vm`)
+- [x] Verify SSH host key extraction
+- [x] Verify hosts.nix update with real public key
+- [x] Verify .sops.yaml age key integration
+- [x] Verify secrets re-encryption
+- [x] Test full fleet integration (SSH alias, secrets access)
 
 ## Known Limitations
 
 - DHCP causes IP changes during provisioning (handled automatically)
-- Post-provision still manual (secrets integration)
 - Single Proxmox host only
 
 ## Future Work
