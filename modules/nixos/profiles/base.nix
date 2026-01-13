@@ -146,5 +146,20 @@
 
     # Automatically pull authorized keys from hosts.nix
     openssh.authorizedKeys.keys = hostConfig.authorizedKeys or [];
+  } // lib.optionalAttrs (hostConfig ? initialHashedPassword) {
+    # Optional per-host initial password hash (set in hosts.nix).
+    # This allows initial access without passwordless sudo and won't
+    # overwrite a password you've already changed on the host.
+    initialHashedPassword = hostConfig.initialHashedPassword;
   };
+
+  # ---------------------------------------------------------
+  # 7. SUDO POLICY
+  # ---------------------------------------------------------
+  # Allow per-host control for automation/test VMs via hosts.nix.
+  security.sudo = {
+    enable = lib.mkDefault true;
+    wheelNeedsPassword = lib.mkDefault (!(hostConfig.sudoPasswordless or false));
+  };
+
 }
