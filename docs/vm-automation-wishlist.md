@@ -629,11 +629,38 @@ Push notifications for VM events
 
 ---
 
+### 16. Claude Code Skill for VM Provisioning
+
+**Goal**: End-to-end VM creation via Claude Code conversation
+
+**Workflow the skill should handle:**
+1. User says "Create a new VM called my-service with 4 cores and 8GB RAM"
+2. Claude creates VM definition in `vms/definitions.nix`
+3. Claude creates host config in `hosts/my-service/` (configuration.nix, disko.nix, home.nix)
+4. Claude adds placeholder entry to `hosts.nix`
+5. Claude runs `provision-vm my-service`
+6. Claude runs `post-provision-vm` with the resulting IP
+7. Claude commits all changes
+
+**Key features:**
+- Natural language VM specification
+- Auto-generate disko.nix based on disk size
+- Auto-generate minimal configuration.nix with standard modules
+- Handle the full provision → post-provision → commit workflow
+- Provide status updates during long-running operations
+
+**Implementation:**
+- Skill definition in `.claude/skills/provision-vm/`
+- Access to vms/, hosts/, hosts.nix, .sops.yaml
+- Tools: provision-vm, post-provision-vm, proxmox-ops, git
+
+---
+
 ## Implementation Priority
 
 **Phase 1 (Next)**: High Priority items
 1. CLI Wrapper (#1)
-2. Claude Skill (#2)
+2. Claude Skill for VM Provisioning (#16)
 
 **Phase 2**: Medium Priority
 3. Interactive Builder (#3)

@@ -25,21 +25,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Logging functions
+# Logging functions (use || true to prevent errors when stderr is closed)
 log_info() {
-    echo -e "${BLUE}==>${NC} $*" >&2
+    echo -e "${BLUE}==>${NC} $*" >&2 || true
 }
 
 log_success() {
-    echo -e "${GREEN}✓${NC} $*" >&2
+    echo -e "${GREEN}✓${NC} $*" >&2 || true
 }
 
 log_error() {
-    echo -e "${RED}✗${NC} $*" >&2
+    echo -e "${RED}✗${NC} $*" >&2 || true
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠${NC} $*" >&2
+    echo -e "${YELLOW}⚠${NC} $*" >&2 || true
 }
 
 # Script directory
@@ -281,7 +281,8 @@ start_and_wait() {
 
     log_info "Starting VM..."
 
-    if ! "$PROXMOX_OPS" start "$vmid"; then
+    # Redirect stdout to stderr so it doesn't pollute return value
+    if ! "$PROXMOX_OPS" start "$vmid" >&2; then
         log_error "Failed to start VM"
         return 1
     fi
@@ -303,11 +304,11 @@ start_and_wait() {
         fi
 
         attempt=$((attempt + 1))
-        echo -n "."
+        echo -n "." >&2
         sleep 5
     done
 
-    echo ""
+    echo "" >&2
 
     if [[ -z "$vm_ip" || "$vm_ip" == "null" ]]; then
         log_error "Timeout waiting for VM IP address"
@@ -317,13 +318,183 @@ start_and_wait() {
 
     # Wait for SSH to be ready
     log_info "Waiting for SSH to be ready..."
-    if ! "$PROXMOX_OPS" wait-ssh "$vm_ip" 300; then
+    if ! "$PROXMOX_OPS" wait-ssh "$vm_ip" 300 >&2; then
         log_error "SSH not ready after 5 minutes"
         return 1
     fi
 
     log_success "VM is accessible via SSH at $vm_ip"
     echo "$vm_ip"
+}
+
+# Get VM MAC address from Proxmox
+get_vm_mac() {
+    local vmid="$1"
+    "$PROXMOX_OPS" config "$vmid" | grep -oP 'net0:.*virtio=\K[^,]+' | tr '[:upper:]' '[:lower:]'
+}
+
+# Find VM IP by MAC address (with retries), optionally waiting for IP to change
+find_ip_by_mac() {
+    local vmid="$1"
+    local max_attempts="${2:-30}"
+    local old_ip="${3:-}"  # If provided, wait for IP to be different from this
+    local attempt=0
+
+    if [[ -n "$old_ip" ]]; then
+        log_info "Finding new VM IP (waiting for change from $old_ip)..."
+    else
+        log_info "Finding VM IP via MAC address lookup..."
+    fi
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        local ip
+        ip=$("$PROXMOX_OPS" get-ip "$vmid" 2>/dev/null || echo "")
+
+        if [[ -n "$ip" && "$ip" != "null" ]]; then
+            # If we're waiting for IP change, check it's different
+            if [[ -n "$old_ip" && "$ip" == "$old_ip" ]]; then
+                # Same IP, keep waiting
+                :
+            else
+                echo "$ip"
+                return 0
+            fi
+        fi
+
+        attempt=$((attempt + 1))
+        echo -n "." >&2
+        sleep 5
+    done
+
+    echo "" >&2
+    return 1
+}
+
+# Deploy NixOS via nixos-anywhere (two-phase for IP change handling)
+deploy_nixos() {
+    local vmid="$1"
+    local nixos_config="$2"
+    local initial_ip="$3"
+
+    log_info "Deploying NixOS via nixos-anywhere (two-phase approach)..."
+    echo ""
+    log_info "Phase 1: kexec into NixOS installer"
+    log_warning "Note: IP address will change after kexec - this is expected"
+    log_warning "We'll find the new IP and continue installation there"
+    echo ""
+
+    # Phase 1: kexec ONLY (disko must run on new IP after kexec)
+    # nixos-anywhere will hang waiting for reconnection after kexec because IP changes
+    log_info "Running: nixos-anywhere --phases kexec --flake .#$nixos_config root@$initial_ip"
+
+    # Run phase 1 in background - it will hang after kexec, we'll kill it
+    # Use </dev/null to prevent stdin issues when script is run with pipes
+    nix run github:nix-community/nixos-anywhere -- \
+        --phases kexec \
+        --flake ".#$nixos_config" \
+        "root@$initial_ip" </dev/null &
+    local nixos_anywhere_pid=$!
+
+    # Wait for kexec to happen by monitoring if old IP becomes unreachable
+    log_info "Waiting for kexec (monitoring $initial_ip)..."
+    local wait_count=0
+    while [[ $wait_count -lt 60 ]]; do
+        sleep 5
+        wait_count=$((wait_count + 1))
+
+        # Check if old IP is still reachable
+        if ! ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=3 -o BatchMode=yes \
+            "root@$initial_ip" "true" 2>/dev/null; then
+            log_info "Old IP no longer reachable - kexec happened"
+            break
+        fi
+        echo -n "." >&2
+    done
+    echo "" >&2
+
+    # Kill the nixos-anywhere process (it's stuck waiting for dead connection)
+    if kill -0 "$nixos_anywhere_pid" 2>/dev/null; then
+        log_info "Killing nixos-anywhere process (it's stuck on dead connection)"
+        kill "$nixos_anywhere_pid" 2>/dev/null || true
+        wait "$nixos_anywhere_pid" 2>/dev/null || true
+    fi
+
+    echo ""
+    log_info "Waiting for NixOS installer to boot and obtain new IP..."
+    log_info "Sleeping 30s to allow kexec and DHCP..."
+    sleep 30
+
+    # Find new IP via MAC address (must be different from initial_ip)
+    local new_ip
+    if ! new_ip=$(find_ip_by_mac "$vmid" 40 "$initial_ip"); then
+        log_error "Could not find new VM IP after kexec (was looking for change from $initial_ip)"
+        log_error "Check Proxmox console for VM status"
+        return 1
+    fi
+
+    echo ""
+    log_success "Found VM at new IP: $new_ip"
+
+    # Wait for SSH on new IP
+    log_info "Waiting for SSH on new IP..."
+    if ! "$PROXMOX_OPS" wait-ssh "$new_ip" 180; then
+        log_error "SSH not ready on $new_ip"
+        return 1
+    fi
+
+    # Verify we're in the NixOS installer (not still Ubuntu)
+    log_info "Verifying NixOS installer environment..."
+    if ! ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+        "root@$new_ip" "command -v nixos-install" &>/dev/null; then
+        log_error "Not in NixOS installer - kexec may have failed"
+        log_error "Check Proxmox console"
+        return 1
+    fi
+    log_success "Confirmed NixOS installer environment"
+
+    echo ""
+    log_info "Phase 2: Partitioning disk and installing NixOS"
+    log_info "Running: nixos-anywhere --phases disko,install --flake .#$nixos_config root@$new_ip"
+
+    # Phase 2: disko + install NixOS (use </dev/null to prevent stdin issues)
+    if ! nix run github:nix-community/nixos-anywhere -- \
+        --phases disko,install \
+        --flake ".#$nixos_config" \
+        "root@$new_ip" </dev/null; then
+        log_error "NixOS installation failed"
+        return 1
+    fi
+
+    log_success "NixOS installation complete!"
+
+    # Reboot into the installed system
+    log_info "Rebooting VM into installed NixOS..."
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+        "root@$new_ip" "reboot" 2>/dev/null || true
+
+    # Wait for reboot and find final IP
+    log_info "Waiting 30s for VM to reboot..."
+    sleep 30
+
+    local final_ip
+    if ! final_ip=$(find_ip_by_mac "$vmid" 30); then
+        log_warning "Could not find final VM IP - VM may have different IP after reboot"
+        log_warning "Check Proxmox for current IP"
+        echo "$new_ip"
+        return 0
+    fi
+
+    # Wait for SSH on final IP (as abl030, not root - root SSH is disabled)
+    log_info "Waiting for SSH on final system (user: abl030)..."
+    if "$PROXMOX_OPS" wait-ssh "$final_ip" 120 abl030 2>/dev/null; then
+        log_success "NixOS is up and running at $final_ip"
+        log_success "SSH: ssh abl030@$final_ip"
+    else
+        log_warning "SSH not ready yet - VM may still be booting"
+    fi
+
+    echo "$final_ip"
 }
 
 # Main provisioning workflow
@@ -350,7 +521,9 @@ provision_vm() {
     log_warning "  1. Clone template VM"
     log_warning "  2. Configure resources and networking"
     log_warning "  3. Start VM and wait for network"
-    log_warning "  4. Install NixOS (will happen in next step - not automated yet)"
+    log_warning "  4. Deploy NixOS via nixos-anywhere (two-phase)"
+    log_warning "     - Phase 1: kexec only (IP will change after this)"
+    log_warning "     - Phase 2: disko + install on new IP"
     echo ""
 
     read -p "Continue? (y/N) " -n 1 -r
@@ -395,21 +568,35 @@ provision_vm() {
     fi
 
     echo ""
+    log_info "VM booted with initial IP: $vm_ip"
+    echo ""
+
+    # Deploy NixOS (two-phase)
+    local final_ip
+    if ! final_ip=$(deploy_nixos "$VMID" "$NIXOS_CONFIG" "$vm_ip"); then
+        log_error "NixOS deployment failed"
+        log_info "VM is still running. You can:"
+        log_info "  - Check console in Proxmox"
+        log_info "  - Try manual deployment: nixos-anywhere --flake .#$NIXOS_CONFIG root@<ip>"
+        return 1
+    fi
+
+    echo ""
     log_success "VM provisioning complete!"
     echo ""
     log_info "Next steps:"
-    log_info "  1. Install NixOS:"
-    log_info "     nixos-anywhere --flake .#$NIXOS_CONFIG root@$vm_ip"
+    log_info "  Run post-provisioning to integrate with fleet:"
+    log_info "  nix run .#post-provision-vm $vm_name $final_ip $VMID"
     log_info ""
-    log_info "  2. After installation, run post-provisioning to:"
+    log_info "  This will:"
     log_info "     - Extract SSH host key"
     log_info "     - Update hosts.nix and secrets"
     log_info "     - Update documentation"
     log_info ""
     log_info "VM Details:"
     log_info "  VMID: $VMID"
-    log_info "  IP: $vm_ip"
-    log_info "  SSH: ssh root@$vm_ip"
+    log_info "  Final IP: $final_ip"
+    log_info "  SSH: ssh abl030@$final_ip"
 }
 
 # Main entry point

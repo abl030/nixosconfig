@@ -222,7 +222,7 @@ destroy_vm() {
 get_vm_ip() {
     local vmid="$1"
 
-    # Try to get IP from QEMU guest agent
+    # Try to get IP from QEMU guest agent first
     local ip
     ip=$(ssh_exec "qm guest cmd ${vmid} network-get-interfaces" 2>/dev/null | \
          grep -oP '"ip-address":\s*"\K[0-9.]+' | head -1 || echo "")
@@ -235,12 +235,18 @@ get_vm_ip() {
               grep -oP 'net0:.*virtio=\K[^,]+' | tr '[:upper:]' '[:lower:]' || echo "")
 
         if [[ -n "$mac" ]]; then
+            # Flush stale ARP entries for this MAC to force fresh lookup
+            ssh_exec "ip neigh | grep -i '${mac}' | awk '{print \$1}' | xargs -r -I{} ip neigh del {} dev vmbr0 2>/dev/null || true" &>/dev/null
+
             # Ping sweep to populate ARP table (run in background, quick)
             ssh_exec "for i in \$(seq 1 254); do (ping -c 1 -W 1 192.168.1.\$i &>/dev/null) & done; wait" &>/dev/null
 
-            # Look up MAC in ARP table
-            ip=$(ssh_exec "ip neigh show | grep -i '${mac}'" 2>/dev/null | \
-                 grep -oP '^[0-9.]+' | head -1 || echo "")
+            # Brief pause to let ARP table settle
+            sleep 2
+
+            # Look up MAC in ARP table - prefer REACHABLE/DELAY over STALE
+            ip=$(ssh_exec "ip neigh show | grep -i '${mac}' | grep -v 'FAILED' | head -1" 2>/dev/null | \
+                 grep -oP '^[0-9.]+' || echo "")
         fi
     fi
 
@@ -251,13 +257,14 @@ get_vm_ip() {
 wait_for_ssh() {
     local ip="$1"
     local timeout="${2:-300}"
+    local user="${3:-root}"
     local elapsed=0
     local interval=5
 
-    echo "Waiting for SSH at ${ip}..." >&2
+    echo "Waiting for SSH at ${user}@${ip}..." >&2
 
     while (( elapsed < timeout )); do
-        if ssh "${SSH_OPTS[@]}" -o ConnectTimeout=2 "root@${ip}" "echo ok" &>/dev/null; then
+        if ssh "${SSH_OPTS[@]}" -o ConnectTimeout=2 "${user}@${ip}" "echo ok" &>/dev/null; then
             echo "SSH ready!" >&2
             return 0
         fi
@@ -316,7 +323,7 @@ main() {
         echo "  shutdown <vmid>" >&2
         echo "  destroy <vmid> yes" >&2
         echo "  get-ip <vmid>" >&2
-        echo "  wait-ssh <ip> [timeout]" >&2
+        echo "  wait-ssh <ip> [timeout] [user]" >&2
         echo "  storage                           Get storage status" >&2
         echo "  next-vmid [start] [end]          Get next available VMID" >&2
         return 1
