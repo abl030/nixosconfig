@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Enhanced Proxmox CLI Wrapper
-# Wraps proxmox-ops.sh with ergonomic commands and jq-formatted output
+# Wraps proxmox-ops with ergonomic commands and jq-formatted output
 
 set -euo pipefail
 
@@ -28,13 +28,8 @@ warning() {
     echo -e "${YELLOW}$*${NC}"
 }
 
-# Find proxmox-ops.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROXMOX_OPS="${SCRIPT_DIR}/../vms/proxmox-ops.sh"
-
-if [[ ! -x "$PROXMOX_OPS" ]]; then
-    error "proxmox-ops.sh not found at $PROXMOX_OPS"
-fi
+# proxmox-ops is in PATH via writeShellApplication
+PROXMOX_OPS="proxmox-ops"
 
 # Usage information
 usage() {
