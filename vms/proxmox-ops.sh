@@ -56,7 +56,7 @@ is_readonly_vmid() {
     local vmid="$1"
     # Hardcoded readonly VMIDs from definitions.nix
     # TODO: Generate this from definitions.nix at build time
-    local readonly_vmids=(104 109)
+    local readonly_vmids=(104 109 110)
 
     for readonly_vmid in "${readonly_vmids[@]}"; do
         if [[ "$vmid" == "$readonly_vmid" ]]; then

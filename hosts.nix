@@ -94,6 +94,7 @@ in {
     authorizedKeys = masterKeys;
   };
 
+
   dev = {
     configurationFile = ./hosts/dev/configuration.nix;
     homeFile = ./hosts/dev/home.nix;
@@ -102,7 +103,8 @@ in {
     hostname = "dev";
     sshAlias = "dev";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 PLACEHOLDER_KEY_WILL_BE_ADDED_DURING_PROVISIONING";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIAc8A4kOwfqGU34bSJJmQRonm9XeveKFSy/wBgeHLtA";
     authorizedKeys = masterKeys;
   };
+
 }
