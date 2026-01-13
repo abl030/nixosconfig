@@ -3,22 +3,17 @@
 #
 # Generates cloud-init configuration for new VMs.
 # Provides SSH key management and initial VM bootstrapping.
-
-{ lib, pkgs, ... }:
-
-with lib;
-
-rec {
+{lib, ...}:
+with lib; rec {
   # Load fleet SSH keys from hosts.nix
   # These are the master keys that can access all VMs
-  getFleetSSHKeys = hostsConfig:
-    let
-      # Extract masterKeys from a host that has authorizedKeys
-      # (all hosts should have the same masterKeys)
-      firstHost = head (attrValues hostsConfig);
-      masterKeys = firstHost.authorizedKeys or [];
-    in
-      masterKeys;
+  getFleetSSHKeys = hostsConfig: let
+    # Extract masterKeys from a host that has authorizedKeys
+    # (all hosts should have the same masterKeys)
+    firstHost = head (attrValues hostsConfig);
+    masterKeys = firstHost.authorizedKeys or [];
+  in
+    masterKeys;
 
   # Format SSH keys for Proxmox cloud-init
   # Proxmox expects newline-separated keys or URL-encoded format
@@ -53,8 +48,8 @@ rec {
 
     # Packages to install
     ${optionalString (packages != []) ''
-    packages:
-    ${concatMapStrings (pkg: "  - ${pkg}\n") packages}
+      packages:
+      ${concatMapStrings (pkg: "  - ${pkg}\n") packages}
     ''}
 
     # Run commands on first boot
@@ -79,14 +74,18 @@ rec {
     version: 2
     ethernets:
       ${interface}:
-        ${if dhcp then "dhcp4: true" else ''
-        addresses:
-          - ${address}
-        gateway4: ${gateway}
-        nameservers:
-          addresses:
-    ${concatMapStrings (ns: "        - ${ns}\n") nameservers}
-        ''}
+        ${
+      if dhcp
+      then "dhcp4: true"
+      else ''
+            addresses:
+              - ${address}
+            gateway4: ${gateway}
+            nameservers:
+              addresses:
+        ${concatMapStrings (ns: "        - ${ns}\n") nameservers}
+      ''
+    }
   '';
 
   # Generate complete cloud-init configuration for a VM
@@ -99,80 +98,80 @@ rec {
     dhcp ? true,
     interface ? "ens18",
     packages ? ["qemu-guest-agent"],
-  }:
-    let
-      fleetKeys = getFleetSSHKeys hostsConfig;
-    in {
-      user-data = generateUserData {
-        inherit hostname timezone packages;
-        sshKeys = fleetKeys;
-      };
-
-      network-config = generateNetworkConfig {
-        inherit interface dhcp;
-      };
-
-      # Formatted for direct use with proxmox-ops.sh
-      sshKeysFormatted = formatSSHKeysForProxmox fleetKeys;
+  }: let
+    fleetKeys = getFleetSSHKeys hostsConfig;
+  in {
+    user-data = generateUserData {
+      inherit hostname timezone packages;
+      sshKeys = fleetKeys;
     };
+
+    network-config = generateNetworkConfig {
+      inherit interface dhcp;
+    };
+
+    # Formatted for direct use with proxmox-ops.sh
+    sshKeysFormatted = formatSSHKeysForProxmox fleetKeys;
+  };
 
   # Create a script to configure cloud-init on a VM
   # Returns: bash script
-  makeCloudInitConfigScript = pkgs: vmid: config: pkgs.writeShellScript "configure-cloudinit-${toString vmid}" ''
-    set -euo pipefail
+  makeCloudInitConfigScript = pkgs: vmid: config:
+    pkgs.writeShellScript "configure-cloudinit-${toString vmid}" ''
+      set -euo pipefail
 
-    VMID="${toString vmid}"
-    SSH_KEYS="${config.sshKeysFormatted}"
-    HOSTNAME="${config.hostname or "nixos"}"
+      VMID="${toString vmid}"
+      SSH_KEYS="${config.sshKeysFormatted}"
+      HOSTNAME="${config.hostname or "nixos"}"
 
-    echo "Configuring cloud-init for VMID $VMID..."
+      echo "Configuring cloud-init for VMID $VMID..."
 
-    # Create cloud-init drive if it doesn't exist
-    ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
-      "qm set $VMID --ide2 nvmeprom:cloudinit" 2>/dev/null || true
+      # Create cloud-init drive if it doesn't exist
+      ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
+        "qm set $VMID --ide2 nvmeprom:cloudinit" 2>/dev/null || true
 
-    # Configure cloud-init settings
-    ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
-      "qm set $VMID --ciuser root --cipassword '!' --searchdomain local --nameserver 192.168.1.1"
+      # Configure cloud-init settings
+      ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
+        "qm set $VMID --ciuser root --cipassword '!' --searchdomain local --nameserver 192.168.1.1"
 
-    # Set SSH keys (URL-encoded format)
-    echo "$SSH_KEYS" | ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
-      "xargs -I {} qm set $VMID --sshkeys {}"
+      # Set SSH keys (URL-encoded format)
+      echo "$SSH_KEYS" | ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
+        "xargs -I {} qm set $VMID --sshkeys {}"
 
-    # Enable DHCP
-    ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
-      "qm set $VMID --ipconfig0 ip=dhcp"
+      # Enable DHCP
+      ${pkgs.openssh}/bin/ssh -o StrictHostKeyChecking=no root@192.168.1.12 \
+        "qm set $VMID --ipconfig0 ip=dhcp"
 
-    echo "Cloud-init configuration complete for VMID $VMID"
-  '';
+      echo "Cloud-init configuration complete for VMID $VMID"
+    '';
 
   # Helper: Write cloud-init files to disk for inspection/debugging
   # Returns: derivation with user-data and network-config files
-  writeCloudInitFiles = pkgs: vmName: config: pkgs.runCommand "cloudinit-${vmName}" {} ''
-    mkdir -p $out
-    cat > $out/user-data <<'EOF'
-    ${config.user-data}
-    EOF
+  writeCloudInitFiles = pkgs: vmName: config:
+    pkgs.runCommand "cloudinit-${vmName}" {} ''
+      mkdir -p $out
+      cat > $out/user-data <<'EOF'
+      ${config.user-data}
+      EOF
 
-    cat > $out/network-config <<'EOF'
-    ${config.network-config}
-    EOF
+      cat > $out/network-config <<'EOF'
+      ${config.network-config}
+      EOF
 
-    cat > $out/ssh-keys.txt <<'EOF'
-    ${config.sshKeysFormatted}
-    EOF
+      cat > $out/ssh-keys.txt <<'EOF'
+      ${config.sshKeysFormatted}
+      EOF
 
-    echo "Cloud-init files written to $out"
-  '';
+      echo "Cloud-init files written to $out"
+    '';
 
   # Validate cloud-init configuration
   # Returns: list of error messages (empty if valid)
-  validateCloudInitConfig = config:
-    let
-      errors = []
-        ++ (optional (!(config ? user-data)) "Missing user-data")
-        ++ (optional (!(config ? network-config)) "Missing network-config")
-        ++ (optional (!(config ? sshKeysFormatted)) "Missing SSH keys");
-    in
-      errors;
+  validateCloudInitConfig = config: let
+    errors =
+      (optional (!(config ? user-data)) "Missing user-data")
+      ++ (optional (!(config ? network-config)) "Missing network-config")
+      ++ (optional (!(config ? sshKeysFormatted)) "Missing SSH keys");
+  in
+    errors;
 }

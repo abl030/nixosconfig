@@ -3,10 +3,7 @@
 #
 # Nix packages for VM provisioning and management tools.
 # Exports: provision-vm, post-provision-vm, proxmox-ops
-
-{ pkgs, ... }:
-
-rec {
+{pkgs, ...}: rec {
   # Proxmox operations wrapper
   proxmox-ops = pkgs.writeShellApplication {
     name = "proxmox-ops";
@@ -46,7 +43,7 @@ rec {
       coreutils
       git
       nix
-      proxmox-ops  # Include proxmox-ops in PATH
+      proxmox-ops # Include proxmox-ops in PATH
     ];
 
     text = ''

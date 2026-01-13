@@ -1,7 +1,6 @@
 # Minimal hardware configuration for Proxmox VM
 # This will be generated properly by nixos-anywhere during installation
 {
-  config,
   lib,
   modulesPath,
   ...
@@ -10,10 +9,14 @@
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  boot.initrd.availableKernelModules = ["ata_piix" "uhci_hcd" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
-  boot.initrd.kernelModules = [];
-  boot.kernelModules = [];
-  boot.extraModulePackages = [];
+  boot = {
+    initrd = {
+      availableKernelModules = ["ata_piix" "uhci_hcd" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
+      kernelModules = [];
+    };
+    kernelModules = [];
+    extraModulePackages = [];
+  };
 
   # Filesystem definitions handled by disko.nix
   # Do not define fileSystems here when using disko

@@ -9,7 +9,6 @@
 # - template: Base template used for cloning new VMs
 #
 # SAFETY: imported VMs have readonly=true to prevent accidental modifications
-
 {
   # Proxmox Connection Configuration
   proxmox = {
