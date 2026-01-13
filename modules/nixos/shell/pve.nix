@@ -21,6 +21,8 @@ with lib; let
       util-linux
       openssh
       bash
+      bc # For floating point calculations
+      coreutils # For date, sleep, etc
       nix # For nix run commands
     ];
     text = builtins.readFile ../../../scripts/pve;

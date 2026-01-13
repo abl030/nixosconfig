@@ -31,6 +31,56 @@ warning() {
 # proxmox-ops is in PATH via writeShellApplication
 PROXMOX_OPS="proxmox-ops"
 
+# Proxmox host configuration
+PROXMOX_HOST="192.168.1.12"
+PROXMOX_NODE="prom"
+
+# Helper: Query pvesh for VM current status (real-time stats)
+# Returns JSON with cpu, mem, diskread, diskwrite, netin, netout, uptime
+get_vm_stats() {
+    local vmid=$1
+    ssh "root@$PROXMOX_HOST" "pvesh get /nodes/$PROXMOX_NODE/qemu/$vmid/status/current --output-format json 2>/dev/null"
+}
+
+# Helper: Format bytes to human readable
+bytes_to_human() {
+    local bytes=$1
+    if (( bytes < 1024 )); then
+        echo "${bytes}B"
+    elif (( bytes < 1048576 )); then
+        echo "$(( bytes / 1024 ))KB"
+    elif (( bytes < 1073741824 )); then
+        printf "%.1fMB" "$(echo "scale=1; $bytes / 1048576" | bc)"
+    else
+        printf "%.1fGB" "$(echo "scale=1; $bytes / 1073741824" | bc)"
+    fi
+}
+
+# Helper: Format seconds to human readable uptime
+seconds_to_uptime() {
+    local seconds=$1
+    local days=$(( seconds / 86400 ))
+    local hours=$(( (seconds % 86400) / 3600 ))
+    local mins=$(( (seconds % 3600) / 60 ))
+
+    if (( days > 0 )); then
+        echo "${days}d ${hours}h"
+    elif (( hours > 0 )); then
+        echo "${hours}h ${mins}m"
+    else
+        echo "${mins}m"
+    fi
+}
+
+# Helper: Calculate rate between two samples
+# Args: value1 value2 interval_seconds
+calculate_rate() {
+    local val1=$1
+    local val2=$2
+    local interval=$3
+    echo "scale=2; ($val2 - $val1) / $interval" | bc
+}
+
 # Usage information
 usage() {
     cat <<EOF
@@ -41,10 +91,15 @@ USAGE:
 
 VIEWING/LISTING:
     list, ls              List all VMs (table format)
-    ps                    Show only running VMs
+    ps [--live] [--throughput]
+                          Show only running VMs
+                          --live: Show real-time CPU% and memory usage
+                          --throughput: Show disk/network I/O rates
     status <vmid>         Get status of specific VM
+    stats <vmid>          Show detailed real-time statistics for VM
     info <vmid>           Show detailed VM configuration
     config <vmid>         Show raw Proxmox config
+    top                   Live monitor (refreshes every 2s, press q to quit)
 
 NETWORK:
     ip <vmid>             Get IP address of VM
@@ -117,23 +172,279 @@ case "$CMD" in
         ;;
 
     ps)
-        info "Showing running VMs..."
-        "$PROXMOX_OPS" list | jq -r '
-            ["VMID", "NAME", "STATUS", "CPU", "RAM(GB)"],
-            ["----", "----", "------", "---", "-------"],
-            (.[] | select(.type=="qemu" and .status=="running") | [
-                .vmid,
-                .name,
-                .status,
-                .maxcpu // "?",
-                ((.maxmem // 0) / 1024 / 1024 / 1024 | floor)
-            ]) | @tsv
-        ' | column -t
+        # Check for flags
+        show_live=false
+        show_throughput=false
+        for arg in "$@"; do
+            case "$arg" in
+                --live) show_live=true ;;
+                --throughput) show_throughput=true ;;
+            esac
+        done
+
+        if [[ "$show_live" == "true" ]] || [[ "$show_throughput" == "true" ]]; then
+            info "Showing running VMs with real-time stats..."
+
+            # Get running VMIDs
+            running_vms=$("$PROXMOX_OPS" list | jq -r '.[] | select(.type=="qemu" and .status=="running") | .vmid')
+
+            if [[ "$show_throughput" == "true" ]]; then
+                # Sample twice with 1 second interval for throughput calculation
+                declare -A sample1_disk_r sample1_disk_w sample1_net_rx sample1_net_tx
+                declare -A sample2_disk_r sample2_disk_w sample2_net_rx sample2_net_tx
+
+                # First sample
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    sample1_disk_r[$vmid]=$(echo "$stats" | jq -r '.diskread // 0')
+                    sample1_disk_w[$vmid]=$(echo "$stats" | jq -r '.diskwrite // 0')
+                    sample1_net_rx[$vmid]=$(echo "$stats" | jq -r '.netin // 0')
+                    sample1_net_tx[$vmid]=$(echo "$stats" | jq -r '.netout // 0')
+                done
+
+                sleep 1
+
+                # Second sample
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    sample2_disk_r[$vmid]=$(echo "$stats" | jq -r '.diskread // 0')
+                    sample2_disk_w[$vmid]=$(echo "$stats" | jq -r '.diskwrite // 0')
+                    sample2_net_rx[$vmid]=$(echo "$stats" | jq -r '.netin // 0')
+                    sample2_net_tx[$vmid]=$(echo "$stats" | jq -r '.netout // 0')
+                done
+
+                # Print header
+                echo "VMID	NAME	CPU%	MEM	DISK R/W	NET RX/TX"
+                echo "----	----	----	---	--------	---------"
+
+                # Calculate and display rates
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    name=$(echo "$stats" | jq -r '.name // "?"')
+                    cpu=$(echo "$stats" | jq -r '.cpu // 0 | . * 100')
+                    mem_used=$(echo "$stats" | jq -r '.mem // 0')
+                    mem_max=$(echo "$stats" | jq -r '.maxmem // 0')
+
+                    # Calculate rates (bytes per second)
+                    disk_r_rate=$(calculate_rate "${sample1_disk_r[$vmid]}" "${sample2_disk_r[$vmid]}" 1)
+                    disk_w_rate=$(calculate_rate "${sample1_disk_w[$vmid]}" "${sample2_disk_w[$vmid]}" 1)
+                    net_rx_rate=$(calculate_rate "${sample1_net_rx[$vmid]}" "${sample2_net_rx[$vmid]}" 1)
+                    net_tx_rate=$(calculate_rate "${sample1_net_tx[$vmid]}" "${sample2_net_tx[$vmid]}" 1)
+
+                    mem_gb=$(echo "scale=1; $mem_used / 1073741824" | bc)
+                    mem_max_gb=$(echo "scale=1; $mem_max / 1073741824" | bc)
+
+                    disk_r_human=$(bytes_to_human "${disk_r_rate%.*}")
+                    disk_w_human=$(bytes_to_human "${disk_w_rate%.*}")
+                    net_rx_human=$(bytes_to_human "${net_rx_rate%.*}")
+                    net_tx_human=$(bytes_to_human "${net_tx_rate%.*}")
+
+                    printf "%s\t%s\t%.1f%%\t%.1f/%.1fG\t%s/%s\t%s/%s\n" \
+                        "$vmid" "$name" "$cpu" "$mem_gb" "$mem_max_gb" \
+                        "$disk_r_human" "$disk_w_human" \
+                        "$net_rx_human" "$net_tx_human"
+                done | column -t -s $'\t'
+            else
+                # Just live stats (no throughput)
+                echo "VMID	NAME	STATUS	CPU%	MEM	UPTIME"
+                echo "----	----	------	----	---	------"
+
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    name=$(echo "$stats" | jq -r '.name // "?"')
+                    status=$(echo "$stats" | jq -r '.status // "?"')
+                    cpu=$(echo "$stats" | jq -r '.cpu // 0 | . * 100')
+                    mem_used=$(echo "$stats" | jq -r '.mem // 0')
+                    mem_max=$(echo "$stats" | jq -r '.maxmem // 0')
+                    uptime=$(echo "$stats" | jq -r '.uptime // 0')
+
+                    mem_gb=$(echo "scale=1; $mem_used / 1073741824" | bc)
+                    mem_max_gb=$(echo "scale=1; $mem_max / 1073741824" | bc)
+                    mem_pct=$(echo "scale=0; ($mem_used * 100) / $mem_max" | bc)
+                    uptime_human=$(seconds_to_uptime "$uptime")
+
+                    printf "%s\t%s\t%s\t%.1f%%\t%.1fG/%.1fG (%s%%)\t%s\n" \
+                        "$vmid" "$name" "$status" "$cpu" "$mem_gb" "$mem_max_gb" "$mem_pct" "$uptime_human"
+                done | column -t -s $'\t'
+            fi
+        else
+            # Original ps output (no stats)
+            info "Showing running VMs..."
+            "$PROXMOX_OPS" list | jq -r '
+                ["VMID", "NAME", "STATUS", "CPU", "RAM(GB)"],
+                ["----", "----", "------", "---", "-------"],
+                (.[] | select(.type=="qemu" and .status=="running") | [
+                    .vmid,
+                    .name,
+                    .status,
+                    .maxcpu // "?",
+                    ((.maxmem // 0) / 1024 / 1024 / 1024 | floor)
+                ]) | @tsv
+            ' | column -t
+        fi
         ;;
 
     status)
         [[ -z "${1:-}" ]] && error "Usage: pve status <vmid>"
         "$PROXMOX_OPS" status "$1"
+        ;;
+
+    stats)
+        [[ -z "${1:-}" ]] && error "Usage: pve stats <vmid>"
+        vmid=$1
+
+        info "VM $vmid - Real-time Statistics"
+        echo "===================================="
+
+        # Get two samples 1 second apart for rate calculation
+        stats1=$(get_vm_stats "$vmid")
+        sleep 1
+        stats2=$(get_vm_stats "$vmid")
+
+        # Extract values
+        name=$(echo "$stats2" | jq -r '.name // "unknown"')
+        status=$(echo "$stats2" | jq -r '.status // "unknown"')
+        uptime=$(echo "$stats2" | jq -r '.uptime // 0')
+        cpu=$(echo "$stats2" | jq -r '.cpu // 0 | . * 100')
+        cpus=$(echo "$stats2" | jq -r '.cpus // "?"')
+        mem_used=$(echo "$stats2" | jq -r '.mem // 0')
+        mem_max=$(echo "$stats2" | jq -r '.maxmem // 0')
+
+        # Guest agent memory info
+        mem_free=$(echo "$stats2" | jq -r '.ballooninfo.free_mem // 0')
+        mem_total=$(echo "$stats2" | jq -r '.ballooninfo.total_mem // 0')
+
+        # Disk I/O
+        disk_read1=$(echo "$stats1" | jq -r '.diskread // 0')
+        disk_write1=$(echo "$stats1" | jq -r '.diskwrite // 0')
+        disk_read2=$(echo "$stats2" | jq -r '.diskread // 0')
+        disk_write2=$(echo "$stats2" | jq -r '.diskwrite // 0')
+
+        # Network I/O
+        net_in1=$(echo "$stats1" | jq -r '.netin // 0')
+        net_out1=$(echo "$stats1" | jq -r '.netout // 0')
+        net_in2=$(echo "$stats2" | jq -r '.netin // 0')
+        net_out2=$(echo "$stats2" | jq -r '.netout // 0')
+
+        # Calculate rates
+        disk_read_rate=$(calculate_rate "$disk_read1" "$disk_read2" 1)
+        disk_write_rate=$(calculate_rate "$disk_write1" "$disk_write2" 1)
+        net_in_rate=$(calculate_rate "$net_in1" "$net_in2" 1)
+        net_out_rate=$(calculate_rate "$net_out1" "$net_out2" 1)
+
+        # Format output
+        uptime_human=$(seconds_to_uptime "$uptime")
+        mem_gb=$(echo "scale=1; $mem_used / 1073741824" | bc)
+        mem_max_gb=$(echo "scale=1; $mem_max / 1073741824" | bc)
+        mem_pct=$(echo "scale=0; ($mem_used * 100) / $mem_max" | bc)
+
+        disk_read_total=$(bytes_to_human "$disk_read2")
+        disk_write_total=$(bytes_to_human "$disk_write2")
+        disk_read_rate_h=$(bytes_to_human "${disk_read_rate%.*}")
+        disk_write_rate_h=$(bytes_to_human "${disk_write_rate%.*}")
+
+        net_in_total=$(bytes_to_human "$net_in2")
+        net_out_total=$(bytes_to_human "$net_out2")
+        net_in_rate_h=$(bytes_to_human "${net_in_rate%.*}")
+        net_out_rate_h=$(bytes_to_human "${net_out_rate%.*}")
+
+        # Display
+        echo "Name:      $name"
+        echo "Status:    $status (uptime: $uptime_human)"
+        echo ""
+        echo "CPU:       ${cpu}% ($cpus cores available)"
+        echo ""
+        echo "Memory:    ${mem_gb}G / ${mem_max_gb}G (${mem_pct}% used)"
+        if [[ "$mem_total" != "0" ]]; then
+            mem_free_gb=$(echo "scale=1; $mem_free / 1073741824" | bc)
+            mem_total_gb=$(echo "scale=1; $mem_total / 1073741824" | bc)
+            echo "  Guest:   ${mem_total_gb}G total, ${mem_free_gb}G free"
+        fi
+        echo ""
+        echo "Disk I/O:"
+        echo "  Read:    $disk_read_total total (${disk_read_rate_h}/s current)"
+        echo "  Write:   $disk_write_total total (${disk_write_rate_h}/s current)"
+        echo ""
+        echo "Network:"
+        echo "  RX:      $net_in_total total (${net_in_rate_h}/s current)"
+        echo "  TX:      $net_out_total total (${net_out_rate_h}/s current)"
+        ;;
+
+    top)
+        info "Proxmox VMs - Live Monitor (press Ctrl+C to quit)"
+        echo ""
+
+        # Trap Ctrl+C to exit cleanly
+        trap 'echo ""; success "Exiting..."; exit 0' INT
+
+        while true; do
+            # Clear screen and move cursor to top
+            clear
+
+            echo -e "${BLUE}Proxmox VMs - Live Monitor${NC}"
+            echo "Updated: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo ""
+
+            # Get running VMIDs
+            running_vms=$("$PROXMOX_OPS" list | jq -r '.[] | select(.type=="qemu" and .status=="running") | .vmid')
+
+            if [[ -z "$running_vms" ]]; then
+                echo "No running VMs"
+            else
+                # Sample twice with 1 second interval
+                declare -A sample1_disk_r sample1_disk_w sample1_net_rx sample1_net_tx
+                declare -A sample2_disk_r sample2_disk_w sample2_net_rx sample2_net_tx
+
+                # First sample
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    sample1_disk_r[$vmid]=$(echo "$stats" | jq -r '.diskread // 0')
+                    sample1_disk_w[$vmid]=$(echo "$stats" | jq -r '.diskwrite // 0')
+                    sample1_net_rx[$vmid]=$(echo "$stats" | jq -r '.netin // 0')
+                    sample1_net_tx[$vmid]=$(echo "$stats" | jq -r '.netout // 0')
+                done
+
+                sleep 1
+
+                # Second sample and display
+                echo "VMID	NAME	CPU%	MEM%	DISK R/W	NET RX/TX"
+                echo "----	----	----	----	--------	---------"
+
+                for vmid in $running_vms; do
+                    stats=$(get_vm_stats "$vmid")
+                    sample2_disk_r[$vmid]=$(echo "$stats" | jq -r '.diskread // 0')
+                    sample2_disk_w[$vmid]=$(echo "$stats" | jq -r '.diskwrite // 0')
+                    sample2_net_rx[$vmid]=$(echo "$stats" | jq -r '.netin // 0')
+                    sample2_net_tx[$vmid]=$(echo "$stats" | jq -r '.netout // 0')
+
+                    name=$(echo "$stats" | jq -r '.name // "?"')
+                    cpu=$(echo "$stats" | jq -r '.cpu // 0 | . * 100')
+                    mem_used=$(echo "$stats" | jq -r '.mem // 0')
+                    mem_max=$(echo "$stats" | jq -r '.maxmem // 0')
+                    mem_pct=$(echo "scale=0; ($mem_used * 100) / $mem_max" | bc)
+
+                    # Calculate rates
+                    disk_r_rate=$(calculate_rate "${sample1_disk_r[$vmid]}" "${sample2_disk_r[$vmid]}" 1)
+                    disk_w_rate=$(calculate_rate "${sample1_disk_w[$vmid]}" "${sample2_disk_w[$vmid]}" 1)
+                    net_rx_rate=$(calculate_rate "${sample1_net_rx[$vmid]}" "${sample2_net_rx[$vmid]}" 1)
+                    net_tx_rate=$(calculate_rate "${sample1_net_tx[$vmid]}" "${sample2_net_tx[$vmid]}" 1)
+
+                    disk_r_human=$(bytes_to_human "${disk_r_rate%.*}")
+                    disk_w_human=$(bytes_to_human "${disk_w_rate%.*}")
+                    net_rx_human=$(bytes_to_human "${net_rx_rate%.*}")
+                    net_tx_human=$(bytes_to_human "${net_tx_rate%.*}")
+
+                    printf "%s\t%s\t%.1f%%\t%s%%\t%s/%s\t%s/%s\n" \
+                        "$vmid" "$name" "$cpu" "$mem_pct" \
+                        "$disk_r_human" "$disk_w_human" \
+                        "$net_rx_human" "$net_tx_human"
+                done | column -t -s $'\t'
+            fi
+
+            echo ""
+            echo -e "${BLUE}Refreshing in 2 seconds... (Ctrl+C to quit)${NC}"
+            sleep 1
+        done
         ;;
 
     info)

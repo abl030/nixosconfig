@@ -218,28 +218,23 @@ vm-new my-media --template media-server
 
 ---
 
-### 4.5. Real-Time Resource Stats
+### 4.5. Real-Time Resource Stats ✅ **IMPLEMENTED**
 
 **Goal**: Show actual resource usage in addition to on/off status
 
-**Current**: `pve ps` shows only allocated resources (max CPU, max RAM)
+**Status**: ✅ Implemented in commit `XXXXXX`
 
-**Desired**: Show real-time usage statistics
-
-```bash
-$ pve ps --live
-
-VMID │ NAME      │ STATUS  │ CPU%   │ RAM USED/MAX      │ DISK I/O
-─────┼───────────┼─────────┼────────┼───────────────────┼──────────
- 104 │ Doc1      │ Running │ 12.5%  │ 18GB / 32GB (56%) │ 45 MB/s
- 109 │ igpu      │ Running │ 3.2%   │ 4GB / 8GB (50%)   │ 2 MB/s
- 110 │ dev       │ Running │ 0.8%   │ 2GB / 8GB (25%)   │ <1 MB/s
-```
+**Features**:
+- `pve ps --live` - Show CPU%, memory usage, and uptime
+- `pve ps --throughput` - Show disk/network I/O rates (samples 1s apart)
+- `pve stats <vmid>` - Detailed per-VM statistics with current rates
+- `pve top` - Continuous live monitoring (refreshes every 2s)
 
 **Implementation**:
-- Query Proxmox RRD (Round Robin Database) for metrics
-- Use `qm status <vmid> --verbose` for detailed stats
-- Add `--live` or `-l` flag to `pve ps` and `pve list`
+- Uses `pvesh get /nodes/prom/qemu/<vmid>/status/current` for real-time data
+- Samples twice with 1-second interval to calculate throughput rates
+- Formats bytes to human-readable (KB, MB, GB)
+- Guest agent data (balloon) for internal memory stats
 
 ---
 
