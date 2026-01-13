@@ -22,6 +22,7 @@ These VMIDs are protected and the wrapper will REFUSE operations on them:
 |------|------|---------|
 | 104 | doc1 | Main services VM - Docker workloads |
 | 109 | igp | Media transcoding with iGPU passthrough |
+| 110 | dev | Development VM |
 
 If you need to manage these VMs, they must be moved from `imported` to `managed` in `vms/definitions.nix` first.
 
