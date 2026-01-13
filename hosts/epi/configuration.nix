@@ -39,6 +39,7 @@
       enable = true;
       tpmOverride = true;
     };
+    pve.enable = true;
     nixCaches = {
       enable = true;
       profile = "internal";
