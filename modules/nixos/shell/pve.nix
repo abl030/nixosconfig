@@ -9,8 +9,22 @@
 with lib; let
   cfg = config.homelab.pve;
 
-  # Package the pve script
-  pve-cli = pkgs.writeScriptBin "pve" (builtins.readFile ../../../scripts/pve);
+  # Import VM tools to get proxmox-ops
+  vmTools = import ../../../vms/package.nix {inherit pkgs;};
+
+  # Package the pve script with proxmox-ops in PATH
+  pve-cli = pkgs.writeShellApplication {
+    name = "pve";
+    runtimeInputs = with pkgs; [
+      vmTools.proxmox-ops
+      jq
+      util-linux
+      openssh
+      bash
+      nix # For nix run commands
+    ];
+    text = builtins.readFile ../../../scripts/pve;
+  };
 in {
   options.homelab.pve = {
     enable = mkEnableOption "Proxmox CLI wrapper (pve command)";
@@ -18,16 +32,7 @@ in {
 
   config = mkIf cfg.enable {
     # Make pve command available system-wide
-    environment.systemPackages =
-      [
-        pve-cli
-        pkgs.jq # Required for pve's jq formatting
-        pkgs.util-linux # Provides column command for table formatting
-      ]
-      ++ (
-        if pathExists ../../../vms/proxmox-ops.sh
-        then [pkgs.openssh pkgs.bash]
-        else []
-      );
+    # All dependencies are bundled in pve-cli via writeShellApplication
+    environment.systemPackages = [pve-cli];
   };
 }
