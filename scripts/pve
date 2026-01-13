@@ -379,18 +379,19 @@ case "$CMD" in
         trap 'echo ""; success "Exiting..."; exit 0' INT
 
         while true; do
-            # Clear screen and move cursor to top
-            clear
+            # Gather all data FIRST before clearing screen
+            output=""
 
-            echo -e "${BLUE}Proxmox VMs - Live Monitor${NC}"
-            echo "Updated: $(date '+%Y-%m-%d %H:%M:%S')"
-            echo ""
+            # Build header
+            output+="${BLUE}Proxmox VMs - Live Monitor${NC}\n"
+            output+="Updated: $(date '+%Y-%m-%d %H:%M:%S')\n"
+            output+="\n"
 
             # Get running VMIDs
             running_vms=$("$PROXMOX_OPS" list | jq -r '.[] | select(.type=="qemu" and .status=="running") | .vmid')
 
             if [[ -z "$running_vms" ]]; then
-                echo "No running VMs"
+                output+="No running VMs\n"
             else
                 # Sample twice with 1 second interval
                 declare -A sample1_disk_r sample1_disk_w sample1_net_rx sample1_net_tx
@@ -407,10 +408,8 @@ case "$CMD" in
 
                 sleep 1
 
-                # Second sample and display
-                echo "VMID	NAME	CPU%	MEM%	DISK R/W	NET RX/TX"
-                echo "----	----	----	----	--------	---------"
-
+                # Second sample and build table
+                table_output=""
                 for vmid in $running_vms; do
                     stats=$(get_vm_stats "$vmid")
                     sample2_disk_r[$vmid]=$(echo "$stats" | jq -r '.diskread // 0')
@@ -435,15 +434,25 @@ case "$CMD" in
                     net_rx_human=$(bytes_to_human "${net_rx_rate%.*}")
                     net_tx_human=$(bytes_to_human "${net_tx_rate%.*}")
 
-                    printf "%s\t%s\t%.1f%%\t%s%%\t%s/%s\t%s/%s\n" \
+                    table_output+=$(printf "%s\t%s\t%.1f%%\t%s%%\t%s/%s\t%s/%s\n" \
                         "$vmid" "$name" "$cpu" "$mem_pct" \
                         "$disk_r_human" "$disk_w_human" \
-                        "$net_rx_human" "$net_tx_human"
-                done | column -t -s $'\t'
+                        "$net_rx_human" "$net_tx_human")
+                    table_output+="\n"
+                done
+
+                # Format table
+                formatted_table=$(echo -e "VMID\tNAME\tCPU%\tMEM%\tDISK R/W\tNET RX/TX\n----\t----\t----\t----\t--------\t---------\n$table_output" | column -t -s $'\t')
+                output+="$formatted_table\n"
             fi
 
-            echo ""
-            echo -e "${BLUE}Refreshing in 2 seconds... (Ctrl+C to quit)${NC}"
+            output+="\n"
+            output+="${BLUE}Refreshing in 2 seconds... (Ctrl+C to quit)${NC}\n"
+
+            # NOW clear screen and display everything at once
+            clear
+            echo -e "$output"
+
             sleep 1
         done
         ;;
