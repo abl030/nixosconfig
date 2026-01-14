@@ -24,8 +24,8 @@ Future enhancements and ideas for the VM automation system.
 - [x] Added NixOS template config (`vms/template/configuration.nix`)
 - [x] Added nixos-generators input + `proxmox-template` package
 - [x] Build/import NixOS template and update `_proxmox.templateVmid`
-- [ ] Validate template with guest agent + cloud-init
-- [ ] Ensure DHCP on ens18 in template
+- [x] Validate template with guest agent + cloud-init
+- [x] Ensure DHCP on ens18 in template
 - [ ] Test importing existing VM into state
 - [ ] Test creating new VM end-to-end with qemu-guest-agent
 

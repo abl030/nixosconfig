@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Provisioning flow working; template boots with console access; DHCP pending
+**Status**: Provisioning flow working; template verified with DHCP + guest agent
 **Last Updated**: 2026-01-14
 
 ## Quick Start
