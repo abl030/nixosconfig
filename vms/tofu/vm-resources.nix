@@ -67,7 +67,10 @@
 
       # Lifecycle rules
       lifecycle = {
-        ignore_changes = ["cpu[0].architecture"];
+        ignore_changes = [
+          "cpu[0].architecture"
+          "vga"
+        ];
       };
     }
     // lib.optionalAttrs (bios == "ovmf") {
