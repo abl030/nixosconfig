@@ -10,3 +10,7 @@ nix/vms/tofu/.state/
 .terraform/
 .terraform.lock.hcl
 tfplan
+
+# Nix build outputs and local caches
+result
+.cache/

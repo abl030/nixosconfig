@@ -100,6 +100,23 @@ clone_vm() {
     ssh_exec "qm clone ${template_vmid} ${new_vmid} --name '${vm_name}' --full --storage ${storage}"
 }
 
+# Restore VM from a VMA archive
+restore_vm() {
+    local archive="$1"
+    local vmid="$2"
+    local storage="${3:-nvmeprom}"
+
+    check_operation_allowed "$vmid" "restore" || return 1
+
+    if vmid_exists "$vmid"; then
+        echo "ERROR: VMID ${vmid} already exists!" >&2
+        return 1
+    fi
+
+    echo "Restoring VMID ${vmid} from ${archive} to ${storage}..." >&2
+    ssh_exec "qmrestore ${archive} ${vmid} --unique true --storage ${storage}"
+}
+
 # Configure VM resources
 configure_vm() {
     local vmid="$1"
@@ -316,6 +333,7 @@ main() {
         echo "  configure <vmid> <cores> <memory>" >&2
         echo "  create-disk <vmid> <size> [storage] [disk]" >&2
         echo "  resize <vmid> <disk> <size>       Resize VM disk" >&2
+        echo "  restore-vma <archive> <vmid> [storage]" >&2
         echo "  cloudinit-drive <vmid> [storage]" >&2
         echo "  cloudinit-config <vmid> <ssh_keys> [hostname]" >&2
         echo "  start <vmid>" >&2
@@ -339,6 +357,7 @@ main() {
         configure)      configure_vm "$@" ;;
         create-disk)    create_vm_disk "$@" ;;
         resize)         resize_vm_disk "$@" ;;
+        restore-vma)    restore_vm "$@" ;;
         cloudinit-drive) create_cloudinit_drive "$@" ;;
         cloudinit-config) configure_cloudinit "$@" ;;
         start)          start_vm "$@" ;;
