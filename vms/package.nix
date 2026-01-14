@@ -74,6 +74,41 @@
     };
   };
 
+  # Interactive VM definition + config creation
+  new-vm = pkgs.writeShellApplication {
+    name = "new-vm";
+
+    runtimeInputs = with pkgs; [
+      coreutils
+      git
+      gnugrep
+      gnused
+      gawk
+      jq
+      nix
+      proxmox-ops
+    ];
+
+    text = ''
+      # Source the new VM wizard
+      ${builtins.readFile ./new.sh}
+    '';
+
+    meta = {
+      description = "Interactive VM creation wizard";
+      longDescription = ''
+        Wizard that creates a new managed VM definition and host config,
+        then runs provisioning on Proxmox.
+
+        Usage:
+          new-vm
+
+        Example:
+          new-vm
+      '';
+    };
+  };
+
   # Post-provisioning fleet integration
   post-provision-vm = pkgs.writeShellApplication {
     name = "post-provision-vm";

@@ -185,7 +185,7 @@ in {
   packages = {
     lint-nix = lintNix;
     fmt-nix = fmtNix;
-    inherit (vmTools) proxmox-ops provision-vm post-provision-vm;
+    inherit (vmTools) proxmox-ops provision-vm post-provision-vm new-vm;
   };
 
   apps = {
@@ -209,6 +209,11 @@ in {
       program = "${lib.getExe vmTools.provision-vm}";
       meta.description = "Provision a new VM from definition";
     };
+    new-vm = {
+      type = "app";
+      program = "${lib.getExe vmTools.new-vm}";
+      meta.description = "Interactive VM creation wizard";
+    };
     post-provision-vm = {
       type = "app";
       program = "${lib.getExe vmTools.post-provision-vm}";
@@ -230,6 +235,7 @@ in {
       # VM Provisioning tools
       vmTools.proxmox-ops
       vmTools.provision-vm
+      vmTools.new-vm
       vmTools.post-provision-vm
     ];
     shellHook = ''
@@ -240,6 +246,7 @@ in {
       echo "  - nix run .#fmt-nix -- --diff"
       echo ""
       echo "VM Provisioning:"
+      echo "  - nix run .#new-vm                 Create config + provision"
       echo "  - provision-vm <name>         Provision a new VM"
       echo "  - post-provision-vm <name> <ip> <vmid>  Integrate VM into fleet"
       echo "  - proxmox-ops <command>       Proxmox operations"
