@@ -34,7 +34,7 @@ in {
     host = "192.168.1.12";
     node = "prom";
     defaultStorage = "nvmeprom";
-    templateVmid = 9002;
+    templateVmid = 9003;
   };
 
   epimetheus = {
