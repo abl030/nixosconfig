@@ -7,9 +7,19 @@
   # Enable Numlock (i.e. can type numbers)
   xsession.numlock.enable = true;
 
-  programs.hmd = {
-    enable = true;
-    runOnSwitch = true; # enabled by default
+  programs = {
+    hmd = {
+      enable = true;
+      runOnSwitch = true; # enabled by default
+    };
+
+    home-manager.enable = true;
+
+    tmux = {
+      enable = true;
+      mouse = true;
+      historyLimit = 50000;
+    };
   };
 
   imports = [
@@ -70,7 +80,6 @@
       # # "Hello, world!" when run.
       # pkgs.hello
 
-      pkgs.tmux
       pkgs.git
       pkgs.gh
       pkgs.sops
@@ -106,9 +115,6 @@
       # '';
     };
   };
-
-  # Let Home Manager install and manage itself.
-  programs.home-manager.enable = true;
 
   # programs.git = {
   #   enable = true;
