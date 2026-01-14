@@ -187,6 +187,7 @@ Move provisioning to an OpenTofu-first workflow:
 - [ ] Use `tofu-output` (or state) as the source of VM IPs
 - [ ] Keep post-provision integration (`post-provision-vm`) as the final step
 - [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
+- [ ] Always run a verification step before moving on (e.g. `tofu-plan`, `tofu-output`, or status checks)
 
 ---
 
