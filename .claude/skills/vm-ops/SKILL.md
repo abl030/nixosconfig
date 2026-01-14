@@ -88,6 +88,13 @@ If you need to manage these VMs, they must be moved from `imported` to `managed`
 # Example: ./vms/proxmox-ops.sh wait-ssh 192.168.1.163 120 abl030
 ```
 
+### Serial Console
+
+```bash
+# Stream serial console (interactive when run in a real TTY)
+./vms/proxmox-ops.sh console <vmid>
+```
+
 ## Examples
 
 ### Restart a managed VM
@@ -102,6 +109,12 @@ If you need to manage these VMs, they must be moved from `imported` to `managed`
 ```bash
 ./vms/proxmox-ops.sh status 110
 # Output: status: running
+```
+
+### Stream VM serial console
+
+```bash
+./vms/proxmox-ops.sh console 9003
 ```
 
 ### Destroy a test VM

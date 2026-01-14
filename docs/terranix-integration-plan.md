@@ -1,13 +1,13 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE BUILT/IMPORTED; READY TO TEST
+**Status**: TEMPLATE BOOTED; SERIAL CONSOLE WORKS; DHCP PENDING
 
 ## Current Status
 
 OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubuntu cloud template (VMID 9002) lacks QEMU guest agent, causing OpenTofu to timeout waiting for agent response.
 
-**Current state**: NixOS template VMA built and imported as VMID 9003; `_proxmox.templateVmid` updated. Next step is validation via OpenTofu.
+**Current state**: NixOS template VMA built and imported as VMID 9003; `_proxmox.templateVmid` updated. Serial console access works via wrapper; DHCP is still missing (ens18 down).
 
 ### What's Done
 - [x] hosts.nix extended with `_proxmox` config and `proxmox` attributes
@@ -22,6 +22,9 @@ OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubun
 - [x] VMA built and imported on Proxmox (VMID 9003)
 - [x] Template converted in Proxmox (`qm template 9003`)
 - [x] `_proxmox.templateVmid` updated to 9003
+- [x] Serial console streaming via wrapper (`./vms/proxmox-ops.sh console <vmid>`)
+- [x] Temp root password baked in (`temp123`) for console access
+- [ ] Enable DHCP on ens18 in template and rebuild/reimport
 
 ### Current Blocker
 OpenTofu `agent.enabled = true` waits for QEMU guest agent response.
@@ -157,7 +160,7 @@ _proxmox = {
 
 ### Verification (NEXT)
 
-1. Clone from template boots successfully
+1. Template boots with DHCP on ens18
 2. QEMU guest agent responds (check via Proxmox UI or `qm agent <vmid> ping`)
 3. Cloud-init applies SSH keys and network config
 4. OpenTofu can create VMs without timeout
