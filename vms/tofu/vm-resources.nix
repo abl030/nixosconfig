@@ -20,26 +20,28 @@
     pve = host.proxmox;
     diskSize = parseDiskSize pve.disk;
     bios = pve.bios or "seabios";
+    diskInterface = pve.diskInterface or "virtio0";
+    cloneFromTemplate = pve.cloneFromTemplate or true;
+    ignoreInit = pve.ignoreInit or false;
+    ignoreChanges =
+      [
+        "cpu[0].architecture"
+        "vga"
+      ]
+      ++ lib.optional ignoreInit "initialization"
+      ++ (pve.ignoreChangesExtra or []);
   in
     {
       inherit name;
       node_name = proxmoxConfig.node;
       vm_id = pve.vmid;
-      description = "Managed by OpenTofu - ${host.hostname}";
-      tags = ["opentofu" "nixos" "managed"];
       on_boot = false; # Don't auto-start until NixOS is installed
 
       inherit bios;
 
-      clone = {
-        vm_id = proxmoxConfig.templateVmid;
-        full = true;
-        retries = 3;
-      };
-
       cpu = {
         inherit (pve) cores;
-        type = "x86-64-v2-AES";
+        type = pve.cpuType or "x86-64-v2-AES";
       };
 
       memory = {
@@ -49,7 +51,7 @@
       # Only add disk if it's a standard size (not passthrough)
       disk = lib.optional (diskSize != null) {
         datastore_id = pve.storage or proxmoxConfig.defaultStorage;
-        interface = "virtio0";
+        interface = diskInterface;
         size = diskSize;
         file_format = "raw";
       };
@@ -67,11 +69,21 @@
 
       # Lifecycle rules
       lifecycle = {
-        ignore_changes = [
-          "cpu[0].architecture"
-          "vga"
-        ];
+        ignore_changes = ignoreChanges;
       };
+    }
+    // lib.optionalAttrs cloneFromTemplate {
+      clone = {
+        vm_id = proxmoxConfig.templateVmid;
+        full = true;
+        retries = 3;
+      };
+    }
+    // lib.optionalAttrs (cloneFromTemplate || pve ? description) {
+      description = pve.description or "Managed by OpenTofu - ${host.hostname}";
+    }
+    // lib.optionalAttrs (cloneFromTemplate || pve ? tags) {
+      tags = pve.tags or ["opentofu" "nixos" "managed"];
     }
     // lib.optionalAttrs (bios == "ovmf") {
       efi_disk = {
@@ -79,6 +91,9 @@
         file_format = "raw";
         type = "4m";
       };
+    }
+    // lib.optionalAttrs (pve ? machine) {
+      inherit (pve) machine;
     };
 in {
   # Generate resource blocks for each managed VM

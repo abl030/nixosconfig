@@ -169,7 +169,7 @@ _proxmox = {
 ### Next Steps
 
 - [x] Validate full OpenTofu lifecycle (create -> no-op apply -> destroy)
-- [ ] Test importing an existing VM into state (`tofu import`)
+- [x] Test importing an existing VM into state (`tofu import`)
 - [ ] Wire `tofu-output` into provisioning/automation where useful
 
 ---

@@ -27,7 +27,7 @@ Future enhancements and ideas for the VM automation system.
 - [x] Validate template with guest agent + cloud-init
 - [x] Ensure DHCP on ens18 in template
 - [x] Test OpenTofu lifecycle (create -> no-op apply -> destroy)
-- [ ] Test OpenTofu import for existing VM
+- [x] Test OpenTofu import for existing VM
 - [ ] Wire `tofu-output` into provisioning/automation
 - [ ] Test importing existing VM into state
 - [ ] Test creating new VM end-to-end with qemu-guest-agent
