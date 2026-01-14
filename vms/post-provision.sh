@@ -12,6 +12,7 @@
 # 7. Leaves changes unstaged for manual review
 #
 # Usage: post-provision.sh <vm-name> <vm-ip> <vmid>
+#    or: post-provision.sh <vm-name> <vmid>   (uses tofu-output)
 
 set -euo pipefail
 
@@ -53,6 +54,39 @@ require_repo_root() {
         log_error "Missing files: hosts.nix or secrets/.sops.yaml"
         exit 1
     fi
+}
+
+resolve_vm_ip() {
+    local vm_name="$1"
+    local vm_ip="$2"
+
+    if [[ -n "$vm_ip" && "$vm_ip" != "-" ]]; then
+        echo "$vm_ip"
+        return 0
+    fi
+
+    if ! command -v nix >/dev/null 2>&1; then
+        log_error "nix is required to resolve IP via tofu-output."
+        return 1
+    fi
+
+    local workdir="${TOFU_WORKDIR:-$REPO_ROOT/vms/tofu/.state}"
+    local output_name="${vm_name}_ip"
+    local ip
+
+    log_info "Resolving IP from OpenTofu output: ${output_name}"
+    if ! ip=$(TOFU_WORKDIR="$workdir" nix run .#tofu-output -- -raw "$output_name" 2>/dev/null); then
+        log_error "Failed to read tofu output '${output_name}'."
+        log_error "Ensure the VM is managed by OpenTofu and state is present."
+        return 1
+    fi
+
+    if [[ -z "$ip" ]]; then
+        log_error "tofu output '${output_name}' is empty."
+        return 1
+    fi
+
+    echo "$ip"
 }
 
 resolve_sops_identity() {
@@ -447,19 +481,28 @@ post_provision() {
 
 # Main entry point
 main() {
-    if [[ $# -lt 3 ]]; then
+    if [[ $# -lt 2 || $# -gt 3 ]]; then
         echo "Usage: $0 <vm-name> <vm-ip> <vmid>"
+        echo "   or: $0 <vm-name> <vmid>"
         echo ""
-        echo "Example:"
+        echo "Examples:"
         echo "  $0 test-vm 192.168.1.50 110"
+        echo "  $0 test-vm 110"
         echo ""
         echo "This script should be run after NixOS is installed on the VM"
         return 1
     fi
 
     local vm_name="$1"
-    local vm_ip="$2"
-    local vmid="$3"
+    local vm_ip=""
+    local vmid=""
+
+    if [[ $# -eq 2 ]]; then
+        vmid="$2"
+    else
+        vm_ip="$2"
+        vmid="$3"
+    fi
 
     # Check prerequisites
     if ! check_prerequisites; then
@@ -470,6 +513,11 @@ main() {
 
     # Change to repo root
     cd "$REPO_ROOT"
+
+    # Resolve VM IP if needed (via tofu-output)
+    if ! vm_ip="$(resolve_vm_ip "$vm_name" "$vm_ip")"; then
+        return 1
+    fi
 
     # Run post-provisioning
     post_provision "$vm_name" "$vm_ip" "$vmid"

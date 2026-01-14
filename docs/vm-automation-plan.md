@@ -6,23 +6,23 @@
 ## Quick Start
 
 ```bash
-# 1. Define VM in vms/definitions.nix
-# 2. Create host config in hosts/{name}/
-# 3. Provision:
-nix run .#provision-vm <vm-name>
+# 1. Define VM in hosts.nix (proxmox attrs) + host config in hosts/{name}/
+# 2. OpenTofu creates the VM from template 9003:
+export PROXMOX_VE_API_TOKEN='terraform@pve!opentofu=<token>'
+nix run .#tofu-apply
 
+# 3. Deploy NixOS config to the blank VM (same as today)
 # 4. Integrate with fleet:
-nix run .#post-provision-vm <name> <ip> <vmid>
+nix run .#post-provision-vm <name> <vmid>
 ```
 
 ## What It Does
 
-Single command provisions a VM:
-1. Clones template (NixOS 9003 for OpenTofu)
-2. Configures resources (CPU, RAM, disk)
-3. Injects SSH keys via cloud-init
-4. Installs NixOS via nixos-anywhere (two-phase)
-5. Reboots and verifies SSH access
+OpenTofu-first provisioning:
+1. OpenTofu clones template 9003 and applies resources
+2. Cloud-init injects SSH keys (template behavior)
+3. Deploy NixOS config onto the blank VM
+4. Integrate into fleet with post-provision steps
 
 ## Architecture
 
@@ -35,6 +35,8 @@ vms/
 ├── proxmox-ops.sh     # Proxmox SSH wrapper
 └── cloudinit.nix      # Cloud-init generator
 ```
+
+Note: `provision.sh` is legacy; OpenTofu is the primary creation path.
 
 ### VM Definition Example
 
@@ -69,11 +71,12 @@ Each VM needs `hosts/{name}/` with:
 ## Commands
 
 ```bash
-# Provision
-nix run .#provision-vm <name>
+# OpenTofu plan/apply
+nix run .#tofu-plan
+nix run .#tofu-apply
 
 # Post-provision (fleet integration)
-nix run .#post-provision-vm <name> <ip> <vmid>
+nix run .#post-provision-vm <name> <vmid>
 
 # Direct Proxmox operations
 ./vms/proxmox-ops.sh list
@@ -85,8 +88,8 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 
 ## Requirements
 
-- Template 9003: NixOS VMA template with qemu-guest-agent (current for OpenTofu)
-- Template 9002: Ubuntu cloud image with UEFI (legacy for nixos-anywhere)
+- Template 9003: NixOS VMA template with qemu-guest-agent (OpenTofu path)
+- Template 9002: Ubuntu cloud image with UEFI (legacy path)
 - SSH access to Proxmox host (192.168.1.12)
 - Disko in flake inputs
 - Host entry in hosts.nix with `authorizedKeys = masterKeys`

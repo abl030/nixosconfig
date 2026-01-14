@@ -142,9 +142,11 @@
 
         Usage:
           post-provision-vm <vm-name> <vm-ip> <vmid>
+          post-provision-vm <vm-name> <vmid>
 
-        Example:
+        Examples:
           post-provision-vm test-vm 192.168.1.50 110
+          post-provision-vm test-vm 110
       '';
     };
   };

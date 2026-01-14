@@ -174,6 +174,22 @@ _proxmox = {
 
 ---
 
+## Phase 3: OpenTofu-First Provisioning
+
+### Goal
+Move provisioning to an OpenTofu-first workflow:
+1) OpenTofu creates a blank NixOS VM from template 9003
+2) Deploy NixOS configuration onto the VM
+3) Integrate into fleet (keys/secrets/hosts.nix updates)
+
+### Plan
+- [ ] Replace provisioning flow with OpenTofu-created VM as the starting point
+- [ ] Use `tofu-output` (or state) as the source of VM IPs
+- [ ] Keep post-provision integration (`post-provision-vm`) as the final step
+- [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
+
+---
+
 ## Phase 1 Reference (COMPLETE)
 
 Phase 1 implemented OpenTofu/Terranix integration. Key files created:
