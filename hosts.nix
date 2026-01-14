@@ -105,21 +105,4 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
     authorizedKeys = masterKeys;
   };
-
-
-
-
-
-  test = {
-    configurationFile = ./hosts/test/configuration.nix;
-    homeFile = ./hosts/test/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "test";
-    sshAlias = "test";
-    sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 PLACEHOLDER";
-    authorizedKeys = masterKeys;
-  };
-
 }

@@ -9,7 +9,7 @@
 # 4. Updates .sops.yaml with the new age key
 # 5. Re-encrypts all secrets
 # 6. Updates documentation (docs/machines.md)
-# 7. Commits all changes to git
+# 7. Leaves changes unstaged for manual review
 #
 # Usage: post-provision.sh <vm-name> <vm-ip> <vmid>
 
@@ -41,7 +41,66 @@ log_warning() {
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+else
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
+require_repo_root() {
+    if [[ ! -f "$REPO_ROOT/hosts.nix" ]] || [[ ! -f "$REPO_ROOT/secrets/.sops.yaml" ]]; then
+        log_error "Run this from the nixosconfig repo root."
+        log_error "Missing files: hosts.nix or secrets/.sops.yaml"
+        exit 1
+    fi
+}
+
+resolve_sops_identity() {
+    if [[ -n "${SOPS_AGE_KEY_FILE:-}" || -n "${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-}" || -n "${SOPS_AGE_KEY:-}" ]]; then
+        return 0
+    fi
+
+    local uid
+    uid="$(id -u)"
+
+    # 1) Age key files
+    for keyfile in "/root/.config/sops/age/keys.txt" "/var/lib/sops-nix/key.txt"; do
+        if sudo test -r "$keyfile" 2>/dev/null; then
+            if [[ "$uid" -eq 0 ]]; then
+                export SOPS_AGE_KEY_FILE="$keyfile"
+            else
+                local tmp_key
+                tmp_key="$(mktemp -t post-provision-sops-XXXXXX.age)"
+                # shellcheck disable=SC2024
+                sudo cat "$keyfile" | tee "$tmp_key" >/dev/null
+                chmod 600 "$tmp_key"
+                export SOPS_AGE_KEY_FILE="$tmp_key"
+            fi
+            return 0
+        fi
+    done
+
+    # 2) Host SSH key
+    if sudo test -r /etc/ssh/ssh_host_ed25519_key 2>/dev/null; then
+        if age_key=$(sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key 2>/dev/null); then
+            export SOPS_AGE_KEY="$age_key"
+            return 0
+        fi
+    fi
+
+    # 3) User SSH key
+    local sshkey="$HOME/.ssh/id_ed25519"
+    if [[ -r "$sshkey" ]]; then
+        if age_key=$(ssh-to-age -private-key -i "$sshkey" 2>/dev/null); then
+            export SOPS_AGE_KEY="$age_key"
+            return 0
+        fi
+    fi
+
+    log_error "No valid SOPS age key found."
+    log_error "Set SOPS_AGE_KEY or SOPS_AGE_KEY_FILE and retry."
+    return 1
+}
 
 # Check prerequisites
 check_prerequisites() {
@@ -143,6 +202,38 @@ update_hosts_nix() {
     local key_part
     key_part=$(echo "$ssh_key" | awk '{print $2}')
 
+    local existing_alias=""
+    local existing_hash=""
+    if grep -q "^  $vm_name = {" "$hosts_file"; then
+        existing_alias=$(awk -v name="$vm_name" '
+            $0 ~ "^  "name" = \\{" {in_entry=1}
+            in_entry {
+                if (match($0, /sshAlias = "([^"]+)"/, m)) {
+                    print m[1]
+                    exit
+                }
+            }
+            in_entry && /^  \};/ {in_entry=0}
+        ' "$hosts_file")
+
+        existing_hash=$(awk -v name="$vm_name" '
+            $0 ~ "^  "name" = \\{" {in_entry=1}
+            in_entry {
+                if (match($0, /initialHashedPassword = "([^"]+)"/, m)) {
+                    print m[1]
+                    exit
+                }
+            }
+            in_entry && /^  \};/ {in_entry=0}
+        ' "$hosts_file")
+    fi
+
+    local ssh_alias="${existing_alias:-$vm_name}"
+    local hash_line=""
+    if [[ -n "$existing_hash" ]]; then
+        hash_line="    initialHashedPassword = \"$existing_hash\";\n"
+    fi
+
     # Create the new entry
     local new_entry="
   $vm_name = {
@@ -151,9 +242,9 @@ update_hosts_nix() {
     user = \"abl030\";
     homeDirectory = \"/home/abl030\";
     hostname = \"$vm_name\";
-    sshAlias = \"$vm_name\";
+    sshAlias = \"$ssh_alias\";
     sshKeyName = \"ssh_key_abl030\";
-    publicKey = \"ssh-ed25519 $key_part\";
+${hash_line}    publicKey = \"ssh-ed25519 $key_part\";
     authorizedKeys = masterKeys;
   };
 "
@@ -264,11 +355,25 @@ reencrypt_secrets() {
         return 0
     fi
 
+    local failed=0
+
+    if ! resolve_sops_identity; then
+        return 1
+    fi
+
     # Update all secret files using explicit config path
-    find "$secrets_dir/secrets" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" \) | while read -r secret_file; do
+    while read -r secret_file; do
         log_info "Updating keys for $(basename "$secret_file")..."
-        sops --config "$sops_config" updatekeys --yes "$secret_file" 2>&1 || true
-    done
+        if ! sops --config "$sops_config" updatekeys --yes "$secret_file"; then
+            log_error "Failed to re-encrypt: $secret_file"
+            failed=1
+        fi
+    done < <(find "$secrets_dir/secrets" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" \))
+
+    if [[ "$failed" -ne 0 ]]; then
+        log_error "Secrets re-encryption failed."
+        return 1
+    fi
 
     log_success "Secrets re-encrypted"
 }
@@ -284,43 +389,6 @@ update_documentation() {
     # In the future, this could auto-generate or update docs/machines.md
     log_warning "TODO: Update docs/machines.md with new VM information"
     log_info "  Add entry for VMID $vmid ($vm_name)"
-}
-
-# Commit changes to git
-commit_changes() {
-    local vm_name="$1"
-
-    log_info "Committing changes to git..."
-
-    cd "$REPO_ROOT"
-
-    # Check if there are changes to commit
-    if ! git diff --quiet || ! git diff --cached --quiet || [[ -n $(git ls-files --others --exclude-standard) ]]; then
-        # Stage changes
-        git add hosts.nix .sops.yaml secrets/ 2>/dev/null || true
-
-        # Create commit
-        local commit_msg="feat(vms): add $vm_name to fleet
-
-- Add SSH host key to hosts.nix
-- Update .sops.yaml with age key
-- Re-encrypt secrets with new key
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
-
-        if git commit -m "$commit_msg"; then
-            log_success "Changes committed to git"
-
-            # Show what was committed
-            log_info "Committed files:"
-            git diff HEAD~1 --name-only | sed 's/^/  - /'
-        else
-            log_error "Failed to commit changes"
-            return 1
-        fi
-    else
-        log_info "No changes to commit"
-    fi
 }
 
 # Main post-provisioning workflow
@@ -358,16 +426,11 @@ post_provision() {
 
     # Re-encrypt secrets
     if ! reencrypt_secrets; then
-        log_warning "Secret re-encryption had warnings, but continuing..."
+        return 1
     fi
 
     # Update documentation
     update_documentation "$vm_name" "$vmid"
-
-    # Commit changes
-    if ! commit_changes "$vm_name"; then
-        log_warning "Git commit failed, but VM integration is complete"
-    fi
 
     echo ""
     log_success "Post-provisioning complete!"
@@ -402,6 +465,8 @@ main() {
     if ! check_prerequisites; then
         return 1
     fi
+
+    require_repo_root
 
     # Change to repo root
     cd "$REPO_ROOT"

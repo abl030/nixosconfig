@@ -10,6 +10,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+# shellcheck disable=SC2016
+DEFAULT_INITIAL_HASH='$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0' # temp123
 
 log_info() {
     echo -e "${BLUE}==>${NC} $*" >&2 || true
@@ -45,6 +47,19 @@ require_repo_root() {
     if [[ ! -f "$REPO_ROOT/vms/definitions.nix" ]] || [[ ! -f "$REPO_ROOT/hosts.nix" ]]; then
         log_error "Run this from the nixosconfig repo root."
         log_error "Missing files: vms/definitions.nix or hosts.nix"
+        exit 1
+    fi
+}
+
+ensure_managed_block_closed() {
+    local defs_file="$REPO_ROOT/vms/definitions.nix"
+    if ! awk '
+        /^  managed = \{/ {in_managed=1}
+        in_managed && /^  \};$/ {print "closed"; exit}
+        in_managed && /^  template = \{/ {exit}
+    ' "$defs_file" | grep -q "closed"; then
+        log_error "managed block in vms/definitions.nix is missing its closing brace."
+        log_error "Fix vms/definitions.nix and retry."
         exit 1
     fi
 }
@@ -109,9 +124,19 @@ load_defaults() {
     fi
 
     DEFAULT_VMID=""
-    if "$PROXMOX_OPS" next-vmid 100 199 >/dev/null 2>&1; then
-        DEFAULT_VMID="$("$PROXMOX_OPS" next-vmid 100 199)"
-    else
+    if "$PROXMOX_OPS" list >/dev/null 2>&1; then
+        if used_vmids=$("$PROXMOX_OPS" list | jq -r '.[].vmid' 2>/dev/null); then
+            used_vmids="$(echo "$used_vmids" | tr '\n' ' ')"
+            for i in $(seq 100 199); do
+                if ! echo " $used_vmids " | grep -q " $i "; then
+                    DEFAULT_VMID="$i"
+                    break
+                fi
+            done
+        fi
+    fi
+
+    if [[ -z "$DEFAULT_VMID" ]]; then
         if vmids=$(nix eval --raw --impure --expr '
             let defs = import '"$REPO_ROOT"'/vms/definitions.nix;
                 all = (builtins.attrValues defs.managed) ++ (builtins.attrValues defs.imported);
@@ -206,10 +231,28 @@ ensure_unique_vmid() {
         fi
     fi
 
-    if "$PROXMOX_OPS" status "$vmid" >/dev/null 2>&1; then
-        log_error "VMID $vmid already exists on Proxmox"
-        exit 1
+    if "$PROXMOX_OPS" list >/dev/null 2>&1; then
+        if "$PROXMOX_OPS" list | jq -r '.[].vmid' 2>/dev/null | grep -q "^${vmid}$"; then
+            log_error "VMID $vmid already exists on Proxmox"
+            exit 1
+        fi
     fi
+}
+
+normalize_disk_size() {
+    local disk="$1"
+
+    if [[ "$disk" =~ ^[0-9]+$ ]]; then
+        printf "%sG" "$disk"
+        return 0
+    fi
+
+    if [[ "$disk" =~ ^[0-9]+[GgMm]$ ]]; then
+        printf "%s" "${disk^^}"
+        return 0
+    fi
+
+    return 1
 }
 
 validate_resource_inputs() {
@@ -227,8 +270,8 @@ validate_resource_inputs() {
         exit 1
     fi
 
-    if ! [[ "$disk" =~ ^[0-9]+[GM]$ ]]; then
-        log_error "Disk size must look like 32G or 4096M."
+    if ! normalize_disk_size "$disk" >/dev/null; then
+        log_error "Disk size must be a number (GB) or a size like 32G/4096M."
         exit 1
     fi
 }
@@ -443,6 +486,7 @@ add_hosts_entry() {
     hostname = \"$name\";
     sshAlias = \"$alias\";
     sshKeyName = \"ssh_key_abl030\";
+    initialHashedPassword = \"$DEFAULT_INITIAL_HASH\"; # temp123
     publicKey = \"ssh-ed25519 PLACEHOLDER\";
     authorizedKeys = masterKeys;
   };
@@ -454,8 +498,48 @@ add_hosts_entry() {
     mv "$temp_file" "$hosts_file"
 }
 
+remove_hosts_entry() {
+    local name="$1"
+    local hosts_file="$REPO_ROOT/hosts.nix"
+    local temp_file
+    temp_file=$(mktemp)
+
+    awk -v name="$name" '
+        $0 ~ "^  "name" = \\{" {skip=1; next}
+        skip && /^  \};/ {skip=0; next}
+        !skip {print}
+    ' "$hosts_file" > "$temp_file"
+
+    mv "$temp_file" "$hosts_file"
+}
+
+remove_definition_entry() {
+    local name="$1"
+    local defs_file="$REPO_ROOT/vms/definitions.nix"
+    local temp_file
+    temp_file=$(mktemp)
+
+    awk -v name="$name" '
+        $0 ~ "^    "name" = \\{" {skip=1; next}
+        skip && /^    \};/ {skip=0; next}
+        !skip {print}
+    ' "$defs_file" > "$temp_file"
+
+    mv "$temp_file" "$defs_file"
+}
+
+cleanup_generated() {
+    local name="$1"
+    local cleanup_dir="$REPO_ROOT/hosts/$name"
+
+    remove_definition_entry "$name"
+    remove_hosts_entry "$name"
+    rm -rf "$cleanup_dir"
+}
+
 main() {
     require_repo_root
+    ensure_managed_block_closed
     load_defaults
 
     local name=""
@@ -487,6 +571,7 @@ main() {
 
     ensure_unique_alias "$alias"
 
+    log_info "VMID: press Enter to use next available (${DEFAULT_VMID})."
     vmid="$(prompt_required "VMID" "$DEFAULT_VMID")"
     ensure_unique_vmid "$vmid"
 
@@ -500,7 +585,10 @@ main() {
     memory="$(prompt_required "Memory (MB)" "$DEFAULT_MEMORY")"
 
     local disk
-    disk="$(prompt_required "Disk size" "$DEFAULT_DISK")"
+    disk="$(prompt_required "Disk size (GB or 32G/4096M)" "$DEFAULT_DISK")"
+    if normalized_disk=$(normalize_disk_size "$disk"); then
+        disk="$normalized_disk"
+    fi
 
     local storage
     storage="$(prompt_required "Storage pool" "$DEFAULT_STORAGE")"
@@ -544,9 +632,44 @@ main() {
     add_hosts_entry "$name" "$alias"
     log_success "Updated hosts.nix"
 
+    log_info "Staging generated files..."
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        git add "hosts/$name" "hosts.nix" "vms/definitions.nix"
+        log_success "Staged hosts/$name, hosts.nix, and vms/definitions.nix"
+    else
+        log_warning "Not a git repo; skipping staging."
+    fi
+
     log_info "Provisioning on Proxmox..."
     cd "$REPO_ROOT"
-    nix run .#provision-vm "$name"
+    if ! nix run .#provision-vm "$name"; then
+        log_error "Provisioning failed."
+        local confirm
+        read -r -p "Clean up generated config and definitions? [y/N]: " confirm
+        case "$confirm" in
+            y|Y|yes|YES)
+                cleanup_generated "$name"
+                log_warning "Cleaned up hosts/$name, hosts.nix, and vms/definitions.nix."
+                ;;
+            *) log_warning "Keeping generated files for inspection." ;;
+        esac
+        exit 1
+    fi
+
+    local vm_ip="unknown"
+    if "$PROXMOX_OPS" get-ip "$vmid" >/dev/null 2>&1; then
+        vm_ip="$("$PROXMOX_OPS" get-ip "$vmid" 2>/dev/null || echo "unknown")"
+    fi
+
+    echo ""
+    log_info "Next step: integrate the VM into the fleet"
+    if [[ -n "$vm_ip" && "$vm_ip" != "unknown" ]]; then
+        echo "  - pve integrate $name $vm_ip $vmid"
+        echo "  - or: nix run .#post-provision-vm $name $vm_ip $vmid"
+    else
+        echo "  - pve integrate $name <ip> $vmid"
+        echo "  - or: nix run .#post-provision-vm $name <ip> $vmid"
+    fi
 }
 
 main "$@"

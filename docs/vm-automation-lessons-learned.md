@@ -51,7 +51,7 @@ Built into `provision.sh` - handles automatically.
 - Base profile sets up user with SSH keys from hosts.nix
 - provision.sh verifies SSH as abl030, not root
 - Root only accessible during cloud-init phase (for nixos-anywhere)
-- Test VM has `security.sudo.wheelNeedsPassword = false` for automation testing
+- Automation VMs can use a temporary password hash via `initialHashedPassword` in hosts.nix.
 
 ### 4. IP Discovery Without Guest Agent
 

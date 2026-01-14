@@ -114,8 +114,8 @@ LIFECYCLE:
     destroy <vmid>        Destroy VM (requires confirmation)
 
 PROVISIONING:
-    new <name>            Provision new VM
-    provision <name>      Alias for new
+    new                   Interactive VM creation wizard
+    provision <name>      Provision from existing config/definition
     integrate <name> <ip> <vmid>
                           Post-provision fleet integration
     next-vmid [start] [end]
@@ -146,7 +146,8 @@ EXAMPLES:
     pve ps | jq           # Show running VMs as JSON
     pve ip 110            # Get IP of VMID 110
     pve start 110         # Start VMID 110
-    pve new my-service    # Provision new VM
+    pve new               # Create config + provision
+    pve provision dev     # Provision existing config
 EOF
 }
 
@@ -529,8 +530,13 @@ case "$CMD" in
         ;;
 
     # Provisioning
-    new|provision)
-        [[ -z "${1:-}" ]] && error "Usage: pve new <name>"
+    new)
+        info "Launching interactive VM wizard..."
+        nix run .#new-vm
+        ;;
+
+    provision)
+        [[ -z "${1:-}" ]] && error "Usage: pve provision <name>"
         info "Provisioning VM: $1"
         nix run .#provision-vm "$1"
         ;;
