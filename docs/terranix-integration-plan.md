@@ -1,13 +1,13 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE CONFIG WIRED; READY TO BUILD/IMPORT
+**Status**: TEMPLATE BUILT/IMPORTED; READY TO TEST
 
 ## Current Status
 
 OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubuntu cloud template (VMID 9002) lacks QEMU guest agent, causing OpenTofu to timeout waiting for agent response.
 
-**Current state**: NixOS template config and nixos-generators wiring are in the repo; next step is to build/import the VMA and update `_proxmox.templateVmid`.
+**Current state**: NixOS template VMA built and imported as VMID 9003; `_proxmox.templateVmid` updated. Next step is validation via OpenTofu.
 
 ### What's Done
 - [x] hosts.nix extended with `_proxmox` config and `proxmox` attributes
@@ -19,11 +19,14 @@ OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubun
 - [x] Existing VMs (dev, proxmox-vm, igpu) marked readonly
 - [x] NixOS template config added (`vms/template/configuration.nix`)
 - [x] nixos-generators input + `proxmox-template` package wired
+- [x] VMA built and imported on Proxmox (VMID 9003)
+- [x] Template converted in Proxmox (`qm template 9003`)
+- [x] `_proxmox.templateVmid` updated to 9003
 
 ### Current Blocker
 OpenTofu `agent.enabled = true` waits for QEMU guest agent response.
 Ubuntu cloud template doesn't have qemu-guest-agent installed.
-**Fix**: Build/import NixOS template with agent pre-installed, then update `_proxmox.templateVmid`.
+**Fix**: Validate template by cloning a test VM and confirming QEMU guest agent responds.
 
 ---
 
@@ -121,22 +124,22 @@ proxmoxTemplate = nixosGenerate { system = pkgs.system; format = "proxmox"; modu
 packages.proxmox-template = proxmoxTemplate;
 ```
 
-### Build & Deploy Process
+### Build & Deploy Process (DONE)
 
 ```bash
-# 1. Build the VMA image
+# 1. Build the VMA image (done)
 nix build .#proxmox-template
 
-# 2. Copy to Proxmox
+# 2. Copy to Proxmox (done)
 scp result/*.vma.zst root@192.168.1.12:/var/lib/vz/dump/
 
-# 3. Import as VM (pick a VMID in template range)
-ssh root@192.168.1.12 "qmrestore /var/lib/vz/dump/nixos-*.vma.zst 9003 --unique true"
+# 3. Import as VM (done)
+ssh root@192.168.1.12 "qmrestore /var/lib/vz/dump/nixos-*.vma.zst 9003 --unique true --storage nvmeprom"
 
-# 4. Convert to template
+# 4. Convert to template (done)
 ssh root@192.168.1.12 "qm template 9003"
 
-# 5. Update hosts.nix to use new template
+# 5. Update hosts.nix to use new template (done)
 # Change _proxmox.templateVmid from 9002 to 9003
 ```
 
@@ -152,14 +155,12 @@ _proxmox = {
 };
 ```
 
-### Verification
+### Verification (NEXT)
 
-1. `nix build .#proxmox-template` succeeds
-2. VMA file imports to Proxmox without errors
-3. Clone from template boots successfully
-4. QEMU guest agent responds (check via Proxmox UI or `qm agent <vmid> ping`)
-5. Cloud-init applies SSH keys and network config
-6. OpenTofu can create VMs without timeout
+1. Clone from template boots successfully
+2. QEMU guest agent responds (check via Proxmox UI or `qm agent <vmid> ping`)
+3. Cloud-init applies SSH keys and network config
+4. OpenTofu can create VMs without timeout
 
 ---
 
