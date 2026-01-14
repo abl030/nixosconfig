@@ -1,13 +1,13 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: BUILDING NIXOS TEMPLATE
+**Status**: TEMPLATE CONFIG WIRED; READY TO BUILD/IMPORT
 
 ## Current Status
 
-OpenTofu/Terranix implementation complete and working. Hit a blocker during testing: the Ubuntu cloud template (VMID 9002) lacks QEMU guest agent, causing OpenTofu to timeout waiting for agent response.
+OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubuntu cloud template (VMID 9002) lacks QEMU guest agent, causing OpenTofu to timeout waiting for agent response.
 
-**Solution**: Build a proper NixOS template with qemu-guest-agent baked in.
+**Current state**: NixOS template config and nixos-generators wiring are in the repo; next step is to build/import the VMA and update `_proxmox.templateVmid`.
 
 ### What's Done
 - [x] hosts.nix extended with `_proxmox` config and `proxmox` attributes
@@ -17,11 +17,13 @@ OpenTofu/Terranix implementation complete and working. Hit a blocker during test
 - [x] `nix run .#tofu-plan` works and shows correct plan
 - [x] Test VM (VMID 111) created successfully via OpenTofu
 - [x] Existing VMs (dev, proxmox-vm, igpu) marked readonly
+- [x] NixOS template config added (`vms/template/configuration.nix`)
+- [x] nixos-generators input + `proxmox-template` package wired
 
 ### Current Blocker
 OpenTofu `agent.enabled = true` waits for QEMU guest agent response.
 Ubuntu cloud template doesn't have qemu-guest-agent installed.
-**Fix**: Create NixOS template with agent pre-installed.
+**Fix**: Build/import NixOS template with agent pre-installed, then update `_proxmox.templateVmid`.
 
 ---
 
@@ -47,22 +49,29 @@ Use [nixos-generators](https://github.com/nix-community/nixos-generators) with `
 
 ### Files to Create
 
-#### 1. `vms/template/configuration.nix`
+#### 1. `vms/template/configuration.nix` (DONE)
 Minimal NixOS configuration for the template:
 
 ```nix
-{ lib, modulesPath, ... }: {
+{modulesPath, pkgs, ...}: {
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  # QEMU Guest Agent - critical for OpenTofu
-  services.qemuGuest.enable = true;
+  services = {
+    # QEMU Guest Agent - critical for OpenTofu
+    qemuGuest.enable = true;
 
-  # Cloud-init for first-boot configuration
-  services.cloud-init = {
-    enable = true;
-    network.enable = true;
+    # Cloud-init for first-boot configuration
+    cloud-init = {
+      enable = true;
+      network.enable = true;
+    };
+
+    openssh = {
+      enable = true;
+      settings.PermitRootLogin = "yes";
+    };
   };
 
   # Auto-expand partition when disk resized
@@ -93,17 +102,12 @@ Minimal NixOS configuration for the template:
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
   ];
 
-  services.openssh = {
-    enable = true;
-    settings.PermitRootLogin = "yes";
-  };
-
   system.stateVersion = "25.05";
 }
 ```
 
-#### 2. Update `flake.nix`
-Add nixos-generators input and package output:
+#### 2. Update flake outputs (DONE)
+Add nixos-generators input and expose `proxmox-template`:
 
 ```nix
 inputs.nixos-generators = {
@@ -111,12 +115,10 @@ inputs.nixos-generators = {
   inputs.nixpkgs.follows = "nixpkgs";
 };
 
-# In packages output:
-packages.x86_64-linux.proxmox-template = nixos-generators.nixosGenerate {
-  system = "x86_64-linux";
-  format = "proxmox";
-  modules = [ ./vms/template/configuration.nix ];
-};
+# Per-system arg and package output (via nix/devshell.nix)
+_module.args.nixosGenerate = inputs.nixos-generators.nixosGenerate;
+proxmoxTemplate = nixosGenerate { system = pkgs.system; format = "proxmox"; modules = [ ../vms/template/configuration.nix ]; };
+packages.proxmox-template = proxmoxTemplate;
 ```
 
 ### Build & Deploy Process
