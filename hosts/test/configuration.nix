@@ -1,0 +1,47 @@
+{
+  pkgs,
+  inputs,
+  ...
+}: {
+  imports = [
+    inputs.disko.nixosModules.disko
+    ./disko.nix
+    ./hardware-configuration.nix
+  ];
+
+  boot = {
+    loader.systemd-boot.enable = true;
+    loader.efi.canTouchEfiVariables = true;
+  };
+
+  homelab = {
+    ssh = {
+      enable = true;
+      secure = false;
+    };
+    tailscale.enable = true;
+    nixCaches = {
+      enable = true;
+      profile = "internal";
+    };
+    update = {
+      enable = true;
+      collectGarbage = true;
+      trim = true;
+      rebootOnKernelUpdate = true;
+    };
+  };
+
+  # Enable QEMU guest agent for Proxmox integration
+  services.qemuGuest.enable = true;
+
+  environment.systemPackages = with pkgs; [
+    htop
+    vim
+    git
+    curl
+    jq
+  ];
+
+  system.stateVersion = "25.05";
+}

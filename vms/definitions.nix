@@ -137,6 +137,17 @@
       purpose = "Development VM";
       services = ["Development" "Testing"];
     };
+    test = {
+      vmid = 111;
+      hostname = "test";
+      sshAlias = "test";
+      cores = 16;
+      memory = 8043; # MB
+      disk = "111G";
+      storage = "nvmeprom";
+      nixosConfig = "test";
+      purpose = "General purpose VM";
+    };
   };
 
   # Template Configuration
