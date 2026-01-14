@@ -8,6 +8,10 @@ Future enhancements and ideas for the VM automation system.
 
 ## High Priority
 
+### 1. Evaluate OpenTofu for Proxmox
+
+**Goal**: Compare a Terraform-style workflow against the current scripting. The VM automation works, but feels fragile; prototype OpenTofu with Proxmox and commit configs here to evaluate reliability and ergonomics.
+
 ### 3. Interactive VM Builder
 
 **Goal**: Wizard-style VM creation with prompts
