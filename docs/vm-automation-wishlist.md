@@ -10,7 +10,7 @@ Future enhancements and ideas for the VM automation system.
 
 ### 1. Evaluate OpenTofu for Proxmox
 
-**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, template boots + console)
+**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, imports done, plan clean)
 
 **Goal**: Compare a Terraform-style workflow against the current scripting. The VM automation works, but feels fragile; prototype OpenTofu with Proxmox and commit configs here to evaluate reliability and ergonomics.
 
@@ -27,10 +27,9 @@ Future enhancements and ideas for the VM automation system.
 - [x] Validate template with guest agent + cloud-init
 - [x] Ensure DHCP on ens18 in template
 - [x] Test OpenTofu lifecycle (create -> no-op apply -> destroy)
-- [x] Test OpenTofu import for existing VM
+- [x] Test OpenTofu import for existing VMs (dev, proxmox-vm, igpu)
 - [ ] Wire `tofu-output` into provisioning/automation
-- [ ] Test importing existing VM into state
-- [ ] Test creating new VM end-to-end with qemu-guest-agent
+- [x] Test creating new VM end-to-end with qemu-guest-agent (VMID 111)
 
 **To test from dev VM**:
 ```bash

@@ -20,6 +20,7 @@
     pve = host.proxmox;
     diskSize = parseDiskSize pve.disk;
     bios = pve.bios or "seabios";
+    vmName = pve.name or name;
     diskInterface = pve.diskInterface or "virtio0";
     cloneFromTemplate = pve.cloneFromTemplate or true;
     ignoreInit = pve.ignoreInit or false;
@@ -32,7 +33,7 @@
       ++ (pve.ignoreChangesExtra or []);
   in
     {
-      inherit name;
+      name = vmName;
       node_name = proxmoxConfig.node;
       vm_id = pve.vmid;
       on_boot = false; # Don't auto-start until NixOS is installed
