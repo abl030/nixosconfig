@@ -138,6 +138,7 @@ HOST/STORAGE:
 
 UTILITY:
     wait <vmid>           Wait for VM to be SSH accessible
+    console <vmid>        Stream serial console (interactive)
     help                  Show this help
     version               Show version
 
@@ -146,6 +147,7 @@ EXAMPLES:
     pve ps | jq           # Show running VMs as JSON
     pve ip 110            # Get IP of VMID 110
     pve start 110         # Start VMID 110
+    pve console 9003      # Stream serial console
     pve new               # Create config + provision
     pve provision dev     # Provision existing config
 EOF
@@ -610,6 +612,11 @@ case "$CMD" in
         info "Waiting for VM $1 ($ip) to be SSH accessible..."
         "$PROXMOX_OPS" wait-ssh "$ip" 300 abl030
         success "VM $1 is now accessible"
+        ;;
+
+    console)
+        [[ -z "${1:-}" ]] && error "Usage: pve console <vmid>"
+        "$PROXMOX_OPS" console "$1"
         ;;
 
     version)
