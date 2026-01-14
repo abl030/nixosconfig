@@ -30,6 +30,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # terranix for OpenTofu/Terraform configuration in Nix
+    terranix = {
+      url = "github:terranix/terranix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     home-manager-diff = {
       url = "github:pedorich-n/home-manager-diff";
       inputs = {
@@ -103,7 +109,10 @@
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = ["x86_64-linux"];
 
-      imports = [./nix/pkgs.nix];
+      imports = [
+        ./nix/pkgs.nix
+        ./nix/tofu.nix
+      ];
 
       perSystem = {...}: {
         imports = [./nix/devshell.nix];

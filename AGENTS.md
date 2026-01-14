@@ -2,6 +2,14 @@
 
 Always run `check` before committing changes.
 
+## VM Automation Notes
+
+- `pve new` runs the interactive wizard (`nix run .#new-vm`) and stages `hosts/<name>`, `hosts.nix`, and `vms/definitions.nix`.
+- `pve provision <name>` provisions an existing config/definition via `nix run .#provision-vm <name>`.
+- `pve integrate <name> <ip> <vmid>` runs `nix run .#post-provision-vm ...` for fleet integration.
+- Post-provision expects SOPS identity; it mirrors the `dc` lookup order (env vars, age key files, host key, user key).
+- New hosts default to a temp password hash (`temp123`) in `vms/new.sh`.
+
 ## Project Structure & Module Organization
 
 - `flake.nix`, `hosts.nix`: entry points and host inventory (single source of truth).

@@ -15,6 +15,11 @@
 #    If the script fails, run this on the target host to get the string:
 #      $ cat /etc/ssh/ssh_host_ed25519_key.pub
 #
+# 3. Proxmox VMs (Optional)
+#    Hosts running on Proxmox can have a 'proxmox' attribute with VM specs.
+#    This is the single source of truth for OpenTofu/Terranix provisioning.
+#    Set 'readonly = true' for VMs that should not be managed by automation.
+#
 let
   masterKeys = [
     # Master Fleet Identity
@@ -23,6 +28,15 @@ let
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
   ];
 in {
+  # Proxmox Infrastructure Configuration
+  # Used by OpenTofu/Terranix for VM provisioning
+  _proxmox = {
+    host = "192.168.1.12";
+    node = "prom";
+    defaultStorage = "nvmeprom";
+    templateVmid = 9002;
+  };
+
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
     homeFile = ./hosts/epi/home.nix;
@@ -81,6 +95,13 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
     authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 104;
+      cores = 8;
+      memory = 32768;
+      disk = "250G";
+      readonly = true; # Production VM - do not manage with OpenTofu
+    };
   };
 
   igpu = {
@@ -93,6 +114,13 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 109;
+      cores = 8;
+      memory = 8096;
+      disk = "passthrough"; # Uses disk passthrough
+      readonly = true; # Production VM - do not manage with OpenTofu
+    };
   };
 
   dev = {
@@ -105,5 +133,33 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
     authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 110;
+      cores = 4;
+      memory = 8192;
+      disk = "64G";
+      readonly = true; # Already exists - don't let OpenTofu recreate it
+    };
+  };
+
+  # Test VM for OpenTofu evaluation
+  # Will reuse dev's config for simplicity
+  test = {
+    configurationFile = ./hosts/dev/configuration.nix;
+    homeFile = ./hosts/dev/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "test";
+    sshAlias = "test";
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholder"; # Will be updated after provisioning
+    authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 111;
+      cores = 2;
+      memory = 2048;
+      disk = "20G";
+      # No readonly - managed by OpenTofu
+    };
   };
 }
