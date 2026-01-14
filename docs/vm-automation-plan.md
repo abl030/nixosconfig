@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Provisioning flow working; NixOS template imported and ready to validate
+**Status**: Provisioning flow working; template boots with console access; DHCP pending
 **Last Updated**: 2026-01-14
 
 ## Quick Start

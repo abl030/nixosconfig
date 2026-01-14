@@ -10,7 +10,7 @@ Future enhancements and ideas for the VM automation system.
 
 ### 1. Evaluate OpenTofu for Proxmox
 
-**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, template imported)
+**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, template boots + console)
 
 **Goal**: Compare a Terraform-style workflow against the current scripting. The VM automation works, but feels fragile; prototype OpenTofu with Proxmox and commit configs here to evaluate reliability and ergonomics.
 
@@ -25,6 +25,7 @@ Future enhancements and ideas for the VM automation system.
 - [x] Added nixos-generators input + `proxmox-template` package
 - [x] Build/import NixOS template and update `_proxmox.templateVmid`
 - [ ] Validate template with guest agent + cloud-init
+- [ ] Ensure DHCP on ens18 in template
 - [ ] Test importing existing VM into state
 - [ ] Test creating new VM end-to-end with qemu-guest-agent
 

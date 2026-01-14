@@ -129,6 +129,16 @@ configure_vm() {
     ssh_exec "qm set ${vmid} --cores ${cores} --memory ${memory}"
 }
 
+# Enable serial console socket
+set_serial_socket() {
+    local vmid="$1"
+
+    check_operation_allowed "$vmid" "serial" || return 1
+
+    echo "Enabling serial0 socket for VMID ${vmid}..." >&2
+    ssh_exec "qm set ${vmid} --serial0 socket"
+}
+
 # Resize VM disk
 resize_vm_disk() {
     local vmid="$1"
@@ -235,6 +245,26 @@ destroy_vm() {
     ssh_exec "qm destroy ${vmid} --purge"
 }
 
+# Convert VM to template
+template_vm() {
+    local vmid="$1"
+
+    check_operation_allowed "$vmid" "template" || return 1
+
+    echo "Converting VMID ${vmid} to template..." >&2
+    ssh_exec "qm template ${vmid}"
+}
+
+# Stream VM serial console (interactive with a real TTY)
+console_vm() {
+    local vmid="$1"
+
+    check_operation_allowed "$vmid" "console" || return 1
+
+    echo "Streaming serial console for VMID ${vmid}..." >&2
+    ssh_exec "socat - UNIX-CONNECT:/var/run/qemu-server/${vmid}.serial0"
+}
+
 # Get VM IP address (from QEMU agent, or MAC/ARP fallback)
 get_vm_ip() {
     local vmid="$1"
@@ -334,12 +364,15 @@ main() {
         echo "  create-disk <vmid> <size> [storage] [disk]" >&2
         echo "  resize <vmid> <disk> <size>       Resize VM disk" >&2
         echo "  restore-vma <archive> <vmid> [storage]" >&2
+        echo "  serial-socket <vmid>              Enable serial0 socket" >&2
         echo "  cloudinit-drive <vmid> [storage]" >&2
         echo "  cloudinit-config <vmid> <ssh_keys> [hostname]" >&2
         echo "  start <vmid>" >&2
         echo "  stop <vmid>" >&2
         echo "  shutdown <vmid>" >&2
         echo "  destroy <vmid> yes" >&2
+        echo "  template <vmid>" >&2
+        echo "  console <vmid>                    Stream serial console (non-interactive)" >&2
         echo "  get-ip <vmid>" >&2
         echo "  wait-ssh <ip> [timeout] [user]" >&2
         echo "  storage                           Get storage status" >&2
@@ -358,12 +391,15 @@ main() {
         create-disk)    create_vm_disk "$@" ;;
         resize)         resize_vm_disk "$@" ;;
         restore-vma)    restore_vm "$@" ;;
+        serial-socket)  set_serial_socket "$@" ;;
         cloudinit-drive) create_cloudinit_drive "$@" ;;
         cloudinit-config) configure_cloudinit "$@" ;;
         start)          start_vm "$@" ;;
         stop)           stop_vm "$@" ;;
         shutdown)       shutdown_vm "$@" ;;
         destroy)        destroy_vm "$@" ;;
+        template)       template_vm "$@" ;;
+        console)        console_vm "$@" ;;
         get-ip)         get_vm_ip "$@" ;;
         wait-ssh)       wait_for_ssh "$@" ;;
         storage)        get_storage_status "$@" ;;

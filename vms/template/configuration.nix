@@ -25,11 +25,15 @@
 
   # Auto-expand partition when disk resized
   boot.growPartition = true;
-
-  # GRUB bootloader (VMA uses BIOS by default)
-  boot.loader.grub = {
-    enable = true;
-    devices = ["nodev"];
+  boot.kernelParams = [
+    "console=tty0"
+    "console=ttyS0,115200n8"
+  ];
+  systemd.services."serial-getty@ttyS0".enable = true;
+  networking.useNetworkd = true;
+  systemd.network.networks."10-ens18" = {
+    matchConfig.Name = "ens18";
+    networkConfig.DHCP = "ipv4";
   };
 
   # Root filesystem by label
@@ -50,6 +54,7 @@
   users.users.root.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
   ];
+  users.users.root.initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
 
   system.stateVersion = "25.05";
 }
