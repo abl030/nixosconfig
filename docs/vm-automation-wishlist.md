@@ -26,6 +26,8 @@ Future enhancements and ideas for the VM automation system.
 - [x] Build/import NixOS template and update `_proxmox.templateVmid`
 - [x] Validate template with guest agent + cloud-init
 - [x] Ensure DHCP on ens18 in template
+- [ ] Test OpenTofu import for existing VM
+- [ ] Wire `tofu-output` into provisioning/automation
 - [ ] Test importing existing VM into state
 - [ ] Test creating new VM end-to-end with qemu-guest-agent
 
