@@ -283,20 +283,18 @@ create_host_files() {
     mkdir -p "$target_dir"
 
     cat > "$target_dir/configuration.nix" <<'EOF'
-{
-  pkgs,
-  inputs,
-  ...
-}: {
+{pkgs, ...}: {
   imports = [
-    inputs.disko.nixosModules.disko
-    ./disko.nix
     ./hardware-configuration.nix
   ];
 
   boot = {
-    loader.systemd-boot.enable = true;
-    loader.efi.canTouchEfiVariables = true;
+    loader.systemd-boot.enable = false;
+    loader.efi.canTouchEfiVariables = false;
+    loader.grub = {
+      enable = true;
+      devices = ["nodev"];
+    };
   };
 
   homelab = {
@@ -338,72 +336,6 @@ EOF
     ../../home/home.nix
     ../../home/utils/common.nix
   ];
-}
-EOF
-
-    cat > "$target_dir/disko.nix" <<'EOF'
-{
-  disko.devices = {
-    disk = {
-      main = {
-        type = "disk";
-        device = "/dev/sda";
-        content = {
-          type = "gpt";
-          partitions = {
-            ESP = {
-              size = "512M";
-              type = "EF00";
-              content = {
-                type = "filesystem";
-                format = "vfat";
-                mountpoint = "/boot";
-                mountOptions = ["umask=0077"];
-              };
-            };
-            root = {
-              size = "100%";
-              content = {
-                type = "filesystem";
-                format = "ext4";
-                mountpoint = "/";
-              };
-            };
-          };
-        };
-      };
-    };
-  };
-}
-EOF
-
-    cat > "$target_dir/hardware-configuration.nix" <<'EOF'
-# Minimal hardware configuration for Proxmox VM
-# This will be generated properly by nixos-anywhere during installation
-{
-  lib,
-  modulesPath,
-  ...
-}: {
-  imports = [
-    (modulesPath + "/profiles/qemu-guest.nix")
-  ];
-
-  boot = {
-    initrd = {
-      availableKernelModules = ["ata_piix" "uhci_hcd" "virtio_pci" "virtio_scsi" "sd_mod" "sr_mod"];
-      kernelModules = [];
-    };
-    kernelModules = [];
-    extraModulePackages = [];
-  };
-
-  # Filesystem definitions handled by disko.nix
-  # Do not define fileSystems here when using disko
-
-  swapDevices = [];
-
-  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }
 EOF
 }

@@ -10,7 +10,7 @@ Future enhancements and ideas for the VM automation system.
 
 ### 1. Evaluate OpenTofu for Proxmox
 
-**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, moving to OpenTofu-first provisioning)
+**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, post-provision flow in progress)
 
 **Goal**: Compare a Terraform-style workflow against the current scripting. The VM automation works, but feels fragile; prototype OpenTofu with Proxmox and commit configs here to evaluate reliability and ergonomics.
 
@@ -28,7 +28,8 @@ Future enhancements and ideas for the VM automation system.
 - [x] Ensure DHCP on ens18 in template
 - [x] Test OpenTofu lifecycle (create -> no-op apply -> destroy)
 - [x] Test OpenTofu import for existing VMs (dev, proxmox-vm, igpu)
-- [ ] Wire `tofu-output` into OpenTofu-first provisioning flow
+- [x] Wire `tofu-output` into OpenTofu-first provisioning flow
+- [ ] Make post-provision non-interactive end-to-end (SSH key path/jump host)
 - [x] Test creating new VM end-to-end with qemu-guest-agent (VMID 111)
 
 **To test from dev VM**:
@@ -39,6 +40,15 @@ tofu-show        # View generated config
 tofu-plan        # Plan changes
 tofu-apply       # Apply changes
 ```
+
+### 2. Safe OpenTofu Apply Wrapper
+
+**Goal**: Provide a wrapper that always runs `tofu-plan` before `tofu-apply` and discourages direct apply.
+
+**Plan**:
+- Add a wrapper command (e.g. `tofu-apply-safe`)
+- The wrapper must run `tofu-plan` first and only then apply
+- Update docs to emphasize using wrappers instead of direct `tofu apply`
 
 ### 3. Interactive VM Builder
 
