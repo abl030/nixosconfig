@@ -98,9 +98,43 @@ in {
     proxmox = {
       vmid = 104;
       cores = 8;
-      memory = 32768;
+      memory = 32000;
       disk = "250G";
-      readonly = true; # Production VM - do not manage with OpenTofu
+      name = "Doc1";
+      bios = "ovmf";
+      cpuType = "x86-64-v3";
+      diskInterface = "scsi0";
+      cloneFromTemplate = false; # imported VM; no clone block
+      ignoreInit = true; # keep existing cloud-init settings
+      tags = [];
+      ignoreChangesExtra = [
+        "description"
+        "tags"
+        "keyboard_layout"
+        "migrate"
+        "on_boot"
+        "reboot"
+        "stop_on_destroy"
+        "timeout_clone"
+        "timeout_create"
+        "timeout_migrate"
+        "timeout_reboot"
+        "timeout_shutdown_vm"
+        "timeout_start_vm"
+        "timeout_stop_vm"
+        "operating_system"
+        "cpu"
+        "memory"
+        "agent"
+        "scsi_hardware"
+        "network_device"
+        "disk"
+        "efi_disk"
+        "machine"
+        "vga"
+        "initialization"
+      ];
+      readonly = false; # Managed by OpenTofu
     };
   };
 
@@ -118,8 +152,44 @@ in {
       vmid = 109;
       cores = 8;
       memory = 8096;
-      disk = "passthrough"; # Uses disk passthrough
-      readonly = true; # Production VM - do not manage with OpenTofu
+      disk = "150G";
+      storage = "Test";
+      bios = "ovmf";
+      cpuType = "host";
+      machine = "q35";
+      diskInterface = "scsi0";
+      cloneFromTemplate = false; # imported VM; no clone block
+      ignoreInit = true; # keep existing cloud-init settings
+      tags = [];
+      ignoreChangesExtra = [
+        "description"
+        "tags"
+        "keyboard_layout"
+        "migrate"
+        "on_boot"
+        "reboot"
+        "stop_on_destroy"
+        "timeout_clone"
+        "timeout_create"
+        "timeout_migrate"
+        "timeout_reboot"
+        "timeout_shutdown_vm"
+        "timeout_start_vm"
+        "timeout_stop_vm"
+        "operating_system"
+        "cpu"
+        "memory"
+        "agent"
+        "scsi_hardware"
+        "network_device"
+        "disk"
+        "efi_disk"
+        "machine"
+        "vga"
+        "hostpci"
+        "initialization"
+      ];
+      readonly = false; # Managed by OpenTofu
     };
   };
 
@@ -156,7 +226,6 @@ in {
         "timeout_clone"
         "timeout_create"
         "timeout_migrate"
-        "timeout_move_disk"
         "timeout_reboot"
         "timeout_shutdown_vm"
         "timeout_start_vm"

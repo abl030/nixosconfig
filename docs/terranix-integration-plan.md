@@ -1,13 +1,13 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE VERIFIED; OPENTOFU CREATE WORKS
+**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; PLAN CLEAN
 
 ## Current Status
 
-OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubuntu cloud template (VMID 9002) lacks QEMU guest agent, causing OpenTofu to timeout waiting for agent response.
+OpenTofu/Terranix implementation complete and working.
 
-**Current state**: NixOS template VMA built and imported as VMID 9003; `_proxmox.templateVmid` updated. Serial console access works via wrapper, DHCP is working, and OpenTofu successfully created VM 111 with guest agent responding.
+**Current state**: NixOS template VMA built and imported as VMID 9003; `_proxmox.templateVmid` updated. Serial console access works via wrapper, DHCP is working, OpenTofu created VM 111 successfully, and existing VMs (dev, proxmox-vm, igpu) are imported and managed.
 
 ### What's Done
 - [x] hosts.nix extended with `_proxmox` config and `proxmox` attributes
@@ -16,7 +16,8 @@ OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubun
 - [x] Proxmox API token created: `terraform@pve!opentofu`
 - [x] `nix run .#tofu-plan` works and shows correct plan
 - [x] Test VM (VMID 111) created successfully via OpenTofu
-- [x] Existing VMs (dev, proxmox-vm, igpu) marked readonly
+- [x] Existing VMs (dev, proxmox-vm, igpu) imported into OpenTofu state
+- [x] Timeout metadata applied (`timeout_move_disk`) to imported VMs
 - [x] NixOS template config added (`vms/template/configuration.nix`)
 - [x] nixos-generators input + `proxmox-template` package wired
 - [x] VMA built and imported on Proxmox (VMID 9003)
@@ -26,11 +27,10 @@ OpenTofu/Terranix implementation complete and working. Blocker remains: the Ubun
 - [x] Temp root password baked in (`temp123`) for console access
 - [x] DHCP enabled on ens18 in template
 - [x] OpenTofu create succeeds using template 9003
+- [x] OpenTofu plan is clean (no drift)
 
 ### Current Blocker
-OpenTofu `agent.enabled = true` waits for QEMU guest agent response.
-Ubuntu cloud template doesn't have qemu-guest-agent installed.
-**Fix**: Validate template by cloning a test VM and confirming QEMU guest agent responds.
+None.
 
 ---
 
@@ -169,7 +169,7 @@ _proxmox = {
 ### Next Steps
 
 - [x] Validate full OpenTofu lifecycle (create -> no-op apply -> destroy)
-- [x] Test importing an existing VM into state (`tofu import`)
+- [x] Test importing existing VMs into state (`tofu import`)
 - [ ] Wire `tofu-output` into provisioning/automation where useful
 
 ---

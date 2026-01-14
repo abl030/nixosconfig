@@ -1,10 +1,11 @@
 # VM Automation - Lessons Learned
 
-**Last Updated**: 2026-01-13
+**Last Updated**: 2026-01-14
 
 ## The Working Solution
 
 **Template 9002** (Ubuntu cloud image with UEFI) + **two-phase nixos-anywhere** deployment.
+**Template 9003** (NixOS VMA) for OpenTofu workflows with qemu-guest-agent.
 
 ### Provisioning Flow
 
@@ -59,6 +60,13 @@ Guest agent not running on first boot. Use MAC/ARP fallback:
 ```bash
 # Built into proxmox-ops.sh get-ip
 # Flushes stale ARP, does ping sweep, finds IP by MAC
+```
+
+### 6. Serial Console Access Helps Debugging
+
+When networking is down, use the wrapper console command for interactive serial:
+```bash
+./vms/proxmox-ops.sh console <vmid>
 ```
 
 ### 5. Disko Required

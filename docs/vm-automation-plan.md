@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Provisioning flow working; template verified with DHCP + guest agent
+**Status**: Template 9003 verified; OpenTofu managing dev/proxmox-vm/igpu; test VM 111 created
 **Last Updated**: 2026-01-14
 
 ## Quick Start
@@ -18,7 +18,7 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 ## What It Does
 
 Single command provisions a VM:
-1. Clones template (currently Ubuntu 9002; moving to NixOS template with qemu-guest-agent)
+1. Clones template (NixOS 9003 for OpenTofu)
 2. Configures resources (CPU, RAM, disk)
 3. Injects SSH keys via cloud-init
 4. Installs NixOS via nixos-anywhere (two-phase)
@@ -61,7 +61,7 @@ Each VM needs `hosts/{name}/` with:
 
 ## Safety Features
 
-- **Readonly VMs**: Imported VMs (104, 109) are protected
+- **Readonly VMs**: If marked readonly in `vms/definitions.nix`, wrapper blocks changes
 - **VMID checks**: Validates no conflicts before provisioning
 - **Confirmation prompt**: Requires explicit approval
 - **SSH as user**: Final access via abl030, not root
@@ -85,8 +85,8 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 
 ## Requirements
 
-- Template 9002: Ubuntu cloud image with UEFI (ovmf, q35, secure boot off) (current)
-- Template 9003: NixOS VMA template with qemu-guest-agent (current)
+- Template 9003: NixOS VMA template with qemu-guest-agent (current for OpenTofu)
+- Template 9002: Ubuntu cloud image with UEFI (legacy for nixos-anywhere)
 - SSH access to Proxmox host (192.168.1.12)
 - Disko in flake inputs
 - Host entry in hosts.nix with `authorizedKeys = masterKeys`
