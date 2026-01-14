@@ -16,6 +16,7 @@ TOFU_WORKDIR=$PWD/vms/tofu/.state nix run .#tofu-apply
 - Serial console: `./scripts/pve console <vmid>` or `./vms/proxmox-ops.sh console <vmid>`.
 - If you hit a stale local lock, remove `vms/tofu/.state/.terraform.tfstate.lock.info` or use `-lock=false`.
 - State lives in `vms/tofu/.state` (do not commit).
+- Import format is `node/vmid` (e.g., `prom/110`).
 
 ## Destroy test VM
 

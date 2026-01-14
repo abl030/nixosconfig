@@ -138,7 +138,34 @@ in {
       cores = 4;
       memory = 8192;
       disk = "64G";
-      readonly = true; # Already exists - don't let OpenTofu recreate it
+      bios = "ovmf";
+      cpuType = "qemu64";
+      machine = "q35";
+      diskInterface = "scsi0";
+      cloneFromTemplate = false; # imported VM; no clone block
+      ignoreInit = true; # keep existing cloud-init settings
+      tags = [];
+      ignoreChangesExtra = [
+        "description"
+        "tags"
+        "keyboard_layout"
+        "migrate"
+        "on_boot"
+        "reboot"
+        "stop_on_destroy"
+        "timeout_clone"
+        "timeout_create"
+        "timeout_migrate"
+        "timeout_move_disk"
+        "timeout_reboot"
+        "timeout_shutdown_vm"
+        "timeout_start_vm"
+        "timeout_stop_vm"
+        "operating_system"
+        "cpu[0].type"
+        "agent[0].type"
+      ];
+      # readonly = true; # Already exists - don't let OpenTofu recreate it
     };
   };
 
