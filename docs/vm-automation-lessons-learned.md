@@ -69,6 +69,16 @@ When networking is down, use the wrapper console command for interactive serial:
 ./vms/proxmox-ops.sh console <vmid>
 ```
 
+### 7. Rebuild-Only Flow Needs Hardware Config
+
+OpenTofu-created VMs should use `nixos-rebuild` (no disko) and require the VM’s
+`hardware-configuration.nix` to be generated and stored in `hosts/<name>/`.
+
+### 8. SSH Prompts Break Automation
+
+Non-interactive SSH is required. If SSH prompts for a password during
+`nixos-rebuild`, the automation halts. Ensure a usable key is available.
+
 ### 5. Disko Required
 
 nixos-anywhere needs disko. Each host needs:

@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Template 9003 verified; OpenTofu managing dev/proxmox-vm/igpu; test VM 111 created
+**Status**: Template 9003 verified; OpenTofu managing dev/proxmox-vm/igpu; post-provision flow in progress
 **Last Updated**: 2026-01-14
 
 ## Quick Start
@@ -11,8 +11,7 @@
 export PROXMOX_VE_API_TOKEN='terraform@pve!opentofu=<token>'
 nix run .#tofu-apply
 
-# 3. Deploy NixOS config to the blank VM (same as today)
-# 4. Integrate with fleet:
+# 3. Integrate with fleet (generates hardware config, applies NixOS, then secrets/hosts):
 nix run .#post-provision-vm <name> <vmid>
 ```
 
@@ -21,8 +20,10 @@ nix run .#post-provision-vm <name> <vmid>
 OpenTofu-first provisioning:
 1. OpenTofu clones template 9003 and applies resources
 2. Cloud-init injects SSH keys (template behavior)
-3. Deploy NixOS config onto the blank VM
-4. Integrate into fleet with post-provision steps
+3. Post-provision generates hardware config (if missing), applies NixOS config, and integrates into fleet
+
+Current blocker:
+- `post-provision` hits an SSH password prompt during `nixos-rebuild` (no non-interactive key on this machine).
 
 ## Architecture
 

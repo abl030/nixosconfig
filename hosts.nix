@@ -241,8 +241,8 @@ in {
   # Test VM for OpenTofu evaluation
   # Will reuse dev's config for simplicity
   test = {
-    configurationFile = ./hosts/dev/configuration.nix;
-    homeFile = ./hosts/dev/home.nix;
+    configurationFile = ./hosts/test/configuration.nix;
+    homeFile = ./hosts/test/home.nix;
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "test";
@@ -253,7 +253,7 @@ in {
     proxmox = {
       vmid = 111;
       cores = 2;
-      memory = 2048;
+      memory = 4096;
       disk = "20G";
       # No readonly - managed by OpenTofu
     };

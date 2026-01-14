@@ -1,7 +1,7 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; PLAN CLEAN
+**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; POST-PROVISION FLOW IN PROGRESS
 
 ## Current Status
 
@@ -170,7 +170,7 @@ _proxmox = {
 
 - [x] Validate full OpenTofu lifecycle (create -> no-op apply -> destroy)
 - [x] Test importing existing VMs into state (`tofu import`)
-- [ ] Wire `tofu-output` into provisioning/automation where useful
+- [x] Wire `tofu-output` into provisioning/automation where useful
 
 ---
 
@@ -184,10 +184,22 @@ Move provisioning to an OpenTofu-first workflow:
 
 ### Plan
 - [ ] Replace provisioning flow with OpenTofu-created VM as the starting point
-- [ ] Use `tofu-output` (or state) as the source of VM IPs
+- [x] Use `tofu-output` (or state) as the source of VM IPs
 - [ ] Keep post-provision integration (`post-provision-vm`) as the final step
 - [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
 - [ ] Always run a verification step before moving on (e.g. `tofu-plan`, `tofu-output`, or status checks)
+- [ ] Always run `tofu-plan` before any `tofu-apply`
+
+### Current State
+- `post-provision-vm <name> <vmid>` now resolves IP from `tofu-output` and generates `hardware-configuration.nix` if missing.
+- `post-provision` applies NixOS via `nixos-rebuild` (no disko/nixos-anywhere in this flow).
+- Test VM (111) resized to 4GB; IP moved to `192.168.1.105`.
+- Blocker: `nixos-rebuild` prompts for `root@<ip>` password (no non-interactive SSH key available on this machine).
+- Plan: delete/recreate test VM 111 to reset state and confirm template key injection.
+
+### What We Learned
+- Rebuild-only flow requires the VM’s generated `hardware-configuration.nix`.
+- Non-interactive SSH is mandatory for automation; prompts must be avoided.
 
 ---
 
