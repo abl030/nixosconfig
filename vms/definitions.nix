@@ -1,7 +1,14 @@
 # VM Definitions for Proxmox Infrastructure
 # ========================================
 #
-# This file defines all VMs in the Proxmox homelab.
+# DEPRECATION NOTICE: This file is being superseded by hosts.nix
+# The VM specs (vmid, cores, memory, disk) are now defined in hosts.nix
+# under the 'proxmox' attribute. This file is kept for:
+# - Extended documentation (services, notes, purpose)
+# - Backwards compatibility with existing provision scripts
+#
+# See hosts.nix for the canonical VM configuration.
+# OpenTofu/Terranix reads from hosts.nix directly.
 #
 # Structure:
 # - imported: Pre-existing VMs that are documented but NOT managed by automation
