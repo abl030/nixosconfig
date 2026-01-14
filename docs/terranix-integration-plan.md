@@ -166,6 +166,12 @@ _proxmox = {
 3. Cloud-init applies SSH keys and network config
 4. OpenTofu can create VMs without timeout
 
+### Next Steps
+
+- [ ] Validate full OpenTofu lifecycle (create -> no-op apply -> destroy)
+- [ ] Test importing an existing VM into state (`tofu import`)
+- [ ] Wire `tofu-output` into provisioning/automation where useful
+
 ---
 
 ## Phase 1 Reference (COMPLETE)
