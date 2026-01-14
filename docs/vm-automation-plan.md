@@ -1,6 +1,6 @@
 # VM Automation
 
-**Status**: Provisioning flow working; template build in progress
+**Status**: Provisioning flow working; NixOS template imported and ready to validate
 **Last Updated**: 2026-01-14
 
 ## Quick Start
@@ -86,7 +86,7 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 ## Requirements
 
 - Template 9002: Ubuntu cloud image with UEFI (ovmf, q35, secure boot off) (current)
-- Template 9003: NixOS VMA template with qemu-guest-agent (target)
+- Template 9003: NixOS VMA template with qemu-guest-agent (current)
 - SSH access to Proxmox host (192.168.1.12)
 - Disko in flake inputs
 - Host entry in hosts.nix with `authorizedKeys = masterKeys`
