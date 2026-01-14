@@ -42,6 +42,10 @@
     git
     curl
     jq
+    # OpenTofu/Terranix testing
+    opentofu
+    sops
+    age
   ];
 
   system.stateVersion = "25.05";

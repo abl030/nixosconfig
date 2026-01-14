@@ -1,3 +1,12 @@
 ./docker/immich/.env
 .env*
 changed.txt
+
+# OpenTofu/Terraform state (managed by terranix)
+vms/tofu/.state/
+nix/vms/tofu/.state/
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+tfplan

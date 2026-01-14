@@ -11,8 +11,91 @@
 {
   pkgs,
   lib,
+  terranixConfig,
   ...
 }: let
+  # OpenTofu wrapper scripts
+  tofuInit = pkgs.writeShellApplication {
+    name = "tofu-init";
+    runtimeInputs = [pkgs.opentofu];
+    text = ''
+      set -euo pipefail
+      WORKDIR="''${TOFU_WORKDIR:-$PWD/vms/tofu/.state}"
+      mkdir -p "$WORKDIR"
+      cp ${terranixConfig} "$WORKDIR/config.tf.json"
+      cd "$WORKDIR"
+      tofu init "$@"
+    '';
+  };
+
+  tofuPlan = pkgs.writeShellApplication {
+    name = "tofu-plan";
+    runtimeInputs = [pkgs.opentofu];
+    text = ''
+      set -euo pipefail
+      WORKDIR="''${TOFU_WORKDIR:-$PWD/vms/tofu/.state}"
+      mkdir -p "$WORKDIR"
+      cp ${terranixConfig} "$WORKDIR/config.tf.json"
+      cd "$WORKDIR"
+      [ -d .terraform ] || tofu init
+      tofu plan -out=tfplan "$@"
+    '';
+  };
+
+  tofuApply = pkgs.writeShellApplication {
+    name = "tofu-apply";
+    runtimeInputs = [pkgs.opentofu];
+    text = ''
+      set -euo pipefail
+      WORKDIR="''${TOFU_WORKDIR:-$PWD/vms/tofu/.state}"
+      mkdir -p "$WORKDIR"
+      cp ${terranixConfig} "$WORKDIR/config.tf.json"
+      cd "$WORKDIR"
+      [ -d .terraform ] || tofu init
+      if [ -f tfplan ]; then
+        tofu apply tfplan
+        rm tfplan
+      else
+        tofu apply "$@"
+      fi
+    '';
+  };
+
+  tofuDestroy = pkgs.writeShellApplication {
+    name = "tofu-destroy";
+    runtimeInputs = [pkgs.opentofu];
+    text = ''
+      set -euo pipefail
+      WORKDIR="''${TOFU_WORKDIR:-$PWD/vms/tofu/.state}"
+      mkdir -p "$WORKDIR"
+      cp ${terranixConfig} "$WORKDIR/config.tf.json"
+      cd "$WORKDIR"
+      [ -d .terraform ] || tofu init
+      tofu destroy "$@"
+    '';
+  };
+
+  tofuOutput = pkgs.writeShellApplication {
+    name = "tofu-output";
+    runtimeInputs = [pkgs.opentofu];
+    text = ''
+      set -euo pipefail
+      WORKDIR="''${TOFU_WORKDIR:-$PWD/vms/tofu/.state}"
+      cd "$WORKDIR"
+      tofu output "$@"
+    '';
+  };
+
+  tofuShow = pkgs.writeShellApplication {
+    name = "tofu-show";
+    runtimeInputs = [pkgs.opentofu pkgs.jq];
+    text = ''
+      set -euo pipefail
+      echo "=== Terranix Generated Config ==="
+      ${pkgs.jq}/bin/jq . ${terranixConfig}
+    '';
+  };
+
   # Alejandra-based formatter wrapper with write/check/diff modes.
   fmtNix = pkgs.writeShellApplication {
     name = "fmt-nix";
@@ -186,6 +269,13 @@ in {
     lint-nix = lintNix;
     fmt-nix = fmtNix;
     inherit (vmTools) proxmox-ops provision-vm post-provision-vm new-vm;
+    # OpenTofu/Terranix tools
+    tofu-init = tofuInit;
+    tofu-plan = tofuPlan;
+    tofu-apply = tofuApply;
+    tofu-destroy = tofuDestroy;
+    tofu-output = tofuOutput;
+    tofu-show = tofuShow;
   };
 
   apps = {
@@ -219,6 +309,37 @@ in {
       program = "${lib.getExe vmTools.post-provision-vm}";
       meta.description = "Post-provisioning fleet integration";
     };
+    # OpenTofu/Terranix apps
+    tofu-init = {
+      type = "app";
+      program = "${lib.getExe tofuInit}";
+      meta.description = "Initialize OpenTofu working directory";
+    };
+    tofu-plan = {
+      type = "app";
+      program = "${lib.getExe tofuPlan}";
+      meta.description = "Generate OpenTofu execution plan for Proxmox VMs";
+    };
+    tofu-apply = {
+      type = "app";
+      program = "${lib.getExe tofuApply}";
+      meta.description = "Apply OpenTofu plan to create/update Proxmox VMs";
+    };
+    tofu-destroy = {
+      type = "app";
+      program = "${lib.getExe tofuDestroy}";
+      meta.description = "Destroy OpenTofu-managed Proxmox VMs";
+    };
+    tofu-output = {
+      type = "app";
+      program = "${lib.getExe tofuOutput}";
+      meta.description = "Show OpenTofu outputs (VM IPs, etc.)";
+    };
+    tofu-show = {
+      type = "app";
+      program = "${lib.getExe tofuShow}";
+      meta.description = "Show generated Terranix/OpenTofu config";
+    };
   };
 
   # Standard dev shell for this repo.
@@ -230,6 +351,7 @@ in {
       pkgs.alejandra
       pkgs.deadnix
       pkgs.statix
+      pkgs.opentofu
       lintNix
       fmtNix
       # VM Provisioning tools
@@ -237,6 +359,13 @@ in {
       vmTools.provision-vm
       vmTools.new-vm
       vmTools.post-provision-vm
+      # OpenTofu/Terranix tools
+      tofuInit
+      tofuPlan
+      tofuApply
+      tofuDestroy
+      tofuOutput
+      tofuShow
     ];
     shellHook = ''
       echo "Dev shell ready."
@@ -250,6 +379,12 @@ in {
       echo "  - provision-vm <name>         Provision a new VM"
       echo "  - post-provision-vm <name> <ip> <vmid>  Integrate VM into fleet"
       echo "  - proxmox-ops <command>       Proxmox operations"
+      echo ""
+      echo "OpenTofu (Terranix):"
+      echo "  - tofu-show               Show generated config"
+      echo "  - tofu-plan               Plan VM changes"
+      echo "  - tofu-apply              Apply VM changes"
+      echo "  - tofu-output             Show outputs (IPs)"
     '';
   };
 }
