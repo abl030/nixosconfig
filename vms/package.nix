@@ -131,14 +131,14 @@
     meta = {
       description = "Post-provisioning fleet integration";
       longDescription = ''
-        After NixOS is installed, this script:
-        1. Extracts SSH host key from the VM
-        2. Updates hosts.nix with the new VM entry
-        3. Converts SSH key to age key for sops
-        4. Updates .sops.yaml with the new age key
-        5. Re-encrypts all secrets
-        6. Updates documentation
-        7. Commits changes to git
+        Post-provisioning for OpenTofu VMs:
+        1. Applies NixOS config to the blank VM
+        2. Extracts SSH host key from the VM
+        3. Updates hosts.nix with the new VM entry
+        4. Converts SSH key to age key for sops
+        5. Updates .sops.yaml with the new age key
+        6. Re-encrypts all secrets
+        7. Updates documentation
 
         Usage:
           post-provision-vm <vm-name> <vm-ip> <vmid>

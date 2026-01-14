@@ -1,6 +1,7 @@
 # Repository Guidelines
 
 Always run `check` before committing changes.
+Always run `tofu-plan` before any `tofu-apply`.
 
 ## VM Automation Notes
 

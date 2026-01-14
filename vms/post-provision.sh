@@ -74,7 +74,7 @@ resolve_vm_ip() {
     local output_name="${vm_name}_ip"
     local ip
 
-    log_info "Resolving IP from OpenTofu output: ${output_name}"
+    log_info "Resolving IP from OpenTofu output: ${output_name}" >&2
     if ! ip=$(TOFU_WORKDIR="$workdir" nix run .#tofu-output -- -raw "$output_name" 2>/dev/null); then
         log_error "Failed to read tofu output '${output_name}'."
         log_error "Ensure the VM is managed by OpenTofu and state is present."
@@ -87,6 +87,144 @@ resolve_vm_ip() {
     fi
 
     echo "$ip"
+}
+
+build_ssh_opts() {
+    local -n out="$1"
+    local opts_str="${POST_PROVISION_SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes}"
+
+    out=()
+    read -r -a out <<< "$opts_str"
+
+    if [[ -n "${POST_PROVISION_IDENTITY_FILE:-}" ]]; then
+        out+=("-i" "$POST_PROVISION_IDENTITY_FILE" "-o" "IdentitiesOnly=yes")
+    fi
+}
+
+resolve_host_config_dir() {
+    local vm_name="$1"
+
+    if ! command -v nix >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local config_path
+    if ! config_path=$(nix eval --raw --impure --expr "let hosts = import $REPO_ROOT/hosts.nix; in toString hosts.${vm_name}.configurationFile" 2>/dev/null); then
+        return 1
+    fi
+
+    if [[ -z "$config_path" ]]; then
+        return 1
+    fi
+
+    dirname "$config_path"
+}
+
+ensure_hardware_config() {
+    local vm_name="$1"
+    local vm_ip="$2"
+    local ssh_user="${3:-root}"
+    local -a ssh_opts
+    build_ssh_opts ssh_opts
+
+    local config_dir
+    if ! config_dir=$(resolve_host_config_dir "$vm_name"); then
+        log_error "Failed to locate host config dir for ${vm_name}"
+        return 1
+    fi
+
+    local hw_file="${config_dir}/hardware-configuration.nix"
+    if [[ -f "$hw_file" ]]; then
+        log_info "hardware-configuration.nix already exists; skipping generation"
+        return 0
+    fi
+
+    log_info "Generating hardware-configuration.nix from VM..."
+    if ! ssh "${ssh_opts[@]}" "${ssh_user}@${vm_ip}" "nixos-generate-config --show-hardware-config" >"$hw_file"; then
+        log_error "Failed to generate hardware-configuration.nix from ${vm_ip}"
+        log_error "Ensure SSH key auth works or set POST_PROVISION_IDENTITY_FILE."
+        return 1
+    fi
+
+    log_success "hardware-configuration.nix written to ${hw_file}"
+
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        for file in "$config_dir/configuration.nix" "$config_dir/home.nix" "$hw_file"; do
+            if [[ -f "$file" ]]; then
+                git add "$file"
+            fi
+        done
+    fi
+}
+
+stage_host_config() {
+    local vm_name="$1"
+
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local config_dir
+    if ! config_dir=$(resolve_host_config_dir "$vm_name"); then
+        return 1
+    fi
+
+    for file in "$config_dir/configuration.nix" "$config_dir/home.nix" "$config_dir/hardware-configuration.nix"; do
+        if [[ -f "$file" ]]; then
+            git add "$file"
+        fi
+    done
+}
+
+apply_nixos_config() {
+    local vm_name="$1"
+    local vm_ip="$2"
+
+    if [[ "${POST_PROVISION_SKIP_REBUILD:-}" == "1" ]]; then
+        log_warning "Skipping nixos-rebuild (POST_PROVISION_SKIP_REBUILD=1)"
+        return 0
+    fi
+
+    local ssh_user="${POST_PROVISION_REBUILD_USER:-root}"
+    local -a ssh_opts
+    build_ssh_opts ssh_opts
+    local ssh_opts_str="${ssh_opts[*]}"
+
+    log_info "Applying NixOS config via nixos-rebuild..."
+    if ! NIX_SSHOPTS="$ssh_opts_str" nixos-rebuild switch --flake "$REPO_ROOT#${vm_name}" --target-host "${ssh_user}@${vm_ip}"; then
+        log_error "nixos-rebuild failed for ${vm_name} at ${vm_ip}"
+        log_error "If SSH prompted for a password, set POST_PROVISION_IDENTITY_FILE or POST_PROVISION_SSH_OPTS."
+        return 1
+    fi
+}
+
+wait_for_ssh() {
+    local vm_ip="$1"
+    local ssh_user="${2:-abl030}"
+    local timeout="${3:-300}"
+    local -a ssh_opts
+    build_ssh_opts ssh_opts
+
+    log_info "Waiting for SSH on ${ssh_user}@${vm_ip} (timeout ${timeout}s)..."
+
+    local start_time
+    start_time=$(date +%s)
+
+    while true; do
+        if ssh "${ssh_opts[@]}" "${ssh_user}@${vm_ip}" "true" >/dev/null 2>&1; then
+            log_success "SSH ready for ${ssh_user}@${vm_ip}"
+            return 0
+        fi
+
+        local now
+        now=$(date +%s)
+        if (( now - start_time >= timeout )); then
+            log_error "Timeout waiting for SSH on ${ssh_user}@${vm_ip}"
+            return 1
+        fi
+
+        sleep 2
+    done
 }
 
 resolve_sops_identity() {
@@ -143,21 +281,29 @@ check_prerequisites() {
     local missing=()
 
     command -v ssh >/dev/null 2>&1 || missing+=("ssh")
+    command -v nix >/dev/null 2>&1 || missing+=("nix")
     command -v ssh-to-age >/dev/null 2>&1 || missing+=("ssh-to-age")
     command -v sops >/dev/null 2>&1 || missing+=("sops")
     command -v git >/dev/null 2>&1 || missing+=("git")
     command -v jq >/dev/null 2>&1 || missing+=("jq")
+    command -v nixos-rebuild >/dev/null 2>&1 || missing+=("nixos-rebuild")
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         log_error "Missing required commands: ${missing[*]}"
         log_info "Install missing tools:"
         for cmd in "${missing[@]}"; do
             case "$cmd" in
+                nix)
+                    log_info "  install Nix before running post-provision"
+                    ;;
                 ssh-to-age)
                     log_info "  nix profile install nixpkgs#ssh-to-age"
                     ;;
                 sops)
                     log_info "  nix profile install nixpkgs#sops"
+                    ;;
+                nixos-rebuild)
+                    log_info "  nix profile install nixpkgs#nixos-rebuild"
                     ;;
             esac
         done
@@ -174,7 +320,9 @@ extract_ssh_host_key() {
     log_info "Extracting SSH host key from $vm_ip..." >&2
 
     # SSH options for non-interactive use (as array to avoid quoting issues)
-    local ssh_opts=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+    local -a ssh_opts
+    build_ssh_opts ssh_opts
+    ssh_opts+=(-o LogLevel=ERROR)
 
     # Extract the ed25519 public key (use abl030 user, public key is world-readable)
     local ssh_key
@@ -435,6 +583,21 @@ post_provision() {
     log_info "  IP: $vm_ip"
     log_info "  VMID: $vmid"
     echo ""
+
+    if ! ensure_hardware_config "$vm_name" "$vm_ip" "root"; then
+        return 1
+    fi
+    stage_host_config "$vm_name"
+
+    # Apply NixOS config to the blank VM
+    if ! apply_nixos_config "$vm_name" "$vm_ip"; then
+        return 1
+    fi
+
+    local wait_user="${POST_PROVISION_WAIT_USER:-abl030}"
+    if ! wait_for_ssh "$vm_ip" "$wait_user" "${POST_PROVISION_WAIT_TIMEOUT:-300}"; then
+        return 1
+    fi
 
     # Extract SSH host key
     local ssh_key
