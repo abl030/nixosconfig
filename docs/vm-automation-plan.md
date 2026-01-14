@@ -1,7 +1,7 @@
 # VM Automation
 
-**Status**: Working - Provisioning and post-provision complete
-**Last Updated**: 2026-01-13
+**Status**: Provisioning flow working; template build in progress
+**Last Updated**: 2026-01-14
 
 ## Quick Start
 
@@ -18,7 +18,7 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 ## What It Does
 
 Single command provisions a VM:
-1. Clones Ubuntu cloud template (9002)
+1. Clones template (currently Ubuntu 9002; moving to NixOS template with qemu-guest-agent)
 2. Configures resources (CPU, RAM, disk)
 3. Injects SSH keys via cloud-init
 4. Installs NixOS via nixos-anywhere (two-phase)
@@ -85,7 +85,8 @@ nix run .#post-provision-vm <name> <ip> <vmid>
 
 ## Requirements
 
-- Template 9002: Ubuntu cloud image with UEFI (ovmf, q35, secure boot off)
+- Template 9002: Ubuntu cloud image with UEFI (ovmf, q35, secure boot off) (current)
+- Template 9003: NixOS VMA template with qemu-guest-agent (target)
 - SSH access to Proxmox host (192.168.1.12)
 - Disko in flake inputs
 - Host entry in hosts.nix with `authorizedKeys = masterKeys`

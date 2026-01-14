@@ -9,6 +9,7 @@
 #   we always format a *copy* in a temp dir, compare with `cmp`, and only replace
 #   the original file during --write (via a same-dir temp for near-atomic mv).
 {
+  nixosGenerate,
   pkgs,
   lib,
   terranixConfig,
@@ -260,6 +261,12 @@
 
   # VM Provisioning Tools
   vmTools = import ../vms/package.nix {inherit pkgs;};
+
+  proxmoxTemplate = nixosGenerate {
+    inherit (pkgs) system;
+    format = "proxmox";
+    modules = [../vms/template/configuration.nix];
+  };
 in {
   # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
@@ -276,6 +283,7 @@ in {
     tofu-destroy = tofuDestroy;
     tofu-output = tofuOutput;
     tofu-show = tofuShow;
+    proxmox-template = proxmoxTemplate;
   };
 
   apps = {
