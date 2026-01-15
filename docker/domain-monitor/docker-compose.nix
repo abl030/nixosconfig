@@ -74,8 +74,8 @@ in {
         description = "Domain Monitor Cron Job";
         serviceConfig = {
           Type = "oneshot";
-          # Run the cron.php inside the container
-          ExecStart = "${dockerBin} exec -i domain-monitor-app php /var/www/html/cron.php";
+          # Run the domain check cron inside the container
+          ExecStart = "${dockerBin} exec -i domain-monitor-app php /var/www/html/cron/check_domains.php";
         };
       };
     };
