@@ -89,7 +89,7 @@ a new IP. The post-provision flow must:
 
 ### 10. Sizing for Rebuilds
 
-For the test VM, 8GB RAM is sufficient for `nixos-rebuild` with the current
+For a small VM, 8GB RAM is sufficient for `nixos-rebuild` with the current
 profile. The main failure mode observed is IP change during rebuild, not OOM.
 Disk auto-expands correctly (50G tested).
 
