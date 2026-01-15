@@ -44,32 +44,11 @@ else
 fi
 
 require_repo_root() {
-    if [[ ! -f "$REPO_ROOT/vms/definitions.nix" ]] || [[ ! -f "$REPO_ROOT/hosts.nix" ]]; then
+    if [[ ! -f "$REPO_ROOT/hosts.nix" ]]; then
         log_error "Run this from the nixosconfig repo root."
-        log_error "Missing files: vms/definitions.nix or hosts.nix"
+        log_error "Missing file: hosts.nix"
         exit 1
     fi
-}
-
-ensure_managed_block_closed() {
-    local defs_file="$REPO_ROOT/vms/definitions.nix"
-    if ! awk '
-        /^  managed = \{/ {in_managed=1}
-        in_managed && /^  \};$/ {print "closed"; exit}
-        in_managed && /^  template = \{/ {exit}
-    ' "$defs_file" | grep -q "closed"; then
-        log_error "managed block in vms/definitions.nix is missing its closing brace."
-        log_error "Fix vms/definitions.nix and retry."
-        exit 1
-    fi
-}
-
-escape_nix_string() {
-    local value="$1"
-    value=${value//\\/\\\\}
-    value=${value//\"/\\\"}
-    value=${value//$'\n'/ }
-    printf "%s" "$value"
 }
 
 is_valid_name() {
@@ -78,6 +57,14 @@ is_valid_name() {
 
 is_valid_alias() {
     [[ "$1" =~ ^[a-z0-9][a-z0-9-]*$ ]]
+}
+
+escape_nix_string() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\"/\\\"}
+    value=${value//$'\n'/ }
+    printf "%s" "$value"
 }
 
 prompt_required() {
@@ -119,7 +106,7 @@ prompt_optional() {
 
 load_defaults() {
     DEFAULT_STORAGE="nvmeprom"
-    if storage=$(nix eval --raw --impure --expr "(import $REPO_ROOT/vms/definitions.nix).proxmox.defaultStorage" 2>/dev/null); then
+    if storage=$(nix eval --raw --impure --expr "(import $REPO_ROOT/hosts.nix)._proxmox.defaultStorage" 2>/dev/null); then
         [[ -n "$storage" ]] && DEFAULT_STORAGE="$storage"
     fi
 
@@ -138,10 +125,12 @@ load_defaults() {
 
     if [[ -z "$DEFAULT_VMID" ]]; then
         if vmids=$(nix eval --raw --impure --expr '
-            let defs = import '"$REPO_ROOT"'/vms/definitions.nix;
-                all = (builtins.attrValues defs.managed) ++ (builtins.attrValues defs.imported);
-                ids = map (vm: toString vm.vmid) all;
-            in builtins.concatStringsSep " " ids
+            let
+              hosts = import '"$REPO_ROOT"'/hosts.nix;
+              ids = map (h: if h ? proxmox && h.proxmox ? vmid then toString h.proxmox.vmid else "")
+                (builtins.attrValues hosts);
+              filtered = builtins.filter (v: v != "") ids;
+            in builtins.concatStringsSep " " filtered
         ' 2>/dev/null); then
             for i in $(seq 100 199); do
                 if ! echo " $vmids " | grep -q " $i "; then
@@ -160,18 +149,6 @@ load_defaults() {
 ensure_unique_name() {
     local name="$1"
 
-    local existing
-    if existing=$(nix eval --raw --impure --expr '
-        let defs = import '"$REPO_ROOT"'/vms/definitions.nix;
-        in builtins.concatStringsSep " " ((builtins.attrNames defs.managed) ++ (builtins.attrNames defs.imported))
-    ' 2>/dev/null); then
-        if echo " $existing " | grep -q " $name "; then
-            log_error "VM '$name' already exists in vms/definitions.nix"
-            log_error "Use: pve provision $name"
-            exit 1
-        fi
-    fi
-
     if existing=$(nix eval --raw --impure --expr '
         let hosts = import '"$REPO_ROOT"'/hosts.nix;
         in builtins.concatStringsSep " " (builtins.attrNames hosts)
@@ -185,7 +162,7 @@ ensure_unique_name() {
 
     if [[ -d "$REPO_ROOT/hosts/$name" ]]; then
         log_error "Host config already exists at hosts/$name"
-        log_error "Use: pve provision $name"
+        log_error "Use: pve integrate $name <ip> <vmid>"
         exit 1
     fi
 }
@@ -220,13 +197,15 @@ ensure_unique_vmid() {
 
     local existing
     if existing=$(nix eval --raw --impure --expr '
-        let defs = import '"$REPO_ROOT"'/vms/definitions.nix;
-            all = (builtins.attrValues defs.managed) ++ (builtins.attrValues defs.imported);
-            ids = map (vm: toString vm.vmid) all;
-        in builtins.concatStringsSep " " ids
+        let
+          hosts = import '"$REPO_ROOT"'/hosts.nix;
+          ids = map (h: if h ? proxmox && h.proxmox ? vmid then toString h.proxmox.vmid else "")
+            (builtins.attrValues hosts);
+          filtered = builtins.filter (v: v != "") ids;
+        in builtins.concatStringsSep " " filtered
     ' 2>/dev/null); then
         if echo " $existing " | grep -q " $vmid "; then
-            log_error "VMID $vmid already exists in vms/definitions.nix"
+            log_error "VMID $vmid already exists in hosts.nix"
             exit 1
         fi
     fi
@@ -279,68 +258,26 @@ validate_resource_inputs() {
 create_host_files() {
     local name="$1"
     local target_dir="$REPO_ROOT/hosts/$name"
+    local base_dir="$REPO_ROOT/hosts/vm_base"
+
+    if [[ ! -d "$base_dir" ]]; then
+        log_error "Base host template not found at $base_dir"
+        exit 1
+    fi
+
+    for base_file in configuration.nix home.nix; do
+        if [[ ! -f "$base_dir/$base_file" ]]; then
+            log_error "Missing $base_dir/$base_file"
+            exit 1
+        fi
+    done
 
     mkdir -p "$target_dir"
-
-    cat > "$target_dir/configuration.nix" <<'EOF'
-{pkgs, ...}: {
-  imports = [
-    ./hardware-configuration.nix
-  ];
-
-  boot = {
-    loader.systemd-boot.enable = false;
-    loader.efi.canTouchEfiVariables = false;
-    loader.grub = {
-      enable = true;
-      devices = ["nodev"];
-    };
-  };
-
-  homelab = {
-    ssh = {
-      enable = true;
-      secure = false;
-    };
-    tailscale.enable = true;
-    nixCaches = {
-      enable = true;
-      profile = "internal";
-    };
-    update = {
-      enable = true;
-      collectGarbage = true;
-      trim = true;
-      rebootOnKernelUpdate = true;
-    };
-  };
-
-  # Enable QEMU guest agent for Proxmox integration
-  services.qemuGuest.enable = true;
-
-  environment.systemPackages = with pkgs; [
-    htop
-    vim
-    git
-    curl
-    jq
-  ];
-
-  system.stateVersion = "25.05";
-}
-EOF
-
-    cat > "$target_dir/home.nix" <<'EOF'
-{...}: {
-  imports = [
-    ../../home/home.nix
-    ../../home/utils/common.nix
-  ];
-}
-EOF
+    cp "$base_dir/configuration.nix" "$target_dir/configuration.nix"
+    cp "$base_dir/home.nix" "$target_dir/home.nix"
 }
 
-append_definition() {
+add_hosts_entry() {
     local name="$1"
     local alias="$2"
     local vmid="$3"
@@ -349,61 +286,8 @@ append_definition() {
     local disk="$6"
     local storage="$7"
     local purpose="$8"
-    local services_input="$9"
-
-    local purpose_escaped
-    purpose_escaped="$(escape_nix_string "$purpose")"
-
-    local services_block=""
-    if [[ -n "$services_input" ]]; then
-        local services_lines=""
-        IFS=',' read -r -a service_items <<< "$services_input"
-        for service in "${service_items[@]}"; do
-            service="$(echo "$service" | sed -e 's/^ *//' -e 's/ *$//')"
-            [[ -z "$service" ]] && continue
-            service="$(escape_nix_string "$service")"
-            services_lines+="        \"${service}\"\n"
-        done
-
-        if [[ -n "$services_lines" ]]; then
-            services_block=$'      services = [\n'"$services_lines"$'      ];\n'
-        fi
-    fi
-
-    local new_entry=$'    '"$name"$' = {\n'
-    new_entry+=$'      vmid = '"$vmid"$';\n'
-    new_entry+=$'      hostname = "'"$name"$'";\n'
-    new_entry+=$'      sshAlias = "'"$alias"$'";\n'
-    new_entry+=$'      cores = '"$cores"$';\n'
-    new_entry+=$'      memory = '"$memory"$'; # MB\n'
-    new_entry+=$'      disk = "'"$disk"$'";\n'
-    new_entry+=$'      storage = "'"$storage"$'";\n'
-    new_entry+=$'      nixosConfig = "'"$name"$'";\n'
-    new_entry+=$'      purpose = "'"$purpose_escaped"$'";\n'
-    if [[ -n "$services_block" ]]; then
-        new_entry+="$services_block"
-    fi
-    new_entry+=$'    };\n'
-
-    local defs_file="$REPO_ROOT/vms/definitions.nix"
-    local temp_file
-    temp_file=$(mktemp)
-
-    awk -v entry="$new_entry" '
-        $0 ~ /^  managed = \{/ { in_managed = 1 }
-        in_managed && $0 ~ /^  \};$/ {
-            printf "%s", entry
-            in_managed = 0
-        }
-        { print }
-    ' "$defs_file" > "$temp_file"
-
-    mv "$temp_file" "$defs_file"
-}
-
-add_hosts_entry() {
-    local name="$1"
-    local alias="$2"
+    local description
+    description="$(escape_nix_string "$purpose")"
 
     local hosts_file="$REPO_ROOT/hosts.nix"
     local temp_file
@@ -421,6 +305,14 @@ add_hosts_entry() {
     initialHashedPassword = \"$DEFAULT_INITIAL_HASH\"; # temp123
     publicKey = \"ssh-ed25519 PLACEHOLDER\";
     authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = $vmid;
+      cores = $cores;
+      memory = $memory;
+      disk = \"$disk\";
+      storage = \"$storage\";
+      description = \"$description\";
+    };
   };
 "
 
@@ -445,33 +337,42 @@ remove_hosts_entry() {
     mv "$temp_file" "$hosts_file"
 }
 
-remove_definition_entry() {
-    local name="$1"
-    local defs_file="$REPO_ROOT/vms/definitions.nix"
-    local temp_file
-    temp_file=$(mktemp)
-
-    awk -v name="$name" '
-        $0 ~ "^    "name" = \\{" {skip=1; next}
-        skip && /^    \};/ {skip=0; next}
-        !skip {print}
-    ' "$defs_file" > "$temp_file"
-
-    mv "$temp_file" "$defs_file"
-}
-
 cleanup_generated() {
     local name="$1"
     local cleanup_dir="$REPO_ROOT/hosts/$name"
 
-    remove_definition_entry "$name"
     remove_hosts_entry "$name"
     rm -rf "$cleanup_dir"
 }
 
+load_pve_token() {
+    if [[ -n "${PROXMOX_VE_API_TOKEN:-}" ]]; then
+        return 0
+    fi
+
+    local token_file="${PVE_TOKEN_FILE:-$HOME/.pve_token}"
+    if [[ ! -f "$token_file" && -f /tmp/pve_token ]]; then
+        log_warning "Token file not found at $token_file; using /tmp/pve_token for this run."
+        token_file="/tmp/pve_token"
+    fi
+
+    if [[ ! -f "$token_file" ]]; then
+        log_error "PVE token file not found. Set PVE_TOKEN_FILE or create $HOME/.pve_token."
+        exit 1
+    fi
+
+    local token_line
+    token_line="$(head -n1 "$token_file")"
+    if [[ -z "$token_line" || "$token_line" != *"="* ]]; then
+        log_error "Invalid token format in $token_file. Expected: user@realm!tokenid=secret"
+        exit 1
+    fi
+
+    export PROXMOX_VE_API_TOKEN="$token_line"
+}
+
 main() {
     require_repo_root
-    ensure_managed_block_closed
     load_defaults
 
     local name=""
@@ -527,9 +428,6 @@ main() {
 
     validate_resource_inputs "$cores" "$memory" "$disk"
 
-    local services
-    services="$(prompt_optional "Services (comma-separated, optional)")"
-
     echo ""
     log_info "Preview"
     echo "  Hostname: $name"
@@ -540,9 +438,6 @@ main() {
     echo "  Disk:     $disk"
     echo "  Storage:  $storage"
     echo "  Purpose:  $purpose"
-    if [[ -n "$services" ]]; then
-        echo "  Services: $services"
-    fi
     echo ""
 
     local confirm
@@ -552,39 +447,51 @@ main() {
         *) log_warning "Cancelled."; exit 1 ;;
     esac
 
-    log_info "Creating VM definition..."
-    append_definition "$name" "$alias" "$vmid" "$cores" "$memory" "$disk" "$storage" "$purpose" "$services"
-    log_success "Updated vms/definitions.nix"
-
     log_info "Creating host configuration..."
     create_host_files "$name"
     log_success "Created hosts/$name"
 
     log_info "Adding hosts.nix entry..."
-    add_hosts_entry "$name" "$alias"
+    add_hosts_entry "$name" "$alias" "$vmid" "$cores" "$memory" "$disk" "$storage" "$purpose"
     log_success "Updated hosts.nix"
 
     log_info "Staging generated files..."
     if git rev-parse --git-dir >/dev/null 2>&1; then
-        git add "hosts/$name" "hosts.nix" "vms/definitions.nix"
-        log_success "Staged hosts/$name, hosts.nix, and vms/definitions.nix"
+        git add "hosts/$name" "hosts.nix"
+        log_success "Staged hosts/$name and hosts.nix"
     else
         log_warning "Not a git repo; skipping staging."
     fi
 
-    log_info "Provisioning on Proxmox..."
     cd "$REPO_ROOT"
-    if ! nix run .#provision-vm "$name"; then
-        log_error "Provisioning failed."
+    load_pve_token
+
+    local tofu_workdir="${TOFU_WORKDIR:-$REPO_ROOT/vms/tofu/.state}"
+    log_info "Planning OpenTofu changes..."
+    if ! TOFU_WORKDIR="$tofu_workdir" nix run .#tofu-plan; then
+        log_error "OpenTofu plan failed."
         local confirm
-        read -r -p "Clean up generated config and definitions? [y/N]: " confirm
+        read -r -p "Clean up generated config? [y/N]: " confirm
         case "$confirm" in
             y|Y|yes|YES)
                 cleanup_generated "$name"
-                log_warning "Cleaned up hosts/$name, hosts.nix, and vms/definitions.nix."
+                log_warning "Cleaned up hosts/$name and hosts.nix."
                 ;;
             *) log_warning "Keeping generated files for inspection." ;;
         esac
+        exit 1
+    fi
+
+    local apply_confirm
+    read -r -p "Apply OpenTofu changes now? [y/N]: " apply_confirm
+    case "$apply_confirm" in
+        y|Y|yes|YES) ;;
+        *) log_warning "Apply skipped."; exit 0 ;;
+    esac
+
+    log_info "Applying OpenTofu changes..."
+    if ! TOFU_WORKDIR="$tofu_workdir" nix run .#tofu-apply; then
+        log_error "OpenTofu apply failed."
         exit 1
     fi
 

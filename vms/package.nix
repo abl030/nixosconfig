@@ -2,7 +2,7 @@
 # ==============================
 #
 # Nix packages for VM provisioning and management tools.
-# Exports: provision-vm, post-provision-vm, proxmox-ops
+# Exports: post-provision-vm, proxmox-ops, new-vm
 {pkgs, ...}: rec {
   # Proxmox operations wrapper
   proxmox-ops = pkgs.writeShellApplication {
@@ -29,47 +29,6 @@
           proxmox-ops clone <template> <new>  # Clone from template
           proxmox-ops start <vmid>            # Start VM
           ... and more
-      '';
-    };
-  };
-
-  # Main VM provisioning orchestration
-  provision-vm = pkgs.writeShellApplication {
-    name = "provision-vm";
-
-    runtimeInputs = with pkgs; [
-      openssh
-      jq
-      coreutils
-      git
-      nix
-      proxmox-ops # Include proxmox-ops in PATH
-    ];
-
-    text = ''
-      # Source the provision script
-      ${builtins.readFile ./provision.sh}
-    '';
-
-    meta = {
-      description = "Provision a new VM from definition";
-      longDescription = ''
-        End-to-end VM provisioning orchestration.
-
-        This script:
-        1. Loads VM definition from vms/definitions.nix
-        2. Clones from template and configures resources
-        3. Sets up cloud-init with fleet SSH keys
-        4. Starts VM and waits for network
-        5. Provides instructions for NixOS installation
-
-        Usage:
-          provision-vm <vm-name>
-
-        Example:
-          provision-vm test-vm
-
-        The VM must be defined in vms/definitions.nix under 'managed' section.
       '';
     };
   };

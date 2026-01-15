@@ -29,15 +29,13 @@ Current blocker:
 
 ```
 vms/
-├── definitions.nix    # VM specs (source of truth)
-├── lib.nix            # Nix helper functions
-├── provision.sh       # Main orchestration
+├── tofu/              # Terranix/OpenTofu config
 ├── post-provision.sh  # Fleet integration
 ├── proxmox-ops.sh     # Proxmox SSH wrapper
 └── cloudinit.nix      # Cloud-init generator
 ```
 
-Note: `provision.sh` is legacy; OpenTofu is the primary creation path.
+Note: OpenTofu is the primary creation path.
 
 ### VM Definition Example
 
@@ -64,7 +62,7 @@ Each VM needs `hosts/{name}/` with:
 
 ## Safety Features
 
-- **Readonly VMs**: If marked readonly in `vms/definitions.nix`, wrapper blocks changes
+- **Readonly VMs**: If marked readonly in `hosts.nix` (`proxmox.readonly`), wrapper blocks changes
 - **VMID checks**: Validates no conflicts before provisioning
 - **Confirmation prompt**: Requires explicit approval
 - **SSH as user**: Final access via abl030, not root
