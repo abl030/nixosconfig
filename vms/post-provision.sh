@@ -347,6 +347,13 @@ resolve_sops_identity() {
     local uid
     uid="$(id -u)"
 
+    if [[ "$uid" -ne 0 ]]; then
+        if ! sudo -v; then
+            log_error "Failed to obtain sudo credentials for SOPS decryption." >&2
+            return 1
+        fi
+    fi
+
     # 1) Age key files
     for keyfile in "/root/.config/sops/age/keys.txt" "/var/lib/sops-nix/key.txt"; do
         if sudo test -r "$keyfile" 2>/dev/null; then
@@ -399,7 +406,7 @@ check_prerequisites() {
     command -v git >/dev/null 2>&1 || missing+=("git")
     command -v jq >/dev/null 2>&1 || missing+=("jq")
     command -v nixos-rebuild >/dev/null 2>&1 || missing+=("nixos-rebuild")
-    if [[ "${POST_PROVISION_TAILSCALE:-}" == "1" ]]; then
+    if [[ "${POST_PROVISION_TAILSCALE:-1}" != "0" ]]; then
         command -v curl >/dev/null 2>&1 || missing+=("curl")
     fi
 
@@ -436,7 +443,10 @@ tailscale_load_oauth_creds() {
         return 0
     fi
 
-    if [[ -z "${POST_PROVISION_TAILSCALE_SOPS_FILE:-}" ]]; then
+    # Default to standard location if not specified
+    local sops_file="${POST_PROVISION_TAILSCALE_SOPS_FILE:-$REPO_ROOT/secrets/secrets/tailscale-oauth.yaml}"
+    if [[ ! -f "$sops_file" ]]; then
+        log_error "Tailscale OAuth credentials not found at: $sops_file" >&2
         return 1
     fi
 
@@ -444,8 +454,14 @@ tailscale_load_oauth_creds() {
         return 1
     fi
 
+    # Ensure we have a sops identity to decrypt
+    if ! resolve_sops_identity; then
+        log_error "Failed to resolve SOPS identity for decryption" >&2
+        return 1
+    fi
+
     local json
-    if ! json=$(sops -d --output-type json "$POST_PROVISION_TAILSCALE_SOPS_FILE"); then
+    if ! json=$(sops -d --output-type json "$sops_file"); then
         return 1
     fi
 
@@ -522,11 +538,12 @@ tailscale_create_auth_key() {
 tailscale_join_vm() {
     local vm_ip="$1"
 
-    if [[ "${POST_PROVISION_TAILSCALE:-}" != "1" ]]; then
+    if [[ "${POST_PROVISION_TAILSCALE:-1}" == "0" ]]; then
+        log_info "Skipping Tailscale enrollment (POST_PROVISION_TAILSCALE=0)" >&2
         return 0
     fi
 
-    log_info "Step: tailscale enroll (opt-in)" >&2
+    log_info "Step: tailscale enroll" >&2
 
     local key
     if ! key=$(tailscale_create_auth_key); then
@@ -535,9 +552,12 @@ tailscale_join_vm() {
 
     local -a ssh_opts
     build_ssh_opts ssh_opts
+    # tailscale up requires sudo; force a TTY so sudo can prompt interactively.
+    ssh_opts+=("-t" "-o" "BatchMode=no")
 
     log_info "Enrolling VM into tailnet via tailscale up..." >&2
-    if ! ssh "${ssh_opts[@]}" "abl030@$vm_ip" "sudo tailscale up --authkey '$key'"; then
+    # shellcheck disable=SC2029
+    if ! ssh "${ssh_opts[@]}" "abl030@$vm_ip" "sudo tailscale up --authkey \"$key\""; then
         log_error "tailscale up failed on ${vm_ip}" >&2
         return 1
     fi

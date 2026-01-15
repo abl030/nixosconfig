@@ -2,7 +2,7 @@
 
 Future enhancements and ideas for the VM automation system.
 
-**Last Updated**: 2026-01-14
+**Last Updated**: 2026-01-15
 
 ---
 
@@ -10,7 +10,7 @@ Future enhancements and ideas for the VM automation system.
 
 ### 1. Evaluate OpenTofu for Proxmox
 
-**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, post-provision flow in progress)
+**Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, post-provision flow verified)
 
 **Goal**: Compare a Terraform-style workflow against the current scripting. The VM automation works, but feels fragile; prototype OpenTofu with Proxmox and commit configs here to evaluate reliability and ergonomics.
 
@@ -29,16 +29,15 @@ Future enhancements and ideas for the VM automation system.
 - [x] Test OpenTofu lifecycle (create -> no-op apply -> destroy)
 - [x] Test OpenTofu import for existing VMs (dev, proxmox-vm, igpu)
 - [x] Wire `tofu-output` into OpenTofu-first provisioning flow
-- [ ] Make post-provision non-interactive end-to-end (SSH key path/jump host)
+- [x] Post-provision end-to-end verified (interactive, with sudo prompts)
 - [x] Test creating new VM end-to-end with qemu-guest-agent (VMID 111)
 
 **To test from dev VM**:
 ```bash
 cd ~/nixosconfig
-export PROXMOX_VE_API_TOKEN='terraform@pve!opentofu=<token>'
-tofu-show        # View generated config
-tofu-plan        # Plan changes
-tofu-apply       # Apply changes
+# Store token in ~/.pve_token (format: user@realm!tokenid=secret)
+pve plan         # Plan changes
+pve apply        # Apply changes
 ```
 
 ### 2. Safe OpenTofu Apply Wrapper

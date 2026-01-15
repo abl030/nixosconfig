@@ -6,6 +6,7 @@
     ./display/waybar.nix
     ./display/theme.nix
     ./display/qt-theme.nix
+    ./display/hyprpaper.nix
     ./display/hypridle.nix
     ./display/dolphin.nix
     ./services/yazi.nix

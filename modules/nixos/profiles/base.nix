@@ -162,5 +162,19 @@
   security.sudo = {
     enable = lib.mkDefault true;
     wheelNeedsPassword = lib.mkDefault (!(hostConfig.sudoPasswordless or false));
+
+    # Passwordless tailscale for post-provision automation.
+    # Allows `sudo tailscale up --authkey ...` without password prompt.
+    extraRules = [
+      {
+        users = [hostConfig.user];
+        commands = [
+          {
+            command = "${pkgs.tailscale}/bin/tailscale";
+            options = ["NOPASSWD"];
+          }
+        ];
+      }
+    ];
   };
 }

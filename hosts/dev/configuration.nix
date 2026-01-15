@@ -19,6 +19,9 @@
       enable = true;
       secure = false;
     };
+    pve = {
+      enable = true;
+    };
     tailscale.enable = true;
     nixCaches = {
       enable = true;

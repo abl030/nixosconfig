@@ -1,7 +1,7 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; POST-PROVISION FLOW IN PROGRESS (IP CHANGE HANDLING ADDED, NEEDS RETEST)
+**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; POST-PROVISION FLOW VERIFIED
 
 ## Current Status
 
@@ -30,7 +30,7 @@ OpenTofu/Terranix implementation complete and working.
 - [x] OpenTofu plan is clean (no drift)
 
 ### Current Blocker
-Post-provision still needs a clean end-to-end run after handling IP changes.
+None - post-provision end-to-end flow verified.
 
 ---
 
@@ -183,9 +183,9 @@ Move provisioning to an OpenTofu-first workflow:
 3) Integrate into fleet (keys/secrets/hosts.nix updates)
 
 ### Plan
-- [ ] Replace provisioning flow with OpenTofu-created VM as the starting point
+- [x] Replace provisioning flow with OpenTofu-created VM as the starting point
 - [x] Use `tofu-output` (or state) as the source of VM IPs
-- [ ] Keep post-provision integration (`post-provision-vm`) as the final step
+- [x] Keep post-provision integration (`post-provision-vm`) as the final step
 - [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
 - [ ] Always run a verification step before moving on (e.g. `tofu-plan`, `tofu-output`, or status checks)
 - [ ] Always run `tofu-plan` before any `tofu-apply`
@@ -199,13 +199,13 @@ Move provisioning to an OpenTofu-first workflow:
 - Hardware config is generated on first run and now prompts before overwriting.
 - Test VM (111) is 8GB RAM / 50G disk; disk auto-expanded on boot.
 - Root SSH is disabled in final configs; use `abl030` after the rebuild.
-- Tailscale auth automation is in progress (see `docs/tailscale-auth-plan.md`).
-- Manual validation: only Step 2 (Tailscale join) needs manual testing; other steps are handled by post-provision.
-- Next step: wire the Tailscale OAuth flow into post-provision and test end-to-end using VM IP.
+- Post-provision end-to-end flow verified and working.
+- Tailscale auth automation enabled by default and verified (see `docs/tailscale-auth-plan.md`).
+- `pve plan` / `pve apply` wrappers load `PROXMOX_VE_API_TOKEN` from `~/.pve_token`.
 
 ### What We Learned
 - Rebuild-only flow requires the VM’s generated `hardware-configuration.nix`.
-- Non-interactive SSH is mandatory for automation; prompts must be avoided.
+- SSH prompts are expected during interactive runs; use TTY when sudo is required.
 
 ---
 
@@ -217,4 +217,4 @@ Phase 1 implemented OpenTofu/Terranix integration. Key files created:
 - `hosts.nix` - Extended with `_proxmox` config and `proxmox` attributes
 - Apps: `tofu-show`, `tofu-plan`, `tofu-apply`, `tofu-init`, `tofu-import`
 
-Proxmox API token: `terraform@pve!opentofu` (stored in `/tmp/pve_token` during testing)
+Proxmox API token: `terraform@pve!opentofu` (stored in `~/.pve_token`)
