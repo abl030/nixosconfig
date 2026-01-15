@@ -260,4 +260,25 @@ in {
       # No readonly - managed by OpenTofu
     };
   };
+
+  test2 = {
+    configurationFile = ./hosts/test2/configuration.nix;
+    homeFile = ./hosts/test2/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "test2";
+    sshAlias = "test2";
+    sshKeyName = "ssh_key_abl030";
+    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEjCQCM6XUnEUqeX8ZjUzAaDurJ0cdpqBWu8f3eEHTN";
+    authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 112;
+      cores = 4;
+      memory = 8192;
+      disk = "64G";
+      storage = "nvmeprom";
+      description = "General purpose VM";
+    };
+  };
 }
