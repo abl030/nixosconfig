@@ -63,6 +63,109 @@ load_pve_token() {
     export PROXMOX_VE_API_TOKEN="$token_line"
 }
 
+require_repo_root() {
+    if [[ ! -f "$REPO_ROOT/hosts.nix" ]] || [[ ! -f "$REPO_ROOT/secrets/.sops.yaml" ]]; then
+        error "Run this from the nixosconfig repo root (missing hosts.nix or secrets/.sops.yaml)."
+    fi
+}
+
+resolve_host_config_dir() {
+    local name="$1"
+    local config_path
+
+    if ! command -v nix >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if ! config_path=$(nix eval --raw --impure --expr "let hosts = import $REPO_ROOT/hosts.nix; in toString hosts.${name}.configurationFile" 2>/dev/null); then
+        return 1
+    fi
+
+    if [[ -z "$config_path" ]]; then
+        return 1
+    fi
+
+    dirname "$config_path"
+}
+
+remove_hosts_entry() {
+    local name="$1"
+    local hosts_file="$REPO_ROOT/hosts.nix"
+    local temp_file
+    temp_file="$(mktemp)"
+
+    awk -v name="$name" '
+        $0 ~ "^  "name" = \\{" {skip=1; next}
+        skip && /^  \};/ {skip=0; next}
+        !skip {print}
+    ' "$hosts_file" > "$temp_file"
+
+    mv "$temp_file" "$hosts_file"
+}
+
+remove_sops_age_key() {
+    local name="$1"
+    local sops_file="$REPO_ROOT/secrets/.sops.yaml"
+    local temp_file
+    temp_file="$(mktemp)"
+
+    awk -v name="$name" '
+        $0 ~ ("&"name) {next}
+        $0 ~ ("# *"name"([[:space:]]|$)") {next}
+        {print}
+    ' "$sops_file" > "$temp_file"
+
+    mv "$temp_file" "$sops_file"
+}
+
+update_sops_keys() {
+    local secrets_dir="$REPO_ROOT/secrets"
+    local sops_config="$secrets_dir/.sops.yaml"
+
+    if ! resolve_sops_identity; then
+        error "No valid SOPS age key found."
+    fi
+
+    command -v sops >/dev/null 2>&1 || error "sops is required to update keys."
+
+    if [[ ! -f "$sops_config" ]]; then
+        error "Missing $sops_config"
+    fi
+
+    while IFS= read -r secret_file; do
+        sops --config "$sops_config" updatekeys --yes "$secret_file" >/dev/null
+    done < <(find "$secrets_dir/secrets" -type f)
+}
+
+resolve_sops_identity() {
+    if [[ -n "${SOPS_AGE_KEY:-}" ]]; then
+        return 0
+    fi
+
+    local keyfile
+    for keyfile in "/root/.config/sops/age/keys.txt" "/var/lib/sops-nix/key.txt"; do
+        if [[ -f "$keyfile" ]]; then
+            export SOPS_AGE_KEY_FILE="$keyfile"
+            return 0
+        fi
+    done
+
+    if command -v ssh-to-age >/dev/null 2>&1; then
+        if age_key=$(sudo ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key 2>/dev/null); then
+            export SOPS_AGE_KEY="$age_key"
+            return 0
+        fi
+
+        local sshkey="${HOME}/.ssh/id_ed25519"
+        if [[ -f "$sshkey" ]] && age_key=$(ssh-to-age -private-key -i "$sshkey" 2>/dev/null); then
+            export SOPS_AGE_KEY="$age_key"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 # Helper: Query pvesh for VM current status (real-time stats)
 # Returns JSON with cpu, mem, diskread, diskwrite, netin, netout, uptime
 get_vm_stats() {
@@ -143,6 +246,7 @@ LIFECYCLE:
 
 PROVISIONING:
     new                   Interactive VM creation wizard
+    remove <name>         Remove VM config/secrets and destroy via OpenTofu
     integrate <name> <ip> <vmid>
                           Post-provision fleet integration
     plan [tofu args]      OpenTofu plan (loads token from ~/.pve_token)
@@ -178,6 +282,7 @@ EXAMPLES:
     pve start 110         # Start VMID 110
     pve console 9003      # Stream serial console
     pve new               # Create config + OpenTofu plan/apply
+    pve remove test2      # Remove config/secrets and destroy VM via OpenTofu
     pve plan              # tofu plan with Proxmox token
     pve apply             # tofu apply with Proxmox token
 EOF
@@ -565,6 +670,61 @@ case "$CMD" in
     new)
         info "Launching interactive VM wizard..."
         nix run .#new-vm
+        ;;
+
+    remove)
+        [[ -z "${1:-}" ]] && error "Usage: pve remove <name>"
+        require_repo_root
+        load_pve_token
+
+        name="$1"
+
+        if ! command -v nix >/dev/null 2>&1; then
+            error "nix is required to remove VM config entries."
+        fi
+
+        if [[ "$(nix eval --json --impure --expr "let hosts = import $REPO_ROOT/hosts.nix; in builtins.hasAttr \"${name}\" hosts")" != "true" ]]; then
+            error "Host '$name' not found in hosts.nix"
+        fi
+
+        vmid="$(nix eval --raw --impure --expr "let hosts = import $REPO_ROOT/hosts.nix; in if hosts ? ${name} && hosts.${name} ? proxmox && hosts.${name}.proxmox ? vmid then toString hosts.${name}.proxmox.vmid else \"\"" 2>/dev/null || true)"
+        config_dir="$(resolve_host_config_dir "$name" || true)"
+
+        warning "This will remove host config, sops keys, and destroy VM '$name'${vmid:+ (VMID $vmid)}."
+        if [[ -n "$config_dir" ]]; then
+            warning "Host config dir: $config_dir"
+        fi
+        echo -n "Type '${name}' to confirm: "
+        read -r confirm
+        if [[ "$confirm" != "$name" ]]; then
+            info "Remove cancelled"
+            exit 1
+        fi
+
+        if [[ -n "$config_dir" && -d "$config_dir" ]]; then
+            rm -rf "$config_dir"
+        fi
+
+        remove_hosts_entry "$name"
+        remove_sops_age_key "$name"
+        update_sops_keys
+
+        tofu_workdir="${TOFU_WORKDIR:-$REPO_ROOT/vms/tofu/.state}"
+        info "Planning OpenTofu changes..."
+        if ! TOFU_WORKDIR="$tofu_workdir" nix run .#tofu-plan; then
+            error "OpenTofu plan failed."
+        fi
+
+        echo -n "Apply OpenTofu changes now? [y/N]: "
+        read -r apply_confirm
+        case "$apply_confirm" in
+            y|Y|yes|YES) ;;
+            *) info "Apply skipped."; exit 0 ;;
+        esac
+
+        info "Applying OpenTofu changes..."
+        TOFU_WORKDIR="$tofu_workdir" nix run .#tofu-apply
+        success "Remove flow complete."
         ;;
 
     integrate)

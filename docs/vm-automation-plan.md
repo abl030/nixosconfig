@@ -77,6 +77,9 @@ pve apply
 # Post-provision (fleet integration)
 pve integrate <name> <ip> <vmid>
 
+# Remove VM config + secrets and destroy via OpenTofu
+pve remove <name>
+
 # Direct Proxmox operations
 ./vms/proxmox-ops.sh list
 ./vms/proxmox-ops.sh status <vmid>
