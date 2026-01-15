@@ -15,7 +15,7 @@ OpenTofu/Terranix implementation complete and working.
 - [x] OpenTofu apps added (`tofu-show`, `tofu-plan`, `tofu-apply`, etc.)
 - [x] Proxmox API token created: `terraform@pve!opentofu`
 - [x] `nix run .#tofu-plan` works and shows correct plan
-- [x] Test VM (VMID 111) created successfully via OpenTofu
+- [x] Sample VM created successfully via OpenTofu
 - [x] Existing VMs (dev, proxmox-vm, igpu) imported into OpenTofu state
 - [x] Timeout metadata applied (`timeout_move_disk`) to imported VMs
 - [x] NixOS template config added (`vms/template/configuration.nix`)
@@ -162,7 +162,7 @@ _proxmox = {
 ### Verification (DONE)
 
 1. Template boots with DHCP on ens18
-2. QEMU guest agent responds (verified via systemd service on VM 111)
+2. QEMU guest agent responds (verified via systemd service on a provisioned VM)
 3. Cloud-init applies SSH keys and network config
 4. OpenTofu can create VMs without timeout
 
@@ -191,17 +191,17 @@ Move provisioning to an OpenTofu-first workflow:
 - [ ] Always run `tofu-plan` before any `tofu-apply`
 - [x] Detect IP change during `nixos-rebuild` and re-resolve via guest agent
 - [x] Retry IP resolution with timeout after DHCP/network restart
-- [x] Add `initialHashedPassword` for `test` host (temp123) in `hosts.nix`
-- [ ] Add/maintain interactive `pve new` VM wizard as the default entrypoint for new hosts (use `test` config as the default template)
-- [ ] Add `pve remove` to delete VM config/secrets and destroy via OpenTofu
+- [x] Add `initialHashedPassword` for new hosts (temp123) in `hosts.nix`
+- [ ] Add/maintain interactive `pve new` VM wizard as the default entrypoint for new hosts (use `hosts/vm_base`)
+- [x] Add `pve remove` to delete VM config/secrets and destroy via OpenTofu
 
 ### Current State
 - `post-provision-vm <name> <vmid>` resolves IP from `tofu-output`, applies NixOS via `nixos-rebuild`, and handles DHCP IP changes.
 - Hardware config is generated on first run and now prompts before overwriting.
-- Test VM (111) is 8GB RAM / 50G disk; disk auto-expanded on boot.
+- Small VM sizing (8GB RAM / 50G disk) is sufficient; disk auto-expands on boot.
 - Root SSH is disabled in final configs; use `abl030` after the rebuild.
 - Post-provision end-to-end flow verified and working.
-- Tailscale auth automation enabled by default and verified (see `docs/tailscale-auth-plan.md`).
+- Tailscale auth automation enabled by default and verified.
 - `pve plan` / `pve apply` wrappers load `PROXMOX_VE_API_TOKEN` from `~/.pve_token`.
 
 ### What We Learned

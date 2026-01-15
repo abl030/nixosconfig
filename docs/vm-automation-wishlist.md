@@ -39,7 +39,7 @@ can run from any machine with a consistent view of managed VMs.
 - [x] Test OpenTofu import for existing VMs (dev, proxmox-vm, igpu)
 - [x] Wire `tofu-output` into OpenTofu-first provisioning flow
 - [x] Post-provision end-to-end verified (interactive, with sudo prompts)
-- [x] Test creating new VM end-to-end with qemu-guest-agent (VMID 111)
+- [x] Test creating new VM end-to-end with qemu-guest-agent
 
 **To test from dev VM**:
 ```bash
