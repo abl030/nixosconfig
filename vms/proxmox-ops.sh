@@ -166,40 +166,6 @@ create_vm_disk() {
     ssh_exec "qm set ${vmid} --${disk} ${storage}:${size}"
 }
 
-# Create cloud-init drive
-create_cloudinit_drive() {
-    local vmid="$1"
-    local storage="${2:-nvmeprom}"
-
-    check_operation_allowed "$vmid" "cloudinit" || return 1
-
-    echo "Creating cloud-init drive for VMID ${vmid}..." >&2
-    ssh_exec "qm set ${vmid} --ide2 ${storage}:cloudinit"
-}
-
-# Configure cloud-init settings
-configure_cloudinit() {
-    local vmid="$1"
-    local ssh_keys="$2"
-    # hostname parameter not currently used but kept for future compatibility
-    # shellcheck disable=SC2034
-    local hostname="${3:-nixos}"
-
-    check_operation_allowed "$vmid" "cloudinit_config" || return 1
-
-    echo "Configuring cloud-init for VMID ${vmid}..." >&2
-
-    # Set SSH keys
-    ssh_exec "qm set ${vmid} --sshkeys <(echo '${ssh_keys}')" || \
-        ssh_exec "qm set ${vmid} --sshkey '${ssh_keys}'"
-
-    # Set hostname
-    ssh_exec "qm set ${vmid} --ciuser root --cipassword '!' --searchdomain local --nameserver 192.168.1.1"
-
-    # Enable DHCP
-    ssh_exec "qm set ${vmid} --ipconfig0 ip=dhcp"
-}
-
 # Start VM
 start_vm() {
     local vmid="$1"
@@ -367,8 +333,6 @@ main() {
         echo "  resize <vmid> <disk> <size>       Resize VM disk" >&2
         echo "  restore-vma <archive> <vmid> [storage]" >&2
         echo "  serial-socket <vmid>              Enable serial0 socket" >&2
-        echo "  cloudinit-drive <vmid> [storage]" >&2
-        echo "  cloudinit-config <vmid> <ssh_keys> [hostname]" >&2
         echo "  start <vmid>" >&2
         echo "  stop <vmid>" >&2
         echo "  shutdown <vmid>" >&2
@@ -394,8 +358,6 @@ main() {
         resize)         resize_vm_disk "$@" ;;
         restore-vma)    restore_vm "$@" ;;
         serial-socket)  set_serial_socket "$@" ;;
-        cloudinit-drive) create_cloudinit_drive "$@" ;;
-        cloudinit-config) configure_cloudinit "$@" ;;
         start)          start_vm "$@" ;;
         stop)           stop_vm "$@" ;;
         shutdown)       shutdown_vm "$@" ;;

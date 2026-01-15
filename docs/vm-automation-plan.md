@@ -32,7 +32,6 @@ vms/
 ├── tofu/              # Terranix/OpenTofu config
 ├── post-provision.sh  # Fleet integration
 ├── proxmox-ops.sh     # Proxmox SSH wrapper
-└── cloudinit.nix      # Cloud-init generator
 ```
 
 Note: OpenTofu is the primary creation path.
