@@ -551,21 +551,51 @@ in {
           exit 1
       fi
 
+      failed=0
+
+      # Run format check
       echo "🧹 Running Format Check (alejandra)..."
       if ! alejandra --check --quiet . >/dev/null 2>&1; then
           echo "❌ Formatting issues detected. Run 'nix fmt'."
-          exit 1
+          alejandra --check . 2>&1 | grep -E "(Requires formatting:|Alert!)" || true
+          failed=1
+      else
+          echo "✅ Format check passed"
       fi
+      echo ""
 
+      # Run deadnix
       echo "🔍 Running Linting (deadnix)..."
-      if ! deadnix --fail .; then exit 1; fi
+      if ! deadnix --fail .; then
+          echo "❌ Deadnix found issues"
+          failed=1
+      else
+          echo "✅ Deadnix passed"
+      fi
+      echo ""
 
+      # Run statix
       echo "🔍 Running Linting (statix)..."
-      if ! statix check .; then exit 1; fi
+      if ! statix check .; then
+          echo "❌ Statix found issues"
+          failed=1
+      else
+          echo "✅ Statix passed"
+      fi
+      echo ""
 
+      # Run flake check regardless of previous failures
       echo "❄️  Running Flake Checks..."
       if ! nix flake check --print-build-logs; then
           echo "❌ Flake check failed."
+          failed=1
+      else
+          echo "✅ Flake check passed"
+      fi
+      echo ""
+
+      if [[ $failed -eq 1 ]]; then
+          echo "❌ Some checks failed. Please fix the issues above."
           exit 1
       fi
 
