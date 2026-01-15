@@ -1,18 +1,18 @@
 # VM Automation
 
-**Status**: Template 9003 verified; OpenTofu managing dev/proxmox-vm/igpu; post-provision flow in progress
-**Last Updated**: 2026-01-14
+**Status**: Template 9003 verified; OpenTofu managing dev/proxmox-vm/igpu; post-provision flow verified
+**Last Updated**: 2026-01-15
 
 ## Quick Start
 
 ```bash
 # 1. Define VM in hosts.nix (proxmox attrs) + host config in hosts/{name}/
 # 2. OpenTofu creates the VM from template 9003:
-export PROXMOX_VE_API_TOKEN='terraform@pve!opentofu=<token>'
-nix run .#tofu-apply
+# Store token in ~/.pve_token (format: user@realm!tokenid=secret)
+pve apply
 
 # 3. Integrate with fleet (generates hardware config, applies NixOS, then secrets/hosts):
-nix run .#post-provision-vm <name> <vmid>
+pve integrate <name> <ip> <vmid>
 ```
 
 ## What It Does
@@ -23,7 +23,7 @@ OpenTofu-first provisioning:
 3. Post-provision generates hardware config (if missing), applies NixOS config, and integrates into fleet
 
 Current blocker:
-- `post-provision` hits an SSH password prompt during `nixos-rebuild` (no non-interactive key on this machine).
+- None.
 
 ## Architecture
 
@@ -72,12 +72,12 @@ Each VM needs `hosts/{name}/` with:
 ## Commands
 
 ```bash
-# OpenTofu plan/apply
-nix run .#tofu-plan
-nix run .#tofu-apply
+# OpenTofu plan/apply (wrapper loads ~/.pve_token)
+pve plan
+pve apply
 
 # Post-provision (fleet integration)
-nix run .#post-provision-vm <name> <vmid>
+pve integrate <name> <ip> <vmid>
 
 # Direct Proxmox operations
 ./vms/proxmox-ops.sh list

@@ -154,7 +154,7 @@
         homeConfigurations =
           lib.mapAttrs
           (hostname: cfg: mylib.mkHomeConfiguration hostname cfg hosts pkgs)
-          (lib.filterAttrs (_: cfg: !(cfg ? "configurationFile")) hosts);
+          (lib.filterAttrs (_: cfg: cfg ? "homeFile") hosts);
 
         # Evaluation-only checks - catches config errors without building
         checks.x86_64-linux =

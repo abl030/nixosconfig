@@ -35,6 +35,34 @@ PROXMOX_OPS="proxmox-ops"
 PROXMOX_HOST="192.168.1.12"
 PROXMOX_NODE="prom"
 
+# Repo root for nix run commands
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Load Proxmox API token from file if not already set
+load_pve_token() {
+    if [[ -n "${PROXMOX_VE_API_TOKEN:-}" ]]; then
+        return 0
+    fi
+
+    local token_file="${PVE_TOKEN_FILE:-$HOME/.pve_token}"
+    if [[ ! -f "$token_file" && -f /tmp/pve_token ]]; then
+        warning "Token file not found at $token_file; using /tmp/pve_token for this run."
+        token_file="/tmp/pve_token"
+    fi
+
+    if [[ ! -f "$token_file" ]]; then
+        error "PVE token file not found. Set PVE_TOKEN_FILE or create $HOME/.pve_token."
+    fi
+
+    local token_line
+    token_line="$(head -n1 "$token_file")"
+    if [[ -z "$token_line" || "$token_line" != *"="* ]]; then
+        error "Invalid token format in $token_file. Expected: user@realm!tokenid=secret"
+    fi
+
+    export PROXMOX_VE_API_TOKEN="$token_line"
+}
+
 # Helper: Query pvesh for VM current status (real-time stats)
 # Returns JSON with cpu, mem, diskread, diskwrite, netin, netout, uptime
 get_vm_stats() {
@@ -118,6 +146,8 @@ PROVISIONING:
     provision <name>      Provision from existing config/definition
     integrate <name> <ip> <vmid>
                           Post-provision fleet integration
+    plan [tofu args]      OpenTofu plan (loads token from ~/.pve_token)
+    apply [tofu args]     OpenTofu apply (loads token from ~/.pve_token)
     next-vmid [start] [end]
                           Get next available VMID
     defs                  Show VM definitions
@@ -150,6 +180,8 @@ EXAMPLES:
     pve console 9003      # Stream serial console
     pve new               # Create config + provision
     pve provision dev     # Provision existing config
+    pve plan              # tofu plan with Proxmox token
+    pve apply             # tofu apply with Proxmox token
 EOF
 }
 
@@ -547,6 +579,16 @@ case "$CMD" in
         [[ -z "${3:-}" ]] && error "Usage: pve integrate <name> <ip> <vmid>"
         info "Integrating VM $1 into fleet..."
         nix run .#post-provision-vm "$1" "$2" "$3"
+        ;;
+
+    plan)
+        load_pve_token
+        (cd "$REPO_ROOT" && nix run .#tofu-plan -- "$@")
+        ;;
+
+    apply)
+        load_pve_token
+        (cd "$REPO_ROOT" && nix run .#tofu-apply -- "$@")
         ;;
 
     next-vmid)
