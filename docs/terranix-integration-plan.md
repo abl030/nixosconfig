@@ -200,6 +200,7 @@ Move provisioning to an OpenTofu-first workflow:
 - Test VM (111) is 8GB RAM / 50G disk; disk auto-expanded on boot.
 - Root SSH is disabled in final configs; use `abl030` after the rebuild.
 - Tailscale auth automation is in progress (see `docs/tailscale-auth-plan.md`).
+- Manual validation: only Step 2 (Tailscale join) needs manual testing; other steps are handled by post-provision.
 - Next step: wire the Tailscale OAuth flow into post-provision and test end-to-end using VM IP.
 
 ### What We Learned
