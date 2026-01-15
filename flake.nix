@@ -140,6 +140,26 @@
           lib.mapAttrs
           (hostname: cfg: mylib.mkHomeConfiguration hostname cfg hosts pkgs)
           (lib.filterAttrs (_: cfg: !(cfg ? "configurationFile")) hosts);
+
+        # Evaluation-only checks - catches config errors without building
+        checks.x86_64-linux =
+          lib.mapAttrs
+          (name: cfg:
+            pkgs.runCommand "check-nixos-${name}" {} ''
+              echo "Checking NixOS config: ${name}"
+              echo "System name: ${cfg.config.system.name}"
+              echo "Toplevel: ${cfg.config.system.build.toplevel}"
+              touch $out
+            '')
+          self.nixosConfigurations
+          // lib.mapAttrs
+          (name: cfg:
+            pkgs.runCommand "check-home-${name}" {} ''
+              echo "Checking Home Manager config: ${name}"
+              echo "Activation package: ${cfg.activationPackage}"
+              touch $out
+            '')
+          self.homeConfigurations;
       };
     };
 }
