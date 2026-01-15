@@ -250,7 +250,7 @@ in {
     sshAlias = "test";
     sshKeyName = "ssh_key_abl030";
     initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHHUSs0YVaqoGv647UATYxyIF79vfA7LmwPvyOtkQazZ";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPWI8Qivv3L0gKPoCz37V3byNKwK9OdLNbTIJ2KDhMn9";
     authorizedKeys = masterKeys;
     proxmox = {
       vmid = 111;

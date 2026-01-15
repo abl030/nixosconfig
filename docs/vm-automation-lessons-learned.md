@@ -74,10 +74,10 @@ When networking is down, use the wrapper console command for interactive serial:
 OpenTofu-created VMs should use `nixos-rebuild` (no disko) and require the VM’s
 `hardware-configuration.nix` to be generated and stored in `hosts/<name>/`.
 
-### 8. SSH Prompts Break Automation
+### 8. SSH Prompts Need a TTY
 
-Non-interactive SSH is required. If SSH prompts for a password during
-`nixos-rebuild`, the automation halts. Ensure a usable key is available.
+Interactive runs are expected. When sudo is required over SSH (e.g. `tailscale up`),
+ensure the SSH session allocates a TTY (`ssh -t`) so sudo can prompt.
 
 ### 9. NixOS Rebuild Can Drop SSH + Change IP
 
