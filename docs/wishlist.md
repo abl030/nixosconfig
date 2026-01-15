@@ -1,6 +1,3 @@
-1. Fix domain-monitor-cron.service failure
-   - Service fails with: "Could not open input file: /var/www/html/cron.php"
-   - Needs investigation - path may be wrong or container not properly set up
 6. Kopia Gotify
 7. Kopia Automate 10% checks.
 8. Dev Box
