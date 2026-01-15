@@ -1,7 +1,7 @@
 # Terranix Integration Plan (hosts.nix as SSOT)
 
 **Branch**: `feature/terranix-opentofu`
-**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; POST-PROVISION FLOW IN PROGRESS
+**Status**: TEMPLATE VERIFIED; IMPORTS COMPLETE; POST-PROVISION FLOW IN PROGRESS (IP CHANGE HANDLING ADDED, NEEDS RETEST)
 
 ## Current Status
 
@@ -30,7 +30,7 @@ OpenTofu/Terranix implementation complete and working.
 - [x] OpenTofu plan is clean (no drift)
 
 ### Current Blocker
-None.
+Post-provision still needs a clean end-to-end run after handling IP changes.
 
 ---
 
@@ -189,13 +189,18 @@ Move provisioning to an OpenTofu-first workflow:
 - [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
 - [ ] Always run a verification step before moving on (e.g. `tofu-plan`, `tofu-output`, or status checks)
 - [ ] Always run `tofu-plan` before any `tofu-apply`
+- [x] Detect IP change during `nixos-rebuild` and re-resolve via guest agent
+- [x] Retry IP resolution with timeout after DHCP/network restart
+- [x] Add `initialHashedPassword` for `test` host (temp123) in `hosts.nix`
+- [ ] Add/maintain interactive `pve new` VM wizard as the default entrypoint for new hosts (use `test` config as the default template)
 
 ### Current State
-- `post-provision-vm <name> <vmid>` now resolves IP from `tofu-output` and generates `hardware-configuration.nix` if missing.
-- `post-provision` applies NixOS via `nixos-rebuild` (no disko/nixos-anywhere in this flow).
-- Test VM (111) resized to 4GB; IP moved to `192.168.1.105`.
-- Blocker: `nixos-rebuild` prompts for `root@<ip>` password (no non-interactive SSH key available on this machine).
-- Plan: delete/recreate test VM 111 to reset state and confirm template key injection.
+- `post-provision-vm <name> <vmid>` resolves IP from `tofu-output`, applies NixOS via `nixos-rebuild`, and handles DHCP IP changes.
+- Hardware config is generated on first run and now prompts before overwriting.
+- Test VM (111) is 8GB RAM / 50G disk; disk auto-expanded on boot.
+- Root SSH is disabled in final configs; use `abl030` after the rebuild.
+- Tailscale auth automation is in progress (see `docs/tailscale-auth-plan.md`).
+- Next step: wire the Tailscale OAuth flow into post-provision and test end-to-end using VM IP.
 
 ### What We Learned
 - Rebuild-only flow requires the VM’s generated `hardware-configuration.nix`.

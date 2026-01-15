@@ -240,6 +240,7 @@ in {
 
   # Test VM for OpenTofu evaluation
   # Will reuse dev's config for simplicity
+
   test = {
     configurationFile = ./hosts/test/configuration.nix;
     homeFile = ./hosts/test/home.nix;
@@ -248,13 +249,14 @@ in {
     hostname = "test";
     sshAlias = "test";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholder"; # Will be updated after provisioning
+    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHHUSs0YVaqoGv647UATYxyIF79vfA7LmwPvyOtkQazZ";
     authorizedKeys = masterKeys;
     proxmox = {
       vmid = 111;
       cores = 2;
-      memory = 4096;
-      disk = "20G";
+      memory = 8192;
+      disk = "50G";
       # No readonly - managed by OpenTofu
     };
   };
