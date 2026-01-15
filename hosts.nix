@@ -206,7 +206,7 @@ in {
     proxmox = {
       vmid = 110;
       cores = 4;
-      memory = 8192;
+      memory = 12192;
       disk = "64G";
       bios = "ovmf";
       cpuType = "qemu64";
