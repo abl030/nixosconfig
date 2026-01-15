@@ -186,13 +186,14 @@ Move provisioning to an OpenTofu-first workflow:
 - [x] Replace provisioning flow with OpenTofu-created VM as the starting point
 - [x] Use `tofu-output` (or state) as the source of VM IPs
 - [x] Keep post-provision integration (`post-provision-vm`) as the final step
-- [ ] Update docs and scripts to remove reliance on `vms/provision.sh`
+- [x] Update docs and scripts to remove reliance on `vms/provision.sh`
 - [ ] Always run a verification step before moving on (e.g. `tofu-plan`, `tofu-output`, or status checks)
 - [ ] Always run `tofu-plan` before any `tofu-apply`
 - [x] Detect IP change during `nixos-rebuild` and re-resolve via guest agent
 - [x] Retry IP resolution with timeout after DHCP/network restart
 - [x] Add `initialHashedPassword` for `test` host (temp123) in `hosts.nix`
 - [ ] Add/maintain interactive `pve new` VM wizard as the default entrypoint for new hosts (use `test` config as the default template)
+- [ ] Add `pve remove` to delete VM config/secrets and destroy via OpenTofu
 
 ### Current State
 - `post-provision-vm <name> <vmid>` resolves IP from `tofu-output`, applies NixOS via `nixos-rebuild`, and handles DHCP IP changes.

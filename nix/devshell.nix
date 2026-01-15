@@ -275,7 +275,7 @@ in {
   packages = {
     lint-nix = lintNix;
     fmt-nix = fmtNix;
-    inherit (vmTools) proxmox-ops provision-vm post-provision-vm new-vm;
+    inherit (vmTools) proxmox-ops post-provision-vm new-vm;
     # OpenTofu/Terranix tools
     tofu-init = tofuInit;
     tofu-plan = tofuPlan;
@@ -301,11 +301,6 @@ in {
       type = "app";
       program = "${lib.getExe vmTools.proxmox-ops}";
       meta.description = "Proxmox VM operations via SSH";
-    };
-    provision-vm = {
-      type = "app";
-      program = "${lib.getExe vmTools.provision-vm}";
-      meta.description = "Provision a new VM from definition";
     };
     new-vm = {
       type = "app";
@@ -364,7 +359,6 @@ in {
       fmtNix
       # VM Provisioning tools
       vmTools.proxmox-ops
-      vmTools.provision-vm
       vmTools.new-vm
       vmTools.post-provision-vm
       # OpenTofu/Terranix tools
@@ -383,8 +377,7 @@ in {
       echo "  - nix run .#fmt-nix -- --diff"
       echo ""
       echo "VM Provisioning:"
-      echo "  - nix run .#new-vm                 Create config + provision"
-      echo "  - provision-vm <name>         Provision a new VM"
+      echo "  - nix run .#new-vm                 Create config + OpenTofu plan/apply"
       echo "  - post-provision-vm <name> <ip> <vmid>  Integrate VM into fleet"
       echo "  - proxmox-ops <command>       Proxmox operations"
       echo ""

@@ -143,7 +143,6 @@ LIFECYCLE:
 
 PROVISIONING:
     new                   Interactive VM creation wizard
-    provision <name>      Provision from existing config/definition
     integrate <name> <ip> <vmid>
                           Post-provision fleet integration
     plan [tofu args]      OpenTofu plan (loads token from ~/.pve_token)
@@ -178,8 +177,7 @@ EXAMPLES:
     pve ip 110            # Get IP of VMID 110
     pve start 110         # Start VMID 110
     pve console 9003      # Stream serial console
-    pve new               # Create config + provision
-    pve provision dev     # Provision existing config
+    pve new               # Create config + OpenTofu plan/apply
     pve plan              # tofu plan with Proxmox token
     pve apply             # tofu apply with Proxmox token
 EOF
@@ -567,12 +565,6 @@ case "$CMD" in
     new)
         info "Launching interactive VM wizard..."
         nix run .#new-vm
-        ;;
-
-    provision)
-        [[ -z "${1:-}" ]] && error "Usage: pve provision <name>"
-        info "Provisioning VM: $1"
-        nix run .#provision-vm "$1"
         ;;
 
     integrate)
