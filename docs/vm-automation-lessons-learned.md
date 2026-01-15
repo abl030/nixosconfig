@@ -1,6 +1,6 @@
 # VM Automation - Lessons Learned
 
-**Last Updated**: 2026-01-14
+**Last Updated**: 2026-01-15
 
 ## The Working Solution
 
@@ -78,6 +78,26 @@ OpenTofu-created VMs should use `nixos-rebuild` (no disko) and require the VM’
 
 Non-interactive SSH is required. If SSH prompts for a password during
 `nixos-rebuild`, the automation halts. Ensure a usable key is available.
+
+### 9. NixOS Rebuild Can Drop SSH + Change IP
+
+When `nixos-rebuild switch` restarts networking, SSH drops and DHCP can assign
+a new IP. The post-provision flow must:
+- Detect the old IP going away (with consecutive ping failures to avoid false positives).
+- Re-resolve the new IP via Proxmox guest agent.
+- Retry IP resolution with a timeout before failing.
+
+### 10. Sizing for Rebuilds
+
+For the test VM, 8GB RAM is sufficient for `nixos-rebuild` with the current
+profile. The main failure mode observed is IP change during rebuild, not OOM.
+Disk auto-expands correctly (50G tested).
+
+### 11. Root SSH Is Disabled on Final Configs
+
+Post-provision and any ongoing automation should target the primary user
+(e.g. `abl030`) once the host config is applied. Root SSH is typically disabled
+in the final configuration.
 
 ### 5. Disko Required
 
