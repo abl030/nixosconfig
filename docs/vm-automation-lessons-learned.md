@@ -42,7 +42,7 @@ qm create 9002 --bios ovmf --machine q35 \
 2. Kill hung process, find new IP via MAC/ARP lookup
 3. `--phases disko,install` on new IP
 
-Built into `provision.sh` - handles automatically.
+Legacy provisioning flow handles automatically.
 
 ### 3. SSH Access Pattern
 
@@ -50,7 +50,7 @@ Built into `provision.sh` - handles automatically.
 
 **Solution**: Use abl030 user (created by base profile):
 - Base profile sets up user with SSH keys from hosts.nix
-- provision.sh verifies SSH as abl030, not root
+- Legacy flow verifies SSH as abl030, not root
 - Root only accessible during cloud-init phase (for nixos-anywhere)
 - Automation VMs can use a temporary password hash via `initialHashedPassword` in hosts.nix.
 
@@ -119,12 +119,9 @@ nixos-anywhere needs disko. Each host needs:
 | Final SSH verification | Automated |
 | Post-provision | Manual |
 
-## Commands
+## Manual Operations
 
 ```bash
-# Full provision
-./vms/provision.sh <vm-name>
-
 # Manual operations
 ./vms/proxmox-ops.sh clone 9002 <vmid> <name> nvmeprom
 ./vms/proxmox-ops.sh configure <vmid> <cores> <memory>

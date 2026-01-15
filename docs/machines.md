@@ -49,8 +49,8 @@ Infrastructure as Code knowledge base for homelab VMs and hosts.
 | **9001** | **NixosServerBlank** | **Stopped** | **8** | **8 GB** | **-** | **prom** | **Template** |
 
 **Legend**:
-- **Imported**: Pre-existing VMs documented in `vms/definitions.nix` (read-only, not managed by automation)
-- **Managed**: VMs created and managed by automation (none yet)
+- **Imported**: Pre-existing VMs documented in `hosts.nix` (managed by OpenTofu when enabled)
+- **Managed**: VMs created and managed by automation
 - **Template**: Available for cloning
 - **Manual**: Outside automation scope
 
@@ -237,18 +237,12 @@ ssh root@192.168.1.12 'qm clone 9001 <NEW_VMID> --name <VM_NAME> --full --storag
 ### Current State
 - **Imported VMs**: 2 (Doc1, igpu) - documented but not managed
 - **Managed VMs**: 0 - none provisioned via automation yet
-- **Definition File**: `vms/definitions.nix`
+- **Source of Truth**: `hosts.nix` (`proxmox` blocks)
 
-### Provisioning Workflow (In Development)
-1. Define VM in `vms/definitions.nix` under `managed` section
-2. Run: `nix run .#provision-vm <vm-name>`
-3. Automation will:
-   - Clone from NixosServerBlank template (VMID 9001)
-   - Configure resources (CPU, RAM, disk)
-   - Install NixOS via nixos-anywhere
-   - Update hosts.nix and secrets
-   - Auto-commit to git
-   - Update this knowledge base
+### Provisioning Workflow (OpenTofu)
+1. Run `pve new` to create the host entry and base configs
+2. Review the OpenTofu plan, then apply
+3. Run `pve integrate <name> <ip> <vmid>` for fleet integration
 
 ---
 
@@ -309,7 +303,7 @@ ssh fra   # Framework laptop
 - **Proxmox Documentation**: `ansible/prom_prox/readme.md`
 - **GPU Passthrough**: See playbooks in `ansible/prom_prox/`
 - **Host Definitions**: `hosts.nix`
-- **VM Definitions**: `vms/definitions.nix`
+- **VM Definitions**: `hosts.nix`
 - **Infrastructure Plans**: `docs/plan.md`, `docs/wishlist.md`
 - **Secrets Management**: `secrets/readme.md`
 

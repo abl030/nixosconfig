@@ -54,9 +54,11 @@ vmid_exists() {
 # Check if VMID is in readonly list
 is_readonly_vmid() {
     local vmid="$1"
-    # Hardcoded readonly VMIDs from definitions.nix
-    # TODO: Generate this from definitions.nix at build time
-    local readonly_vmids=(104 109 110)
+    # Set PROXMOX_READONLY_VMIDS="104 109" to enforce extra safety checks
+    local readonly_vmids=()
+    if [[ -n "${PROXMOX_READONLY_VMIDS:-}" ]]; then
+        read -r -a readonly_vmids <<< "${PROXMOX_READONLY_VMIDS}"
+    fi
 
     for readonly_vmid in "${readonly_vmids[@]}"; do
         if [[ "$vmid" == "$readonly_vmid" ]]; then
@@ -76,7 +78,7 @@ check_operation_allowed() {
         echo "Operation '${operation}' is not allowed on imported VMs." >&2
         echo "" >&2
         echo "This VM is documented for inventory purposes only." >&2
-        echo "If you need to manage this VM, move it from 'imported' to 'managed' in vms/definitions.nix." >&2
+        echo "If you need to manage this VM, update its proxmox.readonly flag in hosts.nix." >&2
         return 1
     fi
     return 0
