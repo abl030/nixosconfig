@@ -19,13 +19,12 @@ Use a trusted, already-enrolled machine to mint short-lived, single-use keys via
 3) Add logging + error handling; keep it opt-in.
 
 ## Test Flow (using test VM)
-1) Edit `hosts/test/configuration.nix` to enable Tailscale and install `tailscale`.
-2) Rebuild onto the VM via IP:
-   - `nixos-rebuild switch --flake .#test --target-host abl030@<ip>`
-3) Run post-provision with Tailscale opt-in and confirm device joins tailnet.
-4) Verify no reusable key is left on disk.
+Only Step 2 needs manual validation; all other steps are handled by post-provision.
+
+Step 2) Join Tailscale on the VM (manual for now):
+- `ssh abl030@<ip> "sudo tailscale up --authkey <one-time-key>"`
 
 ## Exit Criteria
 - New VM joins tailnet using a short-lived single-use key minted at runtime.
-- Post-provision succeeds using VM IP only.
+- Post-provision succeeds using VM IP only (tailscale join still manual for now).
 - No long-lived auth key stored in plaintext outside SOPS.
