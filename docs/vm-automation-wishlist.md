@@ -8,6 +8,15 @@ Future enhancements and ideas for the VM automation system.
 
 ## High Priority
 
+### 0. Persistent OpenTofu State + Token Storage
+
+**Goal**: Centralize OpenTofu state and Proxmox token storage so `pve plan/apply`
+can run from any machine with a consistent view of managed VMs.
+
+**Notes**:
+- Likely lives on the Docker mount VM as a shared backend/mount.
+- Should include secure storage for the Proxmox API token alongside state.
+
 ### 1. Evaluate OpenTofu for Proxmox
 
 **Status**: IN PROGRESS (branch: `feature/terranix-opentofu`, post-provision flow verified)
