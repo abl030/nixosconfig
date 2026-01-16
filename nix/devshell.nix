@@ -13,6 +13,7 @@
   pkgs,
   lib,
   terranixConfig,
+  system,
   ...
 }: let
   # OpenTofu wrapper scripts
@@ -263,7 +264,7 @@
   vmTools = import ../vms/package.nix {inherit pkgs;};
 
   proxmoxTemplate = nixosGenerate {
-    inherit (pkgs) system;
+    inherit system;
     format = "proxmox";
     modules = [../vms/template/configuration.nix];
   };
