@@ -1,60 +1,21 @@
-# Proxmox template evaluation warnings
+# Proxmox template evaluation warning
 
-This documents the two evaluation warnings seen during `nix flake check` for
-`packages.x86_64-linux.proxmox-template`, the local fix, and the upstream issue.
-
-## Repro (before local fix)
-
-Command:
-
-```sh
-nix eval .#packages.x86_64-linux.proxmox-template --show-trace
-```
-
-Warnings:
+## Warning (current)
 
 ```
-evaluation warning: 'system' has been renamed to/replaced by 'stdenv.hostPlatform.system'
 evaluation warning: Obsolete option `proxmox.qemuConf.diskSize' is used. It was renamed to `virtualisation.diskSize'.
 ```
 
-## Warning 1: deprecated `pkgs.system` (fixed locally)
+## Where it comes from
 
-Source:
-- `nix/devshell.nix` passed `inherit (pkgs) system;` into `nixosGenerate`.
-
-Reason:
-- `pkgs.system` is a deprecated alias; nixpkgs now prefers
-  `pkgs.stdenv.hostPlatform.system`.
-
-Fix (done):
-- Pass the flake `system` argument directly.
-- Change: `nix/devshell.nix` now uses `inherit system;`.
-
-Result:
-- The `system` deprecation warning is gone for the proxmox template eval.
-
-## Warning 2: `proxmox.qemuConf.diskSize` rename (upstream)
-
-Source:
 - `nixpkgs` module: `nixos/modules/virtualisation/proxmox-image.nix`
-  imports a rename module:
+- The module imports a rename helper and then renders `config.proxmox.qemuConf`
+  into `qemu-server.conf`, which accesses the renamed option and triggers the
+  warning even when the old option is not set locally.
 
-```nix
-(lib.mkRenamedOptionModuleWith {
-  sinceRelease = 2411;
-  from = [ "proxmox" "qemuConf" "diskSize" ];
-  to = [ "virtualisation" "diskSize" ];
-})
-```
+## Decision
 
-Why it still warns:
-- The module later renders `config.proxmox.qemuConf` into `qemu-server.conf`.
-- `config.proxmox.qemuConf` includes the renamed `diskSize` option, so accessing
-  it triggers the rename warning even when users never set the old option.
-
-This warning cannot be removed from this repo without patching nixpkgs.
-Decision: accept the warning until upstream is fixed.
+- Accept the warning until upstream is fixed (no local patch).
 
 ## Draft PR (upstream, very tight)
 
@@ -65,11 +26,13 @@ Target file:
 - `nixos/modules/virtualisation/proxmox-image.nix`
 
 Intent:
-- Do not include the renamed `diskSize` in the generated `qemu-server.conf`,
-  so evaluating the module does not trigger the rename warning.
+- Serialize only valid `qemu-server.conf` keys; `diskSize` now lives under
+  `virtualisation.diskSize` and should not be emitted from `proxmox.qemuConf`.
+  This avoids the rename warning at its source.
 
 Minimal diff idea:
-- Filter `diskSize` out of `cfg.qemuConf` before it is passed to `cfgFile`.
+- Build the `qemu-server.conf` content from a “valid keys” attrset rather than
+  the raw `cfg.qemuConf` (at minimum, exclude `diskSize`).
 
 Example patch:
 
@@ -90,8 +53,8 @@ PR title (tight):
 - `proxmox-image: drop diskSize from qemu-server.conf`
 
 PR body (tight):
-- `Avoids triggering the proxmox.qemuConf.diskSize rename warning during eval.`
-- `No behavior change; disk size is not a qemu-server.conf property.`
+- `Serialize only valid qemu-server.conf keys; diskSize is handled via virtualisation.diskSize.`
+- `Removes the rename warning without changing behavior.`
 
 Steps to open the PR:
 1. Fork `https://github.com/NixOS/nixpkgs`.
