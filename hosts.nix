@@ -259,7 +259,8 @@ in {
     # NOTE: sshKeyName intentionally omitted - no fleet identity deployed
     # The homelab.ssh.deployIdentity = false in configuration.nix handles this
     initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
-    publicKey = "ssh-ed25519 PLACEHOLDER_SANDBOX_KEY";
+    sudoPasswordless = true; # Required for automation (Claude Code)
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHg+0cl2eSRJP0uMoScnKY9J6ZvYERwjc843qO2BNqfB";
     authorizedKeys = masterKeys; # Fleet CAN access this VM
     proxmox = {
       vmid = 111;
