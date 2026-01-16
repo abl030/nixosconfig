@@ -20,6 +20,11 @@ in {
       default = true;
       description = "If true, disable password auth and root login. Set false for new installs or internal VMs.";
     };
+    deployIdentity = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "If true, deploy the fleet identity key from SOPS secrets. Set false for isolated/sandbox VMs.";
+    };
     identitySecretName = lib.mkOption {
       type = lib.types.str;
       default = hostConfig.sshKeyName or "ssh_key_abl030";
@@ -61,7 +66,8 @@ in {
 
     # 3. Decrypt the Master Identity (System Level)
     # We do this here because only root can read the Host Key needed to decrypt it
-    sops.secrets."${cfg.identitySecretName}" = {
+    # Can be disabled for isolated/sandbox VMs via deployIdentity = false
+    sops.secrets."${cfg.identitySecretName}" = lib.mkIf cfg.deployIdentity {
       # Path is dynamically constructed based on the identitySecretName option
       sopsFile = ../../../../secrets/secrets/${cfg.identitySecretName};
       format = "binary";
