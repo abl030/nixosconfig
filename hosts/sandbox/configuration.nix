@@ -99,6 +99,20 @@
   # Use external DNS servers to avoid local DNS dependency
   networking.nameservers = ["1.1.1.1" "8.8.8.8"];
 
+  # Restart firewall after network is online to ensure OUTPUT rules apply
+  # (The firewall starts before network-pre.target, so PRIMARY_IFACE detection fails)
+  systemd.services.firewall-reload-after-network = {
+    description = "Reload firewall after network is online";
+    wantedBy = ["multi-user.target"];
+    after = ["network-online.target" "firewall.service"];
+    wants = ["network-online.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart firewall.service";
+      RemainAfterExit = true;
+    };
+  };
+
   # Development tools for Claude Code autonomous development
   environment.systemPackages = with pkgs; [
     htop
