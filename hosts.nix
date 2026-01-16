@@ -238,4 +238,40 @@ in {
     };
   };
 
+  # =============================================================
+  # SANDBOX VM - Isolated development environment for Claude Code
+  # =============================================================
+  # Security Model:
+  # - Fleet machines CAN SSH in (via masterKeys in authorizedKeys)
+  # - NO fleet identity key deployed (cannot SSH to other fleet hosts)
+  # - Firewall blocks local network (192.168.x.x, 10.x.x.x, 172.16.x.x)
+  # - Internet access allowed (for Claude Code, packages, etc.)
+  # - Tailscale enabled for fleet access
+  # - Firewall changes require sudo (root)
+  # =============================================================
+  sandbox = {
+    configurationFile = ./hosts/sandbox/configuration.nix;
+    homeFile = ./hosts/sandbox/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "sandbox";
+    sshAlias = "sbx";
+    # NOTE: sshKeyName intentionally omitted - no fleet identity deployed
+    # The homelab.ssh.deployIdentity = false in configuration.nix handles this
+    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
+    publicKey = "ssh-ed25519 PLACEHOLDER_SANDBOX_KEY";
+    authorizedKeys = masterKeys; # Fleet CAN access this VM
+    proxmox = {
+      vmid = 111;
+      cores = 4;
+      memory = 8192;
+      disk = "64G";
+      # Use defaults to match template 9003:
+      # - bios = "seabios" (not ovmf)
+      # - diskInterface = "virtio0" (not scsi0)
+      # - no machine override
+      tags = ["sandbox" "isolated" "claude-code"];
+      description = "Isolated sandbox VM for autonomous Claude Code development";
+    };
+  };
 }
