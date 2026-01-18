@@ -1,0 +1,1 @@
+/nix/store/vvgznsgb8kjihbyl7x9klj1jm0qhaj3r-nixos-system-wsl-26.05.20260114.13868c0
