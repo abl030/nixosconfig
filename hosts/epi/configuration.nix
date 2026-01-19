@@ -6,7 +6,6 @@
   imports = [
     ./hardware-configuration.nix
     ../common/desktop.nix # Includes Printing, Fonts, Spotify
-    ../services/system/remote_desktop_nosleep.nix
   ];
 
   # --- INCEPTION MODE: VM Specialisation ---
@@ -24,6 +23,7 @@
   homelab = {
     gpu.intel.enable = true;
     mounts.nfs.enable = true;
+    rdpInhibitor.enable = true;
     ssh = {
       enable = true;
       secure = false;
