@@ -21,8 +21,11 @@
   #  Dynamic Script Loading from scripts/
   # ──────────────────────────────────────────────────────────────────────────────
 
-  # Path to the scripts directory in the flake root
-  scriptsDir = "${flake-root}/scripts";
+  # Isolate scripts from unrelated repo changes to avoid drift.
+  scriptsDir = builtins.path {
+    path = "${flake-root}/scripts";
+    name = "scripts";
+  };
 
   # Helper to create a derivation for a script file
   mkFileScript = filename: let
