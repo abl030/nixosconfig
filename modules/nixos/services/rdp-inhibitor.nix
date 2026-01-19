@@ -64,7 +64,6 @@ with lib; let
       sleep 10
     done
   '';
-
 in {
   options.homelab.rdpInhibitor = {
     enable = mkEnableOption "Prevent sleep during RDP sessions";
