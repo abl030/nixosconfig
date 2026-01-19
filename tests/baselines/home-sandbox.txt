@@ -1,1 +1,0 @@
-/nix/store/wzdm2k98abycrvc018m9hdapb18kqh8y-home-manager-generation

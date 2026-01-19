@@ -1,0 +1,1 @@
+/nix/store/9yb3srzjvnaa8c3iq4icmrf02ymx7pg9-nixos-system-igpu-26.05.20260114.13868c0

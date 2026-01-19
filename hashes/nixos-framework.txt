@@ -1,0 +1,1 @@
+/nix/store/7fcd7yijwiiqzi0k3fzbayraxh6nibd6-nixos-system-framework-26.05.20260114.13868c0

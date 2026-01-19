@@ -1,1 +1,0 @@
-/nix/store/fci2fygf4c1cq53hijzk4a1wrrjpzgpw-nixos-system-sandbox-26.05.20260114.13868c0
