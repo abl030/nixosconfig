@@ -5,9 +5,6 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../services/mounts/nfs_local.nix
-    ../services/mounts/ext.nix
-    ../services/mounts/fuse.nix
     ../../docker/tailscale/caddy/docker-compose.nix
     ../../docker/immich/docker-compose.nix
     ../../docker/management/docker-compose.nix
@@ -32,6 +29,11 @@
   ];
 
   homelab = {
+    mounts = {
+      nfsLocal.enable = true;
+      external.enable = true;
+      fuse.enable = true;
+    };
     # Base.nix enables ssh=true/secure=true.
     # We override secure to false here matching your previous config.
     ssh.secure = false;

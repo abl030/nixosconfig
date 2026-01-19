@@ -5,7 +5,6 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../services/mounts/nfs.nix
     ../services/nvidia/intel.nix
     ../common/desktop.nix # Includes Printing, Fonts, Spotify
     ../services/system/remote_desktop_nosleep.nix
@@ -24,6 +23,7 @@
   };
 
   homelab = {
+    mounts.nfs.enable = true;
     ssh = {
       enable = true;
       secure = false;
