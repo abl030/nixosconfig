@@ -112,7 +112,7 @@
     nix-ld.enable = true;
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 1000 (with pkgs; [
     git
     vim
     wget
@@ -121,7 +121,7 @@
     killall
     parted
     nvd # For activation diffs
-  ];
+  ]);
 
   # Pretty diffs on rebuild
   system.activationScripts.diff = ''

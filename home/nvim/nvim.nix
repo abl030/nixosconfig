@@ -2,7 +2,12 @@
   inputs,
   pkgs,
   ...
-}: {
+}: let
+  nvimSrc = builtins.path {
+    path = ./.;
+    name = "nvim-config";
+  };
+in {
   home.packages = [
     #These packages are for installing through mason. But we can't do that so I am commenting them out here but leaving them
     # pkgs.nvchad
@@ -55,21 +60,21 @@
 
   home.file = {
     #Define all the plugins we want to use. this needs a clean out.
-    ".config/nvim/lua/plugins/plugins2.lua".source = ./plugins/plugins.lua;
+    ".config/nvim/lua/plugins/plugins2.lua".source = "${nvimSrc}/plugins/plugins.lua";
     #Add in our treesitters config
-    ".config/nvim/lua/plugins/treesitter.lua".source = ./plugins/treesitter.lua;
+    ".config/nvim/lua/plugins/treesitter.lua".source = "${nvimSrc}/plugins/treesitter.lua";
     #Add in our conform config
-    ".config/nvim/lua/plugins/conform.lua".source = ./plugins/conform.lua;
+    ".config/nvim/lua/plugins/conform.lua".source = "${nvimSrc}/plugins/conform.lua";
     # This is our main option file. This is also now aliased to "edit nvim"
-    ".config/nvim/lua/options2.lua".source = ./options.lua;
+    ".config/nvim/lua/options2.lua".source = "${nvimSrc}/options.lua";
     #Defining how we want to use our lsp config.
-    ".config/nvim/lua/configs/lspconfig2.lua".source = ./lspconfig.lua;
+    ".config/nvim/lua/configs/lspconfig2.lua".source = "${nvimSrc}/lspconfig.lua";
     #Edit any UI options we want, currently just want that dashboard.
     # ".config/nvim/lua/chadrc_editor.lua".source = ./chadrc_editor.lua;
     #This is a lot of our old crusty keybindings. This also needs to be sorted through
-    "vim.vim".source = ./vim.vim;
+    "vim.vim".source = "${nvimSrc}/vim.vim";
     #Add in our diary management lua. Autosave, cmp off and spellcheck on.
-    ".config/nvim/lua/diary.lua".source = ./diary.lua;
+    ".config/nvim/lua/diary.lua".source = "${nvimSrc}/diary.lua";
   };
 
   # Group all nvchad configurations into a single block to avoid repeating the `programs` key.

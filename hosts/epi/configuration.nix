@@ -128,10 +128,10 @@
     extraGroups = ["libvirtd" "vboxusers" "docker"];
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     gnome-remote-desktop
     kdiskmark
-  ];
+  ]);
 
   programs.firefox.enable = true;
 

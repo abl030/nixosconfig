@@ -209,7 +209,7 @@ in {
   # Enable the core Nginx infrastructure module
   homelab.nginx.enable = true;
 
-  environment.systemPackages = [
+  environment.systemPackages = lib.mkOrder 2000 [
     pkgs.yt-dlp
     pkgs.ffmpeg
     pkgs.curl
