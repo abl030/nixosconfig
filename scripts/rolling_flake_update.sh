@@ -65,9 +65,20 @@ fi
 
 log "✅ All builds passed."
 
-# 5. Commit and Push
+# 5. Update Test Baselines
+# Since builds passed, update snapshot baselines to match current derivations
+log "📊 Updating test baselines..."
+if [ -x "./tests/update-baselines.sh" ]; then
+    ./tests/update-baselines.sh
+    log "✅ Baselines updated."
+else
+    log "⚠️  Baseline script not found, skipping."
+fi
+
+# 6. Commit and Push
 DATE=$(date +%F)
 git add flake.lock
+git add tests/baselines/ 2>/dev/null || true  # Add baselines if they exist
 git commit -m "chore: update flake.lock ($DATE)"
 
 log "🚀 Pushing update to origin/$BRANCH..."
