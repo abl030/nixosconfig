@@ -40,18 +40,17 @@ log "INFO" "Evaluating flake for hosts..."
 
 # Pull host lists directly from hosts.nix
 # Filter out special entries (prefixed with _) like _proxmox
+# Use builtins.substring instead of lib.hasPrefix to avoid NIX_PATH dependency
 NIXOS_HOSTS_JSON=$(json_eval '
   let
     hosts = import ./hosts.nix;
-    lib = import <nixpkgs/lib>;
-    hostNames = builtins.filter (n: !lib.hasPrefix "_" n) (builtins.attrNames hosts);
+    hostNames = builtins.filter (n: builtins.substring 0 1 n != "_") (builtins.attrNames hosts);
   in builtins.filter (n: hosts.${n} ? configurationFile) hostNames
 ')
 HM_ONLY_HOSTS_JSON=$(json_eval '
   let
     hosts = import ./hosts.nix;
-    lib = import <nixpkgs/lib>;
-    hostNames = builtins.filter (n: !lib.hasPrefix "_" n) (builtins.attrNames hosts);
+    hostNames = builtins.filter (n: builtins.substring 0 1 n != "_") (builtins.attrNames hosts);
   in builtins.filter (n: !(hosts.${n} ? configurationFile)) hostNames
 ')
 
