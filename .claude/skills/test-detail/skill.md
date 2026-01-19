@@ -382,17 +382,19 @@ current=$(nix eval --raw ".#nixosConfigurations.framework.config.system.build.to
 
 ### Handling Changes
 
-**Intentional changes:**
-```bash
-./tests/update-baselines.sh
-git add tests/baselines/
-git commit -m "test: update baselines after X change"
-```
+**During development:** Snapshot "CHANGED" is expected for WIP. Baselines auto-sync nightly.
 
-**Unintentional changes:**
+**After nightly run:** If snapshots still show CHANGED, something unexpected changed:
 1. Check `git diff` for what changed in configs
 2. Check `git diff flake.lock` for input updates
 3. Investigate which host(s) changed and why
+
+**Manual update (rarely needed):**
+```bash
+./tests/update-baselines.sh
+```
+
+**Note:** Baselines are automatically updated by `rolling_flake_update.sh` after successful nightly builds.
 
 ### Debugging Derivation Differences
 
