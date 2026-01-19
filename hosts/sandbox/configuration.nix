@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
   ];
@@ -114,7 +118,7 @@
   };
 
   # Development tools for Claude Code autonomous development
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     htop
     vim
     git
@@ -129,7 +133,7 @@
     nodejs
     python3
     openssh
-  ];
+  ]);
 
   system.stateVersion = "25.05";
 }

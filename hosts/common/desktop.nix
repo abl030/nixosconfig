@@ -1,11 +1,15 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   # ---------------------------------------------------------
   # 1. PACKAGES & FONTS
   # ---------------------------------------------------------
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 1500 (with pkgs; [
     spotify
     nerd-fonts.sauce-code-pro
-  ];
+  ]);
 
   # ---------------------------------------------------------
   # 2. PRINTING & AVAHI

@@ -1,4 +1,5 @@
 {
+  lib,
   modulesPath,
   pkgs,
   ...
@@ -44,11 +45,11 @@
   };
 
   # Minimal packages
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     vim
     curl
     git
-  ];
+  ]);
 
   # Allow root login for initial provisioning
   users.users.root.openssh.authorizedKeys.keys = [

@@ -1,8 +1,12 @@
-{pkgs, ...}: {
-  environment.systemPackages = with pkgs; [
-    pkgs.sunshine
-    pkgs.moonlight-qt #for testing purposes.
-  ];
+{
+  lib,
+  pkgs,
+  ...
+}: {
+  environment.systemPackages = lib.mkOrder 2200 (with pkgs; [
+    sunshine
+    moonlight-qt #for testing purposes.
+  ]);
 
   # security.wrappers.sunshine = {
   #   owner = "root";

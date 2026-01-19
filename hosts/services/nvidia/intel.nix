@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
@@ -12,8 +16,8 @@
     ];
   };
   environment.sessionVariables = {LIBVA_DRIVER_NAME = "iHD";}; # Optionally, set the environment variable
-  environment.systemPackages = [
-    pkgs.nvtopPackages.intel
-    pkgs.intel-gpu-tools
-  ];
+  environment.systemPackages = lib.mkOrder 2100 (with pkgs; [
+    nvtopPackages.intel
+    intel-gpu-tools
+  ]);
 }

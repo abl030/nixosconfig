@@ -1,4 +1,5 @@
 {
+  lib,
   pkgs,
   inputs,
   ...
@@ -39,7 +40,7 @@
   services.qemuGuest.enable = true;
 
   # Development tools
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     htop
     vim
     git
@@ -49,7 +50,7 @@
     opentofu
     sops
     age
-  ];
+  ]);
 
   system.stateVersion = "25.05";
 }
