@@ -50,8 +50,11 @@ Query specific configuration values across hosts:
 
 ### Update Baselines
 
-After intentional configuration changes, update the snapshot baselines:
+Baselines are **automatically updated** by the nightly `rolling_flake_update.sh` script.
 
+During the day, snapshot tests may show "CHANGED" - this is normal for work-in-progress.
+
+Manual update (rarely needed):
 ```bash
 ./tests/update-baselines.sh
 ```
@@ -110,35 +113,29 @@ A host is missing from known_hosts. Check:
 
 ### Before Refactoring
 ```bash
-# 1. Run tests to confirm everything works
+# Run tests to confirm everything works
 ./tests/run-tests.sh
-
-# 2. Update baselines to current state
-./tests/update-baselines.sh
-
-# 3. Commit baselines
-git add tests/baselines/
-git commit -m "test: baseline before refactoring"
 ```
 
 ### During Refactoring
 ```bash
 # Run frequently to catch regressions
 ./tests/run-tests.sh
+
+# Snapshot "CHANGED" is expected during WIP - focus on other tests
 ```
 
 ### After Refactoring
 ```bash
-# 1. Run full suite
+# Run full suite - all tests except snapshots should pass
 ./tests/run-tests.sh
 
-# 2. If snapshots changed intentionally, update baselines
+# Snapshots will sync automatically on next nightly run
+# Or manually update if you need them now:
 ./tests/update-baselines.sh
-
-# 3. Commit
-git add tests/
-git commit -m "test: update baselines after refactoring"
 ```
+
+**Note:** Baselines auto-update nightly via `rolling_flake_update.sh`. You don't need to manually commit baselines.
 
 ## Individual Test Commands
 
