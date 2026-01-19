@@ -84,13 +84,13 @@ imports = [
 - [ ] Delete `hosts/services/mounts/`
 
 ### Phase 2: GPU Drivers (1 host affected)
-- [ ] Create `modules/nixos/services/gpu/default.nix`
-- [ ] Create `modules/nixos/services/gpu/intel.nix` (homelab.gpu.intel)
-- [ ] Create `modules/nixos/services/gpu/nvidia.nix` (homelab.gpu.nvidia)
-- [ ] Register in `modules/nixos/services/default.nix`
-- [ ] Update epi to use `homelab.gpu.intel.enable = true`
-- [ ] Run drift detection - should show MATCH for epi
-- [ ] Delete `hosts/services/nvidia/`
+- [x] Create `modules/nixos/services/gpu/default.nix`
+- [x] Create `modules/nixos/services/gpu/intel.nix` (homelab.gpu.intel)
+- [x] Create `modules/nixos/services/gpu/nvidia.nix` (homelab.gpu.nvidia)
+- [x] Register in `modules/nixos/services/default.nix`
+- [x] Update epi to use `homelab.gpu.intel.enable = true`
+- [x] Run drift detection - should show MATCH for epi
+- [x] Delete `hosts/services/nvidia/`
 
 ### Phase 3: System Services (2 hosts affected)
 - [ ] Create `modules/nixos/services/rdp-inhibitor.nix` (homelab.rdpInhibitor)
@@ -137,7 +137,7 @@ If **DRIFT** is detected:
 |------|-------|--------|-------|
 | 2026-01-19 | Analysis | COMPLETE | Identified 13 files, 4 hosts affected |
 | 2026-01-19 | Phase 1 | COMPLETE | Mounts moved into modules; drift stable |
-| | Phase 2 | NOT STARTED | |
+| 2026-01-19 | Phase 2 | COMPLETE | Intel GPU module moved; drift stable |
 | | Phase 3 | NOT STARTED | |
 | | Phase 4 | NOT STARTED | |
 | | Phase 5 | NOT STARTED | |
