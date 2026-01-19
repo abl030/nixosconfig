@@ -11,7 +11,7 @@
   inotifyScript = ./inotify-recv.sh;
 
   # Secrets
-  encEnv = ../../secrets/secrets/jellyfin.env;
+  encEnv = config.homelab.secrets.sopsFile "jellyfin.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Dependencies

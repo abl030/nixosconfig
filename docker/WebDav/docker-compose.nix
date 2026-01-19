@@ -9,7 +9,7 @@
   composeFile = ./docker-compose.yml;
 
   # Secrets
-  encEnv = ../../secrets/secrets/webdav.env;
+  encEnv = config.homelab.secrets.sopsFile "webdav.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Path

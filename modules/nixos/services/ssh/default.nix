@@ -69,7 +69,7 @@ in {
     # Can be disabled for isolated/sandbox VMs via deployIdentity = false
     sops.secrets."${cfg.identitySecretName}" = lib.mkIf cfg.deployIdentity {
       # Path is dynamically constructed based on the identitySecretName option
-      sopsFile = ../../../../secrets/secrets/${cfg.identitySecretName};
+      sopsFile = config.homelab.secrets.sopsFile cfg.identitySecretName;
       format = "binary";
       owner = user; # Dynamically set to the host user (e.g., abl030 or nixos)
       path = "${homeDirectory}/.ssh/id_ed25519"; # Dynamically set path to the correct home

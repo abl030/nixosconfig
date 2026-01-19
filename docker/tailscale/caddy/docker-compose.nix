@@ -9,7 +9,7 @@
   composeFile = ./docker-compose.yml;
   caddyFile = ./Caddyfile; # <--- NEW: Track the Caddyfile
 
-  encEnv = ../../../secrets/secrets/caddy-tailscale.env;
+  encEnv = config.homelab.secrets.sopsFile "caddy-tailscale.env";
   ageKey = "/root/.config/sops/age/keys.txt";
   requiresBase = ["docker.service" "network-online.target"];
 

@@ -9,7 +9,7 @@
   composeFile = ./docker-compose.yml;
 
   # Secrets
-  encEnv = ../../secrets/secrets/mealie.env;
+  encEnv = config.homelab.secrets.sopsFile "mealie.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Path

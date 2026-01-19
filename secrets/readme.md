@@ -30,7 +30,7 @@ cat cat /etc/ssh/ssh_host_ed25519_key.pub | nix-shell -p ssh-to-age --run ssh-to
 Edit `.sops.yaml` in this directory. Add the **Age Output** (from Step 2) to the list:
 ```yaml
 creation_rules:
-  - path_regex: secrets/.*
+  - path_regex: .*
     key_groups:
       - age:
           - age1... # Existing keys...
@@ -45,7 +45,7 @@ Now update the actual encrypted files so they include the new host's permission 
 cd secrets
 
 # Re-encrypt all secrets to include the new host
-find secrets -type f \( -name "*.env" -o -name "*.yaml" -o -name "ssh_key_*" \) | while read file; do
+find . -type f \( -name "*.env" -o -name "*.yaml" -o -name "ssh_key_*" \) | while read file; do
     echo "Updating $file for new host..."
     # We use your User Identity (which is already authorized) to perform the update
     sops updatekeys --yes "$file"
@@ -70,5 +70,5 @@ If you cannot decrypt secrets manually:
 **Re-encrypting with Root Keyfile**
 If you are on a machine without the user key but have root access:
 ```bash
-sudo env SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys.txt sops updatekeys --yes secrets/secrets/some-file.env
+sudo env SOPS_AGE_KEY_FILE=/root/.config/sops/age/keys.txt sops updatekeys --yes secrets/some-file.env
 ```

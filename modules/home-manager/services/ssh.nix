@@ -19,7 +19,7 @@ in {
     #   # 1. Inject the Master Private Key via Sops
     #   # This makes this user the "Master Identity" capable of decrypting secrets and SSHing to others.
     #
-    #   defaultSopsFile = ../../secrets/secrets/ssh_key_abl030;
+    #   defaultSopsFile = ../../secrets/ssh_key_abl030;
     #   defaultSopsFormat = "binary";
     #
     #   secrets.ssh_key_abl030 = {

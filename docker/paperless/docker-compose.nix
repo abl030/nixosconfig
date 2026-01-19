@@ -9,7 +9,7 @@
   # Nix will copy these files to the Nix Store.
   # This removes the dependency on /home/abl030 at runtime.
   composeFile = ./docker-compose.yml;
-  encEnv = ../../secrets/secrets/paperless.env;
+  encEnv = config.homelab.secrets.sopsFile "paperless.env";
 
   ageKey = "/root/.config/sops/age/keys.txt";
 

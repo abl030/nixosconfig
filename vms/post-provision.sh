@@ -444,7 +444,7 @@ tailscale_load_oauth_creds() {
     fi
 
     # Default to standard location if not specified
-    local sops_file="${POST_PROVISION_TAILSCALE_SOPS_FILE:-$REPO_ROOT/secrets/secrets/tailscale-oauth.yaml}"
+    local sops_file="${POST_PROVISION_TAILSCALE_SOPS_FILE:-$REPO_ROOT/secrets/tailscale-oauth.yaml}"
     if [[ ! -f "$sops_file" ]]; then
         log_error "Tailscale OAuth credentials not found at: $sops_file" >&2
         return 1
@@ -784,8 +784,8 @@ reencrypt_secrets() {
     local secrets_dir="$REPO_ROOT/secrets"
     local sops_config="$secrets_dir/.sops.yaml"
 
-    if [[ ! -d "$secrets_dir/secrets" ]]; then
-        log_warning "No secrets directory found at $secrets_dir/secrets"
+    if [[ ! -d "$secrets_dir" ]]; then
+        log_warning "No secrets directory found at $secrets_dir"
         return 0
     fi
 
@@ -802,7 +802,7 @@ reencrypt_secrets() {
             log_error "Failed to re-encrypt: $secret_file"
             failed=1
         fi
-    done < <(find "$secrets_dir/secrets" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" \))
+    done < <(find "$secrets_dir" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" -o -name "ssh_key_*" \))
 
     if [[ "$failed" -ne 0 ]]; then
         log_error "Secrets re-encryption failed."
