@@ -133,6 +133,18 @@ show_summary() {
     done
 }
 
+# Check if a store path exists (is realized)
+path_exists() {
+    [[ -e "$1" ]]
+}
+
+# Build a derivation to ensure it exists in store
+ensure_built() {
+    local host="$1"
+    echo "Building $host to enable comparison..."
+    nix build ".#nixosConfigurations.${host}.config.system.build.toplevel" --no-link 2>/dev/null
+}
+
 # Show detailed diff using nvd
 show_diff() {
     local host="$1"
@@ -160,12 +172,38 @@ show_diff() {
     echo "Current:  $current"
     echo ""
 
-    # Try nvd first (better output)
-    if command -v nvd &>/dev/null || nix run nixpkgs#nvd -- --version &>/dev/null 2>&1; then
-        echo "--- Package/Closure Changes (nvd) ---"
-        nix run nixpkgs#nvd -- diff "$baseline" "$current" 2>/dev/null || echo "(nvd comparison failed)"
+    # Check if paths exist in store
+    local baseline_exists=$(path_exists "$baseline" && echo "yes" || echo "no")
+    local current_exists=$(path_exists "$current" && echo "yes" || echo "no")
+
+    if [[ "$baseline_exists" == "no" ]]; then
+        echo -e "${YELLOW}Note: Baseline path not in store (may have been garbage collected)${NC}"
+        echo "      Cannot show detailed diff without baseline in store."
+        echo ""
+        echo "The derivation paths differ, indicating a change occurred."
+        echo "Run 'nix build .#nixosConfigurations.${host}.config.system.build.toplevel'"
+        echo "to build current config, then check with nvd manually."
+        return 0
+    fi
+
+    if [[ "$current_exists" == "no" ]]; then
+        echo "Building current configuration..."
+        if ! ensure_built "$host"; then
+            echo -e "${RED}Build failed${NC}"
+            return 1
+        fi
+    fi
+
+    # Try nvd
+    echo "--- Package/Closure Changes (nvd) ---"
+    if nix run nixpkgs#nvd -- diff "$baseline" "$current" 2>/dev/null; then
+        :  # Success
     else
-        echo "Install nvd for detailed package diffs: nix run nixpkgs#nvd"
+        echo "(nvd comparison failed - paths may not be in store)"
+        echo ""
+        echo "To manually compare:"
+        echo "  nix build .#nixosConfigurations.${host}.config.system.build.toplevel -o result-new"
+        echo "  nix run nixpkgs#nvd -- diff $baseline ./result-new"
     fi
 }
 
@@ -190,6 +228,18 @@ show_packages() {
     if [[ "$baseline" == "$current" ]]; then
         echo "No changes detected for $host"
         return 0
+    fi
+
+    # Check if paths exist
+    if ! path_exists "$baseline"; then
+        echo -e "${YELLOW}Baseline not in store (garbage collected)${NC}"
+        echo "Cannot compare packages without baseline."
+        return 1
+    fi
+
+    if ! path_exists "$current"; then
+        echo "Building current configuration..."
+        ensure_built "$host" || return 1
     fi
 
     # Get system packages from both
@@ -227,6 +277,18 @@ show_files() {
 
     local baseline="${result%%|*}"
     local current="${result##*|}"
+
+    # Check if paths exist
+    if ! path_exists "$baseline"; then
+        echo -e "${YELLOW}Baseline not in store (garbage collected)${NC}"
+        echo "Cannot compare files without baseline."
+        return 1
+    fi
+
+    if ! path_exists "$current"; then
+        echo "Building current configuration..."
+        ensure_built "$host" || return 1
+    fi
 
     # Key files to compare
     local files=(
@@ -302,6 +364,18 @@ show_services() {
     if [[ "$baseline" == "$current" ]]; then
         echo "No changes detected for $host"
         return 0
+    fi
+
+    # Check if paths exist
+    if ! path_exists "$baseline"; then
+        echo -e "${YELLOW}Baseline not in store (garbage collected)${NC}"
+        echo "Cannot compare services without baseline."
+        return 1
+    fi
+
+    if ! path_exists "$current"; then
+        echo "Building current configuration..."
+        ensure_built "$host" || return 1
     fi
 
     echo "Systemd unit changes:"
