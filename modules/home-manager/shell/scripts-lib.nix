@@ -599,6 +599,29 @@ in {
           exit 1
       fi
 
+      # Run drift detection (informational - doesn't fail the check)
+      echo "📊 Running Drift Detection..."
+      if [[ -x "./scripts/hash-compare.sh" ]] && [[ -d "./hashes" ]]; then
+          # Capture output to parse it
+          drift_output=$(./scripts/hash-compare.sh --summary 2>&1) || true
+          echo "$drift_output"
+
+          # Extract counts from summary
+          if echo "$drift_output" | grep -q "Drifted: 0"; then
+              echo ""
+              echo "✅ No configuration drift detected."
+          else
+              drifted=$(echo "$drift_output" | grep "Drifted:" | grep -oE '[0-9]+' || echo "?")
+              echo ""
+              echo "📝 $drifted configuration(s) changed from baseline."
+              echo "   Review the drift above to verify changes are intentional."
+              echo "   Run './scripts/hash-compare.sh' for detailed nix-diff output."
+          fi
+      else
+          echo "⚠️  Drift detection not available (missing scripts or hashes)."
+      fi
+      echo ""
+
       echo "✅ All local checks passed. Ready to commit."
     '';
   };
