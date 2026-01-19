@@ -6,7 +6,6 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../services/mounts/nfs.nix
     ../common/desktop.nix
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ../framework/sleep-then-hibernate.nix
@@ -17,6 +16,7 @@
   ];
 
   homelab = {
+    mounts.nfs.enable = true;
     ssh = {
       enable = true;
       secure = false;

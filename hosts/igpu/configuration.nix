@@ -5,8 +5,6 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../services/mounts/nfs_local.nix
-    ../services/mounts/fuse.nix
     ../../docker/jellyfinn/docker-compose.nix
     ../../docker/management/igpu/docker_compose.nix
     ../../docker/plex/docker-compose.nix
@@ -24,6 +22,10 @@
   };
 
   homelab = {
+    mounts = {
+      nfsLocal.enable = true;
+      fuse.enable = true;
+    };
     ssh = {
       enable = true;
       secure = false;

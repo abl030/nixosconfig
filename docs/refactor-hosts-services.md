@@ -1,6 +1,6 @@
 # Refactor: Relocate hosts/services to modules/nixos
 
-**Status**: NOT STARTED
+**Status**: IN PROGRESS
 **Started**: 2026-01-19
 **Reset**: 2026-01-19
 
@@ -136,7 +136,7 @@ If **DRIFT** is detected:
 | Date | Phase | Status | Notes |
 |------|-------|--------|-------|
 | 2026-01-19 | Analysis | COMPLETE | Identified 13 files, 4 hosts affected |
-| 2026-01-19 | Phase 1 | NOT STARTED | Reset due to stabilization pass |
+| 2026-01-19 | Phase 1 | IN PROGRESS | Mounts modules created; drift review pending |
 | | Phase 2 | NOT STARTED | |
 | | Phase 3 | NOT STARTED | |
 | | Phase 4 | NOT STARTED | |
@@ -146,15 +146,15 @@ If **DRIFT** is detected:
 ## Detailed Progress
 
 ### Phase 1: Mounts
-- [ ] Create `modules/nixos/services/mounts/default.nix`
-- [ ] Create `modules/nixos/services/mounts/nfs.nix` (homelab.mounts.nfs)
-- [ ] Create `modules/nixos/services/mounts/nfs-local.nix` (homelab.mounts.nfsLocal)
-- [ ] Create `modules/nixos/services/mounts/fuse.nix` (homelab.mounts.fuse)
-- [ ] Create `modules/nixos/services/mounts/external.nix` (homelab.mounts.external)
-- [ ] Register in `modules/nixos/services/default.nix`
-- [ ] Update epi to use `homelab.mounts.nfs.enable = true`
-- [ ] Update framework to use `homelab.mounts.nfs.enable = true`
-- [ ] Update igpu to use new mounts modules
-- [ ] Update proxmox-vm to use new mounts modules
+- [x] Create `modules/nixos/services/mounts/default.nix`
+- [x] Create `modules/nixos/services/mounts/nfs.nix` (homelab.mounts.nfs)
+- [x] Create `modules/nixos/services/mounts/nfs-local.nix` (homelab.mounts.nfsLocal)
+- [x] Create `modules/nixos/services/mounts/fuse.nix` (homelab.mounts.fuse)
+- [x] Create `modules/nixos/services/mounts/external.nix` (homelab.mounts.external)
+- [x] Register in `modules/nixos/services/default.nix`
+- [x] Update epi to use `homelab.mounts.nfs.enable = true`
+- [x] Update framework to use `homelab.mounts.nfs.enable = true`
+- [x] Update igpu to use new mounts modules
+- [x] Update proxmox-vm to use new mounts modules
 - [ ] Run drift detection
-- [ ] Delete `hosts/services/mounts/`
+- [x] Delete `hosts/services/mounts/`
