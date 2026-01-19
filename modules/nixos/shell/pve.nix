@@ -35,6 +35,6 @@ in {
   config = mkIf cfg.enable {
     # Make pve command available system-wide
     # All dependencies are bundled in pve-cli via writeShellApplication
-    environment.systemPackages = lib.mkOrder 2000 [pve-cli];
+    environment.systemPackages = lib.mkOrder 2400 [pve-cli];
   };
 }

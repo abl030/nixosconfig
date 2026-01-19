@@ -1,4 +1,5 @@
 {
+  lib,
   pkgs,
   inputs,
   hostConfig,
@@ -34,10 +35,10 @@
   wsl.enable = true;
   wsl.defaultUser = hostConfig.user;
 
-  environment.systemPackages = [
-    pkgs.neovim
-    pkgs.gh
-  ];
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
+    neovim
+    gh
+  ]);
 
   system.stateVersion = "25.05";
 }

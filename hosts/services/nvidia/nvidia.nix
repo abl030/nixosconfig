@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: {
@@ -43,7 +44,7 @@
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
 
-  environment.systemPackages = [
-    pkgs.nvtopPackages.nvidia
-  ];
+  environment.systemPackages = lib.mkOrder 2100 (with pkgs; [
+    nvtopPackages.nvidia
+  ]);
 }

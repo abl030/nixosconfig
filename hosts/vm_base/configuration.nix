@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
   ];
@@ -33,13 +37,13 @@
   # Enable QEMU guest agent for Proxmox integration
   services.qemuGuest.enable = true;
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     htop
     vim
     git
     curl
     jq
-  ];
+  ]);
 
   system.stateVersion = "25.05";
 }

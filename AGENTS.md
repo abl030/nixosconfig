@@ -2,6 +2,9 @@
 
 Always run `check` before committing changes.
 Always run `tofu-plan` before any `tofu-apply`.
+Respect stabilization rules for all new edits:
+- Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
+- Avoid relying on module import order for list options; use `lib.mkOrder` when order must be stable.
 
 ## VM Automation Notes
 

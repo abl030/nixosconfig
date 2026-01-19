@@ -55,13 +55,13 @@ in {
   };
 
   # --- Package Installation ---
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 2300 (with pkgs; [
     cockpit
     cockpit-machines # Will use the version from your overlay
     cockpit-files # Will use the version from your overlay
     cockpit-podman # Will use the version from your overlay
     cockpit-sensors # Will use the version from your overlay
-  ];
+  ]);
 
   # --- Dependencies for Cockpit Plugins ---
   networking.networkmanager.enable = true;
