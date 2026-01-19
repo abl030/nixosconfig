@@ -1,0 +1,1 @@
+/nix/store/rkx020izcpc4rfy77gbw6dml9ik1nmkx-home-manager-generation

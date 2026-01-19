@@ -1,1 +1,0 @@
-/nix/store/wvimmqwdjac5738rbym7q82fkhcjghvi-home-manager-generation

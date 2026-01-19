@@ -106,6 +106,51 @@ nix fmt
 # The check command will exit with error if any check fails
 ```
 
+## Hash-Based Drift Detection
+
+NixOS's deterministic builds mean identical `system.build.toplevel` hashes guarantee identical systems. This repo uses hash comparison to verify refactors produce no unintended changes.
+
+### Workflow
+
+```bash
+# Capture current hashes as baseline (done automatically by nightly CI)
+./scripts/hash-capture.sh
+
+# After making changes, compare against baseline
+./scripts/hash-compare.sh
+
+# Quick summary only (no nix-diff details)
+./scripts/hash-compare.sh --summary
+
+# Check specific host
+./scripts/hash-compare.sh framework
+```
+
+### Interpreting Results
+
+- **MATCH**: Hash unchanged - pure refactor, no functional changes
+- **DRIFT**: Hash differs - configuration changed, nix-diff shows what
+
+The compare script runs through ALL hosts and reports ALL drift (doesn't bail on first issue).
+
+### When Hashes Change
+
+If `hash-compare.sh` shows drift:
+1. Review the nix-diff output to understand what changed
+2. If intentional: run `./scripts/hash-capture.sh` to update baselines
+3. If unintentional: investigate and fix the regression
+
+Baselines are automatically updated by the nightly `rolling_flake_update.sh` after successful builds.
+
+## Claude Code Integration
+
+### Recommended: mcp-nixos
+
+For Claude Code users, install [mcp-nixos](https://github.com/utensils/mcp-nixos) to prevent AI hallucinations about NixOS:
+- Provides real-time access to 130K+ packages and 22K+ NixOS options
+- Validates package names and option paths against official APIs
+- Eliminates guesswork about deprecated options or renamed packages
+
 ## Common Commands
 
 ### Building and Deploying

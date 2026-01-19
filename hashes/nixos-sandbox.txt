@@ -1,0 +1,1 @@
+/nix/store/7cr05x855gjaqkqs3hafwkivqm59yf7x-nixos-system-sandbox-26.05.20260114.13868c0
