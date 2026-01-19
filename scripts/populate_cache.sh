@@ -39,13 +39,20 @@ log "INFO" "GC Roots will be saved to: $CI_RESULTS_DIR"
 log "INFO" "Evaluating flake for hosts..."
 
 # Pull host lists directly from hosts.nix
+# Filter out special entries (prefixed with _) like _proxmox
 NIXOS_HOSTS_JSON=$(json_eval '
-  let hosts = import ./hosts.nix;
-  in builtins.filter (n: hosts.${n} ? configurationFile) (builtins.attrNames hosts)
+  let
+    hosts = import ./hosts.nix;
+    lib = import <nixpkgs/lib>;
+    hostNames = builtins.filter (n: !lib.hasPrefix "_" n) (builtins.attrNames hosts);
+  in builtins.filter (n: hosts.${n} ? configurationFile) hostNames
 ')
 HM_ONLY_HOSTS_JSON=$(json_eval '
-  let hosts = import ./hosts.nix;
-  in builtins.filter (n: !(hosts.${n} ? configurationFile)) (builtins.attrNames hosts)
+  let
+    hosts = import ./hosts.nix;
+    lib = import <nixpkgs/lib>;
+    hostNames = builtins.filter (n: !lib.hasPrefix "_" n) (builtins.attrNames hosts);
+  in builtins.filter (n: !(hosts.${n} ? configurationFile)) hostNames
 ')
 
 mapfile -t NIXOS_HOSTS < <(jq -r '.[]' <<<"$NIXOS_HOSTS_JSON")
