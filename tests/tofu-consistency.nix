@@ -51,21 +51,21 @@ let
         };
 
         "vmid-in-valid-range" = {
-          passed = px.vmid >= 100 && px.vmid < 9000;
+          passed = if px ? vmid then px.vmid >= 100 && px.vmid < 9000 else false;
           expected = "vmid between 100-8999";
-          actual = "vmid=${toString px.vmid}";
+          actual = if px ? vmid then "vmid=${toString px.vmid}" else "missing";
         };
 
         "cores-positive" = {
-          passed = px.cores > 0;
+          passed = if px ? cores then px.cores > 0 else false;
           expected = "cores > 0";
-          actual = "cores=${toString px.cores}";
+          actual = if px ? cores then "cores=${toString px.cores}" else "missing";
         };
 
         "memory-reasonable" = {
-          passed = px.memory >= 512 && px.memory <= 128000;
+          passed = if px ? memory then px.memory >= 512 && px.memory <= 128000 else false;
           expected = "memory 512-128000 MB";
-          actual = "memory=${toString px.memory}";
+          actual = if px ? memory then "memory=${toString px.memory}" else "missing";
         };
       };
 

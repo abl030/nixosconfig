@@ -314,6 +314,15 @@ cat tests/baselines/nixos-framework.txt
 ./tests/update-baselines.sh
 ```
 
+**Baseline Management:**
+
+Baselines are automatically maintained by the nightly `rolling_flake_update.sh`:
+- Nightly: flake.lock updates → builds verified → baselines regenerated → committed together
+- During development: Snapshot tests may show "CHANGED" (expected for WIP)
+- After nightly run: Baselines sync back to match the latest successful build
+
+This means baselines represent "last successful nightly build state" rather than requiring manual updates.
+
 ---
 
 ## Directory Structure

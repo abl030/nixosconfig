@@ -38,11 +38,15 @@ let
       missingFields = builtins.filter (field: !(host ? ${field})) requiredFields;
       hasMissingFields = builtins.length missingFields > 0;
 
-      # Validate publicKey format (should start with ssh-ed25519)
-      publicKeyValid = lib.hasPrefix "ssh-ed25519 " host.publicKey;
+      # Validate publicKey format (should start with ssh-ed25519) - only if field exists
+      publicKeyValid = if host ? publicKey
+        then lib.hasPrefix "ssh-ed25519 " host.publicKey
+        else true; # Will be caught by missing fields check
 
-      # Validate authorizedKeys is a list
-      authorizedKeysValid = builtins.isList host.authorizedKeys;
+      # Validate authorizedKeys is a list - only if field exists
+      authorizedKeysValid = if host ? authorizedKeys
+        then builtins.isList host.authorizedKeys
+        else true; # Will be caught by missing fields check
 
       # Validate proxmox structure if present
       proxmoxValid = if host ? proxmox then
