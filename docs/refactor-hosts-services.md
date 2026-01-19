@@ -1,6 +1,6 @@
 # Refactor: Relocate hosts/services to modules/nixos
 
-**Status**: IN PROGRESS
+**Status**: IN PROGRESS (Phase 1 complete)
 **Started**: 2026-01-19
 **Reset**: 2026-01-19
 
@@ -136,7 +136,7 @@ If **DRIFT** is detected:
 | Date | Phase | Status | Notes |
 |------|-------|--------|-------|
 | 2026-01-19 | Analysis | COMPLETE | Identified 13 files, 4 hosts affected |
-| 2026-01-19 | Phase 1 | IN PROGRESS | Mounts modules created; drift review pending |
+| 2026-01-19 | Phase 1 | COMPLETE | Mounts moved into modules; drift stable |
 | | Phase 2 | NOT STARTED | |
 | | Phase 3 | NOT STARTED | |
 | | Phase 4 | NOT STARTED | |
@@ -156,5 +156,5 @@ If **DRIFT** is detected:
 - [x] Update framework to use `homelab.mounts.nfs.enable = true`
 - [x] Update igpu to use new mounts modules
 - [x] Update proxmox-vm to use new mounts modules
-- [ ] Run drift detection
+- [x] Run drift detection
 - [x] Delete `hosts/services/mounts/`

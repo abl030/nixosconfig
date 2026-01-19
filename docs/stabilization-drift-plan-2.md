@@ -1,7 +1,8 @@
 # Drift Stabilization Plan (Round 2)
 
-**Status**: IN PROGRESS
+**Status**: COMPLETE
 **Started**: 2026-01-19
+**Completed**: 2026-01-19
 
 ## Goal
 
@@ -41,7 +42,8 @@ Further reduce drift noise from refactors so pure moves or module reshuffles yie
 - Use stable order tiers:
   - Base profiles: 1000 (already used in `modules/nixos/profiles/base.nix`).
   - Shared modules (desktop/common): 1500.
-  - Service modules: 2000 (already used in service modules).
+  - Mount modules: 1600.
+  - Service modules: 2100+ (sunshine 2200, cockpit 2300, pve 2400, podcast 2500).
   - Host-specific additions: 3000.
 
 ### Phase 2: Source Path Isolation (Targeted)
