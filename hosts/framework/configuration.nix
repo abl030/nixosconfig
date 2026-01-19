@@ -10,13 +10,13 @@
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
     ../framework/sleep-then-hibernate.nix
     ../framework/hibernate_fix.nix
-    ../services/system/remote_desktop_nosleep.nix
 
     # ./fingerprint-fix.nix
   ];
 
   homelab = {
     mounts.nfs.enable = true;
+    rdpInhibitor.enable = true;
     ssh = {
       enable = true;
       secure = false;

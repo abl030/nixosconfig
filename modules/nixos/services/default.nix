@@ -9,6 +9,7 @@
     ./display/wayvnc.nix
     ./system/storage.nix
     ./display/sunshine.nix
+    ./rdp-inhibitor.nix
     ./nginx.nix
   ];
 }

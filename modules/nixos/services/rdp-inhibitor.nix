@@ -1,4 +1,12 @@
-{pkgs, ...}: let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+with lib; let
+  cfg = config.homelab.rdpInhibitor;
+
   PID_PATH = "/tmp/rdp_sleep_block.pid";
   PID_PIPE = "rdp_pid_pipe";
 
@@ -56,23 +64,30 @@
       sleep 10
     done
   '';
+
 in {
-  systemd.services.rdp-sleep-inhibit = {
-    description = "GNOME Remote Desktop Sleep Inhibitor";
-    after = ["network.target" "gnome-remote-desktop.service"];
-    wantedBy = ["multi-user.target"];
+  options.homelab.rdpInhibitor = {
+    enable = mkEnableOption "Prevent sleep during RDP sessions";
+  };
 
-    path = with pkgs; [
-      nettools
-      gawk
-      util-linux
-    ];
+  config = mkIf cfg.enable {
+    systemd.services.rdp-sleep-inhibit = {
+      description = "GNOME Remote Desktop Sleep Inhibitor";
+      after = ["network.target" "gnome-remote-desktop.service"];
+      wantedBy = ["multi-user.target"];
 
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = "${rdp_monitor_script}";
-      Restart = "always";
-      RestartSec = "10";
+      path = with pkgs; [
+        nettools
+        gawk
+        util-linux
+      ];
+
+      serviceConfig = {
+        Type = "simple";
+        ExecStart = "${rdp_monitor_script}";
+        Restart = "always";
+        RestartSec = "10";
+      };
     };
   };
 }
