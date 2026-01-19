@@ -230,7 +230,7 @@ in {
 
     # Mirror-specific FS prep and nginx write permissions (only when mirror enabled).
     (lib.mkIf haveMirror {
-      systemd.tmpfiles.rules = [
+      systemd.tmpfiles.rules = lib.mkOrder 2000 [
         "d ${cfg.mirrorCacheRoot}                        0750 nginx nginx -"
         "d ${cfg.mirrorCacheRoot}/nix-cache-info         0750 nginx nginx -"
         "d ${cfg.mirrorCacheRoot}/nix-cache-info/store   0750 nginx nginx -"

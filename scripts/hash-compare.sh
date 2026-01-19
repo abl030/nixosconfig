@@ -5,9 +5,11 @@
 # If hashes differ, uses nix-diff to show exactly what changed.
 #
 # Usage:
-#   ./scripts/hash-compare.sh              # Compare all hosts
-#   ./scripts/hash-compare.sh --summary    # Only show summary, skip nix-diff details
-#   ./scripts/hash-compare.sh <host>       # Compare specific host (e.g., "framework" or "nixos-framework")
+#   ./scripts/hash-compare.sh                   # Compare all hosts
+#   ./scripts/hash-compare.sh --summary         # Only show summary, skip nix-diff details
+#   ./scripts/hash-compare.sh --nixos-only      # Only check NixOS baselines
+#   ./scripts/hash-compare.sh --home-only       # Only check Home Manager baselines
+#   ./scripts/hash-compare.sh <host>            # Compare specific host (e.g., "framework" or "nixos-framework")
 #
 # Exit codes:
 #   0 - All hashes match (pure refactor)
@@ -21,11 +23,15 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HASHES_DIR="$REPO_ROOT/hashes"
 
 SUMMARY_ONLY=false
+CHECK_NIXOS=true
+CHECK_HOME=true
 SPECIFIC_HOST=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --summary) SUMMARY_ONLY=true; shift ;;
+        --nixos-only) CHECK_HOME=false; shift ;;
+        --home-only) CHECK_NIXOS=false; shift ;;
         *) SPECIFIC_HOST="$1"; shift ;;
     esac
 done
@@ -107,31 +113,34 @@ compare_config() {
     fi
 }
 
-# Get all configurations
-echo "Comparing NixOS configurations..."
-nixos_hosts=$(nix eval .#nixosConfigurations --apply 'x: builtins.attrNames x' --json 2>/dev/null | tr -d '[]"' | tr ',' '\n')
+if $CHECK_NIXOS; then
+    echo "Comparing NixOS configurations..."
+    nixos_hosts=$(nix eval .#nixosConfigurations --apply 'x: builtins.attrNames x' --json 2>/dev/null | tr -d '[]"' | tr ',' '\n')
 
-for host in $nixos_hosts; do
-    [[ -z "$host" ]] && continue
-    # Filter if specific host requested
-    if [[ -n "$SPECIFIC_HOST" ]]; then
-        [[ "$host" != "$SPECIFIC_HOST" && "nixos-$host" != "$SPECIFIC_HOST" ]] && continue
-    fi
-    compare_config "nixos" "$host"
-done
+    for host in $nixos_hosts; do
+        [[ -z "$host" ]] && continue
+        # Filter if specific host requested
+        if [[ -n "$SPECIFIC_HOST" ]]; then
+            [[ "$host" != "$SPECIFIC_HOST" && "nixos-$host" != "$SPECIFIC_HOST" ]] && continue
+        fi
+        compare_config "nixos" "$host"
+    done
+fi
 
-echo ""
-echo "Comparing Home Manager configurations..."
-home_hosts=$(nix eval .#homeConfigurations --apply 'x: builtins.attrNames x' --json 2>/dev/null | tr -d '[]"' | tr ',' '\n')
+if $CHECK_HOME; then
+    echo ""
+    echo "Comparing Home Manager configurations..."
+    home_hosts=$(nix eval .#homeConfigurations --apply 'x: builtins.attrNames x' --json 2>/dev/null | tr -d '[]"' | tr ',' '\n')
 
-for host in $home_hosts; do
-    [[ -z "$host" ]] && continue
-    # Filter if specific host requested
-    if [[ -n "$SPECIFIC_HOST" ]]; then
-        [[ "$host" != "$SPECIFIC_HOST" && "home-$host" != "$SPECIFIC_HOST" ]] && continue
-    fi
-    compare_config "home" "$host"
-done
+    for host in $home_hosts; do
+        [[ -z "$host" ]] && continue
+        # Filter if specific host requested
+        if [[ -n "$SPECIFIC_HOST" ]]; then
+            [[ "$host" != "$SPECIFIC_HOST" && "home-$host" != "$SPECIFIC_HOST" ]] && continue
+        fi
+        compare_config "home" "$host"
+    done
+fi
 
 # Print detailed diffs if any
 if ! $SUMMARY_ONLY && [[ ${#changed[@]} -gt 0 ]]; then

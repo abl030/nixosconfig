@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ../services/mounts/nfs_local.nix
@@ -85,9 +89,9 @@
     extraGroups = ["libvirtd" "vboxusers" "docker"];
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     butane
-  ];
+  ]);
 
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";

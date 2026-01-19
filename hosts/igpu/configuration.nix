@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ../services/mounts/nfs_local.nix
@@ -50,11 +54,11 @@
     extraGroups = ["docker" "video" "render"];
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils
     radeontop
     nvtopPackages.amd
-  ];
+  ]);
 
   services.qemuGuest.enable = true;
 

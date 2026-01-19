@@ -18,6 +18,10 @@ This repo uses hash comparison instead of complex test suites because:
 # Capture current hashes as baseline
 ./scripts/hash-capture.sh
 
+# Capture only NixOS or only Home Manager baselines
+./scripts/hash-capture.sh --nixos-only
+./scripts/hash-capture.sh --home-only
+
 # After making changes, compare against baseline
 ./scripts/hash-compare.sh
 
@@ -26,6 +30,10 @@ This repo uses hash comparison instead of complex test suites because:
 
 # Check specific host
 ./scripts/hash-compare.sh framework
+
+# Check only NixOS or only Home Manager drift
+./scripts/hash-compare.sh --nixos-only --summary
+./scripts/hash-compare.sh --home-only --summary
 ```
 
 ## How It Works

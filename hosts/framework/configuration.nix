@@ -1,4 +1,5 @@
 {
+  lib,
   pkgs,
   inputs,
   ...
@@ -108,12 +109,12 @@
     extraGroups = ["libvertd" "dialout"];
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     gh
     gnome-remote-desktop
     dmidecode
     fprintd
-  ];
+  ]);
 
   programs.firefox.enable = true;
 

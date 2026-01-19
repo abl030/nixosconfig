@@ -6,7 +6,10 @@
 }:
 with lib; let
   cfg = config.homelab.hyprpaper;
-  wallPath = builtins.toString cfg.wallpaper;
+  wallPath = builtins.toString (builtins.path {
+    path = cfg.wallpaper;
+    name = "wallpaper";
+  });
 in {
   options.homelab.hyprpaper = {
     enable = mkEnableOption "Enable Hyprpaper wallpaper engine";
