@@ -11,7 +11,7 @@
   tailscaleConfig = ./immich-tailscale-serve.json;
 
   # Secrets
-  encEnv = ../../secrets/secrets/immich.env;
+  encEnv = config.homelab.secrets.sopsFile "immich.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Path

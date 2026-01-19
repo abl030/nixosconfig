@@ -10,7 +10,7 @@
   caddyFile = ./Caddyfile;
 
   # Secrets (Relative path to this nix file)
-  encEnv = ../../secrets/secrets/invoices.env;
+  encEnv = config.homelab.secrets.sopsFile "invoices.env";
 
   ageKey = "/root/.config/sops/age/keys.txt";
   requiresBase = ["docker.service" "network-online.target"];

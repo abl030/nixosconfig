@@ -12,7 +12,7 @@
   entrypoint = ./entrypoint.sh;
 
   # Secrets
-  encEnv = ../../secrets/secrets/domain-monitor.env;
+  encEnv = config.homelab.secrets.sopsFile "domain-monitor.env";
   ageKey = "/root/.config/sops/age/keys.txt";
   runEnv = "/run/secrets/${stackName}.env";
 

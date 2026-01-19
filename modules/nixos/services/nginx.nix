@@ -19,8 +19,7 @@ in {
 
     cloudflareSopsFile = lib.mkOption {
       type = lib.types.path;
-      # Adjust path if your file structure differs, but ../../../ goes to repo root from modules/nixos/services/
-      default = ../../../secrets/secrets/acme-cloudflare.env;
+      default = config.homelab.secrets.sopsFile "acme-cloudflare.env";
       description = "Path to sops file containing CLOUDFLARE_DNS_API_TOKEN.";
     };
   };

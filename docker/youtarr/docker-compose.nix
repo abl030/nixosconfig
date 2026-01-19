@@ -10,7 +10,7 @@
 
   # Secrets
   # Ensure you create this file in your secrets directory!
-  encEnv = ../../secrets/secrets/youtarr.env;
+  encEnv = config.homelab.secrets.sopsFile "youtarr.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Path

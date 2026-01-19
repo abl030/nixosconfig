@@ -25,7 +25,7 @@ in {
     # 3. Secrets Management
     # Only decrypt keys if we are in secure mode.
     sops = mkIf cfg.secure {
-      defaultSopsFile = ../../../../secrets/secrets/wayvnc.yaml;
+      defaultSopsFile = config.homelab.secrets.sopsFile "wayvnc.yaml";
       defaultSopsFormat = "yaml";
       age.sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
 

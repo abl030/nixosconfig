@@ -12,8 +12,8 @@
   initSql = ./init.sql;
 
   # Secrets
-  encEnv = ../../secrets/secrets/music.env;
-  encAcmeEnv = ../../secrets/secrets/acme-cloudflare.env;
+  encEnv = config.homelab.secrets.sopsFile "music.env";
+  encAcmeEnv = config.homelab.secrets.sopsFile "acme-cloudflare.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Paths

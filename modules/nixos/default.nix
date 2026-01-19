@@ -2,6 +2,7 @@
 {...}: {
   # Acts as an index so `../../modules/nixos` works.
   imports = [
+    ./common
     ./nix_caches
     ./ci
     ./autoupdate

@@ -10,7 +10,7 @@
 
   # Secrets
   # Pointing to the correct location in your flake structure
-  encEnv = ../../secrets/secrets/uptime-kuma.env;
+  encEnv = config.homelab.secrets.sopsFile "uptime-kuma.env";
   ageKey = "/root/.config/sops/age/keys.txt";
 
   # Runtime Env Path
