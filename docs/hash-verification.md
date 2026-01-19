@@ -36,6 +36,8 @@ This repo uses hash comparison instead of complex test suites because:
 ./scripts/hash-compare.sh --home-only --summary
 ```
 
+For stabilisation patterns and ordering tiers, see `docs/stabilisation.md`.
+
 ## How It Works
 
 ### Hash Capture (`scripts/hash-capture.sh`)
