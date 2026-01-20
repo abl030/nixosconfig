@@ -24,9 +24,24 @@
         then "unknown"
         else builtins.substring 0 7 rev;
     in {
-      yt-dlp = prev.yt-dlp.overrideAttrs (_old: {
+      yt-dlp = prev.yt-dlp.overrideAttrs (old: {
         src = inputs.yt-dlp-src; # pinned source for reproducibility
         version = "master-${short}"; # human-friendly debugging aid
+        # Upstream master moves fast; drop nixpkgs' curl-cffi patch when it no longer applies.
+        patches = builtins.filter (
+          patch: let
+            name = toString patch;
+          in
+            builtins.match ".*curlcffi.*" name
+            == null
+            && builtins.match ".*curl-cffi.*" name == null
+        ) (old.patches or []);
+        postPatch = let
+          oldPostPatch = old.postPatch or "";
+          oldLine = ''--replace-fail "if curl_cffi_version != (0, 5, 10) and not (0, 10) <= curl_cffi_version < (0, 14)" \'';
+          newLine = ''--replace "if curl_cffi_version != (0, 5, 10) and not (0, 10) <= curl_cffi_version < (0, 14)" \'';
+        in
+          prev.lib.replaceStrings [oldLine] [newLine] oldPostPatch;
         # doCheck = false;                    # unblock if upstream toggles tests
       });
     }
