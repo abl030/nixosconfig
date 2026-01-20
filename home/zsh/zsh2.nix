@@ -1,13 +1,10 @@
 # ./home/zsh/zsh2.nix
-{
-  lib,
-  config,
-  ...
-}: {
+{config, ...}: {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
     ../../modules/home-manager/shell/scripts.nix
+    ../../modules/home-manager/shell/core.nix
   ];
 
   programs = {
@@ -16,8 +13,6 @@
       autosuggestion.enable = true;
       enableCompletion = true;
       syntaxHighlighting.enable = true;
-
-      shellAliases = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).zsh;
 
       initContent = ''
         _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"

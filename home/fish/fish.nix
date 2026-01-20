@@ -1,15 +1,12 @@
 # ./home/fish/fish.nix
-{
-  lib,
-  config,
-  ...
-}: let
+{config, ...}: let
   flakeBase = "${config.home.homeDirectory}/nixosconfig";
 in {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
     ../../modules/home-manager/shell/scripts.nix
+    ../../modules/home-manager/shell/core.nix
   ];
 
   programs = {
@@ -19,9 +16,6 @@ in {
       shellInit = ''
         set -gx _RELOAD_FLAKE_PATH "${flakeBase}#"
       '';
-
-      # Abbreviations
-      shellAbbrs = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).fish;
     };
 
     starship.enableFishIntegration = true;
