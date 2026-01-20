@@ -7,7 +7,6 @@
   imports = [
     ./hardware-configuration.nix
     ../common/desktop.nix
-    ../../modules/nixos/services/framework
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
   ];
 

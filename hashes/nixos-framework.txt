@@ -1,1 +1,1 @@
-/nix/store/kj188fscpzb7wcm5yp36lhnqkhc938m2-nixos-system-framework-26.05.20260119.bde0902
+/nix/store/25j9j2m36wvwyjp909cdbqx4dfrgm3ww-nixos-system-framework-26.05.20260119.bde0902
