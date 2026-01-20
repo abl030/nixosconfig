@@ -101,10 +101,10 @@ imports = [
 - [x] Delete `hosts/services/system/`
 
 ### Phase 4: Virtualisation (unused - can delete or migrate)
-- [ ] Decide: migrate to modules or delete as unused?
-- [ ] If migrate: create modules with options
-- [ ] If delete: remove files
-- [ ] Delete `hosts/services/virtualisation/`
+- [x] Decide: migrate to modules or delete as unused?
+- [x] If migrate: create modules with options
+- [x] If delete: remove files
+- [x] Delete `hosts/services/virtualisation/`
 
 ### Phase 5: Display (mostly unused)
 - [ ] `sunshine.nix` - SKIP (duplicate already in modules)
@@ -139,7 +139,7 @@ If **DRIFT** is detected:
 | 2026-01-19 | Phase 1 | COMPLETE | Mounts moved into modules; drift stable |
 | 2026-01-19 | Phase 2 | COMPLETE | Intel GPU module moved; drift stable |
 | 2026-01-19 | Phase 3 | COMPLETE | RDP inhibitor module moved; system services removed |
-| | Phase 4 | NOT STARTED | |
+| 2026-01-19 | Phase 4 | COMPLETE | Removed unused virtualisation services |
 | | Phase 5 | NOT STARTED | |
 | | Phase 6 | NOT STARTED | |
 
