@@ -112,9 +112,9 @@ imports = [
 - [x] Delete `hosts/services/display/`
 
 ### Phase 6: Cleanup
-- [ ] Delete empty `hosts/services/` directory
-- [ ] Update `hosts/services/mounts/cifs.nix` (unused - delete or migrate)
-- [ ] Run final drift detection - all hosts should MATCH
+- [x] Delete empty `hosts/services/` directory
+- [x] Update `hosts/services/mounts/cifs.nix` (unused - delete or migrate)
+- [x] Run final drift detection - all hosts should MATCH
 - [ ] Update hashes with `./scripts/hash-capture.sh`
 
 ## Drift Detection Strategy
@@ -141,7 +141,7 @@ If **DRIFT** is detected:
 | 2026-01-19 | Phase 3 | COMPLETE | RDP inhibitor module moved; system services removed |
 | 2026-01-19 | Phase 4 | COMPLETE | Removed unused virtualisation services |
 | 2026-01-19 | Phase 5 | COMPLETE | Removed unused display services |
-| | Phase 6 | NOT STARTED | |
+| 2026-01-19 | Phase 6 | IN PROGRESS | Cleanup in progress; hashes pending |
 
 ## Detailed Progress
 
