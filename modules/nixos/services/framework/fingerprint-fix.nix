@@ -1,16 +1,10 @@
-# fingerprint-fix.nix
-# Target: Framework 13 AMD + Goodix 27c6:609c
-# Idea:
-#  - Stop fprintd before sleep/hibernate to avoid “dirty handles”.
-#  - On resume, do NOT forcibly start fprintd; let GDM/dbus start it.
-#  - But when fprintd starts, block in ExecStartPre until the device is actually “ready”.
-#
-# Import this module from your host config.
 {
   lib,
   pkgs,
+  config,
   ...
 }: let
+  cfg = config.homelab.framework.fingerprintFix;
   vid = "27c6";
   pid = "609c";
 
@@ -40,11 +34,9 @@
     while [ $SECONDS -lt $deadline ]; do
       dev="$(find_dev 2>/dev/null || true)"
       if [ -n "$dev" ]; then
-        # keep it awake
         [ -w "$dev/power/control" ] && echo on > "$dev/power/control" || true
         [ -w "$dev/power/persist" ] && echo 1 > "$dev/power/persist" || true
 
-        # if authorized exists, require it to be 1
         if [ -r "$dev/authorized" ]; then
           auth="$(cat "$dev/authorized" 2>/dev/null || echo 1)"
           if [ "$auth" != "1" ]; then
@@ -53,16 +45,14 @@
           fi
         fi
 
-        # small extra “enumeration is complete” hint (often present when ready)
         if [ -r "$dev/bConfigurationValue" ]; then
-          cfg="$(cat "$dev/bConfigurationValue" 2>/dev/null || true)"
-          if [ -z "$cfg" ]; then
+          cfg_val="$(cat "$dev/bConfigurationValue" 2>/dev/null || true)"
+          if [ -z "$cfg_val" ]; then
             sleep 0.2
             continue
           fi
         fi
 
-        # runtime PM readiness
         if [ -r "$dev/power/runtime_status" ]; then
           st="$(cat "$dev/power/runtime_status" 2>/dev/null || true)"
           if [ "$st" = "active" ]; then
@@ -79,7 +69,7 @@
     done
 
     log_warn "Timeout waiting for ${vid}:${pid}"
-    exit 1  # causes fprintd start to fail => Restart=on-failure will retry
+    exit 1
   '';
 
   sleepHook = pkgs.writeShellScript "goodix-fprintd-sleep-hook" ''
@@ -91,7 +81,6 @@
         log "pre-sleep: stopping fprintd to avoid in-flight ops during sleep"
         ${pkgs.systemd}/bin/systemctl stop fprintd.service || true
 
-        # give it a moment to exit cleanly
         for i in 1 2 3 4 5; do
           ${pkgs.systemd}/bin/systemctl is-active --quiet fprintd.service || exit 0
           sleep 0.2
@@ -101,42 +90,40 @@
         ${pkgs.procps}/bin/pkill -x fprintd || true
         ;;
       post)
-        # Do NOT start fprintd here.
-        # Let GNOME/GDM D-Bus activation start it when needed,
-        # but we can “warm up” the USB PM state a little.
         log "post-resume: waiting briefly for Goodix to be ready (non-fatal)"
         ${waitGoodixReady} || true
         ;;
     esac
   '';
 in {
-  services.fprintd.enable = true;
-
-  # Keep the device from runtime autosuspending (helps reduce the “still suspended” window)
-  services.udev.extraRules = ''
-    ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="${vid}", ATTR{idProduct}=="${pid}", \
-      ATTR{power/control}="on", ATTR{power/persist}="1"
-  '';
-
-  # Make fprintd wait for the device to be truly ready whenever it starts
-  systemd.services.fprintd = {
-    serviceConfig = {
-      ExecStartPre = lib.mkBefore ["${waitGoodixReady}"];
-
-      Restart = "on-failure";
-      RestartSec = "2s";
-    };
-
-    # Prevent pathological restart storms if the device never comes back
-    unitConfig = {
-      StartLimitIntervalSec = 60;
-      StartLimitBurst = 10;
-    };
+  options.homelab.framework.fingerprintFix = {
+    enable = lib.mkEnableOption "Framework Goodix fingerprint resume fix";
   };
 
-  # systemd sleep hook (runs pre + post for suspend/hibernate)
-  environment.etc."systemd/system-sleep/goodix-fprintd" = {
-    source = sleepHook;
-    mode = "0755";
+  config = lib.mkIf cfg.enable {
+    services.fprintd.enable = true;
+
+    services.udev.extraRules = ''
+      ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="${vid}", ATTR{idProduct}=="${pid}", \
+        ATTR{power/control}="on", ATTR{power/persist}="1"
+    '';
+
+    systemd.services.fprintd = {
+      serviceConfig = {
+        ExecStartPre = lib.mkBefore ["${waitGoodixReady}"];
+        Restart = "on-failure";
+        RestartSec = "2s";
+      };
+
+      unitConfig = {
+        StartLimitIntervalSec = 60;
+        StartLimitBurst = 10;
+      };
+    };
+
+    environment.etc."systemd/system-sleep/goodix-fprintd" = {
+      source = sleepHook;
+      mode = "0755";
+    };
   };
 }
