@@ -7,6 +7,10 @@
     path = ./.;
     name = "nvim-config";
   };
+  treesitterPlugins = builtins.path {
+    path = ./plugins/treesitter.lua;
+    name = "nvim-treesitter-plugins";
+  };
 in {
   home.packages = [
     #These packages are for installing through mason. But we can't do that so I am commenting them out here but leaving them
@@ -63,6 +67,7 @@ in {
     ".config/nvim/lua/plugins/plugins2.lua".source = "${nvimSrc}/plugins/plugins.lua";
     #Add in our treesitters config
     ".config/nvim/lua/plugins/treesitter.lua".source = "${nvimSrc}/plugins/treesitter.lua";
+    ".config/nvim/lua/nvim-treesitter/configs.lua".source = "${nvimSrc}/nvim-treesitter/configs.lua";
     #Add in our conform config
     ".config/nvim/lua/plugins/conform.lua".source = "${nvimSrc}/plugins/conform.lua";
     # This is our main option file. This is also now aliased to "edit nvim"
@@ -80,6 +85,7 @@ in {
   # Group all nvchad configurations into a single block to avoid repeating the `programs` key.
   programs.nvchad = {
     enable = true;
+    extraPlugins = builtins.readFile treesitterPlugins;
     extraConfig = ''
 
       require "options2"
