@@ -263,8 +263,8 @@ in {
     authorizedKeys = masterKeys; # Fleet CAN access this VM
     proxmox = {
       vmid = 111;
-      cores = 4;
-      memory = 8192;
+      cores = 14;
+      memory = 18192;
       disk = "64G";
       # Use defaults to match template 9003:
       # - bios = "seabios" (not ovmf)
