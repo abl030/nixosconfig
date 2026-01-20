@@ -1,13 +1,10 @@
 # ./home/bash/bash.nix
-{
-  lib,
-  config,
-  ...
-}: {
+{config, ...}: {
   imports = [
     ../utils/starship.nix
     ../utils/atuin.nix
     ../../modules/home-manager/shell/scripts.nix
+    ../../modules/home-manager/shell/core.nix
   ];
 
   programs = {
@@ -22,9 +19,6 @@
       historyControl = ["ignoredups" "erasedups"];
       historySize = 10000;
       historyFileSize = 10000;
-
-      # --- Aliases ---
-      shellAliases = (import ../../modules/home-manager/shell/aliases.nix {inherit lib config;}).sh;
 
       # --- Custom Scripts and Initialization ---
       initExtra = ''
