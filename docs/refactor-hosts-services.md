@@ -107,9 +107,9 @@ imports = [
 - [x] Delete `hosts/services/virtualisation/`
 
 ### Phase 5: Display (mostly unused)
-- [ ] `sunshine.nix` - SKIP (duplicate already in modules)
-- [ ] `gnome-remote-desktop.nix` - delete as unused
-- [ ] Delete `hosts/services/display/`
+- [x] `sunshine.nix` - SKIP (duplicate already in modules)
+- [x] `gnome-remote-desktop.nix` - delete as unused
+- [x] Delete `hosts/services/display/`
 
 ### Phase 6: Cleanup
 - [ ] Delete empty `hosts/services/` directory
@@ -140,7 +140,7 @@ If **DRIFT** is detected:
 | 2026-01-19 | Phase 2 | COMPLETE | Intel GPU module moved; drift stable |
 | 2026-01-19 | Phase 3 | COMPLETE | RDP inhibitor module moved; system services removed |
 | 2026-01-19 | Phase 4 | COMPLETE | Removed unused virtualisation services |
-| | Phase 5 | NOT STARTED | |
+| 2026-01-19 | Phase 5 | COMPLETE | Removed unused display services |
 | | Phase 6 | NOT STARTED | |
 
 ## Detailed Progress
