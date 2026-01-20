@@ -93,12 +93,12 @@ imports = [
 - [x] Delete `hosts/services/nvidia/`
 
 ### Phase 3: System Services (2 hosts affected)
-- [ ] Create `modules/nixos/services/rdp-inhibitor.nix` (homelab.rdpInhibitor)
-- [ ] Register in `modules/nixos/services/default.nix`
-- [ ] Update epi to use `homelab.rdpInhibitor.enable = true`
-- [ ] Update framework to use `homelab.rdpInhibitor.enable = true`
+- [x] Create `modules/nixos/services/rdp-inhibitor.nix` (homelab.rdpInhibitor)
+- [x] Register in `modules/nixos/services/default.nix`
+- [x] Update epi to use `homelab.rdpInhibitor.enable = true`
+- [x] Update framework to use `homelab.rdpInhibitor.enable = true`
 - [ ] Run drift detection - should show MATCH
-- [ ] Delete `hosts/services/system/`
+- [x] Delete `hosts/services/system/`
 
 ### Phase 4: Virtualisation (unused - can delete or migrate)
 - [ ] Decide: migrate to modules or delete as unused?
@@ -138,7 +138,7 @@ If **DRIFT** is detected:
 | 2026-01-19 | Analysis | COMPLETE | Identified 13 files, 4 hosts affected |
 | 2026-01-19 | Phase 1 | COMPLETE | Mounts moved into modules; drift stable |
 | 2026-01-19 | Phase 2 | COMPLETE | Intel GPU module moved; drift stable |
-| | Phase 3 | NOT STARTED | |
+| 2026-01-19 | Phase 3 | COMPLETE | RDP inhibitor module moved; system services removed |
 | | Phase 4 | NOT STARTED | |
 | | Phase 5 | NOT STARTED | |
 | | Phase 6 | NOT STARTED | |
