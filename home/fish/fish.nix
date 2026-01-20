@@ -17,7 +17,6 @@ in {
       enable = true;
 
       shellInit = ''
-        set -gx STARSHIP_CONFIG "${config.home.homeDirectory}/.config/starship-fish.toml"
         set -gx _RELOAD_FLAKE_PATH "${flakeBase}#"
       '';
 

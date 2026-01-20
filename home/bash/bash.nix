@@ -28,8 +28,6 @@
 
       # --- Custom Scripts and Initialization ---
       initExtra = ''
-        # Use the green Starship theme for bash
-        export STARSHIP_CONFIG="${config.home.homeDirectory}/.config/starship-bash.toml"
         export _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
       '';
     };
