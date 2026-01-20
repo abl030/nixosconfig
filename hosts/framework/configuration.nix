@@ -7,11 +7,8 @@
   imports = [
     ./hardware-configuration.nix
     ../common/desktop.nix
+    ../../modules/nixos/services/framework
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
-    ../framework/sleep-then-hibernate.nix
-    ../framework/hibernate_fix.nix
-
-    # ./fingerprint-fix.nix
   ];
 
   homelab = {
@@ -40,6 +37,10 @@
       # Smart Update Gates
       checkWifi = ["theblackduck"];
       checkAcPower = true;
+    };
+    framework = {
+      sleepThenHibernate.enable = true;
+      hibernateFix.enable = true;
     };
   };
 
