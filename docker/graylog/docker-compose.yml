@@ -4,7 +4,9 @@
 services:
   # MongoDB: https://hub.docker.com/_/mongo/
   mongodb:
-    image: "mongo:6.0"
+    image: docker.io/library/mongo:6.0
+    labels:
+      - io.containers.autoupdate=registry
     restart: "on-failure"
     networks:
       - graylog
@@ -16,7 +18,9 @@ services:
   # Please take a look at the README at the top of this repo or the regular docs for more info.
   # Graylog Data Node: https://hub.docker.com/r/graylog/graylog-datanode
   datanode:
-    image: "${DATANODE_IMAGE:-graylog/graylog-datanode:6.1}"
+    image: ${DATANODE_IMAGE:-docker.io/graylog/graylog-datanode:6.1}
+    labels:
+      - io.containers.autoupdate=registry
     hostname: "datanode"
     environment:
       GRAYLOG_DATANODE_NODE_ID_FILE: "/var/lib/graylog-datanode/node-id"
@@ -43,7 +47,9 @@ services:
   # Graylog: https://hub.docker.com/r/graylog/graylog-enterprise
   graylog:
     hostname: "server"
-    image: "${GRAYLOG_IMAGE:-graylog/graylog:6.1}"
+    image: ${GRAYLOG_IMAGE:-docker.io/graylog/graylog:6.1}
+    labels:
+      - io.containers.autoupdate=registry
     depends_on:
       mongodb:
         condition: "service_started"

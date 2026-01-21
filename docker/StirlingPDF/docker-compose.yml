@@ -2,14 +2,16 @@ version: "3.3"
 services:
   stirling-pdf:
     image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
+    labels:
+      - io.containers.autoupdate=registry
     ports:
       - "8083:8080"
     volumes:
-      - /mnt/docker/StirlingPDF/trainingData:/usr/share/tessdata # Required for extra OCR languages
-      - /mnt/docker/StirlingPDF/extraConfigs:/configs
-      - /mnt/docker/StirlingPDF/customFiles:/customFiles/
-      - /mnt/docker/StirlingPDF/logs:/logs/
-      - /mnt/docker/StirlingPDF/pipeline:/pipeline/
+      - ${DATA_ROOT}/StirlingPDF/trainingData:/usr/share/tessdata # Required for extra OCR languages
+      - ${DATA_ROOT}/StirlingPDF/extraConfigs:/configs
+      - ${DATA_ROOT}/StirlingPDF/customFiles:/customFiles/
+      - ${DATA_ROOT}/StirlingPDF/logs:/logs/
+      - ${DATA_ROOT}/StirlingPDF/pipeline:/pipeline/
     environment:
       - DOCKER_ENABLE_SECURITY=false
       - LANGS=en_GB

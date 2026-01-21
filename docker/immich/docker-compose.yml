@@ -3,6 +3,8 @@ name: immich
 services:
   immich-network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: immich_network_holder
     ports:
       - 2283:2283
@@ -10,6 +12,8 @@ services:
 
   immich-server:
     container_name: immich-server
+    labels:
+      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     network_mode: "service:immich-network-holder"
     volumes:
@@ -32,13 +36,15 @@ services:
 
   immich-tailscale-sidecar:
     container_name: immich_tailscale_sidecar
-    image: tailscale/tailscale:stable
+    labels:
+      - io.containers.autoupdate=registry
+    image: docker.io/tailscale/tailscale:stable
     network_mode: "service:immich-network-holder"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
     volumes:
-      - /mnt/docker/tailscale/immich/:/var/lib/tailscale
+      - ${DATA_ROOT}/tailscale/immich/:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
       # Use the variable from Nix
       - ${TAILSCALE_JSON}:/config/immich-serve.json:ro
@@ -48,9 +54,13 @@ services:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/immich-serve.json
       - TS_ACCEPT_DNS=false
+      - TS_HEALTHCHECK_ONLINE=${TS_HEALTHCHECK_ONLINE:-1}
     restart: always
     healthcheck:
-      test: tailscale status --peers=false --json | grep -q 'Online.*true'
+      test: >-
+        /bin/sh -c 'if [ "${TS_HEALTHCHECK_ONLINE:-1}" = "1" ];
+        then tailscale status --peers=false --json | grep -q "Online.*true";
+        else exit 0; fi'
     depends_on:
       immich-network-holder:
         condition: service_started
@@ -65,11 +75,11 @@ services:
     volumes:
       # Use the variable from Nix
       - ${CADDY_FILE}:/etc/caddy/Caddyfile
-      - /mnt/docker/tailscale/immich/caddy_data:/data
-      - /mnt/docker/tailscale/immich/caddy_config:/config
+      - ${DATA_ROOT}/tailscale/immich/caddy_data:/data
+      - ${DATA_ROOT}/tailscale/immich/caddy_config:/config
     restart: always
     labels:
-      - "com.centurylinklabs.watchtower.enable=false"
+      - io.containers.autoupdate=registry
     depends_on:
       immich-network-holder:
         condition: service_started
@@ -78,12 +88,11 @@ services:
 
   immich-machine-learning:
     container_name: immich_machine_learning
+    labels:
+      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
-    device_cgroup_rules:
-      - "c 189:* rmw"
     volumes:
-      - /mnt/docker/AI/immich:/cache
-      - /dev/bus/usb:/dev/bus/usb
+      - ${DATA_ROOT}/AI/immich:/cache
     # env_file: .env <-- REMOVED
     restart: always
     healthcheck:
@@ -91,6 +100,8 @@ services:
 
   redis:
     container_name: immich_redis
+    labels:
+      - io.containers.autoupdate=registry
     image: docker.io/redis:6.2-alpine@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5
     healthcheck:
       test: redis-cli ping || exit 1
@@ -100,6 +111,8 @@ services:
 
   database:
     container_name: immich_postgres
+    labels:
+      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -109,6 +122,11 @@ services:
     volumes:
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   model-cache:

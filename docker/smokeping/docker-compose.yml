@@ -2,6 +2,8 @@
 services:
   smokeping:
     image: lscr.io/linuxserver/smokeping:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: smokeping
     restart: unless-stopped
     environment:
@@ -9,7 +11,7 @@ services:
       - PGID=1000
       - TZ=Australia/Perth
     volumes:
-      - /mnt/docker/smokeping/config:/config
-      - /mnt/docker/smokeping/data:/data
+      - ${DATA_ROOT}/smokeping/config:/config
+      - ${DATA_ROOT}/smokeping/data:/data
     ports:
       - 8084:80

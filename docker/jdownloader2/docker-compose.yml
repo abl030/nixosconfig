@@ -1,7 +1,9 @@
 version: "3.8"
 services:
   jdownloader-2:
-    image: jlesage/jdownloader-2:latest
+    image: docker.io/jlesage/jdownloader-2:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jdownloader-2
     restart: unless-stopped
     ports:
@@ -9,10 +11,10 @@ services:
       - "5800:5800"
     volumes:
       # Persists configuration data
-      - "/mnt/docker/jdownloader2:/config"
+      - "${DATA_ROOT}/jdownloader2:/config"
       # Maps the host download location to the container's output directory
-      - "/mnt/data/Media/Temp:/output"
-      - "/mnt/data/Media/Books/Unsorted/Books/:/books"
+      - "${MEDIA_ROOT:-/mnt/data}/Media/Temp:/output"
+      - "${MEDIA_ROOT:-/mnt/data}/Media/Books/Unsorted/Books/:/books"
     environment:
       # Sets the timezone for the container
       - TZ=Australia/Perth

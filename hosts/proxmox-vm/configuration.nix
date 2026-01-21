@@ -50,6 +50,11 @@
       rebootOnKernelUpdate = true;
     };
 
+    containers = {
+      enable = true;
+      autoUpdate.enable = true;
+    };
+
     cache = {
       enable = true;
       mirrorHost = "nix-mirror.ablz.au";
@@ -82,13 +87,13 @@
 
   # Workloads
   virtualisation.docker = {
-    enable = true;
+    enable = false;
     liveRestore = false;
   };
 
   # ADD ONLY HOST SPECIFIC GROUPS
   users.users.abl030 = {
-    extraGroups = ["libvirtd" "vboxusers" "docker"];
+    extraGroups = ["libvirtd" "vboxusers"];
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [

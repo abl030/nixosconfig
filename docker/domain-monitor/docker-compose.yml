@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${DOMAIN_MONITOR_SRC}:/usr/src/domain-monitor:ro
-      - /mnt/docker/domain-monitor/www:/var/www/html
+      - ${DATA_ROOT}/domain-monitor/www:/var/www/html
     environment:
       # --- CodeIgniter / App Config ---
       # Keep development mode until setup is complete
@@ -29,7 +29,7 @@ services:
       - "8089:80"
 
   db:
-    image: mariadb:10.11
+    image: docker.io/library/mariadb:10.11
     container_name: domain-monitor-db
     restart: unless-stopped
     environment:
@@ -38,4 +38,4 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - /mnt/docker/domain-monitor/db:/var/lib/mysql
+      - ${DATA_ROOT}/domain-monitor/db:/var/lib/mysql

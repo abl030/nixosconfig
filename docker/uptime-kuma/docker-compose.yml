@@ -2,13 +2,15 @@ version: "3.8"
 
 services:
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: docker.io/louislam/uptime-kuma:1
+    labels:
+      - io.containers.autoupdate=registry
     container_name: uptime-kuma
     restart: unless-stopped
     volumes:
-      - /mnt/docker/uptime-kuma:/app/data
+      - ${DATA_ROOT}/uptime-kuma:/app/data
       - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
     ports:
       - "3002:3001"
     healthcheck:
@@ -20,6 +22,8 @@ services:
 
   autokuma:
     image: ghcr.io/bigboot/autokuma:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: autokuma
     restart: unless-stopped
     environment:
@@ -29,7 +33,7 @@ services:
       # FIXED: Changed '=' to ':' for YAML parsing compliance
       - "AUTOKUMA__DEFAULT_SETTINGS=docker.docker_container: {{container_name}}"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
     depends_on:
       uptime-kuma:
         condition: service_healthy

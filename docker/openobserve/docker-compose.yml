@@ -4,6 +4,8 @@ services:
   openobserve:
     # Using the SIMD image for AVX512/NEON performance benefits, as you requested.
     image: public.ecr.aws/zinclabs/openobserve:latest-simd
+    labels:
+      - io.containers.autoupdate=registry
     container_name: openobserve
     restart: unless-stopped
     ports:
@@ -11,7 +13,7 @@ services:
       - "5080:5080"
     volumes:
       # Persists OpenObserve data in a Docker-managed volume
-      - /mnt/docker/openobserve/data:/data
+      - ${DATA_ROOT}/openobserve/data:/data
     environment:
       # Tells OpenObserve where to store data inside the container
       - ZO_DATA_DIR=/data

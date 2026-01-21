@@ -3,6 +3,8 @@ version: "3.7"
 services:
   network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: caddy_network_holder
     hostname: caddy
     restart: unless-stopped
@@ -10,27 +12,35 @@ services:
       - "host.docker.internal:host-gateway"
 
   tailscale:
-    image: tailscale/tailscale:latest
+    image: docker.io/tailscale/tailscale:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: ts-caddy
     network_mode: service:network-holder
     environment:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_HOSTNAME=caddy
+      - TS_HEALTHCHECK_ONLINE=${TS_HEALTHCHECK_ONLINE:-1}
     volumes:
-      - /mnt/docker/tailscale/ts-state:/var/lib/tailscale
+      - ${DATA_ROOT}/tailscale/ts-state:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - net_admin
       - sys_module
     restart: unless-stopped
     healthcheck:
-      test: tailscale status --peers=false --json | grep -q 'Online.*true'
+      test: >-
+        /bin/sh -c 'if [ "${TS_HEALTHCHECK_ONLINE:-1}" = "1" ];
+        then tailscale status --peers=false --json | grep -q "Online.*true";
+        else exit 0; fi'
       start_period: 60s
     depends_on:
       - network-holder
 
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: caddy-reverse-proxy
     network_mode: service:network-holder
     environment:
@@ -40,8 +50,8 @@ services:
       # Use the path provided by Nix via the environment variable
       - ${CADDY_FILE}:/etc/caddy/Caddyfile
       # ──────────────────────
-      - /mnt/docker/tailscale/caddy_data:/data
-      - /mnt/docker/tailscale/caddy_config:/config
+      - ${DATA_ROOT}/tailscale/caddy_data:/data
+      - ${DATA_ROOT}/tailscale/caddy_config:/config
     restart: always
     depends_on:
       tailscale:

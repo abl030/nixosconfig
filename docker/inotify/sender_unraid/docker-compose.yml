@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   inotify-sender:
-    image: devodev/inotify:0.3.0
+    image: docker.io/devodev/inotify:0.3.0
     container_name: inotify-sender
     restart: unless-stopped
 
@@ -21,14 +21,14 @@ services:
 
     volumes:
       # map your Unraid paths read-only
-      - /mnt/user/data/Media/Movies:/watch/movies:ro
-      - "/mnt/user/data/Media/TV Shows:/watch/tv:ro"
-      - /mnt/user/data/Media/Music:/watch/music:ro
+      - ${UNRAID_ROOT:-/mnt/user}/data/Media/Movies:/watch/movies:ro
+      - "${UNRAID_ROOT:-/mnt/user}/data/Media/TV Shows:/watch/tv:ro"
+      - ${UNRAID_ROOT:-/mnt/user}/data/Media/Music:/watch/music:ro
       # mount the script
-      - /mnt/user/appdata/inotify-bridge/sender.sh:/sender.sh:ro
+      - ${UNRAID_ROOT:-/mnt/user}/appdata/inotify-bridge/sender.sh:/sender.sh:ro
       # Map timezone from host
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      - ${TIMEZONE_FILE:-/etc/timezone}:/etc/timezone:ro
 
     security_opt:
       - no-new-privileges:true
@@ -39,6 +39,7 @@ services:
 
     # Let autoheal watch this service
     labels:
+      - io.containers.autoupdate=registry
       - autoheal=true
 
     # Healthcheck: OK when inotifywait is running and the flusher heartbeat updated recently.
@@ -57,7 +58,9 @@ services:
 
   # Autoheal sidecar: restarts any container with label autoheal=true when unhealthy
   autoheal:
-    image: willfarrell/autoheal:latest
+    image: docker.io/willfarrell/autoheal:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: autoheal
     restart: unless-stopped
     environment:
@@ -66,10 +69,10 @@ services:
       - AUTOHEAL_INTERVAL=30
       - AUTOHEAL_START_PERIOD=120
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock:ro
       # Map timezone from host
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      - ${TIMEZONE_FILE:-/etc/timezone}:/etc/timezone:ro
     security_opt:
       - no-new-privileges:true
     read_only: true

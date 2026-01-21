@@ -1,26 +1,26 @@
-{config, ...}: {
-  systemd.services.audiobookshelf-stack = {
-    description = "Audiobookshelf Docker Compose Stack";
-    restartIfChanged = true;
-    reloadIfChanged = false;
-    requires = ["docker.service" "network-online.target" "mnt-data.mount"];
-    after = ["docker.service" "network-online.target" "mnt-data.mount"];
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  stackName = "audiobookshelf-stack";
 
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      Environment = "COMPOSE_PROJECT_NAME=audiobookshelf";
-
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} down";
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-
-      Restart = "on-failure";
-      RestartSec = "30s";
-      StandardOutput = "journal";
-      StandardError = "journal";
-    };
-
-    wantedBy = ["multi-user.target"];
+  composeFile = builtins.path {
+    path = ./docker-compose.yml;
+    name = "audiobookshelf-docker-compose.yml";
   };
-}
+
+  podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
+
+  dependsOn = ["network-online.target" "mnt-data.mount"];
+in
+  podman.mkService {
+    inherit stackName;
+    description = "Audiobookshelf Podman Compose Stack";
+    projectName = "audiobookshelf";
+    inherit composeFile;
+    requiresMounts = ["/mnt/data"];
+    wants = dependsOn;
+    after = dependsOn;
+  }

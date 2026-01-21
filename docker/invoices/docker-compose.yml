@@ -4,6 +4,8 @@ services:
   # 1️⃣ Network namespace anchor (shared with tailscale & caddy)
   network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: invoices_network_holder
     hostname: invoices
     restart: unless-stopped
@@ -12,14 +14,16 @@ services:
 
   # 2️⃣ Tailscale sidecar (shares netns with network-holder)
   tailscale:
-    image: tailscale/tailscale:latest
+    image: docker.io/tailscale/tailscale:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: ts-invoices
     network_mode: service:network-holder
     environment:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_HOSTNAME=invoices
     volumes:
-      - /mnt/docker/invoices/ts-state:/var/lib/tailscale
+      - ${DATA_ROOT}/invoices/ts-state:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - net_admin
@@ -31,6 +35,8 @@ services:
   # 3️⃣ Caddy (shares netns; serves Docspell/Firefly/FIDI via *.ablz.au)
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: caddy-invoices
     network_mode: service:network-holder
     environment:
@@ -39,8 +45,8 @@ services:
       # ─── UPDATED ───
       - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
       # ───────────────
-      - /mnt/docker/invoices/caddy_data:/data
-      - /mnt/docker/invoices/caddy_config:/config
+      - ${DATA_ROOT}/invoices/caddy_data:/data
+      - ${DATA_ROOT}/invoices/caddy_config:/config
     restart: unless-stopped
     depends_on:
       tailscale:
@@ -61,6 +67,8 @@ services:
   # 4️⃣ Docspell REST server (UI/API)
   docspell-restserver:
     image: ghcr.io/docspell/restserver:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: docspell-restserver
     container_name: docspell-restserver
     restart: unless-stopped
@@ -90,6 +98,8 @@ services:
   # 5️⃣ Docspell worker
   docspell-joex:
     image: ghcr.io/docspell/joex:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: docspell-joex
     container_name: docspell-joex
     restart: unless-stopped
@@ -114,7 +124,9 @@ services:
 
   # 6️⃣ Drop files here to auto-ingest
   docspell-consumedir:
-    image: docspell/dsc:latest
+    image: docker.io/docspell/dsc:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: docspell-consumedir
     command:
       - dsc
@@ -130,14 +142,16 @@ services:
       - "/opt/docs"
     restart: unless-stopped
     volumes:
-      - /mnt/docker/invoices/docspell/inbox:/opt/docs
+      - ${DATA_ROOT}/invoices/docspell/inbox:/opt/docs
     depends_on:
       docspell-restserver:
         condition: service_started
 
   # 7️⃣ Docspell Postgres (persistent)
   db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    labels:
+      - io.containers.autoupdate=registry
     container_name: postgres_db
     restart: unless-stopped
     environment:
@@ -145,15 +159,17 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - /mnt/docker/invoices/postgres/data:/var/lib/postgresql/data
+      - ${DATA_ROOT}/invoices/postgres/data:/var/lib/postgresql/data
 
   # 8️⃣ Docspell Solr
   docspell-solr:
-    image: solr:9
+    image: docker.io/library/solr:9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: docspell-solr
     restart: unless-stopped
     volumes:
-      - /mnt/docker/invoices/solr/data:/var/solr
+      - ${DATA_ROOT}/invoices/solr/data:/var/solr:U
     command:
       - bash
       - -c
@@ -165,7 +181,9 @@ services:
 
   # 9️⃣ Firefly app
   ff-app:
-    image: fireflyiii/core:latest
+    image: docker.io/fireflyiii/core:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: ff-app
     container_name: firefly_iii_core
     restart: unless-stopped
@@ -204,7 +222,7 @@ services:
       REDIS_DB: "0"
       REDIS_CACHE_DB: "1"
     volumes:
-      - /mnt/docker/invoices/firefly/app_uploads:/var/www/html/storage/upload
+      - ${DATA_ROOT}/invoices/firefly/app_uploads:/var/www/html/storage/upload
       - /run/current-system/sw/lib/locale/locale-archive:/usr/lib/locale/locale-archive:ro
     depends_on:
       ff-db:
@@ -214,7 +232,9 @@ services:
 
   # 🔟 Firefly Postgres (separate per-app DB container)
   ff-db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
+    labels:
+      - io.containers.autoupdate=registry
     container_name: firefly_iii_db
     restart: unless-stopped
     environment:
@@ -222,11 +242,13 @@ services:
       POSTGRES_USER: ${FF_DB_USER}
       POSTGRES_PASSWORD: ${FF_DB_PASS}
     volumes:
-      - /mnt/docker/invoices/firefly/postgres/data:/var/lib/postgresql/data
+      - ${DATA_ROOT}/invoices/firefly/postgres/data:/var/lib/postgresql/data
 
   # 1️⃣1️⃣ Redis (optional)
   ff-redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
+    labels:
+      - io.containers.autoupdate=registry
     container_name: firefly_iii_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "no"]
@@ -235,7 +257,9 @@ services:
 
   # 1️⃣2️⃣ Firefly Data Importer (PAT mode; no host ports)
   ff-importer:
-    image: fireflyiii/data-importer:latest
+    image: docker.io/fireflyiii/data-importer:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: ff-importer
     container_name: firefly_iii_importer
     restart: unless-stopped
@@ -255,8 +279,12 @@ services:
         condition: service_started
 
   # 1️⃣3️⃣ Firefly cron (kept, default schedule 03:00; safe to keep running)
+    labels:
+      - io.containers.autoupdate=registry
   ff-cron:
-    image: alpine
+    image: docker.io/library/alpine:3.20
+    labels:
+      - io.containers.autoupdate=registry
     container_name: firefly_iii_cron
     restart: unless-stopped
     environment:

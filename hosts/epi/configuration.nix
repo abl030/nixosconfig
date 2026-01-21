@@ -49,6 +49,10 @@
       collectGarbage = false;
       trim = true;
     };
+    containers = {
+      enable = true;
+      autoUpdate.enable = true;
+    };
   };
 
   boot = {
@@ -118,14 +122,14 @@
     '';
   };
 
-  virtualisation.docker.enable = true;
+  virtualisation.docker.enable = false;
   virtualisation.docker.liveRestore = false;
 
   systemd.services."gnome-remote-desktop".wantedBy = ["graphical.target"];
   security.rtkit.enable = true;
 
   users.users.abl030 = {
-    extraGroups = ["libvirtd" "vboxusers" "docker"];
+    extraGroups = ["libvirtd" "vboxusers"];
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [

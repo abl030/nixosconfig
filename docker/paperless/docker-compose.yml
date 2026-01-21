@@ -2,6 +2,8 @@
 services:
   broker:
     image: docker.io/library/redis:7
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     # Use RAM instead of Disk for the message broker
     tmpfs:
@@ -11,9 +13,11 @@ services:
 
   db:
     image: docker.io/library/postgres:16
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
-      - /mnt/docker/paperless/pgdata:/var/lib/postgresql/data
+      - ${DATA_ROOT}/paperless/pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: paperless
@@ -21,6 +25,8 @@ services:
 
   webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     depends_on:
       - db
@@ -30,14 +36,14 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /mnt/docker/paperless/data:/usr/src/paperless/data
-      # Mount originating from /mnt/data on host -> /usr/src/paperless/media in container
-      - "/mnt/data/Life/Meg and Andy/Paperless/Documents:/usr/src/paperless/media"
-      - /mnt/paperless/export:/usr/src/paperless/export
-      # Mount originating from /mnt/data on host -> /usr/src/paperless/consume in container
-      - "/mnt/data/Life/Meg and Andy/Paperless/Import:/usr/src/paperless/consume"
-      # Mount originating from /mnt/data on host -> /usr/src/paperless/consume/scans in container
-      - "/mnt/data/Life/Meg and Andy/Scans:/usr/src/paperless/consume/scans"
+      - ${DATA_ROOT}/paperless/data:/usr/src/paperless/data
+      # Mount originating from ${MEDIA_ROOT:-/mnt/data} on host -> /usr/src/paperless/media in container
+      - "${MEDIA_ROOT:-/mnt/data}/Life/Meg and Andy/Paperless/Documents:/usr/src/paperless/media"
+      - ${PAPERLESS_ROOT:-/mnt/paperless}/export:/usr/src/paperless/export
+      # Mount originating from ${MEDIA_ROOT:-/mnt/data} on host -> /usr/src/paperless/consume in container
+      - "${MEDIA_ROOT:-/mnt/data}/Life/Meg and Andy/Paperless/Import:/usr/src/paperless/consume"
+      # Mount originating from ${MEDIA_ROOT:-/mnt/data} on host -> /usr/src/paperless/consume/scans in container
+      - "${MEDIA_ROOT:-/mnt/data}/Life/Meg and Andy/Scans:/usr/src/paperless/consume/scans"
     # env_file: .env  <-- REMOVED (Handled by Nix/SOPS)
     environment:
       PAPERLESS_REDIS: redis://broker:6379
@@ -61,7 +67,7 @@ services:
       USERMAP_GID:
 
     healthcheck:
-      # Test the container paths that correspond to host /mnt/data mounts
+      # Test the container paths that correspond to host ${MEDIA_ROOT:-/mnt/data} mounts
       # Combine checks: If any fail (or timeout), the whole check fails (exit 1).
       test:
         [
@@ -75,6 +81,8 @@ services:
 
   gotenberg:
     image: docker.io/gotenberg/gotenberg:8.7
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     command:
       - "gotenberg"
@@ -83,10 +91,14 @@ services:
 
   tika:
     image: docker.io/apache/tika:latest
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
 
   paperless-gpt:
-    image: icereed/paperless-gpt:latest
+    image: docker.io/icereed/paperless-gpt:latest
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     # env_file: .env <-- REMOVED (Handled by Nix/SOPS)
     environment:
@@ -122,7 +134,7 @@ services:
       LOG_LEVEL: "info"
 
     volumes:
-      - /mnt/docker/paperlessgpt/prompts:/app/prompts
+      - ${DATA_ROOT}/paperlessgpt/prompts:/app/prompts
     ports:
       - "8081:8080"
     depends_on:

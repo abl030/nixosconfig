@@ -7,6 +7,8 @@ services:
   # ---------------------------------------------------------------
   plex-network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: plex_network_holder
     ports:
       # Required for the main web UI, clients, and API
@@ -29,6 +31,8 @@ services:
   # ---------------------------------------------------------------
   plex:
     image: lscr.io/linuxserver/plex:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: plex
     # Use the network stack of the holder container
     network_mode: "service:plex-network-holder"
@@ -45,11 +49,11 @@ services:
       # The token is only valid for a few minutes.
     volumes:
       # Create a new directory for Plex's configuration
-      - /mnt/docker/plex:/config
+      - ${DATA_ROOT}/plex:/config
       # Reuse your existing media paths
-      - "/mnt/fuse/Media/TV_Shows:/tv"
-      - "/mnt/fuse/Media/Movies:/movies"
-      - "/mnt/fuse/Media/Music:/music"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/TV_Shows:/tv"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Movies:/movies"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Music:/music"
     devices:
       # Pass through the GPU for hardware transcoding, same as Jellyfin
       - /dev/dri:/dev/dri

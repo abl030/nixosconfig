@@ -2,7 +2,9 @@ version: "3.8"
 
 services:
   youtarr:
-    image: dialmaster/youtarr:latest
+    image: docker.io/dialmaster/youtarr:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: youtarr
     restart: unless-stopped
     ports:
@@ -25,16 +27,18 @@ services:
 
     volumes:
       # Video Storage (Host Path -> Container Path)
-      - /mnt/data/Media/YouTube:/usr/src/app/data
+      - ${MEDIA_ROOT:-/mnt/data}/Media/YouTube:/usr/src/app/data
       # App Data
-      - /mnt/docker/youtarr/config:/app/config
-      - /mnt/docker/youtarr/images:/app/server/images
-      - /mnt/docker/youtarr/jobs:/app/jobs
+      - ${DATA_ROOT}/youtarr/config:/app/config
+      - ${DATA_ROOT}/youtarr/images:/app/server/images
+      - ${DATA_ROOT}/youtarr/jobs:/app/jobs
     depends_on:
       - youtarr-db
 
   youtarr-db:
-    image: mariadb:10.3
+    image: docker.io/library/mariadb:10.3
+    labels:
+      - io.containers.autoupdate=registry
     container_name: youtarr-db
     restart: unless-stopped
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
@@ -44,4 +48,4 @@ services:
       - MYSQL_PASSWORD=youtarr
       - MYSQL_ROOT_PASSWORD=youtarr
     volumes:
-      - /mnt/docker/youtarr/database:/var/lib/mysql
+      - ${DATA_ROOT}/youtarr/database:/var/lib/mysql

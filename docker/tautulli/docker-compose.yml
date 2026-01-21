@@ -2,10 +2,12 @@ version: "3"
 services:
   tautulli:
     image: ghcr.io/tautulli/tautulli
+    labels:
+      - io.containers.autoupdate=registry
     container_name: tautulli
     restart: unless-stopped
     volumes:
-      - /mnt/docker/tautulli/:/config
+      - ${DATA_ROOT}/tautulli/:/config
     environment:
       - TZ=Australia/Perth
     ports:
