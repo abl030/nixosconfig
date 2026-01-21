@@ -222,6 +222,22 @@
         "type": "github"
       }
     },
+    "jolt-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1768340938,
+        "narHash": "sha256-2/PrV5XXQX1LfnAk/AajOzFOy7TCp5uFmJ0uGbwkN3Y=",
+        "owner": "jordond",
+        "repo": "jolt",
+        "rev": "4a6b62223338961bf6d1e653c5205d65a8e720cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jordond",
+        "repo": "jolt",
+        "type": "github"
+      }
+    },
     "nixlib": {
       "locked": {
         "lastModified": 1736643958,
@@ -464,6 +480,7 @@
         "home-manager": "home-manager",
         "home-manager-diff": "home-manager-diff",
         "isd": "isd",
+        "jolt-src": "jolt-src",
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",

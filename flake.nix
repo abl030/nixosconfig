@@ -103,6 +103,11 @@
       url = "github:yt-dlp/yt-dlp";
       flake = false;
     };
+
+    jolt-src = {
+      url = "github:jordond/jolt";
+      flake = false;
+    };
   };
 
   outputs = inputs @ {

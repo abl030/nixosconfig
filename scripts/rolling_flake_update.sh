@@ -53,6 +53,14 @@ if git diff --quiet -- flake.lock; then
     exit 0
 fi
 
+# 3b. Update jolt overlay hash if needed
+if [ -x "./scripts/update-jolt.sh" ]; then
+    log "⚡ Updating jolt (master) and verifying cargo hash..."
+    ./scripts/update-jolt.sh
+else
+    log "⚠️  jolt update script not found, skipping."
+fi
+
 # 4. Verify Builds (No linting, no flake check, just builds)
 log "🚧 Lockfile changed. Verifying builds..."
 
@@ -78,6 +86,7 @@ fi
 # 6. Commit and Push
 DATE=$(date +%F)
 git add flake.lock
+git add nix/overlay.nix 2>/dev/null || true
 git add hashes/ 2>/dev/null || true  # Add hashes if they exist
 git commit -m "chore: update flake.lock ($DATE)"
 

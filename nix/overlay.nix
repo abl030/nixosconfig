@@ -46,4 +46,39 @@
       });
     }
   )
+
+  # jolt overlay: build from flake input with Linux-only features
+  (_final: prev: let
+    rev = inputs.jolt-src.rev or null;
+    short =
+      if rev == null
+      then "unknown"
+      else builtins.substring 0 7 rev;
+  in {
+    jolt = prev.rustPlatform.buildRustPackage rec {
+      pname = "jolt";
+      version = "master-${short}";
+
+      src = inputs.jolt-src;
+
+      cargoLock = {
+        lockFile = "${src}/Cargo.lock";
+      };
+      cargoHash = "sha256-Ljg7pSaox29p8uCEnsZXZ665tFGfRWoSf5Zn6JfvgZQ=";
+
+      buildNoDefaultFeatures = true;
+      buildFeatures = ["linux"];
+      cargoBuildFlags = ["--package" "jolt-tui"];
+      cargoInstallFlags = ["--path" "cli"];
+
+      doCheck = false;
+
+      meta = with prev.lib; {
+        description = "Terminal-based battery and energy monitor for macOS and Linux";
+        homepage = "https://getjolt.sh";
+        license = licenses.mit;
+        mainProgram = "jolt";
+      };
+    };
+  })
 ]
