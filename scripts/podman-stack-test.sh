@@ -10,6 +10,9 @@ USAGE
 
 verbose=0
 timeout_s=""
+retries=3
+backoff_base=30
+prune_before=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,6 +20,16 @@ while [[ $# -gt 0 ]]; do
       timeout_s="${2:-}"
       [[ -z "$timeout_s" ]] && usage
       shift 2;;
+    --retries)
+      retries="${2:-}"
+      [[ -z "$retries" ]] && usage
+      shift 2;;
+    --backoff)
+      backoff_base="${2:-}"
+      [[ -z "$backoff_base" ]] && usage
+      shift 2;;
+    --no-prune)
+      prune_before=0; shift;;
     --verbose)
       verbose=1; shift;;
     --help|-h)
@@ -165,6 +178,10 @@ if [[ -n "$df_kb" && "$df_kb" -lt 1048576 ]]; then
   podman system prune -af >/dev/null 2>&1 || true
 fi
 
+if (( prune_before )); then
+  podman system prune -af >/dev/null 2>&1 || true
+fi
+
 cmd=(podman-compose -f "$compose_file_abs")
 if [[ -n "${ENV_FILE:-}" ]]; then
   cmd+=("--env-file" "$ENV_FILE")
@@ -175,7 +192,23 @@ podman_socket="${XDG_RUNTIME_DIR}/podman/podman.sock"
 if [[ -d "$podman_socket" ]]; then
   rmdir "$podman_socket" 2>/dev/null || true
 fi
-if [[ ! -S "$podman_socket" ]]; then
+
+socket_ok=0
+if [[ -S "$podman_socket" ]]; then
+  if python - <<'PY' >/dev/null 2>&1; then
+import socket
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.settimeout(1.0)
+sock.connect("/run/user/%d/podman/podman.sock" % __import__("os").getuid())
+sock.sendall(b"GET /_ping HTTP/1.1\r\nHost: localhost\r\n\r\n")
+sock.recv(16)
+sock.close()
+PY
+    socket_ok=1
+  fi
+fi
+
+if [[ ! -S "$podman_socket" || "$socket_ok" -ne 1 ]]; then
   mkdir -p "${XDG_RUNTIME_DIR}/podman"
   podman system service --time=0 "unix://$podman_socket" >/tmp/podman-service.log 2>&1 &
   podman_service_pid=$!
@@ -200,11 +233,27 @@ if (( verbose )); then
   echo "Running: DATA_ROOT=$data_root COMPOSE_PROJECT_NAME=$project_name ${cmd[*]} up -d --remove-orphans" >&2
 fi
 
-if [[ -n "$timeout_s" ]]; then
-  DATA_ROOT="$data_root" COMPOSE_PROJECT_NAME="$project_name" timeout "$timeout_s" "${cmd[@]}" up -d --remove-orphans
-else
-  DATA_ROOT="$data_root" COMPOSE_PROJECT_NAME="$project_name" "${cmd[@]}" up -d --remove-orphans
-fi
+attempt=1
+while true; do
+  set +e
+  if [[ -n "$timeout_s" ]]; then
+    DATA_ROOT="$data_root" COMPOSE_PROJECT_NAME="$project_name" timeout "$timeout_s" "${cmd[@]}" up -d --remove-orphans
+  else
+    DATA_ROOT="$data_root" COMPOSE_PROJECT_NAME="$project_name" "${cmd[@]}" up -d --remove-orphans
+  fi
+  up_status=$?
+  set -e
+  if [[ "$up_status" -eq 0 ]]; then
+    break
+  fi
+  if (( attempt >= retries )); then
+    exit "$up_status"
+  fi
+  sleep_time=$((backoff_base * attempt))
+  echo "Retrying in ${sleep_time}s (attempt ${attempt}/${retries})" >&2
+  sleep "$sleep_time"
+  attempt=$((attempt + 1))
+done
 
 sleep 5
 

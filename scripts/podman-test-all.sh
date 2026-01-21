@@ -8,6 +8,9 @@ export DATA_ROOT XDG_RUNTIME_DIR
 TIMEOUT_S="${TIMEOUT_S:-120}"
 VERBOSE="${VERBOSE:-0}"
 FORCE="${FORCE:-0}"
+RETRIES="${RETRIES:-3}"
+BACKOFF_S="${BACKOFF_S:-30}"
+PRUNE_BEFORE="${PRUNE_BEFORE:-1}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 report="${repo_root}/docs/podman-test-report.md"
@@ -50,6 +53,10 @@ for compose in "${files[@]}"; do
   if [[ "$VERBOSE" == "1" ]]; then
     extra+=("--verbose")
   fi
+  if [[ "$PRUNE_BEFORE" != "1" ]]; then
+    extra+=("--no-prune")
+  fi
+  extra+=("--retries" "$RETRIES" "--backoff" "$BACKOFF_S")
 
   if timeout "$TIMEOUT_S" "$repo_root/scripts/podman-stack-test.sh" "${extra[@]}" "$stack_dir" "$compose" >> "$report" 2>&1; then
     echo "PASS: $stack_name" | tee -a "$report"
