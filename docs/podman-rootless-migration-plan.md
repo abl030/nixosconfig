@@ -60,15 +60,32 @@
    - Dozzle visible and listing containers
 5. Capture issues and update compose files/modules as needed.
 
+## IGPU Clone Checklist (Reset State)
+1. Clone the `igpu` VM and verify it boots clean.
+2. Apply the podman rootless branch and rebuild.
+3. Ensure podman system service is active and socket responds:
+   - `systemctl status podman-system-service`
+   - `curl --unix-socket /run/user/1000/podman/podman.sock http://localhost/_ping`
+4. Confirm mounts and storage:
+   - `/mnt/docker` (future virtiofs target)
+   - `/mnt/data` (NFS from Unraid)
+   - `/mnt/fuse`, `/mnt/mum`, `/mnt/user`, `/mnt/paperless`, `/mnt/nicotine-plus` as applicable
+5. Validate secrets (sops identity, decrypted envs) before starting stacks.
+6. Start stacks one-by-one; after each, validate UI/health endpoints and logs.
+7. Verify auto-update labels are present and timer is active.
+8. Validate Dozzle UI/agent access to the rootless socket.
+9. Record any permissions issues on mounted volumes and adjust `:U` or ownership.
+
 ## Learnings / Gotchas
 - Rootless volumes sometimes need `:U` (e.g., Solr) so the container can write.
 - `podman-compose` dependency handling is strict; missing healthchecks can block startup.
 - Tailscale containers in sandbox require a bypass for healthchecks; prod must use real auth.
 - Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
-- Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure it is a socket, not a dir.
+- Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure the podman system service is running and the socket responds (agent stacks will fail otherwise).
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.
 - Docker Hub rate limits can block sandbox pulls; prod testing should authenticate or pre-pull.
 - Sandbox disk space can be tight for large images (e.g., Ollama); clean storage or use a larger test VM.
+- Always prune before stack testing in sandbox to avoid overlay storage bloat.
 
 ## Wishlist
 - Virtiofs-backed `/mnt/docker` from Proxmox host (separate storage from runtime).
