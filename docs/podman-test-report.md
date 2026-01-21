@@ -3175,3 +3175,4720 @@ PASS: docker/syncthing
 
 ----
 
+
+## Resume: 2026-01-21T20:53:06+08:00
+DATA_ROOT=/home/abl030/podman-data
+TIMEOUT_S=300
+
+Testing docker/atuin
+f9ef22c82c1dfb6da334e78270a414db4d75bd821533cd845286f01bb3f9ee03
+Trying to pull docker.io/library/postgres:14...
+Getting image source signatures
+Copying blob sha256:cc9539970f9818ec1b7a05e5840d1fc3d194cefeb83af45f71e7d941fc93c9ff
+Copying blob sha256:2c87f305876fcc26a940c2f2705e6a2973e3499c5a4120122656bbd63661f229
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:8f9dde75a6e822e4ce68717a995f00b7298966571e7a552497f4ff1aad5058dd
+Copying blob sha256:4f5751181c2c4af3820036c6bdc53970518d4dd4c2b6f920ad7e6bef8efe0d13
+Copying blob sha256:e8a872c5c0882feb96a38ef4edb46e8d5d200a5e816ae731c1eca1b255b9e587
+Copying blob sha256:b1f0c98ab30d39e654618183b53fce02bfe9e24deea164c4cef08a0a5f02cd98
+Copying blob sha256:159544b2289c0b0b5e17643150564c93d9c724cf9a6b332fd4cec28b5bd65e33
+Copying blob sha256:84f2607680e03e66844c6208013c85d4c520cd5ec4140689a6dd2bef5aab2f93
+Copying blob sha256:3f7a29feff76bde1cd8050d5c936d773a0751b809f5fa1d013c68043fbd617fe
+Copying blob sha256:4a07eaa27298b404db95257c4dba18c094b1beceb4e08e629c4baa687472aae2
+Copying blob sha256:46857b1ed88cd0faf4998edcb5f0ce1f591bed798363d4e0f6f04fb5bd20bd26
+Copying blob sha256:b4f09afb86642ac6b7322f13783a0fd9ba8958f34b54508acab8ea0382dcbb59
+Copying blob sha256:1a305a969f811ecc3c872a193b8e434d4c96434257b8401a976584f4c1cb5eb6
+Copying config sha256:65b80c4b801f63b70dcf4f91d6a71d22844f9dac49c3029ed0f3e07b310cf023
+Writing manifest to image destination
+dce17bd0b244e9eb92bb64a485bc33040bdb5e4dace660ea11818522708300df
+Trying to pull ghcr.io/atuinsh/atuin:latest...
+Getting image source signatures
+Copying blob sha256:d8288fa309f233678204634b1712fe140c2832bcf2ca8868c082f15767f41757
+Copying blob sha256:1adabd6b0d6b8acfa4ad149a984df0977135a7babf423538c7284a02744a4ee8
+Copying blob sha256:980425a43a00d22160a2f3a04012ae4ff1af13b0d187c8d6d159d9883c215d3b
+Copying blob sha256:ba900e4dc5075cf293a1c288e050b22482b7d5e2f5cbe3957524119373f6976d
+Copying blob sha256:32e7590248433737f9e1316ba5e28bbb2081a4a43a9b797d30805681fa79903c
+Copying config sha256:f8e4030ba324cfe0cd1d75f431530048c57ea9749bcccbede5ca3241bf83f27e
+Writing manifest to image destination
+f669f1f653aae316bd8940aca9a35989ef82758d0c22d3c76f30c139a5e9d8b0
+atuin_postgresql_1
+atuin_atuin_1
+OK: atuin (atuin_postgresql_1 atuin_atuin_1)
+PASS: docker/atuin
+
+----
+
+Testing docker/audiobookshelf
+7468d17df1c1b22d851158d099151cc544d96b95e446a8d9b257443ba9198769
+Trying to pull ghcr.io/advplyr/audiobookshelf:latest...
+Getting image source signatures
+Copying blob sha256:9354fb0b123076967f65b35802ebcdc8bc7a52aae6a0484451a2c29c245f19d5
+Copying blob sha256:8d06ba6946d1f299d8f962e37906c77006df33d47050430a57f7893ec35af697
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:fd1849a5c548bc65ee47a64498951bda5d40e87d08efe9dca69b5c8cdedc7a52
+Copying blob sha256:cb3325e64457574e24f92246e3da3376946e473d636209e1390eac47b50b26a3
+Copying blob sha256:b1776ae0394b34042da80245636b2199aff3837ee00cf09650c40aba1dcc4a5c
+Copying blob sha256:fa8b6bbc923ad3388afb17bdf2589835a643fff1be261236eddf7c37499039c6
+Copying blob sha256:f4298c1e7ee2bdd91be0f5f815b0a339f6f1f24f008732db83e05be047a9b9c9
+Copying blob sha256:298804a17df65b217fabce986a603bd7e0c565fec52153a8aae05805da7aa763
+Copying config sha256:ad6b304e2d2dc966a837e5aadbd58aaa86307edd7f8509c14933e3828ea6dab4
+Writing manifest to image destination
+067d26fa4c7f5e912ab06a4f1ee7969a659a4ab32e11912fabe53a830cc51213
+audiobookshelf
+OK: audiobookshelf (audiobookshelf)
+PASS: docker/audiobookshelf
+
+----
+
+Testing docker/domain-monitor
+STEP 1/13: FROM php:8.2-apache
+Resolving "php" using unqualified-search registries (/etc/containers/registries.conf)
+Trying to pull docker.io/library/php:8.2-apache...
+Getting image source signatures
+Copying blob sha256:1bfd1029d57c553e9746a29d6b53d789b16720264477c2e1de88e80e2cce7fef
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:11f3d9b643c87b0a80da5da831e3738e76eee1b081d87745fdbaec3dd3ec75f6
+Copying blob sha256:f13d132b40432b5921ea4a0d8f8e7ba1498cf5d180ee6b838e8784fc68b4f290
+Copying blob sha256:598093b4ce56db281c12f3c6e6beaf731666bcda23e08f285aa3c63cd03acb0a
+Copying blob sha256:4b8a03043cb81ba81fc4a2dbd66cafb43625a2061d6938d5c51b918cbcc6b134
+Copying blob sha256:89a19b403240e08dcd77d5dd704faad1a385ace9bfc825f0e1d4d9777ff202ac
+Copying blob sha256:578d1b3b19d8e7ff7c9e1a945947bc922948c5aab75e7e3afffad8c17c2a544e
+Copying blob sha256:19d8887b0138628536d0c9b17f34354c2c5f5e4ff85385db05c6fcbad2efd75f
+Copying blob sha256:5e50fcd76d61b2bf2f99fe4501aa7823f07673c0c67eeb4a84d90358f1f0e873
+Copying blob sha256:2910362eca761d7b896aa397d981c1f12a34040ad2aaf60d931c3551660a3b18
+Copying blob sha256:c38fcdb831a586aedaa7381762d652962cf608cc27bed614b1f99ceacd4bbaa5
+Copying blob sha256:a270794a48bb04b2fa29585db4f20562ed356836db1386929e4d7db0d879f698
+Copying blob sha256:cdcbbcbc956c8fc4eb47e454945aa0cf752d9e0f87c651bdac06ffbc727e6566
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:2594f47a19f5b8aca3757fe3977c77d99fbfd06a0598f63e95b3b96ce4d079be
+Writing manifest to image destination
+STEP 2/13: RUN apt-get update && apt-get install -y     git     unzip     rsync     libzip-dev     libicu-dev     libonig-dev     && rm -rf /var/lib/apt/lists/*
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9670 kB]
+Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
+Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [96.3 kB]
+Fetched 9863 kB in 1s (11.6 MB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  git-man icu-devtools less libcbor0.10 libcurl3t64-gnutls libedit2
+  liberror-perl libfido2-1 libicu76 libngtcp2-16 libngtcp2-crypto-gnutls8
+  libpopt0 libx11-6 libx11-data libxau6 libxcb1 libxdmcp6 libxext6 libxmuu1
+  libzip5 openssh-client xauth zipcmp zipmerge ziptool zlib1g-dev
+Suggested packages:
+  gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+  git-svn icu-doc keychain libpam-ssh monkeysphere ssh-askpass openssh-server
+  python3 python3-braceexpand zip
+The following NEW packages will be installed:
+  git git-man icu-devtools less libcbor0.10 libcurl3t64-gnutls libedit2
+  liberror-perl libfido2-1 libicu-dev libicu76 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libonig-dev libpopt0 libx11-6 libx11-data libxau6
+  libxcb1 libxdmcp6 libxext6 libxmuu1 libzip-dev libzip5 openssh-client rsync
+  unzip xauth zipcmp zipmerge ziptool zlib1g-dev
+0 upgraded, 32 newly installed, 0 to remove and 0 not upgraded.
+Need to get 37.1 MB of archives.
+After this operation, 158 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 libpopt0 amd64 1.19+dfsg-2 [43.8 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 rsync amd64 3.4.1+ds1-5+deb13u1 [429 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 less amd64 668-1 [161 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 libedit2 amd64 3.1-20250104-1 [93.8 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 libcbor0.10 amd64 0.10.2-2 [28.3 kB]
+Get:6 http://deb.debian.org/debian trixie/main amd64 libfido2-1 amd64 1.15.0-1+b1 [78.7 kB]
+Get:7 http://deb.debian.org/debian trixie/main amd64 openssh-client amd64 1:10.0p1-7 [985 kB]
+Get:8 http://deb.debian.org/debian trixie/main amd64 libngtcp2-16 amd64 1.11.0-1 [131 kB]
+Get:9 http://deb.debian.org/debian trixie/main amd64 libngtcp2-crypto-gnutls8 amd64 1.11.0-1 [29.3 kB]
+Get:10 http://deb.debian.org/debian trixie/main amd64 libcurl3t64-gnutls amd64 8.14.1-2+deb13u2 [383 kB]
+Get:11 http://deb.debian.org/debian trixie/main amd64 liberror-perl all 0.17030-1 [26.9 kB]
+Get:12 http://deb.debian.org/debian trixie/main amd64 git-man all 1:2.47.3-0+deb13u1 [2205 kB]
+Get:13 http://deb.debian.org/debian trixie/main amd64 git amd64 1:2.47.3-0+deb13u1 [8862 kB]
+Get:14 http://deb.debian.org/debian trixie/main amd64 libicu76 amd64 76.1-4 [9722 kB]
+Get:15 http://deb.debian.org/debian trixie/main amd64 icu-devtools amd64 76.1-4 [215 kB]
+Get:16 http://deb.debian.org/debian trixie/main amd64 libicu-dev amd64 76.1-4 [10.8 MB]
+Get:17 http://deb.debian.org/debian trixie/main amd64 libonig-dev amd64 6.9.9-1+b1 [95.5 kB]
+Get:18 http://deb.debian.org/debian trixie/main amd64 libxau6 amd64 1:1.0.11-1 [20.4 kB]
+Get:19 http://deb.debian.org/debian trixie/main amd64 libxdmcp6 amd64 1:1.1.5-1 [27.8 kB]
+Get:20 http://deb.debian.org/debian trixie/main amd64 libxcb1 amd64 1.17.0-2+b1 [144 kB]
+Get:21 http://deb.debian.org/debian trixie/main amd64 libx11-data all 2:1.8.12-1 [343 kB]
+Get:22 http://deb.debian.org/debian trixie/main amd64 libx11-6 amd64 2:1.8.12-1 [815 kB]
+Get:23 http://deb.debian.org/debian trixie/main amd64 libxext6 amd64 2:1.3.4-1+b3 [50.4 kB]
+Get:24 http://deb.debian.org/debian trixie/main amd64 libxmuu1 amd64 2:1.1.3-3+b4 [21.9 kB]
+Get:25 http://deb.debian.org/debian trixie/main amd64 libzip5 amd64 1.11.3-2 [62.6 kB]
+Get:26 http://deb.debian.org/debian trixie/main amd64 zipcmp amd64 1.11.3-2 [19.8 kB]
+Get:27 http://deb.debian.org/debian trixie/main amd64 zipmerge amd64 1.11.3-2 [14.5 kB]
+Get:28 http://deb.debian.org/debian trixie/main amd64 ziptool amd64 1.11.3-2 [22.6 kB]
+Get:29 http://deb.debian.org/debian trixie/main amd64 zlib1g-dev amd64 1:1.3.dfsg+really1.3.1-1+b1 [920 kB]
+Get:30 http://deb.debian.org/debian trixie/main amd64 libzip-dev amd64 1.11.3-2 [181 kB]
+Get:31 http://deb.debian.org/debian trixie/main amd64 unzip amd64 6.0-29 [173 kB]
+Get:32 http://deb.debian.org/debian trixie/main amd64 xauth amd64 1:1.1.2-1.1 [35.9 kB]
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+debconf: unable to initialize frontend: Teletype
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Noninteractive
+Fetched 37.1 MB in 1s (51.0 MB/s)
+Selecting previously unselected package libpopt0:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 15584 files and directories currently installed.)
+Preparing to unpack .../00-libpopt0_1.19+dfsg-2_amd64.deb ...
+Unpacking libpopt0:amd64 (1.19+dfsg-2) ...
+Selecting previously unselected package rsync.
+Preparing to unpack .../01-rsync_3.4.1+ds1-5+deb13u1_amd64.deb ...
+Unpacking rsync (3.4.1+ds1-5+deb13u1) ...
+Selecting previously unselected package less.
+Preparing to unpack .../02-less_668-1_amd64.deb ...
+Unpacking less (668-1) ...
+Selecting previously unselected package libedit2:amd64.
+Preparing to unpack .../03-libedit2_3.1-20250104-1_amd64.deb ...
+Unpacking libedit2:amd64 (3.1-20250104-1) ...
+Selecting previously unselected package libcbor0.10:amd64.
+Preparing to unpack .../04-libcbor0.10_0.10.2-2_amd64.deb ...
+Unpacking libcbor0.10:amd64 (0.10.2-2) ...
+Selecting previously unselected package libfido2-1:amd64.
+Preparing to unpack .../05-libfido2-1_1.15.0-1+b1_amd64.deb ...
+Unpacking libfido2-1:amd64 (1.15.0-1+b1) ...
+Selecting previously unselected package openssh-client.
+Preparing to unpack .../06-openssh-client_1%3a10.0p1-7_amd64.deb ...
+Unpacking openssh-client (1:10.0p1-7) ...
+Selecting previously unselected package libngtcp2-16:amd64.
+Preparing to unpack .../07-libngtcp2-16_1.11.0-1_amd64.deb ...
+Unpacking libngtcp2-16:amd64 (1.11.0-1) ...
+Selecting previously unselected package libngtcp2-crypto-gnutls8:amd64.
+Preparing to unpack .../08-libngtcp2-crypto-gnutls8_1.11.0-1_amd64.deb ...
+Unpacking libngtcp2-crypto-gnutls8:amd64 (1.11.0-1) ...
+Selecting previously unselected package libcurl3t64-gnutls:amd64.
+Preparing to unpack .../09-libcurl3t64-gnutls_8.14.1-2+deb13u2_amd64.deb ...
+Unpacking libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u2) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../10-liberror-perl_0.17030-1_all.deb ...
+Unpacking liberror-perl (0.17030-1) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../11-git-man_1%3a2.47.3-0+deb13u1_all.deb ...
+Unpacking git-man (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package git.
+Preparing to unpack .../12-git_1%3a2.47.3-0+deb13u1_amd64.deb ...
+Unpacking git (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package libicu76:amd64.
+Preparing to unpack .../13-libicu76_76.1-4_amd64.deb ...
+Unpacking libicu76:amd64 (76.1-4) ...
+Selecting previously unselected package icu-devtools.
+Preparing to unpack .../14-icu-devtools_76.1-4_amd64.deb ...
+Unpacking icu-devtools (76.1-4) ...
+Selecting previously unselected package libicu-dev:amd64.
+Preparing to unpack .../15-libicu-dev_76.1-4_amd64.deb ...
+Unpacking libicu-dev:amd64 (76.1-4) ...
+Selecting previously unselected package libonig-dev.
+Preparing to unpack .../16-libonig-dev_6.9.9-1+b1_amd64.deb ...
+Unpacking libonig-dev (6.9.9-1+b1) ...
+Selecting previously unselected package libxau6:amd64.
+Preparing to unpack .../17-libxau6_1%3a1.0.11-1_amd64.deb ...
+Unpacking libxau6:amd64 (1:1.0.11-1) ...
+Selecting previously unselected package libxdmcp6:amd64.
+Preparing to unpack .../18-libxdmcp6_1%3a1.1.5-1_amd64.deb ...
+Unpacking libxdmcp6:amd64 (1:1.1.5-1) ...
+Selecting previously unselected package libxcb1:amd64.
+Preparing to unpack .../19-libxcb1_1.17.0-2+b1_amd64.deb ...
+Unpacking libxcb1:amd64 (1.17.0-2+b1) ...
+Selecting previously unselected package libx11-data.
+Preparing to unpack .../20-libx11-data_2%3a1.8.12-1_all.deb ...
+Unpacking libx11-data (2:1.8.12-1) ...
+Selecting previously unselected package libx11-6:amd64.
+Preparing to unpack .../21-libx11-6_2%3a1.8.12-1_amd64.deb ...
+Unpacking libx11-6:amd64 (2:1.8.12-1) ...
+Selecting previously unselected package libxext6:amd64.
+Preparing to unpack .../22-libxext6_2%3a1.3.4-1+b3_amd64.deb ...
+Unpacking libxext6:amd64 (2:1.3.4-1+b3) ...
+Selecting previously unselected package libxmuu1:amd64.
+Preparing to unpack .../23-libxmuu1_2%3a1.1.3-3+b4_amd64.deb ...
+Unpacking libxmuu1:amd64 (2:1.1.3-3+b4) ...
+Selecting previously unselected package libzip5:amd64.
+Preparing to unpack .../24-libzip5_1.11.3-2_amd64.deb ...
+Unpacking libzip5:amd64 (1.11.3-2) ...
+Selecting previously unselected package zipcmp.
+Preparing to unpack .../25-zipcmp_1.11.3-2_amd64.deb ...
+Unpacking zipcmp (1.11.3-2) ...
+Selecting previously unselected package zipmerge.
+Preparing to unpack .../26-zipmerge_1.11.3-2_amd64.deb ...
+Unpacking zipmerge (1.11.3-2) ...
+Selecting previously unselected package ziptool.
+Preparing to unpack .../27-ziptool_1.11.3-2_amd64.deb ...
+Unpacking ziptool (1.11.3-2) ...
+Selecting previously unselected package zlib1g-dev:amd64.
+Preparing to unpack .../28-zlib1g-dev_1%3a1.3.dfsg+really1.3.1-1+b1_amd64.deb ...
+Unpacking zlib1g-dev:amd64 (1:1.3.dfsg+really1.3.1-1+b1) ...
+Selecting previously unselected package libzip-dev:amd64.
+Preparing to unpack .../29-libzip-dev_1.11.3-2_amd64.deb ...
+Unpacking libzip-dev:amd64 (1.11.3-2) ...
+Selecting previously unselected package unzip.
+Preparing to unpack .../30-unzip_6.0-29_amd64.deb ...
+Unpacking unzip (6.0-29) ...
+Selecting previously unselected package xauth.
+Preparing to unpack .../31-xauth_1%3a1.1.2-1.1_amd64.deb ...
+Unpacking xauth (1:1.1.2-1.1) ...
+Setting up libxau6:amd64 (1:1.0.11-1) ...
+Setting up libxdmcp6:amd64 (1:1.1.5-1) ...
+Setting up libxcb1:amd64 (1.17.0-2+b1) ...
+Setting up libzip5:amd64 (1.11.3-2) ...
+Setting up libonig-dev (6.9.9-1+b1) ...
+Setting up libcbor0.10:amd64 (0.10.2-2) ...
+Setting up unzip (6.0-29) ...
+Setting up libedit2:amd64 (3.1-20250104-1) ...
+Setting up less (668-1) ...
+Setting up zipmerge (1.11.3-2) ...
+Setting up liberror-perl (0.17030-1) ...
+Setting up libx11-data (2:1.8.12-1) ...
+Setting up zlib1g-dev:amd64 (1:1.3.dfsg+really1.3.1-1+b1) ...
+Setting up zipcmp (1.11.3-2) ...
+Setting up git-man (1:2.47.3-0+deb13u1) ...
+Setting up libx11-6:amd64 (2:1.8.12-1) ...
+Setting up libngtcp2-16:amd64 (1.11.0-1) ...
+Setting up libicu76:amd64 (76.1-4) ...
+Setting up libfido2-1:amd64 (1.15.0-1+b1) ...
+Setting up ziptool (1.11.3-2) ...
+Setting up libxmuu1:amd64 (2:1.1.3-3+b4) ...
+Setting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1) ...
+Setting up libpopt0:amd64 (1.19+dfsg-2) ...
+Setting up libzip-dev:amd64 (1.11.3-2) ...
+Setting up openssh-client (1:10.0p1-7) ...
+Setting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u2) ...
+Setting up libxext6:amd64 (2:1.3.4-1+b3) ...
+Setting up icu-devtools (76.1-4) ...
+Setting up git (1:2.47.3-0+deb13u1) ...
+Setting up xauth (1:1.1.2-1.1) ...
+Setting up libicu-dev:amd64 (76.1-4) ...
+Setting up rsync (3.4.1+ds1-5+deb13u1) ...
+invoke-rc.d: could not determine current runlevel
+invoke-rc.d: policy-rc.d denied execution of start.
+Processing triggers for libc-bin (2.41-12+deb13u1) ...
+--> c730ce20273f
+STEP 3/13: RUN docker-php-ext-install pdo_mysql intl mbstring zip
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking for MySQL support for PDO... yes, shared
+checking for the location of libz... no
+checking for MySQL UNIX socket location... 
+checking for PDO includes... /usr/local/include/php/ext
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/pdo_mysql.c -o pdo_mysql.lo  -MMD -MF pdo_mysql.dep -MT pdo_mysql.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/pdo_mysql.c -MMD -MF pdo_mysql.dep -MT pdo_mysql.lo  -fPIC -DPIC -o .libs/pdo_mysql.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_driver.c -o mysql_driver.lo  -MMD -MF mysql_driver.dep -MT mysql_driver.lo
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_driver.c -MMD -MF mysql_driver.dep -MT mysql_driver.lo  -fPIC -DPIC -o .libs/mysql_driver.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_statement.c -o mysql_statement.lo  -MMD -MF mysql_statement.dep -MT mysql_statement.lo
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_statement.c -MMD -MF mysql_statement.dep -MT mysql_statement.lo  -fPIC -DPIC -o .libs/mysql_statement.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o pdo_mysql.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/pdo_mysql/modules  pdo_mysql.lo mysql_driver.lo mysql_statement.lo 
+cc -shared  .libs/pdo_mysql.o .libs/mysql_driver.o .libs/mysql_statement.o   -Wl,-O1 -Wl,-soname -Wl,pdo_mysql.so -o .libs/pdo_mysql.so
+creating pdo_mysql.la
+(cd .libs && rm -f pdo_mysql.la && ln -s ../pdo_mysql.la pdo_mysql.la)
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=install cp ./pdo_mysql.la /usr/src/php/ext/pdo_mysql/modules
+cp ./.libs/pdo_mysql.so /usr/src/php/ext/pdo_mysql/modules/pdo_mysql.so
+cp ./.libs/pdo_mysql.lai /usr/src/php/ext/pdo_mysql/modules/pdo_mysql.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/pdo_mysql/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/pdo_mysql/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/pdo_mysql.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking whether to enable internationalization support... yes, shared
+checking for icu-uc >= 50.1 icu-io icu-i18n... yes
+checking for g++... g++
+checking whether the compiler supports GNU C++... yes
+checking whether g++ accepts -g... yes
+checking for g++ option to enable C++11 features... none needed
+checking how to run the C++ preprocessor... g++ -E
+checking if intl requires -std=gnu++17... yes
+checking whether g++ supports C++17 features with -std=c++17... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking how to run the C++ preprocessor... g++ -E
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+checking for ld used by g++... /usr/bin/ld -m elf_x86_64
+checking if the linker (/usr/bin/ld -m elf_x86_64) is GNU ld... yes
+checking whether the g++ linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking for g++ option to produce PIC... -fPIC
+checking if g++ PIC flag -fPIC works... yes
+checking if g++ static flag -static works... yes
+checking if g++ supports -c -o file.o... yes
+checking whether the g++ linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking dynamic linker characteristics... GNU/Linux ld.so
+(cached) (cached) checking how to hardcode library paths into programs... immediate
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/php_intl.c -o php_intl.lo  -MMD -MF php_intl.dep -MT php_intl.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/php_intl.c -MMD -MF php_intl.dep -MT php_intl.lo  -fPIC -DPIC -o .libs/php_intl.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_error.c -o intl_error.lo  -MMD -MF intl_error.dep -MT intl_error.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_error.c -MMD -MF intl_error.dep -MT intl_error.lo  -fPIC -DPIC -o .libs/intl_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_convert.c -o intl_convert.lo  -MMD -MF intl_convert.dep -MT intl_convert.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_convert.c -MMD -MF intl_convert.dep -MT intl_convert.lo  -fPIC -DPIC -o .libs/intl_convert.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_class.c -o collator/collator_class.lo  -MMD -MF collator/collator_class.dep -MT collator/collator_class.lo
+mkdir collator/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_class.c -MMD -MF collator/collator_class.dep -MT collator/collator_class.lo  -fPIC -DPIC -o collator/.libs/collator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_sort.c -o collator/collator_sort.lo  -MMD -MF collator/collator_sort.dep -MT collator/collator_sort.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_sort.c -MMD -MF collator/collator_sort.dep -MT collator/collator_sort.lo  -fPIC -DPIC -o collator/.libs/collator_sort.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_convert.c -o collator/collator_convert.lo  -MMD -MF collator/collator_convert.dep -MT collator/collator_convert.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_convert.c -MMD -MF collator/collator_convert.dep -MT collator/collator_convert.lo  -fPIC -DPIC -o collator/.libs/collator_convert.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_locale.c -o collator/collator_locale.lo  -MMD -MF collator/collator_locale.dep -MT collator/collator_locale.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_locale.c -MMD -MF collator/collator_locale.dep -MT collator/collator_locale.lo  -fPIC -DPIC -o collator/.libs/collator_locale.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_compare.c -o collator/collator_compare.lo  -MMD -MF collator/collator_compare.dep -MT collator/collator_compare.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_compare.c -MMD -MF collator/collator_compare.dep -MT collator/collator_compare.lo  -fPIC -DPIC -o collator/.libs/collator_compare.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_attr.c -o collator/collator_attr.lo  -MMD -MF collator/collator_attr.dep -MT collator/collator_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_attr.c -MMD -MF collator/collator_attr.dep -MT collator/collator_attr.lo  -fPIC -DPIC -o collator/.libs/collator_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_create.c -o collator/collator_create.lo  -MMD -MF collator/collator_create.dep -MT collator/collator_create.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_create.c -MMD -MF collator/collator_create.dep -MT collator/collator_create.lo  -fPIC -DPIC -o collator/.libs/collator_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_is_numeric.c -o collator/collator_is_numeric.lo  -MMD -MF collator/collator_is_numeric.dep -MT collator/collator_is_numeric.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_is_numeric.c -MMD -MF collator/collator_is_numeric.dep -MT collator/collator_is_numeric.lo  -fPIC -DPIC -o collator/.libs/collator_is_numeric.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_error.c -o collator/collator_error.lo  -MMD -MF collator/collator_error.dep -MT collator/collator_error.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_error.c -MMD -MF collator/collator_error.dep -MT collator/collator_error.lo  -fPIC -DPIC -o collator/.libs/collator_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/common/common_error.c -o common/common_error.lo  -MMD -MF common/common_error.dep -MT common/common_error.lo
+mkdir common/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/common/common_error.c -MMD -MF common/common_error.dep -MT common/common_error.lo  -fPIC -DPIC -o common/.libs/common_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/converter/converter.c -o converter/converter.lo  -MMD -MF converter/converter.dep -MT converter/converter.lo
+mkdir converter/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/converter/converter.c -MMD -MF converter/converter.dep -MT converter/converter.lo  -fPIC -DPIC -o converter/.libs/converter.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_main.c -o formatter/formatter_main.lo  -MMD -MF formatter/formatter_main.dep -MT formatter/formatter_main.lo
+mkdir formatter/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_main.c -MMD -MF formatter/formatter_main.dep -MT formatter/formatter_main.lo  -fPIC -DPIC -o formatter/.libs/formatter_main.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_class.c -o formatter/formatter_class.lo  -MMD -MF formatter/formatter_class.dep -MT formatter/formatter_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_class.c -MMD -MF formatter/formatter_class.dep -MT formatter/formatter_class.lo  -fPIC -DPIC -o formatter/.libs/formatter_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_attr.c -o formatter/formatter_attr.lo  -MMD -MF formatter/formatter_attr.dep -MT formatter/formatter_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_attr.c -MMD -MF formatter/formatter_attr.dep -MT formatter/formatter_attr.lo  -fPIC -DPIC -o formatter/.libs/formatter_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_data.c -o formatter/formatter_data.lo  -MMD -MF formatter/formatter_data.dep -MT formatter/formatter_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_data.c -MMD -MF formatter/formatter_data.dep -MT formatter/formatter_data.lo  -fPIC -DPIC -o formatter/.libs/formatter_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_format.c -o formatter/formatter_format.lo  -MMD -MF formatter/formatter_format.dep -MT formatter/formatter_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_format.c -MMD -MF formatter/formatter_format.dep -MT formatter/formatter_format.lo  -fPIC -DPIC -o formatter/.libs/formatter_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_parse.c -o formatter/formatter_parse.lo  -MMD -MF formatter/formatter_parse.dep -MT formatter/formatter_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_parse.c -MMD -MF formatter/formatter_parse.dep -MT formatter/formatter_parse.lo  -fPIC -DPIC -o formatter/.libs/formatter_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_class.c -o normalizer/normalizer_class.lo  -MMD -MF normalizer/normalizer_class.dep -MT normalizer/normalizer_class.lo
+mkdir normalizer/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_class.c -MMD -MF normalizer/normalizer_class.dep -MT normalizer/normalizer_class.lo  -fPIC -DPIC -o normalizer/.libs/normalizer_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_normalize.c -o normalizer/normalizer_normalize.lo  -MMD -MF normalizer/normalizer_normalize.dep -MT normalizer/normalizer_normalize.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_normalize.c -MMD -MF normalizer/normalizer_normalize.dep -MT normalizer/normalizer_normalize.lo  -fPIC -DPIC -o normalizer/.libs/normalizer_normalize.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale.c -o locale/locale.lo  -MMD -MF locale/locale.dep -MT locale/locale.lo
+mkdir locale/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale.c -MMD -MF locale/locale.dep -MT locale/locale.lo  -fPIC -DPIC -o locale/.libs/locale.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_class.c -o locale/locale_class.lo  -MMD -MF locale/locale_class.dep -MT locale/locale_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_class.c -MMD -MF locale/locale_class.dep -MT locale/locale_class.lo  -fPIC -DPIC -o locale/.libs/locale_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_methods.c -o locale/locale_methods.lo  -MMD -MF locale/locale_methods.dep -MT locale/locale_methods.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_methods.c -MMD -MF locale/locale_methods.dep -MT locale/locale_methods.lo  -fPIC -DPIC -o locale/.libs/locale_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat.c -o dateformat/dateformat.lo  -MMD -MF dateformat/dateformat.dep -MT dateformat/dateformat.lo
+mkdir dateformat/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat.c -MMD -MF dateformat/dateformat.dep -MT dateformat/dateformat.lo  -fPIC -DPIC -o dateformat/.libs/dateformat.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_class.c -o dateformat/dateformat_class.lo  -MMD -MF dateformat/dateformat_class.dep -MT dateformat/dateformat_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_class.c -MMD -MF dateformat/dateformat_class.dep -MT dateformat/dateformat_class.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_attr.c -o dateformat/dateformat_attr.lo  -MMD -MF dateformat/dateformat_attr.dep -MT dateformat/dateformat_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_attr.c -MMD -MF dateformat/dateformat_attr.dep -MT dateformat/dateformat_attr.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_data.c -o dateformat/dateformat_data.lo  -MMD -MF dateformat/dateformat_data.dep -MT dateformat/dateformat_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_data.c -MMD -MF dateformat/dateformat_data.dep -MT dateformat/dateformat_data.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_format.c -o dateformat/dateformat_format.lo  -MMD -MF dateformat/dateformat_format.dep -MT dateformat/dateformat_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_format.c -MMD -MF dateformat/dateformat_format.dep -MT dateformat/dateformat_format.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_parse.c -o dateformat/dateformat_parse.lo  -MMD -MF dateformat/dateformat_parse.dep -MT dateformat/dateformat_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_parse.c -MMD -MF dateformat/dateformat_parse.dep -MT dateformat/dateformat_parse.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat.c -o msgformat/msgformat.lo  -MMD -MF msgformat/msgformat.dep -MT msgformat/msgformat.lo
+mkdir msgformat/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat.c -MMD -MF msgformat/msgformat.dep -MT msgformat/msgformat.lo  -fPIC -DPIC -o msgformat/.libs/msgformat.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_attr.c -o msgformat/msgformat_attr.lo  -MMD -MF msgformat/msgformat_attr.dep -MT msgformat/msgformat_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_attr.c -MMD -MF msgformat/msgformat_attr.dep -MT msgformat/msgformat_attr.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_class.c -o msgformat/msgformat_class.lo  -MMD -MF msgformat/msgformat_class.dep -MT msgformat/msgformat_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_class.c -MMD -MF msgformat/msgformat_class.dep -MT msgformat/msgformat_class.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_data.c -o msgformat/msgformat_data.lo  -MMD -MF msgformat/msgformat_data.dep -MT msgformat/msgformat_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_data.c -MMD -MF msgformat/msgformat_data.dep -MT msgformat/msgformat_data.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_format.c -o msgformat/msgformat_format.lo  -MMD -MF msgformat/msgformat_format.dep -MT msgformat/msgformat_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_format.c -MMD -MF msgformat/msgformat_format.dep -MT msgformat/msgformat_format.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_parse.c -o msgformat/msgformat_parse.lo  -MMD -MF msgformat/msgformat_parse.dep -MT msgformat/msgformat_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_parse.c -MMD -MF msgformat/msgformat_parse.dep -MT msgformat/msgformat_parse.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_string.c -o grapheme/grapheme_string.lo  -MMD -MF grapheme/grapheme_string.dep -MT grapheme/grapheme_string.lo
+mkdir grapheme/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_string.c -MMD -MF grapheme/grapheme_string.dep -MT grapheme/grapheme_string.lo  -fPIC -DPIC -o grapheme/.libs/grapheme_string.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_util.c -o grapheme/grapheme_util.lo  -MMD -MF grapheme/grapheme_util.dep -MT grapheme/grapheme_util.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_util.c -MMD -MF grapheme/grapheme_util.dep -MT grapheme/grapheme_util.lo  -fPIC -DPIC -o grapheme/.libs/grapheme_util.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle.c -o resourcebundle/resourcebundle.lo  -MMD -MF resourcebundle/resourcebundle.dep -MT resourcebundle/resourcebundle.lo
+mkdir resourcebundle/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle.c -MMD -MF resourcebundle/resourcebundle.dep -MT resourcebundle/resourcebundle.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_class.c -o resourcebundle/resourcebundle_class.lo  -MMD -MF resourcebundle/resourcebundle_class.dep -MT resourcebundle/resourcebundle_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_class.c -MMD -MF resourcebundle/resourcebundle_class.dep -MT resourcebundle/resourcebundle_class.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_iterator.c -o resourcebundle/resourcebundle_iterator.lo  -MMD -MF resourcebundle/resourcebundle_iterator.dep -MT resourcebundle/resourcebundle_iterator.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_iterator.c -MMD -MF resourcebundle/resourcebundle_iterator.dep -MT resourcebundle/resourcebundle_iterator.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle_iterator.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_class.c -o transliterator/transliterator_class.lo  -MMD -MF transliterator/transliterator_class.dep -MT transliterator/transliterator_class.lo
+mkdir transliterator/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_class.c -MMD -MF transliterator/transliterator_class.dep -MT transliterator/transliterator_class.lo  -fPIC -DPIC -o transliterator/.libs/transliterator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_methods.c -o transliterator/transliterator_methods.lo  -MMD -MF transliterator/transliterator_methods.dep -MT transliterator/transliterator_methods.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_methods.c -MMD -MF transliterator/transliterator_methods.dep -MT transliterator/transliterator_methods.lo  -fPIC -DPIC -o transliterator/.libs/transliterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/uchar/uchar.c -o uchar/uchar.lo  -MMD -MF uchar/uchar.dep -MT uchar/uchar.lo
+mkdir uchar/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/uchar/uchar.c -MMD -MF uchar/uchar.dep -MT uchar/uchar.lo  -fPIC -DPIC -o uchar/.libs/uchar.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/idn/idn.c -o idn/idn.lo  -MMD -MF idn/idn.dep -MT idn/idn.lo
+mkdir idn/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/idn/idn.c -MMD -MF idn/idn.dep -MT idn/idn.lo  -fPIC -DPIC -o idn/.libs/idn.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_class.c -o spoofchecker/spoofchecker_class.lo  -MMD -MF spoofchecker/spoofchecker_class.dep -MT spoofchecker/spoofchecker_class.lo
+mkdir spoofchecker/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_class.c -MMD -MF spoofchecker/spoofchecker_class.dep -MT spoofchecker/spoofchecker_class.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_create.c -o spoofchecker/spoofchecker_create.lo  -MMD -MF spoofchecker/spoofchecker_create.dep -MT spoofchecker/spoofchecker_create.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_create.c -MMD -MF spoofchecker/spoofchecker_create.dep -MT spoofchecker/spoofchecker_create.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_main.c -o spoofchecker/spoofchecker_main.lo  -MMD -MF spoofchecker/spoofchecker_main.dep -MT spoofchecker/spoofchecker_main.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_main.c -MMD -MF spoofchecker/spoofchecker_main.dep -MT spoofchecker/spoofchecker_main.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_main.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/intl_convertcpp.cpp -o intl_convertcpp.lo  -MMD -MF intl_convertcpp.dep -MT intl_convertcpp.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/intl_convertcpp.cpp -MMD -MF intl_convertcpp.dep -MT intl_convertcpp.lo  -fPIC -DPIC -o .libs/intl_convertcpp.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_enum.cpp -o common/common_enum.lo  -MMD -MF common/common_enum.dep -MT common/common_enum.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_enum.cpp -MMD -MF common/common_enum.dep -MT common/common_enum.lo  -fPIC -DPIC -o common/.libs/common_enum.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_date.cpp -o common/common_date.lo  -MMD -MF common/common_date.dep -MT common/common_date.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_date.cpp -MMD -MF common/common_date.dep -MT common/common_date.lo  -fPIC -DPIC -o common/.libs/common_date.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_format_object.cpp -o dateformat/dateformat_format_object.lo  -MMD -MF dateformat/dateformat_format_object.dep -MT dateformat/dateformat_format_object.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_format_object.cpp -MMD -MF dateformat/dateformat_format_object.dep -MT dateformat/dateformat_format_object.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_format_object.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_create.cpp -o dateformat/dateformat_create.lo  -MMD -MF dateformat/dateformat_create.dep -MT dateformat/dateformat_create.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_create.cpp -MMD -MF dateformat/dateformat_create.dep -MT dateformat/dateformat_create.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_attrcpp.cpp -o dateformat/dateformat_attrcpp.lo  -MMD -MF dateformat/dateformat_attrcpp.dep -MT dateformat/dateformat_attrcpp.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_attrcpp.cpp -MMD -MF dateformat/dateformat_attrcpp.dep -MT dateformat/dateformat_attrcpp.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_attrcpp.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_helpers.cpp -o dateformat/dateformat_helpers.lo  -MMD -MF dateformat/dateformat_helpers.dep -MT dateformat/dateformat_helpers.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_helpers.cpp -MMD -MF dateformat/dateformat_helpers.dep -MT dateformat/dateformat_helpers.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_helpers.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_class.cpp -o dateformat/datepatterngenerator_class.lo  -MMD -MF dateformat/datepatterngenerator_class.dep -MT dateformat/datepatterngenerator_class.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_class.cpp -MMD -MF dateformat/datepatterngenerator_class.dep -MT dateformat/datepatterngenerator_class.lo  -fPIC -DPIC -o dateformat/.libs/datepatterngenerator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_methods.cpp -o dateformat/datepatterngenerator_methods.lo  -MMD -MF dateformat/datepatterngenerator_methods.dep -MT dateformat/datepatterngenerator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_methods.cpp -MMD -MF dateformat/datepatterngenerator_methods.dep -MT dateformat/datepatterngenerator_methods.lo  -fPIC -DPIC -o dateformat/.libs/datepatterngenerator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/msgformat/msgformat_helpers.cpp -o msgformat/msgformat_helpers.lo  -MMD -MF msgformat/msgformat_helpers.dep -MT msgformat/msgformat_helpers.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/msgformat/msgformat_helpers.cpp -MMD -MF msgformat/msgformat_helpers.dep -MT msgformat/msgformat_helpers.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_helpers.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_class.cpp -o timezone/timezone_class.lo  -MMD -MF timezone/timezone_class.dep -MT timezone/timezone_class.lo
+mkdir timezone/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_class.cpp -MMD -MF timezone/timezone_class.dep -MT timezone/timezone_class.lo  -fPIC -DPIC -o timezone/.libs/timezone_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_methods.cpp -o timezone/timezone_methods.lo  -MMD -MF timezone/timezone_methods.dep -MT timezone/timezone_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_methods.cpp -MMD -MF timezone/timezone_methods.dep -MT timezone/timezone_methods.lo  -fPIC -DPIC -o timezone/.libs/timezone_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_class.cpp -o calendar/calendar_class.lo  -MMD -MF calendar/calendar_class.dep -MT calendar/calendar_class.lo
+mkdir calendar/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_class.cpp -MMD -MF calendar/calendar_class.dep -MT calendar/calendar_class.lo  -fPIC -DPIC -o calendar/.libs/calendar_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_methods.cpp -o calendar/calendar_methods.lo  -MMD -MF calendar/calendar_methods.dep -MT calendar/calendar_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_methods.cpp -MMD -MF calendar/calendar_methods.dep -MT calendar/calendar_methods.lo  -fPIC -DPIC -o calendar/.libs/calendar_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/gregoriancalendar_methods.cpp -o calendar/gregoriancalendar_methods.lo  -MMD -MF calendar/gregoriancalendar_methods.dep -MT calendar/gregoriancalendar_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/gregoriancalendar_methods.cpp -MMD -MF calendar/gregoriancalendar_methods.dep -MT calendar/gregoriancalendar_methods.lo  -fPIC -DPIC -o calendar/.libs/gregoriancalendar_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_class.cpp -o breakiterator/breakiterator_class.lo  -MMD -MF breakiterator/breakiterator_class.dep -MT breakiterator/breakiterator_class.lo
+mkdir breakiterator/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_class.cpp -MMD -MF breakiterator/breakiterator_class.dep -MT breakiterator/breakiterator_class.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_iterators.cpp -o breakiterator/breakiterator_iterators.lo  -MMD -MF breakiterator/breakiterator_iterators.dep -MT breakiterator/breakiterator_iterators.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_iterators.cpp -MMD -MF breakiterator/breakiterator_iterators.dep -MT breakiterator/breakiterator_iterators.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_iterators.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_methods.cpp -o breakiterator/breakiterator_methods.lo  -MMD -MF breakiterator/breakiterator_methods.dep -MT breakiterator/breakiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_methods.cpp -MMD -MF breakiterator/breakiterator_methods.dep -MT breakiterator/breakiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/rulebasedbreakiterator_methods.cpp -o breakiterator/rulebasedbreakiterator_methods.lo  -MMD -MF breakiterator/rulebasedbreakiterator_methods.dep -MT breakiterator/rulebasedbreakiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/rulebasedbreakiterator_methods.cpp -MMD -MF breakiterator/rulebasedbreakiterator_methods.dep -MT breakiterator/rulebasedbreakiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/rulebasedbreakiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_internal.cpp -o breakiterator/codepointiterator_internal.lo  -MMD -MF breakiterator/codepointiterator_internal.dep -MT breakiterator/codepointiterator_internal.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_internal.cpp -MMD -MF breakiterator/codepointiterator_internal.dep -MT breakiterator/codepointiterator_internal.lo  -fPIC -DPIC -o breakiterator/.libs/codepointiterator_internal.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_methods.cpp -o breakiterator/codepointiterator_methods.lo  -MMD -MF breakiterator/codepointiterator_methods.dep -MT breakiterator/codepointiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_methods.cpp -MMD -MF breakiterator/codepointiterator_methods.dep -MT breakiterator/codepointiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/codepointiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=link g++ -shared -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o intl.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/intl/modules  php_intl.lo intl_error.lo intl_convert.lo collator/collator_class.lo collator/collator_sort.lo collator/collator_convert.lo collator/collator_locale.lo collator/collator_compare.lo collator/collator_attr.lo collator/collator_create.lo collator/collator_is_numeric.lo collator/collator_error.lo common/common_error.lo converter/converter.lo formatter/formatter_main.lo formatter/formatter_class.lo formatter/formatter_attr.lo formatter/formatter_data.lo formatter/formatter_format.lo formatter/formatter_parse.lo normalizer/normalizer_class.lo normalizer/normalizer_normalize.lo locale/locale.lo locale/locale_class.lo locale/locale_methods.lo dateformat/dateformat.lo dateformat/dateformat_class.lo dateformat/dateformat_attr.lo dateformat/dateformat_data.lo dateformat/dateformat_format.lo dateformat/dateformat_parse.lo msgformat/msgformat.lo msgformat/msgformat_attr.lo msgformat/msgformat_class.lo msgformat/msgformat_data.lo msgformat/msgformat_format.lo msgformat/msgformat_parse.lo grapheme/grapheme_string.lo grapheme/grapheme_util.lo resourcebundle/resourcebundle.lo resourcebundle/resourcebundle_class.lo resourcebundle/resourcebundle_iterator.lo transliterator/transliterator_class.lo transliterator/transliterator_methods.lo uchar/uchar.lo idn/idn.lo spoofchecker/spoofchecker_class.lo spoofchecker/spoofchecker_create.lo spoofchecker/spoofchecker_main.lo intl_convertcpp.lo common/common_enum.lo common/common_date.lo dateformat/dateformat_format_object.lo dateformat/dateformat_create.lo dateformat/dateformat_attrcpp.lo dateformat/dateformat_helpers.lo dateformat/datepatterngenerator_class.lo dateformat/datepatterngenerator_methods.lo msgformat/msgformat_helpers.lo timezone/timezone_class.lo timezone/timezone_methods.lo calendar/calendar_class.lo calendar/calendar_methods.lo calendar/gregoriancalendar_methods.lo breakiterator/breakiterator_class.lo breakiterator/breakiterator_iterators.lo breakiterator/breakiterator_methods.lo breakiterator/rulebasedbreakiterator_methods.lo breakiterator/codepointiterator_internal.lo breakiterator/codepointiterator_methods.lo -licuio -licui18n -licuuc -licudata
+g++ -shared -nostdlib /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o  .libs/php_intl.o .libs/intl_error.o .libs/intl_convert.o collator/.libs/collator_class.o collator/.libs/collator_sort.o collator/.libs/collator_convert.o collator/.libs/collator_locale.o collator/.libs/collator_compare.o collator/.libs/collator_attr.o collator/.libs/collator_create.o collator/.libs/collator_is_numeric.o collator/.libs/collator_error.o common/.libs/common_error.o converter/.libs/converter.o formatter/.libs/formatter_main.o formatter/.libs/formatter_class.o formatter/.libs/formatter_attr.o formatter/.libs/formatter_data.o formatter/.libs/formatter_format.o formatter/.libs/formatter_parse.o normalizer/.libs/normalizer_class.o normalizer/.libs/normalizer_normalize.o locale/.libs/locale.o locale/.libs/locale_class.o locale/.libs/locale_methods.o dateformat/.libs/dateformat.o dateformat/.libs/dateformat_class.o dateformat/.libs/dateformat_attr.o dateformat/.libs/dateformat_data.o dateformat/.libs/dateformat_format.o dateformat/.libs/dateformat_parse.o msgformat/.libs/msgformat.o msgformat/.libs/msgformat_attr.o msgformat/.libs/msgformat_class.o msgformat/.libs/msgformat_data.o msgformat/.libs/msgformat_format.o msgformat/.libs/msgformat_parse.o grapheme/.libs/grapheme_string.o grapheme/.libs/grapheme_util.o resourcebundle/.libs/resourcebundle.o resourcebundle/.libs/resourcebundle_class.o resourcebundle/.libs/resourcebundle_iterator.o transliterator/.libs/transliterator_class.o transliterator/.libs/transliterator_methods.o uchar/.libs/uchar.o idn/.libs/idn.o spoofchecker/.libs/spoofchecker_class.o spoofchecker/.libs/spoofchecker_create.o spoofchecker/.libs/spoofchecker_main.o .libs/intl_convertcpp.o common/.libs/common_enum.o common/.libs/common_date.o dateformat/.libs/dateformat_format_object.o dateformat/.libs/dateformat_create.o dateformat/.libs/dateformat_attrcpp.o dateformat/.libs/dateformat_helpers.o dateformat/.libs/datepatterngenerator_class.o dateformat/.libs/datepatterngenerator_methods.o msgformat/.libs/msgformat_helpers.o timezone/.libs/timezone_class.o timezone/.libs/timezone_methods.o calendar/.libs/calendar_class.o calendar/.libs/calendar_methods.o calendar/.libs/gregoriancalendar_methods.o breakiterator/.libs/breakiterator_class.o breakiterator/.libs/breakiterator_iterators.o breakiterator/.libs/breakiterator_methods.o breakiterator/.libs/rulebasedbreakiterator_methods.o breakiterator/.libs/codepointiterator_internal.o breakiterator/.libs/codepointiterator_methods.o  -licuio -licui18n -licuuc -licudata -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -lstdc++ -lm -lc -lgcc_s /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o  -Wl,-O1 -Wl,-soname -Wl,intl.so -o .libs/intl.so
+creating intl.la
+(cd .libs && rm -f intl.la && ln -s ../intl.la intl.la)
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=install cp ./intl.la /usr/src/php/ext/intl/modules
+cp ./.libs/intl.so /usr/src/php/ext/intl/modules/intl.so
+cp ./.libs/intl.lai /usr/src/php/ext/intl/modules/intl.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/intl/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/intl/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/intl.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking whether to enable multibyte string support... yes, shared
+checking whether to enable multibyte regex support (requires oniguruma)... yes
+checking for oniguruma... yes
+checking if oniguruma has an invalid entry for KOI8 encoding... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mbstring.c -o mbstring.lo  -MMD -MF mbstring.dep -MT mbstring.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mbstring.c -MMD -MF mbstring.dep -MT mbstring.lo  -fPIC -DPIC -o .libs/mbstring.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_unicode.c -o php_unicode.lo  -MMD -MF php_unicode.dep -MT php_unicode.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_unicode.c -MMD -MF php_unicode.dep -MT php_unicode.lo  -fPIC -DPIC -o .libs/php_unicode.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mb_gpc.c -o mb_gpc.lo  -MMD -MF mb_gpc.dep -MT mb_gpc.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mb_gpc.c -MMD -MF mb_gpc.dep -MT mb_gpc.lo  -fPIC -DPIC -o .libs/mb_gpc.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_mbregex.c -o php_mbregex.lo  -MMD -MF php_mbregex.dep -MT php_mbregex.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_mbregex.c -MMD -MF php_mbregex.dep -MT php_mbregex.lo  -fPIC -DPIC -o .libs/php_mbregex.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/html_entities.c -o libmbfl/filters/html_entities.lo  -MMD -MF libmbfl/filters/html_entities.dep -MT libmbfl/filters/html_entities.lo
+mkdir libmbfl/filters/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/html_entities.c -MMD -MF libmbfl/filters/html_entities.dep -MT libmbfl/filters/html_entities.lo  -fPIC -DPIC -o libmbfl/filters/.libs/html_entities.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_7bit.c -o libmbfl/filters/mbfilter_7bit.lo  -MMD -MF libmbfl/filters/mbfilter_7bit.dep -MT libmbfl/filters/mbfilter_7bit.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_7bit.c -MMD -MF libmbfl/filters/mbfilter_7bit.dep -MT libmbfl/filters/mbfilter_7bit.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_7bit.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_base64.c -o libmbfl/filters/mbfilter_base64.lo  -MMD -MF libmbfl/filters/mbfilter_base64.dep -MT libmbfl/filters/mbfilter_base64.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_base64.c -MMD -MF libmbfl/filters/mbfilter_base64.dep -MT libmbfl/filters/mbfilter_base64.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_base64.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_big5.c -o libmbfl/filters/mbfilter_big5.lo  -MMD -MF libmbfl/filters/mbfilter_big5.dep -MT libmbfl/filters/mbfilter_big5.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_big5.c -MMD -MF libmbfl/filters/mbfilter_big5.dep -MT libmbfl/filters/mbfilter_big5.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_big5.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp5022x.c -o libmbfl/filters/mbfilter_cp5022x.lo  -MMD -MF libmbfl/filters/mbfilter_cp5022x.dep -MT libmbfl/filters/mbfilter_cp5022x.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp5022x.c -MMD -MF libmbfl/filters/mbfilter_cp5022x.dep -MT libmbfl/filters/mbfilter_cp5022x.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp5022x.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp51932.c -o libmbfl/filters/mbfilter_cp51932.lo  -MMD -MF libmbfl/filters/mbfilter_cp51932.dep -MT libmbfl/filters/mbfilter_cp51932.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp51932.c -MMD -MF libmbfl/filters/mbfilter_cp51932.dep -MT libmbfl/filters/mbfilter_cp51932.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp51932.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp932.c -o libmbfl/filters/mbfilter_cp932.lo  -MMD -MF libmbfl/filters/mbfilter_cp932.dep -MT libmbfl/filters/mbfilter_cp932.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp932.c -MMD -MF libmbfl/filters/mbfilter_cp932.dep -MT libmbfl/filters/mbfilter_cp932.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp932.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp936.c -o libmbfl/filters/mbfilter_cp936.lo  -MMD -MF libmbfl/filters/mbfilter_cp936.dep -MT libmbfl/filters/mbfilter_cp936.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp936.c -MMD -MF libmbfl/filters/mbfilter_cp936.dep -MT libmbfl/filters/mbfilter_cp936.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp936.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_gb18030.c -o libmbfl/filters/mbfilter_gb18030.lo  -MMD -MF libmbfl/filters/mbfilter_gb18030.dep -MT libmbfl/filters/mbfilter_gb18030.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_gb18030.c -MMD -MF libmbfl/filters/mbfilter_gb18030.dep -MT libmbfl/filters/mbfilter_gb18030.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_gb18030.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_cn.c -o libmbfl/filters/mbfilter_euc_cn.lo  -MMD -MF libmbfl/filters/mbfilter_euc_cn.dep -MT libmbfl/filters/mbfilter_euc_cn.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_cn.c -MMD -MF libmbfl/filters/mbfilter_euc_cn.dep -MT libmbfl/filters/mbfilter_euc_cn.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_cn.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp.c -o libmbfl/filters/mbfilter_euc_jp.lo  -MMD -MF libmbfl/filters/mbfilter_euc_jp.dep -MT libmbfl/filters/mbfilter_euc_jp.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp.c -MMD -MF libmbfl/filters/mbfilter_euc_jp.dep -MT libmbfl/filters/mbfilter_euc_jp.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_jp.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp_win.c -o libmbfl/filters/mbfilter_euc_jp_win.lo  -MMD -MF libmbfl/filters/mbfilter_euc_jp_win.dep -MT libmbfl/filters/mbfilter_euc_jp_win.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp_win.c -MMD -MF libmbfl/filters/mbfilter_euc_jp_win.dep -MT libmbfl/filters/mbfilter_euc_jp_win.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_jp_win.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_kr.c -o libmbfl/filters/mbfilter_euc_kr.lo  -MMD -MF libmbfl/filters/mbfilter_euc_kr.dep -MT libmbfl/filters/mbfilter_euc_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_kr.c -MMD -MF libmbfl/filters/mbfilter_euc_kr.dep -MT libmbfl/filters/mbfilter_euc_kr.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_tw.c -o libmbfl/filters/mbfilter_euc_tw.lo  -MMD -MF libmbfl/filters/mbfilter_euc_tw.dep -MT libmbfl/filters/mbfilter_euc_tw.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_tw.c -MMD -MF libmbfl/filters/mbfilter_euc_tw.dep -MT libmbfl/filters/mbfilter_euc_tw.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_tw.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_htmlent.c -o libmbfl/filters/mbfilter_htmlent.lo  -MMD -MF libmbfl/filters/mbfilter_htmlent.dep -MT libmbfl/filters/mbfilter_htmlent.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_htmlent.c -MMD -MF libmbfl/filters/mbfilter_htmlent.dep -MT libmbfl/filters/mbfilter_htmlent.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_htmlent.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_hz.c -o libmbfl/filters/mbfilter_hz.lo  -MMD -MF libmbfl/filters/mbfilter_hz.dep -MT libmbfl/filters/mbfilter_hz.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_hz.c -MMD -MF libmbfl/filters/mbfilter_hz.dep -MT libmbfl/filters/mbfilter_hz.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_hz.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_jp_ms.c -o libmbfl/filters/mbfilter_iso2022_jp_ms.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022_jp_ms.dep -MT libmbfl/filters/mbfilter_iso2022_jp_ms.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_jp_ms.c -MMD -MF libmbfl/filters/mbfilter_iso2022_jp_ms.dep -MT libmbfl/filters/mbfilter_iso2022_jp_ms.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022_jp_ms.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022jp_mobile.c -o libmbfl/filters/mbfilter_iso2022jp_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022jp_mobile.dep -MT libmbfl/filters/mbfilter_iso2022jp_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022jp_mobile.c -MMD -MF libmbfl/filters/mbfilter_iso2022jp_mobile.dep -MT libmbfl/filters/mbfilter_iso2022jp_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022jp_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_kr.c -o libmbfl/filters/mbfilter_iso2022_kr.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022_kr.dep -MT libmbfl/filters/mbfilter_iso2022_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_kr.c -MMD -MF libmbfl/filters/mbfilter_iso2022_kr.dep -MT libmbfl/filters/mbfilter_iso2022_kr.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_jis.c -o libmbfl/filters/mbfilter_jis.lo  -MMD -MF libmbfl/filters/mbfilter_jis.dep -MT libmbfl/filters/mbfilter_jis.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_jis.c -MMD -MF libmbfl/filters/mbfilter_jis.dep -MT libmbfl/filters/mbfilter_jis.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_jis.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_qprint.c -o libmbfl/filters/mbfilter_qprint.lo  -MMD -MF libmbfl/filters/mbfilter_qprint.dep -MT libmbfl/filters/mbfilter_qprint.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_qprint.c -MMD -MF libmbfl/filters/mbfilter_qprint.dep -MT libmbfl/filters/mbfilter_qprint.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_qprint.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_singlebyte.c -o libmbfl/filters/mbfilter_singlebyte.lo  -MMD -MF libmbfl/filters/mbfilter_singlebyte.dep -MT libmbfl/filters/mbfilter_singlebyte.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_singlebyte.c -MMD -MF libmbfl/filters/mbfilter_singlebyte.dep -MT libmbfl/filters/mbfilter_singlebyte.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_singlebyte.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis.c -o libmbfl/filters/mbfilter_sjis.lo  -MMD -MF libmbfl/filters/mbfilter_sjis.dep -MT libmbfl/filters/mbfilter_sjis.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis.c -MMD -MF libmbfl/filters/mbfilter_sjis.dep -MT libmbfl/filters/mbfilter_sjis.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mobile.c -o libmbfl/filters/mbfilter_sjis_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_mobile.dep -MT libmbfl/filters/mbfilter_sjis_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mobile.c -MMD -MF libmbfl/filters/mbfilter_sjis_mobile.dep -MT libmbfl/filters/mbfilter_sjis_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mac.c -o libmbfl/filters/mbfilter_sjis_mac.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_mac.dep -MT libmbfl/filters/mbfilter_sjis_mac.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mac.c -MMD -MF libmbfl/filters/mbfilter_sjis_mac.dep -MT libmbfl/filters/mbfilter_sjis_mac.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_mac.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_2004.c -o libmbfl/filters/mbfilter_sjis_2004.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_2004.dep -MT libmbfl/filters/mbfilter_sjis_2004.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_2004.c -MMD -MF libmbfl/filters/mbfilter_sjis_2004.dep -MT libmbfl/filters/mbfilter_sjis_2004.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_2004.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs2.c -o libmbfl/filters/mbfilter_ucs2.lo  -MMD -MF libmbfl/filters/mbfilter_ucs2.dep -MT libmbfl/filters/mbfilter_ucs2.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs2.c -MMD -MF libmbfl/filters/mbfilter_ucs2.dep -MT libmbfl/filters/mbfilter_ucs2.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_ucs2.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs4.c -o libmbfl/filters/mbfilter_ucs4.lo  -MMD -MF libmbfl/filters/mbfilter_ucs4.dep -MT libmbfl/filters/mbfilter_ucs4.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs4.c -MMD -MF libmbfl/filters/mbfilter_ucs4.dep -MT libmbfl/filters/mbfilter_ucs4.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_ucs4.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uhc.c -o libmbfl/filters/mbfilter_uhc.lo  -MMD -MF libmbfl/filters/mbfilter_uhc.dep -MT libmbfl/filters/mbfilter_uhc.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uhc.c -MMD -MF libmbfl/filters/mbfilter_uhc.dep -MT libmbfl/filters/mbfilter_uhc.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_uhc.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf16.c -o libmbfl/filters/mbfilter_utf16.lo  -MMD -MF libmbfl/filters/mbfilter_utf16.dep -MT libmbfl/filters/mbfilter_utf16.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf16.c -MMD -MF libmbfl/filters/mbfilter_utf16.dep -MT libmbfl/filters/mbfilter_utf16.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf16.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf32.c -o libmbfl/filters/mbfilter_utf32.lo  -MMD -MF libmbfl/filters/mbfilter_utf32.dep -MT libmbfl/filters/mbfilter_utf32.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf32.c -MMD -MF libmbfl/filters/mbfilter_utf32.dep -MT libmbfl/filters/mbfilter_utf32.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf32.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7.c -o libmbfl/filters/mbfilter_utf7.lo  -MMD -MF libmbfl/filters/mbfilter_utf7.dep -MT libmbfl/filters/mbfilter_utf7.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7.c -MMD -MF libmbfl/filters/mbfilter_utf7.dep -MT libmbfl/filters/mbfilter_utf7.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf7.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7imap.c -o libmbfl/filters/mbfilter_utf7imap.lo  -MMD -MF libmbfl/filters/mbfilter_utf7imap.dep -MT libmbfl/filters/mbfilter_utf7imap.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7imap.c -MMD -MF libmbfl/filters/mbfilter_utf7imap.dep -MT libmbfl/filters/mbfilter_utf7imap.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf7imap.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8.c -o libmbfl/filters/mbfilter_utf8.lo  -MMD -MF libmbfl/filters/mbfilter_utf8.dep -MT libmbfl/filters/mbfilter_utf8.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8.c -MMD -MF libmbfl/filters/mbfilter_utf8.dep -MT libmbfl/filters/mbfilter_utf8.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf8.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8_mobile.c -o libmbfl/filters/mbfilter_utf8_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_utf8_mobile.dep -MT libmbfl/filters/mbfilter_utf8_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8_mobile.c -MMD -MF libmbfl/filters/mbfilter_utf8_mobile.dep -MT libmbfl/filters/mbfilter_utf8_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf8_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uuencode.c -o libmbfl/filters/mbfilter_uuencode.lo  -MMD -MF libmbfl/filters/mbfilter_uuencode.dep -MT libmbfl/filters/mbfilter_uuencode.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uuencode.c -MMD -MF libmbfl/filters/mbfilter_uuencode.dep -MT libmbfl/filters/mbfilter_uuencode.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_uuencode.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter.c -o libmbfl/mbfl/mbfilter.lo  -MMD -MF libmbfl/mbfl/mbfilter.dep -MT libmbfl/mbfl/mbfilter.lo
+mkdir libmbfl/mbfl/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter.c -MMD -MF libmbfl/mbfl/mbfilter.dep -MT libmbfl/mbfl/mbfilter.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_8bit.c -o libmbfl/mbfl/mbfilter_8bit.lo  -MMD -MF libmbfl/mbfl/mbfilter_8bit.dep -MT libmbfl/mbfl/mbfilter_8bit.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_8bit.c -MMD -MF libmbfl/mbfl/mbfilter_8bit.dep -MT libmbfl/mbfl/mbfilter_8bit.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_8bit.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_pass.c -o libmbfl/mbfl/mbfilter_pass.lo  -MMD -MF libmbfl/mbfl/mbfilter_pass.dep -MT libmbfl/mbfl/mbfilter_pass.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_pass.c -MMD -MF libmbfl/mbfl/mbfilter_pass.dep -MT libmbfl/mbfl/mbfilter_pass.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_pass.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_wchar.c -o libmbfl/mbfl/mbfilter_wchar.lo  -MMD -MF libmbfl/mbfl/mbfilter_wchar.dep -MT libmbfl/mbfl/mbfilter_wchar.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_wchar.c -MMD -MF libmbfl/mbfl/mbfilter_wchar.dep -MT libmbfl/mbfl/mbfilter_wchar.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_wchar.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_convert.c -o libmbfl/mbfl/mbfl_convert.lo  -MMD -MF libmbfl/mbfl/mbfl_convert.dep -MT libmbfl/mbfl/mbfl_convert.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_convert.c -MMD -MF libmbfl/mbfl/mbfl_convert.dep -MT libmbfl/mbfl/mbfl_convert.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_convert.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_encoding.c -o libmbfl/mbfl/mbfl_encoding.lo  -MMD -MF libmbfl/mbfl/mbfl_encoding.dep -MT libmbfl/mbfl/mbfl_encoding.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_encoding.c -MMD -MF libmbfl/mbfl/mbfl_encoding.dep -MT libmbfl/mbfl/mbfl_encoding.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_encoding.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_filter_output.c -o libmbfl/mbfl/mbfl_filter_output.lo  -MMD -MF libmbfl/mbfl/mbfl_filter_output.dep -MT libmbfl/mbfl/mbfl_filter_output.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_filter_output.c -MMD -MF libmbfl/mbfl/mbfl_filter_output.dep -MT libmbfl/mbfl/mbfl_filter_output.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_filter_output.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_language.c -o libmbfl/mbfl/mbfl_language.lo  -MMD -MF libmbfl/mbfl/mbfl_language.dep -MT libmbfl/mbfl/mbfl_language.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_language.c -MMD -MF libmbfl/mbfl/mbfl_language.dep -MT libmbfl/mbfl/mbfl_language.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_language.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_memory_device.c -o libmbfl/mbfl/mbfl_memory_device.lo  -MMD -MF libmbfl/mbfl/mbfl_memory_device.dep -MT libmbfl/mbfl/mbfl_memory_device.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_memory_device.c -MMD -MF libmbfl/mbfl/mbfl_memory_device.dep -MT libmbfl/mbfl/mbfl_memory_device.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_memory_device.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_string.c -o libmbfl/mbfl/mbfl_string.lo  -MMD -MF libmbfl/mbfl/mbfl_string.dep -MT libmbfl/mbfl/mbfl_string.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_string.c -MMD -MF libmbfl/mbfl/mbfl_string.dep -MT libmbfl/mbfl/mbfl_string.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_string.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_de.c -o libmbfl/nls/nls_de.lo  -MMD -MF libmbfl/nls/nls_de.dep -MT libmbfl/nls/nls_de.lo
+mkdir libmbfl/nls/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_de.c -MMD -MF libmbfl/nls/nls_de.dep -MT libmbfl/nls/nls_de.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_de.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_en.c -o libmbfl/nls/nls_en.lo  -MMD -MF libmbfl/nls/nls_en.dep -MT libmbfl/nls/nls_en.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_en.c -MMD -MF libmbfl/nls/nls_en.dep -MT libmbfl/nls/nls_en.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_en.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ja.c -o libmbfl/nls/nls_ja.lo  -MMD -MF libmbfl/nls/nls_ja.dep -MT libmbfl/nls/nls_ja.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ja.c -MMD -MF libmbfl/nls/nls_ja.dep -MT libmbfl/nls/nls_ja.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ja.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_kr.c -o libmbfl/nls/nls_kr.lo  -MMD -MF libmbfl/nls/nls_kr.dep -MT libmbfl/nls/nls_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_kr.c -MMD -MF libmbfl/nls/nls_kr.dep -MT libmbfl/nls/nls_kr.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_neutral.c -o libmbfl/nls/nls_neutral.lo  -MMD -MF libmbfl/nls/nls_neutral.dep -MT libmbfl/nls/nls_neutral.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_neutral.c -MMD -MF libmbfl/nls/nls_neutral.dep -MT libmbfl/nls/nls_neutral.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_neutral.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ru.c -o libmbfl/nls/nls_ru.lo  -MMD -MF libmbfl/nls/nls_ru.dep -MT libmbfl/nls/nls_ru.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ru.c -MMD -MF libmbfl/nls/nls_ru.dep -MT libmbfl/nls/nls_ru.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ru.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_uni.c -o libmbfl/nls/nls_uni.lo  -MMD -MF libmbfl/nls/nls_uni.dep -MT libmbfl/nls/nls_uni.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_uni.c -MMD -MF libmbfl/nls/nls_uni.dep -MT libmbfl/nls/nls_uni.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_uni.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_zh.c -o libmbfl/nls/nls_zh.lo  -MMD -MF libmbfl/nls/nls_zh.dep -MT libmbfl/nls/nls_zh.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_zh.c -MMD -MF libmbfl/nls/nls_zh.dep -MT libmbfl/nls/nls_zh.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_zh.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_hy.c -o libmbfl/nls/nls_hy.lo  -MMD -MF libmbfl/nls/nls_hy.dep -MT libmbfl/nls/nls_hy.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_hy.c -MMD -MF libmbfl/nls/nls_hy.dep -MT libmbfl/nls/nls_hy.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_hy.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_tr.c -o libmbfl/nls/nls_tr.lo  -MMD -MF libmbfl/nls/nls_tr.dep -MT libmbfl/nls/nls_tr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_tr.c -MMD -MF libmbfl/nls/nls_tr.dep -MT libmbfl/nls/nls_tr.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_tr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ua.c -o libmbfl/nls/nls_ua.lo  -MMD -MF libmbfl/nls/nls_ua.dep -MT libmbfl/nls/nls_ua.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ua.c -MMD -MF libmbfl/nls/nls_ua.dep -MT libmbfl/nls/nls_ua.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ua.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o mbstring.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/mbstring/modules  mbstring.lo php_unicode.lo mb_gpc.lo php_mbregex.lo libmbfl/filters/html_entities.lo libmbfl/filters/mbfilter_7bit.lo libmbfl/filters/mbfilter_base64.lo libmbfl/filters/mbfilter_big5.lo libmbfl/filters/mbfilter_cp5022x.lo libmbfl/filters/mbfilter_cp51932.lo libmbfl/filters/mbfilter_cp932.lo libmbfl/filters/mbfilter_cp936.lo libmbfl/filters/mbfilter_gb18030.lo libmbfl/filters/mbfilter_euc_cn.lo libmbfl/filters/mbfilter_euc_jp.lo libmbfl/filters/mbfilter_euc_jp_win.lo libmbfl/filters/mbfilter_euc_kr.lo libmbfl/filters/mbfilter_euc_tw.lo libmbfl/filters/mbfilter_htmlent.lo libmbfl/filters/mbfilter_hz.lo libmbfl/filters/mbfilter_iso2022_jp_ms.lo libmbfl/filters/mbfilter_iso2022jp_mobile.lo libmbfl/filters/mbfilter_iso2022_kr.lo libmbfl/filters/mbfilter_jis.lo libmbfl/filters/mbfilter_qprint.lo libmbfl/filters/mbfilter_singlebyte.lo libmbfl/filters/mbfilter_sjis.lo libmbfl/filters/mbfilter_sjis_mobile.lo libmbfl/filters/mbfilter_sjis_mac.lo libmbfl/filters/mbfilter_sjis_2004.lo libmbfl/filters/mbfilter_ucs2.lo libmbfl/filters/mbfilter_ucs4.lo libmbfl/filters/mbfilter_uhc.lo libmbfl/filters/mbfilter_utf16.lo libmbfl/filters/mbfilter_utf32.lo libmbfl/filters/mbfilter_utf7.lo libmbfl/filters/mbfilter_utf7imap.lo libmbfl/filters/mbfilter_utf8.lo libmbfl/filters/mbfilter_utf8_mobile.lo libmbfl/filters/mbfilter_uuencode.lo libmbfl/mbfl/mbfilter.lo libmbfl/mbfl/mbfilter_8bit.lo libmbfl/mbfl/mbfilter_pass.lo libmbfl/mbfl/mbfilter_wchar.lo libmbfl/mbfl/mbfl_convert.lo libmbfl/mbfl/mbfl_encoding.lo libmbfl/mbfl/mbfl_filter_output.lo libmbfl/mbfl/mbfl_language.lo libmbfl/mbfl/mbfl_memory_device.lo libmbfl/mbfl/mbfl_string.lo libmbfl/nls/nls_de.lo libmbfl/nls/nls_en.lo libmbfl/nls/nls_ja.lo libmbfl/nls/nls_kr.lo libmbfl/nls/nls_neutral.lo libmbfl/nls/nls_ru.lo libmbfl/nls/nls_uni.lo libmbfl/nls/nls_zh.lo libmbfl/nls/nls_hy.lo libmbfl/nls/nls_tr.lo libmbfl/nls/nls_ua.lo -lonig
+cc -shared  .libs/mbstring.o .libs/php_unicode.o .libs/mb_gpc.o .libs/php_mbregex.o libmbfl/filters/.libs/html_entities.o libmbfl/filters/.libs/mbfilter_7bit.o libmbfl/filters/.libs/mbfilter_base64.o libmbfl/filters/.libs/mbfilter_big5.o libmbfl/filters/.libs/mbfilter_cp5022x.o libmbfl/filters/.libs/mbfilter_cp51932.o libmbfl/filters/.libs/mbfilter_cp932.o libmbfl/filters/.libs/mbfilter_cp936.o libmbfl/filters/.libs/mbfilter_gb18030.o libmbfl/filters/.libs/mbfilter_euc_cn.o libmbfl/filters/.libs/mbfilter_euc_jp.o libmbfl/filters/.libs/mbfilter_euc_jp_win.o libmbfl/filters/.libs/mbfilter_euc_kr.o libmbfl/filters/.libs/mbfilter_euc_tw.o libmbfl/filters/.libs/mbfilter_htmlent.o libmbfl/filters/.libs/mbfilter_hz.o libmbfl/filters/.libs/mbfilter_iso2022_jp_ms.o libmbfl/filters/.libs/mbfilter_iso2022jp_mobile.o libmbfl/filters/.libs/mbfilter_iso2022_kr.o libmbfl/filters/.libs/mbfilter_jis.o libmbfl/filters/.libs/mbfilter_qprint.o libmbfl/filters/.libs/mbfilter_singlebyte.o libmbfl/filters/.libs/mbfilter_sjis.o libmbfl/filters/.libs/mbfilter_sjis_mobile.o libmbfl/filters/.libs/mbfilter_sjis_mac.o libmbfl/filters/.libs/mbfilter_sjis_2004.o libmbfl/filters/.libs/mbfilter_ucs2.o libmbfl/filters/.libs/mbfilter_ucs4.o libmbfl/filters/.libs/mbfilter_uhc.o libmbfl/filters/.libs/mbfilter_utf16.o libmbfl/filters/.libs/mbfilter_utf32.o libmbfl/filters/.libs/mbfilter_utf7.o libmbfl/filters/.libs/mbfilter_utf7imap.o libmbfl/filters/.libs/mbfilter_utf8.o libmbfl/filters/.libs/mbfilter_utf8_mobile.o libmbfl/filters/.libs/mbfilter_uuencode.o libmbfl/mbfl/.libs/mbfilter.o libmbfl/mbfl/.libs/mbfilter_8bit.o libmbfl/mbfl/.libs/mbfilter_pass.o libmbfl/mbfl/.libs/mbfilter_wchar.o libmbfl/mbfl/.libs/mbfl_convert.o libmbfl/mbfl/.libs/mbfl_encoding.o libmbfl/mbfl/.libs/mbfl_filter_output.o libmbfl/mbfl/.libs/mbfl_language.o libmbfl/mbfl/.libs/mbfl_memory_device.o libmbfl/mbfl/.libs/mbfl_string.o libmbfl/nls/.libs/nls_de.o libmbfl/nls/.libs/nls_en.o libmbfl/nls/.libs/nls_ja.o libmbfl/nls/.libs/nls_kr.o libmbfl/nls/.libs/nls_neutral.o libmbfl/nls/.libs/nls_ru.o libmbfl/nls/.libs/nls_uni.o libmbfl/nls/.libs/nls_zh.o libmbfl/nls/.libs/nls_hy.o libmbfl/nls/.libs/nls_tr.o libmbfl/nls/.libs/nls_ua.o  -lonig  -Wl,-O1 -Wl,-soname -Wl,mbstring.so -o .libs/mbstring.so
+creating mbstring.la
+(cd .libs && rm -f mbstring.la && ln -s ../mbstring.la mbstring.la)
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=install cp ./mbstring.la /usr/src/php/ext/mbstring/modules
+cp ./.libs/mbstring.so /usr/src/php/ext/mbstring/modules/mbstring.so
+cp ./.libs/mbstring.lai /usr/src/php/ext/mbstring/modules/mbstring.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/mbstring/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/mbstring/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/mbstring.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+Installing header files:          /usr/local/include/php/
+
+warning: mbstring (mbstring) is already loaded!
+
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking for zip archive read/write support... yes, shared
+checking for libzip >= 0.11 libzip != 1.3.1 libzip != 1.7.0... yes
+checking for zip_file_set_mtime in -lzip... yes
+checking for zip_file_set_encryption in -lzip... yes
+checking for zip_libzip_version in -lzip... yes
+checking for zip_register_progress_callback_with_state in -lzip... yes
+checking for zip_register_cancel_callback_with_state in -lzip... yes
+checking for zip_compression_method_supported in -lzip... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/php_zip.c -o php_zip.lo  -MMD -MF php_zip.dep -MT php_zip.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/php_zip.c -MMD -MF php_zip.dep -MT php_zip.lo  -fPIC -DPIC -o .libs/php_zip.o
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/zip_stream.c -o zip_stream.lo  -MMD -MF zip_stream.dep -MT zip_stream.lo
+ cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/zip_stream.c -MMD -MF zip_stream.dep -MT zip_stream.lo  -fPIC -DPIC -o .libs/zip_stream.o
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o zip.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/zip/modules  php_zip.lo zip_stream.lo -lzip
+cc -shared  .libs/php_zip.o .libs/zip_stream.o  -lzip  -Wl,-O1 -Wl,-soname -Wl,zip.so -o .libs/zip.so
+creating zip.la
+(cd .libs && rm -f zip.la && ln -s ../zip.la zip.la)
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=install cp ./zip.la /usr/src/php/ext/zip/modules
+cp ./.libs/zip.so /usr/src/php/ext/zip/modules/zip.so
+cp ./.libs/zip.lai /usr/src/php/ext/zip/modules/zip.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/zip/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/zip/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/zip.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+--> 3e807e615203
+STEP 4/13: COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+Resolving "composer" using unqualified-search registries (/etc/containers/registries.conf)
+Trying to pull docker.io/library/composer:latest...
+Getting image source signatures
+Copying blob sha256:8912ef1009a96febc3238813751a2cf64591515839dfb25375319c6480bab8d6
+Copying blob sha256:7cf0001b87faad678e492fbe52c4d0956642b480ca270446b682498ab48043bf
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:ee69afcd153bd2b7016bc456f768d14f1de8660db516475250b7b96b478f891d
+Copying blob sha256:144b96ed216f326f97b2ddfda3d3cb4da247c7b12cc5d985a7e099a09194ae6b
+Copying blob sha256:66e367217606eb89df7bf806077fc961f5778d9261aae64c0dc855156dcc5b5c
+Copying blob sha256:f504aa24402a1353de2ff907c3c112e0ba554b94655fd7983cc69d64b2ed3dcf
+Copying blob sha256:fae14920dfad6fb129eb9d339ae72b736b7bdd74c5d8b754b22360c3c8d0cc6e
+Copying blob sha256:bc30fdacbdf2cd76863a5f0d8f1c09ae9762a45cfc1722e88f05c0556e86c08a
+Copying blob sha256:acf1eae1778a388ddf9e1915c78c588f7d0d09fe7956ee04cc2ed700cddc2808
+Copying blob sha256:112b018a02c2741043d9daae47893ef338cf605d9dd8ebaa2a27ea4c2ed7afd0
+Copying blob sha256:b7c84ae45519c18bc8681719cd6c0bf23a65d1196e6046be8fb9d2715d009ac8
+Copying blob sha256:343c9a8eca53e4f3b90e5837b4bea1722e405d4cd11befccd580f390364ff1d0
+Copying blob sha256:9062f4cd2ee6030304750737c74a955d09a74ff52c1aa9e2537dcc00e5ee1d54
+Copying config sha256:9cc23117d1dbc0c81a0cc00d0abe3e519d8c0a4168687428089a2a9d34d3d438
+Writing manifest to image destination
+--> 016a1cf0b4ea
+STEP 5/13: RUN a2enmod rewrite
+Enabling module rewrite.
+To activate the new configuration, you need to run:
+  service apache2 restart
+--> a8cd89528637
+STEP 6/13: ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+--> d2214337b56a
+STEP 7/13: RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+--> 4c37d4826b22
+STEP 8/13: RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+--> 3ad687b7fb2b
+STEP 9/13: WORKDIR /var/www/html
+--> 674fb031c770
+STEP 10/13: COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+--> 75fef7f9a38d
+STEP 11/13: RUN chmod +x /usr/local/bin/entrypoint.sh
+--> 204b5a1ee1ee
+STEP 12/13: ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+--> b91e3dfab1b4
+STEP 13/13: CMD ["apache2-foreground"]
+COMMIT domain-monitor_app
+--> 98ed15f8f768
+Successfully tagged localhost/domain-monitor_app:latest
+98ed15f8f76854b7334bc1d8ba37dbee544422c1832aec106579755af6736113
+45f9c0d14ea661ff4224ac5fb01b10b6d81b1e07f5be36051e5f7c123ae66738
+Trying to pull docker.io/library/mariadb:10.11...
+Getting image source signatures
+Copying blob sha256:a562221abd5b252c1aea1e23cdd72dfd698d37b604a7ec353fb39396bf1d6d6d
+Copying blob sha256:5751c205854563164350b11a2d2e39762a6769f5d270aa073b19c7fca6dbe303
+Copying blob sha256:6b2d362c60bdf10e312fcb37b0ed90953755ba2dde80a0b9c339c6295e384c15
+Copying blob sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e
+Copying blob sha256:4228242e62563eeaf81018cfcd115e33eae371ff18af55a53e6b996f8569ce3c
+Copying blob sha256:dafa6a0aaff28a179e142bdcbb3dc3e605f74d4eeecb6ca67edfc2b97b38e001
+Copying blob sha256:173a0b59bb389c70f38d08f3797628c27d789e66c94cc358687d32a27f15a913
+Copying blob sha256:a592548207f087bfa30d3a5b8c8cd00fd9cdfd99198dd5c3978d999cbd7669b7
+Copying config sha256:90c7b3b2c9724d9b9f3766d159e77564a30d016b9790ab897170569f642aa91c
+Writing manifest to image destination
+30caf8a08214a4dc741cdea783459140424315b37a42e0cc6626359b36076e08
+e57261388e0b885faeff00c0490fbfc05510d461abf24a914a7dba19b7b4385e
+domain-monitor-db
+domain-monitor-app
+OK: domain-monitor (domain-monitor-db domain-monitor-app)
+PASS: docker/domain-monitor
+
+----
+
+Testing docker/graylog
+a33a0a6da875fb5a4b252444651dd257f67dadd4857a5cea2df74fc0a2022151
+Trying to pull docker.io/library/mongo:6.0...
+Getting image source signatures
+Copying blob sha256:9826927a661f3dd60c82b1bd495a9dc6bf8e1d1d5c64119377382030ab7c5a7e
+Copying blob sha256:5ca411ad80518b554f7dec7836c5753f65562ae49349389003d820516e9ee51c
+Copying blob sha256:3c99b8c985d21bfbec4ab1f8c795fb598b00a2db676a7a2d5592ad7df5001149
+Copying blob sha256:7e49dc6156b0b532730614d83a65ae5e7ce61e966b0498703d333b4d03505e4f
+Copying blob sha256:baf1f36682efb0000fa85547e51cb6171195e0370fdafa2d354965d570307170
+Copying blob sha256:a44afe9952bf663f645f754c8dc3258de55a11f5bf330db276a721cbfdae278e
+Copying blob sha256:7b14d5e3f39814387bd6e701ef827e26c16bb1691951a32546a8b5a576e98cda
+Copying blob sha256:e73078607ea493983143ba3b6b0e9b981dab3c922eb8f3f321cd62c16bccade7
+Copying config sha256:d57fdb7f35f1f679c12d406433af7b650cbe5aad3d4b3afdd0689d676e4b61e7
+Writing manifest to image destination
+4fedbad7e428ebb1ffcd1facd485063054bc64335a72f9b9e3b5ec3a25830cfb
+Trying to pull docker.io/graylog/graylog-datanode:6.1...
+Getting image source signatures
+Copying blob sha256:8c3935b26b9e5db17e6162e8475fc502c82c098f46e55af4f6ee1c6eb66a558c
+Copying blob sha256:60d98d907669dc22e547405da3e409eb14496606f4ac90692c5f2ef5081c4b1e
+Copying blob sha256:575e566545f29481fc9c6879a05ce43a36d1a7a2049d65dfea903ed86ad5244d
+Copying blob sha256:68585d746dd3d95257abd4e0391b0765ea550904ccb8ff1441a66700242c8375
+Copying blob sha256:c969ea77a912925fd3a0c6c674e1d77c619babde2dca1176e963293f833498ec
+Copying blob sha256:89318b1d2be37cfcaef6baee38d9b704a1d9e0d2d56027e4888ced6ad64645b4
+Copying blob sha256:b8317e80f620bb07e1b49aaf700ee60b8c1395a23ec41cc071c64307c037aca2
+Copying blob sha256:73734e1adb3673a32eff3d63723e3f52696de4ff28656368ed01e435b0ce05b5
+Copying config sha256:e13cf3cb321d9062647e497c0dfaf2f111c51ce1a4fa2054b88a197e0688f23a
+Writing manifest to image destination
+05fb183e13eba213a99f0d134a0a29292cda4c4dc7c8d1f8e629660da70ad765
+Trying to pull docker.io/graylog/graylog:6.1...
+Getting image source signatures
+Copying blob sha256:340a39a920b2f802ad557a7dfd496843a9552f73342ba50559743b54ae2f3620
+Copying blob sha256:e24a8b9e652f47dc5aae4db79deb296bc65f3697a15a864fc909054ac494c90a
+Copying blob sha256:f3929ce9ef98d521214361456dc3601b66f098801031407f6deeeec81a92929f
+Copying blob sha256:1df735f481adca6219ee0da74f1af97ec6e7649e2f83eb571ef24cb12912ab99
+Copying blob sha256:5d5a1fad70283ec0319650ea1d3601145209f75ca5b0b26f9e55b61604e68f3a
+Copying blob sha256:60d98d907669dc22e547405da3e409eb14496606f4ac90692c5f2ef5081c4b1e
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:36530c583bf8634a124fc9a3fdbde9804fe0ee1bc25726e479a489c5816e5212
+Copying blob sha256:7b5f7a6f6811b6fc24f895b4ec3855006f2990b4cdcdbe9e245b2f31639c1f48
+Copying blob sha256:03446a2823ea0209edd767221fb7ae264d607ac1131fb9a422accba3b92cae59
+Copying config sha256:0fce2dca54d7a2f0a236df0aa34ecfedfd6c87affb7f70febb3ff12e364132e9
+Writing manifest to image destination
+a72e54458ff3da0cdbff8b456b79223b34e250f08dc90ed4b8cdec628b251e5b
+graylog_mongodb_1
+graylog_datanode_1
+graylog_graylog_1
+OK: graylog (graylog_mongodb_1 graylog_datanode_1 graylog_graylog_1)
+PASS: docker/graylog
+
+----
+
+Testing docker/immich
+2c55ece4730714a6f06e2713a1bde564c7ecf4befdf2326d9e50dd2aded10806
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+0fc36e167abd318bf3e570d973925844f83805644a0db16f6059e4db8ed640de
+Trying to pull ghcr.io/immich-app/immich-machine-learning:release...
+Getting image source signatures
+Copying blob sha256:fc626d969bbd77ddfa6435e68065eeb338eadb04f83cef338dd8e07129c16a32
+Copying blob sha256:d1dc32d76c2b3719b32ecd01e80675ee468983f69235b7bea9aefd970e41a373
+Copying blob sha256:e2ab42bb68415f82a53442aa7b2ff90c0592666f18d1893a9ffb83b234dea992
+Copying blob sha256:8e44f01296e3a6fdc31a671bee1c2259c5d5ee8b49f29aec42b5d2af15600296
+Copying blob sha256:1be9fc5da4b1719cfdcb79b3e7af8620f4ba126827946ef0247fb48b491b9eba
+Copying blob sha256:25b54fffce796f6e2ba6d73a7119f49e9fd5b9e56b4e653aca0ca798ae214c49
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:a2de1f82c50e724616de0fbb1f5949e532346bc2f6bc32416f88f0e3d3360d7c
+Copying blob sha256:7d0ad22e91b999721e1c9b9eb3b0e001d5f5485530c85982494dcb2606b819c3
+Copying blob sha256:4639b50ca9ccb6d58b14e8b4afa1fda59d0e4fce2287bae9fdfd152ec52a7199
+Copying blob sha256:52a02ad8578aab935309950913f9f762188880304fb81f2c6f63f6adc1bb44f6
+Copying config sha256:03f55bf9c1365f68d3286c8b2ef0c7460aa948fc930150a08042b81ba43c6b23
+Writing manifest to image destination
+bd07089ed703b3bd99ceb19de13ebe600219a8216a1c66364e3242c231270ead
+Trying to pull docker.io/library/redis@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5...
+Getting image source signatures
+Copying blob sha256:cf7b98d3ba3cfed560657168da0835d9e26cb19f00a0a5baedc8a3813001f135
+Copying blob sha256:54346cffc29b3657ab641099910568997d3ab80c4e2674d58566e3092d6d2971
+Copying blob sha256:43c4264eed91be63b206e17d93e75256a6097070ce643c5e8f0379998b44f170
+Copying blob sha256:d14ed515876dc6df492f0918276e0a7cb8e9135c08e8a66b784697acded5673f
+Copying blob sha256:ee16541feddba136f2b493bc90f2b954ea01bfedd62583e19d925222a3aca4cc
+Copying blob sha256:2866ca214a5ed967481052cc9cbbcef58787893b47f190e34806c318256f8371
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:c4e0a3f69d20e90ded5b7599fbad33420f16d3c0b70117083eafa88d843692f5
+Copying config sha256:ec1b0a84ddf9124276ac189cc4d98ef28f0aea95ebd148d9e4c18b28928dd999
+Writing manifest to image destination
+0840203a1383d38ccb92c001356d2bb7f8a59d98d2e77984f06d03ce779ed934
+Trying to pull ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0...
+Getting image source signatures
+Copying blob sha256:26928461f51648b85dacf104b9c9beada3b79a9c0e5a3ec838c3b10c78b83f93
+Copying blob sha256:30aeffd9888e9716bfa7df0e0ea78786112412e6ecc3b13e3348119d56e06827
+Copying blob sha256:7f0ca661b412f28e9be23b54779429ed24f355225bdc482aba3aa98438d8c422
+Copying blob sha256:b1badc6e50664185acfaa0ca255d8076061c2a9d881cecaaad281ae11af000ce
+Copying blob sha256:2298396ea1d48158f6b577e995ee356b9408b873b84570f93a604fb4160905a9
+Copying blob sha256:0ff2eef391d9d1b80914a3599d902f78dbf304643b6b817f10f4332434ee671a
+Copying blob sha256:ac4b721eb66f1bb2b4212e3b05b4b747d15578d086d70cfe1631ab62b2650ecd
+Copying blob sha256:606bd164980e1a6701bf72d19f10fe07d93703df2cc9cdcc4dc9b51a204af78c
+Copying blob sha256:cc449fe7855804d8d98a0b0720ad76e62ed971eded01053fdeee12d2b086fb2f
+Copying blob sha256:5a865aea3becfc7e2714190298a8ea71648a6f16652b04ffb9d760a8ed0daae6
+Copying blob sha256:799f859abbbda6f784305a9fc79792b49e4f7140f57493e61a9932baa8f86c36
+Copying blob sha256:d903e777080c02accf8319414db0a2942dcdf6b2a52774fdac62b1e745e7cede
+Copying blob sha256:732fe8a65f89c9b02aaa8e001351aa709739971031bb6d63d666f514a5fadc0f
+Copying blob sha256:5c10925b29ffc0129e5b40c81616e90e715f9245286f5d0c3ea67afa58a65b36
+Copying blob sha256:bb9d72d68abc6fce4e0105b5cb6c816386e84e153f9745332261219900675ae7
+Copying blob sha256:fa467413e389f209612bbbc0d8f3f5da6fbe6038d30507e2dc7c7605bf01ab16
+Copying blob sha256:e860e441a1daeb375e6c6fde9c639dfe3e18958e6723192c86cc4966097c0d87
+Copying blob sha256:dfec767eedc3d4fdc0388a63412b0973eaf55cda98a0d3aa0988c7a705ce9dfb
+Copying blob sha256:bb2d8ba9cd16a388d9b7eb0a22ef8de39cc5a83160a941b6946c55038b962b9a
+Copying blob sha256:43c4eeae85a435c8dbc89bce6c6b214440aa28ecf4eee11f27c00329d73d1b93
+Copying blob sha256:715dd882dfc37b2917afb4c61afdbbb412bf9d3e78597ff8421835c3f84918e2
+Copying config sha256:cbcb613696a8362de6c08df225b46912e3e326d925e3d16abde653486601d645
+Writing manifest to image destination
+e67a43937ff24cc8b4fdc80a64bf341dff52504ccb387398a589e5ca8184239c
+Trying to pull docker.io/tailscale/tailscale:stable...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+c4c6687955e33c3b3f5f4304e0a7dbe6c4552e51475dc295c4eff8f6cd690dfe
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+c0b4b46d7293c8ab57ebb08e631967519c9bb2e11ae8fdfb61abd0c18698681b
+Trying to pull ghcr.io/immich-app/immich-server:release...
+Getting image source signatures
+Copying blob sha256:cf83e48f496ee602f3f411b7a03b918790be4f556b465577e344d6326b11afd8
+Copying blob sha256:c06c7d5debd60ba5e039513fb405e868e4dea802634462b0e0e92c7667547a20
+Copying blob sha256:396b1da7636e2dcd10565cb4f2f952cbb4a8a38b58d3b86a2cacb172fb70117c
+Copying blob sha256:6b9d6ac9b0f9eb85f79b00eb45c2593d2a53d5cb55d4f37fe09ed6609f42c937
+Copying blob sha256:c3756cb0d50f63526a0e085ef730da1e7cd9f381e6ee141419dcbc936346903a
+Copying blob sha256:2a434cb0ef0e6270689f144b545cd93155837dab7170c00fa4633a171f4e1b1d
+Copying blob sha256:fb3a52a86c51dccd98558d658433183ad4d51dc3469123efb1de689b3406a7d0
+Copying blob sha256:504c70af2499c08ff66d0a6ef8c5a2df38958f0252036ee5f00aed2d910566de
+Copying blob sha256:087ed19e49199486358099820e08cfdb52a65d73e6166221a3add546bb670fae
+Copying blob sha256:6cb183de1c9a107ce59817ac76324de8c1894be17d2209678985ed44e1d70315
+Copying blob sha256:5621c0d201fe3db461365a280cbb96deffb71740e0f34eeffc73fa95dbadacb8
+Copying blob sha256:ba8750c9d0af5c056cc3c182f187f13b5fa63c3c3745d54252482722619050a2
+Copying blob sha256:55620b4bb6214555d0a90e80dd52640b6e2c915157f6c80b414f2fda75f4d103
+Copying blob sha256:b99fe74dc1cba77ff36867a990823cf5c6f59c3b8360f8635e93fa82b68a0460
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:00a1d903f99959a18e48460cff23a168d5ed0300dc80e94b4a7c96f91c4cbc67
+Copying blob sha256:5da45e2fc3a7918190ef678e4e34523aa9bec2d996c5ed68c94ef39a51f4432c
+Copying blob sha256:1346353ef3ff009e4820eb4763d5bc6cc6c544c5c65864f5c2dca50a4f174810
+Copying blob sha256:bdfb149bc4eced07da3fa7bd41dfc6534d230d716237beb873cfe04bddb8eb40
+Copying blob sha256:afc5498e0f2639e7ddc1fbd252c798d6984ed7ce7ef869690505ef7259630b90
+Copying blob sha256:d6563ae73e2273367c0e2172f0062a3bc405a56fa6037a537cfb227a96ac3cca
+Copying blob sha256:e7100a7ca74044654012a8eae0a6c3ca15f822f5cc82097fae49c68bd1c2060f
+Copying blob sha256:8dabfebf081bb89926ce998ecff189ec943ddf13acb58660aa8dbae026acf47b
+Copying config sha256:85364cd21cda9f531c5245abd1ced28f7c8bdda1c8e62d5ea2601ddcb468e5c3
+Writing manifest to image destination
+4155c75aae9167baff99e074acee531d7aaafb77b3ba7ec2f56d42628f4e9602
+immich_network_holder
+immich_machine_learning
+immich_redis
+immich_postgres
+immich_tailscale_sidecar
+immich-caddy
+immich-server
+OK: immich (immich_network_holder immich_machine_learning immich_redis immich_postgres immich_tailscale_sidecar immich-caddy immich-server)
+PASS: docker/immich
+
+----
+
+Testing docker/inotify/sender_unraid
+d62063e721ab49249b836bc9d06e72c8ee4ed50f32021e4c922fcd1726c67d95
+Trying to pull docker.io/devodev/inotify:0.3.0...
+Getting image source signatures
+Copying blob sha256:226a7389ae3fc719ea00475a2be20a98a95dfee439605652b881ff5a4a380e90
+Copying blob sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870
+Copying blob sha256:2cdf64a706e83785401048e569455b87bfa8685c67a0534e7119ab7176320dde
+Copying blob sha256:f133939aba9d7285b3053e4b2b2028db4bd151b4bdcd7521617b06db11e58e3e
+Copying config sha256:9f99dcb51bc258a5f11684125aa56d1eb011839917f0fa2958e209b0e51cacf7
+Writing manifest to image destination
+da9b29d8baddc0d4da09af30dcb97f16b249a22ee9e7ac070aed9fa29f81c770
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+a67aa1617552fb2b2d40bdc84297f3bf16f3e6d0a96fa289ab12b43650ef4a47
+inotify-sender
+autoheal
+OK: sender_unraid (inotify-sender autoheal)
+PASS: docker/inotify/sender_unraid
+
+----
+
+Testing docker/invoices
+9f69c393efb390a6e0896c8da1681cad819c1d629fa36f86507eaea705be51e3
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+302961b86d38732f5b29cb15be329466214996cf1daf49caae5c03706487d06c
+Trying to pull docker.io/library/postgres:16-alpine...
+Getting image source signatures
+Copying blob sha256:97b8e529965a96239f30cf08cecdb9003b7ac17ec468b7810de37b18d4dab47c
+Copying blob sha256:d2e5feb410e895a1fd0e7a9121fe24ffca666de333d3cde8f9d18946014f97df
+Copying blob sha256:6fe79fe4410f2109f6d488a84a4450deb1b023cbec56a6cb56ddd501ca9948ea
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:137ed19c6b800208bcec468e732d4aecaaee30bfdc062b4fe3fe78cc17899630
+Copying blob sha256:3048a283a43359eaef3a7a922cb39eb67377b94a7a35f45ac6bab59b3b724a89
+Copying blob sha256:6bfb940eb8240471f343f971e55f53164dc9e560dd66834b48e5bb439b563c87
+Copying blob sha256:e76f2995a422088f3088f8aaaa26dbbdf95383183150e11421480c1dce735cd2
+Copying blob sha256:9582264a43c03c8993ad34946a2b164d43724efec6b711abfa2b3ea136bcf2b3
+Copying blob sha256:d3a0dfeb7e380b372d3adf99e71b12cb6f2d15d6370f8ccd4f4953272ab71475
+Copying blob sha256:feb143896d95aee25e2e04c3a42b50d0be54ff7628e03275719f7f458e60089e
+Copying config sha256:b97fe41a065781e884f8a23fd3dfd04c3348ce02d7a7c5cb2c0645317b4eb663
+Writing manifest to image destination
+2335b71ce409ce70dd92313ac8de8215794d203d84505232c850fc6f7d3c8b94
+Trying to pull docker.io/library/solr:9...
+Getting image source signatures
+Copying blob sha256:3dd7edcf5bb47eccc1e0ada34deaab04a4af113a8b543389aa6e0de89aa4efba
+Copying blob sha256:8770a7ccbf824857f9a328739d1ddfec21c04a1b7423007c0a74c8ab500e3675
+Copying blob sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e
+Copying blob sha256:bd012e01f9d2afd797ecf20b406260375e0fe120b00a6401bba84a92fc3968f3
+Copying blob sha256:c6b4b65fc380fc87df9d7a19c5abf67e22e913f6f0b56b870b1ee5ca46f5cdf5
+Copying blob sha256:0a5de6e8045fe0102a83fbca815f435fd81296a7937cdeb04409eeec845a3502
+Copying blob sha256:6cd0390b2016a777cb27f91a0c532f68a8ce6f0491a15ba26b2cee4365d71544
+Copying blob sha256:b935906c7aad2cf4d6ea3100b6be92f97147aed8432989a895e420b051422bb1
+Copying blob sha256:0c8c9340bf85907e3c769c243b579841528b57be3dddad1bd49364e8e0cda3e2
+Copying blob sha256:1688cb72ab7f317011fc0eed0d0d83af0f978866f401efdd7b2868c5c3ed99f7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:d87f4f46f74e1834e1923f386d3817767f87d5a9c657997ac7fe3e5d36f90cbd
+Writing manifest to image destination
+2dee997e8d7583c6aaff7137f979bd96bcccd8716815a71fb34f0159c5fbe511
+38b3c30dcb21088fe064ff44b7bda23b66265c7f4f34c04074ba79b9c0f89673
+Trying to pull docker.io/library/redis:7-alpine...
+Getting image source signatures
+Copying blob sha256:232f7549c9b07a752bb00c7d7a61b3bfe6af3f15a711ba643c132f0e51922a64
+Copying blob sha256:60c57c0072ef228501beec5a8bee0d7ecc882dee9afd91fc7a58e3f9d9da64c5
+Copying blob sha256:f637881d1138581d892d9eb942c56e0ccc7758fe3bdc0f1e6cd66059fdfd8185
+Copying blob sha256:380e8aa8b1fdbd2887f9b1fa3e9d3cba192f9ff87956981dc8bd73cc6da39bfc
+Copying blob sha256:c70aae7b5e0d75367bcf5d40074ae8e28d17793c251e0d505321aa8ea4fd91fd
+Copying blob sha256:fc4343b4accd46fa853b1de6ee0ca92ab1f7080db3af6c4948678534d69cc159
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:d75b3becd998021da3bbfcb31fa6580676396f5244243670f57920652cce8038
+Copying config sha256:13105d2858ded45aedf7b24f0870e6a4e7ce4964924bffce68e562ca72149f1e
+Writing manifest to image destination
+9d5bfaf8b8605de89b3589559b61b05658ec40c0e43373bb90923aee348ec8de
+Trying to pull docker.io/tailscale/tailscale:latest...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+c79ff76ad6b20f69e3e6daee9351e9d5e13836f34a8dc212bf3829920224d9ef
+Trying to pull ghcr.io/docspell/restserver:latest...
+Getting image source signatures
+Copying blob sha256:f5df935c17e1eabc9372e18f6c22a6ab0cd6bfedf077443dd6aaae92f4d46167
+Copying blob sha256:4d6f768af370d7f6c3d0b04809690ebb289b3c93da73100b9ee154ccf751fbea
+Copying blob sha256:f3fea5f735b36ed9f2e3aa8f1f9aa1cc74f27c81df1c5d8fd27b6a6c4f8a0d1c
+Copying blob sha256:1ac6603be11d437a3a9a6ee98b7510fbdd54009a3acc2e1c8a66f07142bee387
+Copying config sha256:63e0633b4087e8c3e8a186fc240bc85c4977751b916949b6d35bb8a6d6730abd
+Writing manifest to image destination
+cae90613e907f776cc5ad4d4354f45a111b71096278a64f6b146d8493b971f17
+Trying to pull ghcr.io/docspell/joex:latest...
+Getting image source signatures
+Copying blob sha256:beddb5f71ee42ea2b460b6561510d25e573a3d18ea4f848c01ec9066805f45ce
+Copying blob sha256:4d6f768af370d7f6c3d0b04809690ebb289b3c93da73100b9ee154ccf751fbea
+Copying blob sha256:6c3e3ccef35ecf32997f5cae2e90bb6eeec51923f82d21043846f3a3331f1fe8
+Copying blob sha256:748f9ee928eca269dbddebcf90e027ede5aa7612b8598ef610d5dd05cd160eea
+Copying blob sha256:7049ae30c3967337eb50a7c504357325430840142cc20671bb4c141b8b41e453
+Copying config sha256:e31f09294eef40f1efac68e390448c18322134bc3cdbc3df6fdb6a23327e3e64
+Writing manifest to image destination
+09bafbcf1e0849ed64352fd4516964cb7c4275f787b1f2652e95f833591ceb01
+Trying to pull docker.io/fireflyiii/core:latest...
+Getting image source signatures
+Copying blob sha256:98e4c57a89962ff09376e0bf8b68619122c91a7082a510a28c841f8fc5cf4466
+Copying blob sha256:c798054800e2759578b19cc7c8180c351520f982761fb41e23f69a201824c37a
+Copying blob sha256:53270f2bddc7506fcc582a35ce32b46a6662397c3c17cff70887dd22e9d63413
+Copying blob sha256:0e4bc2bd6656e6e004e3c749af70e5650bac2258243eb0949dea51cb8b7863db
+Copying blob sha256:f7f84f8c6ab0be3ca8235ff798bfd93e3fd912fa4b2ca58068b228025e64651d
+Copying blob sha256:0674e2ffbb89e426720ca8d1083dd8746b1f6c79f8ce789ebad5ab77c9a063c0
+Copying blob sha256:b5df2273fff34ab9bdebd1a7c84d6e1ed6bd52b25c3bcde608e078fdf7f72303
+Copying blob sha256:5ef561d9cf4330cd4c4eb47d670a1dcc517d04e06dda8f06967020db97c4d29a
+Copying blob sha256:d6f8d67f56043aa38db193de878aa14842fee038a5927ab80d0751ae22c4aecf
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:1ab2925c184be74643c0c50e45a376bdb0003af0e79eae85ba2f540e0670617d
+Copying blob sha256:b2aa9366f2197af8d29fb924924e98c0540366329d50081b313ae2c6e31acd39
+Copying blob sha256:4d3cbb7797af4dbe69d50121bccbb2d9d401d02c8b902ac099474db3d457afd4
+Copying blob sha256:14c95806d3dd9105ba2f003f864119c8f045e28b2d56597578e8677655f9054f
+Copying blob sha256:0df0dd17ac7fcd43d34be0936a9951526332338e959dfb48d68361823efbf89c
+Copying blob sha256:910f49f01b06dd7cd583337cbd3458ed8f6e7bc6a2f06b6d2acd5cc76f99b461
+Copying blob sha256:09bfb6a07d74349f1297d9ac3ebc79ac5a448dbc7de1e0c731f3f0bc703ea5b5
+Copying blob sha256:242b58fce28d51c74ac7efd4746b26bb4c08e4b29d7ad4606c252ecef821118c
+Copying blob sha256:ced85251762901d250d50c044e68a8f696ab6e1c97a6609cedb3540007a83a93
+Copying blob sha256:5226f4566c99a80430b337382964cf2627a4fedd7009bd840afcb89f0603d58c
+Copying blob sha256:b2a5477315e2c910379dc0db969a885fe9be14e28ad092df8a13481208328a76
+Copying blob sha256:a486e1367326f0607e1dc2cfdc101f91b4151b2d6092b70f197be1ada0016fdc
+Copying blob sha256:c3b055c3ae8ce5e469fe6efc93bf9d0b5eca89554e42c867a8d973af09adef10
+Copying blob sha256:411267ae2807c9294a6a0b09bab9c62c059bb862c138b6622e1aac1b1973ec05
+Copying blob sha256:4c294697c14024e74f63364d1483846d861db01e767979a8169105858dbd49c5
+Copying blob sha256:66079ff8df0d1b948644ccc0e41aa281e9847e1bdda67d1ba3407b287b563686
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:096e7aab0a8b9e0ba1522e3e46f786387cba1efac76d57a12edd976a49bb799b
+Copying blob sha256:e3818fcf9b090b6b3c8d9822fe8ff184e5cb7f66784967f36a5aabe1c3d61e63
+Copying blob sha256:852877d2ddebd4982cc111c4eea283b3bc254f91a92f73886fbea873a18f9fcf
+Copying blob sha256:8c69aa47fa30276226cf3de086fc2f885f74610b145278082d837b161b69d4a2
+Copying blob sha256:8956f312ffb59b395e35e0544845faf815acdeb9b4b906b9759d9d1a11cbba66
+Copying blob sha256:71ead68e6cdb26b3dcf9aa8f2537a754d8dc009380837bb2c6968dfdf43fc5fe
+Copying blob sha256:1be2bd07eece5669ab630b4d06d64cdc251cfc27ad4d533eb38b42e0b62c43db
+Copying blob sha256:bf08ec34e1f3d58d7de11568a630898aeb26f096097ac266bca1918a04a2f59a
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:bbdccd385a2e08b51b237ae2284b6ccca8fb3da8f20dfe798c99901caeddb1c5
+Copying blob sha256:0fe807c3483bc854d9123349d2651b65efbe01498197048d2853e5e6172411f9
+Copying blob sha256:5f05b064fadee548da42fb26ccb227e6c780cf28751002891d5b37d1923e5c4c
+Copying config sha256:9e845c1e5999490725f96a4beb7264b360cdcd75525ea8b17eeae60cc08e00d4
+Writing manifest to image destination
+b21bb9c4ffc8f32d0e2183539f1138b13ba82503de4913061ac14bea68897656
+Trying to pull docker.io/docspell/dsc:latest...
+Getting image source signatures
+Copying blob sha256:bdf75d86225628df62e5aa522bd267783443b448d13e0f013df84d8c2e07c4b5
+Copying blob sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:d574edd180f4f25a61f2d3328b50676f201a036d4f2d8f164ecf17b908c6024c
+Copying config sha256:923af8c80c5fedd43a07101ad342256c97fad5092cc50aed644dfc8a2e1b5eaa
+Writing manifest to image destination
+14b4dc3dd2c8b6038b7b08a21753082fccb48aad995d217e6b215b6953de3450
+Trying to pull docker.io/fireflyiii/data-importer:latest...
+Getting image source signatures
+Copying blob sha256:4fb686ce312ce84499d34a08c1deb64e9331d47f6a967ec57405841bc95dd227
+Copying blob sha256:60df91c45d0a86e1db8d1d912fb5cf26d490f2284dac0daa5f35109768e26545
+Copying blob sha256:1733a4cd59540b3470ff7a90963bcdea5b543279dd6bdaf022d7883fdad221e5
+Copying blob sha256:b1f8710b0f16836f0a18a496d19ba862ec3b1cea366c4521ef644d9b073f1524
+Copying blob sha256:385f943c98d4fbcf1ff9533be045b3ec8244b498cf1a8353ee732294e81e73ce
+Copying blob sha256:5e4542c4381529b61bface7c43a625307bba7d14bf252ab1b57a2f24cfb5b332
+Copying blob sha256:53169638e514c083c0735b9990c2bd4d186d22bc1efa6671153e68545fb6c3b2
+Copying blob sha256:5cea0a8ec85387120449754610e4dbfee6108e6f564e81665400cda883b4d695
+Copying blob sha256:d6b285cf1e53250ca2418caa4486c6789a23be517db7c7f196f0ebf13ccda1c9
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:b11b1d606f1fb5048e9d398ecbcfb4d1b2398f48bd080fab3260a20bafbea0b1
+Copying blob sha256:bce4c1a460aaa69e585fbc20ccb468492b3cf2e3cc22a7bb411d86b1248cdc4d
+Copying blob sha256:a6d3f146cb3abde973928e25c70d88e26b2d96dca05089d75531190235783d2b
+Copying blob sha256:1c0da1f3b44dd7621b5449b0f5fc7ad841f4caa4f2c17ce4fd3f1d4e83652fd9
+Copying blob sha256:0df0dd17ac7fcd43d34be0936a9951526332338e959dfb48d68361823efbf89c
+Copying blob sha256:4073a906390ad127714a8d7953fcc5dbb68339685cafe6b21c0f7e43201a8574
+Copying blob sha256:77c592fa4ec3df7856837d0e81a102a0f13b91b9704c4ce717faae436641e5b9
+Copying blob sha256:da558ce8f56beb208d44fbc1794a94484ca5c9fe92c58714b3d91d19e25e7c4c
+Copying blob sha256:95a913dc019b5c0bf9fb6e9efa9bbceffb5552f29662c27af91c6b99e7e89ca8
+Copying blob sha256:be046c4828751bff9106f4ce0b39b9b9eb6b7fdcc7267362b9d99d791134a353
+Copying blob sha256:3503f531bdb052543eab538e9b49e5624c6d50e70c46709f10ed267b64edfc53
+Copying blob sha256:440831940897abc81311f4af7421cc595b79c34af566182b090adae581f2dc9d
+Copying blob sha256:84ca898de93021f624c89844c1d3c4fe8874ebadd2220eee75eea17dc68ceb0c
+Copying blob sha256:876dc6ff9b99b8e5b89658207eb1fdb0396cafb29da97a0f8fe1e1ce2bf86e74
+Copying blob sha256:81b2c5fc59431b5a3ac7862306eca03227fac5dab80bd6ef8d90399b9e864f85
+Copying blob sha256:592cd6fbb816985f5f6345a7b74ffdc01123ccc2f945bee979b29aa8d127299e
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:72a3fa295bca577b69dca3e439acd590b01736c116acb46ff1d34c8a489797c1
+Copying blob sha256:6bb80e76ec9e6406bd129257acc0269be578814fe907836e6512d0e3f11f085b
+Copying blob sha256:0e1e4d52e002c9f599901b69b51e781fbd17094de3f0a768c9b9d3f7482e41de
+Copying blob sha256:53e32fb51db54f7462db2770a5fa2a9314d6b111ea2bb3901eedffe325117922
+Copying blob sha256:84e45ecbe2ea70a7a26dffae19b1163f121188b55d590668482fafb038056063
+Copying blob sha256:b64cf5c1ed455a0eac3c415e95b25f11aa40d0f27130cf3ee5e3467a173aa84d
+Copying blob sha256:f215828e50882fdee256c9438712c21e76fb9d7104a62ec06ad714fcff5e6ca9
+Copying blob sha256:f3a6e7e6cae7cac96502a313ff8c8c96278f6d457082c5a8e9cd9ff9c22f40cc
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:eede2f611f061fcef7da6d38ba993384d6c9dd3304d4ead40ff4ec6a9e698185
+Copying blob sha256:fb157552c704ea654adf8f4a1a6dc6cb2157a394a0a0dcd1efd0545897031302
+Copying config sha256:0fbd53789f9c939afda6eac74d752801908fb1d7b16834d7e375d14e67bbe42c
+Writing manifest to image destination
+6db0fe5a3cbf35b8fc1935fb9d3a4ba663f2cb5a9027b8b25accbdb00552a801
+Trying to pull docker.io/library/alpine:3.20...
+Getting image source signatures
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying config sha256:e89557652e7472b26d49f1d45638ac744a2928ddada818777a6ce4076f64f7e6
+Writing manifest to image destination
+64a390dda28b0d3c737657c28f0bffea3809f76cd3d5f1158b6cb6bf885025c0
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+90469cdac8a2dc23ac07f8aab3420741cb1f7264d3d45a8a1f06588bec9c6648
+invoices_network_holder
+postgres_db
+docspell-solr
+firefly_iii_db
+firefly_iii_redis
+ts-invoices
+docspell-restserver
+docspell-joex
+firefly_iii_core
+docspell-consumedir
+firefly_iii_importer
+firefly_iii_cron
+caddy-invoices
+OK: invoices (invoices_network_holder postgres_db docspell-solr firefly_iii_db firefly_iii_redis ts-invoices docspell-restserver docspell-joex firefly_iii_core docspell-consumedir firefly_iii_importer firefly_iii_cron caddy-invoices)
+PASS: docker/invoices
+
+----
+
+Testing docker/jdownloader2
+2125e84524914766ee1307a2ac7e0315d6b4484dec3ebde53a420e52beddf8cb
+Trying to pull docker.io/jlesage/jdownloader-2:latest...
+Getting image source signatures
+Copying blob sha256:97b2c9cb32f791b596e75d1eca31b5416eeb89d7a4bde408642b78318944d8fe
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:a0187148e3e0527f5c83cf5ff38093aacf4c98a5d2eac78aeb19f494f3e489da
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:82c6bf341d555dc24e83dfc908873bf1f3cdfde3801e60ec8158466e2cf92fc0
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying blob sha256:3bd535d4da7795f10bad5d27ebd391f564753aef55abc255ef0189691c859e81
+Copying blob sha256:506346bf1ee09949779254db4d8a4c8266d8914b997076163a19048e6d3d3353
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:8ed69bd8fdc4fec4478a9433f12277dcd14e33646969803e76e696b6e06d5f75
+Copying blob sha256:502aea79213e4e9e6e70fe52ecf5468495ebc3d4ee744fbaf2ce332bc6e2eaef
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:dd06f19506a50f1eaf901757be8fce8cd1d9a2a1cdb45f20a175db6010337b20
+Copying blob sha256:6d264e4a3d969c9b1d181cf97fa16f605a00651f096a5f80ce53d68e9b1d6615
+Copying blob sha256:99104874176e5dcdf9ab7a2bf55f6a5772d3b94dea4955d6ee4a828779380baf
+Copying blob sha256:49343150848ee24f10edea446e80a85665b8a68dbc5fc820fcdd49dd27ad1d5e
+Copying blob sha256:788f743105e95ef4d2b1f54e64879f90398a1449307eddba0c66776389d24cc0
+Copying config sha256:dd3b46cde26f902f32a02208bc457165ba29273810c6647aebd70bf022936f8b
+Writing manifest to image destination
+9d5de393840a4a4bb7373436a05c18d7e7fe32f43ad9fb2b4c4a53a76302ef53
+jdownloader-2
+OK: jdownloader2 (jdownloader-2)
+PASS: docker/jdownloader2
+
+----
+
+Testing docker/jellyfinn
+fe65b21019fa2a78f9f4a20bbfd4ed9eca5032f96b7e2fbd52831a8e2b8d321e
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+7720b36b07f8d4ad74dcd80b535d0fca746713bc06749534e02a51448fc63edc
+Trying to pull docker.io/library/postgres:15.2...
+Getting image source signatures
+Copying blob sha256:3ef71fe7cece14278b6b8769e97fe284ec968c376d3715c50ee70d5478e0773b
+Copying blob sha256:7782b3e1be4beb8cf04e53bd574df55633e7244cebf971caf0b371b868f17036
+Copying blob sha256:f7ead6900700a9d241f0ce2d1b47e80dd024ba213ccd8cf53a9a4cbb48e7f30a
+Copying blob sha256:9e3ea8720c6de96cc9ad544dddc695a3ab73f5581c5d954e0504cc4f80fb5e5c
+Copying blob sha256:247ec4ff783a53b6c6aa696498b385229489f0b4dbf754ba04fd4225c52bf60e
+Copying blob sha256:e7afdbe9a19117458a2ca067fa89ed0638e66874fc76b77d3201eb3b9d1be0bd
+Copying blob sha256:1459ebb56be5dea8fd98456fa33b6fd607bd304cd1a843d705845aca032ded33
+Copying blob sha256:3595124f68615a5a8c7d3f87303c6ad4002665676240cdf7190f85f324c9faf3
+Copying blob sha256:dd8e229a2a1314d88197f0f21f2a437870c6c2ad4770bac2fd4a5a825003a2c1
+Copying blob sha256:8cf43a35dc101ed96afea569bdc118c72f954e7a9f4bc90b2547a9b0e02305b4
+Copying blob sha256:2fac9b4aab2f1e0274ef61139527a119953ec18d0ed42157be1fe35ddfa1530d
+Copying blob sha256:b3f90da87261950e10b09c94c16a239c6b9b8961926b47c41e1e01ecfab4047e
+Copying blob sha256:5f7e3ef14a3b0516d4096b5a703f46de3479e4a998618a637e75d358d28bbd7f
+Copying config sha256:bf700010ce28b2744ed00ca6105951604c68db0a28105cf2da2956b89c2560e8
+Writing manifest to image destination
+c32484eb214983ce74e44ba58a721350cff6977e3adec15b991f702e36265664
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+014aaf20b0e46005986137e418b40bcf9fb4488a7c4e282ec10927b9ac077942
+Trying to pull docker.io/tailscale/tailscale:latest...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+1ed983affa6166f36691b6577f4a75878651ce19080fa0e9c6bef49908a3e334
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+29b4d029c14642b64bd795bd52780f5a6cd99abdc85c04709b8f52b0622e09d1
+Trying to pull ghcr.io/arabcoders/watchstate:latest...
+Getting image source signatures
+Copying blob sha256:00dc600ccc850e4c7563da1a98cf8784ddb9baf2e8bbe14824c00689370c107b
+Copying blob sha256:0d37574009de1199f8af575fda053811db541f01a97d948179bf609d8e03d009
+Copying blob sha256:2981f7e8980b9f4b6605026e1c5f99b4971ebba15f626e46904554de09f324f4
+Copying blob sha256:4a937352375f5fc68ed1a67d9e57e63d2dd42def91e10fa2a58c04ce77f9d5db
+Copying blob sha256:f04fab69318a03e46987885ca8f3d7dd4ccae9b0d3d7c1949aa706447e7ae729
+Copying blob sha256:23cb281faa1439bdb1c3fc8f61093ff343afc33038426ec06bb4e2fd7e3f90b8
+Copying blob sha256:d666ee93a0f951aad1fe51cf00eb32b43d33ddb134b703abbe4432110137c130
+Copying blob sha256:bc78e38798f7b7f9bb380ddf14c4ca5a8c6699edb56f2d777e49e32abc0b9749
+Copying blob sha256:0c61556beb6f42945e8ae729952f759c2635870b541e3fa2f1071cb6f1d682d7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:6a71332df4285be90fd2ce129ed9bd0d50a77274bbaa1706bcddf47e838046e8
+Writing manifest to image destination
+42c86b664533bfbde98ca143d6e301c9d633cabb1a247b028a6ce24cf221de3d
+Trying to pull docker.io/cyfershepard/jellystat:latest...
+Getting image source signatures
+Copying blob sha256:c184c64a8a7465788306490c108296a28479cc66534687b252194e8c0b5391dd
+Copying blob sha256:ae4ce04d0e1ccb5db08fa441b79635de5590399fae652d10bd3379b231be0ead
+Copying blob sha256:02f9580c51f1c263e2f6a37873a0e0aee020940bf118e4a4b0d9d8daccf6c496
+Copying blob sha256:fecbaecd907a6f9aa9e82563dc22ed631f98ea276e260c75e65c8add151f736a
+Copying blob sha256:ada732c218c77ea7db495185e45b0657726881d7a6ed049bf47a4ce10399fe05
+Copying blob sha256:5ce95b861bcbcd5f6d15a57ed60e1f70a515fc96d2add98935e6c2783b2e24f1
+Copying blob sha256:5c8faa9b41a2be49ddcdb37668c752ce24a4f7c315a22988e8b39a4e272b2129
+Copying blob sha256:6df2346c4627d90149b9f2099e697424f79cd7abb8d5116cd3660b988b598a4e
+Copying blob sha256:25d62d76003775bc8a712804539ffd9e47f8f8b0cb2d90da83cb7c53116c90cc
+Copying config sha256:248b4c4ed579a5da8451506a4826d5262d567d21cf22a4081b57f9c18ef56c2b
+Writing manifest to image destination
+c81d89aab47613e744ab386850130f6a2d5996d09b75a2a520073537ccfb66e3
+Trying to pull docker.io/library/alpine:3.20...
+Getting image source signatures
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying config sha256:e89557652e7472b26d49f1d45638ac744a2928ddada818777a6ce4076f64f7e6
+Writing manifest to image destination
+238591943bf1dcd64346e8f3ab3b38550553d2d940100d2fd1c0b9d89c7e12fe
+jellyfin_network_holder
+jellystat-db
+jellyfin
+jellyfin-tailscale-sidecar
+jellyfin-caddy
+watchstate
+jellystat
+inotify-receiver
+OK: jellyfinn (jellyfin_network_holder jellystat-db jellyfin jellyfin-tailscale-sidecar jellyfin-caddy watchstate jellystat inotify-receiver)
+
+## Resume: 2026-01-21T21:05:30+08:00
+DATA_ROOT=/home/abl030/podman-data
+TIMEOUT_S=300
+
+Testing docker/atuin
+163a6c8e513f40a06f0445b342504a54b28ec374a11ec6560817b1ae5ea39a05
+Trying to pull docker.io/library/postgres:14...
+Getting image source signatures
+Copying blob sha256:cc9539970f9818ec1b7a05e5840d1fc3d194cefeb83af45f71e7d941fc93c9ff
+Copying blob sha256:2c87f305876fcc26a940c2f2705e6a2973e3499c5a4120122656bbd63661f229
+Copying blob sha256:e8a872c5c0882feb96a38ef4edb46e8d5d200a5e816ae731c1eca1b255b9e587
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:4f5751181c2c4af3820036c6bdc53970518d4dd4c2b6f920ad7e6bef8efe0d13
+Copying blob sha256:8f9dde75a6e822e4ce68717a995f00b7298966571e7a552497f4ff1aad5058dd
+Copying blob sha256:b1f0c98ab30d39e654618183b53fce02bfe9e24deea164c4cef08a0a5f02cd98
+Copying blob sha256:159544b2289c0b0b5e17643150564c93d9c724cf9a6b332fd4cec28b5bd65e33
+Copying blob sha256:84f2607680e03e66844c6208013c85d4c520cd5ec4140689a6dd2bef5aab2f93
+Copying blob sha256:3f7a29feff76bde1cd8050d5c936d773a0751b809f5fa1d013c68043fbd617fe
+Copying blob sha256:4a07eaa27298b404db95257c4dba18c094b1beceb4e08e629c4baa687472aae2
+Copying blob sha256:46857b1ed88cd0faf4998edcb5f0ce1f591bed798363d4e0f6f04fb5bd20bd26
+Copying blob sha256:b4f09afb86642ac6b7322f13783a0fd9ba8958f34b54508acab8ea0382dcbb59
+Copying blob sha256:1a305a969f811ecc3c872a193b8e434d4c96434257b8401a976584f4c1cb5eb6
+Copying config sha256:65b80c4b801f63b70dcf4f91d6a71d22844f9dac49c3029ed0f3e07b310cf023
+Writing manifest to image destination
+22f3423abccc8026d7e316b0773efa284acbc649007a8c82a2164619cb0c6213
+Trying to pull ghcr.io/atuinsh/atuin:latest...
+Getting image source signatures
+Copying blob sha256:1adabd6b0d6b8acfa4ad149a984df0977135a7babf423538c7284a02744a4ee8
+Copying blob sha256:980425a43a00d22160a2f3a04012ae4ff1af13b0d187c8d6d159d9883c215d3b
+Copying blob sha256:ba900e4dc5075cf293a1c288e050b22482b7d5e2f5cbe3957524119373f6976d
+Copying blob sha256:32e7590248433737f9e1316ba5e28bbb2081a4a43a9b797d30805681fa79903c
+Copying blob sha256:d8288fa309f233678204634b1712fe140c2832bcf2ca8868c082f15767f41757
+Copying config sha256:f8e4030ba324cfe0cd1d75f431530048c57ea9749bcccbede5ca3241bf83f27e
+Writing manifest to image destination
+a2621c7d4275475a1f7c66011eb79f01134b736a09d179110a475f628c849bba
+atuin_postgresql_1
+atuin_atuin_1
+OK: atuin (atuin_postgresql_1 atuin_atuin_1)
+PASS: docker/atuin
+
+----
+
+Testing docker/audiobookshelf
+6179a300a5206e83940755a4ea8dc84c5bbd8062a158bfa7182096d9c46f77ec
+Trying to pull ghcr.io/advplyr/audiobookshelf:latest...
+Getting image source signatures
+Copying blob sha256:9354fb0b123076967f65b35802ebcdc8bc7a52aae6a0484451a2c29c245f19d5
+Copying blob sha256:8d06ba6946d1f299d8f962e37906c77006df33d47050430a57f7893ec35af697
+Copying blob sha256:b1776ae0394b34042da80245636b2199aff3837ee00cf09650c40aba1dcc4a5c
+Copying blob sha256:fd1849a5c548bc65ee47a64498951bda5d40e87d08efe9dca69b5c8cdedc7a52
+Copying blob sha256:cb3325e64457574e24f92246e3da3376946e473d636209e1390eac47b50b26a3
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:fa8b6bbc923ad3388afb17bdf2589835a643fff1be261236eddf7c37499039c6
+Copying blob sha256:f4298c1e7ee2bdd91be0f5f815b0a339f6f1f24f008732db83e05be047a9b9c9
+Copying blob sha256:298804a17df65b217fabce986a603bd7e0c565fec52153a8aae05805da7aa763
+Copying config sha256:ad6b304e2d2dc966a837e5aadbd58aaa86307edd7f8509c14933e3828ea6dab4
+Writing manifest to image destination
+0d0727c2b70c55c7ffc2862f7096c57aa4fe12090b6373a582ed8d93efda3190
+audiobookshelf
+OK: audiobookshelf (audiobookshelf)
+PASS: docker/audiobookshelf
+
+----
+
+Testing docker/domain-monitor
+STEP 1/13: FROM php:8.2-apache
+Resolving "php" using unqualified-search registries (/etc/containers/registries.conf)
+Trying to pull docker.io/library/php:8.2-apache...
+Getting image source signatures
+Copying blob sha256:1bfd1029d57c553e9746a29d6b53d789b16720264477c2e1de88e80e2cce7fef
+Copying blob sha256:f13d132b40432b5921ea4a0d8f8e7ba1498cf5d180ee6b838e8784fc68b4f290
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:4b8a03043cb81ba81fc4a2dbd66cafb43625a2061d6938d5c51b918cbcc6b134
+Copying blob sha256:11f3d9b643c87b0a80da5da831e3738e76eee1b081d87745fdbaec3dd3ec75f6
+Copying blob sha256:598093b4ce56db281c12f3c6e6beaf731666bcda23e08f285aa3c63cd03acb0a
+Copying blob sha256:89a19b403240e08dcd77d5dd704faad1a385ace9bfc825f0e1d4d9777ff202ac
+Copying blob sha256:578d1b3b19d8e7ff7c9e1a945947bc922948c5aab75e7e3afffad8c17c2a544e
+Copying blob sha256:19d8887b0138628536d0c9b17f34354c2c5f5e4ff85385db05c6fcbad2efd75f
+Copying blob sha256:5e50fcd76d61b2bf2f99fe4501aa7823f07673c0c67eeb4a84d90358f1f0e873
+Copying blob sha256:2910362eca761d7b896aa397d981c1f12a34040ad2aaf60d931c3551660a3b18
+Copying blob sha256:c38fcdb831a586aedaa7381762d652962cf608cc27bed614b1f99ceacd4bbaa5
+Copying blob sha256:a270794a48bb04b2fa29585db4f20562ed356836db1386929e4d7db0d879f698
+Copying blob sha256:cdcbbcbc956c8fc4eb47e454945aa0cf752d9e0f87c651bdac06ffbc727e6566
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:2594f47a19f5b8aca3757fe3977c77d99fbfd06a0598f63e95b3b96ce4d079be
+Writing manifest to image destination
+STEP 2/13: RUN apt-get update && apt-get install -y     git     unzip     rsync     libzip-dev     libicu-dev     libonig-dev     && rm -rf /var/lib/apt/lists/*
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9670 kB]
+Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
+Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [96.3 kB]
+Fetched 9863 kB in 1s (14.7 MB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  git-man icu-devtools less libcbor0.10 libcurl3t64-gnutls libedit2
+  liberror-perl libfido2-1 libicu76 libngtcp2-16 libngtcp2-crypto-gnutls8
+  libpopt0 libx11-6 libx11-data libxau6 libxcb1 libxdmcp6 libxext6 libxmuu1
+  libzip5 openssh-client xauth zipcmp zipmerge ziptool zlib1g-dev
+Suggested packages:
+  gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+  git-svn icu-doc keychain libpam-ssh monkeysphere ssh-askpass openssh-server
+  python3 python3-braceexpand zip
+The following NEW packages will be installed:
+  git git-man icu-devtools less libcbor0.10 libcurl3t64-gnutls libedit2
+  liberror-perl libfido2-1 libicu-dev libicu76 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libonig-dev libpopt0 libx11-6 libx11-data libxau6
+  libxcb1 libxdmcp6 libxext6 libxmuu1 libzip-dev libzip5 openssh-client rsync
+  unzip xauth zipcmp zipmerge ziptool zlib1g-dev
+0 upgraded, 32 newly installed, 0 to remove and 0 not upgraded.
+Need to get 37.1 MB of archives.
+After this operation, 158 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 libpopt0 amd64 1.19+dfsg-2 [43.8 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 rsync amd64 3.4.1+ds1-5+deb13u1 [429 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 less amd64 668-1 [161 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 libedit2 amd64 3.1-20250104-1 [93.8 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 libcbor0.10 amd64 0.10.2-2 [28.3 kB]
+Get:6 http://deb.debian.org/debian trixie/main amd64 libfido2-1 amd64 1.15.0-1+b1 [78.7 kB]
+Get:7 http://deb.debian.org/debian trixie/main amd64 openssh-client amd64 1:10.0p1-7 [985 kB]
+Get:8 http://deb.debian.org/debian trixie/main amd64 libngtcp2-16 amd64 1.11.0-1 [131 kB]
+Get:9 http://deb.debian.org/debian trixie/main amd64 libngtcp2-crypto-gnutls8 amd64 1.11.0-1 [29.3 kB]
+Get:10 http://deb.debian.org/debian trixie/main amd64 libcurl3t64-gnutls amd64 8.14.1-2+deb13u2 [383 kB]
+Get:11 http://deb.debian.org/debian trixie/main amd64 liberror-perl all 0.17030-1 [26.9 kB]
+Get:12 http://deb.debian.org/debian trixie/main amd64 git-man all 1:2.47.3-0+deb13u1 [2205 kB]
+Get:13 http://deb.debian.org/debian trixie/main amd64 git amd64 1:2.47.3-0+deb13u1 [8862 kB]
+Get:14 http://deb.debian.org/debian trixie/main amd64 libicu76 amd64 76.1-4 [9722 kB]
+Get:15 http://deb.debian.org/debian trixie/main amd64 icu-devtools amd64 76.1-4 [215 kB]
+Get:16 http://deb.debian.org/debian trixie/main amd64 libicu-dev amd64 76.1-4 [10.8 MB]
+Get:17 http://deb.debian.org/debian trixie/main amd64 libonig-dev amd64 6.9.9-1+b1 [95.5 kB]
+Get:18 http://deb.debian.org/debian trixie/main amd64 libxau6 amd64 1:1.0.11-1 [20.4 kB]
+Get:19 http://deb.debian.org/debian trixie/main amd64 libxdmcp6 amd64 1:1.1.5-1 [27.8 kB]
+Get:20 http://deb.debian.org/debian trixie/main amd64 libxcb1 amd64 1.17.0-2+b1 [144 kB]
+Get:21 http://deb.debian.org/debian trixie/main amd64 libx11-data all 2:1.8.12-1 [343 kB]
+Get:22 http://deb.debian.org/debian trixie/main amd64 libx11-6 amd64 2:1.8.12-1 [815 kB]
+Get:23 http://deb.debian.org/debian trixie/main amd64 libxext6 amd64 2:1.3.4-1+b3 [50.4 kB]
+Get:24 http://deb.debian.org/debian trixie/main amd64 libxmuu1 amd64 2:1.1.3-3+b4 [21.9 kB]
+Get:25 http://deb.debian.org/debian trixie/main amd64 libzip5 amd64 1.11.3-2 [62.6 kB]
+Get:26 http://deb.debian.org/debian trixie/main amd64 zipcmp amd64 1.11.3-2 [19.8 kB]
+Get:27 http://deb.debian.org/debian trixie/main amd64 zipmerge amd64 1.11.3-2 [14.5 kB]
+Get:28 http://deb.debian.org/debian trixie/main amd64 ziptool amd64 1.11.3-2 [22.6 kB]
+Get:29 http://deb.debian.org/debian trixie/main amd64 zlib1g-dev amd64 1:1.3.dfsg+really1.3.1-1+b1 [920 kB]
+Get:30 http://deb.debian.org/debian trixie/main amd64 libzip-dev amd64 1.11.3-2 [181 kB]
+Get:31 http://deb.debian.org/debian trixie/main amd64 unzip amd64 6.0-29 [173 kB]
+Get:32 http://deb.debian.org/debian trixie/main amd64 xauth amd64 1:1.1.2-1.1 [35.9 kB]
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Teletype
+debconf: unable to initialize frontend: Teletype
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Noninteractive
+Fetched 37.1 MB in 1s (53.3 MB/s)
+Selecting previously unselected package libpopt0:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 15584 files and directories currently installed.)
+Preparing to unpack .../00-libpopt0_1.19+dfsg-2_amd64.deb ...
+Unpacking libpopt0:amd64 (1.19+dfsg-2) ...
+Selecting previously unselected package rsync.
+Preparing to unpack .../01-rsync_3.4.1+ds1-5+deb13u1_amd64.deb ...
+Unpacking rsync (3.4.1+ds1-5+deb13u1) ...
+Selecting previously unselected package less.
+Preparing to unpack .../02-less_668-1_amd64.deb ...
+Unpacking less (668-1) ...
+Selecting previously unselected package libedit2:amd64.
+Preparing to unpack .../03-libedit2_3.1-20250104-1_amd64.deb ...
+Unpacking libedit2:amd64 (3.1-20250104-1) ...
+Selecting previously unselected package libcbor0.10:amd64.
+Preparing to unpack .../04-libcbor0.10_0.10.2-2_amd64.deb ...
+Unpacking libcbor0.10:amd64 (0.10.2-2) ...
+Selecting previously unselected package libfido2-1:amd64.
+Preparing to unpack .../05-libfido2-1_1.15.0-1+b1_amd64.deb ...
+Unpacking libfido2-1:amd64 (1.15.0-1+b1) ...
+Selecting previously unselected package openssh-client.
+Preparing to unpack .../06-openssh-client_1%3a10.0p1-7_amd64.deb ...
+Unpacking openssh-client (1:10.0p1-7) ...
+Selecting previously unselected package libngtcp2-16:amd64.
+Preparing to unpack .../07-libngtcp2-16_1.11.0-1_amd64.deb ...
+Unpacking libngtcp2-16:amd64 (1.11.0-1) ...
+Selecting previously unselected package libngtcp2-crypto-gnutls8:amd64.
+Preparing to unpack .../08-libngtcp2-crypto-gnutls8_1.11.0-1_amd64.deb ...
+Unpacking libngtcp2-crypto-gnutls8:amd64 (1.11.0-1) ...
+Selecting previously unselected package libcurl3t64-gnutls:amd64.
+Preparing to unpack .../09-libcurl3t64-gnutls_8.14.1-2+deb13u2_amd64.deb ...
+Unpacking libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u2) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../10-liberror-perl_0.17030-1_all.deb ...
+Unpacking liberror-perl (0.17030-1) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../11-git-man_1%3a2.47.3-0+deb13u1_all.deb ...
+Unpacking git-man (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package git.
+Preparing to unpack .../12-git_1%3a2.47.3-0+deb13u1_amd64.deb ...
+Unpacking git (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package libicu76:amd64.
+Preparing to unpack .../13-libicu76_76.1-4_amd64.deb ...
+Unpacking libicu76:amd64 (76.1-4) ...
+Selecting previously unselected package icu-devtools.
+Preparing to unpack .../14-icu-devtools_76.1-4_amd64.deb ...
+Unpacking icu-devtools (76.1-4) ...
+Selecting previously unselected package libicu-dev:amd64.
+Preparing to unpack .../15-libicu-dev_76.1-4_amd64.deb ...
+Unpacking libicu-dev:amd64 (76.1-4) ...
+Selecting previously unselected package libonig-dev.
+Preparing to unpack .../16-libonig-dev_6.9.9-1+b1_amd64.deb ...
+Unpacking libonig-dev (6.9.9-1+b1) ...
+Selecting previously unselected package libxau6:amd64.
+Preparing to unpack .../17-libxau6_1%3a1.0.11-1_amd64.deb ...
+Unpacking libxau6:amd64 (1:1.0.11-1) ...
+Selecting previously unselected package libxdmcp6:amd64.
+Preparing to unpack .../18-libxdmcp6_1%3a1.1.5-1_amd64.deb ...
+Unpacking libxdmcp6:amd64 (1:1.1.5-1) ...
+Selecting previously unselected package libxcb1:amd64.
+Preparing to unpack .../19-libxcb1_1.17.0-2+b1_amd64.deb ...
+Unpacking libxcb1:amd64 (1.17.0-2+b1) ...
+Selecting previously unselected package libx11-data.
+Preparing to unpack .../20-libx11-data_2%3a1.8.12-1_all.deb ...
+Unpacking libx11-data (2:1.8.12-1) ...
+Selecting previously unselected package libx11-6:amd64.
+Preparing to unpack .../21-libx11-6_2%3a1.8.12-1_amd64.deb ...
+Unpacking libx11-6:amd64 (2:1.8.12-1) ...
+Selecting previously unselected package libxext6:amd64.
+Preparing to unpack .../22-libxext6_2%3a1.3.4-1+b3_amd64.deb ...
+Unpacking libxext6:amd64 (2:1.3.4-1+b3) ...
+Selecting previously unselected package libxmuu1:amd64.
+Preparing to unpack .../23-libxmuu1_2%3a1.1.3-3+b4_amd64.deb ...
+Unpacking libxmuu1:amd64 (2:1.1.3-3+b4) ...
+Selecting previously unselected package libzip5:amd64.
+Preparing to unpack .../24-libzip5_1.11.3-2_amd64.deb ...
+Unpacking libzip5:amd64 (1.11.3-2) ...
+Selecting previously unselected package zipcmp.
+Preparing to unpack .../25-zipcmp_1.11.3-2_amd64.deb ...
+Unpacking zipcmp (1.11.3-2) ...
+Selecting previously unselected package zipmerge.
+Preparing to unpack .../26-zipmerge_1.11.3-2_amd64.deb ...
+Unpacking zipmerge (1.11.3-2) ...
+Selecting previously unselected package ziptool.
+Preparing to unpack .../27-ziptool_1.11.3-2_amd64.deb ...
+Unpacking ziptool (1.11.3-2) ...
+Selecting previously unselected package zlib1g-dev:amd64.
+Preparing to unpack .../28-zlib1g-dev_1%3a1.3.dfsg+really1.3.1-1+b1_amd64.deb ...
+Unpacking zlib1g-dev:amd64 (1:1.3.dfsg+really1.3.1-1+b1) ...
+Selecting previously unselected package libzip-dev:amd64.
+Preparing to unpack .../29-libzip-dev_1.11.3-2_amd64.deb ...
+Unpacking libzip-dev:amd64 (1.11.3-2) ...
+Selecting previously unselected package unzip.
+Preparing to unpack .../30-unzip_6.0-29_amd64.deb ...
+Unpacking unzip (6.0-29) ...
+Selecting previously unselected package xauth.
+Preparing to unpack .../31-xauth_1%3a1.1.2-1.1_amd64.deb ...
+Unpacking xauth (1:1.1.2-1.1) ...
+Setting up libxau6:amd64 (1:1.0.11-1) ...
+Setting up libxdmcp6:amd64 (1:1.1.5-1) ...
+Setting up libxcb1:amd64 (1.17.0-2+b1) ...
+Setting up libzip5:amd64 (1.11.3-2) ...
+Setting up libonig-dev (6.9.9-1+b1) ...
+Setting up libcbor0.10:amd64 (0.10.2-2) ...
+Setting up unzip (6.0-29) ...
+Setting up libedit2:amd64 (3.1-20250104-1) ...
+Setting up less (668-1) ...
+Setting up zipmerge (1.11.3-2) ...
+Setting up liberror-perl (0.17030-1) ...
+Setting up libx11-data (2:1.8.12-1) ...
+Setting up zlib1g-dev:amd64 (1:1.3.dfsg+really1.3.1-1+b1) ...
+Setting up zipcmp (1.11.3-2) ...
+Setting up git-man (1:2.47.3-0+deb13u1) ...
+Setting up libx11-6:amd64 (2:1.8.12-1) ...
+Setting up libngtcp2-16:amd64 (1.11.0-1) ...
+Setting up libicu76:amd64 (76.1-4) ...
+Setting up libfido2-1:amd64 (1.15.0-1+b1) ...
+Setting up ziptool (1.11.3-2) ...
+Setting up libxmuu1:amd64 (2:1.1.3-3+b4) ...
+Setting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1) ...
+Setting up libpopt0:amd64 (1.19+dfsg-2) ...
+Setting up libzip-dev:amd64 (1.11.3-2) ...
+Setting up openssh-client (1:10.0p1-7) ...
+Setting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u2) ...
+Setting up libxext6:amd64 (2:1.3.4-1+b3) ...
+Setting up icu-devtools (76.1-4) ...
+Setting up git (1:2.47.3-0+deb13u1) ...
+Setting up xauth (1:1.1.2-1.1) ...
+Setting up libicu-dev:amd64 (76.1-4) ...
+Setting up rsync (3.4.1+ds1-5+deb13u1) ...
+invoke-rc.d: could not determine current runlevel
+invoke-rc.d: policy-rc.d denied execution of start.
+Processing triggers for libc-bin (2.41-12+deb13u1) ...
+--> 0e624363602a
+STEP 3/13: RUN docker-php-ext-install pdo_mysql intl mbstring zip
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking for MySQL support for PDO... yes, shared
+checking for the location of libz... no
+checking for MySQL UNIX socket location... 
+checking for PDO includes... /usr/local/include/php/ext
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/pdo_mysql.c -o pdo_mysql.lo  -MMD -MF pdo_mysql.dep -MT pdo_mysql.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/pdo_mysql.c -MMD -MF pdo_mysql.dep -MT pdo_mysql.lo  -fPIC -DPIC -o .libs/pdo_mysql.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_driver.c -o mysql_driver.lo  -MMD -MF mysql_driver.dep -MT mysql_driver.lo
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_driver.c -MMD -MF mysql_driver.dep -MT mysql_driver.lo  -fPIC -DPIC -o .libs/mysql_driver.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE   -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_statement.c -o mysql_statement.lo  -MMD -MF mysql_statement.dep -MT mysql_statement.lo
+ cc -I. -I/usr/src/php/ext/pdo_mysql -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I/usr/local/include/php/ext -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/pdo_mysql/mysql_statement.c -MMD -MF mysql_statement.dep -MT mysql_statement.lo  -fPIC -DPIC -o .libs/mysql_statement.o
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/pdo_mysql/include -I/usr/src/php/ext/pdo_mysql/main -I/usr/src/php/ext/pdo_mysql -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o pdo_mysql.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/pdo_mysql/modules  pdo_mysql.lo mysql_driver.lo mysql_statement.lo 
+cc -shared  .libs/pdo_mysql.o .libs/mysql_driver.o .libs/mysql_statement.o   -Wl,-O1 -Wl,-soname -Wl,pdo_mysql.so -o .libs/pdo_mysql.so
+creating pdo_mysql.la
+(cd .libs && rm -f pdo_mysql.la && ln -s ../pdo_mysql.la pdo_mysql.la)
+/bin/bash /usr/src/php/ext/pdo_mysql/libtool --tag=CC --mode=install cp ./pdo_mysql.la /usr/src/php/ext/pdo_mysql/modules
+cp ./.libs/pdo_mysql.so /usr/src/php/ext/pdo_mysql/modules/pdo_mysql.so
+cp ./.libs/pdo_mysql.lai /usr/src/php/ext/pdo_mysql/modules/pdo_mysql.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/pdo_mysql/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/pdo_mysql/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/pdo_mysql.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking whether to enable internationalization support... yes, shared
+checking for icu-uc >= 50.1 icu-io icu-i18n... yes
+checking for g++... g++
+checking whether the compiler supports GNU C++... yes
+checking whether g++ accepts -g... yes
+checking for g++ option to enable C++11 features... none needed
+checking how to run the C++ preprocessor... g++ -E
+checking if intl requires -std=gnu++17... yes
+checking whether g++ supports C++17 features with -std=c++17... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking how to run the C++ preprocessor... g++ -E
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+checking for ld used by g++... /usr/bin/ld -m elf_x86_64
+checking if the linker (/usr/bin/ld -m elf_x86_64) is GNU ld... yes
+checking whether the g++ linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking for g++ option to produce PIC... -fPIC
+checking if g++ PIC flag -fPIC works... yes
+checking if g++ static flag -static works... yes
+checking if g++ supports -c -o file.o... yes
+checking whether the g++ linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking dynamic linker characteristics... GNU/Linux ld.so
+(cached) (cached) checking how to hardcode library paths into programs... immediate
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/php_intl.c -o php_intl.lo  -MMD -MF php_intl.dep -MT php_intl.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/php_intl.c -MMD -MF php_intl.dep -MT php_intl.lo  -fPIC -DPIC -o .libs/php_intl.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_error.c -o intl_error.lo  -MMD -MF intl_error.dep -MT intl_error.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_error.c -MMD -MF intl_error.dep -MT intl_error.lo  -fPIC -DPIC -o .libs/intl_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_convert.c -o intl_convert.lo  -MMD -MF intl_convert.dep -MT intl_convert.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/intl_convert.c -MMD -MF intl_convert.dep -MT intl_convert.lo  -fPIC -DPIC -o .libs/intl_convert.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_class.c -o collator/collator_class.lo  -MMD -MF collator/collator_class.dep -MT collator/collator_class.lo
+mkdir collator/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_class.c -MMD -MF collator/collator_class.dep -MT collator/collator_class.lo  -fPIC -DPIC -o collator/.libs/collator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_sort.c -o collator/collator_sort.lo  -MMD -MF collator/collator_sort.dep -MT collator/collator_sort.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_sort.c -MMD -MF collator/collator_sort.dep -MT collator/collator_sort.lo  -fPIC -DPIC -o collator/.libs/collator_sort.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_convert.c -o collator/collator_convert.lo  -MMD -MF collator/collator_convert.dep -MT collator/collator_convert.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_convert.c -MMD -MF collator/collator_convert.dep -MT collator/collator_convert.lo  -fPIC -DPIC -o collator/.libs/collator_convert.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_locale.c -o collator/collator_locale.lo  -MMD -MF collator/collator_locale.dep -MT collator/collator_locale.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_locale.c -MMD -MF collator/collator_locale.dep -MT collator/collator_locale.lo  -fPIC -DPIC -o collator/.libs/collator_locale.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_compare.c -o collator/collator_compare.lo  -MMD -MF collator/collator_compare.dep -MT collator/collator_compare.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_compare.c -MMD -MF collator/collator_compare.dep -MT collator/collator_compare.lo  -fPIC -DPIC -o collator/.libs/collator_compare.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_attr.c -o collator/collator_attr.lo  -MMD -MF collator/collator_attr.dep -MT collator/collator_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_attr.c -MMD -MF collator/collator_attr.dep -MT collator/collator_attr.lo  -fPIC -DPIC -o collator/.libs/collator_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_create.c -o collator/collator_create.lo  -MMD -MF collator/collator_create.dep -MT collator/collator_create.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_create.c -MMD -MF collator/collator_create.dep -MT collator/collator_create.lo  -fPIC -DPIC -o collator/.libs/collator_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_is_numeric.c -o collator/collator_is_numeric.lo  -MMD -MF collator/collator_is_numeric.dep -MT collator/collator_is_numeric.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_is_numeric.c -MMD -MF collator/collator_is_numeric.dep -MT collator/collator_is_numeric.lo  -fPIC -DPIC -o collator/.libs/collator_is_numeric.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_error.c -o collator/collator_error.lo  -MMD -MF collator/collator_error.dep -MT collator/collator_error.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/collator/collator_error.c -MMD -MF collator/collator_error.dep -MT collator/collator_error.lo  -fPIC -DPIC -o collator/.libs/collator_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/common/common_error.c -o common/common_error.lo  -MMD -MF common/common_error.dep -MT common/common_error.lo
+mkdir common/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/common/common_error.c -MMD -MF common/common_error.dep -MT common/common_error.lo  -fPIC -DPIC -o common/.libs/common_error.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/converter/converter.c -o converter/converter.lo  -MMD -MF converter/converter.dep -MT converter/converter.lo
+mkdir converter/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/converter/converter.c -MMD -MF converter/converter.dep -MT converter/converter.lo  -fPIC -DPIC -o converter/.libs/converter.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_main.c -o formatter/formatter_main.lo  -MMD -MF formatter/formatter_main.dep -MT formatter/formatter_main.lo
+mkdir formatter/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_main.c -MMD -MF formatter/formatter_main.dep -MT formatter/formatter_main.lo  -fPIC -DPIC -o formatter/.libs/formatter_main.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_class.c -o formatter/formatter_class.lo  -MMD -MF formatter/formatter_class.dep -MT formatter/formatter_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_class.c -MMD -MF formatter/formatter_class.dep -MT formatter/formatter_class.lo  -fPIC -DPIC -o formatter/.libs/formatter_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_attr.c -o formatter/formatter_attr.lo  -MMD -MF formatter/formatter_attr.dep -MT formatter/formatter_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_attr.c -MMD -MF formatter/formatter_attr.dep -MT formatter/formatter_attr.lo  -fPIC -DPIC -o formatter/.libs/formatter_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_data.c -o formatter/formatter_data.lo  -MMD -MF formatter/formatter_data.dep -MT formatter/formatter_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_data.c -MMD -MF formatter/formatter_data.dep -MT formatter/formatter_data.lo  -fPIC -DPIC -o formatter/.libs/formatter_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_format.c -o formatter/formatter_format.lo  -MMD -MF formatter/formatter_format.dep -MT formatter/formatter_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_format.c -MMD -MF formatter/formatter_format.dep -MT formatter/formatter_format.lo  -fPIC -DPIC -o formatter/.libs/formatter_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_parse.c -o formatter/formatter_parse.lo  -MMD -MF formatter/formatter_parse.dep -MT formatter/formatter_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/formatter/formatter_parse.c -MMD -MF formatter/formatter_parse.dep -MT formatter/formatter_parse.lo  -fPIC -DPIC -o formatter/.libs/formatter_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_class.c -o normalizer/normalizer_class.lo  -MMD -MF normalizer/normalizer_class.dep -MT normalizer/normalizer_class.lo
+mkdir normalizer/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_class.c -MMD -MF normalizer/normalizer_class.dep -MT normalizer/normalizer_class.lo  -fPIC -DPIC -o normalizer/.libs/normalizer_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_normalize.c -o normalizer/normalizer_normalize.lo  -MMD -MF normalizer/normalizer_normalize.dep -MT normalizer/normalizer_normalize.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/normalizer/normalizer_normalize.c -MMD -MF normalizer/normalizer_normalize.dep -MT normalizer/normalizer_normalize.lo  -fPIC -DPIC -o normalizer/.libs/normalizer_normalize.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale.c -o locale/locale.lo  -MMD -MF locale/locale.dep -MT locale/locale.lo
+mkdir locale/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale.c -MMD -MF locale/locale.dep -MT locale/locale.lo  -fPIC -DPIC -o locale/.libs/locale.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_class.c -o locale/locale_class.lo  -MMD -MF locale/locale_class.dep -MT locale/locale_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_class.c -MMD -MF locale/locale_class.dep -MT locale/locale_class.lo  -fPIC -DPIC -o locale/.libs/locale_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_methods.c -o locale/locale_methods.lo  -MMD -MF locale/locale_methods.dep -MT locale/locale_methods.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/locale/locale_methods.c -MMD -MF locale/locale_methods.dep -MT locale/locale_methods.lo  -fPIC -DPIC -o locale/.libs/locale_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat.c -o dateformat/dateformat.lo  -MMD -MF dateformat/dateformat.dep -MT dateformat/dateformat.lo
+mkdir dateformat/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat.c -MMD -MF dateformat/dateformat.dep -MT dateformat/dateformat.lo  -fPIC -DPIC -o dateformat/.libs/dateformat.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_class.c -o dateformat/dateformat_class.lo  -MMD -MF dateformat/dateformat_class.dep -MT dateformat/dateformat_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_class.c -MMD -MF dateformat/dateformat_class.dep -MT dateformat/dateformat_class.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_attr.c -o dateformat/dateformat_attr.lo  -MMD -MF dateformat/dateformat_attr.dep -MT dateformat/dateformat_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_attr.c -MMD -MF dateformat/dateformat_attr.dep -MT dateformat/dateformat_attr.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_data.c -o dateformat/dateformat_data.lo  -MMD -MF dateformat/dateformat_data.dep -MT dateformat/dateformat_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_data.c -MMD -MF dateformat/dateformat_data.dep -MT dateformat/dateformat_data.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_format.c -o dateformat/dateformat_format.lo  -MMD -MF dateformat/dateformat_format.dep -MT dateformat/dateformat_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_format.c -MMD -MF dateformat/dateformat_format.dep -MT dateformat/dateformat_format.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_parse.c -o dateformat/dateformat_parse.lo  -MMD -MF dateformat/dateformat_parse.dep -MT dateformat/dateformat_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/dateformat/dateformat_parse.c -MMD -MF dateformat/dateformat_parse.dep -MT dateformat/dateformat_parse.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat.c -o msgformat/msgformat.lo  -MMD -MF msgformat/msgformat.dep -MT msgformat/msgformat.lo
+mkdir msgformat/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat.c -MMD -MF msgformat/msgformat.dep -MT msgformat/msgformat.lo  -fPIC -DPIC -o msgformat/.libs/msgformat.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_attr.c -o msgformat/msgformat_attr.lo  -MMD -MF msgformat/msgformat_attr.dep -MT msgformat/msgformat_attr.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_attr.c -MMD -MF msgformat/msgformat_attr.dep -MT msgformat/msgformat_attr.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_attr.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_class.c -o msgformat/msgformat_class.lo  -MMD -MF msgformat/msgformat_class.dep -MT msgformat/msgformat_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_class.c -MMD -MF msgformat/msgformat_class.dep -MT msgformat/msgformat_class.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_data.c -o msgformat/msgformat_data.lo  -MMD -MF msgformat/msgformat_data.dep -MT msgformat/msgformat_data.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_data.c -MMD -MF msgformat/msgformat_data.dep -MT msgformat/msgformat_data.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_data.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_format.c -o msgformat/msgformat_format.lo  -MMD -MF msgformat/msgformat_format.dep -MT msgformat/msgformat_format.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_format.c -MMD -MF msgformat/msgformat_format.dep -MT msgformat/msgformat_format.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_format.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_parse.c -o msgformat/msgformat_parse.lo  -MMD -MF msgformat/msgformat_parse.dep -MT msgformat/msgformat_parse.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/msgformat/msgformat_parse.c -MMD -MF msgformat/msgformat_parse.dep -MT msgformat/msgformat_parse.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_parse.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_string.c -o grapheme/grapheme_string.lo  -MMD -MF grapheme/grapheme_string.dep -MT grapheme/grapheme_string.lo
+mkdir grapheme/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_string.c -MMD -MF grapheme/grapheme_string.dep -MT grapheme/grapheme_string.lo  -fPIC -DPIC -o grapheme/.libs/grapheme_string.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_util.c -o grapheme/grapheme_util.lo  -MMD -MF grapheme/grapheme_util.dep -MT grapheme/grapheme_util.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/grapheme/grapheme_util.c -MMD -MF grapheme/grapheme_util.dep -MT grapheme/grapheme_util.lo  -fPIC -DPIC -o grapheme/.libs/grapheme_util.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle.c -o resourcebundle/resourcebundle.lo  -MMD -MF resourcebundle/resourcebundle.dep -MT resourcebundle/resourcebundle.lo
+mkdir resourcebundle/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle.c -MMD -MF resourcebundle/resourcebundle.dep -MT resourcebundle/resourcebundle.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_class.c -o resourcebundle/resourcebundle_class.lo  -MMD -MF resourcebundle/resourcebundle_class.dep -MT resourcebundle/resourcebundle_class.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_class.c -MMD -MF resourcebundle/resourcebundle_class.dep -MT resourcebundle/resourcebundle_class.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_iterator.c -o resourcebundle/resourcebundle_iterator.lo  -MMD -MF resourcebundle/resourcebundle_iterator.dep -MT resourcebundle/resourcebundle_iterator.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/resourcebundle/resourcebundle_iterator.c -MMD -MF resourcebundle/resourcebundle_iterator.dep -MT resourcebundle/resourcebundle_iterator.lo  -fPIC -DPIC -o resourcebundle/.libs/resourcebundle_iterator.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_class.c -o transliterator/transliterator_class.lo  -MMD -MF transliterator/transliterator_class.dep -MT transliterator/transliterator_class.lo
+mkdir transliterator/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_class.c -MMD -MF transliterator/transliterator_class.dep -MT transliterator/transliterator_class.lo  -fPIC -DPIC -o transliterator/.libs/transliterator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_methods.c -o transliterator/transliterator_methods.lo  -MMD -MF transliterator/transliterator_methods.dep -MT transliterator/transliterator_methods.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/transliterator/transliterator_methods.c -MMD -MF transliterator/transliterator_methods.dep -MT transliterator/transliterator_methods.lo  -fPIC -DPIC -o transliterator/.libs/transliterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/uchar/uchar.c -o uchar/uchar.lo  -MMD -MF uchar/uchar.dep -MT uchar/uchar.lo
+mkdir uchar/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/uchar/uchar.c -MMD -MF uchar/uchar.dep -MT uchar/uchar.lo  -fPIC -DPIC -o uchar/.libs/uchar.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/idn/idn.c -o idn/idn.lo  -MMD -MF idn/idn.dep -MT idn/idn.lo
+mkdir idn/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/idn/idn.c -MMD -MF idn/idn.dep -MT idn/idn.lo  -fPIC -DPIC -o idn/.libs/idn.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_class.c -o spoofchecker/spoofchecker_class.lo  -MMD -MF spoofchecker/spoofchecker_class.dep -MT spoofchecker/spoofchecker_class.lo
+mkdir spoofchecker/.libs
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_class.c -MMD -MF spoofchecker/spoofchecker_class.dep -MT spoofchecker/spoofchecker_class.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_create.c -o spoofchecker/spoofchecker_create.lo  -MMD -MF spoofchecker/spoofchecker_create.dep -MT spoofchecker/spoofchecker_create.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_create.c -MMD -MF spoofchecker/spoofchecker_create.dep -MT spoofchecker/spoofchecker_create.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_main.c -o spoofchecker/spoofchecker_main.lo  -MMD -MF spoofchecker/spoofchecker_main.dep -MT spoofchecker/spoofchecker_main.lo
+ cc -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/intl/spoofchecker/spoofchecker_main.c -MMD -MF spoofchecker/spoofchecker_main.dep -MT spoofchecker/spoofchecker_main.lo  -fPIC -DPIC -o spoofchecker/.libs/spoofchecker_main.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/intl_convertcpp.cpp -o intl_convertcpp.lo  -MMD -MF intl_convertcpp.dep -MT intl_convertcpp.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/intl_convertcpp.cpp -MMD -MF intl_convertcpp.dep -MT intl_convertcpp.lo  -fPIC -DPIC -o .libs/intl_convertcpp.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_enum.cpp -o common/common_enum.lo  -MMD -MF common/common_enum.dep -MT common/common_enum.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_enum.cpp -MMD -MF common/common_enum.dep -MT common/common_enum.lo  -fPIC -DPIC -o common/.libs/common_enum.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_date.cpp -o common/common_date.lo  -MMD -MF common/common_date.dep -MT common/common_date.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/common/common_date.cpp -MMD -MF common/common_date.dep -MT common/common_date.lo  -fPIC -DPIC -o common/.libs/common_date.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_format_object.cpp -o dateformat/dateformat_format_object.lo  -MMD -MF dateformat/dateformat_format_object.dep -MT dateformat/dateformat_format_object.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_format_object.cpp -MMD -MF dateformat/dateformat_format_object.dep -MT dateformat/dateformat_format_object.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_format_object.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_create.cpp -o dateformat/dateformat_create.lo  -MMD -MF dateformat/dateformat_create.dep -MT dateformat/dateformat_create.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_create.cpp -MMD -MF dateformat/dateformat_create.dep -MT dateformat/dateformat_create.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_create.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_attrcpp.cpp -o dateformat/dateformat_attrcpp.lo  -MMD -MF dateformat/dateformat_attrcpp.dep -MT dateformat/dateformat_attrcpp.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_attrcpp.cpp -MMD -MF dateformat/dateformat_attrcpp.dep -MT dateformat/dateformat_attrcpp.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_attrcpp.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_helpers.cpp -o dateformat/dateformat_helpers.lo  -MMD -MF dateformat/dateformat_helpers.dep -MT dateformat/dateformat_helpers.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/dateformat_helpers.cpp -MMD -MF dateformat/dateformat_helpers.dep -MT dateformat/dateformat_helpers.lo  -fPIC -DPIC -o dateformat/.libs/dateformat_helpers.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_class.cpp -o dateformat/datepatterngenerator_class.lo  -MMD -MF dateformat/datepatterngenerator_class.dep -MT dateformat/datepatterngenerator_class.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_class.cpp -MMD -MF dateformat/datepatterngenerator_class.dep -MT dateformat/datepatterngenerator_class.lo  -fPIC -DPIC -o dateformat/.libs/datepatterngenerator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_methods.cpp -o dateformat/datepatterngenerator_methods.lo  -MMD -MF dateformat/datepatterngenerator_methods.dep -MT dateformat/datepatterngenerator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/dateformat/datepatterngenerator_methods.cpp -MMD -MF dateformat/datepatterngenerator_methods.dep -MT dateformat/datepatterngenerator_methods.lo  -fPIC -DPIC -o dateformat/.libs/datepatterngenerator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/msgformat/msgformat_helpers.cpp -o msgformat/msgformat_helpers.lo  -MMD -MF msgformat/msgformat_helpers.dep -MT msgformat/msgformat_helpers.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/msgformat/msgformat_helpers.cpp -MMD -MF msgformat/msgformat_helpers.dep -MT msgformat/msgformat_helpers.lo  -fPIC -DPIC -o msgformat/.libs/msgformat_helpers.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_class.cpp -o timezone/timezone_class.lo  -MMD -MF timezone/timezone_class.dep -MT timezone/timezone_class.lo
+mkdir timezone/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_class.cpp -MMD -MF timezone/timezone_class.dep -MT timezone/timezone_class.lo  -fPIC -DPIC -o timezone/.libs/timezone_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_methods.cpp -o timezone/timezone_methods.lo  -MMD -MF timezone/timezone_methods.dep -MT timezone/timezone_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/timezone/timezone_methods.cpp -MMD -MF timezone/timezone_methods.dep -MT timezone/timezone_methods.lo  -fPIC -DPIC -o timezone/.libs/timezone_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_class.cpp -o calendar/calendar_class.lo  -MMD -MF calendar/calendar_class.dep -MT calendar/calendar_class.lo
+mkdir calendar/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_class.cpp -MMD -MF calendar/calendar_class.dep -MT calendar/calendar_class.lo  -fPIC -DPIC -o calendar/.libs/calendar_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_methods.cpp -o calendar/calendar_methods.lo  -MMD -MF calendar/calendar_methods.dep -MT calendar/calendar_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/calendar_methods.cpp -MMD -MF calendar/calendar_methods.dep -MT calendar/calendar_methods.lo  -fPIC -DPIC -o calendar/.libs/calendar_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/gregoriancalendar_methods.cpp -o calendar/gregoriancalendar_methods.lo  -MMD -MF calendar/gregoriancalendar_methods.dep -MT calendar/gregoriancalendar_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/calendar/gregoriancalendar_methods.cpp -MMD -MF calendar/gregoriancalendar_methods.dep -MT calendar/gregoriancalendar_methods.lo  -fPIC -DPIC -o calendar/.libs/gregoriancalendar_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_class.cpp -o breakiterator/breakiterator_class.lo  -MMD -MF breakiterator/breakiterator_class.dep -MT breakiterator/breakiterator_class.lo
+mkdir breakiterator/.libs
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_class.cpp -MMD -MF breakiterator/breakiterator_class.dep -MT breakiterator/breakiterator_class.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_class.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_iterators.cpp -o breakiterator/breakiterator_iterators.lo  -MMD -MF breakiterator/breakiterator_iterators.dep -MT breakiterator/breakiterator_iterators.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_iterators.cpp -MMD -MF breakiterator/breakiterator_iterators.dep -MT breakiterator/breakiterator_iterators.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_iterators.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_methods.cpp -o breakiterator/breakiterator_methods.lo  -MMD -MF breakiterator/breakiterator_methods.dep -MT breakiterator/breakiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/breakiterator_methods.cpp -MMD -MF breakiterator/breakiterator_methods.dep -MT breakiterator/breakiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/breakiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/rulebasedbreakiterator_methods.cpp -o breakiterator/rulebasedbreakiterator_methods.lo  -MMD -MF breakiterator/rulebasedbreakiterator_methods.dep -MT breakiterator/rulebasedbreakiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/rulebasedbreakiterator_methods.cpp -MMD -MF breakiterator/rulebasedbreakiterator_methods.dep -MT breakiterator/rulebasedbreakiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/rulebasedbreakiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_internal.cpp -o breakiterator/codepointiterator_internal.lo  -MMD -MF breakiterator/codepointiterator_internal.dep -MT breakiterator/codepointiterator_internal.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_internal.cpp -MMD -MF breakiterator/codepointiterator_internal.dep -MT breakiterator/codepointiterator_internal.lo  -fPIC -DPIC -o breakiterator/.libs/codepointiterator_internal.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=compile g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -g -O2    -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17  -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_methods.cpp -o breakiterator/codepointiterator_methods.lo  -MMD -MF breakiterator/codepointiterator_methods.dep -MT breakiterator/codepointiterator_methods.lo
+ g++ -I. -I/usr/src/php/ext/intl -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -g -O2 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DU_HIDE_OBSOLETE_UTF_OLD_H=1 -Wno-write-strings -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -std=c++17 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -c /usr/src/php/ext/intl/breakiterator/codepointiterator_methods.cpp -MMD -MF breakiterator/codepointiterator_methods.dep -MT breakiterator/codepointiterator_methods.lo  -fPIC -DPIC -o breakiterator/.libs/codepointiterator_methods.o
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=link g++ -shared -I/usr/src/php/ext/intl/include -I/usr/src/php/ext/intl/main -I/usr/src/php/ext/intl -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o intl.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/intl/modules  php_intl.lo intl_error.lo intl_convert.lo collator/collator_class.lo collator/collator_sort.lo collator/collator_convert.lo collator/collator_locale.lo collator/collator_compare.lo collator/collator_attr.lo collator/collator_create.lo collator/collator_is_numeric.lo collator/collator_error.lo common/common_error.lo converter/converter.lo formatter/formatter_main.lo formatter/formatter_class.lo formatter/formatter_attr.lo formatter/formatter_data.lo formatter/formatter_format.lo formatter/formatter_parse.lo normalizer/normalizer_class.lo normalizer/normalizer_normalize.lo locale/locale.lo locale/locale_class.lo locale/locale_methods.lo dateformat/dateformat.lo dateformat/dateformat_class.lo dateformat/dateformat_attr.lo dateformat/dateformat_data.lo dateformat/dateformat_format.lo dateformat/dateformat_parse.lo msgformat/msgformat.lo msgformat/msgformat_attr.lo msgformat/msgformat_class.lo msgformat/msgformat_data.lo msgformat/msgformat_format.lo msgformat/msgformat_parse.lo grapheme/grapheme_string.lo grapheme/grapheme_util.lo resourcebundle/resourcebundle.lo resourcebundle/resourcebundle_class.lo resourcebundle/resourcebundle_iterator.lo transliterator/transliterator_class.lo transliterator/transliterator_methods.lo uchar/uchar.lo idn/idn.lo spoofchecker/spoofchecker_class.lo spoofchecker/spoofchecker_create.lo spoofchecker/spoofchecker_main.lo intl_convertcpp.lo common/common_enum.lo common/common_date.lo dateformat/dateformat_format_object.lo dateformat/dateformat_create.lo dateformat/dateformat_attrcpp.lo dateformat/dateformat_helpers.lo dateformat/datepatterngenerator_class.lo dateformat/datepatterngenerator_methods.lo msgformat/msgformat_helpers.lo timezone/timezone_class.lo timezone/timezone_methods.lo calendar/calendar_class.lo calendar/calendar_methods.lo calendar/gregoriancalendar_methods.lo breakiterator/breakiterator_class.lo breakiterator/breakiterator_iterators.lo breakiterator/breakiterator_methods.lo breakiterator/rulebasedbreakiterator_methods.lo breakiterator/codepointiterator_internal.lo breakiterator/codepointiterator_methods.lo -licuio -licui18n -licuuc -licudata
+g++ -shared -nostdlib /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o  .libs/php_intl.o .libs/intl_error.o .libs/intl_convert.o collator/.libs/collator_class.o collator/.libs/collator_sort.o collator/.libs/collator_convert.o collator/.libs/collator_locale.o collator/.libs/collator_compare.o collator/.libs/collator_attr.o collator/.libs/collator_create.o collator/.libs/collator_is_numeric.o collator/.libs/collator_error.o common/.libs/common_error.o converter/.libs/converter.o formatter/.libs/formatter_main.o formatter/.libs/formatter_class.o formatter/.libs/formatter_attr.o formatter/.libs/formatter_data.o formatter/.libs/formatter_format.o formatter/.libs/formatter_parse.o normalizer/.libs/normalizer_class.o normalizer/.libs/normalizer_normalize.o locale/.libs/locale.o locale/.libs/locale_class.o locale/.libs/locale_methods.o dateformat/.libs/dateformat.o dateformat/.libs/dateformat_class.o dateformat/.libs/dateformat_attr.o dateformat/.libs/dateformat_data.o dateformat/.libs/dateformat_format.o dateformat/.libs/dateformat_parse.o msgformat/.libs/msgformat.o msgformat/.libs/msgformat_attr.o msgformat/.libs/msgformat_class.o msgformat/.libs/msgformat_data.o msgformat/.libs/msgformat_format.o msgformat/.libs/msgformat_parse.o grapheme/.libs/grapheme_string.o grapheme/.libs/grapheme_util.o resourcebundle/.libs/resourcebundle.o resourcebundle/.libs/resourcebundle_class.o resourcebundle/.libs/resourcebundle_iterator.o transliterator/.libs/transliterator_class.o transliterator/.libs/transliterator_methods.o uchar/.libs/uchar.o idn/.libs/idn.o spoofchecker/.libs/spoofchecker_class.o spoofchecker/.libs/spoofchecker_create.o spoofchecker/.libs/spoofchecker_main.o .libs/intl_convertcpp.o common/.libs/common_enum.o common/.libs/common_date.o dateformat/.libs/dateformat_format_object.o dateformat/.libs/dateformat_create.o dateformat/.libs/dateformat_attrcpp.o dateformat/.libs/dateformat_helpers.o dateformat/.libs/datepatterngenerator_class.o dateformat/.libs/datepatterngenerator_methods.o msgformat/.libs/msgformat_helpers.o timezone/.libs/timezone_class.o timezone/.libs/timezone_methods.o calendar/.libs/calendar_class.o calendar/.libs/calendar_methods.o calendar/.libs/gregoriancalendar_methods.o breakiterator/.libs/breakiterator_class.o breakiterator/.libs/breakiterator_iterators.o breakiterator/.libs/breakiterator_methods.o breakiterator/.libs/rulebasedbreakiterator_methods.o breakiterator/.libs/codepointiterator_internal.o breakiterator/.libs/codepointiterator_methods.o  -licuio -licui18n -licuuc -licudata -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -lstdc++ -lm -lc -lgcc_s /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o  -Wl,-O1 -Wl,-soname -Wl,intl.so -o .libs/intl.so
+creating intl.la
+(cd .libs && rm -f intl.la && ln -s ../intl.la intl.la)
+/bin/bash /usr/src/php/ext/intl/libtool --tag=CXX --mode=install cp ./intl.la /usr/src/php/ext/intl/modules
+cp ./.libs/intl.so /usr/src/php/ext/intl/modules/intl.so
+cp ./.libs/intl.lai /usr/src/php/ext/intl/modules/intl.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/intl/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/intl/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/intl.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking whether to enable multibyte string support... yes, shared
+checking whether to enable multibyte regex support (requires oniguruma)... yes
+checking for oniguruma... yes
+checking if oniguruma has an invalid entry for KOI8 encoding... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mbstring.c -o mbstring.lo  -MMD -MF mbstring.dep -MT mbstring.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mbstring.c -MMD -MF mbstring.dep -MT mbstring.lo  -fPIC -DPIC -o .libs/mbstring.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_unicode.c -o php_unicode.lo  -MMD -MF php_unicode.dep -MT php_unicode.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_unicode.c -MMD -MF php_unicode.dep -MT php_unicode.lo  -fPIC -DPIC -o .libs/php_unicode.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mb_gpc.c -o mb_gpc.lo  -MMD -MF mb_gpc.dep -MT mb_gpc.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/mb_gpc.c -MMD -MF mb_gpc.dep -MT mb_gpc.lo  -fPIC -DPIC -o .libs/mb_gpc.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_mbregex.c -o php_mbregex.lo  -MMD -MF php_mbregex.dep -MT php_mbregex.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/php_mbregex.c -MMD -MF php_mbregex.dep -MT php_mbregex.lo  -fPIC -DPIC -o .libs/php_mbregex.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/html_entities.c -o libmbfl/filters/html_entities.lo  -MMD -MF libmbfl/filters/html_entities.dep -MT libmbfl/filters/html_entities.lo
+mkdir libmbfl/filters/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/html_entities.c -MMD -MF libmbfl/filters/html_entities.dep -MT libmbfl/filters/html_entities.lo  -fPIC -DPIC -o libmbfl/filters/.libs/html_entities.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_7bit.c -o libmbfl/filters/mbfilter_7bit.lo  -MMD -MF libmbfl/filters/mbfilter_7bit.dep -MT libmbfl/filters/mbfilter_7bit.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_7bit.c -MMD -MF libmbfl/filters/mbfilter_7bit.dep -MT libmbfl/filters/mbfilter_7bit.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_7bit.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_base64.c -o libmbfl/filters/mbfilter_base64.lo  -MMD -MF libmbfl/filters/mbfilter_base64.dep -MT libmbfl/filters/mbfilter_base64.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_base64.c -MMD -MF libmbfl/filters/mbfilter_base64.dep -MT libmbfl/filters/mbfilter_base64.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_base64.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_big5.c -o libmbfl/filters/mbfilter_big5.lo  -MMD -MF libmbfl/filters/mbfilter_big5.dep -MT libmbfl/filters/mbfilter_big5.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_big5.c -MMD -MF libmbfl/filters/mbfilter_big5.dep -MT libmbfl/filters/mbfilter_big5.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_big5.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp5022x.c -o libmbfl/filters/mbfilter_cp5022x.lo  -MMD -MF libmbfl/filters/mbfilter_cp5022x.dep -MT libmbfl/filters/mbfilter_cp5022x.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp5022x.c -MMD -MF libmbfl/filters/mbfilter_cp5022x.dep -MT libmbfl/filters/mbfilter_cp5022x.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp5022x.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp51932.c -o libmbfl/filters/mbfilter_cp51932.lo  -MMD -MF libmbfl/filters/mbfilter_cp51932.dep -MT libmbfl/filters/mbfilter_cp51932.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp51932.c -MMD -MF libmbfl/filters/mbfilter_cp51932.dep -MT libmbfl/filters/mbfilter_cp51932.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp51932.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp932.c -o libmbfl/filters/mbfilter_cp932.lo  -MMD -MF libmbfl/filters/mbfilter_cp932.dep -MT libmbfl/filters/mbfilter_cp932.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp932.c -MMD -MF libmbfl/filters/mbfilter_cp932.dep -MT libmbfl/filters/mbfilter_cp932.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp932.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp936.c -o libmbfl/filters/mbfilter_cp936.lo  -MMD -MF libmbfl/filters/mbfilter_cp936.dep -MT libmbfl/filters/mbfilter_cp936.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_cp936.c -MMD -MF libmbfl/filters/mbfilter_cp936.dep -MT libmbfl/filters/mbfilter_cp936.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_cp936.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_gb18030.c -o libmbfl/filters/mbfilter_gb18030.lo  -MMD -MF libmbfl/filters/mbfilter_gb18030.dep -MT libmbfl/filters/mbfilter_gb18030.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_gb18030.c -MMD -MF libmbfl/filters/mbfilter_gb18030.dep -MT libmbfl/filters/mbfilter_gb18030.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_gb18030.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_cn.c -o libmbfl/filters/mbfilter_euc_cn.lo  -MMD -MF libmbfl/filters/mbfilter_euc_cn.dep -MT libmbfl/filters/mbfilter_euc_cn.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_cn.c -MMD -MF libmbfl/filters/mbfilter_euc_cn.dep -MT libmbfl/filters/mbfilter_euc_cn.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_cn.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp.c -o libmbfl/filters/mbfilter_euc_jp.lo  -MMD -MF libmbfl/filters/mbfilter_euc_jp.dep -MT libmbfl/filters/mbfilter_euc_jp.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp.c -MMD -MF libmbfl/filters/mbfilter_euc_jp.dep -MT libmbfl/filters/mbfilter_euc_jp.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_jp.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp_win.c -o libmbfl/filters/mbfilter_euc_jp_win.lo  -MMD -MF libmbfl/filters/mbfilter_euc_jp_win.dep -MT libmbfl/filters/mbfilter_euc_jp_win.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_jp_win.c -MMD -MF libmbfl/filters/mbfilter_euc_jp_win.dep -MT libmbfl/filters/mbfilter_euc_jp_win.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_jp_win.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_kr.c -o libmbfl/filters/mbfilter_euc_kr.lo  -MMD -MF libmbfl/filters/mbfilter_euc_kr.dep -MT libmbfl/filters/mbfilter_euc_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_kr.c -MMD -MF libmbfl/filters/mbfilter_euc_kr.dep -MT libmbfl/filters/mbfilter_euc_kr.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_tw.c -o libmbfl/filters/mbfilter_euc_tw.lo  -MMD -MF libmbfl/filters/mbfilter_euc_tw.dep -MT libmbfl/filters/mbfilter_euc_tw.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_euc_tw.c -MMD -MF libmbfl/filters/mbfilter_euc_tw.dep -MT libmbfl/filters/mbfilter_euc_tw.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_euc_tw.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_htmlent.c -o libmbfl/filters/mbfilter_htmlent.lo  -MMD -MF libmbfl/filters/mbfilter_htmlent.dep -MT libmbfl/filters/mbfilter_htmlent.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_htmlent.c -MMD -MF libmbfl/filters/mbfilter_htmlent.dep -MT libmbfl/filters/mbfilter_htmlent.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_htmlent.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_hz.c -o libmbfl/filters/mbfilter_hz.lo  -MMD -MF libmbfl/filters/mbfilter_hz.dep -MT libmbfl/filters/mbfilter_hz.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_hz.c -MMD -MF libmbfl/filters/mbfilter_hz.dep -MT libmbfl/filters/mbfilter_hz.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_hz.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_jp_ms.c -o libmbfl/filters/mbfilter_iso2022_jp_ms.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022_jp_ms.dep -MT libmbfl/filters/mbfilter_iso2022_jp_ms.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_jp_ms.c -MMD -MF libmbfl/filters/mbfilter_iso2022_jp_ms.dep -MT libmbfl/filters/mbfilter_iso2022_jp_ms.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022_jp_ms.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022jp_mobile.c -o libmbfl/filters/mbfilter_iso2022jp_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022jp_mobile.dep -MT libmbfl/filters/mbfilter_iso2022jp_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022jp_mobile.c -MMD -MF libmbfl/filters/mbfilter_iso2022jp_mobile.dep -MT libmbfl/filters/mbfilter_iso2022jp_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022jp_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_kr.c -o libmbfl/filters/mbfilter_iso2022_kr.lo  -MMD -MF libmbfl/filters/mbfilter_iso2022_kr.dep -MT libmbfl/filters/mbfilter_iso2022_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_iso2022_kr.c -MMD -MF libmbfl/filters/mbfilter_iso2022_kr.dep -MT libmbfl/filters/mbfilter_iso2022_kr.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_iso2022_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_jis.c -o libmbfl/filters/mbfilter_jis.lo  -MMD -MF libmbfl/filters/mbfilter_jis.dep -MT libmbfl/filters/mbfilter_jis.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_jis.c -MMD -MF libmbfl/filters/mbfilter_jis.dep -MT libmbfl/filters/mbfilter_jis.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_jis.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_qprint.c -o libmbfl/filters/mbfilter_qprint.lo  -MMD -MF libmbfl/filters/mbfilter_qprint.dep -MT libmbfl/filters/mbfilter_qprint.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_qprint.c -MMD -MF libmbfl/filters/mbfilter_qprint.dep -MT libmbfl/filters/mbfilter_qprint.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_qprint.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_singlebyte.c -o libmbfl/filters/mbfilter_singlebyte.lo  -MMD -MF libmbfl/filters/mbfilter_singlebyte.dep -MT libmbfl/filters/mbfilter_singlebyte.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_singlebyte.c -MMD -MF libmbfl/filters/mbfilter_singlebyte.dep -MT libmbfl/filters/mbfilter_singlebyte.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_singlebyte.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis.c -o libmbfl/filters/mbfilter_sjis.lo  -MMD -MF libmbfl/filters/mbfilter_sjis.dep -MT libmbfl/filters/mbfilter_sjis.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis.c -MMD -MF libmbfl/filters/mbfilter_sjis.dep -MT libmbfl/filters/mbfilter_sjis.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mobile.c -o libmbfl/filters/mbfilter_sjis_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_mobile.dep -MT libmbfl/filters/mbfilter_sjis_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mobile.c -MMD -MF libmbfl/filters/mbfilter_sjis_mobile.dep -MT libmbfl/filters/mbfilter_sjis_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mac.c -o libmbfl/filters/mbfilter_sjis_mac.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_mac.dep -MT libmbfl/filters/mbfilter_sjis_mac.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_mac.c -MMD -MF libmbfl/filters/mbfilter_sjis_mac.dep -MT libmbfl/filters/mbfilter_sjis_mac.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_mac.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_2004.c -o libmbfl/filters/mbfilter_sjis_2004.lo  -MMD -MF libmbfl/filters/mbfilter_sjis_2004.dep -MT libmbfl/filters/mbfilter_sjis_2004.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_sjis_2004.c -MMD -MF libmbfl/filters/mbfilter_sjis_2004.dep -MT libmbfl/filters/mbfilter_sjis_2004.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_sjis_2004.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs2.c -o libmbfl/filters/mbfilter_ucs2.lo  -MMD -MF libmbfl/filters/mbfilter_ucs2.dep -MT libmbfl/filters/mbfilter_ucs2.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs2.c -MMD -MF libmbfl/filters/mbfilter_ucs2.dep -MT libmbfl/filters/mbfilter_ucs2.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_ucs2.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs4.c -o libmbfl/filters/mbfilter_ucs4.lo  -MMD -MF libmbfl/filters/mbfilter_ucs4.dep -MT libmbfl/filters/mbfilter_ucs4.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_ucs4.c -MMD -MF libmbfl/filters/mbfilter_ucs4.dep -MT libmbfl/filters/mbfilter_ucs4.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_ucs4.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uhc.c -o libmbfl/filters/mbfilter_uhc.lo  -MMD -MF libmbfl/filters/mbfilter_uhc.dep -MT libmbfl/filters/mbfilter_uhc.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uhc.c -MMD -MF libmbfl/filters/mbfilter_uhc.dep -MT libmbfl/filters/mbfilter_uhc.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_uhc.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf16.c -o libmbfl/filters/mbfilter_utf16.lo  -MMD -MF libmbfl/filters/mbfilter_utf16.dep -MT libmbfl/filters/mbfilter_utf16.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf16.c -MMD -MF libmbfl/filters/mbfilter_utf16.dep -MT libmbfl/filters/mbfilter_utf16.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf16.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf32.c -o libmbfl/filters/mbfilter_utf32.lo  -MMD -MF libmbfl/filters/mbfilter_utf32.dep -MT libmbfl/filters/mbfilter_utf32.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf32.c -MMD -MF libmbfl/filters/mbfilter_utf32.dep -MT libmbfl/filters/mbfilter_utf32.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf32.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7.c -o libmbfl/filters/mbfilter_utf7.lo  -MMD -MF libmbfl/filters/mbfilter_utf7.dep -MT libmbfl/filters/mbfilter_utf7.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7.c -MMD -MF libmbfl/filters/mbfilter_utf7.dep -MT libmbfl/filters/mbfilter_utf7.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf7.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7imap.c -o libmbfl/filters/mbfilter_utf7imap.lo  -MMD -MF libmbfl/filters/mbfilter_utf7imap.dep -MT libmbfl/filters/mbfilter_utf7imap.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf7imap.c -MMD -MF libmbfl/filters/mbfilter_utf7imap.dep -MT libmbfl/filters/mbfilter_utf7imap.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf7imap.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8.c -o libmbfl/filters/mbfilter_utf8.lo  -MMD -MF libmbfl/filters/mbfilter_utf8.dep -MT libmbfl/filters/mbfilter_utf8.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8.c -MMD -MF libmbfl/filters/mbfilter_utf8.dep -MT libmbfl/filters/mbfilter_utf8.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf8.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8_mobile.c -o libmbfl/filters/mbfilter_utf8_mobile.lo  -MMD -MF libmbfl/filters/mbfilter_utf8_mobile.dep -MT libmbfl/filters/mbfilter_utf8_mobile.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_utf8_mobile.c -MMD -MF libmbfl/filters/mbfilter_utf8_mobile.dep -MT libmbfl/filters/mbfilter_utf8_mobile.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_utf8_mobile.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uuencode.c -o libmbfl/filters/mbfilter_uuencode.lo  -MMD -MF libmbfl/filters/mbfilter_uuencode.dep -MT libmbfl/filters/mbfilter_uuencode.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/filters/mbfilter_uuencode.c -MMD -MF libmbfl/filters/mbfilter_uuencode.dep -MT libmbfl/filters/mbfilter_uuencode.lo  -fPIC -DPIC -o libmbfl/filters/.libs/mbfilter_uuencode.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter.c -o libmbfl/mbfl/mbfilter.lo  -MMD -MF libmbfl/mbfl/mbfilter.dep -MT libmbfl/mbfl/mbfilter.lo
+mkdir libmbfl/mbfl/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter.c -MMD -MF libmbfl/mbfl/mbfilter.dep -MT libmbfl/mbfl/mbfilter.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_8bit.c -o libmbfl/mbfl/mbfilter_8bit.lo  -MMD -MF libmbfl/mbfl/mbfilter_8bit.dep -MT libmbfl/mbfl/mbfilter_8bit.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_8bit.c -MMD -MF libmbfl/mbfl/mbfilter_8bit.dep -MT libmbfl/mbfl/mbfilter_8bit.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_8bit.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_pass.c -o libmbfl/mbfl/mbfilter_pass.lo  -MMD -MF libmbfl/mbfl/mbfilter_pass.dep -MT libmbfl/mbfl/mbfilter_pass.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_pass.c -MMD -MF libmbfl/mbfl/mbfilter_pass.dep -MT libmbfl/mbfl/mbfilter_pass.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_pass.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_wchar.c -o libmbfl/mbfl/mbfilter_wchar.lo  -MMD -MF libmbfl/mbfl/mbfilter_wchar.dep -MT libmbfl/mbfl/mbfilter_wchar.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfilter_wchar.c -MMD -MF libmbfl/mbfl/mbfilter_wchar.dep -MT libmbfl/mbfl/mbfilter_wchar.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfilter_wchar.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_convert.c -o libmbfl/mbfl/mbfl_convert.lo  -MMD -MF libmbfl/mbfl/mbfl_convert.dep -MT libmbfl/mbfl/mbfl_convert.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_convert.c -MMD -MF libmbfl/mbfl/mbfl_convert.dep -MT libmbfl/mbfl/mbfl_convert.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_convert.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_encoding.c -o libmbfl/mbfl/mbfl_encoding.lo  -MMD -MF libmbfl/mbfl/mbfl_encoding.dep -MT libmbfl/mbfl/mbfl_encoding.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_encoding.c -MMD -MF libmbfl/mbfl/mbfl_encoding.dep -MT libmbfl/mbfl/mbfl_encoding.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_encoding.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_filter_output.c -o libmbfl/mbfl/mbfl_filter_output.lo  -MMD -MF libmbfl/mbfl/mbfl_filter_output.dep -MT libmbfl/mbfl/mbfl_filter_output.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_filter_output.c -MMD -MF libmbfl/mbfl/mbfl_filter_output.dep -MT libmbfl/mbfl/mbfl_filter_output.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_filter_output.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_language.c -o libmbfl/mbfl/mbfl_language.lo  -MMD -MF libmbfl/mbfl/mbfl_language.dep -MT libmbfl/mbfl/mbfl_language.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_language.c -MMD -MF libmbfl/mbfl/mbfl_language.dep -MT libmbfl/mbfl/mbfl_language.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_language.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_memory_device.c -o libmbfl/mbfl/mbfl_memory_device.lo  -MMD -MF libmbfl/mbfl/mbfl_memory_device.dep -MT libmbfl/mbfl/mbfl_memory_device.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_memory_device.c -MMD -MF libmbfl/mbfl/mbfl_memory_device.dep -MT libmbfl/mbfl/mbfl_memory_device.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_memory_device.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_string.c -o libmbfl/mbfl/mbfl_string.lo  -MMD -MF libmbfl/mbfl/mbfl_string.dep -MT libmbfl/mbfl/mbfl_string.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/mbfl/mbfl_string.c -MMD -MF libmbfl/mbfl/mbfl_string.dep -MT libmbfl/mbfl/mbfl_string.lo  -fPIC -DPIC -o libmbfl/mbfl/.libs/mbfl_string.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_de.c -o libmbfl/nls/nls_de.lo  -MMD -MF libmbfl/nls/nls_de.dep -MT libmbfl/nls/nls_de.lo
+mkdir libmbfl/nls/.libs
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_de.c -MMD -MF libmbfl/nls/nls_de.dep -MT libmbfl/nls/nls_de.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_de.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_en.c -o libmbfl/nls/nls_en.lo  -MMD -MF libmbfl/nls/nls_en.dep -MT libmbfl/nls/nls_en.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_en.c -MMD -MF libmbfl/nls/nls_en.dep -MT libmbfl/nls/nls_en.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_en.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ja.c -o libmbfl/nls/nls_ja.lo  -MMD -MF libmbfl/nls/nls_ja.dep -MT libmbfl/nls/nls_ja.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ja.c -MMD -MF libmbfl/nls/nls_ja.dep -MT libmbfl/nls/nls_ja.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ja.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_kr.c -o libmbfl/nls/nls_kr.lo  -MMD -MF libmbfl/nls/nls_kr.dep -MT libmbfl/nls/nls_kr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_kr.c -MMD -MF libmbfl/nls/nls_kr.dep -MT libmbfl/nls/nls_kr.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_kr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_neutral.c -o libmbfl/nls/nls_neutral.lo  -MMD -MF libmbfl/nls/nls_neutral.dep -MT libmbfl/nls/nls_neutral.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_neutral.c -MMD -MF libmbfl/nls/nls_neutral.dep -MT libmbfl/nls/nls_neutral.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_neutral.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ru.c -o libmbfl/nls/nls_ru.lo  -MMD -MF libmbfl/nls/nls_ru.dep -MT libmbfl/nls/nls_ru.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ru.c -MMD -MF libmbfl/nls/nls_ru.dep -MT libmbfl/nls/nls_ru.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ru.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_uni.c -o libmbfl/nls/nls_uni.lo  -MMD -MF libmbfl/nls/nls_uni.dep -MT libmbfl/nls/nls_uni.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_uni.c -MMD -MF libmbfl/nls/nls_uni.dep -MT libmbfl/nls/nls_uni.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_uni.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_zh.c -o libmbfl/nls/nls_zh.lo  -MMD -MF libmbfl/nls/nls_zh.dep -MT libmbfl/nls/nls_zh.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_zh.c -MMD -MF libmbfl/nls/nls_zh.dep -MT libmbfl/nls/nls_zh.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_zh.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_hy.c -o libmbfl/nls/nls_hy.lo  -MMD -MF libmbfl/nls/nls_hy.dep -MT libmbfl/nls/nls_hy.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_hy.c -MMD -MF libmbfl/nls/nls_hy.dep -MT libmbfl/nls/nls_hy.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_hy.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_tr.c -o libmbfl/nls/nls_tr.lo  -MMD -MF libmbfl/nls/nls_tr.dep -MT libmbfl/nls/nls_tr.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_tr.c -MMD -MF libmbfl/nls/nls_tr.dep -MT libmbfl/nls/nls_tr.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_tr.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ua.c -o libmbfl/nls/nls_ua.lo  -MMD -MF libmbfl/nls/nls_ua.dep -MT libmbfl/nls/nls_ua.lo
+ cc -I. -I/usr/src/php/ext/mbstring -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DONIG_ESCAPE_UCHAR_COLLISION=1 -DUChar=OnigUChar -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/mbstring/libmbfl/nls/nls_ua.c -MMD -MF libmbfl/nls/nls_ua.dep -MT libmbfl/nls/nls_ua.lo  -fPIC -DPIC -o libmbfl/nls/.libs/nls_ua.o
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/mbstring/include -I/usr/src/php/ext/mbstring/main -I/usr/src/php/ext/mbstring -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -I/usr/src/php/ext/mbstring/libmbfl -I/usr/src/php/ext/mbstring/libmbfl/mbfl  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o mbstring.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/mbstring/modules  mbstring.lo php_unicode.lo mb_gpc.lo php_mbregex.lo libmbfl/filters/html_entities.lo libmbfl/filters/mbfilter_7bit.lo libmbfl/filters/mbfilter_base64.lo libmbfl/filters/mbfilter_big5.lo libmbfl/filters/mbfilter_cp5022x.lo libmbfl/filters/mbfilter_cp51932.lo libmbfl/filters/mbfilter_cp932.lo libmbfl/filters/mbfilter_cp936.lo libmbfl/filters/mbfilter_gb18030.lo libmbfl/filters/mbfilter_euc_cn.lo libmbfl/filters/mbfilter_euc_jp.lo libmbfl/filters/mbfilter_euc_jp_win.lo libmbfl/filters/mbfilter_euc_kr.lo libmbfl/filters/mbfilter_euc_tw.lo libmbfl/filters/mbfilter_htmlent.lo libmbfl/filters/mbfilter_hz.lo libmbfl/filters/mbfilter_iso2022_jp_ms.lo libmbfl/filters/mbfilter_iso2022jp_mobile.lo libmbfl/filters/mbfilter_iso2022_kr.lo libmbfl/filters/mbfilter_jis.lo libmbfl/filters/mbfilter_qprint.lo libmbfl/filters/mbfilter_singlebyte.lo libmbfl/filters/mbfilter_sjis.lo libmbfl/filters/mbfilter_sjis_mobile.lo libmbfl/filters/mbfilter_sjis_mac.lo libmbfl/filters/mbfilter_sjis_2004.lo libmbfl/filters/mbfilter_ucs2.lo libmbfl/filters/mbfilter_ucs4.lo libmbfl/filters/mbfilter_uhc.lo libmbfl/filters/mbfilter_utf16.lo libmbfl/filters/mbfilter_utf32.lo libmbfl/filters/mbfilter_utf7.lo libmbfl/filters/mbfilter_utf7imap.lo libmbfl/filters/mbfilter_utf8.lo libmbfl/filters/mbfilter_utf8_mobile.lo libmbfl/filters/mbfilter_uuencode.lo libmbfl/mbfl/mbfilter.lo libmbfl/mbfl/mbfilter_8bit.lo libmbfl/mbfl/mbfilter_pass.lo libmbfl/mbfl/mbfilter_wchar.lo libmbfl/mbfl/mbfl_convert.lo libmbfl/mbfl/mbfl_encoding.lo libmbfl/mbfl/mbfl_filter_output.lo libmbfl/mbfl/mbfl_language.lo libmbfl/mbfl/mbfl_memory_device.lo libmbfl/mbfl/mbfl_string.lo libmbfl/nls/nls_de.lo libmbfl/nls/nls_en.lo libmbfl/nls/nls_ja.lo libmbfl/nls/nls_kr.lo libmbfl/nls/nls_neutral.lo libmbfl/nls/nls_ru.lo libmbfl/nls/nls_uni.lo libmbfl/nls/nls_zh.lo libmbfl/nls/nls_hy.lo libmbfl/nls/nls_tr.lo libmbfl/nls/nls_ua.lo -lonig
+cc -shared  .libs/mbstring.o .libs/php_unicode.o .libs/mb_gpc.o .libs/php_mbregex.o libmbfl/filters/.libs/html_entities.o libmbfl/filters/.libs/mbfilter_7bit.o libmbfl/filters/.libs/mbfilter_base64.o libmbfl/filters/.libs/mbfilter_big5.o libmbfl/filters/.libs/mbfilter_cp5022x.o libmbfl/filters/.libs/mbfilter_cp51932.o libmbfl/filters/.libs/mbfilter_cp932.o libmbfl/filters/.libs/mbfilter_cp936.o libmbfl/filters/.libs/mbfilter_gb18030.o libmbfl/filters/.libs/mbfilter_euc_cn.o libmbfl/filters/.libs/mbfilter_euc_jp.o libmbfl/filters/.libs/mbfilter_euc_jp_win.o libmbfl/filters/.libs/mbfilter_euc_kr.o libmbfl/filters/.libs/mbfilter_euc_tw.o libmbfl/filters/.libs/mbfilter_htmlent.o libmbfl/filters/.libs/mbfilter_hz.o libmbfl/filters/.libs/mbfilter_iso2022_jp_ms.o libmbfl/filters/.libs/mbfilter_iso2022jp_mobile.o libmbfl/filters/.libs/mbfilter_iso2022_kr.o libmbfl/filters/.libs/mbfilter_jis.o libmbfl/filters/.libs/mbfilter_qprint.o libmbfl/filters/.libs/mbfilter_singlebyte.o libmbfl/filters/.libs/mbfilter_sjis.o libmbfl/filters/.libs/mbfilter_sjis_mobile.o libmbfl/filters/.libs/mbfilter_sjis_mac.o libmbfl/filters/.libs/mbfilter_sjis_2004.o libmbfl/filters/.libs/mbfilter_ucs2.o libmbfl/filters/.libs/mbfilter_ucs4.o libmbfl/filters/.libs/mbfilter_uhc.o libmbfl/filters/.libs/mbfilter_utf16.o libmbfl/filters/.libs/mbfilter_utf32.o libmbfl/filters/.libs/mbfilter_utf7.o libmbfl/filters/.libs/mbfilter_utf7imap.o libmbfl/filters/.libs/mbfilter_utf8.o libmbfl/filters/.libs/mbfilter_utf8_mobile.o libmbfl/filters/.libs/mbfilter_uuencode.o libmbfl/mbfl/.libs/mbfilter.o libmbfl/mbfl/.libs/mbfilter_8bit.o libmbfl/mbfl/.libs/mbfilter_pass.o libmbfl/mbfl/.libs/mbfilter_wchar.o libmbfl/mbfl/.libs/mbfl_convert.o libmbfl/mbfl/.libs/mbfl_encoding.o libmbfl/mbfl/.libs/mbfl_filter_output.o libmbfl/mbfl/.libs/mbfl_language.o libmbfl/mbfl/.libs/mbfl_memory_device.o libmbfl/mbfl/.libs/mbfl_string.o libmbfl/nls/.libs/nls_de.o libmbfl/nls/.libs/nls_en.o libmbfl/nls/.libs/nls_ja.o libmbfl/nls/.libs/nls_kr.o libmbfl/nls/.libs/nls_neutral.o libmbfl/nls/.libs/nls_ru.o libmbfl/nls/.libs/nls_uni.o libmbfl/nls/.libs/nls_zh.o libmbfl/nls/.libs/nls_hy.o libmbfl/nls/.libs/nls_tr.o libmbfl/nls/.libs/nls_ua.o  -lonig  -Wl,-O1 -Wl,-soname -Wl,mbstring.so -o .libs/mbstring.so
+creating mbstring.la
+(cd .libs && rm -f mbstring.la && ln -s ../mbstring.la mbstring.la)
+/bin/bash /usr/src/php/ext/mbstring/libtool --tag=CC --mode=install cp ./mbstring.la /usr/src/php/ext/mbstring/modules
+cp ./.libs/mbstring.so /usr/src/php/ext/mbstring/modules/mbstring.so
+cp ./.libs/mbstring.lai /usr/src/php/ext/mbstring/modules/mbstring.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/mbstring/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/mbstring/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/mbstring.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+Installing header files:          /usr/local/include/php/
+
+warning: mbstring (mbstring) is already loaded!
+
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+Configuring for:
+PHP Api Version:         20220829
+Zend Module Api No:      20220829
+Zend Extension Api No:   420220829
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for cc... cc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether cc accepts -g... yes
+checking for cc option to enable C11 features... none needed
+checking how to run the C preprocessor... cc -E
+checking for egrep -e... (cached) /usr/bin/grep -E
+checking for icc... no
+checking for suncc... no
+checking for system library directory... lib
+checking if compiler supports -Wl,-rpath,... yes
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking for PHP prefix... /usr/local
+checking for PHP includes... -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib
+checking for PHP extension directory... /usr/local/lib/php/extensions/no-debug-non-zts-20220829
+checking for PHP installed headers prefix... /usr/local/include/php
+checking if debug is enabled... no
+checking if zts is enabled... no
+checking for gawk... no
+checking for nawk... nawk
+checking if nawk is broken... no
+checking for zip archive read/write support... yes, shared
+checking for libzip >= 0.11 libzip != 1.3.1 libzip != 1.7.0... yes
+checking for zip_file_set_mtime in -lzip... yes
+checking for zip_file_set_encryption in -lzip... yes
+checking for zip_libzip_version in -lzip... yes
+checking for zip_register_progress_callback_with_state in -lzip... yes
+checking for zip_register_cancel_callback_with_state in -lzip... yes
+checking for zip_compression_method_supported in -lzip... yes
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for ld used by cc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for /usr/bin/ld option to reload object files... -r
+checking for BSD-compatible nm... /usr/bin/nm -B
+checking whether ln -s works... yes
+checking how to recognize dependent libraries... pass_all
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking the maximum length of command line arguments... 1572864
+checking command to parse /usr/bin/nm -B output from cc object... ok
+checking for objdir... .libs
+checking for ar... ar
+checking for ranlib... ranlib
+checking for strip... strip
+checking if cc supports -fno-rtti -fno-exceptions... no
+checking for cc option to produce PIC... -fPIC
+checking if cc PIC flag -fPIC works... yes
+checking if cc static flag -static works... yes
+checking if cc supports -c -o file.o... yes
+checking whether the cc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... no
+
+creating libtool
+appending configuration tag "CXX" to libtool
+configure: patching config.h.in
+configure: creating ./config.status
+config.status: creating config.h
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/php_zip.c -o php_zip.lo  -MMD -MF php_zip.dep -MT php_zip.lo
+mkdir .libs
+ cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/php_zip.c -MMD -MF php_zip.dep -MT php_zip.lo  -fPIC -DPIC -o .libs/php_zip.o
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=compile cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE    -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/zip_stream.c -o zip_stream.lo  -MMD -MF zip_stream.dep -MT zip_stream.lo
+ cc -I. -I/usr/src/php/ext/zip -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DZEND_COMPILE_DL_EXT=1 -c /usr/src/php/ext/zip/zip_stream.c -MMD -MF zip_stream.dep -MT zip_stream.lo  -fPIC -DPIC -o .libs/zip_stream.o
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=link cc -shared -I/usr/src/php/ext/zip/include -I/usr/src/php/ext/zip/main -I/usr/src/php/ext/zip -I/usr/local/include/php -I/usr/local/include/php/main -I/usr/local/include/php/TSRM -I/usr/local/include/php/Zend -I/usr/local/include/php/ext -I/usr/local/include/php/ext/date/lib  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHAVE_CONFIG_H  -fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  -Wl,-O1 -pie  -o zip.la -export-dynamic -avoid-version -prefer-pic -module -rpath /usr/src/php/ext/zip/modules  php_zip.lo zip_stream.lo -lzip
+cc -shared  .libs/php_zip.o .libs/zip_stream.o  -lzip  -Wl,-O1 -Wl,-soname -Wl,zip.so -o .libs/zip.so
+creating zip.la
+(cd .libs && rm -f zip.la && ln -s ../zip.la zip.la)
+/bin/bash /usr/src/php/ext/zip/libtool --tag=CC --mode=install cp ./zip.la /usr/src/php/ext/zip/modules
+cp ./.libs/zip.so /usr/src/php/ext/zip/modules/zip.so
+cp ./.libs/zip.lai /usr/src/php/ext/zip/modules/zip.la
+PATH="$PATH:/sbin" ldconfig -n /usr/src/php/ext/zip/modules
+----------------------------------------------------------------------
+Libraries have been installed in:
+   /usr/src/php/ext/zip/modules
+
+If you ever happen to want to link against installed libraries
+in a given directory, LIBDIR, you must either use libtool, and
+specify the full pathname of the library, or use the `-LLIBDIR'
+flag during linking and do at least one of the following:
+   - add LIBDIR to the `LD_LIBRARY_PATH' environment variable
+     during execution
+   - add LIBDIR to the `LD_RUN_PATH' environment variable
+     during linking
+   - use the `-Wl,--rpath -Wl,LIBDIR' linker flag
+   - have your system administrator add LIBDIR to `/etc/ld.so.conf'
+
+See any operating system documentation about shared libraries for
+more information, such as the ld(1) and ld.so(8) manual pages.
+----------------------------------------------------------------------
+
+Build complete.
+Don't forget to run 'make test'.
+
++ strip --strip-all modules/zip.so
+Installing shared extensions:     /usr/local/lib/php/extensions/no-debug-non-zts-20220829/
+find . -name \*.gcno -o -name \*.gcda | xargs rm -f
+find . -name \*.lo -o -name \*.o -o -name \*.dep | xargs rm -f
+find . -name \*.la -o -name \*.a | xargs rm -f
+find . -name \*.so | xargs rm -f
+find . -name .libs -a -type d|xargs rm -rf
+rm -f libphp.la      modules/* libs/*
+rm -f ext/opcache/jit/zend_jit_x86.c
+rm -f ext/opcache/jit/zend_jit_arm64.c
+rm -f ext/opcache/minilua
+--> eb9796b1a6d9
+STEP 4/13: COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+Resolving "composer" using unqualified-search registries (/etc/containers/registries.conf)
+Trying to pull docker.io/library/composer:latest...
+Getting image source signatures
+Copying blob sha256:8912ef1009a96febc3238813751a2cf64591515839dfb25375319c6480bab8d6
+Copying blob sha256:7cf0001b87faad678e492fbe52c4d0956642b480ca270446b682498ab48043bf
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:ee69afcd153bd2b7016bc456f768d14f1de8660db516475250b7b96b478f891d
+Copying blob sha256:66e367217606eb89df7bf806077fc961f5778d9261aae64c0dc855156dcc5b5c
+Copying blob sha256:144b96ed216f326f97b2ddfda3d3cb4da247c7b12cc5d985a7e099a09194ae6b
+Copying blob sha256:f504aa24402a1353de2ff907c3c112e0ba554b94655fd7983cc69d64b2ed3dcf
+Copying blob sha256:fae14920dfad6fb129eb9d339ae72b736b7bdd74c5d8b754b22360c3c8d0cc6e
+Copying blob sha256:bc30fdacbdf2cd76863a5f0d8f1c09ae9762a45cfc1722e88f05c0556e86c08a
+Copying blob sha256:acf1eae1778a388ddf9e1915c78c588f7d0d09fe7956ee04cc2ed700cddc2808
+Copying blob sha256:112b018a02c2741043d9daae47893ef338cf605d9dd8ebaa2a27ea4c2ed7afd0
+Copying blob sha256:b7c84ae45519c18bc8681719cd6c0bf23a65d1196e6046be8fb9d2715d009ac8
+Copying blob sha256:343c9a8eca53e4f3b90e5837b4bea1722e405d4cd11befccd580f390364ff1d0
+Copying blob sha256:9062f4cd2ee6030304750737c74a955d09a74ff52c1aa9e2537dcc00e5ee1d54
+Copying config sha256:9cc23117d1dbc0c81a0cc00d0abe3e519d8c0a4168687428089a2a9d34d3d438
+Writing manifest to image destination
+--> e184ee43f3f2
+STEP 5/13: RUN a2enmod rewrite
+Enabling module rewrite.
+To activate the new configuration, you need to run:
+  service apache2 restart
+--> c60834b2bef5
+STEP 6/13: ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+--> 607fc61b6d78
+STEP 7/13: RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+--> b03de59cbd3e
+STEP 8/13: RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+--> e68f51c80669
+STEP 9/13: WORKDIR /var/www/html
+--> 51f184bb33ce
+STEP 10/13: COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+--> e925cfb3118f
+STEP 11/13: RUN chmod +x /usr/local/bin/entrypoint.sh
+--> c17e14f6ec84
+STEP 12/13: ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+--> bc5c92fb3fc1
+STEP 13/13: CMD ["apache2-foreground"]
+COMMIT domain-monitor_app
+--> fdfac38539ca
+Successfully tagged localhost/domain-monitor_app:latest
+fdfac38539caaad5c14b1379764ea1038e436d7fa04ac9a5a3ebd101150ba62a
+b7d5de807acd46b75c027a666f72adc3933b0e670f9ae5b5535917369d4ceb6e
+Trying to pull docker.io/library/mariadb:10.11...
+Getting image source signatures
+Copying blob sha256:a562221abd5b252c1aea1e23cdd72dfd698d37b604a7ec353fb39396bf1d6d6d
+Copying blob sha256:4228242e62563eeaf81018cfcd115e33eae371ff18af55a53e6b996f8569ce3c
+Copying blob sha256:6b2d362c60bdf10e312fcb37b0ed90953755ba2dde80a0b9c339c6295e384c15
+Copying blob sha256:dafa6a0aaff28a179e142bdcbb3dc3e605f74d4eeecb6ca67edfc2b97b38e001
+Copying blob sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e
+Copying blob sha256:5751c205854563164350b11a2d2e39762a6769f5d270aa073b19c7fca6dbe303
+Copying blob sha256:173a0b59bb389c70f38d08f3797628c27d789e66c94cc358687d32a27f15a913
+Copying blob sha256:a592548207f087bfa30d3a5b8c8cd00fd9cdfd99198dd5c3978d999cbd7669b7
+Copying config sha256:90c7b3b2c9724d9b9f3766d159e77564a30d016b9790ab897170569f642aa91c
+Writing manifest to image destination
+6ec1e63f602bc18d3a84550be32e3679f6aa521c08c1eff0959cbeb5b33257f8
+45a2f853ed3c634d7cf9f0ca3865323dd2de6cfbacd5229c062e6e9b39ee9d03
+domain-monitor-db
+domain-monitor-app
+OK: domain-monitor (domain-monitor-db domain-monitor-app)
+PASS: docker/domain-monitor
+
+----
+
+Testing docker/graylog
+a7ac1976811d5859602d79146060be7a92fe4cd1948b99ea01626792d94e811e
+Trying to pull docker.io/library/mongo:6.0...
+Getting image source signatures
+Copying blob sha256:9826927a661f3dd60c82b1bd495a9dc6bf8e1d1d5c64119377382030ab7c5a7e
+Copying blob sha256:a44afe9952bf663f645f754c8dc3258de55a11f5bf330db276a721cbfdae278e
+Copying blob sha256:7e49dc6156b0b532730614d83a65ae5e7ce61e966b0498703d333b4d03505e4f
+Copying blob sha256:3c99b8c985d21bfbec4ab1f8c795fb598b00a2db676a7a2d5592ad7df5001149
+Copying blob sha256:baf1f36682efb0000fa85547e51cb6171195e0370fdafa2d354965d570307170
+Copying blob sha256:5ca411ad80518b554f7dec7836c5753f65562ae49349389003d820516e9ee51c
+Copying blob sha256:7b14d5e3f39814387bd6e701ef827e26c16bb1691951a32546a8b5a576e98cda
+Copying blob sha256:e73078607ea493983143ba3b6b0e9b981dab3c922eb8f3f321cd62c16bccade7
+Copying config sha256:d57fdb7f35f1f679c12d406433af7b650cbe5aad3d4b3afdd0689d676e4b61e7
+Writing manifest to image destination
+8fee082deade0b63ff1152096117a6f82f77559b297edb5a8f1f8834a576a402
+Trying to pull docker.io/graylog/graylog-datanode:6.1...
+Getting image source signatures
+Copying blob sha256:8c3935b26b9e5db17e6162e8475fc502c82c098f46e55af4f6ee1c6eb66a558c
+Copying blob sha256:575e566545f29481fc9c6879a05ce43a36d1a7a2049d65dfea903ed86ad5244d
+Copying blob sha256:68585d746dd3d95257abd4e0391b0765ea550904ccb8ff1441a66700242c8375
+Copying blob sha256:60d98d907669dc22e547405da3e409eb14496606f4ac90692c5f2ef5081c4b1e
+Copying blob sha256:89318b1d2be37cfcaef6baee38d9b704a1d9e0d2d56027e4888ced6ad64645b4
+Copying blob sha256:c969ea77a912925fd3a0c6c674e1d77c619babde2dca1176e963293f833498ec
+Copying blob sha256:b8317e80f620bb07e1b49aaf700ee60b8c1395a23ec41cc071c64307c037aca2
+Copying blob sha256:73734e1adb3673a32eff3d63723e3f52696de4ff28656368ed01e435b0ce05b5
+Copying config sha256:e13cf3cb321d9062647e497c0dfaf2f111c51ce1a4fa2054b88a197e0688f23a
+Writing manifest to image destination
+49b1cefb7869118ea22cd0b978c59102a2d81dbc4e67bfa48289a78ede08e1e3
+Trying to pull docker.io/graylog/graylog:6.1...
+Getting image source signatures
+Copying blob sha256:e24a8b9e652f47dc5aae4db79deb296bc65f3697a15a864fc909054ac494c90a
+Copying blob sha256:f3929ce9ef98d521214361456dc3601b66f098801031407f6deeeec81a92929f
+Copying blob sha256:5d5a1fad70283ec0319650ea1d3601145209f75ca5b0b26f9e55b61604e68f3a
+Copying blob sha256:340a39a920b2f802ad557a7dfd496843a9552f73342ba50559743b54ae2f3620
+Copying blob sha256:1df735f481adca6219ee0da74f1af97ec6e7649e2f83eb571ef24cb12912ab99
+Copying blob sha256:60d98d907669dc22e547405da3e409eb14496606f4ac90692c5f2ef5081c4b1e
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:36530c583bf8634a124fc9a3fdbde9804fe0ee1bc25726e479a489c5816e5212
+Copying blob sha256:7b5f7a6f6811b6fc24f895b4ec3855006f2990b4cdcdbe9e245b2f31639c1f48
+Copying blob sha256:03446a2823ea0209edd767221fb7ae264d607ac1131fb9a422accba3b92cae59
+Copying config sha256:0fce2dca54d7a2f0a236df0aa34ecfedfd6c87affb7f70febb3ff12e364132e9
+Writing manifest to image destination
+26eff0ad5655d495d44d7cde2c65c9f0942e63cda278172f8342d6d90a65aee3
+graylog_mongodb_1
+graylog_datanode_1
+graylog_graylog_1
+OK: graylog (graylog_mongodb_1 graylog_datanode_1 graylog_graylog_1)
+PASS: docker/graylog
+
+----
+
+Testing docker/immich
+821d86ecf5ca4bff4eef758ea7d4acda68eb72162a3a4a394f227e65a2cadd13
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+c0ed3b374dfc253665f402f2cd103702b94e3f7376e44d7e952545cf12924275
+Trying to pull ghcr.io/immich-app/immich-machine-learning:release...
+Getting image source signatures
+Copying blob sha256:fc626d969bbd77ddfa6435e68065eeb338eadb04f83cef338dd8e07129c16a32
+Copying blob sha256:d1dc32d76c2b3719b32ecd01e80675ee468983f69235b7bea9aefd970e41a373
+Copying blob sha256:8e44f01296e3a6fdc31a671bee1c2259c5d5ee8b49f29aec42b5d2af15600296
+Copying blob sha256:e2ab42bb68415f82a53442aa7b2ff90c0592666f18d1893a9ffb83b234dea992
+Copying blob sha256:1be9fc5da4b1719cfdcb79b3e7af8620f4ba126827946ef0247fb48b491b9eba
+Copying blob sha256:25b54fffce796f6e2ba6d73a7119f49e9fd5b9e56b4e653aca0ca798ae214c49
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:a2de1f82c50e724616de0fbb1f5949e532346bc2f6bc32416f88f0e3d3360d7c
+Copying blob sha256:7d0ad22e91b999721e1c9b9eb3b0e001d5f5485530c85982494dcb2606b819c3
+Copying blob sha256:4639b50ca9ccb6d58b14e8b4afa1fda59d0e4fce2287bae9fdfd152ec52a7199
+Copying blob sha256:52a02ad8578aab935309950913f9f762188880304fb81f2c6f63f6adc1bb44f6
+Copying config sha256:03f55bf9c1365f68d3286c8b2ef0c7460aa948fc930150a08042b81ba43c6b23
+Writing manifest to image destination
+7be23716ad267507baaa850bd1a38c34320a040754bbb9988e594aeb3673aa0d
+Trying to pull docker.io/library/redis@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5...
+Getting image source signatures
+Copying blob sha256:cf7b98d3ba3cfed560657168da0835d9e26cb19f00a0a5baedc8a3813001f135
+Copying blob sha256:54346cffc29b3657ab641099910568997d3ab80c4e2674d58566e3092d6d2971
+Copying blob sha256:2866ca214a5ed967481052cc9cbbcef58787893b47f190e34806c318256f8371
+Copying blob sha256:ee16541feddba136f2b493bc90f2b954ea01bfedd62583e19d925222a3aca4cc
+Copying blob sha256:d14ed515876dc6df492f0918276e0a7cb8e9135c08e8a66b784697acded5673f
+Copying blob sha256:43c4264eed91be63b206e17d93e75256a6097070ce643c5e8f0379998b44f170
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:c4e0a3f69d20e90ded5b7599fbad33420f16d3c0b70117083eafa88d843692f5
+Copying config sha256:ec1b0a84ddf9124276ac189cc4d98ef28f0aea95ebd148d9e4c18b28928dd999
+Writing manifest to image destination
+0d97b4bb48b4bc01198c40148a3f83356ee00163646adae084febeac4f274795
+Trying to pull ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0...
+Getting image source signatures
+Copying blob sha256:26928461f51648b85dacf104b9c9beada3b79a9c0e5a3ec838c3b10c78b83f93
+Copying blob sha256:30aeffd9888e9716bfa7df0e0ea78786112412e6ecc3b13e3348119d56e06827
+Copying blob sha256:7f0ca661b412f28e9be23b54779429ed24f355225bdc482aba3aa98438d8c422
+Copying blob sha256:b1badc6e50664185acfaa0ca255d8076061c2a9d881cecaaad281ae11af000ce
+Copying blob sha256:2298396ea1d48158f6b577e995ee356b9408b873b84570f93a604fb4160905a9
+Copying blob sha256:0ff2eef391d9d1b80914a3599d902f78dbf304643b6b817f10f4332434ee671a
+Copying blob sha256:ac4b721eb66f1bb2b4212e3b05b4b747d15578d086d70cfe1631ab62b2650ecd
+Copying blob sha256:606bd164980e1a6701bf72d19f10fe07d93703df2cc9cdcc4dc9b51a204af78c
+Copying blob sha256:cc449fe7855804d8d98a0b0720ad76e62ed971eded01053fdeee12d2b086fb2f
+Copying blob sha256:5a865aea3becfc7e2714190298a8ea71648a6f16652b04ffb9d760a8ed0daae6
+Copying blob sha256:799f859abbbda6f784305a9fc79792b49e4f7140f57493e61a9932baa8f86c36
+Copying blob sha256:d903e777080c02accf8319414db0a2942dcdf6b2a52774fdac62b1e745e7cede
+Copying blob sha256:732fe8a65f89c9b02aaa8e001351aa709739971031bb6d63d666f514a5fadc0f
+Copying blob sha256:5c10925b29ffc0129e5b40c81616e90e715f9245286f5d0c3ea67afa58a65b36
+Copying blob sha256:bb9d72d68abc6fce4e0105b5cb6c816386e84e153f9745332261219900675ae7
+Copying blob sha256:fa467413e389f209612bbbc0d8f3f5da6fbe6038d30507e2dc7c7605bf01ab16
+Copying blob sha256:e860e441a1daeb375e6c6fde9c639dfe3e18958e6723192c86cc4966097c0d87
+Copying blob sha256:dfec767eedc3d4fdc0388a63412b0973eaf55cda98a0d3aa0988c7a705ce9dfb
+Copying blob sha256:bb2d8ba9cd16a388d9b7eb0a22ef8de39cc5a83160a941b6946c55038b962b9a
+Copying blob sha256:43c4eeae85a435c8dbc89bce6c6b214440aa28ecf4eee11f27c00329d73d1b93
+Copying blob sha256:715dd882dfc37b2917afb4c61afdbbb412bf9d3e78597ff8421835c3f84918e2
+Copying config sha256:cbcb613696a8362de6c08df225b46912e3e326d925e3d16abde653486601d645
+Writing manifest to image destination
+e74288bfae4ac6f33a4da8ed65b0ef1c2593429b27aa6db8ac0c4ffabb5f257f
+Trying to pull docker.io/tailscale/tailscale:stable...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+de746428c4167516f509b8081a1712b2ce25295a9f118b7adffc510a41ea4319
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+512c423608907fbd8fbe3c2e3394d57147ae35de95560b6e51317fae268fc655
+Trying to pull ghcr.io/immich-app/immich-server:release...
+Getting image source signatures
+Copying blob sha256:cf83e48f496ee602f3f411b7a03b918790be4f556b465577e344d6326b11afd8
+Copying blob sha256:396b1da7636e2dcd10565cb4f2f952cbb4a8a38b58d3b86a2cacb172fb70117c
+Copying blob sha256:2a434cb0ef0e6270689f144b545cd93155837dab7170c00fa4633a171f4e1b1d
+Copying blob sha256:6b9d6ac9b0f9eb85f79b00eb45c2593d2a53d5cb55d4f37fe09ed6609f42c937
+Copying blob sha256:c3756cb0d50f63526a0e085ef730da1e7cd9f381e6ee141419dcbc936346903a
+Copying blob sha256:c06c7d5debd60ba5e039513fb405e868e4dea802634462b0e0e92c7667547a20
+Copying blob sha256:fb3a52a86c51dccd98558d658433183ad4d51dc3469123efb1de689b3406a7d0
+Copying blob sha256:504c70af2499c08ff66d0a6ef8c5a2df38958f0252036ee5f00aed2d910566de
+Copying blob sha256:087ed19e49199486358099820e08cfdb52a65d73e6166221a3add546bb670fae
+Copying blob sha256:6cb183de1c9a107ce59817ac76324de8c1894be17d2209678985ed44e1d70315
+Copying blob sha256:5621c0d201fe3db461365a280cbb96deffb71740e0f34eeffc73fa95dbadacb8
+Copying blob sha256:ba8750c9d0af5c056cc3c182f187f13b5fa63c3c3745d54252482722619050a2
+Copying blob sha256:55620b4bb6214555d0a90e80dd52640b6e2c915157f6c80b414f2fda75f4d103
+Copying blob sha256:b99fe74dc1cba77ff36867a990823cf5c6f59c3b8360f8635e93fa82b68a0460
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:00a1d903f99959a18e48460cff23a168d5ed0300dc80e94b4a7c96f91c4cbc67
+Copying blob sha256:5da45e2fc3a7918190ef678e4e34523aa9bec2d996c5ed68c94ef39a51f4432c
+Copying blob sha256:1346353ef3ff009e4820eb4763d5bc6cc6c544c5c65864f5c2dca50a4f174810
+Copying blob sha256:bdfb149bc4eced07da3fa7bd41dfc6534d230d716237beb873cfe04bddb8eb40
+Copying blob sha256:afc5498e0f2639e7ddc1fbd252c798d6984ed7ce7ef869690505ef7259630b90
+Copying blob sha256:d6563ae73e2273367c0e2172f0062a3bc405a56fa6037a537cfb227a96ac3cca
+Copying blob sha256:e7100a7ca74044654012a8eae0a6c3ca15f822f5cc82097fae49c68bd1c2060f
+Copying blob sha256:8dabfebf081bb89926ce998ecff189ec943ddf13acb58660aa8dbae026acf47b
+Copying config sha256:85364cd21cda9f531c5245abd1ced28f7c8bdda1c8e62d5ea2601ddcb468e5c3
+Writing manifest to image destination
+b506522f9304e19db173ea63b3c79a530dc792d977c7d74bfe0be107cf1141fe
+immich_network_holder
+immich_machine_learning
+immich_redis
+immich_postgres
+immich_tailscale_sidecar
+immich-caddy
+immich-server
+OK: immich (immich_network_holder immich_machine_learning immich_redis immich_postgres immich_tailscale_sidecar immich-caddy immich-server)
+PASS: docker/immich
+
+----
+
+Testing docker/inotify/sender_unraid
+ff7967aec3dcf4d08dbfdecfb4c0bee9583235c2782bd04d1ef50ab66a15a5a5
+Trying to pull docker.io/devodev/inotify:0.3.0...
+Getting image source signatures
+Copying blob sha256:226a7389ae3fc719ea00475a2be20a98a95dfee439605652b881ff5a4a380e90
+Copying blob sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870
+Copying blob sha256:2cdf64a706e83785401048e569455b87bfa8685c67a0534e7119ab7176320dde
+Copying blob sha256:f133939aba9d7285b3053e4b2b2028db4bd151b4bdcd7521617b06db11e58e3e
+Copying config sha256:9f99dcb51bc258a5f11684125aa56d1eb011839917f0fa2958e209b0e51cacf7
+Writing manifest to image destination
+db285f3aa37327627f100397142353cf76f816cf4b0d9b9461f99709de92ebd9
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+0e2e2be62578c95d65406b4f9d99de7571bd2128f6d10dec43d789623b30748a
+inotify-sender
+autoheal
+OK: sender_unraid (inotify-sender autoheal)
+PASS: docker/inotify/sender_unraid
+
+----
+
+Testing docker/invoices
+2b6e085312a952f55e777d5daa1b7f9617dfead00fdbab47982be5f4f4f8e747
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+b4a5aee3fef5a53dfea7c3aed3e4c9f3c5788aff77e812dfcf27d5c78184867f
+Trying to pull docker.io/library/postgres:16-alpine...
+Getting image source signatures
+Copying blob sha256:97b8e529965a96239f30cf08cecdb9003b7ac17ec468b7810de37b18d4dab47c
+Copying blob sha256:d2e5feb410e895a1fd0e7a9121fe24ffca666de333d3cde8f9d18946014f97df
+Copying blob sha256:1074353eec0db2c1d81d5af2671e56e00cf5738486f5762609ea33d606f88612
+Copying blob sha256:137ed19c6b800208bcec468e732d4aecaaee30bfdc062b4fe3fe78cc17899630
+Copying blob sha256:3048a283a43359eaef3a7a922cb39eb67377b94a7a35f45ac6bab59b3b724a89
+Copying blob sha256:6fe79fe4410f2109f6d488a84a4450deb1b023cbec56a6cb56ddd501ca9948ea
+Copying blob sha256:6bfb940eb8240471f343f971e55f53164dc9e560dd66834b48e5bb439b563c87
+Copying blob sha256:e76f2995a422088f3088f8aaaa26dbbdf95383183150e11421480c1dce735cd2
+Copying blob sha256:9582264a43c03c8993ad34946a2b164d43724efec6b711abfa2b3ea136bcf2b3
+Copying blob sha256:d3a0dfeb7e380b372d3adf99e71b12cb6f2d15d6370f8ccd4f4953272ab71475
+Copying blob sha256:feb143896d95aee25e2e04c3a42b50d0be54ff7628e03275719f7f458e60089e
+Copying config sha256:b97fe41a065781e884f8a23fd3dfd04c3348ce02d7a7c5cb2c0645317b4eb663
+Writing manifest to image destination
+7d4bfffe4dee997cc1074e43ab1b8b33c96db295a7fa76a1926aeaac98ceada9
+Trying to pull docker.io/library/solr:9...
+Getting image source signatures
+Copying blob sha256:3dd7edcf5bb47eccc1e0ada34deaab04a4af113a8b543389aa6e0de89aa4efba
+Copying blob sha256:8770a7ccbf824857f9a328739d1ddfec21c04a1b7423007c0a74c8ab500e3675
+Copying blob sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e
+Copying blob sha256:bd012e01f9d2afd797ecf20b406260375e0fe120b00a6401bba84a92fc3968f3
+Copying blob sha256:0a5de6e8045fe0102a83fbca815f435fd81296a7937cdeb04409eeec845a3502
+Copying blob sha256:c6b4b65fc380fc87df9d7a19c5abf67e22e913f6f0b56b870b1ee5ca46f5cdf5
+Copying blob sha256:6cd0390b2016a777cb27f91a0c532f68a8ce6f0491a15ba26b2cee4365d71544
+Copying blob sha256:b935906c7aad2cf4d6ea3100b6be92f97147aed8432989a895e420b051422bb1
+Copying blob sha256:0c8c9340bf85907e3c769c243b579841528b57be3dddad1bd49364e8e0cda3e2
+Copying blob sha256:1688cb72ab7f317011fc0eed0d0d83af0f978866f401efdd7b2868c5c3ed99f7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:d87f4f46f74e1834e1923f386d3817767f87d5a9c657997ac7fe3e5d36f90cbd
+Writing manifest to image destination
+908ef8b6745e0b0a928bb8bd71df30ef91a9c81c1f386ba9c3a84c39f4a7c56b
+cc168fd95422120fe5e39415361fdc28894008f8fdb717dcf6b3bb40b1fe53ca
+Trying to pull docker.io/library/redis:7-alpine...
+Getting image source signatures
+Copying blob sha256:232f7549c9b07a752bb00c7d7a61b3bfe6af3f15a711ba643c132f0e51922a64
+Copying blob sha256:60c57c0072ef228501beec5a8bee0d7ecc882dee9afd91fc7a58e3f9d9da64c5
+Copying blob sha256:380e8aa8b1fdbd2887f9b1fa3e9d3cba192f9ff87956981dc8bd73cc6da39bfc
+Copying blob sha256:fc4343b4accd46fa853b1de6ee0ca92ab1f7080db3af6c4948678534d69cc159
+Copying blob sha256:c70aae7b5e0d75367bcf5d40074ae8e28d17793c251e0d505321aa8ea4fd91fd
+Copying blob sha256:f637881d1138581d892d9eb942c56e0ccc7758fe3bdc0f1e6cd66059fdfd8185
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:d75b3becd998021da3bbfcb31fa6580676396f5244243670f57920652cce8038
+Copying config sha256:13105d2858ded45aedf7b24f0870e6a4e7ce4964924bffce68e562ca72149f1e
+Writing manifest to image destination
+454212c6506559c543ef7683b9f27688260ade00ecd00a1b8f8a2ee21be77013
+Trying to pull docker.io/tailscale/tailscale:latest...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+4f9bcafa36ecbacabac83b3d60479cc27df6cb4abf182b83195c3c1b09bde251
+Trying to pull ghcr.io/docspell/restserver:latest...
+Getting image source signatures
+Copying blob sha256:f5df935c17e1eabc9372e18f6c22a6ab0cd6bfedf077443dd6aaae92f4d46167
+Copying blob sha256:4d6f768af370d7f6c3d0b04809690ebb289b3c93da73100b9ee154ccf751fbea
+Copying blob sha256:f3fea5f735b36ed9f2e3aa8f1f9aa1cc74f27c81df1c5d8fd27b6a6c4f8a0d1c
+Copying blob sha256:1ac6603be11d437a3a9a6ee98b7510fbdd54009a3acc2e1c8a66f07142bee387
+Copying config sha256:63e0633b4087e8c3e8a186fc240bc85c4977751b916949b6d35bb8a6d6730abd
+Writing manifest to image destination
+4c3a7dbac952a0c211c1154898b5a396216b7cf42e835b42a65423a1fe938166
+Trying to pull ghcr.io/docspell/joex:latest...
+Getting image source signatures
+Copying blob sha256:beddb5f71ee42ea2b460b6561510d25e573a3d18ea4f848c01ec9066805f45ce
+Copying blob sha256:6c3e3ccef35ecf32997f5cae2e90bb6eeec51923f82d21043846f3a3331f1fe8
+Copying blob sha256:4d6f768af370d7f6c3d0b04809690ebb289b3c93da73100b9ee154ccf751fbea
+Copying blob sha256:748f9ee928eca269dbddebcf90e027ede5aa7612b8598ef610d5dd05cd160eea
+Copying blob sha256:7049ae30c3967337eb50a7c504357325430840142cc20671bb4c141b8b41e453
+Copying config sha256:e31f09294eef40f1efac68e390448c18322134bc3cdbc3df6fdb6a23327e3e64
+Writing manifest to image destination
+53eb35fe430dcbc6b1eb0c832481a1cd00395ada3464dc194ce1a9c30508600c
+Trying to pull docker.io/fireflyiii/core:latest...
+Getting image source signatures
+Copying blob sha256:98e4c57a89962ff09376e0bf8b68619122c91a7082a510a28c841f8fc5cf4466
+Copying blob sha256:c798054800e2759578b19cc7c8180c351520f982761fb41e23f69a201824c37a
+Copying blob sha256:0e4bc2bd6656e6e004e3c749af70e5650bac2258243eb0949dea51cb8b7863db
+Copying blob sha256:53270f2bddc7506fcc582a35ce32b46a6662397c3c17cff70887dd22e9d63413
+Copying blob sha256:0674e2ffbb89e426720ca8d1083dd8746b1f6c79f8ce789ebad5ab77c9a063c0
+Copying blob sha256:f7f84f8c6ab0be3ca8235ff798bfd93e3fd912fa4b2ca58068b228025e64651d
+Copying blob sha256:b5df2273fff34ab9bdebd1a7c84d6e1ed6bd52b25c3bcde608e078fdf7f72303
+Copying blob sha256:5ef561d9cf4330cd4c4eb47d670a1dcc517d04e06dda8f06967020db97c4d29a
+Copying blob sha256:d6f8d67f56043aa38db193de878aa14842fee038a5927ab80d0751ae22c4aecf
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:1ab2925c184be74643c0c50e45a376bdb0003af0e79eae85ba2f540e0670617d
+Copying blob sha256:b2aa9366f2197af8d29fb924924e98c0540366329d50081b313ae2c6e31acd39
+Copying blob sha256:4d3cbb7797af4dbe69d50121bccbb2d9d401d02c8b902ac099474db3d457afd4
+Copying blob sha256:14c95806d3dd9105ba2f003f864119c8f045e28b2d56597578e8677655f9054f
+Copying blob sha256:0df0dd17ac7fcd43d34be0936a9951526332338e959dfb48d68361823efbf89c
+Copying blob sha256:910f49f01b06dd7cd583337cbd3458ed8f6e7bc6a2f06b6d2acd5cc76f99b461
+Copying blob sha256:09bfb6a07d74349f1297d9ac3ebc79ac5a448dbc7de1e0c731f3f0bc703ea5b5
+Copying blob sha256:242b58fce28d51c74ac7efd4746b26bb4c08e4b29d7ad4606c252ecef821118c
+Copying blob sha256:ced85251762901d250d50c044e68a8f696ab6e1c97a6609cedb3540007a83a93
+Copying blob sha256:5226f4566c99a80430b337382964cf2627a4fedd7009bd840afcb89f0603d58c
+Copying blob sha256:b2a5477315e2c910379dc0db969a885fe9be14e28ad092df8a13481208328a76
+Copying blob sha256:a486e1367326f0607e1dc2cfdc101f91b4151b2d6092b70f197be1ada0016fdc
+Copying blob sha256:c3b055c3ae8ce5e469fe6efc93bf9d0b5eca89554e42c867a8d973af09adef10
+Copying blob sha256:411267ae2807c9294a6a0b09bab9c62c059bb862c138b6622e1aac1b1973ec05
+Copying blob sha256:4c294697c14024e74f63364d1483846d861db01e767979a8169105858dbd49c5
+Copying blob sha256:66079ff8df0d1b948644ccc0e41aa281e9847e1bdda67d1ba3407b287b563686
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:096e7aab0a8b9e0ba1522e3e46f786387cba1efac76d57a12edd976a49bb799b
+Copying blob sha256:e3818fcf9b090b6b3c8d9822fe8ff184e5cb7f66784967f36a5aabe1c3d61e63
+Copying blob sha256:852877d2ddebd4982cc111c4eea283b3bc254f91a92f73886fbea873a18f9fcf
+Copying blob sha256:8c69aa47fa30276226cf3de086fc2f885f74610b145278082d837b161b69d4a2
+Copying blob sha256:8956f312ffb59b395e35e0544845faf815acdeb9b4b906b9759d9d1a11cbba66
+Copying blob sha256:71ead68e6cdb26b3dcf9aa8f2537a754d8dc009380837bb2c6968dfdf43fc5fe
+Copying blob sha256:1be2bd07eece5669ab630b4d06d64cdc251cfc27ad4d533eb38b42e0b62c43db
+Copying blob sha256:bf08ec34e1f3d58d7de11568a630898aeb26f096097ac266bca1918a04a2f59a
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:bbdccd385a2e08b51b237ae2284b6ccca8fb3da8f20dfe798c99901caeddb1c5
+Copying blob sha256:0fe807c3483bc854d9123349d2651b65efbe01498197048d2853e5e6172411f9
+Copying blob sha256:5f05b064fadee548da42fb26ccb227e6c780cf28751002891d5b37d1923e5c4c
+Copying config sha256:9e845c1e5999490725f96a4beb7264b360cdcd75525ea8b17eeae60cc08e00d4
+Writing manifest to image destination
+a72505d882a3ec0e64e9befc3974a5c5b71bdbbf6e839db39a2258d761245617
+Trying to pull docker.io/docspell/dsc:latest...
+Getting image source signatures
+Copying blob sha256:bdf75d86225628df62e5aa522bd267783443b448d13e0f013df84d8c2e07c4b5
+Copying blob sha256:4abcf20661432fb2d719aaf90656f55c287f8ca915dc1c92ec14ff61e67fbaf8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:d574edd180f4f25a61f2d3328b50676f201a036d4f2d8f164ecf17b908c6024c
+Copying config sha256:923af8c80c5fedd43a07101ad342256c97fad5092cc50aed644dfc8a2e1b5eaa
+Writing manifest to image destination
+023b9cfe85091b5c1b388f226689ad6aa2e671e256110955debceb1642d9d76c
+Trying to pull docker.io/fireflyiii/data-importer:latest...
+Getting image source signatures
+Copying blob sha256:4fb686ce312ce84499d34a08c1deb64e9331d47f6a967ec57405841bc95dd227
+Copying blob sha256:60df91c45d0a86e1db8d1d912fb5cf26d490f2284dac0daa5f35109768e26545
+Copying blob sha256:1733a4cd59540b3470ff7a90963bcdea5b543279dd6bdaf022d7883fdad221e5
+Copying blob sha256:b1f8710b0f16836f0a18a496d19ba862ec3b1cea366c4521ef644d9b073f1524
+Copying blob sha256:5e4542c4381529b61bface7c43a625307bba7d14bf252ab1b57a2f24cfb5b332
+Copying blob sha256:385f943c98d4fbcf1ff9533be045b3ec8244b498cf1a8353ee732294e81e73ce
+Copying blob sha256:53169638e514c083c0735b9990c2bd4d186d22bc1efa6671153e68545fb6c3b2
+Copying blob sha256:5cea0a8ec85387120449754610e4dbfee6108e6f564e81665400cda883b4d695
+Copying blob sha256:d6b285cf1e53250ca2418caa4486c6789a23be517db7c7f196f0ebf13ccda1c9
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:b11b1d606f1fb5048e9d398ecbcfb4d1b2398f48bd080fab3260a20bafbea0b1
+Copying blob sha256:bce4c1a460aaa69e585fbc20ccb468492b3cf2e3cc22a7bb411d86b1248cdc4d
+Copying blob sha256:a6d3f146cb3abde973928e25c70d88e26b2d96dca05089d75531190235783d2b
+Copying blob sha256:1c0da1f3b44dd7621b5449b0f5fc7ad841f4caa4f2c17ce4fd3f1d4e83652fd9
+Copying blob sha256:0df0dd17ac7fcd43d34be0936a9951526332338e959dfb48d68361823efbf89c
+Copying blob sha256:4073a906390ad127714a8d7953fcc5dbb68339685cafe6b21c0f7e43201a8574
+Copying blob sha256:77c592fa4ec3df7856837d0e81a102a0f13b91b9704c4ce717faae436641e5b9
+Copying blob sha256:da558ce8f56beb208d44fbc1794a94484ca5c9fe92c58714b3d91d19e25e7c4c
+Copying blob sha256:95a913dc019b5c0bf9fb6e9efa9bbceffb5552f29662c27af91c6b99e7e89ca8
+Copying blob sha256:be046c4828751bff9106f4ce0b39b9b9eb6b7fdcc7267362b9d99d791134a353
+Copying blob sha256:3503f531bdb052543eab538e9b49e5624c6d50e70c46709f10ed267b64edfc53
+Copying blob sha256:440831940897abc81311f4af7421cc595b79c34af566182b090adae581f2dc9d
+Copying blob sha256:84ca898de93021f624c89844c1d3c4fe8874ebadd2220eee75eea17dc68ceb0c
+Copying blob sha256:876dc6ff9b99b8e5b89658207eb1fdb0396cafb29da97a0f8fe1e1ce2bf86e74
+Copying blob sha256:81b2c5fc59431b5a3ac7862306eca03227fac5dab80bd6ef8d90399b9e864f85
+Copying blob sha256:592cd6fbb816985f5f6345a7b74ffdc01123ccc2f945bee979b29aa8d127299e
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:72a3fa295bca577b69dca3e439acd590b01736c116acb46ff1d34c8a489797c1
+Copying blob sha256:6bb80e76ec9e6406bd129257acc0269be578814fe907836e6512d0e3f11f085b
+Copying blob sha256:0e1e4d52e002c9f599901b69b51e781fbd17094de3f0a768c9b9d3f7482e41de
+Copying blob sha256:53e32fb51db54f7462db2770a5fa2a9314d6b111ea2bb3901eedffe325117922
+Copying blob sha256:84e45ecbe2ea70a7a26dffae19b1163f121188b55d590668482fafb038056063
+Copying blob sha256:b64cf5c1ed455a0eac3c415e95b25f11aa40d0f27130cf3ee5e3467a173aa84d
+Copying blob sha256:f215828e50882fdee256c9438712c21e76fb9d7104a62ec06ad714fcff5e6ca9
+Copying blob sha256:f3a6e7e6cae7cac96502a313ff8c8c96278f6d457082c5a8e9cd9ff9c22f40cc
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:eede2f611f061fcef7da6d38ba993384d6c9dd3304d4ead40ff4ec6a9e698185
+Copying blob sha256:fb157552c704ea654adf8f4a1a6dc6cb2157a394a0a0dcd1efd0545897031302
+Copying config sha256:0fbd53789f9c939afda6eac74d752801908fb1d7b16834d7e375d14e67bbe42c
+Writing manifest to image destination
+4b0b2ab3a231d389397e0aa23e3abb5c07c6641d1abe1dd59396fb18afadc3df
+Trying to pull docker.io/library/alpine:3.20...
+Getting image source signatures
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying config sha256:e89557652e7472b26d49f1d45638ac744a2928ddada818777a6ce4076f64f7e6
+Writing manifest to image destination
+8c52017cfdb41a712ccafb31c8a9430c5d5006f6c823c4bdbde5bcd4cdbf5ad1
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+e9061bdf806d57207438fb9068936ef373022a58f43117add7d214792315c68a
+invoices_network_holder
+postgres_db
+docspell-solr
+firefly_iii_db
+firefly_iii_redis
+ts-invoices
+docspell-restserver
+docspell-joex
+firefly_iii_core
+docspell-consumedir
+firefly_iii_importer
+firefly_iii_cron
+caddy-invoices
+OK: invoices (invoices_network_holder postgres_db docspell-solr firefly_iii_db firefly_iii_redis ts-invoices docspell-restserver docspell-joex firefly_iii_core docspell-consumedir firefly_iii_importer firefly_iii_cron caddy-invoices)
+PASS: docker/invoices
+
+----
+
+Testing docker/jdownloader2
+1d11c0b8509780387bb4cf901f373377b85aa0ed75d455602c95c907ff852dbd
+Trying to pull docker.io/jlesage/jdownloader-2:latest...
+Getting image source signatures
+Copying blob sha256:97b2c9cb32f791b596e75d1eca31b5416eeb89d7a4bde408642b78318944d8fe
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying blob sha256:a0187148e3e0527f5c83cf5ff38093aacf4c98a5d2eac78aeb19f494f3e489da
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:82c6bf341d555dc24e83dfc908873bf1f3cdfde3801e60ec8158466e2cf92fc0
+Copying blob sha256:3bd535d4da7795f10bad5d27ebd391f564753aef55abc255ef0189691c859e81
+Copying blob sha256:506346bf1ee09949779254db4d8a4c8266d8914b997076163a19048e6d3d3353
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:8ed69bd8fdc4fec4478a9433f12277dcd14e33646969803e76e696b6e06d5f75
+Copying blob sha256:502aea79213e4e9e6e70fe52ecf5468495ebc3d4ee744fbaf2ce332bc6e2eaef
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:dd06f19506a50f1eaf901757be8fce8cd1d9a2a1cdb45f20a175db6010337b20
+Copying blob sha256:6d264e4a3d969c9b1d181cf97fa16f605a00651f096a5f80ce53d68e9b1d6615
+Copying blob sha256:99104874176e5dcdf9ab7a2bf55f6a5772d3b94dea4955d6ee4a828779380baf
+Copying blob sha256:49343150848ee24f10edea446e80a85665b8a68dbc5fc820fcdd49dd27ad1d5e
+Copying blob sha256:788f743105e95ef4d2b1f54e64879f90398a1449307eddba0c66776389d24cc0
+Copying config sha256:dd3b46cde26f902f32a02208bc457165ba29273810c6647aebd70bf022936f8b
+Writing manifest to image destination
+93adf5eb9a8590543ce4148dca9631705a868c2d1bbd9f133a711e8eb7358fac
+jdownloader-2
+OK: jdownloader2 (jdownloader-2)
+PASS: docker/jdownloader2
+
+----
+
+Testing docker/jellyfinn
+d2014c65f90a6a4d5898f7b581e3eebaec16c5c5b13b4ee4fe0dbaa19892f0db
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+4fea1c31f6c15bfc8fafe13ba3e0533d87352c0c8da04cc1c0e86a623279a24f
+Trying to pull docker.io/library/postgres:15.2...
+Getting image source signatures
+Copying blob sha256:3ef71fe7cece14278b6b8769e97fe284ec968c376d3715c50ee70d5478e0773b
+Copying blob sha256:7782b3e1be4beb8cf04e53bd574df55633e7244cebf971caf0b371b868f17036
+Copying blob sha256:247ec4ff783a53b6c6aa696498b385229489f0b4dbf754ba04fd4225c52bf60e
+Copying blob sha256:e7afdbe9a19117458a2ca067fa89ed0638e66874fc76b77d3201eb3b9d1be0bd
+Copying blob sha256:f7ead6900700a9d241f0ce2d1b47e80dd024ba213ccd8cf53a9a4cbb48e7f30a
+Copying blob sha256:9e3ea8720c6de96cc9ad544dddc695a3ab73f5581c5d954e0504cc4f80fb5e5c
+Copying blob sha256:1459ebb56be5dea8fd98456fa33b6fd607bd304cd1a843d705845aca032ded33
+Copying blob sha256:3595124f68615a5a8c7d3f87303c6ad4002665676240cdf7190f85f324c9faf3
+Copying blob sha256:dd8e229a2a1314d88197f0f21f2a437870c6c2ad4770bac2fd4a5a825003a2c1
+Copying blob sha256:8cf43a35dc101ed96afea569bdc118c72f954e7a9f4bc90b2547a9b0e02305b4
+Copying blob sha256:2fac9b4aab2f1e0274ef61139527a119953ec18d0ed42157be1fe35ddfa1530d
+Copying blob sha256:b3f90da87261950e10b09c94c16a239c6b9b8961926b47c41e1e01ecfab4047e
+Copying blob sha256:5f7e3ef14a3b0516d4096b5a703f46de3479e4a998618a637e75d358d28bbd7f
+Copying config sha256:bf700010ce28b2744ed00ca6105951604c68db0a28105cf2da2956b89c2560e8
+Writing manifest to image destination
+7052394197dd9e6009b444f33bfc5bac21735300e93b580f784cfd5b35427178
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+c7a39c55f3130ea7ce09892b7559a3d6fbe3c835d400d15d931ef44bec03732a
+Trying to pull docker.io/tailscale/tailscale:latest...
+time="2026-01-21T21:16:01+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: reading manifest sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8 in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:17:11+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: reading manifest sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8 in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:17:48+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://tailscale/tailscale:latest: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+633d6e2a0a09395bccde7293acb2a2fcc07d5c5a40b2114e6c2a349838f8e7a6
+Trying to pull ghcr.io/arabcoders/watchstate:latest...
+Getting image source signatures
+Copying blob sha256:00dc600ccc850e4c7563da1a98cf8784ddb9baf2e8bbe14824c00689370c107b
+Copying blob sha256:0d37574009de1199f8af575fda053811db541f01a97d948179bf609d8e03d009
+Copying blob sha256:2981f7e8980b9f4b6605026e1c5f99b4971ebba15f626e46904554de09f324f4
+Copying blob sha256:4a937352375f5fc68ed1a67d9e57e63d2dd42def91e10fa2a58c04ce77f9d5db
+Copying blob sha256:23cb281faa1439bdb1c3fc8f61093ff343afc33038426ec06bb4e2fd7e3f90b8
+Copying blob sha256:f04fab69318a03e46987885ca8f3d7dd4ccae9b0d3d7c1949aa706447e7ae729
+Copying blob sha256:d666ee93a0f951aad1fe51cf00eb32b43d33ddb134b703abbe4432110137c130
+Copying blob sha256:bc78e38798f7b7f9bb380ddf14c4ca5a8c6699edb56f2d777e49e32abc0b9749
+Copying blob sha256:0c61556beb6f42945e8ae729952f759c2635870b541e3fa2f1071cb6f1d682d7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:6a71332df4285be90fd2ce129ed9bd0d50a77274bbaa1706bcddf47e838046e8
+Writing manifest to image destination
+4b099067240aa7613dc0e59a615e2d8f1c39d7e0ad1d217007c50171e260ce29
+Trying to pull docker.io/cyfershepard/jellystat:latest...
+time="2026-01-21T21:19:31+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://cyfershepard/jellystat:latest: reading manifest sha256:607057228a01d8098ff7f5e9e2ee344f9be7413d9c2bfed3ab71112e115858eb in docker.io/cyfershepard/jellystat: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/jellyfinn
+
+----
+
+Testing docker/kopia
+76a747890934570783dc4ee7210cf0cc34b194bf1bb6cb7c65df8b0855a5c03c
+Trying to pull docker.io/kopia/kopia:latest...
+time="2026-01-21T21:20:30+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:21:06+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Testing docker/jellyfinn
+c93925088deabfafeba23f9df3de269c5b7fcbfa7984aa0988d504cdedfa28aa
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+371949ea93e2e171f44c315a668e39ec0af3fbad036d3d533616fa842ce35035
+Trying to pull docker.io/library/postgres:15.2...
+time="2026-01-21T21:21:43+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: copying system image from manifest list: determining manifest MIME type for docker://kopia/kopia:latest: reading manifest sha256:624468698238106a1433af976d2356626751cf3155e88d44e5ff95dc7169f643 in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:21:53+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://kopia/kopia:latest: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull docker.io/kopia/kopia:latest...
+time="2026-01-21T21:22:30+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:22:56+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:23:07+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:23:32+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://postgres:15.2: copying system image from manifest list: determining manifest MIME type for docker://postgres:15.2: reading manifest sha256:4434eed0bfecb39db77c47e0b026242d97ce453df3b70254c381fe0bcb83497d in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+time="2026-01-21T21:24:09+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+be01fa0a16070f33f35d2dd0eaba42c28a6147d104883ad50450a14186c7b152
+Trying to pull docker.io/tailscale/tailscale:latest...
+Error: unable to copy from source docker://kopia/kopia:latest: initializing source docker://kopia/kopia:latest: reading manifest latest in docker.io/kopia/kopia: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Error: no container with name or ID "kopiaphotos" found: no such container
+Error: no container with name or ID "kopiamum" found: no such container
+Retrying in 60s (attempt 1/3)
+time="2026-01-21T21:24:57+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:25:35+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/jellyfinn
+
+----
+
+Testing docker/jellyfinn
+408da662a7a303e2d4b9585157f8e9ef50c55b92951d2107b2aca98faeee34ab
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+41dc737afff0563c4d01f729b4bce84c998a3fb7c6ca0fce3365b02495d113a8
+Trying to pull docker.io/library/postgres:15.2...
+time="2026-01-21T21:28:55+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://postgres:15.2: reading manifest sha256:4434eed0bfecb39db77c47e0b026242d97ce453df3b70254c381fe0bcb83497d in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:29:32+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:30:08+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://postgres:15.2: copying system image from manifest list: determining manifest MIME type for docker://postgres:15.2: reading manifest sha256:4434eed0bfecb39db77c47e0b026242d97ce453df3b70254c381fe0bcb83497d in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+e8d2bea9944ede938ffa4b9437f9e769d1b274a3bc612ac79b44bb9613b89744
+Trying to pull docker.io/tailscale/tailscale:latest...
+time="2026-01-21T21:31:50+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:32:27+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://tailscale/tailscale:latest: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: Get "https://registry-1.docker.io/v2/tailscale/tailscale/manifests/sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+adf3b01619f01e95e8221f8059365fb72e9665acc57c8979ac173ea572eb9f28
+Trying to pull ghcr.io/arabcoders/watchstate:latest...
+Getting image source signatures
+Copying blob sha256:00dc600ccc850e4c7563da1a98cf8784ddb9baf2e8bbe14824c00689370c107b
+Copying blob sha256:0d37574009de1199f8af575fda053811db541f01a97d948179bf609d8e03d009
+Copying blob sha256:2981f7e8980b9f4b6605026e1c5f99b4971ebba15f626e46904554de09f324f4
+Copying blob sha256:f04fab69318a03e46987885ca8f3d7dd4ccae9b0d3d7c1949aa706447e7ae729
+Copying blob sha256:23cb281faa1439bdb1c3fc8f61093ff343afc33038426ec06bb4e2fd7e3f90b8
+Copying blob sha256:4a937352375f5fc68ed1a67d9e57e63d2dd42def91e10fa2a58c04ce77f9d5db
+Copying blob sha256:d666ee93a0f951aad1fe51cf00eb32b43d33ddb134b703abbe4432110137c130
+FAIL(124): docker/jellyfinn
+
+----
+
+Testing docker/jellyfinn
+9ea0f0dc5f60b8d15cbb3888d99fc907e607136d8fbddcc972bec7fa70ace48c
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+067d16c94e4d44d9ede03797beea4bb98364bb24f144692b5aba8dd74331f3a0
+Trying to pull docker.io/library/postgres:15.2...
+time="2026-01-21T21:35:56+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://postgres:15.2: reading manifest sha256:4434eed0bfecb39db77c47e0b026242d97ce453df3b70254c381fe0bcb83497d in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:36:33+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:37:09+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://postgres:15.2: reading manifest 15.2 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://postgres:15.2: copying system image from manifest list: determining manifest MIME type for docker://postgres:15.2: reading manifest sha256:4434eed0bfecb39db77c47e0b026242d97ce453df3b70254c381fe0bcb83497d in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+bbe156630ed87217f67de275f2bdbb03de6aaee376867c6fdb1804fa160b4518
+Trying to pull docker.io/tailscale/tailscale:latest...
+time="2026-01-21T21:38:43+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:39:20+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:40:04+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: reading manifest sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8 in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Testing docker/jellyfinn
+4a1de6b867f36bc013160e5a6a890303758bc487526f496c441a43490ec32e8a
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+793fb3a772b9c3b00f26c88b7b45158f40a2c379aa96d1a0fbfb726838e9be8c
+Trying to pull docker.io/library/postgres:15.2...
+Getting image source signatures
+Copying blob sha256:3ef71fe7cece14278b6b8769e97fe284ec968c376d3715c50ee70d5478e0773b
+Copying blob sha256:7782b3e1be4beb8cf04e53bd574df55633e7244cebf971caf0b371b868f17036
+Copying blob sha256:f7ead6900700a9d241f0ce2d1b47e80dd024ba213ccd8cf53a9a4cbb48e7f30a
+Copying blob sha256:9e3ea8720c6de96cc9ad544dddc695a3ab73f5581c5d954e0504cc4f80fb5e5c
+Copying blob sha256:247ec4ff783a53b6c6aa696498b385229489f0b4dbf754ba04fd4225c52bf60e
+Copying blob sha256:e7afdbe9a19117458a2ca067fa89ed0638e66874fc76b77d3201eb3b9d1be0bd
+Copying blob sha256:1459ebb56be5dea8fd98456fa33b6fd607bd304cd1a843d705845aca032ded33
+Copying blob sha256:3595124f68615a5a8c7d3f87303c6ad4002665676240cdf7190f85f324c9faf3
+Copying blob sha256:dd8e229a2a1314d88197f0f21f2a437870c6c2ad4770bac2fd4a5a825003a2c1
+Copying blob sha256:8cf43a35dc101ed96afea569bdc118c72f954e7a9f4bc90b2547a9b0e02305b4
+Copying blob sha256:2fac9b4aab2f1e0274ef61139527a119953ec18d0ed42157be1fe35ddfa1530d
+Copying blob sha256:b3f90da87261950e10b09c94c16a239c6b9b8961926b47c41e1e01ecfab4047e
+Copying blob sha256:5f7e3ef14a3b0516d4096b5a703f46de3479e4a998618a637e75d358d28bbd7f
+Copying config sha256:bf700010ce28b2744ed00ca6105951604c68db0a28105cf2da2956b89c2560e8
+Writing manifest to image destination
+d81845a0483b9e3406c73fd68b484ec27fb9e74add992550a4b87542c67debaa
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+dd2b62ac5fb233b46f126c77c008f6affb6ca8f8058c8366f1abae9c8511477c
+Trying to pull docker.io/tailscale/tailscale:latest...
+time="2026-01-21T21:47:51+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: reading manifest sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8 in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:48:27+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:49:20+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: copying system image from manifest list: determining manifest MIME type for docker://tailscale/tailscale:latest: reading manifest sha256:6a5a9650375a061f9b55c2699d4bbd5beb8fc74ee2390f1319de6b54185fc0c8 in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://tailscale/tailscale:latest: initializing source docker://tailscale/tailscale:latest: reading manifest latest in docker.io/tailscale/tailscale: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+68df6cb35e9669885108320bd84785162e2de0cbe361953ccbc628e38c98ca13
+Trying to pull ghcr.io/arabcoders/watchstate:latest...
+Getting image source signatures
+Copying blob sha256:00dc600ccc850e4c7563da1a98cf8784ddb9baf2e8bbe14824c00689370c107b
+Copying blob sha256:0d37574009de1199f8af575fda053811db541f01a97d948179bf609d8e03d009
+Copying blob sha256:4a937352375f5fc68ed1a67d9e57e63d2dd42def91e10fa2a58c04ce77f9d5db
+Copying blob sha256:f04fab69318a03e46987885ca8f3d7dd4ccae9b0d3d7c1949aa706447e7ae729
+Copying blob sha256:2981f7e8980b9f4b6605026e1c5f99b4971ebba15f626e46904554de09f324f4
+Copying blob sha256:23cb281faa1439bdb1c3fc8f61093ff343afc33038426ec06bb4e2fd7e3f90b8
+Copying blob sha256:d666ee93a0f951aad1fe51cf00eb32b43d33ddb134b703abbe4432110137c130
+Copying blob sha256:bc78e38798f7b7f9bb380ddf14c4ca5a8c6699edb56f2d777e49e32abc0b9749
+Copying blob sha256:0c61556beb6f42945e8ae729952f759c2635870b541e3fa2f1071cb6f1d682d7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:6a71332df4285be90fd2ce129ed9bd0d50a77274bbaa1706bcddf47e838046e8
+Writing manifest to image destination
+7206e708107446bf93fe6ba015b77c01b9425c173a40700f20600126a9de5955
+Trying to pull docker.io/cyfershepard/jellystat:latest...
+time="2026-01-21T21:50:49+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://cyfershepard/jellystat:latest: reading manifest latest in docker.io/cyfershepard/jellystat: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:51:33+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://cyfershepard/jellystat:latest: reading manifest sha256:607057228a01d8098ff7f5e9e2ee344f9be7413d9c2bfed3ab71112e115858eb in docker.io/cyfershepard/jellystat: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/jellyfinn
+
+----
+
+Testing docker/management
+bbe49a7821c167adbb765d83d2f3bb754d33f15b6c85ab96c29a3947f325b67c
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T21:52:49+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:53:59+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:54:36+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://willfarrell/autoheal:latest: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+a33b69fbc77c100326a49bbfc6b0b282781de3b5cc72e5e11f8ac6b0b2b21843
+Trying to pull docker.io/gotify/server:latest...
+time="2026-01-21T21:56:09+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://gotify/server:latest: reading manifest sha256:0fc115bb669661f11c71f794a33d43c7e17d7b8366d8e8a4b6fe70427c4bbe29 in docker.io/gotify/server: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T21:56:46+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://gotify/server:latest: reading manifest latest in docker.io/gotify/server: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/management
+
+----
+
+Testing docker/management/epi_management
+6b5c096882b8bedf40838d13ff3df9890b05db7a28a2df0489c1bf951383ff29
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T21:59:49+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:00:43+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:01:19+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://willfarrell/autoheal:latest: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+70f420dcfa439e8041d0995f3a428a363a4b7906dfdca667c92f03bf11d6db77
+Error: no container with name or ID "autoheal" found: no such container
+dozzle-agent
+Retrying in 30s (attempt 1/3)
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T22:03:08+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:03:44+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/management/epi_management
+
+----
+
+Testing docker/management/igpu
+5330a28d146e5fbd2c3fa2939f9c816a971ae3471e486ad9dbe7a35bf65cf004
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T22:06:50+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Testing docker/management/igpu
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T22:07:44+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:07:58+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:08:20+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:08:35+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://willfarrell/autoheal:latest: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+01a3819d53b039c7a6f04a4c20eeb92c7f39f7361bbe1441e847ba9029a9d304
+Error: no container with name or ID "autoheal" found: no such container
+dozzle-agent
+Retrying in 30s (attempt 1/3)
+time="2026-01-21T22:09:11+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Error: unable to copy from source docker://willfarrell/autoheal:latest: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Error: creating container storage: the container name "dozzle-agent" is already in use by 01a3819d53b039c7a6f04a4c20eeb92c7f39f7361bbe1441e847ba9029a9d304. You have to remove that container to be able to reuse that name: that name is already in use, or use --replace to instruct Podman to do so.
+Error: no container with name or ID "autoheal" found: no such container
+dozzle-agent
+Retrying in 30s (attempt 1/3)
+time="2026-01-21T22:10:08+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Trying to pull docker.io/willfarrell/autoheal:latest...
+time="2026-01-21T22:10:44+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:11:04+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://willfarrell/autoheal:latest: reading manifest latest in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:12:14+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://willfarrell/autoheal:latest: reading manifest sha256:69edb1bc3bd3cc862f06af9461c5a3a16a10237c88abd01e893c3dff6c04a187 in docker.io/willfarrell/autoheal: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/management/igpu
+
+----
+
+Testing docker/mealie
+c3670c8e2969eb73ccf7d4a0a9c1fa2ebdd6820fd6e1e159780e78c752ae6b3a
+Trying to pull docker.io/library/postgres:15...
+time="2026-01-21T22:13:07+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://postgres:15: reading manifest 15 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:13:44+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://postgres:15: reading manifest 15 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:14:37+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: copying system image from manifest list: determining manifest MIME type for docker://postgres:15: reading manifest sha256:f83bd1dbb23440bd01b6a0d89cdad21a50c15a5bb4a25543aa2141e2a5c8cd78 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://postgres:15: initializing source docker://postgres:15: reading manifest 15 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull ghcr.io/mealie-recipes/mealie:v2.8.0...
+Getting image source signatures
+Copying blob sha256:4156c12f3ecc3be1af87b437c2471c9a02e83cea7ed7325a2907b10a22735aa1
+Copying blob sha256:0b564fcd72a23e125aa17f344431b8e2189a5b8f89e78953466669795e7f8089
+Copying blob sha256:e4eb3ff0477a6c3c65761bad0d2aa2c1ce912cdcf883a37226f28e6e277126b6
+Copying blob sha256:6e909acdb790c5a1989d9cfc795fda5a246ad6664bb27b5c688e2b734b2c5fad
+Copying blob sha256:17f1db170c0d3f4c28fc10c9cc4fd5186af4d5d21adbf0ba7a094bfb9add47dd
+Copying blob sha256:75c77ac11059535a2a5409b794c1bec09cac945ffe1dfd92215c68f2ed2d35d4
+Copying blob sha256:5208ca16c6b92f2fadb856f87d623f1afe358d7555023ff546264cfee20503e4
+Copying blob sha256:c283f1eb5cd3c5d6db9335da263e6b11ec0a9684949e16a6a902583778e0f4e4
+Copying blob sha256:074258ee894ebff96917b647ec0ada4b857497e98fc1817fe9a29e3d95d9cd56
+Copying blob sha256:0c6368d69d06f3c3cb187393ac684daabd5304d6780a55bb220951569bec5414
+Copying config sha256:1e204f7043a069d8ad137fa0be374fd9e3262700807bd7a5964a384c0b059f74
+Writing manifest to image destination
+Error: "postgres" is not a valid container, cannot be used as a dependency: no container with name or ID "postgres" found: no such container
+Error: no container with name or ID "postgres" found: no such container
+FAIL(124): docker/mealie
+
+----
+
+Testing docker/ollama
+a202e39af3aa357346770503165c0964c46c43f66083914ad13e9db9f4e4e6cd
+Trying to pull docker.io/ollama/ollama:latest...
+Getting image source signatures
+Copying blob sha256:853ef0b789db8fd7c6f8a2abf8ed05b37401947945ebbd7f7b7f9a8a2dda0773
+Copying blob sha256:a3629ac5b9f4680dc2032439ff2354e73b06aecc2e68f0035a2d7c001c8b4114
+Copying blob sha256:1e8c9570d8e095d43b6cfe021b9c5b0278b983067f61670376d66df1b4c6de71
+Copying blob sha256:26f128d62ae6c1cc8193c1cbb128dbf96869435892e9e4e49740f32fe4b6e47b
+Copying config sha256:40229a8c6b86f4179851e2c3f6e9cd7a794c2d5b9a0f2f5e1cbbcde49a62c242
+Writing manifest to image destination
+38286f8a68a2b70305cbb92e7e1b3d71d96818a3b706a7f8e0439a3cc48720af
+Trying to pull ghcr.io/open-webui/open-webui:main...
+Getting image source signatures
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:c78ca53d0f0fdc43d3b4946dd5d598d81a2987b6390ea111519033593e0c8136
+Copying blob sha256:0347dcb76707f7d71a7c0b3a5f4a63b97cdd9923e637e67ad65b3b2d4ba05942
+Copying blob sha256:9da01a3e1fbb294db639c244550bba354c9624ffcb943c11f585ea30e1b59ffd
+Copying blob sha256:d785445dcd18b2983d8f0099e611dc4e7f92c367fe2c8d4ed4c9379bb392ad96
+Copying blob sha256:4ec081ab1cc428d90778180bee27e8d71ea5a107516683f27b0aceab940cbce9
+Copying blob sha256:324e588c6dbb8998c21a0682d2e46a346b9416af8c4a32791d017a4167bf2dc8
+Copying blob sha256:28ee3eaef63112bfbbf539e255d64560b3befed70b3ba5c58f99f98f1aa3a661
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:2970da96d0d50fa71c6118adf2dd00b68752ad968a1d6ee1dbf5fb16d6d2c21a
+Copying blob sha256:71ae0c3692c9aa02640a909a9f8d590bb33a147b47a0523d038a19d1788c3d0b
+Copying blob sha256:8c3f86abbe29e21b4703405f134dd1cc87e80e0f12a13a9c6066f0bab55051b0
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:e0033c1a20fbb619c16bf28db36e950dfbf70190dfc26f4af8be20dbdfeccdc9
+Copying blob sha256:cf08f92413ff3a7464d83cebbe42038d3b2fb93b722e86ce13adb31e8dcf9170
+Copying blob sha256:797021dac0c2222196b74a1e66f2b655c2479f3ecf7a45f776d63a79dbd7adee
+Copying blob sha256:c5edc81cb7680763954962e5edbccff1c8e452b22017fea623ae33becd8bd6da
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:a4e1ceea66e1ac7fde80464380ca5f5df8d7d7004b5b1d86121f2182a52944ac
+Writing manifest to image destination
+81562f4b5318df538852a25e3a62a94870817fe0a5fbf962d4a46a654bbb1a97
+ollama
+ollama-webui
+OK: ollama (ollama ollama-webui)
+PASS: docker/ollama
+
+----
+
+Testing docker/paperless
+81a7ba99478ac4c4a5a8489eb2fdad5c917c29f82f5de67d3e13f3ead26c8f68
+Trying to pull docker.io/library/redis:7...
+Getting image source signatures
+Copying blob sha256:c92ba2a154a449b14f158d27ad1e6f31e856fdc9885f9ba7f1306d4af2b41ba9
+Copying blob sha256:413f71042199b47b10bae6e088d4c28d0b1e2d8f8bd88950d7ced020b45cd964
+Copying blob sha256:5a8a1ddac67533386cb871a613625a6013a929667dd5e882f5b2238405ce7d85
+Copying blob sha256:6f3bbde18420cbf52e94d89b988e5cb5a81be239e3a5e7cc34bac6841c8c35be
+Copying blob sha256:c02d17997ce3d2c82e082235ea0b5152d06ee659c4e2fabcf1e0079312f1bcde
+Copying blob sha256:c8d70ddedb79852f5c1deeb869430cbfb0976a248878099a0995b0635d8a6811
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:e3ef2252999f36bfa38900550d3342b24913ba01b183130bb8674a3d73605647
+Copying config sha256:6b8be92f31f3110b627cf93d5c9704f154eac7be88b7a57ea3c3a8c67b2b2727
+Writing manifest to image destination
+2935147b0bf0a59426cf13d8b756bba644d0e461e41e1aa5dc0425fbe7f02140
+Trying to pull docker.io/library/postgres:16...
+time="2026-01-21T22:21:31+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://postgres:16: reading manifest sha256:219341e4cedb06c8634f80af40851da3425b41b76603fd890272f58e37e139f7 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:22:07+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://postgres:16: reading manifest 16 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:22:44+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://postgres:16: reading manifest 16 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://postgres:16: copying system image from manifest list: determining manifest MIME type for docker://postgres:16: reading manifest sha256:219341e4cedb06c8634f80af40851da3425b41b76603fd890272f58e37e139f7 in docker.io/library/postgres: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+Trying to pull docker.io/gotenberg/gotenberg:8.7...
+Getting image source signatures
+Copying blob sha256:f2bfb04efdd748160a4964652971c4c0831efaa8b51f91a5f1e4cf5e42ff1919
+Copying blob sha256:71a6f66715c4e9957c3ba50790b7c4c63d45e047b0034b51e75746c9b1ea3d49
+Copying blob sha256:c51a388d62309ae94850dee1ca7d882d16b140fd00cb4ab2b0c7a9374cafcb87
+Copying blob sha256:2cc3ae149d28a36d28d4eefbae70aaa14a0c9eab588c3790f7979f310b893c44
+Copying blob sha256:675474c25ec311dc474aa93342f3af19c2af96e9897dbfc3b6c603aa06d39f81
+Copying blob sha256:b2802b98bbc3e4f5bebd4af5ecb8c1ab7c5faf53570ce625a6cfb26d00b6c01e
+Copying blob sha256:cef98e9159294376f58d488ae4c3e973c819e7120963b47819b90bc70684066b
+Copying blob sha256:f616266386e3987889d111dca0be13e616ce766bca0fa7966aa75986e2c783d8
+Copying blob sha256:b6e4eaca02f7e16130649f6825ffe1c75468d8120969ed02fa0d177d9a06dd39
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:e795d533a4de2181caa1cf362642a6bcaf34beb8c86468b635401195468509d4
+Writing manifest to image destination
+6635a47a2b6c547e268b14c5fe8b276dfc87d8980199f238749ddad6d9a8332c
+Trying to pull docker.io/apache/tika:latest...
+Getting image source signatures
+Copying blob sha256:3ea45e6c043d53c1a63474605b69861d47f247f6fb916b8de65f8876c6e4509f
+Copying blob sha256:df3646a507d2b3b1b0bde6e6a491ee8926b6961e71b422b45b15dec9c6e2bc9e
+Copying blob sha256:3c1b8ef3054a9c618d40059b83a810a6fd79512b1912bfa083d14aa680999834
+Copying config sha256:26fad49b93a54011fb0a5399e8bb4e4c1ff4ece1d890d91773b0469fef418567
+Writing manifest to image destination
+b6d36b0a6d16dac06bd96192b985a7b4b76cc13323112cffc166b207273fbead
+Trying to pull ghcr.io/paperless-ngx/paperless-ngx:latest...
+Getting image source signatures
+Copying blob sha256:ba354316e3b9bba3b9e23321e5c4da58b5e58c02a896063cb2bdd9eb0587f81e
+Copying blob sha256:b7ba6d2a1fc72f9587288b3b60221d1b07dae4f61a41360d2cc281fe7c007b3a
+Copying blob sha256:490b9a1c25e472ab1cceab4ed6f3bd252006f7c6eea0ef7ba845c996adb6f302
+Copying blob sha256:0674d14a155c94f13e648265aa3ba62410e1fe0387fef64cc608388e54232880
+Copying blob sha256:63dbeabf88c4cf9256758bb3e9732f6f3fd740bc72715f4cfa5bcca46de4944d
+Copying blob sha256:0e4bc2bd6656e6e004e3c749af70e5650bac2258243eb0949dea51cb8b7863db
+Copying blob sha256:866b9758a946c5708e9b0e1a8e35de947020e046ddcc99154551dfb10589fa07
+Copying blob sha256:700240a4a7f88c7b51d2227586dcd1651a0d0283878688cc44dba5678b938bd4
+Copying blob sha256:fcf96b1d9757664f97249c83b11dc0173e4feac129aea71023ac379b0bdb4cbe
+Copying blob sha256:59d35266b7299e8365fc4097d034fad31241bfb2baccf52e2de7ed4ff698b61a
+Copying blob sha256:990baf9392fdab5eb95517cf7a20f0b06052ad706f6a75f0fe73e8202aa05b01
+Copying blob sha256:b418a00f00dba18f3683e5a15ba89ae64a44263eb5055bd7b05e47ae5bf56dfb
+Copying blob sha256:a7ac22f0b0dd9476721aa4b522d5286ee7577bba058d734a8dabb13caaeb0275
+Copying blob sha256:0edc9f5b50d8c7fd7b952b7bc842a7ba16ae1ae6a51b01e427d6f2d88df9640a
+Copying blob sha256:5f30984fc28a982f3731a452f7b59a79ba3fea5c568e90c035b8b3db70c85bcb
+Copying config sha256:b4f269add54332df49ccf1300e142367c940e394303072c80c3169fadebfa6f1
+Writing manifest to image destination
+Error: "paperless_db_1" is not a valid container, cannot be used as a dependency: no container with name or ID "paperless_db_1" found: no such container
+Trying to pull docker.io/icereed/paperless-gpt:latest...
+time="2026-01-21T22:25:10+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://icereed/paperless-gpt:latest: reading manifest latest in docker.io/icereed/paperless-gpt: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/paperless
+
+----
+
+Testing docker/paperless/paperlessai
+25c957ebde122b4a2ee126d3b51c4f4d301ab5c0ef59c208cb47ae3267f42237
+Trying to pull docker.io/clusterzx/paperless-ai:latest...
+time="2026-01-21T22:26:03+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://clusterzx/paperless-ai:latest: reading manifest sha256:19baad5ab2607d65087712fcb3ff74b6c5f7e840ea31061dace4d8ab1ef40a17 in docker.io/clusterzx/paperless-ai: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:26:39+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://clusterzx/paperless-ai:latest: reading manifest latest in docker.io/clusterzx/paperless-ai: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://clusterzx/paperless-ai:latest: initializing source docker://clusterzx/paperless-ai:latest: Get "https://registry-1.docker.io/v2/clusterzx/paperless-ai/manifests/latest": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution
+Error: no container with name or ID "paperless-ai" found: no such container
+Retrying in 30s (attempt 1/3)
+Trying to pull docker.io/clusterzx/paperless-ai:latest...
+time="2026-01-21T22:28:36+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: copying system image from manifest list: determining manifest MIME type for docker://clusterzx/paperless-ai:latest: reading manifest sha256:19baad5ab2607d65087712fcb3ff74b6c5f7e840ea31061dace4d8ab1ef40a17 in docker.io/clusterzx/paperless-ai: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:29:13+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: initializing source docker://clusterzx/paperless-ai:latest: reading manifest latest in docker.io/clusterzx/paperless-ai: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:30:06+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: copying system image from manifest list: determining manifest MIME type for docker://clusterzx/paperless-ai:latest: reading manifest sha256:19baad5ab2607d65087712fcb3ff74b6c5f7e840ea31061dace4d8ab1ef40a17 in docker.io/clusterzx/paperless-ai: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/paperless/paperlessai
+
+----
+
+Testing docker/uptime-kuma
+ed033ad85e019d811ce3db23274c372979b48f63903704d05028b7eb125bf3a9
+Trying to pull docker.io/louislam/uptime-kuma:1...
+time="2026-01-21T22:31:10+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://louislam/uptime-kuma:1: reading manifest 1 in docker.io/louislam/uptime-kuma: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:31:55+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://louislam/uptime-kuma:1: reading manifest sha256:0f6c88f1e5f98146dcc2ca8408d2982e2d25db968be14ff718e10a59c9a84938 in docker.io/louislam/uptime-kuma: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:32:31+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://louislam/uptime-kuma:1: reading manifest 1 in docker.io/louislam/uptime-kuma: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://louislam/uptime-kuma:1: initializing source docker://louislam/uptime-kuma:1: Get "https://registry-1.docker.io/v2/louislam/uptime-kuma/manifests/1": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution
+Trying to pull ghcr.io/bigboot/autokuma:latest...
+Getting image source signatures
+Copying blob sha256:8bd27db9e69d138caaa15b9779155fef1b5b2ab578c3e0e3e2182a51d1b9f7c2
+Copying blob sha256:d7ecded7702a5dbf6d0f79a71edc34b534d08f3051980e2c948fba72db3197fc
+Copying blob sha256:86d59758c3174f0e2ef9e2a4be7fbb6c24904808b1842982b51510da7593b48a
+Copying config sha256:dff8279b9006bbf7a6a3fe50a4c82270fe54465eec44ef4346e4540a6b87ed4e
+Writing manifest to image destination
+Error: "uptime-kuma" is not a valid container, cannot be used as a dependency: no container with name or ID "uptime-kuma" found: no such container
+Error: no container with name or ID "uptime-kuma" found: no such container
+FAIL(124): docker/uptime-kuma
+
+----
+
+Testing docker/youtarr
+abdf67cdbef0796bffd5d9e9fe1121dfbdd9b0b291ea2cae0035ecd546cdb4d5
+Trying to pull docker.io/library/mariadb:10.3...
+Getting image source signatures
+Copying blob sha256:18232e17ddffcf5ddb5360e227f2d93ba169defd86f4ecb9a8cb697ac182c6eb
+Copying blob sha256:b8bc823a83fdf1329ae53f092d8f3641a60f92ee9f69e8785f5a3fd046eee30f
+Copying blob sha256:16685f710f5dded64d14b2537a025d665da5e257c4be3d921737f5f246b0fb9a
+Copying blob sha256:b5660ff630580a5fee05c112e916f0bbca3234820aea68e604a23dba51f23d65
+Copying blob sha256:c894f2a9f3adc4894205ef1b27eebd977ca84b98e22289e07391fd8f59aa8e92
+Copying blob sha256:99803d4b97f3db529ae9ca4174b0951afac6b309e7deaa8ec3214c584e02b3a8
+Copying blob sha256:c25f07aa4d2e4a28771df971896c0b7b201732ed5d9d9b49d0c8c02122b11440
+Copying blob sha256:1fc3d12d5ef10f6e5907461b37aac126f5bca7b47f562053c8ec75e43041fa13
+Copying blob sha256:806077d08135696457e6efc0abb72b11133ded3cf124c39332ad8c93ac5f360b
+Copying config sha256:1172e50de4349638bab15b56ded75a75c16312c73cf895e045b21da3cff82948
+Writing manifest to image destination
+bc857e6d35d194243d596a30d5eb52746871f0abe1ed49422d4fed8113ff875a
+Trying to pull docker.io/dialmaster/youtarr:latest...
+time="2026-01-21T22:36:28+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://dialmaster/youtarr:latest: reading manifest latest in docker.io/dialmaster/youtarr: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:37:24+08:00" level=warning msg="Failed, retrying in 1s ... (2/3). Error: copying system image from manifest list: determining manifest MIME type for docker://dialmaster/youtarr:latest: reading manifest sha256:6752636fc2c762ec852aa5fd9babafd2ab3519dd818b6e32065c23e414f32fd1 in docker.io/dialmaster/youtarr: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+time="2026-01-21T22:38:01+08:00" level=warning msg="Failed, retrying in 1s ... (3/3). Error: initializing source docker://dialmaster/youtarr:latest: reading manifest latest in docker.io/dialmaster/youtarr: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+Error: unable to copy from source docker://dialmaster/youtarr:latest: copying system image from manifest list: determining manifest MIME type for docker://dialmaster/youtarr:latest: reading manifest sha256:6752636fc2c762ec852aa5fd9babafd2ab3519dd818b6e32065c23e414f32fd1 in docker.io/dialmaster/youtarr: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+youtarr-db
+Error: no container with name or ID "youtarr" found: no such container
+Retrying in 30s (attempt 1/3)
+Trying to pull docker.io/dialmaster/youtarr:latest...
+time="2026-01-21T22:40:17+08:00" level=warning msg="Failed, retrying in 1s ... (1/3). Error: initializing source docker://dialmaster/youtarr:latest: reading manifest latest in docker.io/dialmaster/youtarr: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit"
+FAIL(124): docker/youtarr
+
+
+----
+
+Testing docker/jellyfinn
+9cbebf18d5ce4fc8bef1df130d5e8f315cefb8c83c3639c17a69d428b5cb5b24
+Trying to pull k8s.gcr.io/pause:3.9...
+Getting image source signatures
+Copying blob sha256:61fec91190a0bab34406027bbec43d562218df6e80d22d4735029756f23c7007
+Copying config sha256:e6f1816883972d4be47bd48879a08919b96afcd344132622e4d444987919323c
+Writing manifest to image destination
+6032ba10d0669130d15fa3c7aef49a4b3de9eb2cb069209a3a6122fb3d97e76c
+Trying to pull docker.io/library/postgres:15.2...
+Getting image source signatures
+Copying blob sha256:3ef71fe7cece14278b6b8769e97fe284ec968c376d3715c50ee70d5478e0773b
+Copying blob sha256:7782b3e1be4beb8cf04e53bd574df55633e7244cebf971caf0b371b868f17036
+Copying blob sha256:9e3ea8720c6de96cc9ad544dddc695a3ab73f5581c5d954e0504cc4f80fb5e5c
+Copying blob sha256:247ec4ff783a53b6c6aa696498b385229489f0b4dbf754ba04fd4225c52bf60e
+Copying blob sha256:f7ead6900700a9d241f0ce2d1b47e80dd024ba213ccd8cf53a9a4cbb48e7f30a
+Copying blob sha256:e7afdbe9a19117458a2ca067fa89ed0638e66874fc76b77d3201eb3b9d1be0bd
+Copying blob sha256:1459ebb56be5dea8fd98456fa33b6fd607bd304cd1a843d705845aca032ded33
+Copying blob sha256:3595124f68615a5a8c7d3f87303c6ad4002665676240cdf7190f85f324c9faf3
+Copying blob sha256:dd8e229a2a1314d88197f0f21f2a437870c6c2ad4770bac2fd4a5a825003a2c1
+Copying blob sha256:8cf43a35dc101ed96afea569bdc118c72f954e7a9f4bc90b2547a9b0e02305b4
+Copying blob sha256:2fac9b4aab2f1e0274ef61139527a119953ec18d0ed42157be1fe35ddfa1530d
+Copying blob sha256:b3f90da87261950e10b09c94c16a239c6b9b8961926b47c41e1e01ecfab4047e
+Copying blob sha256:5f7e3ef14a3b0516d4096b5a703f46de3479e4a998618a637e75d358d28bbd7f
+Copying config sha256:bf700010ce28b2744ed00ca6105951604c68db0a28105cf2da2956b89c2560e8
+Writing manifest to image destination
+9aec729b1cf4a0759116e58ec55748ffd74aa492ac0056429e24ae28f2953047
+Trying to pull lscr.io/linuxserver/jellyfin:latest...
+Getting image source signatures
+Copying blob sha256:5eb77ae989566994a643724e14bc017f2be93635fad43385738c0bbbad3fb61d
+Copying blob sha256:f6a4c3e338ed76d3e90c1ce7a15013a45c9b55febc952bc905eed245ce0bb8d2
+Copying blob sha256:fa320a8bcf119de3101acff4bb53940eeb6753fe0979274cb29edd513ee5dfc5
+Copying blob sha256:d662074283bfe84bbb831397564dc10f31cd5d4fe7bc851a138e00550d178411
+Copying blob sha256:281193377f0448edee75538cbef1b4d1982865fe2ceb05616e1f6e9bab67dfba
+Copying blob sha256:27d26dfb2332cf1982c3a7ae05451b54a46776e2b0ec8d5afe5d93c3cd5075ed
+Copying blob sha256:ead2c5851e51c822165ad2655efb2d37b1575423079539880b7de8abeee4a897
+Copying blob sha256:744073494f37a3d2c835acc06b1621f3ac74bf9f358492efa8ce3e41678b4491
+Copying blob sha256:b079745a4d7f2e6ffe1c03a7de39253f8211c8f6c5c948dee0f0ac578e0fe55e
+Copying blob sha256:c4b2d89874b609dea1c638e75332b7f9f3fcd13a821fda976f6abac9c2dda00f
+Copying config sha256:1891ee77e8af5d18d2b6218ae79899515c98113798faabfbc9214fd5fdf1b4cf
+Writing manifest to image destination
+e182c50d7ad59bec3af16f3ddb002236a652224481223d7435bb45194516b9ac
+Trying to pull docker.io/tailscale/tailscale:latest...
+Error: unable to copy from source docker://tailscale/tailscale:latest: initializing source docker://tailscale/tailscale:latest: pinging container registry registry-1.docker.io: Get "https://registry-1.docker.io/v2/": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution
+Trying to pull ghcr.io/caddybuilds/caddy-cloudflare:latest...
+Getting image source signatures
+Copying blob sha256:7b5fde1dfb4bc626dcd535c3f5968ce0055f3956475f51c9496172f38055b176
+Copying blob sha256:9824c27679d3b27c5e1cb00a73adb6f4f8d556994111c12db3c5d61a0c843df8
+Copying blob sha256:2e53616944a4fa3ff99b33d90d938827b7d63bdb00324b94dab3ad40ab166831
+Copying blob sha256:634211206164759ba5e5df423465aed056f9cc799700d15b89ca49626779515f
+Copying blob sha256:edccfae94f0e103409f8c3283a9e19bb7585db1ed9bd9e3a0311de9e0149c1de
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:778f44065ec5056309b21f87fe92b11f0d67476e0c7356b20fcf3873b040cf30
+Writing manifest to image destination
+b70b2ed6a285c98248662b607701e6f7155626498ae32cfcb75edb23f48b2440
+Trying to pull ghcr.io/arabcoders/watchstate:latest...
+Getting image source signatures
+Copying blob sha256:00dc600ccc850e4c7563da1a98cf8784ddb9baf2e8bbe14824c00689370c107b
+Copying blob sha256:0d37574009de1199f8af575fda053811db541f01a97d948179bf609d8e03d009
+Copying blob sha256:2981f7e8980b9f4b6605026e1c5f99b4971ebba15f626e46904554de09f324f4
+Copying blob sha256:4a937352375f5fc68ed1a67d9e57e63d2dd42def91e10fa2a58c04ce77f9d5db
+Copying blob sha256:f04fab69318a03e46987885ca8f3d7dd4ccae9b0d3d7c1949aa706447e7ae729
+Copying blob sha256:23cb281faa1439bdb1c3fc8f61093ff343afc33038426ec06bb4e2fd7e3f90b8
+Copying blob sha256:d666ee93a0f951aad1fe51cf00eb32b43d33ddb134b703abbe4432110137c130
+Copying blob sha256:bc78e38798f7b7f9bb380ddf14c4ca5a8c6699edb56f2d777e49e32abc0b9749
+Copying blob sha256:0c61556beb6f42945e8ae729952f759c2635870b541e3fa2f1071cb6f1d682d7
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:6a71332df4285be90fd2ce129ed9bd0d50a77274bbaa1706bcddf47e838046e8
+Writing manifest to image destination
+707b909ddbe5f9dc406629bb494f1ca28eb219c953b5a8df8b022523330b4405
+Trying to pull docker.io/cyfershepard/jellystat:latest...
+Getting image source signatures
+Copying blob sha256:c184c64a8a7465788306490c108296a28479cc66534687b252194e8c0b5391dd
+Copying blob sha256:02f9580c51f1c263e2f6a37873a0e0aee020940bf118e4a4b0d9d8daccf6c496
+Copying blob sha256:5ce95b861bcbcd5f6d15a57ed60e1f70a515fc96d2add98935e6c2783b2e24f1
+Copying blob sha256:ada732c218c77ea7db495185e45b0657726881d7a6ed049bf47a4ce10399fe05
+Copying blob sha256:ae4ce04d0e1ccb5db08fa441b79635de5590399fae652d10bd3379b231be0ead
+Copying blob sha256:fecbaecd907a6f9aa9e82563dc22ed631f98ea276e260c75e65c8add151f736a
+Copying blob sha256:5c8faa9b41a2be49ddcdb37668c752ce24a4f7c315a22988e8b39a4e272b2129
+Copying blob sha256:6df2346c4627d90149b9f2099e697424f79cd7abb8d5116cd3660b988b598a4e
+Copying blob sha256:25d62d76003775bc8a712804539ffd9e47f8f8b0cb2d90da83cb7c53116c90cc
+Copying config sha256:248b4c4ed579a5da8451506a4826d5262d567d21cf22a4081b57f9c18ef56c2b
+Writing manifest to image destination
+77f075eea96009eb9f02230aa4a9591583fe33de556159562b4a17731a0bf9c3
+Trying to pull docker.io/library/alpine:3.20...
+Getting image source signatures
+Copying blob sha256:5311e7f182d02360a7194aa2995849bcdf04795c39a0ffdcf413eae625865970
+Copying config sha256:e89557652e7472b26d49f1d45638ac744a2928ddada818777a6ce4076f64f7e6
+Writing manifest to image destination
+e831addc83e8125e9396752a048e11c16a8be20466baa40dc2c21f89f191c543
+jellyfin_network_holder
+jellystat-db
+jellyfin
+Error: no container with name or ID "jellyfin-tailscale-sidecar" found: no such container
+jellyfin-caddy
+watchstate
+jellystat
+inotify-receiver
+Retrying in 30s (attempt 1/3)
+Trying to pull docker.io/tailscale/tailscale:latest...
+Getting image source signatures
+Copying blob sha256:740fae5fed9fd5b1056121a4f4635b86c4a66eff872f462279cb9ecafaa8250a
+Copying blob sha256:2d35ebdb57d9971fea0cac1582aa78935adf8058b2cc32db163c98822e5dfa1b
+Copying blob sha256:44e957d10d4a9663cd4a893c188526fa54ed7058d1b77a182ca8fe7867b9c2e3
+Copying blob sha256:6ff2be9d709ecd2271c57b9eb2eb2543e091e708de5f8211d82100d115471023
+Copying blob sha256:124568bb5186f12776fdb08904df48218b841e5c9f80461ef64009f8250fa79d
+Copying config sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752
+Writing manifest to image destination
+2ef1e37b44ed499be34c778a30103c36b9a2097f2d0d58e1bb5b8e2212a9ce77
+jellyfin_network_holder
+jellystat-db
+jellyfin
+jellyfin-tailscale-sidecar
+jellyfin-caddy
+watchstate
+jellystat
+inotify-receiver
+OK: jellyfinn (jellyfin_network_holder jellystat-db jellyfin jellyfin-caddy watchstate jellystat inotify-receiver jellyfin-tailscale-sidecar)
+PASS: docker/jellyfinn
+
+----
+
+Testing docker/management
+881c8bf7aa1c495eae15b0b648d5f379f24b6e032cc47df25c3959f19c83a713
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+f8fdf263f29d6b1f03a5ea8462119bb60a0b80c61091b373efc91b1e870ed993
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+f864045dfbe70902619f21aef9869f648eb397ff29ff73041f96934e1654ccbb
+Trying to pull docker.io/gotify/server:latest...
+Getting image source signatures
+Copying blob sha256:d2a5df78becbe7b593316b8f694740bd7f53d9b057e6cc937b827a090aad779b
+Copying blob sha256:a73f85a4e405c194f230addbf7706fd9f208e1ed972b1de2b716ba8dc7e3a0f1
+Copying blob sha256:6e6bfc9835250121f2018c10d2f949fc08c1a5934db504de77df6b3534fbfc85
+Copying blob sha256:9d732763eb8355090bd38c8240aa54ed32c359cbab508a340ec75810449de221
+Copying config sha256:429d8da7b47e211f03f9d2ac3a1149b170fd4c0e845222a2ae37d50a4c2ad2d5
+Writing manifest to image destination
+30eca953d14e7d1a5ba86c17b5352b851095148bbdb6228044d8c47cea1d05c9
+autoheal
+management_dozzle_1
+management_gotify_1
+OK: management (autoheal management_dozzle_1 management_gotify_1)
+PASS: docker/management
+
+----
+
+Testing docker/management/epi_management
+3087a6964cf89501c7d81cd4b28ca75780dc80dab01e03baa85df1a787a96de8
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+b29278f112db5499e14e87859a7790f7002fff23e08d797ccb07d1ee3e2c7ffb
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+77717cae1e35faa1096d911ae0c2c106568825507a4d268e2643c789700be7bc
+autoheal
+dozzle-agent
+No containers running for project: epi_management
+--- logs: autoheal (b29278f112db) status=stopped ---
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+--- logs: dozzle-agent (77717cae1e35) status=stopped ---
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:16Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:17Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:17Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:18Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:18Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:19Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:19Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:20Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:20Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:21Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:21Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:22Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:23Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:23Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:23Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:24Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:24Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:25Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:25Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:25Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:26Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:26Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:33:27Z","message":"Failed to run command"}
+FAIL(1): docker/management/epi_management
+
+----
+
+Testing docker/management/igpu
+69d489cfd471376164bb855b9284f63478d3241dd9579f884216513b40dd1397
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+05ae68384e4cedde8471da012759c907a6ca2f1f5266fbd7e7aa8ea470393703
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+3c4bc46765d3525bc5b14e4aa4c7646d554d1b1ba587badefda9451d49c98d39
+autoheal
+dozzle-agent
+No containers running for project: igpu
+--- logs: autoheal (05ae68384e4c) status=stopped ---
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+AUTOHEAL_CONTAINER_LABEL=all
+AUTOHEAL_START_PERIOD=0
+AUTOHEAL_INTERVAL=30
+AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+AUTOHEAL_ONLY_MONITOR_RUNNING=false
+--- logs: dozzle-agent (3c4bc46765d3) status=stopped ---
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:37Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:38Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:38Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:39Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:39Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:40Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:40Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:40Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:41Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:42Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:42Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:43Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:43Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:43Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:44Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:44Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:44Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:45Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:45Z","message":"Failed to run command"}
+{"level":"fatal","version":"v9.0.2","error":"failed to create docker client: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?","time":"2026-01-21T22:34:46Z","message":"Failed to run command"}
+FAIL(1): docker/management/igpu
+
+----
+
+Testing docker/mealie
+2e3c78dcac6f2df4a5575abd6c76a90002068d78973d6b73f7d01559d8780300
+Trying to pull docker.io/library/postgres:15...
+Getting image source signatures
+Copying blob sha256:1bf67474c6348e56bc5a2501b214c774f9ab6fe802addf054a4beee675df1068
+Copying blob sha256:38605c048c1019770b12a42eddcd041a141d191ca4d70329fc707c347b2c5177
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:aa732be6e8c47288fe56f4cb098adde5068c23698ddedfb18771ffe91231f9db
+Copying blob sha256:1aec77daa62485e0609e9f0efd2987a275687c3724caf07a5b60f85c8938d93c
+Copying blob sha256:2967a6781cea878f8f3fd56a5901ca1776e1a61b1d8f7afb6d7e77c653af4ea6
+Copying blob sha256:8721b06a7eca5dd826c4243ebde56b5b358952f6ae9e1b496017e28e4c5214c7
+Copying blob sha256:de996ff323f4a1df4a59a57e381a07d5d7dafc4bb5e51e739d5b84acb15a42d8
+Copying blob sha256:b47cf76613738c5fbc13015c719417673f83771126c5da6fcdc7a0b888b858df
+Copying blob sha256:84f86f655a3071241491610857fec9f2b44b92be71f709536bd368ce261be4f8
+Copying blob sha256:8081da2e1e86f48c408123b9d2d7d557862903ec9159ca12df622fb634ed86f5
+Copying blob sha256:0f7dd3f0f295a2991d4c5c5790cdaf69f76da89d07c2b0e78768e3c000a4d659
+Copying blob sha256:0bfc5429d86ca938712293bbe2100d4a6e25782390e6e5f5890fdefaa6b05d1a
+Copying blob sha256:6e449ec89832ad45f95e068c44deaeacb020f1ccbfbd2fb894d2d7a0bfe0172e
+Copying config sha256:7064d8f3d97089dad48d711f2ac4b60bd71edc79f09ea9f65b1806383eeb0987
+Writing manifest to image destination
+a26dbd429ca733464b49b8a7bec419046051ade9265c62cb41f7da33991afcd2
+Trying to pull ghcr.io/mealie-recipes/mealie:v2.8.0...
+Getting image source signatures
+Copying blob sha256:4156c12f3ecc3be1af87b437c2471c9a02e83cea7ed7325a2907b10a22735aa1
+Copying blob sha256:6e909acdb790c5a1989d9cfc795fda5a246ad6664bb27b5c688e2b734b2c5fad
+Copying blob sha256:75c77ac11059535a2a5409b794c1bec09cac945ffe1dfd92215c68f2ed2d35d4
+Copying blob sha256:0b564fcd72a23e125aa17f344431b8e2189a5b8f89e78953466669795e7f8089
+Copying blob sha256:17f1db170c0d3f4c28fc10c9cc4fd5186af4d5d21adbf0ba7a094bfb9add47dd
+Copying blob sha256:e4eb3ff0477a6c3c65761bad0d2aa2c1ce912cdcf883a37226f28e6e277126b6
+Copying blob sha256:5208ca16c6b92f2fadb856f87d623f1afe358d7555023ff546264cfee20503e4
+Copying blob sha256:c283f1eb5cd3c5d6db9335da263e6b11ec0a9684949e16a6a902583778e0f4e4
+Copying blob sha256:074258ee894ebff96917b647ec0ada4b857497e98fc1817fe9a29e3d95d9cd56
+Copying blob sha256:0c6368d69d06f3c3cb187393ac684daabd5304d6780a55bb220951569bec5414
+Copying config sha256:1e204f7043a069d8ad137fa0be374fd9e3262700807bd7a5964a384c0b059f74
+Writing manifest to image destination
+ca0e3f2a0b7c34975d3738ae18dba3e0c3167ac9972bc251440874678c49018f
+postgres
+mealie
+OK: mealie (postgres mealie)
+PASS: docker/mealie
+
+----
+
+Testing docker/paperless
+0c3682fd9cdc9983e972f94d7795c2a0147b02ee017e754427a6fd5847898c02
+Trying to pull docker.io/library/redis:7...
+Getting image source signatures
+Copying blob sha256:c92ba2a154a449b14f158d27ad1e6f31e856fdc9885f9ba7f1306d4af2b41ba9
+Copying blob sha256:5a8a1ddac67533386cb871a613625a6013a929667dd5e882f5b2238405ce7d85
+Copying blob sha256:413f71042199b47b10bae6e088d4c28d0b1e2d8f8bd88950d7ced020b45cd964
+Copying blob sha256:c02d17997ce3d2c82e082235ea0b5152d06ee659c4e2fabcf1e0079312f1bcde
+Copying blob sha256:c8d70ddedb79852f5c1deeb869430cbfb0976a248878099a0995b0635d8a6811
+Copying blob sha256:6f3bbde18420cbf52e94d89b988e5cb5a81be239e3a5e7cc34bac6841c8c35be
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:e3ef2252999f36bfa38900550d3342b24913ba01b183130bb8674a3d73605647
+Copying config sha256:6b8be92f31f3110b627cf93d5c9704f154eac7be88b7a57ea3c3a8c67b2b2727
+Writing manifest to image destination
+011dc73f5e8505017ad747c4755dd0d7123efecdb95b09f2dc54927db5800aa2
+Trying to pull docker.io/library/postgres:16...
+Getting image source signatures
+Copying blob sha256:e3a93a48af492fa29912e42eedb1b438850ee864b2e9d9d8998bc64bc98667cd
+Copying blob sha256:1df764af9d2977929817c5a3c6d79ab9df528461aadd68fcf5d7373da81de921
+Copying blob sha256:119d43eec815e5f9a47da3a7d59454581b1e204b0c34db86f171b7ceb3336533
+Copying blob sha256:c56f2098d81beca918370e5730a554128a4bf49ea88360bf8d35ce602e536a10
+Copying blob sha256:2c60e8d26a28ced7d1aa2eaaec650d1cc2b78089d33d83d8cec5f706060d50d4
+Copying blob sha256:56f952a300d547ec5f5d5f0a4174a85bfed6a3564c68dd6161d015088fa26fe5
+Copying blob sha256:749a66f683f67a2314e7e03d923bf49b71a472fe9c3f7b5c19b1b36829c8bde5
+Copying blob sha256:7217575ed52c88466387e3c2000671d72996ce68be5c55f1dad7a9634eb77da2
+Copying blob sha256:070510219061154c36e1e4c0b15cf4f6eabdeaadf880cc496e40c592047b65ba
+Copying blob sha256:b0e2b008abd1b2124bbc78806117fcdb3004cdcee8a211215b0412a0171c4da3
+Copying blob sha256:566364257f634506c9e86c07877879861caaf79e0ee074bb3cf1cbee3365153b
+Copying blob sha256:6e117204916b745e953c9caa8769acbff5ec8679e4629f1c56a34351642c9177
+Copying blob sha256:e893053483fecd0d31369329b1cb1a70958826310a376807e891116da6dea294
+Copying blob sha256:cdd02f27cbd252555936fa0a1c722815a7ea5b3070d8f5b658d9df928349baee
+Copying config sha256:90a8782b2360b0f3839e977351daeccdd96cb42beb721f7c971e51f4056442cd
+Writing manifest to image destination
+c1e43c383fd370850aa155007f803236cfd85f28a7fb2aff55290094233676c7
+Trying to pull docker.io/gotenberg/gotenberg:8.7...
+Getting image source signatures
+Copying blob sha256:f2bfb04efdd748160a4964652971c4c0831efaa8b51f91a5f1e4cf5e42ff1919
+Copying blob sha256:71a6f66715c4e9957c3ba50790b7c4c63d45e047b0034b51e75746c9b1ea3d49
+Copying blob sha256:675474c25ec311dc474aa93342f3af19c2af96e9897dbfc3b6c603aa06d39f81
+Copying blob sha256:2cc3ae149d28a36d28d4eefbae70aaa14a0c9eab588c3790f7979f310b893c44
+Copying blob sha256:c51a388d62309ae94850dee1ca7d882d16b140fd00cb4ab2b0c7a9374cafcb87
+Copying blob sha256:b2802b98bbc3e4f5bebd4af5ecb8c1ab7c5faf53570ce625a6cfb26d00b6c01e
+Copying blob sha256:cef98e9159294376f58d488ae4c3e973c819e7120963b47819b90bc70684066b
+Copying blob sha256:f616266386e3987889d111dca0be13e616ce766bca0fa7966aa75986e2c783d8
+Copying blob sha256:b6e4eaca02f7e16130649f6825ffe1c75468d8120969ed02fa0d177d9a06dd39
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:e795d533a4de2181caa1cf362642a6bcaf34beb8c86468b635401195468509d4
+Writing manifest to image destination
+7dc2955b7225ff46f2edb68aeda6a1cc7d101e603101678e2da0c53126cc92d2
+Trying to pull docker.io/apache/tika:latest...
+Getting image source signatures
+Copying blob sha256:3ea45e6c043d53c1a63474605b69861d47f247f6fb916b8de65f8876c6e4509f
+Copying blob sha256:3c1b8ef3054a9c618d40059b83a810a6fd79512b1912bfa083d14aa680999834
+Copying blob sha256:df3646a507d2b3b1b0bde6e6a491ee8926b6961e71b422b45b15dec9c6e2bc9e
+Copying config sha256:26fad49b93a54011fb0a5399e8bb4e4c1ff4ece1d890d91773b0469fef418567
+Writing manifest to image destination
+635a154ca85ebd7665d6d17d22235a83d3c132ebe00593e589ecdb44c8b842ab
+Trying to pull ghcr.io/paperless-ngx/paperless-ngx:latest...
+Getting image source signatures
+Copying blob sha256:ba354316e3b9bba3b9e23321e5c4da58b5e58c02a896063cb2bdd9eb0587f81e
+Copying blob sha256:490b9a1c25e472ab1cceab4ed6f3bd252006f7c6eea0ef7ba845c996adb6f302
+Copying blob sha256:b7ba6d2a1fc72f9587288b3b60221d1b07dae4f61a41360d2cc281fe7c007b3a
+Copying blob sha256:0e4bc2bd6656e6e004e3c749af70e5650bac2258243eb0949dea51cb8b7863db
+Copying blob sha256:0674d14a155c94f13e648265aa3ba62410e1fe0387fef64cc608388e54232880
+Copying blob sha256:63dbeabf88c4cf9256758bb3e9732f6f3fd740bc72715f4cfa5bcca46de4944d
+Copying blob sha256:866b9758a946c5708e9b0e1a8e35de947020e046ddcc99154551dfb10589fa07
+Copying blob sha256:700240a4a7f88c7b51d2227586dcd1651a0d0283878688cc44dba5678b938bd4
+Copying blob sha256:fcf96b1d9757664f97249c83b11dc0173e4feac129aea71023ac379b0bdb4cbe
+Copying blob sha256:59d35266b7299e8365fc4097d034fad31241bfb2baccf52e2de7ed4ff698b61a
+Copying blob sha256:990baf9392fdab5eb95517cf7a20f0b06052ad706f6a75f0fe73e8202aa05b01
+Copying blob sha256:b418a00f00dba18f3683e5a15ba89ae64a44263eb5055bd7b05e47ae5bf56dfb
+Copying blob sha256:a7ac22f0b0dd9476721aa4b522d5286ee7577bba058d734a8dabb13caaeb0275
+Copying blob sha256:0edc9f5b50d8c7fd7b952b7bc842a7ba16ae1ae6a51b01e427d6f2d88df9640a
+Copying blob sha256:5f30984fc28a982f3731a452f7b59a79ba3fea5c568e90c035b8b3db70c85bcb
+Copying config sha256:b4f269add54332df49ccf1300e142367c940e394303072c80c3169fadebfa6f1
+Writing manifest to image destination
+18eee988c45bfb1c329c9c3739661295f3733a286946910ec581f1d29064ae14
+Trying to pull docker.io/icereed/paperless-gpt:latest...
+Getting image source signatures
+Copying blob sha256:1dd9e79d531439bd169ad19e77b31ce44c0f8622d18808f35ada86799d995e85
+Copying blob sha256:014e56e613968f73cce0858124ca5fbc601d7888099969a4eea69f31dcd71a53
+Copying blob sha256:ff3681699d36032e07d5f96b4c248545cc10f34a6f3552b5b6435bd5640f396d
+Copying blob sha256:518323b0cd6b38b78cb07f0bdc81a968485028c2c8da2125e1cca230b4db21d6
+Copying blob sha256:1fe38b9a9b8c9effce4f2a8f94dd7d275cdf17f3efbcee43865dd7ab1227c328
+Copying config sha256:e906df1c6e7d5fa39ab7d33e73dca166c8c093e66b37370a54acdabcd5a33fd9
+Writing manifest to image destination
+93db163da933b2abdb8d697c6d6a4dfb07766f5f8555a73f4b26c027c37f89c7
+paperless_broker_1
+paperless_db_1
+paperless_gotenberg_1
+paperless_tika_1
+paperless_webserver_1
+paperless_paperless-gpt_1
+OK: paperless (paperless_broker_1 paperless_db_1 paperless_gotenberg_1 paperless_tika_1 paperless_webserver_1 paperless_paperless-gpt_1)
+PASS: docker/paperless
+
+----
+
+Testing docker/paperless/paperlessai
+a034bd950f477bbcbb9fa06bf6475998e00ec9f109d405c25bc084acdd5e7e81
+Trying to pull docker.io/clusterzx/paperless-ai:latest...
+Getting image source signatures
+Copying blob sha256:e2e564e5f81495750d5380808b4ccd6d2bed350769e6102e45cc79aab61cfe71
+Copying blob sha256:a5a64aa7870b4f95d01358c1b418b027215bab0d3ffbc0887253c52d7597ab29
+Copying blob sha256:5db8152ef1655038a652419b662aac0b05bd08392725130abec04a8ce22e06b2
+Copying blob sha256:7d26c198d67aaa62741786af2906f12d830189bd238998b7da1224b663b38d64
+Copying blob sha256:abe1fea375429ba91b23776f15f53da4ed790fa2b779b40d20f21e69bd66de5a
+Copying blob sha256:49ebb191ae0814668dd8527dbd57596d21a4c90e3d676fa1110f3909f425fa83
+Copying blob sha256:5eac62d9c24a5c437c2935bc275f14ac1e7150a5a53bbc4fde2a717efb527079
+Copying blob sha256:4180539c267b978914adc2b59d888ad330d49cbd98ab817d8cf42c751b24a436
+Copying blob sha256:3e49eddf9dd43dd00e9ee6154bee8b5013b76fd1e5fd2c0cfcc72ab96a91adb8
+Copying blob sha256:d9cb8e80e6704225a90e5b4971a773d19795762eaaebf62e2c81bce7c3e24c64
+Copying blob sha256:5ec95493c70218c9fd96dbca65f553cb688cd5cc78de331f95e667e56ac98eaa
+Copying blob sha256:bc57960b6f658d0731295452ea1bdbe4ff99f624aa089a18961476a7004b2c31
+Copying blob sha256:a55ca8b33cfd01e9abdc6f99c8c358bc4321ae878e834155b41d2ec36cc412c6
+Copying blob sha256:81e2dddace2d8792c5c2b048f8be7abcc795f393788f9d08e05ebea08357e396
+Copying blob sha256:0917daca2ac86449640eb382074501b3049b0c7a11dbee8abe30aeb86ae164bd
+Copying config sha256:c677e2a0b969fa771b1cd5171d099f23ec7686a6d0de64ed53ecf846d0eb86bf
+Writing manifest to image destination
+a4eecea70cb674c811e175f270641b062869d0a8069a420a748d99b9d44b42a7
+paperless-ai
+OK: paperlessai (paperless-ai)
+PASS: docker/paperless/paperlessai
+
+----
+
+Testing docker/uptime-kuma
+25317716a9d59ad22c4c2c57179e00dd0841a1aabf153b091fe3d0fd73dcd4ea
+Trying to pull docker.io/louislam/uptime-kuma:1...
+Getting image source signatures
+Copying blob sha256:ab019b589bd148f44157dbb9191f70686e25977a9f442de082f70c0cd7ac4060
+Copying blob sha256:874bf4d93720fa45c2e5071daeb12e622a23115474df9ca3b587fab294ef680e
+Copying blob sha256:b338562f40a7fb7360dfae935da6d7e40d2545db18bc461d9d70ec1b2b657f33
+Copying blob sha256:2c706596bd1761cbc4a8dc4af5d38663fdbac607674864c30b58b41bf47e9fe6
+Copying blob sha256:b163377215838fd3358fed0bc6d70c7b019945a9dfdd7b4a131ef6dcf31327f4
+Copying blob sha256:7d955db85b8518fa1824b8c67e36c7c1d13bc21137895ca4eada29bd22fdfc9e
+Copying blob sha256:05489cad7e072f08ce39392138ab7e92b8e3cb09edf4ea3bf0b57c5bea748b77
+Copying blob sha256:2da5495de763596489fe8dfd1468854924b2a1ddfc02905cfa152e1716c3bbdf
+Copying blob sha256:0009b3591d8d4671347638ac535404bbc0523128120041caca951c48e8369188
+Copying blob sha256:b5cfa7561d78e5d148d6def62f2d99b4e239a39e3cd10644ba43d111871f7f32
+Copying blob sha256:7607ceb74d227ff3ba13efeb93ad3554a45e1bd17c0004d177a49c0c8bc99853
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:ad1253342b11aa9a1447c37173fe2dfd28fa45dc550e0166a7cd0afde188689c
+Copying config sha256:f48d816cb7460cd3b7bb15ed393968b0ae0da4c690443b778b6a5db6b09f527e
+Writing manifest to image destination
+3e4db8ec33c77e685ade6dc11d46c8e59f3c3a55c94146fc0032bb40727f2590
+Trying to pull ghcr.io/bigboot/autokuma:latest...
+Getting image source signatures
+Copying blob sha256:8bd27db9e69d138caaa15b9779155fef1b5b2ab578c3e0e3e2182a51d1b9f7c2
+Copying blob sha256:86d59758c3174f0e2ef9e2a4be7fbb6c24904808b1842982b51510da7593b48a
+Copying blob sha256:d7ecded7702a5dbf6d0f79a71edc34b534d08f3051980e2c948fba72db3197fc
+Copying config sha256:dff8279b9006bbf7a6a3fe50a4c82270fe54465eec44ef4346e4540a6b87ed4e
+Writing manifest to image destination
+6f36b130952f4d00eb46ec6425aac75528a98a1aaf7d1b0ab5ed175849e9da38
+uptime-kuma
+autokuma
+OK: uptime-kuma (uptime-kuma autokuma)
+PASS: docker/uptime-kuma
+
+----
+
+Testing docker/youtarr
+953cc3495a489bc6441bdc4848a09b9a6fa57031b58a006df8f57ef1fb518503
+Trying to pull docker.io/library/mariadb:10.3...
+Getting image source signatures
+Copying blob sha256:18232e17ddffcf5ddb5360e227f2d93ba169defd86f4ecb9a8cb697ac182c6eb
+Copying blob sha256:b8bc823a83fdf1329ae53f092d8f3641a60f92ee9f69e8785f5a3fd046eee30f
+Copying blob sha256:b5660ff630580a5fee05c112e916f0bbca3234820aea68e604a23dba51f23d65
+Copying blob sha256:99803d4b97f3db529ae9ca4174b0951afac6b309e7deaa8ec3214c584e02b3a8
+Copying blob sha256:c894f2a9f3adc4894205ef1b27eebd977ca84b98e22289e07391fd8f59aa8e92
+Copying blob sha256:16685f710f5dded64d14b2537a025d665da5e257c4be3d921737f5f246b0fb9a
+Copying blob sha256:c25f07aa4d2e4a28771df971896c0b7b201732ed5d9d9b49d0c8c02122b11440
+Copying blob sha256:1fc3d12d5ef10f6e5907461b37aac126f5bca7b47f562053c8ec75e43041fa13
+Copying blob sha256:806077d08135696457e6efc0abb72b11133ded3cf124c39332ad8c93ac5f360b
+Copying config sha256:1172e50de4349638bab15b56ded75a75c16312c73cf895e045b21da3cff82948
+Writing manifest to image destination
+1f9728bbd71bf75457ebb120173cb4c4e77a67aa1eb48c48c7a84aa613581138
+Trying to pull docker.io/dialmaster/youtarr:latest...
+Getting image source signatures
+Copying blob sha256:a29e8e6b3129bc188ae1dd59bb8e07023b6bcc6e2996f44ea29b284e64c08e19
+Copying blob sha256:024b9523dc7f8055cf2750f04c65434cae8f1b05241e73a5f0878d117366ad8a
+Copying blob sha256:a98168ca575a7f9a177a9348c0ff4ed8e5c9ca39eb648a0654dd3c29928412cf
+Copying blob sha256:c02d17997ce3d2c82e082235ea0b5152d06ee659c4e2fabcf1e0079312f1bcde
+Copying blob sha256:7d393bf487b04ce90e509f8c13715578b3c9785f7aa2ba9bcd797b5a50c0e731
+Copying blob sha256:ebe53019ce11f9bf83b30d24ab04d6dc4aa05dedf8c520e04da0559608edeade
+Copying blob sha256:2281f392519f3b16a3dde35f9d81313cc6ad3cf865cd0588bdcbed3b432ac7b7
+Copying blob sha256:c7869d374543af5901906cd235f49385fee1ba1b678f1288a70ebf36feb57cc1
+Copying blob sha256:333bdafaa21795653f9173c6c8bc1bd7b7fd7b5d90dc41c120ed96930a4f3646
+Copying blob sha256:cf019571e523d479d96fc85b6d9fcbdb3256ace7501a716a840916e6b8524b15
+Copying blob sha256:0371127de7e80449963eb5139aec2c7bf38e83b223ba073e3a3feb3c5dfd0bcb
+Copying blob sha256:9647c1316499aca3a91b2e12ba6eb91862d041f445cc2f5619a31c94920b6045
+Copying blob sha256:b071f53e5c0a9b5b656516e4ea93ada8af71320146fe4b9eb7ed4eae5714a653
+Copying blob sha256:b1898df7c735f2ab054abc7050992c1cb1e39ce673ca30ccec0dd378469fc0f1
+Copying blob sha256:6cebdd55ede9566f050251c57cb01e810504a390463d4388f3425de91b34b499
+Copying blob sha256:4f87eda16f04bce2a3fedda96ccfd495ab839a47771555a8a8cea0409f9c389a
+Copying blob sha256:d62cfaa45df07c602c6a726ef9fabf95dbf7e7eb6a5585b7ce4d034a8f5a1f93
+Copying blob sha256:98d1dd74f2cdf1892537fd2369148560c4da2069190d0d1256cef59ddb0ff463
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying config sha256:fb641dcb4bd609d04da0bdbeb83770ea003a7e1c1031e462b3131cfd42e0e5f3
+Writing manifest to image destination
+741fb907219f62056a21ee81dbc33cbe2aa46a728c3e1f150e38e1eadc90249c
+youtarr-db
+youtarr
+OK: youtarr (youtarr-db youtarr)
+PASS: docker/youtarr
+
+----
+
+Testing docker/management/epi_management
+56689a87cc969d0e371895d5818e88fcb48b35ba9ec6dfb626c920a65719f637
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+6e0a8113ddd9362c72379a0ce6426840e1abae17ffc6450a2eadb369a71d342f
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+98107d1a31eec03d4eee421535a422db2983cc3aa5f2fb7b3e36a15e785d704f
+autoheal
+dozzle-agent
+OK: epi_management (autoheal dozzle-agent)
+PASS: docker/management/epi_management
+
+----
+
+Testing docker/management/igpu
+4b81ce2736575ac1312bf757962c572c98a95e40e4a023fb80af66420722e255
+Trying to pull docker.io/willfarrell/autoheal:latest...
+Getting image source signatures
+Copying blob sha256:853c93e48b6dd1fe2ba5f652aa61ea3d04f031af8d2b4d73b68cc87c0d2e5c87
+Copying blob sha256:44cf07d57ee4424189f012074a59110ee2065adfdde9c7d9826bebdffce0a885
+Copying blob sha256:3f03d90d673aae97234bc4cb91999f0320f812eae53548ba388e1d244873f712
+Copying config sha256:fe5bb73c8c8ccc3df4edc9dcf55e83791ba2e07290cc0bc177367e73d8f8654b
+Writing manifest to image destination
+f1418bb95bc5988c9ea4ce7a828efc8d45a4262af0d7689043392567034594f2
+Trying to pull docker.io/amir20/dozzle:latest...
+Getting image source signatures
+Copying blob sha256:53c1cc2f44af8574ec288baeda2fd09cc343d18fac572bb19944d1c4a3e42a94
+Copying blob sha256:e519b76d96e02d9675b837d7a810f2667c32371f68b97e12d8f64ebaf7599170
+Copying blob sha256:afe219c4758f6dde9bec5539190749ad59dfd48e414655dcb4427551e09159f7
+Copying blob sha256:c2fcfae87f2fe8ab742c80f1be174487cfb3876ec843fe82e0a51c446156e523
+Copying config sha256:81b0890041c41b1f9ff2cdd52833d99de341d5e0a16e544565dcb1684a987001
+Writing manifest to image destination
+65cd577c96376e4fca4a976f37b21e7be3c675ac6d6f1be402bc76d01c3eb288
+autoheal
+dozzle-agent
+OK: igpu (autoheal dozzle-agent)
+PASS: docker/management/igpu
+
+----
+
