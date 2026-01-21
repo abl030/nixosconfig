@@ -1,6 +1,8 @@
 services:
   paperless-ai:
-    image: clusterzx/paperless-ai
+    image: docker.io/clusterzx/paperless-ai
+    labels:
+      - io.containers.autoupdate=registry
     container_name: paperless-ai
     network_mode: bridge
     restart: unless-stopped
@@ -15,4 +17,4 @@ services:
     ports:
       - "3001:${PAPERLESS_AI_PORT:-3000}"
     volumes:
-      - /mnt/docker/paperless-ai:/app/data
+      - ${DATA_ROOT}/paperless-ai:/app/data

@@ -6,10 +6,10 @@ services:
     ports:
       - 13378:80
     volumes:
-      - /mnt/data/Media/Books/Audiobooks:/audiobooks # Monitored mount
-      # - /mnt/data/Media/Podcasts:/podcasts
-      - /mnt/docker/audiobookshelf:/config
-      - /mnt/docker/audiobookshelf/metadata:/metadata
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Books/Audiobooks:/audiobooks # Monitored mount
+      # - ${MEDIA_ROOT:-/mnt/data}/Media/Podcasts:/podcasts
+      - ${DATA_ROOT}/audiobookshelf:/config
+      - ${DATA_ROOT}/audiobookshelf/metadata:/metadata
     environment:
       - TZ=Australia/Perth
     healthcheck:
@@ -20,5 +20,6 @@ services:
       retries: 5
       start_period: 60s
     labels:
+      - io.containers.autoupdate=registry
       # REQUIRED: Label for autoheal to find this container
       - autoheal=true

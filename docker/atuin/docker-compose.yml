@@ -3,9 +3,11 @@ services:
   atuin:
     restart: always
     image: ghcr.io/atuinsh/atuin:latest
+    labels:
+      - io.containers.autoupdate=registry
     command: server start
     volumes:
-      - "/mnt/docker/atuin/config:/config"
+      - "${DATA_ROOT}/atuin/config:/config"
     ports:
       - 8888:8888
     environment:
@@ -18,10 +20,12 @@ services:
       - postgresql
 
   postgresql:
-    image: postgres:14
+    image: docker.io/library/postgres:14
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
-      - "/mnt/docker/atuin/database:/var/lib/postgresql/data/"
+      - "${DATA_ROOT}/atuin/database:/var/lib/postgresql/data/"
     environment:
       POSTGRES_USER: ${ATUIN_DB_USERNAME}
       POSTGRES_PASSWORD: ${ATUIN_DB_PASSWORD}

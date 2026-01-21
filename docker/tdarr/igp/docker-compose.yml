@@ -16,12 +16,12 @@ services:
       - inContainer=true
       - ffmpegVersion=7
     volumes:
-      - /mnt/docker/tdarr/configs:/app/configs
-      - /mnt/docker/tdarr/logs:/app/logs
-      - /mnt/data/Media:/mnt/media # Critical mount
-      - /mnt/data/Media/Transcode Temp/:/temp # Assumes this is inside /mnt/data/Media
+      - ${DATA_ROOT}/tdarr/configs:/app/configs
+      - ${DATA_ROOT}/tdarr/logs:/app/logs
+      - ${MEDIA_ROOT:-/mnt/data}/Media:/mnt/media # Critical mount
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Transcode Temp/:/temp # Assumes this is inside ${MEDIA_ROOT:-/mnt/data}/Media
       # Consider relative path for temp if it's always inside the media mount:
-      # - /mnt/data/Media/Transcode Temp:/mnt/media/Transcode Temp
+      # - ${MEDIA_ROOT:-/mnt/data}/Media/Transcode Temp:/mnt/media/Transcode Temp
       # Or map it separately if it's truly independent:
       # - /path/to/host/transcode/temp:/temp
     devices:
@@ -35,5 +35,6 @@ services:
       retries: 5 # Consider unhealthy after 5 consecutive failures
       start_period: 60s # Wait 60 seconds after container start before first check
     labels:
+      - io.containers.autoupdate=registry
       # Add this label so autoheal knows to monitor this container
       - autoheal=true

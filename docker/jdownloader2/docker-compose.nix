@@ -1,26 +1,36 @@
-{config, ...}: {
-  systemd.services.jdownloader2-stack = {
-    description = "JDownloader2 Docker Compose Stack";
-    restartIfChanged = true;
-    reloadIfChanged = false;
-    requires = ["docker.service" "network-online.target" "mnt-data.mount"];
-    after = ["docker.service" "network-online.target" "mnt-data.mount"];
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  stackName = "jdownloader2-stack";
 
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      Environment = "COMPOSE_PROJECT_NAME=jdownloader2";
-
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} down";
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-
-      Restart = "on-failure";
-      RestartSec = "30s";
-      StandardOutput = "journal";
-      StandardError = "journal";
-    };
-
-    wantedBy = ["multi-user.target"];
+  composeFile = builtins.path {
+    path = ./docker-compose.yml;
+    name = "jdownloader2-docker-compose.yml";
   };
-}
+
+  encEnv = config.homelab.secrets.sopsFile "jdownloader2.env";
+  runEnv = "/run/user/%U/secrets/${stackName}.env";
+
+  podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
+  envFiles = [
+    {
+      sopsFile = encEnv;
+      runFile = runEnv;
+    }
+  ];
+
+  dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
+in
+  podman.mkService {
+    inherit stackName;
+    description = "JDownloader2 Podman Compose Stack";
+    projectName = "jdownloader2";
+    inherit composeFile;
+    inherit envFiles;
+    requiresMounts = ["/mnt/data" "/mnt/fuse"];
+    wants = dependsOn;
+    after = dependsOn;
+  }

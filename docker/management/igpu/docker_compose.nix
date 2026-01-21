@@ -1,26 +1,35 @@
-{config, ...}: {
-  systemd.services.management-igpu-stack = {
-    description = "Docker Management igpu Compose Stack";
-    restartIfChanged = false;
-    reloadIfChanged = true;
-    requires = ["docker.service" "network-online.target"];
-    after = ["docker.service" "network-online.target"];
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  stackName = "igpu-management-stack";
 
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      Environment = "COMPOSE_PROJECT_NAME=management-igpu";
-
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} down";
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-
-      Restart = "on-failure";
-      RestartSec = "30s";
-      StandardOutput = "journal";
-      StandardError = "journal";
-    };
-
-    wantedBy = ["multi-user.target"];
+  composeFile = builtins.path {
+    path = ./docker-compose.yml;
+    name = "igpu-management-docker-compose.yml";
   };
-}
+
+  encEnv = config.homelab.secrets.sopsFile "igpu-management.env";
+  runEnv = "/run/user/%U/secrets/${stackName}.env";
+
+  podman = import ../../lib/podman-compose.nix {inherit config lib pkgs;};
+  envFiles = [
+    {
+      sopsFile = encEnv;
+      runFile = runEnv;
+    }
+  ];
+
+  dependsOn = ["network-online.target"];
+in
+  podman.mkService {
+    inherit stackName;
+    description = "IGPU Management Podman Compose Stack";
+    projectName = "igpu";
+    inherit composeFile;
+    inherit envFiles;
+    wants = dependsOn;
+    after = dependsOn;
+  }

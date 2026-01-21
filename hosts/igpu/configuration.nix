@@ -26,6 +26,10 @@
       nfsLocal.enable = true;
       fuse.enable = true;
     };
+    containers = {
+      enable = true;
+      autoUpdate.enable = true;
+    };
     ssh = {
       enable = true;
       secure = false;
@@ -49,11 +53,9 @@
     cpu.amd.updateMicrocode = true;
   };
 
-  virtualisation.docker.enable = true;
-
   # ADD ONLY HOST SPECIFIC GROUPS
   users.users.abl030 = {
-    extraGroups = ["docker" "video" "render"];
+    extraGroups = ["video" "render"];
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [

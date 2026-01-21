@@ -6,6 +6,8 @@ services:
   # ---------------------------------------------------------------
   music-network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: music_network_holder
     ports:
       - "8686:8686" # Lidarr
@@ -29,9 +31,9 @@ services:
       - PGID=100
       - TZ=Australia/Perth
     volumes:
-      - /mnt/docker/music/lidarr:/config
-      - /mnt/data/Media/Temp:/downloads
-      - /mnt/fuse/Media/Music_RW/Ali/:/music
+      - ${DATA_ROOT}/music/lidarr:/config
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Temp:/downloads
+      - ${FUSE_ROOT:-/mnt/fuse}/Media/Music_RW/Ali/:/music
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
@@ -40,6 +42,7 @@ services:
       timeout: 10s
       retries: 3
     labels:
+      - io.containers.autoupdate=registry
       - autoheal=true
     depends_on:
       - music-network-holder
@@ -49,13 +52,15 @@ services:
   # ---------------------------------------------------------------
   ombi:
     image: lscr.io/linuxserver/ombi:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: ombi
     environment:
       - PUID=99
       - PGID=100
       - TZ=Australia/Perth
     volumes:
-      - /mnt/docker/ombi/config:/config
+      - ${DATA_ROOT}/ombi/config:/config
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     depends_on:
@@ -65,7 +70,9 @@ services:
         condition: service_started
 
   ombi-db:
-    image: mariadb:10.11
+    image: docker.io/library/mariadb:10.11
+    labels:
+      - io.containers.autoupdate=registry
     container_name: ombi-db
     restart: unless-stopped
     environment:
@@ -73,7 +80,7 @@ services:
       MYSQL_USER: ${OMBI_DB_USER}
       MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
     volumes:
-      - /mnt/docker/ombi/db:/var/lib/mysql
+      - ${DATA_ROOT}/ombi/db:/var/lib/mysql
       - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
     network_mode: "service:music-network-holder"
     healthcheck:
@@ -89,7 +96,9 @@ services:
   # Filebrowser
   # ---------------------------------------------------------------
   filebrowser:
-    image: filebrowser/filebrowser:v2
+    image: docker.io/filebrowser/filebrowser:v2
+    labels:
+      - io.containers.autoupdate=registry
     container_name: music-filebrowser
     # Run as user 99 (nobody) to match host permissions
     user: "99:100"
@@ -102,9 +111,9 @@ services:
       - FB_ADDRESS=0.0.0.0
     volumes:
       # Mount the folder created by Nix (owned by 99:100) to /config
-      - /mnt/docker/music/filebrowser:/config
+      - ${DATA_ROOT}/music/filebrowser:/config
       # Mount music as Read-Only
-      - /mnt/fuse/Media/Music_RW:/srv:ro
+      - ${FUSE_ROOT:-/mnt/fuse}/Media/Music_RW:/srv:ro
       # Fix for timezone if needed
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
@@ -115,11 +124,13 @@ services:
   # Tailscale Sidecar
   # ---------------------------------------------------------------
   tailscale:
-    image: tailscale/tailscale:latest
+    image: docker.io/tailscale/tailscale:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: music-tailscale-sidecar
     network_mode: "service:music-network-holder"
     volumes:
-      - /mnt/docker/tailscale/music:/var/lib/tailscale
+      - ${DATA_ROOT}/tailscale/music:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
       - /etc/localtime:/etc/localtime:ro
     cap_add:
@@ -139,14 +150,16 @@ services:
   # ---------------------------------------------------------------
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: music-caddy
     network_mode: "service:music-network-holder"
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
     volumes:
       - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
-      - /mnt/docker/music/caddy/data:/data
-      - /mnt/docker/music/caddy/config:/config
+      - ${DATA_ROOT}/music/caddy/data:/data
+      - ${DATA_ROOT}/music/caddy/config:/config
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     depends_on:

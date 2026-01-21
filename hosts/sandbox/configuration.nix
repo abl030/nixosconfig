@@ -34,6 +34,11 @@
     };
     # Disable auto-updates - this is a controlled sandbox
     update.enable = false;
+    containers = {
+      enable = true;
+      dataRoot = "/home/abl030/podman-data";
+      autoUpdate.enable = false;
+    };
   };
 
   # Enable QEMU guest agent for Proxmox integration

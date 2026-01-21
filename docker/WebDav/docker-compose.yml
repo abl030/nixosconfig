@@ -2,13 +2,15 @@ version: "3.8"
 
 services:
   webdav:
-    image: ck98/webdav-nginx
+    image: docker.io/ck98/webdav-nginx
+    labels:
+      - io.containers.autoupdate=registry
     container_name: webdav
     ports:
       - "9090:80"
     volumes:
       # This is the mount point we will check
-      - /mnt/data/Life/Andy/Education/Zotero Library/:/var/webdav/public
+      - ${MEDIA_ROOT:-/mnt/data}/Life/Andy/Education/Zotero Library/:/var/webdav/public
     environment:
       WEBDAV_USERNAME: ${WEBDAV_USERNAME}
       WEBDAV_PASSWORD: ${WEBDAV_PASSWORD}

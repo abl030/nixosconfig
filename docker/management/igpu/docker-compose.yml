@@ -3,7 +3,9 @@ version: "3.8"
 services:
   autoheal:
     container_name: autoheal
-    image: willfarrell/autoheal:latest
+    image: docker.io/willfarrell/autoheal:latest
+    labels:
+      - io.containers.autoupdate=registry
     restart: unless-stopped
     environment:
       - TZ=Australia/Perth
@@ -16,25 +18,12 @@ services:
       - AUTOHEAL_STOP_TIMEOUT=10
     volumes:
       # REQUIRED: Mount the docker socket so autoheal can interact with docker daemon
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Hectic way that gemini wants us to inherit our timezone
-      - /etc/localtime:/etc/localtime:ro # <---- Add this line (read-only is good practice)
-    environment:
-      # TZ variable is not needed if mounting /etc/localtime
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      # - WATCHTOWER_REVIVE_STOPPED=true # Uncomment if you want stopped containers to start after update
-      - WATCHTOWER_SCHEDULE=0 0 3 * * * # Runs daily at 3:00 AM according to host time
-      - DOCKER_API_VERSION=1.44
-    restart: unless-stopped
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
 
   dozzle-agent:
-    image: amir20/dozzle:latest
+    image: docker.io/amir20/dozzle:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: dozzle-agent
     restart: unless-stopped
     # This is the crucial part that runs Dozzle in agent mode
@@ -47,7 +36,7 @@ services:
       - "7007:7007"
     volumes:
       # Mount the Docker socket (read-only is best practice for agents)
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock:ro
     # healthcheck:
     #   test: ["CMD", "/dozzle", "healthcheck"]
     #   interval: 30s

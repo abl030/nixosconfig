@@ -6,6 +6,8 @@ services:
   # ---------------------------------------------------------------
   jellyfin-network-holder:
     image: k8s.gcr.io/pause:3.9
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellyfin_network_holder
     ports:
       - "8096:8096" # Jellyfin HTTP
@@ -22,6 +24,8 @@ services:
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellyfin
     environment:
       - PUID=99
@@ -30,10 +34,10 @@ services:
       - TZ=Australia/Perth
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
-      - /mnt/docker/jellyfin/jellyfin:/config
-      - "/mnt/fuse/Media/TV_Shows:/data/tvshows"
-      - "/mnt/fuse/Media/Movies:/data/movies"
-      - "/mnt/fuse/Media/Music:/data/music"
+      - ${DATA_ROOT}/jellyfin/jellyfin:/config
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/TV_Shows:/data/tvshows"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Movies:/data/movies"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Music:/data/music"
     devices:
       - /dev/dri:/dev/dri
     restart: unless-stopped
@@ -46,11 +50,13 @@ services:
       - jellyfin-network-holder
 
   tailscale:
-    image: tailscale/tailscale:latest
+    image: docker.io/tailscale/tailscale:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellyfin-tailscale-sidecar
     network_mode: "service:jellyfin-network-holder"
     volumes:
-      - /mnt/docker/jellyfin/tailscale:/var/lib/tailscale
+      - ${DATA_ROOT}/jellyfin/tailscale:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - NET_ADMIN
@@ -66,6 +72,8 @@ services:
 
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellyfin-caddy
     network_mode: "service:jellyfin-network-holder"
     environment:
@@ -74,38 +82,60 @@ services:
       # ─── UPDATED ───
       - ${CADDY_FILE}:/etc/caddy/Caddyfile:ro
       # ───────────────
-      - /mnt/docker/jellyfin/caddy/data:/data
-      - /mnt/docker/jellyfin/caddy/config:/config
+      - ${DATA_ROOT}/jellyfin/caddy/data:/data
+      - ${DATA_ROOT}/jellyfin/caddy/config:/config
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     depends_on:
       - jellyfin-network-holder
 
   # autoscan:
+    labels:
+      - io.containers.autoupdate=registry
   #   image: ghcr.io/niniyas/autoscan:latest
+    labels:
+      - io.containers.autoupdate=registry
   #   container_name: jellyfin-autoscan
+    labels:
+      - io.containers.autoupdate=registry
   #   network_mode: "service:jellyfin-network-holder"
+    labels:
+      - io.containers.autoupdate=registry
   #   volumes:
-  #     - /mnt/docker/jellyfin/autoscan:/config
-  #     - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - io.containers.autoupdate=registry
+  #     - ${DATA_ROOT}/jellyfin/autoscan:/config
+    labels:
+      - io.containers.autoupdate=registry
+  #     - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
+    labels:
+      - io.containers.autoupdate=registry
   #   environment:
+    labels:
+      - io.containers.autoupdate=registry
   #     - PUID=99
   #     - PGID=100
   #     - UMASK=0000
   #     - TZ=Australia/Perth
   #   restart: unless-stopped
+    labels:
+      - io.containers.autoupdate=registry
   #   depends_on:
+    labels:
+      - io.containers.autoupdate=registry
   #     - jellyfin-network-holder
 
   watchstate:
     image: ghcr.io/arabcoders/watchstate:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: watchstate
     user: "99:100"
     network_mode: "service:jellyfin-network-holder"
     environment:
       - TZ=Australia/Perth
     volumes:
-      - /mnt/docker/jellyfin/watchstate:/config
+      - ${DATA_ROOT}/jellyfin/watchstate:/config
     restart: unless-stopped
     depends_on:
       - jellyfin-network-holder
@@ -114,14 +144,16 @@ services:
   # Jellystat Services
   # ---------------------------------------------------------------
   jellystat-db:
-    image: "postgres:15.2"
+    image: docker.io/library/postgres:15.2
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellystat-db
     restart: unless-stopped
     environment:
       - POSTGRES_USER=jellystat
       - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
     volumes:
-      - "/mnt/docker/jellyfin/jellystat/postgres-data:/var/lib/postgresql/data"
+      - "${DATA_ROOT}/jellyfin/jellystat/postgres-data:/var/lib/postgresql/data"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jellystat"]
       interval: 10s
@@ -132,7 +164,9 @@ services:
       - jellyfin-net
 
   jellystat:
-    image: "cyfershepard/jellystat:latest"
+    image: docker.io/cyfershepard/jellystat:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: jellystat
     restart: unless-stopped
     ports:
@@ -145,7 +179,7 @@ services:
       - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
       - TZ=Australia/Perth
     volumes:
-      - "/mnt/docker/jellyfin/jellystat/backup-data:/app/backend/backup-data"
+      - "${DATA_ROOT}/jellyfin/jellystat/backup-data:/app/backend/backup-data"
     depends_on:
       jellystat-db:
         condition: service_healthy
@@ -156,14 +190,16 @@ services:
   # inotify receiver (socat + tiny handler script) with startup logs + healthcheck
   # ---------------------------------------------------------------
   inotify-receiver:
-    image: alpine:3.20
+    image: docker.io/library/alpine:3.20
+    labels:
+      - io.containers.autoupdate=registry
     container_name: inotify-receiver
     network_mode: "service:jellyfin-network-holder"
     restart: unless-stopped
     volumes:
-      - "/mnt/fuse/Media/TV_Shows:/data/tv:rw"
-      - "/mnt/fuse/Media/Movies:/data/movies:rw"
-      - "/mnt/fuse/Media/Music:/data/music:rw"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/TV_Shows:/data/tv:rw"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Movies:/data/movies:rw"
+      - "${FUSE_ROOT:-/mnt/fuse}/Media/Music:/data/music:rw"
       # ─── UPDATED ───
       - ${INOTIFY_SCRIPT}:/usr/local/bin/inotify-recv.sh:ro
       # ───────────────

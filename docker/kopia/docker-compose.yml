@@ -1,7 +1,9 @@
 version: "3.7"
 services:
   kopia:
-    image: kopia/kopia:latest
+    image: docker.io/kopia/kopia:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: kopia
     container_name: kopiaphotos
     restart: always
@@ -24,14 +26,16 @@ services:
       KOPIA_PASSWORD: ${KOPIA_PASSWORD}
       USER: "abc"
     volumes:
-      - /mnt/docker/kopiaphotos/config:/app/config
-      - /mnt/docker/kopiaphotos/cache:/app/cache
-      - /mnt/docker/kopiaphotos/logs:/app/logs
-      - /mnt/docker/kopiaphotos/tmp:/tmp:shared
-      - /mnt/data/Life/Photos:/photos:ro
+      - ${DATA_ROOT}/kopiaphotos/config:/app/config
+      - ${DATA_ROOT}/kopiaphotos/cache:/app/cache
+      - ${DATA_ROOT}/kopiaphotos/logs:/app/logs
+      - ${DATA_ROOT}/kopiaphotos/tmp:/tmp:shared
+      - ${MEDIA_ROOT:-/mnt/data}/Life/Photos:/photos:ro
 
   kopiamum:
-    image: kopia/kopia:latest
+    image: docker.io/kopia/kopia:latest
+    labels:
+      - io.containers.autoupdate=registry
     hostname: kopia
     container_name: kopiamum
     restart: always
@@ -54,9 +58,9 @@ services:
       KOPIA_PASSWORD: ${KOPIA_PASSWORD}
       USER: "abc"
     volumes:
-      - /mnt/docker/kopiamum/config:/app/config
-      - /mnt/docker/kopiamum/cache:/app/cache
-      - /mnt/docker/kopiamum/logs:/app/logs
-      - /mnt/docker/kopiamum/tmp:/tmp:shared
-      - /mnt/data/:/data:ro
-      - /mnt/mum/:/mum
+      - ${DATA_ROOT}/kopiamum/config:/app/config
+      - ${DATA_ROOT}/kopiamum/cache:/app/cache
+      - ${DATA_ROOT}/kopiamum/logs:/app/logs
+      - ${DATA_ROOT}/kopiamum/tmp:/tmp:shared
+      - ${MEDIA_ROOT:-/mnt/data}/:/data:ro
+      - ${MUM_ROOT:-/mnt/mum}/:/mum

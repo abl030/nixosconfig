@@ -2,6 +2,8 @@
 services:
   syncthing:
     image: lscr.io/linuxserver/syncthing:latest
+    labels:
+      - io.containers.autoupdate=registry
     container_name: syncthing
     hostname: syncthing #optional
     environment:
@@ -9,8 +11,8 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /mnt/docker/syncthing/config:/config
-      - /path/to/data2:/data2
+      - ${DATA_ROOT}/syncthing/config:/config
+      - ${SYNC_DATA_ROOT:-/mnt/docker/syncthing/data}:/data2
     ports:
       - 8384:8384
       - 22000:22000/tcp

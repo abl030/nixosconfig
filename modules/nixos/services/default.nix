@@ -13,5 +13,6 @@
     ./nginx.nix
     ./gotify.nix
     ./framework
+    ./containers.nix
   ];
 }

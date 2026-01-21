@@ -1,44 +1,36 @@
-{config, ...}: {
-  systemd.services.plex-stack = {
-    description = "Plex Docker Compose Stack";
-    restartIfChanged = true;
-    reloadIfChanged = false;
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  stackName = "plex-stack";
 
-    requires = [
-      "docker.service"
-      "network-online.target"
-      "mnt-data.mount"
-      "fuse-mergerfs-movies.service"
-      "fuse-mergerfs-tv.service"
-      "fuse-mergerfs-music.service"
-    ];
-    after = [
-      "docker.service"
-      "network-online.target"
-      "mnt-data.mount"
-      "fuse-mergerfs-movies.service"
-      "fuse-mergerfs-tv.service"
-      "fuse-mergerfs-music.service"
-    ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-
-      # ─── ADDED ───
-      Environment = "COMPOSE_PROJECT_NAME=plex";
-      # ─────────────
-
-      ExecStart = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-      ExecStop = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} down";
-      ExecReload = "${config.virtualisation.docker.package}/bin/docker compose -f ${./docker-compose.yml} up -d --remove-orphans";
-
-      Restart = "on-failure";
-      RestartSec = "30s";
-      StandardOutput = "journal";
-      StandardError = "journal";
-    };
-
-    wantedBy = ["multi-user.target"];
+  composeFile = builtins.path {
+    path = ./docker-compose.yml;
+    name = "plex-docker-compose.yml";
   };
-}
+
+  encEnv = config.homelab.secrets.sopsFile "plex.env";
+  runEnv = "/run/user/%U/secrets/${stackName}.env";
+
+  podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
+  envFiles = [
+    {
+      sopsFile = encEnv;
+      runFile = runEnv;
+    }
+  ];
+
+  dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
+in
+  podman.mkService {
+    inherit stackName;
+    description = "Plex Podman Compose Stack";
+    projectName = "plex";
+    inherit composeFile;
+    inherit envFiles;
+    requiresMounts = ["/mnt/data" "/mnt/fuse"];
+    wants = dependsOn;
+    after = dependsOn;
+  }
