@@ -110,7 +110,7 @@
   }: {
     systemd.services.${stackName} = {
       inherit description;
-      restartIfChanged = false;
+      restartIfChanged = true;
       reloadIfChanged = false;
 
       unitConfig = mkMountRequirements requiresMounts;
