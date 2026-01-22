@@ -70,6 +70,7 @@
       EDITOR = "nvim";
       BROWSER = "firefox";
       TERMINAL = "kitty";
+      DOCKER_HOST = "unix:///run/user/1000/podman/podman.sock";
       # EDITOR = "emacs";
     };
 
