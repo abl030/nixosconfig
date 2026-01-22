@@ -1,1 +1,1 @@
-/nix/store/qz2rc2na5a2sq292aj74lil3xcdpn8zk-nixos-system-proxmox-vm-26.05.20260120.ed142ab
+/nix/store/ll3d6hydad5ndyybn7jzcvmnfj8xgcnx-nixos-system-proxmox-vm-26.05.20260120.ed142ab
