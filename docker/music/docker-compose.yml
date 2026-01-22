@@ -82,7 +82,8 @@ services:
       MYSQL_USER: ${OMBI_DB_USER}
       MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
     volumes:
-      - ${DATA_ROOT}/ombi/db:/var/lib/mysql
+      # :U for rootless uid namespace mapping (mariadb runs as internal uid)
+      - ${DATA_ROOT}/ombi/db:/var/lib/mysql:U
       - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
     network_mode: "service:music-network-holder"
     healthcheck:
