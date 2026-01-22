@@ -137,71 +137,75 @@ in {
     ];
 
     systemd = {
-      services.podman-system-service = {
-        description = "Rootless Podman API service";
-        serviceConfig = {
-          Type = "simple";
-          ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/podman";
-          ExecStart = podmanServiceScript;
-          Restart = "on-failure";
-          RestartSec = "10s";
-          User = user;
-          Environment = [
-            "HOME=${userHome}"
-            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
-          ];
+      services = {
+        podman-system-service = {
+          description = "Rootless Podman API service";
+          serviceConfig = {
+            Type = "simple";
+            ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/podman";
+            ExecStart = podmanServiceScript;
+            Restart = "on-failure";
+            RestartSec = "10s";
+            User = user;
+            Environment = [
+              "HOME=${userHome}"
+              "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+              "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+            ];
+          };
+          wantedBy = ["multi-user.target"];
         };
-        wantedBy = ["multi-user.target"];
-      };
 
-      services.podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
-        description = "Podman auto-update (rootless)";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = autoUpdateScript;
-          User = user;
-          Environment = [
-            "HOME=${userHome}"
-            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
-          ];
+        podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
+          description = "Podman auto-update (rootless)";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = autoUpdateScript;
+            User = user;
+            Environment = [
+              "HOME=${userHome}"
+              "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+              "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+            ];
+          };
         };
-      };
 
-      timers.podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
-        description = "Podman auto-update timer (rootless)";
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = cfg.autoUpdate.schedule;
-          Persistent = true;
-        };
-      };
-
-      services.podman-prune = lib.mkIf cfg.cleanup.enable {
-        description = "Podman prune (rootless) for stopped containers/pods";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = pkgs.writeShellScript "podman-prune" ''
-            set -euo pipefail
-            ${podmanBin} container prune -f --filter "until=${cfg.cleanup.maxAge}"
-            ${podmanBin} pod prune -f
-          '';
-          User = user;
-          Environment = [
-            "HOME=${userHome}"
-            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
-          ];
+        podman-rootless-prune = lib.mkIf cfg.cleanup.enable {
+          description = "Podman prune (rootless) for stopped containers/pods";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = pkgs.writeShellScript "podman-rootless-prune" ''
+              set -euo pipefail
+              ${podmanBin} container prune -f --filter "until=${cfg.cleanup.maxAge}"
+              ${podmanBin} pod prune -f
+            '';
+            User = user;
+            Environment = [
+              "HOME=${userHome}"
+              "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+              "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+            ];
+          };
         };
       };
 
-      timers.podman-prune = lib.mkIf cfg.cleanup.enable {
-        description = "Podman prune timer (rootless)";
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = cfg.cleanup.schedule;
-          Persistent = true;
+      timers = {
+        podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
+          description = "Podman auto-update timer (rootless)";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = cfg.autoUpdate.schedule;
+            Persistent = true;
+          };
+        };
+
+        podman-rootless-prune = lib.mkIf cfg.cleanup.enable {
+          description = "Podman prune timer (rootless)";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = cfg.cleanup.schedule;
+            Persistent = true;
+          };
         };
       };
     };
