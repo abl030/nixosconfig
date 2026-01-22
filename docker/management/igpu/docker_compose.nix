@@ -24,7 +24,10 @@
 
   dependsOn = ["network-online.target"];
 in
-  podman.mkService {
+  {
+    networking.firewall.allowedTCPPorts = [7007];
+  }
+  // podman.mkService {
     inherit stackName;
     description = "IGPU Management Podman Compose Stack";
     projectName = "igpu";

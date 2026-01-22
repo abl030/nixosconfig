@@ -5,10 +5,6 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../../docker/jellyfinn/docker-compose.nix
-    ../../docker/management/igpu/docker_compose.nix
-    ../../docker/plex/docker-compose.nix
-    ../../docker/tdarr/igp/docker-compose.nix
   ];
 
   boot = {
@@ -87,6 +83,7 @@
 
   # Ensure igpu-management starts on rebuild (prod-style).
   systemd.services.igpu-management-stack.restartIfChanged = lib.mkForce true;
+  systemd.services.igpu-management-stack.wantedBy = lib.mkForce ["multi-user.target"];
 
   # Temporary: allow passwordless nixos-rebuild for this clone.
   security.sudo.extraRules = [
