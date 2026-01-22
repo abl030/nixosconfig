@@ -27,8 +27,9 @@ services:
     image: lscr.io/linuxserver/lidarr:latest
     container_name: lidarr
     environment:
-      - PUID=99
-      - PGID=100
+      # Rootless podman: PUID=0 maps to host user
+      - PUID=0
+      - PGID=0
       - TZ=Australia/Perth
     volumes:
       - ${DATA_ROOT}/music/lidarr:/config
@@ -56,8 +57,9 @@ services:
       - io.containers.autoupdate=registry
     container_name: ombi
     environment:
-      - PUID=99
-      - PGID=100
+      # Rootless podman: PUID=0 maps to host user
+      - PUID=0
+      - PGID=0
       - TZ=Australia/Perth
     volumes:
       - ${DATA_ROOT}/ombi/config:/config
@@ -100,8 +102,8 @@ services:
     labels:
       - io.containers.autoupdate=registry
     container_name: music-filebrowser
-    # Run as user 99 (nobody) to match host permissions
-    user: "99:100"
+    # Rootless podman: user 0:0 maps to host user
+    user: "0:0"
     network_mode: "service:music-network-holder"
     environment:
       - FB_DATABASE=/config/filebrowser.db

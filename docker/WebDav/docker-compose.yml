@@ -14,8 +14,9 @@ services:
     environment:
       WEBDAV_USERNAME: ${WEBDAV_USERNAME}
       WEBDAV_PASSWORD: ${WEBDAV_PASSWORD}
-      PUID: 33
-      PGID: 33
+      # Rootless podman: PUID=0 maps to host user
+      PUID: 0
+      PGID: 0
       UMASK: "0000"
     restart: unless-stopped
     healthcheck:
