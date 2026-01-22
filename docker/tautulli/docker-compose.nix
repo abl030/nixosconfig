@@ -25,7 +25,6 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
   inherit (config.homelab.containers) dataRoot;
-  podmanBin = "${pkgs.podman}/bin/podman";
 in
   podman.mkService {
     inherit stackName;
@@ -35,7 +34,8 @@ in
     inherit envFiles;
     preStart = [
       "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tautulli"
-      ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 1000:1000 ${dataRoot}/tautulli''
+      # Use root chown for existing data (podman unshare fails on data owned by different UIDs)
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/tautulli"
     ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;

@@ -140,6 +140,9 @@ in {
       services = {
         podman-system-service = {
           description = "Rootless Podman API service";
+          # Wait for user@1000.service which creates /run/user/1000
+          after = ["user@${toString userUid}.service"];
+          requires = ["user@${toString userUid}.service"];
           serviceConfig = {
             Type = "simple";
             ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/podman";

@@ -174,6 +174,14 @@
 - Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
 - Jellystat requires a Jellyfin URL; set `JELLYFIN_URL=http://jellyfin:8096` when sharing the stack network.
 
+### Systemd Service & Mount Resilience
+- **podman-system-service must wait for user runtime dir**: The rootless podman socket service tries to create `/run/user/1000/podman`, but `/run/user/1000` is created by `user@1000.service`. Add `after = ["user@1000.service"]; requires = ["user@1000.service"];` to ensure the runtime dir exists before the service starts.
+- **RequiresMountsFor creates hard mount dependencies**: Using `requiresMounts = ["/mnt/mum"]` in the podman-compose library adds `RequiresMountsFor=/mnt/mum` which creates a hard dependency on the actual mount unit, not the automount. This causes the service to fail if the mount times out at boot.
+- **Use automount for optional/slow mounts**: For NFS mounts over Tailscale or other slow networks, depend on `mnt-xxx.automount` instead of `mnt-xxx.mount`. The automount triggers on access and retries automatically. Don't include such paths in `requiresMounts`.
+- **bindsTo for coordinated restarts**: Add `bindsTo = ["podman-system-service.service"]` to stack services so they restart when the podman service restarts. This ensures stacks recover if podman-system-service fails initially but succeeds on retry.
+- **StartLimitIntervalSec/Burst for retry tolerance**: Add `StartLimitIntervalSec = 300; StartLimitBurst = 5;` to unitConfig to allow 5 restart attempts within 5 minutes. This provides headroom for transient boot-time failures.
+- **Dependency failures don't trigger Restart=on-failure**: When a service fails due to `Dependency failed`, systemd doesn't retry it even with `Restart=on-failure`. The `bindsTo` directive solves this by restarting the service when its dependency restarts.
+
 ### Testing & Operations
 - If a rebuild is interrupted, `systemd-run` can leave `nixos-rebuild-switch-to-configuration` around; stop/reset it before rerunning.
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.

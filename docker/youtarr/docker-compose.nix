@@ -23,6 +23,7 @@
   ];
 
   dependsOn = ["network-online.target" "mnt-data.mount"];
+  inherit (config.homelab.containers) dataRoot;
 in
   podman.mkService {
     inherit stackName;
@@ -30,6 +31,11 @@ in
     projectName = "youtarr";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/youtarr/config ${dataRoot}/youtarr/images ${dataRoot}/youtarr/jobs ${dataRoot}/youtarr/database"
+      # Use root chown for existing data (podman unshare fails on data owned by different UIDs)
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/youtarr"
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
