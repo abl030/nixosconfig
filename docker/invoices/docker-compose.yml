@@ -159,7 +159,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ${DATA_ROOT}/invoices/postgres/data:/var/lib/postgresql/data
+      - ${DATA_ROOT}/invoices/postgres/data:/var/lib/postgresql/data:U
 
   # 8️⃣ Docspell Solr
   docspell-solr:
@@ -167,9 +167,10 @@ services:
     labels:
       - io.containers.autoupdate=registry
     container_name: docspell-solr
+    user: "0"
     restart: unless-stopped
     volumes:
-      - ${DATA_ROOT}/invoices/solr/data:/var/solr:U
+      - ${DATA_ROOT}/invoices/solr/data:/var/solr
     command:
       - bash
       - -c
@@ -242,7 +243,7 @@ services:
       POSTGRES_USER: ${FF_DB_USER}
       POSTGRES_PASSWORD: ${FF_DB_PASS}
     volumes:
-      - ${DATA_ROOT}/invoices/firefly/postgres/data:/var/lib/postgresql/data
+      - ${DATA_ROOT}/invoices/firefly/postgres/data:/var/lib/postgresql/data:U
 
   # 1️⃣1️⃣ Redis (optional)
   ff-redis:

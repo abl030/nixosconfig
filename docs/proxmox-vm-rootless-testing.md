@@ -8,9 +8,10 @@ Testing should be done on a **clone** of the production doc1 VM.
 ## Current Status (2026-01-22)
 
 - Clone is running with `/mnt/data` mounted read-only for safety.
-- Validated stacks on the doc1 clone: `tailscale-caddy`, `management`, `immich`, `paperless`, `mealie`.
-- Mealie required pgdata permissions fixes (`:U` on pgdata + preStart mkdir/chown).
-- Further stack testing paused due to registry rate limits.
+- Validated stacks on the doc1 clone: `tailscale-caddy`, `management`, `immich`, `paperless`, `mealie`, `kopia`, `atuin`, `audiobookshelf`, `domain-monitor`, `invoices`.
+- Mealie and Atuin required pgdata permissions fixes (`:U` on pgdata + preStart mkdir/chown).
+- Domain-monitor required DATA_ROOT env + build context fixes and preStart mkdir/chown; cron job verified.
+- Invoices required mount prep + solr permissions fix (run solr as user 0); docspell + firefly stack validated.
 
 ## Pre-Testing Checklist
 

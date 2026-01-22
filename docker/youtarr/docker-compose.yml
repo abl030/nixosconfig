@@ -48,4 +48,4 @@ services:
       - MYSQL_PASSWORD=youtarr
       - MYSQL_ROOT_PASSWORD=youtarr
     volumes:
-      - ${DATA_ROOT}/youtarr/database:/var/lib/mysql
+      - ${DATA_ROOT}/youtarr/database:/var/lib/mysql:U
