@@ -174,7 +174,7 @@ services:
     command:
       - bash
       - -c
-      - "precreate-core docspell; exec solr -f -Dsolr.modules=analysis-extras"
+      - "precreate-core docspell; exec solr -f -force -Dsolr.modules=analysis-extras"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # FIREFLY III (+ importer, cron, redis)

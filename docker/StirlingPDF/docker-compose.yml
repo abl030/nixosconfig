@@ -8,10 +8,11 @@ services:
       - "8083:8080"
     volumes:
       - ${DATA_ROOT}/StirlingPDF/trainingData:/usr/share/tessdata # Required for extra OCR languages
-      - ${DATA_ROOT}/StirlingPDF/extraConfigs:/configs
+      # App uses relative paths from /app workdir - mount accordingly
+      - ${DATA_ROOT}/StirlingPDF/extraConfigs:/app/configs
       - ${DATA_ROOT}/StirlingPDF/customFiles:/customFiles/
-      - ${DATA_ROOT}/StirlingPDF/logs:/logs/
-      - ${DATA_ROOT}/StirlingPDF/pipeline:/pipeline/
+      - ${DATA_ROOT}/StirlingPDF/logs:/app/logs/
+      - ${DATA_ROOT}/StirlingPDF/pipeline:/app/pipeline/
     environment:
       - DOCKER_ENABLE_SECURITY=false
       - LANGS=en_GB

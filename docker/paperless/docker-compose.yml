@@ -95,47 +95,39 @@ services:
       - io.containers.autoupdate=registry
     restart: unless-stopped
 
-  paperless-gpt:
-    image: docker.io/icereed/paperless-gpt:latest
-    labels:
-      - io.containers.autoupdate=registry
-    restart: unless-stopped
-    # env_file: .env <-- REMOVED (Handled by Nix/SOPS)
-    environment:
-      PAPERLESS_BASE_URL: "http://webserver:8000"
-      MANUAL_TAG: "paperless-gpt"
-      AUTO_TAG: "paperless-gpt-auto"
-
-      # LLM Configuration
-      LLM_PROVIDER: "ollama"
-      LLM_MODEL: "gemma3:12b"
-      OLLAMA_HOST: "http://192.168.1.27:11434"
-
-      # OCR Configuration
-      OCR_PROVIDER: "llm"
-      VISION_LLM_PROVIDER: "ollama"
-      VISION_LLM_MODEL: "minicpm-v"
-      OCR_PROCESS_MODE: "image"
-      PDF_SKIP_EXISTING_OCR: "false"
-
-      # Enhanced OCR Features
-      CREATE_LOCAL_HOCR: "false"
-      LOCAL_HOCR_PATH: "/app/hocr"
-      CREATE_LOCAL_PDF: "false"
-      LOCAL_PDF_PATH: "/app/pdf"
-      PDF_UPLOAD: "false"
-      PDF_REPLACE: "false"
-      PDF_COPY_METADATA: "true"
-      PDF_OCR_TAGGING: "true"
-      PDF_OCR_COMPLETE_TAG: "paperless-gpt-ocr-complete"
-
-      AUTO_OCR_TAG: "paperless-gpt-ocr-auto"
-      OCR_LIMIT_PAGES: "5"
-      LOG_LEVEL: "info"
-
-    volumes:
-      - ${DATA_ROOT}/paperlessgpt/prompts:/app/prompts
-    ports:
-      - "8081:8080"
-    depends_on:
-      - webserver
+  # paperless-gpt: disabled - requires PAPERLESS_API_TOKEN which is not configured
+  # paperless-gpt:
+  #   image: docker.io/icereed/paperless-gpt:latest
+  #   labels:
+  #     - io.containers.autoupdate=registry
+  #   restart: unless-stopped
+  #   environment:
+  #     PAPERLESS_BASE_URL: "http://webserver:8000"
+  #     MANUAL_TAG: "paperless-gpt"
+  #     AUTO_TAG: "paperless-gpt-auto"
+  #     LLM_PROVIDER: "ollama"
+  #     LLM_MODEL: "gemma3:12b"
+  #     OLLAMA_HOST: "http://192.168.1.27:11434"
+  #     OCR_PROVIDER: "llm"
+  #     VISION_LLM_PROVIDER: "ollama"
+  #     VISION_LLM_MODEL: "minicpm-v"
+  #     OCR_PROCESS_MODE: "image"
+  #     PDF_SKIP_EXISTING_OCR: "false"
+  #     CREATE_LOCAL_HOCR: "false"
+  #     LOCAL_HOCR_PATH: "/app/hocr"
+  #     CREATE_LOCAL_PDF: "false"
+  #     LOCAL_PDF_PATH: "/app/pdf"
+  #     PDF_UPLOAD: "false"
+  #     PDF_REPLACE: "false"
+  #     PDF_COPY_METADATA: "true"
+  #     PDF_OCR_TAGGING: "true"
+  #     PDF_OCR_COMPLETE_TAG: "paperless-gpt-ocr-complete"
+  #     AUTO_OCR_TAG: "paperless-gpt-ocr-auto"
+  #     OCR_LIMIT_PAGES: "5"
+  #     LOG_LEVEL: "info"
+  #   volumes:
+  #     - ${DATA_ROOT}/paperlessgpt/prompts:/app/prompts
+  #   ports:
+  #     - "8081:8080"
+  #   depends_on:
+  #     - webserver

@@ -113,10 +113,18 @@
       restartIfChanged = true;
       reloadIfChanged = false;
 
-      unitConfig = mkMountRequirements requiresMounts;
+      unitConfig =
+        mkMountRequirements requiresMounts
+        // {
+          # Allow retries after dependency failures - 5 attempts in 5 minutes
+          StartLimitIntervalSec = 300;
+          StartLimitBurst = 5;
+        };
       inherit requires;
       wants = wants ++ baseDepends;
       after = after ++ baseDepends;
+      # Restart this service when podman-system-service restarts
+      bindsTo = ["podman-system-service.service"];
 
       serviceConfig = {
         Type = "oneshot";

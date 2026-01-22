@@ -21,6 +21,7 @@ in
     projectName = "stirlingpdf";
     inherit composeFile;
     preStart = [
+      # Create all data dirs including logs (app writes to ./logs relative path which maps to /logs/ mount)
       "/run/current-system/sw/bin/mkdir -p ${dataRoot}/StirlingPDF/trainingData ${dataRoot}/StirlingPDF/extraConfigs ${dataRoot}/StirlingPDF/customFiles ${dataRoot}/StirlingPDF/logs ${dataRoot}/StirlingPDF/pipeline"
       "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/StirlingPDF"
     ];

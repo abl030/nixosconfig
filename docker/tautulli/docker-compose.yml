@@ -10,5 +10,8 @@ services:
       - ${DATA_ROOT}/tautulli/:/config
     environment:
       - TZ=Australia/Perth
+      # Rootless podman: PUID=0 maps to host user (uid 1000), avoids chown errors
+      - PUID=0
+      - PGID=0
     ports:
       - 8181:8181
