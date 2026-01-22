@@ -5,6 +5,8 @@
   ...
 }: let
   stackName = "invoices-stack";
+  inherit (config.homelab.containers) dataRoot;
+  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -35,6 +37,10 @@ in
     inherit composeFile;
     inherit envFiles;
     extraEnv = ["CADDY_FILE=${caddyFile}"];
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state"
+      "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state"
+    ];
     wants = dependsOn;
     after = dependsOn;
   }

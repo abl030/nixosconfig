@@ -5,6 +5,8 @@
   ...
 }: let
   stackName = "immich-stack";
+  inherit (config.homelab.containers) dataRoot;
+  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -41,6 +43,10 @@ in
     extraEnv = [
       "CADDY_FILE=${caddyFile}"
       "TAILSCALE_JSON=${tailscaleJson}"
+    ];
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/immich ${dataRoot}/tailscale/immich/caddy_data ${dataRoot}/tailscale/immich/caddy_config"
+      "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/tailscale/immich"
     ];
     wants = dependsOn;
     after = dependsOn;

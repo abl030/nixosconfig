@@ -5,6 +5,7 @@
   ...
 }: let
   stackName = "music-stack";
+  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -51,6 +52,8 @@
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/lidarr"
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/filebrowser"
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music"
+    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/caddy/data ${dataRoot}/music/caddy/config"
+    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/music"
 
     (pkgs.writeShellScript "generate-ombi-json" ''
       set -a
@@ -59,9 +62,10 @@
       ${gettextBin} < ${dbTemplate} > ${dataRoot}/ombi/config/database.json
     '')
 
-    ''${podmanBin} unshare chown -R 99:100 ${dataRoot}/ombi/config''
-    ''${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/lidarr''
-    ''${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/filebrowser''
+    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/ombi/config''
+    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/lidarr''
+    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/filebrowser''
+    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 0:0 ${dataRoot}/music/caddy ${dataRoot}/tailscale/music''
   ];
 
   dependsOn = [
