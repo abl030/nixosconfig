@@ -7,8 +7,8 @@ services:
     restart: always
     environment:
       - TZ=Australia/Perth # Correct TZ format
-      # - PUID=${PUID} # Ensure these are uncommented and set if needed for permissions
-      # - PGID=${PGID} # Ensure these are uncommented and set if needed for permissions
+      - PUID=0
+      - PGID=0
       - UMASK_SET=002
       - nodeName=IGPNode
       - serverIP=192.168.1.2
@@ -19,7 +19,7 @@ services:
       - ${DATA_ROOT}/tdarr/configs:/app/configs
       - ${DATA_ROOT}/tdarr/logs:/app/logs
       - ${MEDIA_ROOT:-/mnt/data}/Media:/mnt/media # Critical mount
-      - ${MEDIA_ROOT:-/mnt/data}/Media/Transcode Temp/:/temp # Assumes this is inside ${MEDIA_ROOT:-/mnt/data}/Media
+      - ${DATA_ROOT}/tdarr/temp:/temp
       # Consider relative path for temp if it's always inside the media mount:
       # - ${MEDIA_ROOT:-/mnt/data}/Media/Transcode Temp:/mnt/media/Transcode Temp
       # Or map it separately if it's truly independent:
