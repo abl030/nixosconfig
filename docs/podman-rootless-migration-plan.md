@@ -87,6 +87,7 @@
 - Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
 - Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure the podman system service is running and the socket responds (agent stacks will fail otherwise).
 - Rootless Podman requires `newuidmap/newgidmap` available in service PATH; include `/run/wrappers/bin`.
+- `restartIfChanged = false` prevents rebuilds from bouncing running stacks; new services still start on switch/boot via `wantedBy`, but config changes will not auto-restart existing stacks (manual restart required when you want changes applied).
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.
 - Docker Hub rate limits can block sandbox pulls; prod testing should authenticate or pre-pull.
 - Sandbox disk space can be tight for large images (e.g., Ollama); clean storage or use a larger test VM.

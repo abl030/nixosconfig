@@ -66,6 +66,28 @@
 
   services.qemuGuest.enable = true;
 
+  sops.age = {
+    keyFile = "/var/lib/sops-nix/key.txt";
+    sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
+  };
+  system = {
+    activationScripts.sopsAgeKey = {
+      deps = ["specialfs"];
+      text = ''
+        if [ ! -s /var/lib/sops-nix/key.txt ]; then
+          install -d -m 0700 /var/lib/sops-nix
+          ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/key.txt
+          chmod 600 /var/lib/sops-nix/key.txt
+        fi
+      '';
+    };
+    activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
+    stateVersion = "25.05";
+  };
+
+  # Ensure igpu-management starts on rebuild (prod-style).
+  systemd.services.igpu-management-stack.restartIfChanged = lib.mkForce true;
+
   # Temporary: allow passwordless nixos-rebuild for this clone.
   security.sudo.extraRules = [
     {
@@ -98,6 +120,4 @@
     "nfsvers=4.2"
     "ro"
   ];
-
-  system.stateVersion = "25.05";
 }

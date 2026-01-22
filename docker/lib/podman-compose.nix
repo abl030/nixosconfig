@@ -5,21 +5,53 @@
 }: let
   inherit (config.homelab) user userHome;
   inherit (config.homelab.containers) dataRoot;
+  userUid = let
+    uid = config.users.users.${user}.uid or null;
+  in
+    if uid == null
+    then 1000
+    else uid;
+  userGroup = config.users.users.${user}.group or "users";
+  runUserDir = "/run/user/${toString userUid}";
   podmanCompose = "${pkgs.podman-compose}/bin/podman-compose";
   sopsBin = "${pkgs.sops}/bin/sops";
   ageKey = "${userHome}/.config/sops/age/keys.txt";
+  sopsDecryptScript = pkgs.writeShellScript "podman-sops-decrypt" ''
+    set -euo pipefail
+    out="$1"
+    in="$2"
+    if [[ -f /var/lib/sops-nix/key.txt ]]; then
+      exec /run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt ${sopsBin} -d --output "$out" "$in"
+    fi
+    if [[ -f "${ageKey}" ]]; then
+      exec /run/current-system/sw/bin/env SOPS_AGE_KEY_FILE="${ageKey}" ${sopsBin} -d --output "$out" "$in"
+    fi
+    echo "No sops identity found (expected /var/lib/sops-nix/key.txt, ${ageKey}, or /etc/ssh/ssh_host_ed25519_key)" >&2
+    exit 1
+  '';
   baseDepends = lib.optionals config.homelab.containers.enable [
     "podman-system-service.service"
   ];
 
+  normalizeEnvFiles = envFiles:
+    map
+    (env:
+      env
+      // {
+        runFile = lib.replaceStrings ["/run/user/%U"] [runUserDir] env.runFile;
+      })
+    envFiles;
+
   mkEnvArgs = envFiles:
-    lib.concatStringsSep " " (map (env: "--env-file ${env.runFile}") envFiles);
+    lib.concatStringsSep " " (map (env: "--env-file ${env.runFile}") (normalizeEnvFiles envFiles));
 
   mkDecryptSteps = envFiles:
-    map (env: ''/run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=${ageKey} ${sopsBin} -d --output ${env.runFile} ${env.sopsFile}'') envFiles;
+    map
+    (env: ''${sopsDecryptScript} ${env.runFile} ${env.sopsFile}'')
+    (normalizeEnvFiles envFiles);
 
   mkRunEnvPaths = envFiles:
-    lib.concatStringsSep " " (map (env: env.runFile) envFiles);
+    lib.concatStringsSep " " (map (env: env.runFile) (normalizeEnvFiles envFiles));
 
   mkMountRequirements = requiresMounts: let
     merged = [dataRoot] ++ requiresMounts;
@@ -33,7 +65,7 @@
       if envFiles == []
       then []
       else [
-        "/run/current-system/sw/bin/mkdir -p /run/user/%U/secrets"
+        "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
       ];
     decrypt = mkDecryptSteps envFiles;
     chmod =
@@ -42,15 +74,22 @@
       else [
         "/run/current-system/sw/bin/chmod 600 ${mkRunEnvPaths envFiles}"
       ];
+    chown =
+      if envFiles == []
+      then []
+      else [
+        "/run/current-system/sw/bin/chown ${user}:${userGroup} ${mkRunEnvPaths envFiles}"
+      ];
   in
-    base ++ preStart ++ decrypt ++ chmod;
+    base ++ preStart ++ decrypt ++ chmod ++ chown;
 
   mkEnv = projectName: extraEnv:
     [
       "COMPOSE_PROJECT_NAME=${projectName}"
       "DATA_ROOT=${dataRoot}"
       "HOME=${userHome}"
-      "XDG_RUNTIME_DIR=/run/user/%U"
+      "XDG_RUNTIME_DIR=${runUserDir}"
+      "PATH=/run/current-system/sw/bin:/run/wrappers/bin"
     ]
     ++ extraEnv;
 
@@ -71,7 +110,7 @@
   }: {
     systemd.services.${stackName} = {
       inherit description;
-      restartIfChanged = true;
+      restartIfChanged = false;
       reloadIfChanged = false;
 
       unitConfig = mkMountRequirements requiresMounts;
@@ -83,6 +122,7 @@
         Type = "oneshot";
         RemainAfterExit = true;
         User = user;
+        PermissionsStartOnly = true;
         Environment = mkEnv projectName extraEnv;
 
         ExecStartPre = mkExecStartPre envFiles preStart;
