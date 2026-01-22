@@ -144,7 +144,7 @@ in {
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "igpu";
-    containerStacks = ["igpu-management" "tdarr-igp" "jellyfin"];
+    containerStacks = ["igpu-management" "tdarr-igp" "jellyfin" "plex"];
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
