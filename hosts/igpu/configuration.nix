@@ -66,5 +66,38 @@
 
   services.qemuGuest.enable = true;
 
+  # Temporary: allow passwordless nixos-rebuild for this clone.
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/journalctl";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
+  # Force /mnt/data read-only on this VM for safety.
+  fileSystems."/mnt/data".options = lib.mkForce [
+    "x-systemd.requires=network-online.target"
+    "x-systemd.after=network-online.target"
+    "_netdev"
+    "hard"
+    "bg"
+    "noatime"
+    "nfsvers=4.2"
+    "ro"
+  ];
+
   system.stateVersion = "25.05";
 }
