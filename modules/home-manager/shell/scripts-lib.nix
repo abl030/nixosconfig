@@ -589,30 +589,30 @@ in {
             fi
             echo ""
 
-            # Run statix
-            echo "🔍 Running Linting (statix)..."
-            if ! statix check .; then
-                echo "❌ Statix found issues"
-                failed=1
-            else
-                echo "✅ Statix passed"
-            fi
-            echo ""
+      # Run statix
+      echo "🔍 Running Linting (statix)..."
+      if ! statix check .; then
+          echo "❌ Statix found issues"
+          failed=1
+      else
+          echo "✅ Statix passed"
+      fi
+      echo ""
 
-            # Run flake check regardless of previous failures
-            echo "❄️  Running Flake Checks..."
-            if ! nix flake check --print-build-logs; then
-                echo "❌ Flake check failed."
-                failed=1
-            else
-                echo "✅ Flake check passed"
-            fi
-            echo ""
+      if [[ $failed -eq 1 ]]; then
+          echo "❌ Some checks failed. Please fix the issues above."
+          exit 1
+      fi
 
-            if [[ $failed -eq 1 ]]; then
-                echo "❌ Some checks failed. Please fix the issues above."
-                exit 1
-            fi
+      # Run flake check after linting passes
+      echo "❄️  Running Flake Checks..."
+      if ! nix flake check --print-build-logs; then
+          echo "❌ Flake check failed."
+          exit 1
+      else
+          echo "✅ Flake check passed"
+      fi
+      echo ""
 
             # Run drift detection (informational - doesn't fail the check)
             if $RUN_DRIFT; then
