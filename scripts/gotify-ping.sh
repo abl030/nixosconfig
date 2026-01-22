@@ -13,7 +13,13 @@ if [[ ! -r "$token_file" ]]; then
   exit 1
 fi
 
-token=$(cat "$token_file")
+raw_token=$(cat "$token_file")
+if [[ "$raw_token" == GOTIFY_TOKEN=* ]]; then
+  token="${raw_token#GOTIFY_TOKEN=}"
+else
+  token="$raw_token"
+fi
+token=$(printf '%s' "$token" | tr -d '\r\n')
 
 curl -fsS -X POST \
   -F "title=$title" \
