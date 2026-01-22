@@ -23,6 +23,7 @@
   ];
 
   dependsOn = ["network-online.target" "mnt-data.mount"];
+  inherit (config.homelab.containers) dataRoot;
 in
   podman.mkService {
     inherit stackName;
@@ -30,6 +31,10 @@ in
     projectName = "mealie";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/mealie/data ${dataRoot}/mealie/pgdata"
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/mealie"
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

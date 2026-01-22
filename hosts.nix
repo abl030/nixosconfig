@@ -95,26 +95,27 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
     authorizedKeys = masterKeys;
+    # Stacks disabled for testing - enable one by one
     containerStacks = [
       "management"
       "tailscale-caddy"
       "immich"
       "paperless"
       "mealie"
-      "kopia"
-      "atuin"
-      "audiobookshelf"
-      "domain-monitor"
-      "invoices"
-      "jdownloader2"
-      "music"
-      "netboot"
-      "smokeping"
-      "stirlingpdf"
-      "tautulli"
-      "uptime-kuma"
-      "webdav"
-      "youtarr"
+      # "kopia"
+      # "atuin"
+      # "audiobookshelf"
+      # "domain-monitor"
+      # "invoices"
+      # "jdownloader2"
+      # "music"
+      # "netboot"
+      # "smokeping"
+      # "stirlingpdf"
+      # "tautulli"
+      # "uptime-kuma"
+      # "webdav"
+      # "youtarr"
     ];
     proxmox = {
       vmid = 104;

@@ -11,6 +11,8 @@
 - Systemd user-level Podman socket (`podman-system-service`).
 - Podman auto-update service + timer.
 - Compose stacks run as the homelab user with `podman-compose`.
+- **Secrets per stack**: Each stack's `docker-compose.nix` imports its own secrets via `config.homelab.secrets.sopsFile`. Secrets are NOT defined in `configuration.nix` - they're self-contained in the stack module. This ensures secrets only exist when the stack is enabled.
+- **Stack enablement**: Stacks are enabled via `hosts.nix` `containerStacks` list, not via imports in `configuration.nix`. The `containers-stacks.nix` module maps stack names to their modules.
 
 ## Compose Conventions
 - Data mounts: replace `/mnt/docker/...` with `${DATA_ROOT}/...`.
@@ -54,6 +56,17 @@
 - 2026-01-22: Renamed `podman-prune` to `podman-rootless-prune` to avoid nixpkgs module conflict.
 - 2026-01-22: Plex stack enabled on igpu; fixed existing uid 99 data ownership with root chown.
 - 2026-01-22: Jellyfin stack validated working on igpu clone (GPU passthrough dependent on Proxmox host).
+- 2026-01-22: IGPU testing complete. Starting doc1 (proxmox-vm) clone testing.
+- 2026-01-22: Added `nfsLocal.readOnly` option to nfs-local.nix module; enabled on doc1 clone for safety testing.
+- 2026-01-22: Cleared `containerStacks` for doc1 - will enable stacks one by one.
+- 2026-01-22: Fixed tailscale-caddy preStart: existing root-owned data can't use `podman unshare chown`; switched to root `chown -R 1000:1000`.
+- 2026-01-22: Created `secrets/management.env` placeholder (copied from igpu-management.env).
+- 2026-01-22: Fixed immich postgres crash loop: added `:U` volume flag for uid namespace mapping inside container.
+- 2026-01-22: Doc1 stacks validated: tailscale-caddy, management, immich (all healthy).
+- 2026-01-22: Paperless prepared with preStart + `:U` postgres volume; next batch: paperless, mealie, kopia, atuin, audiobookshelf.
+- 2026-01-22: Doc1 paperless validated (rootless OK, all containers healthy).
+- 2026-01-22: Mealie failed initially due to postgres permissions; fixed with `:U` on pgdata and preStart mkdir+chown. Mealie validated healthy.
+- 2026-01-22: Hit registry rate limits during further stack testing; paused after mealie.
 
 ## Prod Testing Plan (igpu clone)
 1. Clone the `igpu` VM and apply the podman-rootless branch.
@@ -83,6 +96,47 @@
 8. Validate Dozzle UI/agent access to the rootless socket.
 9. Record any permissions issues on mounted volumes and adjust `:U` or ownership.
 
+## Doc1 Clone Checklist (proxmox-vm)
+1. ✅ Clone the `proxmox-vm` (doc1) VM and verify it boots clean.
+2. ✅ Apply the podman rootless branch and rebuild with zero stacks.
+3. ✅ Ensure podman system service is active and socket responds:
+   - `systemctl --user status podman-system-service`
+   - `curl --unix-socket /run/user/1000/podman/podman.sock http://localhost/_ping`
+4. ✅ Confirm mounts and storage:
+   - `/mnt/docker` (DATA_ROOT)
+   - `/mnt/data` (read-only for safety testing via `nfsLocal.readOnly`)
+   - `/mnt/fuse`, `/mnt/mum`, `/mnt/appdata` as applicable
+5. ✅ Validate sops identity and that secrets decrypt when stacks are enabled.
+6. Enable stacks one by one via `hosts.nix` `containerStacks`:
+   - [x] tailscale-caddy - fixed preStart to use root chown instead of podman unshare
+   - [x] management - added preStart for dozzle/gotify data dirs, created management.env placeholder
+   - [x] immich - fixed preStart, added `:U` to postgres volume for uid mapping
+   - [x] paperless - preStart + `:U` to postgres, validated healthy
+   - [x] mealie - fixed pgdata permissions (`:U` + preStart chown), validated healthy
+   - [ ] kopia
+   - [ ] atuin
+   - [ ] audiobookshelf
+   - [ ] domain-monitor
+   - [ ] invoices - needs preStart fix (uses podman unshare)
+   - [ ] jdownloader2
+   - [ ] music (needs PUID=0 update)
+   - [ ] netboot
+   - [ ] smokeping
+   - [ ] stirlingpdf
+   - [ ] tautulli
+   - [ ] uptime-kuma
+   - [ ] webdav
+   - [ ] youtarr
+7. For each stack: validate UI/health, check logs, verify auto-update labels.
+8. Record permission issues and fix with tmpfiles + preStart chown.
+
+### Doc1 Fixes Applied
+- `tailscale-caddy`: Changed `podman unshare chown` to root `chown -R 1000:1000` for existing data
+- `management`: Added preStart with mkdir + chown for dozzle/gotify dirs; created `secrets/management.env` placeholder
+- `immich`: Changed preStart to root chown; added `:U` flag to postgres volume for uid namespace mapping
+- `paperless`: Added preStart with mkdir + chown; added `:U` to postgres volume
+- `mealie`: Added `:U` to pgdata volume and preStart mkdir + chown for data/pgdata
+
 ## Learnings / Gotchas
 
 ### NixOS Module Integration
@@ -91,9 +145,11 @@
 
 ### Permissions & Ownership
 - Rootless volumes sometimes need `:U` (e.g., Solr) so the container can write.
+- **Postgres/databases require `:U`**: Database containers (postgres, mariadb) run as internal uid (e.g., 999) which maps to host uid 1999 in rootless. Without `:U`, the container can't access files chowned to host uid 1000. Add `:U` flag to database volume mounts.
 - Avoid `:U` on NFS/virtiofs mounts; it can fail with `operation not permitted` on rootless. Prefer preStart `mkdir` + `podman unshare chown`.
 - Use `podman unshare chown` for **new** rootless data dirs; run it as the service user (e.g., `runuser -u <user> -- podman unshare chown -R 0:0 ...`).
 - For **existing** data with different uid ownership (e.g., uid 99 from old Docker), use root `chown` in preStart instead of `podman unshare`. The preStart runs as root via `PermissionsStartOnly=true`.
+- **Existing root-owned dirs block podman unshare**: If a directory is owned by actual root (uid 0) with mode 0700, `podman unshare chown` fails because the user namespace maps root→1000, not 0. Use root chown in preStart instead.
 - Caddy needs write access to `/data` and `/config` for TLS storage. Pre-create and chown those host dirs.
 - LSIO images often assume `PUID/PGID`; in rootless, `PUID=0` maps to the real host user (uid 1000). This avoids permission errors for `/config`.
 

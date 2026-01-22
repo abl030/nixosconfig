@@ -5,6 +5,13 @@
 This document outlines the testing plan for migrating proxmox-vm (doc1) stacks to rootless Podman.
 Testing should be done on a **clone** of the production doc1 VM.
 
+## Current Status (2026-01-22)
+
+- Clone is running with `/mnt/data` mounted read-only for safety.
+- Validated stacks on the doc1 clone: `tailscale-caddy`, `management`, `immich`, `paperless`, `mealie`.
+- Mealie required pgdata permissions fixes (`:U` on pgdata + preStart mkdir/chown).
+- Further stack testing paused due to registry rate limits.
+
 ## Pre-Testing Checklist
 
 ### 1. Clone the VM
@@ -143,13 +150,9 @@ sops -d /home/abl030/nixosconfig/secrets/some-secret.env
 
 ## PUID/PGID Status
 
-All stacks have been updated to use PUID=0/PGID=0 for rootless compatibility:
-- mealie
-- jdownloader2
-- smokeping
-- webdav
-- youtarr
-- music (lidarr, ombi, filebrowser)
+Do not assume all stacks are updated. Verify per stack before enabling.
+- Updated/verified: mealie
+- Still needs attention: music (lidarr/ombi/filebrowser PUID updates)
 
 ## Known Issues from igpu Testing
 

@@ -17,7 +17,7 @@ services:
       - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
-      - ${DATA_ROOT}/paperless/pgdata:/var/lib/postgresql/data
+      - ${DATA_ROOT}/paperless/pgdata:/var/lib/postgresql/data:U
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: paperless

@@ -11,6 +11,7 @@ with lib; let
 in {
   options.homelab.mounts.nfsLocal = {
     enable = mkEnableOption "NFS mounts via local network to Unraid";
+    readOnly = mkEnableOption "mount /mnt/data read-only (safety for testing)";
   };
 
   config = mkIf cfg.enable {
@@ -26,15 +27,17 @@ in {
     fileSystems."/mnt/data" = {
       device = "192.168.1.2:/mnt/user/data/";
       fsType = "nfs";
-      options = [
-        "x-systemd.requires=network-online.target"
-        "x-systemd.after=network-online.target"
-        "_netdev"
-        "hard"
-        "bg"
-        "noatime"
-        "nfsvers=4.2"
-      ];
+      options =
+        [
+          "x-systemd.requires=network-online.target"
+          "x-systemd.after=network-online.target"
+          "_netdev"
+          "hard"
+          "bg"
+          "noatime"
+          "nfsvers=4.2"
+        ]
+        ++ lib.optional cfg.readOnly "ro";
     };
 
     fileSystems."/mnt/appdata" = {

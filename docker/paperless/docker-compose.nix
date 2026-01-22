@@ -22,6 +22,7 @@
     }
   ];
 
+  inherit (config.homelab.containers) dataRoot;
   dependsOn = ["network-online.target" "mnt-data.mount"];
 in
   podman.mkService {
@@ -30,6 +31,10 @@ in
     projectName = "paperless";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/paperless/pgdata ${dataRoot}/paperless/data ${dataRoot}/paperlessgpt/prompts"
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/paperless ${dataRoot}/paperlessgpt"
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
