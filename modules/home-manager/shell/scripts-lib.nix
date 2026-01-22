@@ -546,83 +546,103 @@ in {
   check = {
     runtimeInputs = [pkgs.alejandra pkgs.deadnix pkgs.statix pkgs.git pkgs.nix];
     text = ''
-      if [[ ! -f "flake.nix" ]]; then
-          echo "❌ No flake.nix found in current directory."
-          exit 1
-      fi
+            if [[ ! -f "flake.nix" ]]; then
+                echo "❌ No flake.nix found in current directory."
+                exit 1
+            fi
 
-      failed=0
+            failed=0
 
-      # Run format check
-      echo "🧹 Running Format Check (alejandra)..."
-      if ! alejandra --check --quiet . >/dev/null 2>&1; then
-          echo "❌ Formatting issues detected. Run 'nix fmt'."
-          alejandra --check . 2>&1 | grep -E "(Requires formatting:|Alert!)" || true
-          failed=1
-      else
-          echo "✅ Format check passed"
-      fi
-      echo ""
+            RUN_DRIFT=false
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --drift) RUN_DRIFT=true; shift ;;
+                    --help|-h)
+                        cat <<'EOF'
+      Usage: check [--drift]
+        --drift  run hash-based drift detection (slow)
+      EOF
+                        exit 0
+                        ;;
+                    *) echo "Unknown option: $1" >&2; exit 1 ;;
+                esac
+            done
 
-      # Run deadnix
-      echo "🔍 Running Linting (deadnix)..."
-      if ! deadnix --fail .; then
-          echo "❌ Deadnix found issues"
-          failed=1
-      else
-          echo "✅ Deadnix passed"
-      fi
-      echo ""
+            # Run format check
+            echo "🧹 Running Format Check (alejandra)..."
+            if ! alejandra --check --quiet . >/dev/null 2>&1; then
+                echo "❌ Formatting issues detected. Run 'nix fmt'."
+                alejandra --check . 2>&1 | grep -E "(Requires formatting:|Alert!)" || true
+                failed=1
+            else
+                echo "✅ Format check passed"
+            fi
+            echo ""
 
-      # Run statix
-      echo "🔍 Running Linting (statix)..."
-      if ! statix check .; then
-          echo "❌ Statix found issues"
-          failed=1
-      else
-          echo "✅ Statix passed"
-      fi
-      echo ""
+            # Run deadnix
+            echo "🔍 Running Linting (deadnix)..."
+            if ! deadnix --fail .; then
+                echo "❌ Deadnix found issues"
+                failed=1
+            else
+                echo "✅ Deadnix passed"
+            fi
+            echo ""
 
-      # Run flake check regardless of previous failures
-      echo "❄️  Running Flake Checks..."
-      if ! nix flake check --print-build-logs; then
-          echo "❌ Flake check failed."
-          failed=1
-      else
-          echo "✅ Flake check passed"
-      fi
-      echo ""
+            # Run statix
+            echo "🔍 Running Linting (statix)..."
+            if ! statix check .; then
+                echo "❌ Statix found issues"
+                failed=1
+            else
+                echo "✅ Statix passed"
+            fi
+            echo ""
 
-      if [[ $failed -eq 1 ]]; then
-          echo "❌ Some checks failed. Please fix the issues above."
-          exit 1
-      fi
+            # Run flake check regardless of previous failures
+            echo "❄️  Running Flake Checks..."
+            if ! nix flake check --print-build-logs; then
+                echo "❌ Flake check failed."
+                failed=1
+            else
+                echo "✅ Flake check passed"
+            fi
+            echo ""
 
-      # Run drift detection (informational - doesn't fail the check)
-      echo "📊 Running Drift Detection..."
-      if [[ -x "./scripts/hash-compare.sh" ]] && [[ -d "./hashes" ]]; then
-          # Capture output to parse it
-          drift_output=$(./scripts/hash-compare.sh --summary 2>&1) || true
-          echo "$drift_output"
+            if [[ $failed -eq 1 ]]; then
+                echo "❌ Some checks failed. Please fix the issues above."
+                exit 1
+            fi
 
-          # Extract counts from summary
-          if echo "$drift_output" | grep -q "Drifted: 0"; then
-              echo ""
-              echo "✅ No configuration drift detected."
-          else
-              drifted=$(echo "$drift_output" | grep "Drifted:" | grep -oE '[0-9]+' || echo "?")
-              echo ""
-              echo "📝 $drifted configuration(s) changed from baseline."
-              echo "   Review the drift above to verify changes are intentional."
-              echo "   Run './scripts/hash-compare.sh' for detailed nix-diff output."
-          fi
-      else
-          echo "⚠️  Drift detection not available (missing scripts or hashes)."
-      fi
-      echo ""
+            # Run drift detection (informational - doesn't fail the check)
+            if $RUN_DRIFT; then
+                echo "📊 Running Drift Detection..."
+                if [[ -x "./scripts/hash-compare.sh" ]] && [[ -d "./hashes" ]]; then
+                    # Capture output to parse it
+                    drift_output=$(./scripts/hash-compare.sh --summary 2>&1) || true
+                    echo "$drift_output"
 
-      echo "✅ All local checks passed. Ready to commit."
+                    # Extract counts from summary
+                    if echo "$drift_output" | grep -q "Drifted: 0"; then
+                        echo ""
+                        echo "✅ No configuration drift detected."
+                    else
+                        drifted=$(echo "$drift_output" | grep "Drifted:" | grep -oE '[0-9]+' || echo "?")
+                        echo ""
+                        echo "📝 $drifted configuration(s) changed from baseline."
+                        echo "   Review the drift above to verify changes are intentional."
+                        echo "   Run './scripts/hash-compare.sh' for detailed nix-diff output."
+                    fi
+                else
+                    echo "⚠️  Drift detection not available (missing scripts or hashes)."
+                fi
+                echo ""
+            else
+                echo "ℹ️  Drift detection skipped (use --drift to enable)."
+                echo ""
+            fi
+
+            echo "✅ All local checks passed. Ready to commit."
     '';
   };
 
