@@ -28,9 +28,9 @@ services:
       - io.containers.autoupdate=registry
     container_name: jellyfin
     environment:
-      - PUID=99
-      - PGID=100
-      - UMASK=0000
+      - PUID=0
+      - PGID=0
+      - UMASK=002
       - TZ=Australia/Perth
       - JELLYFIN_PublishedServerUrl=192.168.1.33
     volumes:
@@ -130,7 +130,7 @@ services:
     labels:
       - io.containers.autoupdate=registry
     container_name: watchstate
-    user: "99:100"
+    user: "0:0"
     network_mode: "service:jellyfin-network-holder"
     environment:
       - TZ=Australia/Perth
@@ -148,6 +148,7 @@ services:
     labels:
       - io.containers.autoupdate=registry
     container_name: jellystat-db
+    user: "0:0"
     restart: unless-stopped
     environment:
       - POSTGRES_USER=jellystat
@@ -168,6 +169,7 @@ services:
     labels:
       - io.containers.autoupdate=registry
     container_name: jellystat
+    user: "0:0"
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -176,6 +178,7 @@ services:
       - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASSWORD}
       - POSTGRES_IP=jellystat-db
       - POSTGRES_PORT=5432
+      - JELLYFIN_URL=http://jellyfin:8096
       - JWT_SECRET=${JELLYSTAT_JWT_SECRET}
       - TZ=Australia/Perth
     volumes:
