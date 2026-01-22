@@ -84,6 +84,11 @@ else
 fi
 
 # 6. Commit and Push
+if [ -n "${NO_COMMIT:-}" ]; then
+    log "⏭️  NO_COMMIT set; skipping commit and push."
+    exit 0
+fi
+
 DATE=$(date +%F)
 git add flake.lock
 git add nix/overlay.nix 2>/dev/null || true
