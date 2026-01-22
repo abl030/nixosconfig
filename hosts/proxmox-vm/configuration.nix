@@ -62,7 +62,7 @@
   # Base.nix enables NetworkManager.
   # We just set interface specifics here.
   networking.interfaces.ens18.mtu = 1400;
-  networking.firewall.enable = false;
+  networking.firewall.enable = true;
 
   # VM Specifics
   services.qemuGuest.enable = true;

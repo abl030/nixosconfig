@@ -38,4 +38,5 @@ in
     ];
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [8082 8050];
   }

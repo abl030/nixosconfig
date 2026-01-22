@@ -86,4 +86,5 @@ in
     inherit preStart;
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [8686 3579 8085];
   }

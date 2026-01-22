@@ -32,4 +32,5 @@ in
     inherit envFiles;
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [8084];
   }

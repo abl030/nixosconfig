@@ -37,4 +37,5 @@ in
     ];
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [3000];
   }
