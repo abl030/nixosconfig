@@ -51,6 +51,9 @@
 - 2026-01-22: Added `newuidmap/newgidmap` wrappers and PATH fixes for rootless systemd services.
 - 2026-01-22: Added placeholder SOPS envs for stacks without secrets (`igpu-management`, `plex`, `tdarr-igp`).
 - 2026-01-22: Enforced `/mnt/data` read-only on igpu clone to surface write assumptions.
+- 2026-01-22: Renamed `podman-prune` to `podman-rootless-prune` to avoid nixpkgs module conflict.
+- 2026-01-22: Plex stack enabled on igpu; fixed existing uid 99 data ownership with root chown.
+- 2026-01-22: Jellyfin stack validated working on igpu clone (GPU passthrough dependent on Proxmox host).
 
 ## Prod Testing Plan (igpu clone)
 1. Clone the `igpu` VM and apply the podman-rootless branch.
@@ -81,24 +84,67 @@
 9. Record any permissions issues on mounted volumes and adjust `:U` or ownership.
 
 ## Learnings / Gotchas
+
+### NixOS Module Integration
+- Avoid naming systemd services/timers that conflict with nixpkgs modules (e.g., `podman-prune` conflicts with upstream). Use unique names like `podman-rootless-prune`.
+- `nix flake check` uses lazy evaluation and won't catch module option conflicts. These only surface at build time when the specific option is evaluated.
+
+### Permissions & Ownership
 - Rootless volumes sometimes need `:U` (e.g., Solr) so the container can write.
-- `podman-compose` dependency handling is strict; missing healthchecks can block startup.
-- Tailscale containers in sandbox require a bypass for healthchecks; prod must use real auth.
-- Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
+- Avoid `:U` on NFS/virtiofs mounts; it can fail with `operation not permitted` on rootless. Prefer preStart `mkdir` + `podman unshare chown`.
+- Use `podman unshare chown` for **new** rootless data dirs; run it as the service user (e.g., `runuser -u <user> -- podman unshare chown -R 0:0 ...`).
+- For **existing** data with different uid ownership (e.g., uid 99 from old Docker), use root `chown` in preStart instead of `podman unshare`. The preStart runs as root via `PermissionsStartOnly=true`.
+- Caddy needs write access to `/data` and `/config` for TLS storage. Pre-create and chown those host dirs.
+- LSIO images often assume `PUID/PGID`; in rootless, `PUID=0` maps to the real host user (uid 1000). This avoids permission errors for `/config`.
+
+### Podman Runtime
 - Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure the podman system service is running and the socket responds (agent stacks will fail otherwise).
 - Rootless Podman requires `newuidmap/newgidmap` available in service PATH; include `/run/wrappers/bin`.
 - `restartIfChanged = true` restarts a stack when its systemd unit changes (compose/env changes will update the unit). Rebuilds that don't change the stack do not restart it.
-- Use `podman unshare chown` for rootless data dirs; run it as the service user (e.g., `runuser -u <user> -- podman unshare chown -R 0:0 ...`) to avoid “please use unshare with rootless”.
-- Avoid `:U` on NFS/virtiofs mounts; it can fail with `operation not permitted` on rootless. Prefer preStart `mkdir` + `podman unshare chown`.
-- Caddy needs write access to `/data` and `/config` for TLS storage. Pre-create and chown those host dirs to `0:0` via `podman unshare`.
-- LSIO images often assume `PUID/PGID`; in rootless, `PUID=0` maps to the real host user (uid 1000). This avoids permission errors for `/config`.
-- Jellystat requires a Jellyfin URL; set `JELLYFIN_URL=http://jellyfin:8096` when sharing the stack network.
+
+### Compose & Containers
+- `podman-compose` dependency handling is strict; missing healthchecks can block startup.
+- Tailscale containers in sandbox require a bypass for healthchecks; prod must use real auth.
 - Tailscale sidecars run fine rootless with `/dev/net/tun` + `NET_ADMIN`; iptables v6 warnings are expected on minimal kernels.
+- Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
+- Jellystat requires a Jellyfin URL; set `JELLYFIN_URL=http://jellyfin:8096` when sharing the stack network.
+
+### Testing & Operations
 - If a rebuild is interrupted, `systemd-run` can leave `nixos-rebuild-switch-to-configuration` around; stop/reset it before rerunning.
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.
 - Docker Hub rate limits can block sandbox pulls; prod testing should authenticate or pre-pull.
 - Sandbox disk space can be tight for large images (e.g., Ollama); clean storage or use a larger test VM.
 - Always prune before stack testing in sandbox to avoid overlay storage bloat.
+
+## Stack Status (Rootless Readiness)
+
+### Validated on igpu clone
+- **jellyfin** - PUID=0, tmpfiles + preStart with chown
+- **plex** - PUID=0, tmpfiles + preStart with root chown (existing uid 99 data)
+- **tdarr-igp** - PUID=0, tmpfiles + preStart
+- **igpu-management** - No persistent data (autoheal + dozzle-agent only)
+
+### Need PUID/PGID update before enabling
+- **music** - lidarr/ombi use PUID=99, filebrowser uses user: "99:100" → change to PUID=0
+- **nicotine** - PUID=99 → change to PUID=0
+
+### Likely OK (PUID=1000 maps to host user)
+- **smokeping** - PUID=1000
+- **syncthing** - PUID=1000
+
+### Not yet audited
+All other stacks in `docker/` - check when enabling:
+1. Add tmpfiles rules for data directories
+2. Add preStart with mkdir + chown (root chown for existing data, podman unshare for new)
+3. Update PUID/PGID to 0 for LSIO images
+
+## Known Issues
+
+### Dozzle agent not showing all containers
+- **Symptom**: Dozzle UI shows some stacks (jellyfin, tdarr, igpu-management) but not others (plex), despite all containers being visible via `podman ps` and the socket API.
+- **Verified**: Socket returns all containers correctly; labels are identical between visible and invisible stacks.
+- **Workaround**: Use lazydocker for now.
+- **TODO**: Investigate Dozzle + rootless podman compatibility. Check Dozzle GitHub issues. May need agent restart after new stacks, or there's a container discovery bug.
 
 ## Wishlist
 - Virtiofs-backed `/mnt/docker` from Proxmox host (separate storage from runtime).
