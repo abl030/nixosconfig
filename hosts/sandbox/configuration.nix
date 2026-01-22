@@ -73,6 +73,9 @@
       ${pkgs.iptables}/bin/iptables -I OUTPUT -o "$PRIMARY_IFACE" -d 172.16.0.0/12 -j REJECT --reject-with icmp-net-unreachable 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -I OUTPUT -o "$PRIMARY_IFACE" -d 192.168.0.0/16 -j REJECT --reject-with icmp-net-unreachable 2>/dev/null || true
 
+      # Allow Gotify (internal notification server)
+      ${pkgs.iptables}/bin/iptables -I OUTPUT -o "$PRIMARY_IFACE" -d 192.168.1.6 -p tcp --dport 443 -j ACCEPT 2>/dev/null || true
+
       # Allow established/related connections (needed for responses)
       ${pkgs.iptables}/bin/iptables -I OUTPUT -o "$PRIMARY_IFACE" -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
 
@@ -92,6 +95,7 @@
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -d 10.0.0.0/8 -j REJECT --reject-with icmp-net-unreachable 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -d 172.16.0.0/12 -j REJECT --reject-with icmp-net-unreachable 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -d 192.168.0.0/16 -j REJECT --reject-with icmp-net-unreachable 2>/dev/null || true
+      ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -d 192.168.1.6 -p tcp --dport 443 -j ACCEPT 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -p udp --dport 53 -j ACCEPT 2>/dev/null || true
       ${pkgs.iptables}/bin/iptables -D OUTPUT -o "$PRIMARY_IFACE" -p tcp --dport 53 -j ACCEPT 2>/dev/null || true

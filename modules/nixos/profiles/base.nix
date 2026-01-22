@@ -98,6 +98,10 @@
       # "internal" is safe for everything inside the LAN
       profile = lib.mkDefault "internal";
     };
+
+    gotify = {
+      enable = lib.mkDefault true;
+    };
   };
 
   # ---------------------------------------------------------
