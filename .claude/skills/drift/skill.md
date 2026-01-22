@@ -13,6 +13,9 @@ Verify refactors produce no unintended changes by comparing derivation hashes.
 # Compare all hosts against baseline (shows nix-diff for changes)
 ./scripts/hash-compare.sh
 
+# Run the full quality gate including drift detection (slow)
+check --drift
+
 # Quick summary without detailed diffs
 ./scripts/hash-compare.sh --summary
 

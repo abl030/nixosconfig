@@ -95,10 +95,14 @@ The `check` command runs a comprehensive quality gate that includes:
 2. Linting (deadnix for unused code)
 3. Linting (statix for style issues)
 4. Flake checks (builds all configurations)
+5. Drift detection (only when invoked with `check --drift`)
 
 ```bash
 # Run all checks before committing
 check
+
+# Include drift detection only when needed (slow)
+check --drift
 
 # If formatting issues are found
 nix fmt
@@ -115,6 +119,9 @@ NixOS's deterministic builds mean identical `system.build.toplevel` hashes guara
 ```bash
 # Capture current hashes as baseline (done automatically by nightly CI)
 ./scripts/hash-capture.sh
+
+# Run full quality gate + drift detection (slow)
+check --drift
 
 # After making changes, compare against baseline
 ./scripts/hash-compare.sh

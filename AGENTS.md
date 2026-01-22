@@ -31,7 +31,7 @@ Respect stabilization rules for all new edits:
 - `nix fmt`: format all Nix files with Alejandra (write in place).
 - `nix run .#fmt-nix -- --check`: list files that would change without writing.
 - `nix run .#lint-nix`: run deadnix + statix across the repo.
-- `check`: full quality gate (format check, deadnix, statix, `nix flake check`).
+- `check`: full quality gate (format check, deadnix, statix, `nix flake check`). Drift detection runs only with `check --drift`.
 - `nix flake check`: build and validate all configurations.
 - `nixos-rebuild switch --flake .#<hostname>`: deploy locally.
 - `nixos-rebuild switch --flake .#<hostname> --target-host <hostname>`: deploy remote.
@@ -46,7 +46,7 @@ Respect stabilization rules for all new edits:
 ## Testing Guidelines
 
 - There is no separate unit test suite; validation is via `nix flake check`.
-- Use `check` before committing; it fails fast on formatting or lint issues.
+- Use `check` before committing; it fails fast on formatting or lint issues. Use `check --drift` when you need drift detection.
 - If adding scripts, ensure shellcheck warnings are addressed or justified.
 
 ## Commit & Pull Request Guidelines
