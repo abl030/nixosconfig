@@ -6,7 +6,13 @@
 }: let
   cfg = config.homelab.containers;
   inherit (config.homelab) user userHome;
-  userUid = config.users.users.${user}.uid or 1000;
+  # UID may be dynamically assigned; fall back to 1000 if unset/null.
+  userUid = let
+    uid = config.users.users.${user}.uid or null;
+  in
+    if uid == null
+    then 1000
+    else uid;
   podmanBin = "${pkgs.podman}/bin/podman";
   autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
     set -euo pipefail
@@ -14,7 +20,7 @@
   '';
   podmanServiceScript = pkgs.writeShellScript "podman-system-service" ''
     set -euo pipefail
-    exec ${podmanBin} system service --time=0 unix:///run/user/$(id -u)/podman/podman.sock
+    exec ${podmanBin} system service --time=0 "unix://$XDG_RUNTIME_DIR/podman/podman.sock"
   '';
   storageConf = pkgs.writeTextFile {
     name = "containers-storage.conf";
@@ -57,6 +63,20 @@ in {
     };
 
     security.unprivilegedUsernsClone = true;
+    security.wrappers = {
+      newuidmap = {
+        source = "${pkgs.shadow}/bin/newuidmap";
+        owner = "root";
+        group = "root";
+        setuid = true;
+      };
+      newgidmap = {
+        source = "${pkgs.shadow}/bin/newgidmap";
+        owner = "root";
+        group = "root";
+        setuid = true;
+      };
+    };
 
     users.users.${user} = {
       linger = true;
@@ -79,13 +99,15 @@ in {
       podman-compose
       buildah
       skopeo
+      shadow
       fuse-overlayfs
       slirp4netns
       netavark
       aardvark-dns
     ]);
 
-    environment.etc."containers/storage.conf".source = storageConf;
+    # Override upstream containers.nix storage.conf to ensure rootless graphroot/runroot.
+    environment.etc."containers/storage.conf".source = lib.mkForce storageConf;
 
     systemd.tmpfiles.rules = lib.mkAfter [
       "d ${cfg.dataRoot} 0750 ${user} ${user} -"
@@ -97,13 +119,15 @@ in {
         description = "Rootless Podman API service";
         serviceConfig = {
           Type = "simple";
+          ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/podman";
           ExecStart = podmanServiceScript;
           Restart = "on-failure";
           RestartSec = "10s";
           User = user;
           Environment = [
             "HOME=${userHome}"
-            "XDG_RUNTIME_DIR=/run/user/%U"
+            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
           ];
         };
         wantedBy = ["multi-user.target"];
@@ -117,7 +141,8 @@ in {
           User = user;
           Environment = [
             "HOME=${userHome}"
-            "XDG_RUNTIME_DIR=/run/user/%U"
+            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
           ];
         };
       };

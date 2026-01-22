@@ -48,6 +48,9 @@
 - 2026-01-21: Added Immich DB healthcheck for podman-compose dependency handling.
 - 2026-01-21: Resolved Docspell Solr rootless permissions with `:U` volume.
 - 2026-01-21: Podman storage configured to use `${DATA_ROOT}/containers` (rootless graphroot).
+- 2026-01-22: Added `newuidmap/newgidmap` wrappers and PATH fixes for rootless systemd services.
+- 2026-01-22: Added placeholder SOPS envs for stacks without secrets (`igpu-management`, `plex`, `tdarr-igp`).
+- 2026-01-22: Enforced `/mnt/data` read-only on igpu clone to surface write assumptions.
 
 ## Prod Testing Plan (igpu clone)
 1. Clone the `igpu` VM and apply the podman-rootless branch.
@@ -68,9 +71,10 @@
    - `curl --unix-socket /run/user/1000/podman/podman.sock http://localhost/_ping`
 4. Confirm mounts and storage:
    - `/mnt/docker` (future virtiofs target)
-   - `/mnt/data` (NFS from Unraid)
+   - `/mnt/data` (NFS from Unraid; optionally read-only for safety testing)
    - `/mnt/fuse`, `/mnt/mum`, `/mnt/user`, `/mnt/paperless`, `/mnt/nicotine-plus` as applicable
 5. Validate secrets (sops identity, decrypted envs) before starting stacks.
+   - Ensure placeholder envs exist for stacks without secrets (igpu-management, plex, tdarr-igp).
 6. Start stacks one-by-one; after each, validate UI/health endpoints and logs.
 7. Verify auto-update labels are present and timer is active.
 8. Validate Dozzle UI/agent access to the rootless socket.
@@ -82,6 +86,7 @@
 - Tailscale containers in sandbox require a bypass for healthchecks; prod must use real auth.
 - Caddyfile paths must be provided via `CADDY_FILE` env (test harness defaults to stack-local files).
 - Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure the podman system service is running and the socket responds (agent stacks will fail otherwise).
+- Rootless Podman requires `newuidmap/newgidmap` available in service PATH; include `/run/wrappers/bin`.
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.
 - Docker Hub rate limits can block sandbox pulls; prod testing should authenticate or pre-pull.
 - Sandbox disk space can be tight for large images (e.g., Ollama); clean storage or use a larger test VM.
