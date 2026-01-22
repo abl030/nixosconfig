@@ -5,6 +5,9 @@
   ...
 }: let
   stackName = "plex-stack";
+  inherit (config.homelab.containers) dataRoot;
+  inherit (config.homelab) user;
+  userGroup = config.users.users.${user}.group or "users";
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -24,12 +27,21 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
 in
-  podman.mkService {
+  {
+    systemd.tmpfiles.rules = lib.mkAfter [
+      "d ${dataRoot}/plex 0750 ${user} ${userGroup} -"
+    ];
+  }
+  // podman.mkService {
     inherit stackName;
     description = "Plex Podman Compose Stack";
     projectName = "plex";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/plex"
+      "/run/current-system/sw/bin/chown -R ${user}:${userGroup} ${dataRoot}/plex"
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;

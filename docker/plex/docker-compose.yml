@@ -37,9 +37,9 @@ services:
     # Use the network stack of the holder container
     network_mode: "service:plex-network-holder"
     environment:
-      # Use the same PUID/PGID as your Jellyfin setup for consistency
-      - PUID=99
-      - PGID=100
+      # Rootless podman: PUID=0 maps to host user (uid 1000)
+      - PUID=0
+      - PGID=0
       - TZ=Australia/Perth
       # Keeps Plex at the latest version managed by linuxserver.io
       - VERSION=docker
