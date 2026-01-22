@@ -62,10 +62,10 @@
       ${gettextBin} < ${dbTemplate} > ${dataRoot}/ombi/config/database.json
     '')
 
-    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/ombi/config''
-    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/lidarr''
-    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 99:100 ${dataRoot}/music/filebrowser''
-    ''/run/current-system/sw/bin/runuser -u ${user} -- ${podmanBin} unshare chown -R 0:0 ${dataRoot}/music/caddy ${dataRoot}/tailscale/music''
+    # Use root chown for existing data (podman unshare fails on data owned by different UIDs)
+    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/ombi"
+    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/music"
+    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/tailscale/music"
   ];
 
   dependsOn = [

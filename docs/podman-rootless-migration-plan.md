@@ -123,28 +123,35 @@
    - [x] atuin - fixed pgdata permissions (`:U` + preStart chown), validated healthy
    - [x] audiobookshelf - validated healthy
    - [x] domain-monitor - fixed build context + DATA_ROOT + env perms, validated healthy + cron ok
-   - [x] invoices - fixed mount prep + solr permissions, validated healthy
-   - [ ] jdownloader2
-   - [ ] music (needs PUID=0 update)
-   - [ ] netboot
-   - [ ] smokeping
-   - [ ] stirlingpdf
-   - [ ] tautulli
-   - [ ] uptime-kuma
-   - [ ] webdav
-   - [ ] youtarr
-7. For each stack: validate UI/health, check logs, verify auto-update labels.
-8. Record permission issues and fix with tmpfiles + preStart chown.
+   - [x] invoices - fixed mount prep + solr permissions (--force flag), validated healthy
+   - [x] jdownloader2 - created placeholder secrets, added preStart mkdir/chown
+   - [x] music - fixed preStart to use root chown, added `:U` to mariadb volume, validated healthy (7 containers)
+   - [x] netboot - created placeholder secrets, added preStart mkdir/chown
+   - [x] smokeping - validated healthy
+   - [x] stirlingpdf - fixed volume mounts to /app/ workdir (configs, logs, pipeline)
+   - [x] tautulli - fixed preStart to use root chown, added PUID/PGID=0
+   - [x] uptime-kuma - validated healthy
+   - [x] webdav - validated healthy
+   - [x] youtarr - added preStart with mkdir + root chown for database dir
+7. ✅ All 19 stacks validated (57 containers running)
+8. ✅ Permission issues fixed with preStart root chown
 
 ### Doc1 Fixes Applied
 - `tailscale-caddy`: Changed `podman unshare chown` to root `chown -R 1000:1000` for existing data
 - `management`: Added preStart with mkdir + chown for dozzle/gotify dirs; created `secrets/management.env` placeholder
 - `immich`: Changed preStart to root chown; added `:U` flag to postgres volume for uid namespace mapping
-- `paperless`: Added preStart with mkdir + chown; added `:U` to postgres volume
+- `paperless`: Added preStart with mkdir + chown; added `:U` to postgres volume; commented out paperless-gpt
 - `mealie`: Added `:U` to pgdata volume and preStart mkdir + chown for data/pgdata
 - `atuin`: Added `:U` to pgdata volume and preStart mkdir + chown for config/database
-- `domain-monitor`: Added DATA_ROOT + PATH env, copy compose/build files to /tmp, preStart mkdir/chown for data, fixed env perms, and set PermissionsStartOnly
-- `invoices`: Added preStart mkdir/chown for all mounts, added `:U` on postgres volumes, and set solr to run as user 0 to avoid rootless chown failures
+- `domain-monitor`: Added DATA_ROOT + PATH env, copy compose/build files to /tmp, preStart mkdir/chown for data, fixed env perms, added bindsTo + StartLimit for resilience
+- `invoices`: Added preStart mkdir/chown for all mounts, added `:U` on postgres volumes, added `--force` to solr command
+- `stirlingpdf`: Changed volume mounts from `/configs`, `/logs/`, `/pipeline/` to `/app/configs`, `/app/logs/`, `/app/pipeline/` (app uses relative paths)
+- `tautulli`: Changed preStart to use root chown instead of podman unshare; added PUID=0/PGID=0
+- `youtarr`: Added preStart with mkdir + root chown for data dirs
+- `kopia`: Added preStart with mkdir + root chown; changed to use mnt-mum.automount (not .mount) to avoid hard dependency
+- `jdownloader2`: Created placeholder secrets; added preStart mkdir/chown
+- `music`: Changed preStart to use root chown; added `:U` to mariadb volume for ombi-db
+- `netboot`: Created placeholder secrets; added preStart mkdir/chown
 
 ## Learnings / Gotchas
 
