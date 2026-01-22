@@ -25,6 +25,7 @@
     containers = {
       enable = true;
       autoUpdate.enable = true;
+      cleanup.enable = true;
     };
     ssh = {
       enable = true;

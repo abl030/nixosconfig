@@ -88,6 +88,13 @@
 - Rootless Podman socket lives at `XDG_RUNTIME_DIR/podman/podman.sock`; ensure the podman system service is running and the socket responds (agent stacks will fail otherwise).
 - Rootless Podman requires `newuidmap/newgidmap` available in service PATH; include `/run/wrappers/bin`.
 - `restartIfChanged = true` restarts a stack when its systemd unit changes (compose/env changes will update the unit). Rebuilds that don't change the stack do not restart it.
+- Use `podman unshare chown` for rootless data dirs; run it as the service user (e.g., `runuser -u <user> -- podman unshare chown -R 0:0 ...`) to avoid “please use unshare with rootless”.
+- Avoid `:U` on NFS/virtiofs mounts; it can fail with `operation not permitted` on rootless. Prefer preStart `mkdir` + `podman unshare chown`.
+- Caddy needs write access to `/data` and `/config` for TLS storage. Pre-create and chown those host dirs to `0:0` via `podman unshare`.
+- LSIO images often assume `PUID/PGID`; in rootless, `PUID=0` maps to the real host user (uid 1000). This avoids permission errors for `/config`.
+- Jellystat requires a Jellyfin URL; set `JELLYFIN_URL=http://jellyfin:8096` when sharing the stack network.
+- Tailscale sidecars run fine rootless with `/dev/net/tun` + `NET_ADMIN`; iptables v6 warnings are expected on minimal kernels.
+- If a rebuild is interrupted, `systemd-run` can leave `nixos-rebuild-switch-to-configuration` around; stop/reset it before rerunning.
 - Netboot TFTP on privileged port needs an override (`TFTP_PORT`) for rootless tests.
 - Docker Hub rate limits can block sandbox pulls; prod testing should authenticate or pre-pull.
 - Sandbox disk space can be tight for large images (e.g., Ollama); clean storage or use a larger test VM.

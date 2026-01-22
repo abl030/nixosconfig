@@ -53,6 +53,22 @@ in {
         description = "Systemd OnCalendar schedule for podman auto-update.";
       };
     };
+
+    cleanup = {
+      enable = lib.mkEnableOption "Prune stopped rootless podman containers/pods";
+
+      schedule = lib.mkOption {
+        type = lib.types.str;
+        default = "weekly";
+        description = "Systemd OnCalendar schedule for podman prune.";
+      };
+
+      maxAge = lib.mkOption {
+        type = lib.types.str;
+        default = "168h";
+        description = "Only prune stopped containers older than this duration (podman filter until=...).";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -158,6 +174,33 @@ in {
         wantedBy = ["timers.target"];
         timerConfig = {
           OnCalendar = cfg.autoUpdate.schedule;
+          Persistent = true;
+        };
+      };
+
+      services.podman-prune = lib.mkIf cfg.cleanup.enable {
+        description = "Podman prune (rootless) for stopped containers/pods";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = pkgs.writeShellScript "podman-prune" ''
+            set -euo pipefail
+            ${podmanBin} container prune -f --filter "until=${cfg.cleanup.maxAge}"
+            ${podmanBin} pod prune -f
+          '';
+          User = user;
+          Environment = [
+            "HOME=${userHome}"
+            "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+            "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+          ];
+        };
+      };
+
+      timers.podman-prune = lib.mkIf cfg.cleanup.enable {
+        description = "Podman prune timer (rootless)";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = cfg.cleanup.schedule;
           Persistent = true;
         };
       };
