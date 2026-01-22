@@ -18,8 +18,9 @@ services:
       ALLOW_SIGNUP: "false"
       ALLOW_GUEST_ACCESS: "true"
       DEFAULT_GROUP: "home"
-      PUID: 1000
-      PGID: 1000
+      # Rootless podman: PUID=0 maps to host user
+      PUID: 0
+      PGID: 0
       TZ: Australia/Perth
       BASE_URL: https://cooking.ablz.au
       # Database Settings

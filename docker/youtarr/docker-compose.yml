@@ -12,9 +12,9 @@ services:
       - "3087:3011"
     environment:
       - TZ=Australia/Perth
-      # Permissions for Media/YouTube write access
-      - YOUTARR_UID=99
-      - YOUTARR_GID=100
+      # Rootless podman: UID=0 maps to host user
+      - YOUTARR_UID=0
+      - YOUTARR_GID=0
       # Internal path configuration (Must match the volume mount target)
       - YOUTUBE_OUTPUT_DIR=/usr/src/app/data
       # Database Connection (Variables populated via SOPS .env)

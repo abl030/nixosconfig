@@ -18,7 +18,7 @@ services:
     environment:
       # Sets the timezone for the container
       - TZ=Australia/Perth
-      # Sets user and group IDs to manage file permissions, adjust if necessary
-      - USER_ID=99
-      - GROUP_ID=100
+      # Rootless podman: USER_ID=0 maps to host user
+      - USER_ID=0
+      - GROUP_ID=0
       - UMASK=0002

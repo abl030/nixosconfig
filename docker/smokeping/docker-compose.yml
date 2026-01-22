@@ -7,8 +7,9 @@ services:
     container_name: smokeping
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      # Rootless podman: PUID=0 maps to host user
+      - PUID=0
+      - PGID=0
       - TZ=Australia/Perth
     volumes:
       - ${DATA_ROOT}/smokeping/config:/config
