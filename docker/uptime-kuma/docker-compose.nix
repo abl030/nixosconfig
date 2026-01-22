@@ -23,6 +23,7 @@
   ];
 
   dependsOn = ["network-online.target"];
+  inherit (config.homelab.containers) dataRoot;
 in
   podman.mkService {
     inherit stackName;
@@ -30,6 +31,10 @@ in
     projectName = "uptime-kuma";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/uptime-kuma"
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/uptime-kuma"
+    ];
     wants = dependsOn;
     after = dependsOn;
   }

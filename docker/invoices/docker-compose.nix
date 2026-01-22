@@ -38,8 +38,8 @@ in
     inherit envFiles;
     extraEnv = ["CADDY_FILE=${caddyFile}"];
     preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state"
-      "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state"
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state ${dataRoot}/invoices/postgres/data ${dataRoot}/invoices/solr/data ${dataRoot}/invoices/docspell/inbox ${dataRoot}/invoices/firefly/postgres/data ${dataRoot}/invoices/firefly/app_uploads"
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/invoices/caddy_data ${dataRoot}/invoices/caddy_config ${dataRoot}/invoices/ts-state ${dataRoot}/invoices/postgres ${dataRoot}/invoices/solr ${dataRoot}/invoices/docspell ${dataRoot}/invoices/firefly"
     ];
     wants = dependsOn;
     after = dependsOn;

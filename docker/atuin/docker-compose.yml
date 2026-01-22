@@ -25,7 +25,7 @@ services:
       - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
-      - "${DATA_ROOT}/atuin/database:/var/lib/postgresql/data/"
+      - "${DATA_ROOT}/atuin/database:/var/lib/postgresql/data/:U"
     environment:
       POSTGRES_USER: ${ATUIN_DB_USERNAME}
       POSTGRES_PASSWORD: ${ATUIN_DB_PASSWORD}

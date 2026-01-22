@@ -67,6 +67,12 @@
 - 2026-01-22: Doc1 paperless validated (rootless OK, all containers healthy).
 - 2026-01-22: Mealie failed initially due to postgres permissions; fixed with `:U` on pgdata and preStart mkdir+chown. Mealie validated healthy.
 - 2026-01-22: Hit registry rate limits during further stack testing; paused after mealie.
+- 2026-01-22: Doc1 kopia validated (rootless OK, both instances healthy).
+- 2026-01-22: Atuin failed initially due to postgres permissions; fixed with `:U` on pgdata and preStart mkdir+chown. Atuin validated healthy.
+- 2026-01-22: Audiobookshelf validated healthy.
+- 2026-01-22: Domain-monitor failed initially (env perms, missing DATA_ROOT, build context). Fixed by copying compose to /tmp build dir, adding DATA_ROOT, PATH, preStart mkdir/chown, and chowning env. Domain-monitor validated healthy and cron job runs.
+- 2026-01-22: Invoices initially failed due to missing data dirs and solr ownership. Fixed preStart mkdir/chown for all mounts, added `:U` to postgres volumes, and ran solr as user 0. Invoices validated healthy (docspell + firefly + caddy running).
+- 2026-02-22: Started work on tautulli, stirlingpdg and youtarr. Currently in an unknown state, needs testing
 
 ## Prod Testing Plan (igpu clone)
 1. Clone the `igpu` VM and apply the podman-rootless branch.
@@ -113,11 +119,11 @@
    - [x] immich - fixed preStart, added `:U` to postgres volume for uid mapping
    - [x] paperless - preStart + `:U` to postgres, validated healthy
    - [x] mealie - fixed pgdata permissions (`:U` + preStart chown), validated healthy
-   - [ ] kopia
-   - [ ] atuin
-   - [ ] audiobookshelf
-   - [ ] domain-monitor
-   - [ ] invoices - needs preStart fix (uses podman unshare)
+   - [x] kopia - validated healthy
+   - [x] atuin - fixed pgdata permissions (`:U` + preStart chown), validated healthy
+   - [x] audiobookshelf - validated healthy
+   - [x] domain-monitor - fixed build context + DATA_ROOT + env perms, validated healthy + cron ok
+   - [x] invoices - fixed mount prep + solr permissions, validated healthy
    - [ ] jdownloader2
    - [ ] music (needs PUID=0 update)
    - [ ] netboot
@@ -136,6 +142,9 @@
 - `immich`: Changed preStart to root chown; added `:U` flag to postgres volume for uid namespace mapping
 - `paperless`: Added preStart with mkdir + chown; added `:U` to postgres volume
 - `mealie`: Added `:U` to pgdata volume and preStart mkdir + chown for data/pgdata
+- `atuin`: Added `:U` to pgdata volume and preStart mkdir + chown for config/database
+- `domain-monitor`: Added DATA_ROOT + PATH env, copy compose/build files to /tmp, preStart mkdir/chown for data, fixed env perms, and set PermissionsStartOnly
+- `invoices`: Added preStart mkdir/chown for all mounts, added `:U` on postgres volumes, and set solr to run as user 0 to avoid rootless chown failures
 
 ## Learnings / Gotchas
 
