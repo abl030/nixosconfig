@@ -5,32 +5,14 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../../docker/tailscale/caddy/docker-compose.nix
-    ../../docker/immich/docker-compose.nix
-    ../../docker/management/docker-compose.nix
-    ../../docker/netboot/docker-compose.nix
-    ../../docker/audiobookshelf/docker-compose.nix
-    ../../docker/kopia/docker-compose.nix
-    ../../docker/paperless/docker-compose.nix
-    ../../docker/WebDav/docker-compose.nix
-    ../../docker/atuin/docker-compose.nix
-    ../../docker/StirlingPDF/docker-compose.nix
-    ../../docker/mealie/docker-compose.nix
-    ../../docker/jdownloader2/docker-compose.nix
-    ../../docker/smokeping/docker-compose.nix
-    ../../docker/tautulli/docker-compose.nix
-    ../../docker/invoices/docker-compose.nix
-    ../../docker/domain-monitor/docker-compose.nix
-    ../../docker/uptime-kuma/docker-compose.nix
-    ../../docker/youtarr/docker-compose.nix
-    ../../docker/music/docker-compose.nix
-
     ../../modules/nixos/services/podcast.nix
+    # Stacks managed via hosts.nix containerStacks
   ];
 
   homelab = {
     mounts = {
       nfsLocal.enable = true;
+      nfsLocal.readOnly = true; # Safety during podman testing
       external.enable = true;
       fuse.enable = true;
     };
@@ -108,6 +90,27 @@
     device = "/dev/disk/by-label/BOOT";
     fsType = "vfat";
   };
+
+  # Temporary: allow passwordless nixos-rebuild for testing
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/journalctl";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 
   system.stateVersion = "24.05";
 }

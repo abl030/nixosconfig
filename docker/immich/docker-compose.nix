@@ -6,7 +6,6 @@
 }: let
   stackName = "immich-stack";
   inherit (config.homelab.containers) dataRoot;
-  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -45,8 +44,9 @@ in
       "TAILSCALE_JSON=${tailscaleJson}"
     ];
     preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/immich ${dataRoot}/tailscale/immich/caddy_data ${dataRoot}/tailscale/immich/caddy_config"
-      "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/tailscale/immich"
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/immich ${dataRoot}/tailscale/immich/caddy_data ${dataRoot}/tailscale/immich/caddy_config ${dataRoot}/AI/immich ${dataRoot}/immichPG"
+      # Use root chown for existing data (postgres was uid 999 under Docker)
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/tailscale/immich ${dataRoot}/AI/immich ${dataRoot}/immichPG"
     ];
     wants = dependsOn;
     after = dependsOn;

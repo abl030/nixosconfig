@@ -22,6 +22,7 @@
     }
   ];
 
+  inherit (config.homelab.containers) dataRoot;
   dependsOn = ["network-online.target"];
 in
   podman.mkService {
@@ -30,6 +31,11 @@ in
     projectName = "management";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/dozzle/data ${dataRoot}/gotify/data"
+      # Use root chown for existing data
+      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/dozzle/data ${dataRoot}/gotify/data"
+    ];
     wants = dependsOn;
     after = dependsOn;
   }
