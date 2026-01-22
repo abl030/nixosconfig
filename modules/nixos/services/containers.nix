@@ -94,20 +94,26 @@ in {
       ];
     };
 
-    environment.systemPackages = lib.mkOrder 1600 (with pkgs; [
-      podman
-      podman-compose
-      buildah
-      skopeo
-      shadow
-      fuse-overlayfs
-      slirp4netns
-      netavark
-      aardvark-dns
-    ]);
+    environment = {
+      systemPackages = lib.mkOrder 1600 (with pkgs; [
+        podman
+        podman-compose
+        buildah
+        skopeo
+        shadow
+        fuse-overlayfs
+        slirp4netns
+        netavark
+        aardvark-dns
+      ]);
 
-    # Override upstream containers.nix storage.conf to ensure rootless graphroot/runroot.
-    environment.etc."containers/storage.conf".source = lib.mkForce storageConf;
+      # Override upstream containers.nix storage.conf to ensure rootless graphroot/runroot.
+      etc."containers/storage.conf".source = lib.mkForce storageConf;
+
+      sessionVariables = {
+        DOCKER_HOST = lib.mkDefault "unix:///run/user/${toString userUid}/podman/podman.sock";
+      };
+    };
 
     systemd.tmpfiles.rules = lib.mkAfter [
       "d ${cfg.dataRoot} 0750 ${user} ${user} -"
