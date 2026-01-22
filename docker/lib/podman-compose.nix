@@ -107,7 +107,10 @@
     requires ? [],
     restart ? "on-failure",
     restartSec ? "30s",
+    firewallPorts ? [],
   }: {
+    networking.firewall.allowedTCPPorts = firewallPorts;
+
     systemd.services.${stackName} = {
       inherit description;
       restartIfChanged = true;
