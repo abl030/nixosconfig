@@ -55,6 +55,10 @@ Respect stabilization rules for all new edits:
 - If a change is operational or host-specific, mention the host, module, or subsystem in the subject.
 - PRs should describe impact, commands run (`check`, `nix flake check`), and any deployment notes.
 
+## Gotify Notifications
+
+- Before asking the user for input, always send a Gotify ping and include a brief summary of what is needed.
+
 ## Security & Secrets
 
 - Secrets live under `secrets/` and are managed with sops-nix; do not commit plaintext.

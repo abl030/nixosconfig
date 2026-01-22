@@ -149,6 +149,10 @@ If `hash-compare.sh` shows drift:
 
 Baselines are automatically updated by the nightly `rolling_flake_update.sh` after successful builds.
 
+## Gotify Notifications
+
+Before asking the user for input, always send a Gotify ping and include a brief summary of what is needed.
+
 ## Claude Code Integration
 
 ### Recommended: mcp-nixos
