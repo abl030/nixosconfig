@@ -5,6 +5,9 @@
   ...
 }: let
   stackName = "tdarr-igp-stack";
+  inherit (config.homelab.containers) dataRoot;
+  inherit (config.homelab) user;
+  userGroup = config.users.users.${user}.group or "users";
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -24,12 +27,23 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
 in
-  podman.mkService {
+  {
+    systemd.tmpfiles.rules = lib.mkAfter [
+      "d ${dataRoot}/tdarr 0750 ${user} ${userGroup} -"
+      "d ${dataRoot}/tdarr/configs 0750 ${user} ${userGroup} -"
+      "d ${dataRoot}/tdarr/logs 0750 ${user} ${userGroup} -"
+      "d ${dataRoot}/tdarr/temp 0750 ${user} ${userGroup} -"
+    ];
+  }
+  // podman.mkService {
     inherit stackName;
     description = "Tdarr (IGP) Podman Compose Stack";
     projectName = "tdarr-igp";
     inherit composeFile;
     inherit envFiles;
+    preStart = [
+      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tdarr/configs ${dataRoot}/tdarr/logs ${dataRoot}/tdarr/temp"
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;
