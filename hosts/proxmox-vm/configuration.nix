@@ -34,7 +34,6 @@
 
     containers = {
       enable = true;
-      autoUpdate.enable = true;
     };
 
     cache = {

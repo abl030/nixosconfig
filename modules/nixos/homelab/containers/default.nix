@@ -45,7 +45,11 @@ in {
     };
 
     autoUpdate = {
-      enable = lib.mkEnableOption "Enable Podman auto-update via systemd user timer";
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable Podman auto-update via systemd user timer";
+      };
 
       schedule = lib.mkOption {
         type = lib.types.str;
@@ -55,7 +59,11 @@ in {
     };
 
     cleanup = {
-      enable = lib.mkEnableOption "Prune stopped rootless podman containers/pods";
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Prune stopped rootless podman containers/pods";
+      };
 
       schedule = lib.mkOption {
         type = lib.types.str;
