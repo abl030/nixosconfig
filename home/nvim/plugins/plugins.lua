@@ -98,7 +98,28 @@ local plugins = {
 	{
 		"MeanderingProgrammer/markdown.nvim",
 		main = "render-markdown",
-		opts = {},
+		opts = {
+			-- Disable code language injection to avoid treesitter query directive errors
+			-- The 'set-lang-from-info-string' directive is not supported in current treesitter
+			code = {
+				enabled = true,
+				sign = true,
+				style = "normal",
+				position = "left",
+				width = "full",
+				left_pad = 0,
+				right_pad = 0,
+				min_width = 0,
+				border = "thin",
+				above = "▄",
+				below = "▀",
+				highlight = "RenderMarkdownCode",
+				highlight_inline = "RenderMarkdownCodeInline",
+				-- Disable language injection which uses the problematic directive
+				language_pad = 0,
+				disable_background = { "diff" },
+			},
+		},
 		name = "render-markdown", -- Only needed if you have another plugin named markdown.nvim
 		-- dependencies = { "nvim-treesitter/nvim-treesitter", "echasnovski/mini.nvim" }, -- if you use the mini.nvim suite
 		-- dependencies = { 'nvim-treesitter/nvim-treesitter', 'echasnovski/mini.icons' }, -- if you use standalone mini plugins

@@ -67,7 +67,8 @@ in {
     ".config/nvim/lua/plugins/plugins2.lua".source = "${nvimSrc}/plugins/plugins.lua";
     #Add in our treesitters config
     ".config/nvim/lua/plugins/treesitter.lua".source = "${nvimSrc}/plugins/treesitter.lua";
-    ".config/nvim/lua/nvim-treesitter/configs.lua".source = "${nvimSrc}/nvim-treesitter/configs.lua";
+    # NOTE: Removed the nvim-treesitter/configs.lua shim as it was causing circular dependency
+    # The actual configs.lua exists in nvim-treesitter and doesn't need to be overridden
     #Add in our conform config
     ".config/nvim/lua/plugins/conform.lua".source = "${nvimSrc}/plugins/conform.lua";
     # This is our main option file. This is also now aliased to "edit nvim"
