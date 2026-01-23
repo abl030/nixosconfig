@@ -18,6 +18,8 @@
     name = "jellyfin-Caddyfile";
   };
 
+  inotifyScript = pkgs.writeScript "inotify-recv.sh" (builtins.readFile ./inotify-recv.sh);
+
   encEnv = config.homelab.secrets.sopsFile "jellyfin.env";
   runEnv = "/run/user/%U/secrets/${stackName}.env";
 
@@ -51,7 +53,10 @@ in
     projectName = "jellyfin";
     inherit composeFile;
     inherit envFiles;
-    extraEnv = ["CADDY_FILE=${caddyFile}"];
+    extraEnv = [
+      "CADDY_FILE=${caddyFile}"
+      "INOTIFY_SCRIPT=${inotifyScript}" # <--- Add this line
+    ];
     preStart = [
       "/run/current-system/sw/bin/mkdir -p ${dataRoot}/jellyfin/jellyfin ${dataRoot}/jellyfin/tailscale ${dataRoot}/jellyfin/caddy/data ${dataRoot}/jellyfin/caddy/config ${dataRoot}/jellyfin/watchstate ${dataRoot}/jellyfin/jellystat/postgres-data ${dataRoot}/jellyfin/jellystat/backup-data"
       "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/jellyfin"
