@@ -60,4 +60,5 @@ in
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8096];
+    firewallUDPPorts = [9999];
   }
