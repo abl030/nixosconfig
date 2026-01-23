@@ -204,7 +204,7 @@ services:
       - "${FUSE_ROOT:-/mnt/fuse}/Media/Movies:/data/movies:rw"
       - "${FUSE_ROOT:-/mnt/fuse}/Media/Music:/data/music:rw"
       # ─── UPDATED ───
-      - ${INOTIFY_SCRIPT}:/usr/local/bin/inotify-recv.sh:ro
+      - "${INOTIFY_SCRIPT}:/usr/local/bin/inotify-recv.sh:ro" # Ensure quotes and curly braces
       # ───────────────
     environment:
       - HEALTH_INTERVAL=30
