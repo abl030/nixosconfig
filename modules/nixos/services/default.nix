@@ -13,7 +13,5 @@
     ./nginx.nix
     ./gotify.nix
     ./framework
-    ./containers.nix
-    ./containers-stacks.nix
   ];
 }

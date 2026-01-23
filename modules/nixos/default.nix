@@ -8,5 +8,6 @@
     ./autoupdate
     ./services
     ./shell
+    ./homelab
   ];
 }
