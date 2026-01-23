@@ -445,6 +445,7 @@ in
 
 - **Avoid naming conflicts:** Don't name systemd services/timers that conflict with nixpkgs modules (e.g., `podman-prune` conflicts with upstream). Use unique names like `podman-rootless-prune`.
 - **`nix flake check` limitations:** Uses lazy evaluation and won't catch module option conflicts. These only surface at build time when the specific option is evaluated.
+- **Shallow merge (`//`) overwrites nested attrs:** The `//` operator does shallow merge. If you write `{networking.firewall.allowedTCPPorts = [7007];} // podman.mkService {...}`, the `mkService` result (which also sets `allowedTCPPorts = []`) **overwrites** your ports. Use `firewallPorts` parameter or `lib.mkMerge` instead.
 
 ### Permissions & Ownership
 
@@ -549,12 +550,32 @@ dependsOn = ["mnt-data.automount"];  # Not .mount
 sudo iptables -L -n | grep <port>
 ```
 
+**Check kernel logs for refused connections:**
+```bash
+journalctl -k --no-pager -n 30 | grep -i "refused"
+```
+
 **Ensure ports are declared in docker-compose.nix:**
 ```nix
 podman.mkService {
   # ...
   firewallPorts = [8080 8443];
 }
+```
+
+**For IP-filtered firewall rules**, use `lib.mkMerge` to combine `mkService` with custom firewall rules (don't use `//` - it causes shallow merge issues):
+```nix
+lib.mkMerge [
+  (podman.mkService {
+    inherit stackName;
+    # ... other params, but NOT firewallPorts
+  })
+  {
+    networking.firewall.extraCommands = ''
+      iptables -A nixos-fw -p tcp -s 192.168.1.29 --dport 7007 -j nixos-fw-accept
+    '';
+  }
+]
 ```
 
 **Verify firewall is enabled:**
