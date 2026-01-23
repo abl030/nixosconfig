@@ -24,7 +24,8 @@
 
   dependsOn = ["network-online.target"];
 in
-podman.mkService {
+lib.mkMerge [
+  (podman.mkService {
     inherit stackName;
     description = "IGPU Management Podman Compose Stack";
     projectName = "igpu";
@@ -32,5 +33,10 @@ podman.mkService {
     inherit envFiles;
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [7007];
+  })
+  {
+    networking.firewall.extraCommands = ''
+      iptables -A nixos-fw -p tcp -s 192.168.1.29 --dport 7007 -j nixos-fw-accept
+    '';
   }
+]
