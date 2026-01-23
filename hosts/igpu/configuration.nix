@@ -35,7 +35,7 @@
       profile = "internal";
     };
     update = {
-      enable = true;
+      enable = false;
       collectGarbage = true;
       trim = true;
       rebootOnKernelUpdate = true;
