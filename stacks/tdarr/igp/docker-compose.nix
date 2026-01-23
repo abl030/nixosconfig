@@ -47,4 +47,5 @@ in
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [8265];
   }
