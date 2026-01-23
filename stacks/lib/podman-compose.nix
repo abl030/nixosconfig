@@ -108,8 +108,10 @@
     restart ? "on-failure",
     restartSec ? "30s",
     firewallPorts ? [],
+    firewallUDPPorts ? [],
   }: {
     networking.firewall.allowedTCPPorts = firewallPorts;
+    networking.firewall.allowedUDPPorts = firewallUDPPorts;
 
     systemd.services.${stackName} = {
       inherit description;
