@@ -104,9 +104,9 @@
       flake = false;
     };
 
-    jolt-src = {
+    jolt = {
       url = "github:jordond/jolt";
-      flake = false;
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
