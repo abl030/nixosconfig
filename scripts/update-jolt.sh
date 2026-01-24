@@ -8,8 +8,8 @@ log() {
   echo "[jolt-update] $*"
 }
 
-log "Updating flake input jolt-src..."
-nix flake update jolt-src
+log "Updating flake input jolt..."
+nix flake update jolt
 
 log "Building framework Home Manager activation to verify jolt..."
 nix build .#homeConfigurations.framework.activationPackage
