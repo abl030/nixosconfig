@@ -236,7 +236,8 @@ services:
         echo "[receiver] healthfile: $$HEALTH_FILE (interval=$${HEALTH_INTERVAL:-30}s window=$${HEALTH_WINDOW:-180}s)"
 
         # Start socat (fork spawns per datagram). If it dies, container exits.
-        socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork SYSTEM:/usr/local/bin/inotify-recv.sh &
+        # Use EXEC instead of SYSTEM to avoid shell interpretation issues
+        socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork EXEC:/usr/local/bin/inotify-recv.sh &
         SOCAT_PID=$!
 
         # Heartbeat loop: update only if socat is alive
