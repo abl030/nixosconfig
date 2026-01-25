@@ -49,5 +49,6 @@ in
       wants = dependsOn;
       after = dependsOn;
       firewallPorts = [8265];
+      reloadTriggers = ["management-stack.service"];
     })
   ]
