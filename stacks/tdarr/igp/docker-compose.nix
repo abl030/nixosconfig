@@ -27,28 +27,28 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
 in
-lib.mkMerge [
-  {
-    systemd.tmpfiles.rules = lib.mkAfter [
-      "d ${dataRoot}/tdarr 0750 ${user} ${userGroup} -"
-      "d ${dataRoot}/tdarr/configs 0750 ${user} ${userGroup} -"
-      "d ${dataRoot}/tdarr/logs 0750 ${user} ${userGroup} -"
-      "d ${dataRoot}/tdarr/temp 0750 ${user} ${userGroup} -"
-    ];
-  }
-  (podman.mkService {
-    inherit stackName;
-    description = "Tdarr (IGP) Podman Compose Stack";
-    projectName = "tdarr-igp";
-    inherit composeFile;
-    inherit envFiles;
-    preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tdarr/configs ${dataRoot}/tdarr/logs ${dataRoot}/tdarr/temp"
-    ];
-    requiresMounts = ["/mnt/data" "/mnt/fuse"];
-    wants = dependsOn;
-    after = dependsOn;
-    firewallPorts = [8265];
-    propagatesReloadTo = ["igpu-management-stack.service"];
-  })
-]
+  lib.mkMerge [
+    {
+      systemd.tmpfiles.rules = lib.mkAfter [
+        "d ${dataRoot}/tdarr 0750 ${user} ${userGroup} -"
+        "d ${dataRoot}/tdarr/configs 0750 ${user} ${userGroup} -"
+        "d ${dataRoot}/tdarr/logs 0750 ${user} ${userGroup} -"
+        "d ${dataRoot}/tdarr/temp 0750 ${user} ${userGroup} -"
+      ];
+    }
+    (podman.mkService {
+      inherit stackName;
+      description = "Tdarr (IGP) Podman Compose Stack";
+      projectName = "tdarr-igp";
+      inherit composeFile;
+      inherit envFiles;
+      preStart = [
+        "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tdarr/configs ${dataRoot}/tdarr/logs ${dataRoot}/tdarr/temp"
+      ];
+      requiresMounts = ["/mnt/data" "/mnt/fuse"];
+      wants = dependsOn;
+      after = dependsOn;
+      firewallPorts = [8265];
+      propagatesReloadTo = ["igpu-management-stack.service"];
+    })
+  ]

@@ -6,7 +6,6 @@
 }: let
   stackName = "invoices-stack";
   inherit (config.homelab.containers) dataRoot;
-  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;

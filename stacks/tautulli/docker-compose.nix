@@ -5,7 +5,6 @@
   ...
 }: let
   stackName = "tautulli-stack";
-  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
