@@ -60,7 +60,6 @@ in
       ];
       preStart = [
         "/run/current-system/sw/bin/mkdir -p ${dataRoot}/jellyfin/jellyfin ${dataRoot}/jellyfin/tailscale ${dataRoot}/jellyfin/caddy/data ${dataRoot}/jellyfin/caddy/config ${dataRoot}/jellyfin/watchstate ${dataRoot}/jellyfin/jellystat/postgres-data ${dataRoot}/jellyfin/jellystat/backup-data"
-        "/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/podman unshare chown -R 0:0 ${dataRoot}/jellyfin"
       ];
       requiresMounts = ["/mnt/data" "/mnt/fuse"];
       wants = dependsOn;
