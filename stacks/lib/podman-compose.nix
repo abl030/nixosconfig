@@ -109,7 +109,6 @@
     restartSec ? "30s",
     firewallPorts ? [],
     firewallUDPPorts ? [],
-    propagatesReloadTo ? [],
   }: {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
@@ -125,9 +124,6 @@
           # Allow retries after dependency failures - 5 attempts in 5 minutes
           StartLimitIntervalSec = 300;
           StartLimitBurst = 5;
-        }
-        // lib.optionalAttrs (propagatesReloadTo != []) {
-          PropagatesReloadTo = propagatesReloadTo;
         };
       inherit requires;
       wants = wants ++ baseDepends;
