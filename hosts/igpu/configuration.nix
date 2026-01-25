@@ -61,6 +61,31 @@
 
   services.qemuGuest.enable = true;
 
+  # Passwordless sudo for jellyfin-stack testing
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl restart jellyfin-stack.service";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl reload jellyfin-stack.service";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl stop jellyfin-stack.service";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl start jellyfin-stack.service";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   sops.age = {
     keyFile = "/var/lib/sops-nix/key.txt";
     sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
