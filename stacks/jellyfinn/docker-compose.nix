@@ -66,6 +66,7 @@ lib.mkMerge [
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8096];
+    propagatesReloadTo = ["igpu-management-stack.service"];
   })
   {
     networking.firewall.extraCommands = ''
