@@ -27,6 +27,7 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
 in
+lib.mkMerge [
   {
     systemd.tmpfiles.rules = lib.mkAfter [
       "d ${dataRoot}/tdarr 0750 ${user} ${userGroup} -"
@@ -35,7 +36,7 @@ in
       "d ${dataRoot}/tdarr/temp 0750 ${user} ${userGroup} -"
     ];
   }
-  // podman.mkService {
+  (podman.mkService {
     inherit stackName;
     description = "Tdarr (IGP) Podman Compose Stack";
     projectName = "tdarr-igp";
@@ -48,4 +49,6 @@ in
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8265];
-  }
+    propagatesReloadTo = ["igpu-management-stack.service"];
+  })
+]
