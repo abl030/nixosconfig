@@ -49,6 +49,5 @@ in
       wants = dependsOn;
       after = dependsOn;
       firewallPorts = [8265];
-      propagatesReloadTo = ["igpu-management-stack.service"];
     })
   ]
