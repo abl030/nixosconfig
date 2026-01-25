@@ -109,7 +109,6 @@
     restartSec ? "30s",
     firewallPorts ? [],
     firewallUDPPorts ? [],
-    reloadTriggers ? [],
   }: {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
@@ -125,10 +124,7 @@
           # Allow retries after dependency failures - 5 attempts in 5 minutes
           StartLimitIntervalSec = 300;
           StartLimitBurst = 5;
-        }
-        // (lib.optionalAttrs (reloadTriggers != []) {
-          PropagatesReloadTo = reloadTriggers;
-        });
+        };
       inherit requires;
       wants = wants ++ baseDepends;
       after = after ++ baseDepends;

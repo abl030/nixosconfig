@@ -66,7 +66,6 @@ in
       wants = dependsOn;
       after = dependsOn;
       firewallPorts = [8096];
-      reloadTriggers = ["management-stack.service"];
     })
     {
       networking.firewall.extraCommands = ''
