@@ -5,7 +5,6 @@
   ...
 }: let
   stackName = "music-stack";
-  inherit (config.homelab) user;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -44,7 +43,6 @@
 
   inherit (config.homelab.containers) dataRoot;
   gettextBin = "${pkgs.gettext}/bin/envsubst";
-  podmanBin = "${pkgs.podman}/bin/podman";
 
   preStart = [
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/ombi/config"
