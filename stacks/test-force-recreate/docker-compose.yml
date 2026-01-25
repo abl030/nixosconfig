@@ -3,7 +3,7 @@ version: "3.8"
 services:
   test-container:
     container_name: test-force-recreate
-    image: docker.io/alpine:latest
+    image: docker.io/alpine:3.20
     command: sleep infinity
     restart: unless-stopped
     environment:

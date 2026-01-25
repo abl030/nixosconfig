@@ -51,22 +51,4 @@ in
         iptables -A nixos-fw -p tcp -s 192.168.1.29 --dport 7007 -j nixos-fw-accept
       '';
     }
-    {
-      # Daily 3am restart to clear dozzle-agent cache of stale containers
-      systemd.timers."${stackName}-daily-restart" = {
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = "03:00";
-          Persistent = true;
-        };
-      };
-
-      systemd.services."${stackName}-daily-restart" = {
-        description = "Daily restart of ${stackName} to clear dozzle-agent cache";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.systemd}/bin/systemctl restart ${stackName}.service";
-        };
-      };
-    }
   ]
