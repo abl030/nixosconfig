@@ -58,12 +58,22 @@ podman ps --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}"
 podman ps -a --filter "label=io.podman.compose.project=jellyfin" --filter "status=exited" --format "{{.ID}}" | wc -l
 ```
 
-### How to Check Dozzle UI
+### How to Check Dozzle for Ghost Containers
 
-Since Dozzle's API isn't well-documented, use podman as the source of truth. However, you can manually verify in Dozzle at:
-- http://doc1:8082 (main dozzle server)
-- Filter to igpu host
-- Look at jellyfin-stack containers
+Dozzle logs errors when it tries to access containers that no longer exist. Check the main dozzle server logs on doc1:
+
+```bash
+# Count ghost container errors in Dozzle logs
+ssh doc1 'docker logs management-dozzle-1 2>&1' | grep "no container with name or ID" | grep -o '"container":"[^"]*"' | sort -u | wc -l
+
+# List the ghost container IDs
+ssh doc1 'docker logs management-dozzle-1 2>&1' | grep "no container with name or ID" | grep -o '"container":"[^"]*"' | sort -u
+
+# Get recent ghost errors (last 50 log lines)
+ssh doc1 'docker logs --tail 50 management-dozzle-1 2>&1' | grep "no container with name or ID"
+```
+
+This is the **definitive test** - if Dozzle is tracking ghost containers, you'll see these errors.
 
 ## Test Procedure
 
@@ -98,7 +108,12 @@ Since Dozzle's API isn't well-documented, use podman as the source of truth. How
    done
    ```
 
-5. **Expected result:** Container count increases by ~6-7 containers per reload (new IDs created, old ones left behind)
+5. **Check Dozzle for ghosts:**
+   ```bash
+   ssh doc1 'docker logs management-dozzle-1 2>&1' | grep "no container with name or ID" | grep "jellyfin" | wc -l
+   ```
+
+6. **Expected result:** Container count increases by ~6-7 containers per reload (new IDs created, old ones left behind), and Dozzle logs show increasing ghost container errors
 
 ### Test 1: Remove --force-recreate from ExecReload only
 
@@ -142,10 +157,16 @@ Since Dozzle's API isn't well-documented, use podman as the source of truth. How
    done
    ```
 
-6. **Success criteria:**
+6. **Check Dozzle for ghosts:**
+   ```bash
+   ssh doc1 'docker logs --tail 100 management-dozzle-1 2>&1' | grep "no container with name or ID" | tail -10
+   ```
+
+7. **Success criteria:**
    - Total container count stays at baseline (or close to it)
    - No accumulation of exited containers
    - Container IDs remain stable across reloads
+   - **No new ghost container errors in Dozzle logs**
 
 ### Test 2: Remove --force-recreate from both ExecStart and ExecReload
 
@@ -182,10 +203,16 @@ Since Dozzle's API isn't well-documented, use podman as the source of truth. How
    done
    ```
 
-5. **Success criteria:**
+5. **Check Dozzle for ghosts:**
+   ```bash
+   ssh doc1 'docker logs --tail 100 management-dozzle-1 2>&1' | grep "no container with name or ID" | tail -10
+   ```
+
+6. **Success criteria:**
    - No accumulation of containers across restarts
    - Exited container count stays at 0 or minimal
    - Container IDs remain stable
+   - **No new ghost container errors in Dozzle logs**
 
 ### Test 3: Stress test with failed down commands
 
@@ -237,11 +264,13 @@ For each test, record:
 2. **Ending container count** (after 5 cycles)
 3. **Number of exited containers** at end
 4. **Container ID stability** (did IDs change unnecessarily?)
+5. **Dozzle ghost count** (from error logs)
 
 A "successful" removal of --force-recreate means:
 - Container count increase ≤ 1 per cycle (acceptable tolerance)
 - Exited containers ≤ 2 total at end
 - No unbounded growth pattern
+- **Dozzle ghost container errors remain at 0 or don't increase**
 
 ## Rollback Procedure
 
