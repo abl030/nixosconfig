@@ -15,47 +15,44 @@ Determine if removing `--force-recreate` from ExecStart and ExecReload causes ol
 ## Test Environment
 
 - **Host:** igpu (192.168.1.33)
-- **Test Stack:** jellyfin-stack
-- **Current State:** Using `--force-recreate` in both ExecStart and ExecReload
+- **Test Stack:** Simple alpine container (`stacks/test-force-recreate/docker-compose.yml`)
+- **Current State:** Using `--force-recreate` in both ExecStart and ExecReload for production stacks
 
 ## Prerequisites
 
-### Required Permissions
+### Test Compose File
 
-Claude needs passwordless sudo for these specific commands on igpu:
-```bash
-/run/current-system/sw/bin/systemctl restart jellyfin-stack.service
-/run/current-system/sw/bin/systemctl reload jellyfin-stack.service
-/run/current-system/sw/bin/systemctl stop jellyfin-stack.service
-/run/current-system/sw/bin/systemctl start jellyfin-stack.service
+A minimal test stack at `stacks/test-force-recreate/docker-compose.yml`:
+```yaml
+version: "3.8"
+services:
+  test-container:
+    container_name: test-force-recreate
+    image: docker.io/alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
 ```
 
-Add to sudoers (if not already present):
-```
-abl030 ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/systemctl restart jellyfin-stack.service
-abl030 ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/systemctl reload jellyfin-stack.service
-abl030 ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/systemctl stop jellyfin-stack.service
-abl030 ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/systemctl start jellyfin-stack.service
-```
+No NixOS integration needed - we'll use `podman-compose` directly for faster testing.
 
 ## Testing Methodology
 
 ### How to Count Containers
 
-Use podman to count jellyfin-related containers (ground truth, independent of Dozzle):
+Use podman to count test containers (ground truth, independent of Dozzle):
 
 ```bash
-# Count ALL jellyfin containers (running + exited)
-podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}} {{.Names}} {{.Status}}" | wc -l
+# Count ALL test containers (running + exited)
+podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}} {{.Names}} {{.Status}}" | wc -l
 
 # List them with details
-podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Created}}"
+podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Created}}"
 
 # Count only running
-podman ps --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l
+podman ps --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l
 
 # Count only exited/stopped
-podman ps -a --filter "label=io.podman.compose.project=jellyfin" --filter "status=exited" --format "{{.ID}}" | wc -l
+podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --filter "status=exited" --format "{{.ID}}" | wc -l
 ```
 
 ### How to Check Dozzle for Ghost Containers
@@ -81,162 +78,127 @@ This is the **definitive test** - if Dozzle is tracking ghost containers, you'll
 
 1. **Clean slate:**
    ```bash
-   sudo systemctl stop jellyfin-stack.service
-   podman container prune -f --filter "label=io.podman.compose.project=jellyfin"
+   cd /home/abl030/nixosconfig/stacks/test-force-recreate
+   podman-compose down
+   podman container prune -f --filter "label=io.podman.compose.project=test-force-recreate"
    ```
 
 2. **Start fresh:**
    ```bash
-   sudo systemctl start jellyfin-stack.service
-   sleep 10
+   podman-compose up -d --force-recreate --remove-orphans
+   sleep 3
    ```
 
 3. **Record baseline container count:**
    ```bash
-   BASELINE=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
+   BASELINE=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
    echo "Baseline: $BASELINE containers"
    ```
 
-4. **Perform 5 reload cycles:**
+4. **Perform 5 recreate cycles:**
    ```bash
    for i in {1..5}; do
-     echo "=== Reload cycle $i ==="
-     sudo systemctl reload jellyfin-stack.service
-     sleep 15
-     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-     echo "After reload $i: $COUNT containers"
+     echo "=== Recreate cycle $i ==="
+     podman-compose up -d --force-recreate --remove-orphans
+     sleep 3
+     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     RUNNING=$(podman ps --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     EXITED=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --filter "status=exited" --format "{{.ID}}" | wc -l)
+     echo "After cycle $i: Total=$COUNT (Running=$RUNNING, Exited=$EXITED)"
    done
    ```
 
 5. **Check Dozzle for ghosts:**
    ```bash
-   ssh doc1 'docker logs management-dozzle-1 2>&1' | grep "no container with name or ID" | grep "jellyfin" | wc -l
+   ssh doc1 'docker logs --tail 100 management-dozzle-1 2>&1' | grep "no container with name or ID" | tail -10
    ```
 
-6. **Expected result:** Container count increases by ~6-7 containers per reload (new IDs created, old ones left behind), and Dozzle logs show increasing ghost container errors
+6. **Expected result:** Container count increases by 1 per cycle (new container created, old one left behind as exited), and Dozzle logs show increasing ghost container errors
 
-### Test 1: Remove --force-recreate from ExecReload only
+### Test 1: WITHOUT --force-recreate
 
-**Hypothesis:** Reloads might not need force-recreate; podman-compose should detect changes and recreate only what's needed.
+**Hypothesis:** Normal `up -d` without force-recreate should reuse containers if nothing changed.
 
-1. **Modify `stacks/lib/podman-compose.nix`:**
-   ```nix
-   ExecReload = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
-   # Removed --force-recreate from reload, kept in start
-   ```
-
-2. **Rebuild and deploy:**
+1. **Clean slate:**
    ```bash
-   nixos-rebuild switch --flake .#igpu
+   cd /home/abl030/nixosconfig/stacks/test-force-recreate
+   podman-compose down
+   podman container prune -f --filter "label=io.podman.compose.project=test-force-recreate"
    ```
 
-3. **Clean slate:**
+2. **Start fresh:**
    ```bash
-   sudo systemctl stop jellyfin-stack.service
-   podman container prune -f --filter "label=io.podman.compose.project=jellyfin"
-   ```
-
-4. **Start fresh:**
-   ```bash
-   sudo systemctl start jellyfin-stack.service
-   sleep 10
-   BASELINE=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
+   podman-compose up -d --remove-orphans
+   sleep 3
+   BASELINE=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
    echo "Baseline: $BASELINE containers"
    ```
 
-5. **Perform 5 reload cycles:**
+3. **Perform 5 up cycles (WITHOUT --force-recreate):**
    ```bash
    for i in {1..5}; do
-     echo "=== Reload cycle $i ==="
-     sudo systemctl reload jellyfin-stack.service
-     sleep 15
-     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-     RUNNING=$(podman ps --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-     EXITED=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --filter "status=exited" --format "{{.ID}}" | wc -l)
-     echo "After reload $i: Total=$COUNT (Running=$RUNNING, Exited=$EXITED)"
+     echo "=== Up cycle $i ==="
+     podman-compose up -d --remove-orphans
+     sleep 3
+     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     RUNNING=$(podman ps --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     EXITED=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --filter "status=exited" --format "{{.ID}}" | wc -l)
+     echo "After cycle $i: Total=$COUNT (Running=$RUNNING, Exited=$EXITED)"
    done
    ```
 
-6. **Check Dozzle for ghosts:**
+4. **Check Dozzle for ghosts:**
    ```bash
    ssh doc1 'docker logs --tail 100 management-dozzle-1 2>&1' | grep "no container with name or ID" | tail -10
    ```
 
-7. **Success criteria:**
-   - Total container count stays at baseline (or close to it)
+5. **Success criteria:**
+   - Total container count stays at baseline (1 container)
    - No accumulation of exited containers
-   - Container IDs remain stable across reloads
+   - Container IDs remain stable across cycles
    - **No new ghost container errors in Dozzle logs**
 
-### Test 2: Remove --force-recreate from both ExecStart and ExecReload
+### Test 2: Simulating Failed Down
 
-**Hypothesis:** If Test 1 passes, try removing from both.
+**Hypothesis:** The original issue was `podman-compose down` failing. Test if `up -d` without --force-recreate handles this.
 
-1. **Modify `stacks/lib/podman-compose.nix`:**
-   ```nix
-   ExecStart = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
-   ExecReload = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
-   # Removed --force-recreate from both
+1. **Clean slate:**
+   ```bash
+   cd /home/abl030/nixosconfig/stacks/test-force-recreate
+   podman-compose down
+   podman container prune -f --filter "label=io.podman.compose.project=test-force-recreate"
    ```
 
-2. **Rebuild and deploy:**
+2. **Simulate down failures:**
    ```bash
-   nixos-rebuild switch --flake .#igpu
-   ```
+   for i in {1..3}; do
+     echo "=== Simulated failure cycle $i ==="
 
-3. **Clean slate:**
-   ```bash
-   sudo systemctl stop jellyfin-stack.service
-   podman container prune -f --filter "label=io.podman.compose.project=jellyfin"
-   ```
+     # Start normally
+     podman-compose up -d --remove-orphans
+     sleep 2
 
-4. **Perform 5 restart cycles (full stop/start):**
-   ```bash
-   for i in {1..5}; do
-     echo "=== Restart cycle $i ==="
-     sudo systemctl restart jellyfin-stack.service
-     sleep 15
-     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-     RUNNING=$(podman ps --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-     EXITED=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --filter "status=exited" --format "{{.ID}}" | wc -l)
-     echo "After restart $i: Total=$COUNT (Running=$RUNNING, Exited=$EXITED)"
+     # Kill podman-compose mid-down to simulate failure
+     podman-compose down &
+     sleep 0.5
+     pkill -9 podman-compose || true
+     sleep 1
+
+     # Try up again - do containers accumulate?
+     podman-compose up -d --remove-orphans
+     sleep 2
+
+     COUNT=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     RUNNING=$(podman ps --filter "label=io.podman.compose.project=test-force-recreate" --format "{{.ID}}" | wc -l)
+     EXITED=$(podman ps -a --filter "label=io.podman.compose.project=test-force-recreate" --filter "status=exited" --format "{{.ID}}" | wc -l)
+     echo "After simulated failure $i: Total=$COUNT (Running=$RUNNING, Exited=$EXITED)"
    done
    ```
 
-5. **Check Dozzle for ghosts:**
-   ```bash
-   ssh doc1 'docker logs --tail 100 management-dozzle-1 2>&1' | grep "no container with name or ID" | tail -10
-   ```
-
-6. **Success criteria:**
-   - No accumulation of containers across restarts
-   - Exited container count stays at 0 or minimal
-   - Container IDs remain stable
-   - **No new ghost container errors in Dozzle logs**
-
-### Test 3: Stress test with failed down commands
-
-**Hypothesis:** The original issue was `podman-compose down` failing. Can we reproduce that?
-
-1. **Simulate down failures:**
-   ```bash
-   # Start the stack
-   sudo systemctl start jellyfin-stack.service
-   sleep 10
-
-   # Kill podman-compose processes mid-down to simulate failure
-   sudo systemctl stop jellyfin-stack.service &
-   sleep 2
-   pkill -9 podman-compose
-
-   # Try to start again - do containers accumulate?
-   sudo systemctl start jellyfin-stack.service
-   sleep 10
-   COUNT=$(podman ps -a --filter "label=io.podman.compose.project=jellyfin" --format "{{.ID}}" | wc -l)
-   echo "After simulated failure: $COUNT containers"
-   ```
-
-2. **Repeat 3 times to see if accumulation occurs**
+3. **Success criteria:**
+   - No accumulation despite failed down commands
+   - Container count stays at 1
+   - **If containers accumulate, this proves we need --force-recreate**
 
 ## Expected Results
 

@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  test-container:
+    container_name: test-force-recreate
+    image: docker.io/alpine:latest
+    command: sleep infinity
+    restart: unless-stopped
+    environment:
+      - TZ=Australia/Perth
