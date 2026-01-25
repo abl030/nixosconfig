@@ -140,9 +140,9 @@
 
         ExecStartPre = mkExecStartPre envFiles preStart;
 
-        ExecStart = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --force-recreate --remove-orphans";
+        ExecStart = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
         ExecStop = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} down";
-        ExecReload = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --force-recreate --remove-orphans";
+        ExecReload = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
 
         Restart = restart;
         RestartSec = restartSec;
