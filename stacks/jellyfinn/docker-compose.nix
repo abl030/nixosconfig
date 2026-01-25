@@ -33,6 +33,7 @@
 
   dependsOn = ["network-online.target" "mnt-data.mount" "mnt-fuse.mount"];
 in
+lib.mkMerge [
   {
     systemd.tmpfiles.rules = lib.mkAfter [
       "d ${dataRoot}/jellyfin 0750 ${user} ${userGroup} -"
@@ -47,7 +48,7 @@ in
       "d ${dataRoot}/jellyfin/jellystat/backup-data 0750 ${user} ${userGroup} -"
     ];
   }
-  // podman.mkService {
+  (podman.mkService {
     inherit stackName;
     description = "Jellyfin Podman Compose Stack";
     projectName = "jellyfin";
@@ -65,5 +66,10 @@ in
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8096];
-    firewallUDPPorts = [9999];
+  })
+  {
+    networking.firewall.extraCommands = ''
+      iptables -A nixos-fw -p udp -s 192.168.1.2 --dport 9999 -j nixos-fw-accept
+    '';
   }
+]
