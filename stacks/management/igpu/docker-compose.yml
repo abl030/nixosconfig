@@ -39,6 +39,8 @@ services:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock:ro
       # Persistent data to maintain host ID across container recreations
       - ${DATA_ROOT}/dozzle-agent/data:/data
+      # Podman doesn't create engine-id like Docker - mount a persistent one
+      - ${DATA_ROOT}/dozzle-agent/docker/engine-id:/var/lib/docker/engine-id:ro
     # healthcheck:
     #   test: ["CMD", "/dozzle", "healthcheck"]
     #   interval: 30s

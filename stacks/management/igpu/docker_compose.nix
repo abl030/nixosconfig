@@ -32,6 +32,7 @@ in
       systemd.tmpfiles.rules = lib.mkAfter [
         "d ${dataRoot}/dozzle-agent 0750 ${user} ${userGroup} -"
         "d ${dataRoot}/dozzle-agent/data 0750 ${user} ${userGroup} -"
+        "d ${dataRoot}/dozzle-agent/docker 0750 ${user} ${userGroup} -"
       ];
     }
     (podman.mkService {
