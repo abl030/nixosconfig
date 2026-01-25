@@ -90,6 +90,8 @@
       "HOME=${userHome}"
       "XDG_RUNTIME_DIR=${runUserDir}"
       "PATH=/run/current-system/sw/bin:/run/wrappers/bin"
+      # Connect to user's rootless podman socket from system service
+      "CONTAINER_HOST=unix://${runUserDir}/podman/podman.sock"
     ]
     ++ extraEnv;
 
