@@ -37,6 +37,8 @@ services:
     volumes:
       # Mount the Docker socket (read-only is best practice for agents)
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock:ro
+      # Persistent data to maintain host ID across container recreations
+      - ${DATA_ROOT}/dozzle-agent/data:/data
     # healthcheck:
     #   test: ["CMD", "/dozzle", "healthcheck"]
     #   interval: 30s

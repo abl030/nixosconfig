@@ -23,14 +23,26 @@
   ];
 
   dependsOn = ["network-online.target"];
+  inherit (config.homelab.containers) dataRoot;
+  inherit (config.homelab) user;
+  userGroup = config.users.users.${user}.group or "users";
 in
   lib.mkMerge [
+    {
+      systemd.tmpfiles.rules = lib.mkAfter [
+        "d ${dataRoot}/dozzle-agent 0750 ${user} ${userGroup} -"
+        "d ${dataRoot}/dozzle-agent/data 0750 ${user} ${userGroup} -"
+      ];
+    }
     (podman.mkService {
       inherit stackName;
       description = "IGPU Management Podman Compose Stack";
       projectName = "igpu";
       inherit composeFile;
       inherit envFiles;
+      preStart = [
+        "/run/current-system/sw/bin/mkdir -p ${dataRoot}/dozzle-agent/data"
+      ];
       wants = dependsOn;
       after = dependsOn;
     })
