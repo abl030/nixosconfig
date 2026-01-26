@@ -1,3 +1,4 @@
+1. High priority - virtiofs backing for docker volumes
 6. Kopia Gotify
 7. Kopia Automate 10% checks.
 8. Dev Box

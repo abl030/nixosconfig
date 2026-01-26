@@ -90,26 +90,5 @@
     fsType = "vfat";
   };
 
-  # Temporary: allow passwordless nixos-rebuild for testing
-  security.sudo.extraRules = [
-    {
-      users = ["abl030"];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
-          options = ["NOPASSWD"];
-        }
-        {
-          command = "/run/current-system/sw/bin/systemctl";
-          options = ["NOPASSWD"];
-        }
-        {
-          command = "/run/current-system/sw/bin/journalctl";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
-
   system.stateVersion = "24.05";
 }
