@@ -42,9 +42,6 @@ in
       projectName = "tdarr-igp";
       inherit composeFile;
       inherit envFiles;
-      preStart = [
-        "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tdarr/configs ${dataRoot}/tdarr/logs ${dataRoot}/tdarr/temp"
-      ];
       requiresMounts = ["/mnt/data" "/mnt/fuse"];
       wants = dependsOn;
       after = dependsOn;

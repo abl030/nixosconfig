@@ -5,7 +5,6 @@
   ...
 }: let
   stackName = "caddy-tailscale-stack";
-  inherit (config.homelab.containers) dataRoot;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -36,11 +35,6 @@ in
     inherit composeFile;
     inherit envFiles;
     extraEnv = ["CADDY_FILE=${caddyFile}"];
-    preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/ts-state ${dataRoot}/tailscale/caddy_data ${dataRoot}/tailscale/caddy_config"
-      # Use root chown for existing data (root-owned from old Docker)
-      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/tailscale/ts-state ${dataRoot}/tailscale/caddy_data ${dataRoot}/tailscale/caddy_config"
-    ];
     wants = dependsOn;
     after = dependsOn;
   }
