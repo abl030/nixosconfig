@@ -38,4 +38,4 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - ${DATA_ROOT}/domain-monitor/db:/var/lib/mysql
+      - ${DATA_ROOT}/domain-monitor/db:/var/lib/mysql:U
