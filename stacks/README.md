@@ -1,6 +1,13 @@
 # Container Stacks
 
-This directory contains all rootless Podman container stack definitions for the homelab infrastructure.
+Rootless Podman container stack definitions for the homelab.
+
+## Migration Status
+
+| Host | Status | Notes |
+|------|--------|-------|
+| igpu | ✅ Complete | Jellyfin, Plex, Tdarr, Management |
+| doc1 | 🔄 Next | 19 stacks to migrate |
 
 ## Architecture Overview
 
@@ -439,52 +446,104 @@ in
 
 **Why?** `RequiresMountsFor` creates a hard dependency on the mount unit. If the mount times out at boot, the service fails. Using `automount` allows the mount to happen on-demand with automatic retries.
 
-## Common Gotchas & Learnings
+## Critical Gotchas
+
+### Service Lifecycle: stop vs down
+
+**This is the most important gotcha for Dozzle compatibility.**
+
+Podman's container events differ from Docker's. When using `podman-compose down`, containers are removed and recreated with new IDs. Dozzle tracks containers by ID, so this causes:
+- Ghost containers (old IDs shown as stopped)
+- Lost log streams (new container, different ID)
+
+**Solution:** Use `stop` instead of `down` in ExecStop:
+```nix
+ExecStop = "podman-compose stop";   # Preserves container ID
+ExecStart = "podman-compose up -d"; # Reuses stopped container
+```
+
+The `up -d` command is smart enough to start existing stopped containers without recreating them.
+
+### Migration Chown: One-Time Only
+
+**Do NOT run `podman unshare chown` on every service start.**
+
+When migrating from Docker to rootless Podman, you need to fix ownership once. But:
+- Running it every start wastes time
+- It fails if containers created files with restrictive permissions (e.g., postgres data)
+- Jellyfin stack was failing because postgres directories blocked recursive chown
+
+**Correct pattern:**
+```nix
+preStart = [
+  # Just ensure directories exist - don't chown existing data
+  "/run/current-system/sw/bin/mkdir -p ${dataRoot}/myapp/data"
+];
+```
+
+For initial migration, run chown manually once:
+```bash
+sudo chown -R 1000:1000 /mnt/docker/myapp
+```
+
+### System Services Need CONTAINER_HOST
+
+System services (`/etc/systemd/system/`) running as `User=abl030` cannot see rootless containers without explicitly connecting to the user's podman socket.
+
+**Required in service environment:**
+```nix
+Environment = [
+  "CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock"
+];
+```
+
+Without this, `systemctl restart mystack` silently fails to find containers.
+
+### Dozzle Agent Needs Persistent engine-id
+
+Podman doesn't create `/var/lib/docker/engine-id` like Docker does. Dozzle uses this file to identify hosts. Without it, the agent generates a new UUID on every restart, causing the Dozzle server to lose track.
+
+**Fix:** Create and mount a persistent engine-id:
+```yaml
+volumes:
+  - ${DATA_ROOT}/dozzle-agent/docker/engine-id:/var/lib/docker/engine-id:ro
+```
+
+Create the file once:
+```bash
+mkdir -p /mnt/docker/dozzle-agent/docker
+uuidgen > /mnt/docker/dozzle-agent/docker/engine-id
+```
+
+## Other Gotchas
 
 ### NixOS Module Integration
 
-- **Avoid naming conflicts:** Don't name systemd services/timers that conflict with nixpkgs modules (e.g., `podman-prune` conflicts with upstream). Use unique names like `podman-rootless-prune`.
-- **`nix flake check` limitations:** Uses lazy evaluation and won't catch module option conflicts. These only surface at build time when the specific option is evaluated.
-- **Shallow merge (`//`) overwrites nested attrs:** The `//` operator does shallow merge. If you write `{networking.firewall.allowedTCPPorts = [7007];} // podman.mkService {...}`, the `mkService` result (which also sets `allowedTCPPorts = []`) **overwrites** your ports. Use `firewallPorts` parameter or `lib.mkMerge` instead.
+- **Avoid naming conflicts:** Don't name systemd services/timers that conflict with nixpkgs (e.g., use `podman-rootless-prune` not `podman-prune`).
+- **Shallow merge (`//`) overwrites:** Use `lib.mkMerge` instead of `//` when combining `mkService` with custom config.
 
 ### Permissions & Ownership
 
-- **Database containers require `:U`:** Postgres, MariaDB, etc. run as internal uid (999) which maps to host uid 100999 in rootless. Without `:U`, the container can't access files owned by host uid 1000.
-- **Never use `:U` on NFS:** It fails with "operation not permitted" on rootless. Use preStart mkdir + chown instead.
-- **Use `podman unshare chown` for new data:** Creates correct ownership visible to both host and container.
-- **Use root `chown` for existing data:** If directories are owned by different uid (like uid 99 from Docker) or actual root, use root chown in preStart instead of podman unshare.
-- **Existing root-owned dirs block podman unshare:** If a directory is owned by actual root (uid 0) with mode 0700, podman unshare fails. Use root chown in preStart.
-- **LSIO images use PUID/PGID:** In rootless, `PUID=0` maps to the real host user (uid 1000). This avoids permission errors for `/config`.
-- **Caddy needs writable /data and /config:** Pre-create and chown those host directories for TLS certificate storage.
+- **Database containers require `:U`:** Postgres/MariaDB run as uid 999 internally → host uid 100999. Without `:U`, container can't access host uid 1000 files.
+- **Never use `:U` on NFS:** Fails with "operation not permitted".
+- **LSIO images:** Use `PUID=0` which maps to host uid 1000 in rootless.
+- **Existing root-owned dirs block podman unshare:** Use root chown in preStart instead.
 
-### Podman Runtime
+### Systemd & Mounts
 
-- **Socket location:** Rootless podman socket lives at `$XDG_RUNTIME_DIR/podman/podman.sock` (typically `/run/user/1000/podman/podman.sock`).
-- **newuidmap/newgidmap required:** Rootless podman needs these in PATH. Include `/run/wrappers/bin` in service PATH.
-- **restartIfChanged behavior:** `restartIfChanged = true` restarts a stack when its systemd unit changes (compose/env changes update the unit). Rebuilds that don't change the stack do not restart it.
-
-### Systemd Service & Mount Resilience
-
-- **podman-system-service must wait for user runtime dir:** The service creates `/run/user/1000/podman`, but `/run/user/1000` is created by `user@1000.service`. Add `after` and `requires` dependencies.
-- **RequiresMountsFor creates hard dependencies:** Using `requiresMounts` adds `RequiresMountsFor` which creates a hard dependency on the actual mount unit, not automount. Service fails if mount times out at boot.
-- **Use automount for optional/slow mounts:** For NFS over Tailscale or slow networks, depend on `mnt-xxx.automount` instead of `mnt-xxx.mount`. Don't include such paths in `requiresMounts`.
-- **bindsTo for coordinated restarts:** `bindsTo = ["podman-system-service.service"]` ensures stacks restart when podman service restarts.
-- **StartLimitIntervalSec/Burst for retry tolerance:** Allows 5 restart attempts within 5 minutes for transient boot-time failures.
-- **Dependency failures don't trigger Restart=on-failure:** When a service fails due to dependency failure, systemd doesn't retry even with `Restart=on-failure`. The `bindsTo` directive solves this.
+- **RequiresMountsFor creates hard dependencies:** Service fails if mount times out. Use `automount` for slow/optional mounts.
+- **bindsTo for coordinated restarts:** Ensures stacks restart when podman-system-service restarts.
+- **Dependency failures don't trigger Restart:** Use `bindsTo` instead of relying on `Restart=on-failure`.
 
 ### Compose & Containers
 
-- **podman-compose dependency handling is strict:** Missing healthchecks can block startup. Add healthchecks to database containers.
-- **Tailscale containers run fine rootless:** Require `/dev/net/tun` + `NET_ADMIN` capability. iptables v6 warnings are expected.
-- **Caddyfile paths via env:** Provide via `CADDY_FILE` environment variable, not hardcoded paths.
-- **Network holder pattern:** For multi-container stacks sharing ports, use a pause container as network holder and `network_mode: service:holder` for other containers.
+- **podman-compose dependency handling is strict:** Add healthchecks to database containers.
+- **Network holder pattern:** Use pause container as network holder for multi-container stacks.
 
-### Testing & Operations
+### Operations
 
-- **Interrupted rebuilds:** `systemd-run` can leave `nixos-rebuild-switch-to-configuration` processes. Stop/reset before rerunning.
-- **Docker Hub rate limits:** Can block pulls. Authenticate or pre-pull images.
-- **Storage bloat:** Always prune old containers before testing. Use `cleanup.maxAge` to control retention.
-- **Firewall:** Rootless podman cannot modify iptables. Firewall rules must be declared via `firewallPorts` in the Nix module.
+- **Docker Hub rate limits:** Pre-pull or authenticate.
+- **Firewall:** Rootless podman can't modify iptables. Use `firewallPorts` in Nix module.
 
 ## Troubleshooting
 
