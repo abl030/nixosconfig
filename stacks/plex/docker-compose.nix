@@ -38,10 +38,6 @@ in
     projectName = "plex";
     inherit composeFile;
     inherit envFiles;
-    preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/plex"
-      "/run/current-system/sw/bin/chown -R ${user}:${userGroup} ${dataRoot}/plex"
-    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;

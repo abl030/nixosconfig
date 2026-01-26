@@ -56,10 +56,7 @@ in
       inherit envFiles;
       extraEnv = [
         "CADDY_FILE=${caddyFile}"
-        "INOTIFY_SCRIPT=${inotifyScript}" # <--- Add this line
-      ];
-      preStart = [
-        "/run/current-system/sw/bin/mkdir -p ${dataRoot}/jellyfin/jellyfin ${dataRoot}/jellyfin/tailscale ${dataRoot}/jellyfin/caddy/data ${dataRoot}/jellyfin/caddy/config ${dataRoot}/jellyfin/watchstate ${dataRoot}/jellyfin/jellystat/postgres-data ${dataRoot}/jellyfin/jellystat/backup-data"
+        "INOTIFY_SCRIPT=${inotifyScript}"
       ];
       requiresMounts = ["/mnt/data" "/mnt/fuse"];
       wants = dependsOn;

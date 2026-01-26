@@ -23,7 +23,6 @@
   ];
 
   dependsOn = ["network-online.target"];
-  inherit (config.homelab.containers) dataRoot;
 in
   podman.mkService {
     inherit stackName;
@@ -31,10 +30,6 @@ in
     projectName = "atuin";
     inherit composeFile;
     inherit envFiles;
-    preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/atuin/config ${dataRoot}/atuin/database"
-      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/atuin"
-    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8888];

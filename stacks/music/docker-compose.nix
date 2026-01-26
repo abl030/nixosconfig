@@ -5,6 +5,7 @@
   ...
 }: let
   stackName = "music-stack";
+  inherit (config.homelab.containers) dataRoot;
 
   composeFile = builtins.path {
     path = ./docker-compose.yml;
@@ -41,29 +42,16 @@
     }
   ];
 
-  inherit (config.homelab.containers) dataRoot;
   gettextBin = "${pkgs.gettext}/bin/envsubst";
 
+  # Only keep the ombi JSON generation script - mkdirs and chowns handled by migration script
   preStart = [
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/ombi/config"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/ombi/db"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/lidarr"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/filebrowser"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/music/caddy/data ${dataRoot}/music/caddy/config"
-    "/run/current-system/sw/bin/mkdir -p ${dataRoot}/tailscale/music"
-
     (pkgs.writeShellScript "generate-ombi-json" ''
       set -a
       source "$XDG_RUNTIME_DIR/secrets/${stackName}.env"
       set +a
       ${gettextBin} < ${dbTemplate} > ${dataRoot}/ombi/config/database.json
     '')
-
-    # Use root chown for existing data (podman unshare fails on data owned by different UIDs)
-    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/ombi"
-    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/music"
-    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/tailscale/music"
   ];
 
   dependsOn = [

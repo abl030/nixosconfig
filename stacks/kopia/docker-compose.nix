@@ -30,7 +30,6 @@
     "mnt-data.mount"
     "mnt-mum.automount"
   ];
-  inherit (config.homelab.containers) dataRoot;
 in
   podman.mkService {
     inherit stackName;
@@ -38,11 +37,6 @@ in
     projectName = "kopia";
     inherit composeFile;
     inherit envFiles;
-    preStart = [
-      "/run/current-system/sw/bin/mkdir -p ${dataRoot}/kopiaphotos/config ${dataRoot}/kopiaphotos/cache ${dataRoot}/kopiaphotos/logs ${dataRoot}/kopiaphotos/tmp ${dataRoot}/kopiamum/config ${dataRoot}/kopiamum/cache ${dataRoot}/kopiamum/logs ${dataRoot}/kopiamum/tmp"
-      # Use root chown for existing data (podman unshare fails on data owned by different UIDs)
-      "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/kopiaphotos ${dataRoot}/kopiamum"
-    ];
     # Only require /mnt/data - mnt-mum is handled via automount dependency above
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;

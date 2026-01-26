@@ -41,9 +41,6 @@ in
       projectName = "igpu";
       inherit composeFile;
       inherit envFiles;
-      preStart = [
-        "/run/current-system/sw/bin/mkdir -p ${dataRoot}/dozzle-agent/data"
-      ];
       wants = dependsOn;
       after = dependsOn;
     })
