@@ -39,6 +39,7 @@ services:
     hostname: kopia
     container_name: kopiamum
     restart: always
+    user: "1000:100"
     ports:
       - 51516:51515
     command:

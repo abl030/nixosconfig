@@ -37,6 +37,8 @@
   dependsOn = ["network-online.target" "mnt-data.mount"];
   inherit (config.homelab.containers) dataRoot;
 in {
+  networking.firewall.allowedTCPPorts = [8089];
+
   systemd = {
     services = {
       ${stackName} = {

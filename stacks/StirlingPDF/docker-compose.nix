@@ -21,4 +21,5 @@ in
     inherit composeFile;
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [8083];
   }

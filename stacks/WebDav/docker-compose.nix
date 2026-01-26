@@ -33,4 +33,5 @@ in
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
+    firewallPorts = [9090];
   }
