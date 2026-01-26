@@ -32,5 +32,6 @@ in
     inherit envFiles;
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [3000];
+    firewallPorts = [3000 8080];
+    firewallUDPPorts = [1069];
   }
