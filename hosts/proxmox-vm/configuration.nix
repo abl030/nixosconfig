@@ -12,7 +12,7 @@
   homelab = {
     mounts = {
       nfsLocal.enable = true;
-      nfsLocal.readOnly = true; # Safety during podman testing
+      nfsLocal.readOnly = false; # Safety during podman testing
       external.enable = true;
       fuse.enable = true;
     };
