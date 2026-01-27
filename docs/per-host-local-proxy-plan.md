@@ -10,7 +10,6 @@
 
 ## Non-Goals / Later Wishlist
 - Per-stack Caddyfile overrides in stack definitions (out of scope).
-- Automatic cleanup of old host records when stacks move (wishlist unless trivial).
 - Multi-zone support (future; only `ablz.au` now).
 
 ## High-Level Design
@@ -19,9 +18,10 @@
   - Auto-generate Nginx vhosts for those hostnames.
   - Request ACME certs for each hostname via existing `security.acme` defaults.
 - Add a Cloudflare DNS reconciler service (systemd oneshot) triggered on rebuild:
-  - Reads desired hostname list for the host.
-  - Compares to last-applied cache stored under `/var/lib/homelab/dns`.
-  - Updates Cloudflare DNS A records only when the value changes.
+- Reads desired hostname list for the host.
+- Compares to last-applied cache stored under `/var/lib/homelab/dns`.
+- Updates Cloudflare DNS A records only when the value changes.
+- Removes stale A records that were previously managed by this host but are no longer declared.
 
 ## Proposed Nix Options / Data Model
 ### 1) Host-local IP source (in `hosts.nix`)
@@ -54,6 +54,8 @@
   - Ensure DNS A record exists for the hostname in zone `ablz.au`.
   - Set content to host `localIp`.
   - Set `proxied = false`, TTL **60 seconds**.
+- For any hostname in the local cache that is no longer declared:
+  - Delete the previously managed A record (by cached record ID).
 - Use a cache file to avoid updates when unchanged:
   - `/var/lib/homelab/dns/records.json`
   - Store `{ hostname: { ip: "x.x.x.x", recordId: "...", ttl: 60 } }`.
@@ -99,6 +101,7 @@ Always rebuild and test on target host.
 - HTTP → HTTPS redirect enforced for local proxy vhosts.
 - Added Cloudflare API call counting to `/var/lib/homelab/dns/api-call-count`.
 - ACME propagation wait added to avoid race conditions on fresh TXT records.
+- Stale managed DNS records are removed when a stack host is deleted/renamed.
 
 ## Open Questions / Assumptions
 - None for MVP (TTL=60s, DNS sync on rebuild, port declared in stack).
