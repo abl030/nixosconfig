@@ -30,6 +30,12 @@ in
     projectName = "uptime-kuma";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "status.ablz.au";
+        port = 3002;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [3002];

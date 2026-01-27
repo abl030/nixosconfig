@@ -30,6 +30,12 @@ in
     projectName = "tautulli";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "tau.ablz.au";
+        port = 8181;
+      }
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;

@@ -30,6 +30,12 @@ in
     projectName = "jdownloader2";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "download.ablz.au";
+        port = 5800;
+      }
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;

@@ -30,6 +30,12 @@ in
     projectName = "webdav";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "webdav.ablz.au";
+        port = 9090;
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

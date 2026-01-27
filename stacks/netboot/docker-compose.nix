@@ -30,6 +30,12 @@ in
     projectName = "netboot";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "netboot.ablz.au";
+        port = 3000;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [3000 8080];
