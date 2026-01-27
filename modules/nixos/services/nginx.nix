@@ -46,6 +46,8 @@ in {
         credentialsFile = config.sops.secrets."acme/cloudflare".path;
         # Use public DNS for propagation checks (bypasses Tailscale's 100.100.100.100)
         dnsResolver = "1.1.1.1:53";
+        # Skip local propagation checks; rely on ACME validation.
+        dnsPropagationCheck = false;
         # Reload nginx when certs change
         reloadServices = ["nginx"];
         # validMinDays = 999;
