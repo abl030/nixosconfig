@@ -35,6 +35,10 @@ in
         host = "dozzle.ablz.au";
         port = 8082;
       }
+      {
+        host = "gotify.ablz.au";
+        port = 8050;
+      }
     ];
     wants = dependsOn;
     after = dependsOn;
