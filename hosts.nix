@@ -95,6 +95,7 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
     authorizedKeys = masterKeys;
+    localIp = "192.168.1.29";
     # Stacks disabled for testing - enable one by one
     containerStacks = [
       "management"
@@ -167,6 +168,7 @@ in {
     homeDirectory = "/home/abl030";
     hostname = "igpu";
     containerStacks = ["igpu-management" "tdarr-igp" "jellyfin" "plex"];
+    localIp = "192.168.1.33";
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
