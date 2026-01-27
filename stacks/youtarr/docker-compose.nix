@@ -30,6 +30,12 @@ in
     projectName = "youtarr";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "youtarr.ablz.au";
+        port = 3087;
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

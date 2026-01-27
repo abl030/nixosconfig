@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   inputs,
   ...
@@ -38,6 +39,13 @@
   inherit (config.homelab.containers) dataRoot;
 in {
   networking.firewall.allowedTCPPorts = [8089];
+
+  homelab.localProxy.hosts = lib.mkAfter [
+    {
+      host = "domains.ablz.au";
+      port = 8089;
+    }
+  ];
 
   systemd = {
     services = {

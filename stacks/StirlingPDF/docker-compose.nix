@@ -19,6 +19,12 @@ in
     description = "StirlingPDF Podman Compose Stack";
     projectName = "stirlingpdf";
     inherit composeFile;
+    stackHosts = [
+      {
+        host = "pdf.ablz.au";
+        port = 8083;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8083];
