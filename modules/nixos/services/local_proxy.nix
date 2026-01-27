@@ -150,7 +150,31 @@
       name = entry.host;
       value = {
         useACMEHost = entry.host;
-        onlySSL = true;
+        listen = [
+          {
+            addr = "0.0.0.0";
+            port = 80;
+          }
+          {
+            addr = "[::]";
+            port = 80;
+          }
+          {
+            addr = "0.0.0.0";
+            port = 443;
+            ssl = true;
+          }
+          {
+            addr = "[::]";
+            port = 443;
+            ssl = true;
+          }
+        ];
+        extraConfig = ''
+          if ($scheme = http) {
+            return 444;
+          }
+        '';
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString entry.port}";
           extraConfig = ''
