@@ -115,7 +115,7 @@ in {
             "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
             "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
           ];
-          ExecStart = "${pkgs.shadow}/bin/runuser -u ${config.homelab.user} -- ${podmanBin} exec -i domain-monitor-app php /var/www/html/cron/check_domains.php";
+          ExecStart = "/run/current-system/sw/bin/runuser -u ${config.homelab.user} -- ${podmanBin} exec -i domain-monitor-app php /var/www/html/cron/check_domains.php";
         };
       };
     };
