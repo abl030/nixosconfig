@@ -74,14 +74,17 @@
 - Possibly `modules/nixos/services/default.nix` to include new module.
 
 ## Testing Plan
+Always rebuild and test on target host.
 1) Run `check --hosts <target>`.
 2) Deploy to a test host: `nixos-rebuild switch --flake .#<host>`.
 3) Verify DNS entry:
    - `dig +short immich.ablz.au` should return the host local IP.
-4) Verify Nginx routing:
+4) Verify HTTPS-only behavior:
+   - `curl -I http://immich.ablz.au/` should redirect to `https://...`
    - `curl -k https://immich.ablz.au/` should reach the stack.
 5) Validate no Cloudflare spam:
    - Re-run `nixos-rebuild switch`; ensure DNS updater reports “no change”.
+   - Check `/var/lib/homelab/dns/api-call-count`.
 
 ## Passwordless Sudo Commands (for testing)
 - `sudo nixos-rebuild switch --flake .#<host>`
@@ -90,6 +93,11 @@
 - `sudo journalctl -u homelab-dns-sync -n 200 --no-pager` (name TBD)
 - `sudo systemctl status homelab-dns-sync` (name TBD)
 
+## Status
+- Implemented local proxy module + DNS sync with stateful cache.
+- Added smokeping as the first stack using `stackHosts` on doc1.
+- Enforced HTTPS-only behavior for local proxy vhosts (no HTTP access).
+- Added Cloudflare API call counting to `/var/lib/homelab/dns/api-call-count`.
+
 ## Open Questions / Assumptions
 - None for MVP (TTL=60s, DNS sync on rebuild, port declared in stack).
-
