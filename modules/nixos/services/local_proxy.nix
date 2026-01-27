@@ -150,7 +150,7 @@
       name = entry.host;
       value = {
         useACMEHost = entry.host;
-        forceSSL = true;
+        onlySSL = true;
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString entry.port}";
           extraConfig = ''
