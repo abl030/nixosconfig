@@ -110,9 +110,11 @@ in {
         serviceConfig = {
           Type = "oneshot";
           User = config.homelab.user;
+          Delegate = true;
           Environment = [
             "HOME=${config.homelab.userHome}"
             "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
           ];
           ExecStart = "${podmanBin} exec -i domain-monitor-app php /var/www/html/cron/check_domains.php";
         };
