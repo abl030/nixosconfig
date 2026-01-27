@@ -30,6 +30,12 @@ in
     projectName = "management";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "dozzle.ablz.au";
+        port = 8082;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8082 8050];

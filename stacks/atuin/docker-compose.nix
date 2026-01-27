@@ -30,6 +30,12 @@ in
     projectName = "atuin";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "atuin.ablz.au";
+        port = 8888;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8888];
