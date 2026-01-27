@@ -104,6 +104,9 @@ check
 # Include host config checks (slow)
 check --full
 
+# Only check specific host configs
+check --hosts framework
+
 # Include drift detection only when needed (slow)
 check --drift
 

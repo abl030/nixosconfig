@@ -555,20 +555,31 @@ in {
 
             RUN_DRIFT=false
             RUN_FULL=false
+            HOST_FILTER=""
             while [[ $# -gt 0 ]]; do
                 case "$1" in
                     --drift) RUN_DRIFT=true; shift ;;
                     --help|-h)
                         cat <<'EOF'
-      Usage: check [--drift] [--full]
+      Usage: check [--drift] [--full] [--hosts <name[,name...]>]
         --drift  run hash-based drift detection (slow)
         --full   include host config checks during flake check (slow)
+        --hosts  only run host config checks for the given hosts
       EOF
                         exit 0
                         ;;
                     --full)
                         RUN_FULL=true
                         shift
+                        ;;
+                    --hosts)
+                        if [[ $# -lt 2 ]]; then
+                            echo "❌ Missing value for --hosts." >&2
+                            exit 1
+                        fi
+                        HOST_FILTER="$2"
+                        RUN_FULL=true
+                        shift 2
                         ;;
                     *) echo "Unknown option: $1" >&2; exit 1 ;;
                 esac
@@ -613,11 +624,15 @@ in {
       # Run flake check after linting passes
       echo "❄️  Running Flake Checks..."
       if $RUN_FULL; then
-          echo "ℹ️  Full check enabled (host configs included)."
+          if [[ -n "$HOST_FILTER" ]]; then
+              echo "ℹ️  Full check enabled (host configs filtered: $HOST_FILTER)."
+          else
+              echo "ℹ️  Full check enabled (host configs included)."
+          fi
       else
-          echo "ℹ️  Full check skipped (use --full to include host configs)."
+          echo "ℹ️  Full check skipped (use --full or --hosts to include host configs)."
       fi
-      if ! FULL_CHECK=$([[ $RUN_FULL == true ]] && echo 1 || echo 0) nix flake check --impure --print-build-logs; then
+      if ! FULL_CHECK=$([[ $RUN_FULL == true ]] && echo 1 || echo 0) HOST_CHECKS="$HOST_FILTER" nix flake check --impure --print-build-logs; then
           echo "❌ Flake check failed."
           exit 1
       else
