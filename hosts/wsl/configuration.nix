@@ -29,6 +29,7 @@
       trim = false; # Redundant with service disable, but good for clarity
     };
     ssh.enable = true;
+    mounts.nfs.enable = true;
   };
 
   # 3. Standard WSL Configuration
