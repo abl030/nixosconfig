@@ -42,6 +42,12 @@ in
       "CADDY_FILE=${caddyFile}"
       "TAILSCALE_JSON=${tailscaleJson}"
     ];
+    stackHosts = [
+      {
+        host = "photos.ablz.au";
+        port = 2283;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [2283];
