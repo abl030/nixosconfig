@@ -97,6 +97,14 @@
           command = "/run/current-system/sw/bin/journalctl";
           options = ["NOPASSWD"];
         }
+        {
+          command = "/run/current-system/sw/bin/cat";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "/run/current-system/sw/bin/rm";
+          options = ["NOPASSWD"];
+        }
       ];
     }
   ];
