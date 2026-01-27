@@ -35,6 +35,7 @@ Rootless Podman container stack definitions for the homelab.
   - `secrets` → encrypted env files via sops-nix
   - `requiresMounts` → filesystem dependencies
   - `firewallPorts` → TCP ports to open
+  - `stackHosts` → per-host local proxy + DNS registration (optional)
   - `preStart` → initialization scripts
   - `wants/after/requires` → systemd dependencies
 - Stack state isolated to its directory
@@ -120,6 +121,13 @@ in
 
     extraEnv = [  # Optional
       "CADDY_FILE=${caddyFile}"
+    ];
+
+    stackHosts = [  # Optional: local proxy + DNS registration
+      {
+        host = "myapp.ablz.au";
+        port = 8080;
+      }
     ];
 
     preStart = [  # Optional
@@ -291,6 +299,13 @@ in
     description = "MyNewApp Podman Compose Stack";
     projectName = "mynewapp";
     inherit composeFile;
+
+    stackHosts = [
+      {
+        host = "mynewapp.ablz.au";
+        port = 8080;
+      }
+    ];
 
     preStart = [
       "/run/current-system/sw/bin/mkdir -p ${dataRoot}/mynewapp"
@@ -688,3 +703,24 @@ Currently all stacks run as the same homelab user (uid 1000) with shared access 
 7. Use group `podman-stacks` for shared media access with ACLs
 
 This would represent a significant architecture evolution but provide much stronger security boundaries between stacks.
+# Local Proxy + DNS (per-host)
+
+Each host runs a single nginx instance (via `homelab.nginx`) that reverse-proxies
+all stacks on that host. Stacks opt in by declaring `stackHosts` with hostname + port.
+
+**What it does:**
+- Creates nginx vhosts for each `stackHosts` entry.
+- Requests ACME certs via Cloudflare DNS-01.
+- Updates Cloudflare DNS A record to the host local IP.
+- HTTP → HTTPS redirect is enforced at nginx.
+
+**Host setup:**
+Add `localIp = "192.168.x.y";` in `hosts.nix`.
+
+**DNS sync:**
+Stateful sync runs on rebuild and stores cache in `/var/lib/homelab/dns/`.
+Check API call count at `/var/lib/homelab/dns/api-call-count`.
+
+**ACME propagation note:**
+If a new cert fails with `NXDOMAIN` or `incorrect TXT`, a stale TXT record may exist.
+Clear `_acme-challenge.<host>` TXT records and re-run the `acme-order-renew-<host>` unit.
