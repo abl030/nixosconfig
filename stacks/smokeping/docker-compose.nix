@@ -32,7 +32,7 @@ in
     inherit envFiles;
     stackHosts = [
       {
-        host = "smokeping.ablz.au";
+        host = "ping.ablz.au";
         port = 8084;
       }
     ];
