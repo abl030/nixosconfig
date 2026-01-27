@@ -35,7 +35,7 @@ Rootless Podman container stack definitions for the homelab.
   - `secrets` → encrypted env files via sops-nix
   - `requiresMounts` → filesystem dependencies
   - `firewallPorts` → TCP ports to open
-  - `stackHosts` → per-host local proxy + DNS registration (optional)
+  - `stackHosts` → per-host local proxy + DNS registration (optional, create/update/remove managed A records)
   - `preStart` → initialization scripts
   - `wants/after/requires` → systemd dependencies
 - Stack state isolated to its directory
@@ -123,7 +123,7 @@ in
       "CADDY_FILE=${caddyFile}"
     ];
 
-    stackHosts = [  # Optional: local proxy + DNS registration
+    stackHosts = [  # Optional: local proxy + DNS registration (local IP, TTL 60s)
       {
         host = "myapp.ablz.au";
         port = 8080;

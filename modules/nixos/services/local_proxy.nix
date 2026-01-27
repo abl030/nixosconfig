@@ -90,6 +90,20 @@
     tmp_cache="$records_cache.tmp"
     cp "$records_cache" "$tmp_cache"
 
+    desired_hosts=$(${pkgs.jq}/bin/jq -r '.[].host' "$hosts_json" | ${pkgs.coreutils}/bin/sort -u)
+
+    while read -r cached_host; do
+      if ! printf '%s\n' "$desired_hosts" | ${pkgs.gnugrep}/bin/grep -qx "$cached_host"; then
+        record_id=$(${pkgs.jq}/bin/jq -r --arg host "$cached_host" '.[$host].recordId // ""' "$records_cache")
+        if [[ -n "$record_id" ]]; then
+          cf_request DELETE "$api/zones/$zone_id/dns_records/$record_id" >/dev/null
+          echo "homelab-dns-sync: removed $cached_host"
+        fi
+        ${pkgs.jq}/bin/jq --arg host "$cached_host" 'del(.[$host])' "$tmp_cache" > "$tmp_cache.next"
+        mv "$tmp_cache.next" "$tmp_cache"
+      fi
+    done < <(${pkgs.jq}/bin/jq -r 'keys[]' "$records_cache")
+
     while read -r entry; do
       host=$(printf '%s' "$entry" | ${pkgs.jq}/bin/jq -r '.host')
       if [[ -z "$host" || "$host" == "null" ]]; then
