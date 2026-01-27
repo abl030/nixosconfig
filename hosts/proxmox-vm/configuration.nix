@@ -86,15 +86,15 @@
       users = ["abl030"];
       commands = [
         {
-          command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild";
+          command = "/run/current-system/sw/bin/nixos-rebuild";
           options = ["NOPASSWD"];
         }
         {
-          command = "${pkgs.systemd}/bin/systemctl";
+          command = "/run/current-system/sw/bin/systemctl";
           options = ["NOPASSWD"];
         }
         {
-          command = "${pkgs.systemd}/bin/journalctl";
+          command = "/run/current-system/sw/bin/journalctl";
           options = ["NOPASSWD"];
         }
       ];
