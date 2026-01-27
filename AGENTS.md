@@ -32,7 +32,7 @@ Respect stabilization rules for all new edits:
 - `nix fmt`: format all Nix files with Alejandra (write in place).
 - `nix run .#fmt-nix -- --check`: list files that would change without writing.
 - `nix run .#lint-nix`: run deadnix + statix across the repo.
-- `check`: quality gate (format check, deadnix, statix, `nix flake check`). Use `check --full` to include host config checks; drift detection runs only with `check --drift`.
+- `check`: quality gate (format check, deadnix, statix, `nix flake check`). Use `check --full` to include host config checks, `check --hosts <name[,name...]>` to filter them; drift detection runs only with `check --drift`.
 - `nix flake check`: build and validate all configurations.
 - `nixos-rebuild switch --flake .#<hostname>`: deploy locally.
 - `nixos-rebuild switch --flake .#<hostname> --target-host <hostname>`: deploy remote.

@@ -61,8 +61,19 @@ else
     log "⚠️  jolt update script not found, skipping."
 fi
 
-# 4. Verify Builds (No linting, no flake check, just builds)
-log "🚧 Lockfile changed. Verifying builds..."
+# 4. Full CI gate (format, lint, flake check with host configs)
+log "🚧 Lockfile changed. Running full check gate..."
+if command -v check >/dev/null 2>&1; then
+    check --full
+else
+    log "⚠️  'check' command not found; running equivalent checks."
+    nix run .#fmt-nix -- --check
+    nix run .#lint-nix
+    FULL_CHECK=1 nix flake check --impure --print-build-logs
+fi
+
+# 5. Verify Builds (No linting, no flake check, just builds)
+log "🏗️  Verifying builds..."
 
 log "🏗️  Building all hosts (System + Home Manager)..."
 # This calls your populate_cache.sh which builds everything and creates GC roots
@@ -73,7 +84,7 @@ fi
 
 log "✅ All builds passed."
 
-# 5. Capture Hash Baselines
+# 6. Capture Hash Baselines
 # Since builds passed, capture derivation hashes as baselines
 log "📊 Capturing hash baselines..."
 if [ -x "./scripts/hash-capture.sh" ]; then
@@ -83,7 +94,7 @@ else
     log "⚠️  Hash capture script not found, skipping."
 fi
 
-# 6. Commit and Push
+# 7. Commit and Push
 if [ -n "${NO_COMMIT:-}" ]; then
     log "⏭️  NO_COMMIT set; skipping commit and push."
     exit 0

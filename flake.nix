@@ -164,6 +164,13 @@
         # Evaluation-only checks - catches config errors without building
         checks.x86_64-linux = let
           fullCheck = builtins.getEnv "FULL_CHECK" == "1";
+          hostFilterRaw = builtins.getEnv "HOST_CHECKS";
+          hostFilter =
+            if hostFilterRaw == ""
+            then null
+            else
+              lib.filter (name: name != "")
+              (lib.splitString "," (lib.replaceStrings [" "] [","] hostFilterRaw));
           hostChecks =
             lib.mapAttrs
             (name: cfg:
@@ -183,7 +190,11 @@
               '')
             self.homeConfigurations;
         in
-          lib.optionalAttrs fullCheck hostChecks;
+          if !fullCheck
+          then {}
+          else if hostFilter == null
+          then hostChecks
+          else lib.filterAttrs (name: _: lib.elem name hostFilter) hostChecks;
       };
     };
 }
