@@ -224,7 +224,10 @@ in {
 
     system.activationScripts.homelabDnsSync.text = ''
       if ${pkgs.coreutils}/bin/test -x ${dnsSyncScript}; then
-        ${pkgs.systemd}/bin/systemctl start homelab-dns-sync.service || true
+        ${pkgs.systemd}/bin/systemctl daemon-reload || true
+        if ${pkgs.systemd}/bin/systemctl list-unit-files | ${pkgs.gnugrep}/bin/grep -q '^homelab-dns-sync.service'; then
+          ${pkgs.systemd}/bin/systemctl start homelab-dns-sync.service || true
+        fi
       fi
     '';
   };
