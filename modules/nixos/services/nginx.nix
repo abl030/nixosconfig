@@ -48,6 +48,10 @@ in {
         dnsResolver = "1.1.1.1:53";
         # Skip local propagation checks; rely on ACME validation.
         dnsPropagationCheck = false;
+        extraLegoFlags = [
+          "--dns.propagation-wait"
+          "20s"
+        ];
         # Reload nginx when certs change
         reloadServices = ["nginx"];
         # validMinDays = 999;
