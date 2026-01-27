@@ -47,14 +47,15 @@
     auth_header="Authorization: Bearer $token"
     content_header="Content-Type: application/json"
 
-    api_calls=0
+    api_calls_file="$cache_dir/api-calls-run"
+    : > "$api_calls_file"
 
     cf_request() {
       local method=$1
       local url=$2
       local data=''${3:-}
       local resp
-      api_calls=$((api_calls + 1))
+      printf '.' >> "$api_calls_file"
       if [[ -n "$data" ]]; then
         resp=$(${pkgs.curl}/bin/curl -fsS -X "$method" -H "$auth_header" -H "$content_header" --data "$data" "$url")
       else
@@ -134,6 +135,7 @@
 
     mv "$tmp_cache" "$records_cache"
 
+    api_calls=$(${pkgs.coreutils}/bin/wc -c < "$api_calls_file" | ${pkgs.coreutils}/bin/tr -d '[:space:]')
     count_file="$cache_dir/api-call-count"
     total=0
     if [[ -s "$count_file" ]]; then
