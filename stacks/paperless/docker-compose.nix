@@ -30,6 +30,12 @@ in
     projectName = "paperless";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "paperless.ablz.au";
+        port = 8000;
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

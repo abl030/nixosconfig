@@ -30,6 +30,12 @@ in
     projectName = "mealie";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "cooking.ablz.au";
+        port = 9925;
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

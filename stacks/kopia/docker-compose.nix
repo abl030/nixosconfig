@@ -37,6 +37,16 @@ in
     projectName = "kopia";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "kopiaphotos.ablz.au";
+        port = 51515;
+      }
+      {
+        host = "kopiamum.ablz.au";
+        port = 51516;
+      }
+    ];
     # Only require /mnt/data - mnt-mum is handled via automount dependency above
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
