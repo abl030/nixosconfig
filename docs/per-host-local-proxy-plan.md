@@ -96,8 +96,9 @@ Always rebuild and test on target host.
 ## Status
 - Implemented local proxy module + DNS sync with stateful cache.
 - Added smokeping as the first stack using `stackHosts` on doc1.
-- Enforced HTTPS-only behavior for local proxy vhosts (no HTTP access).
+- HTTP → HTTPS redirect enforced for local proxy vhosts.
 - Added Cloudflare API call counting to `/var/lib/homelab/dns/api-call-count`.
+- ACME propagation wait added to avoid race conditions on fresh TXT records.
 
 ## Open Questions / Assumptions
 - None for MVP (TTL=60s, DNS sync on rebuild, port declared in stack).
