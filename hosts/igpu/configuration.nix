@@ -83,4 +83,24 @@
   # Ensure igpu-management starts on rebuild (prod-style).
   systemd.services.igpu-management-stack.restartIfChanged = lib.mkForce true;
   systemd.services.igpu-management-stack.wantedBy = lib.mkForce ["multi-user.target"];
+
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "${pkgs.systemd}/bin/systemctl";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "${pkgs.systemd}/bin/journalctl";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 }

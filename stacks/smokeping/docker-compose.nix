@@ -30,6 +30,12 @@ in
     projectName = "smokeping";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "smokeping.ablz.au";
+        port = 8084;
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8084];

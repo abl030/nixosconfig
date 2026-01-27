@@ -11,6 +11,7 @@
     ./display/sunshine.nix
     ./rdp-inhibitor.nix
     ./nginx.nix
+    ./local_proxy.nix
     ./gotify.nix
     ./framework
   ];
