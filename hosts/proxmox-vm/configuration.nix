@@ -81,6 +81,26 @@
     butane
   ]);
 
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "${pkgs.nixos-rebuild}/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "${pkgs.systemd}/bin/systemctl";
+          options = ["NOPASSWD"];
+        }
+        {
+          command = "${pkgs.systemd}/bin/journalctl";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
