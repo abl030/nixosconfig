@@ -105,7 +105,7 @@
     };
 
     jolt = {
-      url = "github:jordond/jolt";
+      url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -162,24 +162,28 @@
           (lib.filterAttrs (_: cfg: cfg ? "homeFile") hosts);
 
         # Evaluation-only checks - catches config errors without building
-        checks.x86_64-linux =
-          lib.mapAttrs
-          (name: cfg:
-            pkgs.runCommand "check-nixos-${name}" {} ''
-              echo "Checking NixOS config: ${name}"
-              echo "System name: ${cfg.config.system.name}"
-              echo "Toplevel: ${cfg.config.system.build.toplevel}"
-              touch $out
-            '')
-          self.nixosConfigurations
-          // lib.mapAttrs
-          (name: cfg:
-            pkgs.runCommand "check-home-${name}" {} ''
-              echo "Checking Home Manager config: ${name}"
-              echo "Activation package: ${cfg.activationPackage}"
-              touch $out
-            '')
-          self.homeConfigurations;
+        checks.x86_64-linux = let
+          fullCheck = builtins.getEnv "FULL_CHECK" == "1";
+          hostChecks =
+            lib.mapAttrs
+            (name: cfg:
+              pkgs.runCommand "check-nixos-${name}" {} ''
+                echo "Checking NixOS config: ${name}"
+                echo "System name: ${cfg.config.system.name}"
+                echo "Toplevel: ${cfg.config.system.build.toplevel}"
+                touch $out
+              '')
+            self.nixosConfigurations
+            // lib.mapAttrs
+            (name: cfg:
+              pkgs.runCommand "check-home-${name}" {} ''
+                echo "Checking Home Manager config: ${name}"
+                echo "Activation package: ${cfg.activationPackage}"
+                touch $out
+              '')
+            self.homeConfigurations;
+        in
+          lib.optionalAttrs fullCheck hostChecks;
       };
     };
 }
