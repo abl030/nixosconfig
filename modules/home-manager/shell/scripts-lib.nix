@@ -554,15 +554,21 @@ in {
             failed=0
 
             RUN_DRIFT=false
+            RUN_FULL=false
             while [[ $# -gt 0 ]]; do
                 case "$1" in
                     --drift) RUN_DRIFT=true; shift ;;
                     --help|-h)
                         cat <<'EOF'
-      Usage: check [--drift]
+      Usage: check [--drift] [--full]
         --drift  run hash-based drift detection (slow)
+        --full   include host config checks during flake check (slow)
       EOF
                         exit 0
+                        ;;
+                    --full)
+                        RUN_FULL=true
+                        shift
                         ;;
                     *) echo "Unknown option: $1" >&2; exit 1 ;;
                 esac
@@ -606,7 +612,12 @@ in {
 
       # Run flake check after linting passes
       echo "❄️  Running Flake Checks..."
-      if ! nix flake check --print-build-logs; then
+      if $RUN_FULL; then
+          echo "ℹ️  Full check enabled (host configs included)."
+      else
+          echo "ℹ️  Full check skipped (use --full to include host configs)."
+      fi
+      if ! FULL_CHECK=$([[ $RUN_FULL == true ]] && echo 1 || echo 0) nix flake check --impure --print-build-logs; then
           echo "❌ Flake check failed."
           exit 1
       else
