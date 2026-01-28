@@ -168,6 +168,9 @@
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString entry.port}";
           extraConfig = ''
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
             proxy_set_header X-Forwarded-Proto https;
             proxy_set_header X-Forwarded-Port 443;
             proxy_redirect http://$host/ https://$host/;

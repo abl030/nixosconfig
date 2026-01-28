@@ -33,10 +33,10 @@ in
     stackHosts = [
       {
         host = "status.ablz.au";
-        port = 3002;
+        port = 3001;
       }
     ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [3002];
+    firewallPorts = [];
   }

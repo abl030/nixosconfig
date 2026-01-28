@@ -15,6 +15,7 @@
   pythonEnv = pkgs.python3.withPackages (ps: [
     ps.uptime-kuma-api
     ps.requests
+    ps.websocket-client
   ]);
 
   monitoringScript = pkgs.writeShellScript "homelab-monitoring-sync" ''
@@ -56,7 +57,10 @@
         ${pythonEnv}/bin/python - <<'PY'
     import json
     import os
+    import time
+    import socketio
     from uptime_kuma_api import UptimeKumaApi, MonitorType
+    from uptime_kuma_api.exceptions import UptimeKumaException
 
     kuma_url = os.environ["KUMA_URL"]
     kuma_user = os.environ["KUMA_USER"]
@@ -74,58 +78,72 @@
     except FileNotFoundError:
         cache = {}
 
-    updated = {}
+    def sync_once() -> dict:
+        updated = {}
+        with UptimeKumaApi(kuma_url, timeout=30) as api:
+            api.login(username=kuma_user, password=kuma_pass)
+            monitors = api.get_monitors()
+            by_url = {m.get("url"): m for m in monitors if m.get("url")}
+            by_name = {m.get("name"): m for m in monitors if m.get("name")}
 
-    with UptimeKumaApi(kuma_url) as api:
-        api.login(username=kuma_user, password=kuma_pass)
-        monitors = api.get_monitors()
-        by_url = {m.get("url"): m for m in monitors if m.get("url")}
-        by_name = {m.get("name"): m for m in monitors if m.get("name")}
+            for entry in desired:
+                name = entry["name"]
+                url = entry["url"]
+                host_header = entry.get("hostHeader")
+                ignore_tls = bool(entry.get("ignoreTls", False))
+                headers_json = json.dumps({"Host": host_header}) if host_header else None
 
-    for entry in desired:
-        name = entry["name"]
-        url = entry["url"]
-        host_header = entry.get("hostHeader")
-        ignore_tls = bool(entry.get("ignoreTls", False))
-        headers_json = json.dumps({"Host": host_header}) if host_header else None
+                existing = by_url.get(url) or by_name.get(name)
+                if existing:
+                    monitor_id = existing.get("id")
+                    needs_update = (
+                        existing.get("url") != url
+                        or bool(existing.get("ignoreTls")) != ignore_tls
+                        or (host_header and existing.get("headers") != headers_json)
+                    )
+                    if needs_update:
+                        api.edit_monitor(
+                            monitor_id,
+                            url=url,
+                            ignoreTls=ignore_tls,
+                            headers=headers_json,
+                            accepted_statuscodes=["200-299", "300-399"],
+                            maxredirects=10,
+                            interval=60,
+                        )
+                    updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+                    continue
 
-        existing = by_url.get(url) or by_name.get(name)
-        if existing:
-            monitor_id = existing.get("id")
-            needs_update = (
-                existing.get("url") != url
-                or existing.get("ignoreTls") != ignore_tls
-                or (host_header and existing.get("headers") != headers_json)
-            )
-            if needs_update:
-                api.edit_monitor(
-                    monitor_id,
+                resp = api.add_monitor(
+                    type=MonitorType.HTTP,
+                    name=name,
                     url=url,
-                    ignoreTls=ignore_tls,
                     headers=headers_json,
+                    ignoreTls=ignore_tls,
                     accepted_statuscodes=["200-299", "300-399"],
                     maxredirects=10,
                     interval=60,
                 )
-            updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
-            continue
+                monitor_id = resp.get("monitorID") or resp.get("monitorId")
+                updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
-        resp = api.add_monitor(
-            type=MonitorType.HTTP,
-            name=name,
-            url=url,
-            headers=headers_json,
-            ignoreTls=ignore_tls,
-            accepted_statuscodes=["200-299", "300-399"],
-            maxredirects=10,
-            interval=60,
-        )
-        monitor_id = resp.get("monitorID") or resp.get("monitorId")
-        updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+        return updated
 
-    with open(tmp_path, "w", encoding="utf-8") as fh:
-        json.dump(updated, fh, indent=2, sort_keys=True)
-    os.replace(tmp_path, cache_path)
+    last_error = None
+    for attempt in range(3):
+        try:
+            result = sync_once()
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                json.dump(result, fh, indent=2, sort_keys=True)
+            os.replace(tmp_path, cache_path)
+            last_error = None
+            break
+        except (socketio.exceptions.BadNamespaceError, UptimeKumaException) as exc:
+            last_error = exc
+            time.sleep(2 * (attempt + 1))
+
+    if last_error is not None:
+        raise last_error
     PY
   '';
 in {
@@ -138,8 +156,8 @@ in {
 
     kumaUrl = lib.mkOption {
       type = lib.types.str;
-      default = "http://127.0.0.1:3002";
-      description = "Uptime Kuma base URL (local service preferred).";
+      default = "https://status.ablz.au";
+      description = "Uptime Kuma base URL.";
     };
 
     authSecret = lib.mkOption {
