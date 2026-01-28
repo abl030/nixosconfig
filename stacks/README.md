@@ -4,13 +4,6 @@ Rootless Podman container stack definitions for the homelab.
 
 IMPORTANT: keep as much state as possible in each stack's own `docker-compose.nix` (service file). Avoid centralizing stack-specific details elsewhere.
 
-## Migration Status
-
-| Host | Status | Notes |
-|------|--------|-------|
-| igpu | ✅ Complete | Jellyfin, Plex, Tdarr, Management |
-| doc1 | 🔄 Next | 19 stacks to migrate |
-
 ## Architecture Overview
 
 ### Three-Level Self-Contained Design
