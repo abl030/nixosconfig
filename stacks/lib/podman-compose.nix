@@ -101,6 +101,7 @@
     projectName,
     composeFile,
     stackHosts ? [],
+    stackMonitors ? [],
     envFiles ? [],
     extraEnv ? [],
     preStart ? [],
@@ -116,6 +117,7 @@
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
     homelab.localProxy.hosts = lib.mkAfter stackHosts;
+    homelab.monitoring.monitors = lib.mkAfter stackMonitors;
 
     systemd.services.${stackName} = {
       inherit description;

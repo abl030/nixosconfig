@@ -12,6 +12,7 @@
     ./rdp-inhibitor.nix
     ./nginx.nix
     ./local_proxy.nix
+    ./monitoring_sync.nix
     ./gotify.nix
     ./framework
   ];
