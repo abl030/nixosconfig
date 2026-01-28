@@ -255,6 +255,8 @@ in {
       serviceConfig = {
         Type = "oneshot";
         ExecStart = dnsSyncScript;
+        StateDirectory = "homelab/dns";
+        StateDirectoryMode = "0750";
         ReadWritePaths = ["/var/lib/homelab/dns"];
       };
     };
