@@ -54,6 +54,17 @@
         export CACHE_FILE="$cache_file"
         export TMP_CACHE="$tmp_cache"
 
+        max_wait_seconds=60
+        waited=0
+        while ! ${pkgs.curl}/bin/curl -fsS --connect-timeout 3 --max-time 5 "$kuma_url/api/status" >/dev/null 2>&1; do
+          if [[ $waited -ge $max_wait_seconds ]]; then
+            echo "homelab-monitoring-sync: Uptime Kuma not reachable at $kuma_url" >&2
+            exit 1
+          fi
+          sleep 2
+          waited=$((waited + 2))
+        done
+
         ${pythonEnv}/bin/python - <<'PY'
     import json
     import os
