@@ -95,14 +95,14 @@
                 }
                 continue
 
-            resp = api.add_monitor(
-                type=MonitorType.HTTP,
-                name=name,
-                url=url,
-                accepted_statuscodes=[200, 301, 302, 307, 308],
-                maxredirects=10,
-                interval=60,
-            )
+        resp = api.add_monitor(
+            type=MonitorType.HTTP,
+            name=name,
+            url=url,
+            accepted_statuscodes=["200-299", "300-399"],
+            maxredirects=10,
+            interval=60,
+        )
             monitor_id = resp.get("monitorID") or resp.get("monitorId")
             updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
