@@ -152,6 +152,7 @@ in {
   config = lib.mkIf (cfg.enable && haveMonitors) {
     sops.secrets."uptime-kuma/env" = {
       sopsFile = cfg.authSecret;
+      format = "dotenv";
       owner = "root";
       group = "root";
       mode = "0400";
