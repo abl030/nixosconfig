@@ -16,7 +16,7 @@
 - Extend the stack registration pipeline to optionally declare monitoring metadata.
 - Add a host-local **monitoring sync** systemd oneshot triggered on rebuild.
 - Maintain a local cache of monitors created by this host.
-- Use the Kuma API (or metrics + future API key endpoint) to create/verify monitors.
+- Use the Kuma API (Socket.IO) for create/update; metrics for read-only checks.
 
 ## Proposed Data Model
 ### Stack declaration (smokeping only for MVP)
@@ -25,7 +25,7 @@ Add to smokeping stack:
 monitoring = [
   {
     name = "Smokeping";
-    url = "https://ping.ablz.au";
+    url = "https://ping.ablz.au/smokeping/";
   }
 ];
 ```
@@ -34,39 +34,43 @@ monitoring = [
 ```
 /var/lib/homelab/monitoring/records.json
 {
-  "ping.ablz.au": {
+  "https://ping.ablz.au/smokeping/": {
     "name": "Smokeping",
-    "url": "https://ping.ablz.au",
+    "url": "https://ping.ablz.au/smokeping/",
     "monitorId": 123
   }
 }
 ```
 
-## Implementation Sketch
+## Implementation Sketch (Portable)
 - Add a small monitoring sync module:
   - `modules/nixos/services/monitoring_sync.nix`
   - Reads desired monitor list.
   - Queries Kuma to check existing monitors.
   - Creates missing monitors.
   - Updates cache and avoids duplicates.
-- For MVP: hardcode only smokeping registration to validate the flow.
+- Ensure nginx supports WebSocket upgrades for `status.ablz.au` (Socket.IO).
+- Use `https://status.ablz.au` as the Kuma URL so any host can register.
+- For MVP: only smokeping registration to validate the flow.
+ - Run Uptime Kuma containers with `network_mode: host` so they can reach LAN IPs (e.g., `ping.ablz.au` → 192.168.1.29).
 
 ## API Access
 Use the documented skill:
 - `.claude/skills/uptime-kuma/SKILL.md`
 - Basic auth to `/metrics` currently works.
-- If the API key cannot create monitors, fall back to creating via Socket.IO login or add a new API key with create permissions.
+- For create/update, use Socket.IO with Kuma username/password.
 
 ## Testing Plan (Smokeping only)
 1) Add monitoring declaration to smokeping stack.
-2) Rebuild doc1.
-3) Verify monitor exists via Uptime Kuma (manual UI check or API).
-4) Verify monitor status via metrics:
+2) Ensure nginx supports WebSocket upgrades for `status.ablz.au`.
+3) Rebuild doc1.
+4) Verify monitor exists via Uptime Kuma (UI or API).
+5) Verify monitor is **UP** via metrics:
 ```sh
 curl -fsS --user ":<API_KEY>" https://status.ablz.au/metrics | rg '^monitor_status' | rg 'Smokeping'
 ```
-5) Rebuild without changes and confirm no duplicate monitors are created.
+6) Rebuild without changes and confirm no duplicate monitors are created.
 
 ## Notes / Risks
-- Current API key appears to be read-only for Socket.IO calls; may need a dedicated key or user login for monitor creation.
+- Socket.IO requires WebSocket proxying on `status.ablz.au` to work from remote hosts.
 - Avoid spamming Kuma by caching created monitor IDs and comparing desired set.

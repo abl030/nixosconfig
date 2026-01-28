@@ -63,6 +63,12 @@ in {
       recommendedTlsSettings = lib.mkDefault true;
       recommendedGzipSettings = lib.mkDefault true;
       recommendedOptimisation = lib.mkDefault true;
+      commonHttpConfig = ''
+        map $http_upgrade $connection_upgrade {
+          default upgrade;
+          "" close;
+        }
+      '';
     };
 
     users.users.nginx.extraGroups = ["acme"];

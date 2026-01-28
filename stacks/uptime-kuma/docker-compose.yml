@@ -7,12 +7,11 @@ services:
       - io.containers.autoupdate=registry
     container_name: uptime-kuma
     restart: unless-stopped
+    network_mode: host
     volumes:
       - ${DATA_ROOT}/uptime-kuma:/app/data
       - /etc/localtime:/etc/localtime:ro
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
-    ports:
-      - "3002:3001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001"]
       interval: 30s
@@ -26,8 +25,9 @@ services:
       - io.containers.autoupdate=registry
     container_name: autokuma
     restart: unless-stopped
+    network_mode: host
     environment:
-      - AUTOKUMA__KUMA__URL=http://uptime-kuma:3001
+      - AUTOKUMA__KUMA__URL=http://127.0.0.1:3001
       - AUTOKUMA__KUMA__USERNAME=${KUMA_USERNAME}
       - AUTOKUMA__KUMA__PASSWORD=${KUMA_PASSWORD}
       # FIXED: Changed '=' to ':' for YAML parsing compliance
