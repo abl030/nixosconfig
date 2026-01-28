@@ -121,8 +121,8 @@ in {
 
     kumaUrl = lib.mkOption {
       type = lib.types.str;
-      default = "https://status.ablz.au";
-      description = "Uptime Kuma base URL.";
+      default = "http://127.0.0.1:3002";
+      description = "Uptime Kuma base URL (local service preferred).";
     };
 
     authSecret = lib.mkOption {
