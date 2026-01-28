@@ -9,21 +9,24 @@
 
 ## Metrics (current working access)
 - Uses basic auth with empty username and the API key as the password.
-- Example:
+- The key is stored in a dotenv file; extract `KUMA_API_KEY=` first.
 
 ```sh
-curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics
+key=$(rg -m1 '^KUMA_API_KEY=' "${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}" | cut -d= -f2-)
+curl -fsS --user ":$key" https://status.ablz.au/metrics
 ```
 
 ## Quick Lists
 ### Down (status != 1)
 ```sh
-curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF != "1" {print}'
+key=$(rg -m1 '^KUMA_API_KEY=' "${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}" | cut -d= -f2-)
+curl -fsS --user ":$key" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF != "1" {print}'
 ```
 
 ### Up (status == 1)
 ```sh
-curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF == "1" {print}'
+key=$(rg -m1 '^KUMA_API_KEY=' "${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}" | cut -d= -f2-)
+curl -fsS --user ":$key" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF == "1" {print}'
 ```
 
 ## Notes
