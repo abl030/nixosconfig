@@ -103,8 +103,8 @@
             maxredirects=10,
             interval=60,
         )
-            monitor_id = resp.get("monitorID") or resp.get("monitorId")
-            updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+        monitor_id = resp.get("monitorID") or resp.get("monitorId")
+        updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
     with open(tmp_path, "w", encoding="utf-8") as fh:
         json.dump(updated, fh, indent=2, sort_keys=True)
