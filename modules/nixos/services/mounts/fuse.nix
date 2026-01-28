@@ -10,7 +10,8 @@ with lib; let
 
   baseFlags =
     "allow_other,use_ino,cache.files=off,dropcacheonclose=true,"
-    + "moveonenospc=true,minfreespace=20G,category.create=ff";
+    + "moveonenospc=true,minfreespace=20G,category.create=ff,"
+    + "uid=1000,gid=100,umask=002";
 
   sh = "${pkgs.bash}/bin/bash";
   mfs = "${pkgs.mergerfs}/bin/mergerfs";

@@ -17,7 +17,6 @@ services:
       - "3468:3468" # Autoscan
       - "8080:8080" # Watchstate WebUI
       # NOTE: Port 3000 for Jellystat has been moved
-      - "9999:9999/udp" # inotify-receiver UDP (added)
     restart: unless-stopped
     networks:
       - jellyfin-net
@@ -193,11 +192,15 @@ services:
   # inotify receiver (socat + tiny handler script) with startup logs + healthcheck
   # ---------------------------------------------------------------
   inotify-receiver:
-    image: docker.io/library/alpine:3.20
+    image: docker.io/alpine/socat:latest
     labels:
       - io.containers.autoupdate=registry
     container_name: inotify-receiver
-    network_mode: "service:jellyfin-network-holder"
+    group_add:
+      - "100" # users group for write access on /data/music/New
+    userns_mode: "keep-id" # map host uid/gid so group 100 is real
+    ports:
+      - "9999:9999/udp"
     restart: unless-stopped
     volumes:
       - "${FUSE_ROOT:-/mnt/fuse}/Media/TV_Shows:/data/tv:rw"
@@ -205,6 +208,7 @@ services:
       - "${FUSE_ROOT:-/mnt/fuse}/Media/Music:/data/music:rw"
       # ─── UPDATED ───
       - "${INOTIFY_SCRIPT}:/usr/local/bin/inotify-recv.sh:ro" # Ensure quotes and curly braces
+      - "${INOTIFY_ENTRYPOINT}:/usr/local/bin/inotify-entrypoint.sh:ro"
       # ───────────────
     environment:
       - HEALTH_INTERVAL=30
@@ -214,45 +218,7 @@ services:
       - ROOT_MOVIES=/data/movies
       - ROOT_TV=/data/tv
       - ROOT_MUSIC=/data/music
-    command:
-      - /bin/sh
-      - -lc
-      - |
-        set -e
-        apk add --no-cache socat >/dev/null 2>&1 || true
-
-        # Resolve defaults at runtime (avoid compose pre-substitution)
-        HEALTH_FILE="$${HEALTH_FILE:-/tmp/receiver-healthy}"
-        [ -n "$$HEALTH_FILE" ] || HEALTH_FILE=/tmp/receiver-healthy
-        mkdir -p "$$(dirname "$$HEALTH_FILE")"
-        : >"$$HEALTH_FILE" || { echo "[receiver] cannot write $$HEALTH_FILE"; exit 1; }
-
-        ROOT_MOVIES="$${ROOT_MOVIES:-/data/movies}"
-        ROOT_TV="$${ROOT_TV:-/data/tv}"
-        ROOT_MUSIC="$${ROOT_MUSIC:-/data/music}"
-
-        echo "[receiver] listening UDP 0.0.0.0:9999"
-        echo "[receiver] guards: movies=$$ROOT_MOVIES tv=$$ROOT_TV music=$$ROOT_MUSIC"
-        echo "[receiver] healthfile: $$HEALTH_FILE (interval=$${HEALTH_INTERVAL:-30}s window=$${HEALTH_WINDOW:-180}s)"
-
-        # Start socat (fork spawns per datagram). If it dies, container exits.
-        # Use EXEC instead of SYSTEM to avoid shell interpretation issues
-        socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork EXEC:/usr/local/bin/inotify-recv.sh &
-        SOCAT_PID=$!
-
-        # Heartbeat loop: update only if socat is alive
-        (
-          while sleep "$${HEALTH_INTERVAL:-30}"; do
-            if kill -0 "$$SOCAT_PID" 2>/dev/null; then
-              date +%s >"$$HEALTH_FILE" || true
-            else
-              exit 0
-            fi
-          done
-        ) &
-
-        # Reap socat (main process exits if socat dies)
-        wait "$$SOCAT_PID"
+    entrypoint: ["/usr/local/bin/inotify-entrypoint.sh"]
     healthcheck:
       test: >
         sh -lc '

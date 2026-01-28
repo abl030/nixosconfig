@@ -61,9 +61,12 @@ Mount your libraries into the receiver so it can touch those directories, **read
 version: "3.8"
 services:
   inotify-receiver:
-    image: alpine:3.20
+    image: docker.io/alpine/socat:latest
     container_name: inotify-receiver
     network_mode: "bridge" # or share with your media stack's service network
+    # Podman/rootless: keep host uid/gid so /mnt/fuse perms are honored
+    userns_mode: "keep-id"
+    group_add: ["100"] # users group
     restart: unless-stopped
     environment:
       - ROOT_MOVIES=/data/movies
@@ -76,16 +79,45 @@ services:
       - /mnt/fuse/Media/TV_Shows:/data/tv:rw
       - /mnt/fuse/Media/Music:/data/music:rw
       - ./inotify-recv.sh:/usr/local/bin/inotify-recv.sh:ro
-    command:
-      - /bin/sh
-      - -lc
-      - |
-        set -eu
-        apk add --no-cache socat >/dev/null
-        echo "[receiver] listening UDP 0.0.0.0:9999"
-        exec socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork SYSTEM:/usr/local/bin/inotify-recv.sh
+      - ./inotify-entrypoint.sh:/usr/local/bin/inotify-entrypoint.sh:ro
+    entrypoint: ["/usr/local/bin/inotify-entrypoint.sh"]
     security_opt: ["no-new-privileges:true"]
     tmpfs: ["/tmp", "/run"]
+```
+
+`inotify-entrypoint.sh` (drop in the same folder):
+
+```sh
+#!/bin/sh
+set -e
+
+HEALTH_FILE="${HEALTH_FILE:-/tmp/receiver-healthy}"
+[ -n "$HEALTH_FILE" ] || HEALTH_FILE=/tmp/receiver-healthy
+mkdir -p "$(dirname "$HEALTH_FILE")"
+: >"$HEALTH_FILE" || { echo "[receiver] cannot write $HEALTH_FILE"; exit 1; }
+
+ROOT_MOVIES="${ROOT_MOVIES:-/data/movies}"
+ROOT_TV="${ROOT_TV:-/data/tv}"
+ROOT_MUSIC="${ROOT_MUSIC:-/data/music}"
+
+echo "[receiver] listening UDP 0.0.0.0:9999"
+echo "[receiver] guards: movies=$ROOT_MOVIES tv=$ROOT_TV music=$ROOT_MUSIC"
+echo "[receiver] healthfile: $HEALTH_FILE (interval=${HEALTH_INTERVAL:-30}s window=${HEALTH_WINDOW:-180}s)"
+
+socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork EXEC:/usr/local/bin/inotify-recv.sh,fdin=0 &
+SOCAT_PID=$!
+
+(
+  while sleep "${HEALTH_INTERVAL:-30}"; do
+    if kill -0 "$SOCAT_PID" 2>/dev/null; then
+      date +%s >"$HEALTH_FILE" || true
+    else
+      exit 0
+    fi
+  done
+) &
+
+wait "$SOCAT_PID"
 ```
 
 `inotify-recv.sh` (drop in the same folder):
@@ -124,6 +156,16 @@ case "$lib" in
   *)        log "[receiver] ignore: $target" ;;
 esac
 ```
+
+### Mergerfs permissions (critical)
+
+If the receiver writes to a **mergerfs union** (e.g. `/mnt/fuse/Media/Music`) and you use rootless Podman, ensure the union presents writeable ownership for your host user. Example options:
+
+```
+allow_other,...,uid=1000,gid=100,umask=002
+```
+
+Without this, the union will appear owned by `nobody` inside the container and `touch /data/music/New/refresh` will fail.
 
 **Expose port:** If your receiver is on a different host/network namespace, publish UDP/9999 (or share a service network with your media stack). Lock it down to LAN only (see *Security*).
 
@@ -314,4 +356,3 @@ MIT
 ## Credits
 
 Originally built and field-tested by **@abl030** on Unraid + NixOS stacks with Jellyfin/Plex over FUSE-mounted NFS libraries. Contributions welcome!
-

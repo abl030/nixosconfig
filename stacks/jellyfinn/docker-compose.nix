@@ -19,6 +19,47 @@
   };
 
   inotifyScript = pkgs.writeScript "inotify-recv.sh" (builtins.readFile ./inotify-recv.sh);
+  inotifyEntrypoint = pkgs.writeTextFile {
+    name = "inotify-entrypoint.sh";
+    executable = true;
+    text = ''
+      #!/bin/sh
+      set -e
+
+      # Resolve defaults at runtime (avoid compose pre-substitution)
+      HEALTH_FILE="''${HEALTH_FILE:-/tmp/receiver-healthy}"
+      [ -n "$HEALTH_FILE" ] || HEALTH_FILE=/tmp/receiver-healthy
+      mkdir -p "$(dirname "$HEALTH_FILE")"
+      : >"$HEALTH_FILE" || { echo "[receiver] cannot write $HEALTH_FILE"; exit 1; }
+
+      ROOT_MOVIES="''${ROOT_MOVIES:-/data/movies}"
+      ROOT_TV="''${ROOT_TV:-/data/tv}"
+      ROOT_MUSIC="''${ROOT_MUSIC:-/data/music}"
+
+      echo "[receiver] listening UDP 0.0.0.0:9999"
+      echo "[receiver] guards: movies=$ROOT_MOVIES tv=$ROOT_TV music=$ROOT_MUSIC"
+      echo "[receiver] healthfile: $HEALTH_FILE (interval=''${HEALTH_INTERVAL:-30}s window=''${HEALTH_WINDOW:-180}s)"
+
+      # Start socat (fork spawns per datagram). If it dies, container exits.
+      # Use EXEC instead of SYSTEM to avoid shell interpretation issues.
+      socat -u UDP4-RECVFROM:9999,bind=0.0.0.0,fork EXEC:/usr/local/bin/inotify-recv.sh,fdin=0 &
+      SOCAT_PID=$!
+
+      # Heartbeat loop: update only if socat is alive.
+      (
+        while sleep "''${HEALTH_INTERVAL:-30}"; do
+          if kill -0 "$SOCAT_PID" 2>/dev/null; then
+            date +%s >"$HEALTH_FILE" || true
+          else
+            exit 0
+          fi
+        done
+      ) &
+
+      # Reap socat (main process exits if socat dies).
+      wait "$SOCAT_PID"
+    '';
+  };
 
   encEnv = config.homelab.secrets.sopsFile "jellyfin.env";
   runEnv = "/run/user/%U/secrets/${stackName}.env";
@@ -52,6 +93,7 @@ in
       inherit stackName;
       description = "Jellyfin Podman Compose Stack";
       projectName = "jellyfin";
+      composeArgs = "--in-pod false";
       inherit composeFile;
       inherit envFiles;
       stackHosts = [
@@ -69,8 +111,15 @@ in
       extraEnv = [
         "CADDY_FILE=${caddyFile}"
         "INOTIFY_SCRIPT=${inotifyScript}"
+        "INOTIFY_ENTRYPOINT=${inotifyEntrypoint}"
+        "PODMAN_COMPOSE_IN_POD=false"
       ];
-      requiresMounts = ["/mnt/data" "/mnt/fuse"];
+      requiresMounts = [
+        "/mnt/data"
+        "/mnt/fuse/Media/Movies"
+        "/mnt/fuse/Media/TV_Shows"
+        "/mnt/fuse/Media/Music"
+      ];
       wants = dependsOn;
       after = dependsOn;
       firewallPorts = [];
