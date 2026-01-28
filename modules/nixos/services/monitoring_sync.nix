@@ -82,23 +82,40 @@
         by_url = {m.get("url"): m for m in monitors if m.get("url")}
         by_name = {m.get("name"): m for m in monitors if m.get("name")}
 
-        for entry in desired:
-            name = entry["name"]
-            url = entry["url"]
+    for entry in desired:
+        name = entry["name"]
+        url = entry["url"]
+        host_header = entry.get("hostHeader")
+        ignore_tls = bool(entry.get("ignoreTls", False))
+        headers_json = json.dumps({"Host": host_header}) if host_header else None
 
-            existing = by_url.get(url) or by_name.get(name)
-            if existing:
-                updated[url] = {
-                    "name": name,
-                    "url": url,
-                    "monitorId": existing.get("id"),
-                }
-                continue
+        existing = by_url.get(url) or by_name.get(name)
+        if existing:
+            monitor_id = existing.get("id")
+            needs_update = (
+                existing.get("url") != url
+                or existing.get("ignoreTls") != ignore_tls
+                or (host_header and existing.get("headers") != headers_json)
+            )
+            if needs_update:
+                api.edit_monitor(
+                    monitor_id,
+                    url=url,
+                    ignoreTls=ignore_tls,
+                    headers=headers_json,
+                    accepted_statuscodes=["200-299", "300-399"],
+                    maxredirects=10,
+                    interval=60,
+                )
+            updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+            continue
 
         resp = api.add_monitor(
             type=MonitorType.HTTP,
             name=name,
             url=url,
+            headers=headers_json,
+            ignoreTls=ignore_tls,
             accepted_statuscodes=["200-299", "300-399"],
             maxredirects=10,
             interval=60,
@@ -141,6 +158,16 @@ in {
           url = lib.mkOption {
             type = lib.types.str;
             description = "URL to monitor.";
+          };
+          hostHeader = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Optional Host header override (e.g., ping.ablz.au).";
+          };
+          ignoreTls = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Ignore TLS validation errors for the monitor.";
           };
         };
       });

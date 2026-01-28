@@ -39,7 +39,9 @@ in
     stackMonitors = [
       {
         name = "Smokeping";
-        url = "https://ping.ablz.au";
+        url = "https://host.containers.internal/smokeping/";
+        hostHeader = "ping.ablz.au";
+        ignoreTls = true;
       }
     ];
     wants = dependsOn;
