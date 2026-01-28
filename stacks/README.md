@@ -162,6 +162,15 @@ in
 
 Some services return 401 on `/` when unauthenticated (e.g., Plex). For those, use a health endpoint that returns 200 instead of loosening accepted status codes. Example: Plex supports `/identity` as a reliable 200 OK health check.
 
+### Monitoring Automation Notes
+
+- Monitors are declared per-stack via `stackMonitors` and synced by `homelab-monitoring-sync.service`.
+- Default notification targets in Uptime Kuma are applied automatically to all managed monitors.
+- Local cache: `/var/lib/homelab/monitoring/records.json` (per-host).
+- Secrets:
+  - `secrets/uptime-kuma.env` (KUMA_USERNAME / KUMA_PASSWORD)
+  - `secrets/uptime-kuma-api.env` (KUMA_API_KEY for metrics)
+
 ## Compose File Conventions
 
 ### Environment Variables
