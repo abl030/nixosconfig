@@ -36,6 +36,12 @@ in
         port = 8084;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Smokeping";
+        url = "https://ping.ablz.au";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [8084];
