@@ -38,8 +38,20 @@ in
     projectName = "plex";
     inherit composeFile;
     inherit envFiles;
+    stackHosts = [
+      {
+        host = "plex2.ablz.au";
+        port = 32400;
+      }
+    ];
+    stackMonitors = [
+      {
+        name = "Plex";
+        url = "https://plex2.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [32400];
+    firewallPorts = [];
   }

@@ -54,6 +54,18 @@ in
       projectName = "jellyfin";
       inherit composeFile;
       inherit envFiles;
+      stackHosts = [
+        {
+          host = "jelly.ablz.au";
+          port = 8096;
+        }
+      ];
+      stackMonitors = [
+        {
+          name = "Jellyfin";
+          url = "https://jelly.ablz.au/";
+        }
+      ];
       extraEnv = [
         "CADDY_FILE=${caddyFile}"
         "INOTIFY_SCRIPT=${inotifyScript}"
@@ -61,7 +73,7 @@ in
       requiresMounts = ["/mnt/data" "/mnt/fuse"];
       wants = dependsOn;
       after = dependsOn;
-      firewallPorts = [8096];
+      firewallPorts = [];
     })
     {
       networking.firewall.extraCommands = ''
