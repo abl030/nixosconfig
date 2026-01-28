@@ -83,6 +83,13 @@
         with UptimeKumaApi(kuma_url, timeout=30) as api:
             api.login(username=kuma_user, password=kuma_pass)
             monitors = api.get_monitors()
+            notifications = api.get_notifications()
+            default_notification_ids = [
+                n["id"] for n in notifications if n.get("isDefault")
+            ]
+            if not default_notification_ids:
+                raise UptimeKumaException("no default notification configured in Uptime Kuma")
+
             by_url = {m.get("url"): m for m in monitors if m.get("url")}
             by_name = {m.get("name"): m for m in monitors if m.get("name")}
 
@@ -92,12 +99,16 @@
                 host_header = entry.get("hostHeader")
                 ignore_tls = bool(entry.get("ignoreTls", False))
                 accepted_codes = entry.get("acceptedStatusCodes") or ["200-299", "300-399"]
+                notification_ids = default_notification_ids
                 headers_json = json.dumps({"Host": host_header}) if host_header else None
 
                 existing = by_url.get(url) or by_name.get(name)
                 if existing:
                     monitor_id = existing.get("id")
                     existing_codes = existing.get("accepted_statuscodes") or existing.get("acceptedStatusCodes") or []
+                    existing_notifications = existing.get("notificationIDList") or []
+                    if isinstance(existing_notifications, dict):
+                        existing_notifications = [int(i) for i in existing_notifications.keys()]
                     try:
                         existing_codes = sorted(existing_codes)
                     except TypeError:
@@ -106,12 +117,17 @@
                         desired_codes = sorted(accepted_codes)
                     except TypeError:
                         desired_codes = accepted_codes
+                    try:
+                        desired_notifications = sorted(notification_ids)
+                    except TypeError:
+                        desired_notifications = notification_ids
                     needs_update = (
                         existing.get("name") != name
                         or existing.get("url") != url
                         or bool(existing.get("ignoreTls")) != ignore_tls
                         or (host_header and existing.get("headers") != headers_json)
                         or existing_codes != desired_codes
+                        or existing_notifications != desired_notifications
                     )
                     if needs_update:
                         api.edit_monitor(
@@ -121,6 +137,7 @@
                             ignoreTls=ignore_tls,
                             headers=headers_json,
                             accepted_statuscodes=accepted_codes,
+                            notificationIDList=notification_ids,
                             maxredirects=10,
                             interval=60,
                         )
@@ -134,6 +151,7 @@
                     headers=headers_json,
                     ignoreTls=ignore_tls,
                     accepted_statuscodes=accepted_codes,
+                    notificationIDList=notification_ids,
                     maxredirects=10,
                     interval=60,
                 )
