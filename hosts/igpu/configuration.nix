@@ -53,6 +53,18 @@
     extraGroups = ["video" "render"];
   };
 
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils
     radeontop

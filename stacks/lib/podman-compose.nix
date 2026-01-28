@@ -109,6 +109,7 @@
     after ? [],
     wants ? [],
     requires ? [],
+    composeArgs ? "",
     restart ? "on-failure",
     restartSec ? "30s",
     firewallPorts ? [],
@@ -146,9 +147,9 @@
 
         ExecStartPre = mkExecStartPre envFiles preStart;
 
-        ExecStart = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
-        ExecStop = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} stop";
-        ExecReload = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
+        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
 
         Restart = restart;
         RestartSec = restartSec;
