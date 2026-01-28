@@ -40,13 +40,13 @@ in
     inherit envFiles;
     stackHosts = [
       {
-        host = "Plex2.ablz.au";
+        host = "plex2.ablz.au";
         port = 32400;
       }
     ];
     stackMonitors = [
       {
-        name = "plex2";
+        name = "Plex2";
         url = "https://plex2.ablz.au/";
       }
     ];
