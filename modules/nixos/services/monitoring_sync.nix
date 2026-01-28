@@ -107,7 +107,8 @@
                     except TypeError:
                         desired_codes = accepted_codes
                     needs_update = (
-                        existing.get("url") != url
+                        existing.get("name") != name
+                        or existing.get("url") != url
                         or bool(existing.get("ignoreTls")) != ignore_tls
                         or (host_header and existing.get("headers") != headers_json)
                         or existing_codes != desired_codes
@@ -115,6 +116,7 @@
                     if needs_update:
                         api.edit_monitor(
                             monitor_id,
+                            name=name,
                             url=url,
                             ignoreTls=ignore_tls,
                             headers=headers_json,
