@@ -2,6 +2,8 @@
 
 Rootless Podman container stack definitions for the homelab.
 
+IMPORTANT: keep as much state as possible in each stack's own `docker-compose.nix` (service file). Avoid centralizing stack-specific details elsewhere.
+
 ## Migration Status
 
 | Host | Status | Notes |
@@ -36,6 +38,7 @@ Rootless Podman container stack definitions for the homelab.
   - `requiresMounts` → filesystem dependencies
   - `firewallPorts` → TCP ports to open
   - `stackHosts` → per-host local proxy + DNS registration (optional, create/update/remove managed A records)
+  - `stackMonitors` → Uptime Kuma monitor registration (optional; portable domain-based checks)
   - `preStart` → initialization scripts
   - `wants/after/requires` → systemd dependencies
 - Stack state isolated to its directory
@@ -127,6 +130,14 @@ in
       {
         host = "myapp.ablz.au";
         port = 8080;
+        # websocket = true; # Optional: only when the app needs websockets (e.g., Uptime Kuma)
+      }
+    ];
+
+    stackMonitors = [  # Optional: Uptime Kuma monitoring
+      {
+        name = "MyApp";
+        url = "https://myapp.ablz.au/";
       }
     ];
 

@@ -36,6 +36,12 @@ in
         port = 3087;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Youtarr";
+        url = "https://youtarr.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;

@@ -44,5 +44,5 @@ in
     ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8084];
+    firewallPorts = [];
   }

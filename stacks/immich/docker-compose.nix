@@ -48,7 +48,13 @@ in
         port = 2283;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Immich";
+        url = "https://photos.ablz.au/";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [2283];
+    firewallPorts = [];
   }

@@ -36,8 +36,14 @@ in
         port = 8000;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Paperless";
+        url = "https://paperless.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8000];
+    firewallPorts = [];
   }

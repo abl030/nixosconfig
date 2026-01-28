@@ -36,6 +36,12 @@ in
         port = 3000;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Netboot";
+        url = "https://netboot.ablz.au/";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
     firewallPorts = [3000 8080];

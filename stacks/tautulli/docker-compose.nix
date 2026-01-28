@@ -36,8 +36,14 @@ in
         port = 8181;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Tautulli";
+        url = "https://tau.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8181];
+    firewallPorts = [];
   }

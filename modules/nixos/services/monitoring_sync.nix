@@ -91,15 +91,26 @@
                 url = entry["url"]
                 host_header = entry.get("hostHeader")
                 ignore_tls = bool(entry.get("ignoreTls", False))
+                accepted_codes = entry.get("acceptedStatusCodes") or ["200-299", "300-399"]
                 headers_json = json.dumps({"Host": host_header}) if host_header else None
 
                 existing = by_url.get(url) or by_name.get(name)
                 if existing:
                     monitor_id = existing.get("id")
+                    existing_codes = existing.get("accepted_statuscodes") or existing.get("acceptedStatusCodes") or []
+                    try:
+                        existing_codes = sorted(existing_codes)
+                    except TypeError:
+                        existing_codes = existing_codes
+                    try:
+                        desired_codes = sorted(accepted_codes)
+                    except TypeError:
+                        desired_codes = accepted_codes
                     needs_update = (
                         existing.get("url") != url
                         or bool(existing.get("ignoreTls")) != ignore_tls
                         or (host_header and existing.get("headers") != headers_json)
+                        or existing_codes != desired_codes
                     )
                     if needs_update:
                         api.edit_monitor(
@@ -107,7 +118,7 @@
                             url=url,
                             ignoreTls=ignore_tls,
                             headers=headers_json,
-                            accepted_statuscodes=["200-299", "300-399"],
+                            accepted_statuscodes=accepted_codes,
                             maxredirects=10,
                             interval=60,
                         )
@@ -120,7 +131,7 @@
                     url=url,
                     headers=headers_json,
                     ignoreTls=ignore_tls,
-                    accepted_statuscodes=["200-299", "300-399"],
+                    accepted_statuscodes=accepted_codes,
                     maxredirects=10,
                     interval=60,
                 )
@@ -186,6 +197,11 @@ in {
             type = lib.types.bool;
             default = false;
             description = "Ignore TLS validation errors for the monitor.";
+          };
+          acceptedStatusCodes = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = ["200-299" "300-399"];
+            description = "Accepted HTTP status code ranges for the monitor.";
           };
         };
       });

@@ -34,6 +34,13 @@ in
       {
         host = "status.ablz.au";
         port = 3001;
+        websocket = true;
+      }
+    ];
+    stackMonitors = [
+      {
+        name = "Uptime Kuma";
+        url = "https://status.ablz.au/";
       }
     ];
     wants = dependsOn;

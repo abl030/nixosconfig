@@ -25,7 +25,13 @@ in
         port = 8083;
       }
     ];
+    stackMonitors = [
+      {
+        name = "StirlingPDF";
+        url = "https://pdf.ablz.au/";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8083];
+    firewallPorts = [];
   }
