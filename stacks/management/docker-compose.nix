@@ -38,6 +38,7 @@ in
       {
         host = "gotify.ablz.au";
         port = 8050;
+        websocket = true;
       }
     ];
     stackMonitors = [
