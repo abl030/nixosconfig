@@ -53,7 +53,6 @@
     extraGroups = ["video" "render"];
   };
 
-
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils
     radeontop
