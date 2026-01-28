@@ -62,7 +62,7 @@ in
       ];
       stackMonitors = [
         {
-          name = "Jellyfin";
+          name = "jellyfinn-local";
           url = "https://jelly.ablz.au/";
         }
       ];
