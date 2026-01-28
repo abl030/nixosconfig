@@ -40,7 +40,7 @@ in
     inherit envFiles;
     stackHosts = [
       {
-        host = "plex2.ablz.au";
+        host = "Plex2.ablz.au";
         port = 32400;
       }
     ];

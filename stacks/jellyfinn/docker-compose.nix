@@ -56,7 +56,7 @@ in
       inherit envFiles;
       stackHosts = [
         {
-          host = "jelly.ablz.au";
+          host = "Jelly.ablz.au";
           port = 8096;
         }
       ];
