@@ -36,8 +36,14 @@ in
         port = 5800;
       }
     ];
+    stackMonitors = [
+      {
+        name = "JDownloader2";
+        url = "https://download.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [5800];
+    firewallPorts = [];
   }

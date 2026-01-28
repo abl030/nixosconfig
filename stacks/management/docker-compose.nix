@@ -40,7 +40,17 @@ in
         port = 8050;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Dozzle";
+        url = "https://dozzle.ablz.au/";
+      }
+      {
+        name = "Gotify";
+        url = "https://gotify.ablz.au/";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8082 8050];
+    firewallPorts = [];
   }

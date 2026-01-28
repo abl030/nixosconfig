@@ -160,7 +160,16 @@
     echo "homelab-dns-sync: cloudflare_api_calls=$api_calls total=$total"
   '';
 
-  vhosts = builtins.listToAttrs (map (entry: {
+  vhosts = builtins.listToAttrs (map (entry: let
+      websocketConfig =
+        if entry.websocket or false
+        then ''
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+        ''
+        else "";
+    in {
       name = entry.host;
       value = {
         useACMEHost = entry.host;
@@ -168,9 +177,7 @@
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString entry.port}";
           extraConfig = ''
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
+            ${websocketConfig}
             proxy_set_header X-Forwarded-Proto https;
             proxy_set_header X-Forwarded-Port 443;
             proxy_redirect http://$host/ https://$host/;
@@ -210,6 +217,11 @@ in {
           port = lib.mkOption {
             type = lib.types.port;
             description = "Local service port to proxy (e.g., 2283).";
+          };
+          websocket = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Enable websocket proxy headers for this host.";
           };
         };
       });

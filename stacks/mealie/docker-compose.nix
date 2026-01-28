@@ -36,8 +36,14 @@ in
         port = 9925;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Mealie";
+        url = "https://cooking.ablz.au/";
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [9925];
+    firewallPorts = [];
   }

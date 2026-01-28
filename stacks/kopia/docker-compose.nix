@@ -47,9 +47,21 @@ in
         port = 51516;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Kopia Photos";
+        url = "https://kopiaphotos.ablz.au/";
+        acceptedStatusCodes = ["200-299" "300-399" "401"];
+      }
+      {
+        name = "Kopia Mum";
+        url = "https://kopiamum.ablz.au/";
+        acceptedStatusCodes = ["200-299" "300-399" "401"];
+      }
+    ];
     # Only require /mnt/data - mnt-mum is handled via automount dependency above
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [51515 51516];
+    firewallPorts = [];
   }

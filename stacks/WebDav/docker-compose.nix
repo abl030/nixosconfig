@@ -36,8 +36,15 @@ in
         port = 9090;
       }
     ];
+    stackMonitors = [
+      {
+        name = "WebDav";
+        url = "https://webdav.ablz.au/";
+        acceptedStatusCodes = ["200-299" "300-399" "401"];
+      }
+    ];
     requiresMounts = ["/mnt/data"];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [9090];
+    firewallPorts = [];
   }

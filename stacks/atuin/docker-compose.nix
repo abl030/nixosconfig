@@ -36,7 +36,13 @@ in
         port = 8888;
       }
     ];
+    stackMonitors = [
+      {
+        name = "Atuin";
+        url = "https://atuin.ablz.au/";
+      }
+    ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8888];
+    firewallPorts = [];
   }
