@@ -13,6 +13,7 @@
     else uid;
   userGroup = config.users.users.${user}.group or "users";
   runUserDir = "/run/user/${toString userUid}";
+  podmanBin = "${pkgs.podman}/bin/podman";
   podmanCompose = "${pkgs.podman-compose}/bin/podman-compose";
   sopsBin = "${pkgs.sops}/bin/sops";
   ageKey = "${userHome}/.config/sops/age/keys.txt";
@@ -20,7 +21,7 @@
     set -euo pipefail
     out="$1"
     in="$2"
-    if [[ -f /var/lib/sops-nix/key.txt ]]; then
+    if [[ -r /var/lib/sops-nix/key.txt ]]; then
       exec /run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt ${sopsBin} -d --output "$out" "$in"
     fi
     if [[ -f "${ageKey}" ]]; then
@@ -83,6 +84,16 @@
   in
     base ++ preStart ++ decrypt ++ chmod ++ chown;
 
+  mkExecStartPreUser = envFiles: preStart: let
+    base =
+      if envFiles == []
+      then []
+      else [
+        "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
+      ];
+  in
+    base ++ preStart;
+
   mkEnv = projectName: extraEnv:
     [
       "COMPOSE_PROJECT_NAME=${projectName}"
@@ -109,12 +120,25 @@
     after ? [],
     wants ? [],
     requires ? [],
-    composeArgs ? "",
+    composeArgs ? "--in-pod false",
+    prunePod ? true,
     restart ? "on-failure",
     restartSec ? "30s",
     firewallPorts ? [],
     firewallUDPPorts ? [],
-  }: {
+  }: let
+    autoUpdateUnit = "podman-compose@${projectName}";
+    podPrune =
+      if prunePod
+      then [
+        # Ensure legacy pod_ containers don't break auto-update.
+        "${podmanBin} pod rm -f pod_${projectName} || true"
+      ]
+      else [];
+    recreateIfLabelMismatch = [
+      "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${autoUpdateUnit}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
+    ];
+  in {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
     homelab.localProxy.hosts = lib.mkAfter stackHosts;
@@ -143,9 +167,9 @@
         RemainAfterExit = true;
         User = user;
         PermissionsStartOnly = true;
-        Environment = mkEnv projectName extraEnv;
+        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
 
-        ExecStartPre = mkExecStartPre envFiles preStart;
+        ExecStartPre = mkExecStartPre envFiles (podPrune ++ recreateIfLabelMismatch ++ preStart);
 
         ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
@@ -158,6 +182,20 @@
       };
 
       wantedBy = ["multi-user.target"];
+    };
+
+    systemd.user.services.${autoUpdateUnit} = {
+      description = "Podman compose auto-update unit for ${projectName}";
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
+        ExecStartPre = mkExecStartPreUser envFiles preStart;
+        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
+        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+      };
+      wantedBy = ["default.target"];
     };
   };
 in {
