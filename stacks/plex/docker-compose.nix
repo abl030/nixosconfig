@@ -46,7 +46,7 @@ in
     ];
     stackMonitors = [
       {
-        name = "Plex";
+        name = "plex2";
         url = "https://plex2.ablz.au/";
       }
     ];
