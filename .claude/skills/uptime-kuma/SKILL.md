@@ -3,26 +3,27 @@
 ## Endpoint
 - Base URL: https://status.ablz.au
 
-## API Key (expires tomorrow)
-- API key: uk1_lKnUqLfLrTwRSephZ01SkJklEYV10NM-aZKYRTyG
+## API Key
+- Stored in sops at `secrets/uptime-kuma-api.env`
+- Decrypted path: `KUMA_API_KEY_FILE` (defaults to `/run/secrets/uptime-kuma/api`)
 
 ## Metrics (current working access)
 - Uses basic auth with empty username and the API key as the password.
 - Example:
 
 ```sh
-curl -fsS --user ":uk1_lKnUqLfLrTwRSephZ01SkJklEYV10NM-aZKYRTyG" https://status.ablz.au/metrics
+curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics
 ```
 
 ## Quick Lists
 ### Down (status != 1)
 ```sh
-curl -fsS --user ":uk1_lKnUqLfLrTwRSephZ01SkJklEYV10NM-aZKYRTyG" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF != "1" {print}'
+curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF != "1" {print}'
 ```
 
 ### Up (status == 1)
 ```sh
-curl -fsS --user ":uk1_lKnUqLfLrTwRSephZ01SkJklEYV10NM-aZKYRTyG" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF == "1" {print}'
+curl -fsS --user ":$(cat \"${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api}\")" https://status.ablz.au/metrics | rg '^monitor_status' | awk '$NF == "1" {print}'
 ```
 
 ## Notes
