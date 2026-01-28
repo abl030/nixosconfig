@@ -56,13 +56,13 @@ in
       inherit envFiles;
       stackHosts = [
         {
-          host = "Jelly.ablz.au";
+          host = "jelly.ablz.au";
           port = 8096;
         }
       ];
       stackMonitors = [
         {
-          name = "jellyfinn-local";
+          name = "Jellyfinn-local";
           url = "https://jelly.ablz.au/";
         }
       ];
