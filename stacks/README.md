@@ -141,6 +141,10 @@ in
       }
     ];
 
+    # Targeted monitoring (when the root path isn't a good health check)
+    # Example: Plex returns 401 on "/" when unauthenticated, but "/identity" is a 200 OK health endpoint.
+    # Use the most reliable endpoint for the service rather than accepting 401.
+
     preStart = [  # Optional
       "/run/current-system/sw/bin/mkdir -p ${dataRoot}/myapp/data"
       "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/myapp"
@@ -153,6 +157,10 @@ in
     firewallPorts = [8080 8443];  # TCP ports to open
   }
 ```
+
+### Targeted Monitoring
+
+Some services return 401 on `/` when unauthenticated (e.g., Plex). For those, use a health endpoint that returns 200 instead of loosening accepted status codes. Example: Plex supports `/identity` as a reliable 200 OK health check.
 
 ## Compose File Conventions
 

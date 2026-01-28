@@ -47,7 +47,7 @@ in
     stackMonitors = [
       {
         name = "Plex2";
-        url = "https://plex2.ablz.au/";
+        url = "https://plex2.ablz.au/identity";
       }
     ];
     requiresMounts = ["/mnt/data" "/mnt/fuse"];
