@@ -37,6 +37,13 @@ Respect stabilization rules for all new edits:
 - `nixos-rebuild switch --flake .#<hostname>`: deploy locally.
 - `nixos-rebuild switch --flake .#<hostname> --target-host <hostname>`: deploy remote.
 
+## Fast Debug Checklist (Doc1)
+
+- `systemctl --user list-units 'podman-compose@*' --no-legend`
+- `podman ps --format 'table {{.Names}}\t{{.Status}}'`
+- `curl -k --resolve <host>:443:<ip> https://<host>/<health>`
+- `key=$(rg -m1 '^KUMA_API_KEY=' ${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api} | cut -d= -f2-); curl -fsS --user ":$key" https://status.ablz.au/metrics | rg 'monitor_status' | rg '<domain>'`
+
 ## Coding Style & Naming Conventions
 
 - Nix formatting is enforced via Alejandra (`nix fmt`), so let the formatter decide layout.
