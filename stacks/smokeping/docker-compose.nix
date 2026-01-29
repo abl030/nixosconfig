@@ -39,7 +39,7 @@ in
     stackMonitors = [
       {
         name = "Smokeping";
-        url = "https://ping.ablz.au/smokeping/";
+        url = "https://ping.ablz.au/smokeping/smokeping.cgi";
       }
     ];
     wants = dependsOn;

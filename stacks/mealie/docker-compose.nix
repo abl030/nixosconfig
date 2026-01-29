@@ -39,7 +39,7 @@ in
     stackMonitors = [
       {
         name = "Mealie";
-        url = "https://cooking.ablz.au/";
+        url = "https://cooking.ablz.au/api/app/about";
       }
     ];
     requiresMounts = ["/mnt/data"];
