@@ -220,6 +220,7 @@ in {
     # Do NOT use Wants= here - that would TRIGGER these services to start!
     systemd.services.nixos-upgrade = {
       after = lib.mkAfter [
+        "network-online.target"
         "systemd-suspend.service"
         "systemd-hibernate.service"
         "systemd-hybrid-sleep.service"
@@ -236,6 +237,25 @@ in {
 
       serviceConfig = {
         Type = "oneshot";
+        ExecStartPre = pkgs.writeShellScript "nixos-upgrade-dns-ready" ''
+          set -euo pipefail
+          log() { echo "[SmartUpdate] $*"; }
+
+          log "Waiting for DNS readiness (max 5 minutes)..."
+          for i in $(seq 1 300); do
+            if ${pkgs.getent}/bin/getent hosts api.github.com >/dev/null 2>&1; then
+              log "DNS ready."
+              exit 0
+            fi
+            if [ "$i" -eq 1 ]; then
+              log "DNS not ready yet; retrying..."
+            fi
+            sleep 1
+          done
+
+          log "DNS not ready after 5 minutes; skipping update."
+          exit 0
+        '';
         ExecStart = lib.mkForce (
           if cfg.checkAcPower
           then lib.getExe laptopWrapper
