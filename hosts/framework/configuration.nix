@@ -103,6 +103,49 @@
     polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
   };
 
+  systemd.paths.amdgpu-devcoredump = {
+    description = "Watch for AMDGPU devcoredump data";
+    wantedBy = ["multi-user.target"];
+    pathConfig.PathExists = "/sys/class/drm/card1/device/devcoredump/data";
+  };
+
+  systemd.services.amdgpu-devcoredump = let
+    saveAmdgpuDevcoredump = pkgs.writeShellScript "save-amdgpu-devcoredump" ''
+      set -euo pipefail
+
+      data="/sys/class/drm/card1/device/devcoredump/data"
+      clear="/sys/class/drm/card1/device/devcoredump/clear"
+      out_dir="/var/lib/amdgpu-devcoredump"
+
+      if [[ ! -r "$data" ]]; then
+        exit 0
+      fi
+
+      mkdir -p "$out_dir"
+      ts="$(${pkgs.coreutils}/bin/date -u +"%Y%m%dT%H%M%SZ")"
+      out="$out_dir/amdgpu-devcoredump-$ts.bin"
+      klog="$out_dir/amdgpu-devcoredump-$ts-kernel.log"
+
+      ${pkgs.coreutils}/bin/dd if="$data" of="$out" bs=1M status=none
+      ${pkgs.coreutils}/bin/chmod 600 "$out"
+
+      ${pkgs.systemd}/bin/journalctl -k -b --no-pager > "$klog" || true
+      ${pkgs.coreutils}/bin/chmod 600 "$klog" || true
+
+      ${pkgs.util-linux}/bin/logger -t amdgpu-devcoredump "Saved devcoredump to $out and kernel log to $klog"
+
+      if [[ -w "$clear" ]]; then
+        echo 1 > "$clear"
+      fi
+    '';
+  in {
+    description = "Save AMDGPU devcoredump data";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = saveAmdgpuDevcoredump;
+    };
+  };
+
   security.rtkit.enable = true;
 
   users.users.abl030 = {
