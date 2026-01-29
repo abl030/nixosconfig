@@ -6,6 +6,8 @@ services:
       - io.containers.autoupdate=registry
     container_name: smokeping
     restart: unless-stopped
+    cap_add:
+      - NET_RAW
     environment:
       - PUID=1000
       - PGID=100

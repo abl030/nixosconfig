@@ -105,7 +105,7 @@ in
       stackMonitors = [
         {
           name = "Jellyfinn-local";
-          url = "https://jelly.ablz.au/";
+          url = "https://jelly.ablz.au/System/Info/Public";
         }
       ];
       extraEnv = [

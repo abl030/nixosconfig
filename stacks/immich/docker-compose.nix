@@ -51,7 +51,7 @@ in
     stackMonitors = [
       {
         name = "Immich";
-        url = "https://photos.ablz.au/";
+        url = "https://photos.ablz.au/api/server/ping";
       }
     ];
     wants = dependsOn;

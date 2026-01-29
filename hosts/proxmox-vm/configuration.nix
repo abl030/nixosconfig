@@ -63,6 +63,11 @@
   networking.interfaces.ens18.mtu = 1400;
   networking.firewall.enable = true;
 
+  boot.kernel.sysctl = {
+    # Allow rootless containers to use ping (required by smokeping/fping).
+    "net.ipv4.ping_group_range" = "0 2147483647";
+  };
+
   # VM Specifics
   services.qemuGuest.enable = true;
 
