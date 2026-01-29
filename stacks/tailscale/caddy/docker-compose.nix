@@ -34,6 +34,7 @@ in
     projectName = "caddy";
     inherit composeFile;
     inherit envFiles;
+    restartTriggers = [caddyFile];
     extraEnv = ["CADDY_FILE=${caddyFile}"];
     wants = dependsOn;
     after = dependsOn;
