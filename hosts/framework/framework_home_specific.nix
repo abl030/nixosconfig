@@ -1,8 +1,4 @@
-{
-  pkgs,
-  inputs,
-  ...
-}: {
+{pkgs, ...}: {
   home.packages = [
     # pkgs.dolphin
     pkgs.kdePackages.dolphin
@@ -18,7 +14,7 @@
     pkgs.kdePackages.qtwayland
     pkgs.kdePackages.qtsvg
     pkgs.libsForQt5.qt5ct
-    inputs.jolt.packages.${pkgs.stdenv.hostPlatform.system}.default
+    pkgs.jolt
     pkgs.spotify
     pkgs.nvtopPackages.amd
     pkgs.acpi
