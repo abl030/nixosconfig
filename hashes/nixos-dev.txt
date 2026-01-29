@@ -1,1 +1,1 @@
-/nix/store/5q4j9pq8r5d74sw41s5cyd7fg8ai22zl-nixos-system-dev-26.05.20260120.ed142ab
+/nix/store/0sxrqi3nr690l0lf0swc82hpwnrnd1p9-nixos-system-dev-26.05.20260127.afce963
