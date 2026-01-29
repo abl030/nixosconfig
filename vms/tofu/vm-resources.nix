@@ -68,6 +68,24 @@
         enabled = true;
       };
 
+      virtiofs = lib.optional (pve ? virtiofs) (
+        {
+          mapping = pve.virtiofs.mapping or "containers";
+        }
+        // lib.optionalAttrs (pve.virtiofs ? cache) {
+          inherit (pve.virtiofs) cache;
+        }
+        // lib.optionalAttrs (pve.virtiofs ? direct_io) {
+          inherit (pve.virtiofs) direct_io;
+        }
+        // lib.optionalAttrs (pve.virtiofs ? expose_acl) {
+          inherit (pve.virtiofs) expose_acl;
+        }
+        // lib.optionalAttrs (pve.virtiofs ? expose_xattr) {
+          inherit (pve.virtiofs) expose_xattr;
+        }
+      );
+
       # Lifecycle rules
       lifecycle = {
         ignore_changes = ignoreChanges;
