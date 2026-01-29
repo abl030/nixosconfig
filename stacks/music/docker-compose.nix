@@ -65,6 +65,11 @@ in
     projectName = "music";
     inherit composeFile;
     inherit envFiles;
+    restartTriggers = [
+      caddyFile
+      dbTemplate
+      initSql
+    ];
     extraEnv = [
       "CADDY_FILE=${caddyFile}"
       "INIT_SQL=${initSql}"

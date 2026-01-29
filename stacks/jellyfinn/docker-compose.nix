@@ -96,6 +96,11 @@ in
       composeArgs = "--in-pod false";
       inherit composeFile;
       inherit envFiles;
+      restartTriggers = [
+        caddyFile
+        inotifyScript
+        inotifyEntrypoint
+      ];
       stackHosts = [
         {
           host = "jelly.ablz.au";

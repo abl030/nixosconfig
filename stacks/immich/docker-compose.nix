@@ -38,6 +38,10 @@ in
     projectName = "immich";
     inherit composeFile;
     inherit envFiles;
+    restartTriggers = [
+      caddyFile
+      tailscaleJson
+    ];
     extraEnv = [
       "CADDY_FILE=${caddyFile}"
       "TAILSCALE_JSON=${tailscaleJson}"

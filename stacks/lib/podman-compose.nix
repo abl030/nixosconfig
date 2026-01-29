@@ -126,6 +126,7 @@
     restartSec ? "30s",
     firewallPorts ? [],
     firewallUDPPorts ? [],
+    restartTriggers ? [],
   }: let
     autoUpdateUnit = "podman-compose@${projectName}";
     podPrune =
@@ -138,6 +139,13 @@
     recreateIfLabelMismatch = [
       "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${autoUpdateUnit}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
     ];
+    baseRestartTriggers =
+      lib.unique
+      ([
+          composeFile
+        ]
+        ++ (map (env: env.sopsFile) envFiles)
+        ++ restartTriggers);
   in {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
@@ -146,7 +154,8 @@
 
     systemd.services.${stackName} = {
       inherit description;
-      restartIfChanged = true;
+      restartIfChanged = false;
+      restartTriggers = baseRestartTriggers;
       reloadIfChanged = false;
 
       unitConfig =
@@ -159,8 +168,7 @@
       inherit requires;
       wants = wants ++ baseDepends;
       after = after ++ baseDepends;
-      # Restart this service when podman-system-service restarts
-      bindsTo = ["podman-system-service.service"];
+      # Avoid unnecessary restarts when podman-system-service reloads.
 
       serviceConfig = {
         Type = "oneshot";
@@ -186,6 +194,7 @@
 
     systemd.user.services.${autoUpdateUnit} = {
       description = "Podman compose auto-update unit for ${projectName}";
+      restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

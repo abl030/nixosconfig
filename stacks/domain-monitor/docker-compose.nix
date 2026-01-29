@@ -51,12 +51,16 @@ in {
     services = {
       ${stackName} = {
         description = "Domain Monitor Podman Compose Stack";
-        restartIfChanged = true;
+        restartIfChanged = false;
         reloadIfChanged = false;
         requires = dependsOn ++ ["podman-system-service.service"];
         after = dependsOn ++ ["podman-system-service.service"];
-        # Restart when podman-system-service restarts
-        bindsTo = ["podman-system-service.service"];
+        restartTriggers = [
+          composeFile
+          dockerFile
+          entrypoint
+          encEnv
+        ];
 
         unitConfig = {
           RequiresMountsFor = ["/mnt/data"];
