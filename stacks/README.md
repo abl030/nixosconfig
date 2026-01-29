@@ -134,6 +134,11 @@ in
       }
     ];
 
+    # Restarts are tied to concrete stack inputs (compose/env/assets), not
+    # the Nix module file itself. That keeps rebuilds from bouncing containers
+    # when only monitoring/proxy/firewall metadata changes.
+    # Use restartTriggers to include any extra files that should restart the stack.
+
     # Targeted monitoring (when the root path isn't a good health check)
     # Example: Plex returns 401 on "/" when unauthenticated, but "/identity" is a 200 OK health endpoint.
     # Use the most reliable endpoint for the service rather than accepting 401.
@@ -163,6 +168,12 @@ Some services return 401 on `/` when unauthenticated (e.g., Plex). For those, us
 - Secrets:
   - `secrets/uptime-kuma.env` (KUMA_USERNAME / KUMA_PASSWORD)
   - `secrets/uptime-kuma-api.env` (KUMA_API_KEY for metrics)
+
+### Restart Semantics
+
+- Stack services only restart when **stack inputs** change (compose file, env files, and any `restartTriggers`).
+- Changes to the Nix module file alone (e.g., monitor URL, firewall, proxy metadata) do **not** restart containers.
+- Add files like Caddyfiles/scripts to `restartTriggers` so changes to those assets trigger a restart.
 
 ## Compose File Conventions
 
