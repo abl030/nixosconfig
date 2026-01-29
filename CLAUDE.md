@@ -159,6 +159,21 @@ Baselines are automatically updated by the nightly `rolling_flake_update.sh` aft
 
 Before asking the user for input, always send a Gotify ping and include a brief summary of what is needed.
 
+## Debug Session Notes
+
+- Record: host, stack, URL, expected status, current status, last change.
+- Verify upstream directly with `--resolve` before changing nginx/Cloudflare.
+- For Uptime Kuma issues: check `/metrics` and confirm `monitor_status` before assuming DNS or proxy issues.
+
+## Standard Kuma Health Endpoints
+
+- Immich: `/api/server/ping`
+- Plex: `/identity`
+- Mealie: `/api/app/about`
+- Jellyfin: `/System/Info/Public`
+- Smokeping: `/smokeping/smokeping.cgi`
+- Others: keep `/` unless a documented unauthenticated endpoint exists.
+
 ## Claude Code Integration
 
 ### Recommended: mcp-nixos
