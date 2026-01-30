@@ -1,0 +1,3 @@
+[mcp_servers.loki]
+# Loki MCP uses the stream endpoint for session-based MCP requests.
+url = "http://loki-mcp.ablz.au:8081/stream"
