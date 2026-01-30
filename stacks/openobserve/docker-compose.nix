@@ -41,4 +41,6 @@ in
         url = "https://logs.ablz.au/";
       }
     ];
+
+    firewallPorts = [5081];
   }

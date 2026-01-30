@@ -7,6 +7,8 @@ services:
       - ZO_LOCAL_MODE=true
       - ZO_LOCAL_MODE_STORAGE=disk
       - ZO_WEB_URL=https://logs.ablz.au
+      - ZO_GRPC_ADDR=0.0.0.0
+      - ZO_GRPC_PORT=5081
     env_file:
       - ${XDG_RUNTIME_DIR}/secrets/openobserve-stack.env
     volumes:
@@ -14,3 +16,4 @@ services:
     restart: unless-stopped
     ports:
       - "5080:5080"
+      - "5081:5081"
