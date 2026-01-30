@@ -35,32 +35,42 @@
     then "http://${lokiIp}:${toString cfg.port}/loki/api/v1/push"
     else null;
 
-  promtailConfig = pkgs.writeText "promtail-loki.yaml" ''
-    server:
-      http_listen_port: 9080
-      grpc_listen_port: 0
+  alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
+    loki.write "loki" {
+      endpoint {
+        url = "${lokiUrl}"
+      }
+    }
 
-    positions:
-      filename: /var/lib/promtail/positions.yaml
+    loki.relabel "journal" {
+      forward_to = []
 
-    clients:
-      - url: ${lokiUrl}
+      rule {
+        source_labels = ["__journal__systemd_unit"]
+        target_label  = "unit"
+      }
 
-    scrape_configs:
-      - job_name: systemd-journal
-        journal:
-          path: /var/log/journal
-          max_age: 24h
-          labels:
-            job: systemd-journal
-            host: ${config.networking.hostName}
-        relabel_configs:
-          - source_labels: ['__journal__systemd_unit']
-            target_label: 'systemd_unit'
-          - source_labels: ['__journal__transport']
-            target_label: 'transport'
-          - source_labels: ['__journal_priority']
-            target_label: 'priority'
+      rule {
+        source_labels = ["__journal__priority"]
+        target_label  = "priority"
+      }
+
+      rule {
+        source_labels = ["__journal__transport"]
+        target_label  = "transport"
+      }
+
+      rule {
+        source_labels = ["__journal_container_name"]
+        target_label  = "container"
+      }
+    }
+
+    loki.source.journal "read" {
+      forward_to    = [loki.write.loki.receiver]
+      relabel_rules = loki.relabel.journal.rules
+      labels        = { source = "journald", host = "${config.networking.hostName}" }
+    }
   '';
 in {
   options.homelab.loki = {
@@ -88,16 +98,16 @@ in {
     ];
 
     systemd.tmpfiles.rules = [
-      "d /var/lib/promtail 0755 root root - -"
+      "d /var/lib/alloy 0755 root root - -"
     ];
 
-    systemd.services.promtail-loki = {
-      description = "Promtail journald shipper (Loki)";
+    systemd.services.alloy-loki = {
+      description = "Grafana Alloy journald shipper (Loki)";
       after = ["network-online.target"];
       wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
-        ExecStart = "${pkgs.promtail}/bin/promtail -config.file=${promtailConfig}";
+        ExecStart = "${pkgs.grafana-alloy}/bin/alloy run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy ${alloyConfig}";
         Restart = "on-failure";
         RestartSec = "10s";
       };
