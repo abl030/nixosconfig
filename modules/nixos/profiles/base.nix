@@ -126,6 +126,7 @@
 
   environment.systemPackages = lib.mkOrder 1000 (with pkgs; [
     git
+    python3
     vim
     wget
     curl
