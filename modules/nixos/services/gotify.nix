@@ -6,19 +6,35 @@
   ...
 }: let
   cfg = config.homelab.gotify;
-  gotifyHost = allHosts.${cfg.host} or null;
+  managementHosts = lib.attrNames (
+    lib.filterAttrs (
+      _: host:
+        (host ? containerStacks)
+        && lib.elem "management" host.containerStacks
+    )
+    allHosts
+  );
+  autoHostName =
+    if managementHosts != []
+    then builtins.head (lib.sort lib.lessThan managementHosts)
+    else "proxmox-vm";
+  hostName =
+    if cfg.host != null
+    then cfg.host
+    else autoHostName;
+  gotifyHost = allHosts.${hostName} or null;
   gotifyIp =
     if gotifyHost != null && gotifyHost ? localIp
     then gotifyHost.localIp
-    else cfg.host;
+    else hostName;
 in {
   options.homelab.gotify = {
     enable = lib.mkEnableOption "Gotify token provisioning for agent pings" // {default = true;};
 
     host = lib.mkOption {
-      type = lib.types.str;
-      default = "proxmox-vm";
-      description = "hosts.nix name for the Gotify server (used to resolve localIp).";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "hosts.nix name for the Gotify server (used to resolve localIp). Null picks the first host with the management stack.";
     };
 
     port = lib.mkOption {
