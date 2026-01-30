@@ -126,7 +126,7 @@ in {
     ];
 
     sops.secrets."openobserve/agent" = {
-      sopsFile = cfg.sopsFile;
+      inherit (cfg) sopsFile;
       format = "dotenv";
       key = "OPENOBSERVE_AUTH";
       owner = "root";

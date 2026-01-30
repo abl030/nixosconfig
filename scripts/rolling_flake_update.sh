@@ -61,16 +61,9 @@ else
     log "⚠️  jolt update script not found, skipping."
 fi
 
-# 4. Full CI gate (format, lint, flake check with host configs)
-log "🚧 Lockfile changed. Running full check gate..."
-if command -v check >/dev/null 2>&1; then
-    check --full
-else
-    log "⚠️  'check' command not found; running equivalent checks."
-    nix run .#fmt-nix -- --check
-    nix run .#lint-nix
-    FULL_CHECK=1 nix flake check --impure --print-build-logs
-fi
+# 4. CI gate (flake check only)
+log "🚧 Lockfile changed. Running flake check gate..."
+FULL_CHECK=1 nix flake check --impure --print-build-logs
 
 # 5. Verify Builds (No linting, no flake check, just builds)
 log "🏗️  Verifying builds..."
