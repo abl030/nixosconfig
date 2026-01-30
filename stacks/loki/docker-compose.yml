@@ -1,0 +1,66 @@
+services:
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: "https://logs.ablz.au"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ${DATA_ROOT}/loki/grafana:/var/lib/grafana
+      - ${GRAFANA_DATASOURCES}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+
+  loki:
+    image: docker.io/grafana/loki:latest
+    container_name: loki
+    command: -config.file=/etc/loki/config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ${DATA_ROOT}/loki/loki:/data
+      - ${LOKI_CONFIG}:/etc/loki/config.yaml:ro
+
+  tempo:
+    image: docker.io/grafana/tempo:latest
+    container_name: tempo
+    command: -config.file=/etc/tempo/config.yaml
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ${DATA_ROOT}/loki/tempo:/data
+      - ${TEMPO_CONFIG}:/etc/tempo/config.yaml:ro
+
+  mimir:
+    image: docker.io/grafana/mimir:latest
+    container_name: mimir
+    command: -config.file=/etc/mimir/config.yaml -target=all
+    ports:
+      - "9009:9009"
+    volumes:
+      - ${DATA_ROOT}/loki/mimir:/data
+      - ${MIMIR_CONFIG}:/etc/mimir/config.yaml:ro
+
+  loki-mcp:
+    build:
+      context: ${LOKI_MCP_CONTEXT}
+      dockerfile: Dockerfile
+    container_name: loki-mcp
+    environment:
+      LOKI_URL: http://loki:3100
+      LOKI_ORG_ID: default
+      LOKI_USERNAME: ${LOKI_USERNAME}
+      LOKI_PASSWORD: ${LOKI_PASSWORD}
+      SSE_PORT: "8081"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - loki

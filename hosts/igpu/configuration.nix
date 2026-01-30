@@ -18,6 +18,10 @@
   };
 
   homelab = {
+    openobserve = {
+      enable = false;
+      debug = false;
+    };
     mounts = {
       nfsLocal.enable = true;
       fuse.enable = true;
@@ -52,6 +56,18 @@
   users.users.abl030 = {
     extraGroups = ["video" "render"];
   };
+
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils

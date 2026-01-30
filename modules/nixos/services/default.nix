@@ -14,6 +14,8 @@
     ./local_proxy.nix
     ./monitoring_sync.nix
     ./gotify.nix
+    ./loki.nix
+    ./openobserve.nix
     ./framework
   ];
 }
