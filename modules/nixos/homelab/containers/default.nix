@@ -16,7 +16,7 @@
   podmanBin = "${pkgs.podman}/bin/podman";
   autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
     set -euo pipefail
-    ${podmanBin} auto-update --cleanup
+    ${podmanBin} auto-update
   '';
   podmanServiceScript = pkgs.writeShellScript "podman-system-service" ''
     set -euo pipefail
