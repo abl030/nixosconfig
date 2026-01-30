@@ -48,7 +48,7 @@ in {
         dnsResolver = "1.1.1.1:53";
         extraLegoFlags = [
           "--dns.propagation-wait"
-          "20s"
+          "60s"
         ];
         # Reload nginx when certs change
         reloadServices = ["nginx"];
