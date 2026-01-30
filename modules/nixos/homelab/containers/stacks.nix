@@ -17,6 +17,7 @@
     mealie = ../../../../stacks/mealie/docker-compose.nix;
     music = ../../../../stacks/music/docker-compose.nix;
     netboot = ../../../../stacks/netboot/docker-compose.nix;
+    openobserve = ../../../../stacks/openobserve/docker-compose.nix;
     paperless = ../../../../stacks/paperless/docker-compose.nix;
     plex = ../../../../stacks/plex/docker-compose.nix;
     smokeping = ../../../../stacks/smokeping/docker-compose.nix;
