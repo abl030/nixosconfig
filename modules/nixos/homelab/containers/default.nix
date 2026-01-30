@@ -14,9 +14,31 @@
     then 1000
     else uid;
   podmanBin = "${pkgs.podman}/bin/podman";
+  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
+  gotifyUrl = config.homelab.gotify.endpoint;
   autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
     set -euo pipefail
-    ${podmanBin} auto-update
+    log_file="$(/run/current-system/sw/bin/mktemp)"
+    if ${podmanBin} auto-update >"$log_file" 2>&1; then
+      /run/current-system/sw/bin/cat "$log_file"
+      /run/current-system/sw/bin/rm -f "$log_file"
+      exit 0
+    fi
+    status=$?
+    /run/current-system/sw/bin/cat "$log_file" >&2
+    message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+    /run/current-system/sw/bin/rm -f "$log_file"
+    token_file="''${GOTIFY_TOKEN_FILE:-/run/secrets/gotify/token}"
+    if [[ -r "$token_file" ]]; then
+      token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
+      if [[ -n "$token" ]]; then
+        /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
+          -F "title=podman auto-update failed on ${config.networking.hostName}" \
+          -F "message=$message_tail" \
+          -F "priority=8" >/dev/null || true
+      fi
+    fi
+    exit "$status"
   '';
   podmanServiceScript = pkgs.writeShellScript "podman-system-service" ''
     set -euo pipefail
@@ -173,11 +195,13 @@ in {
             Type = "oneshot";
             ExecStart = autoUpdateScript;
             User = user;
-            Environment = [
-              "HOME=${userHome}"
-              "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-              "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
-            ];
+            Environment =
+              [
+                "HOME=${userHome}"
+                "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+                "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
+              ]
+              ++ lib.optional (gotifyTokenFile != null) "GOTIFY_TOKEN_FILE=${gotifyTokenFile}";
           };
         };
 
