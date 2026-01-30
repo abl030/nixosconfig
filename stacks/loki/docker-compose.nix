@@ -53,16 +53,17 @@
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/loki/loki"
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/loki/tempo"
     "/run/current-system/sw/bin/mkdir -p ${dataRoot}/loki/mimir"
-    "/run/current-system/sw/bin/chown -R 100471:100471 ${dataRoot}/loki/grafana"
-    "/run/current-system/sw/bin/chown -R 110000:110000 ${dataRoot}/loki/loki"
-    "/run/current-system/sw/bin/chown -R 110000:110000 ${dataRoot}/loki/tempo"
-    "/run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/loki/mimir"
+    "/run/current-system/sw/bin/sh -lc 'if [ \"$(id -u)\" = 0 ]; then /run/current-system/sw/bin/chown -R 100471:100471 ${dataRoot}/loki/grafana; fi'"
+    "/run/current-system/sw/bin/sh -lc 'if [ \"$(id -u)\" = 0 ]; then /run/current-system/sw/bin/chown -R 110000:110000 ${dataRoot}/loki/loki; fi'"
+    "/run/current-system/sw/bin/sh -lc 'if [ \"$(id -u)\" = 0 ]; then /run/current-system/sw/bin/chown -R 110000:110000 ${dataRoot}/loki/tempo; fi'"
+    "/run/current-system/sw/bin/sh -lc 'if [ \"$(id -u)\" = 0 ]; then /run/current-system/sw/bin/chown -R 1000:1000 ${dataRoot}/loki/mimir; fi'"
   ];
 
   stackHosts = [
     {
       host = "logs.ablz.au";
       port = 3001;
+      websocket = true;
     }
     {
       host = "loki.ablz.au";
