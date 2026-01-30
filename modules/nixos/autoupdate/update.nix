@@ -5,6 +5,8 @@
   ...
 }: let
   cfg = config.homelab.update;
+  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
+  gotifyUrl = config.homelab.gotify.endpoint;
 in {
   options.homelab.update = {
     enable = lib.mkEnableOption "Nightly flake switch & housekeeping (via system.autoUpgrade + timers)";
@@ -70,6 +72,26 @@ in {
       set -euo pipefail
 
       log() { echo "[SmartUpdate] $1"; }
+      notify_failure() {
+        local status="$1"
+        local log_file="$2"
+        local token_file="${gotifyTokenFile}"
+        if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
+          return 0
+        fi
+        local token
+        token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
+        if [ -z "$token" ]; then
+          return 0
+        fi
+        local message_tail
+        message_tail="$(/run/current-system/sw/bin/tail -n 120 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+        /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
+          -F "title=nixos-upgrade failed on ${config.networking.hostName}" \
+          -F "message=$message_tail" \
+          -F "priority=8" >/dev/null || true
+        return "$status"
+      }
 
       log "--- STARTING SMART UPDATE SEQUENCE ---"
 
@@ -133,11 +155,15 @@ in {
       log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
       log "Target Flake: ${config.system.autoUpgrade.flake}"
 
+      log_file="$(/run/current-system/sw/bin/mktemp)"
+      set +e
       ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
         --flake ${config.system.autoUpgrade.flake} \
-        ${lib.concatStringsSep " " config.system.autoUpgrade.flags}
-
+        ${lib.concatStringsSep " " config.system.autoUpgrade.flags} \
+        >"$log_file" 2>&1
       UPDATE_EXIT_CODE=$?
+      set -e
+      /run/current-system/sw/bin/cat "$log_file"
 
       if [ $UPDATE_EXIT_CODE -eq 0 ]; then
         log "--- UPDATE SUCCESS ---"
@@ -156,8 +182,10 @@ in {
       else
         log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
         log "Check journal above for nixos-rebuild errors."
+        notify_failure "$UPDATE_EXIT_CODE" "$log_file" || true
       fi
 
+      /run/current-system/sw/bin/rm -f "$log_file"
       exit "$UPDATE_EXIT_CODE"
     '';
 

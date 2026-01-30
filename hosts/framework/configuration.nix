@@ -97,52 +97,92 @@
 
   networking.networkmanager.enable = true;
 
-  systemd.services = {
-    NetworkManager-wait-online.enable = pkgs.lib.mkForce false;
-    tailscaled.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 3;
-    polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
-  };
+  systemd = {
+    services = {
+      NetworkManager-wait-online.enable = pkgs.lib.mkForce false;
+      tailscaled.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 3;
+      polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
 
-  systemd.paths.amdgpu-devcoredump = {
-    description = "Watch for AMDGPU devcoredump data";
-    wantedBy = ["multi-user.target"];
-    pathConfig.PathExists = "/sys/class/drm/card1/device/devcoredump/data";
-  };
+      amdgpu-devcoredump = let
+        saveAmdgpuDevcoredump = pkgs.writeShellScript "save-amdgpu-devcoredump" ''
+          set -euo pipefail
 
-  systemd.services.amdgpu-devcoredump = let
-    saveAmdgpuDevcoredump = pkgs.writeShellScript "save-amdgpu-devcoredump" ''
-      set -euo pipefail
+          data="/sys/class/drm/card1/device/devcoredump/data"
+          clear="/sys/class/drm/card1/device/devcoredump/clear"
+          out_dir="/var/lib/amdgpu-devcoredump"
 
-      data="/sys/class/drm/card1/device/devcoredump/data"
-      clear="/sys/class/drm/card1/device/devcoredump/clear"
-      out_dir="/var/lib/amdgpu-devcoredump"
+          if [[ ! -r "$data" ]]; then
+            exit 0
+          fi
 
-      if [[ ! -r "$data" ]]; then
-        exit 0
-      fi
+          mkdir -p "$out_dir"
+          ts="$(${pkgs.coreutils}/bin/date -u +"%Y%m%dT%H%M%SZ")"
+          out="$out_dir/amdgpu-devcoredump-$ts.bin"
+          klog="$out_dir/amdgpu-devcoredump-$ts-kernel.log"
 
-      mkdir -p "$out_dir"
-      ts="$(${pkgs.coreutils}/bin/date -u +"%Y%m%dT%H%M%SZ")"
-      out="$out_dir/amdgpu-devcoredump-$ts.bin"
-      klog="$out_dir/amdgpu-devcoredump-$ts-kernel.log"
+          ${pkgs.coreutils}/bin/dd if="$data" of="$out" bs=1M status=none
+          ${pkgs.coreutils}/bin/chmod 600 "$out"
 
-      ${pkgs.coreutils}/bin/dd if="$data" of="$out" bs=1M status=none
-      ${pkgs.coreutils}/bin/chmod 600 "$out"
+          ${pkgs.systemd}/bin/journalctl -k -b --no-pager > "$klog" || true
+          ${pkgs.coreutils}/bin/chmod 600 "$klog" || true
 
-      ${pkgs.systemd}/bin/journalctl -k -b --no-pager > "$klog" || true
-      ${pkgs.coreutils}/bin/chmod 600 "$klog" || true
+          ${pkgs.util-linux}/bin/logger -t amdgpu-devcoredump "Saved devcoredump to $out and kernel log to $klog"
 
-      ${pkgs.util-linux}/bin/logger -t amdgpu-devcoredump "Saved devcoredump to $out and kernel log to $klog"
+          if [[ -w "$clear" ]]; then
+            echo 1 > "$clear"
+          fi
+        '';
+      in {
+        description = "Save AMDGPU devcoredump data";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = saveAmdgpuDevcoredump;
+        };
+      };
 
-      if [[ -w "$clear" ]]; then
-        echo 1 > "$clear"
-      fi
-    '';
-  in {
-    description = "Save AMDGPU devcoredump data";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = saveAmdgpuDevcoredump;
+      nfs-suspend-prepare = {
+        description = "Detach NFS and stop Automounts before sleep to prevent GPU crash";
+
+        # We want to run when the system is trying to sleep
+        wantedBy = ["suspend.target" "hibernate.target" "hybrid-sleep.target" "suspend-then-hibernate.target"];
+
+        # CRITICAL ORDERING: We must run BEFORE the service that actually
+        # tells the kernel to sleep.
+        before = [
+          "systemd-suspend.service"
+          "systemd-hibernate.service"
+          "systemd-hybrid-sleep.service"
+          "systemd-suspend-then-hibernate.service"
+        ];
+
+        unitConfig = {
+          # Run this even if network/other dependencies are already stopping
+          DefaultDependencies = "no";
+        };
+
+        serviceConfig = {
+          Type = "oneshot";
+          TimeoutSec = "5s";
+
+          # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
+          # 1. Stop the automount triggers so nothing can re-mount during suspend
+          ExecStart = [
+            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount"
+
+            # 2. The Hammer: Lazy (-l) and Force (-f) unmount all NFS shares immediately
+            "-${pkgs.util-linux}/bin/umount -l -f -a -t nfs,nfs4"
+          ];
+
+          # Restart the automounts on resume so they work again
+          ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount";
+        };
+      };
+    };
+
+    paths.amdgpu-devcoredump = {
+      description = "Watch for AMDGPU devcoredump data";
+      wantedBy = ["multi-user.target"];
+      pathConfig.PathExists = "/sys/class/drm/card1/device/devcoredump/data";
     };
   };
 
@@ -190,41 +230,4 @@
   ];
 
   # 2. THE CIRCUIT BREAKER SERVICE
-  systemd.services.nfs-suspend-prepare = {
-    description = "Detach NFS and stop Automounts before sleep to prevent GPU crash";
-
-    # We want to run when the system is trying to sleep
-    wantedBy = ["suspend.target" "hibernate.target" "hybrid-sleep.target" "suspend-then-hibernate.target"];
-
-    # CRITICAL ORDERING: We must run BEFORE the service that actually
-    # tells the kernel to sleep.
-    before = [
-      "systemd-suspend.service"
-      "systemd-hibernate.service"
-      "systemd-hybrid-sleep.service"
-      "systemd-suspend-then-hibernate.service"
-    ];
-
-    unitConfig = {
-      # Run this even if network/other dependencies are already stopping
-      DefaultDependencies = "no";
-    };
-
-    serviceConfig = {
-      Type = "oneshot";
-      TimeoutSec = "5s";
-
-      # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
-      # 1. Stop the automount triggers so nothing can re-mount during suspend
-      ExecStart = [
-        "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount"
-
-        # 2. The Hammer: Lazy (-l) and Force (-f) unmount all NFS shares immediately
-        "-${pkgs.util-linux}/bin/umount -l -f -a -t nfs,nfs4"
-      ];
-
-      # Restart the automounts on resume so they work again
-      ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount";
-    };
-  };
 }
