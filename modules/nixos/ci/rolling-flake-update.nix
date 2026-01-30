@@ -15,8 +15,8 @@
     fi
     log_file="$(/run/current-system/sw/bin/mktemp)"
     set +e
-    ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh >"$log_file" 2>&1
-    status=$?
+    ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh 2>&1 | /run/current-system/sw/bin/tee "$log_file"
+    status=''${PIPESTATUS[0]}
     set -e
     /run/current-system/sw/bin/cat "$log_file"
     if [ "$status" -ne 0 ]; then
