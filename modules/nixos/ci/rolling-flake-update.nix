@@ -5,13 +5,35 @@
   ...
 }: let
   cfg = config.homelab.ci.rollingFlakeUpdate or {};
+  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
+  gotifyUrl = config.homelab.gotify.endpoint;
 
   wrapperScript = pkgs.writeShellScript "rolling-flake-update-wrapper" ''
     set -euo pipefail
     if [ -n "''${GH_TOKEN_FILE-}" ]; then
       export GH_TOKEN="$(cat "''${GH_TOKEN_FILE}")"
     fi
-    exec ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh
+    log_file="$(/run/current-system/sw/bin/mktemp)"
+    set +e
+    ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh >"$log_file" 2>&1
+    status=$?
+    set -e
+    /run/current-system/sw/bin/cat "$log_file"
+    if [ "$status" -ne 0 ]; then
+      token_file="''${GOTIFY_TOKEN_FILE:-${toString gotifyTokenFile}}"
+      if [ -n "$token_file" ] && [ -r "$token_file" ]; then
+        token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
+        if [ -n "$token" ]; then
+          message_tail="$(/run/current-system/sw/bin/tail -n 120 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+          /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
+            -F "title=rolling flake update failed on ${config.networking.hostName}" \
+            -F "message=$message_tail" \
+            -F "priority=8" >/dev/null || true
+        fi
+      fi
+    fi
+    /run/current-system/sw/bin/rm -f "$log_file"
+    exit "$status"
   '';
 in {
   options.homelab.ci.rollingFlakeUpdate = {
@@ -57,6 +79,9 @@ in {
           ]
           ++ lib.optionals (cfg.tokenFile != null) [
             "GH_TOKEN_FILE=${cfg.tokenFile}"
+          ]
+          ++ lib.optionals (gotifyTokenFile != null) [
+            "GOTIFY_TOKEN_FILE=${gotifyTokenFile}"
           ];
 
         ExecStart = wrapperScript;
