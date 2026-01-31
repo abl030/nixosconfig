@@ -128,6 +128,7 @@
     # Core
     git
     python3
+    uv # uvx for running Python tools (e.g. mcp-nixos)
     vim
     wget
     curl
