@@ -36,11 +36,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixos-generators = {
-      url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     home-manager-diff = {
       url = "github:pedorich-n/home-manager-diff";
       inputs = {
@@ -125,7 +120,6 @@
       ];
 
       perSystem = {...}: {
-        _module.args.nixosGenerate = inputs.nixos-generators.nixosGenerate;
         imports = [./nix/devshell.nix];
       };
 

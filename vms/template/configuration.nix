@@ -6,6 +6,7 @@
 }: {
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
+    (modulesPath + "/virtualisation/proxmox-image.nix")
   ];
 
   services = {
@@ -56,6 +57,14 @@
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
   ];
   users.users.root.initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
+
+  # Proxmox image settings (replaces nixos-generators format = "proxmox")
+  proxmox.qemuConf = {
+    cores = 2;
+    memory = 2048;
+    bios = "ovmf";
+    net0 = "virtio=00:00:00:00:00:00,bridge=vmbr0,firewall=1";
+  };
 
   system.stateVersion = "25.05";
 }

@@ -126,8 +126,7 @@ nix fmt
 
 ### Known Eval Warnings (upstream, safe to ignore)
 
-- `proxmox.qemuConf.diskSize` renamed to `virtualisation.diskSize` — upstream nixos-generators issue
-- `nixos-generators is deprecated` — upstream deprecation notice, upstreamed into nixpkgs as of NixOS 25.05
+- `proxmox.qemuConf.diskSize` renamed to `virtualisation.diskSize` — upstream nixpkgs proxmox-image module sets a default using the old option name
 
 ## Hash-Based Drift Detection
 
