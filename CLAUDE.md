@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Repository Guidelines
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding assistants working with this repository.
+It is the single source of truth for both Claude Code (CLAUDE.md) and Codex (AGENTS.md via symlink).
 
 ## Repository Overview
 
@@ -69,10 +70,12 @@ The wrapper protects production VMs (104, 109, 110) from accidental modification
    - `disko.nix` (disk partitioning)
    - `hardware-configuration.nix` (hardware detection)
    - `home.nix` (Home Manager config)
-3. Add placeholder entry to `hosts.nix` with temporary publicKey
+3. Add placeholder entry to `hosts.nix` with temporary publicKey (default temp password hash: `temp123`)
 4. Run: `nix run .#provision-vm <vm-name>`
 5. After provisioning, run: `nix run .#post-provision-vm <vm-name> <IP> <VMID>`
 6. Deploy with secrets: `nixos-rebuild switch --flake .#<vm-name> --target-host <vm-name>`
+
+Post-provision expects SOPS identity; it mirrors the `dc` lookup order (env vars, age key files, host key, user key).
 
 ## Secrets Management
 
@@ -86,9 +89,14 @@ Uses **Sops-nix** with **Age** encryption:
   3. Add Age key to `secrets/.sops.yaml`
   4. Re-encrypt: `sops updatekeys --yes <file>` for each secret file
 
+## Stabilization Rules
+
+- Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
+- Avoid relying on module import order for list options; use `lib.mkOrder` when order must be stable.
+
 ## Quality Gates
 
-**CRITICAL: The `check` command MUST pass before committing.**
+**CRITICAL: `check` MUST pass before committing. `check --full` MUST pass before pushing.**
 
 The `check` command runs a comprehensive quality gate that includes:
 1. Format checking (Alejandra)
@@ -115,6 +123,11 @@ nix fmt
 
 # The check command will exit with error if any check fails
 ```
+
+### Known Eval Warnings (upstream, safe to ignore)
+
+- `proxmox.qemuConf.diskSize` renamed to `virtualisation.diskSize` — upstream nixos-generators issue
+- `nixos-generators is deprecated` — upstream deprecation notice, upstreamed into nixpkgs as of NixOS 25.05
 
 ## Hash-Based Drift Detection
 
@@ -157,13 +170,20 @@ Baselines are automatically updated by the nightly `rolling_flake_update.sh` aft
 
 ## Gotify Notifications
 
-Before asking the user for input, always send a Gotify ping and include a brief summary of what is needed.
+If asked, send a Gotify ping before requesting human input and include a brief summary of what is needed.
 
 ## Debug Session Notes
 
 - Record: host, stack, URL, expected status, current status, last change.
 - Verify upstream directly with `--resolve` before changing nginx/Cloudflare.
 - For Uptime Kuma issues: check `/metrics` and confirm `monitor_status` before assuming DNS or proxy issues.
+
+### Fast Debug Checklist (Doc1)
+
+- `systemctl --user list-units 'podman-compose@*' --no-legend`
+- `podman ps --format 'table {{.Names}}\t{{.Status}}'`
+- `curl -k --resolve <host>:443:<ip> https://<host>/<health>`
+- `key=$(rg -m1 '^KUMA_API_KEY=' ${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api} | cut -d= -f2-); curl -fsS --user ":$key" https://status.ablz.au/metrics | rg 'monitor_status' | rg '<domain>'`
 
 ## Standard Kuma Health Endpoints
 
@@ -174,11 +194,30 @@ Before asking the user for input, always send a Gotify ping and include a brief 
 - Smokeping: `/smokeping/smokeping.cgi`
 - Others: keep `/` unless a documented unauthenticated endpoint exists.
 
-## Claude Code Integration
+## Coding Style
 
-### Recommended: mcp-nixos
+- Nix formatting is enforced via Alejandra (`nix fmt`); let the formatter decide layout.
+- Run deadnix for unused declarations and statix for style/lint issues.
+- Prefer explicit, descriptive module names under `modules/nixos/` and `modules/home-manager/`.
+- Keep host names consistent with `hosts.nix` and `hosts/<name>/`.
+- If adding scripts, ensure shellcheck warnings are addressed or justified.
+- There is no separate unit test suite; validation is via `nix flake check`.
 
-For Claude Code users, install [mcp-nixos](https://github.com/utensils/mcp-nixos) to prevent AI hallucinations about NixOS:
+## Commit & PR Guidelines
+
+- Follow Conventional Commits style like `fix(pve): ...`; keep messages short and scoped.
+- If a change is operational or host-specific, mention the host, module, or subsystem in the subject.
+- PRs should describe impact, commands run (`check`, `nix flake check`), and any deployment notes.
+
+## AI Tool Integration
+
+### MCP Servers
+
+MCP servers are defined in `.mcp.json` (source of truth). Use `/sync-mcp` to push to Codex and `/add-mcp` to add new servers.
+
+### mcp-nixos
+
+[mcp-nixos](https://github.com/utensils/mcp-nixos) prevents hallucinations about NixOS:
 - Provides real-time access to 130K+ packages and 22K+ NixOS options
 - Validates package names and option paths against official APIs
 - Eliminates guesswork about deprecated options or renamed packages
