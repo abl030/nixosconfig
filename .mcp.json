@@ -3,6 +3,10 @@
     "loki": {
       "type": "http",
       "url": "http://loki-mcp.ablz.au:8081/stream"
+    },
+    "mcp-nixos": {
+      "command": "uvx",
+      "args": ["mcp-nixos"]
     }
   }
 }
