@@ -93,6 +93,25 @@
     9009
   ];
 
+  stackMonitors = [
+    {
+      name = "Grafana";
+      url = "https://logs.ablz.au/api/health";
+    }
+    {
+      name = "Loki";
+      url = "https://loki.ablz.au/ready";
+    }
+    {
+      name = "Tempo";
+      url = "https://tempo.ablz.au/ready";
+    }
+    {
+      name = "Mimir";
+      url = "https://mimir.ablz.au/ready";
+    }
+  ];
+
   extraEnv = [
     "GRAFANA_DATASOURCES=${grafanaDatasources}"
     "LOKI_CONFIG=${lokiConfig}"
