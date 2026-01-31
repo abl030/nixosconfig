@@ -2,7 +2,6 @@
 name: add-mcp
 description: Add an MCP server to the project and sync to all AI tools
 allowed-tools: Bash(python3 *), Read, Edit
-disable-model-invocation: true
 argument-hint: <name> <url-or-command>
 ---
 

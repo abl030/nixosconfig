@@ -2,7 +2,6 @@
 name: sync-mcp
 description: Sync MCP servers from .mcp.json (source of truth) into Codex user config (~/.codex/config.toml). Claude Code picks up .mcp.json natively so no action needed there.
 allowed-tools: Bash(python3 *), Bash(mkdir *), Read
-disable-model-invocation: true
 ---
 
 # Sync MCP Servers
