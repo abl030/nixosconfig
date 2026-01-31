@@ -78,7 +78,7 @@ in {
     home.packages = [pkgs.hypridle];
 
     # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
-    wayland.windowManager.hyprland.settings.windowrulev2 = [
+    wayland.windowManager.hyprland.settings.windowrule = [
       "idleinhibit fullscreen, class:^(firefox)$"
       "idleinhibit fullscreen, class:^(mpv)$"
     ];
