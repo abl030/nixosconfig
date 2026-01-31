@@ -77,12 +77,6 @@ in {
     # Use the standard package from nixpkgs
     home.packages = [pkgs.hypridle];
 
-    # IMPORTANT: Ensure Hyprland respects these apps when fullscreen
-    wayland.windowManager.hyprland.settings.windowrule = [
-      "idleinhibit fullscreen, class:^(firefox)$"
-      "idleinhibit fullscreen, class:^(mpv)$"
-    ];
-
     xdg.configFile."hypr/hypridle.conf".text = ''
       general {
           # Use our dynamic command
