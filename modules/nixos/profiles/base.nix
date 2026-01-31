@@ -125,15 +125,51 @@
   };
 
   environment.systemPackages = lib.mkOrder 1000 (with pkgs; [
+    # Core
     git
     python3
     vim
     wget
     curl
     home-manager
-    killall
-    parted
     nvd # For activation diffs
+
+    # Process & resource
+    htop
+    btop
+    strace
+    lsof
+    killall
+
+    # Networking
+    dnsutils # dig, nslookup
+    tcpdump
+    nmap
+    mtr
+    traceroute
+
+    # Disk & filesystem
+    parted
+    iotop
+    smartmontools # smartctl
+    pciutils # lspci
+    usbutils # lsusb
+
+    # Hardware & diagnostics
+    dmidecode
+    lm_sensors # sensors
+    hwinfo
+
+    # Memory
+    sysstat # vmstat etc.
+
+    # Logs & search
+    ripgrep
+    jq
+
+    # Nix-specific
+    nix-diff
+    nix-tree
   ]);
 
   # Pretty diffs on rebuild
@@ -184,6 +220,35 @@
         commands = [
           {
             command = "${pkgs.tailscale}/bin/tailscale";
+            options = ["NOPASSWD"];
+          }
+          # Diagnostic tools that require root
+          {
+            command = "${pkgs.tcpdump}/bin/tcpdump";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "${pkgs.iotop}/bin/iotop";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "${pkgs.smartmontools}/bin/smartctl";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "${pkgs.dmidecode}/bin/dmidecode";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "${pkgs.nmap}/bin/nmap";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "/run/current-system/sw/bin/dmesg";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "${pkgs.strace}/bin/strace";
             options = ["NOPASSWD"];
           }
         ];
