@@ -6,7 +6,7 @@ services:
   # This container holds the network stack for Plex.
   # ---------------------------------------------------------------
   plex-network-holder:
-    image: k8s.gcr.io/pause:3.9
+    image: registry.k8s.io/pause:3.9
     labels:
       - io.containers.autoupdate=registry
     container_name: plex_network_holder

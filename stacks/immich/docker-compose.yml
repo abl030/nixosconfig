@@ -2,7 +2,7 @@ name: immich
 
 services:
   immich-network-holder:
-    image: k8s.gcr.io/pause:3.9
+    image: registry.k8s.io/pause:3.9
     labels:
       - io.containers.autoupdate=registry
     container_name: immich_network_holder
