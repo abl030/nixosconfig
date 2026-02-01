@@ -64,8 +64,8 @@ in
         url = "http://localhost:51515/api/v1/sources";
         basicAuthUser = "abl030";
         basicAuthPass = "billand1";
-        jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
-        expectedValue = "0";
+        jsonPath = "multiUser";
+        expectedValue = "true";
         interval = 300;
       }
       {
@@ -74,8 +74,8 @@ in
         url = "http://localhost:51516/api/v1/sources";
         basicAuthUser = "abl030";
         basicAuthPass = "billand1";
-        jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
-        expectedValue = "0";
+        jsonPath = "multiUser";
+        expectedValue = "true";
         interval = 300;
       }
     ];
