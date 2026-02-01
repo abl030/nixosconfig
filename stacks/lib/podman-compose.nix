@@ -154,7 +154,7 @@
 
     systemd.services.${stackName} = {
       inherit description;
-      restartIfChanged = false;
+      restartIfChanged = true;
       restartTriggers = baseRestartTriggers;
       reloadIfChanged = false;
 
