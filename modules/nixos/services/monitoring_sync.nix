@@ -47,6 +47,15 @@
           printf '{}' > "$cache_file"
         fi
 
+        # Source additional secret env files for basicAuthUserEnv/basicAuthPassEnv
+        ${lib.concatMapStringsSep "\n    " (f: ''
+      if [[ -r ${lib.escapeShellArg f} ]]; then
+        set -a
+        . ${lib.escapeShellArg f}
+        set +a
+      fi'')
+    cfg.secretEnvFiles}
+
         export KUMA_URL="$kuma_url"
         export KUMA_USER="$kuma_user"
         export KUMA_PASS="$kuma_pass"
@@ -118,6 +127,11 @@
                 method = entry.get("method", "GET")
                 basic_auth_user = entry.get("basicAuthUser")
                 basic_auth_pass = entry.get("basicAuthPass")
+                # Resolve env var references (basicAuthUserEnv/basicAuthPassEnv)
+                if entry.get("basicAuthUserEnv"):
+                    basic_auth_user = os.environ.get(entry["basicAuthUserEnv"], basic_auth_user)
+                if entry.get("basicAuthPassEnv"):
+                    basic_auth_pass = os.environ.get(entry["basicAuthPassEnv"], basic_auth_pass)
                 interval = entry.get("interval", 60)
 
                 if mon_type == "json-query":
@@ -234,6 +248,12 @@ in {
       description = "SOPS file with KUMA_API_KEY for metrics access.";
     };
 
+    secretEnvFiles = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Paths to SOPS-decrypted env files sourced at runtime for basicAuthUserEnv/basicAuthPassEnv.";
+    };
+
     monitors = lib.mkOption {
       type = lib.types.listOf (lib.types.submodule {
         options = {
@@ -283,12 +303,22 @@ in {
           basicAuthUser = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
             default = null;
-            description = "Basic auth username.";
+            description = "Basic auth username (literal value, or use basicAuthUserEnv for SOPS).";
           };
           basicAuthPass = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
             default = null;
-            description = "Basic auth password.";
+            description = "Basic auth password (literal value, or use basicAuthPassEnv for SOPS).";
+          };
+          basicAuthUserEnv = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Env var name for basic auth username (resolved at runtime from secretEnvFiles).";
+          };
+          basicAuthPassEnv = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Env var name for basic auth password (resolved at runtime from secretEnvFiles).";
           };
           interval = lib.mkOption {
             type = lib.types.int;
