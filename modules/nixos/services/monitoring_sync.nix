@@ -193,6 +193,8 @@
                         or (json_path and existing.get("jsonPath") != json_path)
                         or (expected_value and str(existing.get("expectedValue", "")) != expected_value)
                         or (basic_auth_user and str(existing.get("authMethod", "")) != str(AuthMethod.HTTP_BASIC))
+                        or (basic_auth_user and existing.get("basic_auth_user") != basic_auth_user)
+                        or (basic_auth_pass and existing.get("basic_auth_pass") != basic_auth_pass)
                     )
                     if needs_update:
                         api.edit_monitor(monitor_id, **common_kwargs)
