@@ -134,7 +134,7 @@ update_sops_keys() {
 
     while IFS= read -r secret_file; do
         sops --config "$sops_config" updatekeys --yes "$secret_file" >/dev/null
-    done < <(find "$secrets_dir" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" -o -name "ssh_key_*" \))
+    done < <(find "$secrets_dir" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" -o -name "ssh_key_*" \) ! -name ".sops.yaml")
 }
 
 resolve_sops_identity() {
