@@ -89,13 +89,13 @@ in {
 
       schedule = lib.mkOption {
         type = lib.types.str;
-        default = "weekly";
+        default = "daily";
         description = "Systemd OnCalendar schedule for podman prune.";
       };
 
       maxAge = lib.mkOption {
         type = lib.types.str;
-        default = "168h";
+        default = "4h";
         description = "Only prune stopped containers older than this duration (podman filter until=...).";
       };
     };
