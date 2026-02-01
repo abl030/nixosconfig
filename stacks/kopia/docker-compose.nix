@@ -27,14 +27,56 @@
       echo "=== Kopia verify starting for ${label} ==="
       echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+      start_epoch=$(date +%s)
       exit_code=0
-      /run/current-system/sw/bin/runuser -u ${user} -- \
+      output=$(/run/current-system/sw/bin/runuser -u ${user} -- \
         ${pkgs.podman}/bin/podman exec ${containerName} \
-        kopia snapshot verify --verify-files-percent=${verifyPercent} --parallel=2 2>&1 \
+        kopia snapshot verify --verify-files-percent=${verifyPercent} --parallel=2 2>&1) \
         || exit_code=$?
+      end_epoch=$(date +%s)
+
+      echo "$output"
+
+      elapsed=$((end_epoch - start_epoch))
+      elapsed_min=$((elapsed / 60))
+
+      # Extract the "Finished processing" summary line from kopia output
+      finished_line=$(echo "$output" | ${pkgs.gnugrep}/bin/grep -i '^Finished processing' | tail -1 || true)
+
+      # Parse "Read N files (X.Y MB/GB/TB)" from the finished line
+      read_amount=""
+      read_unit=""
+      if [ -n "$finished_line" ]; then
+        read_amount=$(echo "$finished_line" | ${pkgs.gnused}/bin/sed -n 's/.*Read [0-9]* files (\([0-9.]*\) \([A-Z]*\)).*/\1/p')
+        read_unit=$(echo "$finished_line" | ${pkgs.gnused}/bin/sed -n 's/.*Read [0-9]* files ([0-9.]* \([A-Z]*\)).*/\1/p')
+      fi
+
+      # Calculate bandwidth if we have bytes and elapsed time
+      bandwidth_msg=""
+      if [ -n "$read_amount" ] && [ "$elapsed" -gt 0 ]; then
+        # Convert to MB for calculation
+        case "$read_unit" in
+          B)  multiplier="0.000001";;
+          KB) multiplier="0.001";;
+          MB) multiplier="1";;
+          GB) multiplier="1024";;
+          TB) multiplier="1048576";;
+          *)  multiplier="1";;
+        esac
+        read_mb=$(${pkgs.bc}/bin/bc <<< "scale=1; $read_amount * $multiplier")
+        mb_per_sec=$(${pkgs.bc}/bin/bc <<< "scale=1; $read_mb / $elapsed")
+        mbps=$(${pkgs.bc}/bin/bc <<< "scale=0; $mb_per_sec * 8")
+        bandwidth_msg="bandwidth=''${read_amount}''${read_unit} in ''${elapsed}s = ''${mb_per_sec} MB/s (~''${mbps} Mbps)"
+      fi
 
       echo "=== Kopia verify finished for ${label} ==="
-      echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$exit_code"
+      echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$exit_code elapsed_seconds=$elapsed elapsed_minutes=$elapsed_min"
+      if [ -n "$finished_line" ]; then
+        echo "summary=$finished_line"
+      fi
+      if [ -n "$bandwidth_msg" ]; then
+        echo "$bandwidth_msg"
+      fi
 
       if [ "$exit_code" -ne 0 ]; then
         token_file="${gotifyTokenFile}"
