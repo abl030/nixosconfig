@@ -23,8 +23,6 @@ services:
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellyfin
     environment:
       - PUID=0
@@ -44,6 +42,15 @@ services:
       resources:
         limits:
           memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s stat /data/tvshows && stat /data/movies && stat /data/music || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true
     network_mode: "service:jellyfin-network-holder"
     depends_on:
       - jellyfin-network-holder

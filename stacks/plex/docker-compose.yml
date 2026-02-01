@@ -58,6 +58,15 @@ services:
       # Pass through the GPU for hardware transcoding, same as Jellyfin
       - /dev/dri:/dev/dri
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s stat /tv && stat /movies && stat /music || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true
     depends_on:
       - plex-network-holder
 

@@ -38,10 +38,11 @@ services:
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8686/ping"]
+      test: ["CMD-SHELL", "timeout 10s stat /music && stat /downloads && curl -f http://localhost:8686/ping || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 15s
+      retries: 5
+      start_period: 60s
     labels:
       - io.containers.autoupdate=registry
       - autoheal=true
@@ -119,6 +120,15 @@ services:
       - ${FUSE_ROOT:-/mnt/fuse}/Media/Music_RW:/srv:ro
       # Fix for timezone if needed
       - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s stat /srv || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true
     restart: unless-stopped
     depends_on:
       - music-network-holder
