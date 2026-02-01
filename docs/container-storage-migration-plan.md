@@ -6,6 +6,10 @@
 - Expose the dataset to new VMs `doc2` and `igpu2` at `/mnt/docker` via virtiofs.
 - Move containers off `doc1` and `igpu` with planned downtime.
 - Track virtiofs in OpenTofu state.
+  - Note: `igpu2` passthrough is deferred until after `doc2` is verified.
+- Golden path: keep container data on the main node and use virtiofs mappings per node.
+  When the maintenance node is in use, create its own containers path and point the
+  same virtiofs mapping ID at that path for migration.
 
 ## Current findings
 
@@ -20,6 +24,10 @@
 - Virtiofs mapping ID: `containers`
 - Guest mountpoint: `/mnt/docker`
 - Owner: `abl030:users` (uid 1000, gid 100)
+- Migration model: per-node virtiofs path mapping
+  - Main node: `/nvmeprom/containers`
+  - Maintenance node: create a local path (not necessarily ZFS) and map it to `containers`
+  - This enables controlled migration with a final rsync cutover.
 
 ## OpenTofu tracking
 
@@ -47,14 +55,23 @@ pvesh create /cluster/mapping/dir \
   --description "Podman containers dataset"
 ```
 
+Future: when the maintenance node is online, add its mapping:
+```
+# On prom (root@192.168.1.12)
+pvesh set /cluster/mapping/dir/containers \
+  --map "node=maintenance-node-name,path=/path/on/that/node"
+```
+
 ### 3) Create the new VMs
 
 ```
 # On your workstation
 pve new   # create doc2
-pve new   # create igpu2
-
 pve integrate doc2 <ip> <vmid>
+
+# Defer igpu2 until after doc2 is validated
+# (passthrough adds risk; handle after doc2 is stable)
+pve new   # create igpu2
 pve integrate igpu2 <ip> <vmid>
 ```
 
@@ -96,9 +113,20 @@ systemd.tmpfiles.rules = [
 
 ### 6) Downtime migration
 
-- Stop containers on `doc1` and `igpu`.
-- Rsync data into `/nvmeprom/containers`.
-- Start containers on `doc2` and `igpu2`.
+- Phase 1 (doc2 only):
+  - Stop containers on `doc1`.
+  - Rsync data into `/nvmeprom/containers`.
+  - Start containers on `doc2`.
+- Phase 2 (igpu2 later, after passthrough is sorted):
+  - Stop containers on `igpu`.
+  - Rsync data into `/nvmeprom/containers`.
+  - Start containers on `igpu2`.
+
+Maintenance node migration (golden path):
+- Bring maintenance node online and add its `containers` mapping path.
+- Stop containers on the main node and rsync data to the maintenance node path.
+- Move VM(s) to the maintenance node and start containers there.
+- Reverse after maintenance.
 
 Example (choose one direction):
 
