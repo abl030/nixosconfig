@@ -299,4 +299,26 @@ in {
       description = "Isolated sandbox VM for autonomous Claude Code development";
     };
   };
+
+  cache = {
+    configurationFile = ./hosts/cache/configuration.nix;
+    homeFile = ./hosts/cache/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "cache";
+    sshAlias = "cache";
+    sshKeyName = "ssh_key_abl030";
+    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHYh5BYMlU8u7RGjChPe7QON+adENp+SUtg2+HYAV9FD";
+    authorizedKeys = masterKeys;
+    proxmox = {
+      vmid = 112;
+      cores = 4;
+      memory = 8192;
+      disk = "64G";
+      storage = "nvmeprom";
+      description = "cache";
+    };
+  };
+
 }
