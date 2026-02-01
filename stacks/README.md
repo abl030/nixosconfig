@@ -234,6 +234,25 @@ volumes:
 - Virtiofs mounts
 - Data owned by LSIO containers using PUID=0
 
+### Mount Healthchecks
+
+All containers with NFS or FUSE volume mounts (e.g. `MEDIA_ROOT`, `FUSE_ROOT`, `MUM_ROOT`) **must** include a mount healthcheck. This detects stale mounts so autoheal can restart the container once the mount recovers.
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "timeout 10s stat /media/path || exit 1"]
+  interval: 30s
+  timeout: 15s
+  retries: 5
+  start_period: 60s
+labels:
+  - autoheal=true
+```
+
+For containers with multiple mount paths, chain them: `timeout 10s stat /path1 && stat /path2 || exit 1`
+
+Containers that only mount `DATA_ROOT` (local storage) do not need mount healthchecks.
+
 ### Auto-Update Labels
 
 All containers should have auto-update enabled:

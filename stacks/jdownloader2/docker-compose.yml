@@ -2,8 +2,6 @@ version: "3.8"
 services:
   jdownloader-2:
     image: docker.io/jlesage/jdownloader-2:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jdownloader-2
     restart: unless-stopped
     ports:
@@ -22,3 +20,12 @@ services:
       - USER_ID=0
       - GROUP_ID=0
       - UMASK=0002
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s stat /output && stat /books || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true

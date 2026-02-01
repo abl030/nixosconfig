@@ -32,6 +32,15 @@ services:
       - ${DATA_ROOT}/youtarr/config:/app/config
       - ${DATA_ROOT}/youtarr/images:/app/server/images
       - ${DATA_ROOT}/youtarr/jobs:/app/jobs
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s stat /usr/src/app/data || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true
     depends_on:
       - youtarr-db
 
