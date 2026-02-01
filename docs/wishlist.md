@@ -1,5 +1,5 @@
 1. High priority - virtiofs backing for docker volumes
-6. Kopia Gotify
+6. ~~Kopia Gotify~~ ✅ Done — JSON query monitors in Uptime Kuma check backup errorCount via API, Gotify notifies on failure
 7. Kopia Automate 10% checks.
 8. Dev Box
 9. Runner box, so we don't backup our cache.
