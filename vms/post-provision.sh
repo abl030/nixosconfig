@@ -802,7 +802,7 @@ reencrypt_secrets() {
             log_error "Failed to re-encrypt: $secret_file"
             failed=1
         fi
-    done < <(find "$secrets_dir" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" -o -name "ssh_key_*" \))
+    done < <(find "$secrets_dir" -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.env" -o -name "ssh_key_*" \) ! -name ".sops.yaml")
 
     if [[ "$failed" -ne 0 ]]; then
         log_error "Secrets re-encryption failed."
