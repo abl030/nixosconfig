@@ -132,5 +132,5 @@ in
     inherit stackName;
     description = "LGTM (Loki/Grafana/Tempo/Mimir) Podman Compose Stack";
     projectName = "loki";
-    inherit composeFile envFiles preStart stackHosts firewallPorts extraEnv restartTriggers;
+    inherit composeFile envFiles preStart stackHosts stackMonitors firewallPorts extraEnv restartTriggers;
   }
