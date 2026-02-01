@@ -70,7 +70,7 @@
     import os
     import time
     import socketio
-    from uptime_kuma_api import UptimeKumaApi, MonitorType
+    from uptime_kuma_api import UptimeKumaApi, MonitorType, AuthMethod
     from uptime_kuma_api.exceptions import UptimeKumaException
 
     kuma_url = os.environ["KUMA_URL"]
@@ -139,6 +139,7 @@
                     common_kwargs["headers"] = headers_json
                 if basic_auth_user:
                     common_kwargs["basic_auth_user"] = basic_auth_user
+                    common_kwargs["authMethod"] = AuthMethod.HTTP_BASIC
                 if basic_auth_pass:
                     common_kwargs["basic_auth_pass"] = basic_auth_pass
                 if mon_type == "json-query":
