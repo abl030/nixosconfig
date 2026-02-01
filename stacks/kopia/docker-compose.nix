@@ -58,6 +58,26 @@ in
         url = "https://kopiamum.ablz.au/";
         acceptedStatusCodes = ["200-299" "300-399" "401"];
       }
+      {
+        name = "Kopia Photos Backup";
+        type = "json-query";
+        url = "http://localhost:51515/api/v1/sources";
+        basicAuthUser = "abl030";
+        basicAuthPass = "billand1";
+        jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0]) = 0";
+        expectedValue = "true";
+        interval = 300;
+      }
+      {
+        name = "Kopia Mum Backup";
+        type = "json-query";
+        url = "http://localhost:51516/api/v1/sources";
+        basicAuthUser = "abl030";
+        basicAuthPass = "billand1";
+        jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0]) = 0";
+        expectedValue = "true";
+        interval = 300;
+      }
     ];
     # Only require /mnt/data - mnt-mum is handled via automount dependency above
     requiresMounts = ["/mnt/data"];
