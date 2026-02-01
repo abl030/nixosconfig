@@ -13,3 +13,19 @@ Four Uptime Kuma monitors are auto-provisioned via `stackMonitors`:
 - **Kopia Photos Backup / Kopia Mum Backup** — JSON query monitors hitting `/api/v1/sources` on localhost with basic auth. Uses JSONata `$count(sources[lastSnapshot.stats.errorCount > 0])` and expects `0`. If any source's last snapshot had errors, the monitor goes DOWN and triggers a Gotify notification.
 
 Credentials are currently hardcoded in the monitor definitions (TODO: rotate and move to SOPS).
+
+## Snapshot Verification
+
+Daily `kopia snapshot verify` runs via systemd timers to catch silent data corruption:
+
+- **kopia-verify-photos** — 04:00 daily, verifies 5% of files (`kopiaphotos` container)
+- **kopia-verify-mum** — 06:00 daily, verifies 1% of files (`kopiamum` container, lower % due to network mount speed)
+
+On failure, a Gotify notification is sent. Logs go to journald and flow through Alloy to Loki:
+
+```
+journalctl -u kopia-verify-photos -u kopia-verify-mum
+{unit=~"kopia-verify.*"}  # Loki LogQL
+```
+
+Both services use `restartIfChanged = false` so deploys don't block waiting for a verify to finish. The `verifyPercent` parameter on `mkVerifyScript` controls the percentage per instance (defaults to 5%).
