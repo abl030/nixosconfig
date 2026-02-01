@@ -107,11 +107,46 @@
             for entry in desired:
                 name = entry["name"]
                 url = entry["url"]
+                mon_type = entry.get("type", "http")
                 host_header = entry.get("hostHeader")
                 ignore_tls = bool(entry.get("ignoreTls", False))
                 accepted_codes = entry.get("acceptedStatusCodes") or ["200-299", "300-399"]
                 notification_ids = default_notification_ids
                 headers_json = json.dumps({"Host": host_header}) if host_header else None
+                json_path = entry.get("jsonPath")
+                expected_value = entry.get("expectedValue")
+                method = entry.get("method", "GET")
+                basic_auth_user = entry.get("basicAuthUser")
+                basic_auth_pass = entry.get("basicAuthPass")
+                interval = entry.get("interval", 60)
+
+                if mon_type == "json-query":
+                    kuma_type = MonitorType.JSON_QUERY
+                else:
+                    kuma_type = MonitorType.HTTP
+
+                # Build kwargs common to add/edit
+                common_kwargs = dict(
+                    name=name,
+                    url=url,
+                    ignoreTls=ignore_tls,
+                    accepted_statuscodes=accepted_codes,
+                    notificationIDList=notification_ids,
+                    maxredirects=10,
+                    interval=interval,
+                )
+                if headers_json:
+                    common_kwargs["headers"] = headers_json
+                if basic_auth_user:
+                    common_kwargs["basic_auth_user"] = basic_auth_user
+                if basic_auth_pass:
+                    common_kwargs["basic_auth_pass"] = basic_auth_pass
+                if mon_type == "json-query":
+                    common_kwargs["method"] = method
+                    if json_path:
+                        common_kwargs["jsonPath"] = json_path
+                    if expected_value:
+                        common_kwargs["expectedValue"] = expected_value
 
                 existing = by_url.get(url) or by_name.get(name)
                 if existing:
@@ -139,33 +174,16 @@
                         or (host_header and existing.get("headers") != headers_json)
                         or existing_codes != desired_codes
                         or existing_notifications != desired_notifications
+                        or existing.get("interval") != interval
+                        or (json_path and existing.get("jsonPath") != json_path)
+                        or (expected_value and str(existing.get("expectedValue", "")) != expected_value)
                     )
                     if needs_update:
-                        api.edit_monitor(
-                            monitor_id,
-                            name=name,
-                            url=url,
-                            ignoreTls=ignore_tls,
-                            headers=headers_json,
-                            accepted_statuscodes=accepted_codes,
-                            notificationIDList=notification_ids,
-                            maxredirects=10,
-                            interval=60,
-                        )
+                        api.edit_monitor(monitor_id, **common_kwargs)
                     updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
                     continue
 
-                resp = api.add_monitor(
-                    type=MonitorType.HTTP,
-                    name=name,
-                    url=url,
-                    headers=headers_json,
-                    ignoreTls=ignore_tls,
-                    accepted_statuscodes=accepted_codes,
-                    notificationIDList=notification_ids,
-                    maxredirects=10,
-                    interval=60,
-                )
+                resp = api.add_monitor(type=kuma_type, **common_kwargs)
                 monitor_id = resp.get("monitorID") or resp.get("monitorId")
                 updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
@@ -239,6 +257,41 @@ in {
             type = lib.types.listOf lib.types.str;
             default = ["200-299" "300-399"];
             description = "Accepted HTTP status code ranges for the monitor.";
+          };
+          type = lib.mkOption {
+            type = lib.types.enum ["http" "json-query"];
+            default = "http";
+            description = "Monitor type: http or json-query.";
+          };
+          jsonPath = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "JSONata expression for json-query monitors.";
+          };
+          expectedValue = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Expected value for json-query monitors.";
+          };
+          method = lib.mkOption {
+            type = lib.types.str;
+            default = "GET";
+            description = "HTTP method.";
+          };
+          basicAuthUser = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Basic auth username.";
+          };
+          basicAuthPass = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Basic auth password.";
+          };
+          interval = lib.mkOption {
+            type = lib.types.int;
+            default = 60;
+            description = "Check interval in seconds.";
           };
         };
       });
