@@ -6,6 +6,51 @@
 }: let
   stackName = "kopia-stack";
 
+  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
+  gotifyUrl = config.homelab.gotify.endpoint;
+  inherit (config.homelab) user userHome;
+  userUid = let
+    uid = config.users.users.${user}.uid or null;
+  in
+    if uid == null
+    then 1000
+    else uid;
+
+  mkVerifyScript = {
+    containerName,
+    label,
+    verifyPercent ? "5",
+  }:
+    pkgs.writeShellScript "kopia-verify-${containerName}" ''
+      set -euo pipefail
+
+      echo "=== Kopia verify starting for ${label} ==="
+      echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      exit_code=0
+      /run/current-system/sw/bin/runuser -u ${user} -- \
+        ${pkgs.podman}/bin/podman exec ${containerName} \
+        kopia snapshot verify --verify-files-percent=${verifyPercent} --parallel=2 2>&1 \
+        || exit_code=$?
+
+      echo "=== Kopia verify finished for ${label} ==="
+      echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ) exit_code=$exit_code"
+
+      if [ "$exit_code" -ne 0 ]; then
+        token_file="${gotifyTokenFile}"
+        if [ -n "$token_file" ] && [ -r "$token_file" ]; then
+          token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
+          if [ -n "$token" ]; then
+            /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
+              -F "title=kopia-verify failed: ${label} on ${config.networking.hostName}" \
+              -F "message=Verify exited with code $exit_code. Check journalctl -u kopia-verify-${containerName}." \
+              -F "priority=8" >/dev/null || true
+          fi
+        fi
+        exit "$exit_code"
+      fi
+    '';
+
   composeFile = builtins.path {
     path = ./docker-compose.yml;
     name = "kopia-docker-compose.yml";
@@ -99,4 +144,72 @@ in
       after = dependsOn;
       firewallPorts = [];
     })
+    {
+      systemd = {
+        services = {
+          kopia-verify-photos = {
+            description = "Kopia snapshot verify for kopiaphotos";
+            after = ["${stackName}.service"];
+            requires = ["${stackName}.service"];
+            restartIfChanged = false;
+            serviceConfig = {
+              Type = "oneshot";
+              User = "root";
+              Environment = [
+                "HOME=${userHome}"
+                "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
+              ];
+              ExecStart = mkVerifyScript {
+                containerName = "kopiaphotos";
+                label = "Kopia Photos";
+              };
+            };
+          };
+
+          kopia-verify-mum = {
+            description = "Kopia snapshot verify for kopiamum";
+            after = ["${stackName}.service"];
+            requires = ["${stackName}.service"];
+            restartIfChanged = false;
+            serviceConfig = {
+              Type = "oneshot";
+              User = "root";
+              Environment = [
+                "HOME=${userHome}"
+                "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
+              ];
+              ExecStart = mkVerifyScript {
+                containerName = "kopiamum";
+                label = "Kopia Mum";
+                verifyPercent = "1";
+              };
+            };
+          };
+        };
+
+        timers = {
+          kopia-verify-photos = {
+            description = "Daily Kopia verify for kopiaphotos";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnCalendar = "*-*-* 04:00:00";
+              Persistent = true;
+              Unit = "kopia-verify-photos.service";
+            };
+          };
+
+          kopia-verify-mum = {
+            description = "Daily Kopia verify for kopiamum";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnCalendar = "*-*-* 06:00:00";
+              Persistent = true;
+              Unit = "kopia-verify-mum.service";
+            };
+          };
+        };
+      };
+    }
   ]
