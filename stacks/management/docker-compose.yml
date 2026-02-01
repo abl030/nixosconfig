@@ -40,6 +40,7 @@ services:
       # Uncomment to enable authentication. See https://dozzle.dev/guide/authentication
       - DOZZLE_AUTH_PROVIDER=simple
       - DOZZLE_REMOTE_AGENT=192.168.1.33:7007
+      - DOZZLE_FILTER=status=running
     healthcheck:
       test: ["CMD", "/dozzle", "healthcheck"]
       interval: 30s
