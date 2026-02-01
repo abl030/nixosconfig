@@ -1,0 +1,46 @@
+// Syslog file scrape
+local.file_match "syslog" {
+  path_targets = [{"__path__" = "/var/log/syslog", "job" = "unraid-syslog", "host" = "tower"}]
+}
+
+loki.source.file "syslog" {
+  targets    = local.file_match.syslog.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// Docker container log discovery
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+
+  rule {
+    replacement  = "tower"
+    target_label = "host"
+  }
+
+  rule {
+    replacement  = "unraid-docker"
+    target_label = "job"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker.output
+  forward_to = [loki.write.default.receiver]
+}
+
+// Push to Loki
+loki.write "default" {
+  endpoint {
+    url = "http://192.168.1.33:3100/loki/api/v1/push"
+  }
+}
