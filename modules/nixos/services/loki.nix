@@ -34,6 +34,10 @@
     if lokiIp != null
     then "http://${lokiIp}:${toString cfg.port}/loki/api/v1/push"
     else null;
+  mimirUrl =
+    if lokiIp != null
+    then "http://${lokiIp}:${toString cfg.mimirPort}/api/v1/push"
+    else null;
 
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
     loki.write "loki" {
@@ -71,6 +75,24 @@
       relabel_rules = loki.relabel.journal.rules
       labels        = { source = "journald", host = "${config.networking.hostName}" }
     }
+
+    prometheus.scrape "node" {
+      targets = [{
+        __address__ = "localhost:9100",
+      }]
+      forward_to      = [prometheus.remote_write.mimir.receiver]
+      scrape_interval = "60s"
+      job_name        = "node"
+    }
+
+    prometheus.remote_write "mimir" {
+      endpoint {
+        url = "${mimirUrl}"
+      }
+      external_labels = {
+        host = "${config.networking.hostName}",
+      }
+    }
   '';
 in {
   options.homelab.loki = {
@@ -86,6 +108,12 @@ in {
       type = lib.types.port;
       default = 3100;
       description = "Loki HTTP port.";
+    };
+
+    mimirPort = lib.mkOption {
+      type = lib.types.port;
+      default = 9009;
+      description = "Mimir HTTP port for remote_write.";
     };
   };
 
