@@ -44,3 +44,24 @@ loki.write "default" {
     url = "http://192.168.1.33:3100/loki/api/v1/push"
   }
 }
+
+// Scrape node-exporter metrics
+prometheus.scrape "node" {
+  targets = [{
+    __address__ = "localhost:9100",
+    instance    = "tower",
+  }]
+  forward_to      = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "60s"
+  job_name        = "node"
+}
+
+// Push metrics to Mimir
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://192.168.1.33:9009/api/v1/push"
+  }
+  external_labels = {
+    host = "tower",
+  }
+}
