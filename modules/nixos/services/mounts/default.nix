@@ -6,5 +6,6 @@
     ./external.nix
     ./fuse.nix
     ./drvfs.nix
+    ./ops-sync.nix
   ];
 }
