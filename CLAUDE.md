@@ -214,6 +214,15 @@ If asked, send a Gotify ping before requesting human input and include a brief s
 
 MCP servers are defined in `.mcp.json` (source of truth). Use `/sync-mcp` to push to Codex and `/add-mcp` to add new servers.
 
+### Loki
+
+The Loki MCP server queries logs from the homelab fleet. Usage notes:
+- **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) or relative durations (`1h`, `30m`). Do NOT use `24h` or other durations as the `start` parameter — use an RFC3339 timestamp instead.
+- Default query range is 1 hour. For longer ranges, compute the RFC3339 start time.
+- Metric queries (`bytes_over_time`, `rate`, `count_over_time`) are not supported by the MCP tool — use log queries only.
+- Hosts are labelled: `wsl`, `proxmox-vm` (doc1), `igpu`, `dev`, `cache`, `tower`.
+- Container logs use the `container` label (e.g., `{host="proxmox-vm", container="immich-server"}`).
+
 ### mcp-nixos
 
 [mcp-nixos](https://github.com/utensils/mcp-nixos) prevents hallucinations about NixOS:
