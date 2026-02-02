@@ -33,7 +33,8 @@
     mounts = {
       nfs = {
         enable = true;
-        server = "192.168.1.2"; # Via Windows Tailscale subnet route, not WSL Tailscale
+        server = "192.168.1.2"; # Via Windows Tailscale subnet route
+        appdata = false;
       };
       drvfs = {
         enable = true;

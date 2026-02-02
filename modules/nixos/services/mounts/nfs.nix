@@ -28,6 +28,12 @@ in {
       default = "tower";
       description = "NFS server address. Defaults to 'tower' (Tailscale MagicDNS). Set to a LAN IP to bypass Tailscale.";
     };
+
+    appdata = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to mount /mnt/appdata. Disable for hosts that don't need it.";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -54,7 +60,7 @@ in {
         ++ serverRequires;
     };
 
-    fileSystems."/mnt/appdata" = {
+    fileSystems."/mnt/appdata" = mkIf cfg.appdata {
       device = "${cfg.server}:/mnt/user/appdata";
       fsType = "nfs";
       options =
