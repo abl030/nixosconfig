@@ -34,6 +34,35 @@
     "podman-system-service.service"
   ];
 
+  # Clean up orphaned containers, pods, and health check timers after stack
+  # stop/restart. When containers are replaced, stopped containers linger and
+  # old systemd health check timers spam "no container with name or ID found".
+  stackCleanup = pkgs.writeShellScript "podman-stack-cleanup" ''
+    set -euo pipefail
+    sleep 2
+
+    # Prune stopped containers and dead pods
+    ${podmanBin} container prune -f --filter "until=60s" 2>/dev/null || true
+    ${podmanBin} pod prune -f 2>/dev/null || true
+
+    # Clean up orphaned health check timers
+    active_ids=$(${podmanBin} ps -q 2>/dev/null | tr '\n' '|')
+    active_ids="''${active_ids%|}"
+    if [ -z "$active_ids" ]; then
+      active_ids="NONE"
+    fi
+    /run/current-system/sw/bin/systemctl --user list-units --plain --no-legend --type=timer \
+      | /run/current-system/sw/bin/grep -E '^[0-9a-f]{64}-' \
+      | /run/current-system/sw/bin/awk '{print $1}' \
+      | while read -r timer; do
+          cid="''${timer%%-*}"
+          if ! echo "$cid" | /run/current-system/sw/bin/grep -qE "^($active_ids)"; then
+            /run/current-system/sw/bin/systemctl --user stop "$timer" 2>/dev/null || true
+          fi
+        done
+    /run/current-system/sw/bin/systemctl --user reset-failed 2>/dev/null || true
+  '';
+
   normalizeEnvFiles = envFiles:
     map
     (env:
@@ -180,7 +209,9 @@
         ExecStartPre = mkExecStartPre envFiles (podPrune ++ recreateIfLabelMismatch ++ preStart);
 
         ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStartPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
+        ExecStopPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
         ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
 
         Restart = restart;
