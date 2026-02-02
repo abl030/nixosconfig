@@ -26,8 +26,8 @@ in {
   config = mkIf cfg.enable {
     systemd.services.ops-sync = {
       description = "Rsync Operations & Production to home NFS";
-      after = ["tailscaled.service" "mnt-z.automount" "mnt-data.automount"];
-      requires = ["tailscaled.service"];
+      after = ["network-online.target" "mnt-z.automount" "mnt-data.automount"];
+      wants = ["network-online.target"];
       restartIfChanged = false;
       path = [pkgs.rsync pkgs.coreutils pkgs.util-linux pkgs.curl];
 
