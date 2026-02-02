@@ -10,6 +10,8 @@ with lib; let
   cfg = config.homelab.mounts.opsSync;
   src = "/mnt/z/Operations & Production/";
   dest = "/mnt/data/Life/Cullen/Ops Backup/";
+  gotifyCfg = config.homelab.gotify;
+  gotifyTokenFile = config.sops.secrets."gotify/token".path or null;
 in {
   options.homelab.mounts.opsSync = {
     enable = mkEnableOption "Scheduled rsync of Operations & Production to home NFS";
@@ -26,7 +28,7 @@ in {
       description = "Rsync Operations & Production to home NFS";
       after = ["tailscaled.service" "mnt-z.automount" "mnt-data.automount"];
       requires = ["tailscaled.service"];
-      path = [pkgs.rsync pkgs.coreutils];
+      path = [pkgs.rsync pkgs.coreutils pkgs.util-linux pkgs.curl];
 
       serviceConfig = {
         Type = "oneshot";
@@ -36,21 +38,38 @@ in {
 
           log() { logger -t ops-sync "$1"; echo "$1"; }
 
+          notify_failure() {
+            local msg="$1"
+            if [ -n "${gotifyTokenFile}" ] && [ -r "${gotifyTokenFile}" ]; then
+              token=$(${pkgs.gawk}/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "${gotifyTokenFile}")
+              if [ -n "$token" ]; then
+                curl -fsS -X POST "${gotifyCfg.endpoint}/message?token=$token" \
+                  -F "title=ops-sync failed on ${config.networking.hostName}" \
+                  -F "message=$msg" \
+                  -F "priority=8" >/dev/null || true
+              fi
+            fi
+          }
+
+          trap 'notify_failure "Sync failed at line $LINENO"' ERR
+
           # Verify source is accessible
           if [ ! -d "${src}" ]; then
             log "ERROR: Source ${src} not accessible, aborting"
+            notify_failure "Source ${src} not accessible"
             exit 1
           fi
 
           # Verify destination is accessible
           if [ ! -d "${dest}" ]; then
             log "ERROR: Destination ${dest} not accessible, aborting"
+            notify_failure "Destination ${dest} not accessible"
             exit 1
           fi
 
           log "Starting sync from Z: Operations & Production to home NFS"
 
-          rsync -av \
+          rsync -rlptv \
             --delete \
             --exclude='Thumbs.db' \
             --exclude='.stfolder' \
