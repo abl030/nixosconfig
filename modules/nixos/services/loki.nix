@@ -79,6 +79,7 @@
     prometheus.scrape "node" {
       targets = [{
         __address__ = "localhost:9100",
+        instance    = "${config.networking.hostName}",
       }]
       forward_to      = [prometheus.remote_write.mimir.receiver]
       scrape_interval = "60s"
