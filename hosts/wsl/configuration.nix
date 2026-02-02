@@ -51,7 +51,7 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${pkgs.iproute2}/bin/ip link set tailscale0 mtu 1200";
+      ExecStart = "${pkgs.iproute2}/bin/ip link set tailscale0 mtu 1000";
     };
   };
 
