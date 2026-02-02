@@ -40,6 +40,21 @@
     mounts.opsSync.enable = true;
   };
 
+  # WSL Hyper-V virtual switch + Tailscale encapsulation limits effective MTU.
+  # Without this, SSH KEX packets (especially post-quantum ML-KEM) get silently
+  # dropped, causing SSH connections to hang during key exchange.
+  systemd.services.tailscale-mtu = {
+    description = "Set tailscale0 MTU for WSL";
+    after = ["tailscaled.service"];
+    requires = ["tailscaled.service"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.iproute2}/bin/ip link set tailscale0 mtu 1200";
+    };
+  };
+
   # 3. Standard WSL Configuration
   wsl.enable = true;
   wsl.defaultUser = hostConfig.user;
