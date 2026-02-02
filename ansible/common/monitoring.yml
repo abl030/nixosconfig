@@ -1,0 +1,107 @@
+---
+# monitoring.yml — Deploy node-exporter + Alloy to Proxmox/Debian hosts
+#
+# Usage:
+#   ansible-playbook -i ../prom_prox/inventory.ini monitoring.yml \
+#     --limit pve-new-01 \
+#     -e monitoring_hostname=prom
+
+- name: Deploy monitoring (node-exporter + Alloy)
+  hosts: all
+  become: true
+
+  vars:
+    monitoring_hostname: "{{ inventory_hostname }}"
+    loki_ip: "192.168.1.33"
+    loki_port: "3100"
+    mimir_ip: "192.168.1.33"
+    mimir_port: "9009"
+    alloy_version: "1.*"
+
+  tasks:
+    # ── Node Exporter ──────────────────────────────────────
+    - name: Install prometheus-node-exporter
+      ansible.builtin.apt:
+        name: prometheus-node-exporter
+        state: present
+        update_cache: true
+
+    - name: Enable and start node-exporter
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        enabled: true
+        state: started
+
+    - name: Verify node-exporter is serving metrics
+      ansible.builtin.uri:
+        url: http://localhost:9100/metrics
+        return_content: false
+        status_code: 200
+      register: node_exporter_check
+      retries: 3
+      delay: 2
+
+    # ── Grafana Alloy ──────────────────────────────────────
+    - name: Install required packages for Grafana repo
+      ansible.builtin.apt:
+        name:
+          - gpg
+          - curl
+        state: present
+
+    - name: Add Grafana GPG key
+      ansible.builtin.shell:
+        cmd: >
+          curl -fsSL https://apt.grafana.com/gpg.key |
+          gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+        creates: /etc/apt/keyrings/grafana.gpg
+
+    - name: Add Grafana apt repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/grafana.list
+        content: |
+          deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
+        mode: "0644"
+
+    - name: Install Alloy
+      ansible.builtin.apt:
+        name: alloy
+        state: present
+        update_cache: true
+
+    - name: Create Alloy config directory
+      ansible.builtin.file:
+        path: /etc/alloy
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Alloy configuration
+      ansible.builtin.template:
+        src: templates/alloy-config.alloy.j2
+        dest: /etc/alloy/config.alloy
+        mode: "0644"
+      notify: Restart Alloy
+
+    - name: Configure Alloy environment defaults
+      ansible.builtin.copy:
+        dest: /etc/default/alloy
+        content: |
+          ## Managed by Ansible
+          CONFIG_FILE="/etc/alloy/config.alloy"
+          CUSTOM_ARGS="--server.http.listen-addr=127.0.0.1:12345 --disable-reporting"
+        mode: "0644"
+      notify: Restart Alloy
+
+    - name: Enable and start Alloy
+      ansible.builtin.systemd:
+        name: alloy
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart Alloy
+      ansible.builtin.systemd:
+        name: alloy
+        state: restarted
+        daemon_reload: true

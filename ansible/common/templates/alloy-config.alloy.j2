@@ -1,0 +1,47 @@
+// Journald log shipping to Loki
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__transport"]
+    target_label  = "transport"
+  }
+}
+
+loki.source.journal "read" {
+  forward_to    = [loki.write.loki.receiver]
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { source = "journald", host = "{{ monitoring_hostname }}" }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://{{ loki_ip }}:{{ loki_port }}/loki/api/v1/push"
+  }
+}
+
+// Scrape node-exporter metrics
+prometheus.scrape "node" {
+  targets = [{
+    __address__ = "localhost:9100",
+    instance    = "{{ monitoring_hostname }}",
+  }]
+  forward_to      = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "60s"
+  job_name        = "node"
+}
+
+// Push metrics to Mimir
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://{{ mimir_ip }}:{{ mimir_port }}/api/v1/push"
+  }
+  external_labels = {
+    host = "{{ monitoring_hostname }}",
+  }
+}
