@@ -30,6 +30,13 @@
     };
     ssh.enable = true;
     mounts.nfs.enable = true;
+    mounts.drvfs = {
+      enable = true;
+      drives.z = {
+        label = "Z:";
+        mountPoint = "/mnt/z";
+      };
+    };
   };
 
   # 3. Standard WSL Configuration
