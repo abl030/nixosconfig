@@ -16,5 +16,9 @@ blocks_storage:
   tsdb:
     dir: /data/mimir/tsdb
 
+ingester:
+  ring:
+    replication_factor: 1
+
 compactor:
   data_dir: /data/mimir/compactor
