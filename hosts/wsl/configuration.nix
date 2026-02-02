@@ -29,29 +29,20 @@
       trim = false; # Redundant with service disable, but good for clarity
     };
     ssh.enable = true;
-    mounts.nfs.enable = true;
-    mounts.drvfs = {
-      enable = true;
-      drives.z = {
-        label = "Z:";
-        mountPoint = "/mnt/z";
+    tailscale.enable = false;
+    mounts = {
+      nfs = {
+        enable = true;
+        server = "192.168.1.2"; # Via Windows Tailscale subnet route, not WSL Tailscale
       };
-    };
-    mounts.opsSync.enable = true;
-  };
-
-  # WSL Hyper-V virtual switch + Tailscale encapsulation limits effective MTU.
-  # Without this, SSH KEX packets (especially post-quantum ML-KEM) get silently
-  # dropped, causing SSH connections to hang during key exchange.
-  systemd.services.tailscale-mtu = {
-    description = "Set tailscale0 MTU for WSL";
-    after = ["tailscaled.service"];
-    requires = ["tailscaled.service"];
-    wantedBy = ["multi-user.target"];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.iproute2}/bin/ip link set tailscale0 mtu 1200";
+      drvfs = {
+        enable = true;
+        drives.z = {
+          label = "Z:";
+          mountPoint = "/mnt/z";
+        };
+      };
+      opsSync.enable = true;
     };
   };
 

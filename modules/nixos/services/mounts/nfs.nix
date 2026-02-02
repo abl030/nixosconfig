@@ -1,4 +1,4 @@
-# NFS mounts via Tailscale to Unraid tower
+# NFS mounts to Unraid tower
 # Mounts /mnt/data and /mnt/appdata with automount on access
 {
   config,
@@ -8,9 +8,26 @@
 }:
 with lib; let
   cfg = config.homelab.mounts.nfs;
+  useTailscale = cfg.server == "tower";
+  serverRequires =
+    if useTailscale
+    then [
+      "x-systemd.requires=tailscaled.service"
+      "x-systemd.after=tailscaled.service"
+    ]
+    else [
+      "x-systemd.requires=network-online.target"
+      "x-systemd.after=network-online.target"
+    ];
 in {
   options.homelab.mounts.nfs = {
-    enable = mkEnableOption "NFS mounts via Tailscale to tower";
+    enable = mkEnableOption "NFS mounts to tower";
+
+    server = mkOption {
+      type = types.str;
+      default = "tower";
+      description = "NFS server address. Defaults to 'tower' (Tailscale MagicDNS). Set to a LAN IP to bypass Tailscale.";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -22,33 +39,34 @@ in {
     };
 
     fileSystems."/mnt/data" = {
-      device = "tower:/mnt/user/data";
+      device = "${cfg.server}:/mnt/user/data";
       fsType = "nfs";
-      options = [
-        "x-systemd.automount"
-        "noauto"
-        "_netdev"
-        "x-systemd.requires=tailscaled.service"
-        "x-systemd.after=tailscaled.service"
-        "x-systemd.idle-timeout=300"
-        "noatime"
-        "retry=10"
-        "nfsvers=4.2"
-      ];
+      options =
+        [
+          "x-systemd.automount"
+          "noauto"
+          "_netdev"
+          "x-systemd.idle-timeout=300"
+          "noatime"
+          "retry=10"
+          "nfsvers=4.2"
+        ]
+        ++ serverRequires;
     };
 
     fileSystems."/mnt/appdata" = {
-      device = "tower:/mnt/user/appdata";
+      device = "${cfg.server}:/mnt/user/appdata";
       fsType = "nfs";
-      options = [
-        "x-systemd.automount"
-        "noauto"
-        "_netdev"
-        "x-systemd.requires=tailscaled.service"
-        "x-systemd.idle-timeout=300"
-        "noatime"
-        "nfsvers=4.2"
-      ];
+      options =
+        [
+          "x-systemd.automount"
+          "noauto"
+          "_netdev"
+          "x-systemd.idle-timeout=300"
+          "noatime"
+          "nfsvers=4.2"
+        ]
+        ++ serverRequires;
     };
   };
 }
