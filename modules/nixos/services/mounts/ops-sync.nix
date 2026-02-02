@@ -18,7 +18,7 @@ in {
 
     schedule = mkOption {
       type = types.str;
-      default = "*-*-* 02:00:00";
+      default = "*-*-* 21:00:00";
       description = "Systemd calendar expression for when to run the sync";
     };
   };
@@ -28,6 +28,7 @@ in {
       description = "Rsync Operations & Production to home NFS";
       after = ["tailscaled.service" "mnt-z.automount" "mnt-data.automount"];
       requires = ["tailscaled.service"];
+      restartIfChanged = false;
       path = [pkgs.rsync pkgs.coreutils pkgs.util-linux pkgs.curl];
 
       serviceConfig = {
