@@ -91,7 +91,7 @@ in {
         RestartMaxDelaySec = "30min";
 
         # Generous timeout for large syncs over Tailscale
-        TimeoutStartSec = "2h";
+        TimeoutStartSec = "8h";
       };
     };
 
