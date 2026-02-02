@@ -110,6 +110,10 @@
     loki = {
       enable = lib.mkDefault true;
     };
+
+    prometheus = {
+      enable = lib.mkDefault true;
+    };
   };
 
   # ---------------------------------------------------------
