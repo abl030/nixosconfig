@@ -5,5 +5,6 @@
     ./nfs-local.nix
     ./external.nix
     ./fuse.nix
+    ./drvfs.nix
   ];
 }
