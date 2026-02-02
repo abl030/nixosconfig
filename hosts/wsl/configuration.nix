@@ -37,6 +37,7 @@
         mountPoint = "/mnt/z";
       };
     };
+    mounts.opsSync.enable = true;
   };
 
   # 3. Standard WSL Configuration
