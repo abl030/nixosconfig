@@ -225,7 +225,7 @@ in
               ExecStart = mkVerifyScript {
                 containerName = "kopiamum";
                 label = "Kopia Mum";
-                verifyPercent = "1";
+                verifyPercent = "2";
               };
             };
           };
@@ -246,7 +246,7 @@ in
             description = "Daily Kopia verify for kopiamum";
             wantedBy = ["timers.target"];
             timerConfig = {
-              OnCalendar = "*-*-* 06:00:00";
+              OnCalendar = "*-*-* 04:00:00";
               Persistent = true;
               Unit = "kopia-verify-mum.service";
             };
