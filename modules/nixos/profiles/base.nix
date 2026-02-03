@@ -123,6 +123,12 @@
     prometheus = {
       enable = lib.mkDefault true;
     };
+
+    mcp = {
+      enable = lib.mkDefault true;
+      pfsense.enable = lib.mkDefault true;
+      unifi.enable = lib.mkDefault true;
+    };
   };
 
   # ---------------------------------------------------------

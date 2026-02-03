@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Wrapper script to launch UniFi MCP server with SOPS-decrypted credentials
+# Wrapper script to launch UniFi MCP server with pre-decrypted credentials
+# Secrets are decrypted at NixOS build time via sops-nix to /run/secrets/
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SECRETS_FILE="$REPO_ROOT/secrets/unifi-mcp.env"
+SECRETS_FILE="${UNIFI_MCP_ENV_FILE:-/run/secrets/mcp/unifi.env}"
 
 if [[ ! -f "$SECRETS_FILE" ]]; then
   echo "Error: Secrets file not found: $SECRETS_FILE" >&2
+  echo "Ensure homelab.mcp.unifi.enable = true and rebuild." >&2
   exit 1
 fi
 
-# Decrypt and exec the MCP server with the secrets as environment variables
-exec sops exec-env "$SECRETS_FILE" 'uvx unifi-network-mcp'
+# Source the decrypted env file and exec the MCP server
+set -a
+# shellcheck source=/dev/null
+source "$SECRETS_FILE"
+set +a
+
+exec uvx unifi-network-mcp
