@@ -13,10 +13,7 @@
     path = ./Caddyfile;
     name = "music-Caddyfile";
   };
-  dbTemplate = builtins.path {
-    path = ./database.json.template;
-    name = "music-database.json.template";
-  };
+  # Kept for ombi-db's INIT_SQL and as restart trigger if re-enabled
   initSql = builtins.path {
     path = ./init.sql;
     name = "music-init.sql";
@@ -40,7 +37,9 @@
     }
   ];
 
-  # Ombi disabled — crash-looping with coredumps
+  # Ombi disabled — crash-looping with coredumps.
+  # database.json generation moved into container entrypoint to avoid
+  # preStart race condition with sops secrets. See docker-compose.yml.
   preStart = [];
 
   dependsOn = [
@@ -56,7 +55,6 @@ in
     inherit envFiles;
     restartTriggers = [
       caddyFile
-      dbTemplate
       initSql
     ];
     extraEnv = [
