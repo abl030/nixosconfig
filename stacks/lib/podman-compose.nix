@@ -156,6 +156,7 @@
     firewallPorts ? [],
     firewallUDPPorts ? [],
     restartTriggers ? [],
+    scrapeTargets ? [],
   }: let
     autoUpdateUnit = "podman-compose@${projectName}";
     podPrune =
@@ -178,8 +179,11 @@
   in {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
-    homelab.localProxy.hosts = lib.mkAfter stackHosts;
-    homelab.monitoring.monitors = lib.mkAfter stackMonitors;
+    homelab = {
+      localProxy.hosts = lib.mkAfter stackHosts;
+      monitoring.monitors = lib.mkAfter stackMonitors;
+      loki.extraScrapeTargets = lib.mkAfter scrapeTargets;
+    };
 
     systemd.services.${stackName} = {
       inherit description;

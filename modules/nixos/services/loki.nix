@@ -39,6 +39,19 @@
     then "http://${lokiIp}:${toString cfg.mimirPort}/api/v1/push"
     else null;
 
+  # Generate extra scrape blocks for additional targets
+  extraScrapeBlocks = lib.concatMapStringsSep "\n" (target: ''
+    prometheus.scrape "${target.job}" {
+      targets = [{
+        __address__ = "${target.address}",
+        instance    = "${if target.instance != "" then target.instance else target.job}",
+      }]
+      forward_to      = [prometheus.remote_write.mimir.receiver]
+      scrape_interval = "60s"
+      job_name        = "${target.job}"
+    }
+  '') cfg.extraScrapeTargets;
+
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
     loki.write "loki" {
       endpoint {
@@ -86,6 +99,8 @@
       job_name        = "node"
     }
 
+    ${extraScrapeBlocks}
+
     prometheus.remote_write "mimir" {
       endpoint {
         url = "${mimirUrl}"
@@ -115,6 +130,28 @@ in {
       type = lib.types.port;
       default = 9009;
       description = "Mimir HTTP port for remote_write.";
+    };
+
+    extraScrapeTargets = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          job = lib.mkOption {
+            type = lib.types.str;
+            description = "Prometheus job name";
+          };
+          address = lib.mkOption {
+            type = lib.types.str;
+            description = "Target address (host:port)";
+          };
+          instance = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            description = "Instance label (defaults to job name)";
+          };
+        };
+      });
+      default = [];
+      description = "Additional Prometheus scrape targets for this host.";
     };
   };
 
