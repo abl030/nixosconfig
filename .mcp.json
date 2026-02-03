@@ -14,6 +14,14 @@
       "env": {
         "PROMETHEUS_URL": "http://192.168.1.33:9009/prometheus"
       }
+    },
+    "pfsense": {
+      "command": "/home/abl030/nixosconfig/scripts/mcp-pfsense.sh",
+      "args": []
+    },
+    "unifi": {
+      "command": "/home/abl030/nixosconfig/scripts/mcp-unifi.sh",
+      "args": []
     }
   }
 }
