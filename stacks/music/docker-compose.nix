@@ -5,8 +5,6 @@
   ...
 }: let
   stackName = "music-stack";
-  inherit (config.homelab.containers) dataRoot;
-
   composeFile = builtins.path {
     path = ./docker-compose.yml;
     name = "music-docker-compose.yml";
@@ -42,17 +40,8 @@
     }
   ];
 
-  gettextBin = "${pkgs.gettext}/bin/envsubst";
-
-  # Only keep the ombi JSON generation script - mkdirs and chowns handled by migration script
-  preStart = [
-    (pkgs.writeShellScript "generate-ombi-json" ''
-      set -a
-      source "$XDG_RUNTIME_DIR/secrets/${stackName}.env"
-      set +a
-      ${gettextBin} < ${dbTemplate} > ${dataRoot}/ombi/config/database.json
-    '')
-  ];
+  # Ombi disabled — crash-looping with coredumps
+  preStart = [];
 
   dependsOn = [
     "network-online.target"
@@ -77,5 +66,5 @@ in
     inherit preStart;
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8686 3579 8085];
+    firewallPorts = [8686 8085]; # 3579 was Ombi, disabled
   }

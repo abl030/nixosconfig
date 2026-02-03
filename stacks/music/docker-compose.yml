@@ -11,7 +11,7 @@ services:
     container_name: music_network_holder
     ports:
       - "8686:8686" # Lidarr
-      - "3579:3579" # Ombi internal port
+      # - "3579:3579" # Ombi - disabled, crash-looping
       - "8085:8085" # Filebrowser
     restart: unless-stopped
     dns:
@@ -50,51 +50,49 @@ services:
       - music-network-holder
 
   # ---------------------------------------------------------------
-  # Ombi
+  # Ombi — disabled, crash-looping with coredumps
   # ---------------------------------------------------------------
-  ombi:
-    image: lscr.io/linuxserver/ombi:latest
-    labels:
-      - io.containers.autoupdate=registry
-    container_name: ombi
-    environment:
-      # Rootless podman: PUID=0 maps to host user
-      - PUID=0
-      - PGID=0
-      - TZ=Australia/Perth
-    volumes:
-      - ${DATA_ROOT}/ombi/config:/config
-    network_mode: "service:music-network-holder"
-    restart: unless-stopped
-    depends_on:
-      ombi-db:
-        condition: service_healthy
-      music-network-holder:
-        condition: service_started
+  # ombi:
+  #   image: lscr.io/linuxserver/ombi:latest
+  #   labels:
+  #     - io.containers.autoupdate=registry
+  #   container_name: ombi
+  #   environment:
+  #     - PUID=0
+  #     - PGID=0
+  #     - TZ=Australia/Perth
+  #   volumes:
+  #     - ${DATA_ROOT}/ombi/config:/config
+  #   network_mode: "service:music-network-holder"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     ombi-db:
+  #       condition: service_healthy
+  #     music-network-holder:
+  #       condition: service_started
 
-  ombi-db:
-    image: docker.io/library/mariadb:10.11
-    labels:
-      - io.containers.autoupdate=registry
-    container_name: ombi-db
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${OMBI_DB_ROOT_PASSWORD}
-      MYSQL_USER: ${OMBI_DB_USER}
-      MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
-    volumes:
-      # :U for rootless uid namespace mapping (mariadb runs as internal uid)
-      - ${DATA_ROOT}/ombi/db:/var/lib/mysql:U
-      - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
-    network_mode: "service:music-network-holder"
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    depends_on:
-      - music-network-holder
+  # ombi-db:
+  #   image: docker.io/library/mariadb:10.11
+  #   labels:
+  #     - io.containers.autoupdate=registry
+  #   container_name: ombi-db
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${OMBI_DB_ROOT_PASSWORD}
+  #     MYSQL_USER: ${OMBI_DB_USER}
+  #     MYSQL_PASSWORD: ${OMBI_DB_PASSWORD}
+  #   volumes:
+  #     - ${DATA_ROOT}/ombi/db:/var/lib/mysql:U
+  #     - ${INIT_SQL}:/docker-entrypoint-initdb.d/init.sql:ro
+  #   network_mode: "service:music-network-holder"
+  #   healthcheck:
+  #     test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+  #   depends_on:
+  #     - music-network-holder
 
   # ---------------------------------------------------------------
   # Filebrowser
