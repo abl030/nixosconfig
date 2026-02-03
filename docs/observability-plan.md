@@ -7,68 +7,80 @@ This document outlines the plan to implement distributed tracing via OpenTelemet
 The fleet already has:
 - **Loki** (logs) on igpu
 - **Mimir** (metrics) on igpu
-- **Tempo** (traces) on igpu — currently idle, no apps sending traces
+- **Tempo** (traces) on igpu — **still idle, no apps support trace export**
 - **Grafana** on igpu — dashboards at logs.ablz.au
 - **Alloy** on each NixOS host — shipping journald logs to Loki, node metrics to Mimir
 
+What's implemented:
+- **Immich Prometheus metrics** — scraping :8081/metrics via Alloy
+- **Immich Grafana dashboard** — https://logs.ablz.au/d/immich-homelab/immich-homelab
+
 What's missing:
-- Application-level tracing (Tempo is empty)
-- Application-specific Prometheus metrics (beyond node-exporter)
+- Application-level tracing (Tempo is empty — **no apps in our fleet support OTEL traces**)
+- Additional application-specific Prometheus metrics
 
 ---
 
-## Phase 1: Immich OpenTelemetry Tracing
+## Phase 1: Immich Prometheus Metrics ✅ COMPLETE
 
-**Goal**: Get Immich sending traces to Tempo as proof-of-concept.
+**Original Goal**: Get Immich sending traces to Tempo as proof-of-concept.
 
-### Immich OTEL Support
+**Actual Outcome**: Discovered Immich only supports **Prometheus metrics**, not OTEL traces. Pivoted to metrics scraping.
 
-Immich has built-in OpenTelemetry support via `nestjs-otel` ([PR #7356](https://github.com/immich-app/immich/pull/7356)). It instruments:
-- HTTP requests
-- Postgres queries
-- Redis operations
-- NestJS internals
+### What We Learned
 
-### Configuration
+Immich has built-in OpenTelemetry support via `nestjs-otel` ([PR #7356](https://github.com/immich-app/immich/pull/7356)), but this is **metrics-only**. Traces are not currently supported ([GitHub Discussion #14062](https://github.com/immich-app/immich/discussions/14062)).
 
-Add these environment variables to the immich-server container:
+The OTEL env vars (OTEL_EXPORTER_OTLP_ENDPOINT, etc.) are for **metrics export**, not traces.
+
+### What Was Implemented
+
+1. **Prometheus metrics endpoint** enabled on Immich at `:8081/metrics`
+   - Set `IMMICH_TELEMETRY_INCLUDE=all` in immich-server container
+   - Exposed port 8081 in docker-compose.yml
+
+2. **Alloy scrape configuration** added via new `extraScrapeTargets` option
+   - Defined in `stacks/immich/docker-compose.nix` alongside stack definition
+   - Stack is portable — scrape config moves with it
+
+3. **Custom Grafana dashboard** created at https://logs.ablz.au/d/immich-homelab/immich-homelab
+   - Users total (stat panel)
+   - HTTP request rate by method/status (timeseries)
+   - HTTP latency p95 by path (timeseries)
+   - Immich version (stat panel)
+   - Repository operations rate (timeseries)
+   - ML health checks (timeseries)
+   - Immich logs from Loki (logs panel)
+
+### Configuration Applied
 
 ```yaml
-environment:
-  # Enable telemetry collection
-  - IMMICH_TELEMETRY_INCLUDE=all
+# stacks/immich/docker-compose.yml
+immich-server:
+  environment:
+    - IMMICH_TELEMETRY_INCLUDE=all
 
-  # OpenTelemetry configuration
-  - OTEL_EXPORTER_OTLP_ENDPOINT=http://<igpu-ip>:4317
-  - OTEL_TRACES_EXPORTER=otlp
-  - OTEL_SERVICE_NAME=immich
-
-  # Optional: Also export metrics via OTEL (in addition to /metrics endpoint)
-  - OTEL_METRICS_EXPORTER=otlp
+immich-network-holder:
+  ports:
+    - 8081:8081  # Prometheus metrics
 ```
 
-### Implementation Steps
+```nix
+# stacks/immich/docker-compose.nix
+firewallPorts = [8081];
+scrapeTargets = [
+  { job = "immich"; address = "localhost:8081"; }
+];
+```
 
-1. Verify Tempo is accepting OTLP on igpu:
-   - Check `docker-compose.yml` in loki stack exposes port 4317 (gRPC) or 4318 (HTTP)
-   - Tempo config should have `otlp` receiver enabled
+### Why Tempo Is Still Empty
 
-2. Update `stacks/immich/docker-compose.yml`:
-   - Add OTEL environment variables to immich-server
-   - Add OTEL environment variables to immich-machine-learning (if supported)
+No applications in our current fleet support OTEL trace export:
+- **Immich**: Metrics only (no traces)
+- **Jellyfin**: Needs investigation
+- **Plex/Sonarr/Radarr/etc**: Prometheus exporters only
 
-3. Restart Immich stack on doc1
-
-4. Verify in Grafana:
-   - Navigate to Explore → Tempo
-   - Search for `service.name = immich`
-   - Should see traces for photo uploads, API calls, ML inference
-
-### Notes
-
-- Documentation mainly covers Prometheus metrics; OTEL tracing is less documented
-- Some users report initialization errors with `@opentelemetry/api` duplicate registration
-- If issues occur, try `OTEL_TRACES_EXPORTER=otlp` without metrics exporter first
+Tempo infrastructure is ready (OTLP receivers on 4317/4318), just waiting for an app that can send traces.
 
 ---
 
@@ -254,37 +266,44 @@ If exporters run in the same podman network, use container labels for auto-disco
 
 ## Grafana Dashboards
 
-### Existing Community Dashboards
+### Custom Dashboards (Deployed)
 
-| App | Dashboard ID | URL |
-|-----|-------------|-----|
-| Immich | 22555 | [Grafana Labs](https://grafana.com/grafana/dashboards/22555-immich-overview/) |
-| Plex | 9808 | [Grafana Labs](https://grafana.com/grafana/dashboards/9808-plex-server-monitoring/) |
-| Sonarr | 12530 | [Grafana Labs](https://grafana.com/grafana/dashboards/12530-sonarr-v3/) |
-| Radarr | 12896 | [Grafana Labs](https://grafana.com/grafana/dashboards/12896-radarr-v3/) |
-| Tdarr | 20388 | [Grafana Labs](https://grafana.com/grafana/dashboards/20388-tdarr/) |
-| Uptime Kuma | 18278 | [Grafana Labs](https://grafana.com/grafana/dashboards/18278-uptime-kuma/) |
+| App | UID | URL | Notes |
+|-----|-----|-----|-------|
+| Immich | immich-homelab | [Immich Homelab](https://logs.ablz.au/d/immich-homelab/immich-homelab) | Custom dashboard using `job="immich"` labels |
+
+### Community Dashboards (Reference)
+
+| App | Dashboard ID | URL | Notes |
+|-----|-------------|-----|-------|
+| Immich | 22555 | [Grafana Labs](https://grafana.com/grafana/dashboards/22555-immich-overview/) | Uses Kubernetes labels — needs adaptation |
+| Plex | 9808 | [Grafana Labs](https://grafana.com/grafana/dashboards/9808-plex-server-monitoring/) | |
+| Sonarr | 12530 | [Grafana Labs](https://grafana.com/grafana/dashboards/12530-sonarr-v3/) | |
+| Radarr | 12896 | [Grafana Labs](https://grafana.com/grafana/dashboards/12896-radarr-v3/) | |
+| Tdarr | 20388 | [Grafana Labs](https://grafana.com/grafana/dashboards/20388-tdarr/) | |
+| Uptime Kuma | 18278 | [Grafana Labs](https://grafana.com/grafana/dashboards/18278-uptime-kuma/) | |
 
 ---
 
 ## Implementation Order
 
-1. **Immich OTEL** — Prove the tracing pipeline works
+1. ✅ **Immich metrics** — Prometheus scraping + Grafana dashboard (DONE)
 2. **Uptime Kuma metrics** — Already has /metrics, just scrape it
 3. **Plex exporter** — High value, good dashboards available
 4. ***Arr exporters** — Sonarr/Radarr/Lidarr monitoring
 5. **Tautulli metrics** — Complements Plex data
-6. **Jellyfin OTEL** — If tracing works well with Immich
+6. **Jellyfin investigation** — Check if it actually supports OTEL traces
 
 ---
 
 ## Open Questions
 
-- [ ] Does Tempo on igpu have OTLP receiver enabled? Check loki stack docker-compose
-- [ ] What port is Tempo OTLP listening on? (4317 gRPC vs 4318 HTTP)
-- [ ] Do we need to open firewall ports between doc1 and igpu for OTLP?
+- [x] Does Tempo on igpu have OTLP receiver enabled? **YES** — receivers configured for both gRPC and HTTP
+- [x] What port is Tempo OTLP listening on? **4317 (gRPC) and 4318 (HTTP)** — both exposed
+- [x] Do we need to open firewall ports between doc1 and igpu for OTLP? **YES** — ports 4317/4318 need to be open, done via loki stack config
 - [ ] Should exporters run as sidecars in each stack or in a dedicated "monitoring" stack?
 - [ ] Where to store exporter API keys? (sops secrets)
+- [ ] **NEW**: Which apps actually support OTEL traces? (Current answer: possibly none in our fleet)
 
 ---
 
