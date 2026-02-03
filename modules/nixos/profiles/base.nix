@@ -64,6 +64,15 @@
   networking.networkmanager.enable = lib.mkDefault true;
 
   # ---------------------------------------------------------
+  # 3b. COREDUMP LIMITS
+  # ---------------------------------------------------------
+  # Cap coredump storage to prevent crash-looping containers (e.g. Ombi)
+  # from filling disk. Keeps recent dumps available for debugging.
+  systemd.coredump.extraConfig = ''
+    MaxUse=100M
+  '';
+
+  # ---------------------------------------------------------
   # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
   # ---------------------------------------------------------
   # By using mkDefault, we ensure every new machine is manageable
