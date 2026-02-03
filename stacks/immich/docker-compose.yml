@@ -8,6 +8,7 @@ services:
     container_name: immich_network_holder
     ports:
       - 2283:2283
+      - 8081:8081  # Prometheus metrics
     restart: unless-stopped
 
   immich-server:
