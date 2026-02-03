@@ -19,6 +19,11 @@ services:
     environment:
       - REDIS_HOSTNAME=localhost
       - DB_HOSTNAME=localhost
+      # OpenTelemetry tracing to Tempo on igpu
+      - IMMICH_TELEMETRY_INCLUDE=all
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.1.33:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_SERVICE_NAME=immich
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
