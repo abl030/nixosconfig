@@ -17,6 +17,7 @@
     ./loki.nix
     ./prometheus.nix
     ./openobserve.nix
+    ./mcp.nix
     ./framework
   ];
 }
