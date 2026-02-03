@@ -141,14 +141,13 @@ in {
     };
 
     environment = {
+      # podman, slirp4netns, fuse-overlayfs already provided by
+      # virtualisation.podman.enable — only list extras here.
       systemPackages = lib.mkOrder 1600 (with pkgs; [
-        podman
         podman-compose
         buildah
         skopeo
         shadow
-        fuse-overlayfs
-        slirp4netns
         netavark
         aardvark-dns
       ]);
