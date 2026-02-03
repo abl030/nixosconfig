@@ -52,6 +52,14 @@ services:
   # ---------------------------------------------------------------
   # Ombi — disabled, crash-looping with coredumps
   # ---------------------------------------------------------------
+  # Root cause: preStart envsubst generated database.json with empty
+  # credentials when sops secrets weren't available yet. Ombi has no
+  # env var support for DB creds — it requires database.json. Fix:
+  # pass creds as env vars and generate database.json inside the
+  # container via entrypoint command, eliminating the preStart race.
+  #
+  # NOT TESTED — left here for reference if Ombi is re-enabled.
+  # ---------------------------------------------------------------
   # ombi:
   #   image: lscr.io/linuxserver/ombi:latest
   #   labels:
@@ -61,6 +69,32 @@ services:
   #     - PUID=0
   #     - PGID=0
   #     - TZ=Australia/Perth
+  #     - OMBI_DB_USER=${OMBI_DB_USER}
+  #     - OMBI_DB_PASSWORD=${OMBI_DB_PASSWORD}
+  #   # Generate database.json at container start from env vars.
+  #   # This avoids the preStart race condition where sops secrets
+  #   # weren't decrypted yet, resulting in empty credentials.
+  #   entrypoint: /bin/bash
+  #   command:
+  #     - -c
+  #     - |
+  #       cat > /config/database.json <<DBEOF
+  #       {
+  #         "OmbiDatabase": {
+  #           "Type": "MySQL",
+  #           "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi;User=$${OMBI_DB_USER};Password=$${OMBI_DB_PASSWORD}"
+  #         },
+  #         "SettingsDatabase": {
+  #           "Type": "MySQL",
+  #           "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi_Settings;User=$${OMBI_DB_USER};Password=$${OMBI_DB_PASSWORD}"
+  #         },
+  #         "ExternalDatabase": {
+  #           "Type": "MySQL",
+  #           "ConnectionString": "Server=127.0.0.1;Port=3306;Database=Ombi_External;User=$${OMBI_DB_USER};Password=$${OMBI_DB_PASSWORD}"
+  #         }
+  #       }
+  #       DBEOF
+  #       exec /init
   #   volumes:
   #     - ${DATA_ROOT}/ombi/config:/config
   #   network_mode: "service:music-network-holder"
