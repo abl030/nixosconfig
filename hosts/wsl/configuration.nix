@@ -47,6 +47,11 @@
     };
   };
 
+  # Suppress duplicate filesystem metric warnings for /run/user tmpfs
+  services.prometheus.exporters.node.extraFlags = [
+    "--collector.filesystem.mount-points-exclude=^/run/user"
+  ];
+
   # 3. Standard WSL Configuration
   wsl.enable = true;
   wsl.defaultUser = hostConfig.user;

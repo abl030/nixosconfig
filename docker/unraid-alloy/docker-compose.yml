@@ -21,6 +21,7 @@ services:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
       - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/.+)($$|/)
+      - --no-collector.mdadm
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
