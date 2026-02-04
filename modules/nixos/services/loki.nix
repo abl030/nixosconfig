@@ -65,20 +65,16 @@
 
     loki.source.syslog "network" {
       listener {
-        address                        = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
-        protocol                       = "udp"
-        syslog_format                  = "rfc3164"
-        use_incoming_timestamp         = true
-        rfc3164_default_to_current_year = true
-        labels                         = { source = "syslog", transport = "udp" }
+        address        = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
+        protocol       = "udp"
+        syslog_format  = "rfc3164"
+        labels         = { source = "syslog", transport = "udp" }
       }
       listener {
-        address                        = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
-        protocol                       = "tcp"
-        syslog_format                  = "rfc3164"
-        use_incoming_timestamp         = true
-        rfc3164_default_to_current_year = true
-        labels                         = { source = "syslog", transport = "tcp" }
+        address        = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
+        protocol       = "tcp"
+        syslog_format  = "rfc3164"
+        labels         = { source = "syslog", transport = "tcp" }
       }
       forward_to    = [loki.write.loki.receiver]
       relabel_rules = loki.relabel.syslog.rules
