@@ -50,6 +50,7 @@ in
       {
         host = "photos.ablz.au";
         port = 2283;
+        websocket = true;
       }
     ];
     stackMonitors = [
