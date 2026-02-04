@@ -18,6 +18,19 @@ elif [[ "$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null)" != "$REPO_U
   rm -rf "$INSTALL_DIR"
   git clone "$REPO_URL" "$INSTALL_DIR" >&2
   rm -rf "$VENV_DIR"
+else
+  # Pull latest changes from fork
+  local_head=$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null)
+  git -C "$INSTALL_DIR" pull --ff-only origin main >&2 2>/dev/null || true
+  new_head=$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null)
+  if [[ "$local_head" != "$new_head" ]]; then
+    echo "Updated to $(git -C "$INSTALL_DIR" log -1 --format='%h %s')" >&2
+    # Invalidate venv if requirements changed
+    if git -C "$INSTALL_DIR" diff --name-only "$local_head" "$new_head" | grep -q requirements.txt; then
+      echo "requirements.txt changed, rebuilding venv..." >&2
+      rm -rf "$VENV_DIR"
+    fi
+  fi
 fi
 
 # Check for working venv by testing if fastmcp is importable
