@@ -8,6 +8,16 @@ loki.source.file "syslog" {
   forward_to = [loki.write.default.receiver]
 }
 
+// Appdata backup plugin log
+local.file_match "appdata_backup" {
+  path_targets = [{"__path__" = "/tmp/appdata.backup/ab.log", "job" = "unraid-appdata-backup", "host" = "tower"}]
+}
+
+loki.source.file "appdata_backup" {
+  targets    = local.file_match.appdata_backup.targets
+  forward_to = [loki.write.default.receiver]
+}
+
 // Docker container log discovery
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
