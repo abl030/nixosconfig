@@ -46,7 +46,9 @@
       forward_to = []
 
       rule {
-        source_labels = ["__syslog_message_hostname"]
+        source_labels = ["__syslog_connection_ip_address"]
+        regex         = "192\\.168\\.1\\.1"
+        replacement   = "pfsense"
         target_label  = "host"
       }
       rule {
