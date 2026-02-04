@@ -33,6 +33,7 @@
       enable = true;
       secure = false;
     };
+    loki.syslogReceiver.enable = true;
     tailscale.enable = true;
     nixCaches = {
       enable = true;
