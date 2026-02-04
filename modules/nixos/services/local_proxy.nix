@@ -169,6 +169,10 @@
           proxy_set_header Connection $connection_upgrade;
         ''
         else "";
+      maxBodySizeConfig =
+        if entry.maxBodySize or null != null
+        then "client_max_body_size ${entry.maxBodySize};"
+        else "";
     in {
       name = entry.host;
       value = {
@@ -177,6 +181,7 @@
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString entry.port}";
           extraConfig = ''
+            ${maxBodySizeConfig}
             ${websocketConfig}
             proxy_set_header X-Forwarded-Proto https;
             proxy_set_header X-Forwarded-Port 443;
@@ -222,6 +227,11 @@ in {
             type = lib.types.bool;
             default = false;
             description = "Enable websocket proxy headers for this host.";
+          };
+          maxBodySize = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Nginx client_max_body_size for this host (e.g., \"0\" for unlimited, \"50G\"). Null uses nginx default (1m).";
           };
         };
       });
