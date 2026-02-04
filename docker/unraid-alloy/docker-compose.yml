@@ -3,7 +3,7 @@ services:
     image: docker.io/grafana/alloy:latest
     container_name: alloy
     restart: unless-stopped
-    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 --disable-reporting /etc/alloy/config.alloy
     network_mode: host
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
