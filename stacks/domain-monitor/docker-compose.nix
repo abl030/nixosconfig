@@ -99,7 +99,7 @@ in {
           ];
 
           ExecStart = "${podmanCompose} -f /tmp/domain-monitor-build/docker-compose.yml --env-file ${runEnv} up -d --build --remove-orphans";
-          ExecStop = "${podmanCompose} -f /tmp/domain-monitor-build/docker-compose.yml down";
+          ExecStop = "${podmanCompose} -f /tmp/domain-monitor-build/docker-compose.yml stop";
           ExecReload = "${podmanCompose} -f /tmp/domain-monitor-build/docker-compose.yml --env-file ${runEnv} up -d --build --remove-orphans";
 
           Restart = "on-failure";
