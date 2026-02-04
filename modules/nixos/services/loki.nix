@@ -39,18 +39,64 @@
     then "http://${lokiIp}:${toString cfg.mimirPort}/api/v1/push"
     else null;
 
-  # Generate extra scrape blocks for additional targets
-  extraScrapeBlocks = lib.concatMapStringsSep "\n" (target: ''
-    prometheus.scrape "${target.job}" {
-      targets = [{
-        __address__ = "${target.address}",
-        instance    = "${if target.instance != "" then target.instance else target.job}",
-      }]
-      forward_to      = [prometheus.remote_write.mimir.receiver]
-      scrape_interval = "60s"
-      job_name        = "${target.job}"
+  syslogCfg = cfg.syslogReceiver;
+
+  syslogBlocks = lib.optionalString syslogCfg.enable ''
+    loki.relabel "syslog" {
+      forward_to = []
+
+      rule {
+        source_labels = ["__syslog_message_hostname"]
+        target_label  = "host"
+      }
+      rule {
+        source_labels = ["__syslog_message_app_name"]
+        target_label  = "app"
+      }
+      rule {
+        source_labels = ["__syslog_message_severity"]
+        target_label  = "severity"
+      }
+      rule {
+        source_labels = ["__syslog_message_facility"]
+        target_label  = "facility"
+      }
     }
-  '') cfg.extraScrapeTargets;
+
+    loki.source.syslog "network" {
+      listener {
+        address  = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
+        protocol = "udp"
+        labels   = { source = "syslog", transport = "udp" }
+      }
+      listener {
+        address  = "${syslogCfg.listenAddress}:${toString syslogCfg.port}"
+        protocol = "tcp"
+        labels   = { source = "syslog", transport = "tcp" }
+      }
+      forward_to    = [loki.write.loki.receiver]
+      relabel_rules = loki.relabel.syslog.rules
+    }
+  '';
+
+  # Generate extra scrape blocks for additional targets
+  extraScrapeBlocks =
+    lib.concatMapStringsSep "\n" (target: ''
+      prometheus.scrape "${target.job}" {
+        targets = [{
+          __address__ = "${target.address}",
+          instance    = "${
+        if target.instance != ""
+        then target.instance
+        else target.job
+      }",
+        }]
+        forward_to      = [prometheus.remote_write.mimir.receiver]
+        scrape_interval = "60s"
+        job_name        = "${target.job}"
+      }
+    '')
+    cfg.extraScrapeTargets;
 
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
     loki.write "loki" {
@@ -101,6 +147,8 @@
 
     ${extraScrapeBlocks}
 
+    ${syslogBlocks}
+
     prometheus.remote_write "mimir" {
       endpoint {
         url = "${mimirUrl}"
@@ -130,6 +178,20 @@ in {
       type = lib.types.port;
       default = 9009;
       description = "Mimir HTTP port for remote_write.";
+    };
+
+    syslogReceiver = {
+      enable = lib.mkEnableOption "Syslog receiver for network devices";
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 1514;
+        description = "Port to listen for syslog (UDP+TCP).";
+      };
+      listenAddress = lib.mkOption {
+        type = lib.types.str;
+        default = "0.0.0.0";
+        description = "Address to bind syslog listener.";
+      };
     };
 
     extraScrapeTargets = lib.mkOption {
@@ -162,6 +224,9 @@ in {
         message = "homelab.loki: no Loki host detected; set homelab.loki.host or add loki stack to a host with localIp.";
       }
     ];
+
+    networking.firewall.allowedTCPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
+    networking.firewall.allowedUDPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
 
     systemd.tmpfiles.rules = [
       "d /var/lib/alloy 0755 root root - -"

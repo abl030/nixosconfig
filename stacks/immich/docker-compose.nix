@@ -60,8 +60,11 @@ in
     ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8081];  # Prometheus metrics
+    firewallPorts = [8081]; # Prometheus metrics
     scrapeTargets = [
-      { job = "immich"; address = "localhost:8081"; }
+      {
+        job = "immich";
+        address = "localhost:8081";
+      }
     ];
   }
