@@ -225,12 +225,13 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 
 ### Home Assistant
 
-The Home Assistant MCP server controls smart home devices via `mcp-proxy` (stdio-to-HTTP bridge to `https://home.ablz.au/api/mcp`). Usage notes:
+Uses [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) for smart home control. Usage notes:
 - All tools are **deferred** — use `ToolSearch` with query `homeassistant` to load them before calling.
 - Tool names follow HA conventions: `HassTurnOn`, `HassTurnOff`, `GetLiveContext`, `HassMediaSearchAndPlay`, etc.
 - Use `GetLiveContext` first to discover available devices, areas, and current states before issuing commands.
 - Device targeting uses `name`, `area`, and `floor` parameters — values come from `GetLiveContext` output.
-- Auth uses a long-lived access token stored in `secrets/homeassistant-mcp.env` (sops-encrypted, key: `HA_TOKEN`).
+- Supports fuzzy entity matching, WebSocket events, and media playback.
+- Auth: `HA_TOKEN` in sops-encrypted `secrets/mcp/homeassistant.env`.
 
 ### mcp-nixos
 

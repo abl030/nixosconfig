@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Wrapper script to launch Home Assistant MCP server via mcp-proxy
-# Uses mcp-proxy as a stdio-to-HTTP bridge since Claude Code doesn't
-# support Authorization headers in HTTP MCP config.
+# Wrapper script to launch Home Assistant MCP server (ha-mcp)
+# https://github.com/homeassistant-ai/ha-mcp
 set -euo pipefail
 
 SECRETS_FILE="${HOMEASSISTANT_MCP_ENV_FILE:-/run/secrets/mcp/homeassistant.env}"
@@ -12,13 +11,14 @@ if [[ ! -f "$SECRETS_FILE" ]]; then
   exit 1
 fi
 
-# Source the decrypted env file
+# Source the decrypted env file (contains HA_TOKEN)
 set -a
 # shellcheck source=/dev/null
 source "$SECRETS_FILE"
 set +a
 
-# mcp-proxy reads API_ACCESS_TOKEN for Bearer auth
-export API_ACCESS_TOKEN="${HA_TOKEN:-}"
+# ha-mcp expects HOMEASSISTANT_URL and HOMEASSISTANT_TOKEN
+export HOMEASSISTANT_URL="${HA_URL:-https://home.ablz.au}"
+export HOMEASSISTANT_TOKEN="${HA_TOKEN:-}"
 
-exec uvx mcp-proxy --transport=streamablehttp https://home.ablz.au/api/mcp
+exec uvx ha-mcp
