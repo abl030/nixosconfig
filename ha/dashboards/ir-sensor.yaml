@@ -382,6 +382,80 @@ views:
     - entity: sensor.potential_yearly_savings_80kwh
     - entity: sensor.potential_yearly_savings_90kwh
     - entity: sensor.potential_yearly_savings_100kwh
+  # --- ApexCharts Alternative Visualization (requires HACS apexcharts-card) ---
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## 📊 Battery Comparison (ApexCharts)'
+    - type: custom:apexcharts-card
+      header:
+        title: Virtual Battery State of Charge
+        show: true
+      graph_span: 1d
+      span:
+        start: day
+      chart_type: bar
+      series:
+        - entity: sensor.virtual_battery_soc_50kwh_display
+          name: 50kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+        - entity: sensor.virtual_battery_soc_60kwh_display
+          name: 60kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+        - entity: sensor.virtual_battery_soc_70kwh_display
+          name: 70kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+        - entity: sensor.virtual_battery_soc_80kwh_display
+          name: 80kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+        - entity: sensor.virtual_battery_soc_90kwh_display
+          name: 90kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+        - entity: sensor.virtual_battery_soc_100kwh_display
+          name: 100kWh
+          type: column
+          group_by:
+            func: last
+            duration: 1d
+    - type: custom:apexcharts-card
+      header:
+        title: Daily Savings by Battery Size
+        show: true
+      chart_type: bar
+      series:
+        - entity: sensor.potential_daily_savings_50kwh
+          name: 50kWh
+          type: column
+        - entity: sensor.potential_daily_savings_60kwh
+          name: 60kWh
+          type: column
+        - entity: sensor.potential_daily_savings_70kwh
+          name: 70kWh
+          type: column
+        - entity: sensor.potential_daily_savings_80kwh
+          name: 80kWh
+          type: column
+        - entity: sensor.potential_daily_savings_90kwh
+          name: 90kWh
+          type: column
+        - entity: sensor.potential_daily_savings_100kwh
+          name: 100kWh
+          type: column
 - title: Business Flexi Comparison
   path: business-flexi-comparison
   icon: mdi:file-compare
