@@ -124,6 +124,10 @@
       enable = lib.mkDefault true;
     };
 
+    mdnsReflector = {
+      enable = lib.mkDefault false;
+    };
+
     mcp = {
       enable = lib.mkDefault true;
       pfsense.enable = lib.mkDefault true;
