@@ -1,4 +1,4 @@
-_: {
+{inputs, ...}: {
   imports = [
     # ../../home/zsh/zsh2.nix
     # ./fish/fish.nix
@@ -14,6 +14,16 @@ _: {
   homelab = {
     ssh = {
       enable = true;
+    };
+    claudePlugins = {
+      enable = true;
+      plugins = [
+        {
+          source = inputs.claude-plugin-ha-skills;
+          marketplaceName = "homeassistant-ai-skills";
+          pluginName = "home-assistant-skills";
+        }
+      ];
     };
   };
 

@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "claude-plugin-ha-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770064659,
+        "narHash": "sha256-e4NXazyqNkqL4NytIkB3qHgICzFThYiW0wYrx3FXwrs=",
+        "owner": "homeassistant-ai",
+        "repo": "skills",
+        "rev": "b0e862e046e8ac53724bfd7d8d48c954c9c445c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "homeassistant-ai",
+        "repo": "skills",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -459,6 +475,7 @@
     },
     "root": {
       "inputs": {
+        "claude-plugin-ha-skills": "claude-plugin-ha-skills",
         "disko": "disko",
         "domain-monitor-src": "domain-monitor-src",
         "flake-parts": "flake-parts",

@@ -99,6 +99,12 @@
       flake = false;
     };
 
+    # Claude Code plugins
+    claude-plugin-ha-skills = {
+      url = "github:homeassistant-ai/skills";
+      flake = false;
+    };
+
     jolt = {
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";
