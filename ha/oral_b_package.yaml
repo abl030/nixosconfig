@@ -1,0 +1,418 @@
+# =================================================================================
+#
+#   Oral-B Brushing Time Package
+#   Version 5.2 - Last Brush Time Tracking (Bedtime)
+#
+#   This package tracks:
+#   1. Daily time and events.
+#   2. Historical daily event counts for graphing.
+#   3. Monthly and Yearly totals for time and events using Utility Meter.
+#   4. All-time total brushing time.
+#   5. Missed brushing days per month using History Stats.
+#   6. Long-term average daily brushing time.
+#   7. The timestamp of the last brushing event each day (approx. bedtime).
+#
+# =================================================================================
+
+# ---------------------------------------------------------------------------------
+#   INPUT HELPERS
+#   These store our live daily data, historical snapshots, and all-time totals.
+# ---------------------------------------------------------------------------------
+input_number:
+  # --- Live Daily Totals (Reset every night) ---
+  daily_brush_time_andy:
+    name: "Daily Brush Time Andy"
+    min: 0
+    max: 3600
+    unit_of_measurement: "s"
+    icon: mdi:clock-check-outline
+  daily_brush_time_meg:
+    name: "Daily Brush Time Meg"
+    min: 0
+    max: 3600
+    unit_of_measurement: "s"
+    icon: mdi:clock-check-outline
+  daily_brush_events_andy:
+    name: "Daily Brush Events Andy"
+    min: 0
+    max: 10
+    unit_of_measurement: "events"
+    icon: mdi:counter
+  daily_brush_events_meg:
+    name: "Daily Brush Events Meg"
+    min: 0
+    max: 10
+    unit_of_measurement: "events"
+    icon: mdi:counter
+
+  # --- Historical Storage ---
+  history_brush_events_andy:
+    name: "History Brush Events Andy"
+    min: 0
+    max: 10
+    unit_of_measurement: "events"
+    icon: mdi:chart-line
+  history_brush_events_meg:
+    name: "History Brush Events Meg"
+    min: 0
+    max: 10
+    unit_of_measurement: "events"
+    icon: mdi:chart-line
+  all_time_brush_time_andy:
+    name: "All-Time Brush Time Andy"
+    min: 0
+    max: 9999999
+    unit_of_measurement: "s"
+    icon: mdi:trophy
+  all_time_brush_time_meg:
+    name: "All-Time Brush Time Meg"
+    min: 0
+    max: 9999999
+    unit_of_measurement: "s"
+    icon: mdi:trophy
+  
+  # --- Bedtime Proxies (for graphing) ---
+  bedtime_proxy_andy:
+    name: "Bedtime Proxy Andy"
+    min: 0
+    max: 24
+    step: 0.01
+    unit_of_measurement: "hr"
+    icon: mdi:bed-clock
+  bedtime_proxy_meg:
+    name: "Bedtime Proxy Meg"
+    min: 0
+    max: 24
+    step: 0.01
+    unit_of_measurement: "hr"
+    icon: mdi:bed-clock
+
+input_datetime:
+  # --- Set via the UI (Settings > Devices & Services > Helpers) to your tracking start date ---
+  brushing_stats_start_date:
+    name: Brushing Stats Start Date
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-start
+  # --- Stores the timestamp of the last brush event, updated automatically ---
+  last_brush_time_andy:
+    name: Last Brush Time Andy
+    has_date: true
+    has_time: true
+    icon: mdi:bed-clock
+  last_brush_time_meg:
+    name: Last Brush Time Meg
+    has_date: true
+    has_time: true
+    icon: mdi:bed-clock
+
+
+# ---------------------------------------------------------------------------------
+#   UTILITY METERS
+#   These automatically create monthly and yearly totals from our daily helpers.
+# ---------------------------------------------------------------------------------
+utility_meter:
+  andy_brushing_units_monthly:
+    source: input_number.daily_brush_events_andy
+    cycle: monthly
+  meg_brushing_units_monthly:
+    source: input_number.daily_brush_events_meg
+    cycle: monthly
+  andy_brush_time_monthly:
+    source: input_number.daily_brush_time_andy
+    cycle: monthly
+  meg_brush_time_monthly:
+    source: input_number.daily_brush_time_meg
+    cycle: monthly
+  andy_brush_time_yearly:
+    source: input_number.daily_brush_time_andy
+    cycle: yearly
+  meg_brush_time_yearly:
+    source: input_number.daily_brush_time_meg
+    cycle: yearly
+
+# ---------------------------------------------------------------------------------
+#   HISTORY STATS
+#   Counts the number of days in the month where brushing occurred.
+# ---------------------------------------------------------------------------------
+history_stats:
+  andy_brushed_days_this_month:
+    name: Andy Brushed Days This Month
+    entity_id: input_number.history_brush_events_andy
+    type: count
+    value_template: "{{ value | int(0) > 0 }}" # <-- FIX: Checks if the numeric value is greater than 0
+    start: "{{ now().replace(day=1, hour=0, minute=0, second=0) }}"
+    end: "{{ now() }}"
+  meg_brushed_days_this_month:
+    name: Meg Brushed Days This Month
+    entity_id: input_number.history_brush_events_meg
+    type: count
+    value_template: "{{ value | int(0) > 0 }}" # <-- FIX: Checks if the numeric value is greater than 0
+    start: "{{ now().replace(day=1, hour=0, minute=0, second=0) }}"
+    end: "{{ now() }}"
+
+# ---------------------------------------------------------------------------------
+#   TEMPLATE SENSORS
+#   Create user-friendly and read-only versions of our stats.
+# ---------------------------------------------------------------------------------
+template:
+  - sensor:
+      # --- Base Sensors ---
+      - name: "Andy Formatted Daily Brush Time"
+        unique_id: andy_formatted_daily_brush_time
+        icon: mdi:toothbrush
+        state: >
+          {% set seconds = states('input_number.daily_brush_time_andy') | int(0) %}
+          {% set minutes = (seconds // 60) %}
+          {% set remaining_seconds = (seconds % 60) %}
+          {{ '%d min %d sec' % (minutes, remaining_seconds) }}
+      - name: "Meg Formatted Daily Brush Time"
+        unique_id: meg_formatted_daily_brush_time
+        icon: mdi:toothbrush-electric
+        state: >
+          {% set seconds = states('input_number.daily_brush_time_meg') | int(0) %}
+          {% set minutes = (seconds // 60) %}
+          {% set remaining_seconds = (seconds % 60) %}
+          {{ '%d min %d sec' % (minutes, remaining_seconds) }}
+      - name: "Andy Yesterday's Brush Events"
+        unique_id: andy_yesterdays_brush_events
+        icon: mdi:calendar-arrow-left
+        unit_of_measurement: "events"
+        state: "{{ states('input_number.history_brush_events_andy') | int(0) }}"
+      - name: "Meg Yesterday's Brush Events"
+        unique_id: meg_yesterdays_brush_events
+        icon: mdi:calendar-arrow-left
+        unit_of_measurement: "events"
+        state: "{{ states('input_number.history_brush_events_meg') | int(0) }}"
+
+      # --- Bedtime Sensors ---
+      - name: "Andy Last Brush Time"
+        unique_id: andy_last_brush_time
+        icon: mdi:bed-clock
+        availability: "{{ states('input_datetime.last_brush_time_andy') not in ['unknown', 'unavailable'] }}"
+        state: >
+          {{ as_timestamp(states('input_datetime.last_brush_time_andy')) | timestamp_custom('%-I:%M %p') }}
+        attributes:
+          datetime: "{{ states('input_datetime.last_brush_time_andy') }}"
+      - name: "Meg Last Brush Time"
+        unique_id: meg_last_brush_time
+        icon: mdi:bed-clock
+        availability: "{{ states('input_datetime.last_brush_time_meg') not in ['unknown', 'unavailable'] }}"
+        state: >
+          {{ as_timestamp(states('input_datetime.last_brush_time_meg')) | timestamp_custom('%-I:%M %p') }}
+        attributes:
+          datetime: "{{ states('input_datetime.last_brush_time_meg') }}"
+
+      # --- Nerd Stats Sensors ---
+      - name: "Andy Missed Brushing Days This Month"
+        unique_id: andy_missed_brushing_days_this_month
+        icon: mdi:calendar-remove
+        unit_of_measurement: "days"
+        state: "{{ now().day - (states('sensor.andy_brushed_days_this_month') | int(0)) }}"
+      - name: "Meg Missed Brushing Days This Month"
+        unique_id: meg_missed_brushing_days_this_month
+        icon: mdi:calendar-remove
+        unit_of_measurement: "days"
+        state: "{{ now().day - (states('sensor.meg_brushed_days_this_month') | int(0)) }}"
+      - name: "Andy All-Time Brush Time Display"
+        unique_id: andy_all_time_brush_time_display
+        icon: mdi:trophy
+        state: >
+          {% set seconds = states('input_number.all_time_brush_time_andy') | int(0) %}
+          {% set hours = seconds // 3600 %}
+          {% set minutes = (seconds % 3600) // 60 %}
+          {{ '%d hr %d min' % (hours, minutes) }}
+      - name: "Meg All-Time Brush Time Display"
+        unique_id: meg_all_time_brush_time_display
+        icon: mdi:trophy
+        state: >
+          {% set seconds = states('input_number.all_time_brush_time_meg') | int(0) %}
+          {% set hours = seconds // 3600 %}
+          {% set minutes = (seconds % 3600) // 60 %}
+          {{ '%d hr %d min' % (hours, minutes) }}
+      - name: "Andy Average Daily Brush Time (Long Term)"
+        unique_id: andy_average_daily_brush_time_long_term
+        icon: mdi:chart-line
+        unit_of_measurement: "s"
+        availability: "{{ states('input_datetime.brushing_stats_start_date') not in ['unknown', 'unavailable'] }}"
+        state: >
+          {% set start_date = states('input_datetime.brushing_stats_start_date') | as_datetime(default=none) %}
+          {% if start_date %}
+            {# Add 1 to include the current day in the count. On day 1, days_elapsed is 1. #}
+            {% set days_elapsed = (now().date() - start_date.date()).days %}
+            {% set total_time = states('input_number.all_time_brush_time_andy') | float(0) %}
+            {% if days_elapsed > 0 %}
+              {{ (total_time / days_elapsed) | round(0) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            0
+          {% endif %}
+      - name: "Meg Average Daily Brush Time (Long Term)"
+        unique_id: meg_average_daily_brush_time_long_term
+        icon: mdi:chart-line
+        unit_of_measurement: "s"
+        availability: "{{ states('input_datetime.brushing_stats_start_date') not in ['unknown', 'unavailable'] }}"
+        state: >
+          {% set start_date = states('input_datetime.brushing_stats_start_date') | as_datetime(default=none) %}
+          {% if start_date %}
+            {% set days_elapsed = (now().date() - start_date.date()).days %}
+            {% set total_time = states('input_number.all_time_brush_time_meg') | float(0) %}
+            {% if days_elapsed > 0 %}
+              {{ (total_time / days_elapsed) | round(0) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            0
+          {% endif %}
+
+# ---------------------------------------------------------------------------------
+#   AUTOMATIONS
+# ---------------------------------------------------------------------------------
+automation:
+  # --- AUTOMATION 1: LOGS A COMPLETED BRUSHING SESSION & CAPTURES TIME ---
+  - alias: "Oral-B Log Brushing Session and Event"
+    id: oral_b_log_brushing_session_and_event
+    description: "When a duration sensor resets, add time to daily total, increment event counter, and log the time."
+    mode: parallel
+    trigger:
+      - platform: state
+        entity_id: sensor.io_series_6_7_528e_duration
+        to: "0"
+        id: "andy"
+      - platform: state
+        entity_id: sensor.io_series_6_7_d704_duration
+        to: "0"
+        id: "meg"
+    condition:
+      - condition: template
+        value_template: "{{ trigger.from_state.state | int(0) > 0 }}"
+    action:
+      - variables:
+          daily_time_helper: "input_number.daily_brush_time_{{ trigger.id }}"
+          daily_event_helper: "input_number.daily_brush_events_{{ trigger.id }}"
+          last_brush_helper: "input_datetime.last_brush_time_{{ trigger.id }}"
+          last_duration: "{{ trigger.from_state.state | int(0) }}"
+      # --- Log duration and increment event counter ---
+      - service: input_number.set_value
+        target:
+          entity_id: "{{ daily_time_helper }}"
+        data:
+          value: "{{ states(daily_time_helper) | int(0) + last_duration }}"
+      - service: input_number.increment
+        target:
+          entity_id: "{{ daily_event_helper }}"
+      # --- Set the timestamp of this event as the last known brush time ---
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: "{{ last_brush_helper }}"
+        data:
+          datetime: "{{ now() }}"
+
+  # --- AUTOMATION 2: SNAPSHOTS THE FINAL DAILY COUNT FOR HISTORY ---
+  - alias: "Oral-B Snapshot Daily Stats for History"
+    id: oral_b_snapshot_daily_stats_for_history
+    description: "Saves final daily stats to history helpers and all-time total before reset."
+    trigger:
+      - platform: time
+        at: "23:59:50"
+    action:
+      # --- Snapshot Andy's Stats ---
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.history_brush_events_andy
+        data:
+          value: "{{ states('input_number.daily_brush_events_andy') | int(0) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.all_time_brush_time_andy
+        data:
+          value: "{{ states('input_number.all_time_brush_time_andy') | int(0) + states('input_number.daily_brush_time_andy') | int(0) }}"
+      # --- Snapshot Meg's Stats ---
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.history_brush_events_meg
+        data:
+          value: "{{ states('input_number.daily_brush_events_meg') | int(0) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.all_time_brush_time_meg
+        data:
+          value: "{{ states('input_number.all_time_brush_time_meg') | int(0) + states('input_number.daily_brush_time_meg') | int(0) }}"
+
+      # --- Snapshot Bedtime Proxy ---
+      - variables:
+          last_brush_dt_andy: "{{ states('input_datetime.last_brush_time_andy') | as_datetime(default=none) }}"
+          last_brush_dt_meg: "{{ states('input_datetime.last_brush_time_meg') | as_datetime(default=none) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bedtime_proxy_andy
+        data:
+          value: >
+            {% if last_brush_dt_andy and last_brush_dt_andy.date() == now().date() %}
+              {{ (last_brush_dt_andy.hour + (last_brush_dt_andy.minute / 60)) | round(2) }}
+            {% else %}
+              0
+            {% endif %}
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.bedtime_proxy_meg
+        data:
+          value: >
+            {% if last_brush_dt_meg and last_brush_dt_meg.date() == now().date() %}
+              {{ (last_brush_dt_meg.hour + (last_brush_dt_meg.minute / 60)) | round(2) }}
+            {% else %}
+              0
+            {% endif %}
+
+  # --- AUTOMATION 3: DAILY RESET ---
+  - alias: "Oral-B Daily Totals Reset"
+    id: oral_b_daily_totals_reset
+    description: "Resets daily brushing stats to zero at midnight."
+    trigger:
+      - platform: time
+        at: "00:00:00"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id:
+            - input_number.daily_brush_time_andy
+            - input_number.daily_brush_time_meg
+            - input_number.daily_brush_events_andy
+            - input_number.daily_brush_events_meg
+        data:
+          value: 0
+          
+script:
+  reset_all_dental_stats:
+    alias: "Reset All Dental Stats"
+    icon: mdi:broom
+    mode: single
+    sequence:
+      # Step 1: Reset all the input_number helpers to 0
+      - service: input_number.set_value
+        target:
+          entity_id:
+            - input_number.daily_brush_time_andy
+            - input_number.daily_brush_time_meg
+            - input_number.daily_brush_events_andy
+            - input_number.daily_brush_events_meg
+            - input_number.history_brush_events_andy
+            - input_number.history_brush_events_meg
+            - input_number.all_time_brush_time_andy
+            - input_number.all_time_brush_time_meg
+        data:
+          value: 0
+
+      # Step 2: Reset all the utility meters
+      - service: utility_meter.reset
+        target:
+          entity_id:
+            - sensor.andy_brushing_units_monthly
+            - sensor.meg_brushing_units_monthly
+            - sensor.andy_brush_time_monthly
+            - sensor.meg_brush_time_monthly
+            - sensor.andy_brush_time_yearly
+            - sensor.meg_brush_time_yearly

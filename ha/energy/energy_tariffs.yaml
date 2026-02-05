@@ -162,7 +162,7 @@ template:
   # ------- Trigger-based sensors (must be under template:) -------
   - trigger:
       - platform: time
-        at: "23:59:50" # just before midnight
+        at: "23:59:50"   # just before midnight
     sensor:
       - name: "Monthly Net Cost"
         unique_id: "monthly_net_cost"
@@ -231,7 +231,7 @@ utility_meter:
 # ------------------------------------------------------------------------------
 automation:
   - alias: "Set Energy Tariff"
-    id: "set_energy_tariff"
+    id: 'set_energy_tariff'
     trigger:
       - platform: state
         entity_id: sensor.current_electricity_tariff
@@ -247,7 +247,7 @@ automation:
         data:
           option: "{{ states('sensor.current_electricity_tariff') }}"
   - alias: "Set Export Tariff"
-    id: "set_export_tariff"
+    id: 'set_export_tariff'
     trigger:
       - platform: state
         entity_id: sensor.current_export_tariff

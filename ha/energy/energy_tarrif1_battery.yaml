@@ -1,0 +1,1132 @@
+# ==============================================================================
+# VIRTUAL BATTERY SAVINGS SIMULATOR (v2) — cleaned for HA packages
+# Includes Natural Power surcharge in savings (reads input_number.natural_power_surcharge_per_kwh)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# HELPER INPUTS
+# ------------------------------------------------------------------------------
+input_number:
+
+  # --- SoC Stores (in Wh) ---
+  virtual_battery_soc_50kwh:
+    name: Virtual Battery SoC 50kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 50000
+  virtual_battery_soc_60kwh:
+    name: Virtual Battery SoC 60kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 60000
+  virtual_battery_soc_70kwh:
+    name: Virtual Battery SoC 70kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 70000
+  virtual_battery_soc_80kwh:
+    name: Virtual Battery SoC 80kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 80000
+  virtual_battery_soc_90kwh:
+    name: Virtual Battery SoC 90kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 90000
+  virtual_battery_soc_100kwh:
+    name: Virtual Battery SoC 100kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 100000
+  virtual_battery_soc_110kwh:
+    name: Virtual Battery SoC 110kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 110000
+  virtual_battery_soc_120kwh:
+    name: Virtual Battery SoC 120kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 120000
+  virtual_battery_soc_130kwh:
+    name: Virtual Battery SoC 130kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 130000
+  virtual_battery_soc_140kwh:
+    name: Virtual Battery SoC 140kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 140000
+  virtual_battery_soc_150kwh:
+    name: Virtual Battery SoC 150kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 150000
+  virtual_battery_soc_160kwh:
+    name: Virtual Battery SoC 160kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 160000
+  virtual_battery_soc_170kwh:
+    name: Virtual Battery SoC 170kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 170000
+  virtual_battery_soc_180kwh:
+    name: Virtual Battery SoC 180kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 180000
+  virtual_battery_soc_190kwh:
+    name: Virtual Battery SoC 190kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 190000
+  virtual_battery_soc_200kwh:
+    name: Virtual Battery SoC 200kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 200000
+
+  # --- Utility Meter Sources (in Wh) ---
+  virtual_discharge_meter_source_50kwh:
+    name: Virtual Discharge Meter Source 50kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_60kwh:
+    name: Virtual Discharge Meter Source 60kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_70kwh:
+    name: Virtual Discharge Meter Source 70kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_80kwh:
+    name: Virtual Discharge Meter Source 80kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_90kwh:
+    name: Virtual Discharge Meter Source 90kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_100kwh:
+    name: Virtual Discharge Meter Source 100kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_110kwh:
+    name: Virtual Discharge Meter Source 110kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_120kwh:
+    name: Virtual Discharge Meter Source 120kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_130kwh:
+    name: Virtual Discharge Meter Source 130kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_140kwh:
+    name: Virtual Discharge Meter Source 140kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_150kwh:
+    name: Virtual Discharge Meter Source 150kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_160kwh:
+    name: Virtual Discharge Meter Source 160kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_170kwh:
+    name: Virtual Discharge Meter Source 170kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_180kwh:
+    name: Virtual Discharge Meter Source 180kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_190kwh:
+    name: Virtual Discharge Meter Source 190kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+  virtual_discharge_meter_source_200kwh:
+    name: Virtual Discharge Meter Source 200kWh
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000
+
+# ------------------------------------------------------------------------------
+# UTILITY METERS
+# ------------------------------------------------------------------------------
+utility_meter:
+  daily_virtual_discharge_50kwh:
+    source: input_number.virtual_discharge_meter_source_50kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_60kwh:
+    source: input_number.virtual_discharge_meter_source_60kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_70kwh:
+    source: input_number.virtual_discharge_meter_source_70kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_80kwh:
+    source: input_number.virtual_discharge_meter_source_80kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_90kwh:
+    source: input_number.virtual_discharge_meter_source_90kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_100kwh:
+    source: input_number.virtual_discharge_meter_source_100kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_110kwh:
+    source: input_number.virtual_discharge_meter_source_110kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_120kwh:
+    source: input_number.virtual_discharge_meter_source_120kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_130kwh:
+    source: input_number.virtual_discharge_meter_source_130kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_140kwh:
+    source: input_number.virtual_discharge_meter_source_140kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_150kwh:
+    source: input_number.virtual_discharge_meter_source_150kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_160kwh:
+    source: input_number.virtual_discharge_meter_source_160kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_170kwh:
+    source: input_number.virtual_discharge_meter_source_170kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_180kwh:
+    source: input_number.virtual_discharge_meter_source_180kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_190kwh:
+    source: input_number.virtual_discharge_meter_source_190kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+  daily_virtual_discharge_200kwh:
+    source: input_number.virtual_discharge_meter_source_200kwh
+    cycle: daily
+    tariffs: [on_peak, midday_saver, off_peak]
+
+# ------------------------------------------------------------------------------
+# TEMPLATE (state-based sensors + trigger-based sensors)
+# ------------------------------------------------------------------------------
+template:
+
+  # --- State-based sensors ---
+  - sensor:
+
+      # Daily savings including Natural Power surcharge
+      - name: "Potential Daily Savings 50kWh"
+        unique_id: potential_daily_savings_50kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_50kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_50kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_50kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_50kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_50kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_50kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 60kWh"
+        unique_id: potential_daily_savings_60kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_60kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_60kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_60kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_60kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_60kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_60kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 70kWh"
+        unique_id: potential_daily_savings_70kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_70kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_70kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_70kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_70kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_70kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_70kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 80kWh"
+        unique_id: potential_daily_savings_80kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_80kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_80kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_80kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_80kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_80kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_80kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 90kWh"
+        unique_id: potential_daily_savings_90kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_90kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_90kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_90kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_90kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_90kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_90kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 100kWh"
+        unique_id: potential_daily_savings_100kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_100kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_100kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_100kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_100kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_100kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_100kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 110kWh"
+        unique_id: potential_daily_savings_110kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_110kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_110kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_110kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_110kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_110kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_110kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 120kWh"
+        unique_id: potential_daily_savings_120kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_120kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_120kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_120kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_120kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_120kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_120kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 130kWh"
+        unique_id: potential_daily_savings_130kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_130kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_130kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_130kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_130kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_130kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_130kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 140kWh"
+        unique_id: potential_daily_savings_140kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_140kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_140kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_140kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_140kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_140kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_140kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 150kWh"
+        unique_id: potential_daily_savings_150kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_150kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_150kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_150kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_150kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_150kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_150kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 160kWh"
+        unique_id: potential_daily_savings_160kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_160kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_160kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_160kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_160kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_160kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_160kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 170kWh"
+        unique_id: potential_daily_savings_170kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_170kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_170kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_170kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_170kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_170kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_170kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 180kWh"
+        unique_id: potential_daily_savings_180kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_180kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_180kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_180kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_180kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_180kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_180kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 190kWh"
+        unique_id: potential_daily_savings_190kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_190kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_190kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_190kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_190kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_190kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_190kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      - name: "Potential Daily Savings 200kWh"
+        unique_id: potential_daily_savings_200kwh
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:battery-arrow-down
+        state: >
+          {% set on_peak = (states('sensor.daily_virtual_discharge_200kwh_on_peak') | float(0) / 1000 * 0.6762) %}
+          {% set midday = (states('sensor.daily_virtual_discharge_200kwh_midday_saver') | float(0) / 1000 * 0.1818) %}
+          {% set off_peak = (states('sensor.daily_virtual_discharge_200kwh_off_peak') | float(0) / 1000 * 0.2451) %}
+          {% set total_kwh = (states('sensor.daily_virtual_discharge_200kwh_on_peak') | float(0)
+                               + states('sensor.daily_virtual_discharge_200kwh_midday_saver') | float(0)
+                               + states('sensor.daily_virtual_discharge_200kwh_off_peak') | float(0)) / 1000 %}
+          {% set nps = total_kwh * (states('input_number.natural_power_surcharge_per_kwh') | float(0.051929)) %}
+          {{ (on_peak + midday + off_peak + nps) | round(2) }}
+
+      # SoC display sensors (unchanged, just tidy)
+      - name: "Virtual Battery SoC 50kWh Display"
+        unique_id: virtual_battery_soc_50kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_50kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 60kWh Display"
+        unique_id: virtual_battery_soc_60kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_60kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 70kWh Display"
+        unique_id: virtual_battery_soc_70kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_70kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 80kWh Display"
+        unique_id: virtual_battery_soc_80kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_80kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 90kWh Display"
+        unique_id: virtual_battery_soc_90kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_90kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 100kWh Display"
+        unique_id: virtual_battery_soc_100kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_100kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 110kWh Display"
+        unique_id: virtual_battery_soc_110kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_110kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 120kWh Display"
+        unique_id: virtual_battery_soc_120kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_120kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 130kWh Display"
+        unique_id: virtual_battery_soc_130kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_130kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 140kWh Display"
+        unique_id: virtual_battery_soc_140kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_140kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 150kWh Display"
+        unique_id: virtual_battery_soc_150kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_150kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 160kWh Display"
+        unique_id: virtual_battery_soc_160kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_160kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 170kWh Display"
+        unique_id: virtual_battery_soc_170kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_170kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 180kWh Display"
+        unique_id: virtual_battery_soc_180kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_180kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 190kWh Display"
+        unique_id: virtual_battery_soc_190kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_190kwh') | float(0) | round(0) }}"
+      - name: "Virtual Battery SoC 200kWh Display"
+        unique_id: virtual_battery_soc_200kwh_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_200kwh') | float(0) | round(0) }}"
+
+  # --- Trigger-based sensors: Monthly savings rollups (23:59:55) ---
+  - trigger:
+      - platform: time
+        at: "23:59:55"
+    sensor:
+      - name: "Potential Monthly Savings 50kWh"
+        unique_id: "potential_monthly_savings_50kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_50kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 60kWh"
+        unique_id: "potential_monthly_savings_60kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_60kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 70kWh"
+        unique_id: "potential_monthly_savings_70kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_70kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 80kWh"
+        unique_id: "potential_monthly_savings_80kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_80kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 90kWh"
+        unique_id: "potential_monthly_savings_90kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_90kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 100kWh"
+        unique_id: "potential_monthly_savings_100kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_100kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 110kWh"
+        unique_id: "potential_monthly_savings_110kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_110kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 120kWh"
+        unique_id: "potential_monthly_savings_120kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_120kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 130kWh"
+        unique_id: "potential_monthly_savings_130kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_130kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 140kWh"
+        unique_id: "potential_monthly_savings_140kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_140kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 150kWh"
+        unique_id: "potential_monthly_savings_150kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_150kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 160kWh"
+        unique_id: "potential_monthly_savings_160kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_160kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 170kWh"
+        unique_id: "potential_monthly_savings_170kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_170kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 180kWh"
+        unique_id: "potential_monthly_savings_180kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_180kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 190kWh"
+        unique_id: "potential_monthly_savings_190kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_190kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+      - name: "Potential Monthly Savings 200kWh"
+        unique_id: "potential_monthly_savings_200kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_200kwh') | float(0) %}
+          {{ daily_saving if now().day == 1 else (this.state | float(0)) + daily_saving }}
+
+  # --- Trigger-based sensors: Yearly savings rollups (23:59:56) ---
+  - trigger:
+      - platform: time
+        at: "23:59:56"
+    sensor:
+      - name: "Potential Yearly Savings 50kWh"
+        unique_id: "potential_yearly_savings_50kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_50kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 60kWh"
+        unique_id: "potential_yearly_savings_60kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_60kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 70kWh"
+        unique_id: "potential_yearly_savings_70kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_70kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 80kWh"
+        unique_id: "potential_yearly_savings_80kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_80kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 90kWh"
+        unique_id: "potential_yearly_savings_90kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_90kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 100kWh"
+        unique_id: "potential_yearly_savings_100kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_100kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 110kWh"
+        unique_id: "potential_yearly_savings_110kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_110kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 120kWh"
+        unique_id: "potential_yearly_savings_120kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_120kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 130kWh"
+        unique_id: "potential_yearly_savings_130kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_130kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 140kWh"
+        unique_id: "potential_yearly_savings_140kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_140kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 150kWh"
+        unique_id: "potential_yearly_savings_150kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_150kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 160kWh"
+        unique_id: "potential_yearly_savings_160kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_160kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 170kWh"
+        unique_id: "potential_yearly_savings_170kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_170kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 180kWh"
+        unique_id: "potential_yearly_savings_180kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_180kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 190kWh"
+        unique_id: "potential_yearly_savings_190kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_190kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+      - name: "Potential Yearly Savings 200kWh"
+        unique_id: "potential_yearly_savings_200kwh"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set daily_saving = states('sensor.potential_daily_savings_200kwh') | float(0) %}
+          {% if now().day == 1 and now().month == 1 %}
+            {{ daily_saving }}
+          {% else %}
+            {{ (this.state | float(0)) + daily_saving }}
+          {% endif %}
+
+# ------------------------------------------------------------------------------
+# AUTOMATIONS (unchanged logic)
+# ------------------------------------------------------------------------------
+automation:
+
+  - alias: "Virtual Battery Savings - Charge With Export"
+    id: 'virtual_battery_savings_charge_with_export'
+    description: "Charges the virtual batteries when energy is exported"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.sa_todays_energy_exported
+        not_to: [unavailable, unknown]
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | is_number and trigger.from_state.state | is_number and trigger.to_state.state | float > trigger.from_state.state | float }}"
+    action:
+      - variables:
+          exported_wh: "{{ (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) }}"
+          batteries:
+            50kwh: { soc: "input_number.virtual_battery_soc_50kwh", capacity: 50000 }
+            60kwh: { soc: "input_number.virtual_battery_soc_60kwh", capacity: 60000 }
+            70kwh: { soc: "input_number.virtual_battery_soc_70kwh", capacity: 70000 }
+            80kwh: { soc: "input_number.virtual_battery_soc_80kwh", capacity: 80000 }
+            90kwh: { soc: "input_number.virtual_battery_soc_90kwh", capacity: 90000 }
+            100kwh: { soc: "input_number.virtual_battery_soc_100kwh", capacity: 100000 }
+            110kwh: { soc: "input_number.virtual_battery_soc_110kwh", capacity: 110000 }
+            120kwh: { soc: "input_number.virtual_battery_soc_120kwh", capacity: 120000 }
+            130kwh: { soc: "input_number.virtual_battery_soc_130kwh", capacity: 130000 }
+            140kwh: { soc: "input_number.virtual_battery_soc_140kwh", capacity: 140000 }
+            150kwh: { soc: "input_number.virtual_battery_soc_150kwh", capacity: 150000 }
+            160kwh: { soc: "input_number.virtual_battery_soc_160kwh", capacity: 160000 }
+            170kwh: { soc: "input_number.virtual_battery_soc_170kwh", capacity: 170000 }
+            180kwh: { soc: "input_number.virtual_battery_soc_180kwh", capacity: 180000 }
+            190kwh: { soc: "input_number.virtual_battery_soc_190kwh", capacity: 190000 }
+            200kwh: { soc: "input_number.virtual_battery_soc_200kwh", capacity: 200000 }
+      - repeat:
+          for_each: "{{ batteries.values() | list }}"
+          sequence:
+            - variables:
+                current_soc: "{{ states(repeat.item.soc) | float(0) }}"
+                available_capacity: "{{ repeat.item.capacity - current_soc }}"
+                charge_amount: "{{ [exported_wh, available_capacity] | min }}"
+            - service: input_number.set_value
+              target:
+                entity_id: "{{ repeat.item.soc }}"
+              data:
+                value: "{{ current_soc + charge_amount }}"
+
+  - alias: "Virtual Battery Savings - Discharge To Cover Import"
+    id: 'virtual_battery_savings_discharge_to_cover_import'
+    description: "Discharges virtual batteries to offset imported energy"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.sa_todays_energy_imported
+        not_to: [unavailable, unknown]
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | is_number and trigger.from_state.state | is_number and trigger.to_state.state | float > trigger.from_state.state | float }}"
+    action:
+      - variables:
+          imported_wh: "{{ (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) }}"
+          batteries:
+            50kwh: { soc: "input_number.virtual_battery_soc_50kwh", meter: "input_number.virtual_discharge_meter_source_50kwh" }
+            60kwh: { soc: "input_number.virtual_battery_soc_60kwh", meter: "input_number.virtual_discharge_meter_source_60kwh" }
+            70kwh: { soc: "input_number.virtual_battery_soc_70kwh", meter: "input_number.virtual_discharge_meter_source_70kwh" }
+            80kwh: { soc: "input_number.virtual_battery_soc_80kwh", meter: "input_number.virtual_discharge_meter_source_80kwh" }
+            90kwh: { soc: "input_number.virtual_battery_soc_90kwh", meter: "input_number.virtual_discharge_meter_source_90kwh" }
+            100kwh: { soc: "input_number.virtual_battery_soc_100kwh", meter: "input_number.virtual_discharge_meter_source_100kwh" }
+            110kwh: { soc: "input_number.virtual_battery_soc_110kwh", meter: "input_number.virtual_discharge_meter_source_110kwh" }
+            120kwh: { soc: "input_number.virtual_battery_soc_120kwh", meter: "input_number.virtual_discharge_meter_source_120kwh" }
+            130kwh: { soc: "input_number.virtual_battery_soc_130kwh", meter: "input_number.virtual_discharge_meter_source_130kwh" }
+            140kwh: { soc: "input_number.virtual_battery_soc_140kwh", meter: "input_number.virtual_discharge_meter_source_140kwh" }
+            150kwh: { soc: "input_number.virtual_battery_soc_150kwh", meter: "input_number.virtual_discharge_meter_source_150kwh" }
+            160kwh: { soc: "input_number.virtual_battery_soc_160kwh", meter: "input_number.virtual_discharge_meter_source_160kwh" }
+            170kwh: { soc: "input_number.virtual_battery_soc_170kwh", meter: "input_number.virtual_discharge_meter_source_170kwh" }
+            180kwh: { soc: "input_number.virtual_battery_soc_180kwh", meter: "input_number.virtual_discharge_meter_source_180kwh" }
+            190kwh: { soc: "input_number.virtual_battery_soc_190kwh", meter: "input_number.virtual_discharge_meter_source_190kwh" }
+            200kwh: { soc: "input_number.virtual_battery_soc_200kwh", meter: "input_number.virtual_discharge_meter_source_200kwh" }
+      - repeat:
+          for_each: "{{ batteries.values() | list }}"
+          sequence:
+            - variables:
+                current_soc: "{{ states(repeat.item.soc) | float(0) }}"
+                discharge_amount: "{{ [imported_wh, current_soc] | min }}"
+            - condition: template
+              value_template: "{{ discharge_amount > 0 }}"
+            - service: input_number.set_value
+              target:
+                entity_id: "{{ repeat.item.soc }}"
+              data:
+                value: "{{ current_soc - discharge_amount }}"
+            - service: input_number.set_value
+              target:
+                entity_id: "{{ repeat.item.meter }}"
+              data:
+                value: "{{ states(repeat.item.meter) | float(0) + discharge_amount }}"
+
+  - alias: "Virtual Battery Savings - Set Tariff"
+    id: 'virtual_battery_savings_set_tariff'
+    description: "Switches the tariff on all virtual battery utility meters"
+    trigger:
+      - platform: state
+        entity_id: sensor.current_electricity_tariff
+        not_to: [unavailable, unknown]
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id:
+            - select.daily_virtual_discharge_50kwh
+            - select.daily_virtual_discharge_60kwh
+            - select.daily_virtual_discharge_70kwh
+            - select.daily_virtual_discharge_80kwh
+            - select.daily_virtual_discharge_90kwh
+            - select.daily_virtual_discharge_100kwh
+            - select.daily_virtual_discharge_110kwh
+            - select.daily_virtual_discharge_120kwh
+            - select.daily_virtual_discharge_130kwh
+            - select.daily_virtual_discharge_140kwh
+            - select.daily_virtual_discharge_150kwh
+            - select.daily_virtual_discharge_160kwh
+            - select.daily_virtual_discharge_170kwh
+            - select.daily_virtual_discharge_180kwh
+            - select.daily_virtual_discharge_190kwh
+            - select.daily_virtual_discharge_200kwh
+        data:
+          option: "{{ states('sensor.current_electricity_tariff') }}"
