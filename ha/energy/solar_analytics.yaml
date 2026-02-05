@@ -1374,576 +1374,451 @@ rest:
 
 
 # -----------------------------------------------------------------------------
-# SENSORS
-sensor:
+# TEMPLATE SENSORS
+template:
 
-
-  # TEMPLATE SENSORS
-  - platform: template
-    sensors:
-
-      # Solar Analytics status sensors
-      sa_dashboard_status:
-        friendly_name: "Dashboard Status"
+  # TEMPLATE SENSORS - MODERN FORMAT (migrated from legacy platform: template)
+  # -------------------------------------------------------------------------
+  # Status Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Dashboard Status"
         unique_id: sa_dashboard_status
-        value_template: "{{- state_attr('sensor.sa_status', 'dashboard_status') -}}"
-      sa_mer_status:
-        friendly_name: "System Status"
+        state: "{{ state_attr('sensor.sa_status', 'dashboard_status') }}"
+
+      - name: "System Status"
         unique_id: sa_mer_status
-        value_template: "{{- state_attr('sensor.sa_status', 'mer_status') -}}"
-      sa_mer_percentage: 
-        friendly_name: "PV Performance"
+        state: "{{ state_attr('sensor.sa_status', 'mer_status') }}"
+
+      - name: "PV Performance"
         unique_id: sa_mer_percentage
-        value_template: "{{- state_attr('sensor.sa_status', 'mer_percentage') -}}"
         unit_of_measurement: "%"
+        state: "{{ state_attr('sensor.sa_status', 'mer_percentage') }}"
 
-      # Solar Analytics todays total energy sensors
-      sa_todays_energy_consumed_total:
-        friendly_name: "Total Energy Consumed"
-        unique_id: sa_todays_energy_consumed_total        
+  # -------------------------------------------------------------------------
+  # Total Energy Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Total Energy Consumed"
+        unique_id: sa_todays_energy_consumed_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_energy_consumed_total.state 
-              if states.sensor.sa_data_by_5min_energy_consumed_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:home-lightning-bolt-outline
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_energy_consumed.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:home-lightning-bolt-outline
+        state: >-
+          {{ states('sensor.sa_data_by_5min_energy_consumed_total') | float(0)
+             if states('sensor.sa_data_by_5min_energy_consumed_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_energy_consumed') }}"
 
-      sa_todays_energy_generated_total:
-        friendly_name: "Total Energy Generated"
+      - name: "Total Energy Generated"
         unique_id: sa_todays_energy_generated_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_energy_generated_total.state 
-              if states.sensor.sa_data_by_5min_energy_generated_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:solar-power
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_energy_generated.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:solar-power
+        state: >-
+          {{ states('sensor.sa_data_by_5min_energy_generated_total') | float(0)
+             if states('sensor.sa_data_by_5min_energy_generated_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_energy_generated') }}"
 
-#
-### DELETE FOR 3-PHASE SOLUTION - START >>>>>>>>>>
-#
-      sa_todays_air_conditioner_total:
-        friendly_name: "Heating Cooling Energy"
+      - name: "Heating Cooling Energy"
         unique_id: sa_todays_air_conditioner_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_load_air_conditioner_total.state
-              if states.sensor.sa_data_by_5min_load_air_conditioner_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:hvac
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_load_air_conditioner.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:hvac
+        state: >-
+          {{ states('sensor.sa_data_by_5min_load_air_conditioner_total') | float(0)
+             if states('sensor.sa_data_by_5min_load_air_conditioner_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_load_air_conditioner') }}"
 
-      sa_todays_electric_vehicle_total:
-        friendly_name: "Electric Vehicle Energy"
+      - name: "Electric Vehicle Energy"
         unique_id: sa_todays_electric_vehicle_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_load_ev_charger_total.state
-              if states.sensor.sa_data_by_5min_load_ev_charger_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:car-electric
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_load_ev_charger.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:car-electric
+        state: >-
+          {{ states('sensor.sa_data_by_5min_load_ev_charger_total') | float(0)
+             if states('sensor.sa_data_by_5min_load_ev_charger_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_load_ev_charger') }}"
 
-      sa_todays_hot_water_total:
-        friendly_name: "Hot Water Energy"
+      - name: "Hot Water Energy"
         unique_id: sa_todays_hot_water_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_load_hot_water_total.state
-              if states.sensor.sa_data_by_5min_load_hot_water_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:shower-head
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_load_hot_water.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:shower-head
+        state: >-
+          {{ states('sensor.sa_data_by_5min_load_hot_water_total') | float(0)
+             if states('sensor.sa_data_by_5min_load_hot_water_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_load_hot_water') }}"
 
-      sa_todays_stove_oven_total:
-        friendly_name: "Stove Oven Energy"
+      - name: "Stove Oven Energy"
         unique_id: sa_todays_stove_oven_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_load_stove_total.state
-              if states.sensor.sa_data_by_5min_load_stove_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:stove
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_load_stove.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:stove
+        state: >-
+          {{ states('sensor.sa_data_by_5min_load_stove_total') | float(0)
+             if states('sensor.sa_data_by_5min_load_stove_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_load_stove') }}"
 
-#
-### DELETE FOR 3-PHASE SOLUTION - END <<<<<<<<<<
-#
-
-      # Solar Analytics derived total energy sensors
-      sa_todays_energy_imported:
-        friendly_name: "Total Energy Imported"
+  # -------------------------------------------------------------------------
+  # Import/Export Energy Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Total Energy Imported"
         unique_id: sa_todays_energy_imported
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_imported_total.state
-              if states.sensor.sa_data_by_5min_imported_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:transmission-tower-export
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_imported.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:transmission-tower-export
+        state: >-
+          {{ states('sensor.sa_data_by_5min_imported_total') | float(0)
+             if states('sensor.sa_data_by_5min_imported_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_imported') }}"
 
-      sa_todays_energy_exported:
-        friendly_name: "Total Energy Exported"
+      - name: "Total Energy Exported"
         unique_id: sa_todays_energy_exported
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_exported_total.state
-              if states.sensor.sa_data_by_5min_exported_total.state|is_number
-              else this.state|default(0.0) -}}
-        icon_template: mdi:transmission-tower-import
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          last5min: "{{- states.sensor.sa_data_by_5min_exported.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:transmission-tower-import
+        state: >-
+          {{ states('sensor.sa_data_by_5min_exported_total') | float(0)
+             if states('sensor.sa_data_by_5min_exported_total') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          last5min: "{{ states('sensor.sa_data_by_5min_exported') }}"
 
-#
-### DELETE FOR 3-PHASE SOLUTION - START >>>>>>>>>>
-#
-      #
-      # EV Charging Energy Generated and Imported
-      #
-      # Note: sa_todays_electric_vehicle_generated and sa_todays_electric_vehicle_imported only sum the Wh
-      # consumed while actually charging. Charger standby energy consumption is not included, but will be
-      # apparent where the sum of the two sensors is slightly less than sa_todays_electric_vehicle_total.
-      #
-      sa_todays_electric_vehicle_generated:
-        friendly_name: "Electric Vehicle Energy Generated"
+  # -------------------------------------------------------------------------
+  # EV Charging Breakdown Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Electric Vehicle Energy Generated"
         unique_id: sa_todays_electric_vehicle_generated
         unit_of_measurement: "Wh"
-        value_template: "{{- states.sensor.sa_data_by_5min_load_ev_charger_generated.state -}}"
-        icon_template: mdi:car-electric
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          ev_energy_last5min: >
-            {%- if ( states.sensor.sa_data_by_5min_load_ev_charger.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_energy_consumed.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_energy_generated.state|is_number ) 
-              -%}
-              {%- if states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0) > 0.0 -%} 
-                {%- if (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0)) 
-                    >= (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0)) 
-                  -%}
-                  {{- states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0) -}}
-                {%- elif (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0)) 
-                    > ( (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0)) 
-                      - (states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0)) )
-                  -%}
-                  {%- set ev_generated = (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0))
-                      - ( (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0))
-                          - (states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0)) ) 
-                    -%}
-                  {{- (ev_generated|float|round(4)) if (ev_generated|float) > 0.0 else 0.0 -}}
-                {%- else -%}
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:car-electric
+        state: "{{ states('sensor.sa_data_by_5min_load_ev_charger_generated') }}"
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          ev_energy_last5min: >-
+            {% if (states('sensor.sa_data_by_5min_load_ev_charger') | is_number)
+                and (states('sensor.sa_data_by_5min_energy_consumed') | is_number)
+                and (states('sensor.sa_data_by_5min_energy_generated') | is_number) %}
+              {% if states('sensor.sa_data_by_5min_load_ev_charger') | float(0) > 0 %}
+                {% if states('sensor.sa_data_by_5min_energy_generated') | float(0)
+                    >= states('sensor.sa_data_by_5min_energy_consumed') | float(0) %}
+                  {{ states('sensor.sa_data_by_5min_load_ev_charger') | float(0) }}
+                {% elif states('sensor.sa_data_by_5min_energy_generated') | float(0)
+                    > (states('sensor.sa_data_by_5min_energy_consumed') | float(0)
+                      - states('sensor.sa_data_by_5min_load_ev_charger') | float(0)) %}
+                  {% set ev_generated = states('sensor.sa_data_by_5min_energy_generated') | float(0)
+                      - (states('sensor.sa_data_by_5min_energy_consumed') | float(0)
+                        - states('sensor.sa_data_by_5min_load_ev_charger') | float(0)) %}
+                  {{ ev_generated | round(4) if ev_generated > 0 else 0.0 }}
+                {% else %}
                   0.0
-                {%- endif -%}
-              {%- else -%}
+                {% endif %}
+              {% else %}
                 0.0
-              {%- endif -%}
-            {%- else -%}
-              {{- state_attr( 'sensor.sa_todays_electric_vehicle_generated', 'ev_energy_last5min' ) 
-                  if states.sensor.sa_todays_electric_vehicle_generated.attributes.ev_energy_last5min|is_number
-                  else 0.0 
-                -}}
-            {%- endif -%}
-          percentage_of_total: >
-            {%- if ( states.sensor.sa_data_by_5min_load_ev_charger_generated.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_load_ev_charger_total.state|is_number ) 
-              -%}
-              {%- if ( states.sensor.sa_data_by_5min_load_ev_charger_total.state|float(0.0) > 0.0 ) -%}
-                {{- (( states.sensor.sa_data_by_5min_load_ev_charger_generated.state|float(0.0) ) 
-                    / (states.sensor.sa_data_by_5min_load_ev_charger_total.state|float(1.0)) 
-                    * 100.0 )|int | default('none') 
-                  -}}
-              {%- else -%}
+              {% endif %}
+            {% else %}
+              {{ state_attr('sensor.sa_todays_electric_vehicle_generated', 'ev_energy_last5min') | default(0.0) }}
+            {% endif %}
+          percentage_of_total: >-
+            {% if (states('sensor.sa_data_by_5min_load_ev_charger_generated') | is_number)
+                and (states('sensor.sa_data_by_5min_load_ev_charger_total') | is_number) %}
+              {% if states('sensor.sa_data_by_5min_load_ev_charger_total') | float(0) > 0 %}
+                {{ ((states('sensor.sa_data_by_5min_load_ev_charger_generated') | float(0))
+                    / (states('sensor.sa_data_by_5min_load_ev_charger_total') | float(1))
+                    * 100) | int }}
+              {% else %}
                 none
-              {%- endif -%}
-            {%- else -%}
+              {% endif %}
+            {% else %}
               none
-            {%- endif -%}
+            {% endif %}
 
-      sa_todays_electric_vehicle_imported:
-        friendly_name: "Electric Vehicle Energy Imported"
+      - name: "Electric Vehicle Energy Imported"
         unique_id: sa_todays_electric_vehicle_imported
         unit_of_measurement: "Wh"
-        value_template: "{{- states.sensor.sa_data_by_5min_load_ev_charger_imported.state -}}"
-        icon_template: mdi:car-electric
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-          ev_energy_last5min: >
-            {%- if ( states.sensor.sa_data_by_5min_load_ev_charger.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_energy_consumed.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_energy_generated.state|is_number ) 
-              -%}
-              {%- if states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0) > 0.0 -%} 
-                {%- if (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0)) 
-                    < (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0)) 
-                  -%}
-                  {%- if (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0))
-                      <= ( (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0)) 
-                        - (states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0)) ) 
-                    -%}
-                    {{- ( states.sensor.sa_data_by_5min_load_ev_charger.state|float(0.0) ) -}}
-                  {%- else -%}
-                    {{- (states.sensor.sa_data_by_5min_energy_consumed.state|float(0.0)) 
-                        - (states.sensor.sa_data_by_5min_energy_generated.state|float(0.0)) 
-                      -}}
-                  {%- endif -%}
-                {%- else -%}
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:car-electric
+        state: "{{ states('sensor.sa_data_by_5min_load_ev_charger_imported') }}"
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+          ev_energy_last5min: >-
+            {% if (states('sensor.sa_data_by_5min_load_ev_charger') | is_number)
+                and (states('sensor.sa_data_by_5min_energy_consumed') | is_number)
+                and (states('sensor.sa_data_by_5min_energy_generated') | is_number) %}
+              {% if states('sensor.sa_data_by_5min_load_ev_charger') | float(0) > 0 %}
+                {% if states('sensor.sa_data_by_5min_energy_generated') | float(0)
+                    < states('sensor.sa_data_by_5min_energy_consumed') | float(0) %}
+                  {% if states('sensor.sa_data_by_5min_energy_generated') | float(0)
+                      <= (states('sensor.sa_data_by_5min_energy_consumed') | float(0)
+                        - states('sensor.sa_data_by_5min_load_ev_charger') | float(0)) %}
+                    {{ states('sensor.sa_data_by_5min_load_ev_charger') | float(0) }}
+                  {% else %}
+                    {{ states('sensor.sa_data_by_5min_energy_consumed') | float(0)
+                        - states('sensor.sa_data_by_5min_energy_generated') | float(0) }}
+                  {% endif %}
+                {% else %}
                   0.0
-                {%- endif -%}
-              {%- else -%}
+                {% endif %}
+              {% else %}
                 0.0
-              {%- endif -%}
-            {%- else -%}
-              {{- state_attr( 'sensor.sa_todays_electric_vehicle_imported', 'ev_energy_last5min' ) 
-                  if states.sensor.sa_todays_electric_vehicle_imported.attributes.ev_energy_last5min|is_number 
-                  else 0.0 
-                -}}
-            {%- endif -%}
-          percentage_of_total: >
-            {%- if ( states.sensor.sa_data_by_5min_load_ev_charger_imported.state|is_number ) 
-                and ( states.sensor.sa_data_by_5min_load_ev_charger_total.state|is_number ) 
-              -%}
-              {%- if ( states.sensor.sa_data_by_5min_load_ev_charger_total.state|float(0.0) > 0.0 ) -%}
-                {{- (( states.sensor.sa_data_by_5min_load_ev_charger_imported.state|float(0.0) ) 
-                    / ( states.sensor.sa_data_by_5min_load_ev_charger_total.state|float(1.0) ) 
-                    * 100.0)|int | default('none') 
-                  -}}
-              {%- else -%}
+              {% endif %}
+            {% else %}
+              {{ state_attr('sensor.sa_todays_electric_vehicle_imported', 'ev_energy_last5min') | default(0.0) }}
+            {% endif %}
+          percentage_of_total: >-
+            {% if (states('sensor.sa_data_by_5min_load_ev_charger_imported') | is_number)
+                and (states('sensor.sa_data_by_5min_load_ev_charger_total') | is_number) %}
+              {% if states('sensor.sa_data_by_5min_load_ev_charger_total') | float(0) > 0 %}
+                {{ ((states('sensor.sa_data_by_5min_load_ev_charger_imported') | float(0))
+                    / (states('sensor.sa_data_by_5min_load_ev_charger_total') | float(1))
+                    * 100) | int }}
+              {% else %}
                 none
-              {%- endif -%}
-            {%- else -%}
+              {% endif %}
+            {% else %}
               none
-            {%- endif -%}
+            {% endif %}
 
-      # The percentage of Electric Vehicle energy that has come from locally generated sources
-      # - i.e. not imported.
-      sa_todays_electric_vehicle_generated_percentage:
-        friendly_name: "Electric Vehicle Energy Generated Percentage"
+      - name: "Electric Vehicle Energy Generated Percentage"
         unique_id: sa_todays_electric_vehicle_generated_percentage
         unit_of_measurement: "%"
-        value_template: >
-          {{- state_attr( "sensor.sa_todays_electric_vehicle_generated", "percentage_of_total" ) 
-              if states.sensor.sa_todays_electric_vehicle_generated.attributes.percentage_of_total|is_number 
-              else "none" 
-            -}}
-        icon_template: mdi:car-electric
-        attribute_templates:
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
+        icon: mdi:car-electric
+        state: >-
+          {{ state_attr('sensor.sa_todays_electric_vehicle_generated', 'percentage_of_total')
+             if state_attr('sensor.sa_todays_electric_vehicle_generated', 'percentage_of_total') | is_number
+             else 'none' }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
 
-
-      sa_todays_energy_other_total:
-        friendly_name: "Todays Energy Other Total"
+  # -------------------------------------------------------------------------
+  # Derived Energy Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Todays Energy Other Total"
         unique_id: sa_todays_energy_other_total
         unit_of_measurement: "Wh"
-#
-### DELETE NON-STANDARD ENERGY SENSORS - START >>>>>>>>>>
-#
-        value_template: >-
-          {%- set most_recent_sensor_data = ( states.sensor.sa_data_by_5min_energy_consumed_total.state|float(0.0)
-              - states.sensor.sa_data_by_5min_load_air_conditioner_total.state|float(0.0)
-              - states.sensor.sa_data_by_5min_load_ev_charger_total.state|float(0.0)
-              - states.sensor.sa_data_by_5min_load_hot_water_total.state|float(0.0)
-              - states.sensor.sa_data_by_5min_load_stove_total.state|float(0.0)
+        device_class: energy
+        state_class: total
+        icon: mdi:home-lightning-bolt-outline
+        state: >-
+          {% set most_recent = (
+              states('sensor.sa_data_by_5min_energy_consumed_total') | float(0)
+              - states('sensor.sa_data_by_5min_load_air_conditioner_total') | float(0)
+              - states('sensor.sa_data_by_5min_load_ev_charger_total') | float(0)
+              - states('sensor.sa_data_by_5min_load_hot_water_total') | float(0)
+              - states('sensor.sa_data_by_5min_load_stove_total') | float(0)
+          ) | round(4) %}
+          {{ most_recent if (most_recent > this.state | float(0))
+              or (states('sensor.sa_data_by_5min_meter_reset') == 'True')
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
 
-              ) | round(4)
-            -%}
-          {{- most_recent_sensor_data|default(0.0)
-              if (most_recent_sensor_data|float > this.state|float(0.0))
-                  or (states.sensor.sa_data_by_5min_meter_reset.state == "True")
-              else this.state|default(0.0)
-            -}}
-#
-### DELETE NON-STANDARD ENERGY SENSORS - END <<<<<<<<<<
-#
-        icon_template: mdi:home-lightning-bolt-outline
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-#
-### DELETE FOR 3-PHASE SOLUTION - END <<<<<<<<<<
-#
-
-
-      #
-      # Solar Energy Consumed as kWh, % of generated, and % of of consumed.
-      #
-      # Return values: numeric if available, else previous value else "unavailable"
-      sa_todays_energy_consumed_solar:
-        friendly_name: "Total Energy Consumed Solar"
+      - name: "Total Energy Consumed Solar"
         unique_id: sa_todays_energy_consumed_solar
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_5min_consumed_solar_total.state 
-              if states.sensor.sa_data_by_5min_consumed_solar_total.state|is_number 
-              else this.state|default("unavailable") -}}
-        icon_template: mdi:solar-power
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total_increasing"
-          time_stamp: "{{- states.sensor.sa_live_site_data_time_stamp.state -}}"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:solar-power
+        state: >-
+          {{ states('sensor.sa_data_by_5min_consumed_solar_total') | float
+             if states('sensor.sa_data_by_5min_consumed_solar_total') | is_number
+             else this.state | default('unavailable') }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_live_site_data_time_stamp') }}"
 
-      sa_todays_energy_generated_expected_total:
-        friendly_name: "Total Energy Generated Expected"
+      - name: "Total Energy Generated Expected"
         unique_id: sa_todays_energy_generated_expected_total
         unit_of_measurement: "Wh"
-        value_template: >-
-          {{- states.sensor.sa_data_by_hour_generated_expected.state 
-              if states.sensor.sa_data_by_hour_generated_expected.state|is_number 
-              else this.state|default("unavailable") -}}
-        icon_template: mdi:solar-power
-        device_class: "energy"
-        attribute_templates:
-          state_class: "total"
-          time_stamp: "{{- states.sensor.sa_data_by_hour_time_stamp.state -}}"
+        device_class: energy
+        state_class: total
+        icon: mdi:solar-power
+        state: >-
+          {{ states('sensor.sa_data_by_hour_generated_expected') | float
+             if states('sensor.sa_data_by_hour_generated_expected') | is_number
+             else this.state | default('unavailable') }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_hour_time_stamp') }}"
 
-      #
-      # Calculation logic considerate of total energy generated at start of the day
-      # could be negative (i.e. the inverter has consumed energy at start-up).
-      #
-      # Percentage of generated energy that has been consumed.
-      # Only shows valid sensor when the daily generated solar energy is greater than 100Wh.
-      #
-      # Return values: numeric if available, else "unavailable"
-      sa_todays_generated_consumed_percentage:
-        friendly_name: "Percentage Generated Energy Consumed"
+  # -------------------------------------------------------------------------
+  # Percentage Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Percentage Generated Energy Consumed"
         unique_id: sa_todays_generated_consumed_percentage
         unit_of_measurement: "%"
-        value_template: >
-          {%- if (states.sensor.sa_data_by_5min_consumed_solar_total.state|is_number) 
-                and (states.sensor.sa_data_by_5min_energy_generated_total.state|is_number) 
-            -%}
-            {%- if ( states.sensor.sa_data_by_5min_consumed_solar_total.state|float
-                    < states.sensor.sa_data_by_5min_energy_generated_total.state|float )
-                  and ( states.sensor.sa_data_by_5min_consumed_solar_total.state|float > 100.0 )                
-              -%}
-              {{- ( (states.sensor.sa_data_by_5min_consumed_solar_total.state|float) 
-                    / (states.sensor.sa_data_by_5min_energy_generated_total.state|float) 
-                    * 100.0 ) 
-                  | round(1) 
-                -}}
-            {%- else -%}
+        icon: mdi:solar-power
+        state: >-
+          {% if (states('sensor.sa_data_by_5min_consumed_solar_total') | is_number)
+              and (states('sensor.sa_data_by_5min_energy_generated_total') | is_number) %}
+            {% if (states('sensor.sa_data_by_5min_consumed_solar_total') | float
+                  < states('sensor.sa_data_by_5min_energy_generated_total') | float)
+                and (states('sensor.sa_data_by_5min_consumed_solar_total') | float > 100) %}
+              {{ ((states('sensor.sa_data_by_5min_consumed_solar_total') | float)
+                  / (states('sensor.sa_data_by_5min_energy_generated_total') | float)
+                  * 100) | round(1) }}
+            {% else %}
               100.0
-            {%- endif -%}
-          {%- else -%}
-            {{- states.sensor.sa_todays_generated_consumed_percentage.state 
-                if states.sensor.sa_todays_generated_consumed_percentage.state|is_number 
-                else "unavailable" 
-              -}}
-          {%- endif -%}
-        icon_template: mdi:solar-power
-        attribute_templates:
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
+            {% endif %}
+          {% else %}
+            {{ this.state if this.state | is_number else 'unavailable' }}
+          {% endif %}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
 
-      # Percentage of consumed energy that has been generated.
-      #
-      # Return values: numeric if available, else "unavailable"
-      sa_todays_consumed_generated_percentage:
-        friendly_name: "Percentage Consumed Energy Generated"
+      - name: "Percentage Consumed Energy Generated"
         unique_id: sa_todays_consumed_generated_percentage
         unit_of_measurement: "%"
-        value_template: >-
-          {%- if (states.sensor.sa_data_by_5min_energy_consumed_total.state|is_number) 
-                and (states.sensor.sa_data_by_5min_consumed_solar_total.state|is_number) 
-            -%}
-            {%- if ( states.sensor.sa_data_by_5min_consumed_solar_total.state|float
-                    < states.sensor.sa_data_by_5min_energy_consumed_total.state|float )
-                  and ( states('sensor.sa_data_by_5min_consumed_solar_total')|float > 100.0 )
-              -%}
-              {{- ( (states.sensor.sa_data_by_5min_consumed_solar_total.state|float) 
-                    / (states.sensor.sa_data_by_5min_energy_consumed_total.state|float) 
-                    * 100.0 ) 
-                  | round(1) 
-                -}}
-            {%- else -%}
+        icon: mdi:solar-power
+        state: >-
+          {% if (states('sensor.sa_data_by_5min_energy_consumed_total') | is_number)
+              and (states('sensor.sa_data_by_5min_consumed_solar_total') | is_number) %}
+            {% if (states('sensor.sa_data_by_5min_consumed_solar_total') | float
+                  < states('sensor.sa_data_by_5min_energy_consumed_total') | float)
+                and (states('sensor.sa_data_by_5min_consumed_solar_total') | float > 100) %}
+              {{ ((states('sensor.sa_data_by_5min_consumed_solar_total') | float)
+                  / (states('sensor.sa_data_by_5min_energy_consumed_total') | float)
+                  * 100) | round(1) }}
+            {% else %}
               0.0
-            {%- endif -%}
-          {%- else -%}
-            {{- states.sensor.sa_todays_consumed_generated_percentage.state 
-                if states.sensor.sa_todays_consumed_generated_percentage.state|is_number 
-                else "unavailable" 
-              -}}
-          {%- endif -%}
-        icon_template: mdi:solar-power
-        attribute_templates:
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
+            {% endif %}
+          {% else %}
+            {{ this.state if this.state | is_number else 'unavailable' }}
+          {% endif %}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
 
-      #
-      # Solar Analytics Energy history sensor for graphing each channel (e.g. in Apex Charts).
-      # The units are in kW.
-      #
-      # Note: results are 5 minute average power, with area under the graph being the energy
-      # usage within that time interval. The time duration is limited to 28x 5 minute intervals
-      # (= 2h20m) as this fits within the 255 character max allowed by the state of a sensor.
-      # Rounding to a reduced number of decimal places (e.g. 1 instead of 2) could increase
-      # the number of intervals if that's desireable, but at a lower resolution. Lastly,
-      # the history sensors as states from above are implemented as attributes so they
-      # can be readily interpreted as lists.
-      #
-      sa_todays_energy_history:
-        friendly_name: "Total Energy History"
-        unique_id: sa_todays_energy_history        
-        value_template: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
-        icon_template: mdi:sun-clock
-        attribute_templates:
+  # -------------------------------------------------------------------------
+  # History Sensor
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Total Energy History"
+        unique_id: sa_todays_energy_history
+        icon: mdi:sun-clock
+        state: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
+        attributes:
           times: >-
-            {%- set ns = namespace( 
+            {% set ns = namespace(
                 times=[],
-                count = states('sensor.sa_data_by_5min_history_time_stamp_count')|int(0) 
-                ) 
-              -%}
-            {%- for i in range(ns.count) -%}
-              {%- if i > ns.count - 29 -%}
-                {%- set ns.times = ns.times + [
-                    as_local( 
-                      as_datetime( states('sensor.sa_data_by_5min_time_stamp') )  
-                      - timedelta(minutes=(ns.count*5)-((i+1)*5)) 
-                      ).strftime("%Y-%m-%d %H:%M:%S")
-                    ] 
-                  -%}
-                {%- endif -%}
-            {%- endfor -%}
-            {{- ns.times -}}
-          times_simple: >
-            {{- states.sensor.sa_data_by_5min_history_time_stamp.state -}}
-          energy_consumed: >
-            {{- states.sensor.sa_data_by_5min_history_energy_consumed.state -}}
-          energy_generated: >
-            {{- states.sensor.sa_data_by_5min_history_energy_generated.state -}}
+                count = states('sensor.sa_data_by_5min_history_time_stamp_count') | int(0)
+            ) %}
+            {% for i in range(ns.count) %}
+              {% if i > ns.count - 29 %}
+                {% set ns.times = ns.times + [
+                    as_local(
+                      as_datetime(states('sensor.sa_data_by_5min_time_stamp'))
+                      - timedelta(minutes=(ns.count*5)-((i+1)*5))
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                ] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.times }}
+          times_simple: "{{ states('sensor.sa_data_by_5min_history_time_stamp') }}"
+          energy_consumed: "{{ states('sensor.sa_data_by_5min_history_energy_consumed') }}"
+          energy_generated: "{{ states('sensor.sa_data_by_5min_history_energy_generated') }}"
+          energy_imported_exported: "{{ states('sensor.sa_data_by_5min_history_imported_exported') }}"
+          energy_load_air_conditioner: "{{ states('sensor.sa_data_by_5min_history_load_air_conditioner') }}"
+          energy_load_ev_charger: "{{ states('sensor.sa_data_by_5min_history_load_ev_charger') }}"
+          energy_load_hot_water: "{{ states('sensor.sa_data_by_5min_history_load_hot_water') }}"
+          energy_load_stove: "{{ states('sensor.sa_data_by_5min_history_load_stove') }}"
 
-          energy_imported_exported: >
-            {{- states.sensor.sa_data_by_5min_history_imported_exported.state -}}
-
-#
-### DELETE FOR 3-PHASE SOLUTION - START >>>>>>>>>>
-#
-          energy_load_air_conditioner: >
-            {{- states.sensor.sa_data_by_5min_history_load_air_conditioner.state -}}
-          energy_load_ev_charger: >
-            {{- states.sensor.sa_data_by_5min_history_load_ev_charger.state -}}
-          energy_load_hot_water: >
-            {{- states.sensor.sa_data_by_5min_history_load_hot_water.state -}}
-          energy_load_stove: >
-            {{- states.sensor.sa_data_by_5min_history_load_stove.state -}}
-#
-### DELETE FOR 3-PHASE SOLUTION - END <<<<<<<<<<
-#
-
-
-      #
-      # Solar Analytics power sensors
-      #
-      # Return values: numeric if available, else previous value else "0.0"
-      sa_consumption_power:
-        friendly_name: "Power Consumption"
+  # -------------------------------------------------------------------------
+  # Power Sensors
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Power Consumption"
         unique_id: sa_consumption_power
         unit_of_measurement: "W"
-        value_template: >-
-          {{- states.sensor.sa_live_site_data_consumed.state
-              if states.sensor.sa_live_site_data_consumed.state|is_number
-              else states.sensor.sa_consumption_power.state|default(0.0)
-            -}}
-        icon_template: mdi:home-lightning-bolt-outline
-        device_class: "power"
-        attribute_templates:
-          state_class: "measurement"
-          time_stamp: "{{- states.sensor.sa_live_site_data_time_stamp.state -}}"
+        device_class: power
+        state_class: measurement
+        icon: mdi:home-lightning-bolt-outline
+        state: >-
+          {{ states('sensor.sa_live_site_data_consumed') | float
+             if states('sensor.sa_live_site_data_consumed') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_live_site_data_time_stamp') }}"
 
-      sa_generation_power:
-        friendly_name: "Power Generation"
+      - name: "Power Generation"
         unique_id: sa_generation_power
         unit_of_measurement: "W"
-        value_template: >-
-          {{- states.sensor.sa_live_site_data_generated.state
-              if states.sensor.sa_live_site_data_generated.state|is_number
-              else states.sensor.sa_generation_power.state|default(0.0)
-            -}}
-        icon_template: mdi:solar-power
-        device_class: "power"
-        attribute_templates:
-          state_class: "measurement"
-          time_stamp: "{{- states.sensor.sa_live_site_data_time_stamp.state -}}"
+        device_class: power
+        state_class: measurement
+        icon: mdi:solar-power
+        state: >-
+          {{ states('sensor.sa_live_site_data_generated') | float
+             if states('sensor.sa_live_site_data_generated') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_live_site_data_time_stamp') }}"
 
-      sa_import_export_power:
-        friendly_name: "Power Import Export"
+      - name: "Power Import Export"
         unique_id: sa_import_export_power
         unit_of_measurement: "W"
-        value_template: >-
-          {{- states.sensor.sa_live_site_data_imported_exported.state
-              if states.sensor.sa_live_site_data_imported_exported.state|is_number
-              else states.sensor.sa_import_export_power.state|default(0.0)
-            -}}
-        icon_template: mdi:transmission-tower
-        device_class: "power"
-        attribute_templates:
-          state_class: "measurement"
-          time_stamp: "{{- states.sensor.sa_live_site_data_time_stamp.state -}}"
+        device_class: power
+        state_class: measurement
+        icon: mdi:transmission-tower
+        state: >-
+          {{ states('sensor.sa_live_site_data_imported_exported') | float
+             if states('sensor.sa_live_site_data_imported_exported') | is_number
+             else this.state | default(0) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_live_site_data_time_stamp') }}"
 
-#
-# Home Assistant Energy Dashboard extras
-#
-
-      #
-      # Todays Energy Total Net Cost
-      #
-      # The HA Energy Dashboard automatically creates two entities respectively derived from the sa_todays_energy_imported 
-      # and sa_todays_energy_exported, where:
-      #   > sa_todays_energy_imported_cost - cost of imported energy
-      #   > sa_todays_energy_exported_compensation - revenue from exported energy
-      # This new entity provides the net cost (imported cost minus exported revenue)
-      #
-      sa_todays_energy_total_net_cost:
-        friendly_name: "Todays Energy Total Net Cost"
+  # -------------------------------------------------------------------------
+  # Monetary Sensor
+  # -------------------------------------------------------------------------
+  - sensor:
+      - name: "Todays Energy Total Net Cost"
         unique_id: sa_todays_energy_total_net_cost
         unit_of_measurement: "AUD"
-        device_class: "monetary"
-        icon_template: mdi:cash
-        value_template: >-
-          {{- (states.sensor.sa_todays_energy_imported_cost.state|float(0.0)) 
-              - (states.sensor.sa_todays_energy_exported_compensation.state|float(0.0)) 
-            -}}
-        attribute_templates:
-          state_class: "total"
-          time_stamp: "{{- states.sensor.sa_data_by_5min_time_stamp.state -}}"
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash
+        state: >-
+          {{ (states('sensor.sa_todays_energy_imported_cost') | float(0))
+             - (states('sensor.sa_todays_energy_exported_compensation') | float(0)) }}
+        attributes:
+          time_stamp: "{{ states('sensor.sa_data_by_5min_time_stamp') }}"
 
-# -----------------------------------------------------------------------------
-# TEMPLATE TRIGGER SENSORS
-template:
+
+  # -------------------------------------------------------------------------
+  # TEMPLATE TRIGGER SENSORS
+  # -------------------------------------------------------------------------
 
   #
   # Todays Energy Import Rate
