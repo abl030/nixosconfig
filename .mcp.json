@@ -22,6 +22,10 @@
     "unifi": {
       "command": "./scripts/mcp-unifi.sh",
       "args": []
+    },
+    "homeassistant": {
+      "command": "./scripts/mcp-homeassistant.sh",
+      "args": []
     }
   }
 }
