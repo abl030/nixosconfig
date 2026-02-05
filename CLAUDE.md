@@ -223,6 +223,15 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 - Hosts are labelled: `wsl`, `proxmox-vm` (doc1), `igpu`, `dev`, `cache`, `tower`.
 - Container logs use the `container` label (e.g., `{host="proxmox-vm", container="immich-server"}`).
 
+### Home Assistant
+
+The Home Assistant MCP server controls smart home devices via `mcp-proxy` (stdio-to-HTTP bridge to `https://home.ablz.au/api/mcp`). Usage notes:
+- All tools are **deferred** — use `ToolSearch` with query `homeassistant` to load them before calling.
+- Tool names follow HA conventions: `HassTurnOn`, `HassTurnOff`, `GetLiveContext`, `HassMediaSearchAndPlay`, etc.
+- Use `GetLiveContext` first to discover available devices, areas, and current states before issuing commands.
+- Device targeting uses `name`, `area`, and `floor` parameters — values come from `GetLiveContext` output.
+- Auth uses a long-lived access token stored in `secrets/homeassistant-mcp.env` (sops-encrypted, key: `HA_TOKEN`).
+
 ### mcp-nixos
 
 [mcp-nixos](https://github.com/utensils/mcp-nixos) prevents hallucinations about NixOS:
