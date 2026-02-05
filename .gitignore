@@ -14,3 +14,4 @@ tfplan
 # Nix build outputs and local caches
 result
 .cache/
+ha/esphome/
