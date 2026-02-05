@@ -1,0 +1,529 @@
+# IR Sensor Dashboard
+# url_path: ir-sensor
+# title: IR Sensor
+
+views:
+- path: default_view
+  title: Home
+  cards:
+  - type: entities
+    entities:
+    - person.andy_barrett_lennard
+  - type: weather-forecast
+    show_current: true
+    show_forecast: false
+    entity: weather.forecast_home
+    forecast_type: daily
+    secondary_info_attribute: precipitation_today
+  - type: entities
+    entities:
+    - entity: sensor.sensor_wine_fridge_garage_west_temperature
+    - entity: sensor.sensor_wine_fridge_garage_east_temperature
+    - entity: sensor.sensor_wine_fridge_south_temperature
+    - entity: sensor.sensor_wine_fridge_centre_temperature
+    - entity: sensor.sensor_wine_fridge_north_temperature
+  - type: weather-forecast
+    show_current: true
+    show_forecast: false
+    entity: weather.imarga43
+    forecast_type: daily
+    secondary_info_attribute: preciptotal
+  - type: entities
+    entities:
+    - entity: sensor.imarga43_precipitation_today
+    - entity: sensor.imarga43_temperature
+    - entity: sensor.imarga43_relative_humidity
+    - entity: sensor.imarga43_dewpoint
+  - type: entities
+    entities:
+    - entity: sensor.sensor_masterbedroom_humidity
+    - entity: sensor.sensor_masterbedroom_temperature
+  - title: History
+    type: history-graph
+    hours_to_show: 15
+    entities:
+    - sensor.stp_25_50_grid_power_2
+    - sensor.stp_25_50_grid_power
+    - sensor.stp_25_50_grid_power_3_warehouse
+    - sensor.stp_25_50_pv_gen_meter_3_warehouse
+    - sensor.stp_25_50_pv_gen_meter_2_bankb
+    - sensor.stp_25_50_pv_gen_meter
+  badges:
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: sensor.imarga43_temperature
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: sensor.sun_next_dawn
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.sensor_masterbedroom_temperature
+- title: Dental Hub
+  path: dental-hub
+  icon: mdi:toothbrush-electric
+  cards:
+  - type: horizontal-stack
+    cards:
+    - type: vertical-stack
+      cards:
+      - type: markdown
+        content: '## 🦷 Andy''s Brushing Stats'
+      - type: horizontal-stack
+        cards:
+        - type: gauge
+          entity: input_number.daily_brush_events_andy
+          name: Events Today
+          min: 0
+          max: 2
+          severity:
+            red: 0
+            yellow: 1
+            green: 2
+        - type: gauge
+          entity: input_number.daily_brush_time_andy
+          name: Time Today
+          unit: s
+          min: 0
+          max: 240
+          severity:
+            red: 0
+            yellow: 120
+            green: 240
+      - type: entities
+        title: Stats Breakdown
+        show_header_toggle: false
+        entities:
+        - type: section
+          label: Today
+        - entity: sensor.andy_formatted_daily_brush_time
+          name: Total Time Today
+        - entity: sensor.io_series_6_7_528e_duration
+          name: Current Session
+          icon: mdi:timer-sync-outline
+        - entity: sensor.andy_yesterday_s_brush_events
+          name: Yesterday's Events
+        - type: section
+          label: This Month
+        - entity: sensor.andy_brushing_units_monthly
+          name: Monthly Events
+          icon: mdi:counter
+        - entity: sensor.andy_brush_time_monthly
+          name: Monthly Time
+          icon: mdi:clock-outline
+        - type: section
+          label: Long-Term
+        - entity: sensor.andy_brush_time_yearly
+          name: Yearly Time
+          icon: mdi:calendar-star
+        - entity: sensor.andy_all_time_brush_time_display
+          name: All-Time Total
+          icon: mdi:trophy
+        - entity: sensor.andy_average_daily_brush_time_long_term
+          name: Avg Daily Time (Long Term)
+          icon: mdi:chart-line
+      - type: entities
+        title: Bedtime (Daily)
+        show_header_toggle: false
+        entities:
+        - entity: sensor.andy_bedtime_hour_daily
+          name: Bedtime Hour (last night)
+    - type: vertical-stack
+      cards:
+      - type: markdown
+        content: '## 🪥 Meg''s Brushing Stats'
+      - type: horizontal-stack
+        cards:
+        - type: gauge
+          entity: input_number.daily_brush_events_meg
+          name: Events Today
+          min: 0
+          max: 2
+          severity:
+            red: 0
+            yellow: 1
+            green: 2
+        - type: gauge
+          entity: input_number.daily_brush_time_meg
+          name: Time Today
+          unit: s
+          min: 0
+          max: 240
+          severity:
+            red: 0
+            yellow: 120
+            green: 240
+      - type: entities
+        title: Stats Breakdown
+        show_header_toggle: false
+        entities:
+        - type: section
+          label: Today
+        - entity: sensor.meg_formatted_daily_brush_time
+          name: Total Time Today
+        - entity: sensor.io_series_6_7_d704_duration
+          name: Current Session
+          icon: mdi:timer-sync-outline
+        - entity: sensor.meg_yesterday_s_brush_events
+          name: Yesterday's Events
+        - type: section
+          label: This Month
+        - entity: sensor.meg_brushing_units_monthly
+          name: Monthly Events
+          icon: mdi:counter
+        - entity: sensor.meg_brush_time_monthly
+          name: Monthly Time
+          icon: mdi:clock-outline
+        - type: section
+          label: Long-Term
+        - entity: sensor.meg_brush_time_yearly
+          name: Yearly Time
+          icon: mdi:calendar-star
+        - entity: sensor.meg_all_time_brush_time_display
+          name: All-Time Total
+          icon: mdi:trophy
+        - entity: sensor.meg_average_daily_brush_time_long_term
+          name: Avg Daily Time (Long Term)
+          icon: mdi:chart-line
+      - type: entities
+        title: Bedtime (Daily)
+        show_header_toggle: false
+        entities:
+        - entity: sensor.meg_bedtime_hour_daily
+          name: Bedtime Hour (last night)
+- title: Overview
+  path: overview
+  icon: mdi:home-lightning-bolt
+  panel: false
+  cards:
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Business Flexi Plus with Synergy Sellback
+
+        '
+    - type: gauge
+      entity: sensor.total_daily_energy_net_cost
+      name: Total Net Cost Today
+      unit: AUD
+      severity:
+        green: -5
+        yellow: 0
+        red: 5
+    - type: entities
+      title: Cost & Credit Breakdown
+      show_header_toggle: false
+      entities:
+      - entity: sensor.total_daily_energy_net_cost
+        name: Net Cost (Usage + Supply - Credit)
+        icon: mdi:scale-balance
+      - entity: input_number.daily_supply_charge
+        name: Daily Supply Charge
+        icon: mdi:cash-marker
+      - entity: sensor.total_daily_energy_credit
+        name: Total Credit Earned (Exported)
+        icon: mdi:cash-plus
+      - entity: sensor.monthly_net_cost
+        name: Monthly Cost
+        icon: mdi:cash-plus
+    - type: entities
+      title: Natural Power Surcharge
+      show_header_toggle: false
+      entities:
+      - entity: sensor.daily_natural_power_surcharge
+        name: Today
+        icon: mdi:leaf
+      - entity: sensor.monthly_natural_power_surcharge
+        name: Month to Date
+        icon: mdi:calendar-leaf
+      - entity: sensor.yearly_natural_power_surcharge
+        name: Year to Date
+        icon: mdi:calendar-star
+  - type: history-graph
+    title: Daily Cost & Credit Accumulation
+    entities:
+    - sensor.daily_energy_cost_on_peak
+    - sensor.daily_energy_cost_midday_saver
+    - sensor.daily_energy_cost_off_peak
+    - sensor.total_daily_energy_credit
+    hours_to_show: 24
+    refresh_interval: 60
+  - type: horizontal-stack
+    cards:
+    - type: vertical-stack
+      cards:
+      - type: markdown
+        content: '### Grid Import Details
+
+          '
+      - type: entities
+        title: Usage Costs
+        show_header_toggle: false
+        entities:
+        - sensor.daily_energy_cost_on_peak
+        - sensor.daily_energy_cost_midday_saver
+        - sensor.daily_energy_cost_off_peak
+      - type: entities
+        title: Energy Usage
+        show_header_toggle: false
+        entities:
+        - sensor.daily_energy_on_peak
+        - sensor.daily_energy_midday_saver
+        - sensor.daily_energy_off_peak
+    - type: vertical-stack
+      cards:
+      - type: markdown
+        content: '### Solar Export Details
+
+          '
+      - type: entities
+        title: Credits Earned
+        show_header_toggle: false
+        entities:
+        - sensor.daily_energy_credit_on_peak
+        - sensor.daily_energy_credit_off_peak
+      - type: entities
+        title: Energy Exported
+        show_header_toggle: false
+        entities:
+        - sensor.daily_energy_exported_export_on_peak
+        - sensor.daily_energy_exported_export_off_peak
+  - type: entities
+    title: Live Status & Rates
+    show_header_toggle: false
+    entities:
+    - entity: sensor.current_electricity_tariff
+      name: Current Import Tariff
+    - entity: sensor.current_export_tariff
+      name: Current Export Tariff
+    - type: divider
+    - entity: input_number.daily_supply_charge
+      name: Supply Rate (Editable)
+    - entity: input_number.export_rate_on_peak
+      name: Peak Export Rate (Editable)
+    - entity: input_number.export_rate_off_peak
+      name: Off-Peak Export Rate (Editable)
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## 🔋 Virtual Battery Savings Simulation
+
+        '
+    - type: horizontal-stack
+      cards:
+      - type: gauge
+        name: 50kWh SoC
+        entity: sensor.virtual_battery_soc_50kwh_display
+        unit: Wh
+        min: 0
+        max: 50000
+      - type: gauge
+        name: 60kWh SoC
+        entity: sensor.virtual_battery_soc_60kwh_display
+        unit: Wh
+        min: 0
+        max: 60000
+      - type: gauge
+        name: 70kWh SoC
+        entity: sensor.virtual_battery_soc_70kwh_display
+        unit: Wh
+        min: 0
+        max: 70000
+    - type: horizontal-stack
+      cards:
+      - type: gauge
+        name: 80kWh SoC
+        entity: sensor.virtual_battery_soc_80kwh_display
+        unit: Wh
+        min: 0
+        max: 80000
+      - type: gauge
+        name: 90kWh SoC
+        entity: sensor.virtual_battery_soc_90kwh_display
+        unit: Wh
+        min: 0
+        max: 90000
+      - type: gauge
+        name: 100kWh SoC
+        entity: sensor.virtual_battery_soc_100kwh_display
+        unit: Wh
+        min: 0
+        max: 100000
+  - type: entities
+    title: Potential Savings Breakdown
+    show_header_toggle: false
+    entities:
+    - type: section
+      label: Potential Daily Savings (AUD)
+    - entity: sensor.potential_daily_savings_50kwh
+    - entity: sensor.potential_daily_savings_60kwh
+    - entity: sensor.potential_daily_savings_70kwh
+    - entity: sensor.potential_daily_savings_80kwh
+    - entity: sensor.potential_daily_savings_90kwh
+    - entity: sensor.potential_daily_savings_100kwh
+    - type: section
+      label: Potential Monthly Savings (AUD)
+    - entity: sensor.potential_monthly_savings_50kwh
+    - entity: sensor.potential_monthly_savings_60kwh
+    - entity: sensor.potential_monthly_savings_70kwh
+    - entity: sensor.potential_monthly_savings_80kwh
+    - entity: sensor.potential_monthly_savings_90kwh
+    - entity: sensor.potential_monthly_savings_100kwh
+    - type: section
+      label: Potential Yearly Savings (AUD)
+    - entity: sensor.potential_yearly_savings_50kwh
+    - entity: sensor.potential_yearly_savings_60kwh
+    - entity: sensor.potential_yearly_savings_70kwh
+    - entity: sensor.potential_yearly_savings_80kwh
+    - entity: sensor.potential_yearly_savings_90kwh
+    - entity: sensor.potential_yearly_savings_100kwh
+- title: Business Flexi Comparison
+  path: business-flexi-comparison
+  icon: mdi:file-compare
+  panel: false
+  cards:
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Business Flexi - Financial Summary This is a calculated, parallel view of what your costs would be on this
+        plan. It has no solar export credit.
+
+        '
+    - type: gauge
+      entity: sensor.business_flexi_total_daily_cost
+      name: Business Flexi Cost Today
+      unit: AUD
+      severity:
+        green: 0
+        yellow: 5
+        red: 10
+    - type: entities
+      title: Cost Breakdown
+      show_header_toggle: false
+      entities:
+      - entity: sensor.business_flexi_total_daily_cost
+        name: Total Cost (Usage + Supply)
+        icon: mdi:cash-lock
+      - entity: sensor.business_flexi_daily_cost_on_peak
+        name: On Peak Usage Cost
+      - entity: sensor.business_flexi_daily_cost_off_peak
+        name: Off Peak Usage Cost
+      - entity: input_number.business_flexi_supply_charge
+        name: Daily Supply Charge
+        icon: mdi:cash-marker
+      - entity: sensor.business_flexi_monthly_cost
+        name: Monthly Cost
+        icon: mdi:cash-marker
+  - type: history-graph
+    title: Daily Cost Accumulation (Business Flexi)
+    entities:
+    - sensor.business_flexi_daily_cost_on_peak
+    - sensor.business_flexi_daily_cost_off_peak
+    hours_to_show: 24
+    refresh_interval: 60
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '### Grid Import Details
+
+        '
+    - type: entities
+      title: Energy Usage (Wh) by Tariff
+      show_header_toggle: false
+      entities:
+      - entity: sensor.business_flexi_daily_energy_business_on_peak
+        name: On Peak Usage
+      - entity: sensor.business_flexi_daily_energy_business_off_peak
+        name: Off Peak Usage
+  - type: entities
+    title: Live Status & Rates (Business Flexi)
+    show_header_toggle: false
+    entities:
+    - entity: sensor.business_flexi_current_tariff
+      name: Current Tariff
+    - type: divider
+    - entity: input_number.business_flexi_supply_charge
+      name: Supply Rate (Editable)
+    - entity: input_number.business_flexi_rate_on_peak
+      name: On Peak Rate (Editable)
+    - entity: input_number.business_flexi_rate_off_peak
+      name: Off Peak Rate (Editable)
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## 🔋 Virtual Battery Savings Simulation (Business Flexi)
+
+        '
+    - type: horizontal-stack
+      cards:
+      - type: gauge
+        name: 50kWh SoC
+        entity: sensor.virtual_battery_soc_bf_50kwh_display
+        unit: Wh
+        min: 0
+        max: 50000
+      - type: gauge
+        name: 60kWh SoC
+        entity: sensor.virtual_battery_soc_bf_60kwh_display
+        unit: Wh
+        min: 0
+        max: 60000
+      - type: gauge
+        name: 70kWh SoC
+        entity: sensor.virtual_battery_soc_bf_70kwh_display
+        unit: Wh
+        min: 0
+        max: 70000
+    - type: horizontal-stack
+      cards:
+      - type: gauge
+        name: 80kWh SoC
+        entity: sensor.virtual_battery_soc_bf_80kwh_display
+        unit: Wh
+        min: 0
+        max: 80000
+      - type: gauge
+        name: 90kWh SoC
+        entity: sensor.virtual_battery_soc_bf_90kwh_display
+        unit: Wh
+        min: 0
+        max: 90000
+      - type: gauge
+        name: 100kWh SoC
+        entity: sensor.virtual_battery_soc_bf_100kwh_display
+        unit: Wh
+        min: 0
+        max: 100000
+  - type: entities
+    title: Potential Savings Breakdown (Business Flexi)
+    show_header_toggle: false
+    entities:
+    - type: section
+      label: Potential Daily Savings (AUD)
+    - entity: sensor.potential_daily_savings_bf_50kwh
+    - entity: sensor.potential_daily_savings_bf_60kwh
+    - entity: sensor.potential_daily_savings_bf_70kwh
+    - entity: sensor.potential_daily_savings_bf_80kwh
+    - entity: sensor.potential_daily_savings_bf_90kwh
+    - entity: sensor.potential_daily_savings_bf_100kwh
+    - type: section
+      label: Potential Monthly Savings (AUD)
+    - entity: sensor.potential_monthly_savings_bf_50kwh
+    - entity: sensor.potential_monthly_savings_bf_60kwh
+    - entity: sensor.potential_monthly_savings_bf_70kwh
+    - entity: sensor.potential_monthly_savings_bf_80kwh
+    - entity: sensor.potential_monthly_savings_bf_90kwh
+    - entity: sensor.potential_monthly_savings_bf_100kwh
+    - type: section
+      label: Potential Yearly Savings (AUD)
+    - entity: sensor.potential_yearly_savings_bf_50kwh
+    - entity: sensor.potential_yearly_savings_bf_60kwh
+    - entity: sensor.potential_yearly_savings_bf_70kwh
+    - entity: sensor.potential_yearly_savings_bf_80kwh
+    - entity: sensor.potential_yearly_savings_bf_90kwh
+    - entity: sensor.potential_yearly_savings_bf_100kwh
