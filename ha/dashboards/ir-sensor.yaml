@@ -388,74 +388,75 @@ views:
     - type: markdown
       content: '## 📊 Battery Comparison (ApexCharts)'
     - type: custom:apexcharts-card
+      chart_type: radialBar
       header:
-        title: Virtual Battery State of Charge
+        title: Battery SoC (% Full)
         show: true
-      graph_span: 1d
-      span:
-        start: day
-      chart_type: bar
       series:
-        - entity: sensor.virtual_battery_soc_50kwh_display
-          name: 50kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
-        - entity: sensor.virtual_battery_soc_60kwh_display
-          name: 60kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
-        - entity: sensor.virtual_battery_soc_70kwh_display
-          name: 70kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
-        - entity: sensor.virtual_battery_soc_80kwh_display
-          name: 80kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
-        - entity: sensor.virtual_battery_soc_90kwh_display
-          name: 90kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
+        - entity: sensor.virtual_battery_soc_200kwh_display
+          name: 200kWh
+          max: 200000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_190kwh_display
+          name: 190kWh
+          max: 190000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_180kwh_display
+          name: 180kWh
+          max: 180000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_170kwh_display
+          name: 170kWh
+          max: 170000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_160kwh_display
+          name: 160kWh
+          max: 160000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_150kwh_display
+          name: 150kWh
+          max: 150000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_140kwh_display
+          name: 140kWh
+          max: 140000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_130kwh_display
+          name: 130kWh
+          max: 130000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_120kwh_display
+          name: 120kWh
+          max: 120000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_110kwh_display
+          name: 110kWh
+          max: 110000
+          color: '#4CAF50'
         - entity: sensor.virtual_battery_soc_100kwh_display
           name: 100kWh
-          type: column
-          group_by:
-            func: last
-            duration: 1d
-    - type: custom:apexcharts-card
-      header:
-        title: Daily Savings by Battery Size
-        show: true
-      chart_type: bar
-      series:
-        - entity: sensor.potential_daily_savings_50kwh
-          name: 50kWh
-          type: column
-        - entity: sensor.potential_daily_savings_60kwh
-          name: 60kWh
-          type: column
-        - entity: sensor.potential_daily_savings_70kwh
-          name: 70kWh
-          type: column
-        - entity: sensor.potential_daily_savings_80kwh
-          name: 80kWh
-          type: column
-        - entity: sensor.potential_daily_savings_90kwh
+          max: 100000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_90kwh_display
           name: 90kWh
-          type: column
-        - entity: sensor.potential_daily_savings_100kwh
-          name: 100kWh
-          type: column
+          max: 90000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_80kwh_display
+          name: 80kWh
+          max: 80000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_70kwh_display
+          name: 70kWh
+          max: 70000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_60kwh_display
+          name: 60kWh
+          max: 60000
+          color: '#4CAF50'
+        - entity: sensor.virtual_battery_soc_50kwh_display
+          name: 50kWh
+          max: 50000
+          color: '#4CAF50'
 - title: Business Flexi Comparison
   path: business-flexi-comparison
   icon: mdi:file-compare
