@@ -35,6 +35,10 @@
     };
     loki.syslogReceiver.enable = true;
     tailscale.enable = true;
+    mdnsReflector = {
+      enable = true;
+      interfaces = ["ens18"];
+    };
     nixCaches = {
       enable = true;
       profile = "internal";

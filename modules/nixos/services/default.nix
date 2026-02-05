@@ -18,6 +18,7 @@
     ./prometheus.nix
     ./openobserve.nix
     ./mcp.nix
+    ./mdns-reflector.nix
     ./framework
   ];
 }
