@@ -15,7 +15,7 @@ services:
       - "32400:32400/tcp"
       # Optional ports for various Plex features
       # - "1900:1900/udp" # Plex DLNA Server
-      - "5353:5353/udp" # Bonjour/Avahi network discovery
+      # - "5353:5353/udp" # Bonjour/Avahi — conflicts with host avahi-daemon
       - "8324:8324/tcp" # Plex Companion
       - "32410:32410/udp" # GDM network discovery
       - "32412:32412/udp" # GDM network discovery
