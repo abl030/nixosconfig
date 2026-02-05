@@ -1,0 +1,159 @@
+# ==============================================================================
+#          STANDALONE COMPARISON TARIFF PACKAGE
+#
+#       COMPARISON TARIFF: "SMALL USE BUSINESS FLEXI" PLAN
+#
+#  This is a self-contained file. It calculates a separate total cost
+#  for the Business Flexi plan for comparison purposes.
+# ==============================================================================
+# ------------------------------------------------------------------------------
+#  HELPER INPUTS (for Business Flexi Plan)
+# ------------------------------------------------------------------------------
+input_number:
+  business_flexi_supply_charge:
+    name: Business Flexi Supply Charge
+    initial: 3.1711
+    min: 0
+    max: 10
+    step: 0.0001
+    mode: box
+    unit_of_measurement: "AUD"
+    icon: mdi:cash-marker
+
+  business_flexi_rate_on_peak:
+    name: Business Flexi Rate On Peak
+    # Original: 0.4676 + Surcharge: 0.051929 = 0.519529
+    initial: 0.519529
+    min: 0
+    max: 2
+    step: 0.0001
+    mode: box
+    unit_of_measurement: "AUD/kWh"
+    icon: mdi:cash-clock
+
+  business_flexi_rate_off_peak:
+    name: Business Flexi Rate Off Peak
+    # Original: 0.2679 + Surcharge: 0.051929 = 0.319829
+    initial: 0.319829
+    min: 0
+    max: 2
+    step: 0.0001
+    mode: box
+    unit_of_measurement: "AUD/kWh"
+    icon: mdi:cash-clock
+
+# ------------------------------------------------------------------------------
+#  TEMPLATE SENSORS (for Business Flexi Plan)
+# ------------------------------------------------------------------------------
+template:
+  - sensor:
+      - name: "Business Flexi Current Tariff"
+        unique_id: "business_flexi_current_tariff"
+        state: >
+          {% set n = now() %}
+          {# Weekday is 1-5, Weekend is 6-7 #}
+          {% if n.isoweekday() < 6 and today_at("08:00") <= n < today_at("22:00") %}
+            business_on_peak
+          {% else %}
+            business_off_peak
+          {% endif %}
+
+  # --- Business Flexi Cost Sensors ---
+  - sensor:
+      - name: "Business Flexi Daily Cost On Peak"
+        unique_id: "business_flexi_daily_cost_on_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.business_flexi_daily_energy_business_on_peak') | float(0) / 1000
+              * states('input_number.business_flexi_rate_on_peak') | float(0)) | round(2) }}
+
+      - name: "Business Flexi Daily Cost Off Peak"
+        unique_id: "business_flexi_daily_cost_off_peak"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        state: >
+          {{ (states('sensor.business_flexi_daily_energy_business_off_peak') | float(0) / 1000
+              * states('input_number.business_flexi_rate_off_peak') | float(0)) | round(2) }}
+
+  # --- Business Flexi FINAL TOTAL COST Sensor ---
+  - sensor:
+      - name: "Business Flexi Total Daily Cost"
+        unique_id: "business_flexi_total_daily_cost"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total
+        icon: mdi:file-compare
+        state: >
+          {% set usage_cost =
+             (states('sensor.business_flexi_daily_cost_on_peak') | float(0))
+             + (states('sensor.business_flexi_daily_cost_off_peak') | float(0)) %}
+          {% set supply_charge =
+             states('input_number.business_flexi_supply_charge') | float(0) %}
+          {{ (usage_cost + supply_charge) | round(2) }}
+        attributes:
+          on_peak_cost: "{{ states('sensor.business_flexi_daily_cost_on_peak') | float(0) | round(2) }}"
+          off_peak_cost: "{{ states('sensor.business_flexi_daily_cost_off_peak') | float(0) | round(2) }}"
+          supply_charge: "{{ states('input_number.business_flexi_supply_charge') | float(0) | round(4) }}"
+
+# ------------------------------------------------------------------------------
+#  Business Flexi MONTHLY COST SENSOR (CORRECT METHOD)
+#
+#  This trigger-based sensor replaces the incorrect utility_meter.
+#  It correctly sums the daily cost at the end of each day.
+# ------------------------------------------------------------------------------
+  - trigger:
+      - platform: time
+        at: "23:59:50"  # Runs just before midnight to capture the final daily cost
+    sensor:
+      - name: "Business Flexi Monthly Cost"
+        unique_id: "business_flexi_monthly_cost"
+        device_class: monetary
+        unit_of_measurement: "AUD"
+        state_class: total  # Use 'total' as it increases over the month
+        icon: mdi:calendar-cash
+        state: >
+          {% set daily_cost = states('sensor.business_flexi_total_daily_cost') | float(0) %}
+          {# On the first day of the month, the new monthly total IS the new daily total. #}
+          {% if now().day == 1 %}
+            {{ daily_cost }}
+          {# For all other days, add the daily cost to the running monthly total (its own previous state). #}
+          {% else %}
+            {{ (this.state | float(0)) + daily_cost }}
+          {% endif %}
+
+# ------------------------------------------------------------------------------
+#  UTILITY METER (for Business Flexi Plan)
+#  NOTE: The 'business_flexi_monthly_cost' utility meter has been removed as it is incorrect.
+#  The trigger-based template sensor above provides the correct functionality.
+# ------------------------------------------------------------------------------
+utility_meter:
+  business_flexi_daily_energy:
+    source: sensor.sa_todays_energy_imported
+    cycle: daily
+    tariffs:
+      - business_on_peak
+      - business_off_peak
+
+# ------------------------------------------------------------------------------
+#  AUTOMATION (for Business Flexi Plan)
+# ------------------------------------------------------------------------------
+automation:
+  - alias: "Set Business Flexi Energy Tariff"
+    id: 'set_business_flexi_energy_tariff'
+    trigger:
+      - platform: state
+        entity_id: sensor.business_flexi_current_tariff
+        not_to:
+          - unavailable
+          - unknown
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.business_flexi_daily_energy
+        data:
+          option: "{{ states('sensor.business_flexi_current_tariff') }}"

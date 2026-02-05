@@ -1,0 +1,127 @@
+# ===================================================================================================
+# INFINITE-CAPACITY VIRTUAL BATTERY ADD-ON  – copy-paste this block below your existing package
+# (It is 100 % additive; nothing already in the file is touched.)
+# ===================================================================================================
+
+# ---------------------------------------------------------------------------------
+# HELPER INPUTS
+# ---------------------------------------------------------------------------------
+input_number:
+  virtual_battery_soc_infinite:
+    name: Virtual Battery SoC Infinite
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000000        # ~1 TWh → effectively “infinite”
+
+  virtual_discharge_meter_source_infinite:
+    name: Virtual Discharge Meter Source Infinite
+    mode: box
+    unit_of_measurement: "Wh"
+    min: 0
+    max: 1000000000000000     # ~1 PWh head-room
+
+# ---------------------------------------------------------------------------------
+# UTILITY METER
+# ---------------------------------------------------------------------------------
+utility_meter:
+  daily_virtual_discharge_infinite:
+    source: input_number.virtual_discharge_meter_source_infinite
+    cycle: daily
+    tariffs:
+      - on_peak
+      - midday_saver
+      - off_peak
+
+# ---------------------------------------------------------------------------------
+# TEMPLATE SENSOR  (display only – no $ calculations needed)
+# ---------------------------------------------------------------------------------
+template:
+  - sensor:
+      - name: "Virtual Battery SoC Infinite Display"
+        unique_id: virtual_battery_soc_infinite_display
+        unit_of_measurement: "Wh"
+        icon: mdi:battery
+        state_class: measurement
+        state: "{{ states('input_number.virtual_battery_soc_infinite') | float(0) | round(0) }}"
+
+# ---------------------------------------------------------------------------------
+# AUTOMATIONS
+# Mirrors the logic of the original package but acts **only** on the infinite battery
+# ---------------------------------------------------------------------------------
+automation:
+  # -- Charge infinite battery on export -------------------------------------------------------------
+  - alias: "Virtual Battery Savings - Charge Infinite Battery With Export"
+    id: "virtual_battery_savings_charge_infinite"
+    description: "Charges the infinite-capacity virtual battery whenever energy is exported"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.sa_todays_energy_exported
+        not_to:
+          - unavailable
+          - unknown
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | is_number and trigger.from_state.state | is_number and trigger.to_state.state | float > trigger.from_state.state | float }}"
+    action:
+      - variables:
+          exported_wh: "{{ (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.virtual_battery_soc_infinite
+        data:
+          value: "{{ (states('input_number.virtual_battery_soc_infinite') | float(0)) + exported_wh }}"
+
+  # -- Discharge infinite battery on import ----------------------------------------------------------
+  - alias: "Virtual Battery Savings - Discharge Infinite Battery To Cover Import"
+    id: "virtual_battery_savings_discharge_infinite"
+    description: "Discharges the infinite-capacity virtual battery to offset imported energy"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.sa_todays_energy_imported
+        not_to:
+          - unavailable
+          - unknown
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | is_number and trigger.from_state.state | is_number and trigger.to_state.state | float > trigger.from_state.state | float }}"
+    action:
+      - variables:
+          imported_wh: "{{ (trigger.to_state.state | float(0)) - (trigger.from_state.state | float(0)) }}"
+          current_soc: "{{ states('input_number.virtual_battery_soc_infinite') | float(0) }}"
+          discharge_amount: "{{ [imported_wh, current_soc] | min }}"
+      - choose:
+          - conditions: "{{ discharge_amount > 0 }}"
+            sequence:
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.virtual_battery_soc_infinite
+                data:
+                  value: "{{ current_soc - discharge_amount }}"
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.virtual_discharge_meter_source_infinite
+                data:
+                  value: "{{ (states('input_number.virtual_discharge_meter_source_infinite') | float(0)) + discharge_amount }}"
+
+  # -- Keep tariff in sync ---------------------------------------------------------------------------
+  - alias: "Virtual Battery Savings - Set Tariff Infinite"
+    id: "virtual_battery_savings_set_tariff_infinite"
+    description: "Synchronises the tariff on the infinite virtual battery utility meter"
+    trigger:
+      - platform: state
+        entity_id: sensor.current_electricity_tariff
+        not_to:
+          - unavailable
+          - unknown
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id:
+            - select.daily_virtual_discharge_infinite
+        data:
+          option: "{{ states('sensor.current_electricity_tariff') }}"
