@@ -46,6 +46,21 @@ in {
         description = "Path to decrypted UniFi MCP env file.";
       };
     };
+
+    homeassistant = {
+      enable = lib.mkEnableOption "Home Assistant MCP server secrets";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "homeassistant-mcp.env";
+        description = "Sops file containing Home Assistant MCP credentials.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/homeassistant.env";
+        description = "Path to decrypted Home Assistant MCP env file.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -57,6 +72,7 @@ in {
       inherit (cfg) user;
       pfsenseFile = cfg.pfsense.sopsFile;
       unifiFile = cfg.unifi.sopsFile;
+      homeassistantFile = cfg.homeassistant.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -78,6 +94,12 @@ in {
           chmod 400 ${cfg.unifi.path}
           chown ${user}:users ${cfg.unifi.path}
         ''}
+
+        ${lib.optionalString cfg.homeassistant.enable ''
+          ${sops} -d --output-type dotenv ${homeassistantFile} | grep -v '^#' > ${cfg.homeassistant.path}
+          chmod 400 ${cfg.homeassistant.path}
+          chown ${user}:users ${cfg.homeassistant.path}
+        ''}
       '';
 
     # Export paths as environment variables for convenience
@@ -87,6 +109,9 @@ in {
       })
       (lib.mkIf cfg.unifi.enable {
         UNIFI_MCP_ENV_FILE = cfg.unifi.path;
+      })
+      (lib.mkIf cfg.homeassistant.enable {
+        HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
       })
     ];
   };
