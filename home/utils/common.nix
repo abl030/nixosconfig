@@ -26,7 +26,6 @@
     pkgs.statix
     pkgs.deadnix
     pkgs.alejandra
-    pkgs.claude-code
     pkgs.codex
     pkgs.exiftool
 

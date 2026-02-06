@@ -6,10 +6,11 @@
   ...
 }: {
   # ---------------------------------------------------------
-  # CLAUDE CODE PLUGINS
+  # CLAUDE CODE
   # ---------------------------------------------------------
-  homelab.claudePlugins = {
+  homelab.claudeCode = {
     enable = lib.mkDefault true;
+    agentTeams = lib.mkDefault true;
     plugins = lib.mkDefault [
       {
         source = inputs.claude-plugin-ha-skills;
