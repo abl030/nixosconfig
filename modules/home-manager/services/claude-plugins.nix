@@ -10,6 +10,7 @@
 #       source = inputs.claude-plugin-foo;
 #       marketplaceName = "org-repo";
 #       pluginName = "my-plugin";
+#       # version is auto-detected from .claude-plugin/plugin.json
 #     }];
 #   };
 #
@@ -21,6 +22,16 @@
   ...
 }: let
   cfg = config.homelab.claudePlugins;
+
+  # Read version from plugin's plugin.json if it exists
+  getPluginVersion = source: let
+    pluginJsonPath = "${source}/.claude-plugin/plugin.json";
+    pluginJson =
+      if builtins.pathExists pluginJsonPath
+      then builtins.fromJSON (builtins.readFile pluginJsonPath)
+      else {};
+  in
+    pluginJson.version or "1.0.0";
 
   # Plugin submodule type
   pluginType = lib.types.submodule {
@@ -38,12 +49,23 @@
         description = "Name of the plugin within the marketplace";
       };
       version = lib.mkOption {
-        type = lib.types.str;
-        default = "1.0.0";
-        description = "Version string for the plugin";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Version string for the plugin. If null, reads from plugin.json automatically.";
       };
     };
   };
+
+  # Resolve plugin with actual version
+  resolvePlugin = plugin: plugin // {
+    version =
+      if plugin.version != null
+      then plugin.version
+      else getPluginVersion plugin.source;
+  };
+
+  # Resolved plugins with versions
+  resolvedPlugins = map resolvePlugin cfg.plugins;
 
   # Generate known_marketplaces.json content
   knownMarketplacesJson =
@@ -59,7 +81,11 @@
           lastUpdated = "2026-01-01T00:00:00.000Z";
         };
       })
-      cfg.plugins));
+      resolvedPlugins));
+
+  # Cache path for a plugin: cache/<marketplace>/<plugin>/<version>/
+  pluginCachePath = plugin:
+    "${config.home.homeDirectory}/.claude/plugins/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}";
 
   # Generate installed_plugins.json content
   installedPluginsJson =
@@ -71,14 +97,14 @@
           value = [
             {
               scope = "user";
-              installPath = "${config.home.homeDirectory}/.claude/plugins/marketplaces/${plugin.marketplaceName}";
+              installPath = pluginCachePath plugin;
               inherit (plugin) version;
               installedAt = "2026-01-01T00:00:00.000Z";
               lastUpdated = "2026-01-01T00:00:00.000Z";
             }
           ];
         })
-        cfg.plugins);
+        resolvedPlugins);
     };
 
   # Generate enabledPlugins map for settings.json merge
@@ -89,7 +115,7 @@
           name = "${plugin.pluginName}@${plugin.marketplaceName}";
           value = true;
         })
-        cfg.plugins);
+        resolvedPlugins);
     };
 
   # Write the JSON files to nix store for the activation script to use
@@ -108,15 +134,27 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # Create symlinks for each plugin marketplace
-    home.file = builtins.listToAttrs (map (plugin: {
-        name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
-        value = {
-          inherit (plugin) source;
-          recursive = true;
-        };
-      })
-      cfg.plugins);
+    # Create symlinks for each plugin in both marketplace and cache locations
+    home.file = lib.mkMerge [
+      # Marketplace location (for marketplace discovery)
+      (builtins.listToAttrs (map (plugin: {
+          name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
+          value = {
+            inherit (plugin) source;
+            recursive = true;
+          };
+        })
+        resolvedPlugins))
+      # Cache location (where installPath points - prevents orphaned state)
+      (builtins.listToAttrs (map (plugin: {
+          name = ".claude/plugins/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}";
+          value = {
+            inherit (plugin) source;
+            recursive = true;
+          };
+        })
+        resolvedPlugins))
+    ];
 
     # Activation script to merge JSON configs
     home.activation.claudePlugins = lib.hm.dag.entryAfter ["writeBoundary"] ''
