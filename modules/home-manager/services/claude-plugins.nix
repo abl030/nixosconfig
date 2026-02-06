@@ -23,6 +23,23 @@
 }: let
   cfg = config.homelab.claudePlugins;
 
+  # Patch plugin source to remove invalid fields from marketplace.json
+  # Claude Code silently fails on unknown fields (metadata, skills in plugin entries)
+  patchPluginSource = name: source:
+    pkgs.runCommand "claude-plugin-${name}-patched" {
+      nativeBuildInputs = [pkgs.jq];
+    } ''
+      cp -r ${source} $out
+      chmod -R u+w $out
+
+      # Patch marketplace.json if it exists - remove invalid fields
+      if [ -f "$out/.claude-plugin/marketplace.json" ]; then
+        jq 'del(.metadata) | .plugins = [.plugins[] | del(.skills)]' \
+          "$out/.claude-plugin/marketplace.json" > "$out/.claude-plugin/marketplace.json.tmp"
+        mv "$out/.claude-plugin/marketplace.json.tmp" "$out/.claude-plugin/marketplace.json"
+      fi
+    '';
+
   # Read version from plugin's plugin.json if it exists
   getPluginVersion = source: let
     pluginJsonPath = "${source}/.claude-plugin/plugin.json";
@@ -56,15 +73,20 @@
     };
   };
 
-  # Resolve plugin with actual version
-  resolvePlugin = plugin: plugin // {
-    version =
-      if plugin.version != null
-      then plugin.version
-      else getPluginVersion plugin.source;
-  };
+  # Resolve plugin with actual version and patched source
+  resolvePlugin = plugin: let
+    patchedSource = patchPluginSource plugin.pluginName plugin.source;
+  in
+    plugin
+    // {
+      version =
+        if plugin.version != null
+        then plugin.version
+        else getPluginVersion plugin.source; # Use original source for version detection
+      source = patchedSource; # Use patched source for installation
+    };
 
-  # Resolved plugins with versions
+  # Resolved plugins with versions and patched sources
   resolvedPlugins = map resolvePlugin cfg.plugins;
 
   # Generate known_marketplaces.json content
