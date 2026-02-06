@@ -106,8 +106,7 @@
       resolvedPlugins));
 
   # Cache path for a plugin: cache/<marketplace>/<plugin>/<version>/
-  pluginCachePath = plugin:
-    "${config.home.homeDirectory}/.claude/plugins/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}";
+  pluginCachePath = plugin: "${config.home.homeDirectory}/.claude/plugins/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}";
 
   # Generate installed_plugins.json content
   installedPluginsJson =

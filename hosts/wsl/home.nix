@@ -1,4 +1,4 @@
-{inputs, ...}: {
+{...}: {
   imports = [
     # ../../home/zsh/zsh2.nix
     # ./fish/fish.nix
@@ -15,17 +15,7 @@
     ssh = {
       enable = true;
     };
-    claudePlugins = {
-      enable = true;
-      plugins = [
-        {
-          source = inputs.claude-plugin-ha-skills;
-          marketplaceName = "homeassistant-ai-skills";
-          pluginName = "home-assistant-skills";
-          # version auto-detected from plugin.json
-        }
-      ];
-    };
+    # claudePlugins enabled fleet-wide via modules/home-manager/profiles/base.nix
   };
 
   # Group all home-manager settings into a single `home` block to avoid repeated keys.
