@@ -13,6 +13,6 @@
     ./display/remote-desktop.nix
     ./services/ssh.nix
     ./services/pdf.nix
-    ./services/claude-plugins.nix
+    ./services/claude-code.nix
   ];
 }
