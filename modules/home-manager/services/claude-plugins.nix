@@ -52,8 +52,8 @@
         name = plugin.marketplaceName;
         value = {
           source = {
-            source = "nix";
-            store_path = toString plugin.source;
+            source = "directory";
+            path = "${config.home.homeDirectory}/.claude/plugins/marketplaces/${plugin.marketplaceName}";
           };
           installLocation = "${config.home.homeDirectory}/.claude/plugins/marketplaces/${plugin.marketplaceName}";
           lastUpdated = "2026-01-01T00:00:00.000Z";
