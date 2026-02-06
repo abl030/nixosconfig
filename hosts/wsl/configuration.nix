@@ -52,6 +52,10 @@
     "--collector.filesystem.mount-points-exclude=^/run/user"
   ];
 
+  # Docker for container-based development/testing
+  virtualisation.docker.enable = true;
+  users.users.${hostConfig.user}.extraGroups = ["docker"];
+
   # 3. Standard WSL Configuration
   wsl.enable = true;
   wsl.defaultUser = hostConfig.user;
