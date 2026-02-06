@@ -1,0 +1,28 @@
+# Soularr Configuration
+# This file should be copied to ${DATA_ROOT}/music/soularr/config.yaml on doc1
+
+lidarr:
+  url: "http://localhost:8686"
+  api_key: "YOUR_LIDARR_API_KEY"
+
+slskd:
+  url: "http://localhost:5030"
+  api_key: ""  # slskd API key if configured, otherwise leave empty
+  username: ""  # Optional: slskd web UI username
+  password: ""  # Optional: slskd web UI password
+
+download:
+  # Directory where slskd saves downloads (must match slskd config)
+  path: "/downloads"
+
+search:
+  # Minimum quality (128, 192, 256, 320, or lossless)
+  min_quality: 320
+  # Maximum results to consider per search
+  max_results: 10
+  # Timeout for searches (seconds)
+  timeout: 60
+
+daemon:
+  # How often to check Lidarr wanted list (seconds)
+  interval: 300

@@ -30,6 +30,14 @@
     "homeassistant": {
       "command": "./scripts/mcp-homeassistant.sh",
       "args": []
+    },
+    "arr": {
+      "command": "./scripts/mcp-arr.sh",
+      "args": []
+    },
+    "soulseek": {
+      "command": "./scripts/mcp-soulseek.sh",
+      "args": []
     }
   }
 }

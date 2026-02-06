@@ -13,6 +13,8 @@ services:
       - "8686:8686" # Lidarr
       # - "3579:3579" # Ombi - disabled, crash-looping
       - "8085:8085" # Filebrowser
+      - "5030:5030" # slskd Web UI
+      - "5031:5031" # slskd API
     restart: unless-stopped
     dns:
       - 1.1.1.1
@@ -48,6 +50,59 @@ services:
       - autoheal=true
     depends_on:
       - music-network-holder
+
+  # ---------------------------------------------------------------
+  # slskd - Soulseek client with REST API
+  # ---------------------------------------------------------------
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    labels:
+      - io.containers.autoupdate=registry
+      - autoheal=true
+    environment:
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_SLSK_USERNAME=${SOULSEEK_USERNAME}
+      - SLSKD_SLSK_PASSWORD=${SOULSEEK_PASSWORD}
+      - SLSKD_DOWNLOADS_DIR=/downloads
+      - SLSKD_INCOMPLETE_DIR=/downloads/incomplete
+      - SLSKD_SHARED_DIR=/music
+      - TZ=Australia/Perth
+    volumes:
+      - ${DATA_ROOT}/music/slskd:/app
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Temp/slskd:/downloads
+      - ${FUSE_ROOT:-/mnt/fuse}/Media/Music_RW/Ali:/music:ro
+    network_mode: "service:music-network-holder"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5030/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - music-network-holder
+
+  # ---------------------------------------------------------------
+  # Soularr - Lidarr to slskd bridge
+  # ---------------------------------------------------------------
+  soularr:
+    image: mrusse/soularr:latest
+    container_name: soularr
+    labels:
+      - io.containers.autoupdate=registry
+    environment:
+      - TZ=Australia/Perth
+    volumes:
+      - ${DATA_ROOT}/music/soularr:/config
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Temp/slskd:/downloads
+    network_mode: "service:music-network-holder"
+    restart: unless-stopped
+    depends_on:
+      slskd:
+        condition: service_healthy
+      lidarr:
+        condition: service_healthy
 
   # ---------------------------------------------------------------
   # Ombi — disabled, crash-looping with coredumps

@@ -226,12 +226,41 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 ### Home Assistant
 
 Uses [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) for smart home control. Usage notes:
-- All tools are **deferred** — use `ToolSearch` with query `homeassistant` to load them before calling.
-- Tool names follow HA conventions: `HassTurnOn`, `HassTurnOff`, `GetLiveContext`, `HassMediaSearchAndPlay`, etc.
-- Use `GetLiveContext` first to discover available devices, areas, and current states before issuing commands.
-- Device targeting uses `name`, `area`, and `floor` parameters — values come from `GetLiveContext` output.
-- Supports fuzzy entity matching, WebSocket events, and media playback.
+- All tools are **deferred** — use `ToolSearch` with query `+homeassistant` to load them before calling.
+- Tool names follow `ha_*` convention (e.g., `ha_call_service`, `ha_search_entities`, `ha_get_state`).
+- Use `ha_search_entities` to find entities by name/area/domain.
+- Device targeting uses `entity_id` for service calls.
+- Supports fuzzy entity matching and media playback via Music Assistant.
 - Auth: `HA_TOKEN` in sops-encrypted `secrets/mcp/homeassistant.env`.
+
+**Music Assistant Playback (Preferred Method):**
+
+Always search first to get exact URIs, then play with the URI. This avoids fuzzy matching errors (e.g., playing "Mr. Peanut" track instead of "Peanut" album).
+
+```python
+# 1. Get Music Assistant config_entry_id (one-time lookup)
+ha_get_integration(query="music_assistant")  # Returns entry_id
+
+# 2. Search for the album/track
+ha_call_service("music_assistant", "search", return_response=True, data={
+    "config_entry_id": "01K3AS5H08FV1C1AAKEDAFDMB5",
+    "name": "Peanut",
+    "artist": "Otto Benson",
+    "media_type": ["album"],
+    "limit": 5
+})
+# Returns: {"albums": [{"uri": "spotify--xxx://album/123", "name": "Peanut", ...}]}
+
+# 3. Play with exact URI
+ha_call_service("music_assistant", "play_media",
+    entity_id="media_player.kitchen_home_2",
+    data={"media_id": "spotify--xxx://album/123", "media_type": "album"})
+```
+
+**Volume Control Quirk (Google Cast / Music Assistant):**
+- Use `volume_set` with explicit `volume_level` (0.0-1.0) — avoid `volume_up`/`volume_down`.
+- Wait until playback is stable before changing volume — mid-transition volume changes can stop playback.
+- If volume change stops playback, resume with `media_player.media_play` then retry.
 
 ### mcp-nixos
 
