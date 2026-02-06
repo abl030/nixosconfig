@@ -61,6 +61,7 @@ in {
               imports = [
                 inputs.home-manager-diff.hmModules.default
                 inputs.sops-nix.homeManagerModules.sops
+                ../modules/home-manager/profiles/base.nix
                 cfg.homeFile
                 ../modules/home-manager
               ];
@@ -82,6 +83,7 @@ in {
       modules = [
         inputs.home-manager-diff.hmModules.default
         inputs.sops-nix.homeManagerModules.sops
+        ../modules/home-manager/profiles/base.nix
         cfg.homeFile
         ../modules/home-manager
         {
