@@ -162,7 +162,7 @@
 
         serviceConfig = {
           Type = "oneshot";
-          TimeoutSec = "5s";
+          TimeoutSec = "30s"; # Increased from 5s - NFS unmount can be slow
 
           # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
           # 1. Stop the automount triggers so nothing can re-mount during suspend
