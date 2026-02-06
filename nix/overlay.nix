@@ -57,4 +57,11 @@
       });
     }
   )
+
+  # claude-code overlay: use auto-updating flake (hourly GitHub Actions updates)
+  (
+    final: _prev: {
+      claude-code = inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}.claude-code;
+    }
+  )
 ]
