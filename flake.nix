@@ -115,6 +115,12 @@
       url = "github:sadjow/claude-code-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # UniFi MCP - auto-generated MCP server for UniFi Network Controller
+    unifi-mcp = {
+      url = "github:abl030/unifi-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
