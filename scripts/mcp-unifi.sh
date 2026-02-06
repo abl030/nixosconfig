@@ -11,10 +11,10 @@ if [[ ! -f "$SECRETS_FILE" ]]; then
   exit 1
 fi
 
-# Source the decrypted env file and exec the MCP server
-set -a
-# shellcheck source=/dev/null
-source "$SECRETS_FILE"
-set +a
+# Export env vars safely (avoids shell expansion of $, `, ! in values)
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" == \#* ]] && continue
+  export "$key=$value"
+done < "$SECRETS_FILE"
 
 exec uvx unifi-network-mcp
