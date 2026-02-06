@@ -17,4 +17,4 @@ while IFS='=' read -r key value; do
   export "$key=$value"
 done < "$SECRETS_FILE"
 
-exec uv run --directory "$HOME/unifi-mcp-generator" fastmcp run generated/server.py
+exec unifi-mcp

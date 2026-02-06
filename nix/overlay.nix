@@ -64,4 +64,11 @@
       inherit (inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}) claude-code;
     }
   )
+
+  # unifi-mcp overlay: auto-generated MCP server for UniFi Network Controller
+  (
+    final: _prev: {
+      unifi-mcp = inputs.unifi-mcp.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
 ]

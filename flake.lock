@@ -534,6 +534,7 @@
         "spicetify-nix": "spicetify-nix",
         "systems": "systems_8",
         "terranix": "terranix",
+        "unifi-mcp": "unifi-mcp",
         "yt-dlp-src": "yt-dlp-src"
       }
     },
@@ -732,6 +733,26 @@
       "original": {
         "owner": "terranix",
         "repo": "terranix",
+        "type": "github"
+      }
+    },
+    "unifi-mcp": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770361717,
+        "narHash": "sha256-kwkegnUt9bsDaN0ANo2JYdOS3PgWd5LMnSggVkRZntQ=",
+        "owner": "abl030",
+        "repo": "unifi-mcp",
+        "rev": "89d48e54f9fafac0c3856fd9a6d922f0a8951449",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "unifi-mcp",
         "type": "github"
       }
     },
