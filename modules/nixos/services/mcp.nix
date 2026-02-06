@@ -61,6 +61,36 @@ in {
         description = "Path to decrypted Home Assistant MCP env file.";
       };
     };
+
+    arr = {
+      enable = lib.mkEnableOption "*arr MCP server secrets (Lidarr, Sonarr, etc.)";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "arr-mcp.env";
+        description = "Sops file containing *arr MCP credentials.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/arr.env";
+        description = "Path to decrypted *arr MCP env file.";
+      };
+    };
+
+    soulseek = {
+      enable = lib.mkEnableOption "Soulseek MCP server secrets";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "soulseek-mcp.env";
+        description = "Sops file containing Soulseek MCP credentials.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/soulseek.env";
+        description = "Path to decrypted Soulseek MCP env file.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -73,6 +103,8 @@ in {
       pfsenseFile = cfg.pfsense.sopsFile;
       unifiFile = cfg.unifi.sopsFile;
       homeassistantFile = cfg.homeassistant.sopsFile;
+      arrFile = cfg.arr.sopsFile;
+      soulseekFile = cfg.soulseek.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -100,6 +132,18 @@ in {
           chmod 400 ${cfg.homeassistant.path}
           chown ${user}:users ${cfg.homeassistant.path}
         ''}
+
+        ${lib.optionalString cfg.arr.enable ''
+          ${sops} -d --output-type dotenv ${arrFile} | grep -v '^#' > ${cfg.arr.path}
+          chmod 400 ${cfg.arr.path}
+          chown ${user}:users ${cfg.arr.path}
+        ''}
+
+        ${lib.optionalString cfg.soulseek.enable ''
+          ${sops} -d --output-type dotenv ${soulseekFile} | grep -v '^#' > ${cfg.soulseek.path}
+          chmod 400 ${cfg.soulseek.path}
+          chown ${user}:users ${cfg.soulseek.path}
+        ''}
       '';
 
     # Export paths as environment variables for convenience
@@ -112,6 +156,12 @@ in {
       })
       (lib.mkIf cfg.homeassistant.enable {
         HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
+      })
+      (lib.mkIf cfg.arr.enable {
+        ARR_MCP_ENV_FILE = cfg.arr.path;
+      })
+      (lib.mkIf cfg.soulseek.enable {
+        SOULSEEK_MCP_ENV_FILE = cfg.soulseek.path;
       })
     ];
   };
