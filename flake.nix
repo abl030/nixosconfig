@@ -109,6 +109,12 @@
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Claude Code - auto-updating flake with hourly GitHub Actions updates
+    claude-code-nix = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
