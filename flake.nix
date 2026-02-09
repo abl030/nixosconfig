@@ -121,6 +121,12 @@
       url = "github:abl030/unifi-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # pfSense MCP - auto-generated MCP server for pfSense REST API v2
+    pfsense-mcp = {
+      url = "github:abl030/pfsense-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {

@@ -71,4 +71,11 @@
       unifi-mcp = inputs.unifi-mcp.packages.${final.stdenv.hostPlatform.system}.default;
     }
   )
+
+  # pfsense-mcp overlay: auto-generated MCP server for pfSense REST API v2
+  (
+    final: _prev: {
+      pfsense-mcp = inputs.pfsense-mcp.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
 ]
