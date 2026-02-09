@@ -188,8 +188,10 @@
 
   security.rtkit.enable = true;
 
+  virtualisation.docker.enable = true;
+
   users.users.abl030 = {
-    extraGroups = ["libvertd" "dialout"];
+    extraGroups = ["libvertd" "dialout" "docker"];
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
