@@ -427,6 +427,26 @@
         "type": "github"
       }
     },
+    "pfsense-mcp": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770629072,
+        "narHash": "sha256-ngrio07lRy+HYsX2QwBNBoBVrvJp6r9r5vfYTmPi2Co=",
+        "owner": "abl030",
+        "repo": "pfsense-mcp",
+        "rev": "b3bba8022f6816cd035eb7232679906e23a28757",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "pfsense-mcp",
+        "type": "github"
+      }
+    },
     "poetry2nix": {
       "inputs": {
         "flake-utils": [
@@ -530,6 +550,7 @@
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
         "nvchad4nix": "nvchad4nix",
+        "pfsense-mcp": "pfsense-mcp",
         "sops-nix": "sops-nix",
         "spicetify-nix": "spicetify-nix",
         "systems": "systems_8",
