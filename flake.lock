@@ -434,11 +434,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770715978,
-        "narHash": "sha256-rgEHNq9Yaq50IDs3YxJMTyP8q+KtMHOJy4h3dmgtVpQ=",
+        "lastModified": 1770727557,
+        "narHash": "sha256-HIlVwXhmywpK5g7hLE28zlSdiUgaAzQETAgAmJwdwSc=",
         "owner": "abl030",
         "repo": "pfsense-mcp",
-        "rev": "acefd0d4335a0a0ec87ce0dc2262bf89041de184",
+        "rev": "c1d59e9f5dfe7b081344e03009eec5bc04a756e7",
         "type": "github"
       },
       "original": {
@@ -764,11 +764,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770713765,
-        "narHash": "sha256-MW6Ejh3pOja1dVu2QN3IDYScg5L3uDPcPjU5rgsPN7g=",
+        "lastModified": 1770730780,
+        "narHash": "sha256-tVl/UBwtP8XdMAUO/pfS47oMITAM+iAOUsD0DnmJq+g=",
         "owner": "abl030",
         "repo": "unifi-mcp",
-        "rev": "c14ccf81964e97a9196975a805a0b48e2beafb05",
+        "rev": "a4b5afe25d0510a39c8d6cccbfcc82b0d29f18b5",
         "type": "github"
       },
       "original": {
