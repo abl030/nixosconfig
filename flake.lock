@@ -434,11 +434,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770645349,
-        "narHash": "sha256-xVF3APGfVz/H9OhOJMXss6ay50QxOlx4O1gZNWuu6Ms=",
+        "lastModified": 1770715978,
+        "narHash": "sha256-rgEHNq9Yaq50IDs3YxJMTyP8q+KtMHOJy4h3dmgtVpQ=",
         "owner": "abl030",
         "repo": "pfsense-mcp",
-        "rev": "ad41b9f0d86c1bb41cf72ce0960aea3023eaf249",
+        "rev": "acefd0d4335a0a0ec87ce0dc2262bf89041de184",
         "type": "github"
       },
       "original": {
