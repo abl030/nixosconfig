@@ -44,6 +44,10 @@
       "args": [
         "beads-mcp"
       ]
+    },
+    "episodic-memory": {
+      "command": "/home/abl030/.claude/plugins/cache/episodic-memory-dev/episodic-memory/1.0.15/cli/mcp-server",
+      "args": []
     }
   }
 }
