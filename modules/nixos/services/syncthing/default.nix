@@ -58,7 +58,7 @@ in {
       settings = {
         inherit devices;
         folders."episodic-memory" = {
-          path = "${hostConfig.homeDirectory}/.claude/episodic-memory";
+          path = "${hostConfig.homeDirectory}/.config/superpowers/conversation-archive";
           devices = peerNames;
           id = "episodic-memory";
         };
