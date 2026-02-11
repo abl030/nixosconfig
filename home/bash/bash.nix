@@ -27,11 +27,7 @@
     };
 
     starship.enableBashIntegration = true;
-    zoxide = {
-      enable = true;
-      enableBashIntegration = true;
-      options = ["--cmd cd"];
-    };
+    # zoxide configuration moved to modules/home-manager/shell/core.nix
     atuin.enableBashIntegration = true;
   };
 }

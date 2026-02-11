@@ -20,11 +20,7 @@ in {
 
     starship.enableFishIntegration = true;
 
-    zoxide = {
-      enable = true;
-      enableFishIntegration = true;
-      options = ["--cmd cd"];
-    };
+    # zoxide configuration moved to modules/home-manager/shell/core.nix
 
     atuin = {
       enable = true;
