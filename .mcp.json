@@ -38,6 +38,12 @@
     "soulseek": {
       "command": "./scripts/mcp-soulseek.sh",
       "args": []
+    },
+    "beads": {
+      "command": "uvx",
+      "args": [
+        "beads-mcp"
+      ]
     }
   }
 }

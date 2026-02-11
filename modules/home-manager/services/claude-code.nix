@@ -172,7 +172,7 @@ in {
   config = lib.mkIf cfg.enable {
     home = {
       # Install claude-code and MCP server packages
-      packages = [pkgs.claude-code pkgs.unifi-mcp pkgs.pfsense-mcp];
+      packages = [pkgs.claude-code pkgs.unifi-mcp pkgs.pfsense-mcp pkgs.beads];
 
       # Create symlinks for each plugin in both marketplace and cache locations
       file = lib.mkIf (cfg.plugins != []) (lib.mkMerge [
