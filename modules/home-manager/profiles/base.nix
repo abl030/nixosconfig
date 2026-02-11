@@ -43,11 +43,14 @@
         pluginName = "home-assistant-skills";
         # version auto-detected from plugin.json
       }
-      {
-        source = inputs.episodic-memory;
-        marketplaceName = "episodic-memory-dev";
-        pluginName = "episodic-memory";
-      }
+      # episodic-memory disabled: npm deps require manual install which breaks
+      # Nix-managed Claude Code (see MEMORY.md). Re-evaluate when upstream
+      # plugin dep management improves or we have credits to justify the effort.
+      # {
+      #   source = inputs.episodic-memory;
+      #   marketplaceName = "episodic-memory-dev";
+      #   pluginName = "episodic-memory";
+      # }
     ];
   };
   home.packages = [
