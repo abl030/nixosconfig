@@ -65,6 +65,12 @@ in {
       default = [];
       description = "List of allowed SSIDs. If empty, allows any connection.";
     };
+
+    timeout = lib.mkOption {
+      type = lib.types.str;
+      default = "60min";
+      description = "Maximum time allowed for the entire update operation (DNS check + rebuild + activation). Prevents hangs from stuck activations.";
+    };
   };
 
   config = lib.mkIf cfg.enable (let
@@ -265,6 +271,9 @@ in {
 
       serviceConfig = {
         Type = "oneshot";
+        # Timeout for the entire update operation (DNS check + rebuild + activation)
+        # Prevents indefinite hangs from stuck activations (e.g., systemd generator bugs)
+        TimeoutStartSec = cfg.timeout;
         ExecStartPre = pkgs.writeShellScript "nixos-upgrade-dns-ready" ''
           set -euo pipefail
           log() { echo "[SmartUpdate] $*"; }
