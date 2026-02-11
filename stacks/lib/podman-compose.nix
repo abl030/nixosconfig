@@ -120,8 +120,12 @@
       else [
         "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
       ];
+    # Wait for podman socket to be available (max 30 seconds)
+    waitForSocket = [
+      "/run/current-system/sw/bin/sh -c 'for i in $(seq 1 30); do [ -S ${runUserDir}/podman/podman.sock ] && exit 0; sleep 1; done; echo \"Timeout waiting for podman socket\" >&2; exit 1'"
+    ];
   in
-    base ++ preStart;
+    waitForSocket ++ base ++ preStart;
 
   mkEnv = projectName: extraEnv:
     [
