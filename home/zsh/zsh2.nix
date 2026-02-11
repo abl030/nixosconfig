@@ -33,11 +33,7 @@
       '';
     };
 
-    zoxide = {
-      enable = true;
-      enableZshIntegration = true;
-      options = ["--cmd cd"];
-    };
+    # zoxide configuration moved to modules/home-manager/shell/core.nix
 
     atuin.enableZshIntegration = true;
     starship.enableZshIntegration = true;
