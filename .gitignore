@@ -15,6 +15,3 @@ tfplan
 result
 .cache/
 ha/esphome/
-
-# Episodic memory (conversation archives with potential secrets)
-docs/episodic-memory*
