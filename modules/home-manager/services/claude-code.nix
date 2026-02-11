@@ -206,25 +206,16 @@ in {
       # Install claude-code and MCP server packages
       packages = [pkgs.claude-code pkgs.unifi-mcp pkgs.pfsense-mcp pkgs.beads pkgs.nodejs];
 
-      # Create symlinks for each plugin in both marketplace and cache locations
-      file = lib.mkIf (cfg.plugins != []) (lib.mkMerge [
-        (builtins.listToAttrs (map (plugin: {
-            name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
-            value = {
-              inherit (plugin) source;
-              recursive = true;
-            };
-          })
-          resolvedPlugins))
-        (builtins.listToAttrs (map (plugin: {
-            name = ".claude/plugins/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}";
-            value = {
-              inherit (plugin) source;
-              recursive = true;
-            };
-          })
-          resolvedPlugins))
-      ]);
+      # Create symlinks for plugins in marketplace (read-only)
+      # Cache will be populated as writable copies in activation script
+      file = lib.mkIf (cfg.plugins != []) (builtins.listToAttrs (map (plugin: {
+          name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
+          value = {
+            inherit (plugin) source;
+            recursive = true;
+          };
+        })
+        resolvedPlugins));
 
       # Activation script to merge settings and plugin configs
       activation.claudeCode = lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -257,6 +248,19 @@ in {
         ${lib.optionalString (cfg.plugins != []) ''
           # --- Merge plugin JSON configs ---
           run mkdir -p "$PLUGINS_DIR/marketplaces"
+          run mkdir -p "$PLUGINS_DIR/cache"
+
+          # --- Copy plugins to writable cache ---
+          ${lib.concatMapStringsSep "\n" (plugin: ''
+            CACHE_DIR="$PLUGINS_DIR/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}"
+            if [ ! -d "$CACHE_DIR" ] || [ "${plugin.source}" -nt "$CACHE_DIR" ]; then
+              verboseEcho "Copying plugin ${plugin.pluginName} to writable cache..."
+              run rm -rf "$CACHE_DIR"
+              run mkdir -p "$(dirname "$CACHE_DIR")"
+              run cp -r "${plugin.source}" "$CACHE_DIR"
+              run chmod -R u+w "$CACHE_DIR"
+            fi
+          '') resolvedPlugins}
 
           # Merge known_marketplaces.json
           verboseEcho "Merging Claude Code known_marketplaces.json..."
