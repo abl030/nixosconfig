@@ -57,17 +57,36 @@
         mv "$out/.claude-plugin/marketplace.json.tmp" "$out/.claude-plugin/marketplace.json"
       fi
 
-      # Patch plugin.json MCP server envs to add --preserve-symlinks
+      # --- Fix Nix symlink module resolution ---
       # Nix home.file creates per-file symlinks to /nix/store. Node ESM resolves
       # the real path before looking for node_modules, so it searches /nix/store
       # instead of the writable cache dir where npm install ran. --preserve-symlinks
       # tells Node to use the symlink path for module resolution.
+
+      # 1. Patch plugin.json MCP server envs to add --preserve-symlinks
       if [ -f "$out/.claude-plugin/plugin.json" ]; then
         jq 'if .mcpServers then .mcpServers |= with_entries(
           .value.env = (.value.env // {}) + {"NODE_OPTIONS": "--preserve-symlinks --preserve-symlinks-main"}
         ) else . end' \
           "$out/.claude-plugin/plugin.json" > "$out/.claude-plugin/plugin.json.tmp"
         mv "$out/.claude-plugin/plugin.json.tmp" "$out/.claude-plugin/plugin.json"
+      fi
+
+      # 2. Remove realpathSync(__filename) from CLI scripts — it resolves symlinks
+      #    into /nix/store, breaking module resolution even with --preserve-symlinks
+      find "$out" -name "*.js" -type f -exec \
+        sed -i 's/dirname(realpathSync(__filename))/dirname(__filename)/g' {} +
+
+      # 3. Patch hooks.json commands to include NODE_OPTIONS so spawned child
+      #    processes also resolve modules from the symlink location
+      if [ -f "$out/hooks/hooks.json" ]; then
+        jq '.hooks |= with_entries(.value |= map(.hooks |= map(
+          if .type == "command" and (.command | test("^node "))
+          then .command = "NODE_OPTIONS=\"--preserve-symlinks --preserve-symlinks-main\" " + .command
+          else . end
+        )))' \
+          "$out/hooks/hooks.json" > "$out/hooks/hooks.json.tmp"
+        mv "$out/hooks/hooks.json.tmp" "$out/hooks/hooks.json"
       fi
     '';
 
