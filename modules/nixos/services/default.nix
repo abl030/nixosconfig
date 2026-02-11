@@ -20,5 +20,6 @@
     ./mcp.nix
     ./mdns-reflector.nix
     ./framework
+    ./syncthing
   ];
 }

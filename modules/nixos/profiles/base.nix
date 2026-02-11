@@ -124,6 +124,10 @@
       enable = lib.mkDefault true;
     };
 
+    syncthing = {
+      enable = lib.mkDefault true;
+    };
+
     mdnsReflector = {
       enable = lib.mkDefault false;
     };
