@@ -56,6 +56,19 @@
           "$out/.claude-plugin/marketplace.json" > "$out/.claude-plugin/marketplace.json.tmp"
         mv "$out/.claude-plugin/marketplace.json.tmp" "$out/.claude-plugin/marketplace.json"
       fi
+
+      # Patch plugin.json MCP server envs to add --preserve-symlinks
+      # Nix home.file creates per-file symlinks to /nix/store. Node ESM resolves
+      # the real path before looking for node_modules, so it searches /nix/store
+      # instead of the writable cache dir where npm install ran. --preserve-symlinks
+      # tells Node to use the symlink path for module resolution.
+      if [ -f "$out/.claude-plugin/plugin.json" ]; then
+        jq 'if .mcpServers then .mcpServers |= with_entries(
+          .value.env = (.value.env // {}) + {"NODE_OPTIONS": "--preserve-symlinks --preserve-symlinks-main"}
+        ) else . end' \
+          "$out/.claude-plugin/plugin.json" > "$out/.claude-plugin/plugin.json.tmp"
+        mv "$out/.claude-plugin/plugin.json.tmp" "$out/.claude-plugin/plugin.json"
+      fi
     '';
 
   # Read version from plugin's plugin.json if it exists
