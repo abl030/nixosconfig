@@ -43,6 +43,11 @@
         pluginName = "home-assistant-skills";
         # version auto-detected from plugin.json
       }
+      {
+        source = inputs.episodic-memory;
+        marketplaceName = "episodic-memory-dev";
+        pluginName = "episodic-memory";
+      }
     ];
   };
   home.packages = [

@@ -73,6 +73,22 @@
         "type": "github"
       }
     },
+    "episodic-memory": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770785805,
+        "narHash": "sha256-+QVWNRlaMXcg7Yn/ePqoNSBX54lkH97gJ2HlipHQeAk=",
+        "owner": "abl030",
+        "repo": "episodic-memory",
+        "rev": "04675d893bfceac811070bd3f9378aeff799c56d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "episodic-memory",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -538,6 +554,7 @@
         "claude-plugin-ha-skills": "claude-plugin-ha-skills",
         "disko": "disko",
         "domain-monitor-src": "domain-monitor-src",
+        "episodic-memory": "episodic-memory",
         "flake-parts": "flake-parts",
         "flake-utils": "flake-utils_2",
         "fzf-preview": "fzf-preview",
