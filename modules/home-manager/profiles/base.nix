@@ -12,6 +12,30 @@
   homelab.claudeCode = {
     enable = lib.mkDefault true;
     agentTeams = lib.mkDefault true;
+    settings = lib.mkDefault {
+      hooks = {
+        SessionStart = [
+          {
+            hooks = [
+              {
+                type = "command";
+                command = "if [ -d .beads ]; then bd prime 2>/dev/null; fi";
+              }
+            ];
+          }
+        ];
+        PreCompact = [
+          {
+            hooks = [
+              {
+                type = "command";
+                command = "if [ -d .beads ]; then bd sync 2>/dev/null; fi";
+              }
+            ];
+          }
+        ];
+      };
+    };
     plugins = lib.mkDefault [
       {
         source = inputs.claude-plugin-ha-skills;

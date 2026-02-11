@@ -78,4 +78,33 @@
       pfsense-mcp = inputs.pfsense-mcp.packages.${final.stdenv.hostPlatform.system}.default;
     }
   )
+
+  # beads overlay: git-native issue tracker for AI agent memory
+  # TODO: switch to inputs.beads.packages once upstream flake builds
+  # (blocked by: dolthub/driver requires Go >= 1.25.6, nixpkgs has 1.25.5)
+  # Upstream issue: https://github.com/steveyegge/beads/issues/XXX
+  (
+    final: _prev: {
+      beads = final.stdenv.mkDerivation rec {
+        pname = "beads";
+        version = "0.49.6";
+        src = final.fetchurl {
+          url = "https://github.com/steveyegge/beads/releases/download/v${version}/beads_${version}_linux_amd64.tar.gz";
+          hash = "sha256-hUbcmkfhHcMawryaAiSpxpCXXpGFCTLLtiYjBT+7fbg=";
+        };
+        sourceRoot = ".";
+        installPhase = ''
+          install -Dm755 bd $out/bin/bd
+          ln -s bd $out/bin/beads
+        '';
+        meta = with final.lib; {
+          description = "Git-native issue tracker for AI agent memory";
+          homepage = "https://github.com/steveyegge/beads";
+          license = licenses.mit;
+          platforms = ["x86_64-linux"];
+          mainProgram = "bd";
+        };
+      };
+    }
+  )
 ]
