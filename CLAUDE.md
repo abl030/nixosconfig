@@ -49,45 +49,11 @@ The presence of `configurationFile` determines whether a host is a full NixOS sy
 
 ## VM Automation
 
-### VM Definitions
-
-`vms/definitions.nix` contains:
-- **imported**: Pre-existing VMs (readonly=true) - documented but not managed by automation
-- **managed**: VMs provisioned and managed through automation
-- **template**: Base template (VMID 9002) for cloning
-
-### Proxmox Operations
-
-**CRITICAL**: Always use `vms/proxmox-ops.sh` wrapper script, NEVER run Proxmox commands directly via SSH.
-
-The wrapper protects production VMs (104, 109, 110) from accidental modification by checking the readonly flag before ANY destructive operation.
-
-### Provisioning Workflow
-
-1. Define VM in `vms/definitions.nix` under `managed`
-2. Create host configuration in `hosts/{name}/`:
-   - `configuration.nix` (NixOS config)
-   - `disko.nix` (disk partitioning)
-   - `hardware-configuration.nix` (hardware detection)
-   - `home.nix` (Home Manager config)
-3. Add placeholder entry to `hosts.nix` with temporary publicKey (default temp password hash: `temp123`)
-4. Run: `nix run .#provision-vm <vm-name>`
-5. After provisioning, run: `nix run .#post-provision-vm <vm-name> <IP> <VMID>`
-6. Deploy with secrets: `nixos-rebuild switch --flake .#<vm-name> --target-host <vm-name>`
-
-Post-provision expects SOPS identity; it mirrors the `dc` lookup order (env vars, age key files, host key, user key).
+**CRITICAL**: Always use `vms/proxmox-ops.sh`, NEVER run Proxmox commands directly via SSH. Full workflow: `bd show nixosconfig-usj`.
 
 ## Secrets Management
 
-Uses **Sops-nix** with **Age** encryption:
-- Secrets encrypted against SSH host keys (converted to Age keys)
-- Bootstrap paradox: Host keys decrypt master user key on boot
-- Configuration: `secrets/.sops.yaml`
-- When adding a new host:
-  1. Get SSH host key from `/etc/ssh/ssh_host_ed25519_key.pub`
-  2. Convert to Age key: `cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age`
-  3. Add Age key to `secrets/.sops.yaml`
-  4. Re-encrypt: `sops updatekeys --yes <file>` for each secret file
+Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: `bd show nixosconfig-mof`.
 
 ## Stabilization Rules
 
@@ -130,42 +96,7 @@ nix fmt
 
 ## Hash-Based Drift Detection
 
-NixOS's deterministic builds mean identical `system.build.toplevel` hashes guarantee identical systems. This repo uses hash comparison to verify refactors produce no unintended changes.
-
-### Workflow
-
-```bash
-# Capture current hashes as baseline (done automatically by nightly CI)
-./scripts/hash-capture.sh
-
-# Run full quality gate + drift detection (slow)
-check --full --drift
-
-# After making changes, compare against baseline
-./scripts/hash-compare.sh
-
-# Quick summary only (no nix-diff details)
-./scripts/hash-compare.sh --summary
-
-# Check specific host
-./scripts/hash-compare.sh framework
-```
-
-### Interpreting Results
-
-- **MATCH**: Hash unchanged - pure refactor, no functional changes
-- **DRIFT**: Hash differs - configuration changed, nix-diff shows what
-
-The compare script runs through ALL hosts and reports ALL drift (doesn't bail on first issue).
-
-### When Hashes Change
-
-If `hash-compare.sh` shows drift:
-1. Review the nix-diff output to understand what changed
-2. If intentional: run `./scripts/hash-capture.sh` to update baselines
-3. If unintentional: investigate and fix the regression
-
-Baselines are automatically updated by the nightly `rolling_flake_update.sh` after successful builds.
+Identical `system.build.toplevel` hashes guarantee identical systems. Use `check --drift` to compare against baselines. Full workflow: `bd show nixosconfig-bv0`.
 
 ## Gotify Notifications
 
@@ -173,25 +104,11 @@ If asked, send a Gotify ping before requesting human input and include a brief s
 
 ## Debug Session Notes
 
-- Record: host, stack, URL, expected status, current status, last change.
-- Verify upstream directly with `--resolve` before changing nginx/Cloudflare.
-- For Uptime Kuma issues: check `/metrics` and confirm `monitor_status` before assuming DNS or proxy issues.
-
-### Fast Debug Checklist (Doc1)
-
-- `systemctl --user list-units 'podman-compose@*' --no-legend`
-- `podman ps --format 'table {{.Names}}\t{{.Status}}'`
-- `curl -k --resolve <host>:443:<ip> https://<host>/<health>`
-- `key=$(rg -m1 '^KUMA_API_KEY=' ${KUMA_API_KEY_FILE:-/run/secrets/uptime-kuma/api} | cut -d= -f2-); curl -fsS --user ":$key" https://status.ablz.au/metrics | rg 'monitor_status' | rg '<domain>'`
+Verify upstream with `--resolve` before changing nginx/Cloudflare. Full checklist: `bd show nixosconfig-2ie`.
 
 ## Standard Kuma Health Endpoints
 
-- Immich: `/api/server/ping`
-- Plex: `/identity`
-- Mealie: `/api/app/about`
-- Jellyfin: `/System/Info/Public`
-- Smokeping: `/smokeping/smokeping.cgi`
-- Others: keep `/` unless a documented unauthenticated endpoint exists.
+Endpoint reference for monitoring setup: `bd show nixosconfig-2ws`.
 
 ## Coding Style
 
@@ -238,42 +155,7 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 
 ### Home Assistant
 
-Uses [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) for smart home control. Usage notes:
-- All tools are **deferred** — use `ToolSearch` with query `+homeassistant` to load them before calling.
-- Tool names follow `ha_*` convention (e.g., `ha_call_service`, `ha_search_entities`, `ha_get_state`).
-- Use `ha_search_entities` to find entities by name/area/domain.
-- Device targeting uses `entity_id` for service calls.
-- Supports fuzzy entity matching and media playback via Music Assistant.
-- Auth: `HA_TOKEN` in sops-encrypted `secrets/mcp/homeassistant.env`.
-
-**Music Assistant Playback (Preferred Method):**
-
-Always search first to get exact URIs, then play with the URI. This avoids fuzzy matching errors (e.g., playing "Mr. Peanut" track instead of "Peanut" album).
-
-```python
-# 1. Get Music Assistant config_entry_id (one-time lookup)
-ha_get_integration(query="music_assistant")  # Returns entry_id
-
-# 2. Search for the album/track
-ha_call_service("music_assistant", "search", return_response=True, data={
-    "config_entry_id": "01K3AS5H08FV1C1AAKEDAFDMB5",
-    "name": "Peanut",
-    "artist": "Otto Benson",
-    "media_type": ["album"],
-    "limit": 5
-})
-# Returns: {"albums": [{"uri": "spotify--xxx://album/123", "name": "Peanut", ...}]}
-
-# 3. Play with exact URI
-ha_call_service("music_assistant", "play_media",
-    entity_id="media_player.kitchen_home_2",
-    data={"media_id": "spotify--xxx://album/123", "media_type": "album"})
-```
-
-**Volume Control Quirk (Google Cast / Music Assistant):**
-- Use `volume_set` with explicit `volume_level` (0.0-1.0) — avoid `volume_up`/`volume_down`.
-- Wait until playback is stable before changing volume — mid-transition volume changes can stop playback.
-- If volume change stops playback, resume with `media_player.media_play` then retry.
+Tools are **deferred** — use `ToolSearch` with `+homeassistant` first. Full usage guide incl. Music Assistant playback and volume quirks: `bd show nixosconfig-fah`.
 
 ### mcp-nixos
 
@@ -326,40 +208,9 @@ nix run .#lint-nix
 nix develop
 ```
 
-### VM Operations
+### VM Operations & Secrets
 
-```bash
-# List all VMs
-./vms/proxmox-ops.sh list
-
-# Get VM status
-./vms/proxmox-ops.sh status <vmid>
-
-# Start/stop VM (protected - checks readonly flag)
-./vms/proxmox-ops.sh start <vmid>
-./vms/proxmox-ops.sh stop <vmid>
-
-# Provision new VM
-nix run .#provision-vm <vm-name>
-
-# Post-provision (fleet integration)
-nix run .#post-provision-vm <vm-name> <IP> <VMID>
-
-# Get next available VMID
-./vms/proxmox-ops.sh next-vmid
-```
-
-### Secrets Management
-
-```bash
-# Edit encrypted file
-sops secrets/path/to/file.env
-
-# Add new host to secrets
-cd secrets
-find . -type f \( -name "*.env" -o -name "*.yaml" -o -name "ssh_key_*" \) | \
-  while read file; do sops updatekeys --yes "$file"; done
-```
+See `bd show nixosconfig-usj` (VM ops) and `bd show nixosconfig-mof` (secrets).
 
 ## Fleet Overview
 
@@ -429,22 +280,7 @@ Docker services defined as Nix files in `docker/*/docker-compose.nix` - these ar
 
 ## Special Configurations
 
-### doc1 (Main Services VM)
-- Serves as Nix cache server (nixcache.ablz.au)
-- Runs GitHub Actions runner (proxmox-bastion)
-- Hosts 20+ Docker services
-- MTU 1400 for Tailscale compatibility
-
-### igpu (Media Transcoding)
-- AMD 9950X iGPU passthrough
-- Latest kernel for GPU support
-- Increased inotify watches (2,097,152)
-- Vendor-reset DKMS module on Proxmox host
-
-### framework (Laptop)
-- Sleep-then-hibernate configuration
-- Fingerprint reader support
-- Power management optimizations
+Host-specific details for doc1, igpu, and framework: `bd show nixosconfig-6bn`.
 
 ## Landing the Plane (Session Completion)
 
