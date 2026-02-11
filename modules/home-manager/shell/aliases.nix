@@ -12,8 +12,7 @@
     ssh_epi = "epi!; and ssh epi"; # Logic will convert '; and' to '&&' for bash
 
     # --- Navigation ---
-    cd = "z";
-    cdi = "zi";
+    # cd/cdi handled by zoxide --cmd cd (see zsh2.nix)
     ls = "lsd -A -F -l --group-directories-first --color=always";
 
     # --- Scripts (Project 5: Assumed in $PATH) ---
