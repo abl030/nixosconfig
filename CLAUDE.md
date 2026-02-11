@@ -96,7 +96,7 @@ Uses **Sops-nix** with **Age** encryption:
 
 ## Quality Gates
 
-**CRITICAL: `check` MUST pass before committing. `check --full` MUST pass before pushing.**
+**`check --full` MUST pass before pushing.** Run `check` at feature boundaries — when a logical chunk of work is complete — not after every small change. `nix fmt` is cheap and fine to run anytime.
 
 The `check` command runs a comprehensive quality gate that includes:
 1. Format checking (Alejandra)
@@ -207,6 +207,19 @@ If asked, send a Gotify ping before requesting human input and include a brief s
 - Follow Conventional Commits style like `fix(pve): ...`; keep messages short and scoped.
 - If a change is operational or host-specific, mention the host, module, or subsystem in the subject.
 - PRs should describe impact, commands run (`check`, `nix flake check`), and any deployment notes.
+
+## Memory Discipline
+
+**Beads are the primary memory system.** MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
+
+| Use beads for | Use MEMORY.md for |
+|---|---|
+| Decisions and rationale | Shell/env quirks needed every session |
+| Workflow preferences | "Never do X" safety rules |
+| Research findings | One-liner pointers to beads |
+| Feature progress | — |
+
+When recording a decision: create/update a bead, optionally add a one-line pointer in MEMORY.md if it's referenced constantly. Do NOT duplicate rationale into MEMORY.md.
 
 ## AI Tool Integration
 

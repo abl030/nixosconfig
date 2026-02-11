@@ -252,15 +252,16 @@ in {
 
           # --- Copy plugins to writable cache ---
           ${lib.concatMapStringsSep "\n" (plugin: ''
-            CACHE_DIR="$PLUGINS_DIR/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}"
-            if [ ! -d "$CACHE_DIR" ] || [ "${plugin.source}" -nt "$CACHE_DIR" ]; then
-              verboseEcho "Copying plugin ${plugin.pluginName} to writable cache..."
-              run rm -rf "$CACHE_DIR"
-              run mkdir -p "$(dirname "$CACHE_DIR")"
-              run cp -r "${plugin.source}" "$CACHE_DIR"
-              run chmod -R u+w "$CACHE_DIR"
-            fi
-          '') resolvedPlugins}
+              CACHE_DIR="$PLUGINS_DIR/cache/${plugin.marketplaceName}/${plugin.pluginName}/${plugin.version}"
+              if [ ! -d "$CACHE_DIR" ] || [ "${plugin.source}" -nt "$CACHE_DIR" ]; then
+                verboseEcho "Copying plugin ${plugin.pluginName} to writable cache..."
+                run rm -rf "$CACHE_DIR"
+                run mkdir -p "$(dirname "$CACHE_DIR")"
+                run cp -r "${plugin.source}" "$CACHE_DIR"
+                run chmod -R u+w "$CACHE_DIR"
+              fi
+            '')
+            resolvedPlugins}
 
           # Merge known_marketplaces.json
           verboseEcho "Merging Claude Code known_marketplaces.json..."
