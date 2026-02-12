@@ -65,6 +65,13 @@
     }
   )
 
+  # codex overlay: use fast-updating community flake
+  (
+    final: _prev: {
+      inherit (inputs.codex-cli-nix.packages.${final.stdenv.hostPlatform.system}) codex codex-node;
+    }
+  )
+
   # unifi-mcp overlay: auto-generated MCP server for UniFi Network Controller
   (
     final: _prev: {

@@ -121,6 +121,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Codex CLI - fast-updating community flake
+    codex-cli-nix = {
+      url = "github:sadjow/codex-cli-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # UniFi MCP - auto-generated MCP server for UniFi Network Controller
     unifi-mcp = {
       url = "github:abl030/unifi-mcp";
