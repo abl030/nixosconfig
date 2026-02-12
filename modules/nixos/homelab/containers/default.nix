@@ -219,6 +219,15 @@ in {
       "d ${cfg.dataRoot}/containers 0750 ${user} ${user} -"
     ];
 
+    # Ensure podman user socket is restarted during activation
+    # This handles the transition from system service to user socket
+    system.activationScripts.podmanUserSocket = lib.stringAfter ["users"] ''
+      # Restart user socket to ensure it's properly initialized
+      if /run/current-system/sw/bin/systemctl --user -M abl030@ is-enabled podman.socket 2>/dev/null; then
+        /run/current-system/sw/bin/systemctl --user -M abl030@ restart podman.socket || true
+      fi
+    '';
+
     systemd = {
       # Enable native podman user socket with socket activation
       user.sockets.podman = {
