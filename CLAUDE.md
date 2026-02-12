@@ -385,11 +385,14 @@ User Service (podman-compose@<project>.service):
 **Implementation Plan:**
 
 Add pre-start stale health detection to system service (HIGH PRIORITY):
-- Detect containers in "starting" or "unhealthy" state before reuse
-- Remove them to force fresh creation
+- Detect containers in "starting" or "unhealthy" state for >5 minutes before reuse
+- Time-based validation prevents removing legitimately slow-starting containers
+- Remove stuck containers to force fresh creation
 - Preserves fast path for healthy containers
 - Low overhead, automatic remediation
-- See `docs/research/container-lifecycle-analysis.md` Recommendation 1 for details
+- Configurable threshold per-stack if needed
+- See `docs/research/container-lifecycle-analysis.md` Recommendation 1 for full implementation
+- See `docs/decisions/2026-02-12-container-lifecycle-strategy.md` for decision rationale
 
 **Why NOT --force-recreate:**
 - Defeats purpose of incremental config changes
