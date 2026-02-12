@@ -93,20 +93,7 @@
   # Generate env file existence checks with retry
   mkEnvFileChecks = envFiles:
     map
-    (env: ''
-      /run/current-system/sw/bin/sh -c '
-        max_attempts=30
-        attempt=0
-        while [ ! -f ${env.runFile} ]; do
-          attempt=$((attempt + 1))
-          if [ $attempt -ge $max_attempts ]; then
-            echo "Timeout waiting for ${env.runFile}"
-            exit 1
-          fi
-          sleep 1
-        done
-      '
-    '')
+    (env: "/run/current-system/sw/bin/sh -c 'max_attempts=30; attempt=0; while [ ! -f ${env.runFile} ]; do attempt=$((attempt + 1)); if [ $attempt -ge $max_attempts ]; then echo \"Timeout waiting for ${env.runFile}\"; exit 1; fi; sleep 1; done'")
     (normalizeEnvFiles envFiles);
 
   mkEnv = projectName: extraEnv:
