@@ -31,8 +31,6 @@ services:
   # ---------------------------------------------------------------
   plex:
     image: lscr.io/linuxserver/plex:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: plex
     # Use the network stack of the holder container
     network_mode: "service:plex-network-holder"

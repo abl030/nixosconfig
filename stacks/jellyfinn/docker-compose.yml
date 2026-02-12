@@ -95,41 +95,7 @@ services:
     depends_on:
       - jellyfin-network-holder
 
-  # autoscan:
-    labels:
-      - io.containers.autoupdate=registry
-  #   image: ghcr.io/niniyas/autoscan:latest
-    labels:
-      - io.containers.autoupdate=registry
-  #   container_name: jellyfin-autoscan
-    labels:
-      - io.containers.autoupdate=registry
-  #   network_mode: "service:jellyfin-network-holder"
-    labels:
-      - io.containers.autoupdate=registry
-  #   volumes:
-    labels:
-      - io.containers.autoupdate=registry
-  #     - ${DATA_ROOT}/jellyfin/autoscan:/config
-    labels:
-      - io.containers.autoupdate=registry
-  #     - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
-    labels:
-      - io.containers.autoupdate=registry
-  #   environment:
-    labels:
-      - io.containers.autoupdate=registry
-  #     - PUID=99
-  #     - PGID=100
-  #     - UMASK=0000
-  #     - TZ=Australia/Perth
-  #   restart: unless-stopped
-    labels:
-      - io.containers.autoupdate=registry
-  #   depends_on:
-    labels:
-      - io.containers.autoupdate=registry
-  #     - jellyfin-network-holder
+  # autoscan service removed - was commented but had orphaned labels causing YAML parse errors
 
   watchstate:
     image: ghcr.io/arabcoders/watchstate:latest
