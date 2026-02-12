@@ -83,6 +83,9 @@ Targeted stale health detection:
 Location: `stacks/lib/podman-compose.nix`, line ~217 (in ExecStartPre, before `recreateIfLabelMismatch`)
 
 ```nix
+# Add parameter to mkSystemdService function:
+healthCheckTimeout ? 90  # Default 90 seconds, configurable per-stack
+
 detectStaleHealth = [
   ''
     /run/current-system/sw/bin/sh -c '
@@ -91,14 +94,14 @@ detectStaleHealth = [
         health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
         started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" $id 2>/dev/null)
 
-        # Only remove if unhealthy/starting AND running for >5 minutes
+        # Only remove if unhealthy/starting AND running for >threshold
         if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
           age_seconds=$(( $(date +%s) - $(date -d "$started" +%s) ))
-          if [ $age_seconds -gt 300 ]; then
-            echo "Removing container $id with stale health ($health) - running for ${age_seconds}s"
+          if [ $age_seconds -gt ${toString healthCheckTimeout} ]; then
+            echo "Removing container $id with stale health ($health) - running for ${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
             ${podmanBin} rm -f $id
           else
-            echo "Container $id is $health but only ${age_seconds}s old - allowing more time"
+            echo "Container $id is $health but only ${age_seconds}s old - allowing more time (threshold: ${toString healthCheckTimeout}s)"
           fi
         fi
       done
@@ -108,9 +111,10 @@ detectStaleHealth = [
 ```
 
 **Edge Case Protection:**
-- **Legitimately slow containers:** 5-minute threshold allows slow-starting apps to complete initialization
-- **Truly stuck containers:** If still "starting" after 5 minutes, it's deadlocked (normal apps shouldn't take this long)
-- **Configurable threshold:** Can be adjusted per-stack if needed (some stacks may need longer grace periods)
+- **Default 90 seconds:** Covers most services (2-3x typical 30-45s startup time)
+- **Rapid rebuilds safe:** Won't get stuck in multi-minute loops during development
+- **Configurable per-stack:** Slow services can override (e.g., `healthCheckTimeout = 300` for database migrations)
+- **Formula:** Set to 2-3x expected startup time for the slowest container in the stack
 
 Add to `mkExecStartPre` call:
 ```nix
@@ -143,10 +147,11 @@ ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreat
    podman compose -f /tmp/test-health-compose.yml up -d
    ```
 
-2. **Wait for stuck state (6+ minutes):**
+2. **Wait for stuck state (2+ minutes):**
    ```bash
    watch 'podman ps -a --format "{{.Names}}: {{.Status}}"'
    # test-slow should show "Up X minutes (health: starting)"
+   # After 90+ seconds, detection script should remove it
    ```
 
 3. **Run detection script manually:** Verify it identifies stuck container but NOT the healthy one
@@ -161,10 +166,11 @@ ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreat
 4. Deploy to igpu during migration (expect same issues, verify auto-remediation)
 
 **Success Criteria:**
-- ✅ Containers stuck >5min are removed
-- ✅ Containers <5min in "starting" state are NOT removed
+- ✅ Containers stuck >90s are removed
+- ✅ Containers <90s in "starting" state are NOT removed (unless overridden per-stack)
 - ✅ Healthy containers are never touched
 - ✅ Clear logging shows what was removed and why
+- ✅ Rapid rebuilds don't get stuck in multi-minute loops
 
 ## Alternative Approaches Considered
 

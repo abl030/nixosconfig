@@ -385,12 +385,14 @@ User Service (podman-compose@<project>.service):
 **Implementation Plan:**
 
 Add pre-start stale health detection to system service (HIGH PRIORITY):
-- Detect containers in "starting" or "unhealthy" state for >5 minutes before reuse
+- Detect containers in "starting" or "unhealthy" state for >90 seconds before reuse (default)
 - Time-based validation prevents removing legitimately slow-starting containers
+- Safe for rapid rebuilds during development (won't loop for minutes)
 - Remove stuck containers to force fresh creation
 - Preserves fast path for healthy containers
 - Low overhead, automatic remediation
-- Configurable threshold per-stack if needed
+- Configurable threshold per-stack (e.g., `healthCheckTimeout = 300` for slow services)
+- Formula: Set to 2-3x expected startup time for slowest container in stack
 - See `docs/research/container-lifecycle-analysis.md` Recommendation 1 for full implementation
 - See `docs/decisions/2026-02-12-container-lifecycle-strategy.md` for decision rationale
 

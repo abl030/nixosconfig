@@ -338,7 +338,10 @@ When `docker-compose up -d --wait` reuses an existing container:
 **Solution:** Add pre-start check in system service to detect and remove containers with stale health:
 
 ```nix
-# In stacks/lib/podman-compose.nix, add to ExecStartPre:
+# In stacks/lib/podman-compose.nix, add parameter:
+healthCheckTimeout ? 90  # Default 90 seconds, configurable per-stack
+
+# Add to ExecStartPre:
 detectStaleHealth = [
   ''
     /run/current-system/sw/bin/sh -c '
@@ -347,14 +350,14 @@ detectStaleHealth = [
         health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
         started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" $id 2>/dev/null)
 
-        # Only remove if unhealthy/starting AND running for >5 minutes
+        # Only remove if unhealthy/starting AND running for >threshold
         if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
           age_seconds=$(( $(date +%s) - $(date -d "$started" +%s) ))
-          if [ $age_seconds -gt 300 ]; then
-            echo "Removing container $id with stale health ($health) - running for ${age_seconds}s"
+          if [ $age_seconds -gt ${toString healthCheckTimeout} ]; then
+            echo "Removing container $id with stale health ($health) - running for ${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
             ${podmanBin} rm -f $id
           else
-            echo "Container $id is $health but only ${age_seconds}s old - allowing more time"
+            echo "Container $id is $health but only ${age_seconds}s old - allowing more time (threshold: ${toString healthCheckTimeout}s)"
           fi
         fi
       done
@@ -366,16 +369,18 @@ detectStaleHealth = [
 Add this to line 217 (before recreateIfLabelMismatch).
 
 **Edge Case Handling:**
-- **Legitimately slow containers:** 5-minute threshold allows slow-starting apps to complete initialization
-- **Truly stuck containers:** If still "starting" after 5 minutes, it's deadlocked (normal apps shouldn't take this long)
-- **Configurable threshold:** Can be adjusted per-stack if needed (some stacks may need longer grace periods)
+- **Default 90 seconds:** Covers most services (2-3x typical 30-45s startup time)
+- **Rapid rebuilds safe:** Won't get stuck in multi-minute loops during development
+- **Configurable per-stack:** Slow services can override (e.g., `healthCheckTimeout = 300` for database migrations)
+- **Formula:** Set to 2-3x expected startup time for the slowest container in the stack
 
 **Benefits:**
-- Prevents indefinite hangs during rebuild
+- Prevents indefinite hangs during rebuild (90s max wait for stuck containers)
+- Safe for rapid rebuilds during development (won't loop for 5+ minutes)
 - Maintains fast reuse for healthy containers
 - Automatic remediation (no manual intervention)
 - Low overhead (quick inspect check)
-- Safe: Won't remove legitimately initializing containers
+- Configurable per-stack for edge cases
 
 **Testing Strategy:** See Testing section below.
 
@@ -494,13 +499,14 @@ logHealthStatusPost = [
 
 2. **Wait for stuck state:**
    ```bash
-   # Wait 6+ minutes for test-slow to get stuck in "starting"
+   # Wait 2+ minutes for test-slow to get stuck in "starting"
    watch 'podman ps -a --format "{{.Names}}: {{.Status}}"'
    ```
 
 3. **Test detection script:**
    ```bash
-   # Run the detection logic manually
+   # Run the detection logic manually (using 90s threshold)
+   threshold=90
    ids=$(podman ps -a --filter label=io.podman.compose.project=tmp --format "{{.ID}}")
    for id in $ids; do
      health=$(podman inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
@@ -509,18 +515,19 @@ logHealthStatusPost = [
      echo "Container $id: health=$health, age=${age_seconds}s"
 
      if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
-       if [ $age_seconds -gt 300 ]; then
-         echo "  → Would remove (stale)"
+       if [ $age_seconds -gt $threshold ]; then
+         echo "  → Would remove (stale, age > ${threshold}s)"
        else
-         echo "  → Keeping (still initializing)"
+         echo "  → Keeping (still initializing, age < ${threshold}s)"
        fi
      fi
    done
    ```
 
 4. **Expected results:**
-   - `test-slow` (>5min, "starting") → marked for removal
+   - `test-slow` (>90s, "starting") → marked for removal
    - `test-healthy` ("healthy") → not touched
+   - If `test-slow` is <90s old → kept (wait longer)
 
 #### Phase 2: Safe Rollout to Production
 
