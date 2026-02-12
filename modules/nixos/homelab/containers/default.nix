@@ -250,7 +250,9 @@ in {
           description = "Podman auto-update (rootless)";
           serviceConfig = {
             Type = "oneshot";
-            ExecStart = autoUpdateScript;
+            # "" clears the base service's ExecStart (podman package ships its own)
+            # so our script is the only one that runs — avoids double auto-update.
+            ExecStart = ["" autoUpdateScript];
             User = user;
             Environment =
               [
