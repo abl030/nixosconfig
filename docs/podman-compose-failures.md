@@ -401,7 +401,50 @@ Move the podman API service from system scope to native user scope. This aligns 
 
 **Rollback:** Re-enable the system service, disable user socket/service.
 
-**Reference:** See Appendix E for detailed research on socket scope best practices.
+**Reference:** See Appendix D for detailed research on socket scope best practices.
+
+**Status: ✅ COMPLETE (2026-02-12)**
+
+Successfully deployed to both hosts:
+- proxmox-vm (19 stacks)
+- igpu (5 stacks)
+
+**Implementation Learnings:**
+
+1. **User session dependency required** - System stack services must depend on `user@.service`:
+   ```nix
+   requires = requires ++ ["user@${toString userUid}.service"];
+   after = after ++ ["user@${toString userUid}.service"];
+   ```
+   Without this, services start before the user socket is available, causing `dial unix /run/user/1000/podman/podman.sock: connect: no such file or directory`.
+
+2. **Stale health detection date parsing issues:**
+   - **Problem 1:** Podman's `StartedAt` format includes timezone abbreviation (e.g., `2026-02-12 21:03:38 +0800 AWST`)
+   - **Fix:** Strip timezone abbreviation using `awk "{print \$1, \$2, \$3}"` to get parseable format
+   - **Problem 2:** Systemd interprets `%` as variable specifier, so `date +%s` became `date +/run/current-system/sw/bin/bash`
+   - **Fix:** Escape `%` as `%%` in systemd unit files: `date +%%s`
+
+3. **Socket stale state during rebuild:**
+   - **Problem:** When transitioning from system service to user socket, the socket file could disappear even though systemd reported "active (listening)"
+   - **Root cause:** Stopping old `podman-system-service` could interfere with user socket, leaving it in stale state
+   - **Fix:** Add activation script to restart user socket during system activation:
+   ```nix
+   system.activationScripts.podmanUserSocket = lib.stringAfter ["users"] ''
+     export XDG_RUNTIME_DIR=/run/user/${toString userUid}
+     if /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user is-enabled podman.socket 2>/dev/null; then
+       /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user restart podman.socket || true
+     fi
+   '';
+   ```
+   **Note:** This script only restarts the socket (API endpoint), not containers, so it has zero impact on container uptime.
+
+4. **Commits:**
+   - `3c4f953` - Initial socket migration
+   - `faf71e6` - Add user session dependency
+   - `26ea1ed` - Fix date parsing (timezone stripping)
+   - `d4811e6` - Fix systemd % escaping
+   - `a499788` - Add activation script (initial attempt)
+   - `0e0d050` - Fix activation script to use runuser
 
 ### Phase 2: Split Services by Privilege (Medium Risk)
 
