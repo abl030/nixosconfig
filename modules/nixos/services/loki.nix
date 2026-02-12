@@ -133,8 +133,17 @@
       }
     }
 
+    loki.process "filter" {
+      forward_to = [loki.write.loki.receiver]
+
+      stage.drop {
+        expression          = "health_status:"
+        drop_counter_reason = "health_check_noise"
+      }
+    }
+
     loki.source.journal "read" {
-      forward_to    = [loki.write.loki.receiver]
+      forward_to    = [loki.process.filter.receiver]
       relabel_rules = loki.relabel.journal.rules
       labels        = { source = "journald", host = "${config.networking.hostName}" }
     }

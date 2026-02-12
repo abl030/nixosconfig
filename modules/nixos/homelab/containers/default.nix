@@ -16,29 +16,87 @@
   podmanBin = "${pkgs.podman}/bin/podman";
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
-  autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
-    set -euo pipefail
-    log_file="$(/run/current-system/sw/bin/mktemp)"
-    if ${podmanBin} auto-update >"$log_file" 2>&1; then
-      /run/current-system/sw/bin/cat "$log_file"
-      /run/current-system/sw/bin/rm -f "$log_file"
-      exit 0
-    fi
-    status=$?
-    /run/current-system/sw/bin/cat "$log_file" >&2
-    message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-    /run/current-system/sw/bin/rm -f "$log_file"
-    token_file="''${GOTIFY_TOKEN_FILE:-/run/secrets/gotify/token}"
+  notifyGotify = ''
+    local title="$1" msg="$2"
+    local token_file="''${GOTIFY_TOKEN_FILE:-/run/secrets/gotify/token}"
     if [[ -r "$token_file" ]]; then
+      local token
       token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
       if [[ -n "$token" ]]; then
         /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-          -F "title=podman auto-update failed on ${config.networking.hostName}" \
-          -F "message=$message_tail" \
+          -F "title=$title" \
+          -F "message=$msg" \
           -F "priority=8" >/dev/null || true
       fi
     fi
-    exit "$status"
+  '';
+  autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
+    set -euo pipefail
+
+    notify() {
+      ${notifyGotify}
+    }
+
+    log_file="$(/run/current-system/sw/bin/mktemp)"
+
+    # Run the auto-update
+    if ! ${podmanBin} auto-update >"$log_file" 2>&1; then
+      status=$?
+      /run/current-system/sw/bin/cat "$log_file" >&2
+      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+      /run/current-system/sw/bin/rm -f "$log_file"
+      notify "podman auto-update failed on ${config.networking.hostName}" "$message_tail"
+      exit "$status"
+    fi
+
+    /run/current-system/sw/bin/cat "$log_file"
+
+    # Extract containers that were updated (UPDATED=true in output)
+    updated_names=$(/run/current-system/sw/bin/awk '$NF == "true" {print $3}' "$log_file" | /run/current-system/sw/bin/tr -d '()')
+    /run/current-system/sw/bin/rm -f "$log_file"
+
+    if [[ -z "$updated_names" ]]; then
+      exit 0
+    fi
+
+    # Wait for containers to settle after update
+    sleep 30
+
+    # Check for two failure modes:
+    # 1. Container crashed and is not running
+    # 2. Container was rolled back (still running on old image)
+    #    Detected by --dry-run showing it still needs an update
+    failed=""
+
+    for name in $updated_names; do
+      state=$(${podmanBin} inspect --format '{{.State.Status}}' "$name" 2>/dev/null || echo "missing")
+      if [[ "$state" != "running" ]]; then
+        failed="$failed\n  $name: not running ($state)"
+      fi
+    done
+
+    # Dry-run to detect rollbacks — containers that still show as needing update
+    dry_run_file="$(/run/current-system/sw/bin/mktemp)"
+    ${podmanBin} auto-update --dry-run >"$dry_run_file" 2>&1 || true
+    rolled_back=$(/run/current-system/sw/bin/awk '$NF == "pending" {print $3}' "$dry_run_file" | /run/current-system/sw/bin/tr -d '()')
+    /run/current-system/sw/bin/rm -f "$dry_run_file"
+
+    for name in $rolled_back; do
+      # Only report if this container was in our updated list
+      for updated in $updated_names; do
+        if [[ "$name" == "$updated" ]]; then
+          failed="$failed\n  $name: rolled back (update failed health check)"
+          break
+        fi
+      done
+    done
+
+    if [[ -n "$failed" ]]; then
+      notify \
+        "podman auto-update issues on ${config.networking.hostName}" \
+        "$(echo -e "Problems detected after auto-update:$failed")"
+      exit 1
+    fi
   '';
   podmanServiceScript = pkgs.writeShellScript "podman-system-service" ''
     set -euo pipefail
