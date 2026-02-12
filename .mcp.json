@@ -1,8 +1,12 @@
 {
   "mcpServers": {
     "loki": {
-      "type": "http",
-      "url": "http://loki-mcp.ablz.au:8081/stream"
+      "command": "loki-mcp",
+      "args": [],
+      "env": {
+        "LOKI_URL": "http://192.168.1.33:3100",
+        "LOKI_READ_ONLY": "true"
+      }
     },
     "mcp-nixos": {
       "command": "uvx",
