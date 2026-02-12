@@ -132,6 +132,12 @@
       url = "github:abl030/pfsense-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Loki MCP - AI-friendly MCP server for Grafana Loki (42 tools)
+    loki-mcp = {
+      url = "github:abl030/loki-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {

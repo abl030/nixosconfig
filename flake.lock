@@ -333,6 +333,26 @@
         "type": "github"
       }
     },
+    "loki-mcp": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770868258,
+        "narHash": "sha256-G8FPUko0RQ8rY6Iifz073TlC1Cy83vHWhdzXXMedehQ=",
+        "owner": "abl030",
+        "repo": "loki-mcp",
+        "rev": "c389f02c40207623b2e3eae72f379467af8f18aa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "loki-mcp",
+        "type": "github"
+      }
+    },
     "nixos-hardware": {
       "locked": {
         "lastModified": 1770631810,
@@ -563,6 +583,7 @@
         "home-manager-diff": "home-manager-diff",
         "isd": "isd",
         "jolt": "jolt",
+        "loki-mcp": "loki-mcp",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
