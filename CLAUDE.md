@@ -269,9 +269,119 @@ All settings use `lib.mkDefault` so individual hosts can override.
 - `flake-root`: The flake root (self)
 - `system`: "x86_64-linux"
 
-### Docker Compose Integration
+### Container Stack Management
 
-Docker services defined as Nix files in `docker/*/docker-compose.nix` - these are referenced by doc1 VM configuration.
+**Current Implementation:** All container stacks use `podman compose` (built-in podman subcommand wrapping docker-compose Go binary). This replaced the Python `podman-compose` wrapper in Feb 2025 for better reliability.
+
+**Stack Architecture:**
+- Stack definitions: `stacks/*/docker-compose.nix`
+- Core library: `stacks/lib/podman-compose.nix`
+- Configuration: `modules/nixos/homelab/containers/default.nix`
+
+**Key Features:**
+- `--wait` flag blocks until containers pass health checks or fail
+- Proper error propagation (nonzero exit codes)
+- API socket communication eliminates SQLite lock contention
+- Dual service architecture: system service (main) + user service (auto-update)
+
+**Migration Gotchas (podman-compose → podman compose):**
+
+1. **Network Label Mismatch** - OLD networks created by podman-compose lack `com.docker.compose.network` label that docker-compose requires. **Solution:** Remove old networks before first deployment:
+   ```bash
+   # List networks to remove
+   podman network ls --format "{{.Name}}" | grep "_default$"
+
+   # Remove unused networks (no containers attached)
+   for net in $(podman network ls --format "{{.Name}}" | grep "_default$"); do
+     containers=$(podman network inspect "$net" -f "{{len .Containers}}" 2>/dev/null || echo "0")
+     if [ "$containers" -eq 0 ]; then
+       podman network rm "$net"
+     fi
+   done
+   ```
+
+2. **Stale Container Reuse** - Docker-compose reuses existing containers if they match the config. If a container has a failed/stuck health check, docker-compose with `--wait` will wait forever for that stale health status to change. **Solution:** Remove containers with stuck health before redeploying:
+   ```bash
+   # Check for containers in perpetual "starting" state
+   podman ps -a --format "table {{.Names}}\t{{.Status}}" | grep "starting"
+
+   # Remove them to force fresh creation
+   podman rm -f <container-name>
+   ```
+   This is **ongoing risk**, not just migration - can happen anytime a container gets into bad health state and isn't cleaned up before restart.
+
+3. **Stricter YAML Parsing** - Docker-compose rejects duplicate mapping keys (podman-compose silently merged them). **Solution:** Fix YAML syntax errors:
+   ```yaml
+   # BAD (duplicate labels)
+   labels:
+     - io.containers.autoupdate=registry
+   ...
+   labels:
+     - autoheal=true
+
+   # GOOD (merged)
+   labels:
+     - io.containers.autoupdate=registry
+     - autoheal=true
+   ```
+
+4. **Flag Compatibility** - `--in-pod` flag is podman-compose-specific and not recognized by docker-compose. Default behavior (no pod wrapping) is correct for docker-compose. **Solution:** Remove `--in-pod false` from stack definitions.
+
+**Deploying to New Hosts (e.g., igpu):**
+1. Network cleanup will be needed (same as doc1 migration)
+2. Expect stale container issues on first deploy - remove them and redeploy
+3. Check for duplicate YAML keys with: `docker-compose -f <file> config` (validates syntax)
+4. Monitor first startup for health check timeouts
+
+**Debugging Stuck Deployments:**
+```bash
+# Check what systemd is waiting on
+systemctl list-jobs
+
+# Check which services are stuck
+systemctl list-units --state=activating
+
+# Find the docker-compose process
+ps aux | grep docker-compose
+
+# Check container health status
+podman inspect <container> --format '{{json .State.Health}}' | jq
+
+# Kill stuck docker-compose and restart service
+sudo kill <pid>
+sudo systemctl restart <stack-name>
+```
+
+**⚠️ OPEN RESEARCH: Rebuild vs Auto-Update Behavior** (See `bd show nixosconfig-cm5`)
+
+Two scenarios with different requirements:
+
+1. **Rebuild Time (nixos-rebuild switch)**
+   - **Goal:** Apply config changes incrementally
+   - **Desired:** Only restart containers whose config actually changed
+   - **Current:** `docker-compose up -d --wait` (reuses matching containers)
+   - **Issue:** Stale health checks from reused containers cause deadlocks
+   - **Question:** Is container reuse even valuable? Most rebuilds change something.
+
+2. **Auto-Update Time (scheduled image updates)**
+   - **Goal:** Pull new images, recreate with latest versions (Watchtower-style)
+   - **Desired:** Always recreate, fresh containers every time
+   - **Current:** Unclear - dual service architecture (system + user services)
+   - **Issue:** Relationship between `podman auto-update` and compose unclear
+   - **Question:** Should auto-update use compose at all, or direct podman API?
+
+**Dual Service Architecture (needs clarification):**
+- System service: `<stack>-stack.service` - what nixos-rebuild interacts with
+- User service: `podman-compose@<project>.service` - used by auto-update?
+- Why both? What's the lifecycle relationship?
+
+**Potential Solutions Under Research:**
+- **A:** Keep current, add `--force-recreate` to avoid stale health (Watchtower-style)
+- **B:** Different flags for rebuild (`up -d --wait`) vs update (`up -d --wait --force-recreate`)
+- **C:** Separate paths: compose for rebuild, `podman auto-update` for updates
+- **D:** Automated cleanup of stale containers in ExecStartPre
+
+**Lesson from Watchtower:** Simple always-recreate worked reliably for years. Complexity of container reuse may not be worth the optimization.
 
 ## Important Files
 
