@@ -236,26 +236,13 @@ The `autoUpdateScript` (lines 33-100):
 
 **Critical Finding:** Our auto-update does NOT call docker-compose directly. It uses `podman auto-update`, which then triggers systemd to restart the user services, which then run docker-compose.
 
-### 7. Container Reuse: When It Happens
+### 7. Container Reuse: Summary
 
-From [GitHub issues about recreation](https://github.com/docker/compose/issues/9600):
-> "docker compose up recreates running container that does not have their configs changed in docker-compose.yml"
+**Intended behavior** (see section 1 for details):
+- Reuse: Config hash matches + same image digest
+- Recreate: Config changes, new image, or `--force-recreate`
 
-This is a known bug in Docker Compose v2, but the intended behavior is:
-
-**Containers are reused when:**
-- Config hash matches (no changes to service definition)
-- Image digest is the same
-- Same volumes, networks, environment
-
-**Containers are recreated when:**
-- Config hash differs (any service definition change)
-- New image version pulled
-- `--force-recreate` flag used
-- `--no-deps` prevents dependency cascades
-
-From [DeepWiki documentation](https://deepwiki.com/docker/compose/5.2-config-command):
-> "The hash computation in compose.ServiceHash() is used for detecting configuration changes and determining when containers need recreation."
+**Known issue:** Docker Compose v2 sometimes recreates unnecessarily ([GitHub #9600](https://github.com/docker/compose/issues/9600)), but generally respects config hash comparison.
 
 ### 8. Best Practices from the Field
 
@@ -311,25 +298,15 @@ When `docker-compose up -d --wait` reuses an existing container:
 
 ### Q2: Should We Use Different Flags for Rebuild vs Auto-Update?
 
-**Answer:** NO - but for a surprising reason.
-
-The dual service architecture already separates these concerns:
+**Answer:** NO - the dual service architecture already handles this correctly (see section 5 for details).
 
 **For Rebuild (system service):**
-- Current: `docker-compose up -d --wait --remove-orphans`
-- Container reuse: Desired (fast, only restart what changed)
-- Risk: Stale health checks
-- **Mitigation already in place:** `recreateIfLabelMismatch` check (line 173) removes containers with wrong `PODMAN_SYSTEMD_UNIT` label
+- Smart reuse via `docker-compose up -d --wait` (fast, incremental)
+- Mitigation: `recreateIfLabelMismatch` + proposed stale health detection
 
-**For Auto-Update (user service via podman auto-update):**
-- Current: Systemd restarts user service → `docker-compose up -d --wait --remove-orphans`
-- Container reuse: Does NOT happen (systemd ExecStop removes containers before ExecStart)
-- Actually behaves like `--force-recreate` (fresh containers every time)
-- Has rollback protection (podman auto-update built-in feature)
-
-**Key Finding:** User services already recreate containers because systemd runs the FULL service cycle (ExecStop → ExecStart). The Type=oneshot with RemainAfterExit=true means:
-- On restart: Stop command runs first (stops containers)
-- Then: Start command runs (creates fresh containers)
+**For Auto-Update (user service):**
+- Full recreation via systemd restart cycle (ExecStop → ExecStart)
+- Built-in rollback protection from podman auto-update
 
 ### Q3: What Is the Root Cause of Stale Container Issues?
 
@@ -484,12 +461,148 @@ logHealthStatusPost = [
 - Helps tune `start_period` and `interval` settings
 - Useful for debugging deployment issues
 
+## Testing Strategy
+
+### Testing Recommendation 1 (Stale Health Detection)
+
+**Goal:** Verify the detection script correctly identifies and removes stuck containers without breaking healthy ones.
+
+#### Phase 1: Validation in Dev Environment
+
+1. **Test Setup:**
+   ```bash
+   # On dev VM, create a test stack with intentionally broken health check
+   cat > /tmp/test-health-compose.yml <<EOF
+   services:
+     test-slow:
+       image: nginx:alpine
+       healthcheck:
+         test: ["CMD", "sleep", "999"]  # Always times out
+         interval: 30s
+         timeout: 10s
+         start_period: 10s
+     test-healthy:
+       image: nginx:alpine
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost"]
+         interval: 30s
+         timeout: 5s
+   EOF
+
+   podman compose -f /tmp/test-health-compose.yml up -d
+   ```
+
+2. **Wait for stuck state:**
+   ```bash
+   # Wait 6+ minutes for test-slow to get stuck in "starting"
+   watch 'podman ps -a --format "{{.Names}}: {{.Status}}"'
+   ```
+
+3. **Test detection script:**
+   ```bash
+   # Run the detection logic manually
+   ids=$(podman ps -a --filter label=io.podman.compose.project=tmp --format "{{.ID}}")
+   for id in $ids; do
+     health=$(podman inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
+     started=$(podman inspect -f "{{.State.StartedAt}}" $id 2>/dev/null)
+     age_seconds=$(( $(date +%s) - $(date -d "$started" +%s) ))
+     echo "Container $id: health=$health, age=${age_seconds}s"
+
+     if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
+       if [ $age_seconds -gt 300 ]; then
+         echo "  → Would remove (stale)"
+       else
+         echo "  → Keeping (still initializing)"
+       fi
+     fi
+   done
+   ```
+
+4. **Expected results:**
+   - `test-slow` (>5min, "starting") → marked for removal
+   - `test-healthy` ("healthy") → not touched
+
+#### Phase 2: Safe Rollout to Production
+
+1. **Add detection to ONE stack first:**
+   ```nix
+   # In stacks/management/docker-compose.nix (small, non-critical stack)
+   # Add detectStaleHealth to ExecStartPre
+   ```
+
+2. **Deploy and monitor:**
+   ```bash
+   # On doc1
+   sudo nixos-rebuild switch --flake .#proxmox-vm
+   journalctl -u management-stack.service -f
+   ```
+
+3. **Verify behavior:**
+   - Check logs for "Removing container..." messages
+   - Confirm removed containers were actually stuck
+   - Verify healthy containers weren't touched
+
+4. **Gradual expansion:**
+   - Week 1: 1-2 small stacks (management, domain-monitor)
+   - Week 2: Medium stacks (paperless, mealie)
+   - Week 3: Critical stacks (immich, caddy)
+
+#### Phase 3: Rollback Plan
+
+**If detection removes wrong containers:**
+
+1. **Immediate rollback:**
+   ```bash
+   # Revert to previous generation
+   sudo nixos-rebuild switch --rollback
+   ```
+
+2. **Manual recovery:**
+   ```bash
+   # Recreate affected stack
+   cd /mnt/docker/<stack-name>
+   podman compose up -d
+   ```
+
+3. **Adjust threshold:**
+   ```nix
+   # Increase from 300s to 600s (10 minutes) if legitimately slow
+   if [ $age_seconds -gt 600 ]; then
+   ```
+
+**Safety guarantees:**
+- Only affects containers already in bad health states
+- Won't touch "healthy" or "none" (no health check) containers
+- Time threshold prevents premature removal
+- Worst case: Container recreated (same as manual fix)
+
+### Testing Recommendation 2 (Health Check Guidance)
+
+**Validation:**
+1. Test health check templates in sandbox
+2. Verify `start_period` covers actual initialization time
+3. Confirm health check command runs successfully
+
+### Monitoring During Rollout
+
+**What to watch:**
+```bash
+# Track health state changes
+journalctl -u '*-stack.service' | grep -E '(stale health|Removing container)'
+
+# Monitor auto-update behavior
+journalctl -u podman-auto-update.service
+
+# Check for unexpected restarts
+podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}"
+```
+
 ## Implementation Priority
 
 1. **HIGH:** Stale health check detection (Recommendation 1)
    - Solves immediate pain point (deployments hanging)
-   - Low risk (removes containers that are already broken)
-   - Quick to implement (~10 lines in podman-compose.nix)
+   - Low risk with proper testing (phase 1-3 above)
+   - Quick to implement (~20 lines in podman-compose.nix)
 
 2. **MEDIUM:** Health check configuration guidance (Recommendation 2)
    - Prevents future issues
