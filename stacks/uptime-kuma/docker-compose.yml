@@ -18,22 +18,3 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
-  autokuma:
-    image: ghcr.io/bigboot/autokuma:latest
-    labels:
-      - io.containers.autoupdate=registry
-    container_name: autokuma
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      - AUTOKUMA__KUMA__URL=http://127.0.0.1:3001
-      - AUTOKUMA__KUMA__USERNAME=${KUMA_USERNAME}
-      - AUTOKUMA__KUMA__PASSWORD=${KUMA_PASSWORD}
-      # FIXED: Changed '=' to ':' for YAML parsing compliance
-      - "AUTOKUMA__DEFAULT_SETTINGS=docker.docker_container: {{container_name}}"
-    volumes:
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
-    depends_on:
-      uptime-kuma:
-        condition: service_healthy

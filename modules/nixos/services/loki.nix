@@ -140,6 +140,26 @@
         expression          = "health_status:"
         drop_counter_reason = "health_check_noise"
       }
+
+      stage.drop {
+        expression          = "container sync [0-9a-f]"
+        drop_counter_reason = "container_sync_noise"
+      }
+
+      stage.drop {
+        expression          = "celery\\.beat.*Waking up"
+        drop_counter_reason = "celery_beat_wakeup"
+      }
+
+      stage.drop {
+        expression          = "caller=metrics\\.go.+query="
+        drop_counter_reason = "loki_query_metrics"
+      }
+
+      stage.drop {
+        expression          = "already been recorded in the archive"
+        drop_counter_reason = "ytdlp_archive_skip"
+      }
     }
 
     loki.source.journal "read" {
