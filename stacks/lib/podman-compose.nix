@@ -14,7 +14,7 @@
   userGroup = config.users.users.${user}.group or "users";
   runUserDir = "/run/user/${toString userUid}";
   podmanBin = "${pkgs.podman}/bin/podman";
-  podmanCompose = "${pkgs.podman-compose}/bin/podman-compose";
+  podmanCompose = "${podmanBin} compose";
   sopsBin = "${pkgs.sops}/bin/sops";
   ageKey = "${userHome}/.config/sops/age/keys.txt";
   sopsDecryptScript = pkgs.writeShellScript "podman-sops-decrypt" ''
@@ -153,7 +153,7 @@
     after ? [],
     wants ? [],
     requires ? [],
-    composeArgs ? "--in-pod false",
+    composeArgs ? "",
     prunePod ? true,
     restart ? "on-failure",
     restartSec ? "30s",
@@ -216,11 +216,11 @@
 
         ExecStartPre = mkExecStartPre envFiles (podPrune ++ recreateIfLabelMismatch ++ preStart);
 
-        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
         ExecStartPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
         ExecStopPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
-        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
 
         Restart = restart;
         RestartSec = restartSec;
@@ -239,9 +239,9 @@
         RemainAfterExit = true;
         Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
         ExecStartPre = mkExecStartPreUser envFiles preStart;
-        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
-        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --remove-orphans";
+        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
       };
       wantedBy = ["default.target"];
     };
