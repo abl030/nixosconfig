@@ -223,8 +223,9 @@ in {
     # This handles the transition from system service to user socket
     system.activationScripts.podmanUserSocket = lib.stringAfter ["users"] ''
       # Restart user socket to ensure it's properly initialized
-      if /run/current-system/sw/bin/systemctl --user -M abl030@ is-enabled podman.socket 2>/dev/null; then
-        /run/current-system/sw/bin/systemctl --user -M abl030@ restart podman.socket || true
+      export XDG_RUNTIME_DIR=/run/user/${toString userUid}
+      if /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user is-enabled podman.socket 2>/dev/null; then
+        /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user restart podman.socket || true
       fi
     '';
 
