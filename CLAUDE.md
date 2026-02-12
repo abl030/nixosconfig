@@ -327,11 +327,14 @@ All settings use `lib.mkDefault` so individual hosts can override.
 
 4. **Flag Compatibility** - `--in-pod` flag is podman-compose-specific and not recognized by docker-compose. Default behavior (no pod wrapping) is correct for docker-compose. **Solution:** Remove `--in-pod false` from stack definitions.
 
-**Deploying to New Hosts (e.g., igpu):**
-1. Network cleanup will be needed (same as doc1 migration)
-2. Expect stale container issues on first deploy - remove them and redeploy
-3. Check for duplicate YAML keys with: `docker-compose -f <file> config` (validates syntax)
-4. Monitor first startup for health check timeouts
+**igpu Migration (COMPLETE - 2026-02-12):**
+Successfully migrated all stacks from podman-compose to podman compose. Issues encountered:
+1. ✅ Network label mismatches - Both `*_default` AND custom networks (`jellyfin_jellyfin-net`, `plex_plex-net`) needed removal
+2. ✅ Duplicate YAML keys - jellyfinn had 11 orphaned labels from commented service, plex had 2
+3. ✅ Stale health detection working - No stuck containers after network cleanup
+
+**Migration verified on:** doc1 (proxmox-vm), igpu
+**Remaining hosts:** None - all container hosts migrated
 
 **Debugging Stuck Deployments:**
 ```bash
