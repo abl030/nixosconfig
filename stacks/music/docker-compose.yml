@@ -193,6 +193,7 @@ services:
     image: docker.io/filebrowser/filebrowser:v2
     labels:
       - io.containers.autoupdate=registry
+      - autoheal=true
     container_name: music-filebrowser
     # Rootless podman: user 0:0 maps to host user
     user: "0:0"
@@ -216,9 +217,6 @@ services:
       timeout: 15s
       retries: 5
       start_period: 60s
-    labels:
-      - io.containers.autoupdate=registry
-      - autoheal=true
     restart: unless-stopped
     depends_on:
       - music-network-holder

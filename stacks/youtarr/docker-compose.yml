@@ -5,6 +5,7 @@ services:
     image: docker.io/dialmaster/youtarr:latest
     labels:
       - io.containers.autoupdate=registry
+      - autoheal=true
     container_name: youtarr
     restart: unless-stopped
     ports:
@@ -38,9 +39,6 @@ services:
       timeout: 15s
       retries: 5
       start_period: 60s
-    labels:
-      - io.containers.autoupdate=registry
-      - autoheal=true
     depends_on:
       - youtarr-db
 
