@@ -53,8 +53,8 @@ in {
         description = "Domain Monitor Podman Compose Stack";
         restartIfChanged = false;
         reloadIfChanged = false;
-        requires = dependsOn;
-        after = dependsOn;
+        requires = dependsOn ++ ["user@${toString userUid}.service"];
+        after = dependsOn ++ ["user@${toString userUid}.service"];
         restartTriggers = [
           composeFile
           dockerFile

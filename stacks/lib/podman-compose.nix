@@ -199,7 +199,10 @@
           StartLimitIntervalSec = 300;
           StartLimitBurst = 5;
         };
-      inherit requires wants after;
+      # System services must wait for user session and podman socket
+      requires = requires ++ ["user@${toString userUid}.service"];
+      after = after ++ ["user@${toString userUid}.service"];
+      inherit wants;
 
       serviceConfig = {
         Type = "oneshot";
