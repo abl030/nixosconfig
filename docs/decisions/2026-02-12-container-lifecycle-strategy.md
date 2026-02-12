@@ -1,9 +1,10 @@
 # Decision: Container Lifecycle Strategy for Rebuild vs Auto-Update
 
 **Date:** 2026-02-12
-**Status:** Approved
+**Status:** Implemented (commit e194187)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
 **Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
+**Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix#L177-L196)
 
 ## Context
 
@@ -78,9 +79,11 @@ Targeted stale health detection:
 
 ## Implementation
 
-### Add Stale Health Detection (HIGH PRIORITY)
+**Status:** ✅ Completed (commit e194187, 2026-02-12)
 
-Location: `stacks/lib/podman-compose.nix`, line ~217 (in ExecStartPre, before `recreateIfLabelMismatch`)
+### Stale Health Detection
+
+**Location:** `stacks/lib/podman-compose.nix`, lines 164 (parameter), 177-196 (detection script), 240 (ExecStartPre)
 
 ```nix
 # Add parameter to mkSystemdService function:

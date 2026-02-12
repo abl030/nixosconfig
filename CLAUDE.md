@@ -382,18 +382,19 @@ User Service (podman-compose@<project>.service):
   Note: Already recreates fresh containers via systemd lifecycle
 ```
 
-**Implementation Plan:**
+**Stale Health Detection (IMPLEMENTED):**
 
-Add pre-start stale health detection to system service (HIGH PRIORITY):
-- Detect containers in "starting" or "unhealthy" state for >90 seconds before reuse (default)
+Pre-start stale health detection added to system service in `stacks/lib/podman-compose.nix`:
+- Detects containers in "starting" or "unhealthy" state for >90 seconds before reuse (default)
 - Time-based validation prevents removing legitimately slow-starting containers
 - Safe for rapid rebuilds during development (won't loop for minutes)
-- Remove stuck containers to force fresh creation
+- Removes stuck containers to force fresh creation
 - Preserves fast path for healthy containers
 - Low overhead, automatic remediation
 - Configurable threshold per-stack (e.g., `healthCheckTimeout = 300` for slow services)
 - Formula: Set to 2-3x expected startup time for slowest container in stack
-- See `docs/research/container-lifecycle-analysis.md` Recommendation 1 for full implementation
+- Implementation: commit e194187
+- See `docs/research/container-lifecycle-analysis.md` for analysis
 - See `docs/decisions/2026-02-12-container-lifecycle-strategy.md` for decision rationale
 
 **Why NOT --force-recreate:**
