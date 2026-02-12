@@ -332,6 +332,13 @@ Successfully migrated all stacks from podman-compose to podman compose. Issues e
 1. ✅ Network label mismatches - Both `*_default` AND custom networks (`jellyfin_jellyfin-net`, `plex_plex-net`) needed removal
 2. ✅ Duplicate YAML keys - jellyfinn had 11 orphaned labels from commented service, plex had 2
 3. ✅ Stale health detection working - No stuck containers after network cleanup
+4. ✅ Force-removing networks kills containers - Use `podman network rm -f` carefully; requires manual service restart after
+
+**IMPORTANT: Oneshot Service Behavior**
+Container stacks use `Type=oneshot` with `restartIfChanged=true`. They only restart when config changes, NOT on every rebuild. If containers are manually removed (e.g., via `podman rm -f` or network cleanup), you must manually restart the services:
+```bash
+sudo systemctl restart <stack-name>
+```
 
 **Migration verified on:** doc1 (proxmox-vm), igpu
 **Remaining hosts:** None - all container hosts migrated
