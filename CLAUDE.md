@@ -138,6 +138,18 @@ Endpoint reference for monitoring setup: `bd show nixosconfig-2ws`.
 
 When recording a decision: create/update a bead, optionally add a one-line pointer in MEMORY.md if it's referenced constantly. Do NOT duplicate rationale into MEMORY.md.
 
+### Beads Per-Clone Setup
+
+Beads git hooks live in `.git/hooks/` (local, not tracked by git). **Every fresh clone needs setup:**
+
+```bash
+bd hooks install          # Installs pre-commit, post-merge, pre-push, post-checkout hooks
+bd config set beads.role maintainer
+bd migrate --update-repo-id  # Only if "LEGACY DATABASE" error appears
+```
+
+Without hooks, `bd sync` must be run manually — beads created without syncing exist only in the local SQLite DB and will be lost if the clone is deleted. The hooks automate `bd sync` on commit/push so this can't happen silently.
+
 ## AI Tool Integration
 
 ### MCP Servers
