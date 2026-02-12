@@ -84,9 +84,33 @@ Location: `stacks/lib/podman-compose.nix`, line ~217 (in ExecStartPre, before `r
 
 ```nix
 detectStaleHealth = [
-  "/run/current-system/sw/bin/sh -c 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format \"{{.ID}}\"); for id in $ids; do health=$(${podmanBin} inspect -f \"{{.State.Health.Status}}\" $id 2>/dev/null || echo \"none\"); if [ \"$health\" = \"starting\" ] || [ \"$health\" = \"unhealthy\" ]; then echo \"Removing container $id with stale health: $health\" >&2; ${podmanBin} rm -f $id; fi; done'"
+  ''
+    /run/current-system/sw/bin/sh -c '
+      ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}")
+      for id in $ids; do
+        health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
+        started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" $id 2>/dev/null)
+
+        # Only remove if unhealthy/starting AND running for >5 minutes
+        if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
+          age_seconds=$(( $(date +%s) - $(date -d "$started" +%s) ))
+          if [ $age_seconds -gt 300 ]; then
+            echo "Removing container $id with stale health ($health) - running for ${age_seconds}s"
+            ${podmanBin} rm -f $id
+          else
+            echo "Container $id is $health but only ${age_seconds}s old - allowing more time"
+          fi
+        fi
+      done
+    '
+  ''
 ];
 ```
+
+**Edge Case Protection:**
+- **Legitimately slow containers:** 5-minute threshold allows slow-starting apps to complete initialization
+- **Truly stuck containers:** If still "starting" after 5 minutes, it's deadlocked (normal apps shouldn't take this long)
+- **Configurable threshold:** Can be adjusted per-stack if needed (some stacks may need longer grace periods)
 
 Add to `mkExecStartPre` call:
 ```nix
@@ -95,12 +119,52 @@ ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreat
 
 ### Verification Steps
 
-1. Create test scenario with stuck health check
-2. Verify detection removes stale container
-3. Verify fresh container is created successfully
-4. Verify healthy containers are NOT removed
-5. Deploy to doc1, monitor first rebuild
-6. Deploy to igpu during migration (expect same issues, verify auto-remediation)
+**Phase 1: Dev Environment Validation**
+
+1. **Create test stack with intentional failure:**
+   ```bash
+   # On dev VM
+   cat > /tmp/test-health-compose.yml <<EOF
+   services:
+     test-slow:
+       image: nginx:alpine
+       healthcheck:
+         test: ["CMD", "sleep", "999"]  # Always times out
+         interval: 30s
+         timeout: 10s
+         start_period: 10s
+     test-healthy:
+       image: nginx:alpine
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost"]
+         interval: 30s
+         timeout: 5s
+   EOF
+   podman compose -f /tmp/test-health-compose.yml up -d
+   ```
+
+2. **Wait for stuck state (6+ minutes):**
+   ```bash
+   watch 'podman ps -a --format "{{.Names}}: {{.Status}}"'
+   # test-slow should show "Up X minutes (health: starting)"
+   ```
+
+3. **Run detection script manually:** Verify it identifies stuck container but NOT the healthy one
+
+4. **Test in NixOS stack:** Add test stack to doc1, trigger rebuild, verify auto-remediation
+
+**Phase 2: Production Validation**
+
+1. Deploy to doc1, monitor first rebuild
+2. Check journalctl for detection messages
+3. Verify no false positives (healthy containers removed)
+4. Deploy to igpu during migration (expect same issues, verify auto-remediation)
+
+**Success Criteria:**
+- ✅ Containers stuck >5min are removed
+- ✅ Containers <5min in "starting" state are NOT removed
+- ✅ Healthy containers are never touched
+- ✅ Clear logging shows what was removed and why
 
 ## Alternative Approaches Considered
 
