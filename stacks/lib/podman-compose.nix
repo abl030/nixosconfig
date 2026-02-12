@@ -30,9 +30,6 @@
     echo "No sops identity found (expected /var/lib/sops-nix/key.txt, ${ageKey}, or /etc/ssh/ssh_host_ed25519_key)" >&2
     exit 1
   '';
-  baseDepends = lib.optionals config.homelab.containers.enable [
-    "podman-system-service.service"
-  ];
 
   # Clean up orphaned containers, pods, and health check timers after stack
   # stop/restart. When containers are replaced, stopped containers linger and
@@ -120,12 +117,8 @@
       else [
         "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
       ];
-    # Wait for podman socket to be available (max 30 seconds)
-    waitForSocket = [
-      "/run/current-system/sw/bin/sh -c 'for i in $(seq 1 30); do [ -S ${runUserDir}/podman/podman.sock ] && exit 0; sleep 1; done; echo \"Timeout waiting for podman socket\" >&2; exit 1'"
-    ];
   in
-    waitForSocket ++ base ++ preStart;
+    base ++ preStart;
 
   mkEnv = projectName: extraEnv:
     [
@@ -206,10 +199,7 @@
           StartLimitIntervalSec = 300;
           StartLimitBurst = 5;
         };
-      inherit requires;
-      wants = wants ++ baseDepends;
-      after = after ++ baseDepends;
-      # Avoid unnecessary restarts when podman-system-service reloads.
+      inherit requires wants after;
 
       serviceConfig = {
         Type = "oneshot";
@@ -238,6 +228,8 @@
     systemd.user.services.${autoUpdateUnit} = {
       description = "Podman compose auto-update unit for ${projectName}";
       restartIfChanged = false;
+      after = ["podman.socket"];
+      wants = ["podman.socket"];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

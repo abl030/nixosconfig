@@ -12,7 +12,7 @@ IMPORTANT: keep as much state as possible in each stack's own `docker-compose.ni
 - Enables rootless podman with complete runtime setup
 - Configures subuid/subgid ranges (100000-165535)
 - Sets up storage with overlay driver and fuse-overlayfs
-- Runs `podman-system-service.service` for API access
+- Uses podman user socket (`podman.socket`) for rootless API access
 - Provides automatic container updates (daily by default)
 - Provides automatic cleanup/pruning (weekly, 7-day retention by default)
 - All infrastructure state contained in `homelab.containers.*` options
@@ -600,7 +600,7 @@ uuidgen > /mnt/docker/dozzle-agent/docker/engine-id
 ### Systemd & Mounts
 
 - **RequiresMountsFor creates hard dependencies:** Service fails if mount times out. Use `automount` for slow/optional mounts.
-- **bindsTo for coordinated restarts:** Ensures stacks restart when podman-system-service restarts.
+- **Socket activation:** Podman API service starts on-demand when stacks access the socket.
 - **Dependency failures don't trigger Restart:** Use `bindsTo` instead of relying on `Restart=on-failure`.
 
 ### Compose & Containers
@@ -617,9 +617,10 @@ uuidgen > /mnt/docker/dozzle-agent/docker/engine-id
 
 ### Stack fails to start
 
-**Check podman-system-service:**
+**Check podman socket:**
 ```bash
-systemctl status podman-system-service
+systemctl --user status podman.socket
+systemctl --user status podman.service  # Service starts on-demand
 curl --unix-socket /run/user/1000/podman/podman.sock http://localhost/_ping
 ```
 
