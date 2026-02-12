@@ -31,16 +31,10 @@
     exit 1
   '';
 
-  # Clean up orphaned containers, pods, and health check timers after stack
-  # stop/restart. When containers are replaced, stopped containers linger and
-  # old systemd health check timers spam "no container with name or ID found".
-  stackCleanup = pkgs.writeShellScript "podman-stack-cleanup" ''
+  # Clean up orphaned health check timers after stack stop/restart.
+  # Container/pod pruning is redundant with global timer.
+  stackCleanupSimplified = pkgs.writeShellScript "podman-stack-cleanup" ''
     set -euo pipefail
-    sleep 2
-
-    # Prune stopped containers and dead pods
-    ${podmanBin} container prune -f --filter "until=60s" 2>/dev/null || true
-    ${podmanBin} pod prune -f 2>/dev/null || true
 
     # Clean up orphaned health check timers
     active_ids=$(${podmanBin} ps -q 2>/dev/null | tr '\n' '|')
@@ -77,9 +71,6 @@
     (env: ''${sopsDecryptScript} ${env.runFile} ${env.sopsFile}'')
     (normalizeEnvFiles envFiles);
 
-  mkRunEnvPaths = envFiles:
-    lib.concatStringsSep " " (map (env: env.runFile) (normalizeEnvFiles envFiles));
-
   mkMountRequirements = requiresMounts: let
     merged = [dataRoot] ++ requiresMounts;
   in
@@ -87,38 +78,36 @@
     then {}
     else {RequiresMountsFor = merged;};
 
-  mkExecStartPre = envFiles: preStart: let
-    base =
-      if envFiles == []
-      then []
-      else [
-        "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
-      ];
-    decrypt = mkDecryptSteps envFiles;
-    chmod =
-      if envFiles == []
-      then []
-      else [
-        "/run/current-system/sw/bin/chmod 600 ${mkRunEnvPaths envFiles}"
-      ];
-    chown =
-      if envFiles == []
-      then []
-      else [
-        "/run/current-system/sw/bin/chown ${user}:${userGroup} ${mkRunEnvPaths envFiles}"
-      ];
-  in
-    base ++ preStart ++ decrypt ++ chmod ++ chown;
+  # Generate chmod commands for all decrypted env files
+  mkChmodSteps = envFiles:
+    map
+    (env: "/run/current-system/sw/bin/chmod 600 ${env.runFile}")
+    (normalizeEnvFiles envFiles);
 
-  mkExecStartPreUser = envFiles: preStart: let
-    base =
-      if envFiles == []
-      then []
-      else [
-        "/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"
-      ];
-  in
-    base ++ preStart;
+  # Generate chown commands for all decrypted env files
+  mkChownSteps = envFiles:
+    map
+    (env: "/run/current-system/sw/bin/chown ${user}:${userGroup} ${env.runFile}")
+    (normalizeEnvFiles envFiles);
+
+  # Generate env file existence checks with retry
+  mkEnvFileChecks = envFiles:
+    map
+    (env: ''
+      /run/current-system/sw/bin/sh -c '
+        max_attempts=30
+        attempt=0
+        while [ ! -f ${env.runFile} ]; do
+          attempt=$((attempt + 1))
+          if [ $attempt -ge $max_attempts ]; then
+            echo "Timeout waiting for ${env.runFile}"
+            exit 1
+          fi
+          sleep 1
+        done
+      '
+    '')
+    (normalizeEnvFiles envFiles);
 
   mkEnv = projectName: extraEnv:
     [
@@ -156,7 +145,8 @@
     scrapeTargets ? [],
     healthCheckTimeout ? 90,
   }: let
-    autoUpdateUnit = "podman-compose@${projectName}";
+    userServiceName = stackName;
+    secretsServiceName = "${stackName}-secrets";
     podPrune =
       if prunePod
       then [
@@ -165,7 +155,7 @@
       ]
       else [];
     recreateIfLabelMismatch = [
-      "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${autoUpdateUnit}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
+      "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${userServiceName}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
     ];
     detectStaleHealth = [
       "/run/current-system/sw/bin/sh -c 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format \"{{.ID}}\"); for id in \$ids; do health=$(${podmanBin} inspect -f \"{{.State.Health.Status}}\" \$id 2>/dev/null || echo \"none\"); started=$(${podmanBin} inspect -f \"{{.State.StartedAt}}\" \$id 2>/dev/null); if [ \"\$health\" = \"starting\" ] || [ \"\$health\" = \"unhealthy\" ]; then started_clean=\$(echo \"\$started\" | /run/current-system/sw/bin/awk \"{print \\\$1, \\\$2, \\\$3}\"); age_seconds=\$(( \$(date +%%s) - \$(date -d \"\$started_clean\" +%%s) )); if [ \$age_seconds -gt ${toString healthCheckTimeout} ]; then echo \"Removing container \$id with stale health (\$health) - running for \${age_seconds}s (threshold: ${toString healthCheckTimeout}s)\"; ${podmanBin} rm -f \$id; else echo \"Container \$id is \$health but only \${age_seconds}s old - allowing more time (threshold: ${toString healthCheckTimeout}s)\"; fi; fi; done'"
@@ -186,8 +176,9 @@
       loki.extraScrapeTargets = lib.mkAfter scrapeTargets;
     };
 
-    systemd.services.${stackName} = {
-      inherit description;
+    # System secrets service: SOPS decryption (runs as root)
+    systemd.services.${secretsServiceName} = {
+      description = "SOPS secrets decryption for ${stackName}";
       restartIfChanged = true;
       restartTriggers = baseRestartTriggers;
       reloadIfChanged = false;
@@ -199,7 +190,7 @@
           StartLimitIntervalSec = 300;
           StartLimitBurst = 5;
         };
-      # System services must wait for user session and podman socket
+      # Must wait for user session before bouncing user service
       requires = requires ++ ["user@${toString userUid}.service"];
       after = after ++ ["user@${toString userUid}.service"];
       inherit wants;
@@ -207,17 +198,28 @@
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        User = user;
-        PermissionsStartOnly = true;
-        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
+        Environment = mkEnv projectName extraEnv;
 
-        ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreateIfLabelMismatch ++ preStart);
+        ExecStartPre =
+          ["/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"]
+          ++ detectStaleHealth
+          ++ podPrune
+          ++ recreateIfLabelMismatch
+          ++ preStart;
 
-        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
-        ExecStartPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
-        ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
-        ExecStopPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
-        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+        # Decrypt all env files (runs as root with access to /var/lib/sops-nix/key.txt)
+        ExecStart =
+          if envFiles == []
+          then "/run/current-system/sw/bin/true"
+          else mkDecryptSteps envFiles;
+
+        # Set permissions and bounce user service
+        ExecStartPost =
+          mkChmodSteps envFiles
+          ++ mkChownSteps envFiles
+          ++ [
+            "+/run/current-system/sw/bin/runuser -u ${user} -- sh -c 'export XDG_RUNTIME_DIR=${runUserDir}; systemctl --user restart ${userServiceName}.service'"
+          ];
 
         Restart = restart;
         RestartSec = restartSec;
@@ -228,19 +230,29 @@
       wantedBy = ["multi-user.target"];
     };
 
-    systemd.user.services.${autoUpdateUnit} = {
-      description = "Podman compose auto-update unit for ${projectName}";
+    # User compose service: podman compose lifecycle (runs as rootless user)
+    systemd.user.services.${userServiceName} = {
+      inherit description;
       restartIfChanged = false;
       after = ["podman.socket"];
       wants = ["podman.socket"];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
-        ExecStartPre = mkExecStartPreUser envFiles preStart;
+        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
+
+        ExecStartPre = mkEnvFileChecks envFiles ++ detectStaleHealth;
+
         ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+        ExecStartPost = "${stackCleanupSimplified}";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
+        ExecStopPost = "${stackCleanupSimplified}";
         ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+
+        Restart = restart;
+        RestartSec = restartSec;
+        StandardOutput = "journal";
+        StandardError = "journal";
       };
       wantedBy = ["default.target"];
     };
