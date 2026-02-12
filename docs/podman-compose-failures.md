@@ -360,38 +360,195 @@ Swap the compose tool without changing the service architecture. This is a safe,
 
 **Rollback:** Revert the two files. `podman-compose` is still installed until Phase 1 is confirmed working.
 
+### Phase 1.5: Migrate Podman Socket to User Scope (Low Risk)
+
+Move the podman API service from system scope to native user scope. This aligns with podman's official architecture and improves reliability.
+
+**Why migrate:**
+- Official podman documentation recommends user services for rootless sockets
+- System services with `User=` have known issues: no session context, manual environment setup, sd_notify rejection
+- Native user services get automatic environment, socket activation, proper logging
+- Low risk: socket path doesn't change (`/run/user/1000/podman/podman.sock`)
+
+**Implementation:**
+
+1. Remove custom system service from `modules/nixos/homelab/containers/default.nix`:
+   ```nix
+   # DELETE systemd.services.podman-system-service = { ... };
+   ```
+
+2. Enable NixOS-provided user socket and service:
+   ```nix
+   systemd.user.sockets.podman = {
+     wantedBy = ["sockets.target"];
+   };
+
+   systemd.user.services.podman = {
+     # Socket activation will start this on-demand
+   };
+   ```
+
+3. Linger already enabled (no change needed):
+   ```nix
+   users.users.${user}.linger = true;  # ✓ Already present
+   ```
+
+4. Test that:
+   - Socket created at `/run/user/1000/podman/podman.sock` on boot
+   - Existing stack services can still connect (they explicitly set `CONTAINER_HOST`)
+   - `podman ps` works for the rootless user
+   - Service starts on-demand when socket is accessed
+
+**Rollback:** Re-enable the system service, disable user socket/service.
+
+**Reference:** See Appendix E for detailed research on socket scope best practices.
+
 ### Phase 2: Split Services by Privilege (Medium Risk)
 
 This is the core architectural change. Separate SOPS decryption from compose lifecycle.
 
-1. Rewrite `mkService` to generate two services per stack:
-   - **System service** (`${stackName}-secrets.service`):
-     - `Type=oneshot; RemainAfterExit=true`
-     - `ExecStartPre`: mkdir for secrets dir
-     - `ExecStart`: SOPS decrypt env files to `/run/user/<uid>/secrets/${stackName}.env`
-     - `ExecStartPost`: chmod 600, chown to rootless user, then `systemctl --user restart ${stackName}.service` (bounces user service)
-     - `WantedBy=multi-user.target`
-     - `restartTriggers` tied to BOTH SOPS source files AND compose file (acts as trigger proxy since NixOS doesn't restart user services — [nixpkgs #246611](https://github.com/NixOS/nixpkgs/issues/246611))
-   - **User service** (`${stackName}.service` in `systemd.user.services`):
-     - `Type=oneshot; RemainAfterExit=true`
-     - `ExecStartPre`: verify env file exists (retry loop, max 30s)
-     - `ExecStart`: `podman compose -f <compose.yml> --env-file <env> up -d --wait --remove-orphans`
-     - `ExecStop`: `podman compose ... stop`
-     - `ExecStartPost`: cleanup script
-     - `Environment`: `PODMAN_SYSTEMD_UNIT=${stackName}.service` (points to itself)
-     - `WantedBy=default.target`
-     - `restartIfChanged=false` (system service handles restart triggering)
-2. Remove the old dual-service architecture (old system service + old user service)
-3. Move `podman-system-service` to a user service too (the podman socket belongs in user scope)
+**Architectural Decisions (2026-02-12):**
+
+1. **Multi-file secrets:** Preserve separation - each stack's env files stay separate (no merging). System service decrypts all `envFiles` to their respective paths in `/run/user/<uid>/secrets/`. User service passes multiple `--env-file` args to compose.
+
+2. **SOPS sharing:** Verified no stacks share SOPS files (24 stacks use unique `encEnv`, 1 uses `encAcmeEnv`). No thundering herd risk from shared secret changes.
+
+3. **Cleanup script:** Simplify to only handle orphaned health check timers. Remove redundant container/pod pruning (global timer handles it). See Appendix F for detailed research.
+
+4. **Restart triggers:** Keep simple - system service always reruns decrypt + bounce, even if only compose file changed.
+
+**Implementation:**
+
+1. Rewrite `mkService` in `stacks/lib/podman-compose.nix` to generate two services per stack:
+
+   **System service** (`${stackName}-secrets.service`):
+   ```nix
+   systemd.services."${stackName}-secrets" = {
+     description = "SOPS secrets for ${stackName}";
+
+     # Wait for user session to exist
+     after = ["user@${toString userUid}.service"];
+     requires = ["user@${toString userUid}.service"];
+
+     serviceConfig = {
+       Type = "oneshot";
+       RemainAfterExit = true;
+       # Runs as root (default) for SOPS decryption using /var/lib/sops-nix/key.txt
+
+       ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/secrets";
+
+       # Decrypt ALL envFiles to their separate paths in /run/user/<uid>/secrets/
+       # Preserve multi-file structure (no merging)
+       ExecStart = [ (mkDecryptSteps envFiles) ];
+
+       ExecStartPost = [
+         # Fix permissions for all decrypted files
+         (mkChmodSteps envFiles)
+         (mkChownSteps envFiles)
+         # Bounce user service using runuser + explicit XDG_RUNTIME_DIR
+         # The + prefix grants root privileges for the runuser command
+         "+/run/current-system/sw/bin/runuser -u ${user} -- sh -c 'export XDG_RUNTIME_DIR=/run/user/${toString userUid}; systemctl --user restart ${stackName}.service'"
+       ];
+     };
+
+     # Restart when ANY SOPS file OR compose file changes (trigger proxy)
+     # NixOS doesn't restart user services on rebuild, so system service acts as proxy
+     # Even if only compose changes, rerun decrypt (simpler than conditional logic)
+     restartTriggers = [composeFile] ++ (map (env: env.sopsFile) envFiles);
+     wantedBy = ["multi-user.target"];
+   };
+   ```
+
+   **User service** (`${stackName}.service`):
+   ```nix
+   systemd.user.services."${stackName}" = {
+     description = "Podman compose for ${stackName}";
+
+     # Wait for podman socket
+     after = ["podman.socket"];
+     wants = ["podman.socket"];
+
+     serviceConfig = {
+       Type = "oneshot";
+       RemainAfterExit = true;
+
+       Environment = [
+         "PODMAN_SYSTEMD_UNIT=${stackName}.service"  # Points to self for auto-update
+         "XDG_RUNTIME_DIR=/run/user/${toString userUid}"  # Explicit is safer than relying on auto-set
+       ];
+
+       # Verify ALL env files exist with retry (handles boot timing edge cases)
+       ExecStartPre = (mkEnvFileChecks envFiles);
+
+       # Pass all env files separately to compose (preserve multi-file structure)
+       ExecStart = "${podmanCompose} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+       ExecStop = "${podmanCompose} -f ${composeFile} stop";
+
+       # Simplified cleanup: only orphaned health check timers
+       # Removed: container prune (redundant), pod prune (obsolete)
+       ExecStartPost = stackCleanupSimplified;
+       ExecStopPost = stackCleanupSimplified;
+     };
+
+     wantedBy = ["default.target"];
+     # Don't restart on nixos-rebuild - system service handles triggering via ExecStartPost bounce
+     restartIfChanged = false;
+   };
+   ```
+
+2. Simplify `stackCleanup` script (remove redundant operations):
+   ```nix
+   stackCleanupSimplified = pkgs.writeShellScript "podman-stack-cleanup" ''
+     set -euo pipefail
+
+     # Clean up orphaned health check timers (podman bug - timers not removed with containers)
+     active_ids=$(${podmanBin} ps -q 2>/dev/null | tr '\n' '|')
+     active_ids="''${active_ids%|}"
+     if [ -z "$active_ids" ]; then
+       active_ids="NONE"
+     fi
+     /run/current-system/sw/bin/systemctl --user list-units --plain --no-legend --type=timer \
+       | /run/current-system/sw/bin/grep -E '^[0-9a-f]{64}-' \
+       | /run/current-system/sw/bin/awk '{print $1}' \
+       | while read -r timer; do
+           cid="''${timer%%-*}"
+           if ! echo "$cid" | /run/current-system/sw/bin/grep -qE "^($active_ids)"; then
+             /run/current-system/sw/bin/systemctl --user stop "$timer" 2>/dev/null || true
+           fi
+         done
+     /run/current-system/sw/bin/systemctl --user reset-failed 2>/dev/null || true
+   '';
+   ```
+   **Removed:**
+   - `sleep 2` - unnecessary delay
+   - `podman container prune -f --filter "until=60s"` - redundant (global timer handles with 4h threshold)
+   - `podman pod prune -f` - obsolete (docker-compose backend doesn't create pods)
+
+   **Kept:**
+   - Orphaned health check timer cleanup (addresses ongoing podman systemd integration bug)
+   - `systemctl --user reset-failed` (defensive recovery)
+
+3. Remove the old dual-service architecture (old system service + old user service with same names)
+
 4. Test that:
    - Stacks come up on boot (linger → user session → user services start)
    - `podman auto-update` restarts the user service correctly
    - Changing one stack's compose file only restarts that stack (per-stack granularity)
    - nixos-rebuild with SOPS changes re-decrypts and bounces the user service
    - nixos-rebuild with compose changes triggers system service which bounces user service
+   - System service depends on `user@.service` so it waits for user session
+   - Multi-file env files all get decrypted and passed to compose
+   - No journal spam from orphaned health check timers
+   - Stack operations complete ~2-3s faster (removed redundant container/pod pruning)
+
 5. Deploy to doc1
 
 **Rollback:** Revert `podman-compose.nix` to generate the old service structure.
+
+**Reference:**
+- Appendix C: Cross-scope service management research
+- Appendix D: Socket scope research
+- Appendix F: Cleanup script necessity research
 
 ### Phase 3: Simplify Auto-Update (Low Risk)
 
@@ -440,7 +597,251 @@ Several NixOS-native approaches exist for container management. None are better 
 - **[quadlet-nix](https://github.com/SEIAROTg/quadlet-nix)**: Declarative Nix interface to Podman Quadlet (see Option C above). Full featured but abandons compose files.
 - **[Arion](https://docs.hercules-ci.com/arion/)**: Nix-native composition tool built on Docker Compose. Replaces YAML with Nix expressions — opposite direction from "keep compose files readable".
 
-## Appendix C: Previous Session Findings
+## Appendix C: Systemd Cross-Scope Service Management (Research: 2026-02-12)
+
+### Problem: How to Restart User Services from System Service Context
+
+System services (running as root) need to restart user services after completing privileged setup work (SOPS decryption). This crosses systemd's privilege boundary.
+
+### Solution: `runuser` with Explicit Environment
+
+**Correct pattern:**
+```bash
++/run/current-system/sw/bin/runuser -u <username> -- sh -c 'export XDG_RUNTIME_DIR=/run/user/<uid>; systemctl --user restart <service>'
+```
+
+**Key components:**
+
+1. **`+` prefix** - In systemd service definitions, grants root privileges to the command (replaces deprecated `PermissionsStartOnly=true`)
+
+2. **`runuser`** - Root-only command that switches to user context without requiring password or sudo
+   - Does NOT require setuid permissions
+   - Uses separate PAM config from `su`
+   - Properly initializes user environment
+
+3. **`XDG_RUNTIME_DIR`** - MUST be explicitly set for `systemctl --user` to work
+   - Points to `/run/user/<uid>` where user systemd manager socket lives
+   - Without this, `systemctl --user` cannot connect to user session
+
+4. **Dependencies** - System service MUST depend on user session:
+   ```nix
+   after = ["user@${toString userUid}.service"];
+   requires = ["user@${toString userUid}.service"];
+   ```
+
+5. **Linger** - User session must persist across logout:
+   ```nix
+   users.users.<username>.linger = true;
+   ```
+
+### Why Not Other Approaches?
+
+- **Direct `systemctl --user`** - Fails without XDG_RUNTIME_DIR set
+- **`sudo systemctl --user`** - sudo blocks setting XDG_RUNTIME_DIR for security reasons
+- **`systemd-run --user --machine`** - Requires interactive auth when not root, more complex
+- **`machinectl shell`** - Interactive only, overhead of full shell initialization
+
+### NixOS-Specific Notes
+
+- `PermissionsStartOnly` is deprecated ([nixpkgs#53852](https://github.com/NixOS/nixpkgs/issues/53852)) - use `+` prefix instead
+- NixOS does NOT restart user services on `nixos-rebuild` ([nixpkgs#246611](https://github.com/NixOS/nixpkgs/issues/246611)) - system service acts as "trigger proxy"
+- User linger ensures user systemd instance starts at boot and persists
+
+### References
+
+- [systemd.service - Freedesktop](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html)
+- [Systemd/User Services - NixOS Wiki](https://wiki.nixos.org/wiki/Systemd/User_Services)
+- [systemd/User - ArchWiki](https://wiki.archlinux.org/title/Systemd/User)
+- [Restarting Systemd Service With Specific User - Baeldung](https://www.baeldung.com/linux/systemd-service-restart-specific-user)
+
+## Appendix D: Podman Rootless Socket Scope (Research: 2026-02-12)
+
+### Problem: Should Podman API Service Be System or User Scope?
+
+Current implementation uses a system service (`systemd.services.podman-system-service`) with `User=abl030` directive. Is this correct?
+
+### Answer: User Service is Correct Architecture
+
+**Recommendation:** Migrate to native user service with socket activation.
+
+### Comparison
+
+| Aspect | System Service + User= | Native User Service |
+|--------|------------------------|---------------------|
+| **Environment** | Manual (HOME, XDG_RUNTIME_DIR, PATH) | Automatic |
+| **Socket Activation** | Manual `podman system service` | Native systemd .socket/.service |
+| **Logging** | System journal (harder to isolate) | User journal (proper isolation) |
+| **D-Bus Access** | No session bus | Full session bus |
+| **Resource Efficiency** | Always running (Type=simple) | On-demand via socket |
+| **Official Support** | Not documented | Official podman docs |
+| **Known Issues** | sd_notify rejection, missing session | None |
+
+### Why User Service?
+
+**From official podman documentation** ([podman-system-service](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html)):
+> The user service socket is configured as a Unix socket at `/usr/lib/systemd/user/podman.socket`, which listens on `$XDG_RUNTIME_DIR/podman/podman.sock` (e.g., `/run/user/1000/podman/podman.sock`).
+
+**Known issues with system service + `User=`** ([podman#12778](https://github.com/containers/podman/issues/12778)):
+> User= does not set the environment for rootless to work correctly: it does not set the user session so there are no tmp dirs, as well as no journal for logs.
+
+**Systemd team recommendation** ([podman discussions](https://github.com/containers/podman/discussions/20573)):
+> Use systemd --user instead of the main systemd instance + User=.
+
+### Implementation: Enable Native User Service
+
+NixOS already ships with podman user socket/service units. Just enable them:
+
+```nix
+systemd.user.sockets.podman = {
+  wantedBy = ["sockets.target"];
+};
+
+systemd.user.services.podman = {
+  # Socket activation starts this on-demand
+};
+```
+
+### Migration Risk: LOW
+
+**Socket path is identical:**
+- Before: `/run/user/1000/podman/podman.sock` (created by system service)
+- After: `/run/user/1000/podman/podman.sock` (created by user socket)
+
+Existing system services with `CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock` continue working unchanged.
+
+### User Service Dependencies
+
+Stack user services should depend on socket:
+```nix
+after = ["podman.socket"];
+wants = ["podman.socket"];
+```
+
+Boot flow with linger:
+1. `user@1000.service` starts at boot (linger enabled)
+2. User systemd activates `podman.socket` (WantedBy=sockets.target)
+3. Stack services start (WantedBy=default.target, After=podman.socket)
+4. First API call triggers `podman.service` via socket activation
+
+### References
+
+- [Podman System Service Documentation](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html)
+- [Podman Socket Activation Tutorial](https://github.com/containers/podman/blob/main/docs/tutorials/socket_activation.md)
+- [Red Hat: Rootless Podman with Systemd](https://www.redhat.com/en/blog/painless-services-implementing-serverless-rootless-podman-and-systemd)
+- [NixOS Wiki: Systemd User Services](https://wiki.nixos.org/wiki/Systemd/User_Services)
+
+## Appendix F: Cleanup Script Necessity Analysis (Research: 2026-02-12)
+
+### Problem: Is stackCleanup Still Needed with Docker-Compose Backend?
+
+The current `stackCleanup` script runs after every stack operation and performs three tasks:
+1. Prune stopped containers (>60s old)
+2. Prune dead pods
+3. Clean up orphaned health check timers
+
+This was implemented as a "kludge" during the podman-compose era. With the migration to docker-compose backend, do we still need it?
+
+### Research Findings
+
+#### Container Pruning: REDUNDANT ❌
+
+**Current behavior:**
+- Runs `podman container prune -f --filter "until=60s"` after every stack operation
+- Executed ~38 times/day on doc1 (19 stacks × 2 operations)
+
+**Why redundant:**
+- Global `podman-rootless-prune` timer already runs daily with 4-hour threshold
+- `docker-compose up --remove-orphans` handles orphaned containers during stack updates
+- Stale health detection (commit e194187) removes problematic containers before reuse
+- Containers stopped <60 seconds rarely cause issues
+
+**Overhead:** ~2-3 seconds per stack operation, executed 38x/day unnecessarily
+
+**Verdict:** Remove from stackCleanup, rely on global timer.
+
+#### Pod Pruning: OBSOLETE ❌
+
+**Current behavior:**
+- Runs `podman pod prune -f` after every stack operation
+- Also runs targeted `podman pod rm -f pod_${projectName}` in ExecStartPre
+
+**Why obsolete:**
+- Docker-compose backend uses bridge networking, NOT pods
+- `podman-compose` created pods by default; `podman compose` does not
+- Legacy pods from podman-compose era cleaned up during Phase 1 migration
+- Verification on doc1/igpu shows zero compose-created pods
+
+**Verdict:** Remove from stackCleanup entirely.
+
+#### Health Check Timer Cleanup: STILL NECESSARY ✅
+
+**Current behavior:**
+- Identifies systemd timers for containers that no longer exist
+- Stops orphaned timers to prevent journal spam
+
+**Why still necessary:**
+- **Podman bug:** Containers removed with `podman rm -f` don't always clean up health check timers
+- **User impact:** Orphaned timers spam journal with "container not found" every 30 seconds
+- **Docker-compose doesn't help:** Timers managed by podman, not compose tool
+- **Immediate remediation:** Per-stack cleanup catches orphans right after container removal (vs 24-hour wait for global timer)
+
+**Evidence:**
+- Podman issues [#7484](https://github.com/containers/podman/issues/7484), [discussions #19485](https://github.com/containers/podman/discussions/19485)
+- Bug persists across podman versions and compose tool choices
+- Stale health detection (commit e194187) can orphan timers when removing stuck containers
+
+**Verdict:** Keep in both per-stack cleanup (immediate) and global timer (catch-all).
+
+### Recommendation: Simplify stackCleanup
+
+**Remove:**
+- Container pruning (60s threshold) - redundant with global timer
+- Pod pruning - obsolete with docker-compose backend
+- `sleep 2` delay - unnecessary without prune operations
+
+**Keep:**
+- Orphaned health check timer cleanup
+- `systemctl --user reset-failed`
+
+**Benefits:**
+- Eliminates ~2-3 seconds overhead per stack operation
+- Reduces duplicate work (38 container scans/day → 1/day)
+- Maintains critical timer cleanup for immediate bug remediation
+- Simpler, more focused script
+
+### Simplified Implementation
+
+```bash
+stackCleanupSimplified = pkgs.writeShellScript "podman-stack-cleanup" ''
+  set -euo pipefail
+
+  # Clean up orphaned health check timers
+  active_ids=$(podman ps -q 2>/dev/null | tr '\n' '|')
+  active_ids="''${active_ids%|}"
+  if [ -z "$active_ids" ]; then
+    active_ids="NONE"
+  fi
+  systemctl --user list-units --plain --no-legend --type=timer \
+    | grep -E '^[0-9a-f]{64}-' \
+    | awk '{print $1}' \
+    | while read -r timer; do
+        cid="''${timer%%-*}"
+        if ! echo "$cid" | grep -qE "^($active_ids)"; then
+          systemctl --user stop "$timer" 2>/dev/null || true
+        fi
+      done
+  systemctl --user reset-failed 2>/dev/null || true
+'';
+```
+
+### References
+
+- [Docker Compose --remove-orphans behavior](https://github.com/docker/compose/issues/6637)
+- [Podman system prune documentation](https://docs.podman.io/en/latest/markdown/podman-system-prune.1.html)
+- [Podman health check timer issues](https://github.com/containers/podman/discussions/19381)
+- [Container lifecycle analysis](/home/abl030/nixosconfig/docs/research/container-lifecycle-analysis.md)
+
+## Appendix G: Previous Session Findings
 
 ### Why is podman-compose so bad?
 

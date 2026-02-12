@@ -98,10 +98,6 @@
       exit 1
     fi
   '';
-  podmanServiceScript = pkgs.writeShellScript "podman-system-service" ''
-    set -euo pipefail
-    exec ${podmanBin} system service --time=0 "unix://$XDG_RUNTIME_DIR/podman/podman.sock"
-  '';
   storageConf = pkgs.writeTextFile {
     name = "containers-storage.conf";
     text = ''
@@ -224,28 +220,12 @@ in {
     ];
 
     systemd = {
-      services = {
-        podman-system-service = {
-          description = "Rootless Podman API service";
-          # Wait for user@1000.service which creates /run/user/1000
-          after = ["user@${toString userUid}.service"];
-          requires = ["user@${toString userUid}.service"];
-          serviceConfig = {
-            Type = "simple";
-            ExecStartPre = "/run/current-system/sw/bin/mkdir -p /run/user/${toString userUid}/podman";
-            ExecStart = podmanServiceScript;
-            Restart = "on-failure";
-            RestartSec = "10s";
-            User = user;
-            Environment = [
-              "HOME=${userHome}"
-              "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-              "PATH=/run/wrappers/bin:/run/current-system/sw/bin"
-            ];
-          };
-          wantedBy = ["multi-user.target"];
-        };
+      # Enable native podman user socket with socket activation
+      user.sockets.podman = {
+        wantedBy = ["sockets.target"];
+      };
 
+      services = {
         podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
           description = "Podman auto-update (rootless)";
           serviceConfig = {
