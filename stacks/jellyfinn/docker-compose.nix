@@ -93,7 +93,6 @@ in
       inherit stackName;
       description = "Jellyfin Podman Compose Stack";
       projectName = "jellyfin";
-      composeArgs = "--in-pod false";
       inherit composeFile;
       inherit envFiles;
       restartTriggers = [
