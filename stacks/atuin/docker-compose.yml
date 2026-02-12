@@ -5,7 +5,7 @@ services:
     image: ghcr.io/atuinsh/atuin:latest
     labels:
       - io.containers.autoupdate=registry
-    command: server start
+    command: start
     volumes:
       - "${DATA_ROOT}/atuin/config:/config"
     ports:
