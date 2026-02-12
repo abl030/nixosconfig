@@ -161,6 +161,7 @@
     firewallUDPPorts ? [],
     restartTriggers ? [],
     scrapeTargets ? [],
+    healthCheckTimeout ? 90,
   }: let
     autoUpdateUnit = "podman-compose@${projectName}";
     podPrune =
@@ -172,6 +173,28 @@
       else [];
     recreateIfLabelMismatch = [
       "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${autoUpdateUnit}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
+    ];
+    detectStaleHealth = [
+      ''
+        /run/current-system/sw/bin/sh -c '
+          ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}")
+          for id in ''$ids; do
+            health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" ''$id 2>/dev/null || echo "none")
+            started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" ''$id 2>/dev/null)
+
+            # Only remove if unhealthy/starting AND running for >threshold
+            if [ "''$health" = "starting" ] || [ "''$health" = "unhealthy" ]; then
+              age_seconds=$(( $(date +%s) - $(date -d "''$started" +%s) ))
+              if [ ''$age_seconds -gt ${toString healthCheckTimeout} ]; then
+                echo "Removing container ''$id with stale health (''$health) - running for ''${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
+                ${podmanBin} rm -f ''$id
+              else
+                echo "Container ''$id is ''$health but only ''${age_seconds}s old - allowing more time (threshold: ${toString healthCheckTimeout}s)"
+              fi
+            fi
+          done
+        '
+      ''
     ];
     baseRestartTriggers =
       lib.unique
@@ -214,7 +237,7 @@
         PermissionsStartOnly = true;
         Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${autoUpdateUnit}.service"]);
 
-        ExecStartPre = mkExecStartPre envFiles (podPrune ++ recreateIfLabelMismatch ++ preStart);
+        ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreateIfLabelMismatch ++ preStart);
 
         ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
         ExecStartPost = "+/run/current-system/sw/bin/runuser -u ${user} -- ${stackCleanup}";
