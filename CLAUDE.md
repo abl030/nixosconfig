@@ -352,36 +352,51 @@ sudo kill <pid>
 sudo systemctl restart <stack-name>
 ```
 
-**⚠️ OPEN RESEARCH: Rebuild vs Auto-Update Behavior** (See `bd show nixosconfig-cm5`)
+**Rebuild vs Auto-Update Behavior** (Research: `docs/research/container-lifecycle-analysis.md`)
 
-Two scenarios with different requirements:
+**Decision (2026-02-12):** Keep current dual service architecture with targeted stale health detection.
 
-1. **Rebuild Time (nixos-rebuild switch)**
-   - **Goal:** Apply config changes incrementally
-   - **Desired:** Only restart containers whose config actually changed
-   - **Current:** `docker-compose up -d --wait` (reuses matching containers)
-   - **Issue:** Stale health checks from reused containers cause deadlocks
-   - **Question:** Is container reuse even valuable? Most rebuilds change something.
+**Key Findings:**
 
-2. **Auto-Update Time (scheduled image updates)**
-   - **Goal:** Pull new images, recreate with latest versions (Watchtower-style)
-   - **Desired:** Always recreate, fresh containers every time
-   - **Current:** Unclear - dual service architecture (system + user services)
-   - **Issue:** Relationship between `podman auto-update` and compose unclear
-   - **Question:** Should auto-update use compose at all, or direct podman API?
+1. **Container reuse DOES cause stale health checks** - confirmed, real production issue
+2. **Different scenarios already use different strategies** - dual services are correct by design
+3. **User services already recreate containers** - systemd ExecStop → ExecStart cycle provides Watchtower-style fresh deployment
+4. **Solution: Detect and remove stale containers before reuse** - fix root cause, not blanket workaround
 
-**Dual Service Architecture (needs clarification):**
-- System service: `<stack>-stack.service` - what nixos-rebuild interacts with
-- User service: `podman-compose@<project>.service` - used by auto-update?
-- Why both? What's the lifecycle relationship?
+**Dual Service Architecture (Confirmed Correct):**
 
-**Potential Solutions Under Research:**
-- **A:** Keep current, add `--force-recreate` to avoid stale health (Watchtower-style)
-- **B:** Different flags for rebuild (`up -d --wait`) vs update (`up -d --wait --force-recreate`)
-- **C:** Separate paths: compose for rebuild, `podman auto-update` for updates
-- **D:** Automated cleanup of stale containers in ExecStartPre
+```
+System Service (<stack>-stack.service):
+  Triggered by: nixos-rebuild switch
+  Purpose: Apply config changes incrementally
+  Strategy: Smart reuse (fast, only restart changed containers)
+  Current: docker-compose up -d --wait --remove-orphans
+  Protection: Will add stale health detection (see below)
 
-**Lesson from Watchtower:** Simple always-recreate worked reliably for years. Complexity of container reuse may not be worth the optimization.
+User Service (podman-compose@<project>.service):
+  Triggered by: podman auto-update → systemd restart
+  Purpose: Pull new images, deploy updates
+  Strategy: Full recreation (systemd stop → start cycle)
+  Current: docker-compose up -d --wait --remove-orphans
+  Protection: Built-in rollback (podman auto-update feature)
+  Note: Already recreates fresh containers via systemd lifecycle
+```
+
+**Implementation Plan:**
+
+Add pre-start stale health detection to system service (HIGH PRIORITY):
+- Detect containers in "starting" or "unhealthy" state before reuse
+- Remove them to force fresh creation
+- Preserves fast path for healthy containers
+- Low overhead, automatic remediation
+- See `docs/research/container-lifecycle-analysis.md` Recommendation 1 for details
+
+**Why NOT --force-recreate:**
+- Defeats purpose of incremental config changes
+- Unnecessarily restarts ALL containers on every rebuild
+- Slower deployments (2-5s overhead per container × 19 stacks)
+- Causes downtime when only secrets/firewall rules changed
+- User services already recreate via systemd lifecycle (no need there either)
 
 ## Important Files
 

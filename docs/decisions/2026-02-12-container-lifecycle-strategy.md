@@ -1,0 +1,165 @@
+# Decision: Container Lifecycle Strategy for Rebuild vs Auto-Update
+
+**Date:** 2026-02-12
+**Status:** Approved
+**Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
+**Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
+
+## Context
+
+During Phase 1 migration from `podman-compose` to `podman compose`, we encountered stale container health check issues that caused deployments to hang indefinitely. This raised questions about whether our dual service architecture was correct and whether we should use different strategies for rebuild vs auto-update scenarios.
+
+## Questions Answered
+
+1. **Does container reuse with `--wait` cause stale health checks?**
+   → YES - confirmed via research, documentation, and production experience
+
+2. **Should rebuild and auto-update use different strategies?**
+   → They ALREADY DO - dual services are correctly optimized for their use cases
+
+3. **Is the dual service architecture necessary?**
+   → YES - each service serves a distinct purpose with appropriate optimizations
+
+4. **Should we use `--force-recreate` to avoid stale containers?**
+   → NO - defeats the purpose of incremental rebuilds; use targeted detection instead
+
+## Decision
+
+**Keep current dual service architecture with targeted stale health detection.**
+
+### Rationale
+
+**Finding #1: Dual Services Are Correct By Design**
+
+```
+System Service (<stack>-stack.service):
+  - Triggered by: nixos-rebuild switch
+  - Purpose: Apply config changes incrementally
+  - Strategy: Smart container reuse (fast, only restart what changed)
+  - Optimization: Preserves containers when config unchanged
+
+User Service (podman-compose@<project>.service):
+  - Triggered by: podman auto-update → systemd restart
+  - Purpose: Pull new images, deploy updates
+  - Strategy: Full recreation (systemd ExecStop → ExecStart lifecycle)
+  - Optimization: Fresh containers with new images (Watchtower-style)
+```
+
+**Finding #2: User Services Already Recreate Containers**
+
+User services don't need `--force-recreate` because systemd's service lifecycle already provides full recreation:
+1. Systemd runs ExecStop (stops containers)
+2. Then runs ExecStart (creates fresh containers)
+3. Result: Clean slate every auto-update
+
+This discovery eliminated the need to change user service behavior.
+
+**Finding #3: Stale Health is a Targeted Problem**
+
+The issue only occurs during rebuild when:
+- Container has stuck health check from previous run
+- Config is unchanged (so docker-compose reuses container)
+- `--wait` blocks on stale health status
+- No new health checks are scheduled
+
+**Finding #4: Targeted Remediation Beats Blanket Workaround**
+
+Using `--force-recreate` on system service would:
+- ❌ Restart ALL containers on every rebuild (slow)
+- ❌ Cause unnecessary downtime
+- ❌ Defeat the purpose of incremental config changes
+- ❌ Waste time recreating healthy containers
+
+Targeted stale health detection:
+- ✅ Only removes broken containers
+- ✅ Preserves fast path for healthy containers
+- ✅ Automatic remediation (no manual intervention)
+- ✅ Low overhead (quick inspect check)
+
+## Implementation
+
+### Add Stale Health Detection (HIGH PRIORITY)
+
+Location: `stacks/lib/podman-compose.nix`, line ~217 (in ExecStartPre, before `recreateIfLabelMismatch`)
+
+```nix
+detectStaleHealth = [
+  "/run/current-system/sw/bin/sh -c 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format \"{{.ID}}\"); for id in $ids; do health=$(${podmanBin} inspect -f \"{{.State.Health.Status}}\" $id 2>/dev/null || echo \"none\"); if [ \"$health\" = \"starting\" ] || [ \"$health\" = \"unhealthy\" ]; then echo \"Removing container $id with stale health: $health\" >&2; ${podmanBin} rm -f $id; fi; done'"
+];
+```
+
+Add to `mkExecStartPre` call:
+```nix
+ExecStartPre = mkExecStartPre envFiles (podPrune ++ detectStaleHealth ++ recreateIfLabelMismatch ++ preStart);
+```
+
+### Verification Steps
+
+1. Create test scenario with stuck health check
+2. Verify detection removes stale container
+3. Verify fresh container is created successfully
+4. Verify healthy containers are NOT removed
+5. Deploy to doc1, monitor first rebuild
+6. Deploy to igpu during migration (expect same issues, verify auto-remediation)
+
+## Alternative Approaches Considered
+
+### Option A: --force-recreate on System Service
+**Decision:** REJECTED
+
+Would solve stale health issue but:
+- Defeats purpose of incremental rebuilds
+- Causes unnecessary downtime
+- Slower deployments (2-5s per container × 19 stacks)
+- Restarts healthy containers for no reason
+
+### Option B: --force-recreate on User Service
+**Decision:** NOT NEEDED
+
+User services already recreate via systemd lifecycle (ExecStop → ExecStart). Adding the flag would be redundant.
+
+### Option C: Separate compose files for rebuild vs update
+**Decision:** REJECTED
+
+Would add complexity without solving the root cause. Both scenarios need the same container configuration.
+
+### Option D: Remove --wait flag
+**Decision:** REJECTED
+
+Would lose critical benefits:
+- Can't detect deployment failures
+- Auto-update can't detect rollbacks
+- Services might depend on broken stacks
+- No reliable success/failure indication
+
+## Lessons from Watchtower
+
+Watchtower's always-recreate approach worked reliably for years. However:
+- Watchtower only handles auto-update scenario (not rebuild)
+- Our user services already implement Watchtower-style recreation
+- System services need different optimization (incremental, not full recreation)
+- The dual service architecture gives us the best of both worlds
+
+## Success Criteria
+
+1. ✅ Rebuild deployments don't hang on stale health checks
+2. ✅ Healthy containers are reused (fast path preserved)
+3. ✅ Auto-update continues to work reliably
+4. ✅ No manual intervention needed for stuck containers
+5. ✅ Clear logging when stale containers are removed
+
+## References
+
+- Full research: [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
+- Research bead: `bd show nixosconfig-cm5`
+- Bug bead: `bd show nixosconfig-hbz`
+- CLAUDE.md: Container Stack Management section
+
+## Next Steps
+
+1. Implement `detectStaleHealth` in `stacks/lib/podman-compose.nix`
+2. Test on doc1 with controlled scenario
+3. Deploy to production, monitor for issues
+4. Apply to igpu during migration
+5. Document health check best practices in stack templates (Recommendation 2)
+6. Consider health check monitoring (Recommendation 5, low priority)
