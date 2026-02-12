@@ -280,8 +280,6 @@ services:
         condition: service_started
 
   # 1️⃣3️⃣ Firefly cron (kept, default schedule 03:00; safe to keep running)
-    labels:
-      - io.containers.autoupdate=registry
   ff-cron:
     image: docker.io/library/alpine:3.20
     labels:
