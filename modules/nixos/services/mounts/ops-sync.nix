@@ -37,34 +37,46 @@ in {
           #!${pkgs.bash}/bin/bash
           set -euo pipefail
 
+          MAX_RETRIES=5
+          RETRY_INTERVAL=60
+
           log() { logger -t ops-sync "$1"; echo "$1"; }
 
-          notify_failure() {
-            local msg="$1"
+          notify() {
+            local title="$1" msg="$2" priority="''${3:-8}"
             if [ -n "${gotifyTokenFile}" ] && [ -r "${gotifyTokenFile}" ]; then
               token=$(${pkgs.gawk}/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "${gotifyTokenFile}")
               if [ -n "$token" ]; then
                 curl -fsS -X POST "${gotifyCfg.endpoint}/message?token=$token" \
-                  -F "title=ops-sync failed on ${config.networking.hostName}" \
+                  -F "title=$title" \
                   -F "message=$msg" \
-                  -F "priority=8" >/dev/null || true
+                  -F "priority=$priority" >/dev/null || true
               fi
             fi
           }
 
-          trap 'notify_failure "Sync failed at line $LINENO"' ERR
+          trap 'notify "ops-sync failed on ${config.networking.hostName}" "Sync failed at line $LINENO"' ERR
 
-          # Verify source is accessible
-          if [ ! -d "${src}" ]; then
-            log "ERROR: Source ${src} not accessible, aborting"
-            notify_failure "Source ${src} not accessible"
-            exit 1
-          fi
+          # Wait for source with retries
+          attempt=0
+          while [ ! -d "${src}" ]; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -gt "$MAX_RETRIES" ]; then
+              log "Source ${src} not available after $MAX_RETRIES attempts — giving up"
+              notify \
+                "ops-sync skipped on ${config.networking.hostName}" \
+                "Source ${src} not available after $MAX_RETRIES attempts. Drive offline or VPN down — will try again next scheduled run." \
+                5
+              exit 0
+            fi
+            log "Source ${src} not available (attempt $attempt/$MAX_RETRIES), retrying in ''${RETRY_INTERVAL}s..."
+            sleep "$RETRY_INTERVAL"
+          done
 
           # Verify destination is accessible
           if [ ! -d "${dest}" ]; then
             log "ERROR: Destination ${dest} not accessible, aborting"
-            notify_failure "Destination ${dest} not accessible"
+            notify "ops-sync failed on ${config.networking.hostName}" "Destination ${dest} not accessible"
             exit 1
           fi
 
@@ -84,11 +96,6 @@ in {
 
         # Run as root to handle both drvfs and NFS permissions
         User = "root";
-
-        # Restart on transient failures (network blip etc)
-        Restart = "on-failure";
-        RestartSec = "5min";
-        RestartMaxDelaySec = "30min";
 
         # Generous timeout for large syncs over Tailscale
         TimeoutStartSec = "8h";
