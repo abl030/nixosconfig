@@ -171,7 +171,7 @@ in {
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "igpu";
-    containerStacks = ["igpu-management" "tdarr-igp" "jellyfin" "plex" "loki"];
+    containerStacks = ["igpu-management" "tdarr-igp" "jellyfin" "plex" "loki" "restart-probe"];
     localIp = "192.168.1.33";
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";
