@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770765142,
-        "narHash": "sha256-OsjeMZWNbfltDS4hlT4sWCWIjAhXyVqatCc6NH0mV6c=",
+        "lastModified": 1770951502,
+        "narHash": "sha256-MtgcZ9wZQYCZoLQTbhqn770iQC1h8+46bx6Q1HtZSv4=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "fc5359e6ec89edfaaebfbd53780841808f2261b5",
+        "rev": "a697f13682fc60cda6e93eada4a9e2e4c7bac62e",
         "type": "github"
       },
       "original": {
@@ -264,11 +264,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1770859799,
-        "narHash": "sha256-hwDDZV629BmGrFd2jHxbjGDcJH5lxQZc1NoI0tqkZ6g=",
+        "lastModified": 1770933886,
+        "narHash": "sha256-qzm6ZnfRhbV3oaKAamaFJdoPKHLkSfhf/MnhzzKAa1Q=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "62886bcc3299d7c59ea8694b64b6f8d34bb6824c",
+        "rev": "2ceff71781d39db0c3a2f11a1c669c9eda18c9e4",
         "type": "gitlab"
       },
       "original": {
@@ -284,11 +284,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770818644,
-        "narHash": "sha256-DYS4jIRpRoKOzJjnR/QqEd/MlT4OZZpt8CrBLv+cjsE=",
+        "lastModified": 1770975156,
+        "narHash": "sha256-bPKv7BcIOGp4R1Q3hKhiD2CT3+7D6ibNIaJfEJdeOzo=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "0acbd1180697de56724821184ad2c3e6e7202cd7",
+        "rev": "de4cfffc98f43ab8ba90739b56991f068f9e9018",
         "type": "github"
       },
       "original": {
@@ -489,11 +489,11 @@
         "nvchad-starter": "nvchad-starter"
       },
       "locked": {
-        "lastModified": 1770889269,
-        "narHash": "sha256-ye+Bwek2MiIRmyrMnQvyDB8qawdHf09Ti2vQLqnz5Lo=",
+        "lastModified": 1770960282,
+        "narHash": "sha256-RlQqict6qNlyK9INY8+uLO64wl7aTOY8+dGyWCOd96s=",
         "owner": "nix-community",
         "repo": "nix4nvchad",
-        "rev": "a63b18d770ff98d2ead38f8d391d5fa76617bfa0",
+        "rev": "81df32933ce8c7f71ec5842866695034730a3c3a",
         "type": "github"
       },
       "original": {
@@ -509,11 +509,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770848625,
-        "narHash": "sha256-Yvpvply8MfSkAg3LOH8JueOAwUcgs82OtqRWVXAMtao=",
+        "lastModified": 1770984941,
+        "narHash": "sha256-SdUK7BThyZEg257fxHR7NWKUL329otA++rfMnM6pvKE=",
         "owner": "abl030",
         "repo": "pfsense-mcp",
-        "rev": "31a2b709741f08fd1a83e819fd38433131413669",
+        "rev": "a8b86595b66d451cfa603b85f2be7140a068ee62",
         "type": "github"
       },
       "original": {
