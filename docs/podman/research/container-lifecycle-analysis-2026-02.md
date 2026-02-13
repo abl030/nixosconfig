@@ -2,7 +2,7 @@
 
 **Research Date:** 2026-02-12
 **Related Beads:** nixosconfig-cm5 (research task), nixosconfig-hbz (stale container bug)
-**Status:** Complete (implemented and hardened through 2026-02-13)
+**Status:** Complete (implemented and hardened through 2026-02-13; ownership follow-up moved to Phase 2.5)
 **Related empirical test:** [2026-02-13-compose-change-propagation-test.md](../incidents/2026-02-13-compose-change-propagation-test.md)
 
 ## Planned Trial Direction (2026-02)
@@ -36,6 +36,10 @@ This research is still valid, but the stack implementation has since moved to th
 4. Label-mismatch handling is intentionally hard-fail via container removal before restart so auto-update and systemd ownership stay consistent.
 5. User compose unit naming is `${stackName}.service`; `PODMAN_SYSTEMD_UNIT` points there.
 6. Legacy `*-stack-secrets.service` orchestration was removed; env files are resolved from native `sops.secrets` paths with one-release fallback support.
+7. Ownership follow-up (Phase 2.5) is now tracked separately:
+   - `docs/podman/decisions/2026-02-13-home-manager-user-unit-ownership.md`
+   - `docs/podman/current/phase2.5-home-manager-migration-plan.md`
+   - `docs/podman/research/home-manager-user-service-migration-research-2026-02.md`
 
 ### Empirical Update (2026-02-13, `igpu`)
 

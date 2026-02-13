@@ -5,6 +5,9 @@ This directory is the canonical location for Podman stack behavior, evidence, an
 ## Current Entry Point
 
 - Current operating state: `docs/podman/current/state.md`
+- Active implementation plan: `docs/podman/current/phase2.5-home-manager-migration-plan.md`
+- Latest ownership decision: `docs/podman/decisions/2026-02-13-home-manager-user-unit-ownership.md`
+- Latest ownership research: `docs/podman/research/home-manager-user-service-migration-research-2026-02.md`
 
 ## Layout
 

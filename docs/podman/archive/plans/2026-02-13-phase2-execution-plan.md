@@ -3,6 +3,7 @@
 Date: 2026-02-13
 Status: Completed
 Owner: Codex session (reset context run)
+Follow-up: `docs/podman/current/phase2.5-home-manager-migration-plan.md`
 
 ## Goal
 Simplify container orchestration so user stack services are the single runtime control plane, while preserving hard-fail safety and observability.
