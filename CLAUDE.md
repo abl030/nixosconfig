@@ -3,13 +3,6 @@
 This file provides guidance to AI coding assistants working with this repository.
 It is the single source of truth for both Claude Code (CLAUDE.md) and Codex (AGENTS.md via symlink).
 
-## Temporary Work Note
-
-Active execution plan for igpu upgrade failure diagnosis/fix:
-`docs/igpu-nixos-upgrade-unit-escape-test-plan.md`
-
-This reference and the plan file are temporary and MUST be removed once the igpu unit escaping work is completed.
-
 ## Repository Overview
 
 This is a flake-based NixOS and Home Manager configuration managing a homelab infrastructure. The repository uses a custom configuration factory pattern to generate both full NixOS systems and standalone Home Manager configurations from a single host definition file (`hosts.nix`).

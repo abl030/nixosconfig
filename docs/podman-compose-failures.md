@@ -4,6 +4,24 @@ Date: 2026-02-12
 
 ---
 
+## Implementation Update (2026-02-13)
+
+The repository has now moved beyond the audit state described below. Current behavior in `stacks/lib/podman-compose.nix` is:
+
+- `podman compose` is used everywhere (`${podmanBin} compose`), with `--wait --wait-timeout`.
+- Compose lifecycle is owned by a user unit named `${stackName}.service` (not `podman-compose@...`).
+- A paired system secrets unit `${stackName}-secrets.service` handles decryption and restarts the user unit.
+- Both units have bounded startup (`TimeoutStartSec=${startupTimeoutSeconds}s`, currently default 300s / 5m).
+- Stale-health detection checks both label schemes and deduplicates IDs:
+  - `io.podman.compose.project`
+  - `com.docker.compose.project`
+- Stale-health parsing is hardened for Podman `StartedAt` formats with timezone names by normalizing to date/time/UTC-offset before `date -d`.
+- Label mismatch precheck is hard-fail: containers with incorrect `PODMAN_SYSTEMD_UNIT` are removed before startup, preventing auto-update/restart drift.
+
+The remainder of this document is preserved as historical audit context and migration rationale.
+
+---
+
 ## Part 1: How Everything Currently Works
 
 ### Architecture Overview

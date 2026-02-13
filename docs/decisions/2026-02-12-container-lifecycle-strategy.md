@@ -1,10 +1,22 @@
 # Decision: Container Lifecycle Strategy for Rebuild vs Auto-Update
 
 **Date:** 2026-02-12
-**Status:** Implemented (commit e194187)
+**Status:** Implemented and hardened (commits e194187, f922af4, 003e8b1)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
 **Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
-**Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix#L177-L196)
+**Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix)
+
+## Update (2026-02-13)
+
+Additional hardening was applied after the initial rollout:
+
+- Startup timeout is globally bounded at 5 minutes (`startupTimeoutSeconds ? 300`) for both the system secrets unit and user compose unit.
+- Compose wait is bounded (`--wait-timeout ${startupTimeoutSeconds}`) so rebuilds cannot block indefinitely.
+- Stale health and label mismatch checks now query both project label families:
+  - `io.podman.compose.project`
+  - `com.docker.compose.project`
+- `StartedAt` timestamp parsing is normalized before `date -d` to avoid timezone-name parsing failures.
+- Label mismatch behavior is hard-fail by design (containers are removed when `PODMAN_SYSTEMD_UNIT` does not match expected ownership).
 
 ## Context
 
@@ -39,7 +51,7 @@ System Service (<stack>-stack.service):
   - Strategy: Smart container reuse (fast, only restart what changed)
   - Optimization: Preserves containers when config unchanged
 
-User Service (podman-compose@<project>.service):
+User Service (<stack>.service):
   - Triggered by: podman auto-update → systemd restart
   - Purpose: Pull new images, deploy updates
   - Strategy: Full recreation (systemd ExecStop → ExecStart lifecycle)
@@ -79,11 +91,11 @@ Targeted stale health detection:
 
 ## Implementation
 
-**Status:** ✅ Completed (commit e194187, 2026-02-12)
+**Status:** ✅ Completed (initial: e194187; hardened: f922af4, 003e8b1)
 
 ### Stale Health Detection
 
-**Location:** `stacks/lib/podman-compose.nix`, lines 164 (parameter), 177-196 (detection script), 240 (ExecStartPre)
+**Location:** `stacks/lib/podman-compose.nix` (`healthCheckTimeout`, `startupTimeoutSeconds`, `detectStaleHealthScript`, `recreateIfLabelMismatchScript`)
 
 ```nix
 # Add parameter to mkSystemdService function:
@@ -92,14 +104,20 @@ healthCheckTimeout ? 90  # Default 90 seconds, configurable per-stack
 detectStaleHealth = [
   ''
     /run/current-system/sw/bin/sh -c '
-      ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}")
+      ids=$(
+        {
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}"
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --format "{{.ID}}"
+        } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
+      )
       for id in $ids; do
         health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" $id 2>/dev/null || echo "none")
         started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" $id 2>/dev/null)
 
         # Only remove if unhealthy/starting AND running for >threshold
         if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
-          age_seconds=$(( $(date +%s) - $(date -d "$started" +%s) ))
+          started_clean=$(echo "$started" | /run/current-system/sw/bin/awk '{print $1, $2, $3}')
+          age_seconds=$(( $(date +%s) - $(date -d "$started_clean" +%s) ))
           if [ $age_seconds -gt ${toString healthCheckTimeout} ]; then
             echo "Removing container $id with stale health ($health) - running for ${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
             ${podmanBin} rm -f $id

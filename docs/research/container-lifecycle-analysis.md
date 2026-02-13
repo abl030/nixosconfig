@@ -2,7 +2,21 @@
 
 **Research Date:** 2026-02-12
 **Related Beads:** nixosconfig-cm5 (research task), nixosconfig-hbz (stale container bug)
-**Status:** Complete
+**Status:** Complete (implemented and hardened through 2026-02-13)
+
+## Post-Implementation Notes (2026-02-13)
+
+This research is still valid, but the stack implementation is now further hardened:
+
+1. Startup is bounded to avoid rebuild deadlocks:
+   - system secrets unit timeout and user compose unit timeout are both set from `startupTimeoutSeconds` (default 300s / 5m).
+   - `podman compose` uses `--wait --wait-timeout ${startupTimeoutSeconds}`.
+2. Stale-health detection now covers both compose label families:
+   - `io.podman.compose.project`
+   - `com.docker.compose.project`
+3. `StartedAt` parsing was normalized to handle Podman timestamps with zone names (for GNU `date` compatibility).
+4. Label-mismatch handling is intentionally hard-fail via container removal before restart so auto-update and systemd ownership stay consistent.
+5. User compose unit naming is `${stackName}.service`; `PODMAN_SYSTEMD_UNIT` points there.
 
 ## Executive Summary
 
