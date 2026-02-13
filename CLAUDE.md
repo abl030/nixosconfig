@@ -64,6 +64,8 @@ Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: 
 
 **`check --full` MUST pass before pushing.** Run `check` at feature boundaries — when a logical chunk of work is complete — not after every small change. `nix fmt` is cheap and fine to run anytime.
 
+**Docs-only exception:** If a change only touches documentation files (for example `docs/**`, `README*`, `*.md`), skip `check` by default unless explicitly requested.
+
 The `check` command runs a comprehensive quality gate that includes:
 1. Format checking (Alejandra)
 2. Linting (deadnix for unused code)
