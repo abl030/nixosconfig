@@ -18,6 +18,27 @@ The repository has now moved beyond the audit state described below. Current beh
 - Stale-health parsing is hardened for Podman `StartedAt` formats with timezone names by normalizing to date/time/UTC-offset before `date -d`.
 - Label mismatch precheck is hard-fail: containers with incorrect `PODMAN_SYSTEMD_UNIT` are removed before startup, preventing auto-update/restart drift.
 
+### Observed Failure Mode (2026-02-13, AWST)
+
+During the daily auto-update window, both container hosts reported the same error class:
+
+- `doc1` (`proxmox-vm`) at ~`00:06`: `52` errors
+- `igpu` at ~`00:14`: `13` errors
+- Error text: `auto-updating container "<id>": no PODMAN_SYSTEMD_UNIT label found`
+
+What this means:
+
+- Containers had `io.containers.autoupdate=registry` but did not have `PODMAN_SYSTEMD_UNIT`.
+- `podman auto-update` could detect update candidates, but had no restart unit to target.
+- This is an auto-update metadata/invariant failure, not necessarily a runtime outage.
+
+### Decision (Applied)
+
+Enforce this invariant at stack preflight with hard-fail semantics:
+
+- If `io.containers.autoupdate=registry` is set, `PODMAN_SYSTEMD_UNIT` must be present.
+- Violation must fail startup immediately (preflight), not defer failure to timer-time auto-update.
+
 The remainder of this document is preserved as historical audit context and migration rationale.
 
 ---
