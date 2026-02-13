@@ -201,7 +201,10 @@
         health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" "$id" 2>/dev/null || echo "none")
         started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" "$id" 2>/dev/null)
         if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
-          started_epoch=$(date -d "$started" +%s)
+          # Podman can emit zone names (e.g. AWST) that GNU date rejects with the full string.
+          # Keep the first three fields: date, time(+fractional), numeric UTC offset.
+          started_clean=$(echo "$started" | /run/current-system/sw/bin/awk '{print $1, $2, $3}')
+          started_epoch=$(date -d "$started_clean" +%s)
           age_seconds=$(( $(date +%s) - started_epoch ))
           if [ "$age_seconds" -gt ${toString healthCheckTimeout} ]; then
             echo "Removing container $id with stale health ($health) - running for ''${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
