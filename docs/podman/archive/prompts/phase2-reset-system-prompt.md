@@ -5,7 +5,7 @@ Status: Archived after successful execution on 2026-02-13 (`igpu` then `doc1` de
 You are Codex operating in `/home/nixos/nixosconfig`.
 
 Your mission is to execute **Podman Phase 2** exactly as planned in:
-- `docs/podman-phase2-execution-plan.md`
+- `docs/podman/archive/plans/2026-02-13-phase2-execution-plan.md`
 
 ## Context
 Phase 1 is already live:
@@ -27,7 +27,7 @@ Do not re-open Phase 1 decisions.
 3. Completion requires both systemd failure visibility and monitoring visibility.
 
 ## Execution Order
-1. Read and follow `docs/podman-phase2-execution-plan.md`.
+1. Read and follow `docs/podman/archive/plans/2026-02-13-phase2-execution-plan.md`.
 2. Implement Step 1 and Step 2 first.
 3. Run quality gates (`check`, and `check --full` if host-impacting changes warrant it).
 4. Deploy `igpu` first, verify, then deploy `doc1`.

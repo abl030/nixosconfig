@@ -70,7 +70,7 @@ The remainder of this document is preserved as historical audit context and migr
 ### Empirical Addendum (2026-02-13, `igpu`)
 
 A compose-change propagation test was run and documented at:
-- [docs/research/restart-probe-compose-change-test-2026-02-13.md](./research/restart-probe-compose-change-test-2026-02-13.md)
+- [2026-02-13-compose-change-propagation-test.md](../../incidents/2026-02-13-compose-change-propagation-test.md)
 
 Observed facts from that test:
 - Compose content change was present in git and in flake evaluation output.
@@ -959,7 +959,7 @@ stackCleanupSimplified = pkgs.writeShellScript "podman-stack-cleanup" ''
 - [Docker Compose --remove-orphans behavior](https://github.com/docker/compose/issues/6637)
 - [Podman system prune documentation](https://docs.podman.io/en/latest/markdown/podman-system-prune.1.html)
 - [Podman health check timer issues](https://github.com/containers/podman/discussions/19381)
-- [Container lifecycle analysis](/home/abl030/nixosconfig/docs/research/container-lifecycle-analysis.md)
+- [Container lifecycle analysis](../../research/container-lifecycle-analysis-2026-02.md)
 
 ## Appendix G: Previous Session Findings
 
