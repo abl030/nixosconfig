@@ -93,7 +93,23 @@
   # Generate env file existence checks with retry
   mkEnvFileChecks = envFiles:
     map
-    (env: "/run/current-system/sw/bin/sh -c 'max_attempts=30; attempt=0; while [ ! -f ${env.runFile} ]; do attempt=$((attempt + 1)); if [ $attempt -ge $max_attempts ]; then echo \"Timeout waiting for ${env.runFile}\"; exit 1; fi; sleep 1; done'")
+    (
+      env: let
+        envFileName = builtins.baseNameOf env.runFile;
+        waitScript = pkgs.writeShellScript "wait-for-env-file-${lib.strings.sanitizeDerivationName envFileName}" ''
+          max_attempts=30
+          attempt=0
+          while [ ! -f "${env.runFile}" ]; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "Timeout waiting for ${env.runFile}"
+              exit 1
+            fi
+            sleep 1
+          done
+        '';
+      in "${waitScript}"
+    )
     (normalizeEnvFiles envFiles);
 
   mkEnv = projectName: extraEnv:
@@ -141,8 +157,21 @@
         "${podmanBin} pod rm -f pod_${projectName} || true"
       ]
       else [];
+    recreateIfLabelMismatchScript = pkgs.writeShellScript "recreate-if-label-mismatch-${projectName}" ''
+      ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q)
+      if [ -z "$ids" ]; then
+        exit 0
+      fi
+
+      mismatch=$(${podmanBin} inspect -f "{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}" $ids 2>/dev/null \
+        | /run/current-system/sw/bin/grep -v "^${userServiceName}\.service$" || true)
+
+      if [ -n "$mismatch" ]; then
+        ${podmanBin} rm -f $ids || true
+      fi
+    '';
     recreateIfLabelMismatch = [
-      "/run/current-system/sw/bin/sh -lc 'ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q); if [ -n \"$ids\" ]; then mismatch=$(${podmanBin} inspect -f \"{{.Config.Labels.PODMAN_SYSTEMD_UNIT}}\" $ids 2>/dev/null | /run/current-system/sw/bin/grep -v \"${userServiceName}.service\" || true); if [ -n \"$mismatch\" ]; then ${podmanBin} rm -f $ids || true; fi; fi'"
+      "${recreateIfLabelMismatchScript}"
     ];
     detectStaleHealthScript = pkgs.writeShellScript "detect-stale-health-${projectName}" ''
       ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}")
@@ -222,7 +251,7 @@
           mkChmodSteps envFiles
           ++ mkChownSteps envFiles
           ++ [
-            "+/run/current-system/sw/bin/runuser -u ${user} -- sh -c 'export XDG_RUNTIME_DIR=${runUserDir}; systemctl --user restart ${userServiceName}.service'"
+            "+/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/env XDG_RUNTIME_DIR=${runUserDir} /run/current-system/sw/bin/systemctl --user restart ${userServiceName}.service"
           ];
 
         Restart = restart;
