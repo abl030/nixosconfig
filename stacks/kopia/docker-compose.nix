@@ -8,14 +8,6 @@
 
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
-  inherit (config.homelab) user userHome;
-  userUid = let
-    uid = config.users.users.${user}.uid or null;
-  in
-    if uid == null
-    then 1000
-    else uid;
-
   mkVerifyScript = {
     containerName,
     label,
@@ -29,8 +21,7 @@
 
       start_epoch=$(date +%s)
       exit_code=0
-      output=$(/run/current-system/sw/bin/runuser -u ${user} -- \
-        ${pkgs.podman}/bin/podman exec ${containerName} \
+      output=$(${pkgs.podman}/bin/podman exec ${containerName} \
         kopia snapshot verify --verify-files-percent=${verifyPercent} --parallel=2 2>&1) \
         || exit_code=$?
       end_epoch=$(date +%s)
@@ -187,7 +178,7 @@ in
       firewallPorts = [];
     })
     {
-      systemd = {
+      systemd.user = {
         services = {
           kopia-verify-photos = {
             description = "Kopia snapshot verify for kopiaphotos";
@@ -196,12 +187,6 @@ in
             restartIfChanged = false;
             serviceConfig = {
               Type = "oneshot";
-              User = "root";
-              Environment = [
-                "HOME=${userHome}"
-                "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
-              ];
               ExecStart = mkVerifyScript {
                 containerName = "kopiaphotos";
                 label = "Kopia Photos";
@@ -216,12 +201,6 @@ in
             restartIfChanged = false;
             serviceConfig = {
               Type = "oneshot";
-              User = "root";
-              Environment = [
-                "HOME=${userHome}"
-                "XDG_RUNTIME_DIR=/run/user/${toString userUid}"
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${toString userUid}/bus"
-              ];
               ExecStart = mkVerifyScript {
                 containerName = "kopiamum";
                 label = "Kopia Mum";
