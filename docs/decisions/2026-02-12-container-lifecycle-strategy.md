@@ -6,12 +6,29 @@
 **Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
 **Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix)
 
+## Planned Follow-up Trial (2026-02)
+
+We will trial a simplified reliability model to reduce control-plane coupling:
+- Keep container `healthcheck` definitions in compose.
+- Stop using `compose --wait` as a host activation gate.
+- Continue enforcing `io.containers.autoupdate=registry` + `PODMAN_SYSTEMD_UNIT` as a hard invariant.
+- Prefer failure surfacing via user service state and monitoring alerts over blocking `nixos-rebuild switch`.
+
+Intent:
+- Improve deploy robustness by decoupling host config activation from slow/stuck runtime health transitions.
+- Reduce reliance on preflight remediation scripts where possible after the trial.
+
+Status:
+- Phase 1 implemented: deploy path no longer uses compose `--wait`.
+- Phase 2 (secrets/control-plane simplification) remains pending.
+- Existing hardening/invariant behavior documented below remains current.
+
 ## Update (2026-02-13)
 
 Additional hardening was applied after the initial rollout:
 
 - Startup timeout is globally bounded at 5 minutes (`startupTimeoutSeconds ? 300`) for both the system secrets unit and user compose unit.
-- Compose wait is bounded (`--wait-timeout ${startupTimeoutSeconds}`) so rebuilds cannot block indefinitely.
+- Compose deploy path now runs without `--wait`; timeout bounds still apply to service activation/retry behavior.
 - Stale health and label mismatch checks now query both project label families:
   - `io.podman.compose.project`
   - `com.docker.compose.project`

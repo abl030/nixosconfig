@@ -4,13 +4,30 @@
 **Related Beads:** nixosconfig-cm5 (research task), nixosconfig-hbz (stale container bug)
 **Status:** Complete (implemented and hardened through 2026-02-13)
 
+## Planned Trial Direction (2026-02)
+
+The next iteration will trial a simpler deployment model while preserving health visibility:
+- Keep container health checks active in compose definitions.
+- Remove `--wait` from stack deploy path so host activation is not blocked by runtime health convergence.
+- Retain strict auto-update ownership invariant (`PODMAN_SYSTEMD_UNIT` required when autoupdate is enabled).
+- Push runtime failure handling to user service status and monitoring/alerting, rather than rebuild gating.
+
+Trial outcomes to validate:
+- `nixos-rebuild switch` does not stall on persistent `health=starting` containers.
+- Auto-update behavior and rollback signals remain clear.
+- Preflight script surface can be reduced without losing hard-fail safety where invariants are violated.
+
+Implementation note:
+- Phase 1 is now in place: stack deploy uses `compose up -d --remove-orphans` (no compose `--wait` gating).
+- Phase 2 remains open for deeper secrets/control-plane simplification.
+
 ## Post-Implementation Notes (2026-02-13)
 
 This research is still valid, but the stack implementation is now further hardened:
 
 1. Startup is bounded to avoid rebuild deadlocks:
    - system secrets unit timeout and user compose unit timeout are both set from `startupTimeoutSeconds` (default 300s / 5m).
-   - `podman compose` uses `--wait --wait-timeout ${startupTimeoutSeconds}`.
+   - `podman compose` deploy path now uses `up -d --remove-orphans` (no `--wait` gating).
 2. Stale-health detection now covers both compose label families:
    - `io.podman.compose.project`
    - `com.docker.compose.project`

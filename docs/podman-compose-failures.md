@@ -4,11 +4,33 @@ Date: 2026-02-12
 
 ---
 
+## Planned Trial Direction (Next Iteration)
+
+We are planning a reliability trial to reduce orchestration complexity and stop stack health from blocking host activation.
+
+Trial goals:
+- Keep container health checks enabled, but stop using compose health as a deploy gate.
+- Move from `compose up --wait` to `compose up -d --remove-orphans` for stack start.
+- Keep `PODMAN_SYSTEMD_UNIT` invariant enforcement as a hard preflight requirement.
+- Keep failures explicit via systemd and monitoring alerts, but avoid blocking `nixos-rebuild switch` on slow or stuck health transitions.
+
+Scope for this trial:
+- Start with runtime/deploy behavior (`--wait` removal) while preserving monitoring and auto-update signals.
+- Evaluate whether stale-health precheck logic remains necessary once deploy gating is removed.
+- If validated, continue simplifying toward fewer services/scripts and clearer ownership boundaries.
+
+Implementation note:
+- Phase 1 is now applied: deploy path uses `compose up -d --remove-orphans` (no compose `--wait` gating).
+- Invariant enforcement for `PODMAN_SYSTEMD_UNIT` remains hard-fail.
+- Further simplification work is deferred to Phase 2.
+
+---
+
 ## Implementation Update (2026-02-13)
 
 The repository has now moved beyond the audit state described below. Current behavior in `stacks/lib/podman-compose.nix` is:
 
-- `podman compose` is used everywhere (`${podmanBin} compose`), with `--wait --wait-timeout`.
+- `podman compose` is used everywhere (`${podmanBin} compose`) with `up -d --remove-orphans` (no deploy-time `--wait` gating).
 - Compose lifecycle is owned by a user unit named `${stackName}.service` (not `podman-compose@...`).
 - A paired system secrets unit `${stackName}-secrets.service` handles decryption and restarts the user unit.
 - Both units have bounded startup (`TimeoutStartSec=${startupTimeoutSeconds}s`, currently default 300s / 5m).
