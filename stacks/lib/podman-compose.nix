@@ -175,7 +175,7 @@
         | /run/current-system/sw/bin/grep -v "^${userServiceName}\.service$" || true)
 
       if [ -n "$mismatch" ]; then
-        ${podmanBin} rm -f $ids
+        ${podmanBin} rm -f --depend $ids
       fi
     '';
     recreateIfLabelMismatch = [
