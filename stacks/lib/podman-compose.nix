@@ -225,6 +225,41 @@
         ]
         ++ (map (env: env.sopsFile) envFiles)
         ++ restartTriggers);
+    composeWithSystemdLabelScript = pkgs.writeShellScript "compose-with-systemd-label-${projectName}" ''
+      set -euo pipefail
+
+      mode="$1"
+      shift
+
+      override_file="$(/run/current-system/sw/bin/mktemp)"
+      cleanup() {
+        /run/current-system/sw/bin/rm -f "$override_file"
+      }
+      trap cleanup EXIT
+
+      printf "services:\n" > "$override_file"
+      ${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} config --services \
+        | while read -r svc; do
+          [ -n "$svc" ] || continue
+          printf "  %s:\n    labels:\n      PODMAN_SYSTEMD_UNIT: \"%s.service\"\n" "$svc" "${userServiceName}" >> "$override_file"
+        done
+
+      case "$mode" in
+        up)
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans "$@"
+          ;;
+        reload)
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans "$@"
+          ;;
+        stop)
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} stop "$@"
+          ;;
+        *)
+          echo "Unknown mode: $mode" >&2
+          exit 2
+          ;;
+      esac
+    '';
   in {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
@@ -303,11 +338,11 @@
 
         ExecStartPre = mkEnvFileChecks envFiles ++ detectStaleHealth;
 
-        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans";
+        ExecStart = "${composeWithSystemdLabelScript} up";
         ExecStartPost = "${stackCleanupSimplified}";
-        ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
+        ExecStop = "${composeWithSystemdLabelScript} stop";
         ExecStopPost = "${stackCleanupSimplified}";
-        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans";
+        ExecReload = "${composeWithSystemdLabelScript} reload";
 
         Restart = restart;
         RestartSec = restartSec;

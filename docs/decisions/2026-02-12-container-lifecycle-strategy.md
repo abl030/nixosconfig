@@ -18,6 +18,27 @@ Additional hardening was applied after the initial rollout:
 - `StartedAt` timestamp parsing is normalized before `date -d` to avoid timezone-name parsing failures.
 - Label mismatch behavior is hard-fail by design (containers are removed when `PODMAN_SYSTEMD_UNIT` does not match expected ownership).
 
+## Incident Addendum (2026-02-13)
+
+Observed production failure mode in the auto-update window:
+
+- `doc1` (`proxmox-vm`) at ~`00:06` AWST: `52` errors
+- `igpu` at ~`00:14` AWST: `13` errors
+- Common error: `no PODMAN_SYSTEMD_UNIT label found`
+
+Diagnosis summary:
+
+- Affected containers were labeled `io.containers.autoupdate=registry`.
+- Those same containers lacked `PODMAN_SYSTEMD_UNIT`.
+- Result: `podman auto-update` had no systemd restart target and failed per-container.
+
+Decision reinforcement:
+
+- Treat label pairing as a strict invariant, enforced in preflight:
+  - `io.containers.autoupdate=registry` => `PODMAN_SYSTEMD_UNIT` required.
+- Violation is a hard startup failure for the stack.
+- Goal: fail fast at deploy/start time, not later during timer-based auto-update.
+
 ## Context
 
 During Phase 1 migration from `podman-compose` to `podman compose`, we encountered stale container health check issues that caused deployments to hang indefinitely. This raised questions about whether our dual service architecture was correct and whether we should use different strategies for rebuild vs auto-update scenarios.
@@ -238,6 +259,41 @@ Watchtower's always-recreate approach worked reliably for years. However:
 3. ✅ Auto-update continues to work reliably
 4. ✅ No manual intervention needed for stuck containers
 5. ✅ Clear logging when stale containers are removed
+
+## Test Matrix (Invariant Enforcement)
+
+All tests run on both hosts: `doc1` and `igpu`.
+
+1. **Baseline audit (pre-change snapshot)**
+- Record current auto-update label pairing:
+  - `podman ps -a --format '{{.ID}}' | xargs -r podman inspect | jq -r '.[] | select(.Config.Labels["io.containers.autoupdate"]=="registry") | "\(.Name) \(.Config.Labels["PODMAN_SYSTEMD_UNIT"] // "MISSING")"'`
+- Expected: no `MISSING` lines after rollout.
+
+2. **Negative test (must hard-fail)**
+- Create one controlled mismatch in a test stack/container:
+  - `io.containers.autoupdate=registry` set
+  - `PODMAN_SYSTEMD_UNIT` absent
+- Start stack service.
+- Expected: service fails in `ExecStartPre` with explicit mismatch output.
+
+3. **Positive test (must pass)**
+- Add valid `PODMAN_SYSTEMD_UNIT=<stack>.service` for same test.
+- Start stack service again.
+- Expected: preflight passes and service reaches active/exited success state.
+
+4. **Auto-update dry run validation**
+- Run `podman auto-update --dry-run`.
+- Expected: no `no PODMAN_SYSTEMD_UNIT label found` errors.
+
+5. **Timer-path validation**
+- Let scheduled `podman-auto-update.service` run once (or trigger manually in equivalent path).
+- Expected: no missing-label errors in `journalctl -u podman-auto-update.service`.
+
+6. **Regression guard for compose label families**
+- Ensure preflight coverage includes both:
+  - `io.podman.compose.project`
+  - `com.docker.compose.project`
+- Expected: mismatch detection works regardless of which project label family the container has.
 
 ## References
 

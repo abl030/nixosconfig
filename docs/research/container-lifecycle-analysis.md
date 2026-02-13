@@ -18,6 +18,22 @@ This research is still valid, but the stack implementation is now further harden
 4. Label-mismatch handling is intentionally hard-fail via container removal before restart so auto-update and systemd ownership stay consistent.
 5. User compose unit naming is `${stackName}.service`; `PODMAN_SYSTEMD_UNIT` points there.
 
+### Incident Confirmation (2026-02-13, AWST)
+
+Production logs later confirmed the predicted failure mode when label invariants are violated:
+
+- `doc1` (`proxmox-vm`) auto-update run: `52` missing-label errors
+- `igpu` auto-update run: `13` missing-label errors
+- Shared error signature: `no PODMAN_SYSTEMD_UNIT label found`
+
+This validates the need for strict preflight invariant enforcement:
+
+- `io.containers.autoupdate=registry` must always be paired with `PODMAN_SYSTEMD_UNIT`.
+- Violations should fail stack startup early, instead of failing during timer-driven auto-update.
+
+Execution test matrix is tracked in:
+- `docs/decisions/2026-02-12-container-lifecycle-strategy.md` (`Test Matrix (Invariant Enforcement)`).
+
 ## Executive Summary
 
 This document answers critical questions about how `docker-compose --wait` interacts with container reuse, health checks, and the dual service architecture in our podman-compose-based container stack management system. The research reveals that:
