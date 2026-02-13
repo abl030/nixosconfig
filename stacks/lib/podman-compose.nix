@@ -15,21 +15,6 @@
   runUserDir = "/run/user/${toString userUid}";
   podmanBin = "${pkgs.podman}/bin/podman";
   podmanCompose = "${podmanBin} compose";
-  sopsBin = "${pkgs.sops}/bin/sops";
-  ageKey = "${userHome}/.config/sops/age/keys.txt";
-  sopsDecryptScript = pkgs.writeShellScript "podman-sops-decrypt" ''
-    set -euo pipefail
-    out="$1"
-    in="$2"
-    if [[ -r /var/lib/sops-nix/key.txt ]]; then
-      exec /run/current-system/sw/bin/env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt ${sopsBin} -d --output "$out" "$in"
-    fi
-    if [[ -f "${ageKey}" ]]; then
-      exec /run/current-system/sw/bin/env SOPS_AGE_KEY_FILE="${ageKey}" ${sopsBin} -d --output "$out" "$in"
-    fi
-    echo "No sops identity found (expected /var/lib/sops-nix/key.txt, ${ageKey}, or /etc/ssh/ssh_host_ed25519_key)" >&2
-    exit 1
-  '';
 
   # Clean up orphaned health check timers after stack stop/restart.
   # Container/pod pruning is redundant with global timer.
@@ -54,22 +39,10 @@
     /run/current-system/sw/bin/systemctl --user reset-failed 2>/dev/null || true
   '';
 
-  normalizeEnvFiles = envFiles:
-    map
-    (env:
-      env
-      // {
-        runFile = lib.replaceStrings ["/run/user/%U"] [runUserDir] env.runFile;
-      })
-    envFiles;
-
-  mkEnvArgs = envFiles:
-    lib.concatStringsSep " " (map (env: "--env-file ${env.runFile}") (normalizeEnvFiles envFiles));
-
-  mkDecryptSteps = envFiles:
-    map
-    (env: ''${sopsDecryptScript} ${env.runFile} ${env.sopsFile}'')
-    (normalizeEnvFiles envFiles);
+  normalizeLegacyEnvPath = legacyPath:
+    if legacyPath == null
+    then null
+    else lib.replaceStrings ["/run/user/%U"] [runUserDir] legacyPath;
 
   mkMountRequirements = requiresMounts: let
     merged = [dataRoot] ++ requiresMounts;
@@ -77,40 +50,6 @@
     if merged == []
     then {}
     else {RequiresMountsFor = merged;};
-
-  # Generate chmod commands for all decrypted env files
-  mkChmodSteps = envFiles:
-    map
-    (env: "/run/current-system/sw/bin/chmod 600 ${env.runFile}")
-    (normalizeEnvFiles envFiles);
-
-  # Generate chown commands for all decrypted env files
-  mkChownSteps = envFiles:
-    map
-    (env: "/run/current-system/sw/bin/chown ${user}:${userGroup} ${env.runFile}")
-    (normalizeEnvFiles envFiles);
-
-  # Generate env file existence checks with retry
-  mkEnvFileChecks = envFiles:
-    map
-    (
-      env: let
-        envFileName = builtins.baseNameOf env.runFile;
-        waitScript = pkgs.writeShellScript "wait-for-env-file-${lib.strings.sanitizeDerivationName envFileName}" ''
-          max_attempts=30
-          attempt=0
-          while [ ! -f "${env.runFile}" ]; do
-            attempt=$((attempt + 1))
-            if [ "$attempt" -ge "$max_attempts" ]; then
-              echo "Timeout waiting for ${env.runFile}"
-              exit 1
-            fi
-            sleep 1
-          done
-        '';
-      in "${waitScript}"
-    )
-    (normalizeEnvFiles envFiles);
 
   mkEnv = projectName: extraEnv:
     [
@@ -150,7 +89,23 @@
     startupTimeoutSeconds ? 300,
   }: let
     userServiceName = stackName;
-    secretsServiceName = "${stackName}-secrets";
+    envPathListFile = "${runUserDir}/secrets/${stackName}.env-paths";
+    envFileSpecs =
+      lib.imap0
+      (
+        idx: env: let
+          legacyRunFile = normalizeLegacyEnvPath (env.runFile or null);
+          secretName =
+            env.secretName
+            or "containers/${stackName}/${toString idx}-${builtins.baseNameOf (env.runFile or "env")}";
+        in
+          env
+          // {
+            inherit legacyRunFile secretName;
+            nativeRunFile = env.nativeRunFile or config.sops.secrets.${secretName}.path;
+          }
+      )
+      envFiles;
     podPrune =
       if prunePod
       then [
@@ -223,13 +178,74 @@
       ([
           composeFile
         ]
-        ++ (map (env: env.sopsFile) envFiles)
+        ++ (map (env: env.sopsFile) (lib.filter (env: env ? sopsFile) envFileSpecs))
         ++ restartTriggers);
+    stackSecrets = lib.listToAttrs (map (env: {
+        name = env.secretName;
+        value = {
+          inherit (env) sopsFile;
+          format = env.sopsFormat or "dotenv";
+          owner = user;
+          group = userGroup;
+          mode = env.mode or "0400";
+        };
+      })
+      (lib.filter (env: env ? sopsFile) envFileSpecs));
+    resolveEnvPathsScript = pkgs.writeShellScript "resolve-env-paths-${projectName}" ''
+      set -euo pipefail
+
+      /run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets
+      env_tmp="$(${pkgs.coreutils}/bin/mktemp)"
+      cleanup() {
+        /run/current-system/sw/bin/rm -f "$env_tmp"
+      }
+      trap cleanup EXIT
+
+      append_env_file() {
+        local native_path="$1"
+        local fallback_path="$2"
+        local secret_name="$3"
+
+        if [[ -r "$native_path" ]]; then
+          printf "%s\n" "$native_path" >> "$env_tmp"
+          return
+        fi
+
+        if [[ -n "$fallback_path" && -r "$fallback_path" ]]; then
+          echo "WARNING: using compatibility fallback env path for $secret_name: $fallback_path (native missing: $native_path)" >&2
+          printf "%s\n" "$fallback_path" >> "$env_tmp"
+          return
+        fi
+
+        echo "ERROR: missing required secret env file for $secret_name (native: $native_path${"$"}{fallback_path:+, fallback: $fallback_path})" >&2
+        exit 1
+      }
+
+      ${
+        lib.concatMapStringsSep "\n"
+        (
+          env: ''append_env_file ${lib.escapeShellArg env.nativeRunFile} ${lib.escapeShellArg (env.legacyRunFile or "")} ${lib.escapeShellArg env.secretName}''
+        )
+        envFileSpecs
+      }
+
+      /run/current-system/sw/bin/mv "$env_tmp" ${envPathListFile}
+      /run/current-system/sw/bin/chmod 600 ${envPathListFile}
+    '';
+    resolveEnvPaths = lib.optional (envFileSpecs != []) "${resolveEnvPathsScript}";
     composeWithSystemdLabelScript = pkgs.writeShellScript "compose-with-systemd-label-${projectName}" ''
       set -euo pipefail
 
       mode="$1"
       shift
+
+      env_args=()
+      if [ -r ${envPathListFile} ]; then
+        while IFS= read -r env_file; do
+          [ -n "$env_file" ] || continue
+          env_args+=(--env-file "$env_file")
+        done < ${envPathListFile}
+      fi
 
       override_file="$(/run/current-system/sw/bin/mktemp)"
       cleanup() {
@@ -238,7 +254,7 @@
       trap cleanup EXIT
 
       printf "services:\n" > "$override_file"
-      ${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} config --services \
+      ${podmanCompose} ${composeArgs} -f ${composeFile} "''${env_args[@]}" config --services \
         | while read -r svc; do
           [ -n "$svc" ] || continue
           printf "  %s:\n    labels:\n      PODMAN_SYSTEMD_UNIT: \"%s.service\"\n" "$svc" "${userServiceName}" >> "$override_file"
@@ -246,13 +262,13 @@
 
       case "$mode" in
         up)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
         reload)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
         stop)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} stop "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" stop "$@"
           ;;
         *)
           echo "Unknown mode: $mode" >&2
@@ -268,75 +284,29 @@
       monitoring.monitors = lib.mkAfter stackMonitors;
       loki.extraScrapeTargets = lib.mkAfter scrapeTargets;
     };
-
-    # System secrets service: SOPS decryption (runs as root)
-    systemd.services.${secretsServiceName} = {
-      description = "SOPS secrets decryption for ${stackName}";
-      restartIfChanged = true;
-      restartTriggers = baseRestartTriggers;
-      reloadIfChanged = false;
-
-      unitConfig =
-        mkMountRequirements requiresMounts
-        // {
-          # Allow retries after dependency failures - 5 attempts in 5 minutes
-          StartLimitIntervalSec = 300;
-          StartLimitBurst = 5;
-        };
-      # Must wait for user session before bouncing user service
-      requires = requires ++ ["user@${toString userUid}.service"];
-      after = after ++ ["user@${toString userUid}.service"];
-      inherit wants;
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        TimeoutStartSec = "${toString startupTimeoutSeconds}s";
-        Environment = mkEnv projectName extraEnv;
-
-        ExecStartPre =
-          ["/run/current-system/sw/bin/mkdir -p ${runUserDir}/secrets"]
-          ++ detectStaleHealth
-          ++ podPrune
-          ++ recreateIfLabelMismatch
-          ++ preStart;
-
-        # Decrypt all env files (runs as root with access to /var/lib/sops-nix/key.txt)
-        ExecStart =
-          if envFiles == []
-          then "/run/current-system/sw/bin/true"
-          else mkDecryptSteps envFiles;
-
-        # Set permissions and bounce user service
-        ExecStartPost =
-          mkChmodSteps envFiles
-          ++ mkChownSteps envFiles
-          ++ [
-            "+/run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/env XDG_RUNTIME_DIR=${runUserDir} /run/current-system/sw/bin/systemctl --user restart ${userServiceName}.service"
-          ];
-
-        Restart = restart;
-        RestartSec = restartSec;
-        StandardOutput = "journal";
-        StandardError = "journal";
-      };
-
-      wantedBy = ["multi-user.target"];
-    };
+    sops.secrets = stackSecrets;
 
     # User compose service: podman compose lifecycle (runs as rootless user)
     systemd.user.services.${userServiceName} = {
       inherit description;
-      restartIfChanged = false;
-      after = ["podman.socket"];
-      wants = ["podman.socket"];
+      restartIfChanged = true;
+      restartTriggers = baseRestartTriggers;
+      unitConfig = mkMountRequirements requiresMounts;
+      after = ["podman.socket"] ++ after;
+      wants = ["podman.socket"] ++ wants;
+      inherit requires;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         TimeoutStartSec = "${toString startupTimeoutSeconds}s";
         Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
 
-        ExecStartPre = mkEnvFileChecks envFiles ++ detectStaleHealth;
+        ExecStartPre =
+          resolveEnvPaths
+          ++ detectStaleHealth
+          ++ podPrune
+          ++ recreateIfLabelMismatch
+          ++ preStart;
 
         ExecStart = "${composeWithSystemdLabelScript} up";
         ExecStartPost = "${stackCleanupSimplified}";
