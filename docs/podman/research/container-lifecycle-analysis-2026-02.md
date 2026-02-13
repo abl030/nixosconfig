@@ -3,7 +3,7 @@
 **Research Date:** 2026-02-12
 **Related Beads:** nixosconfig-cm5 (research task), nixosconfig-hbz (stale container bug)
 **Status:** Complete (implemented and hardened through 2026-02-13)
-**Related empirical test:** [restart-probe-compose-change-test-2026-02-13.md](./restart-probe-compose-change-test-2026-02-13.md)
+**Related empirical test:** [2026-02-13-compose-change-propagation-test.md](../incidents/2026-02-13-compose-change-propagation-test.md)
 
 ## Planned Trial Direction (2026-02)
 
@@ -40,7 +40,7 @@ This research is still valid, but the stack implementation has since moved to th
 ### Empirical Update (2026-02-13, `igpu`)
 
 An explicit compose-change propagation test is documented in:
-- [restart-probe-compose-change-test-2026-02-13.md](./restart-probe-compose-change-test-2026-02-13.md)
+- [2026-02-13-compose-change-propagation-test.md](../incidents/2026-02-13-compose-change-propagation-test.md)
 
 Observed in that test:
 - The rebuilt NixOS generation contained the updated user unit and updated compose wrapper path.

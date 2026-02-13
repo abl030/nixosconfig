@@ -365,7 +365,7 @@ sudo kill <pid>
 sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 ```
 
-**Rebuild vs Auto-Update Behavior** (Research: `docs/research/container-lifecycle-analysis.md`)
+**Rebuild vs Auto-Update Behavior** (Research: `docs/podman/research/container-lifecycle-analysis-2026-02.md`)
 
 **Current Decision (2026-02-13):** Phase 2 complete. User service is the only control plane for stack lifecycle.
 
