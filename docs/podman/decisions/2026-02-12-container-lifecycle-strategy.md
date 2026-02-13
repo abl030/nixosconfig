@@ -3,9 +3,9 @@
 **Date:** 2026-02-12
 **Status:** Implemented and evolved (Phase 1 + Phase 2 complete)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
-**Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
-**Empirical Test:** [docs/research/restart-probe-compose-change-test-2026-02-13.md](../research/restart-probe-compose-change-test-2026-02-13.md)
-**Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix)
+**Research Document:** [docs/research/container-lifecycle-analysis.md](../../research/container-lifecycle-analysis.md)
+**Empirical Test:** [docs/research/restart-probe-compose-change-test-2026-02-13.md](../../research/restart-probe-compose-change-test-2026-02-13.md)
+**Implementation:** [stacks/lib/podman-compose.nix](../../../stacks/lib/podman-compose.nix)
 
 ## Planned Follow-up Trial (2026-02)
 
@@ -52,7 +52,7 @@ What changed:
 ## Empirical Addendum (2026-02-13, `igpu`)
 
 Facts from an explicit compose-change propagation test are captured in:
-- [docs/research/restart-probe-compose-change-test-2026-02-13.md](../research/restart-probe-compose-change-test-2026-02-13.md)
+- [docs/research/restart-probe-compose-change-test-2026-02-13.md](../../research/restart-probe-compose-change-test-2026-02-13.md)
 
 Observed:
 - A compose change produced updated unit/script artifacts in the new NixOS generation.
@@ -342,7 +342,7 @@ All tests run on both hosts: `doc1` and `igpu`.
 
 ## References
 
-- Full research: [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
+- Full research: [docs/research/container-lifecycle-analysis.md](../../research/container-lifecycle-analysis.md)
 - Research bead: `bd show nixosconfig-cm5`
 - Bug bead: `bd show nixosconfig-hbz`
 - CLAUDE.md: Container Stack Management section
