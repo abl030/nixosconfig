@@ -1,7 +1,7 @@
 # Decision: Container Lifecycle Strategy for Rebuild vs Auto-Update
 
 **Date:** 2026-02-12
-**Status:** Implemented and hardened (commits e194187, f922af4, 003e8b1)
+**Status:** Implemented and evolved (Phase 1 + Phase 2 complete)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
 **Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
 **Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix)
@@ -20,7 +20,7 @@ Intent:
 
 Status:
 - Phase 1 implemented: deploy path no longer uses compose `--wait`.
-- Phase 2 (secrets/control-plane simplification) remains pending.
+- Phase 2 implemented: user service is sole lifecycle owner with native `sops.secrets` wiring.
 - Existing hardening/invariant behavior documented below remains current.
 
 ## Update (2026-02-13)
@@ -34,6 +34,23 @@ Additional hardening was applied after the initial rollout:
   - `com.docker.compose.project`
 - `StartedAt` timestamp parsing is normalized before `date -d` to avoid timezone-name parsing failures.
 - Label mismatch behavior is hard-fail by design (containers are removed when `PODMAN_SYSTEMD_UNIT` does not match expected ownership).
+
+## Phase 2 Completion Update (2026-02-13)
+
+Phase 2 control-plane simplification is complete and deployed to `igpu` and `doc1`.
+
+What changed:
+- Removed orchestration role of `*-stack-secrets.service`.
+- Removed root-side bounce path (`runuser ... systemctl --user restart ...`).
+- User service `${stackName}.service` is now the sole stack lifecycle owner.
+- Env secret delivery now uses native system-scope `sops.secrets` with runtime-readable ownership.
+- Added one-release compatibility fallback for legacy env paths with explicit warning logs.
+- Missing secrets remain hard-fail for stack startup.
+- Deploy path remains non-blocking (`podman compose up -d --remove-orphans`, no `--wait`).
+
+Decision update:
+- The earlier "dual service architecture is required" conclusion is superseded by the Phase 2 design.
+- Current design keeps hard-fail invariant enforcement while reducing orchestration coupling.
 
 ## Incident Addendum (2026-02-13)
 
@@ -74,7 +91,7 @@ During Phase 1 migration from `podman-compose` to `podman compose`, we encounter
 4. **Should we use `--force-recreate` to avoid stale containers?**
    → NO - defeats the purpose of incremental rebuilds; use targeted detection instead
 
-## Decision
+## Decision (Historical Snapshot, Later Evolved by Phase 2)
 
 **Keep current dual service architecture with targeted stale health detection.**
 

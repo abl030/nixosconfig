@@ -279,10 +279,11 @@ All settings use `lib.mkDefault` so individual hosts can override.
 - Configuration: `modules/nixos/homelab/containers/default.nix`
 
 **Key Features:**
-- `--wait` flag blocks until containers pass health checks or fail
-- Proper error propagation (nonzero exit codes)
+- Deploy path uses `podman compose up -d --remove-orphans` (no deploy-time `--wait` gating)
 - API socket communication eliminates SQLite lock contention
-- Dual service architecture: system service (main) + user service (auto-update)
+- Single user service ownership (`${stackName}.service`) for stack lifecycle
+- Native system-scope `sops.secrets` wiring for env files, with one-release legacy fallback support
+- Hard-fail startup invariants (`PODMAN_SYSTEMD_UNIT` ownership + missing secret handling)
 
 **Migration Gotchas (podman-compose → podman compose):**
 
@@ -337,7 +338,7 @@ Successfully migrated all stacks from podman-compose to podman compose. Issues e
 **IMPORTANT: Oneshot Service Behavior**
 Container stacks use `Type=oneshot` with `restartIfChanged=true`. They only restart when config changes, NOT on every rebuild. If containers are manually removed (e.g., via `podman rm -f` or network cleanup), you must manually restart the services:
 ```bash
-sudo systemctl restart <stack-name>
+sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 ```
 
 **Migration verified on:** doc1 (proxmox-vm), igpu
@@ -359,60 +360,36 @@ podman inspect <container> --format '{{json .State.Health}}' | jq
 
 # Kill stuck docker-compose and restart service
 sudo kill <pid>
-sudo systemctl restart <stack-name>
+sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 ```
 
 **Rebuild vs Auto-Update Behavior** (Research: `docs/research/container-lifecycle-analysis.md`)
 
-**Decision (2026-02-12):** Keep current dual service architecture with targeted stale health detection.
+**Current Decision (2026-02-13):** Phase 2 complete. User service is the only control plane for stack lifecycle.
 
-**Key Findings:**
-
-1. **Container reuse DOES cause stale health checks** - confirmed, real production issue
-2. **Different scenarios already use different strategies** - dual services are correct by design
-3. **User services already recreate containers** - systemd ExecStop → ExecStart cycle provides Watchtower-style fresh deployment
-4. **Solution: Detect and remove stale containers before reuse** - fix root cause, not blanket workaround
-
-**Dual Service Architecture (Confirmed Correct):**
+**Current model:**
 
 ```
-System Service (<stack>-stack.service):
-  Triggered by: nixos-rebuild switch
-  Purpose: Apply config changes incrementally
-  Strategy: Smart reuse (fast, only restart changed containers)
-  Current: docker-compose up -d --wait --remove-orphans
-  Protection: Will add stale health detection (see below)
+User Service (<stackName>.service, user scope):
+  Triggered by: nixos-rebuild (restartIfChanged), manual restart, podman auto-update restart target
+  Deploy path: podman compose up -d --remove-orphans
+  Protections: stale-health precheck, PODMAN_SYSTEMD_UNIT mismatch hard-fail, missing secret hard-fail
 
-User Service (podman-compose@<project>.service):
-  Triggered by: podman auto-update → systemd restart
-  Purpose: Pull new images, deploy updates
-  Strategy: Full recreation (systemd stop → start cycle)
-  Current: docker-compose up -d --wait --remove-orphans
-  Protection: Built-in rollback (podman auto-update feature)
-  Note: Already recreates fresh containers via systemd lifecycle
+Secrets:
+  Source of truth: system-scope sops.secrets
+  Runtime use: user service resolves native paths
+  Compatibility: one-release fallback to legacy /run/user/%U paths with warning logs
 ```
 
 **Stale Health Detection (IMPLEMENTED):**
-
-Pre-start stale health detection added to system service in `stacks/lib/podman-compose.nix`:
-- Detects containers in "starting" or "unhealthy" state for >90 seconds before reuse (default)
+- Detects containers in `starting` or `unhealthy` state for >90 seconds before reuse (default)
 - Time-based validation prevents removing legitimately slow-starting containers
-- Safe for rapid rebuilds during development (won't loop for minutes)
-- Removes stuck containers to force fresh creation
-- Preserves fast path for healthy containers
-- Low overhead, automatic remediation
-- Configurable threshold per-stack (e.g., `healthCheckTimeout = 300` for slow services)
-- Formula: Set to 2-3x expected startup time for slowest container in stack
-- Implementation: commit e194187
-- See `docs/research/container-lifecycle-analysis.md` for analysis
-- See `docs/decisions/2026-02-12-container-lifecycle-strategy.md` for decision rationale
+- Configurable per-stack (`healthCheckTimeout`, e.g. 300 for slow stacks)
+- Keeps rebuild non-blocking while preventing stale-state deadlocks
 
-**Why NOT --force-recreate:**
-- Defeats purpose of incremental config changes
-- Unnecessarily restarts ALL containers on every rebuild
-- Slower deployments (2-5s overhead per container × 19 stacks)
-- Causes downtime when only secrets/firewall rules changed
-- User services already recreate via systemd lifecycle (no need there either)
+**Why no deploy-time `--wait`:**
+- Rebuild activation should not block on runtime health convergence
+- Monitoring/systemd state should surface runtime failures instead of gating activation
 
 ## Important Files
 
