@@ -246,10 +246,10 @@
 
       case "$mode" in
         up)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --remove-orphans "$@"
           ;;
         reload)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} up -d --remove-orphans "$@"
           ;;
         stop)
           exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" ${mkEnvArgs envFiles} stop "$@"
