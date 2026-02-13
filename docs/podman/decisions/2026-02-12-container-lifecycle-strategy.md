@@ -1,10 +1,11 @@
 # Decision: Container Lifecycle Strategy for Rebuild vs Auto-Update
 
 **Date:** 2026-02-12
-**Status:** Implemented and evolved (Phase 1 + Phase 2 complete)
+**Status:** Implemented and evolved (Phase 1 + Phase 2 complete; ownership follow-up moved to Phase 2.5)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
 **Research Document:** [container-lifecycle-analysis-2026-02.md](../research/container-lifecycle-analysis-2026-02.md)
 **Empirical Test:** [2026-02-13-compose-change-propagation-test.md](../incidents/2026-02-13-compose-change-propagation-test.md)
+**Ownership follow-up decision:** [2026-02-13-home-manager-user-unit-ownership.md](2026-02-13-home-manager-user-unit-ownership.md)
 **Implementation:** [stacks/lib/podman-compose.nix](../../../stacks/lib/podman-compose.nix)
 
 ## Planned Follow-up Trial (2026-02)
@@ -62,6 +63,25 @@ Observed:
 Decision update:
 - The earlier "dual service architecture is required" conclusion is superseded by the Phase 2 design.
 - Current design keeps hard-fail invariant enforcement while reducing orchestration coupling.
+
+## Phase 2.5 Update (2026-02-13)
+
+Phase 2 proved the simplified user-scope lifecycle model, but the `igpu` propagation test exposed an ownership-collision class:
+
+- NixOS-generated stack user units under `/etc/systemd/user` can be shadowed by stale user-level unit files in `~/.config/systemd/user`.
+- In that condition, `daemon-reload` and `restart` continue using the higher-precedence stale user-level unit.
+
+Phase 2.5 decision:
+
+1. Keep stack lifecycle in user scope.
+2. Migrate stack unit ownership to Home Manager `systemd.user.services` so authoritative unit definitions live in user-level path.
+3. Enforce single ownership per unit name and add post-switch `FragmentPath`/`DropInPaths` checks.
+4. Treat user-manager availability as an explicit reconciliation gate (do not treat skipped user reload as silent success).
+
+See:
+- Decision: `docs/podman/decisions/2026-02-13-home-manager-user-unit-ownership.md`
+- Plan: `docs/podman/current/phase2.5-home-manager-migration-plan.md`
+- Research: `docs/podman/research/home-manager-user-service-migration-research-2026-02.md`
 
 ## Incident Addendum (2026-02-13)
 
