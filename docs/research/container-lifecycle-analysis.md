@@ -61,7 +61,7 @@ This validates the need for strict preflight invariant enforcement:
 - Violations should fail stack startup early, instead of failing during timer-driven auto-update.
 
 Execution test matrix is tracked in:
-- `docs/decisions/2026-02-12-container-lifecycle-strategy.md` (`Test Matrix (Invariant Enforcement)`).
+- `docs/podman/decisions/2026-02-12-container-lifecycle-strategy.md` (`Test Matrix (Invariant Enforcement)`).
 
 ## Executive Summary
 
