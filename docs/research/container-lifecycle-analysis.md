@@ -3,6 +3,7 @@
 **Research Date:** 2026-02-12
 **Related Beads:** nixosconfig-cm5 (research task), nixosconfig-hbz (stale container bug)
 **Status:** Complete (implemented and hardened through 2026-02-13)
+**Related empirical test:** [restart-probe-compose-change-test-2026-02-13.md](./restart-probe-compose-change-test-2026-02-13.md)
 
 ## Planned Trial Direction (2026-02)
 
@@ -35,6 +36,16 @@ This research is still valid, but the stack implementation has since moved to th
 4. Label-mismatch handling is intentionally hard-fail via container removal before restart so auto-update and systemd ownership stay consistent.
 5. User compose unit naming is `${stackName}.service`; `PODMAN_SYSTEMD_UNIT` points there.
 6. Legacy `*-stack-secrets.service` orchestration was removed; env files are resolved from native `sops.secrets` paths with one-release fallback support.
+
+### Empirical Update (2026-02-13, `igpu`)
+
+An explicit compose-change propagation test is documented in:
+- [restart-probe-compose-change-test-2026-02-13.md](./restart-probe-compose-change-test-2026-02-13.md)
+
+Observed in that test:
+- The rebuilt NixOS generation contained the updated user unit and updated compose wrapper path.
+- The running user manager continued using a stale unit path from `~/.config/systemd/user`, and restart behavior followed that stale unit definition.
+- Once stale home-level unit artifacts were removed, the active unit path switched to `/etc/systemd/user/...` and the updated compose command was applied.
 
 ### Incident Confirmation (2026-02-13, AWST)
 

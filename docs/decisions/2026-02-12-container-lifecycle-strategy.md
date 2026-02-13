@@ -4,6 +4,7 @@
 **Status:** Implemented and evolved (Phase 1 + Phase 2 complete)
 **Related Beads:** nixosconfig-cm5 (research), nixosconfig-hbz (bug fix)
 **Research Document:** [docs/research/container-lifecycle-analysis.md](../research/container-lifecycle-analysis.md)
+**Empirical Test:** [docs/research/restart-probe-compose-change-test-2026-02-13.md](../research/restart-probe-compose-change-test-2026-02-13.md)
 **Implementation:** [stacks/lib/podman-compose.nix](../../stacks/lib/podman-compose.nix)
 
 ## Planned Follow-up Trial (2026-02)
@@ -47,6 +48,16 @@ What changed:
 - Added one-release compatibility fallback for legacy env paths with explicit warning logs.
 - Missing secrets remain hard-fail for stack startup.
 - Deploy path remains non-blocking (`podman compose up -d --remove-orphans`, no `--wait`).
+
+## Empirical Addendum (2026-02-13, `igpu`)
+
+Facts from an explicit compose-change propagation test are captured in:
+- [docs/research/restart-probe-compose-change-test-2026-02-13.md](../research/restart-probe-compose-change-test-2026-02-13.md)
+
+Observed:
+- A compose change produced updated unit/script artifacts in the new NixOS generation.
+- The active user manager can continue to run a stale unit from `~/.config/systemd/user` when such an override path exists.
+- In that state, service restart behavior follows the stale user-level unit definition rather than the updated `/etc/systemd/user` unit.
 
 Decision update:
 - The earlier "dual service architecture is required" conclusion is superseded by the Phase 2 design.

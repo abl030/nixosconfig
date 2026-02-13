@@ -67,6 +67,18 @@ Enforce this invariant at stack preflight with hard-fail semantics:
 
 The remainder of this document is preserved as historical audit context and migration rationale.
 
+### Empirical Addendum (2026-02-13, `igpu`)
+
+A compose-change propagation test was run and documented at:
+- [docs/research/restart-probe-compose-change-test-2026-02-13.md](./research/restart-probe-compose-change-test-2026-02-13.md)
+
+Observed facts from that test:
+- Compose content change was present in git and in flake evaluation output.
+- New NixOS generation contained updated user unit and updated compose wrapper path under `/etc/systemd/user`.
+- Active user manager initially loaded a stale unit path from `~/.config/systemd/user`.
+- In that state, `systemctl --user restart` continued applying the stale compose definition.
+- After removing stale user-level unit artifacts, active `FragmentPath` switched to `/etc/systemd/user/...` and updated compose behavior was observed.
+
 ---
 
 ## Part 1: How Everything Currently Works
