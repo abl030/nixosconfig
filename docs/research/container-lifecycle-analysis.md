@@ -19,14 +19,14 @@ Trial outcomes to validate:
 
 Implementation note:
 - Phase 1 is now in place: stack deploy uses `compose up -d --remove-orphans` (no compose `--wait` gating).
-- Phase 2 remains open for deeper secrets/control-plane simplification.
+- Phase 2 is complete: user service is the sole lifecycle owner with native `sops.secrets` wiring and compatibility fallback window.
 
 ## Post-Implementation Notes (2026-02-13)
 
-This research is still valid, but the stack implementation is now further hardened:
+This research is still valid, but the stack implementation has since moved to the simplified Phase 2 model:
 
 1. Startup is bounded to avoid rebuild deadlocks:
-   - system secrets unit timeout and user compose unit timeout are both set from `startupTimeoutSeconds` (default 300s / 5m).
+   - user compose unit startup is bounded by `startupTimeoutSeconds` (default 300s / 5m).
    - `podman compose` deploy path now uses `up -d --remove-orphans` (no `--wait` gating).
 2. Stale-health detection now covers both compose label families:
    - `io.podman.compose.project`
@@ -34,6 +34,7 @@ This research is still valid, but the stack implementation is now further harden
 3. `StartedAt` parsing was normalized to handle Podman timestamps with zone names (for GNU `date` compatibility).
 4. Label-mismatch handling is intentionally hard-fail via container removal before restart so auto-update and systemd ownership stay consistent.
 5. User compose unit naming is `${stackName}.service`; `PODMAN_SYSTEMD_UNIT` points there.
+6. Legacy `*-stack-secrets.service` orchestration was removed; env files are resolved from native `sops.secrets` paths with one-release fallback support.
 
 ### Incident Confirmation (2026-02-13, AWST)
 
@@ -57,7 +58,7 @@ This document answers critical questions about how `docker-compose --wait` inter
 
 1. **Container reuse with `--wait` DOES cause stale health check issues** - this is a real, ongoing risk
 2. **Podman auto-update operates independently of compose files** - it works directly with containers via podman API
-3. **The dual service architecture serves distinct purposes** - system service for rebuild, user service for auto-update
+3. **Control-plane simplification completed in Phase 2** - user service now owns stack lifecycle for both rebuild and auto-update restart targets
 4. **Different scenarios require different strategies** - rebuild should optimize for speed, auto-update should prioritize reliability
 
 ## Research Questions Answered

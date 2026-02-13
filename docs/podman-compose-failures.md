@@ -20,9 +20,9 @@ Scope for this trial:
 - If validated, continue simplifying toward fewer services/scripts and clearer ownership boundaries.
 
 Implementation note:
-- Phase 1 is now applied: deploy path uses `compose up -d --remove-orphans` (no compose `--wait` gating).
+- Phase 1 is applied: deploy path uses `compose up -d --remove-orphans` (no compose `--wait` gating).
+- Phase 2 is applied: user service is sole lifecycle owner; legacy `*-stack-secrets.service` orchestration has been removed.
 - Invariant enforcement for `PODMAN_SYSTEMD_UNIT` remains hard-fail.
-- Further simplification work is deferred to Phase 2.
 
 ---
 
@@ -32,13 +32,17 @@ The repository has now moved beyond the audit state described below. Current beh
 
 - `podman compose` is used everywhere (`${podmanBin} compose`) with `up -d --remove-orphans` (no deploy-time `--wait` gating).
 - Compose lifecycle is owned by a user unit named `${stackName}.service` (not `podman-compose@...`).
-- A paired system secrets unit `${stackName}-secrets.service` handles decryption and restarts the user unit.
-- Both units have bounded startup (`TimeoutStartSec=${startupTimeoutSeconds}s`, currently default 300s / 5m).
+- Stack env secrets are declared via system-scope `sops.secrets` and read directly by user services.
+- User service startup is bounded (`TimeoutStartSec=${startupTimeoutSeconds}s`, currently default 300s / 5m).
 - Stale-health detection checks both label schemes and deduplicates IDs:
   - `io.podman.compose.project`
   - `com.docker.compose.project`
 - Stale-health parsing is hardened for Podman `StartedAt` formats with timezone names by normalizing to date/time/UTC-offset before `date -d`.
 - Label mismatch precheck is hard-fail: containers with incorrect `PODMAN_SYSTEMD_UNIT` are removed before startup, preventing auto-update/restart drift.
+
+Historical note:
+- The remaining sections in this file preserve original audit/rewrite analysis.
+- Some sections below intentionally describe superseded options (for example, reintroducing `--wait` or dual-service split flow) and are not the current implementation.
 
 ### Observed Failure Mode (2026-02-13, AWST)
 
