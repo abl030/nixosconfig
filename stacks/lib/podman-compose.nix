@@ -147,6 +147,7 @@
     restartTriggers ? [],
     scrapeTargets ? [],
     healthCheckTimeout ? 90,
+    startupTimeoutSeconds ? 300,
   }: let
     userServiceName = stackName;
     secretsServiceName = "${stackName}-secrets";
@@ -158,7 +159,14 @@
       ]
       else [];
     recreateIfLabelMismatchScript = pkgs.writeShellScript "recreate-if-label-mismatch-${projectName}" ''
-      ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q)
+      set -euo pipefail
+
+      ids=$(
+        {
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} -q
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} -q
+        } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
+      )
       if [ -z "$ids" ]; then
         exit 0
       fi
@@ -167,20 +175,34 @@
         | /run/current-system/sw/bin/grep -v "^${userServiceName}\.service$" || true)
 
       if [ -n "$mismatch" ]; then
-        ${podmanBin} rm -f $ids || true
+        ${podmanBin} rm -f $ids
       fi
     '';
     recreateIfLabelMismatch = [
       "${recreateIfLabelMismatchScript}"
     ];
     detectStaleHealthScript = pkgs.writeShellScript "detect-stale-health-${projectName}" ''
-      ids=$(${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}")
+      set -euo pipefail
+
+      ids=$(
+        {
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}"
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --format "{{.ID}}"
+        } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
+      )
+
+      if [ -z "$ids" ]; then
+        echo "No existing containers found for project ${projectName} during stale health check"
+        exit 0
+      fi
+
+      echo "Checking stale health for project ${projectName}; container ids: $ids"
       for id in $ids; do
         health=$(${podmanBin} inspect -f "{{.State.Health.Status}}" "$id" 2>/dev/null || echo "none")
         started=$(${podmanBin} inspect -f "{{.State.StartedAt}}" "$id" 2>/dev/null)
         if [ "$health" = "starting" ] || [ "$health" = "unhealthy" ]; then
-          started_clean=$(echo "$started" | /run/current-system/sw/bin/awk '{print $1, $2, $3}')
-          age_seconds=$(( $(date +%s) - $(date -d "$started_clean" +%s) ))
+          started_epoch=$(date -d "$started" +%s)
+          age_seconds=$(( $(date +%s) - started_epoch ))
           if [ "$age_seconds" -gt ${toString healthCheckTimeout} ]; then
             echo "Removing container $id with stale health ($health) - running for ''${age_seconds}s (threshold: ${toString healthCheckTimeout}s)"
             ${podmanBin} rm -f "$id"
@@ -231,6 +253,7 @@
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        TimeoutStartSec = "${toString startupTimeoutSeconds}s";
         Environment = mkEnv projectName extraEnv;
 
         ExecStartPre =
@@ -272,15 +295,16 @@
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        TimeoutStartSec = "${toString startupTimeoutSeconds}s";
         Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
 
         ExecStartPre = mkEnvFileChecks envFiles ++ detectStaleHealth;
 
-        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+        ExecStart = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans";
         ExecStartPost = "${stackCleanupSimplified}";
         ExecStop = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} stop";
         ExecStopPost = "${stackCleanupSimplified}";
-        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --remove-orphans";
+        ExecReload = "${podmanCompose} ${composeArgs} -f ${composeFile} ${mkEnvArgs envFiles} up -d --wait --wait-timeout ${toString startupTimeoutSeconds} --remove-orphans";
 
         Restart = restart;
         RestartSec = restartSec;
