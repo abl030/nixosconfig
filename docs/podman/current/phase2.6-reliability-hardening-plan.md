@@ -1,7 +1,7 @@
 # Podman Phase 2.6 Reliability Hardening Plan
 
 Date: 2026-02-14  
-Status: Planned  
+Status: Implemented Locally (WSL), with documented residual risks  
 Owner: Podman lifecycle track
 
 ## Goal
@@ -108,6 +108,15 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 3. Provenance violations are detected deterministically and surfaced.
 4. WSL comprehensive matrix passes with recorded evidence.
 5. Phase 2.6 changes are committed locally and documented as complete.
+
+## Local Outcome (WSL)
+
+1. W1/W2/W3 were implemented locally on `wsl`.
+2. W4 matrix was executed with mixed outcomes:
+   - PASS: T01, T02, T07, auto-update failure propagation.
+   - PARTIAL: T03 (verify failure reproduced, but restart exit-code semantics still non-authoritative for oneshot pattern).
+   - FAIL/LIMITED: T05 no-op drift auto-heal (requires HM activation), T06 blocked by WSL `/etc` read-only constraint.
+3. Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`.
 
 ## Rollback
 

@@ -48,12 +48,17 @@ Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.5-e2e-validation.md`
 
 ## Phase 2.6 Direction (Planned)
 
-1. Add verified restart/apply semantics for stack units.
-2. Add drift auto-heal for Home Manager-owned stack unit artifacts.
-3. Add deterministic reconciliation/provenance auditing.
-4. Execute comprehensive WSL matrix and land locally; deployment is deferred.
+1. Verified apply logic and provenance auditing have been implemented locally on `wsl`.
+2. `Restart=no` default and `apply-and-verify` execution are active in stack library.
+3. Provenance timer/service and `NeedDaemonReload` auto-reload path are active.
+4. Residual constraints remain:
+   - oneshot restart exit-code semantics are not fully authoritative for all failure shapes,
+   - no-op rebuild does not auto-heal drifted unit artifacts without HM activation,
+   - `/etc` drop-in simulation is environment-limited on WSL when filesystem is read-only.
+5. Deployment to `igpu`/`doc1` remains deferred to the remaining Phase 2.5 deployment track.
 
 Plan: `docs/podman/current/phase2.6-reliability-hardening-plan.md`
+Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`
 
 ## Related Records
 
