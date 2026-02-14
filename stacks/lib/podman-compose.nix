@@ -87,7 +87,6 @@
     scrapeTargets ? [],
     healthCheckTimeout ? 90,
     startupTimeoutSeconds ? 300,
-    verifyTimeoutSeconds ? 60,
   }: let
     userServiceName = stackName;
     envPathListFile = "${runUserDir}/secrets/${stackName}.env-paths";
@@ -277,60 +276,6 @@
           ;;
       esac
     '';
-    verifyComposeStateScript = pkgs.writeShellScript "verify-compose-state-${projectName}" ''
-      set -euo pipefail
-
-      deadline=$(( $(date +%s) + ${toString verifyTimeoutSeconds} ))
-
-      list_ids() {
-        {
-          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --format "{{.ID}}"
-          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --format "{{.ID}}"
-        } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
-      }
-
-      while true; do
-        ids="$(list_ids)"
-        if [ -z "$ids" ]; then
-          echo "verify-compose-state: no containers found for project ${projectName}" >&2
-          exit 1
-        fi
-
-        all_ready=1
-        for id in $ids; do
-          state="$(${podmanBin} inspect -f "{{.State.Status}}" "$id" 2>/dev/null || echo "missing")"
-          if [ "$state" != "running" ]; then
-            all_ready=0
-            continue
-          fi
-
-          health="$(${podmanBin} inspect -f "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" "$id" 2>/dev/null || echo "none")"
-          if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then
-            all_ready=0
-          fi
-        done
-
-        if [ "$all_ready" -eq 1 ]; then
-          exit 0
-        fi
-
-        if [ "$(date +%s)" -ge "$deadline" ]; then
-          echo "verify-compose-state: project ${projectName} did not reach running/healthy state within ${toString verifyTimeoutSeconds}s" >&2
-          for id in $ids; do
-            ${podmanBin} inspect -f "id={{.Id}} name={{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" "$id" 2>/dev/null || true
-          done >&2
-          exit 1
-        fi
-
-        sleep 2
-      done
-    '';
-    applyAndVerifyScript = pkgs.writeShellScript "apply-and-verify-compose-state-${projectName}" ''
-      set -euo pipefail
-
-      ${composeWithSystemdLabelScript} up
-      ${verifyComposeStateScript}
-    '';
   in {
     networking.firewall.allowedTCPPorts = firewallPorts;
     networking.firewall.allowedUDPPorts = firewallUDPPorts;
@@ -367,7 +312,7 @@
           ++ recreateIfLabelMismatch
           ++ preStart;
 
-        ExecStart = "${applyAndVerifyScript}";
+        ExecStart = "${composeWithSystemdLabelScript} up";
         ExecStartPost = [
           "${stackCleanupSimplified}"
         ];

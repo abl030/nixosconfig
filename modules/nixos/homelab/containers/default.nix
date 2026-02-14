@@ -402,6 +402,7 @@ in {
     system.activationScripts.podmanUserSocket = lib.stringAfter ["users"] ''
       # Restart user socket to ensure it's properly initialized
       export XDG_RUNTIME_DIR=/run/user/${toString userUid}
+      /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user daemon-reload || true
       if /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user is-enabled podman.socket 2>/dev/null; then
         /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user restart podman.socket || true
       fi

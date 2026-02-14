@@ -49,7 +49,7 @@ Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.5-e2e-validation.md`
 ## Phase 2.6 Direction (Planned)
 
 1. Verified apply logic and provenance auditing have been implemented locally on `wsl`.
-2. `Restart=no` default and `apply-and-verify` execution are active in stack library.
+2. `Restart=no` default is active in stack library, and deploy path remains non-blocking (`podman compose up -d --remove-orphans`).
 3. Provenance timer/service and `NeedDaemonReload` auto-reload path are active.
 4. Residual constraints remain:
    - oneshot restart exit-code semantics are not fully authoritative for all failure shapes,
@@ -63,8 +63,9 @@ Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`
 ## Accepted Residual Risks
 
 1. Restart exit-code ambiguity for oneshot stacks is accepted for now because runtime health monitoring (for example Uptime Kuma and container health/state checks) is treated as the source of truth.
-2. No-op drift auto-heal gap is accepted for now because the normal flake workflow runs Home Manager activation during rebuild/switch, which limits practical exposure.
-3. `/etc/systemd/user` drop-in tampering risk is accepted for now as a low-likelihood/manual-vandalism class event in this homelab context.
+2. Systemd/user-unit activation is intentionally not used as app-readiness gating; runtime health is monitored at the application layer.
+3. No-op drift auto-heal gap is accepted for now because the normal flake workflow runs Home Manager activation during rebuild/switch, which limits practical exposure.
+4. `/etc/systemd/user` drop-in tampering risk is accepted for now as a low-likelihood/manual-vandalism class event in this homelab context.
 
 ## Related Records
 
