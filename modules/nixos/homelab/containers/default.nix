@@ -6,6 +6,7 @@
 }: let
   cfg = config.homelab.containers;
   inherit (config.homelab) user userHome;
+  stackUnits = lib.unique cfg.stackUnits;
   # UID may be dynamically assigned; fall back to 1000 if unset/null.
   userUid = let
     uid = config.users.users.${user}.uid or null;
@@ -153,6 +154,13 @@ in {
         description = "Only prune stopped containers older than this duration (podman filter until=...).";
       };
     };
+
+    stackUnits = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      internal = true;
+      description = "Internal registry of stack lifecycle user units.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -228,6 +236,52 @@ in {
         /run/current-system/sw/bin/runuser -u ${user} -- /run/current-system/sw/bin/systemctl --user restart podman.socket || true
       fi
     '';
+
+    system.activationScripts.podmanStackUnitOwnership = lib.mkIf (stackUnits != []) (lib.stringAfter ["podmanUserSocket"] ''
+      set -euo pipefail
+
+      systemctl_user() {
+        /run/current-system/sw/bin/runuser -u ${user} -- \
+          /run/current-system/sw/bin/env XDG_RUNTIME_DIR=/run/user/${toString userUid} \
+          /run/current-system/sw/bin/systemctl --user "$@"
+      }
+
+      if ! systemctl_user is-system-running >/dev/null 2>&1; then
+        echo "ERROR: user systemd manager unavailable for ${user}; cannot verify stack unit ownership" >&2
+        exit 1
+      fi
+
+      expected_prefix="${userHome}/.config/systemd/user/"
+      failed=0
+
+      for unit in ${lib.concatStringsSep " " (map lib.escapeShellArg stackUnits)}; do
+        show_output="$(systemctl_user show "$unit" -p FragmentPath -p DropInPaths -p LoadState -p UnitFileState 2>/dev/null || true)"
+        load_state="$(echo "$show_output" | /run/current-system/sw/bin/awk -F= '/^LoadState=/{print $2}')"
+        fragment_path="$(echo "$show_output" | /run/current-system/sw/bin/awk -F= '/^FragmentPath=/{print $2}')"
+        drop_in_paths="$(echo "$show_output" | /run/current-system/sw/bin/awk -F= '/^DropInPaths=/{print $2}')"
+
+        if [ -z "$show_output" ] || [ "$load_state" = "not-found" ]; then
+          echo "ERROR: stack unit $unit is missing from user manager" >&2
+          failed=1
+          continue
+        fi
+
+        if [[ "$fragment_path" != "$expected_prefix"* ]]; then
+          echo "ERROR: stack unit $unit has unexpected FragmentPath: $fragment_path" >&2
+          failed=1
+        fi
+
+        if [[ -n "$drop_in_paths" && "$drop_in_paths" == *"/etc/systemd/user/"* ]]; then
+          echo "ERROR: stack unit $unit has DropInPaths under /etc/systemd/user: $drop_in_paths" >&2
+          failed=1
+        fi
+      done
+
+      if [ "$failed" -ne 0 ]; then
+        echo "ERROR: podman stack unit ownership invariants failed" >&2
+        exit 1
+      fi
+    '');
 
     systemd = {
       # Enable native podman user socket with socket activation

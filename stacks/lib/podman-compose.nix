@@ -283,19 +283,23 @@
       localProxy.hosts = lib.mkAfter stackHosts;
       monitoring.monitors = lib.mkAfter stackMonitors;
       loki.extraScrapeTargets = lib.mkAfter scrapeTargets;
+      containers.stackUnits = lib.mkAfter ["${userServiceName}.service"];
     };
     sops.secrets = stackSecrets;
 
     # User compose service: podman compose lifecycle (runs as rootless user)
-    systemd.user.services.${userServiceName} = {
-      inherit description;
-      restartIfChanged = true;
-      restartTriggers = baseRestartTriggers;
-      unitConfig = mkMountRequirements requiresMounts;
-      after = ["podman.socket"] ++ after;
-      wants = ["podman.socket"] ++ wants;
-      inherit requires;
-      serviceConfig = {
+    home-manager.users.${user}.systemd.user.services.${userServiceName} = {
+      Unit =
+        {
+          Description = description;
+          After = ["podman.socket"] ++ after;
+          Wants = ["podman.socket"] ++ wants;
+          Requires = requires;
+          X-Restart-Triggers = baseRestartTriggers;
+        }
+        // mkMountRequirements requiresMounts;
+
+      Service = {
         Type = "oneshot";
         RemainAfterExit = true;
         TimeoutStartSec = "${toString startupTimeoutSeconds}s";
@@ -319,7 +323,10 @@
         StandardOutput = "journal";
         StandardError = "journal";
       };
-      wantedBy = ["default.target"];
+
+      Install = {
+        WantedBy = ["default.target"];
+      };
     };
   };
 in {
