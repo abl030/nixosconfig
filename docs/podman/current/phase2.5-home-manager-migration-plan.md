@@ -59,9 +59,24 @@ Implement and execute the following scenario set in non-prod before prod rollout
 7. S10: no-op rebuild idempotency.
 8. S11: user-manager unavailable/degraded states.
 9. S12: rollback reconciliation.
+10. S13: controlled prod-like auto-update e2e (deterministic image refresh + user-service restart path).
 
 Scenario definitions are taken from:
 - `docs/podman/research/home-manager-user-service-migration-research-2026-02.md`
+
+S13 execution design (local/non-prod):
+1. Run a local registry container (e.g. `localhost:5000`) and a tiny test stack pinned to `localhost:5000/autoupdate-probe:stable` with `io.containers.autoupdate=registry`.
+2. Publish v1 image, start stack, confirm container label `PODMAN_SYSTEMD_UNIT=<stack>.service`.
+3. Publish v2 to the same tag (`stable`) without changing compose.
+4. Trigger `podman-auto-update.service`.
+5. Assert:
+   - auto-update service exits successfully,
+   - target user stack service is restarted (`systemctl --user show ... ActiveEnterTimestamp` changes),
+   - container digest/image id changes to v2,
+   - expected runtime marker from v2 is observed in logs.
+6. Negative subcases:
+   - invalid image in registry causes auto-update service failure,
+   - post-update container non-running/rollback path raises failure signal.
 
 ## W4. Rollout
 
