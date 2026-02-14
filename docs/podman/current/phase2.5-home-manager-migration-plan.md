@@ -1,7 +1,7 @@
 # Podman Phase 2.5 Implementation Plan
 
 Date: 2026-02-13  
-Status: Planned  
+Status: In progress (code implemented; rollout pending)  
 Owner: Podman lifecycle track
 
 ## Goal
@@ -59,9 +59,24 @@ Implement and execute the following scenario set in non-prod before prod rollout
 7. S10: no-op rebuild idempotency.
 8. S11: user-manager unavailable/degraded states.
 9. S12: rollback reconciliation.
+10. S13: controlled prod-like auto-update e2e (deterministic image refresh + user-service restart path).
 
 Scenario definitions are taken from:
 - `docs/podman/research/home-manager-user-service-migration-research-2026-02.md`
+
+S13 execution design (local/non-prod):
+1. Run a local registry container (e.g. `localhost:5000`) and a tiny test stack pinned to `localhost:5000/autoupdate-probe:stable` with `io.containers.autoupdate=registry`.
+2. Publish v1 image, start stack, confirm container label `PODMAN_SYSTEMD_UNIT=<stack>.service`.
+3. Publish v2 to the same tag (`stable`) without changing compose.
+4. Trigger `podman-auto-update.service`.
+5. Assert:
+   - auto-update service exits successfully,
+   - target user stack service is restarted (`systemctl --user show ... ActiveEnterTimestamp` changes),
+   - container digest/image id changes to v2,
+   - expected runtime marker from v2 is observed in logs.
+6. Negative subcases:
+   - invalid image in registry causes auto-update service failure,
+   - post-update container non-running/rollback path raises failure signal.
 
 ## W4. Rollout
 
@@ -71,6 +86,23 @@ Scenario definitions are taken from:
    - run ownership assertions
    - run targeted scenario subset (S01, S02, S03, S05, S08, S11, S12)
    - confirm no dual ownership remains
+
+## Execution Update (2026-02-14)
+
+1. Ownership migration implementation is complete in code:
+   - stack services now generated via Home Manager user units
+   - ownership assertions run post-`reloadSystemd` in Home Manager activation
+2. Local non-prod e2e validation completed on `wsl` with dummy stacks:
+   - `restart-probe-stack.service`
+   - `restart-probe-b-stack.service`
+3. Change-propagation mutation validated (`PROBE_VERSION` update observed at runtime).
+4. Remaining work is rollout and scenario execution on `igpu` then `proxmox-vm` (`doc1`).
+5. Additional local scenario execution completed on `wsl`:
+   - S10, S11, S12 covered.
+   - S13 controlled auto-update e2e covered (pass).
+   - S09 stale unhealthy edge case covered (pass).
+   - S06/S07 drift injection covered: detection/activation-blocking confirmed, auto-heal policy still pending.
+   - S05 showed missing-env detection works but restart exit visibility needs hardening follow-up.
 
 ## Success Criteria
 
