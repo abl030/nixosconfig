@@ -10,7 +10,7 @@ This document records current, observed behavior for container stacks managed by
 
 1. Stack lifecycle owner is the user unit `${stackName}.service`.
 2. Deploy path is `podman compose up -d --remove-orphans` (no deploy-time `--wait`).
-3. Startup timeout is bounded (`startupTimeoutSeconds`, default 300 seconds).
+3. Startup timeout is bounded (`startupTimeoutSeconds`, default 120 seconds).
 4. Env files are sourced from system-scope `sops.secrets` paths; legacy fallback support exists for one release.
 5. Auto-update invariant is enforced as hard-fail:
    - If `io.containers.autoupdate=registry` is present, `PODMAN_SYSTEMD_UNIT` must be present.

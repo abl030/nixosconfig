@@ -86,7 +86,7 @@
     restartTriggers ? [],
     scrapeTargets ? [],
     healthCheckTimeout ? 90,
-    startupTimeoutSeconds ? 300,
+    startupTimeoutSeconds ? 120,
   }: let
     userServiceName = stackName;
     envPathListFile = "${runUserDir}/secrets/${stackName}.env-paths";
