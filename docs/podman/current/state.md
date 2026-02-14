@@ -35,7 +35,7 @@ Evidence: `docs/podman/incidents/2026-02-13-compose-change-propagation-test.md`
 4. Post-switch ownership checks use `FragmentPath` and `DropInPaths` as operational invariants.
 5. Treat "user manager unavailable" as a reconciliation failure condition that must be surfaced explicitly.
 
-Implementation plan: `docs/podman/current/phase2.5-home-manager-migration-plan.md`
+Implementation plan: `docs/podman/current/phase2.6-reliability-hardening-plan.md`
 
 ## Implementation and Validation Status
 
@@ -45,6 +45,15 @@ Implementation plan: `docs/podman/current/phase2.5-home-manager-migration-plan.m
 4. Production-style rollout validation on `igpu` and `proxmox-vm` (`doc1`) is still pending.
 
 Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.5-e2e-validation.md`
+
+## Phase 2.6 Direction (Planned)
+
+1. Add verified restart/apply semantics for stack units.
+2. Add drift auto-heal for Home Manager-owned stack unit artifacts.
+3. Add deterministic reconciliation/provenance auditing.
+4. Execute comprehensive WSL matrix and land locally; deployment is deferred.
+
+Plan: `docs/podman/current/phase2.6-reliability-hardening-plan.md`
 
 ## Related Records
 
