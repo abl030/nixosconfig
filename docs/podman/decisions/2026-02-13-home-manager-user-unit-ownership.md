@@ -1,7 +1,7 @@
 # Decision: Home Manager Ownership for Stack User Units
 
 **Date:** 2026-02-13  
-**Status:** Accepted (Phase 2.5 implementation pending)  
+**Status:** Accepted (implementation in code complete; rollout pending)  
 **Scope:** Stack lifecycle user units (`${stackName}.service`)  
 **Primary research:** [home-manager-user-service-migration-research-2026-02.md](../research/home-manager-user-service-migration-research-2026-02.md)  
 **Related incident:** [2026-02-13-compose-change-propagation-test.md](../incidents/2026-02-13-compose-change-propagation-test.md)
