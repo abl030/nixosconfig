@@ -264,6 +264,10 @@
         up)
           exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
+        update)
+          ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" pull "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
+          ;;
         reload)
           exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
@@ -284,50 +288,74 @@
       monitoring.monitors = lib.mkAfter stackMonitors;
       loki.extraScrapeTargets = lib.mkAfter scrapeTargets;
       containers.stackUnits = lib.mkAfter ["${userServiceName}.service"];
+      containers.stackUpdateUnits = lib.mkAfter ["${userServiceName}-update.service"];
     };
     sops.secrets = stackSecrets;
 
-    # User compose service: podman compose lifecycle (runs as rootless user)
-    home-manager.users.${user}.systemd.user.services.${userServiceName} = {
-      Unit =
-        {
-          Description = description;
-          After = ["podman.socket"] ++ after;
-          Wants = ["podman.socket"] ++ wants;
-          Requires = requires;
-          X-Restart-Triggers = baseRestartTriggers;
-        }
-        // mkMountRequirements requiresMounts;
+    # User compose services: stack lifecycle + image update helper (runs as rootless user)
+    home-manager.users.${user}.systemd.user.services = {
+      ${userServiceName} = {
+        Unit =
+          {
+            Description = description;
+            After = ["podman.socket"] ++ after;
+            Wants = ["podman.socket"] ++ wants;
+            Requires = requires;
+            X-Restart-Triggers = baseRestartTriggers;
+          }
+          // mkMountRequirements requiresMounts;
 
-      Service = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        TimeoutStartSec = "${toString startupTimeoutSeconds}s";
-        Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
+        Service = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          TimeoutStartSec = "${toString startupTimeoutSeconds}s";
+          Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
 
-        ExecStartPre =
-          resolveEnvPaths
-          ++ detectStaleHealth
-          ++ podPrune
-          ++ recreateIfLabelMismatch
-          ++ preStart;
+          ExecStartPre =
+            resolveEnvPaths
+            ++ detectStaleHealth
+            ++ podPrune
+            ++ recreateIfLabelMismatch
+            ++ preStart;
 
-        ExecStart = "${composeWithSystemdLabelScript} up";
-        ExecStartPost = [
-          "${stackCleanupSimplified}"
-        ];
-        ExecStop = "${composeWithSystemdLabelScript} stop";
-        ExecStopPost = "${stackCleanupSimplified}";
-        ExecReload = "${composeWithSystemdLabelScript} reload";
+          ExecStart = "${composeWithSystemdLabelScript} up";
+          ExecStartPost = [
+            "${stackCleanupSimplified}"
+          ];
+          ExecStop = "${composeWithSystemdLabelScript} stop";
+          ExecStopPost = "${stackCleanupSimplified}";
+          ExecReload = "${composeWithSystemdLabelScript} reload";
 
-        Restart = restart;
-        RestartSec = restartSec;
-        StandardOutput = "journal";
-        StandardError = "journal";
+          Restart = restart;
+          RestartSec = restartSec;
+          StandardOutput = "journal";
+          StandardError = "journal";
+        };
+
+        Install = {
+          WantedBy = ["default.target"];
+        };
       };
 
-      Install = {
-        WantedBy = ["default.target"];
+      "${userServiceName}-update" = {
+        Unit =
+          {
+            Description = "${description} (image update)";
+            After = ["podman.socket"] ++ after;
+            Wants = ["podman.socket"] ++ wants;
+            Requires = requires;
+          }
+          // mkMountRequirements requiresMounts;
+
+        Service = {
+          Type = "oneshot";
+          TimeoutStartSec = "${toString startupTimeoutSeconds}s";
+          Environment = mkEnv projectName (extraEnv ++ ["PODMAN_SYSTEMD_UNIT=${userServiceName}.service"]);
+          ExecStartPre = resolveEnvPaths ++ preStart;
+          ExecStart = "${composeWithSystemdLabelScript} update";
+          StandardOutput = "journal";
+          StandardError = "journal";
+        };
       };
     };
   };

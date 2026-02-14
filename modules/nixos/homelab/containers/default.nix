@@ -8,6 +8,11 @@
   cfg = config.homelab.containers;
   inherit (config.homelab) user userHome;
   stackUnits = lib.unique cfg.stackUnits;
+  toUpdateUnit = unit:
+    if lib.hasSuffix ".service" unit
+    then "${lib.removeSuffix ".service" unit}-update.service"
+    else "${unit}-update.service";
+  stackUpdateUnits = lib.unique (cfg.stackUpdateUnits ++ map toUpdateUnit stackUnits);
   stackUnitConfigFiles = map (unit: "systemd/user/${unit}") stackUnits;
   stackUnitForceAttrs = lib.genAttrs stackUnitConfigFiles (_: {force = true;});
   # UID may be dynamically assigned; fall back to 1000 if unset/null.
@@ -34,101 +39,32 @@
       fi
     fi
   '';
-  autoUpdateScript = pkgs.writeShellScript "podman-auto-update" ''
+  composeUpdateScript = pkgs.writeShellScript "podman-compose-update" ''
     set -euo pipefail
 
     notify() {
       ${notifyGotify}
     }
 
-    log_file="$(/run/current-system/sw/bin/mktemp)"
-
-    # Run the auto-update
-    if auto_update_output="$(${podmanBin} auto-update 2>&1)"; then
-      :
-    else
-      status=$?
-      printf "%s\n" "$auto_update_output" | /run/current-system/sw/bin/tee "$log_file" >&2
-      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-      /run/current-system/sw/bin/rm -f "$log_file"
-      notify "podman auto-update failed on ${config.networking.hostName}" "$message_tail"
-      exit "$status"
-    fi
-
-    printf "%s\n" "$auto_update_output" >"$log_file"
-
-    if printf "%s\n" "$auto_update_output" | /run/current-system/sw/bin/grep -qiE '(error:|errors occurred:)'; then
-      /run/current-system/sw/bin/cat "$log_file" >&2
-      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-      /run/current-system/sw/bin/rm -f "$log_file"
-      notify "podman auto-update reported errors on ${config.networking.hostName}" "$message_tail"
-      exit 1
-    fi
-
-    /run/current-system/sw/bin/cat "$log_file"
-
-    # Extract containers that were updated (UPDATED=true in output)
-    updated_names=$(/run/current-system/sw/bin/awk '$NF == "true" {print $3}' "$log_file" | /run/current-system/sw/bin/tr -d '()')
-    /run/current-system/sw/bin/rm -f "$log_file"
-
-    if [[ -z "$updated_names" ]]; then
-      exit 0
-    fi
-
-    # Wait for containers to settle after update
-    sleep 30
-
-    # Check for two failure modes:
-    # 1. Container crashed and is not running
-    # 2. Container was rolled back (still running on old image)
-    #    Detected by --dry-run showing it still needs an update
     failed=""
+    succeeded=0
+    total=0
 
-    for name in $updated_names; do
-      state=$(${podmanBin} inspect --format '{{.State.Status}}' "$name" 2>/dev/null || echo "missing")
-      if [[ "$state" != "running" ]]; then
-        failed="$failed\n  $name: not running ($state)"
+    for unit in ${lib.concatStringsSep " " (map lib.escapeShellArg stackUpdateUnits)}; do
+      total=$((total + 1))
+      echo "Running compose update unit: $unit"
+      if /run/current-system/sw/bin/systemctl --user start "$unit"; then
+        succeeded=$((succeeded + 1))
+      else
+        failed="$failed\n  $unit"
       fi
     done
 
-    # Dry-run to detect rollbacks — containers that still show as needing update
-    dry_run_file="$(/run/current-system/sw/bin/mktemp)"
-    if dry_run_output="$(${podmanBin} auto-update --dry-run 2>&1)"; then
-      printf "%s\n" "$dry_run_output" >"$dry_run_file"
-    else
-      status=$?
-      printf "%s\n" "$dry_run_output" | /run/current-system/sw/bin/tee "$dry_run_file" >&2
-      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$dry_run_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-      /run/current-system/sw/bin/rm -f "$dry_run_file"
-      notify "podman auto-update dry-run failed on ${config.networking.hostName}" "$message_tail"
-      exit "$status"
-    fi
-
-    if /run/current-system/sw/bin/grep -qiE '(error:|errors occurred:)' "$dry_run_file"; then
-      /run/current-system/sw/bin/cat "$dry_run_file" >&2
-      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$dry_run_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-      /run/current-system/sw/bin/rm -f "$dry_run_file"
-      notify "podman auto-update dry-run reported errors on ${config.networking.hostName}" "$message_tail"
-      exit 1
-    fi
-
-    rolled_back=$(/run/current-system/sw/bin/awk '$NF == "pending" {print $3}' "$dry_run_file" | /run/current-system/sw/bin/tr -d '()')
-    /run/current-system/sw/bin/rm -f "$dry_run_file"
-
-    for name in $rolled_back; do
-      # Only report if this container was in our updated list
-      for updated in $updated_names; do
-        if [[ "$name" == "$updated" ]]; then
-          failed="$failed\n  $name: rolled back (update failed health check)"
-          break
-        fi
-      done
-    done
-
     if [[ -n "$failed" ]]; then
-      notify \
-        "podman auto-update issues on ${config.networking.hostName}" \
-        "$(echo -e "Problems detected after auto-update:$failed")"
+      summary="compose update failed on ${config.networking.hostName}: $((total - succeeded))/$total units failed"
+      notify "$summary" "$(echo -e "Failed units:$failed")"
+      echo "$summary" >&2
+      echo -e "Failed units:$failed" >&2
       exit 1
     fi
   '';
@@ -202,13 +138,13 @@ in {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Enable Podman auto-update via systemd user timer";
+        description = "Enable compose pull/redeploy updates via systemd timer.";
       };
 
       schedule = lib.mkOption {
         type = lib.types.str;
         default = "daily";
-        description = "Systemd OnCalendar schedule for podman auto-update.";
+        description = "Systemd OnCalendar schedule for compose pull/redeploy updates.";
       };
     };
 
@@ -237,6 +173,13 @@ in {
       default = [];
       internal = true;
       description = "Internal registry of stack lifecycle user units.";
+    };
+
+    stackUpdateUnits = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      internal = true;
+      description = "Internal registry of stack image update user units.";
     };
   };
 
@@ -416,12 +359,12 @@ in {
 
       services = {
         podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
-          description = "Podman auto-update (rootless)";
+          description = "Compose pull/redeploy updates (rootless)";
           serviceConfig = {
             Type = "oneshot";
             # "" clears the base service's ExecStart (podman package ships its own)
-            # so our script is the only one that runs — avoids double auto-update.
-            ExecStart = ["" autoUpdateScript];
+            # so our script is the only one that runs.
+            ExecStart = ["" composeUpdateScript];
             User = user;
             Environment =
               [
@@ -471,7 +414,7 @@ in {
 
       timers = {
         podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
-          description = "Podman auto-update timer (rootless)";
+          description = "Compose pull/redeploy timer (rootless)";
           wantedBy = ["timers.target"];
           timerConfig = {
             OnCalendar = cfg.autoUpdate.schedule;
