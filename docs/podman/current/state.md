@@ -60,6 +60,12 @@ Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.5-e2e-validation.md`
 Plan: `docs/podman/current/phase2.6-reliability-hardening-plan.md`
 Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`
 
+## Accepted Residual Risks
+
+1. Restart exit-code ambiguity for oneshot stacks is accepted for now because runtime health monitoring (for example Uptime Kuma and container health/state checks) is treated as the source of truth.
+2. No-op drift auto-heal gap is accepted for now because the normal flake workflow runs Home Manager activation during rebuild/switch, which limits practical exposure.
+3. `/etc/systemd/user` drop-in tampering risk is accepted for now as a low-likelihood/manual-vandalism class event in this homelab context.
+
 ## Related Records
 
 - Decision record: `docs/podman/decisions/2026-02-12-container-lifecycle-strategy.md`
