@@ -121,8 +121,9 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 ## Residual Risk Acceptance
 
 1. Restart exit-code ambiguity (oneshot) is accepted, with runtime monitoring as the operational safety net.
-2. No-op rebuild drift auto-heal limitation is accepted, given standard rebuild flow includes Home Manager activation.
-3. `/etc` drop-in tampering/provenance violation risk is accepted as low-likelihood in current homelab operating assumptions.
+2. Deploy/apply readiness gating in systemd is intentionally relaxed to avoid `--wait`-style rebuild stalls on large stacks.
+3. No-op rebuild drift auto-heal limitation is accepted, given standard rebuild flow includes Home Manager activation.
+4. `/etc` drop-in tampering/provenance violation risk is accepted as low-likelihood in current homelab operating assumptions.
 
 ## Rollback
 
