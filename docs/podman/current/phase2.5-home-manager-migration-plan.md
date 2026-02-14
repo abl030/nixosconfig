@@ -1,7 +1,7 @@
 # Podman Phase 2.5 Implementation Plan
 
 Date: 2026-02-13  
-Status: Planned  
+Status: In progress (code implemented; rollout pending)  
 Owner: Podman lifecycle track
 
 ## Goal
@@ -71,6 +71,17 @@ Scenario definitions are taken from:
    - run ownership assertions
    - run targeted scenario subset (S01, S02, S03, S05, S08, S11, S12)
    - confirm no dual ownership remains
+
+## Execution Update (2026-02-14)
+
+1. Ownership migration implementation is complete in code:
+   - stack services now generated via Home Manager user units
+   - ownership assertions run post-`reloadSystemd` in Home Manager activation
+2. Local non-prod e2e validation completed on `wsl` with dummy stacks:
+   - `restart-probe-stack.service`
+   - `restart-probe-b-stack.service`
+3. Change-propagation mutation validated (`PROBE_VERSION` update observed at runtime).
+4. Remaining work is rollout and scenario execution on `igpu` then `proxmox-vm` (`doc1`).
 
 ## Success Criteria
 

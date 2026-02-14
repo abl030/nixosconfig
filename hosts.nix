@@ -85,6 +85,10 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
     authorizedKeys = masterKeys;
     sudoPasswordless = true;
+    containerStacks = [
+      "restart-probe"
+      "restart-probe-b"
+    ];
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
   };
 
