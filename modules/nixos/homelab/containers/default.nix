@@ -42,13 +42,25 @@
     log_file="$(/run/current-system/sw/bin/mktemp)"
 
     # Run the auto-update
-    if ! ${podmanBin} auto-update >"$log_file" 2>&1; then
+    if auto_update_output="$(${podmanBin} auto-update 2>&1)"; then
+      :
+    else
       status=$?
-      /run/current-system/sw/bin/cat "$log_file" >&2
+      printf "%s\n" "$auto_update_output" | /run/current-system/sw/bin/tee "$log_file" >&2
       message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
       /run/current-system/sw/bin/rm -f "$log_file"
       notify "podman auto-update failed on ${config.networking.hostName}" "$message_tail"
       exit "$status"
+    fi
+
+    printf "%s\n" "$auto_update_output" >"$log_file"
+
+    if printf "%s\n" "$auto_update_output" | /run/current-system/sw/bin/grep -qiE '(error:|errors occurred:)'; then
+      /run/current-system/sw/bin/cat "$log_file" >&2
+      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+      /run/current-system/sw/bin/rm -f "$log_file"
+      notify "podman auto-update reported errors on ${config.networking.hostName}" "$message_tail"
+      exit 1
     fi
 
     /run/current-system/sw/bin/cat "$log_file"
@@ -79,7 +91,25 @@
 
     # Dry-run to detect rollbacks — containers that still show as needing update
     dry_run_file="$(/run/current-system/sw/bin/mktemp)"
-    ${podmanBin} auto-update --dry-run >"$dry_run_file" 2>&1 || true
+    if dry_run_output="$(${podmanBin} auto-update --dry-run 2>&1)"; then
+      printf "%s\n" "$dry_run_output" >"$dry_run_file"
+    else
+      status=$?
+      printf "%s\n" "$dry_run_output" | /run/current-system/sw/bin/tee "$dry_run_file" >&2
+      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$dry_run_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+      /run/current-system/sw/bin/rm -f "$dry_run_file"
+      notify "podman auto-update dry-run failed on ${config.networking.hostName}" "$message_tail"
+      exit "$status"
+    fi
+
+    if /run/current-system/sw/bin/grep -qiE '(error:|errors occurred:)' "$dry_run_file"; then
+      /run/current-system/sw/bin/cat "$dry_run_file" >&2
+      message_tail="$(/run/current-system/sw/bin/tail -n 80 "$dry_run_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
+      /run/current-system/sw/bin/rm -f "$dry_run_file"
+      notify "podman auto-update dry-run reported errors on ${config.networking.hostName}" "$message_tail"
+      exit 1
+    fi
+
     rolled_back=$(/run/current-system/sw/bin/awk '$NF == "pending" {print $3}' "$dry_run_file" | /run/current-system/sw/bin/tr -d '()')
     /run/current-system/sw/bin/rm -f "$dry_run_file"
 
