@@ -97,6 +97,10 @@ S13 execution design (local/non-prod):
    - `restart-probe-b-stack.service`
 3. Change-propagation mutation validated (`PROBE_VERSION` update observed at runtime).
 4. Remaining work is rollout and scenario execution on `igpu` then `proxmox-vm` (`doc1`).
+5. Additional local scenario execution completed on `wsl`:
+   - S10, S11, S12 covered.
+   - S13 controlled auto-update e2e covered (pass).
+   - S05 showed missing-env detection works but restart exit visibility needs hardening follow-up.
 
 ## Success Criteria
 
