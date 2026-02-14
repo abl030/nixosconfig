@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -237,16 +238,17 @@ in {
       fi
     '';
 
-    system.activationScripts.podmanStackUnitOwnership = lib.mkIf (stackUnits != []) (lib.stringAfter ["podmanUserSocket"] ''
+    home-manager.users.${user}.home.activation.podmanStackUnitOwnership = lib.mkIf (stackUnits != []) (inputs.home-manager.lib.hm.dag.entryAfter ["reloadSystemd"] ''
       set -euo pipefail
 
       systemctl_user() {
-        /run/current-system/sw/bin/runuser -u ${user} -- \
-          /run/current-system/sw/bin/env XDG_RUNTIME_DIR=/run/user/${toString userUid} \
-          /run/current-system/sw/bin/systemctl --user "$@"
+        env XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+          PATH="/run/current-system/sw/bin:$PATH" \
+          systemctl --user "$@"
       }
 
-      if ! systemctl_user is-system-running >/dev/null 2>&1; then
+      systemd_status="$(systemctl_user is-system-running 2>&1 || true)"
+      if [[ "$systemd_status" != "running" && "$systemd_status" != "degraded" ]]; then
         echo "ERROR: user systemd manager unavailable for ${user}; cannot verify stack unit ownership" >&2
         exit 1
       fi

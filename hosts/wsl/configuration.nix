@@ -19,6 +19,7 @@
   services.fstrim.enable = false;
 
   homelab = {
+    containers.enable = true;
     nixCaches = {
       enable = true;
       profile = "internal";
