@@ -1,8 +1,6 @@
 services:
   ollama:
     image: docker.io/ollama/ollama:latest
-    labels:
-      - io.containers.autoupdate=registry
     ports:
       - 7869:11434
     volumes:
@@ -19,8 +17,6 @@ services:
 
   ollama-webui:
     image: ghcr.io/open-webui/open-webui:main
-    labels:
-      - io.containers.autoupdate=registry
     container_name: ollama-webui
     volumes:
       - ${CONTAINERS_ROOT:-/Containers}/100-docker-volumes/ollama/ollama-webui:/app/backend/data

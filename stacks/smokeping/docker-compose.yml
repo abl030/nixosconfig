@@ -2,8 +2,6 @@
 services:
   smokeping:
     image: lscr.io/linuxserver/smokeping:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: smokeping
     restart: unless-stopped
     cap_add:

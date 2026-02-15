@@ -2,8 +2,6 @@ services:
   restart-probe-b:
     image: docker.io/library/alpine:3.20
     command: ["sh", "-c", "echo restart-probe-b ${PROBE_VERSION:-v2}; trap : TERM INT; sleep infinity & wait"]
-    labels:
-      - io.containers.autoupdate=registry
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
       interval: 30s

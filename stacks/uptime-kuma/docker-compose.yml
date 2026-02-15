@@ -3,8 +3,6 @@ version: "3.8"
 services:
   uptime-kuma:
     image: docker.io/louislam/uptime-kuma:1
-    labels:
-      - io.containers.autoupdate=registry
     container_name: uptime-kuma
     restart: unless-stopped
     network_mode: host

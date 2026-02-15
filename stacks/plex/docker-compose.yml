@@ -7,8 +7,6 @@ services:
   # ---------------------------------------------------------------
   plex-network-holder:
     image: registry.k8s.io/pause:3.9
-    labels:
-      - io.containers.autoupdate=registry
     container_name: plex_network_holder
     ports:
       # Required for the main web UI, clients, and API
@@ -63,7 +61,6 @@ services:
       retries: 5
       start_period: 60s
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
     depends_on:
       - plex-network-holder

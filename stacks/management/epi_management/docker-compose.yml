@@ -4,8 +4,6 @@ services:
   autoheal:
     container_name: autoheal
     image: docker.io/willfarrell/autoheal:latest
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     environment:
       - TZ=Australia/Perth
@@ -22,8 +20,6 @@ services:
 
   dozzle-agent:
     image: docker.io/amir20/dozzle:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: dozzle-agent
     restart: unless-stopped
     # This is the crucial part that runs Dozzle in agent mode

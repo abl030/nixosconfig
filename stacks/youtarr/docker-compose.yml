@@ -4,7 +4,6 @@ services:
   youtarr:
     image: docker.io/dialmaster/youtarr:latest
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
     container_name: youtarr
     restart: unless-stopped
@@ -44,8 +43,6 @@ services:
 
   youtarr-db:
     image: docker.io/library/mariadb:10.3
-    labels:
-      - io.containers.autoupdate=registry
     container_name: youtarr-db
     restart: unless-stopped
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci

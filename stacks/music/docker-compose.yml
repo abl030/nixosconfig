@@ -6,8 +6,6 @@ services:
   # ---------------------------------------------------------------
   music-network-holder:
     image: registry.k8s.io/pause:3.9
-    labels:
-      - io.containers.autoupdate=registry
     container_name: music_network_holder
     ports:
       - "8686:8686" # Lidarr
@@ -46,7 +44,6 @@ services:
       retries: 5
       start_period: 60s
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
     depends_on:
       - music-network-holder
@@ -192,7 +189,6 @@ services:
   filebrowser:
     image: docker.io/filebrowser/filebrowser:v2
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
     container_name: music-filebrowser
     # Rootless podman: user 0:0 maps to host user
@@ -226,8 +222,6 @@ services:
   # ---------------------------------------------------------------
   tailscale:
     image: docker.io/tailscale/tailscale:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: music-tailscale-sidecar
     network_mode: "service:music-network-holder"
     volumes:
@@ -251,8 +245,6 @@ services:
   # ---------------------------------------------------------------
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: music-caddy
     network_mode: "service:music-network-holder"
     environment:

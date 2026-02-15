@@ -3,8 +3,6 @@ name: immich
 services:
   immich-network-holder:
     image: registry.k8s.io/pause:3.9
-    labels:
-      - io.containers.autoupdate=registry
     container_name: immich_network_holder
     ports:
       - 2283:2283
@@ -13,8 +11,6 @@ services:
 
   immich-server:
     container_name: immich-server
-    labels:
-      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     network_mode: "service:immich-network-holder"
     environment:
@@ -44,8 +40,6 @@ services:
 
   immich-tailscale-sidecar:
     container_name: immich_tailscale_sidecar
-    labels:
-      - io.containers.autoupdate=registry
     image: docker.io/tailscale/tailscale:stable
     network_mode: "service:immich-network-holder"
     cap_add:
@@ -86,8 +80,6 @@ services:
       - ${DATA_ROOT}/tailscale/immich/caddy_data:/data
       - ${DATA_ROOT}/tailscale/immich/caddy_config:/config
     restart: always
-    labels:
-      - io.containers.autoupdate=registry
     depends_on:
       immich-network-holder:
         condition: service_started
@@ -96,8 +88,6 @@ services:
 
   immich-machine-learning:
     container_name: immich_machine_learning
-    labels:
-      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
     volumes:
       - ${DATA_ROOT}/AI/immich:/cache
@@ -108,8 +98,6 @@ services:
 
   redis:
     container_name: immich_redis
-    labels:
-      - io.containers.autoupdate=registry
     image: docker.io/redis:6.2-alpine
     network_mode: "service:immich-network-holder"
     depends_on:
@@ -123,8 +111,6 @@ services:
 
   database:
     container_name: immich_postgres
-    labels:
-      - io.containers.autoupdate=registry
     image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0
     network_mode: "service:immich-network-holder"
     depends_on:

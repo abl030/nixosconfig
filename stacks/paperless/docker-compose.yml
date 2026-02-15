@@ -2,8 +2,6 @@
 services:
   broker:
     image: docker.io/library/redis:7
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     # Use RAM instead of Disk for the message broker
     tmpfs:
@@ -13,8 +11,6 @@ services:
 
   db:
     image: docker.io/library/postgres:16
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
       - ${DATA_ROOT}/paperless/pgdata:/var/lib/postgresql/data:U
@@ -25,8 +21,6 @@ services:
 
   webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     depends_on:
       - db
@@ -81,8 +75,6 @@ services:
 
   gotenberg:
     image: docker.io/gotenberg/gotenberg:8.7
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     command:
       - "gotenberg"
@@ -91,8 +83,6 @@ services:
 
   tika:
     image: docker.io/apache/tika:latest
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
 
   # paperless-gpt: disabled - requires PAPERLESS_API_TOKEN which is not configured

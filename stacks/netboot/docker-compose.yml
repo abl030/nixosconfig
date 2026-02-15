@@ -2,8 +2,6 @@
 services:
   netbootxyz:
     image: ghcr.io/netbootxyz/netbootxyz:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: netbootxyz
     environment:
       # - MENU_VERSION=2.0.84 # optional
