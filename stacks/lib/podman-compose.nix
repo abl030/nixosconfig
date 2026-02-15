@@ -15,6 +15,9 @@
   runUserDir = "/run/user/${toString userUid}";
   podmanBin = "${pkgs.podman}/bin/podman";
   podmanCompose = "${podmanBin} compose";
+  composeProvider = pkgs.writeShellScript "podman-compose-provider" ''
+    exec /run/current-system/sw/bin/docker compose "$@"
+  '';
 
   # Clean up orphaned health check timers after stack stop/restart.
   # Container/pod pruning is redundant with global timer.
@@ -58,6 +61,8 @@
       "HOME=${userHome}"
       "XDG_RUNTIME_DIR=${runUserDir}"
       "PATH=/run/current-system/sw/bin:/run/wrappers/bin"
+      # Force provider selection to Docker CLI plugin (`docker compose`) via wrapper.
+      "PODMAN_COMPOSE_PROVIDER=${composeProvider}"
       # Connect to user's rootless podman socket from system service
       "CONTAINER_HOST=unix://${runUserDir}/podman/podman.sock"
     ]
