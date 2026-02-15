@@ -1,7 +1,7 @@
 # Podman Phase 2.6 Reliability Hardening Plan
 
 Date: 2026-02-14  
-Status: Implemented Locally (WSL), with documented residual risks  
+Status: Closed (implemented locally; update-path decision superseded)  
 Owner: Podman lifecycle track
 
 ## Goal
@@ -21,8 +21,8 @@ Close the remaining reliability gaps after Phase 2.5 by implementing:
 ## Scope
 
 1. Keep user-scope lifecycle ownership (`${stackName}.service`).
-2. Keep Podman auto-update + `PODMAN_SYSTEMD_UNIT` model.
-3. Implement hardening in stack library and HM/NixOS module layers.
+2. Keep hardening in stack library and HM/NixOS module layers.
+3. Do not depend on Podman compat-path `podman auto-update` for compose stack updates.
 4. Run comprehensive non-prod validation on `wsl` and land via local commit.
 
 ## Out of Scope
@@ -66,7 +66,7 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 ### Baseline Preconditions
 
 1. `wsl` has `homelab.containers.enable = true` and dummy stacks enabled.
-2. `podman-auto-update.service` wrapper is current.
+2. Compose update orchestration wrapper is current.
 3. Local registry test harness (`localhost:5000`) is available for deterministic image updates.
 
 ### Test Matrix
@@ -80,17 +80,17 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 7. T07: `NeedDaemonReload` handling path via provenance auditor.
 8. T08: user-manager unavailable/degraded behavior remains explicit and recoverable.
 9. T09: stale/unhealthy container cleanup remains effective.
-10. T10: controlled auto-update e2e pass (v1 -> v2 image change, restart target changed, logs show new marker).
-11. T11: controlled auto-update negative cases:
-    - registry/update command failure surfaces as service failure,
-    - post-update failed state triggers failure signal.
+10. T10: controlled compose update e2e pass (v1 -> v2 image change, stack update path changed, logs show new marker).
+11. T11: controlled compose update negative cases:
+    - pull/update command failure surfaces as service failure,
+    - per-stack update failure triggers global failure signal.
 12. T12: rollback/reconciliation check after induced faults.
 
 ### Required Evidence per Test
 
 1. `systemctl --user show <unit> -p FragmentPath -p DropInPaths -p NeedDaemonReload -p ActiveState -p Result`
 2. `journalctl --user -u <unit>` tail for behavior evidence.
-3. Podman evidence as needed (`podman ps`, `podman inspect`, `podman auto-update --dry-run`, logs).
+3. Podman evidence as needed (`podman ps`, `podman inspect`, compose pull/up logs).
 4. A single incident record capturing commands, observations, and PASS/FAIL per test.
 
 ## W5. Completion and Handoff
@@ -99,7 +99,7 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 2. Execute full W4 matrix on `wsl` with evidence.
 3. Commit Phase 2.6 implementation + evidence updates.
 4. Mark Phase 2.6 status as complete in docs.
-5. Defer any host deployment (`igpu`, `doc1`) to remaining Phase 2.5 deployment track.
+5. Host deployment was completed via the Phase 2.5 track (`igpu`, `doc1`).
 
 ## Success Criteria
 
@@ -113,10 +113,13 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 
 1. W1/W2/W3 were implemented locally on `wsl`.
 2. W4 matrix was executed with mixed outcomes:
-   - PASS: T01, T02, T07, auto-update failure propagation.
+   - PASS: T01, T02, T07, update failure propagation.
    - PARTIAL: T03 (verify failure reproduced, but restart exit-code semantics still non-authoritative for oneshot pattern).
    - FAIL/LIMITED: T05 no-op drift auto-heal (requires HM activation), T06 blocked by WSL `/etc` read-only constraint.
-3. Evidence: `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`.
+3. Subsequent decision: remove dependence on Podman compat-path auto-update for compose stacks due to `RawImageName` failures; use compose pull/redeploy orchestration instead.
+4. Evidence:
+   - `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`
+   - `docs/podman/research/2026-02-15-podman-autoupdate-compose-raw-image-report.md`
 
 ## Residual Risk Acceptance
 
@@ -124,6 +127,7 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 2. Deploy/apply readiness gating in systemd is intentionally relaxed to avoid `--wait`-style rebuild stalls on large stacks.
 3. No-op rebuild drift auto-heal limitation is accepted, given standard rebuild flow includes Home Manager activation.
 4. `/etc` drop-in tampering/provenance violation risk is accepted as low-likelihood in current homelab operating assumptions.
+5. Compose updates now rely on compose pull/redeploy units, not Podman metadata-dependent auto-update.
 
 ## Rollback
 
@@ -132,4 +136,4 @@ Run all scenarios locally on `wsl` with controlled probe stacks before rollout.
 3. Re-check stack ownership and runtime behavior:
    - `FragmentPath`
    - `DropInPaths`
-   - stack restart and auto-update path.
+   - stack restart and compose update path.

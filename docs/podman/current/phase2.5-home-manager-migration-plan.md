@@ -1,7 +1,7 @@
 # Podman Phase 2.5 Implementation Plan
 
 Date: 2026-02-13  
-Status: In progress (code implemented; rollout pending)  
+Status: Complete (implemented and rolled out)  
 Owner: Podman lifecycle track
 
 ## Goal
@@ -96,7 +96,7 @@ S13 execution design (local/non-prod):
    - `restart-probe-stack.service`
    - `restart-probe-b-stack.service`
 3. Change-propagation mutation validated (`PROBE_VERSION` update observed at runtime).
-4. Remaining work is rollout and scenario execution on `igpu` then `proxmox-vm` (`doc1`).
+4. Rollout was completed on `igpu` and `proxmox-vm` (`doc1`) after rebuild; operator verification reported expected behavior.
 5. Additional local scenario execution completed on `wsl`:
    - S10, S11, S12 covered.
    - S13 controlled auto-update e2e covered (pass).
@@ -111,6 +111,12 @@ S13 execution design (local/non-prod):
 3. Rebuild-driven changes converge under user scope on both rollout hosts.
 4. User-manager unavailable conditions are observable and operationally handled.
 5. Auto-update restart targeting remains intact and non-regressing.
+
+## Completion Notes (2026-02-15)
+
+1. Phase 2.5 migration track is considered complete.
+2. Runtime update mechanism was later shifted away from Podman metadata-dependent `podman auto-update` toward compose pull/redeploy orchestration, while preserving user-unit ownership and lifecycle model.
+3. Current runtime truth is tracked in `docs/podman/current/state.md`.
 
 ## Rollback
 
