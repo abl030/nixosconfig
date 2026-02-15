@@ -23,6 +23,9 @@
     then 1000
     else uid;
   podmanBin = "${pkgs.podman}/bin/podman";
+  composeProvider = pkgs.writeShellScript "podman-compose-provider" ''
+    exec /run/current-system/sw/bin/docker compose "$@"
+  '';
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
   notifyGotify = ''
@@ -332,6 +335,7 @@ in {
 
       sessionVariables = {
         DOCKER_HOST = lib.mkDefault "unix:///run/user/${toString userUid}/podman/podman.sock";
+        PODMAN_COMPOSE_PROVIDER = lib.mkDefault composeProvider;
       };
     };
 
