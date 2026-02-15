@@ -35,8 +35,8 @@
       "command": "./scripts/mcp-homeassistant.sh",
       "args": []
     },
-    "arr": {
-      "command": "./scripts/mcp-arr.sh",
+    "lidarr": {
+      "command": "./scripts/mcp-lidarr.sh",
       "args": []
     },
     "soulseek": {

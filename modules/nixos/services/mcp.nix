@@ -62,18 +62,18 @@ in {
       };
     };
 
-    arr = {
-      enable = lib.mkEnableOption "*arr MCP server secrets (Lidarr, Sonarr, etc.)";
+    lidarr = {
+      enable = lib.mkEnableOption "Lidarr MCP server secrets";
       sopsFile = lib.mkOption {
         type = lib.types.path;
-        default = config.homelab.secrets.sopsFile "arr-mcp.env";
-        description = "Sops file containing *arr MCP credentials.";
+        default = config.homelab.secrets.sopsFile "lidarr-mcp.env";
+        description = "Sops file containing Lidarr MCP credentials.";
       };
       path = lib.mkOption {
         type = lib.types.str;
         readOnly = true;
-        default = "${secretsDir}/arr.env";
-        description = "Path to decrypted *arr MCP env file.";
+        default = "${secretsDir}/lidarr.env";
+        description = "Path to decrypted Lidarr MCP env file.";
       };
     };
 
@@ -103,7 +103,7 @@ in {
       pfsenseFile = cfg.pfsense.sopsFile;
       unifiFile = cfg.unifi.sopsFile;
       homeassistantFile = cfg.homeassistant.sopsFile;
-      arrFile = cfg.arr.sopsFile;
+      lidarrFile = cfg.lidarr.sopsFile;
       soulseekFile = cfg.soulseek.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
@@ -133,10 +133,10 @@ in {
           chown ${user}:users ${cfg.homeassistant.path}
         ''}
 
-        ${lib.optionalString cfg.arr.enable ''
-          ${sops} -d --output-type dotenv ${arrFile} | grep -v '^#' > ${cfg.arr.path}
-          chmod 400 ${cfg.arr.path}
-          chown ${user}:users ${cfg.arr.path}
+        ${lib.optionalString cfg.lidarr.enable ''
+          ${sops} -d --output-type dotenv ${lidarrFile} | grep -v '^#' > ${cfg.lidarr.path}
+          chmod 400 ${cfg.lidarr.path}
+          chown ${user}:users ${cfg.lidarr.path}
         ''}
 
         ${lib.optionalString cfg.soulseek.enable ''
@@ -157,8 +157,8 @@ in {
       (lib.mkIf cfg.homeassistant.enable {
         HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
       })
-      (lib.mkIf cfg.arr.enable {
-        ARR_MCP_ENV_FILE = cfg.arr.path;
+      (lib.mkIf cfg.lidarr.enable {
+        LIDARR_MCP_ENV_FILE = cfg.lidarr.path;
       })
       (lib.mkIf cfg.soulseek.enable {
         SOULSEEK_MCP_ENV_FILE = cfg.soulseek.path;
