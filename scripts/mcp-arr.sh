@@ -17,4 +17,6 @@ while IFS='=' read -r key value; do
   export "$key=$value"
 done < "$SECRETS_FILE"
 
-exec npx -y mcp-arr-server
+# Workaround: mcp-arr-server lists @modelcontextprotocol/sdk as devDependency
+# instead of dependency, so npx doesn't install it. Supply it explicitly.
+exec npx -y -p @modelcontextprotocol/sdk -p mcp-arr-server mcp-arr

@@ -20,4 +20,14 @@ done < "$SECRETS_FILE"
 # Set default download path if not specified
 export DOWNLOAD_PATH="${DOWNLOAD_PATH:-/tmp/soulseek-downloads}"
 
-exec npx -y @jotraynor/soulseekmcp
+# SoulseekMCP is not published on npm — it must be cloned and built locally.
+# See: https://glama.ai/mcp/servers/@jotraynor/SoulseekMCP
+# If you have a local build, set SOULSEEKMCP_PATH to the built index.js
+if [[ -n "${SOULSEEKMCP_PATH:-}" && -f "$SOULSEEKMCP_PATH" ]]; then
+  exec node "$SOULSEEKMCP_PATH"
+fi
+
+echo "Error: SoulseekMCP is not available as an npm package." >&2
+echo "Clone https://github.com/jotraynor/SoulseekMCP, run 'npm install && npm run build'," >&2
+echo "then set SOULSEEKMCP_PATH=/path/to/SoulseekMCP/build/index.js" >&2
+exit 1
