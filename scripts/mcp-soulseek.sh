@@ -20,4 +20,4 @@ set +a
 # Set default download path if not specified
 export DOWNLOAD_PATH="${DOWNLOAD_PATH:-/tmp/soulseek-downloads}"
 
-exec npx -y @anthropic/soulseek-mcp || exec npx -y soulseek-mcp
+exec npx -y @jotraynor/soulseekmcp
