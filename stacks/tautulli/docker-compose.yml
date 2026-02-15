@@ -2,8 +2,6 @@ version: "3"
 services:
   tautulli:
     image: ghcr.io/tautulli/tautulli
-    labels:
-      - io.containers.autoupdate=registry
     container_name: tautulli
     restart: unless-stopped
     volumes:

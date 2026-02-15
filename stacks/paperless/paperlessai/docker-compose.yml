@@ -1,8 +1,6 @@
 services:
   paperless-ai:
     image: docker.io/clusterzx/paperless-ai
-    labels:
-      - io.containers.autoupdate=registry
     container_name: paperless-ai
     network_mode: bridge
     restart: unless-stopped

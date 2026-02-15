@@ -1,8 +1,6 @@
 services:
   nicotine-plus:
     image: ghcr.io/fletchto99/nicotine-plus-docker:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: nicotine-plus # Optional: Assign a specific name to the container
 
     ports:

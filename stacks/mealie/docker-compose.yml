@@ -1,8 +1,6 @@
 services:
   mealie:
     image: ghcr.io/mealie-recipes/mealie:v2.8.0
-    labels:
-      - io.containers.autoupdate=registry
     container_name: mealie
     restart: always
     ports:
@@ -37,8 +35,6 @@ services:
   postgres:
     container_name: postgres
     image: docker.io/library/postgres:15
-    labels:
-      - io.containers.autoupdate=registry
     restart: always
     volumes:
       - ${DATA_ROOT}/mealie/pgdata:/var/lib/postgresql/data:U

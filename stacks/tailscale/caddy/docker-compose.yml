@@ -3,8 +3,6 @@ version: "3.7"
 services:
   network-holder:
     image: registry.k8s.io/pause:3.9
-    labels:
-      - io.containers.autoupdate=registry
     container_name: caddy_network_holder
     hostname: caddy
     restart: unless-stopped
@@ -13,8 +11,6 @@ services:
 
   tailscale:
     image: docker.io/tailscale/tailscale:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: ts-caddy
     network_mode: service:network-holder
     environment:
@@ -39,8 +35,6 @@ services:
 
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: caddy-reverse-proxy
     network_mode: service:network-holder
     environment:

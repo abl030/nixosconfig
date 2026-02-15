@@ -6,8 +6,6 @@ services:
   # ---------------------------------------------------------------
   jellyfin-network-holder:
     image: registry.k8s.io/pause:3.9
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellyfin_network_holder
     ports:
       - "8096:8096" # Jellyfin HTTP
@@ -49,7 +47,6 @@ services:
       retries: 5
       start_period: 60s
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
     network_mode: "service:jellyfin-network-holder"
     depends_on:
@@ -57,8 +54,6 @@ services:
 
   tailscale:
     image: docker.io/tailscale/tailscale:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellyfin-tailscale-sidecar
     network_mode: "service:jellyfin-network-holder"
     volumes:
@@ -78,8 +73,6 @@ services:
 
   caddy:
     image: ghcr.io/caddybuilds/caddy-cloudflare:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellyfin-caddy
     network_mode: "service:jellyfin-network-holder"
     environment:
@@ -99,8 +92,6 @@ services:
 
   watchstate:
     image: ghcr.io/arabcoders/watchstate:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: watchstate
     user: "0:0"
     network_mode: "service:jellyfin-network-holder"
@@ -117,8 +108,6 @@ services:
   # ---------------------------------------------------------------
   jellystat-db:
     image: docker.io/library/postgres:15.2
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellystat-db
     user: "0:0"
     restart: unless-stopped
@@ -138,8 +127,6 @@ services:
 
   jellystat:
     image: docker.io/cyfershepard/jellystat:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: jellystat
     user: "0:0"
     restart: unless-stopped
@@ -166,8 +153,6 @@ services:
   # ---------------------------------------------------------------
   inotify-receiver:
     image: docker.io/alpine/socat:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: inotify-receiver
     group_add:
       - "100" # users group for write access on /data/music/New

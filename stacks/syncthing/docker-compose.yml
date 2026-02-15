@@ -2,8 +2,6 @@
 services:
   syncthing:
     image: lscr.io/linuxserver/syncthing:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: syncthing
     hostname: syncthing #optional
     environment:

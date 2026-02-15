@@ -39,7 +39,6 @@ services:
 
     # Let autoheal watch this service
     labels:
-      - io.containers.autoupdate=registry
       - autoheal=true
 
     # Healthcheck: OK when inotifywait is running and the flusher heartbeat updated recently.
@@ -59,8 +58,6 @@ services:
   # Autoheal sidecar: restarts any container with label autoheal=true when unhealthy
   autoheal:
     image: docker.io/willfarrell/autoheal:latest
-    labels:
-      - io.containers.autoupdate=registry
     container_name: autoheal
     restart: unless-stopped
     environment:

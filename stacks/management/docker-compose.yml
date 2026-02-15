@@ -4,8 +4,6 @@ services:
   autoheal:
     container_name: autoheal
     image: docker.io/willfarrell/autoheal:latest
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     environment:
       - TZ=Australia/Perth
@@ -22,8 +20,6 @@ services:
 
   dozzle:
     image: docker.io/amir20/dozzle:latest
-    labels:
-      - io.containers.autoupdate=registry
     restart: unless-stopped
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock
@@ -50,8 +46,6 @@ services:
 
   gotify:
     image: docker.io/gotify/server
-    labels:
-      - io.containers.autoupdate=registry
     ports:
       - 8050:80
     # environment:

@@ -31,6 +31,5 @@ services:
       retries: 5 # Consider unhealthy after 5 consecutive failures
       start_period: 60s # Wait 60 seconds after container start before first check
     labels:
-      - io.containers.autoupdate=registry
       # Add this label so autoheal knows to monitor this container
       - autoheal=true

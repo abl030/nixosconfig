@@ -2,8 +2,6 @@ version: "3.7"
 services:
   kopia:
     image: docker.io/kopia/kopia:latest
-    labels:
-      - io.containers.autoupdate=registry
     hostname: kopia
     container_name: kopiaphotos
     restart: always
@@ -34,8 +32,6 @@ services:
 
   kopiamum:
     image: docker.io/kopia/kopia:latest
-    labels:
-      - io.containers.autoupdate=registry
     hostname: kopia
     container_name: kopiamum
     restart: always
