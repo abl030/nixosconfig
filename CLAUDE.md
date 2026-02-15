@@ -147,10 +147,16 @@ Beads git hooks live in `.git/hooks/` (local, not tracked by git). **Every fresh
 ```bash
 bd hooks install          # Installs pre-commit, post-merge, pre-push, post-checkout hooks
 bd config set beads.role maintainer
+bd config set daemon.auto-commit true
+bd config set daemon.auto-push true
+bd config set daemon.auto-pull true
+bd daemon stop . && bd daemon start  # Restart daemon to pick up config
 bd migrate --update-repo-id  # Only if "LEGACY DATABASE" error appears
 ```
 
 Without hooks, `bd sync` must be run manually — beads created without syncing exist only in the local SQLite DB and will be lost if the clone is deleted. The hooks automate `bd sync` on commit/push so this can't happen silently.
+
+The daemon auto-commit/push/pull settings ensure beads changes are synced to the `beads-sync` branch automatically. Without these, the daemon runs but doesn't push, and beads stay local.
 
 ## AI Tool Integration
 
