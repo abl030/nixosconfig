@@ -7,14 +7,14 @@ SECRETS_FILE="${ARR_MCP_ENV_FILE:-/run/secrets/mcp/arr.env}"
 
 if [[ ! -f "$SECRETS_FILE" ]]; then
   echo "Error: Secrets file not found: $SECRETS_FILE" >&2
-  echo "Create secrets/mcp/arr.env with LIDARR_URL and LIDARR_API_KEY" >&2
+  echo "Ensure homelab.mcp.arr.enable = true and rebuild." >&2
   exit 1
 fi
 
-# Source the decrypted env file
-set -a
-# shellcheck source=/dev/null
-source "$SECRETS_FILE"
-set +a
+# Export env vars safely (avoids shell expansion of $, `, ! in values)
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" == \#* ]] && continue
+  export "$key=$value"
+done < "$SECRETS_FILE"
 
 exec npx -y mcp-arr-server
