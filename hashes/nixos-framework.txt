@@ -1,1 +1,1 @@
-/nix/store/dir173jvir2xqc9sc823d638fcbnivb1-nixos-system-framework-26.05.20260211.2343bbb
+/nix/store/q603d4s65bifxv3k174jnb9w81i3f6jf-nixos-system-framework-26.05.20260211.2343bbb
