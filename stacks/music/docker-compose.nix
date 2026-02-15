@@ -64,5 +64,5 @@ in
     inherit preStart;
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8686 8085]; # 3579 was Ombi, 5030/5031 was slskd — both disabled
+    firewallPorts = [8686 8085 5030 5031];
   }
