@@ -57,10 +57,12 @@ Evidence:
 2. Rootless compose updates are now done through per-stack update units and a scheduled orchestrator.
 3. Provenance checks/timers from Phase 2.6 remain active.
 4. Rollout outcome reported by operator after rebuilds on `doc1` and `igpu`: updates worked as expected.
+5. Local validation on `wsl` confirmed that pinning compose provider to `docker compose` and force-recreating compose-managed containers still leaves Podman auto-update metadata (`RawImageName`) empty for those containers; `podman auto-update --dry-run` continues to fail for compose stacks.
 
 Evidence:
 - `docs/podman/research/2026-02-15-podman-autoupdate-compose-raw-image-report.md`
 - `docs/podman/incidents/2026-02-14-wsl-phase2.6-validation.md`
+- `docs/podman/incidents/2026-02-15-wsl-compose-provider-rawimagename-validation.md`
 
 ## Accepted Residual Risks
 
