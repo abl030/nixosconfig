@@ -7,15 +7,15 @@ SECRETS_FILE="${SOULSEEK_MCP_ENV_FILE:-/run/secrets/mcp/soulseek.env}"
 
 if [[ ! -f "$SECRETS_FILE" ]]; then
   echo "Error: Secrets file not found: $SECRETS_FILE" >&2
-  echo "Create secrets/mcp/soulseek.env with SOULSEEK_USERNAME, SOULSEEK_PASSWORD, DOWNLOAD_PATH" >&2
+  echo "Ensure homelab.mcp.soulseek.enable = true and rebuild." >&2
   exit 1
 fi
 
-# Source the decrypted env file
-set -a
-# shellcheck source=/dev/null
-source "$SECRETS_FILE"
-set +a
+# Export env vars safely (avoids shell expansion of $, `, ! in values)
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" == \#* ]] && continue
+  export "$key=$value"
+done < "$SECRETS_FILE"
 
 # Set default download path if not specified
 export DOWNLOAD_PATH="${DOWNLOAD_PATH:-/tmp/soulseek-downloads}"

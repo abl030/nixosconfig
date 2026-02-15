@@ -137,6 +137,8 @@
       pfsense.enable = lib.mkDefault true;
       unifi.enable = lib.mkDefault true;
       homeassistant.enable = lib.mkDefault true;
+      arr.enable = lib.mkDefault true;
+      soulseek.enable = lib.mkDefault true;
     };
   };
 
