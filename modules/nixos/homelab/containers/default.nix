@@ -322,7 +322,7 @@ in {
       # podman, slirp4netns, fuse-overlayfs already provided by
       # virtualisation.podman.enable — only list extras here.
       systemPackages = lib.mkOrder 1600 (with pkgs; [
-        docker-compose
+        docker-client
         buildah
         skopeo
         shadow
