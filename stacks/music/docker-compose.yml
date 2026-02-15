@@ -34,7 +34,7 @@ services:
     volumes:
       - ${DATA_ROOT}/music/lidarr:/config
       - ${MEDIA_ROOT:-/mnt/data}/Media/Temp/slskd:/downloads
-      - ${MEDIA_ROOT:-/mnt/data}/music/ai:/music
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Music/AI:/music
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
@@ -68,7 +68,7 @@ services:
     volumes:
       - ${DATA_ROOT}/music/slskd:/app
       - ${MEDIA_ROOT:-/mnt/data}/Media/Temp/slskd:/downloads
-      - ${MEDIA_ROOT:-/mnt/data}/music/ai:/music:ro
+      - ${MEDIA_ROOT:-/mnt/data}/Media/Music/AI:/music:ro
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     healthcheck:
