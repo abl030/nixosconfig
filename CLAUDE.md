@@ -365,7 +365,7 @@ sudo kill <pid>
 sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 ```
 
-**Rebuild vs Auto-Update Behavior** (Research: `docs/podman/research/container-lifecycle-analysis-2026-02.md`)
+**Rebuild vs Update Behavior** (Current state: `docs/podman/current/state.md`, future: `docs/podman/current/future-plan.md`)
 
 **Current Decision (2026-02-13):** Phase 2 complete. User service is the only control plane for stack lifecycle.
 
@@ -373,7 +373,7 @@ sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 
 ```
 User Service (<stackName>.service, user scope):
-  Triggered by: nixos-rebuild (restartIfChanged), manual restart, podman auto-update restart target
+  Triggered by: nixos-rebuild (restartIfChanged), manual restart, compose pull/redeploy update units
   Deploy path: podman compose up -d --remove-orphans
   Protections: stale-health precheck, PODMAN_SYSTEMD_UNIT mismatch hard-fail, missing secret hard-fail
 
