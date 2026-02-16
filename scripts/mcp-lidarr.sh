@@ -17,4 +17,4 @@ while IFS='=' read -r key value; do
   export "$key=$value"
 done < "$SECRETS_FILE"
 
-exec nix run github:abl030/lidarr-mcp
+exec lidarr-mcp

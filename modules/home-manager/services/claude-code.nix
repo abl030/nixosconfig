@@ -204,7 +204,7 @@ in {
   config = lib.mkIf cfg.enable {
     home = {
       # Install claude-code and MCP server packages
-      packages = [pkgs.claude-code pkgs.unifi-mcp pkgs.pfsense-mcp pkgs.loki-mcp pkgs.beads pkgs.nodejs];
+      packages = [pkgs.claude-code pkgs.unifi-mcp pkgs.pfsense-mcp pkgs.loki-mcp pkgs.lidarr-mcp pkgs.slskd-mcp pkgs.beads pkgs.nodejs];
 
       # Create symlinks for plugins in marketplace (read-only)
       # Cache will be populated as writable copies in activation script
