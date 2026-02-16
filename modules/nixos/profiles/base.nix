@@ -138,7 +138,7 @@
       unifi.enable = lib.mkDefault true;
       homeassistant.enable = lib.mkDefault true;
       lidarr.enable = lib.mkDefault true;
-      soulseek.enable = lib.mkDefault true;
+      slskd.enable = lib.mkDefault true;
     };
   };
 
