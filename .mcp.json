@@ -39,8 +39,8 @@
       "command": "./scripts/mcp-lidarr.sh",
       "args": []
     },
-    "soulseek": {
-      "command": "./scripts/mcp-soulseek.sh",
+    "slskd": {
+      "command": "./scripts/mcp-slskd.sh",
       "args": []
     },
     "beads": {

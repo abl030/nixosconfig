@@ -77,18 +77,18 @@ in {
       };
     };
 
-    soulseek = {
-      enable = lib.mkEnableOption "Soulseek MCP server secrets";
+    slskd = {
+      enable = lib.mkEnableOption "slskd MCP server secrets";
       sopsFile = lib.mkOption {
         type = lib.types.path;
-        default = config.homelab.secrets.sopsFile "soulseek-mcp.env";
-        description = "Sops file containing Soulseek MCP credentials.";
+        default = config.homelab.secrets.sopsFile "slskd-mcp.env";
+        description = "Sops file containing slskd MCP credentials.";
       };
       path = lib.mkOption {
         type = lib.types.str;
         readOnly = true;
-        default = "${secretsDir}/soulseek.env";
-        description = "Path to decrypted Soulseek MCP env file.";
+        default = "${secretsDir}/slskd.env";
+        description = "Path to decrypted slskd MCP env file.";
       };
     };
   };
@@ -104,7 +104,7 @@ in {
       unifiFile = cfg.unifi.sopsFile;
       homeassistantFile = cfg.homeassistant.sopsFile;
       lidarrFile = cfg.lidarr.sopsFile;
-      soulseekFile = cfg.soulseek.sopsFile;
+      slskdFile = cfg.slskd.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -139,10 +139,10 @@ in {
           chown ${user}:users ${cfg.lidarr.path}
         ''}
 
-        ${lib.optionalString cfg.soulseek.enable ''
-          ${sops} -d --output-type dotenv ${soulseekFile} | grep -v '^#' > ${cfg.soulseek.path}
-          chmod 400 ${cfg.soulseek.path}
-          chown ${user}:users ${cfg.soulseek.path}
+        ${lib.optionalString cfg.slskd.enable ''
+          ${sops} -d --output-type dotenv ${slskdFile} | grep -v '^#' > ${cfg.slskd.path}
+          chmod 400 ${cfg.slskd.path}
+          chown ${user}:users ${cfg.slskd.path}
         ''}
       '';
 
@@ -160,8 +160,8 @@ in {
       (lib.mkIf cfg.lidarr.enable {
         LIDARR_MCP_ENV_FILE = cfg.lidarr.path;
       })
-      (lib.mkIf cfg.soulseek.enable {
-        SOULSEEK_MCP_ENV_FILE = cfg.soulseek.path;
+      (lib.mkIf cfg.slskd.enable {
+        SLSKD_MCP_ENV_FILE = cfg.slskd.path;
       })
     ];
   };
