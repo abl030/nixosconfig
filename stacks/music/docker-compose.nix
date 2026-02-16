@@ -61,6 +61,16 @@ in
       "CADDY_FILE=${caddyFile}"
       "INIT_SQL=${initSql}"
     ];
+    stackHosts = [
+      {
+        host = "lidarr.ablz.au";
+        port = 8686;
+      }
+      {
+        host = "slskd.ablz.au";
+        port = 5030;
+      }
+    ];
     inherit preStart;
     wants = dependsOn;
     after = dependsOn;

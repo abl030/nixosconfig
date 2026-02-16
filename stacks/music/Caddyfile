@@ -4,14 +4,6 @@
     acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 }
 
-lidarr.ablz.au {
-    reverse_proxy localhost:8686
-}
-
-ombi.ablz.au {
-    reverse_proxy localhost:3579
-}
-
-music.ablz.au {
+musicdl.ablz.au {
     reverse_proxy localhost:8085
 }
