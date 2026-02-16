@@ -94,6 +94,7 @@ services:
     volumes:
       - ${DATA_ROOT}/music/soularr:/data
       - ${MEDIA_ROOT:-/mnt/data}/Media/Temp/slskd:/downloads
+      - ${DATA_ROOT}/music/soularr/soularr.py:/app/soularr.py:ro
     network_mode: "service:music-network-holder"
     restart: unless-stopped
     depends_on:
