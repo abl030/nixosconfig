@@ -379,11 +379,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771196273,
-        "narHash": "sha256-ww6s1A5PtyVRIG7T0Qo+ImAMcJslFJd++Ggpjn+AUac=",
+        "lastModified": 1771234902,
+        "narHash": "sha256-7c7Gg7yTfssMQMZFCP+hv/HqVXw5MlzWa7VcZzwfSRk=",
         "owner": "abl030",
         "repo": "lidarr-mcp",
-        "rev": "9d5da7843edc21283cae040c52c9a9c36f9dafe0",
+        "rev": "fd24a1bedc7a9de3a15bd14f32d81bca637eb754",
         "type": "github"
       },
       "original": {
@@ -666,11 +666,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771197058,
-        "narHash": "sha256-MB0mZ+xPTx9JyTGbOq4L2pinNnTdj5L6wlqxOCH1i88=",
+        "lastModified": 1771234622,
+        "narHash": "sha256-NRsNLOJP7/Q9iVHFnOOUjnjm1bLbRXrXbSGNl6lgT4Q=",
         "owner": "abl030",
         "repo": "slskd-mcp",
-        "rev": "86d7fef19e0c1e5eba02e3b7bd7eb73022d545f5",
+        "rev": "eb99a8c19c76ef52e361b5bc56f6b9ebe37c2f32",
         "type": "github"
       },
       "original": {
