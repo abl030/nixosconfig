@@ -979,11 +979,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1771336374,
-        "narHash": "sha256-uMpyx2dKERVoYvrYAMM/zH0k9FoaeCRPhMiLHzZR19o=",
+        "lastModified": 1771377815,
+        "narHash": "sha256-SalWz9B4JuACIcbGzvOKNd2osRXdOtqYOfC/+7rRZiU=",
         "owner": "abl030",
         "repo": "vinsight-mcp",
-        "rev": "784863c4852b3dd85d9da7ed35bdfccac8353794",
+        "rev": "9a5aeb331f5158abb02453d77379800413951416",
         "type": "github"
       },
       "original": {
