@@ -46,6 +46,12 @@
       netrc-file = config.sops.secrets.nix-netrc.path;
     };
 
+    # Include access-tokens at runtime for private flake metadata resolution.
+    # The file is derived from nix-netrc by an activation script below.
+    extraOptions = ''
+      !include /run/secrets/nix-access-tokens
+    '';
+
     # Garbage Collection (Weekly fallback)
     # The homelab.update module below will take precedence if enabled
     gc = {
@@ -150,6 +156,23 @@
   sops.secrets.nix-netrc = {
     sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
     format = "binary";
+  };
+
+  # Derive access-tokens from netrc so flake metadata resolution works
+  # for private GitHub repos (netrc-file only covers archive downloads).
+  system.activationScripts.nix-access-tokens = {
+    deps = ["setupSecrets"];
+    text = ''
+      token=$(${pkgs.gawk}/bin/awk '/machine github\.com/{found=1} found && /password/{print $2; exit}' /run/secrets/nix-netrc 2>/dev/null || true)
+      if [ -n "$token" ]; then
+        printf 'access-tokens = github.com=%s\n' "$token" > /run/secrets/nix-access-tokens
+        chmod 400 /run/secrets/nix-access-tokens
+      else
+        # Ensure the file exists (even empty) so !include doesn't error
+        touch /run/secrets/nix-access-tokens
+        chmod 400 /run/secrets/nix-access-tokens
+      fi
+    '';
   };
 
   # ---------------------------------------------------------
