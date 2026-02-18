@@ -91,6 +91,21 @@ in {
         description = "Path to decrypted slskd MCP env file.";
       };
     };
+
+    vinsight = {
+      enable = lib.mkEnableOption "Vinsight MCP server secrets";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "vinsight-mcp.env";
+        description = "Sops file containing Vinsight MCP credentials.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/vinsight.env";
+        description = "Path to decrypted Vinsight MCP env file.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -105,6 +120,7 @@ in {
       homeassistantFile = cfg.homeassistant.sopsFile;
       lidarrFile = cfg.lidarr.sopsFile;
       slskdFile = cfg.slskd.sopsFile;
+      vinsightFile = cfg.vinsight.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -144,6 +160,12 @@ in {
           chmod 400 ${cfg.slskd.path}
           chown ${user}:users ${cfg.slskd.path}
         ''}
+
+        ${lib.optionalString cfg.vinsight.enable ''
+          ${sops} -d --output-type dotenv ${vinsightFile} | grep -v '^#' > ${cfg.vinsight.path}
+          chmod 400 ${cfg.vinsight.path}
+          chown ${user}:users ${cfg.vinsight.path}
+        ''}
       '';
 
     # Export paths as environment variables for convenience
@@ -162,6 +184,9 @@ in {
       })
       (lib.mkIf cfg.slskd.enable {
         SLSKD_MCP_ENV_FILE = cfg.slskd.path;
+      })
+      (lib.mkIf cfg.vinsight.enable {
+        VINSIGHT_MCP_ENV_FILE = cfg.vinsight.path;
       })
     ];
   };

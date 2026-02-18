@@ -156,6 +156,12 @@
       url = "github:abl030/slskd-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Vinsight MCP - MCP server for Vinsight winery API
+    vinsight-mcp = {
+      url = "github:abl030/vinsight-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {

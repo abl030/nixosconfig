@@ -43,6 +43,7 @@
       experimental-features = ["nix-command" "flakes"];
       download-buffer-size = 256 * 1024 * 1024; # 256 MB
       auto-optimise-store = true;
+      netrc-file = config.sops.secrets.nix-netrc.path;
     };
 
     # Garbage Collection (Weekly fallback)
@@ -139,7 +140,16 @@
       homeassistant.enable = lib.mkDefault true;
       lidarr.enable = lib.mkDefault true;
       slskd.enable = lib.mkDefault true;
+      vinsight.enable = lib.mkDefault true;
     };
+  };
+
+  # ---------------------------------------------------------
+  # 4b. PRIVATE FLAKE AUTH
+  # ---------------------------------------------------------
+  sops.secrets.nix-netrc = {
+    sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
+    format = "binary";
   };
 
   # ---------------------------------------------------------
