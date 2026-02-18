@@ -166,11 +166,11 @@
       token=$(${pkgs.gawk}/bin/awk '/machine github\.com/{found=1} found && /password/{print $2; exit}' /run/secrets/nix-netrc 2>/dev/null || true)
       if [ -n "$token" ]; then
         printf 'access-tokens = github.com=%s\n' "$token" > /run/secrets/nix-access-tokens
-        chmod 400 /run/secrets/nix-access-tokens
+        chmod 444 /run/secrets/nix-access-tokens
       else
         # Ensure the file exists (even empty) so !include doesn't error
         touch /run/secrets/nix-access-tokens
-        chmod 400 /run/secrets/nix-access-tokens
+        chmod 444 /run/secrets/nix-access-tokens
       fi
     '';
   };
