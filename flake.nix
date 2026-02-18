@@ -39,7 +39,8 @@
     home-manager-diff = {
       url = "github:pedorich-n/home-manager-diff";
       inputs = {
-        nixpkgs.follows = "nixpkgs";
+        # Don't follow nixpkgs — poetry2nix's pyproject-build-systems
+        # needs a nixpkgs where python-build accepts 'tomli'.
         flake-parts.follows = "flake-parts";
         flake-utils.follows = "flake-utils";
       };
