@@ -172,6 +172,7 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 - Metric queries (`bytes_over_time`, `rate`, `count_over_time`) are not supported by the MCP tool — use log queries only.
 - Hosts are labelled: `wsl`, `proxmox-vm` (doc1), `igpu`, `dev`, `cache`, `tower`.
 - Container logs use the `container` label (e.g., `{host="proxmox-vm", container="immich-server"}`).
+- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query it with `unit="rolling-flake-update.service"` and `host="proxmox-vm"`. Use a start time before 14:15 UTC of the relevant day.
 
 ### Home Assistant
 
