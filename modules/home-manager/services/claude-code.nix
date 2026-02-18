@@ -211,9 +211,7 @@ in {
         pkgs.loki-mcp
         pkgs.lidarr-mcp
         pkgs.slskd-mcp
-        /*
-        pkgs.vinsight-mcp -- re-enable after nix-netrc deploys (see bead)
-        */
+        pkgs.vinsight-mcp
         pkgs.beads
         pkgs.nodejs
       ];
