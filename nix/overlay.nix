@@ -107,6 +107,13 @@
     }
   )
 
+  # vinsight-mcp overlay: MCP server for Vinsight winery API
+  (
+    final: _prev: {
+      vinsight-mcp = inputs.vinsight-mcp.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
+
   # beads overlay: git-native issue tracker for AI agent memory
   # TODO: switch to inputs.beads.packages once upstream flake builds
   # (blocked by: dolthub/driver requires Go >= 1.25.6, nixpkgs has 1.25.5)
