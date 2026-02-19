@@ -21,4 +21,6 @@ done < "$SECRETS_FILE"
 export HOMEASSISTANT_URL="${HA_URL:-https://home.ablz.au}"
 export HOMEASSISTANT_TOKEN="${HA_TOKEN:-}"
 
-exec uvx ha-mcp
+# Pin fastmcp<3: ha-mcp 6.7.0 uses fastmcp.settings.show_cli_banner
+# which was renamed to show_server_banner in fastmcp 3.0.0
+exec uvx --with 'fastmcp<3' ha-mcp
