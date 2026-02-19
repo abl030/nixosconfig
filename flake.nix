@@ -63,11 +63,6 @@
       };
     };
 
-    isd = {
-      url = "github:isd-project/isd";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Spicetify for Spotify Theming
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
