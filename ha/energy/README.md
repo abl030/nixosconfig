@@ -7,7 +7,7 @@
 - Sustainability/Self-sufficiency: 150-170kWh (captures nearly all usable solar)
 
 **Three zones identified:**
-1. **Linear (50-130kWh)**: Battery rarely fills, consistent marginal returns (~$200-350/yr per 10kWh)
+1. **Linear (50-130kWh)**: Capacity in this range always gets used — the battery never saturates, so every additional kWh cycles daily and delivers consistent marginal returns (~$200-350/yr per 10kWh)
 2. **Chaos (130-170kWh)**: Transition zone, worst marginal ROI, payback delta explodes
 3. **Surfing (170+)**: Always full, small but stable marginal gains
 
