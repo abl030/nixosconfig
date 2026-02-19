@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  lib,
+  ...
+}: {
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   # home.username = username;
@@ -8,11 +12,6 @@
   xsession.numlock.enable = true;
 
   programs = {
-    hmd = {
-      enable = true;
-      runOnSwitch = true; # enabled by default
-    };
-
     home-manager.enable = true;
 
     tmux = {
@@ -50,6 +49,14 @@
   # };
   #
   # Group all home-manager options into a single `home` attribute set.
+  home.activation.diffGeneration = lib.hm.dag.entryAnywhere ''
+    if [[ -n "''${oldGenPath:-}" ]]; then
+      echo "--- home-manager diff ---"
+      ${pkgs.nvd}/bin/nvd diff "$oldGenPath" "$newGenPath"
+      echo "---"
+    fi
+  '';
+
   home = {
     # This value determines the Home Manager release that your configuration is
     # compatible with. This helps avoid breakage when a new Home Manager release

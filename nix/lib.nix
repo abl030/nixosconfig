@@ -59,7 +59,6 @@ in {
             };
             users.${cfg.user} = {
               imports = [
-                inputs.home-manager-diff.hmModules.default
                 inputs.sops-nix.homeManagerModules.sops
                 ../modules/home-manager/profiles/base.nix
                 cfg.homeFile
@@ -81,7 +80,6 @@ in {
         hostConfig = cfg; # Inject the specific host config
       };
       modules = [
-        inputs.home-manager-diff.hmModules.default
         inputs.sops-nix.homeManagerModules.sops
         ../modules/home-manager/profiles/base.nix
         cfg.homeFile

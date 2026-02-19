@@ -55,6 +55,10 @@ The presence of `configurationFile` determines whether a host is a full NixOS sy
 
 Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: `bd show nixosconfig-mof`.
 
+## Troubleshooting
+
+- **`failed to insert entry: invalid object specified`** during `nix flake update`: Corrupted fetch cache. Fix with `rm -rf ~/.cache/nix/` and retry. This is safe — it's only a fetch cache, not the store. Common issue, happens periodically.
+
 ## Stabilization Rules
 
 - Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
