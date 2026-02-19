@@ -36,16 +36,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    home-manager-diff = {
-      url = "github:pedorich-n/home-manager-diff";
-      inputs = {
-        # Don't follow nixpkgs — poetry2nix's pyproject-build-systems
-        # needs a nixpkgs where python-build accepts 'tomli'.
-        flake-parts.follows = "flake-parts";
-        flake-utils.follows = "flake-utils";
-      };
-    };
-
     # --- 3. Hardware & WSL ---
     #nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
