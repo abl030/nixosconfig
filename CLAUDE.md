@@ -182,6 +182,23 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 
 Tools are **deferred** — use `ToolSearch` with `+homeassistant` first. Full usage guide incl. Music Assistant playback and volume quirks: `bd show nixosconfig-fah`.
 
+### Lidarr (Music Library)
+
+Soularr handles download searching automatically. Do NOT manually search Soulseek, and do NOT call `lidarr_command_album_search` or any search trigger. The ONLY job is to get the album into Lidarr and set `monitored: true` — Soularr polls for monitored+missing albums and searches Soulseek on its own schedule. Triggering searches manually is wasted effort.
+
+**Grabbing an album:**
+
+1. **Web search first** — if you don't recognise the album, Google it. Don't guess or assume it doesn't exist.
+2. **Try `lidarr_grab_album`** with artist name and album title.
+3. **If the album isn't found**, it's likely too new for Lidarr's cached metadata:
+   - Look up the MusicBrainz release group ID (search MusicBrainz API or web).
+   - Use `lidarr_lookup_album` with `term=lidarr:<MBID>` to confirm it exists.
+   - If the artist is already in Lidarr, run `lidarr_command_refresh_artist` to pull new metadata.
+   - If the album STILL doesn't appear after refresh, check the artist's **metadata profile** — the album's secondary type (e.g., Soundtrack, Live) may be filtered out. Update the profile to allow it, then refresh again.
+4. **Monitoring rules**:
+   - The **artist** should be `monitored: true` with `monitorNewItems: "none"`.
+   - Only the **requested album** should be `monitored: true`. Unmonitor any other albums that got auto-monitored.
+
 ### mcp-nixos
 
 [mcp-nixos](https://github.com/utensils/mcp-nixos) prevents hallucinations about NixOS:
@@ -341,13 +358,6 @@ All settings use `lib.mkDefault` so individual hosts can override.
 
 4. **Flag Compatibility** - `--in-pod` flag is podman-compose-specific and not recognized by docker-compose. Default behavior (no pod wrapping) is correct for docker-compose. **Solution:** Remove `--in-pod false` from stack definitions.
 
-**igpu Migration (COMPLETE - 2026-02-12):**
-Successfully migrated all stacks from podman-compose to podman compose. Issues encountered:
-1. ✅ Network label mismatches - Both `*_default` AND custom networks (`jellyfin_jellyfin-net`, `plex_plex-net`) needed removal
-2. ✅ Duplicate YAML keys - jellyfinn had 11 orphaned labels from commented service, plex had 2
-3. ✅ Stale health detection working - No stuck containers after network cleanup
-4. ✅ Force-removing networks kills containers - Use `podman network rm -f` carefully; requires manual service restart after
-
 **IMPORTANT: Oneshot Service Behavior**
 Container stacks use `Type=oneshot` with `restartIfChanged=true`. They only restart when config changes, NOT on every rebuild. If containers are manually removed (e.g., via `podman rm -f` or network cleanup), you must manually restart the services:
 ```bash
@@ -376,34 +386,6 @@ sudo kill <pid>
 sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 ```
 
-**Rebuild vs Update Behavior** (Current state: `docs/podman/current/state.md`, future: `docs/podman/current/future-plan.md`)
-
-**Current Decision (2026-02-13):** Phase 2 complete. User service is the only control plane for stack lifecycle.
-
-**Current model:**
-
-```
-User Service (<stackName>.service, user scope):
-  Triggered by: nixos-rebuild (restartIfChanged), manual restart, compose pull/redeploy update units
-  Deploy path: podman compose up -d --remove-orphans
-  Protections: stale-health precheck, PODMAN_SYSTEMD_UNIT mismatch hard-fail, missing secret hard-fail
-
-Secrets:
-  Source of truth: system-scope sops.secrets
-  Runtime use: user service resolves native paths
-  Compatibility: one-release fallback to legacy /run/user/%U paths with warning logs
-```
-
-**Stale Health Detection (IMPLEMENTED):**
-- Detects containers in `starting` or `unhealthy` state for >90 seconds before reuse (default)
-- Time-based validation prevents removing legitimately slow-starting containers
-- Configurable per-stack (`healthCheckTimeout`, e.g. 300 for slow stacks)
-- Keeps rebuild non-blocking while preventing stale-state deadlocks
-
-**Why no deploy-time `--wait`:**
-- Rebuild activation should not block on runtime health convergence
-- Monitoring/systemd state should surface runtime failures instead of gating activation
-
 ## Important Files
 
 - `flake.nix`: Entry point, defines outputs and imports
@@ -413,13 +395,6 @@ Secrets:
 - `vms/definitions.nix`: VM specifications and inventory
 - `vms/proxmox-ops.sh`: Safe Proxmox operations wrapper
 - `secrets/.sops.yaml`: Age key configuration for secrets
-
-## CI/CD
-
-- **GitHub Actions**: Daily `flake.lock` updates with auto-merge
-- **Quality Gate**: All changes must pass `nix flake check`
-- **Auto-updates**: Enabled on doc1 and igpu (03:00 daily with GC at 03:30)
-- **Rolling Updates**: doc1 has rolling flake updates enabled via `homelab.ci.rollingFlakeUpdate`
 
 ## Special Configurations
 
