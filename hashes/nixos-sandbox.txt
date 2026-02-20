@@ -1,1 +1,1 @@
-/nix/store/xw02hk7i51mw20504rsfwr8gm1a67vpn-nixos-system-sandbox-26.05.20260216.d1c15b7
+/nix/store/i6h92a23c0vgw5144wqwa7rigjdsbddn-nixos-system-sandbox-26.05.20260216.d1c15b7
