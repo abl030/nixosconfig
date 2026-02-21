@@ -1,0 +1,16 @@
+# Overview Dashboard
+# url_path: default
+# title: Overview
+
+views:
+- path: default_view
+  title: Home
+  cards:
+  - type: tile
+    entity: binary_sensor.garage_door_tilt_contact
+    name: Garage Door
+    icon: mdi:garage
+  - type: tile
+    entity: sensor.garage_door_tilt_battery
+    name: Garage Door Battery
+    icon: mdi:battery
