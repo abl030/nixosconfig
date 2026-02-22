@@ -11,11 +11,32 @@
   # Base compose from flake input — build contexts resolve relative to this path
   baseCompose = "${inputs.musicbrainz-docker}/docker-compose.yml";
 
-  # lrclib has no public Docker image — build from source (flake input)
-  lrclibBuildOverride = pkgs.writeText "musicbrainz-lrclib-build.yml" ''
+  # lrclib — no public image, build via Nix to avoid crates.io CDN timeouts at deploy time
+  lrclibPkg = pkgs.rustPlatform.buildRustPackage {
+    pname = "lrclib";
+    version = "0.1.0";
+    src = inputs.lrclib-src;
+    cargoLock.lockFile = "${inputs.lrclib-src}/Cargo.lock";
+    buildInputs = [pkgs.sqlite];
+    nativeBuildInputs = [pkgs.pkg-config];
+  };
+
+  lrclibImage = pkgs.dockerTools.buildLayeredImage {
+    name = "lrclib-nix";
+    tag = "latest";
+    contents = [lrclibPkg pkgs.cacert];
+    config = {
+      Cmd = ["${lrclibPkg}/bin/lrclib" "serve" "--port" "3300"];
+      ExposedPorts = {"3300/tcp" = {};};
+      Volumes = {"/data" = {};};
+    };
+  };
+
+  # Compose override: reference the pre-loaded Nix image
+  lrclibImageOverride = pkgs.writeText "musicbrainz-lrclib-image.yml" ''
     services:
       lrclib:
-        build: ${inputs.lrclib-src}
+        image: lrclib-nix:latest
   '';
 
   # Override files from our repo — isolated via builtins.path for stable store paths
@@ -42,9 +63,9 @@
 
   volumeBase = "/mnt/docker/musicbrainz/volumes";
 
-  # Build step — runs before up on every start (fast no-op when layers cached)
+  # Load Nix-built lrclib image into rootless podman before compose starts
   buildStep = [
-    "${pkgs.podman}/bin/podman compose --project-name ${projectName} -f ${baseCompose} -f ${postgresOverride} -f ${memoryOverride} -f ${volumeOverride} -f ${lmdOverride} -f ${lrclibBuildOverride} build"
+    "${pkgs.podman}/bin/podman load --input ${lrclibImage}"
   ];
 in {
   systemd.tmpfiles.rules = [
@@ -63,7 +84,8 @@ in {
       description = "MusicBrainz Mirror + LMD Stack";
       inherit projectName;
       composeFile = baseCompose;
-      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride lrclibBuildOverride];
+      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride lrclibImageOverride];
+      restartTriggers = ["${lrclibImage}"];
       composeArgs = "--project-name ${projectName}";
       envFiles = [
         {

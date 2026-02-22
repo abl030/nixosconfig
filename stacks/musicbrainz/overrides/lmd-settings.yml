@@ -5,6 +5,12 @@ volumes:
       type: none
       device: /mnt/docker/musicbrainz/volumes/lmdconfig
       o: bind
+  lrclib-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/docker/musicbrainz/volumes/lrclib
+      o: bind
 
 services:
   lmd:
