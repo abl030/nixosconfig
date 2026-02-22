@@ -56,15 +56,19 @@
     path = ./overrides/lmd-settings.yml;
     name = "musicbrainz-lmd-settings.yml";
   };
-  replicationTokenOverride = builtins.path {
-    path = ./overrides/replication-token.yml;
-    name = "musicbrainz-replication-token.yml";
-  };
+  # Replication token: extracted from the sops env file at runtime into a standalone file
+  # for container bind-mount (sops-nix dotenv `key` extraction doesn't isolate a single value)
+  mbTokenPath = "/run/user/1000/secrets/musicbrainz-mb-token";
+  mbEnvFile = "/run/secrets/containers/musicbrainz-stack/0-musicbrainz-stack.env";
+
+  replicationTokenOverride = pkgs.writeText "musicbrainz-replication-token.yml" ''
+    services:
+      musicbrainz:
+        volumes:
+          - ${mbTokenPath}:/run/secrets/metabrainz_access_token:ro
+  '';
 
   encEnv = config.homelab.secrets.sopsFile "musicbrainz.env";
-
-  # Replication token as a standalone sops secret (file format for container mount)
-  replicationTokenSecretName = "musicbrainz-replication-token";
 
   podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
 
@@ -73,6 +77,21 @@
   # Load Nix-built lrclib image into rootless podman before compose starts
   buildStep = [
     "${pkgs.podman}/bin/podman load --input ${lrclibImage}"
+  ];
+
+  # Extract replication token from decrypted env file into a standalone file for container mount
+  tokenExtractStep = [
+    (pkgs.writeShellScript "musicbrainz-extract-token" ''
+      set -euo pipefail
+      mkdir -p /run/user/1000/secrets
+      token=$(grep '^REPLICATION_ACCESS_TOKEN=' ${mbEnvFile} | cut -d= -f2-)
+      if [ -z "$token" ]; then
+        echo "ERROR: REPLICATION_ACCESS_TOKEN not found in ${mbEnvFile}" >&2
+        exit 1
+      fi
+      printf '%s' "$token" > ${mbTokenPath}
+      chmod 600 ${mbTokenPath}
+    '')
   ];
 
   # LMD cache DB schema — idempotent, piped into the MB postgres instance post-start
@@ -118,15 +137,6 @@
       psql -U abc -d lm_cache_db < ${lmCacheInitSql}
   '';
 in {
-  # Replication token: extracted as a standalone file for container bind-mount
-  sops.secrets.${replicationTokenSecretName} = {
-    sopsFile = encEnv;
-    format = "dotenv";
-    key = "REPLICATION_ACCESS_TOKEN";
-    owner = config.homelab.user;
-    mode = "0440";
-  };
-
   systemd.tmpfiles.rules = [
     "d ${volumeBase}/mqdata    0755 abl030 users -"
     "d ${volumeBase}/pgdata    0755 abl030 users -"
@@ -152,7 +162,7 @@ in {
           runFile = "/run/user/%U/secrets/${stackName}.env";
         }
       ];
-      preStart = buildStep;
+      preStart = buildStep ++ tokenExtractStep;
       postStart = ["${lmCacheInitStep}"];
       extraEnv = ["MUSICBRAINZ_WEB_SERVER_PORT=5200"];
       firewallPorts = [5200 5001 3300];
