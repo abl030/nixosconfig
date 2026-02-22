@@ -94,7 +94,8 @@ in {
         }
       ];
       preStart = buildStep;
-      firewallPorts = [5000 5001 3300];
+      extraEnv = ["MUSICBRAINZ_WEB_SERVER_PORT=5200"];
+      firewallPorts = [5200 5001 3300];
       stackMonitors = [
         {
           name = "LMD (Lidarr Metadata)";
