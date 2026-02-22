@@ -378,6 +378,22 @@
         "type": "github"
       }
     },
+    "lrclib-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1744793934,
+        "narHash": "sha256-MZKAJIU37aTlO3PpTwmwwV5PGAIh4281Eb85VMhI/Bw=",
+        "owner": "tranxuanthang",
+        "repo": "lrclib",
+        "rev": "ae8f3d38682b74b69c170c51f1e66af0e990d713",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tranxuanthang",
+        "repo": "lrclib",
+        "type": "github"
+      }
+    },
     "musicbrainz-docker": {
       "flake": false,
       "locked": {
@@ -540,6 +556,7 @@
         "jolt": "jolt",
         "lidarr-mcp": "lidarr-mcp",
         "loki-mcp": "loki-mcp",
+        "lrclib-src": "lrclib-src",
         "musicbrainz-docker": "musicbrainz-docker",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
