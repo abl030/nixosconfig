@@ -2,6 +2,6 @@ services:
   db:
     command: postgres -c "shared_buffers=2GB" -c "shared_preload_libraries=pg_amqp.so"
   search:
-    mem_swappiness: ~
+    mem_swappiness: -1
     environment:
       - SOLR_HEAP=2g
