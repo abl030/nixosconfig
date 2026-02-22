@@ -36,17 +36,25 @@ No special handling needed — just pass `envFiles` to `mkService` as normal.
 
 ## Current Status (2026-02-22)
 
-- ✅ Steps 0-8 implemented and committed (disk 250G→400G, flake input, podman-compose.nix
-  extraComposeFiles, stack files, stacks.nix, hosts.nix, secrets placeholder filled)
-- ✅ Lidarr switched to :nightly (Step 9) — **take backup before deploying music stack**
-- ✅ Kuma monitors added for LMD :5001 and LRCLIB :3300
-- ❌ nixos-rebuild switch FAILED — lrclib container build timed out (crates.io slow from Perth)
-- ❌ Step 11 (LRCLIB) blocked — see updated Step 11 for Nix dockerTools fix plan
-- ⏳ Step 7 (manual DB init) not yet started — needs working deployment first
-- ⏳ Steps 10+ (Tubifarry, configure LMD in Lidarr) not yet started
+### Completed
+- ✅ Steps 0–9: disk expanded, flake inputs, podman-compose.nix, stack files, secrets, Lidarr nightly
+- ✅ Step 11 (LRCLIB): Nix `dockerTools.buildLayeredImage` approach works; container running on :3300
+- ✅ Step 7 (DB init): `createdb.sh -fetch` run, Solr reindexed (artist + release)
+- ✅ Step 8 (weekly Solr reindex timer): in `docker-compose.nix`, runs Sun 01:00
+- ✅ lm_cache_db: created + schema applied idempotently via `postStart` script
+- ✅ Replication token: preStart extracts token from env file → bind-mount into container
+- ✅ All API keys verified: Fanart.tv (18 images), Spotify (auth OK), Last.fm, TADB, LRCLIB lyrics
+- ✅ Initial replication: running (catching up from dump date)
+- ✅ Kuma monitors: LMD :5001, LRCLIB :3300
 
-Next action: implement Nix dockerTools lrclib build (Step 11 above), then re-run
-`sudo nixos-rebuild switch --flake /home/abl030/nixosconfig#proxmox-vm`
+### Remaining (Steps 10, 12, 13, 14)
+- ⏳ Step 10: Tubifarry plugin + configure LMD/LRCLIB endpoints in Lidarr
+- ⏳ Step 12: Daily replication timer (automation)
+- ⏳ Step 13: Monthly LRCLIB dump refresh automation
+- ⏳ Step 14: Clean up dump files after initial replication (~6GB in dbdump volume)
+
+Next actions: Steps 10, 12, 13 in any order. Step 14 is a one-time cleanup once initial
+replication finishes.
 
 ## Files to Create/Edit
 
@@ -508,6 +516,180 @@ SQLite file in the volume. No incremental updates exist — maintainer uploads f
 manually ~monthly.
 
 Update tagging agent to use `http://192.168.1.29:3300` instead of `https://lrclib.net`.
+
+## Step 12: Daily Replication Timer
+
+MetaBrainz publishes hourly replication packets; running daily is sufficient for a personal
+mirror. Same pattern as the existing `musicbrainz-reindex` timer already in `docker-compose.nix`.
+
+Add to `home-manager.users.abl030.systemd.user` in `docker-compose.nix`:
+
+```nix
+services.musicbrainz-replication = {
+  Unit.Description = "MusicBrainz daily replication";
+  Service = {
+    Type = "oneshot";
+    Environment = [
+      "XDG_RUNTIME_DIR=/run/user/1000"
+      "CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock"
+    ];
+    ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh";
+    TimeoutStartSec = "3600";  # replication can take a while if behind
+  };
+};
+timers.musicbrainz-replication = {
+  Unit.Description = "MusicBrainz daily replication timer";
+  Timer = {
+    OnCalendar = "*-*-* 03:00:00";  # 3am daily (AWST = 19:00 UTC prior day)
+    Persistent = true;
+  };
+  Install.WantedBy = ["timers.target"];
+};
+```
+
+No other changes needed — replication token is already wired via the preStart bind-mount.
+
+## Step 13: Monthly LRCLIB Dump Refresh
+
+LRCLIB has no incremental updates — the maintainer uploads full SQLite dumps ~monthly at
+`https://lrclib.net/db-dumps`. The compressed dump is ~10–20GB; uncompressed ~78GB (SQLite).
+
+**Strategy**: weekly check, download only if newer (ETag/Last-Modified), atomic swap,
+restart lrclib container.
+
+Add to `docker-compose.nix`:
+
+```nix
+lrclibUpdateScript = pkgs.writeShellScript "lrclib-db-update" ''
+  set -euo pipefail
+
+  DUMP_URL="https://lrclib.net/db-dumps/lrclib-db-dump-latest.db.zst"
+  VOLUME_DIR="/mnt/docker/musicbrainz/volumes/lrclib"
+  ETAG_FILE="$VOLUME_DIR/.dump-etag"
+  TMP_DUMP="$VOLUME_DIR/db-dump.new.zst"
+  NEW_DB="$VOLUME_DIR/db.sqlite3.new"
+
+  # Check ETag — skip download if unchanged
+  OLD_ETAG=$(cat "$ETAG_FILE" 2>/dev/null || echo "")
+  NEW_ETAG=$(${pkgs.curl}/bin/curl -sI "$DUMP_URL" | grep -i '^etag:' | tr -d '\r' | awk '{print $2}')
+
+  if [ "$OLD_ETAG" = "$NEW_ETAG" ] && [ -n "$NEW_ETAG" ]; then
+    echo "LRCLIB dump unchanged (ETag: $NEW_ETAG), skipping"
+    exit 0
+  fi
+
+  echo "New LRCLIB dump available (old: $OLD_ETAG, new: $NEW_ETAG), downloading..."
+  ${pkgs.curl}/bin/curl -L --progress-bar -o "$TMP_DUMP" "$DUMP_URL"
+
+  echo "Decompressing..."
+  ${pkgs.zstd}/bin/zstd -d "$TMP_DUMP" -o "$NEW_DB" --force
+
+  echo "Stopping lrclib container..."
+  ${pkgs.podman}/bin/podman stop musicbrainz-lrclib-1 || true
+
+  echo "Swapping database..."
+  mv "$VOLUME_DIR/db.sqlite3" "$VOLUME_DIR/db.sqlite3.prev" || true
+  mv "$NEW_DB" "$VOLUME_DIR/db.sqlite3"
+  rm -f "$TMP_DUMP" "$VOLUME_DIR/db.sqlite3.prev"
+
+  echo "$NEW_ETAG" > "$ETAG_FILE"
+
+  echo "Starting lrclib container..."
+  ${pkgs.podman}/bin/podman start musicbrainz-lrclib-1
+
+  echo "LRCLIB database updated successfully"
+'';
+```
+
+Add the timer:
+```nix
+services.lrclib-db-update = {
+  Unit = {
+    Description = "LRCLIB monthly database refresh";
+    After = ["network-online.target"];
+  };
+  Service = {
+    Type = "oneshot";
+    Environment = [
+      "XDG_RUNTIME_DIR=/run/user/1000"
+      "CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock"
+    ];
+    ExecStart = "${lrclibUpdateScript}";
+    TimeoutStartSec = "7200";  # download can take a while
+  };
+};
+timers.lrclib-db-update = {
+  Unit.Description = "LRCLIB monthly database refresh timer";
+  Timer = {
+    OnCalendar = "Sun *-*-01/7 04:00:00";  # weekly on Sundays, catches monthly releases
+    Persistent = true;
+  };
+  Install.WantedBy = ["timers.target"];
+};
+```
+
+**Note**: The update script uses `podman stop/start` directly rather than restarting the
+whole stack, so the MB database and LMD stay up during the swap.
+
+## Step 14: One-Time Cleanup After Initial Replication
+
+Once `replication.sh` finishes its initial catch-up run (check with
+`journalctl --user -u musicbrainz-stack -f` or `podman exec musicbrainz-musicbrainz-1 ps`):
+
+```bash
+# Free ~6GB of dump files no longer needed
+rm -rf /mnt/docker/musicbrainz/volumes/dbdump/*
+
+# Optionally restart to confirm clean state
+systemctl --user restart musicbrainz-stack
+```
+
+## Step 15: Lidarr Plumbing (Tubifarry + LMD + LRCLIB)
+
+Wire the running MB mirror into Lidarr so it uses local metadata instead of MusicBrainz.org
+and TheAudioDB.
+
+### Tubifarry Plugin (prerequisite for LMD)
+
+1. In Lidarr web UI → **System → Plugins**
+2. Install: `https://github.com/TypNull/Tubifarry` (main branch first)
+3. Restart Lidarr
+4. Install develop branch if needed: `https://github.com/TypNull/Tubifarry/tree/develop`
+5. Restart Lidarr
+
+### Configure LMD as Metadata Source
+
+**Settings → Metadata → Metadata Consumers → Lidarr Custom:**
+- Enable both checkboxes
+- URL: `http://192.168.1.29:5001`
+- Save + restart
+
+This replaces TheAudioDB/Spotify calls with the local LMD instance, which itself falls
+back to the live APIs only for cache misses.
+
+### Configure LRCLIB as Lyrics Source
+
+**Settings → Metadata → Lyrics → LRCLib:**
+- URL override: `http://192.168.1.29:3300` (instead of `https://lrclib.net`)
+- Save
+
+Lidarr/Tubifarry will now query the local LRCLIB instance for lyrics.
+
+### Verify
+
+```bash
+# Check LMD is serving metadata to Lidarr
+curl -s "http://192.168.1.29:5001/artist/f59c5520-5f46-4d2c-b2c4-822eabf53419" | jq .artistName
+# → "Radiohead"
+
+# Check LRCLIB is serving lyrics locally
+curl -s "http://192.168.1.29:3300/api/get?artist_name=Radiohead&track_name=Creep" | jq .syncedLyrics | head -3
+```
+
+### Add doc1 back to VPN Alias (if removed)
+
+If doc1 was removed from `MV_VPN_IPS` pfSense alias for slskd (to avoid ban), add it back
+after confirming slskd is working correctly from a VPN exit.
 
 ## API Keys Needed
 
