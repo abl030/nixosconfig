@@ -378,6 +378,22 @@
         "type": "github"
       }
     },
+    "musicbrainz-docker": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1770892572,
+        "narHash": "sha256-hQ7Uy50k+Ry/9t9nMLNpDrRpJ+hf7OWCulu2P7BLd3s=",
+        "owner": "metabrainz",
+        "repo": "musicbrainz-docker",
+        "rev": "a0b4cffcf406fee8c78af78f666af0e893fdae38",
+        "type": "github"
+      },
+      "original": {
+        "owner": "metabrainz",
+        "repo": "musicbrainz-docker",
+        "type": "github"
+      }
+    },
     "nixos-hardware": {
       "locked": {
         "lastModified": 1771423359,
@@ -524,6 +540,7 @@
         "jolt": "jolt",
         "lidarr-mcp": "lidarr-mcp",
         "loki-mcp": "loki-mcp",
+        "musicbrainz-docker": "musicbrainz-docker",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
