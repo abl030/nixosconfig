@@ -53,7 +53,6 @@ services:
       - redis
 
   lrclib:
-    image: ghcr.io/tranxuanthang/lrclib:latest
     container_name: musicbrainz-lrclib-1
     ports:
       - "3300:3300"

@@ -90,6 +90,11 @@
       flake = false;
     };
 
+    lrclib-src = {
+      url = "github:tranxuanthang/lrclib";
+      flake = false;
+    };
+
     # Claude Code plugins
     claude-plugin-ha-skills = {
       url = "github:homeassistant-ai/skills";
