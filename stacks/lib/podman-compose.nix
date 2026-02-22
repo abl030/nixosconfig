@@ -78,6 +78,7 @@
     envFiles ? [],
     extraEnv ? [],
     preStart ? [],
+    postStart ? [],
     requiresMounts ? [],
     after ? [],
     wants ? [],
@@ -327,9 +328,7 @@
             ++ preStart;
 
           ExecStart = "${composeWithSystemdLabelScript} up";
-          ExecStartPost = [
-            "${stackCleanupSimplified}"
-          ];
+          ExecStartPost = ["${stackCleanupSimplified}"] ++ postStart;
           ExecStop = "${composeWithSystemdLabelScript} stop";
           ExecStopPost = "${stackCleanupSimplified}";
           ExecReload = "${composeWithSystemdLabelScript} reload";
