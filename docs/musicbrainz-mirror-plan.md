@@ -34,6 +34,20 @@ compose script reads that file and passes `--env-file <path>` to podman compose.
 to the user's rootless podman socket via `CONTAINER_HOST=unix://${runUserDir}/podman/podman.sock`.
 No special handling needed — just pass `envFiles` to `mkService` as normal.
 
+## Current Status (2026-02-22)
+
+- ✅ Steps 0-8 implemented and committed (disk 250G→400G, flake input, podman-compose.nix
+  extraComposeFiles, stack files, stacks.nix, hosts.nix, secrets placeholder filled)
+- ✅ Lidarr switched to :nightly (Step 9) — **take backup before deploying music stack**
+- ✅ Kuma monitors added for LMD :5001 and LRCLIB :3300
+- ❌ nixos-rebuild switch FAILED — lrclib container build timed out (crates.io slow from Perth)
+- ❌ Step 11 (LRCLIB) blocked — see updated Step 11 for Nix dockerTools fix plan
+- ⏳ Step 7 (manual DB init) not yet started — needs working deployment first
+- ⏳ Steps 10+ (Tubifarry, configure LMD in Lidarr) not yet started
+
+Next action: implement Nix dockerTools lrclib build (Step 11 above), then re-run
+`sudo nixos-rebuild switch --flake /home/abl030/nixosconfig#proxmox-vm`
+
 ## Files to Create/Edit
 
 - [ ] `flake.nix` — add musicbrainz-docker input
@@ -428,30 +442,66 @@ In Lidarr web UI (`https://lidarr.ablz.au`):
 
 ## Step 11: LRCLIB
 
-Add as a service in `overrides/lmd-settings.yml` (or a separate override file):
+**Status: BLOCKED** — `ghcr.io/tranxuanthang/lrclib:latest` returns 403 (not public). Building
+from source inside the container fails because cargo downloads from `static.crates.io`
+time out from Perth (30s timeout, ~3 retries per crate, dozens of crates = guaranteed fail).
 
+**Chosen fix: Nix dockerTools build** — build lrclib with Nix, bypasses crates.io entirely.
+
+### Implementation
+
+In `stacks/musicbrainz/docker-compose.nix`:
+
+```nix
+lrclibPkg = pkgs.rustPlatform.buildRustPackage {
+  pname = "lrclib";
+  version = "0.1.0";
+  src = inputs.lrclib-src;
+  cargoLock.lockFile = "${inputs.lrclib-src}/Cargo.lock";
+  buildInputs = [ pkgs.sqlite ];
+  nativeBuildInputs = [ pkgs.pkg-config ];
+};
+
+lrclibImage = pkgs.dockerTools.buildLayeredImage {
+  name = "lrclib-nix";
+  tag = "latest";
+  contents = [ lrclibPkg pkgs.cacert ];
+  config = {
+    Cmd = [ "${lrclibPkg}/bin/lrclib" "serve" "--port" "3300" ];
+    ExposedPorts = { "3300/tcp" = {}; };
+    Volumes = { "/data" = {}; };
+  };
+};
+```
+
+Add to `preStart` (before the compose build step):
+```nix
+"${pkgs.podman}/bin/podman load < ${lrclibImage}"
+```
+
+Change `lrclibBuildOverride` to use the pre-loaded image (no build context):
+```nix
+lrclibBuildOverride = pkgs.writeText "musicbrainz-lrclib-image.yml" ''
+  services:
+    lrclib:
+      image: lrclib-nix:latest
+'';
+```
+
+Remove lrclib from the compose `build` step (it's pre-loaded, not built by compose).
+
+### Remaining lmd-settings.yml (already in place):
 ```yaml
-services:
   lrclib:
-    image: ghcr.io/tranxuanthang/lrclib:latest
     container_name: musicbrainz-lrclib-1
     ports:
       - "3300:3300"
     volumes:
       - lrclib-data:/data
     restart: unless-stopped
-
-volumes:
-  lrclib-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /mnt/docker/musicbrainz/volumes/lrclib
-      o: bind
 ```
 
-Add `"d ${volumeBase}/lrclib 0755 abl030 users -"` to tmpfiles.rules.
-Add `3300` to firewallPorts.
+Volume definition + tmpfiles rule + port 3300 + Kuma monitor already added.
 
 Monthly dump refresh (~19GB): download from https://lrclib.net/db-dumps and replace the
 SQLite file in the volume. No incremental updates exist — maintainer uploads full dumps
