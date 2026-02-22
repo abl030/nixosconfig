@@ -18,6 +18,19 @@
         _RELOAD_FLAKE_PATH="${config.home.homeDirectory}/nixosconfig#"
         export STARSHIP_CONFIG="${config.home.homeDirectory}/.config/starship.toml"
 
+        # Make cd resilient for environments where zoxide functions may not
+        # be fully captured (e.g. Claude Code shell snapshots).
+        # _ZO_DOCTOR=0 is set inside the function because shell snapshots
+        # don't preserve variables, only functions/aliases/PATH.
+        function cd() {
+          _ZO_DOCTOR=0
+          if (( ''${+functions[__zoxide_z]} )); then
+            __zoxide_z "$@"
+          else
+            builtin cd "$@"
+          fi
+        }
+
         # Bind Tab-Tab to accept the current autosuggestion.
         bindkey '^I^I' autosuggest-accept
 
