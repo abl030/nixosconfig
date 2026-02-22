@@ -56,8 +56,15 @@
     path = ./overrides/lmd-settings.yml;
     name = "musicbrainz-lmd-settings.yml";
   };
+  replicationTokenOverride = builtins.path {
+    path = ./overrides/replication-token.yml;
+    name = "musicbrainz-replication-token.yml";
+  };
 
   encEnv = config.homelab.secrets.sopsFile "musicbrainz.env";
+
+  # Replication token as a standalone sops secret (file format for container mount)
+  replicationTokenSecretName = "musicbrainz-replication-token";
 
   podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
 
@@ -111,6 +118,15 @@
       psql -U abc -d lm_cache_db < ${lmCacheInitSql}
   '';
 in {
+  # Replication token: extracted as a standalone file for container bind-mount
+  sops.secrets.${replicationTokenSecretName} = {
+    sopsFile = encEnv;
+    format = "dotenv";
+    key = "REPLICATION_ACCESS_TOKEN";
+    owner = config.homelab.user;
+    mode = "0440";
+  };
+
   systemd.tmpfiles.rules = [
     "d ${volumeBase}/mqdata    0755 abl030 users -"
     "d ${volumeBase}/pgdata    0755 abl030 users -"
@@ -127,7 +143,7 @@ in {
       description = "MusicBrainz Mirror + LMD Stack";
       inherit projectName;
       composeFile = baseCompose;
-      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride lrclibImageOverride];
+      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride lrclibImageOverride replicationTokenOverride];
       restartTriggers = ["${lrclibImage}"];
       composeArgs = "--project-name ${projectName}";
       envFiles = [
