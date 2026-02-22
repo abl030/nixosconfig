@@ -26,7 +26,7 @@
     tag = "latest";
     contents = [lrclibPkg pkgs.cacert];
     config = {
-      Cmd = ["${lrclibPkg}/bin/lrclib" "serve" "--port" "3300"];
+      Cmd = ["${lrclibPkg}/bin/lrclib" "serve" "--port" "3300" "--database" "/data/db.sqlite3"];
       ExposedPorts = {"3300/tcp" = {};};
       Volumes = {"/data" = {};};
     };
