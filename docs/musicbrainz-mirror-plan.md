@@ -7,32 +7,45 @@ Guide: https://github.com/blampe/hearring-aid/blob/main/docs/self-hosted-mirror-
 
 musicbrainz-docker requires `podman compose build` for custom images (Solr with MB cores,
 Postgres with pg_amqp). Build is fast (layer-cached), data lives in bind-mount volumes and
-is completely unaffected by rebuilds. Rebuilding images every ~10 days when upstream releases
-is acceptable.
+is completely unaffected by rebuilds. Rebuilding images every ~10 days on upstream releases
+is fine — the build is a no-op when layers are cached.
 
-**Chosen approach**: Flake input + multi-file compose.
+**Chosen approach**: Flake input + `mkService` with `extraComposeFiles` extension.
 
 - `musicbrainz-docker` added as `flake = false` input in `flake.nix`, floats on `master`
-- Base compose comes from `${inputs.musicbrainz-docker}/docker-compose.yml`
-- Build contexts (`build: build/solr` etc.) resolve relative to the compose file in the Nix
-  store — read-only is fine, they just read Dockerfiles
-- Override files (postgres, memory, volumes, lmd) live in `stacks/musicbrainz/overrides/`
-  tracked in nixosconfig, passed as `builtins.path`
-- Custom systemd unit (not mkService — needs ExecStartPre build + multi-file -f flags)
-- Sops secret `musicbrainz.env` for API keys
+- Base compose: `${inputs.musicbrainz-docker}/docker-compose.yml` — in Nix store, read-only
+  is fine, build contexts resolve relative to the compose file location
+- Override files in `stacks/musicbrainz/overrides/`, passed via new `extraComposeFiles` param
+- `stacks/lib/podman-compose.nix` tweaked to accept `extraComposeFiles ? []` — appends
+  additional `-f` flags after the base `-f ${composeFile}` in all compose invocations
+- Build step added via existing `preStart` list: `podman compose ... build`
+- Uses standard `mkService` pattern — Home Manager user service, sops via `envFiles`,
+  same as every other stack
+- `--project-name musicbrainz` for predictable container names (needed by reindex timer)
 - Volume bind mounts at `/mnt/docker/musicbrainz/volumes/` on doc1
+
+## How Sops Works in Our Setup (for reference)
+
+All stacks are **Home Manager user services** (`home-manager.users.${user}.systemd.user.services`).
+`mkService` creates `sops.secrets` entries with `owner = user` — sops-nix decrypts as root
+but the file is readable by the user. An `ExecStartPre` script (`resolveEnvPaths`) finds the
+decrypted path and writes it to `${XDG_RUNTIME_DIR}/secrets/${stackName}.env-paths`. The main
+compose script reads that file and passes `--env-file <path>` to podman compose. Compose talks
+to the user's rootless podman socket via `CONTAINER_HOST=unix://${runUserDir}/podman/podman.sock`.
+No special handling needed — just pass `envFiles` to `mkService` as normal.
 
 ## Files to Create/Edit
 
 - [ ] `flake.nix` — add musicbrainz-docker input
-- [ ] `stacks/musicbrainz/docker-compose.nix` — NixOS module with systemd unit
+- [ ] `stacks/lib/podman-compose.nix` — add `extraComposeFiles ? []` parameter
+- [ ] `stacks/musicbrainz/docker-compose.nix` — mkService call
 - [ ] `stacks/musicbrainz/overrides/postgres-settings.yml`
 - [ ] `stacks/musicbrainz/overrides/memory-settings.yml`
 - [ ] `stacks/musicbrainz/overrides/volume-settings.yml`
 - [ ] `stacks/musicbrainz/overrides/lmd-settings.yml`
+- [ ] `modules/nixos/homelab/containers/stacks.nix` — register musicbrainz stack
+- [ ] `hosts.nix` — add "musicbrainz" to proxmox-vm containerStacks, update disk to 400G
 - [ ] `secrets/musicbrainz.env` — sops encrypted (via `/sops-decrypt` skill)
-- [ ] `hosts/proxmox-vm/configuration.nix` — import stacks/musicbrainz/docker-compose.nix
-- [ ] `hosts.nix` — update proxmox-vm disk to 400G
 - [ ] `stacks/music/docker-compose.yml` — switch lidarr:latest → lidarr:nightly (backup first)
 
 ## Step 0: Disk Expansion (prerequisite, do first)
@@ -43,14 +56,14 @@ doc1 currently: 250G disk, 53GB free. Needs ~120GB+ for MB+LRCLIB.
 # Resize Proxmox disk (from local machine):
 /home/abl030/nixosconfig/vms/proxmox-ops.sh resize 104 scsi0 +150G
 
-# Grow partition + filesystem online on doc1 (NixOS uses ext4 on sda2):
+# Grow partition + filesystem online on doc1 (ext4 on sda2):
 ssh doc1
 sudo growpart /dev/sda 2
 sudo resize2fs /dev/sda2
 df -h /  # verify — should show ~400G
 ```
 
-Then update `hosts.nix`: `disk = "400G";`
+Update `hosts.nix`: `disk = "400G";`
 
 ## Step 1: flake.nix — Add Input
 
@@ -64,13 +77,37 @@ inputs = {
 };
 ```
 
-Pass it through in `nix/lib.nix` specialArgs so modules can access `inputs.musicbrainz-docker`.
-(Already done for all inputs via `inherit inputs;` in specialArgs — check lib.nix to confirm.)
+`inputs` is already passed through to all modules via `inherit inputs;` in `nix/lib.nix`
+specialArgs — no other plumbing needed.
 
-## Step 2: Override Files
+## Step 2: Extend podman-compose.nix
 
-These live in `stacks/musicbrainz/overrides/` in our repo.
-Volume paths use `/mnt/docker/musicbrainz/` (not `/opt/docker/musicbrainz-docker/` from guide).
+In `stacks/lib/podman-compose.nix`, add `extraComposeFiles ? []` to `mkService` args.
+Everywhere the script builds compose flags, append `-f` for each extra file after the base:
+
+```nix
+mkService = {
+  # ... existing args ...
+  extraComposeFiles ? [],   # <-- new
+  ...
+}: let
+  # Build a string of extra -f flags to append after the base composeFile
+  extraComposeFlags = lib.concatMapStringsSep " " (f: "-f ${f}") extraComposeFiles;
+  # ...
+  # In composeWithSystemdLabelScript, change every occurrence of:
+  #   ${podmanCompose} ${composeArgs} -f ${composeFile} ...
+  # to:
+  #   ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} ...
+```
+
+Occurrences to update in the script (lines ~262, 270, 273, 274, 277, 280):
+- The `config --services` call (for label injection)
+- The `up`, `update`, `reload`, `stop` cases
+
+## Step 3: Override Files
+
+`stacks/musicbrainz/overrides/` — tracked in nixosconfig.
+Volume paths use `/mnt/docker/musicbrainz/volumes/`.
 
 ### `overrides/postgres-settings.yml`
 ```yaml
@@ -186,10 +223,10 @@ services:
       - redis
 ```
 
-## Step 3: NixOS Module
+## Step 4: NixOS Module
 
-`stacks/musicbrainz/docker-compose.nix` — imported directly from
-`hosts/proxmox-vm/configuration.nix`, NOT via stackModules (non-standard build step).
+`stacks/musicbrainz/docker-compose.nix` — registered in `stacks.nix` + `hosts.nix` like any
+other stack. Uses `mkService` with the new `extraComposeFiles` param and a build `preStart`.
 
 ```nix
 {
@@ -199,64 +236,84 @@ services:
   inputs,
   ...
 }: let
-  mbSrc = inputs.musicbrainz-docker;
-  overridesDir = builtins.path {
-    path = ./overrides;
-    name = "musicbrainz-overrides";
+  stackName = "musicbrainz-stack";
+  projectName = "musicbrainz";
+
+  # Base compose from flake input — build contexts resolve relative to this path
+  baseCompose = "${inputs.musicbrainz-docker}/docker-compose.yml";
+
+  # Override files from our repo
+  mkOverride = name: builtins.path {
+    path = ./overrides/${name};
+    name = "musicbrainz-${name}";
   };
-  volumeBase = "/mnt/docker/musicbrainz/volumes";
+  postgresOverride = mkOverride "postgres-settings.yml";
+  memoryOverride   = mkOverride "memory-settings.yml";
+  volumeOverride   = mkOverride "volume-settings.yml";
+  lmdOverride      = mkOverride "lmd-settings.yml";
+
   encEnv = config.homelab.secrets.sopsFile "musicbrainz.env";
-  runEnv = "/run/user/%U/secrets/musicbrainz-stack.env";  # or system-level
 
-  composeFlags = lib.concatStringsSep " " [
-    "-f ${mbSrc}/docker-compose.yml"
-    "-f ${overridesDir}/postgres-settings.yml"
-    "-f ${overridesDir}/memory-settings.yml"
-    "-f ${overridesDir}/volume-settings.yml"
-    "-f ${overridesDir}/lmd-settings.yml"
+  podman = import ../lib/podman-compose.nix {inherit config lib pkgs;};
+
+  volumeBase = "/mnt/docker/musicbrainz/volumes";
+
+  # Build step — runs before up on every start (fast no-op when layers cached)
+  buildStep = let
+    extraFlags = lib.concatStringsSep " " [
+      "-f ${postgresOverride}"
+      "-f ${memoryOverride}"
+      "-f ${volumeOverride}"
+      "-f ${lmdOverride}"
+    ];
+  in [
+    "${pkgs.podman}/bin/podman compose --project-name ${projectName} -f ${baseCompose} ${extraFlags} build"
   ];
-
-  podman = "${pkgs.podman}/bin/podman";
 in {
-  sops.secrets."musicbrainz.env" = {
-    sopsFile = encEnv;
-    # Set owner/path appropriately
-  };
-
-  # Volume directories — must exist before service starts
+  # Volume directories
   systemd.tmpfiles.rules = [
-    "d ${volumeBase}/mqdata  0755 abl030 users -"
-    "d ${volumeBase}/pgdata  0755 abl030 users -"
+    "d ${volumeBase}/mqdata   0755 abl030 users -"
+    "d ${volumeBase}/pgdata   0755 abl030 users -"
     "d ${volumeBase}/solrdata 0755 abl030 users -"
-    "d ${volumeBase}/dbdump  0755 abl030 users -"
+    "d ${volumeBase}/dbdump   0755 abl030 users -"
     "d ${volumeBase}/solrdump 0755 abl030 users -"
     "d ${volumeBase}/lmdconfig 0755 abl030 users -"
   ];
 
-  networking.firewall.allowedTCPPorts = [ 5000 5001 ];
-
-  # NOTE: decide system vs. user service — see open questions below
-  systemd.user.services.musicbrainz-stack = {
-    description = "MusicBrainz + LMD Stack";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      EnvironmentFile = runEnv;
-      ExecStartPre = "${podman} compose ${composeFlags} build --pull";
-      ExecStart    = "${podman} compose ${composeFlags} up -d --remove-orphans";
-      ExecStop     = "${podman} compose ${composeFlags} down";
-      TimeoutStartSec = "600";  # build can take a few minutes
-    };
-    wantedBy = [ "default.target" ];
-  };
+  imports = [
+    (podman.mkService {
+      inherit stackName;
+      description = "MusicBrainz Mirror + LMD Stack";
+      inherit projectName;
+      composeFile = baseCompose;
+      extraComposeFiles = [ postgresOverride memoryOverride volumeOverride lmdOverride ];
+      composeArgs = "--project-name ${projectName}";
+      envFiles = [{
+        sopsFile = encEnv;
+        runFile = "/run/user/%U/secrets/${stackName}.env";
+      }];
+      preStart = buildStep;
+      firewallPorts = [ 5000 5001 ];
+      startupTimeoutSeconds = 600;  # build can take a few minutes first time
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+    })
+  ];
 }
 ```
 
-## Step 4: Sops Secret
+## Step 5: Register the Stack
 
-Create `secrets/musicbrainz.env` via `/sops-decrypt` skill with:
+In `stacks/lib/stacks.nix`, add:
+```nix
+musicbrainz = ../../../../stacks/musicbrainz/docker-compose.nix;
+```
+
+In `hosts.nix` proxmox-vm containerStacks, add `"musicbrainz"`.
+
+## Step 6: Sops Secret
+
+Create `secrets/musicbrainz.env` via `/sops-decrypt` skill:
 ```
 FANART_KEY=
 SPOTIFY_ID=
@@ -264,48 +321,51 @@ SPOTIFY_SECRET=
 LASTFM_KEY=
 LASTFM_SECRET=
 ```
-(MB replication token is set separately via the manual init process — not needed at runtime.)
+MB replication token is set separately during manual init — not a runtime secret.
 
-## Step 5: Manual Init (do once after first deploy)
+## Step 7: Manual Init (once, after first deploy)
+
+Container names are predictable: `musicbrainz-musicbrainz-1`, `musicbrainz-indexer-1`, etc.
+(project name `musicbrainz` + service name + instance number)
 
 ```bash
 ssh doc1
 
-# Build images first (also happens in ExecStartPre but do it explicitly first time):
-# Find the Nix store path for mbSrc — or just use the systemd service:
-systemctl --user start musicbrainz-stack  # triggers build + up
+# Start stack — triggers build then up:
+systemctl --user start musicbrainz-stack
 
 # Create DB (takes 1+ hour):
-# Need to identify the musicbrainz container name:
-podman ps | grep musicbrainz
-podman exec -it <musicbrainz-container> createdb.sh -fetch
+podman exec -it musicbrainz-musicbrainz-1 createdb.sh -fetch
 
 # Index Solr (takes several hours):
-podman exec -it <indexer-container> python -m sir reindex \
+podman exec -it musicbrainz-indexer-1 python -m sir reindex \
   --entity-type artist --entity-type release
 
-# Set replication token (from metabrainz.org/profile):
-podman exec -it <musicbrainz-container> bash
-# follow metabrainz docs for setting REPLICATION_ACCESS_TOKEN
+# Set replication token (from metabrainz.org/profile → access tokens):
+# The token goes into the container config — follow metabrainz docs:
+# https://github.com/metabrainz/musicbrainz-docker#replication
+podman exec -it musicbrainz-musicbrainz-1 bash
+# Inside container: set REPLICATION_ACCESS_TOKEN and run replication.sh
 
-# Run initial replication (use screen):
+# Run initial replication (use screen, takes hours):
 screen
-podman exec -it <musicbrainz-container> replication.sh
+podman exec -it musicbrainz-musicbrainz-1 replication.sh
+# Ctrl+A D to detach
 
 # After replication completes:
 systemctl --user stop musicbrainz-stack
 rm -rf /mnt/docker/musicbrainz/volumes/dbdump/*  # free ~6GB
 systemctl --user start musicbrainz-stack
 
-# Init LMD cache DB:
-podman exec -it <musicbrainz-container> bash -c "
+# Init LMD cache DB (one-time):
+podman exec -it musicbrainz-musicbrainz-1 bash -c "
   cd /tmp
   git clone https://github.com/Lidarr/LidarrAPI.Metadata.git
   psql postgres://abc:abc@db/musicbrainz_db -c 'CREATE DATABASE lm_cache_db;'
   psql postgres://abc:abc@db/musicbrainz_db \
     -f LidarrAPI.Metadata/lidarrmetadata/sql/CreateIndices.sql
 "
-podman exec musicbrainz-stack_lmd_1 restart  # or restart whole stack
+systemctl --user restart musicbrainz-stack
 ```
 
 ### Validate:
@@ -314,28 +374,33 @@ curl http://192.168.1.29:5001/artist/1921c28c-ec61-4725-8e35-38dd656f7923 | jq .
 # → "I Prevail"
 ```
 
-## Step 6: Weekly Solr Reindex (add to NixOS)
+## Step 8: Weekly Solr Reindex Timer
 
-Add a systemd timer in the module:
+Add to `stacks/musicbrainz/docker-compose.nix` alongside the mkService import:
+
 ```nix
-systemd.user.services.musicbrainz-reindex = {
-  description = "MusicBrainz weekly Solr reindex";
-  serviceConfig = {
-    Type = "oneshot";
-    ExecStart = "${podman} exec musicbrainz-docker_indexer_1 \
-      python -m sir reindex --entity-type artist --entity-type release";
+home-manager.users.abl030.systemd.user = {
+  services.musicbrainz-reindex = {
+    Unit.Description = "MusicBrainz weekly Solr reindex";
+    Service = {
+      Type = "oneshot";
+      Environment = [ "XDG_RUNTIME_DIR=/run/user/1000" "CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock" ];
+      ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 \
+        python -m sir reindex --entity-type artist --entity-type release";
+    };
   };
-};
-systemd.user.timers.musicbrainz-reindex = {
-  timerConfig = {
-    OnCalendar = "Sun 01:00";
-    Persistent = true;
+  timers.musicbrainz-reindex = {
+    Unit.Description = "MusicBrainz weekly Solr reindex timer";
+    Timer = {
+      OnCalendar = "Sun 01:00";
+      Persistent = true;
+    };
+    Install.WantedBy = [ "timers.target" ];
   };
-  wantedBy = [ "timers.target" ];
 };
 ```
 
-## Step 7: Switch Lidarr to Nightly
+## Step 9: Switch Lidarr to Nightly
 
 **Backup first:**
 ```bash
@@ -345,66 +410,54 @@ cp -r /mnt/docker/music/lidarr /mnt/docker/music/lidarr.bak-$(date +%Y%m%d)
 
 In `stacks/music/docker-compose.yml`:
 ```yaml
-# FROM:
-image: lscr.io/linuxserver/lidarr:latest
-# TO:
-image: lscr.io/linuxserver/lidarr:nightly
+image: lscr.io/linuxserver/lidarr:nightly  # was :latest
 ```
 
-Restart music-stack. One-way migration — DB schema upgrades automatically.
+Deploy. One-way DB migration — Lidarr upgrades schema automatically on first start.
 
-## Step 8: Tubifarry Plugin + Configure LMD
+## Step 10: Tubifarry Plugin + Configure LMD
 
 In Lidarr web UI (`https://lidarr.ablz.au`):
 1. System → Plugins → Install: `https://github.com/TypNull/Tubifarry`
-2. Restart
+2. Restart Lidarr
 3. System → Plugins → Install develop branch: `https://github.com/TypNull/Tubifarry/tree/develop`
-4. Restart
+4. Restart Lidarr
 5. Settings → Metadata → Metadata Consumers → Lidarr Custom
 6. Check both boxes, URL: `http://192.168.1.29:5001`
 7. Save + restart
 
-## Step 9: LRCLIB
+## Step 11: LRCLIB
 
-Simplest — add as another service in `overrides/lmd-settings.yml` (rename to
-`overrides/extras-settings.yml`), or a standalone podman run wrapped in its own
-tiny systemd unit.
+Add as a service in `overrides/lmd-settings.yml` (or a separate override file):
 
-```bash
-# Quick standalone approach:
-podman run -d \
-  --name lrclib \
-  -v lrclib-data:/data \
-  -p 3300:3300 \
-  --restart unless-stopped \
-  ghcr.io/tranxuanthang/lrclib:latest
+```yaml
+services:
+  lrclib:
+    image: ghcr.io/tranxuanthang/lrclib:latest
+    container_name: musicbrainz-lrclib-1
+    ports:
+      - "3300:3300"
+    volumes:
+      - lrclib-data:/data
+    restart: unless-stopped
+
+volumes:
+  lrclib-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/docker/musicbrainz/volumes/lrclib
+      o: bind
 ```
 
-Monthly cron to refresh dump (~19GB, maintainer uploads manually ~monthly):
-```bash
-# Download latest from https://lrclib.net/db-dumps and replace volume
-```
+Add `"d ${volumeBase}/lrclib 0755 abl030 users -"` to tmpfiles.rules.
+Add `3300` to firewallPorts.
 
-Open port 3300 in NixOS firewall. Update tagging agent config to use
-`http://192.168.1.29:3300`.
+Monthly dump refresh (~19GB): download from https://lrclib.net/db-dumps and replace the
+SQLite file in the volume. No incremental updates exist — maintainer uploads full dumps
+manually ~monthly.
 
-## Open Questions (resolve before implementing module)
-
-1. **System vs user service**: User services can't easily access sops secrets at `/run/secrets/`
-   (sops-nix puts them there as root). Options:
-   - Use system-level `systemd.services` with `User = "abl030"` — sops secrets accessible
-   - Or use `homelab.secrets.sopsFile` pattern used by other stacks (check how music-stack does it)
-   - Check: does music-stack use system or user services? → it uses user services with
-     `/run/user/%U/secrets/` path via sops `owner` setting
-
-2. **Container names**: With multi-file `-f` compose, the project name determines container names.
-   Default project name comes from `--project-directory` or the first compose file's directory
-   name. May need `--project-name musicbrainz` to get predictable names for the exec commands
-   in the reindex timer.
-
-3. **`--pull` flag on build**: `podman compose build --pull` forces re-pulling base images on
-   each start. Probably want this so we get upstream image updates, but adds latency. Consider
-   only pulling on explicit updates vs. every start.
+Update tagging agent to use `http://192.168.1.29:3300` instead of `https://lrclib.net`.
 
 ## API Keys Needed
 
@@ -413,4 +466,4 @@ Open port 3300 in NixOS firewall. Update tagging agent config to use
 | Fanart.tv | fanart.tv → Profile → API Key (free) |
 | Spotify | developer.spotify.com → Create app → Client ID + Secret |
 | Last.fm | last.fm/api/account/create (free) |
-| MusicBrainz replication | metabrainz.org/supporters → account-type → profile → token |
+| MusicBrainz replication | metabrainz.org/supporters → account-type → profile → access tokens |
