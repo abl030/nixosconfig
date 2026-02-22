@@ -17,6 +17,7 @@
     loki = ../../../../stacks/loki/docker-compose.nix;
     mealie = ../../../../stacks/mealie/docker-compose.nix;
     music = ../../../../stacks/music/docker-compose.nix;
+    musicbrainz = ../../../../stacks/musicbrainz/docker-compose.nix;
     netboot = ../../../../stacks/netboot/docker-compose.nix;
     openobserve = ../../../../stacks/openobserve/docker-compose.nix;
     paperless = ../../../../stacks/paperless/docker-compose.nix;

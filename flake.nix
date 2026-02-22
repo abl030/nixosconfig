@@ -85,6 +85,11 @@
       flake = false;
     };
 
+    musicbrainz-docker = {
+      url = "github:metabrainz/musicbrainz-docker";
+      flake = false;
+    };
+
     # Claude Code plugins
     claude-plugin-ha-skills = {
       url = "github:homeassistant-ai/skills";

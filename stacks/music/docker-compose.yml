@@ -24,7 +24,7 @@ services:
   # Lidarr
   # ---------------------------------------------------------------
   lidarr:
-    image: lscr.io/linuxserver/lidarr:latest
+    image: lscr.io/linuxserver/lidarr:nightly
     container_name: lidarr
     environment:
       # Rootless podman: PUID=0 maps to host user

@@ -1,0 +1,14 @@
+services:
+  musicbrainz:
+    environment:
+      POSTGRES_USER: "abc"
+      POSTGRES_PASSWORD: "abc"
+      MUSICBRAINZ_WEB_SERVER_HOST: "192.168.1.29"
+  db:
+    environment:
+      POSTGRES_USER: "abc"
+      POSTGRES_PASSWORD: "abc"
+  indexer:
+    environment:
+      POSTGRES_USER: "abc"
+      POSTGRES_PASSWORD: "abc"

@@ -1,0 +1,62 @@
+volumes:
+  lmdconfig:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/docker/musicbrainz/volumes/lmdconfig
+      o: bind
+  lrclib-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/docker/musicbrainz/volumes/lrclib
+      o: bind
+
+services:
+  lmd:
+    image: blampe/lidarr.metadata:70a9707
+    ports:
+      - "5001:5001"
+    environment:
+      DEBUG: "false"
+      PRODUCTION: "false"
+      USE_CACHE: "true"
+      ENABLE_STATS: "false"
+      ROOT_PATH: ""
+      IMAGE_CACHE_HOST: "theaudiodb.com"
+      EXTERNAL_TIMEOUT: "1000"
+      INVALIDATE_APIKEY: ""
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      FANART_KEY: "${FANART_KEY}"
+      PROVIDERS__FANARTTVPROVIDER__0__0: "${FANART_KEY}"
+      SPOTIFY_ID: "${SPOTIFY_ID}"
+      SPOTIFY_SECRET: "${SPOTIFY_SECRET}"
+      SPOTIFY_REDIRECT_URL: "http://192.168.1.29:5001"
+      PROVIDERS__SPOTIFYPROVIDER__1__CLIENT_ID: "${SPOTIFY_ID}"
+      PROVIDERS__SPOTIFYPROVIDER__1__CLIENT_SECRET: "${SPOTIFY_SECRET}"
+      PROVIDERS__SPOTIFYAUTHPROVIDER__1__CLIENT_ID: "${SPOTIFY_ID}"
+      PROVIDERS__SPOTIFYAUTHPROVIDER__1__CLIENT_SECRET: "${SPOTIFY_SECRET}"
+      PROVIDERS__SPOTIFYAUTHPROVIDER__1__REDIRECT_URI: "http://192.168.1.29:5001"
+      TADB_KEY: "2"
+      PROVIDERS__THEAUDIODBPROVIDER__0__0: "2"
+      LASTFM_KEY: "${LASTFM_KEY}"
+      LASTFM_SECRET: "${LASTFM_SECRET}"
+      PROVIDERS__SOLRSEARCHPROVIDER__1__SEARCH_SERVER: "http://search:8983/solr"
+    restart: unless-stopped
+    volumes:
+      - lmdconfig:/config
+    depends_on:
+      - db
+      - mq
+      - search
+      - redis
+
+  lrclib:
+    image: ghcr.io/tranxuanthang/lrclib:latest
+    container_name: musicbrainz-lrclib-1
+    ports:
+      - "3300:3300"
+    volumes:
+      - lrclib-data:/data
+    restart: unless-stopped

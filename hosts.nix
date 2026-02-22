@@ -125,12 +125,13 @@ in {
       "uptime-kuma"
       "webdav"
       "youtarr"
+      "musicbrainz"
     ];
     proxmox = {
       vmid = 104;
       cores = 8;
       memory = 32000;
-      disk = "250G";
+      disk = "400G";
       name = "Doc1";
       bios = "ovmf";
       cpuType = "x86-64-v3";

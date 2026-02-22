@@ -82,6 +82,7 @@
     after ? [],
     wants ? [],
     requires ? [],
+    extraComposeFiles ? [],
     composeArgs ? "",
     prunePod ? true,
     restart ? "no",
@@ -94,6 +95,7 @@
     startupTimeoutSeconds ? 120,
   }: let
     userServiceName = stackName;
+    extraComposeFlags = lib.concatMapStringsSep " " (f: "-f ${f}") extraComposeFiles;
     envPathListFile = "${runUserDir}/secrets/${stackName}.env-paths";
     envFileSpecs =
       lib.imap0
@@ -183,6 +185,7 @@
       ([
           composeFile
         ]
+        ++ extraComposeFiles
         ++ (map (env: env.sopsFile) (lib.filter (env: env ? sopsFile) envFileSpecs))
         ++ restartTriggers);
     stackSecrets = lib.listToAttrs (map (env: {
@@ -259,7 +262,7 @@
       trap cleanup EXIT
 
       printf "services:\n" > "$override_file"
-      ${podmanCompose} ${composeArgs} -f ${composeFile} "''${env_args[@]}" config --services \
+      ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} "''${env_args[@]}" config --services \
         | while read -r svc; do
           [ -n "$svc" ] || continue
           printf "  %s:\n    labels:\n      PODMAN_SYSTEMD_UNIT: \"%s.service\"\n" "$svc" "${userServiceName}" >> "$override_file"
@@ -267,17 +270,17 @@
 
       case "$mode" in
         up)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
         update)
-          ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" pull "$@"
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
+          ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} -f "$override_file" "''${env_args[@]}" pull "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
         reload)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} -f "$override_file" "''${env_args[@]}" up -d --remove-orphans "$@"
           ;;
         stop)
-          exec ${podmanCompose} ${composeArgs} -f ${composeFile} -f "$override_file" "''${env_args[@]}" stop "$@"
+          exec ${podmanCompose} ${composeArgs} -f ${composeFile} ${extraComposeFlags} -f "$override_file" "''${env_args[@]}" stop "$@"
           ;;
         *)
           echo "Unknown mode: $mode" >&2
