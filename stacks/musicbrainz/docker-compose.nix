@@ -67,6 +67,49 @@
   buildStep = [
     "${pkgs.podman}/bin/podman load --input ${lrclibImage}"
   ];
+
+  # LMD cache DB schema — idempotent, piped into the MB postgres instance post-start
+  lmCacheInitSql = pkgs.writeText "lm-cache-init.sql" ''
+    -- LMD cache schema (idempotent)
+    CREATE OR REPLACE FUNCTION cache_updated() RETURNS TRIGGER AS $body$
+    BEGIN NEW.updated = current_timestamp; RETURN NEW; END;
+    $body$ LANGUAGE plpgsql;
+
+    DO $init$
+    DECLARE t text;
+    BEGIN
+      FOREACH t IN ARRAY ARRAY['fanart','tadb','wikipedia','artist','album','spotify'] LOOP
+        EXECUTE format('CREATE TABLE IF NOT EXISTS %I (key varchar PRIMARY KEY, expires timestamptz, updated timestamptz DEFAULT current_timestamp, value bytea)', t);
+        EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(expires)', t || '_expires_idx', t);
+        EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(updated DESC) INCLUDE (key)', t || '_updated_idx', t);
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = t || '_updated_trigger') THEN
+          EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON %I FOR EACH ROW WHEN (OLD.value IS DISTINCT FROM NEW.value) EXECUTE PROCEDURE cache_updated()', t || '_updated_trigger', t);
+        END IF;
+      END LOOP;
+    END
+    $init$;
+  '';
+
+  lmCacheInitStep = pkgs.writeShellScript "lm-cache-db-init" ''
+    set -euo pipefail
+
+    # Wait up to 60s for postgres to be ready
+    for i in $(seq 1 30); do
+      ${pkgs.podman}/bin/podman exec musicbrainz-db-1 psql -U abc -c "SELECT 1" >/dev/null 2>&1 && break
+      sleep 2
+    done
+
+    # Create lm_cache_db if not present
+    db_exists=$(${pkgs.podman}/bin/podman exec musicbrainz-db-1 \
+      psql -U abc -tAc "SELECT 1 FROM pg_database WHERE datname='lm_cache_db'" 2>/dev/null || true)
+    if [ -z "$db_exists" ]; then
+      ${pkgs.podman}/bin/podman exec musicbrainz-db-1 psql -U abc -c "CREATE DATABASE lm_cache_db"
+    fi
+
+    # Apply schema (fully idempotent)
+    ${pkgs.podman}/bin/podman exec -i musicbrainz-db-1 \
+      psql -U abc -d lm_cache_db < ${lmCacheInitSql}
+  '';
 in {
   systemd.tmpfiles.rules = [
     "d ${volumeBase}/mqdata    0755 abl030 users -"
@@ -94,6 +137,7 @@ in {
         }
       ];
       preStart = buildStep;
+      postStart = ["${lmCacheInitStep}"];
       extraEnv = ["MUSICBRAINZ_WEB_SERVER_PORT=5200"];
       firewallPorts = [5200 5001 3300];
       stackMonitors = [
