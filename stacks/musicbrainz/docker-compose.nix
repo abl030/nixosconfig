@@ -11,6 +11,13 @@
   # Base compose from flake input — build contexts resolve relative to this path
   baseCompose = "${inputs.musicbrainz-docker}/docker-compose.yml";
 
+  # lrclib has no public Docker image — build from source (flake input)
+  lrclibBuildOverride = pkgs.writeText "musicbrainz-lrclib-build.yml" ''
+    services:
+      lrclib:
+        build: ${inputs.lrclib-src}
+  '';
+
   # Override files from our repo — isolated via builtins.path for stable store paths
   postgresOverride = builtins.path {
     path = ./overrides/postgres-settings.yml;
@@ -37,7 +44,7 @@
 
   # Build step — runs before up on every start (fast no-op when layers cached)
   buildStep = [
-    "${pkgs.podman}/bin/podman compose --project-name ${projectName} -f ${baseCompose} -f ${postgresOverride} -f ${memoryOverride} -f ${volumeOverride} -f ${lmdOverride} build"
+    "${pkgs.podman}/bin/podman compose --project-name ${projectName} -f ${baseCompose} -f ${postgresOverride} -f ${memoryOverride} -f ${volumeOverride} -f ${lmdOverride} -f ${lrclibBuildOverride} build"
   ];
 in {
   systemd.tmpfiles.rules = [
@@ -56,7 +63,7 @@ in {
       description = "MusicBrainz Mirror + LMD Stack";
       inherit projectName;
       composeFile = baseCompose;
-      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride];
+      extraComposeFiles = [postgresOverride memoryOverride volumeOverride lmdOverride lrclibBuildOverride];
       composeArgs = "--project-name ${projectName}";
       envFiles = [
         {
@@ -66,6 +73,16 @@ in {
       ];
       preStart = buildStep;
       firewallPorts = [5000 5001 3300];
+      stackMonitors = [
+        {
+          name = "LMD (Lidarr Metadata)";
+          url = "http://192.168.1.29:5001/";
+        }
+        {
+          name = "LRCLIB";
+          url = "http://192.168.1.29:3300/";
+        }
+      ];
       startupTimeoutSeconds = 600;
       after = ["network-online.target"];
       wants = ["network-online.target"];
