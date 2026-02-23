@@ -202,5 +202,26 @@ in {
       };
       Install.WantedBy = ["timers.target"];
     };
+
+    services.musicbrainz-replication = {
+      Unit.Description = "MusicBrainz daily replication";
+      Service = {
+        Type = "oneshot";
+        Environment = [
+          "XDG_RUNTIME_DIR=/run/user/1000"
+          "CONTAINER_HOST=unix:///run/user/1000/podman/podman.sock"
+        ];
+        ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh";
+        TimeoutStartSec = "3600";
+      };
+    };
+    timers.musicbrainz-replication = {
+      Unit.Description = "MusicBrainz daily replication timer";
+      Timer = {
+        OnCalendar = "*-*-* 03:00:00";
+        Persistent = true;
+      };
+      Install.WantedBy = ["timers.target"];
+    };
   };
 }
