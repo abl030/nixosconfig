@@ -34,7 +34,7 @@ compose script reads that file and passes `--env-file <path>` to podman compose.
 to the user's rootless podman socket via `CONTAINER_HOST=unix://${runUserDir}/podman/podman.sock`.
 No special handling needed — just pass `envFiles` to `mkService` as normal.
 
-## Current Status (2026-02-22)
+## Current Status (2026-02-23)
 
 ### Completed
 - ✅ Steps 0–9: disk expanded, flake inputs, podman-compose.nix, stack files, secrets, Lidarr nightly
@@ -44,17 +44,26 @@ No special handling needed — just pass `envFiles` to `mkService` as normal.
 - ✅ lm_cache_db: created + schema applied idempotently via `postStart` script
 - ✅ Replication token: preStart extracts token from env file → bind-mount into container
 - ✅ All API keys verified: Fanart.tv (18 images), Spotify (auth OK), Last.fm, TADB, LRCLIB lyrics
-- ✅ Initial replication: running (catching up from dump date)
-- ✅ Kuma monitors: LMD :5001, LRCLIB :3300
+- ✅ Initial replication: complete (sequence 183955, last replicated 2026-02-22 12:00 UTC)
+- ✅ Kuma monitors: LMD :5001, LRCLIB :3300 — all green
+- ✅ Step 14: dbdump cleaned up (freed ~7GB)
+- ✅ Step 12: Daily replication timer deployed (musicbrainz-replication.timer, fires 03:00 AWST)
+- ✅ Step 10/15 Part A: LMD wired into Lidarr via `metadatasource` SQLite key
+  - `Config` row: `metadatasource = http://192.168.1.29:5001/`
+  - No plugin needed — Lidarr appends `/artist/{id}`, `/album/{id}`, `/search?...` to base URL
+  - LMD verified serving all three endpoint shapes
 
-### Remaining (Steps 10, 12, 13, 14)
-- ⏳ Step 10: Tubifarry plugin + configure LMD/LRCLIB endpoints in Lidarr
-- ⏳ Step 12: Daily replication timer (automation)
+### Remaining
+- ⏳ Step 10/15 Part B: Tubifarry plugin install (UI-only, adds LRCLIB lyrics fetching)
+  - System → Plugins → `https://github.com/TypNull/Tubifarry` → Install → Restart
+  - Settings → Metadata → enable Lyrics Fetcher (create LRC files + embed)
+  - Note: Tubifarry v2.0.x has no custom LRCLIB URL — it hits lrclib.net, not our local instance
+  - Local LRCLIB remains available for other clients (Beets, players, etc.)
 - ⏳ Step 13: Monthly LRCLIB dump refresh automation
-- ⏳ Step 14: Clean up dump files after initial replication (~6GB in dbdump volume)
+  - BLOCKED on disk: ~23GB free, atomic swap needs ~97GB (78GB new db + 78GB old + 10GB zst)
+  - Options: VM disk expansion (+100G via proxmox-ops.sh) or in-place overwrite (no atomic safety)
 
-Next actions: Steps 10, 12, 13 in any order. Step 14 is a one-time cleanup once initial
-replication finishes.
+Next action: Tubifarry UI install (user-driven), then Step 13 disk planning.
 
 ## Files to Create/Edit
 
