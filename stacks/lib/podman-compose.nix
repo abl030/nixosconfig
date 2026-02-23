@@ -139,6 +139,27 @@
 
       if [ -n "$mismatch" ]; then
         ${podmanBin} rm -f --depend $ids
+        exit 0
+      fi
+
+      # Remove stopped/exited/created containers so compose up gets a clean slate.
+      # Persistent state lives in volumes; removing stopped containers loses nothing.
+      # Root cause: compose stop leaves containers in Exited state; compose up then
+      # fails to recreate the network-holder pod because dependent containers still
+      # exist. (Incident: 2026-02-24, music stack; untested fix.)
+      stopped_ids=$(
+        {
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --filter status=exited -q
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=exited -q
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --filter status=created -q
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=created -q
+          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --filter status=dead -q
+          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=dead -q
+        } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
+      )
+      if [ -n "$stopped_ids" ]; then
+        echo "Removing stopped/exited containers for project ${projectName} before compose up"
+        ${podmanBin} rm -f --depend $stopped_ids
       fi
     '';
     recreateIfLabelMismatch = [
