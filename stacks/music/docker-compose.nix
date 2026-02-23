@@ -66,13 +66,10 @@ in
         host = "lidarr.ablz.au";
         port = 8686;
       }
-      {
-        host = "slskd.ablz.au";
-        port = 5030;
-      }
+      # { host = "slskd.ablz.au"; port = 5030; } # disabled with slskd
     ];
     inherit preStart;
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8686 8085 5030 5031];
+    firewallPorts = [8686 8085]; # 5030 5031 (slskd) disabled
   }
