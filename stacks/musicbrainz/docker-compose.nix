@@ -173,7 +173,7 @@ in {
         }
         {
           name = "LRCLIB";
-          url = "http://192.168.1.29:3300/";
+          url = "http://192.168.1.29:3300/api/search?artist_name=Radiohead&track_name=Creep";
         }
       ];
       startupTimeoutSeconds = 600;
