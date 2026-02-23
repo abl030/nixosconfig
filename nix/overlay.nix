@@ -114,6 +114,21 @@
     }
   )
 
+  # plexamp overlay: pin to 4.12.3 — audio broken on Linux since 4.12.4
+  # https://forums.plex.tv/t/plexamp-flatpak-appimage-does-not-start-playback-until-audio-device-switched/929631
+  (
+    _final: prev: {
+      plexamp = prev.plexamp.overrideAttrs (_old: rec {
+        version = "4.12.3";
+        src = prev.fetchurl {
+          url = "https://plexamp.plex.tv/plexamp.plex.tv/desktop/Plexamp-${version}.AppImage";
+          name = "plexamp-${version}.AppImage";
+          hash = "sha512-gjOjk/JtHbhEDGzWH/bBtNd7qsYS97hBlPbRw7uWH/PCXD4urUWBrlihNWAOgYClVwl7nbrx/y7mhCrI2N6c1w==";
+        };
+      });
+    }
+  )
+
   # beads overlay: git-native issue tracker for AI agent memory
   # TODO: switch to inputs.beads.packages once upstream flake builds
   # (blocked by: dolthub/driver requires Go >= 1.25.6, nixpkgs has 1.25.5)
