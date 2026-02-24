@@ -1,0 +1,44 @@
+esphome:
+  name: daikin-ir
+  friendly_name: Daikin IR Controller
+
+esp32:
+  board: seeed_xiao_esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+    password: !secret daikin_ir_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Daikin-IR-Fallback"
+    password: !secret wifi_password
+
+captive_portal:
+
+# IR transmitter — GPIO3 on Smart IR Mate
+remote_transmitter:
+  pin: GPIO3
+  carrier_duty_percent: 50%
+
+# IR receiver — GPIO4 on Smart IR Mate (tracks physical remote usage)
+remote_receiver:
+  id: ir_receiver
+  pin:
+    number: GPIO4
+    inverted: true
+  idle: 25ms
+
+# Daikin climate entity — ARC466 uses standard Daikin protocol
+climate:
+  - platform: daikin
+    name: "Aircon"
+    receiver_id: ir_receiver
