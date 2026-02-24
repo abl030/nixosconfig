@@ -128,7 +128,7 @@
   security.rtkit.enable = true;
 
   users.users.abl030 = {
-    extraGroups = ["libvirtd" "vboxusers"];
+    extraGroups = ["libvirtd" "vboxusers" "dialout"];
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
