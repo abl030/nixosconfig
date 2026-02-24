@@ -294,6 +294,11 @@
     if [ ! -d "$DATA_DIR/.dolt" ]; then
       cd "$DATA_DIR" && dolt init
     fi
+
+    # Ensure the beads user exists so remote hosts can connect over Tailscale
+    cd "$DATA_DIR"
+    dolt sql -q "CREATE USER IF NOT EXISTS 'beads'@'%' IDENTIFIED BY 'beads';" || true
+    dolt sql -q "GRANT ALL PRIVILEGES ON *.* TO 'beads'@'%';" || true
   '';
 in {
   options.homelab.claudeCode = {
@@ -315,6 +320,12 @@ in {
       type = lib.types.listOf pluginType;
       default = [];
       description = "List of Claude Code plugins to install";
+    };
+
+    doltServer = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Whether this host runs the centralised Dolt SQL server for beads. Only doc1 should set this to true.";
     };
   };
 
@@ -420,8 +431,8 @@ in {
       '';
     };
 
-    # Dolt SQL server for beads issue tracking
-    systemd.user.services.dolt-server = {
+    # Dolt SQL server — only runs on the host designated as the central server (doc1)
+    systemd.user.services.dolt-server = lib.mkIf cfg.doltServer {
       Unit = {
         Description = "Dolt SQL server for beads";
         After = ["default.target"];
