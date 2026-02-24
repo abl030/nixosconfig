@@ -361,6 +361,16 @@ in {
         wantedBy = ["sockets.target"];
       };
 
+      # Kill orphaned rootlessport processes left behind when podman API service
+      # stops uncleanly (e.g. during nixos-upgrade systemd reload). Without this,
+      # the restarted podman socket hangs because stale processes hold network ports.
+      # See: nixosconfig-ccc
+      user.services.podman = {
+        serviceConfig = {
+          ExecStopPost = "-${pkgs.procps}/bin/pkill rootlessport";
+        };
+      };
+
       services = {
         podman-auto-update = lib.mkIf cfg.autoUpdate.enable {
           description = "Compose pull/redeploy updates (rootless)";
