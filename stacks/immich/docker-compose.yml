@@ -93,8 +93,6 @@ services:
       - ${DATA_ROOT}/AI/immich:/cache
     # env_file: .env <-- REMOVED
     restart: always
-    healthcheck:
-      disable: false
 
   redis:
     container_name: immich_redis

@@ -153,8 +153,6 @@
           ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=exited -q
           ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --filter status=created -q
           ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=created -q
-          ${podmanBin} ps -a --filter label=io.podman.compose.project=${projectName} --filter status=dead -q
-          ${podmanBin} ps -a --filter label=com.docker.compose.project=${projectName} --filter status=dead -q
         } | /run/current-system/sw/bin/awk 'NF' | /run/current-system/sw/bin/sort -u
       )
       if [ -n "$stopped_ids" ]; then
