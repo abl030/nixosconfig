@@ -178,6 +178,29 @@
 
   knownMarketplacesFile = pkgs.writeText "nix-known-marketplaces.json" knownMarketplacesJson;
   installedPluginsFile = pkgs.writeText "nix-installed-plugins.json" installedPluginsJson;
+
+  # Dolt data directory for beads — initialised lazily by ExecStartPre
+  doltDataDir = "${config.home.homeDirectory}/.local/share/dolt/beads";
+
+  doltInitScript = pkgs.writeShellScript "dolt-init" ''
+    set -euo pipefail
+    export PATH="${lib.makeBinPath [pkgs.coreutils pkgs.dolt pkgs.git]}:$PATH"
+    DATA_DIR="${doltDataDir}"
+    mkdir -p "$DATA_DIR"
+
+    # Set dolt identity if not already configured
+    if ! dolt config --global --get user.name >/dev/null 2>&1; then
+      dolt config --global --add user.name "$(git config user.name || echo "$USER")"
+    fi
+    if ! dolt config --global --get user.email >/dev/null 2>&1; then
+      dolt config --global --add user.email "$(git config user.email || echo "$USER@localhost")"
+    fi
+
+    # Init dolt repo if not already done
+    if [ ! -d "$DATA_DIR/.dolt" ]; then
+      cd "$DATA_DIR" && dolt init
+    fi
+  '';
 in {
   options.homelab.claudeCode = {
     enable = lib.mkEnableOption "Claude Code (package, settings, plugins)";
@@ -298,6 +321,22 @@ in {
           fi
         ''}
       '';
+    };
+
+    # Dolt SQL server for beads issue tracking
+    systemd.user.services.dolt-server = {
+      Unit = {
+        Description = "Dolt SQL server for beads";
+        After = ["default.target"];
+      };
+      Service = {
+        Type = "simple";
+        ExecStartPre = "${doltInitScript}";
+        ExecStart = "${pkgs.dolt}/bin/dolt sql-server --port 3307 --host 127.0.0.1 --data-dir ${doltDataDir}";
+        Restart = "on-failure";
+        RestartSec = 5;
+      };
+      Install.WantedBy = ["default.target"];
     };
   };
 }
