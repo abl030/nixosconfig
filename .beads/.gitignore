@@ -15,6 +15,10 @@ last-touched
 # Must not be committed as paths would be wrong in other clones
 redirect
 
+# Per-clone config (each host has different Dolt connection details)
+metadata.json
+dolt-config.log
+
 # Sync state (local-only, per-machine)
 # These files are machine-specific and should not be shared across clones
 .sync.lock
