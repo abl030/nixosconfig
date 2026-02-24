@@ -14,3 +14,16 @@ views:
     entity: sensor.garage_door_tilt_battery
     name: Garage Door Battery
     icon: mdi:battery
+  - type: tile
+    entity: climate.daikin_ir_controller_aircon
+    name: Aircon
+    icon: mdi:air-conditioner
+    features:
+    - type: climate-hvac-modes
+      hvac_modes:
+      - cool
+      - heat
+      - fan_only
+      - dry
+      - "off"
+    - type: target-temperature
