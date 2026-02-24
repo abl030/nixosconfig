@@ -130,17 +130,16 @@
   )
 
   # beads overlay: git-native issue tracker for AI agent memory
-  # TODO: switch to inputs.beads.packages once upstream flake builds
-  # (blocked by: dolthub/driver requires Go >= 1.25.6, nixpkgs has 1.25.5)
-  # Upstream issue: https://github.com/steveyegge/beads/issues/XXX
+  # TODO: drop overlay once nixpkgs beads catches up (currently 0.42.0, PR #483469 pending)
+  # Upstream flake broken: https://github.com/steveyegge/beads/issues/1373
   (
     final: _prev: {
       beads = final.stdenv.mkDerivation rec {
         pname = "beads";
-        version = "0.49.6";
+        version = "0.56.1";
         src = final.fetchurl {
           url = "https://github.com/steveyegge/beads/releases/download/v${version}/beads_${version}_linux_amd64.tar.gz";
-          hash = "sha256-hUbcmkfhHcMawryaAiSpxpCXXpGFCTLLtiYjBT+7fbg=";
+          hash = "sha256-T59sxERloRYT/1KQCZAeqvhBxrH5HBXgArDs2iAVoVw=";
         };
         sourceRoot = ".";
         installPhase = ''
