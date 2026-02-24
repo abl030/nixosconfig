@@ -36,8 +36,9 @@ remote_receiver:
     number: GPIO4
     inverted: true
   idle: 25ms
+  dump: all
 
-# Daikin climate entity — ARC466 uses standard Daikin protocol
+# Daikin climate entity — ARC466A40 uses standard DAIKIN 280-bit protocol
 climate:
   - platform: daikin
     name: "Aircon"
