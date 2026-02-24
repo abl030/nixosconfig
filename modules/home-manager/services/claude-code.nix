@@ -213,6 +213,7 @@ in {
         pkgs.slskd-mcp
         pkgs.vinsight-mcp
         pkgs.beads
+        pkgs.dolt
         pkgs.nodejs
       ];
 
