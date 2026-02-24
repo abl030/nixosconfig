@@ -15,8 +15,8 @@ views:
     name: Garage Door Battery
     icon: mdi:battery
   - type: tile
-    entity: climate.daikin_ir_controller_aircon
-    name: Aircon
+    entity: climate.living_room_aircon
+    name: Living Room Aircon
     icon: mdi:air-conditioner
     features:
     - type: climate-hvac-modes
