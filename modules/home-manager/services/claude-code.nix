@@ -320,6 +320,9 @@ in {
 
   config = lib.mkIf cfg.enable {
     home = {
+      # Beads Dolt password for connecting to doc1's centralised server
+      sessionVariables.BEADS_DOLT_PASSWORD = "beads";
+
       # Install claude-code and MCP server packages
       packages = [
         pkgs.claude-code
