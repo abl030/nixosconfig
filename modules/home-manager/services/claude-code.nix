@@ -13,50 +13,74 @@
 #   };
 #
 # ============================================================================
-# Beads Issue Tracking — Dolt Backend Setup
+# Beads Issue Tracking — Centralised Dolt Backend
 # ============================================================================
 #
 # This module installs beads (bd) and runs a Dolt SQL server as a user service.
 # Beads is the project's issue tracker — it replaces markdown TODOs, external
-# trackers, etc. All issues live in a Dolt database and sync across hosts via
-# a JSONL file on the `beads-sync` git branch.
+# trackers, etc.
 #
-# ## Architecture
+# ## Architecture (centralised model)
 #
-#   beads CLI (bd) ──> Dolt SQL server (port 3307) ──> ~/.local/share/dolt/beads/
-#                                                           │
-#   beads daemon ──> auto-commit/push/pull ──> .beads/issues.jsonl (beads-sync branch)
-#                                                           │
-#                                              git push/pull syncs across hosts
+# doc1 (proxmox-vm) runs the single Dolt SQL server. All other hosts connect
+# to it over Tailscale. There is no per-host database or JSONL sync.
 #
-# The Dolt server is a local MySQL-compatible database. Each host runs its own
-# instance. Sync happens through git: the beads daemon exports to JSONL, commits
-# to the beads-sync branch, and pushes. Other hosts pull and import.
+#   framework ──┐
+#   wsl ────────┤
+#   epimetheus ─┼──> doc1 dolt-server (100.89.160.60:3307) ──> ~/.local/share/dolt/beads/
+#   igpu ───────┤
+#   dev ────────┘
 #
-# ## Migration from SQLite to Dolt
+# The Dolt server binds 0.0.0.0:3307. Access is restricted to Tailscale — the
+# tailscale module sets trustedInterfaces = ["tailscale0"], so port 3307 is
+# reachable over Tailscale but NOT on the LAN.
 #
-# Previously beads used SQLite (.beads/beads.db). The Dolt backend was introduced
-# in commit db8a125. After rebuilding, each host needs one-time init:
+# The dolt-server systemd user service starts on every host that enables this
+# module, but only doc1's instance is the "source of truth". Other hosts can
+# either:
+#   a) Point bd at doc1's Tailscale IP (recommended), or
+#   b) Run a local dolt-server for offline work and sync later
 #
-#   1. Old .beads/beads.db files can be safely deleted after migration
-#   2. The JSONL on beads-sync branch is the migration vehicle — Dolt hydrates
-#      from it automatically via the daemon
+# ## Migration History
 #
-# ## Per-Host Setup (required once after first rebuild with this module)
+# 1. SQLite era: beads used .beads/beads.db per clone (fragile, no sync)
+# 2. Dolt + JSONL sync era (commit db8a125): each host ran local dolt-server,
+#    synced via JSONL on the beads-sync git branch
+# 3. Centralised Dolt era (current): single server on doc1, all hosts connect
+#    over Tailscale. The beads-sync branch and JSONL export are obsolete.
+#
+# Old .beads/beads.db SQLite files can be safely deleted.
+#
+# ## doc1 (server) Setup — already done
+#
+# doc1 runs dolt-server via this module. Data lives in ~/.local/share/dolt/beads/.
+# After rebuild, beads was initialised with:
+#
+#   cd ~/nixosconfig
+#   bd init --prefix nixosconfig
+#   # Selected: dolt backend, server mode, port 3307, host 127.0.0.1
+#   # Database name: beads_nixosconfig
+#
+#   bd hooks install --force
+#   bd config set beads.role maintainer
+#   bd config set daemon.auto-commit true
+#   bd config set daemon.auto-push true
+#   bd config set daemon.auto-pull true
+#   bd daemon stop . && bd daemon start
+#
+# ## Remote Host Setup (framework, wsl, epimetheus, igpu, dev, caddy)
 #
 # After `nixos-rebuild switch` or `home-manager switch` picks up this flake:
 #
-#   Step 1: Verify dolt-server is running
-#     systemctl --user status dolt-server
-#     # Should be active. If not: systemctl --user start dolt-server
-#
-#   Step 2: Init beads with Dolt backend
+#   Step 1: Init beads pointing at doc1's Dolt server
 #     cd ~/nixosconfig    # or wherever the repo is cloned
 #     bd init --prefix nixosconfig
-#     # Select: dolt backend, server mode, port 3307, host 127.0.0.1
+#     # Select: dolt backend, server mode
+#     # Port: 3307
+#     # Host: 100.89.160.60  (doc1's Tailscale IP)
 #     # Database name: beads_nixosconfig
 #
-#   Step 3: Install hooks and configure daemon sync
+#   Step 2: Install hooks and configure daemon
 #     bd hooks install --force
 #     bd config set beads.role maintainer
 #     bd config set daemon.auto-commit true
@@ -64,22 +88,22 @@
 #     bd config set daemon.auto-pull true
 #     bd daemon stop . && bd daemon start
 #
-#   Step 4: Verify
-#     bd stats    # Should show issues after daemon syncs from beads-sync branch
+#   Step 3: Verify
+#     bd stats    # Should show all issues immediately (reads from doc1)
 #     bd ready    # Should list available work
 #
 # ## Troubleshooting
 #
 #   - "LEGACY DATABASE" error: run `bd migrate --update-repo-id`
+#   - Can't connect to doc1: check `tailscale ping doc1` and that dolt-server
+#     is running on doc1: `ssh doc1 systemctl --user status dolt-server`
 #   - Daemon not syncing: check `bd daemon status`, restart with stop/start
-#   - Empty stats after init: daemon needs a moment to pull from beads-sync
-#     branch. If it stays empty, try `bd dolt pull` manually.
 #   - Dolt server won't start: check `journalctl --user -u dolt-server`
 #     Common cause: stale lock file in ~/.local/share/dolt/beads/
 #
-# ## Hosts migrated to Dolt
-#   - proxmox-vm (doc1) — 2026-02-24
-#   - All others pending — follow steps above after rebuild
+# ## Hosts configured
+#   - proxmox-vm (doc1) — server, 2026-02-24
+#   - All others — connect to doc1 as remote clients (pending setup)
 # ============================================================================
 {
   config,
@@ -402,7 +426,7 @@ in {
       Service = {
         Type = "simple";
         ExecStartPre = "${doltInitScript}";
-        ExecStart = "${pkgs.dolt}/bin/dolt sql-server --port 3307 --host 127.0.0.1 --data-dir ${doltDataDir}";
+        ExecStart = "${pkgs.dolt}/bin/dolt sql-server --port 3307 --host 0.0.0.0 --data-dir ${doltDataDir}";
         Restart = "on-failure";
         RestartSec = 5;
       };
