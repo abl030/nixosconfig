@@ -111,7 +111,7 @@ in {
         # We set the custom colors, then run the toggle command on startup
         "custom_background_color" = colors.background;
         "custom_text_color" = colors.foreground;
-        "startup_commands" = "toggle_custom_color";
+        "startup_commands" = ["toggle_custom_color"];
 
         # Visuals
         "ui_font" = "JetBrainsMono Nerd Font";
