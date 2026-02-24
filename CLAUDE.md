@@ -146,21 +146,28 @@ When recording a decision: create/update a bead, optionally add a one-line point
 
 ### Beads Per-Clone Setup
 
-Beads git hooks live in `.git/hooks/` (local, not tracked by git). **Every fresh clone needs setup:**
+Beads uses a centralised Dolt server on doc1. All hosts connect over Tailscale.
+See `modules/home-manager/services/claude-code.nix` for full architecture docs.
+
+**Every fresh clone needs setup:**
 
 ```bash
-bd hooks install          # Installs pre-commit, post-merge, pre-push, post-checkout hooks
+# Point at doc1's centralised Dolt server
+bd init --prefix nixosconfig \
+  --server-host 100.89.160.60 \
+  --server-port 3307 \
+  --server-user beads
+# Password is set automatically via BEADS_DOLT_PASSWORD env var
+
+bd hooks install --force    # Installs pre-commit, post-merge, pre-push, post-checkout hooks
 bd config set beads.role maintainer
-bd config set daemon.auto-commit true
-bd config set daemon.auto-push true
-bd config set daemon.auto-pull true
-bd daemon stop . && bd daemon start  # Restart daemon to pick up config
 bd migrate --update-repo-id  # Only if "LEGACY DATABASE" error appears
 ```
 
-Without hooks, `bd sync` must be run manually — beads created without syncing exist only in the local SQLite DB and will be lost if the clone is deleted. The hooks automate `bd sync` on commit/push so this can't happen silently.
+On doc1 itself, use `--server-host 127.0.0.1` instead.
 
-The daemon auto-commit/push/pull settings ensure beads changes are synced to the `beads-sync` branch automatically. Without these, the daemon runs but doesn't push, and beads stay local.
+Without hooks, JSONL won't be exported on commit — the hooks sync between Dolt and
+the git-tracked `.beads/issues.jsonl` file automatically.
 
 ## AI Tool Integration
 

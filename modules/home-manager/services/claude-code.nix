@@ -16,14 +16,14 @@
 # Beads Issue Tracking — Centralised Dolt Backend
 # ============================================================================
 #
-# This module installs beads (bd) and runs a Dolt SQL server as a user service.
+# This module installs beads (bd) and optionally runs a Dolt SQL server.
 # Beads is the project's issue tracker — it replaces markdown TODOs, external
 # trackers, etc.
 #
 # ## Architecture (centralised model)
 #
-# doc1 (proxmox-vm) runs the single Dolt SQL server. All other hosts connect
-# to it over Tailscale. There is no per-host database or JSONL sync.
+# doc1 (proxmox-vm) runs the single Dolt SQL server (doltServer = true).
+# All other hosts connect to it over Tailscale — they do NOT run dolt-server.
 #
 #   framework ──┐
 #   wsl ────────┤
@@ -35,11 +35,20 @@
 # tailscale module sets trustedInterfaces = ["tailscale0"], so port 3307 is
 # reachable over Tailscale but NOT on the LAN.
 #
-# The dolt-server systemd user service starts on every host that enables this
-# module, but only doc1's instance is the "source of truth". Other hosts can
-# either:
-#   a) Point bd at doc1's Tailscale IP (recommended), or
-#   b) Run a local dolt-server for offline work and sync later
+# Authentication: user "beads" / password "beads" (created by dolt-init script).
+# The BEADS_DOLT_PASSWORD env var is set automatically by this module.
+#
+# ## Data Flow
+#
+#   Dolt DB (doc1)  <-- live source of truth, all hosts read/write here
+#         |
+#   git hooks (pre-commit) --> export Dolt to .beads/issues.jsonl
+#   git hooks (post-merge) --> import .beads/issues.jsonl into Dolt
+#         |
+#   .beads/issues.jsonl  <-- git-tracked, portable backup, travels with repo
+#
+# The JSONL file IS still git-tracked and used by hooks. What's obsolete is
+# the old beads-sync branch and the daemon auto-push/pull to that branch.
 #
 # ## Migration History
 #
@@ -47,46 +56,36 @@
 # 2. Dolt + JSONL sync era (commit db8a125): each host ran local dolt-server,
 #    synced via JSONL on the beads-sync git branch
 # 3. Centralised Dolt era (current): single server on doc1, all hosts connect
-#    over Tailscale. The beads-sync branch and JSONL export are obsolete.
-#
-# Old .beads/beads.db SQLite files can be safely deleted.
+#    over Tailscale. Old .beads/beads.db files can be safely deleted.
 #
 # ## doc1 (server) Setup — already done
 #
-# doc1 runs dolt-server via this module. Data lives in ~/.local/share/dolt/beads/.
-# After rebuild, beads was initialised with:
+# doc1 has doltServer = true in its home.nix. Data lives in
+# ~/.local/share/dolt/beads/. The dolt-init ExecStartPre script creates the
+# "beads" SQL user automatically on every start.
 #
+# Initial setup was:
 #   cd ~/nixosconfig
-#   bd init --prefix nixosconfig
-#   # Selected: dolt backend, server mode, port 3307, host 127.0.0.1
-#   # Database name: beads_nixosconfig
-#
+#   bd init --prefix nixosconfig --server-host 127.0.0.1 --server-port 3307 --server-user beads
 #   bd hooks install --force
 #   bd config set beads.role maintainer
-#   bd config set daemon.auto-commit true
-#   bd config set daemon.auto-push true
-#   bd config set daemon.auto-pull true
-#   bd daemon stop . && bd daemon start
 #
 # ## Remote Host Setup (framework, wsl, epimetheus, igpu, dev, caddy)
 #
-# After `nixos-rebuild switch` or `home-manager switch` picks up this flake:
+# After `nixos-rebuild switch` or `home-manager switch` picks up this flake,
+# run these commands in the nixosconfig checkout:
 #
 #   Step 1: Init beads pointing at doc1's Dolt server
-#     cd ~/nixosconfig    # or wherever the repo is cloned
-#     bd init --prefix nixosconfig
-#     # Select: dolt backend, server mode
-#     # Port: 3307
-#     # Host: 100.89.160.60  (doc1's Tailscale IP)
-#     # Database name: beads_nixosconfig
+#     cd ~/nixosconfig
+#     bd init --prefix nixosconfig \
+#       --server-host 100.89.160.60 \
+#       --server-port 3307 \
+#       --server-user beads
+#     # Password is set automatically via BEADS_DOLT_PASSWORD env var
 #
-#   Step 2: Install hooks and configure daemon
+#   Step 2: Install git hooks
 #     bd hooks install --force
 #     bd config set beads.role maintainer
-#     bd config set daemon.auto-commit true
-#     bd config set daemon.auto-push true
-#     bd config set daemon.auto-pull true
-#     bd daemon stop . && bd daemon start
 #
 #   Step 3: Verify
 #     bd stats    # Should show all issues immediately (reads from doc1)
@@ -97,12 +96,13 @@
 #   - "LEGACY DATABASE" error: run `bd migrate --update-repo-id`
 #   - Can't connect to doc1: check `tailscale ping doc1` and that dolt-server
 #     is running on doc1: `ssh doc1 systemctl --user status dolt-server`
-#   - Daemon not syncing: check `bd daemon status`, restart with stop/start
 #   - Dolt server won't start: check `journalctl --user -u dolt-server`
 #     Common cause: stale lock file in ~/.local/share/dolt/beads/
+#   - Empty stats after init: the JSONL in the repo is the fallback — run
+#     `bd init --prefix nixosconfig --from-jsonl --force` to hydrate from it
 #
 # ## Hosts configured
-#   - proxmox-vm (doc1) — server, 2026-02-24
+#   - proxmox-vm (doc1) — server, doltServer = true
 #   - All others — connect to doc1 as remote clients (pending setup)
 # ============================================================================
 {
