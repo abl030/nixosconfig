@@ -11,6 +11,76 @@
 #       pluginName = "my-plugin";
 #     }];
 #   };
+#
+# ============================================================================
+# Beads Issue Tracking — Dolt Backend Setup
+# ============================================================================
+#
+# This module installs beads (bd) and runs a Dolt SQL server as a user service.
+# Beads is the project's issue tracker — it replaces markdown TODOs, external
+# trackers, etc. All issues live in a Dolt database and sync across hosts via
+# a JSONL file on the `beads-sync` git branch.
+#
+# ## Architecture
+#
+#   beads CLI (bd) ──> Dolt SQL server (port 3307) ──> ~/.local/share/dolt/beads/
+#                                                           │
+#   beads daemon ──> auto-commit/push/pull ──> .beads/issues.jsonl (beads-sync branch)
+#                                                           │
+#                                              git push/pull syncs across hosts
+#
+# The Dolt server is a local MySQL-compatible database. Each host runs its own
+# instance. Sync happens through git: the beads daemon exports to JSONL, commits
+# to the beads-sync branch, and pushes. Other hosts pull and import.
+#
+# ## Migration from SQLite to Dolt
+#
+# Previously beads used SQLite (.beads/beads.db). The Dolt backend was introduced
+# in commit db8a125. After rebuilding, each host needs one-time init:
+#
+#   1. Old .beads/beads.db files can be safely deleted after migration
+#   2. The JSONL on beads-sync branch is the migration vehicle — Dolt hydrates
+#      from it automatically via the daemon
+#
+# ## Per-Host Setup (required once after first rebuild with this module)
+#
+# After `nixos-rebuild switch` or `home-manager switch` picks up this flake:
+#
+#   Step 1: Verify dolt-server is running
+#     systemctl --user status dolt-server
+#     # Should be active. If not: systemctl --user start dolt-server
+#
+#   Step 2: Init beads with Dolt backend
+#     cd ~/nixosconfig    # or wherever the repo is cloned
+#     bd init --prefix nixosconfig
+#     # Select: dolt backend, server mode, port 3307, host 127.0.0.1
+#     # Database name: beads_nixosconfig
+#
+#   Step 3: Install hooks and configure daemon sync
+#     bd hooks install --force
+#     bd config set beads.role maintainer
+#     bd config set daemon.auto-commit true
+#     bd config set daemon.auto-push true
+#     bd config set daemon.auto-pull true
+#     bd daemon stop . && bd daemon start
+#
+#   Step 4: Verify
+#     bd stats    # Should show issues after daemon syncs from beads-sync branch
+#     bd ready    # Should list available work
+#
+# ## Troubleshooting
+#
+#   - "LEGACY DATABASE" error: run `bd migrate --update-repo-id`
+#   - Daemon not syncing: check `bd daemon status`, restart with stop/start
+#   - Empty stats after init: daemon needs a moment to pull from beads-sync
+#     branch. If it stays empty, try `bd dolt pull` manually.
+#   - Dolt server won't start: check `journalctl --user -u dolt-server`
+#     Common cause: stale lock file in ~/.local/share/dolt/beads/
+#
+# ## Hosts migrated to Dolt
+#   - proxmox-vm (doc1) — 2026-02-24
+#   - All others pending — follow steps above after rebuild
+# ============================================================================
 {
   config,
   lib,
