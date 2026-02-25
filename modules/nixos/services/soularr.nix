@@ -117,6 +117,9 @@
       ${configTemplate} > "$config_dir/config.ini"
 
     chmod 600 "$config_dir/config.ini"
+
+    # Remove stale lock file from previous SIGTERM'd runs
+    rm -f "$config_dir/.soularr.lock"
   '';
 in {
   options.homelab.services.soularr = {
