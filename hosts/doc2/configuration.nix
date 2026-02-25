@@ -52,7 +52,10 @@
 
     # Services
     services = {
-      immich.enable = true;
+      immich = {
+        enable = true;
+        dataDir = "/mnt/virtio/immich";
+      };
       gotify = {
         enable = true;
         dataDir = "/mnt/virtio/gotify";
@@ -100,9 +103,6 @@
   ];
 
   services = {
-    # PostgreSQL data on virtiofs
-    postgresql.dataDir = lib.mkForce "/mnt/virtio/immich/postgres";
-
     # Immich ML cache on virtiofs
     immich.machine-learning.environment = {
       MACHINE_LEARNING_CACHE_FOLDER = lib.mkForce "/mnt/virtio/immich/ml-cache";
