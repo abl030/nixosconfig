@@ -23,7 +23,7 @@
   homelab = {
     ssh = {
       enable = true;
-      secure = false;
+      secure = true;
     };
     tailscale.enable = true;
 
