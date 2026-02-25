@@ -102,6 +102,7 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
     authorizedKeys = masterKeys;
+    sudoPasswordless = true;
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
     # Stacks disabled for testing - enable one by one
@@ -320,6 +321,7 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
     authorizedKeys = masterKeys;
+    sudoPasswordless = true; # temporary — lock down once appliance is stable
     localIp = "192.168.1.35";
     proxmox = {
       vmid = 114;
