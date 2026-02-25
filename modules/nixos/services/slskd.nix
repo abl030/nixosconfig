@@ -52,13 +52,23 @@ in {
         ];
       };
 
-      # Policy routing: packets from VPN NIC use separate routing table
-      # pfSense then routes this IP through WireGuard tunnel
+      # Policy routing: all traffic from the slskd user goes through VPN table.
+      # Source-IP routing alone doesn't work because slskd binds to 0.0.0.0
+      # and the kernel picks the main NIC IP as source. UID-based routing
+      # catches all slskd outbound traffic regardless of source address.
+      # pfSense then policy-routes the VPN NIC IP through WireGuard tunnel.
       iproute2.enable = true;
       localCommands = ''
-        # Policy routing for VPN NIC (slskd Soulseek traffic)
+        # UID-based routing: all slskd traffic → VPN table
+        # Resolve UID at runtime since NixOS assigns system UIDs dynamically
+        slskd_uid=$(id -u slskd 2>/dev/null || echo "")
+        if [ -n "$slskd_uid" ]; then
+          ip rule del uidrange "$slskd_uid"-"$slskd_uid" table 100 2>/dev/null || true
+          ip rule add uidrange "$slskd_uid"-"$slskd_uid" table 100 priority 100
+        fi
+        # Also keep source-IP rule as backup (for anything explicitly bound to VPN NIC)
         ip rule del from ${cfg.vpnAddress} table 100 2>/dev/null || true
-        ip rule add from ${cfg.vpnAddress} table 100 priority 100
+        ip rule add from ${cfg.vpnAddress} table 100 priority 101
         ip route replace default via ${cfg.gateway} dev ${cfg.vpnInterface} table 100
       '';
 
