@@ -310,6 +310,32 @@ in {
     };
   };
 
+  doc2 = {
+    configurationFile = ./hosts/doc2/configuration.nix;
+    homeFile = ./hosts/doc2/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "doc2";
+    sshAlias = "doc2";
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
+    authorizedKeys = masterKeys;
+    localIp = "192.168.1.113";
+    proxmox = {
+      vmid = 114;
+      cores = 8;
+      memory = 16384;
+      disk = "32G";
+      storage = "nvmeprom";
+      cpuType = "x86-64-v3";
+      tags = ["opentofu" "nixos" "managed"];
+      description = "Service appliance VM — native NixOS services on virtiofs storage";
+      virtiofs = {
+        mapping = "containers";
+      };
+    };
+  };
+
   cache = {
     configurationFile = ./hosts/cache/configuration.nix;
     homeFile = ./hosts/cache/home.nix;
