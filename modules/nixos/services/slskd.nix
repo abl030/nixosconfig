@@ -64,6 +64,11 @@ in {
         # through ens18 (main NIC) so NFS, DNS, etc. don't get VPN-routed.
         ip route replace 192.168.1.0/24 dev ens18 src 192.168.1.35 table main
 
+        # VPN routing table: ens19 needs its own connected route for the
+        # gateway, since we moved the main table's connected route to ens18.
+        ip route replace 192.168.1.0/24 dev ${cfg.vpnInterface} src ${cfg.vpnAddress} table 100
+        ip route replace default via ${cfg.gateway} dev ${cfg.vpnInterface} table 100
+
         # UID-based routing: all slskd traffic → VPN table
         # Resolve UID at runtime since NixOS assigns system UIDs dynamically
         slskd_uid=$(id -u slskd 2>/dev/null || echo "")
@@ -74,7 +79,6 @@ in {
         # Also keep source-IP rule as backup (for anything explicitly bound to VPN NIC)
         ip rule del from ${cfg.vpnAddress} table 100 2>/dev/null || true
         ip rule add from ${cfg.vpnAddress} table 100 priority 101
-        ip route replace default via ${cfg.gateway} dev ${cfg.vpnInterface} table 100
       '';
 
       firewall.allowedTCPPorts = [5030];
