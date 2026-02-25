@@ -61,6 +61,10 @@
         enable = true;
         dataDir = "/mnt/virtio/tautulli";
       };
+      audiobookshelf = {
+        enable = true;
+        dataDir = "/mnt/virtio/audiobookshelf";
+      };
     };
 
     pve.enable = true;
@@ -84,6 +88,8 @@
     "d /mnt/virtio/gotify 0700 gotify gotify - -"
     # Tautulli state on virtiofs — upstream uses static plexpy user
     "d /mnt/virtio/tautulli 0700 plexpy nogroup - -"
+    # Audiobookshelf state on virtiofs — static user owns data directly
+    "d /mnt/virtio/audiobookshelf 0700 audiobookshelf audiobookshelf - -"
   ];
 
   services = {

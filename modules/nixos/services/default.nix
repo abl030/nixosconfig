@@ -24,5 +24,6 @@
     ./immich.nix
     ./gotify-server.nix
     ./tautulli.nix
+    ./audiobookshelf.nix
   ];
 }
