@@ -51,10 +51,16 @@
     syncthing.enable = false;
 
     # Services
-    services.immich.enable = true;
-    services.gotify = {
-      enable = true;
-      dataDir = "/mnt/virtio/gotify";
+    services = {
+      immich.enable = true;
+      gotify = {
+        enable = true;
+        dataDir = "/mnt/virtio/gotify";
+      };
+      tautulli = {
+        enable = true;
+        dataDir = "/mnt/virtio/tautulli";
+      };
     };
 
     pve.enable = true;
@@ -76,6 +82,8 @@
     "d /mnt/virtio/immich/ml-cache 0755 immich immich - -"
     # Gotify state on virtiofs — static user owns data directly
     "d /mnt/virtio/gotify 0700 gotify gotify - -"
+    # Tautulli state on virtiofs — upstream uses static plexpy user
+    "d /mnt/virtio/tautulli 0700 plexpy nogroup - -"
   ];
 
   services = {

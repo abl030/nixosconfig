@@ -121,7 +121,6 @@ in {
       "netboot"
       "smokeping"
       "stirlingpdf"
-      "tautulli"
       "uptime-kuma"
       "webdav"
       "youtarr"

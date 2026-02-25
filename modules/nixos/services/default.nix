@@ -23,5 +23,6 @@
     ./syncthing
     ./immich.nix
     ./gotify-server.nix
+    ./tautulli.nix
   ];
 }
