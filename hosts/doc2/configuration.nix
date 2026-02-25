@@ -65,7 +65,10 @@
         enable = true;
         dataDir = "/mnt/virtio/audiobookshelf";
       };
-      atuin.enable = true;
+      atuin = {
+        enable = true;
+        dataDir = "/mnt/virtio/atuin";
+      };
     };
 
     pve.enable = true;
@@ -91,6 +94,9 @@
     "d /mnt/virtio/tautulli 0700 plexpy nogroup - -"
     # Audiobookshelf state on virtiofs — static user owns data directly
     "d /mnt/virtio/audiobookshelf 0700 audiobookshelf audiobookshelf - -"
+    # Atuin PG container — parent dir for bind mount; initdb creates contents
+    "d /mnt/virtio/atuin 0755 root root - -"
+    "d /mnt/virtio/atuin/postgres 0700 postgres postgres - -"
   ];
 
   services = {
