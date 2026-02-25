@@ -35,23 +35,14 @@ in
         host = "dozzle.ablz.au";
         port = 8082;
       }
-      {
-        host = "gotify.ablz.au";
-        port = 8050;
-        websocket = true;
-      }
     ];
     stackMonitors = [
       {
         name = "Dozzle";
         url = "https://dozzle.ablz.au/";
       }
-      {
-        name = "Gotify";
-        url = "https://gotify.ablz.au/";
-      }
     ];
     wants = dependsOn;
     after = dependsOn;
-    firewallPorts = [8050];
+    firewallPorts = [];
   }

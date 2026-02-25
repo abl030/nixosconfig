@@ -52,6 +52,10 @@
 
     # Services
     services.immich.enable = true;
+    services.gotify = {
+      enable = true;
+      dataDir = "/mnt/virtio/gotify";
+    };
 
     pve.enable = true;
   };
@@ -70,6 +74,8 @@
     "d /mnt/virtio/immich 0755 root root - -"
     "d /mnt/virtio/immich/postgres 0700 postgres postgres - -"
     "d /mnt/virtio/immich/ml-cache 0755 immich immich - -"
+    # Gotify state on virtiofs — static user owns data directly
+    "d /mnt/virtio/gotify 0700 gotify gotify - -"
   ];
 
   services = {
@@ -92,17 +98,18 @@
     keyFile = "/var/lib/sops-nix/key.txt";
     sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
   };
-  system.activationScripts.sopsAgeKey = {
-    deps = ["specialfs"];
-    text = ''
-      if [ ! -s /var/lib/sops-nix/key.txt ]; then
-        install -d -m 0700 /var/lib/sops-nix
-        ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/key.txt
-        chmod 600 /var/lib/sops-nix/key.txt
-      fi
-    '';
+  system = {
+    activationScripts.sopsAgeKey = {
+      deps = ["specialfs"];
+      text = ''
+        if [ ! -s /var/lib/sops-nix/key.txt ]; then
+          install -d -m 0700 /var/lib/sops-nix
+          ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/key.txt
+          chmod 600 /var/lib/sops-nix/key.txt
+        fi
+      '';
+    };
+    activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
+    stateVersion = "25.05";
   };
-  system.activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
-
-  system.stateVersion = "25.05";
 }
