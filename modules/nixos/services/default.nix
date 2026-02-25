@@ -29,5 +29,6 @@
     ./lidarr.nix
     ./slskd.nix
     ./soularr.nix
+    ./paperless.nix
   ];
 }
