@@ -153,9 +153,28 @@
   # ---------------------------------------------------------
   # 4b. PRIVATE FLAKE AUTH
   # ---------------------------------------------------------
-  sops.secrets.nix-netrc = {
-    sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
-    format = "binary";
+  sops.secrets = {
+    nix-netrc = {
+      sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
+      format = "binary";
+    };
+
+    # Atuin sync credentials — deploy session token and encryption key
+    # so `atuin sync` works on every host without manual `atuin login`.
+    atuin-session = {
+      sopsFile = config.homelab.secrets.sopsFile "atuin-session";
+      format = "binary";
+      owner = hostConfig.user;
+      path = "${hostConfig.homeDirectory}/.local/share/atuin/session";
+      mode = "0600";
+    };
+    atuin-key = {
+      sopsFile = config.homelab.secrets.sopsFile "atuin-key";
+      format = "binary";
+      owner = hostConfig.user;
+      path = "${hostConfig.homeDirectory}/.local/share/atuin/key";
+      mode = "0600";
+    };
   };
 
   # Derive access-tokens from netrc so flake metadata resolution works
