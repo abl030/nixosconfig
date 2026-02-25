@@ -27,15 +27,8 @@
     };
     tailscale.enable = true;
 
-    # NFS for Immich media — READ ONLY
-    # ============================================================
-    # DO NOT TOUCH THE MEDIA/PHOTOS NFS MOUNT. EVER.
-    # IT STAYS WHERE IT IS. LEAVE IT ALONE.
-    # ============================================================
-    mounts = {
-      nfsLocal.enable = true;
-      nfsLocal.readOnly = true;
-    };
+    # NFS for Immich media — same writable mount as doc1
+    mounts.nfsLocal.enable = true;
 
     nixCaches = {
       enable = true;
@@ -73,7 +66,7 @@
   };
 
   systemd.tmpfiles.rules = [
-    "d /mnt/virtio 0755 abl030 users - -"
+    "d /mnt/virtio 0755 root root - -"
     "d /mnt/virtio/immich 0755 root root - -"
     "d /mnt/virtio/immich/postgres 0700 postgres postgres - -"
     "d /mnt/virtio/immich/ml-cache 0755 immich immich - -"

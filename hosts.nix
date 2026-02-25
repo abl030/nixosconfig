@@ -320,7 +320,7 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
     authorizedKeys = masterKeys;
-    localIp = "192.168.1.113";
+    localIp = "192.168.1.35";
     proxmox = {
       vmid = 114;
       cores = 8;
