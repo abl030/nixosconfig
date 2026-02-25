@@ -87,8 +87,11 @@ in {
       };
     };
 
-    # Neutralize upstream's unguarded ExecStartPost (nixpkgs #388806)
-    systemd.services.postgresql-setup.serviceConfig.ExecStartPost = lib.mkForce [];
+    # Neutralize upstream's unguarded postgresql-setup service (nixpkgs #388806).
+    # With database.enable = false, no host PG creates this service, but upstream's
+    # unguarded ExecStartPost still defines it — resulting in a stub with no ExecStart.
+    # Wipe it completely so systemd doesn't reject the bad unit file.
+    systemd.services.postgresql-setup = lib.mkForce {};
 
     # Immich must wait for its database container
     systemd.services.immich-server = {
