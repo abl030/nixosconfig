@@ -59,6 +59,11 @@ in {
       # pfSense then policy-routes the VPN NIC IP through WireGuard tunnel.
       iproute2.enable = true;
       localCommands = ''
+        # Fix subnet routing: both NICs share 192.168.1.0/24, so the kernel
+        # may pick ens19 (VPN NIC) for the connected route. Force LAN traffic
+        # through ens18 (main NIC) so NFS, DNS, etc. don't get VPN-routed.
+        ip route replace 192.168.1.0/24 dev ens18 src 192.168.1.35 table main
+
         # UID-based routing: all slskd traffic → VPN table
         # Resolve UID at runtime since NixOS assigns system UIDs dynamically
         slskd_uid=$(id -u slskd 2>/dev/null || echo "")
