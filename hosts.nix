@@ -108,7 +108,6 @@ in {
     containerStacks = [
       "management"
       "tailscale-caddy"
-      "immich"
       "paperless"
       "mealie"
       "kopia"
