@@ -39,6 +39,9 @@ in {
     };
 
     config = {lib, ...}: {
+      # Match host locale so imported PG data directories work
+      i18n.supportedLocales = ["en_GB.UTF-8/UTF-8" "en_AU.UTF-8/UTF-8" "en_US.UTF-8/UTF-8"];
+
       services.postgresql = {
         enable = true;
         package = pgPackage;
