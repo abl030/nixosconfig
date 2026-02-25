@@ -25,5 +25,6 @@
     ./gotify-server.nix
     ./tautulli.nix
     ./audiobookshelf.nix
+    ./atuin.nix
   ];
 }
