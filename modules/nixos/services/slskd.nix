@@ -59,10 +59,19 @@ in {
       # pfSense then policy-routes the VPN NIC IP through WireGuard tunnel.
       iproute2.enable = true;
       localCommands = ''
+        # Wait for both NICs to have addresses before configuring routing.
+        # At early boot, localCommands may run before DHCP/static assignment.
+        for i in $(seq 1 30); do
+          main_ip=$(ip -4 addr show ens18 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)
+          vpn_ip=$(ip -4 addr show ${cfg.vpnInterface} 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)
+          [ -n "$main_ip" ] && [ -n "$vpn_ip" ] && break
+          sleep 1
+        done
+
         # Fix subnet routing: both NICs share 192.168.1.0/24, so the kernel
         # may pick ens19 (VPN NIC) for the connected route. Force LAN traffic
         # through ens18 (main NIC) so NFS, DNS, etc. don't get VPN-routed.
-        ip route replace 192.168.1.0/24 dev ens18 src 192.168.1.35 table main
+        ip route replace 192.168.1.0/24 dev ens18 src "$main_ip" table main
 
         # VPN routing table: ens19 needs its own connected route for the
         # gateway, since we moved the main table's connected route to ens18.
