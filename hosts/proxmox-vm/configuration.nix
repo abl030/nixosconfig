@@ -56,7 +56,8 @@
       tokenFile = "/var/lib/github-runner/registration-token";
       runnerName = "proxmox-bastion";
     };
-    services.immich.enable = true;
+    # Immich moved to doc2 (2026-02-25)
+    services.immich.enable = false;
   };
 
   # Base.nix enables NetworkManager.
