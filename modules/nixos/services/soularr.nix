@@ -11,12 +11,11 @@
     pname = "slskd-api";
     version = "0.1.5";
     pyproject = true;
-    src = pkgs.fetchPypi {
-      pname = "slskd_api";
-      version = "0.1.5";
-      hash = "sha256-TP6IvdO3N+xHl6ypE+f3aTqYdJPFJvq0OHhVNDUbE80=";
+    src = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/74/eb/b1e43d099cca89d313352b3ac0ae1100494c5f7b4a727dde82b89b2a0ca9/slskd-api-0.1.5.tar.gz";
+      hash = "sha256-LmWP7bnK5IVid255qS2NGOmyKzGpUl3xsO5vi5uJI88=";
     };
-    build-system = with pkgs.python3Packages; [setuptools];
+    build-system = with pkgs.python3Packages; [setuptools setuptools-git-versioning];
     dependencies = with pkgs.python3Packages; [requests];
     doCheck = false;
   };
