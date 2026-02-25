@@ -112,7 +112,6 @@ in {
       "paperless"
       "mealie"
       "kopia"
-      "atuin"
       "domain-monitor"
       "invoices"
       "jdownloader2"

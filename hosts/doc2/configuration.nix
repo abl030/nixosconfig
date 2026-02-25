@@ -65,6 +65,7 @@
         enable = true;
         dataDir = "/mnt/virtio/audiobookshelf";
       };
+      atuin.enable = true;
     };
 
     pve.enable = true;
