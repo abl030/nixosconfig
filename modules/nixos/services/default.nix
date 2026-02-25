@@ -22,5 +22,6 @@
     ./framework
     ./syncthing
     ./immich.nix
+    ./gotify-server.nix
   ];
 }

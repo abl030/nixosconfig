@@ -6,6 +6,9 @@
   ...
 }: let
   cfg = config.homelab.gotify;
+  gotifyServerHosts = lib.attrNames (
+    lib.filterAttrs (_: host: host.gotifyServer or false) allHosts
+  );
   managementHosts = lib.attrNames (
     lib.filterAttrs (
       _: host:
@@ -15,9 +18,11 @@
     allHosts
   );
   autoHostName =
-    if managementHosts != []
+    if gotifyServerHosts != []
+    then builtins.head (lib.sort lib.lessThan gotifyServerHosts)
+    else if managementHosts != []
     then builtins.head (lib.sort lib.lessThan managementHosts)
-    else "proxmox-vm";
+    else "doc2";
   hostName =
     if cfg.host != null
     then cfg.host
@@ -34,7 +39,7 @@ in {
     host = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "hosts.nix name for the Gotify server (used to resolve localIp). Null picks the first host with the management stack.";
+      description = "hosts.nix name for the Gotify server (used to resolve localIp). Null picks the first host with gotifyServer = true, then management stack, then doc2.";
     };
 
     port = lib.mkOption {

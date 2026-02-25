@@ -323,6 +323,7 @@ in {
     authorizedKeys = masterKeys;
     sudoPasswordless = true; # temporary — lock down once appliance is stable
     localIp = "192.168.1.35";
+    gotifyServer = true;
     proxmox = {
       vmid = 114;
       cores = 8;
