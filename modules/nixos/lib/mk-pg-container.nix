@@ -31,7 +31,7 @@ in {
 
     bindMounts."/var/lib/postgresql" = {
       hostPath = "${dataDir}/postgres";
-      isReadWrite = true;
+      isReadOnly = false;
     };
 
     config = {lib, ...}: {
