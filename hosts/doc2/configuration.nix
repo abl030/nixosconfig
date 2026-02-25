@@ -72,6 +72,12 @@
         enable = true;
         dataDir = "/mnt/virtio/atuin";
       };
+      lidarr = {
+        enable = true;
+        dataDir = "/mnt/virtio/lidarr";
+      };
+      slskd.enable = true;
+      soularr.enable = true;
     };
 
     pve.enable = true;
@@ -100,6 +106,8 @@
     # Atuin PG container — parent dir for bind mount; initdb creates contents
     "d /mnt/virtio/atuin 0755 root root - -"
     "d /mnt/virtio/atuin/postgres 0700 postgres postgres - -"
+    # Lidarr music management — config/database on virtiofs
+    "d /mnt/virtio/lidarr 0700 lidarr lidarr - -"
   ];
 
   services = {

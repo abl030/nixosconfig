@@ -115,7 +115,7 @@ in {
       "domain-monitor"
       "invoices"
       "jdownloader2"
-      "music"
+      # "music" — migrated to native NixOS services on doc2
       "netboot"
       "smokeping"
       "stirlingpdf"

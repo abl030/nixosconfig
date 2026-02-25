@@ -26,5 +26,8 @@
     ./tautulli.nix
     ./audiobookshelf.nix
     ./atuin.nix
+    ./lidarr.nix
+    ./slskd.nix
+    ./soularr.nix
   ];
 }
