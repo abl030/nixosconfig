@@ -194,8 +194,9 @@ in {
 
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
-      after = ["lidarr.service" "slskd.service"];
+      after = ["lidarr.service" "slskd.service" "mnt-data.mount"];
       wants = ["lidarr.service" "slskd.service"];
+      requires = ["mnt-data.mount"];
       serviceConfig = {
         Type = "oneshot";
         User = "soularr";

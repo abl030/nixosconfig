@@ -36,7 +36,6 @@ in {
           "softreval"
           "timeo=50"
           "retrans=5"
-          "bg"
           "noatime"
           "nfsvers=4.2"
         ]
@@ -54,7 +53,6 @@ in {
         "softreval"
         "timeo=50"
         "retrans=5"
-        "bg"
         "noatime"
         "nfsvers=4.2"
       ];

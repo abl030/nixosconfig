@@ -94,6 +94,12 @@ in {
       };
     };
 
+    # Wait for NFS before starting (downloads + shares are on NFS)
+    systemd.services.slskd = {
+      after = ["mnt-data.mount"];
+      requires = ["mnt-data.mount"];
+    };
+
     # slskd user needs NFS media access
     users.users.slskd.extraGroups = ["users"];
 
