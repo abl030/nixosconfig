@@ -21,5 +21,6 @@
     ./mdns-reflector.nix
     ./framework
     ./syncthing
+    ./immich.nix
   ];
 }

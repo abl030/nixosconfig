@@ -56,6 +56,7 @@
       tokenFile = "/var/lib/github-runner/registration-token";
       runnerName = "proxmox-bastion";
     };
+    services.immich.enable = true;
   };
 
   # Base.nix enables NetworkManager.
