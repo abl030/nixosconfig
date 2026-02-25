@@ -113,7 +113,7 @@
     # Lidarr music management — config/database on virtiofs
     "d /mnt/virtio/lidarr 0700 lidarr lidarr - -"
     # Paperless document management — app state + postgres on virtiofs
-    "d /mnt/virtio/paperless 0755 root root - -"
+    "d /mnt/virtio/paperless 0750 paperless paperless - -"
     "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
   ];
 
