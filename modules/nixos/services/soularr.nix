@@ -6,35 +6,40 @@
 }: let
   cfg = config.homelab.services.soularr;
 
-  # Build soularr from upstream + local patches
-  soularrPkg = pkgs.python3Packages.buildPythonApplication {
-    pname = "soularr";
-    version = "unstable-2026-02-26";
-    format = "other";
-
-    src = pkgs.fetchFromGitHub {
-      owner = "mrusse";
-      repo = "soularr";
-      rev = "6bb25ac1f8e6346b5cfe89f22b8f8e2e6f1fe3d3";
-      hash = "sha256-6IjVlQvMFBpzKjVQJBn9C5OPLm8R+t2xfvmXUWL7mAg=";
+  # slskd-api is not in nixpkgs — build from PyPI
+  slskd-api = pkgs.python3Packages.buildPythonPackage {
+    pname = "slskd-api";
+    version = "0.1.5";
+    pyproject = true;
+    src = pkgs.fetchPypi {
+      pname = "slskd_api";
+      version = "0.1.5";
+      hash = "sha256-TP6IvdO3N+xHl6ypE+f3aTqYdJPFJvq0OHhVNDUbE80=";
     };
+    build-system = with pkgs.python3Packages; [setuptools];
+    dependencies = with pkgs.python3Packages; [requests];
+    doCheck = false;
+  };
 
-    propagatedBuildInputs = with pkgs.python3Packages; [
-      requests
-      configparser
-      music-tag
-      pyarr
-    ];
-
-    installPhase = ''
-      mkdir -p $out/bin $out/lib/soularr
-      cp soularr.py $out/lib/soularr/soularr.py
-      cat > $out/bin/soularr <<'WRAPPER'
-      #!/bin/sh
-      exec ${pkgs.python3}/bin/python $out/lib/soularr/soularr.py "$@"
-      WRAPPER
-      chmod +x $out/bin/soularr
+  # Build soularr from upstream
+  soularrPkg = let
+    pythonEnv = pkgs.python3.withPackages (ps: [
+      ps.requests
+      ps.configparser
+      ps.music-tag
+      ps.pyarr
+      slskd-api
+    ]);
+  in
+    pkgs.writeShellScriptBin "soularr" ''
+      exec ${pythonEnv}/bin/python ${soularrSrc}/soularr.py "$@"
     '';
+
+  soularrSrc = pkgs.fetchFromGitHub {
+    owner = "mrusse";
+    repo = "soularr";
+    rev = "6a8778019581769a035092b73b5fe4c4daa64f82";
+    hash = "sha256-kDL4kQLOFYrlJslelyDlDWs3PO6ml2b+oHTI2HzUsaU=";
   };
 
   # Generate config.ini from module options + sops secrets at runtime
