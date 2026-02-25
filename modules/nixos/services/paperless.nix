@@ -12,6 +12,10 @@
     inherit (cfg) dataDir;
   };
 
+  # Symlinks to NFS paths — avoids spaces in paths which break systemd ReadWritePaths
+  mediaLink = "/var/lib/paperless-media";
+  consumeLink = "/var/lib/paperless-consume";
+
   # Shared deps for all paperless systemd services
   dbAndNfs = {
     after = ["container@paperless-db.service" "mnt-data.mount"];
@@ -31,14 +35,22 @@ in {
     # PostgreSQL in nspawn container (pattern: immich, atuin)
     containers.paperless-db = pgc.containerConfig;
 
+    # Symlinks from space-free paths to NFS dirs.
+    # Upstream paperless module puts mediaDir/consumptionDir into systemd
+    # ReadWritePaths= which splits on spaces — paths with spaces silently break.
+    systemd.tmpfiles.rules = [
+      "L+ ${mediaLink} - - - - /mnt/data/Life/Meg and Andy/Paperless/Documents"
+      "L+ ${consumeLink} - - - - /mnt/data/Life/Meg and Andy/Paperless/Import"
+    ];
+
     services.paperless = {
       enable = true;
       port = 28981;
       address = "0.0.0.0";
       inherit (cfg) dataDir;
 
-      mediaDir = "/mnt/data/Life/Meg and Andy/Paperless/Documents";
-      consumptionDir = "/mnt/data/Life/Meg and Andy/Paperless/Import";
+      mediaDir = mediaLink;
+      consumptionDir = consumeLink;
 
       # Tika + Gotenberg for OCR of Office docs and emails
       configureTika = true;
