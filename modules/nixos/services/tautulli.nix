@@ -20,6 +20,7 @@ in {
       enable = true;
       port = 8181;
       inherit (cfg) dataDir;
+      configFile = "${cfg.dataDir}/config.ini";
     };
 
     homelab = {
