@@ -1,7 +1,7 @@
 # Soularr — Lidarr-to-slskd bridge
 # =================================
 #
-# Architecture:
+# Architecture (all on doc2):
 #   Lidarr (port 8686)  ←──pyarr──  soularr  ──slskd-api──→  slskd (port 5030)
 #
 #   1. Lidarr tracks "wanted" albums (monitored + missing).
@@ -10,6 +10,15 @@
 #   4. When a match is found, soularr tells slskd to download it.
 #   5. slskd downloads to the shared downloadDir (/mnt/data/Media/Temp/slskd).
 #   6. Lidarr's Completed Download Handling imports from that directory.
+#
+# Network topology:
+#   doc2 has two NICs on 192.168.1.0/24:
+#     ens18 = 192.168.1.35 (main, DHCP) — Lidarr, soularr, NFS, everything else
+#     ens19 = 192.168.1.36 (VPN, static) — slskd Soulseek traffic only
+#   Policy routing (see slskd.nix):
+#     - LAN subnet forced via ens18 so NFS/DNS don't get VPN-routed
+#     - UID-based rule sends all slskd traffic via table 100 → ens19 → pfSense → WireGuard
+#     - Verify: sudo -u slskd curl ifconfig.co → should show VPN exit IP
 #
 # Key files on doc2:
 #   /var/lib/soularr/config.ini    — generated at runtime by preStartScript
@@ -39,6 +48,11 @@
 #   minimum_filename_match_ratio — fuzzy match threshold (default 0.6)
 #   allowed_filetypes          — quality/format priority list
 #   stalled_timeout            — seconds before giving up on a stalled download
+#
+# Boot ordering:
+#   All three services (lidarr, slskd, soularr) require mnt-data.mount.
+#   NFS local mounts use hard (no bg) so the mount unit blocks until NFS is up.
+#   soularr additionally waits for lidarr.service + slskd.service.
 #
 # Source: github.com/mrusse/soularr (pinned to specific commit below)
 # Not in nixpkgs — built inline. slskd-api (PyPI) also built inline.
