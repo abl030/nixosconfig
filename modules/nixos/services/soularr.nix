@@ -91,8 +91,8 @@
 
     [Logging]
     level = INFO
-    format = [%%(levelname)s|%%(module)s|L%%(lineno)d] %%(asctime)s: %%(message)s
-    datefmt = %%Y-%%m-%%dT%%H:%%M:%%S%%z
+    format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
+    datefmt = %Y-%m-%dT%H:%M:%S%z
   '';
 
   preStartScript = pkgs.writeShellScript "soularr-prestart" ''
