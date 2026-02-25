@@ -43,6 +43,7 @@ in {
     networking = {
       # Second NIC configuration — VPN-routed by pfSense policy routing
       interfaces.${cfg.vpnInterface} = {
+        useDHCP = false; # Static IP only — no DHCP lease on VPN NIC
         ipv4.addresses = [
           {
             address = cfg.vpnAddress;
