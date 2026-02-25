@@ -113,7 +113,6 @@ in {
       "mealie"
       "kopia"
       "atuin"
-      "audiobookshelf"
       "domain-monitor"
       "invoices"
       "jdownloader2"
