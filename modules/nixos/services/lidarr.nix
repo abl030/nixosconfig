@@ -26,9 +26,13 @@ in {
     users.users.lidarr.extraGroups = ["users"];
 
     # Override upstream tmpfiles to use custom data dir on virtiofs
-    systemd.services.lidarr.serviceConfig = {
-      # Upstream creates dataDir via tmpfiles; override if using virtiofs
-      ExecStart = lib.mkForce "${config.services.lidarr.package}/bin/Lidarr -nobrowser -data='${cfg.dataDir}'";
+    systemd.services.lidarr = {
+      after = ["mnt-data.mount"];
+      requires = ["mnt-data.mount"];
+      serviceConfig = {
+        # Upstream creates dataDir via tmpfiles; override if using virtiofs
+        ExecStart = lib.mkForce "${config.services.lidarr.package}/bin/Lidarr -nobrowser -data='${cfg.dataDir}'";
+      };
     };
 
     homelab = {
