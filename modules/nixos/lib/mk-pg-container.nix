@@ -3,6 +3,8 @@
 # Returns an attrset with:
 #   containerConfig — value for containers.<name>
 #   dbUri           — connection string for the service
+#   dbHost          — container-side IP (for TCP connections)
+#   dbPort          — 5432
 #   hostAddress     — host-side veth IP
 #   localAddress    — container-side veth IP
 #
@@ -14,7 +16,9 @@
   hostNum,
   dataDir,
   pgPackage ? pkgs.postgresql_16,
-  extraPgConfig ? {},
+  extensions ? (_ps: []),
+  pgSettings ? {},
+  postStartSQL ? null,
 }: let
   hostAddress = "192.168.100.${toString (hostNum * 2)}";
   localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
@@ -35,24 +39,28 @@ in {
     };
 
     config = {lib, ...}: {
-      services.postgresql =
-        {
-          enable = true;
-          package = pgPackage;
-          enableTCPIP = true;
-          ensureDatabases = [name];
-          ensureUsers = [
-            {
-              inherit name;
-              ensureDBOwnership = true;
-            }
-          ];
-          authentication = lib.mkForce ''
-            local all all peer
-            host all all ${hostAddress}/32 trust
-          '';
-        }
-        // extraPgConfig;
+      services.postgresql = {
+        enable = true;
+        package = pgPackage;
+        enableTCPIP = true;
+        inherit extensions;
+        settings = pgSettings;
+        ensureDatabases = [name];
+        ensureUsers = [
+          {
+            inherit name;
+            ensureDBOwnership = true;
+          }
+        ];
+        authentication = lib.mkForce ''
+          local all all peer
+          host all all ${hostAddress}/32 trust
+        '';
+      };
+
+      systemd.services.postgresql-setup.serviceConfig.ExecStartPost = lib.mkIf (postStartSQL != null) [
+        ''${lib.getExe' pgPackage "psql"} -d "${name}" -f "${pkgs.writeText "${name}-pg-init.sql" postStartSQL}"''
+      ];
 
       networking.firewall.allowedTCPPorts = [5432];
 
