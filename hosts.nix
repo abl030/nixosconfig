@@ -109,7 +109,7 @@ in {
     containerStacks = [
       "management"
       "tailscale-caddy"
-      "paperless"
+      # "paperless" — migrated to native NixOS services on doc2
       "mealie"
       "kopia"
       "domain-monitor"
