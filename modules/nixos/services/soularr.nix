@@ -1,3 +1,47 @@
+# Soularr — Lidarr-to-slskd bridge
+# =================================
+#
+# Architecture:
+#   Lidarr (port 8686)  ←──pyarr──  soularr  ──slskd-api──→  slskd (port 5030)
+#
+#   1. Lidarr tracks "wanted" albums (monitored + missing).
+#   2. soularr polls Lidarr every 5 min via systemd timer.
+#   3. For each wanted album, soularr searches Soulseek via slskd's API.
+#   4. When a match is found, soularr tells slskd to download it.
+#   5. slskd downloads to the shared downloadDir (/mnt/data/Media/Temp/slskd).
+#   6. Lidarr's Completed Download Handling imports from that directory.
+#
+# Key files on doc2:
+#   /var/lib/soularr/config.ini    — generated at runtime by preStartScript
+#   /var/lib/soularr/.soularr.lock — lock file (cleaned up on restart)
+#   /var/lib/soularr/failure_list.txt        — albums that failed all retries
+#   /var/lib/soularr/search_denylist.json    — users/folders to skip
+#   /var/lib/soularr/.current_page.txt       — incrementing_page bookmark
+#
+# Secrets (sops, secrets/soularr.env):
+#   SOULARR_LIDARR_API_KEY  — from Lidarr's config.xml <ApiKey>
+#   SOULARR_SLSKD_API_KEY   — must match SLSKD_API_KEY in secrets/slskd.env
+#
+# Debugging:
+#   journalctl -u soularr -f              — watch a run in real time
+#   sudo systemctl start soularr          — trigger a run now
+#   sudo cat /var/lib/soularr/config.ini  — verify API keys & settings
+#   sudo -u soularr python3 /nix/store/…-source/soularr.py --help
+#                                         — see CLI args (--config-dir, --var-dir, --no-lock-file)
+#   curl -s localhost:8686/api/v1/wanted/missing -H 'X-Api-Key: <key>' | jq '.records[].title'
+#                                         — check what Lidarr wants
+#   curl -s localhost:5030/api/v0/searches -H 'X-API-Key: <key>' | jq
+#                                         — check slskd search queue
+#
+# Config tuning (in configTemplate below):
+#   number_of_albums_to_grab   — how many albums per run (default 10)
+#   search_timeout             — ms to wait for Soulseek results (default 60000)
+#   minimum_filename_match_ratio — fuzzy match threshold (default 0.6)
+#   allowed_filetypes          — quality/format priority list
+#   stalled_timeout            — seconds before giving up on a stalled download
+#
+# Source: github.com/mrusse/soularr (pinned to specific commit below)
+# Not in nixpkgs — built inline. slskd-api (PyPI) also built inline.
 {
   config,
   lib,
