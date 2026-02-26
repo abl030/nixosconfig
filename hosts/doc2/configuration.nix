@@ -119,8 +119,8 @@
     # Paperless document management — app state + postgres on virtiofs
     "d /mnt/virtio/paperless 0750 paperless paperless - -"
     "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
-    # Mealie recipe manager — DynamicUser so root owns parent; systemd handles perms
-    "d /mnt/virtio/mealie 0755 root root - -"
+    # Mealie recipe manager — static user for predictable file ownership on virtiofs
+    "d /mnt/virtio/mealie 0750 mealie mealie - -"
     "d /mnt/virtio/mealie/postgres 0700 postgres postgres - -"
   ];
 

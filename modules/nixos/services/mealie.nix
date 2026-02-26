@@ -25,9 +25,14 @@ in {
   config = lib.mkIf cfg.enable {
     containers.mealie-db = pgc.containerConfig;
 
-    # Upstream hardcodes DATA_DIR=/var/lib/mealie and StateDirectory=mealie.
-    # Use BindPaths to map virtiofs onto /var/lib/mealie so DynamicUser + StateDirectory
-    # still works (systemd manages ownership via the StateDirectory mechanism).
+    # Static user instead of upstream DynamicUser — we need predictable UID
+    # for file ownership on virtiofs (migrated data from compose has mismatched UIDs).
+    users.users.mealie = {
+      isSystemUser = true;
+      group = "mealie";
+      home = "/var/lib/mealie";
+    };
+    users.groups.mealie = {};
 
     services.mealie = {
       enable = true;
@@ -50,20 +55,24 @@ in {
     };
 
     # Mealie service must wait for DB container.
-    # BindPaths maps the custom dataDir onto /var/lib/mealie so the upstream
-    # StateDirectory=mealie still works (systemd chowns it to the DynamicUser).
+    # Override DynamicUser with static user for predictable file ownership,
+    # and bind the virtiofs path onto /var/lib/mealie.
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
-      serviceConfig = lib.mkIf (cfg.dataDir != "/var/lib/mealie") {
-        BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
-      };
+      serviceConfig =
+        {
+          DynamicUser = lib.mkForce false;
+        }
+        // lib.optionalAttrs (cfg.dataDir != "/var/lib/mealie") {
+          BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
+        };
     };
 
-    # DynamicUser — systemd reads EnvironmentFile as root before dropping privs
     sops.secrets."mealie/env" = {
       sopsFile = config.homelab.secrets.sopsFile "mealie.env";
       format = "dotenv";
+      owner = "mealie";
       mode = "0400";
     };
 
