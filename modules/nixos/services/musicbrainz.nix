@@ -111,7 +111,7 @@
         restart: unless-stopped
 
       lmd:
-        image: blampe/lidarr.metadata:latest
+        image: blampe/lidarr.metadata:70a9707
         ports:
           - "${toString cfg.lmdPort}:5001"
         environment:
