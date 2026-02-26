@@ -565,6 +565,7 @@
         "pfsense-mcp": "pfsense-mcp",
         "slskd-mcp": "slskd-mcp",
         "sops-nix": "sops-nix",
+        "soularr-src": "soularr-src",
         "spicetify-nix": "spicetify-nix",
         "systems": "systems_7",
         "terranix": "terranix",
@@ -610,6 +611,22 @@
       "original": {
         "owner": "mic92",
         "repo": "sops-nix",
+        "type": "github"
+      }
+    },
+    "soularr-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772068852,
+        "narHash": "sha256-9YEDhn9q36U0sqldRoT0+2Bsg4a6tWysk7KAHqaC+PE=",
+        "owner": "abl030",
+        "repo": "soularr",
+        "rev": "48883475bac15ca1487b9753bd4dcfc1f9045e28",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "soularr",
         "type": "github"
       }
     },

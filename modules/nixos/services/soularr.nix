@@ -54,12 +54,17 @@
 #   NFS local mounts use hard (no bg) so the mount unit blocks until NFS is up.
 #   soularr additionally waits for lidarr.service + slskd.service.
 #
-# Source: github.com/mrusse/soularr (pinned to specific commit below)
+# Source: github.com/abl030/soularr (fork of mrusse/soularr)
+#   Our fork adds a monitored-release preference patch: choose_release()
+#   now checks Lidarr's monitored flag first, so it downloads the edition
+#   the user selected in the UI rather than the most-common-trackcount release.
+#   Pinned via flake input soularr-src (flake = false).
 # Not in nixpkgs — built inline. slskd-api (PyPI) also built inline.
 {
   config,
   lib,
   pkgs,
+  inputs,
   ...
 }: let
   cfg = config.homelab.services.soularr;
@@ -78,7 +83,7 @@
     doCheck = false;
   };
 
-  # Build soularr from upstream
+  # Build soularr from our fork (flake input)
   soularrPkg = let
     pythonEnv = pkgs.python3.withPackages (ps: [
       ps.requests
@@ -89,15 +94,8 @@
     ]);
   in
     pkgs.writeShellScriptBin "soularr" ''
-      exec ${pythonEnv}/bin/python ${soularrSrc}/soularr.py "$@"
+      exec ${pythonEnv}/bin/python ${inputs.soularr-src}/soularr.py "$@"
     '';
-
-  soularrSrc = pkgs.fetchFromGitHub {
-    owner = "mrusse";
-    repo = "soularr";
-    rev = "6a8778019581769a035092b73b5fe4c4daa64f82";
-    hash = "sha256-kDL4kQLOFYrlJslelyDlDWs3PO6ml2b+oHTI2HzUsaU=";
-  };
 
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
