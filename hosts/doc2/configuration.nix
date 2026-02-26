@@ -45,7 +45,7 @@
       gcDates = "04:30";
     };
 
-    # No containers, no podman, no compose — native NixOS services only
+    # Rootful podman for OCI containers, native NixOS services for the rest
     # No CI, no cache server, no github runner — that stays on doc1
     # No syncthing — this is a headless appliance
     syncthing.enable = false;
@@ -93,6 +93,10 @@
         enable = true;
         dataDir = "/mnt/virtio/uptime-kuma";
       };
+      jdownloader2 = {
+        enable = true;
+        dataDir = "/mnt/virtio/jdownloader2";
+      };
     };
 
     pve.enable = true;
@@ -132,6 +136,8 @@
     # Uptime Kuma monitoring — SQLite DB on virtiofs
     "d /mnt/virtio/uptime-kuma 0700 uptime-kuma uptime-kuma - -"
     "d /mnt/virtio/uptime-kuma/upload 0700 uptime-kuma uptime-kuma - -"
+    # JDownloader2 — OCI container config on virtiofs
+    "d /mnt/virtio/jdownloader2 0755 root root - -"
   ];
 
   services = {

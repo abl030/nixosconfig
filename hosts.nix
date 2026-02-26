@@ -114,7 +114,7 @@ in {
       "kopia"
       "domain-monitor"
       "invoices"
-      "jdownloader2"
+      # "jdownloader2" — migrated to OCI container on doc2
       # "music" — migrated to native NixOS services on doc2
       "netboot"
       # "smokeping" — migrated to native NixOS services on doc2
