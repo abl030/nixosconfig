@@ -118,9 +118,9 @@ in {
       # "music" — migrated to native NixOS services on doc2
       "netboot"
       "smokeping"
-      "stirlingpdf"
+      # "stirlingpdf" — migrated to native NixOS services on doc2
       "uptime-kuma"
-      "webdav"
+      # "webdav" — migrated to native NixOS services on doc2
       "youtarr"
       "musicbrainz"
     ];

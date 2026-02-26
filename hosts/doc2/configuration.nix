@@ -86,6 +86,8 @@
         enable = true;
         dataDir = "/mnt/virtio/mealie";
       };
+      stirlingpdf.enable = true;
+      webdav.enable = true;
     };
 
     pve.enable = true;

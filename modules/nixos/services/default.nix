@@ -31,5 +31,7 @@
     ./soularr.nix
     ./paperless.nix
     ./mealie.nix
+    ./stirlingpdf.nix
+    ./webdav.nix
   ];
 }
