@@ -65,8 +65,6 @@ in {
       };
     };
 
-    networking.firewall.allowedTCPPorts = [cfg.port];
-
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir} 0755 root root - -"
     ];

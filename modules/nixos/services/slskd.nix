@@ -90,7 +90,7 @@ in {
         ip rule add from ${cfg.vpnAddress} table 100 priority 101
       '';
 
-      firewall.allowedTCPPorts = [5030];
+      # Web UI port 5030 intentionally NOT opened — accessed via nginx (localProxy) only
     };
 
     services.slskd = {

@@ -53,7 +53,5 @@ in {
         }
       ];
     };
-
-    networking.firewall.allowedTCPPorts = [13378];
   };
 }

@@ -56,7 +56,5 @@ in {
         }
       ];
     };
-
-    networking.firewall.allowedTCPPorts = [8050];
   };
 }
