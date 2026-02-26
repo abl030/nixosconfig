@@ -106,6 +106,11 @@
       flake = false;
     };
 
+    soularr-src = {
+      url = "github:abl030/soularr";
+      flake = false;
+    };
+
     jolt = {
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";
