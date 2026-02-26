@@ -110,6 +110,26 @@
         dataDir = "/mnt/virtio/musicbrainz";
         mirrorDir = "/mnt/mirrors/musicbrainz";
       };
+      kopia = {
+        enable = true;
+        dataDir = "/mnt/virtio/kopia";
+        instances = {
+          photos = {
+            port = 51515;
+            configDir = "/mnt/virtio/kopia/photos";
+            sources = ["/mnt/data/Life/Photos"];
+            proxyHost = "kopiaphotos.ablz.au";
+          };
+          mum = {
+            port = 51516;
+            configDir = "/mnt/virtio/kopia/mum";
+            sources = ["/mnt/data"];
+            readWriteSources = ["/mnt/mum"];
+            proxyHost = "kopiamum.ablz.au";
+            verifyPercent = 2;
+          };
+        };
+      };
     };
 
     pve.enable = true;
@@ -163,6 +183,10 @@
     "d /mnt/virtio/netboot 0755 root root - -"
     # Youtarr — app state + MariaDB on virtiofs
     "d /mnt/virtio/youtarr 0755 root root - -"
+    # Kopia backup server — repository configs on virtiofs
+    "d /mnt/virtio/kopia 0750 kopia kopia - -"
+    "d /mnt/virtio/kopia/photos 0750 kopia kopia - -"
+    "d /mnt/virtio/kopia/mum 0750 kopia kopia - -"
   ];
 
   services = {
