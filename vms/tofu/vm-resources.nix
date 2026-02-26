@@ -68,23 +68,33 @@
         enabled = true;
       };
 
-      virtiofs = lib.optional (pve ? virtiofs) (
-        {
-          mapping = pve.virtiofs.mapping or "containers";
-        }
-        // lib.optionalAttrs (pve.virtiofs ? cache) {
-          inherit (pve.virtiofs) cache;
-        }
-        // lib.optionalAttrs (pve.virtiofs ? direct_io) {
-          inherit (pve.virtiofs) direct_io;
-        }
-        // lib.optionalAttrs (pve.virtiofs ? expose_acl) {
-          inherit (pve.virtiofs) expose_acl;
-        }
-        // lib.optionalAttrs (pve.virtiofs ? expose_xattr) {
-          inherit (pve.virtiofs) expose_xattr;
-        }
-      );
+      # Support single virtiofs object or list of virtiofs mappings
+      virtiofs = let
+        raw = pve.virtiofs or [];
+        normalized =
+          if builtins.isList raw
+          then raw
+          else [raw];
+      in
+        map (
+          vfs:
+            {
+              mapping = vfs.mapping or "containers";
+            }
+            // lib.optionalAttrs (vfs ? cache) {
+              inherit (vfs) cache;
+            }
+            // lib.optionalAttrs (vfs ? direct_io) {
+              inherit (vfs) direct_io;
+            }
+            // lib.optionalAttrs (vfs ? expose_acl) {
+              inherit (vfs) expose_acl;
+            }
+            // lib.optionalAttrs (vfs ? expose_xattr) {
+              inherit (vfs) expose_xattr;
+            }
+        )
+        normalized;
 
       # Lifecycle rules
       lifecycle = {

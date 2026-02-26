@@ -122,7 +122,7 @@ in {
       # "uptime-kuma" — migrated to native NixOS services on doc2
       # "webdav" — migrated to native NixOS services on doc2
       # "youtarr" — migrated to OCI container on doc2
-      "musicbrainz"
+      # "musicbrainz" — migrated to NixOS service on doc2
     ];
     proxmox = {
       vmid = 104;
@@ -330,9 +330,10 @@ in {
       cpuType = "x86-64-v3";
       tags = ["opentofu" "nixos" "managed"];
       description = "Service appliance VM — native NixOS services on virtiofs storage";
-      virtiofs = {
-        mapping = "containers";
-      };
+      virtiofs = [
+        {mapping = "containers";}
+        {mapping = "mirrors";}
+      ];
     };
   };
 

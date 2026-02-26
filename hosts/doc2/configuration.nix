@@ -105,6 +105,11 @@
         enable = true;
         dataDir = "/mnt/virtio/youtarr";
       };
+      musicbrainz = {
+        enable = true;
+        dataDir = "/mnt/virtio/musicbrainz";
+        mirrorDir = "/mnt/mirrors/musicbrainz";
+      };
     };
 
     pve.enable = true;
@@ -119,8 +124,16 @@
     options = ["rw" "relatime"];
   };
 
+  # Mirrors virtiofs mount — re-downloadable data (MusicBrainz, etc.), NOT backed up
+  fileSystems."/mnt/mirrors" = {
+    device = "mirrors";
+    fsType = "virtiofs";
+    options = ["rw" "relatime"];
+  };
+
   systemd.tmpfiles.rules = [
     "d /mnt/virtio 0755 root root - -"
+    "d /mnt/mirrors 0755 root root - -"
     "d /mnt/virtio/immich 0755 root root - -"
     "d /mnt/virtio/immich/postgres 0700 postgres postgres - -"
     "d /mnt/virtio/immich/ml-cache 0755 immich immich - -"
