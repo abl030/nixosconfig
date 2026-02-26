@@ -30,5 +30,6 @@
     ./slskd.nix
     ./soularr.nix
     ./paperless.nix
+    ./mealie.nix
   ];
 }

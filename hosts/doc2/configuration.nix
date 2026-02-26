@@ -82,6 +82,10 @@
         enable = true;
         dataDir = "/mnt/virtio/paperless";
       };
+      mealie = {
+        enable = true;
+        dataDir = "/mnt/virtio/mealie";
+      };
     };
 
     pve.enable = true;
@@ -115,6 +119,9 @@
     # Paperless document management — app state + postgres on virtiofs
     "d /mnt/virtio/paperless 0750 paperless paperless - -"
     "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
+    # Mealie recipe manager — DynamicUser so root owns parent; systemd handles perms
+    "d /mnt/virtio/mealie 0755 root root - -"
+    "d /mnt/virtio/mealie/postgres 0700 postgres postgres - -"
   ];
 
   services = {

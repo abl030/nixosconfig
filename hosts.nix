@@ -110,7 +110,7 @@ in {
       "management"
       "tailscale-caddy"
       # "paperless" — migrated to native NixOS services on doc2
-      "mealie"
+      # "mealie" — migrated to native NixOS services on doc2
       "kopia"
       "domain-monitor"
       "invoices"
