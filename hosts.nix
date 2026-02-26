@@ -116,7 +116,7 @@ in {
       "invoices"
       # "jdownloader2" — migrated to OCI container on doc2
       # "music" — migrated to native NixOS services on doc2
-      "netboot"
+      # "netboot" — migrated to OCI container on doc2
       # "smokeping" — migrated to native NixOS services on doc2
       # "stirlingpdf" — migrated to native NixOS services on doc2
       # "uptime-kuma" — migrated to native NixOS services on doc2
