@@ -17,7 +17,7 @@ in {
         enable = true;
         hostName = "ping.ablz.au";
         host = null;
-        cgiUrl = "https://ping.ablz.au/smokeping.cgi";
+        cgiUrl = "https://ping.ablz.au/smokeping.fcgi";
         owner = "abl030";
         ownerEmail = "admin@ablz.au";
         webService = false; # We handle nginx via localProxy
@@ -141,7 +141,7 @@ in {
       monitoring.monitors = [
         {
           name = "Smokeping";
-          url = "https://ping.ablz.au/smokeping.cgi";
+          url = "https://ping.ablz.au/smokeping.fcgi";
         }
       ];
     };
