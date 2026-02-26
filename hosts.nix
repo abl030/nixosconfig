@@ -113,7 +113,7 @@ in {
       # "mealie" — migrated to native NixOS services on doc2
       "kopia"
       "domain-monitor"
-      "invoices"
+      # "invoices" — disabled, unused (stack + data retained on doc1)
       # "jdownloader2" — migrated to OCI container on doc2
       # "music" — migrated to native NixOS services on doc2
       # "netboot" — migrated to OCI container on doc2
