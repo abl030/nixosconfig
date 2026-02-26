@@ -40,6 +40,8 @@ in {
       StateDirectory = lib.mkForce "";
     };
 
+    networking.firewall.allowedTCPPorts = [ 8050 ];
+
     homelab = {
       localProxy.hosts = [
         {
