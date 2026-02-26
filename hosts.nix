@@ -119,7 +119,7 @@ in {
       "netboot"
       # "smokeping" — migrated to native NixOS services on doc2
       # "stirlingpdf" — migrated to native NixOS services on doc2
-      "uptime-kuma"
+      # "uptime-kuma" — migrated to native NixOS services on doc2
       # "webdav" — migrated to native NixOS services on doc2
       "youtarr"
       "musicbrainz"

@@ -34,5 +34,6 @@
     ./stirlingpdf.nix
     ./webdav.nix
     ./smokeping.nix
+    ./uptime-kuma.nix
   ];
 }

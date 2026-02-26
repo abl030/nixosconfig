@@ -89,6 +89,10 @@
       stirlingpdf.enable = true;
       webdav.enable = true;
       smokeping.enable = true;
+      uptime-kuma = {
+        enable = true;
+        dataDir = "/mnt/virtio/uptime-kuma";
+      };
     };
 
     pve.enable = true;
@@ -125,6 +129,8 @@
     # Mealie recipe manager — static user for predictable file ownership on virtiofs
     "d /mnt/virtio/mealie 0750 mealie mealie - -"
     "d /mnt/virtio/mealie/postgres 0700 postgres postgres - -"
+    # Uptime Kuma monitoring — SQLite DB on virtiofs
+    "d /mnt/virtio/uptime-kuma 0700 uptime-kuma uptime-kuma - -"
   ];
 
   services = {
