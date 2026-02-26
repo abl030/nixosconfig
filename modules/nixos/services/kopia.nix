@@ -226,29 +226,23 @@ in {
           wants = ["network-online.target"];
           wantedBy = ["multi-user.target"];
 
+          script = ''
+            exec ${pkgs.kopia}/bin/kopia server start \
+              --config-file=${inst.configDir}/repository.config \
+              --address=0.0.0.0:${toString inst.port} \
+              --insecure \
+              --disable-csrf-token-checks \
+              --server-username="$KOPIA_SERVER_USER" \
+              --server-password="$KOPIA_SERVER_PASSWORD" \
+              ${lib.concatStringsSep " " inst.extraArgs}
+          '';
           serviceConfig = {
             Type = "simple";
             User = "kopia";
             Group = "kopia";
             EnvironmentFile = [config.sops.secrets."kopia/env".path];
-            ExecStart = lib.concatStringsSep " " ([
-                "${pkgs.kopia}/bin/kopia"
-                "server"
-                "start"
-                "--config-file=${inst.configDir}/repository.config"
-                "--address=0.0.0.0:${toString inst.port}"
-                "--insecure"
-                "--disable-csrf-token-checks"
-                "--server-username=$KOPIA_SERVER_USER"
-                "--server-password=$KOPIA_SERVER_PASSWORD"
-              ]
-              ++ inst.extraArgs);
             Restart = "on-failure";
             RestartSec = 10;
-
-            # Sandboxing
-            ReadOnlyPaths = inst.sources;
-            ReadWritePaths = [inst.configDir] ++ inst.readWriteSources;
             ProtectHome = true;
             NoNewPrivileges = true;
           };
