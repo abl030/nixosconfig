@@ -50,7 +50,7 @@ in {
     virtualisation.oci-containers.containers.jdownloader2 = {
       image = "docker.io/jlesage/jdownloader-2:latest";
       autoStart = true;
-      pull = "always";
+      pull = "newer";
       ports = ["${toString cfg.port}:5800"];
       volumes = [
         "${cfg.dataDir}:/config"

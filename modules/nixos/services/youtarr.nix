@@ -65,7 +65,7 @@ in {
     virtualisation.oci-containers.containers.youtarr = {
       image = "docker.io/dialmaster/youtarr:latest";
       autoStart = true;
-      pull = "always";
+      pull = "newer";
       ports = ["${toString cfg.port}:3011"];
       dependsOn = ["youtarr-db"];
       environment = {
@@ -92,7 +92,7 @@ in {
     virtualisation.oci-containers.containers.youtarr-db = {
       image = "docker.io/library/mariadb:10.3";
       autoStart = true;
-      pull = "always";
+      pull = "newer";
       cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci"];
       environment = {
         MYSQL_DATABASE = "youtarr";

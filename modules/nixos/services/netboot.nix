@@ -56,7 +56,7 @@ in {
     virtualisation.oci-containers.containers.netboot = {
       image = "ghcr.io/netbootxyz/netbootxyz:latest";
       autoStart = true;
-      pull = "always";
+      pull = "newer";
       ports = [
         "${toString cfg.webPort}:3000"
         "${toString cfg.assetsPort}:80"

@@ -85,21 +85,21 @@ This is the hardest problem with `oci-containers`, and the community has converg
 
 **The core issue**: the module defaults to `--pull missing`, meaning an image is only pulled if it doesn't exist locally. A `nixos-rebuild` that doesn't change the container's Nix configuration won't restart the service or re-pull the image. GitHub issue #172765 has tracked this since May 2022.
 
-**Layer 1: Set `pull = "always"` or `"newer"`.** This option ensures the image is re-pulled every time the service starts:
+**Layer 1: Set `pull = "newer"`.** This option checks the registry digest and only pulls if a newer image exists:
 
 ```nix
 virtualisation.oci-containers.containers.jdownloader = {
   image = "jlesage/jdownloader-2:latest";
-  pull = "always";
+  pull = "newer";
   # ... other config
 };
 ```
 
 > **Correction (2026-02-26):** Many community examples show `podman.pull = "always"` but the actual nixpkgs option path is simply `pull` — it's a top-level container option, not nested under a `podman` attrset. The option accepts `"always"`, `"missing"`, `"never"`, or `"newer"` and defaults to `"missing"`. Despite some blog posts claiming it's Podman-specific, the option exists for both backends in current nixpkgs.
 
-The `"newer"` option checks the registry and only pulls if a newer digest exists, saving bandwidth. Both options mean that any service restart — whether from a rebuild, a crash, or a timer — picks up the latest image.
+> **Update (2026-02-26):** Prefer `"newer"` over `"always"`. The critical difference: when the registry is unreachable or rate-limited, `"newer"` **silently falls back to the local image** (`"Pull errors are suppressed if a local image was found"` — [podman-pull docs](https://docs.podman.io/en/latest/markdown/podman-pull.1.html)). With `"always"`, a registry failure means the container **cannot start at all**, even if the image is cached locally. This caused a real outage: Docker Hub rate limits triggered a restart loop where youtarr kept failing to pull on every retry, burning through rate limits even faster. `"newer"` would have started the local image immediately.
 
-**Layer 2: A weekly pull-and-restart timer.** Since `pull = "always"` only triggers on service start, you need something to periodically restart services. The Nixcademy blog by Jacek Galowicz documents a proven pattern used on production systems for over a year:
+**Layer 2: A weekly pull-and-restart timer.** Since `pull = "newer"` only triggers on service start, you need something to periodically restart services. The Nixcademy blog by Jacek Galowicz documents a proven pattern used on production systems for over a year:
 
 ```nix
 systemd.services.update-containers = {
@@ -149,7 +149,7 @@ virtualisation.podman.autoPrune = {
 };
 ```
 
-**Without `--all`**, only dangling (untagged) images are removed. **With `--all`**, any image not actively used by a running container gets pruned. This is safe when combined with `pull = "always"` because services re-pull on next start. The risk scenario: if pruning runs during a brief window when a container has crashed and hasn't restarted yet, its image gets removed, and the restart then requires a network pull. On a homelab with reliable internet, this is acceptable.
+**Without `--all`**, only dangling (untagged) images are removed. **With `--all`**, any image not actively used by a running container gets pruned. This is safe when combined with `pull = "newer"` because services re-pull on next start. The risk scenario: if pruning runs during a brief window when a container has crashed and hasn't restarted yet, its image gets removed, and the restart then requires a network pull. On a homelab with reliable internet, this is acceptable.
 
 **Never add `--volumes` to autoPrune flags.** This removes unused named volumes and can destroy persistent data. Bind mounts are immune to volume pruning (they're just filesystem paths), which is one more reason to prefer bind mounts for persistent data.
 
@@ -228,7 +228,7 @@ virtualisation.oci-containers = {
   backend = "podman";
   containers.jdownloader = {
     image = "jlesage/jdownloader-2:latest";
-    pull = "always";
+    pull = "newer";
     volumes = [ "/var/lib/jdownloader:/config" ];
     ports = [ "5800:5800" ];
   };
@@ -242,4 +242,4 @@ systemd.services.podman-kopia = {
 };
 ```
 
-Combined with the weekly pull-and-restart timer, this setup ensures containers always run, always update, and never need manual intervention. The three critical lines most people miss are `dns_enabled = true`, the firewall rule for UDP 53, and `pull = "always"`. Without them, you'll spend hours debugging silent failures. With them, NixOS manages containers as reliably as its native services.
+Combined with the weekly pull-and-restart timer, this setup ensures containers always run, always update, and never need manual intervention. The three critical lines most people miss are `dns_enabled = true`, the firewall rule for UDP 53, and `pull = "newer"`. Without them, you'll spend hours debugging silent failures. With them, NixOS manages containers as reliably as its native services.
