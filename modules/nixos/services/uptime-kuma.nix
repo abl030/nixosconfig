@@ -40,6 +40,7 @@ in {
       Group = "uptime-kuma";
       WorkingDirectory = lib.mkForce cfg.dataDir;
       StateDirectory = lib.mkForce "";
+      ReadWritePaths = [cfg.dataDir];
     };
 
     homelab = {

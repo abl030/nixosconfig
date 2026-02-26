@@ -131,6 +131,7 @@
     "d /mnt/virtio/mealie/postgres 0700 postgres postgres - -"
     # Uptime Kuma monitoring — SQLite DB on virtiofs
     "d /mnt/virtio/uptime-kuma 0700 uptime-kuma uptime-kuma - -"
+    "d /mnt/virtio/uptime-kuma/upload 0700 uptime-kuma uptime-kuma - -"
   ];
 
   services = {
