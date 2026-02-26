@@ -233,6 +233,7 @@
     traceroute
 
     # Disk & filesystem
+    cloud-utils # growpart for online partition resizing
     parted
     iotop
     smartmontools # smartctl
