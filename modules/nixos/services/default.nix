@@ -39,5 +39,6 @@
     ./netboot.nix
     ./youtarr.nix
     ./musicbrainz.nix
+    ./kopia.nix
   ];
 }
