@@ -16,7 +16,7 @@ in {
 
     webPort = lib.mkOption {
       type = lib.types.port;
-      default = 3000;
+      default = 3005;
       description = "Port for the netboot.xyz web UI.";
     };
 
