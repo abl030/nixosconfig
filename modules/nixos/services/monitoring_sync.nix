@@ -216,7 +216,7 @@
             os.replace(tmp_path, cache_path)
             last_error = None
             break
-        except (socketio.exceptions.BadNamespaceError, UptimeKumaException) as exc:
+        except (socketio.exceptions.TimeoutError, socketio.exceptions.BadNamespaceError, UptimeKumaException) as exc:
             last_error = exc
             time.sleep(2 * (attempt + 1))
 
