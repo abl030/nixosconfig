@@ -325,7 +325,7 @@ in {
       vmid = 114;
       cores = 8;
       memory = 16384;
-      disk = "32G";
+      disk = "64G";
       storage = "nvmeprom";
       cpuType = "x86-64-v3";
       tags = ["opentofu" "nixos" "managed"];
