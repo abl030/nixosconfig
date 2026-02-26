@@ -35,5 +35,6 @@
     ./webdav.nix
     ./smokeping.nix
     ./uptime-kuma.nix
+    ./jdownloader2.nix
   ];
 }
