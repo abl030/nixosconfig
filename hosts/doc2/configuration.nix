@@ -97,6 +97,10 @@
         enable = true;
         dataDir = "/mnt/virtio/jdownloader2";
       };
+      netboot = {
+        enable = true;
+        dataDir = "/mnt/virtio/netboot";
+      };
     };
 
     pve.enable = true;
@@ -138,6 +142,8 @@
     "d /mnt/virtio/uptime-kuma/upload 0700 uptime-kuma uptime-kuma - -"
     # JDownloader2 — OCI container config on virtiofs
     "d /mnt/virtio/jdownloader2 0755 root root - -"
+    # netboot.xyz — PXE boot server config and assets on virtiofs
+    "d /mnt/virtio/netboot 0755 root root - -"
   ];
 
   services = {
