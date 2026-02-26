@@ -317,7 +317,7 @@ in {
             MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
           };
 
-          path = [pkgs.podman pkgs.coreutils pkgs.gnugrep];
+          path = [pkgs.podman pkgs.docker-compose pkgs.coreutils pkgs.gnugrep];
 
           serviceConfig = {
             Type = "oneshot";
