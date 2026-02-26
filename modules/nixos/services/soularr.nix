@@ -209,6 +209,8 @@ in {
       after = ["lidarr.service" "slskd.service" "mnt-data.mount"];
       wants = ["lidarr.service" "slskd.service"];
       requires = ["mnt-data.mount"];
+      # Don't block nixos-rebuild — the timer fires every 5 min anyway
+      restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         User = "soularr";
