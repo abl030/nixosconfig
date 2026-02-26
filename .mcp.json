@@ -1,47 +1,10 @@
 {
   "mcpServers": {
-    "loki": {
-      "command": "loki-mcp",
-      "args": [],
-      "env": {
-        "LOKI_URL": "http://192.168.1.33:3100",
-        "LOKI_READ_ONLY": "true"
-      }
-    },
     "mcp-nixos": {
       "command": "uvx",
       "args": [
         "mcp-nixos"
       ]
-    },
-    "prometheus": {
-      "command": "uvx",
-      "args": [
-        "prometheus-mcp-server"
-      ],
-      "env": {
-        "PROMETHEUS_URL": "http://192.168.1.33:9009/prometheus"
-      }
-    },
-    "pfsense": {
-      "command": "./scripts/mcp-pfsense.sh",
-      "args": []
-    },
-    "unifi": {
-      "command": "./scripts/mcp-unifi.sh",
-      "args": []
-    },
-    "homeassistant": {
-      "command": "./scripts/mcp-homeassistant.sh",
-      "args": []
-    },
-    "lidarr": {
-      "command": "./scripts/mcp-lidarr.sh",
-      "args": []
-    },
-    "slskd": {
-      "command": "./scripts/mcp-slskd.sh",
-      "args": []
     },
     "beads": {
       "command": "uvx",
