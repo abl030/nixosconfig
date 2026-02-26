@@ -101,6 +101,10 @@
         enable = true;
         dataDir = "/mnt/virtio/netboot";
       };
+      youtarr = {
+        enable = true;
+        dataDir = "/mnt/virtio/youtarr";
+      };
     };
 
     pve.enable = true;
@@ -144,6 +148,8 @@
     "d /mnt/virtio/jdownloader2 0755 root root - -"
     # netboot.xyz — PXE boot server config and assets on virtiofs
     "d /mnt/virtio/netboot 0755 root root - -"
+    # Youtarr — app state + MariaDB on virtiofs
+    "d /mnt/virtio/youtarr 0755 root root - -"
   ];
 
   services = {
