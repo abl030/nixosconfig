@@ -51,6 +51,6 @@ in {
       ];
     };
 
-    networking.firewall.allowedTCPPorts = [8686];
+    # Port 8686 intentionally NOT opened in firewall — accessed via nginx (localProxy) only
   };
 }

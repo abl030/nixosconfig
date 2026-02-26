@@ -134,6 +134,7 @@ in {
       ];
     };
 
+    # Port 8081 (metrics) open for remote Prometheus/Loki scraping from igpu
     networking.firewall.allowedTCPPorts = [8081];
   };
 }
