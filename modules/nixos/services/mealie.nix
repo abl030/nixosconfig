@@ -26,10 +26,8 @@ in {
     containers.mealie-db = pgc.containerConfig;
 
     # Upstream hardcodes DATA_DIR=/var/lib/mealie and StateDirectory=mealie.
-    # Redirect to virtiofs via symlink when using a custom dataDir.
-    systemd.tmpfiles.rules = lib.mkIf (cfg.dataDir != "/var/lib/mealie") [
-      "L+ /var/lib/mealie - - - - ${cfg.dataDir}"
-    ];
+    # Use BindPaths to map virtiofs onto /var/lib/mealie so DynamicUser + StateDirectory
+    # still works (systemd manages ownership via the StateDirectory mechanism).
 
     services.mealie = {
       enable = true;
@@ -52,13 +50,13 @@ in {
     };
 
     # Mealie service must wait for DB container.
-    # When using a custom dataDir, clear StateDirectory so systemd doesn't
-    # conflict with our tmpfiles symlink at /var/lib/mealie.
+    # BindPaths maps the custom dataDir onto /var/lib/mealie so the upstream
+    # StateDirectory=mealie still works (systemd chowns it to the DynamicUser).
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
       serviceConfig = lib.mkIf (cfg.dataDir != "/var/lib/mealie") {
-        StateDirectory = lib.mkForce "";
+        BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
       };
     };
 
