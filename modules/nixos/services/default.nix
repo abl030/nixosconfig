@@ -38,5 +38,6 @@
     ./jdownloader2.nix
     ./netboot.nix
     ./youtarr.nix
+    ./musicbrainz.nix
   ];
 }
