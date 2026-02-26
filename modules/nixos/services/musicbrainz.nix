@@ -103,6 +103,35 @@
           - SOLR_HEAP=2g
   '';
 
+  # nginx config for LMD proxy shim — falls back /album/<artist-mbid> → /artist/<mbid>
+  lmdProxyConf = pkgs.writeText "lmd-proxy.conf" ''
+    server {
+        listen 5001;
+
+        # Default: pass all requests through to LMD
+        location / {
+            proxy_pass http://lmd:5001;
+            proxy_set_header Host ''$host;
+        }
+
+        # Album endpoint: try LMD first, fallback to artist endpoint on 404.
+        # Lidarr calls GET /album/<artist-mbid> expecting artist albums, but LMD
+        # treats /album/ as a release-group lookup and returns 404 for artist MBIDs.
+        location ~ ^/album/([0-9a-f-]+)''$ {
+            proxy_pass http://lmd:5001;
+            proxy_set_header Host ''$host;
+            proxy_intercept_errors on;
+            error_page 404 = @album_fallback;
+        }
+
+        location @album_fallback {
+            rewrite ^/album/(.+)''$ /artist/''$1 break;
+            proxy_pass http://lmd:5001;
+            proxy_set_header Host ''$host;
+        }
+    }
+  '';
+
   # LMD, Redis, LRCLIB service definitions
   lmdOverride = pkgs.writeText "musicbrainz-lmd.yml" ''
     services:
@@ -110,10 +139,18 @@
         image: docker.io/library/redis:7-alpine
         restart: unless-stopped
 
-      lmd:
-        image: blampe/lidarr.metadata:70a9707
+      lmd-proxy:
+        image: docker.io/library/nginx:alpine
         ports:
           - "${toString cfg.lmdPort}:5001"
+        volumes:
+          - ${lmdProxyConf}:/etc/nginx/conf.d/default.conf:ro
+        depends_on:
+          - lmd
+        restart: unless-stopped
+
+      lmd:
+        image: blampe/lidarr.metadata:70a9707
         environment:
           DEBUG: "false"
           PRODUCTION: "false"
@@ -347,6 +384,7 @@ in {
             volumeOverride
             settingsOverride
             lmdOverride
+            lmdProxyConf
             replicationTokenOverride
             lrclibImageOverride
           ];
