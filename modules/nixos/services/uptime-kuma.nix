@@ -21,7 +21,7 @@ in {
       settings = {
         PORT = "3001";
         HOST = "0.0.0.0";
-        DATA_DIR = cfg.dataDir;
+        DATA_DIR = lib.mkForce cfg.dataDir;
       };
     };
 
