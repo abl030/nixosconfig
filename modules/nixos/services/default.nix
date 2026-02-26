@@ -33,5 +33,6 @@
     ./mealie.nix
     ./stirlingpdf.nix
     ./webdav.nix
+    ./smokeping.nix
   ];
 }

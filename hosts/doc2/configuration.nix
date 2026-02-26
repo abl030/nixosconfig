@@ -88,6 +88,7 @@
       };
       stirlingpdf.enable = true;
       webdav.enable = true;
+      smokeping.enable = true;
     };
 
     pve.enable = true;
