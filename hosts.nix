@@ -117,7 +117,7 @@ in {
       "jdownloader2"
       # "music" — migrated to native NixOS services on doc2
       "netboot"
-      "smokeping"
+      # "smokeping" — migrated to native NixOS services on doc2
       # "stirlingpdf" — migrated to native NixOS services on doc2
       "uptime-kuma"
       # "webdav" — migrated to native NixOS services on doc2
