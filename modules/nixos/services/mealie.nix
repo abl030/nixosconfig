@@ -51,10 +51,15 @@ in {
       };
     };
 
-    # Mealie service must wait for DB container
+    # Mealie service must wait for DB container.
+    # When using a custom dataDir, clear StateDirectory so systemd doesn't
+    # conflict with our tmpfiles symlink at /var/lib/mealie.
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
+      serviceConfig = lib.mkIf (cfg.dataDir != "/var/lib/mealie") {
+        StateDirectory = lib.mkForce "";
+      };
     };
 
     # DynamicUser — systemd reads EnvironmentFile as root before dropping privs
