@@ -189,6 +189,10 @@
     # Youtarr — app state + MariaDB on virtiofs
     "d /mnt/virtio/youtarr 0755 root root - -"
     # Kopia backup server — repository configs on virtiofs
+    # Symlinks match container mount paths so existing snapshot policies work
+    "L /photos - - - - /mnt/data/Life/Photos"
+    "L /data - - - - /mnt/data"
+    "L /mum - - - - /mnt/mum"
     "d /mnt/virtio/kopia 0750 kopia kopia - -"
     "d /mnt/virtio/kopia/photos 0750 kopia kopia - -"
     "d /mnt/virtio/kopia/mum 0750 kopia kopia - -"
