@@ -119,6 +119,9 @@
             configDir = "/mnt/virtio/kopia/photos";
             sources = ["/mnt/data/Life/Photos"];
             proxyHost = "kopiaphotos.ablz.au";
+            # Match container identity so existing snapshot policies/schedules work
+            overrideHostname = "kopia";
+            overrideUsername = "root";
           };
           mum = {
             port = 51516;
@@ -127,6 +130,8 @@
             readWriteSources = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
             verifyPercent = 2;
+            overrideHostname = "kopia";
+            overrideUsername = "root";
           };
         };
       };
