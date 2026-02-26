@@ -121,7 +121,7 @@ in {
       # "stirlingpdf" — migrated to native NixOS services on doc2
       # "uptime-kuma" — migrated to native NixOS services on doc2
       # "webdav" — migrated to native NixOS services on doc2
-      "youtarr"
+      # "youtarr" — migrated to OCI container on doc2
       "musicbrainz"
     ];
     proxmox = {

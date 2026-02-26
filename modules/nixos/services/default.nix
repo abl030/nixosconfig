@@ -37,5 +37,6 @@
     ./uptime-kuma.nix
     ./jdownloader2.nix
     ./netboot.nix
+    ./youtarr.nix
   ];
 }
