@@ -137,6 +137,18 @@
         description = "Percentage of files to verify in daily snapshot verify.";
       };
 
+      overrideHostname = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Override hostname kopia uses for source matching (for container migration).";
+      };
+
+      overrideUsername = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Override username kopia uses for source matching (for container migration).";
+      };
+
       extraArgs = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
@@ -234,6 +246,8 @@ in {
               --disable-csrf-token-checks \
               --server-username="$KOPIA_SERVER_USER" \
               --server-password="$KOPIA_SERVER_PASSWORD" \
+              ${lib.optionalString (inst.overrideHostname != null) "--override-hostname=${inst.overrideHostname}"} \
+              ${lib.optionalString (inst.overrideUsername != null) "--override-username=${inst.overrideUsername}"} \
               ${lib.concatStringsSep " " inst.extraArgs}
           '';
           serviceConfig = {
