@@ -78,22 +78,6 @@
         "type": "github"
       }
     },
-    "domain-monitor-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1770832556,
-        "narHash": "sha256-jdwID1Qvyf8a1mjtH76VQsX/wYZLCFvvv3acdgQufno=",
-        "owner": "Hosteroid",
-        "repo": "domain-monitor",
-        "rev": "aca4c14b8bf2553433254f2d9c7fd11dc1f6cada",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Hosteroid",
-        "repo": "domain-monitor",
-        "type": "github"
-      }
-    },
     "episodic-memory": {
       "flake": false,
       "locked": {
@@ -546,7 +530,6 @@
         "claude-plugin-ha-skills": "claude-plugin-ha-skills",
         "codex-cli-nix": "codex-cli-nix",
         "disko": "disko",
-        "domain-monitor-src": "domain-monitor-src",
         "episodic-memory": "episodic-memory",
         "flake-parts": "flake-parts",
         "flake-utils": "flake-utils_3",

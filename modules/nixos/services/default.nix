@@ -40,5 +40,6 @@
     ./youtarr.nix
     ./musicbrainz.nix
     ./kopia.nix
+    ./domain-monitor.nix
   ];
 }

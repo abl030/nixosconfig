@@ -110,6 +110,7 @@
         dataDir = "/mnt/virtio/musicbrainz";
         mirrorDir = "/mnt/mirrors/musicbrainz";
       };
+      domain-monitor.enable = true;
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
