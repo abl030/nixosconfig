@@ -132,6 +132,7 @@
             verifyPercent = 2;
             overrideHostname = "kopia";
             overrideUsername = "root";
+            runAsRoot = true;
           };
         };
       };
