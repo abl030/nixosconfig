@@ -122,8 +122,6 @@
             # Match container identity so existing snapshot policies/schedules work
             overrideHostname = "kopia";
             overrideUsername = "root";
-            # Bind mount at container path — kopia can't snapshot symlinks
-            bindMounts."/photos" = "/mnt/data/Life/Photos";
           };
           mum = {
             port = 51516;
@@ -134,11 +132,6 @@
             verifyPercent = 2;
             overrideHostname = "kopia";
             overrideUsername = "root";
-            # Bind mounts at container paths — kopia can't snapshot symlinks
-            bindMounts = {
-              "/data" = "/mnt/data";
-              "/mum" = "/mnt/mum";
-            };
           };
         };
       };
