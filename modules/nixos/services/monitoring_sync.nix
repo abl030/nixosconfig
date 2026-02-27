@@ -158,6 +158,7 @@
                     common_kwargs["basic_auth_pass"] = basic_auth_pass
                 if mon_type == "json-query":
                     common_kwargs["method"] = method
+                    common_kwargs["jsonPathOperator"] = "=="
                     if json_path:
                         common_kwargs["jsonPath"] = json_path
                     if expected_value:
