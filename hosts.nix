@@ -111,7 +111,7 @@ in {
       "tailscale-caddy"
       # "paperless" — migrated to native NixOS services on doc2
       # "mealie" — migrated to native NixOS services on doc2
-      "kopia"
+      # "kopia" — migrated to native NixOS module on doc2
       "domain-monitor"
       # "invoices" — disabled, unused (stack + data retained on doc1)
       # "jdownloader2" — migrated to OCI container on doc2
