@@ -149,6 +149,12 @@
         description = "Override username kopia uses for source matching (for container migration).";
       };
 
+      runAsRoot = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Run this instance as root (needed when NFS repo has restrictive perms).";
+      };
+
       extraArgs = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
@@ -253,8 +259,14 @@ in {
           '';
           serviceConfig = {
             Type = "simple";
-            User = "kopia";
-            Group = "kopia";
+            User =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
+            Group =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
             EnvironmentFile = [config.sops.secrets."kopia/env".path];
             Restart = "on-failure";
             RestartSec = 10;
@@ -270,8 +282,14 @@ in {
           requires = ["kopia-${name}.service"];
           serviceConfig = {
             Type = "oneshot";
-            User = "kopia";
-            Group = "kopia";
+            User =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
+            Group =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
             ExecStart = mkVerifyScript {inherit name inst;};
           };
         })
