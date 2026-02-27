@@ -64,6 +64,7 @@ in {
       enable = true;
       environmentFile = config.sops.secrets."gatus/env".path;
       settings = {
+        web.port = 8090;
         alerting.gotify = {
           server-url = config.homelab.gotify.endpoint;
           token = "\${GOTIFY_TOKEN}";
@@ -83,7 +84,7 @@ in {
       localProxy.hosts = [
         {
           host = "domains.ablz.au";
-          port = 8080;
+          port = 8090;
         }
       ];
       monitoring.monitors = [
