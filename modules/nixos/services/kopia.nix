@@ -98,9 +98,15 @@
     allPaths = inst.sources ++ inst.readWriteSources;
     hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
     hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
+    # Bind mount units (e.g. "/photos" → "photos.mount")
+    bindMountUnits =
+      lib.mapAttrsToList
+      (mountPoint: _: "${lib.removePrefix "/" mountPoint}.mount")
+      inst.bindMounts;
   in
     lib.optional hasMntData "mnt-data.mount"
-    ++ lib.optional hasMntMum "mnt-mum.automount";
+    ++ lib.optional hasMntMum "mnt-mum.automount"
+    ++ bindMountUnits;
 
   instanceModule = lib.types.submodule {
     options = {
@@ -147,6 +153,19 @@
         type = lib.types.nullOr lib.types.str;
         default = null;
         description = "Override username kopia uses for source matching (for container migration).";
+      };
+
+      bindMounts = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = ''
+          Bind mounts for container-path compatibility.
+          Keys are the mount point (container path, e.g. "/photos"),
+          values are the host path (e.g. "/mnt/data/Life/Photos").
+          Kopia doesn't support symlinks as snapshot source roots,
+          so bind mounts present a real filesystem at the expected path.
+        '';
+        example = {"/photos" = "/mnt/data/Life/Photos";};
       };
 
       extraArgs = lib.mkOption {
@@ -213,20 +232,41 @@ in {
       kernelModules = lib.mkOrder 1600 ["nfs"];
     };
 
-    fileSystems."/mnt/mum" = lib.mkIf needsMumMount {
-      device = "100.100.237.21:/volumeUSB1/usbshare";
-      fsType = "nfs";
-      options = [
-        "x-systemd.automount"
-        "noauto"
-        "_netdev"
-        "x-systemd.requires=tailscaled.service"
-        "x-systemd.after=tailscaled.service"
-        "x-systemd.idle-timeout=300"
-        "noatime"
-        "retry=10"
-      ];
-    };
+    # Bind mounts for container-path compatibility (kopia can't snapshot symlinks)
+    # + /mnt/mum NFS mount when needed
+    fileSystems = lib.mkMerge (
+      # Container-path bind mounts
+      (lib.concatLists (lib.mapAttrsToList (_name: inst: let
+        rwPaths = inst.readWriteSources;
+      in
+        lib.mapAttrsToList (mountPoint: hostPath: {
+          ${mountPoint} = {
+            device = hostPath;
+            options =
+              ["bind"]
+              ++ lib.optional (!(lib.any (s: lib.hasPrefix mountPoint s) rwPaths)) "ro";
+          };
+        })
+        inst.bindMounts)
+      cfg.instances))
+      # /mnt/mum NFS mount
+      ++ lib.optional needsMumMount {
+        "/mnt/mum" = {
+          device = "100.100.237.21:/volumeUSB1/usbshare";
+          fsType = "nfs";
+          options = [
+            "x-systemd.automount"
+            "noauto"
+            "_netdev"
+            "x-systemd.requires=tailscaled.service"
+            "x-systemd.after=tailscaled.service"
+            "x-systemd.idle-timeout=300"
+            "noatime"
+            "retry=10"
+          ];
+        };
+      }
+    );
 
     # Per-instance systemd services + verify services
     systemd.services =
