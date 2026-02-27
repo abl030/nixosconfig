@@ -98,10 +98,10 @@
     allPaths = inst.sources ++ inst.readWriteSources;
     hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
     hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
-    # Bind mount units (e.g. "/photos" → "photos.mount")
+    # Bind mount automount units (e.g. "/photos" → "photos.automount")
     bindMountUnits =
       lib.mapAttrsToList
-      (mountPoint: _: "${lib.removePrefix "/" mountPoint}.mount")
+      (mountPoint: _: "${lib.removePrefix "/" mountPoint}.automount")
       inst.bindMounts;
   in
     lib.optional hasMntData "mnt-data.mount"
@@ -242,8 +242,10 @@ in {
         lib.mapAttrsToList (mountPoint: hostPath: {
           ${mountPoint} = {
             device = hostPath;
+            # nofail prevents blocking boot if the underlying mount isn't ready
+            # x-systemd.automount + noauto defers mounting until first access
             options =
-              ["bind"]
+              ["bind" "nofail" "x-systemd.automount" "noauto"]
               ++ lib.optional (!(lib.any (s: lib.hasPrefix mountPoint s) rwPaths)) "ro";
           };
         })
