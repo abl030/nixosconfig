@@ -8,7 +8,7 @@
   stackModules = {
     atuin = ../../../../stacks/atuin/docker-compose.nix;
     audiobookshelf = ../../../../stacks/audiobookshelf/docker-compose.nix;
-    domain-monitor = ../../../../stacks/domain-monitor/docker-compose.nix;
+
     immich = ../../../../stacks/immich/docker-compose.nix;
     invoices = ../../../../stacks/invoices/docker-compose.nix;
     jdownloader2 = ../../../../stacks/jdownloader2/docker-compose.nix;

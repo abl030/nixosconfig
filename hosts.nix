@@ -112,7 +112,7 @@ in {
       # "paperless" — migrated to native NixOS services on doc2
       # "mealie" — migrated to native NixOS services on doc2
       # "kopia" — migrated to native NixOS module on doc2
-      "domain-monitor"
+      # "domain-monitor" — migrated to native Gatus service on doc2
       # "invoices" — disabled, unused (stack + data retained on doc1)
       # "jdownloader2" — migrated to OCI container on doc2
       # "music" — migrated to native NixOS services on doc2

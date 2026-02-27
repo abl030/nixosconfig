@@ -70,11 +70,6 @@
     };
 
     # --- 5. Static Sources (Non-flake) ---
-    domain-monitor-src = {
-      url = "github:Hosteroid/domain-monitor";
-      flake = false;
-    };
-
     gaj-shared = {
       url = "gitlab:gaj-nixos/shared";
       flake = false;
