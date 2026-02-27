@@ -6,23 +6,19 @@
   cfg = config.homelab.services.domain-monitor;
 
   # ===== DOMAIN LIST — edit here to add/remove domains =====
+  #
+  # NOTE: .au / .com.au / .net.au domains are excluded — auDA does not
+  # expose expiry dates via WHOIS or RDAP (privacy policy). Track those
+  # via registrar renewal emails.
+  #
+  # cullenwines.com and cullenwines.net are NOT registered (WHOIS "No match").
+  #
   workDomains = [
     "cullenswine.com"
-    "cullenswine.com.au"
-    "cullenswine.au"
     "cullenswines.com"
-    "cullenswines.com.au"
-    "cullenswines.au"
     "cullenwine.com"
-    "cullenwine.com.au"
-    "cullenwine.au"
-    "cullenwines.com"
-    "cullenwines.com.au"
-    "cullenwines.au"
-    "cullenwines.net"
-    "cullenwines.net.au"
   ];
-  personalDomains = ["ablz.au" "barrett-lennard.com"];
+  personalDomains = ["barrett-lennard.com"];
 
   # Domains that need SSL cert monitoring (have live HTTPS)
   sslDomains = ["cullenwines.com.au"];
