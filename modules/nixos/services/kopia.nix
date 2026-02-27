@@ -257,6 +257,7 @@ in {
               ${lib.optionalString (inst.overrideUsername != null) "--override-username=${inst.overrideUsername}"} \
               ${lib.concatStringsSep " " inst.extraArgs}
           '';
+          environment.HOME = cfg.dataDir;
           serviceConfig = {
             Type = "simple";
             User =
@@ -270,7 +271,7 @@ in {
             EnvironmentFile = [config.sops.secrets."kopia/env".path];
             Restart = "on-failure";
             RestartSec = 10;
-            ProtectHome = true;
+            ProtectHome = lib.mkIf (!inst.runAsRoot) true;
             NoNewPrivileges = true;
           };
         })
@@ -280,6 +281,7 @@ in {
           description = "Kopia snapshot verify for ${name}";
           after = ["kopia-${name}.service"];
           requires = ["kopia-${name}.service"];
+          environment.HOME = cfg.dataDir;
           serviceConfig = {
             Type = "oneshot";
             User =
