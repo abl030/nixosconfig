@@ -204,7 +204,34 @@
     qemuGuest.enable = true;
   };
 
-  networking.firewall.enable = true;
+  # Static IPs — previously set manually, NM would drop them after ~2h
+  networking = {
+    useDHCP = false;
+    interfaces = {
+      ens18 = {
+        ipv4.addresses = [
+          {
+            address = "192.168.1.35";
+            prefixLength = 24;
+          }
+        ];
+      };
+      ens19 = {
+        ipv4.addresses = [
+          {
+            address = "192.168.1.36";
+            prefixLength = 24;
+          }
+        ];
+      };
+    };
+    defaultGateway = {
+      address = "192.168.1.1";
+      interface = "ens18";
+    };
+    nameservers = ["192.168.1.1"];
+    firewall.enable = true;
+  };
 
   # Derive age key from SSH host key for SOPS secret decryption
   sops.age = {
