@@ -140,6 +140,7 @@
                     kuma_type = MonitorType.HTTP
 
                 # Build kwargs common to add/edit
+                # conditions="" required by Uptime Kuma 2.x (NOT NULL constraint)
                 common_kwargs = dict(
                     name=name,
                     url=url,
@@ -148,6 +149,7 @@
                     notificationIDList=notification_ids,
                     maxredirects=10,
                     interval=interval,
+                    conditions="",
                 )
                 if headers_json:
                     common_kwargs["headers"] = headers_json
