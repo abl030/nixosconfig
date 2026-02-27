@@ -75,8 +75,8 @@ in {
     sops.secrets."gatus/env" = {
       sopsFile = config.homelab.secrets.sopsFile "gotify.env";
       format = "dotenv";
-      owner = "gatus";
-      mode = "0400";
+      owner = "root";
+      mode = "0444";
     };
 
     homelab = {
