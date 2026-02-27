@@ -20,7 +20,7 @@
     pkgs.gnome-disk-utility
     pkgs.ansible
     pkgs.tldr
-    # pkgs.beets # temporarily disabled — upstream sphinx 9.1.0 breaks autodocsumm <9.0 constraint
+    pkgs.beets
     pkgs.wl-clipboard
     pkgs.tigervnc
     pkgs.statix
