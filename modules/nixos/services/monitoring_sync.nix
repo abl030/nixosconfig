@@ -140,7 +140,6 @@
                     kuma_type = MonitorType.HTTP
 
                 # Build kwargs common to add/edit
-                # conditions="" required by Uptime Kuma 2.x (NOT NULL constraint)
                 common_kwargs = dict(
                     name=name,
                     url=url,
@@ -149,7 +148,6 @@
                     notificationIDList=notification_ids,
                     maxredirects=10,
                     interval=interval,
-                    conditions="",
                 )
                 if headers_json:
                     common_kwargs["headers"] = headers_json
@@ -205,7 +203,16 @@
                     updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
                     continue
 
-                resp = api.add_monitor(type=kuma_type, **common_kwargs)
+                # Uptime Kuma 2.x requires conditions (NOT NULL).
+                # uptime-kuma-api 1.2.1 doesn't support it, so inject
+                # into the built data and call the socket directly.
+                from uptime_kuma_api.api import _convert_monitor_input, _check_arguments_monitor, Event
+                data = api._build_monitor_data(type=kuma_type, **common_kwargs)
+                _convert_monitor_input(data)
+                _check_arguments_monitor(data)
+                data["conditions"] = ""
+                with api.wait_for_event(Event.MONITOR_LIST):
+                    resp = api._call('add', data)
                 monitor_id = resp.get("monitorID") or resp.get("monitorId")
                 updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
