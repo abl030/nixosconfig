@@ -242,9 +242,10 @@ in {
         lib.mapAttrsToList (mountPoint: hostPath: {
           ${mountPoint} = {
             device = hostPath;
-            # nofail prevents blocking boot if the underlying mount isn't ready yet
+            # nofail + short timeout prevents blocking boot when underlying
+            # mounts (e.g. NFS via Tailscale) aren't ready yet
             options =
-              ["bind" "nofail"]
+              ["bind" "nofail" "x-systemd.mount-timeout=10"]
               ++ lib.optional (!(lib.any (s: lib.hasPrefix mountPoint s) rwPaths)) "ro";
           };
         })
