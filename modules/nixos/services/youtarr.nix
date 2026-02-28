@@ -93,7 +93,7 @@ in {
       image = "docker.io/library/mariadb:10.3";
       autoStart = true;
       pull = "newer";
-      cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci"];
+      cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci" "--tc-heuristic-recover=rollback"];
       environment = {
         MYSQL_DATABASE = "youtarr";
         MYSQL_USER = "youtarr";
