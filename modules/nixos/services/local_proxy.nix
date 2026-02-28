@@ -160,6 +160,35 @@
     echo "homelab-dns-sync: cloudflare_api_calls=$api_calls total=$total"
   '';
 
+  dnsValidateScript = pkgs.writeShellScript "homelab-dns-validate" ''
+    set -euo pipefail
+
+    local_ip=${lib.escapeShellArg (cfg.localIp or "")}
+    cache="/var/lib/homelab/dns/records.json"
+
+    if [[ ! -f "$cache" ]]; then
+      echo "homelab-dns-validate: no cache file, nothing to validate"
+      exit 0
+    fi
+
+    invalidated=0
+
+    for host in $(${pkgs.jq}/bin/jq -r 'keys[]' "$cache"); do
+      actual=$(${pkgs.dnsutils}/bin/dig +short "$host" | ${pkgs.coreutils}/bin/head -1)
+      if [[ -z "$actual" ]]; then
+        echo "homelab-dns-validate: $host did not resolve — skipping"
+        continue
+      fi
+      if [[ "$actual" != "$local_ip" ]]; then
+        echo "homelab-dns-validate: $host resolves to $actual, expected $local_ip — invalidating"
+        ${pkgs.jq}/bin/jq --arg host "$host" 'del(.[$host])' "$cache" > "$cache.tmp" && mv "$cache.tmp" "$cache"
+        invalidated=$((invalidated + 1))
+      fi
+    done
+
+    echo "homelab-dns-validate: checked $(${pkgs.jq}/bin/jq 'length' "$cache") entries, invalidated $invalidated"
+  '';
+
   vhosts = builtins.listToAttrs (map (entry: let
       websocketConfig =
         if entry.websocket or false
@@ -254,20 +283,43 @@ in {
 
     services.nginx.virtualHosts = vhosts;
 
-    systemd.tmpfiles.rules = lib.mkOrder 2000 [
-      "d /var/lib/homelab/dns 0750 root root -"
-    ];
+    systemd = {
+      tmpfiles.rules = lib.mkOrder 2000 [
+        "d /var/lib/homelab/dns 0750 root root -"
+      ];
 
-    systemd.services.homelab-dns-sync = {
-      description = "Sync local proxy DNS records in Cloudflare";
-      wants = ["network-online.target"];
-      after = ["network-online.target"];
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = dnsSyncScript;
-        StateDirectory = "homelab/dns";
-        StateDirectoryMode = "0750";
-        ReadWritePaths = ["/var/lib/homelab/dns"];
+      services.homelab-dns-sync = {
+        description = "Sync local proxy DNS records in Cloudflare";
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = dnsSyncScript;
+          StateDirectory = "homelab/dns";
+          StateDirectoryMode = "0750";
+          ReadWritePaths = ["/var/lib/homelab/dns"];
+        };
+      };
+
+      services.homelab-dns-validate = {
+        description = "Validate DNS cache against actual resolution";
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = dnsValidateScript;
+          ExecStartPost = "${pkgs.systemd}/bin/systemctl start homelab-dns-sync.service";
+          ReadWritePaths = ["/var/lib/homelab/dns"];
+        };
+      };
+
+      timers.homelab-dns-validate = {
+        description = "Nightly DNS cache validation";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "*-*-* 02:00:00";
+          Persistent = true;
+        };
       };
     };
 
