@@ -31,8 +31,14 @@ in {
     homelab = {
       podman.enable = true;
       podman.containers = [
-        "podman-youtarr.service"
-        "podman-youtarr-db.service"
+        {
+          unit = "podman-youtarr.service";
+          image = "docker.io/dialmaster/youtarr:latest";
+        }
+        {
+          unit = "podman-youtarr-db.service";
+          image = "docker.io/library/mariadb:10.3";
+        }
       ];
 
       localProxy.hosts = [

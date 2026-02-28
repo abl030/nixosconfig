@@ -36,7 +36,12 @@ in {
   config = lib.mkIf cfg.enable {
     homelab = {
       podman.enable = true;
-      podman.containers = ["podman-netboot.service"];
+      podman.containers = [
+        {
+          unit = "podman-netboot.service";
+          image = "ghcr.io/netbootxyz/netbootxyz:latest";
+        }
+      ];
 
       localProxy.hosts = [
         {
