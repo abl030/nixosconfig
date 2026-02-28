@@ -123,6 +123,7 @@
             # Match container identity so existing snapshot policies/schedules work
             overrideHostname = "kopia";
             overrideUsername = "root";
+            runAsRoot = true;
           };
           mum = {
             port = 51516;
