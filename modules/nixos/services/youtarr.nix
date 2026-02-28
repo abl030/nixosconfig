@@ -1,9 +1,20 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.services.youtarr;
+
+  # Remove corrupted tc.log before MariaDB starts so it doesn't abort
+  # after unclean VM shutdowns (e.g. Proxmox PSU issues)
+  fixTcLog = pkgs.writeShellScript "youtarr-db-fix-tclog" ''
+    tclog="${cfg.dataDir}/database/tc.log"
+    if [ -f "$tclog" ]; then
+      echo "Removing tc.log to prevent MariaDB crash recovery failure"
+      rm -f "$tclog"
+    fi
+  '';
 in {
   options.homelab.services.youtarr = {
     enable = lib.mkEnableOption "Youtarr YouTube-to-arr bridge (OCI containers)";
@@ -56,16 +67,30 @@ in {
       ];
     };
 
-    # Create a shared podman network so containers can resolve each other by name
-    systemd.services.podman-network-youtarr = {
-      description = "Create podman network for Youtarr";
-      before = ["podman-youtarr.service" "podman-youtarr-db.service"];
-      requiredBy = ["podman-youtarr.service" "podman-youtarr-db.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${config.virtualisation.podman.package}/bin/podman network create youtarr --ignore";
+    systemd = {
+      # Create a shared podman network so containers can resolve each other by name
+      services.podman-network-youtarr = {
+        description = "Create podman network for Youtarr";
+        before = ["podman-youtarr.service" "podman-youtarr-db.service"];
+        requiredBy = ["podman-youtarr.service" "podman-youtarr-db.service"];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = "${config.virtualisation.podman.package}/bin/podman network create youtarr --ignore";
+        };
       };
+
+      # Remove corrupted tc.log before MariaDB starts (unclean VM shutdowns)
+      services.podman-youtarr-db.serviceConfig.ExecStartPre =
+        lib.mkBefore [fixTcLog];
+
+      tmpfiles.rules = [
+        "d ${cfg.dataDir} 0755 root root - -"
+        "d ${cfg.dataDir}/config 0755 root root - -"
+        "d ${cfg.dataDir}/images 0755 root root - -"
+        "d ${cfg.dataDir}/jobs 0755 root root - -"
+        "d ${cfg.dataDir}/database 0755 root root - -"
+      ];
     };
 
     virtualisation.oci-containers.containers.youtarr = {
@@ -99,7 +124,7 @@ in {
       image = "docker.io/library/mariadb:10.3";
       autoStart = true;
       pull = "newer";
-      cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci" "--tc-heuristic-recover=rollback"];
+      cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci"];
       environment = {
         MYSQL_DATABASE = "youtarr";
         MYSQL_USER = "youtarr";
@@ -111,13 +136,5 @@ in {
       ];
       extraOptions = ["--network=youtarr"];
     };
-
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0755 root root - -"
-      "d ${cfg.dataDir}/config 0755 root root - -"
-      "d ${cfg.dataDir}/images 0755 root root - -"
-      "d ${cfg.dataDir}/jobs 0755 root root - -"
-      "d ${cfg.dataDir}/database 0755 root root - -"
-    ];
   };
 }
