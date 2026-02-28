@@ -5,7 +5,7 @@
 #   Lidarr (port 8686)  ←──pyarr──  soularr  ──slskd-api──→  slskd (port 5030)
 #
 #   1. Lidarr tracks "wanted" albums (monitored + missing).
-#   2. soularr polls Lidarr every 5 min via systemd timer.
+#   2. soularr polls Lidarr every 30 min via systemd timer.
 #   3. For each wanted album, soularr searches Soulseek via slskd's API.
 #   4. When a match is found, soularr tells slskd to download it.
 #   5. slskd downloads to the shared downloadDir (/mnt/data/Media/Temp/slskd).
@@ -151,6 +151,34 @@
     datefmt = %Y-%m-%dT%H:%M:%S%z
   '';
 
+  # Health check that runs as root (via "+" prefix) before each soularr run.
+  # If slskd is disconnected from Soulseek (stuck reconnect loop bug),
+  # restart the service — a fresh process reconnects immediately.
+  slskdHealthCheck = pkgs.writeShellScript "soularr-slskd-healthcheck" ''
+    set -euo pipefail
+    api_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "/run/secrets/soularr/env" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    status=$(${pkgs.curl}/bin/curl -sf -H "X-API-Key: $api_key" http://localhost:5030/api/v0/server 2>/dev/null || echo '{}')
+    connected=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.isConnected // false')
+    logged_in=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.isLoggedIn // false')
+    if [ "$connected" = "true" ] && [ "$logged_in" = "true" ]; then
+      exit 0
+    fi
+    echo "soularr: slskd not connected (connected=$connected, loggedIn=$logged_in), restarting slskd..." >&2
+    ${pkgs.systemd}/bin/systemctl restart slskd.service
+    # Give it time to connect and log in
+    for i in $(seq 1 12); do
+      sleep 5
+      status=$(${pkgs.curl}/bin/curl -sf -H "X-API-Key: $api_key" http://localhost:5030/api/v0/server 2>/dev/null || echo '{}')
+      logged_in=$(echo "$status" | ${pkgs.jq}/bin/jq -r '.isLoggedIn // false')
+      if [ "$logged_in" = "true" ]; then
+        echo "soularr: slskd reconnected after restart" >&2
+        exit 0
+      fi
+    done
+    echo "soularr: slskd failed to reconnect after restart, skipping run" >&2
+    exit 1
+  '';
+
   preStartScript = pkgs.writeShellScript "soularr-prestart" ''
     set -euo pipefail
     config_dir="/var/lib/soularr"
@@ -209,13 +237,16 @@ in {
       after = ["lidarr.service" "slskd.service" "mnt-data.mount"];
       wants = ["lidarr.service" "slskd.service"];
       requires = ["mnt-data.mount"];
-      # Don't block nixos-rebuild — the timer fires every 5 min anyway
+      # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         User = "soularr";
         Group = "soularr";
-        ExecStartPre = preStartScript;
+        ExecStartPre = [
+          "+${slskdHealthCheck}" # "+" = run as root to restart slskd if needed
+          preStartScript
+        ];
         ExecStart = "${soularrPkg}/bin/soularr";
         WorkingDirectory = "/var/lib/soularr";
         StateDirectory = "soularr";
@@ -229,7 +260,7 @@ in {
       wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "5min";
-        OnUnitActiveSec = "5min";
+        OnUnitActiveSec = "30min";
         Persistent = true;
       };
     };
