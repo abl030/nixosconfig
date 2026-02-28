@@ -292,6 +292,7 @@ in {
               if inst.runAsRoot
               then "root"
               else "kopia";
+            EnvironmentFile = [config.sops.secrets."kopia/env".path];
             ExecStart = mkVerifyScript {inherit name inst;};
           };
         })
