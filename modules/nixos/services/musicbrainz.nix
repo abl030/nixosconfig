@@ -321,7 +321,9 @@ in {
   config = lib.mkIf cfg.enable {
     homelab = {
       podman.enable = true;
-      podman.containers = ["musicbrainz.service"];
+      podman.containers = [
+        {unit = "musicbrainz.service";}
+      ];
 
       monitoring.monitors = [
         {

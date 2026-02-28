@@ -30,7 +30,12 @@ in {
   config = lib.mkIf cfg.enable {
     homelab = {
       podman.enable = true;
-      podman.containers = ["podman-jdownloader2.service"];
+      podman.containers = [
+        {
+          unit = "podman-jdownloader2.service";
+          image = "docker.io/jlesage/jdownloader-2:latest";
+        }
+      ];
 
       localProxy.hosts = [
         {
