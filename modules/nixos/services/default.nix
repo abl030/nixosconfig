@@ -41,5 +41,6 @@
     ./musicbrainz.nix
     ./kopia.nix
     ./domain-monitor.nix
+    ./nfs-watchdog.nix
   ];
 }

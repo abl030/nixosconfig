@@ -40,6 +40,8 @@ in {
 
   config = lib.mkIf cfg.enable {
     homelab = {
+      nfsWatchdog.podman-youtarr.path = cfg.mediaDir;
+
       podman.enable = true;
       podman.containers = [
         {

@@ -310,8 +310,21 @@ in {
       })
     cfg.instances;
 
-    # localProxy + monitoring
+    # localProxy + monitoring + NFS watchdog
     homelab = {
+      # NFS watchdog — restart kopia instance if its NFS paths go stale
+      nfsWatchdog = lib.mapAttrs' (name: inst: let
+        allPaths = inst.sources ++ inst.readWriteSources;
+        hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
+      in
+        lib.nameValuePair "kopia-${name}" {
+          path =
+            if hasMntData
+            then "/mnt/data"
+            else builtins.head allPaths;
+        })
+      (lib.filterAttrs (_name: inst: (inst.sources ++ inst.readWriteSources) != []) cfg.instances);
+
       localProxy.hosts =
         lib.mapAttrsToList (_name: inst: {
           host = inst.proxyHost;

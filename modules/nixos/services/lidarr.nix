@@ -36,6 +36,8 @@ in {
     };
 
     homelab = {
+      nfsWatchdog.lidarr.path = "/mnt/data/Media/Music";
+
       localProxy.hosts = [
         {
           host = "lidarr.ablz.au";
