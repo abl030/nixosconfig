@@ -251,7 +251,9 @@ in {
         WorkingDirectory = "/var/lib/soularr";
         StateDirectory = "soularr";
         LoadCredential = "env:${config.sops.secrets."soularr/env".path}";
-        ReadWritePaths = [cfg.downloadDir];
+        # No ReadWritePaths — it triggers mount namespace setup which fails on
+        # stale NFS handles, preventing the entire service (incl. health check)
+        # from starting. The soularr user has write access via group "users".
       };
     };
 
