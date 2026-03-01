@@ -44,6 +44,9 @@
       download-buffer-size = 256 * 1024 * 1024; # 256 MB
       auto-optimise-store = true;
       netrc-file = config.sops.secrets.nix-netrc.path;
+      # Allow the admin user to copy unsigned store paths via SSH
+      # (fleet-internal deploys with nixos-rebuild --target-host).
+      trusted-users = ["root" hostConfig.user];
     };
 
     # Include access-tokens at runtime for private flake metadata resolution.
