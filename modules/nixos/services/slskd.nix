@@ -128,10 +128,14 @@ in {
       mode = "0400";
     };
 
-    # Upstream slskd module sets ReadWritePaths/ReadOnlyPaths on NFS paths,
-    # causing namespace failure on stale NFS (same bug we fixed on soularr).
-    # The slskd user has write access via extraGroups = ["users"].
+    # Upstream slskd module uses ProtectSystem=strict + ReadWritePaths to
+    # whitelist NFS paths. But ReadWritePaths triggers mount namespace setup
+    # which fails on stale NFS handles (same bug we fixed on soularr).
+    # Disable ProtectSystem so ReadWritePaths isn't needed at all.
+    # The slskd user is already sandboxed (PrivateUsers, NoNewPrivileges, etc.)
+    # and only has NFS write access via extraGroups = ["users"].
     systemd.services.slskd.serviceConfig = {
+      ProtectSystem = lib.mkForce false;
       ReadWritePaths = lib.mkForce [];
       ReadOnlyPaths = lib.mkForce [];
     };
