@@ -103,6 +103,8 @@ in {
     };
 
     homelab = {
+      nfsWatchdog.paperless-web.path = "/mnt/data";
+
       localProxy.hosts = [
         {
           host = "paperless.ablz.au";

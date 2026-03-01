@@ -41,6 +41,8 @@ in {
     };
 
     homelab = {
+      nfsWatchdog.webdav.path = "/mnt/data";
+
       localProxy.hosts = [
         {
           host = "webdav.ablz.au";

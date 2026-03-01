@@ -128,7 +128,17 @@ in {
       mode = "0400";
     };
 
+    # Upstream slskd module sets ReadWritePaths/ReadOnlyPaths on NFS paths,
+    # causing namespace failure on stale NFS (same bug we fixed on soularr).
+    # The slskd user has write access via extraGroups = ["users"].
+    systemd.services.slskd.serviceConfig = {
+      ReadWritePaths = lib.mkForce [];
+      ReadOnlyPaths = lib.mkForce [];
+    };
+
     homelab = {
+      nfsWatchdog.slskd.path = cfg.downloadDir;
+
       localProxy.hosts = [
         {
           host = "slskd.ablz.au";

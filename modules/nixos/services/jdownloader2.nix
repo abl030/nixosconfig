@@ -29,6 +29,8 @@ in {
 
   config = lib.mkIf cfg.enable {
     homelab = {
+      nfsWatchdog.podman-jdownloader2.path = cfg.mediaDir;
+
       podman.enable = true;
       podman.containers = [
         {

@@ -110,6 +110,8 @@ in {
 
     # Wire into existing infrastructure
     homelab = {
+      nfsWatchdog.immich-server.path = config.services.immich.mediaLocation;
+
       localProxy.hosts = [
         {
           host = "photos.ablz.au";

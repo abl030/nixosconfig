@@ -232,6 +232,8 @@ in {
     };
     users.groups.soularr = {};
 
+    homelab.nfsWatchdog.soularr.path = cfg.downloadDir;
+
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
       after = ["lidarr.service" "slskd.service" "mnt-data.mount"];
