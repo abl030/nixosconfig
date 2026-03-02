@@ -324,7 +324,7 @@ in {
     proxmox = {
       vmid = 114;
       cores = 8;
-      memory = 16384;
+      memory = 20480;
       disk = "64G";
       storage = "nvmeprom";
       cpuType = "x86-64-v3";
