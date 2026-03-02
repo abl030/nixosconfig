@@ -5,7 +5,7 @@
 #   Lidarr (port 8686)  ←──pyarr──  soularr  ──slskd-api──→  slskd (port 5030)
 #
 #   1. Lidarr tracks "wanted" albums (monitored + missing).
-#   2. soularr polls Lidarr every 30 min via systemd timer.
+#   2. soularr polls Lidarr every 5 min via systemd timer.
 #   3. For each wanted album, soularr searches Soulseek via slskd's API.
 #   4. When a match is found, soularr tells slskd to download it.
 #   5. slskd downloads to the shared downloadDir (/mnt/data/Media/Temp/slskd).
@@ -132,7 +132,7 @@
     album_prepend_artist = True
     track_prepend_artist = True
     search_type = incrementing_page
-    number_of_albums_to_grab = 30
+    number_of_albums_to_grab = 10
     remove_wanted_on_failure = False
     title_blacklist =
     search_blacklist =
@@ -264,7 +264,7 @@ in {
       wantedBy = ["timers.target"];
       timerConfig = {
         OnBootSec = "5min";
-        OnUnitActiveSec = "30min";
+        OnUnitActiveSec = "5min";
         Persistent = true;
       };
     };
