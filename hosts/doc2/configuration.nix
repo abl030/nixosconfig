@@ -236,6 +236,15 @@
     firewall.enable = true;
   };
 
+  # 16GB swapfile — no swap partition in disko layout, and 16GB RAM is tight
+  # for this workload (MusicBrainz Solr+PG alone is ~5GB)
+  swapDevices = [
+    {
+      device = "/var/lib/swapfile";
+      size = 16 * 1024; # 16 GiB in MiB
+    }
+  ];
+
   # Derive age key from SSH host key for SOPS secret decryption
   sops.age = {
     keyFile = "/var/lib/sops-nix/key.txt";
