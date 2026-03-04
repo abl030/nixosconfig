@@ -29,6 +29,8 @@
 
     # NFS for Immich media — same writable mount as doc1
     mounts.nfsLocal.enable = true;
+    # Bindfs FUSE over NFS Music dir — generates local inotify events
+    mounts.bindfsMusic.enable = true;
 
     nixCaches = {
       enable = true;
@@ -75,6 +77,11 @@
       lidarr = {
         enable = true;
         dataDir = "/mnt/virtio/lidarr";
+        musicPath = "/mnt/fuse/Media/Music";
+      };
+      inotify-receiver = {
+        enable = true;
+        musicDir = "/mnt/fuse/Media/Music";
       };
       slskd.enable = true;
       soularr.enable = true;

@@ -13,6 +13,12 @@ in {
       default = "/var/lib/lidarr/.config/Lidarr";
       description = "Directory where Lidarr stores its data (config, database, logs).";
     };
+
+    musicPath = lib.mkOption {
+      type = lib.types.str;
+      default = "/mnt/data/Media/Music";
+      description = "Path to the music library. Use a bindfs mount for inotify over NFS.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -36,7 +42,7 @@ in {
     };
 
     homelab = {
-      nfsWatchdog.lidarr.path = "/mnt/data/Media/Music";
+      nfsWatchdog.lidarr.path = cfg.musicPath;
 
       localProxy.hosts = [
         {
