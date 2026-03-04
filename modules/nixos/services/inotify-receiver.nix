@@ -13,6 +13,7 @@
 
   # Music-only receiver script (subset of stacks/jellyfinn/inotify-recv.sh)
   recvScript = pkgs.writeShellScript "inotify-recv.sh" ''
+    export PATH="${lib.makeBinPath [pkgs.coreutils pkgs.gawk]}:$PATH"
     set -eu
     MUSIC_DIR="${cfg.musicDir}"
     MARKER_NAME="refresh"
