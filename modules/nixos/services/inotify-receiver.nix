@@ -66,13 +66,15 @@
     # Tickle the target directory
     tickle "$target"
 
-    # Also tickle the top-level artist folder (helps Lidarr discover new artists/albums)
-    relative_from_root="''${target#$MUSIC_DIR}"
-    relative_from_root="''${relative_from_root#/}"
-    artist="''${relative_from_root%%/*}"
-    if [ -n "$artist" ] && [ "$MUSIC_DIR/$artist" != "$target" ]; then
-      tickle "$MUSIC_DIR/$artist"
-    fi
+    # Walk up from target to MUSIC_DIR, tickling each intermediate directory.
+    # For /MUSIC_DIR/AI/Artist/Album this tickles: Artist dir, then AI dir.
+    walk="$(dirname -- "$target")"
+    while [ -n "$walk" ] && [ "$walk" != "$MUSIC_DIR" ] && [ "''${#walk}" -gt "''${#MUSIC_DIR}" ]; do
+      tickle "$walk"
+      walk="$(dirname -- "$walk")"
+    done
+    # Always tickle the music root itself (helps Lidarr discover new artists)
+    tickle "$MUSIC_DIR"
   '';
 
   # Entrypoint: socat listener + healthcheck heartbeat
