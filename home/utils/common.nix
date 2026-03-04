@@ -2,7 +2,7 @@
   home.packages = [
     pkgs.yt-dlp
     pkgs.deno
-    pkgs.neofetch
+    pkgs.fastfetch
     pkgs.wakeonlan
     pkgs.htop
     pkgs.btop
