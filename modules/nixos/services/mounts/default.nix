@@ -7,5 +7,6 @@
     ./fuse.nix
     ./drvfs.nix
     ./ops-sync.nix
+    ./bindfs-music.nix
   ];
 }

@@ -13,7 +13,7 @@ services:
       # Watch multiple roots (container paths)
       WATCH_DIRS: "/watch/movies,/watch/tv,/watch/music"
       # List all receivers (host or host:port), comma-separated
-      REMOTE_HOSTS: "192.168.1.33"
+      REMOTE_HOSTS: "192.168.1.33,192.168.1.35"
       REMOTE_PORT: "9999"
       SRC_PREFIX: "/watch"
       DST_PREFIX: "/data"
