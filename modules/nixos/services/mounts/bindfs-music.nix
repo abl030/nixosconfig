@@ -48,7 +48,7 @@ in {
 
       serviceConfig = {
         Type = "forking";
-        ExecStart = "${pkgs.bindfs}/bin/bindfs -o allow_other ${lib.escapeShellArg cfg.source} ${lib.escapeShellArg cfg.mountpoint}";
+        ExecStart = "${pkgs.bindfs}/bin/bindfs -o allow_other --perms=a+rwX ${lib.escapeShellArg cfg.source} ${lib.escapeShellArg cfg.mountpoint}";
         ExecStop = "${pkgs.fuse}/bin/fusermount -u ${lib.escapeShellArg cfg.mountpoint}";
         Restart = "on-failure";
         RestartSec = "10s";
