@@ -30,7 +30,7 @@
     # NFS for Immich media — same writable mount as doc1
     mounts.nfsLocal.enable = true;
     # Bindfs FUSE over NFS Music dir — generates local inotify events
-    mounts.bindfsMusic.enable = true;
+    mounts.bindfsMusic.enable = false; # Migrated to downloader (192.168.1.4)
 
     nixCaches = {
       enable = true;
@@ -75,16 +75,16 @@
         dataDir = "/mnt/virtio/atuin";
       };
       lidarr = {
-        enable = true;
+        enable = false; # Migrated to downloader (192.168.1.4)
         dataDir = "/mnt/virtio/lidarr";
         musicPath = "/mnt/fuse/Media/Music";
       };
       inotify-receiver = {
-        enable = true;
+        enable = false; # Migrated to downloader (192.168.1.4)
         musicDir = "/mnt/fuse/Media/Music";
       };
-      slskd.enable = true;
-      soularr.enable = true;
+      slskd.enable = false; # Migrated to downloader (192.168.1.4)
+      soularr.enable = false; # Migrated to downloader (192.168.1.4)
       paperless = {
         enable = true;
         dataDir = "/mnt/virtio/paperless";
