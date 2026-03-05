@@ -20,7 +20,6 @@
     pkgs.gnome-disk-utility
     pkgs.ansible
     pkgs.tldr
-    pkgs.beets
     pkgs.wl-clipboard
     pkgs.tigervnc
     pkgs.statix

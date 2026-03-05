@@ -14,5 +14,6 @@
     ./services/ssh.nix
     ./services/pdf.nix
     ./services/claude-code.nix
+    ./services/beets.nix
   ];
 }
