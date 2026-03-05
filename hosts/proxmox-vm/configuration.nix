@@ -125,5 +125,16 @@
     fsType = "vfat";
   };
 
+  # Virtiofs mount — persistent service state on ZFS on the Proxmox host
+  fileSystems."/mnt/virtio" = {
+    device = "containers";
+    fsType = "virtiofs";
+    options = ["rw" "relatime"];
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /mnt/virtio 0755 root root - -"
+  ];
+
   system.stateVersion = "24.05";
 }
