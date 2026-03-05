@@ -6,4 +6,6 @@
 
   # doc1 is the centralised Dolt SQL server for beads issue tracking
   homelab.claudeCode.doltServer = true;
+
+  homelab.beets.enable = true;
 }
