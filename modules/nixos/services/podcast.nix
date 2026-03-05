@@ -132,6 +132,7 @@
     yt-dlp \
       --extract-audio --audio-format mp3 --write-description --add-metadata \
       --embed-thumbnail --restrict-filenames --progress --no-playlist \
+      --remote-components ejs:github \
       -o "%(title)s.%(ext)s" \
       "$URL"
 
@@ -181,7 +182,7 @@
     yt-dlp \
       --extract-audio --audio-format mp3 --write-description --add-metadata \
       --embed-thumbnail --restrict-filenames --progress --yes-playlist \
-      --ignore-errors \
+      --ignore-errors --remote-components ejs:github \
       -o "$TARGET_DIR/%(title)s.%(ext)s" \
       "$URL"
 

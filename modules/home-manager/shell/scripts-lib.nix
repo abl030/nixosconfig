@@ -524,19 +524,23 @@ in {
   # ──────────────────────────────────────────────────────────────────────────────
   #  Podcast Hooks
   # ──────────────────────────────────────────────────────────────────────────────
-  pod = {
+  ytpod = {
     runtimeInputs = [pkgs.curl];
     text = ''
-      [ -z "$1" ] && { echo "Usage: pod <url>"; exit 1; }
+      [ -z "$1" ] && { echo "Usage: ytpod <url>"; exit 1; }
+      set -f
       curl -X POST -H "Content-Type: application/json" -d "{\"url\": \"$1\"}" http://192.168.1.29:9000/hooks/download-audio
+      set +f
     '';
   };
 
-  pod-play = {
+  ytpod-play = {
     runtimeInputs = [pkgs.curl];
     text = ''
-      [ -z "$1" ] && { echo "Usage: pod_play <url>"; exit 1; }
+      [ -z "$1" ] && { echo "Usage: ytpod-play <url>"; exit 1; }
+      set -f
       curl -X POST -H "Content-Type: application/json" -d "{\"url\": \"$1\"}" http://192.168.1.29:9000/hooks/download-playlist
+      set +f
     '';
   };
 
