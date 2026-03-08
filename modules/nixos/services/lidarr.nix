@@ -28,22 +28,15 @@ in {
       openFirewall = false;
     };
 
-    # Add lidarr user to users group for NFS media access
+    # Add lidarr user to users group for media access
     users.users.lidarr.extraGroups = ["users"];
 
-    # Override upstream tmpfiles to use custom data dir on virtiofs
-    systemd.services.lidarr = {
-      after = ["mnt-data.mount"];
-      requires = ["mnt-data.mount"];
-      serviceConfig = {
-        # Upstream creates dataDir via tmpfiles; override if using virtiofs
-        ExecStart = lib.mkForce "${config.services.lidarr.package}/bin/Lidarr -nobrowser -data='${cfg.dataDir}'";
-      };
+    # Override upstream to use custom data dir on virtiofs
+    systemd.services.lidarr.serviceConfig = {
+      ExecStart = lib.mkForce "${config.services.lidarr.package}/bin/Lidarr -nobrowser -data='${cfg.dataDir}'";
     };
 
     homelab = {
-      nfsWatchdog.lidarr.path = cfg.musicPath;
-
       localProxy.hosts = [
         {
           host = "lidarr.ablz.au";

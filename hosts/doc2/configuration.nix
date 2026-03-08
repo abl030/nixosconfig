@@ -75,16 +75,23 @@
         dataDir = "/mnt/virtio/atuin";
       };
       lidarr = {
-        enable = false; # Migrated to downloader (192.168.1.4)
+        enable = true;
         dataDir = "/mnt/virtio/lidarr";
-        musicPath = "/mnt/fuse/Media/Music";
+        musicPath = "/mnt/virtio/music/lidarr";
       };
       inotify-receiver = {
-        enable = false; # Migrated to downloader (192.168.1.4)
-        musicDir = "/mnt/fuse/Media/Music";
+        enable = false;
+        musicDir = "/mnt/virtio/music/lidarr";
       };
-      slskd.enable = false; # Migrated to downloader (192.168.1.4)
-      soularr.enable = false; # Migrated to downloader (192.168.1.4)
+      slskd = {
+        enable = true;
+        downloadDir = "/mnt/virtio/music/slskd";
+        musicDir = "/mnt/virtio/music/lidarr";
+      };
+      soularr = {
+        enable = true;
+        downloadDir = "/mnt/virtio/music/slskd";
+      };
       paperless = {
         enable = true;
         dataDir = "/mnt/virtio/paperless";
@@ -183,6 +190,10 @@
     "d /mnt/virtio/atuin/postgres 0700 postgres postgres - -"
     # Lidarr music management — config/database on virtiofs
     "d /mnt/virtio/lidarr 0700 lidarr lidarr - -"
+    # Music directories — lidarr library + slskd download temp
+    "d /mnt/virtio/music 0755 root root - -"
+    "d /mnt/virtio/music/lidarr 0775 lidarr users - -"
+    "d /mnt/virtio/music/slskd 0775 slskd users - -"
     # Paperless document management — app state + postgres on virtiofs
     "d /mnt/virtio/paperless 0750 paperless paperless - -"
     "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
