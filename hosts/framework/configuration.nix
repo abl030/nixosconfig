@@ -99,6 +99,10 @@
 
   systemd = {
     services = {
+      # Prevent nixos-rebuild from restarting network services (kills WiFi)
+      NetworkManager.restartIfChanged = false;
+      wpa_supplicant.restartIfChanged = false;
+
       NetworkManager-wait-online.enable = pkgs.lib.mkForce false;
       tailscaled.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 3;
       polkit.serviceConfig.TimeoutStopSec = pkgs.lib.mkForce 5;
