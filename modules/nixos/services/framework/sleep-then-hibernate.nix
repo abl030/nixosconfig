@@ -11,15 +11,14 @@ in {
 
   config = lib.mkIf cfg.enable {
     # Native systemd suspend-then-hibernate configuration
-    systemd.sleep.extraConfig = ''
-      AllowSuspendThenHibernate=yes
-      HibernateDelaySec=3h
-      SuspendEstimationSec=1h
-      HibernateOnACPower=no
-
-      HibernateMode=shutdown
-      SuspendState=freeze
-    '';
+    systemd.sleep.settings.Sleep = {
+      AllowSuspendThenHibernate = "yes";
+      HibernateDelaySec = "3h";
+      SuspendEstimationSec = "1h";
+      HibernateOnACPower = "no";
+      HibernateMode = "shutdown";
+      SuspendState = "freeze";
+    };
 
     # Trigger suspend-then-hibernate on lid close (not plain suspend)
     services.logind.settings.Login = {

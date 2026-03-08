@@ -116,20 +116,21 @@
     }
   ];
 
-  fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos";
-    fsType = "ext4";
-  };
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-label/BOOT";
-    fsType = "vfat";
-  };
-
-  # Virtiofs mount — persistent service state on ZFS on the Proxmox host
-  fileSystems."/mnt/virtio" = {
-    device = "containers";
-    fsType = "virtiofs";
-    options = ["rw" "relatime"];
+  fileSystems = {
+    "/" = {
+      device = "/dev/disk/by-label/nixos";
+      fsType = "ext4";
+    };
+    "/boot" = {
+      device = "/dev/disk/by-label/BOOT";
+      fsType = "vfat";
+    };
+    # Virtiofs mount — persistent service state on ZFS on the Proxmox host
+    "/mnt/virtio" = {
+      device = "containers";
+      fsType = "virtiofs";
+      options = ["rw" "relatime"];
+    };
   };
 
   systemd.tmpfiles.rules = [
