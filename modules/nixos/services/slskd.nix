@@ -112,6 +112,9 @@ in {
       };
     };
 
+    # Group-writable downloads so Lidarr (via users group) can import
+    systemd.services.slskd.serviceConfig.UMask = "0002";
+
     # slskd user needs media access
     users.users.slskd.extraGroups = ["users"];
 

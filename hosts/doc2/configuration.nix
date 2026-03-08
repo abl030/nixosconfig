@@ -194,6 +194,7 @@
     "d /mnt/virtio/music 0755 root root - -"
     "d /mnt/virtio/music/lidarr 0775 lidarr users - -"
     "d /mnt/virtio/music/slskd 0775 slskd users - -"
+    "d /mnt/virtio/music/slskd/incomplete 0775 slskd users - -"
     # Paperless document management — app state + postgres on virtiofs
     "d /mnt/virtio/paperless 0750 paperless paperless - -"
     "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
