@@ -8,7 +8,7 @@
 #   2. soularr polls Lidarr every 5 min via systemd timer.
 #   3. For each wanted album, soularr searches Soulseek via slskd's API.
 #   4. When a match is found, soularr tells slskd to download it.
-#   5. slskd downloads to the shared downloadDir (/mnt/data/Media/Temp/slskd).
+#   5. slskd downloads to the shared downloadDir (configured per-host, e.g. /mnt/virtio/music/slskd).
 #   6. Lidarr's Completed Download Handling imports from that directory.
 #
 # Network topology:
@@ -232,13 +232,10 @@ in {
     };
     users.groups.soularr = {};
 
-    homelab.nfsWatchdog.soularr.path = cfg.downloadDir;
-
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
-      after = ["lidarr.service" "slskd.service" "mnt-data.mount"];
+      after = ["lidarr.service" "slskd.service"];
       wants = ["lidarr.service" "slskd.service"];
-      requires = ["mnt-data.mount"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       serviceConfig = {
