@@ -97,6 +97,45 @@
       -e "s|__GENIUS_TOKEN__|''${GENIUS_TOKEN:-}|g" \
       "${cfg.dataDir}/config/settings.json"
   '';
+
+  podman = "${config.virtualisation.podman.package}/bin/podman";
+
+  # Wait for MeiliSearch to be healthy and cancel any stale task backlog.
+  # Meelo's server has a hardcoded 5s waitForTask timeout; if MeiliSearch has
+  # enqueued tasks from previous crash-loop restarts, the server's indexCreation
+  # task lands at the back of the queue and times out, causing another crash.
+  waitForMeili = let
+    meiliUrl = "http://127.0.0.1:7700";
+    wget = "${pkgs.wget}/bin/wget";
+  in
+    pkgs.writeShellScript "meelo-wait-for-meili" ''
+      MEILI_KEY=$(${pkgs.gnugrep}/bin/grep -oP 'MEILI_MASTER_KEY=\K.*' "${envFile}" || true)
+
+      for i in $(seq 1 30); do
+        if ${podman} exec meelo-search ${wget} -qO- ${meiliUrl}/health 2>/dev/null \
+            | ${pkgs.gnugrep}/bin/grep -q available; then
+          echo "MeiliSearch is ready"
+
+          # Cancel any enqueued tasks to prevent backlog-induced timeout
+          PENDING=$(${podman} exec meelo-search ${wget} -qO- \
+            --header="Authorization: Bearer $MEILI_KEY" \
+            "${meiliUrl}/tasks?statuses=enqueued&limit=1" 2>/dev/null \
+            | ${pkgs.gnugrep}/bin/grep -oP '"total":\K\d+' || echo "0")
+
+          if [ "$PENDING" -gt 0 ] 2>/dev/null; then
+            echo "Cancelling $PENDING stale enqueued MeiliSearch tasks"
+            ${podman} exec meelo-search ${wget} -qO- --post-data="" \
+              --header="Authorization: Bearer $MEILI_KEY" \
+              "${meiliUrl}/tasks/cancel?statuses=enqueued" 2>/dev/null || true
+            sleep 2
+          fi
+          exit 0
+        fi
+        echo "Waiting for MeiliSearch... ($i/30)"
+        sleep 2
+      done
+      echo "MeiliSearch not ready after 60s, starting anyway"
+    '';
 in {
   options.homelab.services.meelo = {
     enable = lib.mkEnableOption "Meelo music server (OCI containers)";
@@ -202,9 +241,9 @@ in {
         };
       };
 
-      # Seed settings.json before server starts
+      # Wait for MeiliSearch + template settings.json before server starts
       services.podman-meelo-server.serviceConfig.ExecStartPre =
-        lib.mkBefore [initConfig];
+        lib.mkBefore [waitForMeili initConfig];
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
