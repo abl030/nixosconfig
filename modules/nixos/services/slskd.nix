@@ -112,8 +112,8 @@ in {
       };
     };
 
-    # Group-writable downloads so Lidarr (via users group) can import
-    systemd.services.slskd.serviceConfig.UMask = "0002";
+    # World-writable — soularr + lidarr both need full access to downloads
+    systemd.services.slskd.serviceConfig.UMask = "0000";
 
     # slskd user needs media access
     users.users.slskd.extraGroups = ["users"];
