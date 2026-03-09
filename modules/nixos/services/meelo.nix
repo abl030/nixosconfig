@@ -68,7 +68,7 @@
       artists = ["Various Artists" "Various" "VA"];
       useID3CompTag = true;
     };
-    providers = [];
+    providers = {};
   });
 
   # Seed settings.json only if absent (preserves user edits)
