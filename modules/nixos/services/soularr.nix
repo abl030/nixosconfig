@@ -272,7 +272,7 @@ in {
       wants = ["lidarr.service" "slskd.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
-      path = ["/run/current-system/sw/bin" "/etc/profiles/per-user/abl030/bin"];
+      path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq];
       serviceConfig = {
         Type = "oneshot";
         # Run as root — avoids permission/PATH issues with slskd downloads,
