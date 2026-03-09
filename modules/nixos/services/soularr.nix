@@ -259,17 +259,13 @@ in {
     sops.secrets."soularr/env" = {
       sopsFile = config.homelab.secrets.sopsFile "soularr.env";
       format = "dotenv";
-      owner = "soularr";
+      owner = "slskd";
       mode = "0400";
     };
 
-    users.users.soularr = {
-      isSystemUser = true;
-      group = "soularr";
-      home = "/var/lib/soularr";
-      extraGroups = ["users"];
-    };
-    users.groups.soularr = {};
+    # Soularr runs as slskd user — same user that owns downloads.
+    # No more permission errors on rmtree/move of downloaded files.
+    # The old soularr user/group are no longer needed.
 
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
@@ -279,8 +275,9 @@ in {
       restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
-        User = "soularr";
-        Group = "soularr";
+        User = "slskd";
+        Group = "slskd";
+        UMask = "0000";
         ExecStartPre = [
           "+${slskdHealthCheck}" # "+" = run as root to restart slskd if needed
           preStartScript
