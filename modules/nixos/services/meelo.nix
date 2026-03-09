@@ -248,7 +248,7 @@ in {
           INTERNAL_CONFIG_DIR = "/config";
         };
         volumes = [
-          "${cfg.mediaDir}:/data"
+          "${cfg.mediaDir}:/data:ro"
           "${cfg.dataDir}/config:/config"
         ];
         extraOptions = ["--network=meelo" "--init"];
