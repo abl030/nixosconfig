@@ -259,13 +259,12 @@ in {
     sops.secrets."soularr/env" = {
       sopsFile = config.homelab.secrets.sopsFile "soularr.env";
       format = "dotenv";
-      owner = "slskd";
+      owner = "root";
       mode = "0400";
     };
 
-    # Soularr runs as slskd user — same user that owns downloads.
-    # No more permission errors on rmtree/move of downloaded files.
-    # The old soularr user/group are no longer needed.
+    # Soularr runs as root — needs access to slskd downloads, beets
+    # harness (Nix python env), and full PATH for subprocess calls.
 
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
@@ -273,22 +272,20 @@ in {
       wants = ["lidarr.service" "slskd.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
+      path = ["/run/current-system/sw/bin" "/etc/profiles/per-user/abl030/bin"];
       serviceConfig = {
         Type = "oneshot";
-        User = "slskd";
-        Group = "slskd";
+        # Run as root — avoids permission/PATH issues with slskd downloads,
+        # beets harness (needs Nix python env), and systemd restricted PATH.
         UMask = "0000";
         ExecStartPre = [
-          "+${slskdHealthCheck}" # "+" = run as root to restart slskd if needed
+          slskdHealthCheck
           preStartScript
         ];
         ExecStart = "${soularrPkg}/bin/soularr";
         WorkingDirectory = "/var/lib/soularr";
         StateDirectory = "soularr";
         LoadCredential = "env:${config.sops.secrets."soularr/env".path}";
-        # No ReadWritePaths — it triggers mount namespace setup which fails on
-        # stale NFS handles, preventing the entire service (incl. health check)
-        # from starting. The soularr user has write access via group "users".
       };
     };
 
