@@ -249,7 +249,13 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [pkgs.chromaprint pkgs.sqlite];
+    home.packages = [
+      pkgs.chromaprint
+      pkgs.sqlite
+      pkgs.lame
+      pkgs.flac
+      pkgs.python3Packages.mutagen
+    ];
 
     programs.beets = {
       enable = true;
