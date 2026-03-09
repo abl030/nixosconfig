@@ -145,6 +145,17 @@
     use_extension_whitelist = False
     extensions_whitelist = lrc,nfo,txt
 
+    [Beets Validation]
+    enabled = ${
+      if cfg.beetsValidation.enable
+      then "True"
+      else "False"
+    }
+    harness_path = ${cfg.beetsValidation.harnessPath}
+    distance_threshold = ${toString cfg.beetsValidation.distanceThreshold}
+    staging_dir = ${cfg.beetsValidation.stagingDir}
+    tracking_file = ${cfg.beetsValidation.trackingFile}
+
     [Logging]
     level = INFO
     format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
@@ -213,6 +224,34 @@ in {
       type = lib.types.str;
       default = "/mnt/data/Media/Temp/slskd";
       description = "Download directory shared between slskd and Lidarr.";
+    };
+
+    beetsValidation = {
+      enable = lib.mkEnableOption "Beets validation for downloaded albums";
+
+      harnessPath = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/virtio/Music/harness/run_beets_harness.sh";
+        description = "Path to the beets harness wrapper script.";
+      };
+
+      distanceThreshold = lib.mkOption {
+        type = lib.types.float;
+        default = 0.15;
+        description = "Maximum beets match distance to accept (0.0 = perfect, 1.0 = no match).";
+      };
+
+      stagingDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/virtio/Music/AI";
+        description = "Directory to stage validated albums for beets import.";
+      };
+
+      trackingFile = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
+        description = "JSONL file tracking beets validation results.";
+      };
     };
   };
 
