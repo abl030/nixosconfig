@@ -230,18 +230,114 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.beets;
+  beetsWithLocalLrclib = pkgs.beets.overrideAttrs (old: {
+    postPatch =
+      (old.postPatch or "")
+      + ''
+        substituteInPlace beetsplug/lyrics.py \
+          --replace-fail 'BASE_URL = "https://lrclib.net/api"' \
+                         'BASE_URL = "http://192.168.1.35:3300/api"'
+      '';
+  });
 in {
   options.homelab.beets = {
     enable = lib.mkEnableOption "Beets music tagger and library manager";
   };
 
   config = lib.mkIf cfg.enable {
+    home.packages = [pkgs.chromaprint pkgs.sqlite];
+
     programs.beets = {
       enable = true;
-      settings = {};
+      package = beetsWithLocalLrclib;
+      settings = {
+        directory = "/mnt/virtio/Music/Beets";
+        library = "/mnt/virtio/Music/beets-library.db";
+
+        # Files left behind after move that should be treated as empty dir
+        clutter = ["Thumbs.DB" "Thumbs.db" ".DS_Store" "*.jpg" "*.png" "AlbumArt*" "Folder.*" "desktop.ini"];
+
+        import = {
+          copy = false;
+          write = true;
+          move = true;
+          timid = false;
+          incremental = true;
+          incremental_skip_later = true;
+          log = "/mnt/virtio/Music/beets-import.log";
+        };
+
+        duplicate_keys = {
+          album = ["albumartist" "album" "mb_albumid"];
+          item = ["artist" "title"];
+        };
+
+        paths = {
+          default = "$albumartist/$year - $album%aunique{}/$track $title";
+          singleton = "Non-Album/$artist/$title";
+          comp = "Compilations/$album%aunique{}/$track $title";
+        };
+
+        musicbrainz = {
+          host = "192.168.1.35:5200";
+          https = false;
+          ratelimit = 100;
+        };
+
+        match = {
+          strong_rec_thresh = 0.10;
+          medium_rec_thresh = 0.25;
+          preferred = {
+            countries = ["AU" "US" "GB|UK"];
+            media = ["Digital Media|File" "CD"];
+            original_year = true;
+          };
+        };
+
+        # chroma disabled (hangs on long tracks). discogs enabled for stubborn albums.
+        plugins = "musicbrainz discogs fetchart embedart lyrics lastgenre scrub info missing duplicates edit fromfilename ftintitle the";
+
+        # Secrets (tokens, API keys) live in a local include file
+        # outside of the nix store. See ~/.config/beets/secrets.yaml
+        include = ["secrets.yaml"];
+
+        chroma = {
+          auto = false;
+        };
+
+        fetchart = {
+          auto = true;
+        };
+
+        embedart = {
+          auto = true;
+        };
+
+        scrub = {
+          auto = true;
+        };
+
+        lyrics = {
+          auto = true;
+          synced = true;
+          sources = ["lrclib"];
+        };
+
+        lastgenre = {
+          auto = true;
+          count = 3;
+          source = "album";
+        };
+
+        the = {
+          a = true;
+          the = true;
+        };
+      };
     };
   };
 }
