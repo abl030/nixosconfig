@@ -91,6 +91,9 @@
       soularr = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
+        beetsValidation = {
+          enable = true;
+        };
       };
       paperless = {
         enable = true;
