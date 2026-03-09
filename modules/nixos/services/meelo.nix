@@ -53,11 +53,15 @@
     }
   '';
 
-  # Default settings.json — user can replace at ${dataDir}/config/settings.json
+  # Declarative settings.json with placeholder tokens for API keys
   settingsJson = pkgs.writeText "meelo-settings.json" (builtins.toJSON {
     trackRegex = [
-      # Artist/Album/01 - Track.ext  or  Artist/Album/1-01 Track.ext
-      "/data/(?P<AlbumArtist>[^/]+)/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Standard Beets: Artist/YYYY - Album/NN Track.ext
+      "/data/(?P<AlbumArtist>[^/]+)/(?:[^/]*\\s-\\s)?(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Compilations: Compilations/Album/NN Track.ext
+      "/data/Compilations/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Singletons: Non-Album/Artist/Track.ext
+      "/data/Non-Album/(?P<AlbumArtist>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
     ];
     metadata = {
       source = "embedded";
@@ -68,15 +72,30 @@
       artists = ["Various Artists" "Various" "VA"];
       useID3CompTag = true;
     };
-    providers = {};
+    providers = {
+      musicbrainz = {};
+      wikipedia = {};
+      allmusic = {};
+      metacritic = {};
+      lrclib = {};
+      discogs = {apiKey = "__DISCOGS_TOKEN__";};
+      genius = {apiKey = "__GENIUS_TOKEN__";};
+    };
   });
 
-  # Seed settings.json only if absent (preserves user edits)
+  # Template settings.json: copy from nix store, substitute API keys from sops env
   initConfig = pkgs.writeShellScript "meelo-init-config" ''
-    if [ ! -f "${cfg.dataDir}/config/settings.json" ]; then
-      cp ${settingsJson} "${cfg.dataDir}/config/settings.json"
-      chmod 644 "${cfg.dataDir}/config/settings.json"
-    fi
+    cp ${settingsJson} "${cfg.dataDir}/config/settings.json"
+    chmod 644 "${cfg.dataDir}/config/settings.json"
+
+    # Source API keys from sops env file and substitute placeholders
+    set -a
+    . "${envFile}"
+    set +a
+    ${pkgs.gnused}/bin/sed -i \
+      -e "s|__DISCOGS_TOKEN__|''${DISCOGS_TOKEN:-}|g" \
+      -e "s|__GENIUS_TOKEN__|''${GENIUS_TOKEN:-}|g" \
+      "${cfg.dataDir}/config/settings.json"
   '';
 in {
   options.homelab.services.meelo = {
