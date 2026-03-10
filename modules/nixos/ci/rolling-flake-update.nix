@@ -63,8 +63,8 @@ in {
       wants = ["network-online.target"];
       after = ["network-online.target"];
 
-      # ADDED: pkgs.bash so /usr/bin/env bash works in sub-scripts
-      path = [pkgs.git pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash];
+      # Keep git's configured credential helper available inside the service.
+      path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash];
 
       serviceConfig = {
         Type = "oneshot";
