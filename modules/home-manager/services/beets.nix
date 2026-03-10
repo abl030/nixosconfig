@@ -337,6 +337,9 @@ in {
           auto = true;
           count = 3;
           source = "album";
+          canonical = true;
+          separator = ", ";
+          force = false;
         };
 
         the = {
