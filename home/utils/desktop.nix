@@ -24,7 +24,7 @@
     # inputs.wezterm.packages.${pkgs.system}.default
     pkgs.galaxy-buds-client
     pkgs.freetube
-    pkgs.zotero-beta
+    pkgs.zotero
     # pkgs.linuxKernel.packages.linux_latest_libre.turbostat
     pkgs.neovide
     pkgs.ffmpeg
