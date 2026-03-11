@@ -63,6 +63,7 @@
       enable = true;
       dataDir = "/mnt/virtio/meelo";
       mediaDir = "/mnt/virtio/Music";
+      port = 5001;
     };
   };
 
