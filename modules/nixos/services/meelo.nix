@@ -56,12 +56,12 @@
   # Declarative settings.json with placeholder tokens for API keys
   settingsJson = pkgs.writeText "meelo-settings.json" (builtins.toJSON {
     trackRegex = [
-      # Standard Beets: Artist/YYYY - Album/NN Track.ext
-      "/data/(?P<AlbumArtist>[^/]+)/(?:[^/]*\\s-\\s)?(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
-      # Compilations: Compilations/Album/NN Track.ext
-      "/data/Compilations/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
-      # Singletons: Non-Album/Artist/Track.ext
-      "/data/Non-Album/(?P<AlbumArtist>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
+      # Standard Beets: <library>/Artist/YYYY - Album/NN Track.ext
+      "/data/[^/]+/(?P<AlbumArtist>[^/]+)/(?:[^/]*\\s-\\s)?(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Compilations: <library>/Compilations/Album/NN Track.ext
+      "/data/[^/]+/Compilations/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Singletons: <library>/Non-Album/Artist/Track.ext
+      "/data/[^/]+/Non-Album/(?P<AlbumArtist>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
     ];
     metadata = {
       source = "embedded";
