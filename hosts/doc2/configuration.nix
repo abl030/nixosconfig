@@ -130,7 +130,7 @@
       meelo = {
         enable = true;
         dataDir = "/mnt/virtio/meelo";
-        mediaDir = "/mnt/virtio/Music/Beets";
+        mediaDir = "/mnt/virtio/Music";
       };
       domain-monitor.enable = true;
       kopia = {
