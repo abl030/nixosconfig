@@ -62,6 +62,8 @@
       "/data/[^/]+/Compilations/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
       # Singletons: <library>/Non-Album/Artist/Track.ext
       "/data/[^/]+/Non-Album/(?P<AlbumArtist>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
+      # Live/mix recordings: Live/Artist/Album/Track.ext (no track index)
+      "/data/Live/(?P<AlbumArtist>[^/]+)/(?P<Album>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
     ];
     metadata = {
       source = "embedded";
