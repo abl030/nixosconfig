@@ -127,11 +127,7 @@
         dataDir = "/mnt/virtio/musicbrainz";
         mirrorDir = "/mnt/mirrors/musicbrainz";
       };
-      meelo = {
-        enable = true;
-        dataDir = "/mnt/virtio/meelo";
-        mediaDir = "/mnt/virtio/Music";
-      };
+      meelo.enable = false;
       domain-monitor.enable = true;
       kopia = {
         enable = true;
@@ -218,8 +214,6 @@
     "d /mnt/virtio/netboot 0755 root root - -"
     # Youtarr — app state + MariaDB on virtiofs
     "d /mnt/virtio/youtarr 0755 root root - -"
-    # Meelo music server — app state on virtiofs
-    "d /mnt/virtio/meelo 0755 root root - -"
     # Kopia backup server — repository configs on virtiofs
     "d /mnt/virtio/kopia 0750 kopia kopia - -"
     "d /mnt/virtio/kopia/photos 0750 kopia kopia - -"

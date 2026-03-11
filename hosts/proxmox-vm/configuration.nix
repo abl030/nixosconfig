@@ -58,6 +58,12 @@
     };
     # Immich moved to doc2 (2026-02-25)
     services.immich.enable = false;
+
+    services.meelo = {
+      enable = true;
+      dataDir = "/mnt/virtio/meelo";
+      mediaDir = "/mnt/virtio/Music";
+    };
   };
 
   # Base.nix enables NetworkManager.
@@ -135,6 +141,7 @@
 
   systemd.tmpfiles.rules = [
     "d /mnt/virtio 0755 root root - -"
+    "d /mnt/virtio/meelo 0755 root root - -"
   ];
 
   system.stateVersion = "24.05";
