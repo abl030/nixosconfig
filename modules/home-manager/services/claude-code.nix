@@ -340,8 +340,6 @@ in {
         pkgs.unifi-mcp
         pkgs.pfsense-mcp
         pkgs.loki-mcp
-        pkgs.lidarr-mcp
-        pkgs.slskd-mcp
         pkgs.vinsight-mcp
         pkgs.beads
         pkgs.dolt
