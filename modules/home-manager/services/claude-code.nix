@@ -346,6 +346,7 @@ in {
         pkgs.beads
         pkgs.dolt
         pkgs.nodejs
+        pkgs.sox # Required for Claude Code /voice mode
       ];
 
       # Create symlinks for plugins in marketplace (read-only)
