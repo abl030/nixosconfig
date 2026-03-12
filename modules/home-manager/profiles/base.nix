@@ -56,5 +56,6 @@
   };
   home.packages = [
     pkgs.whosthere
+    pkgs.yq-go
   ];
 }

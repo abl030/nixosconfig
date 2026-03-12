@@ -1,5 +1,4 @@
 # HA Dashboards
 
-YAML stored here for readability. HA stores/deploys as JSON in `.storage/lovelace.*`.
-
-To deploy: convert to JSON and copy to HA, or edit via UI.
+YAML files here are the source of truth for HA dashboard configs.
+See `ha/CLAUDE.md` "Dashboard Management" section for deploy/export workflow.
