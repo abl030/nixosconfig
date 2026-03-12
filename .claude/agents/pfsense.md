@@ -13,3 +13,142 @@ You are a pfSense firewall management agent. You have access to the pfSense MCP 
 Call pfsense_search_tools first to find the right tool by keyword before browsing the full tool list. Call pfsense_get_overview for system status.
 
 Always confirm destructive operations (deleting rules, changing routing) before executing them.
+
+## Context Maintenance
+
+The reference data below is a snapshot and WILL drift. **Always query live state before acting.**
+
+- Before modifying any section (rules, aliases, DHCP, NAT, VPN), fetch the current config from pfSense first — do NOT rely solely on what's written below.
+- If live data contradicts this document, the live data is authoritative.
+- After making changes, update this file (`.claude/agents/pfsense.md`) to reflect the new state so future sessions start with accurate context.
+- When you notice drift (new rules, changed IPs, renamed aliases), fix this file even if it wasn't part of the original task.
+
+## Network Architecture
+
+pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
+
+### Interfaces
+
+| Interface | Name | Subnet | Hardware | Purpose |
+|-----------|------|--------|----------|---------|
+| WAN | wan | DHCP (public IP) | igc0 | Internet uplink |
+| LAN | lan | 192.168.1.0/24 | igc1 | Main network |
+| OPT3 (Docker VLAN) | opt3 | 192.168.11.0/24 | igc1.10 (VLAN 10) | Docker/container network |
+| IOT_OF_DEATH | opt4 | 192.168.101.0/24 | igc1.100 (VLAN 100) | Isolated IoT devices |
+| OPT5 (AirVPN) | opt5 | 10.136.18.126 | tun_wg2 | AirVPN WG tunnel |
+
+### VLANs
+
+- **VLAN 10** (igc1.10) — Docker_Network — 192.168.11.0/24
+- **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24
+
+### Gateways
+
+| Name | Purpose |
+|------|---------|
+| WAN_DHCP | Default internet gateway |
+| AirVPN | AirVPN WireGuard tunnel |
+
+### WireGuard Tunnels
+
+| Tunnel | Port | Description |
+|--------|------|-------------|
+| tun_wg2 | 51822 | WG_AIRVPN |
+
+## VPN Routing Policy
+
+Traffic is routed through AirVPN based on source IP using aliases:
+
+- **MV_VPN_IPS** → AirVPN gateway: 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC
+- Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback)
+- **OPT3 (Docker VLAN)** → all traffic routes via AirVPN
+
+## Key Firewall Rules
+
+### Floating Rules
+- pfBlockerNG auto-rules block known-bad IPs (PRI1-5, SCANNERS, DNSBLIP) inbound on WAN
+- pfBlockerNG reject rules prevent LAN from reaching known-bad IPs outbound
+- GeoIP: block non-Oceania inbound on WAN
+- DNS forced to pfSense (port 53 pass to lan:ip and 127.0.0.1)
+
+### LAN Rules (order matters)
+1. Pass Cloudflare IPs (172.64.32.0/24, 173.245.58.0/24)
+2. MV_VPN_IPS → pass via AirVPN, then block (kill switch)
+3. Block baby monitors (VTechCameras) on WAN and AirVPN gateways
+4. Block DoT (port 853) and DoH (to DoH_Providers:443) for DHCP_Dynamic and LG TV
+5. Default allow LAN to any
+
+### IOT_OF_DEATH Rules
+1. Allow HA (192.168.101.4) → Chromecast Audio (192.168.1.14)
+2. Block DoT and DoH
+3. Block IoT → LAN (192.168.1.0/24) and Docker VLAN (192.168.11.0/24)
+4. Pass IoT → WAN only (via WAN_DHCP gateway)
+
+## DNS
+
+- DNS redirect NAT rules force LG TV, DHCP_Dynamic, and all IOT_OF_DEATH devices to use pfSense DNS (Unbound)
+- Prevents devices from using their own DoH/DoT resolvers
+- pfBlockerNG DNSBL active for ad/malware blocking
+
+## NAT Port Forwards
+
+| Src | Dest Port | Target | Local Port | Description |
+|-----|-----------|--------|------------|-------------|
+| any | 11338 (WAN) | 192.168.1.2 | 32400 | Plex |
+| any | 45726 (OPT5/AirVPN) | 192.168.1.4 | 45726 | Torrent |
+| any | 45727 (OPT5/AirVPN) | 192.168.11.3 | 45727 | Torrent (Docker VLAN) |
+| LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
+| DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
+| any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |
+
+## Key Aliases
+
+| Name | Type | Contents | Purpose |
+|------|------|----------|---------|
+| MV_VPN_IPS | host | Various LAN IPs | Devices routed via AirVPN |
+| VTechCameras | host | .7, .8 | Baby monitors (internet blocked) |
+| DockerVlan | network | 192.168.11.0/24 | Docker VLAN reference |
+| DHCP_Dynamic | host | .100-.254 | Untrusted DHCP range |
+| DoH_Providers | host | 250+ IPs/hostnames | Known DoH/DoT providers |
+| CullenWinesPubIP | host | Cullen public IPs | Remote access allowlist |
+| AirVPN_IPs | host | (empty) | Placeholder |
+
+## DHCP Static Mappings (Key Hosts)
+
+| IP | Hostname | Description |
+|----|----------|-------------|
+| 192.168.1.2 | tower | Unraid Server |
+| 192.168.1.3 | — | BastionProxy |
+| 192.168.1.4 | genericvm | Downloader+PiHole |
+| 192.168.1.5 | epimetheus | DanCase workstation |
+| 192.168.1.6 | caddy | Caddy reverse proxy |
+| 192.168.1.7-8 | — | VTech Baby Monitors |
+| 192.168.1.10 | — | Tower add-in card |
+| 192.168.1.12 | — | Proxmox (prom) |
+| 192.168.1.14 | chromecast-audio | Chromecast Audio |
+| 192.168.1.20 | homeassistant | Home Assistant |
+| 192.168.1.21 | brw... | Brother printer |
+| 192.168.1.23 | slzb-06p7 | Zigbee coordinator |
+| 192.168.1.27 | ollama | GPU server |
+| 192.168.1.29 | nixos | NixOS Docker host |
+| 192.168.1.30 | — | Proxmox Backup Server |
+| 192.168.1.33 | nixos | Prometheus/iGPU VM |
+| 192.168.1.35 | doc2 | NixOS service appliance VM |
+| 192.168.1.36 | lgwebostv / doc2-vpn | LG TV + doc2 VPN NIC (shared IP) |
+| 192.168.1.37 | framework | Framework 13 Laptop |
+| 192.168.1.38 | s-a55 | Samsung Galaxy A55 |
+| 192.168.1.39 | daikin-ir | Seeed XIAO IR - Daikin AC |
+| 192.168.1.40-41 | chromecast-ultra, google-home | Google devices |
+| 192.168.1.50-54 | — | UniFi APs and switches |
+| 192.168.11.12 | — | Prom management (Docker VLAN) |
+
+## Services
+
+- **Unbound** (DNS Resolver) — running
+- **Kea DHCP4** — running
+- **pfBlockerNG** (DNSBL + IP blocklists) — running (REST API reports false for package services)
+- **WireGuard** — 1 tunnel (AirVPN) active (REST API reports false, actually running)
+- **Tailscale** — running (REST API reports false)
+- **UPnP/PCP** — enabled
+- **SSH** — enabled
+- **NTP** — running

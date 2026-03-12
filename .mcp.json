@@ -11,10 +11,6 @@
       "args": [
         "beads-mcp"
       ]
-    },
-    "pfsense": {
-      "command": "./scripts/mcp-pfsense.sh",
-      "args": []
     }
   }
 }
