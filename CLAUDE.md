@@ -64,45 +64,9 @@ Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: 
 - Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
 - Avoid relying on module import order for list options; use `lib.mkOrder` when order must be stable.
 
-## Quality Gates
-
-**`check --full` MUST pass before pushing.** Run `check` at feature boundaries — when a logical chunk of work is complete — not after every small change. `nix fmt` is cheap and fine to run anytime.
-
-**Docs-only exception:** If a change only touches documentation files (for example `docs/**`, `README*`, `*.md`), skip `check` by default unless explicitly requested.
-
-The `check` command runs a comprehensive quality gate that includes:
-1. Format checking (Alejandra)
-2. Linting (deadnix for unused code)
-3. Linting (statix for style issues)
-4. Flake checks (host config checks only with `check --full`)
-5. Drift detection (only when invoked with `check --drift`)
-
-```bash
-# Run all checks before committing
-check
-
-# Include host config checks (slow)
-check --full
-
-# Only check specific host configs
-check --hosts framework
-
-# Include drift detection only when needed (slow)
-check --drift
-
-# If formatting issues are found
-nix fmt
-
-# The check command will exit with error if any check fails
-```
-
 ### Known Eval Warnings (upstream, safe to ignore)
 
 - `proxmox.qemuConf.diskSize` renamed to `virtualisation.diskSize` — upstream nixpkgs proxmox-image module sets a default using the old option name
-
-## Hash-Based Drift Detection
-
-Identical `system.build.toplevel` hashes guarantee identical systems. Use `check --drift` to compare against baselines. Full workflow: `bd show nixosconfig-bv0`.
 
 ## Gotify Notifications
 
@@ -129,7 +93,7 @@ Endpoint reference for monitoring setup: `bd show nixosconfig-2ws`.
 
 - Follow Conventional Commits style like `fix(pve): ...`; keep messages short and scoped.
 - If a change is operational or host-specific, mention the host, module, or subsystem in the subject.
-- PRs should describe impact, commands run (`check`, `nix flake check`), and any deployment notes.
+- PRs should describe impact and any deployment notes.
 
 ## Memory Discipline
 
@@ -185,26 +149,14 @@ The Loki MCP server queries logs from the homelab fleet. Usage notes:
 - Container logs use the `container` label (e.g., `{host="proxmox-vm", container="immich-server"}`).
 - **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query it with `unit="rolling-flake-update.service"` and `host="proxmox-vm"`. Use a start time before 14:15 UTC of the relevant day.
 
-### Home Assistant
+### Home Assistant, pfSense, UniFi
 
-Tools are **deferred** — use `ToolSearch` with `+homeassistant` first. Full usage guide incl. Music Assistant playback and volume quirks: `bd show nixosconfig-fah`.
+These MCPs are **subagent-only** — defined in `.claude/agents/` to avoid context bloat. Spawn the appropriate agent when you need to interact with them:
+- `homeassistant` — Home automation, entities, automations, media playback
+- `pfsense` — Firewall rules, NAT, VPN, DHCP, DNS
+- `unifi` — Network devices, clients, WLANs, port profiles
 
-### Lidarr (Music Library)
-
-Soularr handles download searching automatically. Do NOT manually search Soulseek, and do NOT call `lidarr_command_album_search` or any search trigger. The ONLY job is to get the album into Lidarr and set `monitored: true` — Soularr polls for monitored+missing albums and searches Soulseek on its own schedule. Triggering searches manually is wasted effort.
-
-**Grabbing an album:**
-
-1. **Web search first** — if you don't recognise the album, Google it. Don't guess or assume it doesn't exist.
-2. **Try `lidarr_grab_album`** with artist name and album title.
-3. **If the album isn't found**, it's likely too new for Lidarr's cached metadata:
-   - Look up the MusicBrainz release group ID (search MusicBrainz API or web).
-   - Use `lidarr_lookup_album` with `term=lidarr:<MBID>` to confirm it exists.
-   - If the artist is already in Lidarr, run `lidarr_command_refresh_artist` to pull new metadata.
-   - If the album STILL doesn't appear after refresh, check the artist's **metadata profile** — the album's secondary type (e.g., Soundtrack, Live) may be filtered out. Update the profile to allow it, then refresh again.
-4. **Monitoring rules**:
-   - The **artist** should be `monitored: true` with `monitorNewItems: "none"`.
-   - Only the **requested album** should be `monitored: true`. Unmonitor any other albums that got auto-monitored.
+Full HA usage guide incl. Music Assistant playback and volume quirks: `bd show nixosconfig-fah`.
 
 ### mcp-nixos
 
@@ -414,8 +366,7 @@ Host-specific details for doc1, igpu, and framework: `bd show nixosconfig-6bn`.
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
+2. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase

@@ -207,6 +207,19 @@
 
   programs.firefox.enable = true;
 
+  # Passwordless nixos-rebuild for Claude Code agent
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   system.stateVersion = "24.05";
 
   # =======================================================================
