@@ -59,6 +59,10 @@ Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: 
 
 - **`failed to insert entry: invalid object specified`** during `nix flake update`: Corrupted fetch cache. Fix with `rm -rf ~/.cache/nix/` and retry. This is safe — it's only a fetch cache, not the store. Common issue, happens periodically.
 
+## TODO Tracking
+
+Lightweight TODOs and planned work are tracked in `docs/todo/*.md`. Check there before starting new work.
+
 ## Stabilization Rules
 
 - Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
