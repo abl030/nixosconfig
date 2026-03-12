@@ -23,6 +23,37 @@ The reference data below is a snapshot and WILL drift. **Always query live state
 - After making changes, update this file (`.claude/agents/pfsense.md`) to reflect the new state so future sessions start with accurate context.
 - When you notice drift (new rules, changed IPs, renamed aliases), fix this file even if it wasn't part of the original task.
 
+## Network Stack Overview
+
+This homelab uses a **split-responsibility** network architecture:
+
+| Layer | Handled by | Details |
+|-------|-----------|---------|
+| L1/L2 switching | **UniFi** | 2 managed switches (US-8-60W PoE, USW Flex Mini), VLAN trunking |
+| Wireless | **UniFi** | 3x UAP-AC-Pro APs, 3 SSIDs (all land on untagged LAN) |
+| L3 routing | **pfSense** | Inter-VLAN routing, default gateway for all networks |
+| DHCP | **pfSense** | Kea DHCP4 for LAN (.1.0/24), Docker VLAN (.11.0/24), IoT (.101.0/24) |
+| Firewall | **pfSense** | All access control, VPN policy routing, kill switches |
+| DNS | **pfSense** | Unbound resolver + pfBlockerNG DNSBL, forced for untrusted devices |
+| VPN | **pfSense** | AirVPN WireGuard tunnel with policy routing + Tailscale mesh |
+
+**There is no UniFi gateway.** pfSense is the sole router/firewall. UniFi manages L2 only — VLANs 10 and 100 are defined as "vlan-only" in UniFi (no subnet/DHCP) with pfSense providing all L3 services on those VLANs.
+
+### Physical Topology
+
+```
+Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,100)
+                │
+                ├──► MastSwitch (US-8-60W, .53) ──► 3x APs (PoE ports 5-7)
+                │       ports 1,4: VLAN trunks        port 8: Zigbee coordinator
+                │
+                └──► USW Flex Mini (.54)
+                        port 4: trunk to Proxmox host (.12) + all VMs
+                        port 3: VLAN 10 native (IoT isolation port)
+```
+
+All wireless clients land on the Default (untagged) LAN — no VLAN tagging on wireless SSIDs. The 3 SSIDs are: `theblackduck` (primary, fast roaming), `blackduck2` (5GHz-only), `BlackDuckGuest` (L2 isolated guest).
+
 ## Network Architecture
 
 pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
@@ -39,8 +70,10 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 
 ### VLANs
 
-- **VLAN 10** (igc1.10) — Docker_Network — 192.168.11.0/24
-- **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24
+- **VLAN 10** (igc1.10) — Docker_Network — 192.168.11.0/24 — UniFi name: "DOckerVLan"
+- **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24 — UniFi name: "IOT_OF_DEATH"
+
+Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, and firewall rules for each.
 
 ### Gateways
 
