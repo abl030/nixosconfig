@@ -126,7 +126,7 @@
     maximum_peer_queue = 50
     minimum_peer_upload_speed = 0
     minimum_filename_match_ratio = 0.6
-    allowed_filetypes = flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,mp3 320,mp3 v0,mp3 v1,aac,ogg,opus
+    allowed_filetypes = flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,mp3 320,mp3 v0,aac 256+,ogg 256+,opus 192+
     ignored_users =
     search_for_tracks = True
     album_prepend_artist = True
