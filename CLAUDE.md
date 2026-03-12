@@ -1,3 +1,18 @@
+# !! CRITICAL: CHECK HOSTNAME BEFORE REBUILD !!
+#
+# BEFORE running `nixos-rebuild switch`, ALWAYS run `hostname` first.
+# Use the ACTUAL hostname in the flake URI: --flake .#<actual-hostname>
+# NEVER assume which host you are on. NEVER hardcode a hostname.
+# Getting this wrong rebuilds the WRONG system config onto the current machine.
+#
+
+# !! SESSION START: ALWAYS RUN THESE FIRST !!
+#
+# At the START of every conversation, run `hostname` and `date` before doing
+# anything else. This establishes which machine you are on and the current time.
+# Do this silently — no need to announce it, just know your context.
+#
+
 # Repository Guidelines
 
 This file provides guidance to AI coding assistants working with this repository.
@@ -62,6 +77,21 @@ Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: 
 ## TODO Tracking
 
 Lightweight TODOs and planned work are tracked in `docs/todo/*.md`. Check there before starting new work.
+
+## Wiki / Knowledge Base
+
+`docs/wiki/` is our internal knowledge base — written **by AI agents, for AI agents**. It captures research findings, architectural decisions, upstream bugs, workarounds, and operational knowledge that doesn't belong in code comments or CLAUDE.md.
+
+**Structure:**
+- `docs/wiki/claude-code/` — Claude Code features, plugins, skills, bugs, workarounds
+- `docs/wiki/infrastructure/` — Network, VMs, storage, monitoring
+- `docs/wiki/services/` — Container stacks, integrations, service-specific docs
+
+**Rules:**
+- Update the wiki as you go. When you research something, document it.
+- In modules, agents, and config files, add comment pointers to relevant wiki docs (e.g. `# See docs/wiki/claude-code/skills-in-subagents.md`). This creates a breadcrumb trail so future sessions can find context fast.
+- Wiki docs should include: date researched, status (working/broken/upstream bug), issue links, what we tried, what works, and when to revisit.
+- Don't duplicate CLAUDE.md content into the wiki — CLAUDE.md is for rules and instructions, the wiki is for research and rationale.
 
 ## Stabilization Rules
 
