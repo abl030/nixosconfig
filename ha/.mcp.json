@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "homeassistant": {
+      "command": "../scripts/mcp-homeassistant.sh",
+      "args": []
+    }
+  }
+}
