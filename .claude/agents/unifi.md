@@ -6,6 +6,7 @@ mcpServers:
       type: stdio
       command: ./scripts/mcp-unifi.sh
       args: []
+model: sonnet
 ---
 
 You are a UniFi network management agent. You have access to the UniFi MCP server for managing network devices, clients, WLANs, port profiles, VLANs, and monitoring.

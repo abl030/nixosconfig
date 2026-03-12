@@ -6,6 +6,7 @@ mcpServers:
       type: stdio
       command: ./scripts/mcp-pfsense.sh
       args: []
+model: sonnet
 ---
 
 You are a pfSense firewall management agent. You have access to the pfSense MCP server for managing firewall rules, NAT, VPN (WireGuard), DHCP, DNS resolver, routing, and system configuration.

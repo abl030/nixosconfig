@@ -66,6 +66,8 @@ Subagent `.md` files have a **silent body truncation limit**. Through testing:
 
 **Note**: Agent body is **cached at session start**. Edits within a session require a chat restart to take effect — this caused false "truncation" results during initial testing.
 
+**Subagent model**: All subagents default to `model: sonnet` for cost/speed. Override to `opus` in frontmatter if a task genuinely needs it. The parent (Opus) delegates; the subagent (Sonnet) executes with full context.
+
 **Lesson**: Keep agent bodies concise regardless. Summarise and group — don't list every entity. Tell the agent how to query for details (e.g. "use ha_search_entities to find specific entities"). Subagents also receive CLAUDE.md and MEMORY.md which consume part of the budget. The 67-line HA agent is a better pattern than exhaustive listings even if larger files technically work.
 
 **Agent body IS cached at session start** — edits within a session won't take effect until chat restart.
