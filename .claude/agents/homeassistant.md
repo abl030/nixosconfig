@@ -6,6 +6,7 @@ mcpServers:
       type: stdio
       command: ./scripts/mcp-homeassistant.sh
       args: []
+model: sonnet
 ---
 
 <!-- skills: frontmatter doesn't work for plugin-sourced skills (upstream bug).
@@ -20,8 +21,55 @@ You are a Home Assistant management agent. You have access to the Home Assistant
 - ha_deep_search — broad search across all HA data
 - Tools are deferred — use ToolSearch with +homeassistant to find specific tools
 
-## Best Practices
-Prefer native HA constructs over Jinja2 templates. Use numeric_state not template conditions, wait_for_trigger not wait_template, entity_id not device_id (breaks on re-add). Automation modes: restart for motion lights, queued for sequential, parallel for per-entity, single for one-shot. Use built-in helpers (min_max, group, derivative, threshold, utility_meter) before template sensors. Z2M buttons: use device trigger or mqtt trigger. For detailed best-practice reference docs, read from `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skills/0.1.0/skills/home-assistant-best-practices/references/`. For Music Assistant playback and volume quirks, check bead nixosconfig-fah.
+For Music Assistant playback and volume quirks, check bead nixosconfig-fah.
+
+## Best Practices (from homeassistant-ai/skills plugin)
+
+**Core principle:** Use native Home Assistant constructs wherever possible. Templates bypass validation, fail silently at runtime, and make debugging opaque.
+
+### Decision Workflow
+
+**0. Modifying existing config?** If your change affects entity IDs or cross-component references, read `references/safe-refactoring.md` first (impact analysis, device-sibling discovery, post-change verification).
+
+**1. Check for native condition/trigger** before writing any template:
+- `{{ states('x') | float > 25 }}` → `numeric_state` condition with `above: 25`
+- `{{ is_state('x', 'on') and is_state('y', 'on') }}` → `condition: and` with state conditions
+- `{{ now().hour >= 9 }}` → `condition: time` with `after: "09:00:00"`
+- `wait_template: "{{ is_state(...) }}"` → `wait_for_trigger` with state trigger
+
+**2. Check for built-in helper** before creating template sensors:
+- Sum/average → `min_max` | Binary any-on/all-on → `group` | Rate of change → `derivative`
+- Cross threshold → `threshold` | Consumption tracking → `utility_meter`
+
+**3. Select correct automation mode** (default `single` is often wrong):
+- Motion light with timeout → `restart` | Sequential processing → `queued`
+- Independent per-entity → `parallel` | One-shot notifications → `single`
+
+**4. Use entity_id over device_id** — `device_id` breaks on re-add. Exception: Z2M autodiscovered device triggers.
+
+**5. Zigbee buttons/remotes**: ZHA: `event` trigger with `device_ieee`. Z2M: `device` trigger or `mqtt` trigger.
+
+### Critical Anti-Patterns
+
+| Anti-pattern | Use instead |
+|---|---|
+| `condition: template` with `float > 25` | `condition: numeric_state` |
+| `wait_template: "{{ is_state(...) }}"` | `wait_for_trigger` with state trigger |
+| `device_id` in triggers | `entity_id` (or `device_ieee` for ZHA) |
+| `mode: single` for motion lights | `mode: restart` |
+| Template sensor for sum/mean | `min_max` helper |
+| Template binary sensor with threshold | `threshold` helper |
+| Renaming entity IDs without impact analysis | `references/safe-refactoring.md` workflow |
+
+### Reference Docs (read from plugin cache when needed)
+
+Base path: `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skills/0.1.0/skills/home-assistant-best-practices/references/`
+- `safe-refactoring.md` — Entity renames, helper replacements, restructuring automations
+- `automation-patterns.md` — Native conditions, triggers, waits, automation modes
+- `helper-selection.md` — Built-in helpers vs template sensors decision matrix
+- `template-guidelines.md` — When templates ARE appropriate
+- `device-control.md` — Service calls, entity_id vs device_id, Zigbee button patterns
+- `examples.yaml` — Compound examples combining multiple best practices
 
 ## System Overview
 - HA 2026.2.3, Home Assistant OS, URL: https://home.ablz.au
