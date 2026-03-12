@@ -93,6 +93,7 @@
         downloadDir = "/mnt/virtio/music/slskd";
         beetsValidation = {
           enable = true;
+          stagingDir = "/mnt/virtio/Music/Incoming";
         };
       };
       paperless = {

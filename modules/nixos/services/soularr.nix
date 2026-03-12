@@ -243,7 +243,7 @@ in {
 
       stagingDir = lib.mkOption {
         type = lib.types.str;
-        default = "/mnt/virtio/Music/AI";
+        default = "/mnt/virtio/Music/Incoming";
         description = "Directory to stage validated albums for beets import.";
       };
 
