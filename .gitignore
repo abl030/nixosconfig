@@ -16,3 +16,6 @@ result
 .cache/
 ha/esphome/secrets.yaml
 ha/esphome/.esphome/
+
+# Claude Code machine-local settings (autoMemoryDirectory etc.)
+.claude/settings.local.json

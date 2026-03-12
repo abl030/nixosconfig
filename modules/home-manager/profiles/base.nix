@@ -12,6 +12,7 @@
   homelab.claudeCode = {
     enable = lib.mkDefault true;
     agentTeams = lib.mkDefault true;
+    repoMemoryDirectory = lib.mkDefault ".claude/memory";
     settings = lib.mkDefault {
       hooks = {
         SessionStart = [
