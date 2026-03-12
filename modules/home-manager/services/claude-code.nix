@@ -134,6 +134,12 @@
 
   settingsFile = pkgs.writeText "nix-claude-settings.json" (builtins.toJSON effectiveSettings);
 
+  # Project-level settings.local.json for autoMemoryDirectory
+  projectLocalSettings =
+    lib.optionalAttrs (cfg.repoMemoryDirectory != null)
+    {autoMemoryDirectory = "${cfg.repoPath}/${cfg.repoMemoryDirectory}";};
+  projectLocalSettingsFile = pkgs.writeText "nix-claude-settings-local.json" (builtins.toJSON projectLocalSettings);
+
   # --- Plugin logic (absorbed from claude-plugins.nix) ---
 
   # Patch plugin source to remove invalid fields from marketplace.json
@@ -316,6 +322,24 @@ in {
       description = "Arbitrary attrset deep-merged into ~/.claude/settings.json";
     };
 
+    repoMemoryDirectory = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = ".claude/memory";
+      description = ''
+        Repo-relative path for auto-memory storage. When set, writes
+        autoMemoryDirectory into the project's .claude/settings.local.json
+        so memory is git-tracked and shared across machines via git.
+        Only affects this project, not global Claude Code settings.
+      '';
+    };
+
+    repoPath = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/nixosconfig";
+      description = "Absolute path to the nixosconfig repo checkout.";
+    };
+
     plugins = lib.mkOption {
       type = lib.types.listOf pluginType;
       default = [];
@@ -385,6 +409,20 @@ in {
         else
           run cp "${settingsFile}" "$CLAUDE_DIR/settings.json"
         fi
+
+        ${lib.optionalString (cfg.repoMemoryDirectory != null) ''
+          # --- Merge project-level settings.local.json (autoMemoryDirectory) ---
+          PROJECT_SETTINGS="${cfg.repoPath}/.claude/settings.local.json"
+          if [ -d "${cfg.repoPath}/.claude" ]; then
+            verboseEcho "Merging autoMemoryDirectory into project settings.local.json..."
+            if [ -f "$PROJECT_SETTINGS" ]; then
+              run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$PROJECT_SETTINGS" "${projectLocalSettingsFile}" > "$PROJECT_SETTINGS.tmp"
+              run mv "$PROJECT_SETTINGS.tmp" "$PROJECT_SETTINGS"
+            else
+              run cp "${projectLocalSettingsFile}" "$PROJECT_SETTINGS"
+            fi
+          fi
+        ''}
 
         ${lib.optionalString (cfg.plugins != []) ''
           # --- Merge plugin JSON configs ---
