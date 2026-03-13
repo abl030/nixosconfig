@@ -29,26 +29,33 @@
         server_name _;
         client_max_body_size 0;
 
+        # Re-resolve container hostnames on failure (podman DNS)
+        resolver 127.0.0.11 valid=10s;
+
         location = /api {
             return 302 /api/;
         }
         location /api/ {
-            proxy_pass ''${SERVER_URL}/;
+            set $upstream_server ''${SERVER_URL};
+            proxy_pass $upstream_server/;
         }
         location = /scanner {
             return 302 /scanner/;
         }
         location /scanner/ {
-            proxy_pass ''${SCANNER_URL}/;
+            set $upstream_scanner ''${SCANNER_URL};
+            proxy_pass $upstream_scanner/;
         }
         location = /matcher {
             return 302 /matcher/;
         }
         location /matcher/ {
-            proxy_pass ''${MATCHER_URL}/;
+            set $upstream_matcher ''${MATCHER_URL};
+            proxy_pass $upstream_matcher/;
         }
         location / {
-            proxy_pass ''${FRONT_URL};
+            set $upstream_front ''${FRONT_URL};
+            proxy_pass $upstream_front;
         }
     }
   '';
@@ -57,13 +64,14 @@
   settingsJson = pkgs.writeText "meelo-settings.json" (builtins.toJSON {
     trackRegex = [
       # Standard Beets: <library>/Artist/YYYY - Album/NN Track.ext
-      "/data/[^/]+/(?P<AlbumArtist>[^/]+)/(?:[^/]*\\s-\\s)?(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      # Release (not Album) from path — embedded tags provide Album, path provides Release for aunique disambiguation
+      "/data/[^/]+/(?P<AlbumArtist>[^/]+)/(?:[^/]*\\s-\\s)?(?P<Release>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
       # Compilations: <library>/Compilations/Album/NN Track.ext
-      "/data/[^/]+/Compilations/(?P<Album>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
+      "/data/[^/]+/Compilations/(?P<Release>[^/]+)/(?:(?P<Disc>\\d+)-)?(?P<Index>\\d+)\\s*[.\\-]?\\s*(?P<Track>[^/]+?)\\.[^.]+$"
       # Singletons: <library>/Non-Album/Artist/Track.ext
       "/data/[^/]+/Non-Album/(?P<AlbumArtist>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
       # Live/mix recordings: Live/Artist/Album/Track.ext (no track index)
-      "/data/Live/(?P<AlbumArtist>[^/]+)/(?P<Album>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
+      "/data/Live/(?P<AlbumArtist>[^/]+)/(?P<Release>[^/]+)/(?P<Track>[^/]+?)\\.[^.]+$"
     ];
     metadata = {
       source = "embedded";
@@ -384,7 +392,7 @@ in {
         image = "docker.io/library/nginx:1.29.4-alpine";
         autoStart = true;
         pull = "newer";
-        dependsOn = ["meelo-server" "meelo-front"];
+        dependsOn = ["meelo-server" "meelo-front" "meelo-matcher" "meelo-scanner"];
         ports = ["${toString cfg.port}:5000"];
         environment = {
           PORT = "5000";
