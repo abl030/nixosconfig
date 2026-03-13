@@ -29,33 +29,26 @@
         server_name _;
         client_max_body_size 0;
 
-        # Re-resolve container hostnames on failure (podman DNS)
-        resolver 127.0.0.11 valid=10s;
-
         location = /api {
             return 302 /api/;
         }
         location /api/ {
-            set $upstream_server ''${SERVER_URL};
-            proxy_pass $upstream_server/;
+            proxy_pass ''${SERVER_URL}/;
         }
         location = /scanner {
             return 302 /scanner/;
         }
         location /scanner/ {
-            set $upstream_scanner ''${SCANNER_URL};
-            proxy_pass $upstream_scanner/;
+            proxy_pass ''${SCANNER_URL}/;
         }
         location = /matcher {
             return 302 /matcher/;
         }
         location /matcher/ {
-            set $upstream_matcher ''${MATCHER_URL};
-            proxy_pass $upstream_matcher/;
+            proxy_pass ''${MATCHER_URL}/;
         }
         location / {
-            set $upstream_front ''${FRONT_URL};
-            proxy_pass $upstream_front;
+            proxy_pass ''${FRONT_URL};
         }
     }
   '';
