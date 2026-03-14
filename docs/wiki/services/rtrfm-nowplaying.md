@@ -34,8 +34,21 @@ RTRFM Stream (AAC/MP3)
 
 | Endpoint | Response |
 |----------|----------|
-| `GET /` or `/now-playing` | `{"state": "Artist — Title", "artist": "...", "title": "...", "source": "shazam"}` |
+| `GET /` or `/now-playing` | `{"state": "Artist — Title", "artist": "...", "title": "...", "show": "...", "source": "shazam", "last_updated": "ISO8601"}` |
+| `GET /tracklist` | Current show's full track history |
+| `GET /tracklist?date=2026-03-14` | All shows and their tracks for a given date |
+| `GET /tracklist?show=The+Rounds` | Specific show's full track history (all time) |
+| `GET /tracklist?show=The+Rounds&date=2026-03-14` | Specific show on a specific date |
+| `GET /shows` | List all show names that have tracklist data |
 | `GET /health` | `{"status": "ok"}` |
+
+### Tracklist Storage
+
+- Persisted to `/var/lib/rtrfm-nowplaying/tracklists/` (systemd `StateDirectory`)
+- One JSONL file per show (e.g., `The Rounds.jsonl`)
+- Each line: `{"artist": "...", "title": "...", "time": "ISO8601+08:00"}`
+- Survives service restarts. Manual cleanup: delete individual `.jsonl` files via `sudo` on doc2
+- Date filtering works by matching the ISO8601 date prefix in the `time` field
 
 ### Infrastructure Wiring
 
