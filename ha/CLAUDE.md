@@ -26,6 +26,14 @@ When asked to play radio stations, use these mappings:
 
 Use `media_player.play_media` with the mapped URL. If playback stays `idle`, debug the stream URL — do NOT dismiss as a "Cast quirk".
 
+## Wiki
+
+When you research something non-trivial (API quirks, integration gotchas, architectural decisions), write it up in `docs/wiki/services/` or `docs/wiki/infrastructure/`. Wiki docs should include: date researched, status, what was tried, what works, and when to revisit. Add comment pointers in code back to the wiki doc. See the parent `CLAUDE.md` for full wiki guidelines.
+
+## Proactive Commits
+
+**Commit early and often.** After every dashboard deploy, config change, or automation update, commit the corresponding YAML/config files immediately. Do not accumulate uncommitted changes across multiple operations — each logical change should be its own commit. This applies to dashboard YAML, research files, and any other git-tracked HA config.
+
 ## Best Practices (from homeassistant-ai/skills plugin)
 
 **Core principle:** Use native Home Assistant constructs wherever possible. Templates bypass validation, fail silently at runtime, and make debugging opaque.
@@ -113,6 +121,7 @@ After making changes via the HA UI or MCP tools, sync back to YAML:
 
 - **Never edit live HA dashboards without updating the YAML file** (or vice versa)
 - After any dashboard change, both sides must match
+- **Commit dashboard YAML changes immediately** after deploying — do not batch them up. Each deploy should be followed by a git commit so the YAML history matches the live change history.
 - The `map` dashboard is HA built-in — no YAML file needed
 - For targeted edits, prefer `ha_dashboard_find_card()` + `jq_transform`/`python_transform` over full config replacement, then export the result back to YAML
 
