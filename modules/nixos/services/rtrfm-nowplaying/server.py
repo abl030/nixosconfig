@@ -1,244 +1,154 @@
 """RTRFM Now Playing HTTP API server.
 
-Discovers the current RTRFM show via Airnet API, fetches its playlist,
-and serves JSON with the latest track info.
+Captures audio from the RTRFM live stream every 30 seconds, fingerprints
+it via songrec (Shazam), and serves the current track as JSON.
 
 Endpoints:
-  GET /           → JSON: {artist, title, show, state}
+  GET /           → JSON: {artist, title, state, source}
   GET /health     → JSON: {status: "ok"}
 
-Caching:
-  - Show discovery (all 59 programs): cached for 30 minutes
-  - Playlist fetch: cached for 90 seconds
-
-See ha/research/rtrfm-nowplaying.md for full API research.
+Only updates the displayed track when a new match is found. When there's
+no match (talking, interviews, obscure tracks), the last known track
+is retained.
 """
 
 import json
 import logging
+import os
 import signal
+import subprocess
 import sys
+import tempfile
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.request import Request, urlopen
-from urllib.error import URLError
 
-API_BASE = "https://airnet.org.au/rest/stations/6RTR"
-USER_AGENT = "HomeAssistant-RTRFM/1.0"
-AWST = timezone(timedelta(hours=8))
-MAX_WORKERS = 20
-REQUEST_TIMEOUT = 10
-SHOW_CACHE_TTL = 1800  # 30 minutes
-PLAYLIST_CACHE_TTL = 90  # 90 seconds
+STREAM_URL = "https://live.rtrfm.com.au/stream1"
+CAPTURE_SECONDS = 15
+POLL_INTERVAL = 30  # seconds between fingerprint attempts
 
 log = logging.getLogger("rtrfm")
 
 
-class Cache:
-    """Thread-safe cache with TTL."""
+class NowPlaying:
+    """Thread-safe store for the current track."""
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._show = None
-        self._show_expires = 0
-        self._playlist = None
-        self._playlist_expires = 0
-
-    def get_show(self):
-        with self._lock:
-            if time.monotonic() < self._show_expires:
-                return self._show
-            return None
-
-    def set_show(self, show):
-        with self._lock:
-            self._show = show
-            self._show_expires = time.monotonic() + SHOW_CACHE_TTL
-
-    def invalidate_show(self):
-        with self._lock:
-            self._show = None
-            self._show_expires = 0
-
-    def get_playlist(self):
-        with self._lock:
-            if time.monotonic() < self._playlist_expires:
-                return self._playlist
-            return None
-
-    def set_playlist(self, playlist):
-        with self._lock:
-            self._playlist = playlist
-            self._playlist_expires = time.monotonic() + PLAYLIST_CACHE_TTL
-
-
-cache = Cache()
-
-
-def api_get(url):
-    """Fetch JSON from Airnet API with required User-Agent header."""
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-        return json.loads(resp.read().decode())
-
-
-def get_active_slugs():
-    """Get all active (non-archived) program slugs."""
-    log.debug("Fetching program list from Airnet")
-    programs = api_get(f"{API_BASE}/programs")
-    slugs = [
-        (p["slug"], p["name"])
-        for p in programs
-        if not p.get("archived", False) and p.get("slug")
-    ]
-    log.debug("Found %d active programs", len(slugs))
-    return slugs
-
-
-def parse_airnet_dt(dt_str):
-    """Parse Airnet datetime string (AWST, no timezone info) to aware datetime."""
-    if not dt_str:
-        return None
-    return datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=AWST)
-
-
-def fetch_current_episode(slug, name, now):
-    """Check if this program has an episode on air right now."""
-    try:
-        episodes = api_get(f"{API_BASE}/programs/{slug}/episodes")
-        for ep in episodes:
-            start = parse_airnet_dt(ep.get("start"))
-            end = parse_airnet_dt(ep.get("end"))
-            if start and end and start <= now <= end:
-                return {
-                    "slug": slug,
-                    "show": name,
-                    "start": ep["start"],
-                    "end": ep["end"],
-                    "playlist_url": ep.get("playlistRestUrl", ""),
-                }
-    except (URLError, json.JSONDecodeError, KeyError) as e:
-        log.debug("Error checking program %s: %s", slug, e)
-    return None
-
-
-def discover_current_show(now):
-    """Find which show is currently on air by checking all active programs."""
-    log.info("Discovering current show (checking all programs)")
-    slugs = get_active_slugs()
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        futures = {
-            pool.submit(fetch_current_episode, slug, name, now): slug
-            for slug, name in slugs
-        }
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                log.info(
-                    "Current show: %s (%s – %s)",
-                    result["show"],
-                    result["start"],
-                    result["end"],
-                )
-                return result
-    log.warning("No show currently on air")
-    return None
-
-
-def get_playlist(show_info):
-    """Fetch the playlist for a show and return the latest track."""
-    url = show_info.get("playlist_url")
-    if not url:
-        slug = show_info["slug"]
-        start_encoded = show_info["start"].replace(" ", "+").replace(":", "%3A")
-        url = f"{API_BASE}/programs/{slug}/episodes/{start_encoded}/playlists"
-    try:
-        tracks = api_get(url)
-        if tracks and isinstance(tracks, list):
-            last = tracks[-1]
-            artist = last.get("artist", "")
-            title = last.get("title", "")
-            log.debug("Latest track: %s - %s", artist, title)
-            return {"artist": artist, "title": title}
-    except (URLError, json.JSONDecodeError, KeyError) as e:
-        log.warning("Error fetching playlist for %s: %s", show_info["show"], e)
-    return None
-
-
-def get_now_playing():
-    """Get the current now-playing info. Uses caching to minimise API calls."""
-    now = datetime.now(AWST)
-
-    # Check if cached show is still valid (within its broadcast window)
-    show = cache.get_show()
-    if show:
-        end = parse_airnet_dt(show.get("end"))
-        if end and now > end:
-            log.info("Cached show %s has ended, re-discovering", show["show"])
-            cache.invalidate_show()
-            show = None
-
-    if not show:
-        show = discover_current_show(now)
-        if show:
-            cache.set_show(show)
-
-    if not show:
-        return {
+        self._track = {
             "state": "RTRFM 92.1",
             "artist": "",
             "title": "",
-            "show": "RTRFM 92.1",
+            "source": "startup",
         }
 
-    # Check playlist cache
-    playlist = cache.get_playlist()
-    if not playlist:
-        playlist = get_playlist(show)
-        if playlist:
-            cache.set_playlist(playlist)
+    def get(self):
+        with self._lock:
+            return dict(self._track)
 
-    artist = playlist["artist"] if playlist else ""
-    title = playlist["title"] if playlist else ""
+    def update(self, artist, title):
+        with self._lock:
+            if artist == self._track["artist"] and title == self._track["title"]:
+                return False  # no change
+            self._track = {
+                "state": f"{artist} \u2014 {title}" if artist and title else artist or title,
+                "artist": artist,
+                "title": title,
+                "source": "shazam",
+            }
+            return True
 
-    if artist and title:
-        state = f"{artist} - {title}"
-    elif artist:
-        state = artist
-    elif title:
-        state = title
-    else:
-        state = show["show"]
 
-    return {
-        "state": state,
-        "artist": artist,
-        "title": title,
-        "show": show["show"],
-    }
+now_playing = NowPlaying()
+
+
+def fingerprint():
+    """Capture audio from stream and identify via songrec."""
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        wav_path = tmp.name
+
+    try:
+        # Capture audio: mono 16kHz WAV (Shazam's native format)
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", STREAM_URL,
+                "-t", str(CAPTURE_SECONDS),
+                "-ac", "1",
+                "-ar", "16000",
+                "-f", "wav",
+                wav_path,
+            ],
+            capture_output=True,
+            timeout=CAPTURE_SECONDS + 15,
+        )
+        if result.returncode != 0:
+            log.warning("ffmpeg capture failed: %s", result.stderr[-200:].decode(errors="replace"))
+            return None
+
+        # Fingerprint with songrec
+        result = subprocess.run(
+            ["songrec", "audio-file-to-recognized-song", wav_path],
+            capture_output=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            log.warning("songrec failed: %s", result.stderr[-200:].decode(errors="replace"))
+            return None
+
+        data = json.loads(result.stdout)
+        track = data.get("track")
+        if not track:
+            log.debug("No match from Shazam")
+            return None
+
+        artist = track.get("subtitle", "")
+        title = track.get("title", "")
+        log.info("Shazam match: %s - %s", artist, title)
+        return {"artist": artist, "title": title}
+
+    except subprocess.TimeoutExpired:
+        log.warning("Fingerprint timed out")
+        return None
+    except (json.JSONDecodeError, KeyError) as e:
+        log.warning("Error parsing songrec output: %s", e)
+        return None
+    finally:
+        try:
+            os.unlink(wav_path)
+        except OSError:
+            pass
+
+
+def poll_loop():
+    """Background thread: capture and fingerprint every POLL_INTERVAL seconds."""
+    log.info("Poll loop started (every %ds, %ds capture)", POLL_INTERVAL, CAPTURE_SECONDS)
+    while True:
+        try:
+            match = fingerprint()
+            if match:
+                changed = now_playing.update(match["artist"], match["title"])
+                if changed:
+                    log.info("Track changed: %s - %s", match["artist"], match["title"])
+            else:
+                log.debug("No match, keeping current track")
+        except Exception:
+            log.exception("Error in poll loop")
+        time.sleep(POLL_INTERVAL)
 
 
 class Handler(BaseHTTPRequestHandler):
-    """HTTP request handler for the now-playing API."""
+    """HTTP request handler."""
 
     def do_GET(self):
         if self.path == "/health":
             self._respond(200, {"status": "ok"})
         elif self.path in ("/", "/now-playing"):
-            try:
-                data = get_now_playing()
-                self._respond(200, data)
-            except Exception as e:
-                log.exception("Error getting now-playing data")
-                self._respond(500, {"error": str(e)})
+            self._respond(200, now_playing.get())
         else:
             self._respond(404, {"error": "not found"})
 
     def do_OPTIONS(self):
-        """Handle CORS preflight."""
         self._respond(204, None)
 
     def _respond(self, status, data):
@@ -254,7 +164,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format, *args):  # noqa: A002
-        # Route HTTP access logs through Python logging
         log.info(format, *args)
 
 
@@ -266,6 +175,10 @@ def main():
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         stream=sys.stdout,
     )
+
+    # Start background fingerprint loop
+    poller = threading.Thread(target=poll_loop, daemon=True)
+    poller.start()
 
     server = HTTPServer(("127.0.0.1", port), Handler)
     log.info("RTRFM Now Playing server starting on port %d", port)

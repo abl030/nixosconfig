@@ -41,7 +41,7 @@
   '';
 in {
   options.homelab.services.rtrfm-nowplaying = {
-    enable = lib.mkEnableOption "RTRFM now-playing REST API (Airnet scraper)";
+    enable = lib.mkEnableOption "RTRFM now-playing REST API (Shazam fingerprinting)";
 
     port = lib.mkOption {
       type = lib.types.port;
@@ -82,6 +82,8 @@ in {
       startLimitBurst = 5;
       startLimitIntervalSec = 300;
 
+      path = [pkgs.ffmpeg pkgs.songrec];
+
       serviceConfig = {
         Type = "simple";
         ExecStart = "${pkgs.python3}/bin/python3 ${serverScript} ${toString cfg.port}";
@@ -98,7 +100,6 @@ in {
         ProtectKernelTunables = true;
         ProtectControlGroups = true;
         RestrictSUIDSGID = true;
-        MemoryDenyWriteExecute = true;
 
         # Logging — stdout/stderr → journal
         StandardOutput = "journal";
