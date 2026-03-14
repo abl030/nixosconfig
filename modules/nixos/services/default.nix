@@ -44,5 +44,6 @@
     ./domain-monitor.nix
     ./nfs-watchdog.nix
     ./inotify-receiver.nix
+    ./rtrfm-nowplaying
   ];
 }
