@@ -368,6 +368,7 @@ in {
         pkgs.beads
         pkgs.dolt
         pkgs.nodejs
+        pkgs.playwright-mcp
         pkgs.sox # Required for Claude Code /voice mode
       ];
 
