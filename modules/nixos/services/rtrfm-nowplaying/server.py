@@ -5,10 +5,14 @@ it via songrec (Shazam), and serves the current track as JSON. Also
 discovers the current show name via Airnet API.
 
 Endpoints:
-  GET /             → JSON: {artist, title, show, state, source, last_updated}
-  GET /now-playing  → same as /
-  GET /tracklist    → JSON: array of tracks for the current show
-  GET /health       → JSON: {status: "ok"}
+  GET /              → JSON: {artist, title, show, state, source, last_updated}
+  GET /now-playing   → same as /
+  GET /tracklist     → current show's tracks
+  GET /tracklist?date=2026-03-14          → all shows/tracks for that date
+  GET /tracklist?show=The+Rounds          → specific show (all time)
+  GET /tracklist?show=The+Rounds&date=2026-03-14 → specific show on date
+  GET /shows         → list all show names with tracklist data
+  GET /health        → JSON: {status: "ok"}
 
 Tracklists are persisted to STATE_DIR as JSONL files (one per show).
 """
@@ -26,6 +30,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
@@ -125,7 +130,7 @@ class TracklistStore:
                 f.write(json.dumps(entry) + "\n")
         log.info("Tracklist appended: %s - %s [%s]", artist, title, show_name)
 
-    def get(self, show_name):
+    def get(self, show_name, date_filter=None):
         path = self._path_for(show_name)
         if not path.exists():
             return []
@@ -134,10 +139,30 @@ class TracklistStore:
         tracks = []
         for line in lines:
             try:
-                tracks.append(json.loads(line))
+                track = json.loads(line)
+                if date_filter and not track.get("time", "").startswith(date_filter):
+                    continue
+                tracks.append(track)
             except json.JSONDecodeError:
                 continue
         return tracks
+
+    def list_shows(self):
+        """Return all show names that have tracklist files."""
+        shows = []
+        with self._lock:
+            for path in sorted(self._dir.glob("*.jsonl")):
+                shows.append(path.stem)
+        return shows
+
+    def get_all_by_date(self, date_filter):
+        """Return all tracks across all shows for a given date."""
+        results = []
+        for show in self.list_shows():
+            tracks = self.get(show, date_filter=date_filter)
+            if tracks:
+                results.append({"show": show, "tracks": tracks})
+        return results
 
 
 # -- Now playing state --
@@ -301,14 +326,31 @@ def show_discovery_loop():
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/health":
+        parsed = urlparse(self.path)
+        path = parsed.path
+        params = parse_qs(parsed.query)
+
+        if path == "/health":
             self._respond(200, {"status": "ok"})
-        elif self.path in ("/", "/now-playing"):
+        elif path in ("/", "/now-playing"):
             self._respond(200, now_playing.get())
-        elif self.path == "/tracklist":
-            show = now_playing.get_show()
-            tracks = tracklist_store.get(show)
-            self._respond(200, {"show": show, "tracks": tracks})
+        elif path == "/tracklist":
+            date = params.get("date", [None])[0]
+            show = params.get("show", [None])[0]
+            if date and not show:
+                # All shows for a date
+                results = tracklist_store.get_all_by_date(date)
+                self._respond(200, {"date": date, "shows": results})
+            else:
+                # Specific show (or current show if not specified)
+                show = show or now_playing.get_show()
+                tracks = tracklist_store.get(show, date_filter=date)
+                resp = {"show": show, "tracks": tracks}
+                if date:
+                    resp["date"] = date
+                self._respond(200, resp)
+        elif path == "/shows":
+            self._respond(200, {"shows": tracklist_store.list_shows()})
         else:
             self._respond(404, {"error": "not found"})
 
