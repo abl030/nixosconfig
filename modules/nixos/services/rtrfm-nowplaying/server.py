@@ -120,13 +120,25 @@ class TracklistStore:
         return self._dir / f"{safe}.jsonl"
 
     def append(self, show_name, artist, title):
-        entry = {
-            "artist": artist,
-            "title": title,
-            "time": datetime.now(AWST).isoformat(),
-        }
+        path = self._path_for(show_name)
         with self._lock:
-            with open(self._path_for(show_name), "a") as f:
+            # Deduplicate: skip if same as last entry
+            if path.exists():
+                lines = path.read_text().strip().splitlines()
+                if lines:
+                    try:
+                        last = json.loads(lines[-1])
+                        if last.get("artist") == artist and last.get("title") == title:
+                            log.debug("Skipping duplicate: %s - %s", artist, title)
+                            return
+                    except json.JSONDecodeError:
+                        pass
+            entry = {
+                "artist": artist,
+                "title": title,
+                "time": datetime.now(AWST).isoformat(),
+            }
+            with open(path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
         log.info("Tracklist appended: %s - %s [%s]", artist, title, show_name)
 

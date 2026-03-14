@@ -135,6 +135,7 @@ Live audio fingerprinting service for RTRFM 92.1. Runs on doc2.
 - **Dashboard**: custom `rtrfm-now-playing-card` (inline JS resource) fetches from API directly
 - **Critical**: ffmpeg must output mono 16kHz WAV (`-ac 1 -ar 16000`) for reliable Shazam matches
 - **Full docs**: `docs/wiki/services/rtrfm-nowplaying.md`
+- **Track history queries**: Read the wiki entry for API endpoints (`/tracklist?date=...&show=...`)
 
 ## System Overview
 - HA 2026.2.3, Home Assistant OS, URL: https://home.ablz.au
