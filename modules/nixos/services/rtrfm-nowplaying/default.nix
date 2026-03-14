@@ -86,7 +86,8 @@ in {
 
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${pkgs.python3}/bin/python3 ${serverScript} ${toString cfg.port}";
+        ExecStart = "${pkgs.python3}/bin/python3 ${serverScript} ${toString cfg.port} /var/lib/rtrfm-nowplaying";
+        StateDirectory = "rtrfm-nowplaying";
         Restart = "on-failure";
         RestartSec = 10;
 
