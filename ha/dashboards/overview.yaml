@@ -34,6 +34,9 @@ views:
     features:
     - type: media-player-playback
     - type: media-player-volume-slider
+  - type: "custom:rtrfm-now-playing-card"
+    url: https://rtrfm.ablz.au/now-playing
+    refresh_seconds: 90
   - type: button
     name: Play RTRFM
     icon: mdi:radio
