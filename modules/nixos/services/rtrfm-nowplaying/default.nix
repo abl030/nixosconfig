@@ -79,13 +79,14 @@ in {
         OnFailure = ["rtrfm-nowplaying-notify.service"];
       };
 
+      startLimitBurst = 5;
+      startLimitIntervalSec = 300;
+
       serviceConfig = {
         Type = "simple";
         ExecStart = "${pkgs.python3}/bin/python3 ${serverScript} ${toString cfg.port}";
         Restart = "on-failure";
         RestartSec = 10;
-        StartLimitBurst = 5;
-        StartLimitIntervalSec = 300;
 
         # Hardening
         DynamicUser = true;
