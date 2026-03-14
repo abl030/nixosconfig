@@ -130,6 +130,7 @@
       };
       meelo.enable = false;
       domain-monitor.enable = true;
+      rtrfm-nowplaying.enable = true;
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
