@@ -116,6 +116,17 @@ After making changes via the HA UI or MCP tools, sync back to YAML:
 - The `map` dashboard is HA built-in — no YAML file needed
 - For targeted edits, prefer `ha_dashboard_find_card()` + `jq_transform`/`python_transform` over full config replacement, then export the result back to YAML
 
+## RTRFM Now Playing
+
+Live audio fingerprinting service for RTRFM 92.1. Runs on doc2.
+
+- **API**: `https://rtrfm.ablz.au/now-playing` → JSON `{artist, title, state, source}`
+- **How**: ffmpeg captures 15s of stream → songrec (Shazam) fingerprints → updates on change
+- **Poll cycle**: every 30s. No match during talk = retains last known track.
+- **Dashboard**: custom `rtrfm-now-playing-card` (inline JS resource) fetches from API directly
+- **Critical**: ffmpeg must output mono 16kHz WAV (`-ac 1 -ar 16000`) for reliable Shazam matches
+- **Full docs**: `docs/wiki/services/rtrfm-nowplaying.md`
+
 ## System Overview
 - HA 2026.2.3, Home Assistant OS, URL: https://home.ablz.au
 - Location: Margaret River WA (AWST UTC+8), metric units, AUD
