@@ -95,6 +95,9 @@
           enable = true;
           stagingDir = "/mnt/virtio/Music/Incoming";
         };
+        pipelineDb = {
+          enable = true;
+        };
       };
       paperless = {
         enable = true;
