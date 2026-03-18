@@ -291,7 +291,7 @@ in {
       wants = ["lidarr.service" "slskd.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
-      path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq];
+      path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq pkgs.python3 pkgs.ffmpeg];
       serviceConfig = {
         Type = "oneshot";
         # Run as root — avoids permission/PATH issues with slskd downloads,
