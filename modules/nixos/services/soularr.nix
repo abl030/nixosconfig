@@ -224,6 +224,16 @@
         # Remove stale lock file from previous SIGTERM'd runs
         rm -f "$config_dir/.soularr.lock"
 
+        # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
+        if [[ -f "${cfg.pipelineDb.dbPath}" ]]; then
+          LIDARR_API_KEY="$lidarr_key" \
+          LIDARR_URL="http://localhost:8686" \
+          ${pkgs.python3}/bin/python3 /mnt/virtio/Music/harness/lidarr_sync.py \
+            --db "${cfg.pipelineDb.dbPath}" 2>&1 | while read -r line; do
+              echo "soularr: lidarr-sync: $line" >&2
+            done || true  # Don't fail the service if sync fails
+        fi
+
         # Pipeline DB health check — virtiofs + concurrent access can corrupt indexes
         db_path="${cfg.pipelineDb.dbPath}"
         if [[ -f "$db_path" ]]; then
