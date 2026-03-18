@@ -226,9 +226,10 @@
 
         # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
         if [[ -f "${cfg.pipelineDb.dbPath}" ]]; then
+          PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
           LIDARR_API_KEY="$lidarr_key" \
           LIDARR_URL="http://localhost:8686" \
-          ${pkgs.python3}/bin/python3 /mnt/virtio/Music/harness/lidarr_sync.py \
+          ${pkgs.python3}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
             --db "${cfg.pipelineDb.dbPath}" 2>&1 | while read -r line; do
               echo "soularr: lidarr-sync: $line" >&2
             done || true  # Don't fail the service if sync fails
@@ -278,7 +279,7 @@ in {
 
       harnessPath = lib.mkOption {
         type = lib.types.str;
-        default = "/mnt/virtio/Music/harness/run_beets_harness.sh";
+        default = "${inputs.soularr-src}/harness/run_beets_harness.sh";
         description = "Path to the beets harness wrapper script.";
       };
 
