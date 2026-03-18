@@ -156,6 +156,14 @@
     staging_dir = ${cfg.beetsValidation.stagingDir}
     tracking_file = ${cfg.beetsValidation.trackingFile}
 
+    [Pipeline DB]
+    enabled = ${
+      if cfg.pipelineDb.enable
+      then "True"
+      else "False"
+    }
+    db_path = ${cfg.pipelineDb.dbPath}
+
     [Logging]
     level = INFO
     format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
@@ -251,6 +259,16 @@ in {
         type = lib.types.str;
         default = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
         description = "JSONL file tracking beets validation results.";
+      };
+    };
+
+    pipelineDb = {
+      enable = lib.mkEnableOption "Pipeline DB mode (SQLite replaces Lidarr as source of truth)";
+
+      dbPath = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/virtio/Music/pipeline.db";
+        description = "Path to the pipeline SQLite database.";
       };
     };
   };
