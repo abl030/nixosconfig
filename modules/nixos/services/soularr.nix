@@ -199,30 +199,59 @@
   '';
 
   preStartScript = pkgs.writeShellScript "soularr-prestart" ''
-    set -euo pipefail
-    config_dir="/var/lib/soularr"
-    mkdir -p "$config_dir"
+        set -euo pipefail
+        config_dir="/var/lib/soularr"
+        mkdir -p "$config_dir"
 
-    # Read API keys from sops env file
-    env_file="$CREDENTIALS_DIRECTORY/env"
-    if [[ ! -r "$env_file" ]]; then
-      echo "soularr: env file not readable" >&2
-      exit 1
-    fi
+        # Read API keys from sops env file
+        env_file="$CREDENTIALS_DIRECTORY/env"
+        if [[ ! -r "$env_file" ]]; then
+          echo "soularr: env file not readable" >&2
+          exit 1
+        fi
 
-    lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
-    slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+        lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+        slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
 
-    # Generate config.ini with real API keys
-    ${pkgs.gnused}/bin/sed \
-      -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
-      -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
-      ${configTemplate} > "$config_dir/config.ini"
+        # Generate config.ini with real API keys
+        ${pkgs.gnused}/bin/sed \
+          -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
+          -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
+          ${configTemplate} > "$config_dir/config.ini"
 
-    chmod 600 "$config_dir/config.ini"
+        chmod 600 "$config_dir/config.ini"
 
-    # Remove stale lock file from previous SIGTERM'd runs
-    rm -f "$config_dir/.soularr.lock"
+        # Remove stale lock file from previous SIGTERM'd runs
+        rm -f "$config_dir/.soularr.lock"
+
+        # Pipeline DB health check — virtiofs + concurrent access can corrupt indexes
+        db_path="${cfg.pipelineDb.dbPath}"
+        if [[ -f "$db_path" ]]; then
+          integrity=$(${pkgs.python3}/bin/python3 -c "
+    import sqlite3, sys
+    try:
+        conn = sqlite3.connect('$db_path')
+        result = conn.execute('PRAGMA integrity_check').fetchone()[0]
+        if result != 'ok':
+            conn.execute('REINDEX')
+            conn.commit()
+            result2 = conn.execute('PRAGMA integrity_check').fetchone()[0]
+            if result2 == 'ok':
+                print('repaired')
+            else:
+                print(f'broken: {result2}')
+        else:
+            print('ok')
+        conn.close()
+    except Exception as e:
+        print(f'error: {e}')
+    " 2>&1)
+          case "$integrity" in
+            ok) ;;
+            repaired) echo "soularr: pipeline DB indexes repaired (virtiofs corruption)" >&2 ;;
+            *) echo "soularr: pipeline DB integrity check: $integrity" >&2 ;;
+          esac
+        fi
   '';
 in {
   options.homelab.services.soularr = {
