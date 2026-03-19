@@ -24,7 +24,8 @@
     ALTER EXTENSION "vector" UPDATE;
     ALTER EXTENSION "vchord" UPDATE;
     ALTER SCHEMA public OWNER TO immich;
-    GRANT SELECT ON TABLE pg_vector_index_stat TO immich;
+    REINDEX INDEX IF EXISTS face_index;
+    REINDEX INDEX IF EXISTS clip_index;
   '';
 
   pgc = import ../lib/mk-pg-container.nix {
