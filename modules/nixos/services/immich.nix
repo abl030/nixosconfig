@@ -14,7 +14,6 @@
     CREATE EXTENSION IF NOT EXISTS "cube";
     CREATE EXTENSION IF NOT EXISTS "earthdistance";
     CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-    CREATE EXTENSION IF NOT EXISTS "vectors";
     CREATE EXTENSION IF NOT EXISTS "vector";
     CREATE EXTENSION IF NOT EXISTS "vchord";
     ALTER EXTENSION "unaccent" UPDATE;
@@ -22,11 +21,9 @@
     ALTER EXTENSION "cube" UPDATE;
     ALTER EXTENSION "earthdistance" UPDATE;
     ALTER EXTENSION "pg_trgm" UPDATE;
-    ALTER EXTENSION "vectors" UPDATE;
     ALTER EXTENSION "vector" UPDATE;
     ALTER EXTENSION "vchord" UPDATE;
     ALTER SCHEMA public OWNER TO immich;
-    ALTER SCHEMA vectors OWNER TO immich;
     GRANT SELECT ON TABLE pg_vector_index_stat TO immich;
   '';
 
@@ -35,10 +32,10 @@
     name = "immich";
     hostNum = 2;
     inherit (cfg) dataDir;
-    extensions = ps: [ps.pgvecto-rs ps.pgvector ps.vectorchord];
+    extensions = ps: [ps.pgvector ps.vectorchord];
     pgSettings = {
-      shared_preload_libraries = ["vectors.so" "vchord.so"];
-      search_path = ''"$user", public, vectors'';
+      shared_preload_libraries = ["vchord.so"];
+      search_path = ''"$user", public'';
     };
     postStartSQL = immichExtensionSQL;
   };
