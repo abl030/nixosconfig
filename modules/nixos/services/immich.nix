@@ -64,8 +64,6 @@ in {
 
       database = {
         enable = false;
-        enableVectorChord = true;
-        enableVectors = true;
         host = pgc.dbHost;
         port = pgc.dbPort;
         name = "immich";
