@@ -317,6 +317,16 @@ in {
 
         fetchart = {
           auto = true;
+          minwidth = 300;
+          high_resolution = true;
+          sources = [
+            "coverart" # MusicBrainz Cover Art Archive — highest quality, always try first
+            "itunes" # Apple Music — high-res, good coverage
+            "amazon" # Amazon — decent fallback
+            "albumart" # albumart.org
+            "cover_art_url" # URL from MB release
+            "filesystem" # Local cover.jpg — LAST resort, catches legacy tiny art
+          ];
         };
 
         embedart = {
