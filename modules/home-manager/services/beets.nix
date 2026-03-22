@@ -318,7 +318,7 @@ in {
         fetchart = {
           auto = true;
           minwidth = 300;
-          high_resolution = true;
+          high_resolution = false;
           sources = [
             "coverart" # MusicBrainz Cover Art Archive — highest quality, always try first
             "itunes" # Apple Music — high-res, good coverage
