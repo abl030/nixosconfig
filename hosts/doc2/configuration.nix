@@ -183,48 +183,10 @@
     options = ["rw" "relatime"];
   };
 
-  systemd.tmpfiles.rules = [
-    "d /mnt/virtio 0755 root root - -"
-    "d /mnt/mirrors 0755 root root - -"
-    "d /mnt/virtio/immich 0755 root root - -"
-    "d /mnt/virtio/immich/postgres 0700 postgres postgres - -"
-    "d /mnt/virtio/immich/ml-cache 0755 immich immich - -"
-    # Gotify state on virtiofs — static user owns data directly
-    "d /mnt/virtio/gotify 0700 gotify gotify - -"
-    # Tautulli state on virtiofs — upstream uses static plexpy user
-    "d /mnt/virtio/tautulli 0700 plexpy nogroup - -"
-    # Audiobookshelf state on virtiofs — static user owns data directly
-    "d /mnt/virtio/audiobookshelf 0700 audiobookshelf audiobookshelf - -"
-    # Atuin PG container — parent dir for bind mount; initdb creates contents
-    "d /mnt/virtio/atuin 0755 root root - -"
-    "d /mnt/virtio/atuin/postgres 0700 postgres postgres - -"
-    # Lidarr music management — config/database on virtiofs
-    "d /mnt/virtio/lidarr 0700 lidarr lidarr - -"
-    # Music directories — lidarr library + slskd download temp
-    "d /mnt/virtio/music 0755 root root - -"
-    "d /mnt/virtio/music/lidarr 0775 lidarr users - -"
-    "d /mnt/virtio/music/slskd 0775 slskd users - -"
-    "d /mnt/virtio/music/slskd/incomplete 0775 slskd users - -"
-    # Paperless document management — app state + postgres on virtiofs
-    "d /mnt/virtio/paperless 0750 paperless paperless - -"
-    "d /mnt/virtio/paperless/postgres 0700 postgres postgres - -"
-    # Mealie recipe manager — static user for predictable file ownership on virtiofs
-    "d /mnt/virtio/mealie 0750 mealie mealie - -"
-    "d /mnt/virtio/mealie/postgres 0700 postgres postgres - -"
-    # Uptime Kuma monitoring — SQLite DB on virtiofs
-    "d /mnt/virtio/uptime-kuma 0700 uptime-kuma uptime-kuma - -"
-    "d /mnt/virtio/uptime-kuma/upload 0700 uptime-kuma uptime-kuma - -"
-    # JDownloader2 — OCI container config on virtiofs
-    "d /mnt/virtio/jdownloader2 0755 root root - -"
-    # netboot.xyz — PXE boot server config and assets on virtiofs
-    "d /mnt/virtio/netboot 0755 root root - -"
-    # Youtarr — app state + MariaDB on virtiofs
-    "d /mnt/virtio/youtarr 0755 root root - -"
-    # Kopia backup server — repository configs on virtiofs
-    "d /mnt/virtio/kopia 0750 kopia kopia - -"
-    "d /mnt/virtio/kopia/photos 0750 kopia kopia - -"
-    "d /mnt/virtio/kopia/mum 0750 kopia kopia - -"
-  ];
+  # No tmpfiles rules for virtiofs directories — they already exist on
+  # persistent ZFS storage (nvmeprom/containers) shared between VMs.
+  # Service modules create their own dirs; re-asserting ownership here
+  # risks clobbering permissions on shared storage.
 
   services = {
     # Immich ML cache on virtiofs
