@@ -318,6 +318,8 @@ in {
         fetchart = {
           auto = true;
           minwidth = 300;
+          maxwidth = 500;
+          quality = 75;
           high_resolution = false;
           sources = [
             "coverart" # MusicBrainz Cover Art Archive — highest quality, always try first
