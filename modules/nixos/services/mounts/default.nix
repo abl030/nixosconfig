@@ -8,5 +8,7 @@
     ./drvfs.nix
     ./ops-sync.nix
     ./bindfs-music.nix
+    ./nfs-music-server.nix
+    ./nfs-music.nix
   ];
 }

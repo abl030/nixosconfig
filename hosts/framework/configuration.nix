@@ -12,6 +12,11 @@
 
   homelab = {
     mounts.nfs.enable = true;
+    # doc2 music library over Tailscale (laptop may be off-LAN)
+    mounts.nfsMusic = {
+      enable = true;
+      server = "100.87.177.120"; # doc2 Tailscale IP
+    };
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;
@@ -171,14 +176,14 @@
           # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
           # 1. Stop the automount triggers so nothing can re-mount during suspend
           ExecStart = [
-            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount"
+            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount mnt-Music.automount"
 
             # 2. The Hammer: Lazy (-l) and Force (-f) unmount all NFS shares immediately
             "-${pkgs.util-linux}/bin/umount -l -f -a -t nfs,nfs4"
           ];
 
           # Restart the automounts on resume so they work again
-          ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount";
+          ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount mnt-Music.automount";
         };
       };
     };

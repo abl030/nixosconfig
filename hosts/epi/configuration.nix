@@ -23,6 +23,7 @@
   homelab = {
     gpu.intel.enable = true;
     mounts.nfs.enable = true;
+    mounts.nfsMusic.enable = true; # doc2 music library over LAN
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;
