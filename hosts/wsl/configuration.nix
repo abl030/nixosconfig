@@ -45,6 +45,10 @@
         };
       };
       opsSync.enable = true;
+      nfsMusic = {
+        enable = true;
+        server = "100.87.177.120"; # doc2 via Windows Tailscale route
+      };
     };
   };
 
