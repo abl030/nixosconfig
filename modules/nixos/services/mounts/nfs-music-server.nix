@@ -23,7 +23,7 @@ in {
     services.nfs.server = {
       enable = true;
       exports = ''
-        /mnt/virtio/Music 192.168.1.2(ro,sync,no_subtree_check,no_root_squash,fsid=100) 192.168.1.5(rw,sync,no_subtree_check,no_root_squash,fsid=100) 100.78.17.73(rw,sync,no_subtree_check,no_root_squash,fsid=100,insecure) 100.75.246.114(rw,sync,no_subtree_check,no_root_squash,fsid=100,insecure)
+        /mnt/virtio/Music 192.168.1.2(ro,sync,no_subtree_check,no_root_squash,fsid=100) 192.168.1.5(rw,sync,no_subtree_check,no_root_squash,fsid=100) 100.78.17.73(rw,sync,no_subtree_check,no_root_squash,fsid=100) 100.75.246.114(rw,sync,no_subtree_check,no_root_squash,fsid=100,insecure)
       '';
     };
 
