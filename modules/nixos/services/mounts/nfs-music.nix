@@ -7,7 +7,8 @@
 }:
 with lib; let
   cfg = config.homelab.mounts.nfsMusic;
-  useTailscale = cfg.server != "192.168.1.35";
+  hasTailscale = config.services.tailscale.enable or false;
+  useTailscale = cfg.server != "192.168.1.35" && hasTailscale;
   serverRequires =
     if useTailscale
     then [
