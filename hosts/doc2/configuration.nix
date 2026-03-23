@@ -201,7 +201,6 @@
     # Lidarr music management — config/database on virtiofs
     "d /mnt/virtio/lidarr 0700 lidarr lidarr - -"
     # Music directories — lidarr library + slskd download temp
-    "d /mnt/virtio/Music 0755 root root - -"
     "d /mnt/virtio/music 0755 root root - -"
     "d /mnt/virtio/music/lidarr 0775 lidarr users - -"
     "d /mnt/virtio/music/slskd 0775 slskd users - -"
