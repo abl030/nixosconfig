@@ -99,6 +99,9 @@
         pipelineDb = {
           enable = true;
         };
+        web = {
+          enable = true;
+        };
       };
       paperless = {
         enable = true;
