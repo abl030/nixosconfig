@@ -90,6 +90,7 @@
       ps.configparser
       ps.music-tag
       ps.pyarr
+      ps.psycopg2
       slskd-api
     ]);
   in
@@ -162,7 +163,7 @@
       then "True"
       else "False"
     }
-    db_path = ${cfg.pipelineDb.dbPath}
+    dsn = ${cfg.pipelineDb.dsn}
 
     [Logging]
     level = INFO
@@ -225,44 +226,14 @@
         rm -f "$config_dir/.soularr.lock"
 
         # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
-        if [[ -f "${cfg.pipelineDb.dbPath}" ]]; then
-          PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
-          LIDARR_API_KEY="$lidarr_key" \
-          LIDARR_URL="http://localhost:8686" \
-          ${pkgs.python3}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
-            --db "${cfg.pipelineDb.dbPath}" 2>&1 | while read -r line; do
-              echo "soularr: lidarr-sync: $line" >&2
-            done || true  # Don't fail the service if sync fails
-        fi
-
-        # Pipeline DB health check — virtiofs + concurrent access can corrupt indexes
-        db_path="${cfg.pipelineDb.dbPath}"
-        if [[ -f "$db_path" ]]; then
-          integrity=$(${pkgs.python3}/bin/python3 -c "
-    import sqlite3, sys
-    try:
-        conn = sqlite3.connect('$db_path')
-        result = conn.execute('PRAGMA integrity_check').fetchone()[0]
-        if result != 'ok':
-            conn.execute('REINDEX')
-            conn.commit()
-            result2 = conn.execute('PRAGMA integrity_check').fetchone()[0]
-            if result2 == 'ok':
-                print('repaired')
-            else:
-                print(f'broken: {result2}')
-        else:
-            print('ok')
-        conn.close()
-    except Exception as e:
-        print(f'error: {e}')
-    " 2>&1)
-          case "$integrity" in
-            ok) ;;
-            repaired) echo "soularr: pipeline DB indexes repaired (virtiofs corruption)" >&2 ;;
-            *) echo "soularr: pipeline DB integrity check: $integrity" >&2 ;;
-          esac
-        fi
+        PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
+        PIPELINE_DB_DSN="${cfg.pipelineDb.dsn}" \
+        LIDARR_API_KEY="$lidarr_key" \
+        LIDARR_URL="http://localhost:8686" \
+        ${pkgs.python3}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
+          --dsn "${cfg.pipelineDb.dsn}" 2>&1 | while read -r line; do
+            echo "soularr: lidarr-sync: $line" >&2
+          done || true  # Don't fail the service if sync fails
   '';
 in {
   options.homelab.services.soularr = {
@@ -303,12 +274,12 @@ in {
     };
 
     pipelineDb = {
-      enable = lib.mkEnableOption "Pipeline DB mode (SQLite replaces Lidarr as source of truth)";
+      enable = lib.mkEnableOption "Pipeline DB mode (PostgreSQL replaces Lidarr as source of truth)";
 
-      dbPath = lib.mkOption {
+      dsn = lib.mkOption {
         type = lib.types.str;
-        default = "/mnt/virtio/Music/pipeline.db";
-        description = "Path to the pipeline SQLite database.";
+        default = "postgresql://soularr@localhost/soularr";
+        description = "PostgreSQL connection string for the pipeline database.";
       };
     };
   };
@@ -326,8 +297,8 @@ in {
 
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
-      after = ["lidarr.service" "slskd.service"];
-      wants = ["lidarr.service" "slskd.service"];
+      after = ["lidarr.service" "slskd.service" "postgresql.service"];
+      wants = ["lidarr.service" "slskd.service" "postgresql.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq pkgs.python3 pkgs.ffmpeg pkgs.mp3val pkgs.flac];
@@ -340,6 +311,7 @@ in {
           slskdHealthCheck
           preStartScript
         ];
+        Environment = "PIPELINE_DB_DSN=${cfg.pipelineDb.dsn}";
         ExecStart = "${soularrPkg}/bin/soularr";
         WorkingDirectory = "/var/lib/soularr";
         StateDirectory = "soularr";
