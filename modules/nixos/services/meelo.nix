@@ -267,7 +267,7 @@ in {
         volumes = [
           "${cfg.dataDir}/postgres:/var/lib/postgresql/data"
         ];
-        extraOptions = ["--network=meelo"];
+        extraOptions = ["--network=meelo" "--shm-size=256m"];
       };
 
       meelo-mq = {

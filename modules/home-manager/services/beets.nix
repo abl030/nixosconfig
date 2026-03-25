@@ -254,6 +254,7 @@ in {
       pkgs.sqlite
       pkgs.lame
       pkgs.flac
+      pkgs.mp3val
       pkgs.python3Packages.mutagen
     ];
 
