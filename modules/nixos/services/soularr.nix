@@ -106,6 +106,13 @@
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/soularr.py "$@"
   '';
 
+  # CLI wrapper — `pipeline-cli status`, `pipeline-cli list wanted`, etc.
+  pipelineCli = pkgs.writeShellScriptBin "pipeline-cli" ''
+    export PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}"
+    exec ${pythonEnv}/bin/python ${inputs.soularr-src}/scripts/pipeline_cli.py \
+      --dsn "${cfg.pipelineDb.dsn}" "$@"
+  '';
+
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
     [Lidarr]
@@ -208,40 +215,40 @@
   '';
 
   preStartScript = pkgs.writeShellScript "soularr-prestart" ''
-        set -euo pipefail
-        config_dir="/var/lib/soularr"
-        mkdir -p "$config_dir"
+    set -euo pipefail
+    config_dir="/var/lib/soularr"
+    mkdir -p "$config_dir"
 
-        # Read API keys from sops env file
-        env_file="$CREDENTIALS_DIRECTORY/env"
-        if [[ ! -r "$env_file" ]]; then
-          echo "soularr: env file not readable" >&2
-          exit 1
-        fi
+    # Read API keys from sops env file
+    env_file="$CREDENTIALS_DIRECTORY/env"
+    if [[ ! -r "$env_file" ]]; then
+      echo "soularr: env file not readable" >&2
+      exit 1
+    fi
 
-        lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
-        slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
 
-        # Generate config.ini with real API keys
-        ${pkgs.gnused}/bin/sed \
-          -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
-          -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
-          ${configTemplate} > "$config_dir/config.ini"
+    # Generate config.ini with real API keys
+    ${pkgs.gnused}/bin/sed \
+      -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
+      -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
+      ${configTemplate} > "$config_dir/config.ini"
 
-        chmod 600 "$config_dir/config.ini"
+    chmod 600 "$config_dir/config.ini"
 
-        # Remove stale lock file from previous SIGTERM'd runs
-        rm -f "$config_dir/.soularr.lock"
+    # Remove stale lock file from previous SIGTERM'd runs
+    rm -f "$config_dir/.soularr.lock"
 
-        # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
-        PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
-        PIPELINE_DB_DSN="${cfg.pipelineDb.dsn}" \
-        LIDARR_API_KEY="$lidarr_key" \
-        LIDARR_URL="http://localhost:8686" \
-        ${pythonEnv}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
-          --dsn "${cfg.pipelineDb.dsn}" 2>&1 | while read -r line; do
-            echo "soularr: lidarr-sync: $line" >&2
-          done || true  # Don't fail the service if sync fails
+    # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
+    PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
+    PIPELINE_DB_DSN="${cfg.pipelineDb.dsn}" \
+    LIDARR_API_KEY="$lidarr_key" \
+    LIDARR_URL="http://localhost:8686" \
+    ${pythonEnv}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
+      --dsn "${cfg.pipelineDb.dsn}" 2>&1 | while read -r line; do
+        echo "soularr: lidarr-sync: $line" >&2
+      done || true  # Don't fail the service if sync fails
   '';
 in {
   options.homelab.services.soularr = {
@@ -299,6 +306,9 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Put pipeline-cli on system PATH for easy SSH access from doc1
+    environment.systemPackages = [pipelineCli];
+
     sops.secrets."soularr/env" = {
       sopsFile = config.homelab.secrets.sopsFile "soularr.env";
       format = "dotenv";
