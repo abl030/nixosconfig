@@ -69,6 +69,14 @@
 }: let
   cfg = config.homelab.services.soularr;
 
+  # PostgreSQL in an nspawn container — data lives at cfg.dataDir/postgres
+  pgc = import ../lib/mk-pg-container.nix {
+    inherit pkgs;
+    name = "soularr";
+    hostNum = 5;
+    dataDir = cfg.dataDir;
+  };
+
   # slskd-api is not in nixpkgs — build from PyPI
   slskd-api = pkgs.python3Packages.buildPythonPackage {
     pname = "slskd-api";
@@ -83,20 +91,20 @@
     doCheck = false;
   };
 
+  # Python environment with all soularr dependencies
+  pythonEnv = pkgs.python3.withPackages (ps: [
+    ps.requests
+    ps.configparser
+    ps.music-tag
+    ps.pyarr
+    ps.psycopg2
+    slskd-api
+  ]);
+
   # Build soularr from our fork (flake input)
-  soularrPkg = let
-    pythonEnv = pkgs.python3.withPackages (ps: [
-      ps.requests
-      ps.configparser
-      ps.music-tag
-      ps.pyarr
-      ps.psycopg2
-      slskd-api
-    ]);
-  in
-    pkgs.writeShellScriptBin "soularr" ''
-      exec ${pythonEnv}/bin/python ${inputs.soularr-src}/soularr.py "$@"
-    '';
+  soularrPkg = pkgs.writeShellScriptBin "soularr" ''
+    exec ${pythonEnv}/bin/python ${inputs.soularr-src}/soularr.py "$@"
+  '';
 
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
@@ -230,7 +238,7 @@
         PIPELINE_DB_DSN="${cfg.pipelineDb.dsn}" \
         LIDARR_API_KEY="$lidarr_key" \
         LIDARR_URL="http://localhost:8686" \
-        ${pkgs.python3}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
+        ${pythonEnv}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
           --dsn "${cfg.pipelineDb.dsn}" 2>&1 | while read -r line; do
             echo "soularr: lidarr-sync: $line" >&2
           done || true  # Don't fail the service if sync fails
@@ -238,6 +246,12 @@
 in {
   options.homelab.services.soularr = {
     enable = lib.mkEnableOption "Soularr — Lidarr to slskd bridge";
+
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/mnt/virtio/soularr";
+      description = "Directory for all Soularr state (contains postgres subdirectory).";
+    };
 
     downloadDir = lib.mkOption {
       type = lib.types.str;
@@ -278,7 +292,7 @@ in {
 
       dsn = lib.mkOption {
         type = lib.types.str;
-        default = "postgresql://soularr@localhost/soularr";
+        default = pgc.dbUri;
         description = "PostgreSQL connection string for the pipeline database.";
       };
     };
@@ -292,13 +306,22 @@ in {
       mode = "0400";
     };
 
+    # PostgreSQL nspawn container
+    containers.soularr-db = pgc.containerConfig;
+
+    # Ensure data directory exists
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0755 root root -"
+      "d ${cfg.dataDir}/postgres 0700 root root -"
+    ];
+
     # Soularr runs as root — needs access to slskd downloads, beets
     # harness (Nix python env), and full PATH for subprocess calls.
 
     systemd.services.soularr = {
       description = "Soularr - Lidarr to slskd bridge";
-      after = ["lidarr.service" "slskd.service" "postgresql.service"];
-      wants = ["lidarr.service" "slskd.service" "postgresql.service"];
+      after = ["lidarr.service" "slskd.service" "container@soularr-db.service"];
+      wants = ["lidarr.service" "slskd.service" "container@soularr-db.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq pkgs.python3 pkgs.ffmpeg pkgs.mp3val pkgs.flac];
