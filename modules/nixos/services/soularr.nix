@@ -180,6 +180,11 @@
     }
     dsn = ${cfg.pipelineDb.dsn}
 
+    [Meelo]
+    url = http://192.168.1.29:5001
+    username = MEELO_USERNAME_PLACEHOLDER
+    password = MEELO_PASSWORD_PLACEHOLDER
+
     [Logging]
     level = INFO
     format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
@@ -228,11 +233,15 @@
 
     lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    meelo_user=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_USERNAME=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    meelo_pass=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
 
     # Generate config.ini with real API keys
     ${pkgs.gnused}/bin/sed \
       -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
       -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
+      -e "s/MEELO_USERNAME_PLACEHOLDER/$meelo_user/" \
+      -e "s/MEELO_PASSWORD_PLACEHOLDER/$meelo_pass/" \
       ${configTemplate} > "$config_dir/config.ini"
 
     chmod 600 "$config_dir/config.ini"
