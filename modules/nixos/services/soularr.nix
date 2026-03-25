@@ -113,6 +113,15 @@
       --dsn "${cfg.pipelineDb.dsn}" "$@"
   '';
 
+  # Web UI service — music.ablz.au
+  webPkg = pkgs.writeShellScriptBin "soularr-web" ''
+    export PYTHONPATH="${inputs.soularr-src}/lib:${inputs.soularr-src}/web:''${PYTHONPATH:-}"
+    exec ${pythonEnv}/bin/python ${inputs.soularr-src}/web/server.py \
+      --port ${toString cfg.web.port} \
+      --dsn "${cfg.pipelineDb.dsn}" \
+      --beets-db "${cfg.web.beetsDb}" "$@"
+  '';
+
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
     [Lidarr]
@@ -312,6 +321,22 @@ in {
         description = "PostgreSQL connection string for the pipeline database.";
       };
     };
+
+    web = {
+      enable = lib.mkEnableOption "music.ablz.au web UI for browsing and requesting albums";
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8085;
+        description = "Port for the web UI.";
+      };
+
+      beetsDb = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/virtio/Music/beets-library.db";
+        description = "Path to the beets library SQLite database (read-only).";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -370,5 +395,27 @@ in {
         Persistent = true;
       };
     };
+
+    # Web UI for browsing MusicBrainz and adding albums to the pipeline
+    systemd.services.soularr-web = lib.mkIf cfg.web.enable {
+      description = "Soularr Web UI - music.ablz.au";
+      after = ["container@soularr-db.service"];
+      wants = ["container@soularr-db.service"];
+      wantedBy = ["multi-user.target"];
+      serviceConfig = {
+        Type = "simple";
+        ExecStart = "${webPkg}/bin/soularr-web";
+        Restart = "on-failure";
+        RestartSec = 5;
+        Environment = "PIPELINE_DB_DSN=${cfg.pipelineDb.dsn}";
+      };
+    };
+
+    homelab.localProxy.hosts = lib.mkIf cfg.web.enable [
+      {
+        host = "music.ablz.au";
+        port = cfg.web.port;
+      }
+    ];
   };
 }
