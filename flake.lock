@@ -600,11 +600,11 @@
     "soularr-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1774436262,
-        "narHash": "sha256-uHY/ln8WsQoOvW9lj3cD3bM3Ijzs5PNgJB1VbP1DUVU=",
+        "lastModified": 1774437009,
+        "narHash": "sha256-r1+CDwWLsz8wKQ3R/IbwZG7YcfcZ2Z1lH3YdOQURxlA=",
         "owner": "abl030",
         "repo": "soularr",
-        "rev": "7177288476ad2bfabbeddf7c5268cee2c5a31489",
+        "rev": "4fe55ccb2d4f585c79b19f8f24a88bace44c08d2",
         "type": "github"
       },
       "original": {
