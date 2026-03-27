@@ -341,7 +341,7 @@ in {
 
   config = lib.mkIf cfg.enable {
     # Put pipeline-cli on system PATH for easy SSH access from doc1
-    environment.systemPackages = [pipelineCli];
+    environment.systemPackages = [pipelineCli pkgs.postgresql];
 
     sops.secrets."soularr/env" = {
       sopsFile = config.homelab.secrets.sopsFile "soularr.env";
