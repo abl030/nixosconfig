@@ -157,7 +157,7 @@
     album_prepend_artist = True
     track_prepend_artist = True
     search_type = incrementing_page
-    number_of_albums_to_grab = 10
+    number_of_albums_to_grab = 20
     remove_wanted_on_failure = False
     title_blacklist =
     search_blacklist =
