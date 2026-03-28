@@ -284,9 +284,17 @@ in {
         };
 
         paths = {
-          default = "$albumartist/$year - $album%aunique{}/$track $title";
+          default = "$albumartist/$year - $album%aunique{albumartist album,albumtype year label catalognum albumdisambig releasegroupdisambig short_mbid}/$track $title";
           singleton = "Non-Album/$artist/$title";
-          comp = "Compilations/$album%aunique{}/$track $title";
+          comp = "Compilations/$album%aunique{albumartist album,albumtype year label catalognum albumdisambig releasegroupdisambig short_mbid}/$track $title";
+        };
+
+        item_fields = {
+          short_mbid = "mb_albumid[:8] if mb_albumid else ''";
+        };
+
+        album_fields = {
+          short_mbid = "mb_albumid[:8] if mb_albumid else ''";
         };
 
         musicbrainz = {
@@ -306,7 +314,7 @@ in {
         };
 
         # chroma disabled (hangs on long tracks). discogs enabled for stubborn albums.
-        plugins = "musicbrainz discogs fetchart embedart lyrics lastgenre scrub info missing duplicates edit fromfilename ftintitle the";
+        plugins = "musicbrainz discogs fetchart embedart lyrics lastgenre scrub info missing duplicates edit fromfilename ftintitle the inline";
 
         # Secrets (tokens, API keys) live in a local include file
         # outside of the nix store. See ~/.config/beets/secrets.yaml
