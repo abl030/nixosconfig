@@ -1,1 +1,1 @@
-/nix/store/h3hn1inxrz9rxgafw71g4yqrqkyxf5xy-nixos-system-epimetheus-26.05.20260323.fdc7b8f
+/nix/store/8244vjgv4ixw3g32b1yrr0affb6m19sc-nixos-system-epimetheus-26.05.20260323.fdc7b8f
