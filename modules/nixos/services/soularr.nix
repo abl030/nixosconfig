@@ -236,15 +236,6 @@
     # Remove stale lock file from previous SIGTERM'd runs
     rm -f "$config_dir/.soularr.lock"
 
-    # Sync Lidarr wanted albums into pipeline DB (idempotent — skips existing)
-    PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}" \
-    PIPELINE_DB_DSN="${cfg.pipelineDb.dsn}" \
-    LIDARR_API_KEY="$lidarr_key" \
-    LIDARR_URL="http://localhost:8686" \
-    ${pythonEnv}/bin/python3 ${inputs.soularr-src}/scripts/lidarr_sync.py \
-      --dsn "${cfg.pipelineDb.dsn}" 2>&1 | while read -r line; do
-        echo "soularr: lidarr-sync: $line" >&2
-      done || true  # Don't fail the service if sync fails
   '';
 in {
   options.homelab.services.soularr = {
