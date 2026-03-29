@@ -1,15 +1,14 @@
-# Soularr — Lidarr-to-slskd bridge
+# Soularr — Soulseek download pipeline
 # =================================
 #
 # Architecture (all on doc2):
-#   Lidarr (port 8686)  ←──pyarr──  soularr  ──slskd-api──→  slskd (port 5030)
+#   Pipeline DB (PostgreSQL)  ←──  soularr  ──slskd-api──→  slskd (port 5030)
 #
-#   1. Lidarr tracks "wanted" albums (monitored + missing).
-#   2. soularr polls Lidarr every 5 min via systemd timer.
+#   1. Pipeline DB tracks wanted albums (via web UI or pipeline-cli).
+#   2. soularr polls the DB every 5 min via systemd timer.
 #   3. For each wanted album, soularr searches Soulseek via slskd's API.
 #   4. When a match is found, soularr tells slskd to download it.
-#   5. slskd downloads to the shared downloadDir (configured per-host, e.g. /mnt/virtio/music/slskd).
-#   6. Lidarr's Completed Download Handling imports from that directory.
+#   5. Downloads are validated via beets, then auto-imported or staged.
 #
 # Network topology:
 #   doc2 has two NICs on 192.168.1.0/24:
@@ -23,12 +22,8 @@
 # Key files on doc2:
 #   /var/lib/soularr/config.ini    — generated at runtime by preStartScript
 #   /var/lib/soularr/.soularr.lock — lock file (cleaned up on restart)
-#   /var/lib/soularr/failure_list.txt        — albums that failed all retries
-#   /var/lib/soularr/search_denylist.json    — users/folders to skip
-#   /var/lib/soularr/.current_page.txt       — incrementing_page bookmark
 #
 # Secrets (sops, secrets/soularr.env):
-#   SOULARR_LIDARR_API_KEY  — from Lidarr's config.xml <ApiKey>
 #   SOULARR_SLSKD_API_KEY   — must match SLSKD_API_KEY in secrets/slskd.env
 #
 # Debugging:
@@ -37,8 +32,6 @@
 #   sudo cat /var/lib/soularr/config.ini  — verify API keys & settings
 #   sudo -u soularr python3 /nix/store/…-source/soularr.py --help
 #                                         — see CLI args (--config-dir, --var-dir, --no-lock-file)
-#   curl -s localhost:8686/api/v1/wanted/missing -H 'X-Api-Key: <key>' | jq '.records[].title'
-#                                         — check what Lidarr wants
 #   curl -s localhost:5030/api/v0/searches -H 'X-API-Key: <key>' | jq
 #                                         — check slskd search queue
 #
@@ -50,14 +43,12 @@
 #   stalled_timeout            — seconds before giving up on a stalled download
 #
 # Boot ordering:
-#   All three services (lidarr, slskd, soularr) require mnt-data.mount.
+#   Both services (slskd, soularr) require mnt-data.mount.
 #   NFS local mounts use hard (no bg) so the mount unit blocks until NFS is up.
-#   soularr additionally waits for lidarr.service + slskd.service.
+#   soularr additionally waits for slskd.service + soularr-db container.
 #
 # Source: github.com/abl030/soularr (fork of mrusse/soularr)
-#   Our fork adds a monitored-release preference patch: choose_release()
-#   now checks Lidarr's monitored flag first, so it downloads the edition
-#   the user selected in the UI rather than the most-common-trackcount release.
+#   Pipeline DB is the sole source of truth. Web UI at music.ablz.au.
 #   Pinned via flake input soularr-src (flake = false).
 # Not in nixpkgs — built inline. slskd-api (PyPI) also built inline.
 {
@@ -96,7 +87,6 @@
     ps.requests
     ps.configparser
     ps.music-tag
-    ps.pyarr
     ps.psycopg2
     slskd-api
   ]);
@@ -124,12 +114,6 @@
 
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
-    [Lidarr]
-    api_key = LIDARR_API_KEY_PLACEHOLDER
-    host_url = http://localhost:8686
-    download_dir = ${cfg.downloadDir}
-    disable_sync = False
-
     [Slskd]
     api_key = SLSKD_API_KEY_PLACEHOLDER
     host_url = http://localhost:5030
@@ -158,12 +142,8 @@
     track_prepend_artist = True
     search_type = incrementing_page
     number_of_albums_to_grab = 5
-    remove_wanted_on_failure = False
     title_blacklist =
     search_blacklist =
-    search_source = all
-    enable_search_denylist = False
-    max_search_failures = 3
 
     [Download Settings]
     download_filtering = True
@@ -240,14 +220,12 @@
       exit 1
     fi
 
-    lidarr_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_LIDARR_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_user=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_USERNAME=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_pass=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
 
     # Generate config.ini with real API keys
     ${pkgs.gnused}/bin/sed \
-      -e "s/LIDARR_API_KEY_PLACEHOLDER/$lidarr_key/" \
       -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
       -e "s/MEELO_USERNAME_PLACEHOLDER/$meelo_user/" \
       -e "s/MEELO_PASSWORD_PLACEHOLDER/$meelo_pass/" \
@@ -270,7 +248,7 @@
   '';
 in {
   options.homelab.services.soularr = {
-    enable = lib.mkEnableOption "Soularr — Lidarr to slskd bridge";
+    enable = lib.mkEnableOption "Soularr — Soulseek download pipeline";
 
     dataDir = lib.mkOption {
       type = lib.types.str;
@@ -281,7 +259,7 @@ in {
     downloadDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/data/Media/Temp/slskd";
-      description = "Download directory shared between slskd and Lidarr.";
+      description = "Download directory for slskd.";
     };
 
     beetsValidation = {
@@ -313,7 +291,7 @@ in {
     };
 
     pipelineDb = {
-      enable = lib.mkEnableOption "Pipeline DB mode (PostgreSQL replaces Lidarr as source of truth)";
+      enable = lib.mkEnableOption "Pipeline DB (PostgreSQL, source of truth for wanted albums)";
 
       dsn = lib.mkOption {
         type = lib.types.str;
@@ -363,9 +341,9 @@ in {
     # harness (Nix python env), and full PATH for subprocess calls.
 
     systemd.services.soularr = {
-      description = "Soularr - Lidarr to slskd bridge";
-      after = ["lidarr.service" "slskd.service" "container@soularr-db.service"];
-      wants = ["lidarr.service" "slskd.service" "container@soularr-db.service"];
+      description = "Soularr - Soulseek download pipeline";
+      after = ["slskd.service" "container@soularr-db.service"];
+      wants = ["slskd.service" "container@soularr-db.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq pkgs.python3 pkgs.ffmpeg pkgs.mp3val pkgs.flac pkgs.sox];
