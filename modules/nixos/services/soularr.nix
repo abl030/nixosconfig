@@ -98,6 +98,7 @@
 
   # CLI wrapper — `pipeline-cli status`, `pipeline-cli list wanted`, etc.
   pipelineCli = pkgs.writeShellScriptBin "pipeline-cli" ''
+    export PATH="${pkgs.ffmpeg}/bin:${pkgs.sox}/bin:${pkgs.mp3val}/bin:${pkgs.flac}/bin:$PATH"
     export PYTHONPATH="${inputs.soularr-src}/lib:''${PYTHONPATH:-}"
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/scripts/pipeline_cli.py \
       --dsn "${cfg.pipelineDb.dsn}" "$@"
