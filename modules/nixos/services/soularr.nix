@@ -121,7 +121,7 @@
     host_url = http://localhost:5030
     url_base = /
     download_dir = ${cfg.downloadDir}
-    delete_searches = False
+    delete_searches = True
     stalled_timeout = 600
     remote_queue_timeout = 300
 
