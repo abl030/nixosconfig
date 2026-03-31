@@ -133,7 +133,7 @@
     accepted_formats = CD,Digital Media,Vinyl
 
     [Search Settings]
-    search_timeout = 60000
+    search_timeout = 30000
     maximum_peer_queue = 50
     minimum_peer_upload_speed = 0
     minimum_filename_match_ratio = 0.6
