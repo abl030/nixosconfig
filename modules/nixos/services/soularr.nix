@@ -36,7 +36,8 @@
 #                                         — check slskd search queue
 #
 # Config tuning (in configTemplate below):
-#   number_of_albums_to_grab   — how many albums per run (default 10)
+#   number_of_albums_to_grab   — how many albums per run (default 16)
+#   parallel_searches          — concurrent search threads (default 8, set 1 for sequential)
 #   search_timeout             — ms to wait for Soulseek results (default 60000)
 #   minimum_filename_match_ratio — fuzzy match threshold (default 0.6)
 #   allowed_filetypes          — quality/format priority list
@@ -142,7 +143,8 @@
     album_prepend_artist = True
     track_prepend_artist = True
     search_type = incrementing_page
-    number_of_albums_to_grab = 10
+    parallel_searches = 8
+    number_of_albums_to_grab = 16
     title_blacklist =
     search_blacklist =
 
