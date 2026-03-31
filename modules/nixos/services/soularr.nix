@@ -122,7 +122,7 @@
     url_base = /
     download_dir = ${cfg.downloadDir}
     delete_searches = False
-    stalled_timeout = 3600
+    stalled_timeout = 600
     remote_queue_timeout = 300
 
     [Release Settings]
