@@ -179,6 +179,11 @@
     username = MEELO_USERNAME_PLACEHOLDER
     password = MEELO_PASSWORD_PLACEHOLDER
 
+    [Plex]
+    url = http://192.168.1.2:32400
+    token = PLEX_TOKEN_PLACEHOLDER
+    library_section_id = 3
+
     [Logging]
     level = INFO
     format = [%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s
@@ -228,12 +233,14 @@
     slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_user=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_USERNAME=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_pass=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    plex_token=$(${pkgs.gnugrep}/bin/grep -m1 '^PLEX_TOKEN=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
 
     # Generate config.ini with real API keys
     ${pkgs.gnused}/bin/sed \
       -e "s/SLSKD_API_KEY_PLACEHOLDER/$slskd_key/" \
       -e "s/MEELO_USERNAME_PLACEHOLDER/$meelo_user/" \
       -e "s/MEELO_PASSWORD_PLACEHOLDER/$meelo_pass/" \
+      -e "s/PLEX_TOKEN_PLACEHOLDER/$plex_token/" \
       ${configTemplate} > "$config_dir/config.ini"
 
     chmod 600 "$config_dir/config.ini"
