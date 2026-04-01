@@ -233,7 +233,7 @@
     slskd_key=$(${pkgs.gnugrep}/bin/grep -m1 '^SOULARR_SLSKD_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_user=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_USERNAME=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_pass=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
-    plex_token=$(${pkgs.gnugrep}/bin/grep -m1 '^PLEX_TOKEN=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    plex_token=$(${pkgs.gnugrep}/bin/grep -m1 '^PLEX_TOKEN=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2- || true)
 
     # Generate config.ini with real API keys
     ${pkgs.gnused}/bin/sed \
