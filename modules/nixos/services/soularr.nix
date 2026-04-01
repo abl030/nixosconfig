@@ -106,7 +106,9 @@
   '';
 
   # Web UI service — music.ablz.au
+  # PATH includes tools needed by import_one.py (manual import feature)
   webPkg = pkgs.writeShellScriptBin "soularr-web" ''
+    export PATH="${pkgs.bash}/bin:${pkgs.ffmpeg}/bin:${pkgs.sox}/bin:${pkgs.mp3val}/bin:${pkgs.flac}/bin:$PATH"
     export PYTHONPATH="${inputs.soularr-src}:${inputs.soularr-src}/lib:${inputs.soularr-src}/web:''${PYTHONPATH:-}"
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/web/server.py \
       --port ${toString cfg.web.port} \
