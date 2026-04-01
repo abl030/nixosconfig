@@ -12,11 +12,7 @@
 
   homelab = {
     mounts.nfs.enable = true;
-    # doc2 music library over Tailscale (laptop may be off-LAN)
-    mounts.nfsMusic = {
-      enable = true;
-      server = "100.87.177.120"; # doc2 Tailscale IP
-    };
+    mounts.nfsMusic.enable = true;
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;

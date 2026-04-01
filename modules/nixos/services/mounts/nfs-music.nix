@@ -1,4 +1,6 @@
-# NFS client mount for doc2's music library at /mnt/Music
+# NFS client mount for Music library at /mnt/Music
+# Exported directly from prom (Proxmox host) on ZFS — bypasses virtiofs
+# which lacks FUSE_EXPORT_SUPPORT and causes stale NFS file handles.
 {
   config,
   lib,
@@ -7,26 +9,14 @@
 }:
 with lib; let
   cfg = config.homelab.mounts.nfsMusic;
-  hasTailscale = config.services.tailscale.enable or false;
-  useTailscale = cfg.server != "192.168.1.35" && hasTailscale;
-  serverRequires =
-    if useTailscale
-    then [
-      "x-systemd.requires=tailscaled.service"
-      "x-systemd.after=tailscaled.service"
-    ]
-    else [
-      "x-systemd.requires=network-online.target"
-      "x-systemd.after=network-online.target"
-    ];
 in {
   options.homelab.mounts.nfsMusic = {
-    enable = mkEnableOption "NFS mount of doc2 music library at /mnt/Music";
+    enable = mkEnableOption "NFS mount of Music library at /mnt/Music";
 
     server = mkOption {
       type = types.str;
-      default = "192.168.1.35";
-      description = "doc2 NFS server address. Use Tailscale IP for off-LAN access.";
+      default = "192.168.1.12";
+      description = "NFS server address for Music (default: prom LAN IP).";
     };
   };
 
@@ -34,18 +24,18 @@ in {
     environment.systemPackages = lib.mkOrder 1600 (with pkgs; [nfs-utils]);
 
     fileSystems."/mnt/Music" = {
-      device = "${cfg.server}:/mnt/virtio/Music";
+      device = "${cfg.server}:/";
       fsType = "nfs";
-      options =
-        [
-          "x-systemd.automount"
-          "noauto"
-          "_netdev"
-          "x-systemd.idle-timeout=300"
-          "noatime"
-          "nfsvers=4.2"
-        ]
-        ++ serverRequires;
+      options = [
+        "x-systemd.automount"
+        "noauto"
+        "_netdev"
+        "x-systemd.idle-timeout=300"
+        "x-systemd.requires=network-online.target"
+        "x-systemd.after=network-online.target"
+        "noatime"
+        "nfsvers=4.2"
+      ];
     };
   };
 }
