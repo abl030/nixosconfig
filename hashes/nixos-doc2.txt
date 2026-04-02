@@ -1,1 +1,1 @@
-/nix/store/sddavbib7ghlrx4yvj9sz38x0qq2zbhj-nixos-system-doc2-26.05.20260401.62e3050
+/nix/store/8md2fg1ykvqz5qkpihi3mb4dfdy9ayhk-nixos-system-doc2-26.05.20260402.106eb93
