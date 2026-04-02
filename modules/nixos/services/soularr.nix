@@ -89,6 +89,7 @@
     ps.configparser
     ps.music-tag
     ps.psycopg2
+    ps.redis
     slskd-api
   ]);
 
@@ -113,7 +114,8 @@
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/web/server.py \
       --port ${toString cfg.web.port} \
       --dsn "${cfg.pipelineDb.dsn}" \
-      --beets-db "${cfg.web.beetsDb}" "$@"
+      --beets-db "${cfg.web.beetsDb}" \
+      --redis-host 127.0.0.1 "$@"
   '';
 
   # Generate config.ini from module options + sops secrets at runtime
@@ -377,11 +379,18 @@ in {
       };
     };
 
+    # Redis cache for the web UI (in-memory only, no persistence)
+    services.redis.servers.soularr = lib.mkIf cfg.web.enable {
+      enable = true;
+      port = 6379;
+      save = []; # no persistence — pure cache
+    };
+
     # Web UI for browsing MusicBrainz and adding albums to the pipeline
     systemd.services.soularr-web = lib.mkIf cfg.web.enable {
       description = "Soularr Web UI - music.ablz.au";
-      after = ["container@soularr-db.service"];
-      wants = ["container@soularr-db.service"];
+      after = ["container@soularr-db.service" "redis-soularr.service"];
+      wants = ["container@soularr-db.service" "redis-soularr.service"];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
         Type = "simple";
