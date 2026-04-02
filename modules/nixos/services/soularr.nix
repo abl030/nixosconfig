@@ -185,6 +185,7 @@
     url = http://192.168.1.2:32400
     token = PLEX_TOKEN_PLACEHOLDER
     library_section_id = 3
+    path_map = /mnt/virtio/Music/Beets:/prom_music
 
     [Logging]
     level = INFO
