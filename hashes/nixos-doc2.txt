@@ -1,1 +1,1 @@
-/nix/store/vimqvv6aj60wqi9ka1iw7iax31ldzw11-nixos-system-doc2-26.05.20260402.8d8c1fa
+/nix/store/dn624p33il63qsx5kynajs4lkvyj6qad-nixos-system-doc2-26.05.20260402.8d8c1fa
