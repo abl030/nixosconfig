@@ -167,6 +167,11 @@
     distance_threshold = ${toString cfg.beetsValidation.distanceThreshold}
     staging_dir = ${cfg.beetsValidation.stagingDir}
     tracking_file = ${cfg.beetsValidation.trackingFile}
+    opus_conversion = ${
+      if cfg.beetsValidation.opusConversion
+      then "True"
+      else "False"
+    }
 
     [Pipeline DB]
     enabled = ${
@@ -293,6 +298,12 @@ in {
         type = lib.types.str;
         default = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
         description = "JSONL file tracking beets validation results.";
+      };
+
+      opusConversion = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Convert verified lossless FLAC to Opus 128kbps instead of keeping V0.";
       };
     };
 
