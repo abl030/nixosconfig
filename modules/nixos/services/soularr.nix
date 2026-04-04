@@ -127,7 +127,7 @@
     download_dir = ${cfg.downloadDir}
     delete_searches = True
     stalled_timeout = 600
-    remote_queue_timeout = 300
+    remote_queue_timeout = 3600
 
     [Release Settings]
     use_most_common_tracknum = True
