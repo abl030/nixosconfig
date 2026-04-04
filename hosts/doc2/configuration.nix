@@ -97,6 +97,7 @@
         beetsValidation = {
           enable = true;
           stagingDir = "/mnt/virtio/Music/Incoming";
+          opusConversion = true;
         };
         pipelineDb = {
           enable = true;
