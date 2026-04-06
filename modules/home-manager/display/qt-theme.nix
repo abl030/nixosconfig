@@ -184,7 +184,7 @@ in {
           AccentColor=${accentRGB}
 
           [KDE]
-          SingleClick=true
+          SingleClick=false
 
           [Icons]
           Theme=breeze
