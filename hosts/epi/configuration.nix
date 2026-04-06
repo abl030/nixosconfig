@@ -29,7 +29,7 @@
       enable = true;
       secure = false;
     };
-    hyprland.enable = true;
+    hyprland.enable = false; # Kept available, just disabled
     sunshine.enable = true;
     vnc = {
       enable = true;
@@ -108,22 +108,31 @@
 
     qemuGuest.enable = true;
 
-    displayManager.sddm.wayland.enable = lib.mkForce false;
+    # GNOME Desktop + GDM (swapped from Hyprland/SDDM)
+    xserver.enable = true;
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+
     displayManager.autoLogin = {
       enable = true;
       user = "abl030";
     };
 
-    xserver.displayManager.setupCommands = ''
-      ${pkgs.xorg.xrandr}/bin/xrandr --auto
-      ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1920x1080 --rotate right --pos 0x0
-      ${pkgs.xorg.xrandr}/bin/xrandr --output DP-3 --mode 2560x1440 --primary --pos 1080x0
-      ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-3 --mode 1920x1080 --pos 3640x0
-    '';
+    # Hyprland/SDDM xrandr setup (kept for swap-back)
+    # xserver.displayManager.setupCommands = ''
+    #   ${pkgs.xorg.xrandr}/bin/xrandr --auto
+    #   ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1920x1080 --rotate right --pos 0x0
+    #   ${pkgs.xorg.xrandr}/bin/xrandr --output DP-3 --mode 2560x1440 --primary --pos 1080x0
+    #   ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-3 --mode 1920x1080 --pos 3640x0
+    # '';
   };
 
   virtualisation.docker.enable = false;
   virtualisation.docker.liveRestore = false;
+
+  # GDM auto-login workaround: prevent race with getty on tty1
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@tty1".enable = false;
 
   systemd.services."gnome-remote-desktop".wantedBy = ["graphical.target"];
   security.rtkit.enable = true;
