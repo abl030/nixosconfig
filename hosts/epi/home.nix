@@ -9,6 +9,9 @@
     ./epi_home_specific.nix
   ];
 
+  # Persist GNOME monitor layout so it survives rebuilds/DE swaps
+  xdg.configFile."monitors.xml".source = ./monitors.xml;
+
   homelab = {
     # --- Hyprland config (disabled, kept for easy swap-back) ---
     # remote-desktop = {
