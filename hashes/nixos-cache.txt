@@ -1,1 +1,1 @@
-/nix/store/ngdir4x7rf8c3gx5807qs86mbk0jbirk-nixos-system-cache-26.05.20260405.5e11f7a
+/nix/store/5cw7mwf56s8zfpnb9ckwpsynd4ls696x-nixos-system-cache-26.05.20260407.a3db021
