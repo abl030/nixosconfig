@@ -167,11 +167,7 @@
     distance_threshold = ${toString cfg.beetsValidation.distanceThreshold}
     staging_dir = ${cfg.beetsValidation.stagingDir}
     tracking_file = ${cfg.beetsValidation.trackingFile}
-    opus_conversion = ${
-      if cfg.beetsValidation.opusConversion
-      then "True"
-      else "False"
-    }
+    verified_lossless_target = ${cfg.beetsValidation.verifiedLosslessTarget}
 
     [Pipeline DB]
     enabled = ${
@@ -300,10 +296,10 @@ in {
         description = "JSONL file tracking beets validation results.";
       };
 
-      opusConversion = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Convert verified lossless FLAC to Opus 128kbps instead of keeping V0.";
+      verifiedLosslessTarget = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Target format after verified lossless (e.g. 'opus 128', 'mp3 v2'). Empty = keep V0.";
       };
     };
 
