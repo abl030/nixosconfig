@@ -40,6 +40,22 @@ When asked to play radio stations, use these mappings:
 
 Use `media_player.play_media` with the mapped URL. If playback stays `idle`, debug the stream URL — do NOT dismiss as a "Cast quirk".
 
+## RTRFM Now-Playing API
+
+A Shazam-based fingerprinting service identifies tracks on RTRFM in real-time. Base URL: `https://rtrfm.ablz.au`
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /now-playing` | Current track: `{state, artist, title, show, source, last_updated}` |
+| `GET /tracklist` | All tracks for the current show |
+| `GET /tracklist?date=2026-03-14` | All shows/tracks for a specific date |
+| `GET /tracklist?show=ShowName` | All tracks for a named show (all time) |
+| `GET /tracklist?show=ShowName&date=2026-03-14` | Specific show on specific date |
+| `GET /shows` | List all show names with tracklist data |
+| `GET /health` | Health check: `{status: "ok"}` |
+
+**Usage:** When asked "what's playing on RTR?" or similar, use `curl` via Bash to hit `/now-playing`. For recent tracks or history, use `/tracklist`. The API returns JSON. This is NOT a Home Assistant entity — it's a standalone service on doc2.
+
 ## Best Practices (from homeassistant-ai/skills plugin)
 
 **Core principle:** Use native Home Assistant constructs wherever possible. Templates bypass validation, fail silently at runtime, and make debugging opaque.
