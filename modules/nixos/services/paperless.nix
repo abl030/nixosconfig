@@ -16,10 +16,14 @@
   mediaLink = "/var/lib/paperless-media";
   consumeLink = "/var/lib/paperless-consume";
 
-  # Shared deps for all paperless systemd services
+  # Shared deps for all paperless systemd services.
+  # restartTriggers: see immich.nix comment — Requires= cascade-stops paperless
+  # services when the container restarts, but switch-to-configuration won't bring
+  # them back unless their own unit files changed.
   dbAndNfs = {
     after = ["container@paperless-db.service" "mnt-data.mount"];
     requires = ["container@paperless-db.service" "mnt-data.mount"];
+    restartTriggers = [config.containers.paperless-db.config.system.build.toplevel];
   };
 in {
   options.homelab.services.paperless = {

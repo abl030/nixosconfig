@@ -55,11 +55,15 @@ in {
     };
 
     # Mealie service must wait for DB container.
+    # restartTriggers: see immich.nix comment — Requires= cascade-stops mealie
+    # when the container restarts, but switch-to-configuration won't bring it
+    # back unless its own unit file changed.
     # Override DynamicUser with static user for predictable file ownership,
     # and bind the virtiofs path onto /var/lib/mealie.
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
+      restartTriggers = [config.containers.mealie-db.config.system.build.toplevel];
       serviceConfig =
         {
           DynamicUser = lib.mkForce false;

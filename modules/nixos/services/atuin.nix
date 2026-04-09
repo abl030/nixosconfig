@@ -36,10 +36,14 @@ in {
       };
     };
 
-    # Atuin must wait for its database container
+    # Atuin must wait for its database container.
+    # restartTriggers: see immich.nix comment — Requires= cascade-stops atuin
+    # when the container restarts, but switch-to-configuration won't bring it
+    # back unless its own unit file changed.
     systemd.services.atuin = {
       after = ["container@atuin-db.service"];
       requires = ["container@atuin-db.service"];
+      restartTriggers = [config.containers.atuin-db.config.system.build.toplevel];
     };
 
     homelab = {
