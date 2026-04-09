@@ -1,3 +1,8 @@
+---
+name: uptime-kuma
+description: Query Uptime Kuma monitor status and metrics using the API key
+---
+
 # Uptime Kuma API Access
 
 ## Endpoint
