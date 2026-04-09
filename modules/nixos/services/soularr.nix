@@ -394,11 +394,15 @@ in {
       save = []; # no persistence — pure cache
     };
 
-    # Web UI for browsing MusicBrainz and adding albums to the pipeline
+    # Web UI for browsing MusicBrainz and adding albums to the pipeline.
+    # restartTriggers: soularr-web uses Wants= (not Requires=) so won't be
+    # cascade-stopped, but we still want it restarted when the DB container
+    # is rebuilt to pick up any schema/extension changes.
     systemd.services.soularr-web = lib.mkIf cfg.web.enable {
       description = "Soularr Web UI - music.ablz.au";
       after = ["container@soularr-db.service" "redis-soularr.service"];
       wants = ["container@soularr-db.service" "redis-soularr.service"];
+      restartTriggers = [config.containers.soularr-db.config.system.build.toplevel];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
         Type = "simple";

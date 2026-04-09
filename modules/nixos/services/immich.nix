@@ -89,10 +89,17 @@ in {
     # Wipe it completely so systemd doesn't reject the bad unit file.
     systemd.services.postgresql-setup = lib.mkForce {};
 
-    # Immich must wait for its database container
+    # Immich must wait for its database container.
+    # restartTriggers: switch-to-configuration only restarts services whose unit
+    # files changed.  When the container is restarted (its config changed),
+    # Requires= cascade-stops immich-server, but nobody brings it back because
+    # immich-server's own unit file may not have changed.  Tying the trigger to
+    # the container's toplevel ensures switch-to-configuration always explicitly
+    # restarts immich-server whenever the DB container is rebuilt.
     systemd.services.immich-server = {
       after = ["container@immich-db.service"];
       requires = ["container@immich-db.service"];
+      restartTriggers = [config.containers.immich-db.config.system.build.toplevel];
     };
 
     # Sops secret for Immich env (DB_PASSWORD required for TCP connections)
