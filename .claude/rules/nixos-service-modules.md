@@ -1,0 +1,174 @@
+# NixOS Service Module Creation Rules
+
+These rules apply when creating or modifying NixOS service modules under `modules/nixos/services/`.
+
+## Service Hierarchy (in order of preference)
+
+1. **Use the upstream nixpkgs module** if one exists (`services.<name>.enable = true`). Wrap it in a `homelab.services.<name>` module that wires in our infrastructure (proxy, monitoring, secrets, DB).
+2. **Build a custom module** if the package exists in nixpkgs but has no module. Use `pkgs.<name>` and write a systemd service.
+3. **Use podman/OCI containers** as a last resort. Use `virtualisation.oci-containers.containers` for simple cases, or compose stacks via `homelab.containers` for multi-container services.
+
+## Module Structure
+
+Every service module lives at `modules/nixos/services/<name>.nix` and follows this pattern:
+
+```nix
+{ config, lib, pkgs, ... }: let
+  cfg = config.homelab.services.<name>;
+in {
+  options.homelab.services.<name> = {
+    enable = lib.mkEnableOption "<description>";
+    dataDir = lib.mkOption { ... };  # if stateful
+  };
+
+  config = lib.mkIf cfg.enable {
+    # 1. Service configuration (upstream module or custom)
+    # 2. Database container (if needed)
+    # 3. Systemd overrides (deps, restartTriggers)
+    # 4. Secrets (sops)
+    # 5. Infrastructure wiring (proxy, monitoring, NFS watchdog)
+  };
+}
+```
+
+After creating the module, add it to `modules/nixos/services/default.nix` imports list.
+
+## Database Container Pattern (mk-pg-container)
+
+When a service needs PostgreSQL, use an nspawn container for isolation and portability:
+
+```nix
+pgc = import ../lib/mk-pg-container.nix {
+  inherit pkgs;
+  name = "<service>";
+  hostNum = <unique-number>;  # Check existing hostNums to avoid collisions
+  inherit (cfg) dataDir;
+  # Optional: pgPackage, extensions, pgSettings, postStartSQL
+};
+
+# In config:
+containers.<service>-db = pgc.containerConfig;
+
+services.<service>.database = {
+  enable = false;  # Don't use system-wide PG
+  host = pgc.dbHost;
+  port = pgc.dbPort;
+};
+```
+
+**Existing hostNums** (check before assigning):
+- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=soularr
+
+### CRITICAL: restartTriggers for container dependencies
+
+When a service uses `Requires=` on a DB container, you MUST add `restartTriggers` to prevent cascade-stop orphaning. Without this, `switch-to-configuration` restarts the container (its config changed), systemd cascade-stops the app service, but nobody brings it back.
+
+```nix
+systemd.services.<service> = {
+  after = ["container@<service>-db.service"];
+  requires = ["container@<service>-db.service"];
+  restartTriggers = [config.containers.<service>-db.config.system.build.toplevel];
+};
+```
+
+This ties the app service's restart trigger to the container's toplevel derivation, ensuring `switch-to-configuration` always explicitly restarts the app service when the DB container is rebuilt.
+
+## Infrastructure Wiring
+
+Every service should wire into these infrastructure systems where applicable:
+
+### Reverse Proxy (DNS + SSL + nginx)
+
+```nix
+homelab.localProxy.hosts = [{
+  host = "<service>.ablz.au";
+  port = <port>;
+  websocket = true;     # optional, for websocket support
+  maxBodySize = "0";    # optional, for large uploads
+}];
+```
+
+This automatically creates nginx virtualHosts with ACME certs and syncs DNS to Cloudflare.
+
+### Monitoring (Uptime Kuma)
+
+```nix
+homelab.monitoring.monitors = [{
+  name = "<Service Name>";
+  url = "https://<service>.ablz.au/health";  # or /api/ping, etc.
+}];
+```
+
+### NFS Watchdog (for NFS-dependent services)
+
+```nix
+homelab.nfsWatchdog.<service-name>.path = "/mnt/data/...";
+```
+
+Creates a timer that checks the NFS path every 5min and restarts the service if the mount is stale.
+
+### Secrets (sops-nix)
+
+```nix
+sops.secrets."<service>/env" = {
+  sopsFile = config.homelab.secrets.sopsFile "<service>.env";
+  format = "dotenv";
+  owner = "<service-user>";
+  mode = "0400";
+};
+```
+
+The `sopsFile` helper searches: `secrets/hosts/<hostname>/` -> `secrets/users/<user>/` -> `secrets/`.
+
+## Host Assignment
+
+Services are enabled in host configs (`hosts/<host>/configuration.nix`):
+
+```nix
+homelab.services.<name> = {
+  enable = true;
+  dataDir = "/mnt/virtio/<name>";  # virtiofs mount for portability
+};
+```
+
+The module design must allow the service to run on ANY host by changing only the host config. All paths, ports, and dependencies should be configurable via options.
+
+## VPN Routing (for services needing external VPN)
+
+See `slskd.nix` for the dual-NIC policy routing pattern. Services needing VPN use a second NIC with UID-based routing rules that send traffic through pfSense's WireGuard tunnel.
+
+## Podman/OCI Services
+
+For services that must use containers:
+
+```nix
+homelab.podman = {
+  enable = true;
+  containers = [{
+    unit = "podman-<name>.service";
+    image = "<registry>/<image>:<tag>";
+  }];
+};
+
+virtualisation.oci-containers.containers.<name> = {
+  image = "...";
+  autoStart = true;
+  ports = ["<host-port>:<container-port>"];
+  volumes = ["<dataDir>:/data"];
+  environmentFiles = [config.sops.secrets."<name>/env".path];
+};
+```
+
+## Checklist
+
+Before submitting a new service module:
+
+- [ ] Options under `homelab.services.<name>` with `enable` and `dataDir`
+- [ ] Added to `modules/nixos/services/default.nix` imports
+- [ ] If using DB container: `restartTriggers` on app service referencing container toplevel
+- [ ] `homelab.localProxy.hosts` entry for DNS/SSL/nginx
+- [ ] `homelab.monitoring.monitors` entry for health checking
+- [ ] `homelab.nfsWatchdog` if service depends on NFS paths
+- [ ] Secrets via `sops.secrets` + `config.homelab.secrets.sopsFile`
+- [ ] Service enabled in appropriate host config
+- [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds
