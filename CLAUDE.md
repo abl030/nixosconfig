@@ -171,7 +171,7 @@ the git-tracked `.beads/issues.jsonl` file automatically.
 
 ### MCP Servers
 
-MCP servers are defined in `.mcp.json` (source of truth). Use `/sync-mcp` to push to Codex and `/add-mcp` to add new servers.
+MCP servers are defined in `.mcp.json` (source of truth). Use `/add-mcp` to add new servers.
 
 ### Loki
 
