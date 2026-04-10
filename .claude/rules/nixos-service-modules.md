@@ -99,6 +99,34 @@ homelab.monitoring.monitors = [{
 }];
 ```
 
+**Noise discipline.** The monitor submodule has tuned defaults to keep Gotify
+signal-to-noise high — do NOT override these unless you have a concrete reason:
+
+- `interval = 60` — check cadence in seconds
+- `maxretries = 10` — consecutive failures before DOWN; with the 60s interval,
+  a monitor needs ~10 minutes of continuous failure before it pages. This
+  suppresses every transient blip from nightly rebuilds, container restarts,
+  and NFS hiccups.
+- `retryInterval = 60` — seconds between retries
+- `resendInterval = 240` — heartbeats between re-notifications while still
+  DOWN; at interval=60s, ≈4h. Ensures a persistent outage re-pages so you
+  notice if you missed the first alert.
+
+If you bump `interval` on a monitor, remember `resendInterval` is measured
+in heartbeats, not minutes — recompute it so the re-page cadence stays ~4h.
+
+**Maintenance windows.** Fleet-wide noise windows (e.g. the nightly auto-update
+window) live on the host running Uptime Kuma — see
+`modules/nixos/services/uptime-kuma.nix`. Declare each window exactly once,
+on that host, to avoid cross-host sync races. The sync service creates and
+updates windows declaratively via
+`homelab.monitoring.maintenanceWindows = [{ title; startTime; endTime; ... }]`.
+By default a window applies to every monitor in Kuma
+(`appliesToAllMonitors = true`).
+
+Do NOT add a new maintenance window for a one-off service restart — bump the
+service's `maxretries` instead, or just accept the alert.
+
 ### NFS Watchdog (for NFS-dependent services)
 
 ```nix
