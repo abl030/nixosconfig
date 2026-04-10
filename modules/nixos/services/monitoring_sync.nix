@@ -5,7 +5,7 @@
   ...
 }: let
   cfg = config.homelab.monitoring;
-  haveMonitors = cfg.monitors != [];
+  haveMonitoringConfig = cfg.monitors != [] || cfg.maintenanceWindows != [];
 
   monitorsJson = pkgs.writeTextFile {
     name = "homelab-monitors.json";
@@ -269,7 +269,7 @@
                     title = entry["title"]
                     description = entry.get("description", "")
                     active = bool(entry.get("active", True))
-                    timezone = entry.get("timezone", "Australia/Perth")
+                    timezone_option = entry.get("timezone", "Australia/Perth")
                     strategy_str = entry.get("strategy", "recurring-interval")
                     interval_day = int(entry.get("intervalDay", 1))
                     start_time = entry.get("startTime", "00:00")
@@ -295,7 +295,7 @@
                         intervalDay=interval_day,
                         dateRange=date_range,
                         timeRange=time_range,
-                        timezone=timezone,
+                        timezoneOption=timezone_option,
                         weekdays=[],
                         daysOfMonth=[],
                     )
@@ -564,7 +564,7 @@ in {
     };
   };
 
-  config = lib.mkIf (cfg.enable && haveMonitors) {
+  config = lib.mkIf (cfg.enable && haveMonitoringConfig) {
     sops.secrets."uptime-kuma/env" = {
       sopsFile = cfg.authSecret;
       format = "dotenv";
