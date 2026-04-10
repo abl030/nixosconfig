@@ -58,6 +58,33 @@ in {
           url = "https://status.ablz.au/";
         }
       ];
+
+      # Fleet-wide maintenance window covering nightly auto-updates.
+      #
+      # Why this exists: `homelab.update` runs on every host between 01:00
+      # and 04:00 AWST with a 60-minute randomized delay, plus GC and kernel
+      # reboots. Before this window existed, every rebuild blipped all
+      # ~26 monitors and Gotify-paged for every DOWN→UP transition, training
+      # us to ignore alerts — which is how we missed immich being down for
+      # three days. See `modules/nixos/autoupdate/update.nix` for the schedule.
+      #
+      # The window covers 00:45 → 05:30 AWST, which is the earliest possible
+      # rebuild start through the latest possible kernel reboot completion.
+      # It deliberately re-opens alerting at 05:30 so that if maintenance
+      # itself breaks something, we still get paged during normal hours.
+      #
+      # Defined here (and only here) because this is the host that runs
+      # Uptime Kuma — keeping the declaration single-homed avoids cross-host
+      # races in the sync service.
+      monitoring.maintenanceWindows = [
+        {
+          title = "nightly-rebuilds";
+          description = "Silence alerts during fleet auto-update window (homelab.update).";
+          startTime = "00:45";
+          endTime = "05:30";
+          timezone = "Australia/Perth";
+        }
+      ];
     };
   };
 }
