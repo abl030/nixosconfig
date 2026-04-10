@@ -5,11 +5,16 @@
   ...
 }: let
   cfg = config.homelab.monitoring;
-  haveMonitors = cfg.monitors != [];
+  haveMonitoringConfig = cfg.monitors != [] || cfg.maintenanceWindows != [];
 
   monitorsJson = pkgs.writeTextFile {
     name = "homelab-monitors.json";
     text = builtins.toJSON cfg.monitors;
+  };
+
+  maintenancesJson = pkgs.writeTextFile {
+    name = "homelab-maintenance-windows.json";
+    text = builtins.toJSON cfg.maintenanceWindows;
   };
 
   pythonEnv = pkgs.python3.withPackages (ps: [
@@ -24,8 +29,11 @@
         cache_dir="/var/lib/homelab/monitoring"
         cache_file="$cache_dir/records.json"
         tmp_cache="$cache_dir/records.json.tmp"
+        maint_cache_file="$cache_dir/maintenance.json"
+        tmp_maint_cache="$cache_dir/maintenance.json.tmp"
         env_file=${lib.escapeShellArg config.sops.secrets."uptime-kuma/env".path}
         desired_file=${lib.escapeShellArg monitorsJson}
+        maintenances_file=${lib.escapeShellArg maintenancesJson}
         kuma_url=${lib.escapeShellArg cfg.kumaUrl}
 
         mkdir -p "$cache_dir"
@@ -60,8 +68,11 @@
         export KUMA_USER="$kuma_user"
         export KUMA_PASS="$kuma_pass"
         export DESIRED_FILE="$desired_file"
+        export MAINTENANCES_FILE="$maintenances_file"
         export CACHE_FILE="$cache_file"
         export TMP_CACHE="$tmp_cache"
+        export MAINT_CACHE_FILE="$maint_cache_file"
+        export TMP_MAINT_CACHE="$tmp_maint_cache"
 
         max_wait_seconds=60
         waited=0
@@ -79,18 +90,24 @@
     import os
     import time
     import socketio
-    from uptime_kuma_api import UptimeKumaApi, MonitorType, AuthMethod
+    from uptime_kuma_api import UptimeKumaApi, MonitorType, AuthMethod, MaintenanceStrategy
     from uptime_kuma_api.exceptions import UptimeKumaException
 
     kuma_url = os.environ["KUMA_URL"]
     kuma_user = os.environ["KUMA_USER"]
     kuma_pass = os.environ["KUMA_PASS"]
     desired_path = os.environ["DESIRED_FILE"]
+    maintenances_path = os.environ["MAINTENANCES_FILE"]
     cache_path = os.environ["CACHE_FILE"]
     tmp_path = os.environ["TMP_CACHE"]
+    maint_cache_path = os.environ["MAINT_CACHE_FILE"]
+    tmp_maint_cache_path = os.environ["TMP_MAINT_CACHE"]
 
     with open(desired_path, "r", encoding="utf-8") as fh:
         desired = json.load(fh)
+
+    with open(maintenances_path, "r", encoding="utf-8") as fh:
+        desired_maintenances = json.load(fh)
 
     try:
         with open(cache_path, "r", encoding="utf-8") as fh:
@@ -98,8 +115,19 @@
     except FileNotFoundError:
         cache = {}
 
-    def sync_once() -> dict:
+    try:
+        with open(maint_cache_path, "r", encoding="utf-8") as fh:
+            maint_cache = json.load(fh)
+    except FileNotFoundError:
+        maint_cache = {}
+
+    def parse_hhmm(value: str) -> dict:
+        h, m = value.split(":", 1)
+        return {"hours": int(h), "minutes": int(m)}
+
+    def sync_once() -> tuple:
         updated = {}
+        updated_maint = {}
         with UptimeKumaApi(kuma_url, timeout=30) as api:
             api.login(username=kuma_user, password=kuma_pass)
             monitors = api.get_monitors()
@@ -133,6 +161,9 @@
                 if entry.get("basicAuthPassEnv"):
                     basic_auth_pass = os.environ.get(entry["basicAuthPassEnv"], basic_auth_pass)
                 interval = entry.get("interval", 60)
+                maxretries = int(entry.get("maxretries", 10))
+                retry_interval = int(entry.get("retryInterval", 60))
+                resend_interval = int(entry.get("resendInterval", 240))
 
                 if mon_type == "json-query":
                     kuma_type = MonitorType.JSON_QUERY
@@ -148,6 +179,9 @@
                     notificationIDList=notification_ids,
                     maxredirects=10,
                     interval=interval,
+                    maxretries=maxretries,
+                    retryInterval=retry_interval,
+                    resendInterval=resend_interval,
                 )
                 if headers_json:
                     common_kwargs["headers"] = headers_json
@@ -191,6 +225,9 @@
                         or existing_codes != desired_codes
                         or existing_notifications != desired_notifications
                         or existing.get("interval") != interval
+                        or int(existing.get("maxretries") or 0) != maxretries
+                        or int(existing.get("retryInterval") or 0) != retry_interval
+                        or int(existing.get("resendInterval") or 0) != resend_interval
                         or (json_path and existing.get("jsonPath") != json_path)
                         or (expected_value and str(existing.get("expectedValue", "")) != expected_value)
                         or (basic_auth_user and str(existing.get("authMethod", "")) != str(AuthMethod.HTTP_BASIC))
@@ -216,15 +253,98 @@
                 monitor_id = resp.get("monitorID") or resp.get("monitorId")
                 updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
 
-        return updated
+            # ---------------------------------------------------------------
+            # Maintenance windows
+            # ---------------------------------------------------------------
+            if desired_maintenances:
+                # Refresh monitor list in case we just added new ones.
+                all_monitors = api.get_monitors()
+                name_to_id = {m.get("name"): m.get("id") for m in all_monitors if m.get("name")}
+                all_ids = [m.get("id") for m in all_monitors if m.get("id") is not None]
+
+                existing_maint = api.get_maintenances() or []
+                existing_by_title = {m.get("title"): m for m in existing_maint if m.get("title")}
+
+                for entry in desired_maintenances:
+                    title = entry["title"]
+                    description = entry.get("description", "")
+                    active = bool(entry.get("active", True))
+                    timezone_option = entry.get("timezone", "Australia/Perth")
+                    strategy_str = entry.get("strategy", "recurring-interval")
+                    interval_day = int(entry.get("intervalDay", 1))
+                    start_time = entry.get("startTime", "00:00")
+                    end_time = entry.get("endTime", "01:00")
+                    start_date = entry.get("startDate", "2026-01-01 00:00:00")
+                    end_date = entry.get("endDate", "2099-12-31 23:59:59")
+                    applies_all = bool(entry.get("appliesToAllMonitors", True))
+                    monitor_names = entry.get("monitorNames", []) or []
+
+                    if strategy_str != "recurring-interval":
+                        raise UptimeKumaException(
+                            f"maintenance window {title!r}: only recurring-interval strategy is supported"
+                        )
+
+                    time_range = [parse_hhmm(start_time), parse_hhmm(end_time)]
+                    date_range = [start_date, end_date]
+
+                    maint_kwargs = dict(
+                        title=title,
+                        description=description,
+                        strategy=MaintenanceStrategy.RECURRING_INTERVAL,
+                        active=active,
+                        intervalDay=interval_day,
+                        dateRange=date_range,
+                        timeRange=time_range,
+                        timezoneOption=timezone_option,
+                        weekdays=[],
+                        daysOfMonth=[],
+                    )
+
+                    existing = existing_by_title.get(title)
+                    if existing:
+                        maint_id = existing.get("id")
+                        # Always edit — cheap and guarantees convergence.
+                        api.edit_maintenance(maint_id, **maint_kwargs)
+                    else:
+                        resp = api.add_maintenance(**maint_kwargs)
+                        maint_id = resp.get("maintenanceID") or resp.get("maintenanceId") or resp.get("id")
+                        if maint_id is None:
+                            # Re-fetch to discover the id.
+                            for m in api.get_maintenances() or []:
+                                if m.get("title") == title:
+                                    maint_id = m.get("id")
+                                    break
+                        if maint_id is None:
+                            raise UptimeKumaException(
+                                f"maintenance window {title!r}: could not determine id after create"
+                            )
+
+                    # Attach monitors (replaces the existing attachment set).
+                    if applies_all:
+                        attach_ids = list(all_ids)
+                    else:
+                        attach_ids = [name_to_id[n] for n in monitor_names if n in name_to_id]
+                    monitor_payload = [{"id": mid} for mid in attach_ids if mid is not None]
+                    api.add_monitor_maintenance(maint_id, monitor_payload)
+
+                    updated_maint[title] = {
+                        "title": title,
+                        "maintenanceId": maint_id,
+                        "monitorCount": len(monitor_payload),
+                    }
+
+        return updated, updated_maint
 
     last_error = None
     for attempt in range(3):
         try:
-            result = sync_once()
+            monitor_result, maint_result = sync_once()
             with open(tmp_path, "w", encoding="utf-8") as fh:
-                json.dump(result, fh, indent=2, sort_keys=True)
+                json.dump(monitor_result, fh, indent=2, sort_keys=True)
             os.replace(tmp_path, cache_path)
+            with open(tmp_maint_cache_path, "w", encoding="utf-8") as fh:
+                json.dump(maint_result, fh, indent=2, sort_keys=True)
+            os.replace(tmp_maint_cache_path, maint_cache_path)
             last_error = None
             break
         except (socketio.exceptions.TimeoutError, socketio.exceptions.BadNamespaceError, UptimeKumaException) as exc:
@@ -338,14 +458,113 @@ in {
             default = 60;
             description = "Check interval in seconds.";
           };
+          maxretries = lib.mkOption {
+            type = lib.types.int;
+            default = 10;
+            description = ''
+              Number of consecutive failed checks before the monitor is marked
+              DOWN and a notification fires. At the default interval of 60s,
+              maxretries=10 means a blip needs ~10 minutes of continuous
+              failure before alerting — this suppresses the nightly rebuild
+              noise without hiding real outages.
+            '';
+          };
+          retryInterval = lib.mkOption {
+            type = lib.types.int;
+            default = 60;
+            description = "Seconds between retries after a failed check.";
+          };
+          resendInterval = lib.mkOption {
+            type = lib.types.int;
+            default = 240;
+            description = ''
+              Number of heartbeats between re-notifications while a monitor is
+              still DOWN. At interval=60s, 240 ≈ 4 hours — persistent outages
+              re-page so you notice if you missed the first ping.
+            '';
+          };
         };
       });
       default = [];
       description = "List of monitors to ensure in Uptime Kuma.";
     };
+
+    maintenanceWindows = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          title = lib.mkOption {
+            type = lib.types.str;
+            description = "Unique title — used as the key to find/update windows in Kuma.";
+          };
+          description = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            description = "Human description shown in the Kuma UI.";
+          };
+          active = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Whether the window is active.";
+          };
+          timezone = lib.mkOption {
+            type = lib.types.str;
+            default = "Australia/Perth";
+            description = "Timezone the startTime/endTime are interpreted in.";
+          };
+          strategy = lib.mkOption {
+            type = lib.types.enum ["recurring-interval"];
+            default = "recurring-interval";
+            description = "Only recurring-interval is currently supported.";
+          };
+          intervalDay = lib.mkOption {
+            type = lib.types.int;
+            default = 1;
+            description = "Run the window every N days.";
+          };
+          startTime = lib.mkOption {
+            type = lib.types.str;
+            description = "Start time of the daily window, format HH:MM.";
+          };
+          endTime = lib.mkOption {
+            type = lib.types.str;
+            description = "End time of the daily window, format HH:MM.";
+          };
+          startDate = lib.mkOption {
+            type = lib.types.str;
+            default = "2026-01-01 00:00:00";
+            description = "Date from which the recurring window applies.";
+          };
+          endDate = lib.mkOption {
+            type = lib.types.str;
+            default = "2099-12-31 23:59:59";
+            description = "Date after which the recurring window no longer applies.";
+          };
+          appliesToAllMonitors = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = ''
+              If true, attach every monitor known to Kuma to this window.
+              If false, only attach monitors listed in `monitorNames`.
+            '';
+          };
+          monitorNames = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [];
+            description = "Monitor names (match `homelab.monitoring.monitors.*.name`). Only used when appliesToAllMonitors = false.";
+          };
+        };
+      });
+      default = [];
+      description = ''
+        Declarative Uptime Kuma maintenance windows. Use these to silence
+        expected fleet-wide noise (e.g. nightly rebuilds) so real alerts
+        aren't drowned out. Define each window exactly once — on the host
+        that runs Uptime Kuma — to avoid cross-host races.
+      '';
+    };
   };
 
-  config = lib.mkIf (cfg.enable && haveMonitors) {
+  config = lib.mkIf (cfg.enable && haveMonitoringConfig) {
     sops.secrets."uptime-kuma/env" = {
       sopsFile = cfg.authSecret;
       format = "dotenv";
