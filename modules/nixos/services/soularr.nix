@@ -106,6 +106,16 @@
       --dsn "${cfg.pipelineDb.dsn}" "$@"
   '';
 
+  # Schema migrator — applies any pending migrations/*.sql files via the
+  # versioned migrator (lib/migrator.py). Idempotent: a no-op if the schema
+  # is already current. Run as a oneshot systemd unit on every rebuild.
+  pipelineMigrate = pkgs.writeShellScriptBin "pipeline-migrate" ''
+    export PYTHONPATH="${inputs.soularr-src}:${inputs.soularr-src}/lib:''${PYTHONPATH:-}"
+    exec ${pythonEnv}/bin/python ${inputs.soularr-src}/scripts/migrate_db.py \
+      --dsn "${cfg.pipelineDb.dsn}" \
+      --migrations-dir "${inputs.soularr-src}/migrations" "$@"
+  '';
+
   # Web UI service — music.ablz.au
   # PATH includes tools needed by import_one.py (manual import feature)
   webPkg = pkgs.writeShellScriptBin "soularr-web" ''
@@ -331,8 +341,8 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # Put pipeline-cli on system PATH for easy SSH access from doc1
-    environment.systemPackages = [pipelineCli pkgs.postgresql];
+    # Put pipeline-cli + pipeline-migrate on system PATH for easy SSH access
+    environment.systemPackages = [pipelineCli pipelineMigrate pkgs.postgresql];
 
     sops.secrets."soularr/env" = {
       sopsFile = config.homelab.secrets.sopsFile "soularr.env";
@@ -350,13 +360,41 @@ in {
       "d ${cfg.dataDir}/postgres 0700 root root -"
     ];
 
+    # Pipeline DB schema migrator
+    # ---------------------------
+    # Versioned migrations live in ${inputs.soularr-src}/migrations/*.sql.
+    # This oneshot runs the migrator on every nixos-rebuild switch (because
+    # restartIfChanged = true), so the prod schema is always brought current
+    # BEFORE soularr.service or soularr-web.service start touching the DB.
+    #
+    # The migrator is idempotent: if every shipped migration is already
+    # recorded in schema_migrations, the run is a fast no-op.
+    #
+    # RemainAfterExit = true keeps the unit "active" so dependent services
+    # can express requires/after on it without needing to re-run it on every
+    # cycle of the soularr.timer.
+    systemd.services.soularr-db-migrate = {
+      description = "Apply Pipeline DB schema migrations";
+      after = ["container@soularr-db.service"];
+      requires = ["container@soularr-db.service"];
+      wantedBy = ["multi-user.target"];
+      restartIfChanged = true;
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        Environment = "PIPELINE_DB_DSN=${cfg.pipelineDb.dsn}";
+        ExecStart = "${pipelineMigrate}/bin/pipeline-migrate";
+      };
+    };
+
     # Soularr runs as root — needs access to slskd downloads, beets
     # harness (Nix python env), and full PATH for subprocess calls.
 
     systemd.services.soularr = {
       description = "Soularr - Soulseek download pipeline";
-      after = ["slskd.service" "container@soularr-db.service"];
+      after = ["slskd.service" "container@soularr-db.service" "soularr-db-migrate.service"];
       wants = ["slskd.service" "container@soularr-db.service"];
+      requires = ["soularr-db-migrate.service"];
       # Don't block nixos-rebuild — the timer fires every 30 min anyway
       restartIfChanged = false;
       path = [pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.curl pkgs.jq pkgs.python3 pkgs.ffmpeg pkgs.mp3val pkgs.flac pkgs.sox];
@@ -400,8 +438,13 @@ in {
     # is rebuilt to pick up any schema/extension changes.
     systemd.services.soularr-web = lib.mkIf cfg.web.enable {
       description = "Soularr Web UI - music.ablz.au";
-      after = ["container@soularr-db.service" "redis-soularr.service"];
+      after = ["container@soularr-db.service" "redis-soularr.service" "soularr-db-migrate.service"];
       wants = ["container@soularr-db.service" "redis-soularr.service"];
+      # requires soularr-db-migrate so soularr-web can't come up against an
+      # un-migrated schema. The migrate unit is a oneshot with
+      # RemainAfterExit=true, so this hard dep doesn't trigger spurious
+      # cascade-stops during normal operation.
+      requires = ["soularr-db-migrate.service"];
       restartTriggers = [config.containers.soularr-db.config.system.build.toplevel];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
