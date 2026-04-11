@@ -182,7 +182,15 @@
     maximum_peer_queue = 50
     minimum_peer_upload_speed = 0
     minimum_filename_match_ratio = 0.6
-    allowed_filetypes = mp3 v0,mp3 320,flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,aac 256+,ogg 256+,opus 192+
+    # Priority-ordered filetype list. The rank model in lib/quality.py is the
+    # authoritative quality decision (post-download); this filter is only for
+    # search-time peer/codec preference. High-quality tiers lead so curation
+    # picks transparent MP3 or hi-res FLAC first; bare-codec tiers at the end
+    # are the permissive fallback (any MP3, any Opus, any AAC, any OGG, any
+    # WAV) so the rank model sees everything and can make the call via its
+    # codec-aware bands. See soularr README § "Tuning the quality rank model"
+    # for the design rationale.
+    allowed_filetypes = mp3 v0,mp3 320,flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,aac,opus,ogg,mp3,wav
     ignored_users =
     search_for_tracks = True
     album_prepend_artist = True
