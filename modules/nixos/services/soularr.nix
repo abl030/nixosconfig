@@ -128,6 +128,37 @@
       --redis-host 127.0.0.1 "$@"
   '';
 
+  # [Quality Ranks] section renderer — mirrors lib/quality.py:QualityRankConfig.defaults().
+  # Pinned on the Python side by TestQualityRankConfigDefaults in
+  # tests/test_quality_decisions.py — if you change a default here, also update the
+  # Python dataclass (and vice versa). The pin test fails loudly on drift.
+  # See soularr's README § "Tuning the quality rank model" for every option's meaning.
+  qualityRanksSection = let
+    qr = cfg.qualityRanks;
+    bandSection = codecKey: bands: ''
+      ${codecKey}.transparent = ${toString bands.transparent}
+      ${codecKey}.excellent = ${toString bands.excellent}
+      ${codecKey}.good = ${toString bands.good}
+      ${codecKey}.acceptable = ${toString bands.acceptable}
+    '';
+    # Strip the trailing newline so that the parent template's own newline
+    # produces exactly one blank line between this section and the next
+    # (matches the spacing of the other [Section] blocks in configTemplate).
+  in lib.strings.removeSuffix "\n" ''
+    [Quality Ranks]
+    # Declarative mirror of lib/quality.py:QualityRankConfig.defaults(). Retune
+    # via homelab.services.soularr.qualityRanks.* in this module (NOT by hand
+    # editing config.ini — Nix regenerates this file on every rebuild).
+    bitrate_metric = ${qr.bitrateMetric}
+    gate_min_rank = ${qr.gateMinRank}
+    within_rank_tolerance_kbps = ${toString qr.withinRankToleranceKbps}
+
+    ${bandSection "opus" qr.bands.opus}
+    ${bandSection "mp3_vbr" qr.bands.mp3Vbr}
+    ${bandSection "mp3_cbr" qr.bands.mp3Cbr}
+    ${bandSection "aac" qr.bands.aac}
+  '';
+
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
     [Slskd]
@@ -179,6 +210,7 @@
     tracking_file = ${cfg.beetsValidation.trackingFile}
     verified_lossless_target = ${cfg.beetsValidation.verifiedLosslessTarget}
 
+    ${qualityRanksSection}
     [Pipeline DB]
     enabled = ${
       if cfg.pipelineDb.enable
@@ -336,6 +368,141 @@ in {
         type = lib.types.str;
         default = "/mnt/virtio/Music/beets-library.db";
         description = "Path to the beets library SQLite database (read-only).";
+      };
+    };
+
+    # -----------------------------------------------------------------------
+    # Codec-aware quality rank model (issues #60, #64, #65, #66, #67, #68)
+    # -----------------------------------------------------------------------
+    # Declarative mirror of lib/quality.py:QualityRankConfig.defaults() in the
+    # soularr repo. Every default here equals what Python would use if no
+    # [Quality Ranks] section existed in config.ini. Retuning any option
+    # regenerates /var/lib/soularr/config.ini on the next rebuild and Soularr
+    # picks it up on its next 5-min timer fire.
+    #
+    # DRIFT PROTECTION: every default is pinned by TestQualityRankConfigDefaults
+    # in tests/test_quality_decisions.py (soularr repo). The pin test fails
+    # loudly when the *Python* defaults change, reminding the developer to
+    # update the Nix mirror too. Nix-side overrides (setting a value here
+    # that differs from Python defaults) are visible by design — that's the
+    # whole point of declarative visibility — and do NOT trigger the pin
+    # test. To match Python exactly, leave options at their documented
+    # defaults; to tune, override here and accept that config.ini wins over
+    # QualityRankConfig.defaults() at runtime.
+    #
+    # FULL OPTION REFERENCE: soularr's README § "Tuning the quality rank model"
+    # documents what every option means and when to retune.
+    qualityRanks = let
+      mkCodecBands = codec: defaults: {
+        transparent = lib.mkOption {
+          type = lib.types.int;
+          default = defaults.transparent;
+          description = ''
+            ${codec} TRANSPARENT rank floor (kbps). Measurements at or above
+            this bitrate classify as TRANSPARENT under the bare-codec band
+            table (used when the format hint is a plain codec string rather
+            than an explicit label like "mp3 v0"). See README § Tuning the
+            quality rank model.
+          '';
+        };
+        excellent = lib.mkOption {
+          type = lib.types.int;
+          default = defaults.excellent;
+          description = "${codec} EXCELLENT rank floor (kbps).";
+        };
+        good = lib.mkOption {
+          type = lib.types.int;
+          default = defaults.good;
+          description = "${codec} GOOD rank floor (kbps).";
+        };
+        acceptable = lib.mkOption {
+          type = lib.types.int;
+          default = defaults.acceptable;
+          description = "${codec} ACCEPTABLE rank floor (kbps).";
+        };
+      };
+    in {
+      gateMinRank = lib.mkOption {
+        type = lib.types.enum [
+          "unknown"
+          "poor"
+          "acceptable"
+          "good"
+          "excellent"
+          "transparent"
+          "lossless"
+        ];
+        default = "excellent";
+        description = ''
+          Minimum rank an imported album must reach before the post-import
+          quality gate accepts it. Below this → re-queue for upgrade.
+          Raise to tighten (reject more albums); lower to accept
+          lower-quality sources. Mirrors cfg.gate_min_rank in Python.
+        '';
+      };
+
+      bitrateMetric = lib.mkOption {
+        type = lib.types.enum ["min" "avg" "median"];
+        default = "avg";
+        description = ''
+          Which per-album bitrate statistic feeds rank classification.
+          "avg" is robust to VBR per-track variance. "median" is
+          outlier-resistant — prefer when albums commonly have quiet
+          intros/hidden tracks/skits that skew "avg" (#64). "min" is
+          legacy and penalizes legitimately-encoded lo-fi VBR.
+        '';
+      };
+
+      withinRankToleranceKbps = lib.mkOption {
+        type = lib.types.int;
+        default = 5;
+        description = ''
+          Same-rank equivalence window in kbps. Two bare-codec
+          measurements in the same rank tier within this tolerance
+          are "equivalent"; outside it, one is "better"/"worse".
+        '';
+      };
+
+      bands = {
+        # Opus unconstrained VBR typical 120-135 kbps, per-track 95-150.
+        # 112 leaves headroom for sparse material; 88 matches Opus 96
+        # hydrogenaudio quality (Kamedo2 4.65/5).
+        opus = mkCodecBands "Opus" {
+          transparent = 112;
+          excellent = 88;
+          good = 64;
+          acceptable = 48;
+        };
+
+        # excellent=210 preserves the legacy QUALITY_MIN_BITRATE_KBPS=210
+        # gate threshold. Also feeds transcode_detection() as the
+        # spectral-fallback threshold (#66) — lowering this implicitly
+        # lowers what counts as "credible V0" when spectral is unavailable.
+        mp3Vbr = mkCodecBands "MP3 VBR" {
+          transparent = 245;
+          excellent = 210;
+          good = 170;
+          acceptable = 130;
+        };
+
+        # Unverifiable CBR is only transparent at 320 — we can't prove
+        # a CBR file came from lossless source. Below that → requeue
+        # for a FLAC source to re-verify.
+        mp3Cbr = mkCodecBands "MP3 CBR" {
+          transparent = 320;
+          excellent = 256;
+          good = 192;
+          acceptable = 128;
+        };
+
+        # Hydrogenaudio consensus places the "no meaningful gain above
+        # here" music ceiling at 192 kbps.
+        aac = mkCodecBands "AAC" {
+          transparent = 192;
+          excellent = 144;
+          good = 112;
+          acceptable = 80;
+        };
       };
     };
   };
