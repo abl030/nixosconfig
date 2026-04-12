@@ -234,13 +234,22 @@
   ...
 }: let
   cfg = config.homelab.beets;
-  beetsWithLocalLrclib = pkgs.beets.overrideAttrs (old: {
+  # Patch beets plugins to use local mirrors instead of upstream APIs:
+  # - lyrics.py → local LRCLIB at 192.168.1.35:3300
+  # - discogs.py → local Discogs mirror at discogs.ablz.au (issue #69)
+  beetsWithLocalMirrors = pkgs.beets.overrideAttrs (old: {
     postPatch =
       (old.postPatch or "")
       + ''
         substituteInPlace beetsplug/lyrics.py \
           --replace-fail 'BASE_URL = "https://lrclib.net/api"' \
                          'BASE_URL = "http://192.168.1.35:3300/api"'
+
+        substituteInPlace beetsplug/discogs/__init__.py \
+          --replace-fail 'self.discogs_client = Client(USER_AGENT, user_token=user_token)' \
+                         'self.discogs_client = Client(USER_AGENT, user_token=user_token); self.discogs_client._base_url = "https://discogs.ablz.au"' \
+          --replace-fail 'self.discogs_client = Client(USER_AGENT, c_key, c_secret, token, secret)' \
+                         'self.discogs_client = Client(USER_AGENT, c_key, c_secret, token, secret); self.discogs_client._base_url = "https://discogs.ablz.au"'
       '';
   });
 in {
@@ -260,7 +269,7 @@ in {
 
     programs.beets = {
       enable = true;
-      package = beetsWithLocalLrclib;
+      package = beetsWithLocalMirrors;
       settings = {
         directory = "/mnt/virtio/Music/Beets";
         library = "/mnt/virtio/Music/beets-library.db";
