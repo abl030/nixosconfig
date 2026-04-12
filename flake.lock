@@ -58,6 +58,22 @@
         "type": "github"
       }
     },
+    "discogs-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1775971283,
+        "narHash": "sha256-N1p8Dap9P4IapI4+jl0+npBMOI2Ph6YHBGAQBynOi5Y=",
+        "owner": "abl030",
+        "repo": "discogs-api",
+        "rev": "016b2aaf87793e17f52fa5ae04418298e6eeaca9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "discogs-api",
+        "type": "github"
+      }
+    },
     "disko": {
       "inputs": {
         "nixpkgs": [
@@ -529,6 +545,7 @@
         "claude-code-nix": "claude-code-nix",
         "claude-plugin-ha-skills": "claude-plugin-ha-skills",
         "codex-cli-nix": "codex-cli-nix",
+        "discogs-src": "discogs-src",
         "disko": "disko",
         "episodic-memory": "episodic-memory",
         "flake-parts": "flake-parts",

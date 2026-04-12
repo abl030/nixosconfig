@@ -138,6 +138,10 @@
         dataDir = "/mnt/virtio/musicbrainz";
         mirrorDir = "/mnt/mirrors/musicbrainz";
       };
+      discogs = {
+        enable = true;
+        mirrorDir = "/mnt/mirrors/discogs";
+      };
       meelo.enable = false;
       domain-monitor.enable = true;
       rtrfm-nowplaying.enable = true;

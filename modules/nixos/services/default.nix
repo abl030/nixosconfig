@@ -29,6 +29,7 @@
     ./lidarr.nix
     ./slskd.nix
     ./soularr.nix
+    ./discogs.nix
     ./paperless.nix
     ./mealie.nix
     ./stirlingpdf.nix
