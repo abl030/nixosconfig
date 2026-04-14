@@ -232,7 +232,7 @@ in {
     # Secret file must be dotenv format: TS_AUTHKEY=tskey-auth-...
     sops.secrets = lib.mkMerge (lib.mapAttrsToList (name: _: {
         "tailscale-share/${name}/authkey" = {
-          sopsFile = config.homelab.secrets.sopsFile "${name}-tailscale-authkey";
+          sopsFile = config.homelab.secrets.sopsFile "${name}-tailscale-authkey.env";
           format = "dotenv";
           mode = "0400";
         };
