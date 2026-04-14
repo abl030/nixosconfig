@@ -1,1 +1,1 @@
-/nix/store/vqlzbqwkilkvllg1vajlv2s4dirfk3dh-nixos-system-proxmox-vm-26.05.20260411.1304392
+/nix/store/1ixbpw4nqhv1vkbqkgw1gmfwhcz63ipv-nixos-system-proxmox-vm-26.05.20260411.1304392
