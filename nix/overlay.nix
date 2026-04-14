@@ -114,8 +114,10 @@
     }
   )
 
-  # plexamp overlay: pin to 4.12.3 — audio broken on Linux since 4.12.4
+  # plexamp overlay: pin to 4.12.3 — audio broken on Linux in 4.12.4 and 4.13.0
+  # Fixed upstream in 4.13.1 (2026-04-13). Drop this overlay once nixpkgs ships >=4.13.1.
   # https://forums.plex.tv/t/plexamp-flatpak-appimage-does-not-start-playback-until-audio-device-switched/929631
+  # https://github.com/flathub/com.plexamp.Plexamp/issues/270
   (
     _final: prev: {
       plexamp = prev.plexamp.overrideAttrs (_old: rec {
