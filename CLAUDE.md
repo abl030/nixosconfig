@@ -64,19 +64,21 @@ The presence of `configurationFile` determines whether a host is a full NixOS sy
 
 ## VM Automation
 
-**CRITICAL**: Always use `vms/proxmox-ops.sh`, NEVER run Proxmox commands directly via SSH. Full workflow: `bd show nixosconfig-usj`.
+**CRITICAL**: Always use `vms/proxmox-ops.sh`, NEVER run Proxmox commands directly via SSH.
 
 ## Secrets Management
 
-Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`. Full workflow: `bd show nixosconfig-mof`.
+Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`.
 
 ## Troubleshooting
 
 - **`failed to insert entry: invalid object specified`** during `nix flake update`: Corrupted fetch cache. Fix with `rm -rf ~/.cache/nix/` and retry. This is safe — it's only a fetch cache, not the store. Common issue, happens periodically.
 
-## TODO Tracking
+## Issue and TODO Tracking
 
-Lightweight TODOs and planned work are tracked in `docs/todo/*.md`. Check there before starting new work.
+- Larger work items are tracked in **GitHub issues** on this repo. Use `gh issue list`, `gh issue view <n>`, and `gh issue create` for everything agent-facing.
+- Lightweight in-repo TODOs live in `docs/todo/*.md`. Check there before starting new work.
+- Historical issues from the retired `bd` (beads) tracker are archived in `docs/beads-archive.md` — read-only reference, do not try to resurrect the `.beads/` directory.
 
 ## Wiki / Knowledge Base
 
@@ -108,11 +110,11 @@ If asked, send a Gotify ping before requesting human input and include a brief s
 
 ## Debug Session Notes
 
-Verify upstream with `--resolve` before changing nginx/Cloudflare. Full checklist: `bd show nixosconfig-2ie`.
+Verify upstream with `--resolve` before changing nginx/Cloudflare.
 
 ## Standard Kuma Health Endpoints
 
-Endpoint reference for monitoring setup: `bd show nixosconfig-2ws`.
+Monitor URL conventions and defaults are documented inline in `modules/nixos/services/uptime-kuma.nix` and per-service modules under `modules/nixos/services/`.
 
 ## Coding Style
 
@@ -131,41 +133,13 @@ Endpoint reference for monitoring setup: `bd show nixosconfig-2ws`.
 
 ## Memory Discipline
 
-**Beads are the primary memory system.** MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
+MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
 
-| Use beads for | Use MEMORY.md for |
-|---|---|
-| Decisions and rationale | Shell/env quirks needed every session |
-| Workflow preferences | "Never do X" safety rules |
-| Research findings | One-liner pointers to beads |
-| Feature progress | — |
+- Use **GitHub issues** for decisions, rationale, workflow preferences, research findings, and feature progress.
+- Use **MEMORY.md** for shell/env quirks needed every session, "never do X" safety rules, and one-line pointers to relevant GitHub issues.
+- The `docs/wiki/` tree is the long-form knowledge base for research and architectural context.
 
-When recording a decision: create/update a bead, optionally add a one-line pointer in MEMORY.md if it's referenced constantly. Do NOT duplicate rationale into MEMORY.md.
-
-### Beads Per-Clone Setup
-
-Beads uses a centralised Dolt server on doc1. All hosts connect over Tailscale.
-See `modules/home-manager/services/claude-code.nix` for full architecture docs.
-
-**Every fresh clone needs setup:**
-
-```bash
-# Point at doc1's centralised Dolt server
-bd init --prefix nixosconfig \
-  --server-host 100.89.160.60 \
-  --server-port 3307 \
-  --server-user beads
-# Password is set automatically via BEADS_DOLT_PASSWORD env var
-
-bd hooks install --force    # Installs pre-commit, post-merge, pre-push, post-checkout hooks
-bd config set beads.role maintainer
-bd migrate --update-repo-id  # Only if "LEGACY DATABASE" error appears
-```
-
-On doc1 itself, use `--server-host 127.0.0.1` instead.
-
-Without hooks, JSONL won't be exported on commit — the hooks sync between Dolt and
-the git-tracked `.beads/issues.jsonl` file automatically.
+Do NOT duplicate rationale into MEMORY.md — point to the issue or wiki page instead.
 
 ## AI Tool Integration
 
@@ -190,7 +164,7 @@ These MCPs are **subagent-only** — defined in `.claude/agents/` to avoid conte
 - `pfsense` — Firewall rules, NAT, VPN, DHCP, DNS
 - `unifi` — Network devices, clients, WLANs, port profiles
 
-Full HA usage guide incl. Music Assistant playback and volume quirks: `bd show nixosconfig-fah`.
+Full HA usage guide incl. Music Assistant playback and volume quirks lives in `docs/wiki/services/` (search for `home-assistant`).
 
 ### mcp-nixos
 
@@ -245,7 +219,7 @@ nix develop
 
 ### VM Operations & Secrets
 
-See `bd show nixosconfig-usj` (VM ops) and `bd show nixosconfig-mof` (secrets).
+See `vms/proxmox-ops.sh` (VM ops) and `secrets/.sops.yaml` (secrets). Longer-form notes live in `docs/wiki/infrastructure/`.
 
 ## Fleet Overview
 
@@ -392,7 +366,7 @@ sudo runuser -u abl030 -- systemctl --user restart <stack-name>
 
 ## Special Configurations
 
-Host-specific details for doc1, igpu, and framework: `bd show nixosconfig-6bn`.
+Host-specific details for doc1, igpu, and framework live in their respective `hosts/<name>/configuration.nix` and `hosts/<name>/home.nix` files.
 
 ## Landing the Plane (Session Completion)
 
@@ -400,18 +374,17 @@ Host-specific details for doc1, igpu, and framework: `bd show nixosconfig-6bn`.
 
 **MANDATORY WORKFLOW:**
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+1. **File issues for remaining work** - Create GitHub issues (`gh issue create`) for anything that needs follow-up.
+2. **Update issue status** - Close finished work, update in-progress items via `gh issue close` / `gh issue comment`.
+3. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
    git push
    git status  # MUST show "up to date with origin"
    ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+4. **Clean up** - Clear stashes, prune remote branches
+5. **Verify** - All changes committed AND pushed
+6. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
 - Work is NOT complete until `git push` succeeds
@@ -419,89 +392,35 @@ Host-specific details for doc1, igpu, and framework: `bd show nixosconfig-6bn`.
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 
-<!-- BEGIN BEADS INTEGRATION -->
-## Issue Tracking with bd (beads)
+## Issue Tracking with GitHub Issues
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+Use **GitHub issues** (via `gh`) for all non-trivial task tracking. Lightweight TODOs go in `docs/todo/*.md`.
 
-### Why bd?
-
-- Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Auto-syncs to JSONL for version control
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
-
-### Quick Start
-
-**Check for ready work:**
+### Quick reference
 
 ```bash
-bd ready --json
+gh issue list --state=open              # See open issues
+gh issue list --search="label:bug"      # Filter by label
+gh issue view <n>                       # View issue details
+gh issue create --title "..." --body "..." --label bug,priority:high
+gh issue close <n> --reason completed --comment "Shipped in <commit>"
+gh issue comment <n> --body "..."       # Add a comment
 ```
 
-**Create new issues:**
+### Suggested labels
 
-```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
-```
+Apply labels per issue as appropriate:
 
-**Claim and update:**
+- **Type**: `bug`, `feature`, `task`, `chore`, `epic`
+- **Priority**: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
+- **Area**: `area:nix`, `area:containers`, `area:monitoring`, `area:vm`, etc.
 
-```bash
-bd update bd-42 --status in_progress --json
-bd update bd-42 --priority 1 --json
-```
+### Workflow for AI agents
 
-**Complete work:**
+1. **Check open work**: `gh issue list --state=open --assignee=@me` (or no assignee for grab-bag).
+2. **Claim a task**: `gh issue edit <n> --add-assignee @me` and drop a starter comment.
+3. **Work on it**: Implement, test, document.
+4. **Discover new work?** `gh issue create` and, if related, link it in a comment on the parent (`Related to #<n>`).
+5. **Complete**: Commit with `Closes #<n>` in the message, or close explicitly with `gh issue close <n>`.
 
-```bash
-bd close bd-42 --reason "Completed" --json
-```
-
-### Issue Types
-
-- `bug` - Something broken
-- `feature` - New functionality
-- `task` - Work item (tests, docs, refactoring)
-- `epic` - Large feature with subtasks
-- `chore` - Maintenance (dependencies, tooling)
-
-### Priorities
-
-- `0` - Critical (security, data loss, broken builds)
-- `1` - High (major features, important bugs)
-- `2` - Medium (default, nice-to-have)
-- `3` - Low (polish, optimization)
-- `4` - Backlog (future ideas)
-
-### Workflow for AI Agents
-
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task**: `bd update <id> --status in_progress`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-
-### Auto-Sync
-
-bd automatically syncs with git:
-
-- Exports to `.beads/issues.jsonl` after changes (5s debounce)
-- Imports from JSONL when newer (e.g., after `git pull`)
-- No manual export/import needed!
-
-### Important Rules
-
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
-
-For more details, see README.md and docs/QUICKSTART.md.
-
-<!-- END BEADS INTEGRATION -->
+Historical issues from the retired beads tracker are read-only in `docs/beads-archive.md`.

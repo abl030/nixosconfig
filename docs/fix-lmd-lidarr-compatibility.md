@@ -72,7 +72,6 @@ The hearring-aid docs reference a "Tubifarry" Lidarr plugin that may change how 
 - LMD on port 5001, LRCLIB on 3300, MB Web on 5200
 - Lidarr on doc2, metadatasource = `http://localhost:5001/`
 - Lidarr MCP uses `https://lidarr.ablz.au` (nginx proxy, port 8686 not in firewall)
-- Beads issue: `bd show nixosconfig-91b`
 
 ## Verification
 

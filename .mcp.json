@@ -5,12 +5,6 @@
       "args": [
         "mcp-nixos"
       ]
-    },
-    "beads": {
-      "command": "uvx",
-      "args": [
-        "beads-mcp"
-      ]
     }
   }
 }

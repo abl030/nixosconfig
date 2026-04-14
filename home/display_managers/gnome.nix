@@ -21,5 +21,4 @@
   imports = [
     # ./gnome_configs/${hostname}.nix
   ];
-
 }

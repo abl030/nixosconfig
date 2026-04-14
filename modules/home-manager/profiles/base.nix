@@ -13,30 +13,6 @@
     enable = lib.mkDefault true;
     agentTeams = lib.mkDefault true;
     repoMemoryDirectory = lib.mkDefault ".claude/memory";
-    settings = lib.mkDefault {
-      hooks = {
-        SessionStart = [
-          {
-            hooks = [
-              {
-                type = "command";
-                command = "if [ -d .beads ]; then bd prime 2>/dev/null; fi";
-              }
-            ];
-          }
-        ];
-        PreCompact = [
-          {
-            hooks = [
-              {
-                type = "command";
-                command = "if [ -d .beads ]; then bd sync 2>/dev/null; fi";
-              }
-            ];
-          }
-        ];
-      };
-    };
     plugins = lib.mkDefault [
       {
         source = inputs.claude-plugin-ha-skills;

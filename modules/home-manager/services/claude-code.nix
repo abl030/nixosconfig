@@ -11,100 +11,6 @@
 #       pluginName = "my-plugin";
 #     }];
 #   };
-#
-# ============================================================================
-# Beads Issue Tracking — Centralised Dolt Backend
-# ============================================================================
-#
-# This module installs beads (bd) and optionally runs a Dolt SQL server.
-# Beads is the project's issue tracker — it replaces markdown TODOs, external
-# trackers, etc.
-#
-# ## Architecture (centralised model)
-#
-# doc1 (proxmox-vm) runs the single Dolt SQL server (doltServer = true).
-# All other hosts connect to it over Tailscale — they do NOT run dolt-server.
-#
-#   framework ──┐
-#   wsl ────────┤
-#   epimetheus ─┼──> doc1 dolt-server (100.89.160.60:3307) ──> ~/.local/share/dolt/beads/
-#   igpu ───────┤
-#   dev ────────┘
-#
-# The Dolt server binds 0.0.0.0:3307. Access is restricted to Tailscale — the
-# tailscale module sets trustedInterfaces = ["tailscale0"], so port 3307 is
-# reachable over Tailscale but NOT on the LAN.
-#
-# Authentication: user "beads" / password "beads" (created by dolt-init script).
-# The BEADS_DOLT_PASSWORD env var is set automatically by this module.
-#
-# ## Data Flow
-#
-#   Dolt DB (doc1)  <-- live source of truth, all hosts read/write here
-#         |
-#   git hooks (pre-commit) --> export Dolt to .beads/issues.jsonl
-#   git hooks (post-merge) --> import .beads/issues.jsonl into Dolt
-#         |
-#   .beads/issues.jsonl  <-- git-tracked, portable backup, travels with repo
-#
-# The JSONL file IS still git-tracked and used by hooks. What's obsolete is
-# the old beads-sync branch and the daemon auto-push/pull to that branch.
-#
-# ## Migration History
-#
-# 1. SQLite era: beads used .beads/beads.db per clone (fragile, no sync)
-# 2. Dolt + JSONL sync era (commit db8a125): each host ran local dolt-server,
-#    synced via JSONL on the beads-sync git branch
-# 3. Centralised Dolt era (current): single server on doc1, all hosts connect
-#    over Tailscale. Old .beads/beads.db files can be safely deleted.
-#
-# ## doc1 (server) Setup — already done
-#
-# doc1 has doltServer = true in its home.nix. Data lives in
-# ~/.local/share/dolt/beads/. The dolt-init ExecStartPre script creates the
-# "beads" SQL user automatically on every start.
-#
-# Initial setup was:
-#   cd ~/nixosconfig
-#   bd init --prefix nixosconfig --server-host 127.0.0.1 --server-port 3307 --server-user beads
-#   bd hooks install --force
-#   bd config set beads.role maintainer
-#
-# ## Remote Host Setup (framework, wsl, epimetheus, igpu, dev, caddy)
-#
-# After `nixos-rebuild switch` or `home-manager switch` picks up this flake,
-# run these commands in the nixosconfig checkout:
-#
-#   Step 1: Init beads pointing at doc1's Dolt server
-#     cd ~/nixosconfig
-#     bd init --prefix nixosconfig \
-#       --server-host 100.89.160.60 \
-#       --server-port 3307 \
-#       --server-user beads
-#     # Password is set automatically via BEADS_DOLT_PASSWORD env var
-#
-#   Step 2: Install git hooks
-#     bd hooks install --force
-#     bd config set beads.role maintainer
-#
-#   Step 3: Verify
-#     bd stats    # Should show all issues immediately (reads from doc1)
-#     bd ready    # Should list available work
-#
-# ## Troubleshooting
-#
-#   - "LEGACY DATABASE" error: run `bd migrate --update-repo-id`
-#   - Can't connect to doc1: check `tailscale ping doc1` and that dolt-server
-#     is running on doc1: `ssh doc1 systemctl --user status dolt-server`
-#   - Dolt server won't start: check `journalctl --user -u dolt-server`
-#     Common cause: stale lock file in ~/.local/share/dolt/beads/
-#   - Empty stats after init: the JSONL in the repo is the fallback — run
-#     `bd init --prefix nixosconfig --from-jsonl --force` to hydrate from it
-#
-# ## Hosts configured
-#   - proxmox-vm (doc1) — server, doltServer = true
-#   - All others — connect to doc1 as remote clients (pending setup)
-# ============================================================================
 {
   config,
   lib,
@@ -278,34 +184,6 @@
 
   knownMarketplacesFile = pkgs.writeText "nix-known-marketplaces.json" knownMarketplacesJson;
   installedPluginsFile = pkgs.writeText "nix-installed-plugins.json" installedPluginsJson;
-
-  # Dolt data directory for beads — initialised lazily by ExecStartPre
-  doltDataDir = "${config.home.homeDirectory}/.local/share/dolt/beads";
-
-  doltInitScript = pkgs.writeShellScript "dolt-init" ''
-    set -euo pipefail
-    export PATH="${lib.makeBinPath [pkgs.coreutils pkgs.dolt pkgs.git]}:$PATH"
-    DATA_DIR="${doltDataDir}"
-    mkdir -p "$DATA_DIR"
-
-    # Set dolt identity if not already configured
-    if ! dolt config --global --get user.name >/dev/null 2>&1; then
-      dolt config --global --add user.name "$(git config user.name || echo "$USER")"
-    fi
-    if ! dolt config --global --get user.email >/dev/null 2>&1; then
-      dolt config --global --add user.email "$(git config user.email || echo "$USER@localhost")"
-    fi
-
-    # Init dolt repo if not already done
-    if [ ! -d "$DATA_DIR/.dolt" ]; then
-      cd "$DATA_DIR" && dolt init
-    fi
-
-    # Ensure the beads user exists so remote hosts can connect over Tailscale
-    cd "$DATA_DIR"
-    dolt sql -q "CREATE USER IF NOT EXISTS 'beads'@'%' IDENTIFIED BY 'beads';" || true
-    dolt sql -q "GRANT ALL PRIVILEGES ON *.* TO 'beads'@'%';" || true
-  '';
 in {
   options.homelab.claudeCode = {
     enable = lib.mkEnableOption "Claude Code (package, settings, plugins)";
@@ -345,19 +223,10 @@ in {
       default = [];
       description = "List of Claude Code plugins to install";
     };
-
-    doltServer = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Whether this host runs the centralised Dolt SQL server for beads. Only doc1 should set this to true.";
-    };
   };
 
   config = lib.mkIf cfg.enable {
     home = {
-      # Beads Dolt password for connecting to doc1's centralised server
-      sessionVariables.BEADS_DOLT_PASSWORD = "beads";
-
       # Install claude-code and MCP server packages
       packages = [
         pkgs.claude-code
@@ -365,8 +234,6 @@ in {
         pkgs.pfsense-mcp
         pkgs.loki-mcp
         pkgs.vinsight-mcp
-        pkgs.beads
-        pkgs.dolt
         pkgs.nodejs
         pkgs.playwright-mcp
         pkgs.sox # Required for Claude Code /voice mode
@@ -467,22 +334,6 @@ in {
           fi
         ''}
       '';
-    };
-
-    # Dolt SQL server — only runs on the host designated as the central server (doc1)
-    systemd.user.services.dolt-server = lib.mkIf cfg.doltServer {
-      Unit = {
-        Description = "Dolt SQL server for beads";
-        After = ["default.target"];
-      };
-      Service = {
-        Type = "simple";
-        ExecStartPre = "${doltInitScript}";
-        ExecStart = "${pkgs.dolt}/bin/dolt sql-server --port 3307 --host 0.0.0.0 --data-dir ${doltDataDir}";
-        Restart = "on-failure";
-        RestartSec = 5;
-      };
-      Install.WantedBy = ["default.target"];
     };
   };
 }
