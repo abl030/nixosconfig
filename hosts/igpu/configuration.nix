@@ -47,7 +47,7 @@
       enable = true;
       collectGarbage = true;
       trim = true;
-      rebootOnKernelUpdate = true;
+      rebootOnKernelUpdate = false;
     };
   };
 
