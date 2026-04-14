@@ -161,6 +161,18 @@ Prompt shape:
 
 Fold the subagent's findings into your final report — especially the fleet audit, which turns a single-service fix into a systemic one.
 
+## Step 7b: Rule audit for modules touched by this debug
+
+Every debug session touches a set of modules. Before closing out, spot-check each one against `.claude/rules/nixos-service-modules.md` — the checklist items in particular. Typical things that silently drift out of compliance over time:
+
+- Missing `homelab.monitoring.monitors` entry (service can die invisibly — this was how the 2026-04-13 discogs-api outage slipped for 28h)
+- Missing `homelab.localProxy.hosts` for web-facing services
+- Missing `homelab.nfsWatchdog` for NFS-dependent services
+- Missing or incorrect `restartTriggers` on long-running services / stateful oneshots that depend on a container (inner container toplevel vs. host-side unit)
+- Secrets declared in the wrong place or with wrong ownership
+
+You don't need to fix everything you find — just flag drift in the final report so the user can decide whether to bundle fixes into the same PR or file follow-ups. The point is periodic sampling: every debug session is an opportunity to harden a small piece of the fleet.
+
 ## Step 8: Present findings to user
 
 **NEVER fix anything automatically.** Your job is to identify the root cause, trace the code path, and present a clear diagnosis for the user to review.
@@ -171,8 +183,9 @@ Report to the user:
 3. **Code path** — which NixOS module/config file is responsible, with file paths and line numbers
 4. **Confirmation** — whether the subagent agreed, and any additional findings
 5. **Fleet audit** — other modules at risk of the same failure (from subagent)
-6. **Suggested fix** — what change would resolve it (describe, don't apply)
-7. **Immediate workaround** — e.g., `sudo systemctl start <service>` if the service just needs a kick
+6. **Rule drift** — any compliance gaps spotted in touched modules (from Step 7b)
+7. **Suggested fix** — what change would resolve it (describe, don't apply)
+8. **Immediate workaround** — e.g., `sudo systemctl start <service>` if the service just needs a kick
 
 ## Notes
 

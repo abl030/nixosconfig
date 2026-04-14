@@ -89,11 +89,15 @@ in {
     };
 
     # API server — long-running axum HTTP server
+    # restartTriggers: see immich.nix comment — Requires= cascade-stops discogs-api
+    # when the container restarts, and switch-to-configuration won't bring it back
+    # unless the container's host-side unit derivation changed.
     systemd.services.discogs-api = {
       description = "Discogs mirror JSON API — discogs.ablz.au";
       after = ["container@discogs-db.service"];
       requires = ["container@discogs-db.service"];
       wantedBy = ["multi-user.target"];
+      restartTriggers = [config.systemd.units."container@discogs-db.service".unit];
       serviceConfig = {
         Type = "simple";
         ExecStart = "${discogsPkg}/bin/discogs-api --dsn '${pgc.dbUri}' --port ${toString cfg.apiPort}";
@@ -102,11 +106,20 @@ in {
       };
     };
 
-    homelab.localProxy.hosts = [
-      {
-        host = "discogs.ablz.au";
-        port = cfg.apiPort;
-      }
-    ];
+    homelab = {
+      localProxy.hosts = [
+        {
+          host = "discogs.ablz.au";
+          port = cfg.apiPort;
+        }
+      ];
+
+      monitoring.monitors = [
+        {
+          name = "Discogs";
+          url = "https://discogs.ablz.au/health";
+        }
+      ];
+    };
   };
 }

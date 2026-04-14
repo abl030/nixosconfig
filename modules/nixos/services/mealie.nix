@@ -63,7 +63,7 @@ in {
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
-      restartTriggers = [config.containers.mealie-db.config.system.build.toplevel];
+      restartTriggers = [config.systemd.units."container@mealie-db.service".unit];
       serviceConfig =
         {
           DynamicUser = lib.mkForce false;
