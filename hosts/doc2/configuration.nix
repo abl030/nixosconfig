@@ -186,7 +186,7 @@
     tailscaleShare.overseerr = {
       enable = true;
       fqdn = "overseer.ablz.au";
-      upstream = "http://127.0.0.1:5055";
+      upstream = "http://host.docker.internal:5055";
       dataDir = "/mnt/virtio/overseerr/ts";
       hostname = "overseer";
     };

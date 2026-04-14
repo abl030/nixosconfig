@@ -204,6 +204,10 @@ in {
           extraOptions = [
             # Share the tailscale container's network namespace — caddy binds on the TS IP
             "--network=container:ts-${name}"
+            # Resolve host.docker.internal to the host gateway so the upstream
+            # (e.g. http://host.docker.internal:5055) can reach services on the host.
+            # 127.0.0.1 in this namespace is the container loopback, NOT the host.
+            "--add-host=host.docker.internal:host-gateway"
           ];
           dependsOn = ["ts-${name}"];
         };
