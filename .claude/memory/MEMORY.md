@@ -6,7 +6,9 @@
 
 ## Critical "Never Do" Rules
 - NEVER run `npm install` manually in a Nix-managed Claude Code installation (breaks the store irreparably)
-## Key Decisions (see beads for rationale)
-- Custom Claude Code HM module stays over official `programs.claude-code` (bead nixosconfig-d7u)
-- Episodic-memory plugin disabled (bead nixosconfig-d7u)
+
+## Key Decisions
+- Custom Claude Code HM module stays over official `programs.claude-code`
+- Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat
+- Task tracking lives in GitHub issues (beads removed 2026-04-14 — see `docs/beads-archive.md`)
