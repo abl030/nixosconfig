@@ -43,7 +43,7 @@ in {
     systemd.services.atuin = {
       after = ["container@atuin-db.service"];
       requires = ["container@atuin-db.service"];
-      restartTriggers = [config.containers.atuin-db.config.system.build.toplevel];
+      restartTriggers = [config.systemd.units."container@atuin-db.service".unit];
     };
 
     homelab = {

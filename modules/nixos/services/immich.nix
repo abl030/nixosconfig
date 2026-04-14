@@ -93,13 +93,22 @@ in {
     # restartTriggers: switch-to-configuration only restarts services whose unit
     # files changed.  When the container is restarted (its config changed),
     # Requires= cascade-stops immich-server, but nobody brings it back because
-    # immich-server's own unit file may not have changed.  Tying the trigger to
-    # the container's toplevel ensures switch-to-configuration always explicitly
-    # restarts immich-server whenever the DB container is rebuilt.
+    # immich-server's own unit file may not have changed.  Pinning the trigger
+    # to the container's host-side unit derivation (`systemd.units.<name>.unit`,
+    # which captures the ExecStart/ExecReload wrapper scripts) ensures
+    # switch-to-configuration always explicitly restarts immich-server whenever
+    # the DB container's unit wrapper changes.
+    #
+    # DO NOT pin `config.containers.immich-db.config.system.build.toplevel`
+    # here — that's the INNER NixOS system, not the outer unit wrapper.  The
+    # wrapper is rebuilt by nixpkgs independently (unit-script-container_*-start),
+    # which restarts the container while leaving the inner toplevel unchanged —
+    # a silent cascade-stop orphaning trap.  See PR description for the 2026-04-13
+    # incident that surfaced this.
     systemd.services.immich-server = {
       after = ["container@immich-db.service"];
       requires = ["container@immich-db.service"];
-      restartTriggers = [config.containers.immich-db.config.system.build.toplevel];
+      restartTriggers = [config.systemd.units."container@immich-db.service".unit];
     };
 
     # Sops secret for Immich env (DB_PASSWORD required for TCP connections)
