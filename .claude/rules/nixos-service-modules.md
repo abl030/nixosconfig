@@ -195,6 +195,69 @@ virtualisation.oci-containers.containers.<name> = {
 };
 ```
 
+## External Sharing (tailscaleShare)
+
+Use `homelab.tailscaleShare` when a service needs to be accessible from **outside your tailnet** — e.g. sharing with someone on a different tailscale account. This is distinct from `localProxy` (LAN-only) and from the main doc2 tailscale node (which shares the whole VM).
+
+**Principle: one pinhole per application.** Each instance gets its own dedicated tailscale node identity and IP. Only that service is reachable — not the host, not other services.
+
+### When to use which
+
+| Pattern | DNS points to | Reachable from |
+|---|---|---|
+| `localProxy` | Doc2 LAN IP (192.168.1.35) | Your LAN only |
+| `tailscaleShare` | Sidecar tailscale IP (100.x.x.x) | Any tailnet (inter-tailnet) |
+
+A service can use both simultaneously — one FQDN for LAN access, another for inter-tailnet sharing (e.g. `request.ablz.au` + `overseer.ablz.au`).
+
+### Module signature
+
+```nix
+homelab.tailscaleShare.<name> = {
+  enable      = true;
+  fqdn        = "overseer.ablz.au";              # Cloudflare A record → tailscale IP
+  upstream    = "http://host.docker.internal:5055"; # NEVER use 127.0.0.1 — see below
+  dataDir     = "/mnt/virtio/overseerr/ts";       # tailscale state + caddy certs
+  hostname    = "overseer";                       # tailscale node name (default: attrset key)
+  firewallPorts = [5055];                         # ports to open on podman0 bridge
+};
+```
+
+### What gets provisioned per instance
+
+- `ts-<name>` OCI container — tailscale, joins tailnet with dedicated identity, persists state to `dataDir/ts-state/`
+- `caddy-<name>` OCI container — caddy-cloudflare image, shares ts's network namespace, handles HTTPS + ACME via Cloudflare DNS challenge, certs in `dataDir/caddy-data/`
+- `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP
+- sops secret `tailscale-share/<name>/authkey` — sourced from `secrets/hosts/<hostname>/<name>-tailscale-authkey.env`
+
+### Secret
+
+Create the auth key secret as a dotenv file (`.env` extension required — sops detects format by extension):
+
+```
+secrets/hosts/<hostname>/<name>-tailscale-authkey.env
+```
+
+Content: `TS_AUTHKEY=tskey-auth-<key>`. Generate a reusable auth key in the Tailscale admin panel.
+
+### Critical networking gotchas
+
+**1. Never use `127.0.0.1` as the upstream.**
+The caddy container shares the tailscale container's network namespace. `127.0.0.1` is the *container's* loopback — the host is not there. Use `http://host.docker.internal:<port>` instead.
+
+**2. `--add-host` goes on the ts container, not caddy.**
+Containers joining another container's network namespace (`--network=container:ts-<name>`) cannot set `--add-host` — Podman rejects it. The joining container inherits `/etc/hosts` from the namespace owner (ts). Set `--add-host=host.docker.internal:host-gateway` on the ts container; caddy picks it up automatically.
+
+**3. NixOS firewall blocks container→host by default.**
+Use `firewallPorts` to open the upstream service's port on the `podman0` bridge interface. Without this, caddy gets a 502 even though `host.docker.internal` resolves correctly.
+
+### Checklist additions for tailscaleShare
+
+- [ ] Secret file named `<name>-tailscale-authkey.env` (with `.env` extension) in `secrets/hosts/<hostname>/`
+- [ ] `upstream` uses `http://host.docker.internal:<port>`, not `127.0.0.1`
+- [ ] `firewallPorts` set to the upstream service's port
+- [ ] `dataDir` subdirs (`ts-state/`, `caddy-data/`, `caddy-config/`) survive any rsync operations (use `--exclude ts/` or similar if rsyncing the parent)
+
 ## Checklist
 
 Before submitting a new service module:
