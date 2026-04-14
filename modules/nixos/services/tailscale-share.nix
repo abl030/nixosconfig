@@ -122,6 +122,17 @@ in {
           default = name;
           description = "Tailscale node hostname (defaults to the attrset key).";
         };
+
+        firewallPorts = lib.mkOption {
+          type = lib.types.listOf lib.types.port;
+          default = [];
+          description = ''
+            TCP ports to open on the podman bridge interface (podman0) so the
+            Caddy container can reach services on the host. Required because
+            NixOS's firewall blocks container-to-host traffic by default.
+            Typically the port your upstream service listens on.
+          '';
+        };
       };
     }));
     default = {};
@@ -140,6 +151,12 @@ in {
   config = lib.mkIf (instances != {}) {
     # Podman infrastructure (idempotent if already enabled by another module)
     homelab.podman.enable = lib.mkDefault true;
+
+    # Open upstream ports on the podman bridge so containers can reach host services.
+    # NixOS firewall blocks container-to-host traffic by default; caddy uses
+    # host.docker.internal (10.88.0.1) which routes via the podman0 bridge.
+    networking.firewall.interfaces.podman0.allowedTCPPorts =
+      lib.concatLists (lib.mapAttrsToList (_: cfg: cfg.firewallPorts) instances);
 
     # Register containers for auto-update tracking
     homelab.podman.containers = lib.concatLists (lib.mapAttrsToList (name: _: [

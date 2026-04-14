@@ -189,6 +189,7 @@
       upstream = "http://host.docker.internal:5055";
       dataDir = "/mnt/virtio/overseerr/ts";
       hostname = "overseer";
+      firewallPorts = [5055];
     };
   };
 
