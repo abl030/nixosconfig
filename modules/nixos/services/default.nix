@@ -38,12 +38,14 @@
     ./uptime-kuma.nix
     ./jdownloader2.nix
     ./netboot.nix
+    ./overseerr.nix
     ./youtarr.nix
     ./musicbrainz.nix
     ./kopia.nix
     ./meelo.nix
     ./domain-monitor.nix
     ./nfs-watchdog.nix
+    ./tailscale-share.nix
     ./inotify-receiver.nix
     ./rtrfm-nowplaying
   ];

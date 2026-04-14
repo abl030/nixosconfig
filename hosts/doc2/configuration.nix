@@ -143,6 +143,10 @@
         mirrorDir = "/mnt/mirrors/discogs";
       };
       meelo.enable = false;
+      overseerr = {
+        enable = true;
+        dataDir = "/mnt/virtio/overseerr";
+      };
       domain-monitor.enable = true;
       rtrfm-nowplaying.enable = true;
       kopia = {
@@ -175,6 +179,17 @@
     };
 
     pve.enable = true;
+
+    # Per-service tailscale shares — each gets its own dedicated tailscale node
+    # (pinhole access: only that service is shared, not the whole VM).
+    # See modules/nixos/services/tailscale-share.nix.
+    tailscaleShare.overseerr = {
+      enable = true;
+      fqdn = "overseer.ablz.au";
+      upstream = "http://127.0.0.1:5055";
+      dataDir = "/mnt/virtio/overseerr/ts";
+      hostname = "overseer";
+    };
   };
 
   # Virtiofs mount — ALL service state lives here
