@@ -1,0 +1,229 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  # Only enabled instances
+  instances = lib.filterAttrs (_: v: v.enable) config.homelab.tailscaleShare;
+
+  # Generate a Cloudflare DNS sync script for one instance.
+  # After the tailscale container is online, queries its IP and upserts the A record.
+  mkDnsSyncScript = name: cfg:
+    pkgs.writeShellScript "tailscale-share-dns-sync-${name}" ''
+      set -euo pipefail
+
+      api="https://api.cloudflare.com/client/v4"
+      zone_name="ablz.au"
+      fqdn="${cfg.fqdn}"
+      ttl=60
+
+      # Extract token from the shared acme/cloudflare sops secret
+      token_file=${lib.escapeShellArg config.sops.secrets."acme/cloudflare".path}
+      raw_token=$(cat "$token_file")
+      if [[ "$raw_token" == *CLOUDFLARE_DNS_API_TOKEN=* ]]; then
+        token=$(printf '%s' "$raw_token" | ${pkgs.gnugrep}/bin/grep -m1 '^CLOUDFLARE_DNS_API_TOKEN=' | ${pkgs.coreutils}/bin/cut -d= -f2-)
+      else
+        token="$raw_token"
+      fi
+      token=$(printf '%s' "$token" | ${pkgs.coreutils}/bin/tr -d '\r\n')
+      auth_header="Authorization: Bearer $token"
+      content_header="Content-Type: application/json"
+
+      # Wait for the tailscale container to be online and have an IP
+      echo "tailscale-share-dns-sync-${name}: waiting for tailscale online..."
+      max_wait=120
+      count=0
+      while ! ${config.virtualisation.podman.package}/bin/podman exec ts-${name} tailscale ip -4 &>/dev/null 2>&1; do
+        count=$((count + 1))
+        if [ "$count" -ge "$max_wait" ]; then
+          echo "tailscale-share-dns-sync-${name}: timed out waiting for tailscale" >&2
+          exit 1
+        fi
+        sleep 1
+      done
+
+      ts_ip=$(${config.virtualisation.podman.package}/bin/podman exec ts-${name} tailscale ip -4 | ${pkgs.coreutils}/bin/tr -d '\r\n')
+      echo "tailscale-share-dns-sync-${name}: tailscale IP is $ts_ip"
+
+      # Resolve zone ID
+      zone_resp=$(${pkgs.curl}/bin/curl -fsS -H "$auth_header" -H "$content_header" \
+        "$api/zones?name=$zone_name")
+      zone_id=$(printf '%s' "$zone_resp" | ${pkgs.jq}/bin/jq -r '.result[0].id')
+      if [[ -z "$zone_id" || "$zone_id" == "null" ]]; then
+        echo "tailscale-share-dns-sync-${name}: could not resolve zone id for $zone_name" >&2
+        exit 1
+      fi
+
+      # Look for an existing A record
+      records_resp=$(${pkgs.curl}/bin/curl -fsS -H "$auth_header" -H "$content_header" \
+        "$api/zones/$zone_id/dns_records?type=A&name=$fqdn")
+      record_id=$(printf '%s' "$records_resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""')
+
+      payload=$(printf '{"type":"A","name":"%s","content":"%s","ttl":%s,"proxied":false}' \
+        "$fqdn" "$ts_ip" "$ttl")
+
+      if [[ -n "$record_id" ]]; then
+        ${pkgs.curl}/bin/curl -fsS -X PUT -H "$auth_header" -H "$content_header" \
+          --data "$payload" "$api/zones/$zone_id/dns_records/$record_id" >/dev/null
+        echo "tailscale-share-dns-sync-${name}: updated $fqdn -> $ts_ip"
+      else
+        ${pkgs.curl}/bin/curl -fsS -X POST -H "$auth_header" -H "$content_header" \
+          --data "$payload" "$api/zones/$zone_id/dns_records" >/dev/null
+        echo "tailscale-share-dns-sync-${name}: created $fqdn -> $ts_ip"
+      fi
+    '';
+
+  # Generate a Caddyfile for one instance.
+  # Uses CLOUDFLARE_DNS_API_TOKEN from the caddy container's environment.
+  mkCaddyFile = name: cfg:
+    pkgs.writeTextFile {
+      name = "tailscale-share-${name}-Caddyfile";
+      text = ''
+        {
+          acme_dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+        }
+
+        ${cfg.fqdn} {
+          reverse_proxy ${cfg.upstream}
+        }
+      '';
+    };
+in {
+  options.homelab.tailscaleShare = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.submodule ({name, ...}: {
+      options = {
+        enable = lib.mkEnableOption "per-service tailscale share for ${name}";
+
+        fqdn = lib.mkOption {
+          type = lib.types.str;
+          description = "Public FQDN to expose this service at (e.g. overseer.ablz.au). A Cloudflare DNS A record is created pointing to the tailscale IP.";
+        };
+
+        upstream = lib.mkOption {
+          type = lib.types.str;
+          description = "Local upstream URL to reverse-proxy (e.g. http://127.0.0.1:5055).";
+        };
+
+        dataDir = lib.mkOption {
+          type = lib.types.str;
+          description = "Persistent data directory for tailscale state and Caddy data.";
+        };
+
+        hostname = lib.mkOption {
+          type = lib.types.str;
+          default = name;
+          description = "Tailscale node hostname (defaults to the attrset key).";
+        };
+      };
+    }));
+    default = {};
+    description = ''
+      Per-service tailscale share instances. Each instance provisions:
+      - A dedicated tailscale container with its own node identity and IP
+      - A Caddy container sharing that network namespace (pinhole, not the whole VM)
+      - A Cloudflare DNS A record synced to the tailscale IP on startup
+      - ACME certs via Cloudflare DNS challenge
+
+      Requires: homelab.podman.enable = true, sops secret "acme/cloudflare" on the host,
+      and a per-instance sops secret "tailscale-share/<name>/authkey" (dotenv: TS_AUTHKEY=...).
+    '';
+  };
+
+  config = lib.mkIf (instances != {}) {
+    # Podman infrastructure (idempotent if already enabled by another module)
+    homelab.podman.enable = lib.mkDefault true;
+
+    # Register containers for auto-update tracking
+    homelab.podman.containers = lib.concatLists (lib.mapAttrsToList (name: _: [
+      {
+        unit = "podman-ts-${name}.service";
+        image = "docker.io/tailscale/tailscale:latest";
+      }
+      {
+        unit = "podman-caddy-${name}.service";
+        image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
+      }
+    ]) instances);
+
+    # Persistent directories
+    systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (_: cfg: [
+      "d ${cfg.dataDir} 0755 root root - -"
+      "d ${cfg.dataDir}/ts-state 0755 root root - -"
+      "d ${cfg.dataDir}/caddy-data 0755 root root - -"
+      "d ${cfg.dataDir}/caddy-config 0755 root root - -"
+    ]) instances);
+
+    # OCI containers — tailscale + caddy per instance
+    virtualisation.oci-containers.containers = lib.mkMerge (lib.mapAttrsToList (name: cfg: {
+      # Tailscale sidecar: joins tailnet with a dedicated identity
+      "ts-${name}" = {
+        image = "docker.io/tailscale/tailscale:latest";
+        autoStart = true;
+        pull = "newer";
+        environment = {
+          TS_STATE_DIR = "/var/lib/tailscale";
+          TS_HOSTNAME = cfg.hostname;
+          # Do not accept routes from other nodes — pinhole only
+          TS_EXTRA_ARGS = "--accept-routes=false";
+        };
+        # Secret file format: TS_AUTHKEY=tskey-auth-...
+        environmentFiles = [config.sops.secrets."tailscale-share/${name}/authkey".path];
+        volumes = [
+          "${cfg.dataDir}/ts-state:/var/lib/tailscale"
+          "/dev/net/tun:/dev/net/tun"
+        ];
+        extraOptions = [
+          "--cap-add=NET_ADMIN"
+          "--cap-add=SYS_MODULE"
+        ];
+      };
+
+      # Caddy: shares tailscale's network namespace, handles HTTPS + ACME
+      "caddy-${name}" = {
+        image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
+        autoStart = true;
+        pull = "newer";
+        # Reuse the existing acme/cloudflare sops secret (CLOUDFLARE_DNS_API_TOKEN=...)
+        environmentFiles = [config.sops.secrets."acme/cloudflare".path];
+        volumes = [
+          "${toString (mkCaddyFile name cfg)}:/etc/caddy/Caddyfile:ro"
+          "${cfg.dataDir}/caddy-data:/data"
+          "${cfg.dataDir}/caddy-config:/config"
+        ];
+        extraOptions = [
+          # Share the tailscale container's network namespace — caddy binds on the TS IP
+          "--network=container:ts-${name}"
+        ];
+        dependsOn = ["ts-${name}"];
+      };
+    }) instances);
+
+    # Systemd service overrides + DNS sync
+    systemd.services = lib.mkMerge (lib.mapAttrsToList (name: cfg: {
+      # DNS sync: wait for tailscale online, upsert Cloudflare A record
+      "tailscale-share-dns-sync-${name}" = {
+        description = "Sync Cloudflare DNS for ${name} tailscale share (${cfg.fqdn})";
+        after = ["podman-ts-${name}.service" "network-online.target"];
+        wants = ["network-online.target"];
+        requires = ["podman-ts-${name}.service"];
+        wantedBy = ["multi-user.target"];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = mkDnsSyncScript name cfg;
+        };
+      };
+    }) instances);
+
+    # Per-instance sops secrets for tailscale auth keys
+    # Secret file must be dotenv format: TS_AUTHKEY=tskey-auth-...
+    sops.secrets = lib.mkMerge (lib.mapAttrsToList (name: _: {
+      "tailscale-share/${name}/authkey" = {
+        sopsFile = config.homelab.secrets.sopsFile "${name}-tailscale-authkey";
+        format = "dotenv";
+        mode = "0400";
+      };
+    }) instances);
+  };
+}
