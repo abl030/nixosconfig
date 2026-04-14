@@ -109,7 +109,12 @@ in {
 
         upstream = lib.mkOption {
           type = lib.types.str;
-          description = "Local upstream URL to reverse-proxy (e.g. http://127.0.0.1:5055).";
+          description = ''
+            Local upstream URL to reverse-proxy. MUST use http://host.docker.internal:<port>
+            — NOT 127.0.0.1. The caddy container shares the tailscale container's network
+            namespace; 127.0.0.1 is the container loopback, not the host.
+            Also set firewallPorts to open the port on the podman0 bridge.
+          '';
         };
 
         dataDir = lib.mkOption {

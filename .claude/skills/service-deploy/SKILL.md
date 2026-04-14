@@ -38,11 +38,18 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    };
    ```
 
-3. **Deploy both hosts in parallel** (but be aware of DNS race below):
+3. **Deploy each host** — push first, then SSH in and rebuild from GitHub:
    ```bash
-   ssh <source> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<source-hostname> --refresh 2>&1" &
-   ssh <dest>   "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<dest-hostname>   --refresh 2>&1"
+   git push
+
+   # ALWAYS verify hostname before rebuilding — wrong hostname = wrong config silently applied
+   ssh <source> "hostname"   # must match #<source-hostname> below
+   ssh <source> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<source-hostname> --refresh"
+
+   ssh <dest> "hostname"     # must match #<dest-hostname> below
+   ssh <dest> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<dest-hostname> --refresh"
    ```
+   The remote host fetches from GitHub and builds locally — nothing is transferred over your SSH connection. This is the only pattern that works remotely (VPN, tailscale, etc.). Do NOT use `--target-host`: it builds locally and pushes the closure over the wire, requiring direct SSH reachability from your machine.
 
 4. **DNS race condition** — when both hosts run `homelab-dns-sync` simultaneously, the source's deletion can race with the destination's creation and win. After parallel deploy, always verify DNS:
    ```bash
