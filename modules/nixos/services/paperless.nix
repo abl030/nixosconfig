@@ -23,7 +23,7 @@
   dbAndNfs = {
     after = ["container@paperless-db.service" "mnt-data.mount"];
     requires = ["container@paperless-db.service" "mnt-data.mount"];
-    restartTriggers = [config.containers.paperless-db.config.system.build.toplevel];
+    restartTriggers = [config.systemd.units."container@paperless-db.service".unit];
   };
 in {
   options.homelab.services.paperless = {

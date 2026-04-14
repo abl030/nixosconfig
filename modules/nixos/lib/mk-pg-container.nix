@@ -10,6 +10,18 @@
 #
 # IP addressing: hostNum N → host 192.168.100.(N*2), container 192.168.100.(N*2+1)
 # Each service gets a unique hostNum to avoid collisions.
+#
+# CASCADE-STOP GOTCHA (see PR about 2026-04-13 mealie/atuin/discogs-api outage):
+# Any service that `Requires=container@<name>-db.service` MUST declare
+#   restartTriggers = [config.systemd.units."container@<name>-db.service".unit];
+# NOT `config.containers.<name>-db.config.system.build.toplevel`.
+# The former pins the host-side unit wrapper (ExecStart/ExecReload scripts, which
+# nixpkgs rebuilds whenever systemd-nspawn helpers change). The latter pins the
+# INNER NixOS system of the container, which can stay stable while the wrapper
+# changes — causing the container to restart, `Requires=` to cascade-stop the app,
+# and switch-to-configuration to never bring the app back (because its own
+# trigger hash didn't change). Silent failure mode, hard to notice without
+# monitoring.
 {
   pkgs,
   name,

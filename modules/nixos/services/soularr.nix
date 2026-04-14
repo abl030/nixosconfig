@@ -144,20 +144,21 @@
     # Strip the trailing newline so that the parent template's own newline
     # produces exactly one blank line between this section and the next
     # (matches the spacing of the other [Section] blocks in configTemplate).
-  in lib.strings.removeSuffix "\n" ''
-    [Quality Ranks]
-    # Declarative mirror of lib/quality.py:QualityRankConfig.defaults(). Retune
-    # via homelab.services.soularr.qualityRanks.* in this module (NOT by hand
-    # editing config.ini — Nix regenerates this file on every rebuild).
-    bitrate_metric = ${qr.bitrateMetric}
-    gate_min_rank = ${qr.gateMinRank}
-    within_rank_tolerance_kbps = ${toString qr.withinRankToleranceKbps}
+  in
+    lib.strings.removeSuffix "\n" ''
+      [Quality Ranks]
+      # Declarative mirror of lib/quality.py:QualityRankConfig.defaults(). Retune
+      # via homelab.services.soularr.qualityRanks.* in this module (NOT by hand
+      # editing config.ini — Nix regenerates this file on every rebuild).
+      bitrate_metric = ${qr.bitrateMetric}
+      gate_min_rank = ${qr.gateMinRank}
+      within_rank_tolerance_kbps = ${toString qr.withinRankToleranceKbps}
 
-    ${bandSection "opus" qr.bands.opus}
-    ${bandSection "mp3_vbr" qr.bands.mp3Vbr}
-    ${bandSection "mp3_cbr" qr.bands.mp3Cbr}
-    ${bandSection "aac" qr.bands.aac}
-  '';
+      ${bandSection "opus" qr.bands.opus}
+      ${bandSection "mp3_vbr" qr.bands.mp3Vbr}
+      ${bandSection "mp3_cbr" qr.bands.mp3Cbr}
+      ${bandSection "aac" qr.bands.aac}
+    '';
 
   # Generate config.ini from module options + sops secrets at runtime
   configTemplate = pkgs.writeText "soularr-config.ini" ''
@@ -554,6 +555,12 @@ in {
       requires = ["container@soularr-db.service"];
       wantedBy = ["multi-user.target"];
       restartIfChanged = true;
+      # restartTriggers: oneshot with RemainAfterExit=true is cascade-stopped to
+      # `inactive` (not `active (exited)`) when its DB container restarts.
+      # Pinning the container unit derivation here ensures switch-to-configuration
+      # explicitly re-runs the migrator on every relevant change.  See PR for
+      # the broader pattern.
+      restartTriggers = [config.systemd.units."container@soularr-db.service".unit];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -620,7 +627,7 @@ in {
       # RemainAfterExit=true, so this hard dep doesn't trigger spurious
       # cascade-stops during normal operation.
       requires = ["soularr-db-migrate.service"];
-      restartTriggers = [config.containers.soularr-db.config.system.build.toplevel];
+      restartTriggers = [config.systemd.units."container@soularr-db.service".unit];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
         Type = "simple";
