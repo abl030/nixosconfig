@@ -12,8 +12,11 @@
 # Each service gets a unique hostNum to avoid collisions.
 #
 # CASCADE-STOP GOTCHA (see PR about 2026-04-13 mealie/atuin/discogs-api outage):
-# Any service that `Requires=container@<name>-db.service` MUST declare
+# Any long-running service, or oneshot whose active/completed state matters to
+# dependents, that `Requires=container@<name>-db.service` MUST declare
 #   restartTriggers = [config.systemd.units."container@<name>-db.service".unit];
+# Timer-driven oneshots that are expected to be inactive between runs usually do
+# not need this.
 # NOT `config.containers.<name>-db.config.system.build.toplevel`.
 # The former pins the host-side unit wrapper (ExecStart/ExecReload scripts, which
 # nixpkgs rebuilds whenever systemd-nspawn helpers change). The latter pins the

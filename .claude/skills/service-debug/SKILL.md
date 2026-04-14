@@ -168,7 +168,7 @@ Every debug session touches a set of modules. Before closing out, spot-check eac
 - Missing `homelab.monitoring.monitors` entry (service can die invisibly — this was how the 2026-04-13 discogs-api outage slipped for 28h)
 - Missing `homelab.localProxy.hosts` for web-facing services
 - Missing `homelab.nfsWatchdog` for NFS-dependent services
-- `restartTriggers` pinning the wrong derivation (inner container toplevel vs. host-side unit)
+- Missing or incorrect `restartTriggers` on long-running services / stateful oneshots that depend on a container (inner container toplevel vs. host-side unit)
 - Secrets declared in the wrong place or with wrong ownership
 
 You don't need to fix everything you find — just flag drift in the final report so the user can decide whether to bundle fixes into the same PR or file follow-ups. The point is periodic sampling: every debug session is an opportunity to harden a small piece of the fleet.

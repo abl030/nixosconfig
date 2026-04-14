@@ -61,7 +61,7 @@ services.<service>.database = {
 
 ### CRITICAL: restartTriggers for container dependencies
 
-When a service uses `Requires=` on a DB container, you MUST add `restartTriggers` to prevent cascade-stop orphaning. Without this, `switch-to-configuration` restarts the container (its config changed), systemd cascade-stops the app service, but nobody brings it back.
+When a service uses `Requires=` on a DB container and it must be explicitly brought back after container reconfiguration, you MUST add `restartTriggers` to prevent cascade-stop orphaning. Without this, `switch-to-configuration` restarts the container (its config changed), systemd cascade-stops the dependent unit, but nobody brings it back.
 
 ```nix
 systemd.services.<service> = {
@@ -70,6 +70,8 @@ systemd.services.<service> = {
   restartTriggers = [config.systemd.units."container@<service>-db.service".unit];
 };
 ```
+
+This is primarily for long-running services and oneshot units whose active/completed state matters to dependents. Timer-driven oneshots that are expected to be inactive between runs usually do not need this.
 
 **Pin the host-side unit derivation, NOT the inner container toplevel.** A previous iteration of this rule recommended `config.containers.<svc>-db.config.system.build.toplevel` — this is WRONG and caused a silent multi-service outage on 2026-04-13.
 
