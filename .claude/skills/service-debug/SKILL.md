@@ -147,7 +147,21 @@ dig <service>.ablz.au +short
 ### Uptime Kuma monitor
 Use the `/uptime-kuma` skill to check monitor status.
 
-## Step 7: Present findings to user
+## Step 7: Confirmation round + fleet audit (subagent)
+
+Before presenting your diagnosis, spawn a general-purpose subagent to:
+1. **Independently confirm** the root cause from scratch (do NOT include your analysis in the prompt — just the service names, host, timestamp of failure, and how to access logs/files). This catches confirmation bias.
+2. **Audit the fleet** for other modules with the same at-risk pattern (e.g. other services using `mk-pg-container`, other `Requires=` on nspawn containers, etc.).
+
+Prompt shape:
+- Give the subagent: repo root, affected services + host + failure timestamps, SSH alias, relevant module file paths, the canonical pattern reference (e.g. `immich.nix` comment), and any shared libs (`modules/nixos/lib/mk-pg-container.nix`).
+- Ask for: independent diagnosis, at-risk modules table (file + host + current status + risk level), recommended fix pattern.
+- Explicitly say: read-only, no fixes, no restarts. Keep report under 400 words.
+- Run in background if the investigation will be non-trivial.
+
+Fold the subagent's findings into your final report — especially the fleet audit, which turns a single-service fix into a systemic one.
+
+## Step 8: Present findings to user
 
 **NEVER fix anything automatically.** Your job is to identify the root cause, trace the code path, and present a clear diagnosis for the user to review.
 
@@ -155,8 +169,10 @@ Report to the user:
 1. **Service status** — what state it's in and since when
 2. **Root cause** — what caused the failure (with log evidence)
 3. **Code path** — which NixOS module/config file is responsible, with file paths and line numbers
-4. **Suggested fix** — what change would resolve it (describe, don't apply)
-5. **Immediate workaround** — e.g., `sudo systemctl start <service>` if the service just needs a kick
+4. **Confirmation** — whether the subagent agreed, and any additional findings
+5. **Fleet audit** — other modules at risk of the same failure (from subagent)
+6. **Suggested fix** — what change would resolve it (describe, don't apply)
+7. **Immediate workaround** — e.g., `sudo systemctl start <service>` if the service just needs a kick
 
 ## Notes
 
