@@ -283,16 +283,24 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # Source-restrict the syslog port to declared senders only. nftables
-    # (NixOS default from 25.05). No blanket allowedTCPPorts/UDP entry —
-    # the port stays closed to everyone else on the LAN.
-    networking.firewall.extraInputRules = lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) (
-      lib.concatMapStringsSep "\n" (src: ''
-        ip saddr ${src.ip} udp dport ${toString syslogCfg.port} accept
-        ip saddr ${src.ip} tcp dport ${toString syslogCfg.port} accept
-      '')
-      syslogCfg.sources
-    );
+    # Source-restrict the syslog port to declared senders only. NixOS's
+    # firewall module still uses iptables on our hosts (nftables not
+    # enabled), so go through extraCommands/extraStopCommands. No blanket
+    # allowedTCPPorts/UDP entry — the port stays closed to every other
+    # LAN host.
+    networking.firewall = lib.mkMerge [
+      (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
+        extraCommands = lib.concatMapStringsSep "\n" (src: ''
+          iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+          iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+          ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
+        '') syslogCfg.sources;
+        extraStopCommands = lib.concatMapStringsSep "\n" (src: ''
+          iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+          iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+        '') syslogCfg.sources;
+      })
+    ];
 
     systemd.tmpfiles.rules = [
       "d /var/lib/alloy 0755 root root - -"
