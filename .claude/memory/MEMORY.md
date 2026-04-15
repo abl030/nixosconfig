@@ -6,6 +6,7 @@
 
 ## Critical "Never Do" Rules
 - NEVER run `npm install` manually in a Nix-managed Claude Code installation (breaks the store irreparably)
+- NEVER flush pfSense firewall states after rule changes — see [feedback_pfsense_no_state_flush.md](feedback_pfsense_no_state_flush.md)
 
 ## Key Decisions
 - Custom Claude Code HM module stays over official `programs.claude-code`
