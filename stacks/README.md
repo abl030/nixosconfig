@@ -562,10 +562,11 @@ Without this, `systemctl restart mystack` silently fails to find containers.
 
 ### Dozzle Agent Needs Persistent engine-id
 
-> **Note (April 2026):** No dozzle agents are currently deployed — the igpu agent
-> was removed as part of `#208`. The doc1 dozzle UI only shows doc1's local
-> containers now. This section is retained for reference if a remote agent is
-> reintroduced in the future.
+> **Note (April 2026):** Dozzle is no longer deployed anywhere in the fleet.
+> The whole `management` compose stack (dozzle + autoheal) was retired as part
+> of `#208` — journald + Loki cover the logging need, and autoheal was compose
+> plumbing with nothing left to monitor. This section is kept as reference in
+> case a dozzle agent is reintroduced later.
 
 Podman doesn't create `/var/lib/docker/engine-id` like Docker does. Dozzle uses this file to identify hosts. Without it, the agent generates a new UUID on every restart, causing the Dozzle server to lose track.
 
