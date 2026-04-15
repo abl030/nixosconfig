@@ -140,12 +140,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Loki MCP - AI-friendly MCP server for Grafana Loki (42 tools)
-    loki-mcp = {
-      url = "github:abl030/loki-mcp";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Lidarr MCP - MCP server for Lidarr music management
     lidarr-mcp = {
       url = "github:abl030/lidarr-mcp";
