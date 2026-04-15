@@ -9,19 +9,9 @@
   gotifyServerHosts = lib.attrNames (
     lib.filterAttrs (_: host: host.gotifyServer or false) allHosts
   );
-  managementHosts = lib.attrNames (
-    lib.filterAttrs (
-      _: host:
-        (host ? containerStacks)
-        && lib.elem "management" host.containerStacks
-    )
-    allHosts
-  );
   autoHostName =
     if gotifyServerHosts != []
     then builtins.head (lib.sort lib.lessThan gotifyServerHosts)
-    else if managementHosts != []
-    then builtins.head (lib.sort lib.lessThan managementHosts)
     else "doc2";
   hostName =
     if cfg.host != null
@@ -39,7 +29,7 @@ in {
     host = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "hosts.nix name for the Gotify server (used to resolve localIp). Null picks the first host with gotifyServer = true, then management stack, then doc2.";
+      description = "hosts.nix name for the Gotify server (used to resolve localIp). Null picks the first host with gotifyServer = true, otherwise doc2.";
     };
 
     port = lib.mkOption {
