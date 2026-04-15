@@ -39,6 +39,7 @@
     ./uptime-kuma.nix
     ./jdownloader2.nix
     ./tdarr-node.nix
+    ./jellyfin.nix
     ./netboot.nix
     ./overseerr.nix
     ./youtarr.nix

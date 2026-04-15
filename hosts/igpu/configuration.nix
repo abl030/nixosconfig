@@ -30,6 +30,7 @@
       enable = true;
     };
     services.tdarrNode.enable = true;
+    services.jellyfin.enable = true;
     ssh = {
       enable = true;
       secure = false;
