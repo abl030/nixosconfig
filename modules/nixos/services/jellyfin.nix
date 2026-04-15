@@ -27,6 +27,7 @@
 {
   config,
   lib,
+  hostConfig,
   ...
 }: let
   cfg = config.homelab.services.jellyfin;
@@ -165,6 +166,24 @@ in {
     # /dev/dri/renderD128 is mode 0660 root:render — jellyfin needs `render`.
     # `video` covers card1 if anything ever asks for it.
     users.users.jellyfin.extraGroups = ["render" "video"];
+
+    # Give the host admin (hostConfig.user) group membership in `jellyfin`
+    # so they can ls/cat data for debugging without sudo. Combined with the
+    # tmpfiles mode override and UMask below, everything jellyfin writes
+    # lands as jellyfin:jellyfin 0640 / 0750 (group readable).
+    users.users.${hostConfig.user}.extraGroups = ["jellyfin"];
+
+    systemd.services.jellyfin.serviceConfig.UMask = lib.mkForce "0027";
+
+    # Upstream creates these all with mode 0700 — override to 0750 so group
+    # members (admin) can traverse. File mode is controlled by the service's
+    # UMask above.
+    systemd.tmpfiles.settings.jellyfinDirs = {
+      "${cfg.dataRoot}/data"."d".mode = lib.mkForce "0750";
+      "${cfg.dataRoot}/config"."d".mode = lib.mkForce "0750";
+      "${cfg.dataRoot}/log"."d".mode = lib.mkForce "0750";
+      "/var/cache/jellyfin"."d".mode = lib.mkForce "0750";
+    };
 
     # PublishedServerUrl drives the auto-announce URL clients pick up.
     systemd.services.jellyfin.environment.JELLYFIN_PublishedServerUrl = cfg.publishedServerUrl;
