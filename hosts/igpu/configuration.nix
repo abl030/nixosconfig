@@ -30,7 +30,11 @@
       enable = true;
     };
     services.tdarrNode.enable = true;
-    services.jellyfin.enable = true;
+    services.jellyfin = {
+      enable = true;
+      # Service state on virtiofs (per .claude/rules/nixos-service-modules.md).
+      dataRoot = "/mnt/virtio/jellyfin";
+    };
     ssh = {
       enable = true;
       secure = false;
@@ -85,17 +89,15 @@
     nvtopPackages.amd
   ]);
 
-  # Virtiofs mounts from prom. Music is the canonical 668GB ZFS child dataset;
-  # media_metadata is the jellyfin-writable tree (NFOs, artwork, trickplay)
-  # backed by nvmeprom/containers/media_metadata. Movies and TV Shows media
-  # themselves continue to come from tower via NFS (see modules/nixos/services/mounts).
-  fileSystems."/mnt/virtio/Music" = {
-    device = "music";
-    fsType = "virtiofs";
-    options = ["rw" "relatime"];
-  };
-  fileSystems."/mnt/virtio/media_metadata" = {
-    device = "media_metadata";
+  # Single broad virtiofs mount of the prom `containers` ZFS dataset (matches
+  # doc1/doc2 pattern). Service state for jellyfin/etc. lives under
+  # /mnt/virtio/<service>/. Music + media_metadata are ZFS child datasets of
+  # containers and appear automatically as /mnt/virtio/Music and
+  # /mnt/virtio/media_metadata via virtiofs submount propagation — no
+  # separate fileSystems entries needed for them.
+  # See docs/wiki/infrastructure/media-filesystem.md.
+  fileSystems."/mnt/virtio" = {
+    device = "containers";
     fsType = "virtiofs";
     options = ["rw" "relatime"];
   };

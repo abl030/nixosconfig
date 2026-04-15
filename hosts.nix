@@ -193,9 +193,12 @@ in {
       ignoreInit = true; # keep existing cloud-init settings
       # NOTE: virtiofs here is documentation-only — ignoreInit=true means
       # OpenTofu will not drive it. Applied manually via `qm set 109 -virtiofsN dirid=…`.
+      # Single broad `containers` mapping (matches doc1/doc2 pattern). Music
+      # and media_metadata are ZFS child datasets of containers and appear
+      # automatically as /mnt/virtio/{Music,media_metadata} via virtiofs
+      # submount propagation. See docs/wiki/infrastructure/media-filesystem.md.
       virtiofs = [
-        {mapping = "music";}
-        {mapping = "media_metadata";}
+        {mapping = "containers";}
       ];
       tags = [];
       ignoreChangesExtra = [

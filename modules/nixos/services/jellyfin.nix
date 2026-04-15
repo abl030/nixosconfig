@@ -2,18 +2,25 @@
 # Replaces the LSIO compose stack on igpu — see Phase 3 of #208.
 # Lives alongside the production Plex on tower; not a replacement.
 #
-# Layout decisions:
-# - Use nixpkgs default split: --datadir /var/lib/jellyfin, --configdir
-#   /var/lib/jellyfin/config. (Originally tried configDir == dataDir to match
-#   LSIO's flat /config layout but the upstream module's tmpfiles.settings
-#   collides on duplicate dynamic-attr keys when both equal the same path.)
-#   Migration: rsync data/metadata/plugins/root → dataDir, XML files →
-#   configDir/ — see Phase 3 of #208 for the exact commands.
-# - Hardware acceleration uses upstream services.jellyfin.hardwareAcceleration
-#   (declarative encoding.xml). forceEncodingConfig = true so NixOS owns
-#   the encoder settings — webdash changes will be reverted on restart.
-# - Two FQDNs: `jelly.ablz.au` (LAN via homelab.localProxy + nginx ACME),
-#   `jellyfinn.ablz.au` (inter-tailnet via homelab.tailscaleShare).
+# Layout: a single root-owned `dataRoot` parent contains
+#   - data/   (jellyfin --datadir, libraries.db, plugins, metadata cache)
+#   - config/ (jellyfin --configdir, XML files)
+#   - log/    (jellyfin --logdir)
+#   - ts/     (homelab.tailscaleShare.jellyfin state — root-owned sidecars)
+# Cache stays local at /var/cache/jellyfin (regenerable, not worth virtiofs).
+#
+# Why root-owned parent: systemd-tmpfiles refuses ("unsafe path transition")
+# to create root-owned children inside a jellyfin-owned parent, so we keep
+# dataRoot root-owned 0755 and let services.jellyfin's tmpfiles + the share's
+# tmpfiles each create their own jellyfin/root-owned children as siblings.
+#
+# Hardware acceleration uses upstream services.jellyfin.hardwareAcceleration
+# (declarative encoding.xml). forceEncodingConfig = true so NixOS owns the
+# encoder settings — webdash changes will be reverted on restart.
+#
+# Two FQDNs:
+#   - `jelly.ablz.au`    LAN, via homelab.localProxy (nginx + ACME on igpu)
+#   - `jellyfinn.ablz.au` Inter-tailnet, via homelab.tailscaleShare.jellyfin
 #
 # See docs/wiki/infrastructure/media-filesystem.md for the mergerfs/virtiofs
 # layout that backs `/mnt/fuse/Media/{Movies,TV_Shows,Music}`.
@@ -27,13 +34,18 @@ in {
   options.homelab.services.jellyfin = {
     enable = lib.mkEnableOption "Jellyfin media server";
 
-    dataDir = lib.mkOption {
+    dataRoot = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/jellyfin";
       description = ''
-        --datadir for jellyfin (libraries.db, plugins, metadata cache).
-        --configdir defaults to dataDir/config (XML files); cache and log
-        use nixpkgs defaults (/var/cache/jellyfin, dataDir/log).
+        Parent directory holding ALL jellyfin-related state (data, config,
+        log, tailscale-share). Created root-owned 0755 so jellyfin-owned
+        and root-owned children can coexist as siblings without
+        systemd-tmpfiles "unsafe path transition" errors.
+
+        Per .claude/rules/nixos-service-modules.md, set this to
+        /mnt/virtio/jellyfin in the host config so service state lives
+        on virtiofs (host VM disposable, data survives on prom ZFS).
       '';
     };
 
@@ -82,11 +94,20 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Pre-create the root-owned parent so child tmpfiles rules (some
+    # jellyfin-owned, some root-owned) can land cleanly without tripping
+    # systemd-tmpfiles unsafe-path-transition canonicalization checks.
+    systemd.tmpfiles.rules = ["d ${cfg.dataRoot} 0755 root root - -"];
+
     services.jellyfin = {
       enable = true;
       user = "jellyfin";
       group = "jellyfin";
-      dataDir = cfg.dataDir;
+      dataDir = "${cfg.dataRoot}/data";
+      configDir = "${cfg.dataRoot}/config";
+      logDir = "${cfg.dataRoot}/log";
+      # cacheDir stays default /var/cache/jellyfin — regenerable, not on virtiofs
+
       # Open 8096 + 8920 + 7359/udp + 1900/udp on all interfaces for
       # LAN clients (auto-discovery, DLNA) and the LAN nginx upstream.
       openFirewall = true;
@@ -143,10 +164,8 @@ in {
         # NEVER 127.0.0.1 — caddy shares the ts container's net namespace;
         # 127.0.0.1 there is the container's loopback, not the host.
         upstream = "http://host.docker.internal:${toString cfg.port}";
-        # MUST sit OUTSIDE jellyfin's dataDir — systemd-tmpfiles refuses
-        # to create the share's subdirs as root inside a jellyfin-owned
-        # parent ("unsafe path transition" canonicalization check).
-        dataDir = "/var/lib/jellyfin-ts";
+        # Sibling of jellyfin's data/config/log; root-owned 0755 (see header).
+        dataDir = "${cfg.dataRoot}/ts";
         hostname = "jellyfin";
         firewallPorts = [cfg.port];
       };
