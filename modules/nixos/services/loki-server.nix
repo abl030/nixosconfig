@@ -277,15 +277,16 @@ in {
     };
 
     # -------- Firewall --------
-    # Open LAN-facing ports for cross-host exporters (Unraid/tower, pfSense
-    # syslog via loki source, future trace emitters). Grafana stays local —
-    # nginx terminates its public side.
+    # HTTP endpoints (loki, tempo, mimir, grafana) are reached exclusively
+    # through nginx on 443 — clients use the HTTPS FQDNs. Those ports are
+    # only bound on 0.0.0.0 so nginx can reach them over localhost and so
+    # the dskit ring self-discovery works; they DO NOT need to be on the
+    # LAN. The only ports worth opening to the LAN are OTLP receivers so
+    # future applications can push traces directly (Tempo receivers don't
+    # proxy meaningfully through nginx).
     networking.firewall.allowedTCPPorts = [
-      cfg.lokiPort
-      cfg.tempoPort
       cfg.tempoOtlpGrpcPort
       cfg.tempoOtlpHttpPort
-      cfg.mimirPort
     ];
 
     # -------- Secrets --------
