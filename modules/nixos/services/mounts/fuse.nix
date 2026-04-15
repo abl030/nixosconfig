@@ -1,4 +1,6 @@
 # FUSE union mounts for Jellyfin: Metadata (RW) + Media (RO) -> single view
+# See docs/wiki/infrastructure/media-filesystem.md for the full layout
+# (mergerfs + virtiofs + tower NFS, why two branches, Phase 1 of #208).
 {
   config,
   lib,

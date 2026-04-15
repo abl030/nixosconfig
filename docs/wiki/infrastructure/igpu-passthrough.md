@@ -46,10 +46,11 @@ homelab.update = {
 
 The reason: the AMD iGPU is known to fail its PCIe function-level reset (FLR) when the guest reboots under the kernel-upgrade path. The symptom is the [Failure mode](#failure-mode-driver-bound-no-dri-device) below — `amdgpu` binds but DRM init silently fails. Only a **Proxmox host reboot** (which power-cycles the iGPU from the host's perspective) clears it.
 
-Auto-rebooting the guest on kernel upgrades used to leave igpu stuck without transcoding roughly once a month. We've seen this twice:
+Auto-rebooting the guest on kernel upgrades used to leave igpu stuck without transcoding roughly once a month. We've seen this three times:
 
 - ~Jan 2026 — first occurrence, traced back to a kernel auto-reboot two nights prior.
-- April 2026 (this session) — hit it again during the `#208` compose cleanup; `/dev/dri/renderD128` missing, only `card0-Virtual-1` present in `/sys/class/drm/`. Proxmox host reboot restored it.
+- April 2026 (early in #208 work) — hit it again during the compose cleanup; `/dev/dri/renderD128` missing, only `card0-Virtual-1` present in `/sys/class/drm/`. Proxmox host reboot restored it.
+- April 2026 (Phase 1 virtiofs work) — `qm shutdown 109` hung mid-shutdown after `qm set` added the two new virtiofs devices. Hard `qm stop` would have risked the FLR-stuck state. User aborted with a Proxmox host reboot, which both stopped the VM and reset the iGPU state cleanly. Lesson: never `qm stop` an iGPU-passthrough VM; if shutdown hangs, host-reboot is the recovery.
 
 If the upstream amdgpu FLR handling improves or if we switch to a hardware reset mechanism, revisit this and consider re-enabling `rebootOnKernelUpdate`.
 
@@ -117,20 +118,22 @@ hardware = {
 | Consumer | How it gets `/dev/dri` | Lives in |
 |---|---|---|
 | `tdarr-node` | `virtualisation.oci-containers.containers.tdarr-node.extraOptions = ["--device=/dev/dri:/dev/dri"]` | `modules/nixos/services/tdarr-node.nix` |
-| `plex` | compose stack, `devices: - /dev/dri:/dev/dri` (still rootless) | `stacks/plex/docker-compose.yml` |
 | `jellyfin` | compose stack, `devices: - /dev/dri:/dev/dri` (still rootless) | `stacks/jellyfinn/docker-compose.yml` |
 
-Plex and jellyfin are the two remaining compose stacks on igpu. Their migration to OCI-containers / native nixpkgs modules is the next tranche of `#208`.
+Jellyfin is the last compose stack on igpu (the local **plex2** test instance was retired in `739dd48`; production Plex lives on tower/Unraid and isn't part of this story). Jellyfin's migration to native `services.jellyfin` is Phase 3 of `#208` — once that lands, `homelab.containers.enable` can be set to `false` on igpu and the rootful/rootless `storage.conf` race documented in [tdarr-node.md](../services/tdarr-node.md#shared-storageconf-race-between-rootful-and-rootless-podman) goes away.
+
+The endgame on igpu is **jellyfin (native NixOS) running alongside the existing tower-Plex** — they're not exclusive. Both serve the same media library; jellyfin just adds a second front-end with native VAAPI on the iGPU. Tower-Plex stays the primary streaming target for clients that prefer it.
 
 ## When to revisit
 
-- When plex/jellyfin migrate off compose → add them to the consumer table above; their `/dev/dri` passthrough will move into the respective service modules.
+- When jellyfin migrates off compose → add it to the consumer table above; its `/dev/dri` passthrough will move into the new service module (likely `services.jellyfin` with `serviceConfig.DeviceAllow = [ "/dev/dri/renderD128 rw" "/dev/dri/card1 rw" ]`).
 - If the "driver bound, no DRI device" failure stops happening for a year → consider flipping `rebootOnKernelUpdate` back on and verifying.
 - If we replace the iGPU with a discrete GPU or a different AMD chip → re-verify the FLR behaviour before trusting auto-reboot.
 
 ## Related
 
 - `hosts/igpu/configuration.nix` — host config + the `rebootOnKernelUpdate = false` choice
-- `hosts.nix` (igpu block) — VM spec, `hostpci` inheritance via `ignoreInit`
+- `hosts.nix` (igpu block) — VM spec, `hostpci` inheritance via `ignoreInit`, `virtiofs` mappings
 - `modules/nixos/services/tdarr-node.nix` — current OCI consumer of `/dev/dri`
-- `stacks/plex/docker-compose.yml`, `stacks/jellyfinn/docker-compose.yml` — compose-era consumers pending migration
+- `stacks/jellyfinn/docker-compose.yml` — last compose-era consumer pending migration
+- [`media-filesystem.md`](media-filesystem.md) — virtiofs storage layout including the `qm shutdown` vs `qm stop` rule
