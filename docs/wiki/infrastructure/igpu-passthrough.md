@@ -118,22 +118,22 @@ hardware = {
 | Consumer | How it gets `/dev/dri` | Lives in |
 |---|---|---|
 | `tdarr-node` | `virtualisation.oci-containers.containers.tdarr-node.extraOptions = ["--device=/dev/dri:/dev/dri"]` | `modules/nixos/services/tdarr-node.nix` |
-| `jellyfin` | compose stack, `devices: - /dev/dri:/dev/dri` (still rootless) | `stacks/jellyfinn/docker-compose.yml` |
+| `jellyfin` | `services.jellyfin.hardwareAcceleration.device = "/dev/dri/renderD128"` (native, declarative `encoding.xml`) | `modules/nixos/services/jellyfin.nix` |
 
-Jellyfin is the last compose stack on igpu (the local **plex2** test instance was retired in `739dd48`; production Plex lives on tower/Unraid and isn't part of this story). Jellyfin's migration to native `services.jellyfin` is Phase 3 of `#208` — once that lands, `homelab.containers.enable` can be set to `false` on igpu and the rootful/rootless `storage.conf` race documented in [tdarr-node.md](../services/tdarr-node.md#shared-storageconf-race-between-rootful-and-rootless-podman) goes away.
+Post-Phase-3 of `#208`: jellyfin is a native NixOS service (no compose), igpu's `homelab.containers.enable` is `false`, the rootful/rootless `storage.conf` race documented in [tdarr-node.md](../services/tdarr-node.md#shared-storageconf-race-between-rootful-and-rootless-podman) is gone for good.
 
-The endgame on igpu is **jellyfin (native NixOS) running alongside the existing tower-Plex** — they're not exclusive. Both serve the same media library; jellyfin just adds a second front-end with native VAAPI on the iGPU. Tower-Plex stays the primary streaming target for clients that prefer it.
+The endgame is **jellyfin (native) running alongside tower-Plex** — they're not exclusive. Both serve the same media library; jellyfin adds a second front-end with native VAAPI on the iGPU. Tower-Plex stays the primary streaming target for clients that prefer it (production Plex has always been on Unraid; only the local `plex2` test instance ever ran on igpu and was retired in `739dd48`).
 
 ## When to revisit
 
-- When jellyfin migrates off compose → add it to the consumer table above; its `/dev/dri` passthrough will move into the new service module (likely `services.jellyfin` with `serviceConfig.DeviceAllow = [ "/dev/dri/renderD128 rw" "/dev/dri/card1 rw" ]`).
 - If the "driver bound, no DRI device" failure stops happening for a year → consider flipping `rebootOnKernelUpdate` back on and verifying.
 - If we replace the iGPU with a discrete GPU or a different AMD chip → re-verify the FLR behaviour before trusting auto-reboot.
+- If `qm shutdown` reliably succeeds going forward (see [#211](https://github.com/abl030/nixosconfig/issues/211)) → maintenance windows get cheaper.
 
 ## Related
 
 - `hosts/igpu/configuration.nix` — host config + the `rebootOnKernelUpdate = false` choice
 - `hosts.nix` (igpu block) — VM spec, `hostpci` inheritance via `ignoreInit`, `virtiofs` mappings
-- `modules/nixos/services/tdarr-node.nix` — current OCI consumer of `/dev/dri`
-- `stacks/jellyfinn/docker-compose.yml` — last compose-era consumer pending migration
+- `modules/nixos/services/tdarr-node.nix` — OCI consumer of `/dev/dri`
+- `modules/nixos/services/jellyfin.nix` — native consumer of `/dev/dri` via `services.jellyfin.hardwareAcceleration`
 - [`media-filesystem.md`](media-filesystem.md) — virtiofs storage layout including the `qm shutdown` vs `qm stop` rule

@@ -57,7 +57,9 @@ encoder-enabled-working, libx264-true-true, libx265-true-true,
 
 ### Shared `storage.conf` race between rootful and rootless podman
 
-igpu still runs the jellyfin rootless compose stack under `abl030` *and* now runs rootful podman via `oci-containers` for tdarr-node. (The local **plex2** test instance was retired in `739dd48` — the production Plex server lives on tower/Unraid and is unaffected.) The `homelab.containers` module (`modules/nixos/homelab/containers/default.nix:334`) installs a **global** `/etc/containers/storage.conf` forcing:
+**Resolved as of Phase 3 of #208** — igpu's rootless compose infrastructure is retired (jellyfin went native; plex2 was removed in `739dd48`). tdarr-node is the only podman consumer on igpu and runs rootful. The race described below is now impossible on igpu. Kept for context in case anything similar comes up elsewhere.
+
+Historically: igpu ran the jellyfin rootless compose stack under `abl030` *and* rootful podman via `oci-containers` for tdarr-node. The `homelab.containers` module (`modules/nixos/homelab/containers/default.nix:334`) installs a **global** `/etc/containers/storage.conf` forcing:
 
 ```
 [storage]
@@ -108,8 +110,8 @@ Node version must match server version. If the server on tower is upgraded, the 
 
 ## When to revisit
 
-- When igpu's service storage moves to virtiofs (`#208` AC #5, planned alongside the jellyfin migration) → switch `dataDir` default in the module from `/mnt/docker/tdarr` to `/mnt/virtio/tdarr`, migrate existing configs/logs, update host config. New virtiofs mappings (`music`, `media_metadata`) already exist on the VM; adding a `tdarr` mapping is the same pattern.
-- When jellyfin migrates off compose → we can drop `homelab.containers.enable` on igpu and the `storage.conf` shared-race gotcha goes away. The plex2 test instance is already gone (`739dd48`); jellyfin is the last compose stack on igpu. Production Plex on tower is unaffected by any igpu changes.
+- When igpu's tdarr config moves to virtiofs → switch `dataDir` default in the module from `/mnt/docker/tdarr` to `/mnt/virtio/tdarr`, migrate existing configs/logs, update host config. igpu now has the broad `containers` virtiofs mapping (Phase 3 of #208), so `/mnt/virtio/tdarr` just needs `mkdir /nvmeprom/containers/tdarr` on prom — no per-service mapping needed.
+- `homelab.containers.enable` is now `false` on igpu as of Phase 3 of #208 (jellyfin + plex2 retired, compose infrastructure gone). tdarr-node is rootful OCI via `homelab.podman`, so no `storage.conf` shared-race anymore.
 - If tdarr's server moves off tower → `serverIp` / `serverPort` are configurable; just update the host-level enable block.
 - If we want external monitoring → wire a Kuma check against tower's tdarr server API, not against igpu.
 
@@ -118,6 +120,6 @@ Node version must match server version. If the server on tower is upgraded, the 
 - `modules/nixos/services/tdarr-node.nix` — the module
 - `modules/nixos/services/nfs-watchdog.nix` — watchdog plumbing
 - `modules/nixos/homelab/podman.nix` — rootful OCI infrastructure
-- `modules/nixos/homelab/containers/default.nix` — rootless compose infrastructure (still runs jellyfin on igpu)
+- `modules/nixos/homelab/containers/default.nix` — rootless compose infrastructure (no longer used on igpu)
 - `docs/wiki/infrastructure/igpu-passthrough.md` — `/dev/dri` passthrough health + failure mode
 - `docs/wiki/infrastructure/media-filesystem.md` — Music/Metadata virtiofs layout (Phase 1 of #208)

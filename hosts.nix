@@ -172,7 +172,7 @@ in {
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "igpu";
-    containerStacks = ["jellyfin"];
+    containerStacks = [];
     localIp = "192.168.1.33";
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";

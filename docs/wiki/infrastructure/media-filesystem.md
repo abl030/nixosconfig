@@ -4,7 +4,7 @@
 **Status:** working
 **Hosts:** `igpu` (consumer), `proxmox-vm`/doc1 (consumer), `prom` (storage), `tower`/Unraid (storage)
 **Owner:** `modules/nixos/services/mounts/fuse.nix` + `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.virtiofs`)
-**Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208) (Phase 1)
+**Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208) (Phases 1 + 3)
 
 ## Why this is non-obvious
 
@@ -30,62 +30,62 @@ Music is the odd one — both branches are on prom virtiofs because the canonica
 ```
                     prom (Proxmox host, AMD 9950X)
                     │
-                    │ ZFS pool: nvmeprom/containers
+                    │ ZFS pool: nvmeprom/containers   ← one broad virtiofs mapping (`containers`)
+                    │                                    shared by doc1, doc2, igpu
+                    ├── Music                ← 668GB ZFS child dataset (jellyfin RO + lidarr RW)
+                    │                          Auto-submounts at /mnt/virtio/Music in every guest.
                     │
-                    ├── Music                  ← 668GB, jellyfin RO + lidarr RW
-                    │   (ZFS child dataset)
+                    ├── media_metadata       ← 55GB ZFS child dataset (jellyfin RW)
+                    │   ├── Movies             (Movies NFOs/trickplay rsync'd from tower)
+                    │   ├── TV Shows           (TV Shows NFOs/trickplay rsync'd from tower)
+                    │   └── Music              (intentionally empty — regenerated)
+                    │                          Auto-submounts at /mnt/virtio/media_metadata.
                     │
-                    └── media_metadata         ← 55GB, jellyfin/plex RW
-                        ├── Movies             (Movies NFOs/trickplay rsync'd from tower)
-                        ├── TV Shows           (TV Shows NFOs/trickplay rsync'd from tower)
-                        └── Music              (intentionally empty — regenerated)
+                    ├── jellyfin             ← plain dir, jellyfin --datadir + configdir + ts-share
+                    │                          (Phase 3 of #208; owned root:root 0755 so
+                    │                          jellyfin-owned and root-owned children coexist.)
                     │
-                    │ Both exposed as Proxmox virtiofs directory mappings:
-                    │   `music`           → /nvmeprom/containers/Music
-                    │   `media_metadata`  → /nvmeprom/containers/media_metadata
+                    ├── <all other service state>   atuin, immich, paperless, mealie, soularr, ...
                     ▼
    ┌────────────────────────┬─────────────────────────┐
    │                        │                         │
   igpu (VM 109)           doc1/proxmox-vm (VM 104)   doc2 (VM 114)
    │                        │                         │
-  virtiofs0=music          virtiofs0=containers      virtiofs0=containers
-  virtiofs1=media_metadata (full mapping; child       virtiofs1=mirrors
-   │                       datasets auto-submount)    │
-   ▼                                                  ▼
-  /mnt/virtio/Music        /mnt/virtio/Music         /mnt/virtio/Music
-  /mnt/virtio/media_metadata                         /mnt/virtio/media_metadata
-   │                       /mnt/virtio/media_metadata (auto-submount of child datasets)
+  virtiofs0=containers     virtiofs0=containers      virtiofs0=containers
+                                                     virtiofs1=mirrors
+   │                        │                         │
+   ▼ Guest sees /mnt/virtio/ with Music, media_metadata, jellyfin, immich, ... all visible.
+   │ (ZFS child datasets propagate automatically as virtiofs submounts.)
    │
-   │ + tower NFS at /mnt/data/Media (Movies / TV Shows media)
+   │ igpu additionally mounts tower NFS at /mnt/data/Media (Movies / TV Shows media).
+   │ doc1 also mounts tower NFS for its own workloads.
    │
    ▼
   mergerfs unions (fuse-mergerfs-{movies,tv,music,music-rw}.service)
    │
    ▼
-  /mnt/fuse/Media/{Movies, TV_Shows, Music, Music_RW}  ← jellyfin/tdarr consume here
+  /mnt/fuse/Media/{Movies, TV_Shows, Music, Music_RW}  ← jellyfin (native) + tdarr consume here
                                                           (production Plex lives on tower
                                                            and reads its own filesystem;
                                                            it's not a consumer of these unions)
 ```
 
-## Why two scoped mappings on igpu, not the full `containers` mapping
+## Why one broad `containers` mapping on every host
 
-doc1 and doc2 both have the full `containers` virtiofs mapping because they *are* the service hosts — they need to see every service's state directory (immich, paperless, mealie, soularr, etc.). igpu is a media transcoding box; exposing it to every other service's state would be unnecessary blast radius for a host whose only job is jellyfin/tdarr/plex.
+doc1 and doc2 always had the full `containers` mapping because they're the service hosts — they need to see every service's state dir (immich, paperless, mealie, soularr, …). As of Phase 3 of #208, igpu follows the same pattern: jellyfin runs native (`dataRoot = /mnt/virtio/jellyfin`) alongside tdarr-node, so it needs the same broad view.
 
-So igpu gets two narrow mappings instead:
+Phase 1 originally tried a narrow approach for igpu — separate `music` + `media_metadata` directory mappings — to minimise blast radius. That worked for the Phase 1 scope (virtiofs music only) but fell apart in Phase 3 when we added jellyfin state, which would have required yet another narrow mapping. A single broad mapping is the cleaner pattern and matches the rest of the fleet. See the [decision history](#decision-history) below.
 
-- `music` → only the Music ZFS child dataset
-- `media_metadata` → only the media_metadata ZFS dataset
-
-Both are added to `/etc/pve/mapping/directory.cfg` on prom (out-of-band — Proxmox doesn't render `directory.cfg` from a manifest) and attached to the VM via:
+One mapping declared on prom:
 
 ```
-qm set 109 -virtiofs0 dirid=music -virtiofs1 dirid=media_metadata
-qm shutdown 109   # NEVER `qm stop` — hard stop breaks iGPU PCIe FLR; see igpu-passthrough.md
-qm start 109
+# /etc/pve/mapping/directory.cfg (on prom)
+containers
+    map node=prom,path=/nvmeprom/containers
+    description Podman containers dataset
 ```
 
-The repo records the intent under `igpu.proxmox.virtiofs` in `hosts.nix`, but `ignoreInit = true` on the imported VM means OpenTofu won't reconcile it — `qm set` is the source of truth.
+Attached to each guest VM via `qm set <vmid> -virtiofs0 dirid=containers` (plus any host-specific extras like `mirrors`). For imported VMs (`ignoreInit = true` in `hosts.nix`) `qm set` is the source of truth; the `virtiofs = [...]` entry in `hosts.nix` is documentation only.
 
 ## Why the metadata moved off tower
 
@@ -100,14 +100,15 @@ Tower is Unraid on spinning disks. Each scan caused minutes of disk thrash that 
 
 The Music metadata wipe was deliberate — that tree was years-stale (different naming convention, half the albums had moved between releases) and we'd rather have jellyfin regenerate than carry forward bad NFOs. Movies and TV were rsync'd intact (8GB and 48GB respectively).
 
-## What lives where (post-Phase 1)
+## What lives where (current)
 
 Inside igpu, after a clean boot:
 
 ```
 $ mount | grep -E 'virtiofs|fuse'
-music on /mnt/virtio/Music type virtiofs (rw,relatime)
-media_metadata on /mnt/virtio/media_metadata type virtiofs (rw,relatime)
+containers on /mnt/virtio type virtiofs (rw,relatime)
+none on /mnt/virtio/Music type virtiofs (rw,relatime)           ← ZFS child-dataset auto-submount
+none on /mnt/virtio/media_metadata type virtiofs (rw,relatime)  ← same
 mergerfs /mnt/data/Media/Movies (RO) + /mnt/virtio/media_metadata/Movies (RW) → /mnt/fuse/Media/Movies
 mergerfs /mnt/data/Media/TV Shows (RO) + /mnt/virtio/media_metadata/TV Shows (RW) → /mnt/fuse/Media/TV_Shows
 mergerfs /mnt/virtio/media_metadata/Music (RW) + /mnt/virtio/Music (RO) → /mnt/fuse/Media/Music
@@ -115,6 +116,16 @@ mergerfs /mnt/virtio/Music (RW) → /mnt/fuse/Media/Music_RW
 ```
 
 The `Music_RW` wrapper exists so Lidarr (running on doc2) can write new albums into the canonical tree without having to know about the union. Jellyfin reads from `Music`; Lidarr writes to `Music_RW`; both ultimately hit the same `nvmeprom/containers/Music` dataset.
+
+Jellyfin itself stores its state under `/mnt/virtio/jellyfin` (Phase 3 of #208):
+
+```
+/mnt/virtio/jellyfin/       root:root 0755  (parent, so siblings below coexist)
+├── data/                   jellyfin:jellyfin 0750  — --datadir (libraries.db, plugins, metadata cache)
+├── config/                 jellyfin:jellyfin 0750  — --configdir (XML files)
+├── log/                    jellyfin:jellyfin 0750  — --logdir
+└── ts/                     root:root 0755          — homelab.tailscaleShare.jellyfin state
+```
 
 ## Why the music NFS-server module was retired
 
@@ -133,9 +144,35 @@ Bypassing virtiofs sidesteps the FUSE_EXPORT_SUPPORT issue entirely. Direct NFS 
 
 ### `qm shutdown`, never `qm stop`
 
-`qm stop` is a hard stop (qemu kill). On a VM with PCIe passthrough, hard-stops can leave the device in a state the next guest can't initialize — symptom is "amdgpu binds, no DRI device" requiring a Proxmox host reboot to clear. `qm shutdown 109` goes through qemu-guest-agent for a graceful OS halt and keeps the iGPU clean. See [igpu-passthrough.md](igpu-passthrough.md#failure-mode-driver-bound-no-dri-device).
+`qm stop` is a hard stop (qemu kill). On a VM with PCIe passthrough, hard-stops leave the device in a state the next guest can't initialize — symptom is "amdgpu binds, no DRI device" requiring a Proxmox host reboot to clear. `qm shutdown 109` goes through qemu-guest-agent for a graceful OS halt and keeps the iGPU clean. See [igpu-passthrough.md](igpu-passthrough.md#failure-mode-driver-bound-no-dri-device).
 
-If `qm shutdown` itself hangs (we hit this once during Phase 1), the only recovery is a Proxmox host reboot — same story.
+`qm shutdown` has fallen through to a hard stop multiple times during #208 work — tracked in [#211](https://github.com/abl030/nixosconfig/issues/211). Recovery is always a Proxmox host reboot.
+
+### tmpfiles ordering: parent before child
+
+When one module creates `/path/to/foo` (root-owned) and another creates `/path/to/foo/bar` (root-owned) via `systemd.tmpfiles.rules`, both merge into a single `/etc/tmpfiles.d/00-nixos.conf` in the order the modules are imported. If the child rule lands first, tmpfiles silently fails because the parent doesn't exist yet.
+
+Fix: wrap the parent rule in `lib.mkBefore` so it's pinned ahead:
+
+```nix
+systemd.tmpfiles.rules = lib.mkBefore [
+  "d ${cfg.dataRoot} 0755 root root - -"
+];
+```
+
+This bit us on the jellyfin module before `lib.mkBefore` was added — tailscaleShare's child rules for `${dataRoot}/ts` fired before our parent rule.
+
+### systemd-tmpfiles "unsafe path transition"
+
+If a tmpfiles rule would create a root-owned dir inside a non-root-owned parent, systemd-tmpfiles refuses with:
+
+```
+Detected unsafe path transition /foo (owned by X) → /foo/bar (owned by root)
+```
+
+Keep the parent root-owned. In the jellyfin module this is why `dataRoot` is root:root 0755; inside it, `data/`, `config/`, `log/` are jellyfin-owned and `ts/` is root-owned — all siblings of a root-owned parent, no transitions through a non-root node.
+
+Also affects pre-existing directories created on prom: if `/nvmeprom/containers/<service>` is owned by uid 1000 (the user running `mkdir`), virtiofs presents it as `abl030:users` on the guest and tmpfiles can't create root-owned children inside. Fix: `chown root:root /nvmeprom/containers/<service>` on prom before first deploy.
 
 ### Metadata is on prom, not tower — backup planning
 
@@ -153,37 +190,42 @@ Music units dropped their `mnt-data.mount` dependency in Phase 1. If tower goes 
 
 ### doc1 also runs the mergerfs units
 
-doc1 (proxmox-vm) enables `homelab.mounts.fuse.enable = true` for tautulli and the music compose stack. It picks up the same fuse.nix changes as igpu. This works because doc1 has the full `containers` mapping and `media_metadata` is a ZFS child dataset, so it auto-submounts at `/mnt/virtio/media_metadata` without any extra Proxmox config. Verified post-Phase 1 deploy: all four mergerfs units active on doc1 with the new branch paths.
+doc1 (proxmox-vm) enables `homelab.mounts.fuse.enable = true` for tautulli and the music compose stack. It picks up the same fuse.nix changes as igpu. This works because doc1 has the full `containers` mapping and `media_metadata`/`Music` are ZFS child datasets, so they auto-submount without any extra Proxmox config. All four mergerfs units are active on doc1 with the same branch paths as igpu.
 
 ### Adding a new library
 
 If we add a fourth library (audiobooks, podcasts, whatever):
 
 1. Decide storage: tower (large, cheap) or prom (small, fast)
-2. Create a new ZFS child dataset on prom for its metadata (`zfs create nvmeprom/containers/media_metadata/<lib>` is sufficient; same `media_metadata` mapping serves it via subdirectory)
+2. Create a new subdir on prom: `mkdir /nvmeprom/containers/media_metadata/<lib>` (or a sibling ZFS dataset if snapshot isolation matters)
 3. Add a new branch + dst path in `modules/nixos/services/mounts/fuse.nix`
 4. Add a `RequiresMountsFor` line for whichever mounts the new branches read
 
-No new virtiofs mapping needed unless the library lives outside both `Music` and `media_metadata`.
+No new Proxmox mapping needed — the broad `containers` mapping already serves everything under `/nvmeprom/containers/`.
+
+### Migrating an existing library database
+
+If moving a service from LSIO/compose to native where its database stores absolute paths (like jellyfin's libraries.db with `/config/...` or `/data/...`), do SQL `UPDATE ... SET col = replace(col, old, new) WHERE col LIKE old || '%'` rather than symlinks. Symlinks are a transitional hack; the DB should reference the real target paths. See the Phase 3 migration in #208 for a worked example (322,811 rows updated across 4 tables).
 
 ## Decision history
 
 - **Pre-Phase 1**: All metadata on tower NFS; Music media on tower NFS; doc2 had a virtual NFS-music-server module that was never enabled (`FUSE_EXPORT_SUPPORT` blocker).
-- **Phase 1 (this work)**: prom became the canonical host for Music + all metadata. Music traffic for doc2/igpu/desktops short-circuits tower entirely; Movies/TV media stays on tower for storage capacity reasons.
-- **Considered and rejected**: Giving igpu the full `containers` virtiofs mapping (matches doc2) — works but exposes far more than igpu needs. Two narrow mappings keeps the blast radius scoped to "things jellyfin actually reads."
-- **Considered and rejected**: Per-library metadata datasets (`music_metadata`, `movies_metadata`, `tv_metadata`) — three Proxmox mappings + three virtiofs devices + three fileSystems entries vs one. Per-library snapshot granularity is theoretical; one dataset snapshotted nightly covers all libraries. If we ever need per-library isolation, `zfs rename` + new mappings is a non-destructive upgrade.
+- **Phase 1**: prom became the canonical host for Music + all metadata. Music traffic for doc2/igpu/desktops short-circuits tower entirely; Movies/TV media stays on tower for storage capacity reasons. **Initially** we used narrow per-purpose virtiofs mappings on igpu (`music`, `media_metadata`) for blast-radius isolation.
+- **Phase 3**: Collapsed igpu to the broad `containers` mapping (like doc1/doc2). Jellyfin state lives at `/mnt/virtio/jellyfin` alongside everything else. The narrow-mapping approach didn't scale — adding each new service to igpu would have needed its own Proxmox mapping + `qm set` + VM restart. One broad mapping is the cleaner pattern and matches the rest of the fleet.
+- **Considered and rejected**: Per-library metadata ZFS datasets (`music_metadata`, `movies_metadata`, `tv_metadata`) — three Proxmox mappings + three virtiofs devices + three fileSystems entries vs one. Per-library snapshot granularity is theoretical; one dataset snapshotted nightly covers all libraries. If we ever need per-library isolation, `zfs rename` + new mappings is a non-destructive upgrade.
 
 ## When to revisit
 
-- When jellyfin migrates off compose to native `services.jellyfin` (Phase 3) — verify the union paths still map correctly inside the new module's library configs (paths in jellyfin's web UI need updating from `/data/movies` → `/mnt/fuse/Media/Movies` etc.).
 - If tower retires or Movies/TV move to prom — collapse Movies/TV branches to pure virtiofs like Music.
 - If the metadata dataset grows past ~200GB — check whether trickplay regeneration is doing something pathological, or whether per-library splits become worthwhile.
+- If `qm shutdown` is reliable again ([#211](https://github.com/abl030/nixosconfig/issues/211) closed) — maintenance windows for igpu get cheaper.
 
 ## Related
 
 - `modules/nixos/services/mounts/fuse.nix` — the mergerfs unit definitions
 - `modules/nixos/services/mounts/nfs-music.nix` — `homelab.mounts.nfsMusic` client mount (used by epi/framework/wsl, NOT igpu)
+- `modules/nixos/services/jellyfin.nix` — native jellyfin; `dataRoot = /mnt/virtio/jellyfin`
 - `hosts.nix` (`igpu.proxmox.virtiofs`) — declared mappings (documentation only on imported VMs)
-- `hosts/igpu/configuration.nix` — `fileSystems."/mnt/virtio/{Music,media_metadata}"` entries
-- `hosts/doc2/configuration.nix` — full `containers` virtiofs mapping
+- `hosts/igpu/configuration.nix` — `fileSystems."/mnt/virtio"` entry pointing at `containers`
+- `hosts/doc2/configuration.nix` — same `containers` mapping
 - [`igpu-passthrough.md`](igpu-passthrough.md) — the `qm shutdown` vs `qm stop` rationale

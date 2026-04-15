@@ -12,7 +12,6 @@
     immich = ../../../../stacks/immich/docker-compose.nix;
     invoices = ../../../../stacks/invoices/docker-compose.nix;
     jdownloader2 = ../../../../stacks/jdownloader2/docker-compose.nix;
-    jellyfin = ../../../../stacks/jellyfinn/docker-compose.nix;
     kopia = ../../../../stacks/kopia/docker-compose.nix;
     loki = ../../../../stacks/loki/docker-compose.nix;
     mealie = ../../../../stacks/mealie/docker-compose.nix;
