@@ -255,6 +255,10 @@
     ripgrep
     jq
 
+    # TUI utilities (auto-updated via flake inputs + rolling-flake-update)
+    netwatch # real-time network diagnostics — like htop for your network
+    sheets # terminal-based spreadsheet
+
     # Nix-specific
     nix-diff
     nix-tree

@@ -163,6 +163,24 @@
       url = "github:abl030/vinsight-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # netwatch - real-time network diagnostics TUI (Rust)
+    netwatch = {
+      url = "github:matthart1983/netwatch";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
+
+    # sheets - terminal spreadsheet (Go)
+    sheets = {
+      url = "github:maaslalani/sheets";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
   outputs = inputs @ {

@@ -410,6 +410,29 @@
         "type": "github"
       }
     },
+    "netwatch": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1775965016,
+        "narHash": "sha256-8V0pL4wrDE6upcNPNCGjn26qEqSuCPj3FtnwPghqxmk=",
+        "owner": "matthart1983",
+        "repo": "netwatch",
+        "rev": "b7918fd2fce0e40579ce32f1e66bf2ac84ba0c85",
+        "type": "github"
+      },
+      "original": {
+        "owner": "matthart1983",
+        "repo": "netwatch",
+        "type": "github"
+      }
+    },
     "nixos-hardware": {
       "locked": {
         "lastModified": 1775490113,
@@ -558,11 +581,13 @@
         "loki-mcp": "loki-mcp",
         "lrclib-src": "lrclib-src",
         "musicbrainz-docker": "musicbrainz-docker",
+        "netwatch": "netwatch",
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
         "nvchad4nix": "nvchad4nix",
         "pfsense-mcp": "pfsense-mcp",
+        "sheets": "sheets",
         "slskd-mcp": "slskd-mcp",
         "sops-nix": "sops-nix",
         "soularr-src": "soularr-src",
@@ -572,6 +597,29 @@
         "unifi-mcp": "unifi-mcp",
         "vinsight-mcp": "vinsight-mcp",
         "yt-dlp-src": "yt-dlp-src"
+      }
+    },
+    "sheets": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1775698684,
+        "narHash": "sha256-Dn0+Q3JGowU9utppVxUdFKBSaIwVrShh4VLSId3yOwQ=",
+        "owner": "maaslalani",
+        "repo": "sheets",
+        "rev": "7beaf1a26ce4302880778fb306fa2861eabca726",
+        "type": "github"
+      },
+      "original": {
+        "owner": "maaslalani",
+        "repo": "sheets",
+        "type": "github"
       }
     },
     "slskd-mcp": {
