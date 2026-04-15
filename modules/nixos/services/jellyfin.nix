@@ -143,7 +143,10 @@ in {
         # NEVER 127.0.0.1 — caddy shares the ts container's net namespace;
         # 127.0.0.1 there is the container's loopback, not the host.
         upstream = "http://host.docker.internal:${toString cfg.port}";
-        dataDir = "${cfg.dataDir}/ts";
+        # MUST sit OUTSIDE jellyfin's dataDir — systemd-tmpfiles refuses
+        # to create the share's subdirs as root inside a jellyfin-owned
+        # parent ("unsafe path transition" canonicalization check).
+        dataDir = "/var/lib/jellyfin-ts";
         hostname = "jellyfin";
         firewallPorts = [cfg.port];
       };
