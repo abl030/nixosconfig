@@ -100,8 +100,4 @@
     activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
     stateVersion = "25.05";
   };
-
-  # Ensure igpu-management starts on rebuild (prod-style).
-  systemd.services.igpu-management-stack.restartIfChanged = lib.mkForce true;
-  systemd.services.igpu-management-stack.wantedBy = lib.mkForce ["multi-user.target"];
 }
