@@ -33,7 +33,7 @@
       enable = true;
       sources = [
         {
-          ipRegex = "192\\.168\\.1\\.1";
+          ip = "192.168.1.1";
           label = "pfsense";
         }
       ];

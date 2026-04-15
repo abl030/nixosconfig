@@ -24,12 +24,20 @@
 
   syslogCfg = cfg.syslogReceiver;
 
+  # Plain IP/CIDR → regex for the connection-IP relabel match. Dots escaped,
+  # slashes stripped (CIDR bit length isn't meaningful in the regex — if you
+  # want to match a whole subnet, use a wider regex in a future extension).
+  ipToRegex = ip: let
+    stripped = lib.head (lib.splitString "/" ip);
+  in
+    lib.replaceStrings ["."] ["\\."] stripped;
+
   syslogSourceRules =
     lib.concatMapStringsSep "\n" (src: ''
 
       rule {
         source_labels = ["__syslog_connection_ip_address"]
-        regex         = ${builtins.toJSON src.ipRegex}
+        regex         = ${builtins.toJSON (ipToRegex src.ip)}
         replacement   = ${builtins.toJSON src.label}
         target_label  = "host"
       }'')
@@ -219,15 +227,18 @@ in {
       sources = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {
-            ipRegex = lib.mkOption {
+            ip = lib.mkOption {
               type = lib.types.str;
               description = ''
-                Regex matched against the sender's connection IP
-                (__syslog_connection_ip_address). That field is populated
-                from the raw UDP/TCP source IP, so the match must be on an
-                IP — DNS names don't work here. Escape dots as \\..
+                Sender IP (or CIDR like 192.168.1.0/24). Used for both the
+                firewall accept rule on the syslog port AND the alloy
+                relabel rule that stamps the friendly host label. Only exact
+                IP matches are relabelled; CIDRs are accepted by the
+                firewall but the relabel regex falls back to the network
+                address, so explicit per-host entries are usually what you
+                want.
               '';
-              example = "192\\.168\\.1\\.1";
+              example = "192.168.1.1";
             };
             label = lib.mkOption {
               type = lib.types.str;
@@ -237,7 +248,11 @@ in {
           };
         });
         default = [];
-        description = "Syslog senders to relabel with a friendly host name.";
+        description = ''
+          Syslog senders allowed through the firewall and relabelled with a
+          friendly host name. If empty with syslogReceiver.enable = true,
+          the receiver listens but no traffic will reach it.
+        '';
       };
     };
 
@@ -268,8 +283,16 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    networking.firewall.allowedTCPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
-    networking.firewall.allowedUDPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
+    # Source-restrict the syslog port to declared senders only. nftables
+    # (NixOS default from 25.05). No blanket allowedTCPPorts/UDP entry —
+    # the port stays closed to everyone else on the LAN.
+    networking.firewall.extraInputRules = lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) (
+      lib.concatMapStringsSep "\n" (src: ''
+        ip saddr ${src.ip} udp dport ${toString syslogCfg.port} accept
+        ip saddr ${src.ip} tcp dport ${toString syslogCfg.port} accept
+      '')
+      syslogCfg.sources
+    );
 
     systemd.tmpfiles.rules = [
       "d /var/lib/alloy 0755 root root - -"
