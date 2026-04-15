@@ -30,10 +30,6 @@ Goal: prefer stable, unauthenticated health endpoints when they exist, rather th
 - **Why:** `/` may return 401; `/identity` is a safe 200 OK health endpoint commonly used for monitoring.
 - **Source:** community guidance. citeturn6reddit46
 
-### Dozzle (dozzle.ablz.au)
-- **Recommended:** keep `/` for HTTP checks.
-- **Why:** Dozzle’s official healthcheck is a CLI command (`/dozzle healthcheck`) for container health, not an HTTP endpoint.
-- **Source:** citeturn0search0
 
 ### Gotify (gotify.ablz.au)
 - **Recommended:** keep `/` for HTTP checks.
