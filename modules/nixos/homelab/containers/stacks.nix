@@ -33,7 +33,6 @@
     youtarr = ../../../../stacks/youtarr/docker-compose.nix;
 
     management = ../../../../stacks/management/docker-compose.nix;
-    igpu-management = ../../../../stacks/management/igpu/docker_compose.nix;
     epi-management = ../../../../stacks/management/epi_management/docker_compose.nix;
     tailscale-caddy = ../../../../stacks/tailscale/caddy/docker-compose.nix;
   };
