@@ -135,7 +135,10 @@ in {
           http_listen_port = cfg.lokiPort;
           # Each dskit-based service defaults gRPC to :9095 — collides when
           # loki+tempo+mimir share a host. Spread them and bind to loopback.
-          grpc_listen_address = "127.0.0.1";
+          # dskit ring advertises the resolved host IP, not the listen address —
+          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+          # still keeps 9095/9096/9097 off the LAN.
+          grpc_listen_address = "0.0.0.0";
           grpc_listen_port = 9096;
         };
         common = {
@@ -199,7 +202,10 @@ in {
         server = {
           http_listen_address = "0.0.0.0";
           http_listen_port = cfg.tempoPort;
-          grpc_listen_address = "127.0.0.1";
+          # dskit ring advertises the resolved host IP, not the listen address —
+          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+          # still keeps 9095/9096/9097 off the LAN.
+          grpc_listen_address = "0.0.0.0";
           grpc_listen_port = 9095;
         };
         distributor.receivers.otlp.protocols = {
@@ -240,7 +246,10 @@ in {
         server = {
           http_listen_address = "0.0.0.0";
           http_listen_port = cfg.mimirPort;
-          grpc_listen_address = "127.0.0.1";
+          # dskit ring advertises the resolved host IP, not the listen address —
+          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+          # still keeps 9095/9096/9097 off the LAN.
+          grpc_listen_address = "0.0.0.0";
           grpc_listen_port = 9097;
         };
         common.storage = {
