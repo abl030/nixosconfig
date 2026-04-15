@@ -48,6 +48,9 @@
       enable = true;
       collectGarbage = true;
       trim = true;
+      # Kernel auto-reboot leaves the iGPU stuck without DRI devices
+      # (amdgpu binds but DRM init fails). Only a Proxmox host reboot
+      # recovers. See docs/wiki/infrastructure/igpu-passthrough.md.
       rebootOnKernelUpdate = false;
     };
   };
