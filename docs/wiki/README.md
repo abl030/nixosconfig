@@ -18,6 +18,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 ### Services
 
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
+- [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
 - [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
 - [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration

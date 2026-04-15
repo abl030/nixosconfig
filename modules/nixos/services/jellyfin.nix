@@ -95,32 +95,16 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # `mkBefore` pins our rules ahead of tailscaleShare's (which creates
-    # children under ${dataRoot}/ts). tmpfiles needs the parent rule to
-    # land first or child rules silently fail.
+    # `mkBefore` pins our parent rule ahead of tailscaleShare's children
+    # (which create ${dataRoot}/ts/*). tmpfiles processes rules in file
+    # order; without this the children would hit "parent doesn't exist"
+    # and silently fail.
     #
     # Pre-create the root-owned `dataRoot` parent so jellyfin-owned
     # (data/config/log) and root-owned (ts) children can coexist without
     # tripping systemd-tmpfiles unsafe-path-transition canonicalization.
-    #
-    # Legacy LSIO container paths preserved as symlinks so paths baked
-    # into the migrated libraries.db continue to resolve:
-    #   /data/{tvshows,movies,music} — media paths (jellyfin library root
-    #     folders, referenced in libraries.db and Folder.jpg artwork paths)
-    #   /config — LSIO's combined --datadir parent and --configdir; items'
-    #     metadata images reference /config/data/metadata/library/...
-    #     which must resolve to our ${dataRoot}/data/metadata/library/...
-    # Jellyfin refuses to edit a library whose declared path doesn't exist
-    # on disk — without these, remap via the web UI is impossible.
-    # Remap paths in Dashboard → Libraries to native /mnt/fuse/Media and
-    # ${dataRoot}/data locations at leisure, then these can be dropped.
     systemd.tmpfiles.rules = lib.mkBefore [
       "d ${cfg.dataRoot} 0755 root root - -"
-      "d /data 0755 root root - -"
-      "L+ /data/tvshows - - - - /mnt/fuse/Media/TV_Shows"
-      "L+ /data/movies  - - - - /mnt/fuse/Media/Movies"
-      "L+ /data/music   - - - - /mnt/fuse/Media/Music"
-      "L+ /config       - - - - ${cfg.dataRoot}"
     ];
 
     services.jellyfin = {
