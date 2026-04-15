@@ -1,6 +1,8 @@
 # LGTM Observability Stack
 
-Loki, Grafana, Tempo, Mimir — deployed as a rootless Podman compose service on **igpu** (192.168.1.33).
+Loki, Grafana, Tempo, Mimir — deployed as a rootless Podman compose service on **doc2** (192.168.1.35).
+
+> Previously ran on igpu (192.168.1.33); migrated to doc2 in April 2026.
 
 ## Components
 
@@ -25,7 +27,7 @@ Config: `modules/nixos/services/loki.nix`
 
 ### Overview
 
-Alloy's `loki.source.syslog` listens on port **1514** (UDP+TCP) for external syslog sources. Currently receives logs from pfSense (192.168.1.1). Enabled on igpu via `homelab.loki.syslogReceiver.enable`.
+Alloy's `loki.source.syslog` listens on port **1514** (UDP+TCP) for external syslog sources. Currently receives logs from pfSense (192.168.1.1). Enabled on doc2 via `homelab.loki.syslogReceiver.enable`.
 
 ### pfSense Syslog Format
 
@@ -48,7 +50,7 @@ Alloy's syslog source exposes several internal labels. Here's what works and wha
 
 ### Adding a New Syslog Source
 
-1. Configure the device to send syslog to igpu's IP (192.168.1.33) on port 1514/UDP
+1. Configure the device to send syslog to doc2's IP (192.168.1.35) on port 1514/UDP
 2. Add a relabel rule in the `syslogBlocks` section of `modules/nixos/services/loki.nix`:
 
 ```alloy
@@ -60,7 +62,7 @@ rule {
 }
 ```
 
-3. Deploy to igpu
+3. Deploy to doc2
 
 ### Gotchas
 
@@ -70,7 +72,7 @@ rule {
 # Disable
 curl -X PATCH ... '{"enableremotelogging": false}'
 # Re-enable
-curl -X PATCH ... '{"enableremotelogging": true, "remoteserver": "192.168.1.33:1514", ...}'
+curl -X PATCH ... '{"enableremotelogging": true, "remoteserver": "192.168.1.35:1514", ...}'
 ```
 
 - **`use_incoming_timestamp`**: Do NOT use this with rfc3164 pfSense messages. pfSense sends timestamps without timezone info, causing Alloy to interpret them as UTC and creating ~8h offset (for AWST). Let Alloy use its own clock instead.
