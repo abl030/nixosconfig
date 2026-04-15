@@ -232,7 +232,6 @@ in {
         pkgs.claude-code
         pkgs.unifi-mcp
         pkgs.pfsense-mcp
-        pkgs.loki-mcp
         pkgs.vinsight-mcp
         pkgs.nodejs
         pkgs.playwright-mcp

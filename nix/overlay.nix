@@ -86,13 +86,6 @@
     }
   )
 
-  # loki-mcp overlay: AI-friendly MCP server for Grafana Loki
-  (
-    final: _prev: {
-      loki-mcp = inputs.loki-mcp.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
   # lidarr-mcp overlay: MCP server for Lidarr music management
   (
     final: _prev: {

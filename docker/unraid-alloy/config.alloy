@@ -51,7 +51,7 @@ loki.source.docker "containers" {
 // Push to Loki
 loki.write "default" {
   endpoint {
-    url = "http://192.168.1.33:3100/loki/api/v1/push"
+    url = "https://loki.ablz.au/loki/api/v1/push"
   }
 }
 
@@ -69,7 +69,7 @@ prometheus.scrape "node" {
 // Push metrics to Mimir
 prometheus.remote_write "mimir" {
   endpoint {
-    url = "http://192.168.1.33:9009/api/v1/push"
+    url = "https://mimir.ablz.au/api/v1/push"
   }
   external_labels = {
     host = "tower",

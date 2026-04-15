@@ -133,6 +133,10 @@ in {
         server = {
           http_listen_address = "0.0.0.0";
           http_listen_port = cfg.lokiPort;
+          # Each dskit-based service defaults gRPC to :9095 — collides when
+          # loki+tempo+mimir share a host. Spread them and bind to loopback.
+          grpc_listen_address = "127.0.0.1";
+          grpc_listen_port = 9096;
         };
         common = {
           path_prefix = "${cfg.dataDir}/loki";
@@ -195,6 +199,8 @@ in {
         server = {
           http_listen_address = "0.0.0.0";
           http_listen_port = cfg.tempoPort;
+          grpc_listen_address = "127.0.0.1";
+          grpc_listen_port = 9095;
         };
         distributor.receivers.otlp.protocols = {
           grpc.endpoint = "0.0.0.0:${toString cfg.tempoOtlpGrpcPort}";
@@ -234,6 +240,8 @@ in {
         server = {
           http_listen_address = "0.0.0.0";
           http_listen_port = cfg.mimirPort;
+          grpc_listen_address = "127.0.0.1";
+          grpc_listen_port = 9097;
         };
         common.storage = {
           backend = "filesystem";
