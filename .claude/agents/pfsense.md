@@ -15,6 +15,8 @@ Call pfsense_search_tools first to find the right tool by keyword before browsin
 
 Always confirm destructive operations (deleting rules, changing routing) before executing them.
 
+**NEVER flush the firewall state table** (`pfctl -F state` or equivalent) after rule/alias/routing changes. Stale pre-rule connections will age out on their own. State flushes consume tokens, hang frequently, and can drop unrelated long-lived connections across the whole fleet (SSH, VPN, syncthing, etc.). If a user needs immediate effect on a single host, suggest they restart networking on that host instead.
+
 ## Context Maintenance
 
 The reference data below is a snapshot and WILL drift. **Always query live state before acting.**
@@ -65,9 +67,10 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 |-----------|------|--------|----------|---------|
 | WAN | wan | DHCP (public IP) | igc0 | Internet uplink |
 | LAN | lan | 192.168.1.0/24 | igc1 | Main network |
+| OPT1 (AirVPN SG) | opt1 | 10.136.216.104/32 | tun_wg0 | AirVPN WG tunnel (Singapore) |
 | OPT3 (Docker VLAN) | opt3 | 192.168.11.0/24 | igc1.10 (VLAN 10) | Docker/container network |
 | IOT_OF_DEATH | opt4 | 192.168.101.0/24 | igc1.100 (VLAN 100) | Isolated IoT devices |
-| OPT5 (AirVPN) | opt5 | 10.136.18.126 | tun_wg2 | AirVPN WG tunnel |
+| OPT5 (AirVPN NZ) | opt5 | 10.136.18.126/32 | tun_wg2 | AirVPN WG tunnel (New Zealand) |
 
 ### VLANs
 
@@ -81,13 +84,17 @@ Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, 
 | Name | Purpose |
 |------|---------|
 | WAN_DHCP | Default internet gateway |
-| AirVPN | AirVPN WireGuard tunnel |
+| AirVPN | AirVPN WireGuard tunnel (NZ, tun_wg2/opt5) |
+| AirVPN_SG | AirVPN WireGuard tunnel (Singapore, tun_wg0/opt1) |
 
 ### WireGuard Tunnels
 
-| Tunnel | Port | Description |
-|--------|------|-------------|
-| tun_wg2 | 51822 | WG_AIRVPN |
+| Tunnel | Port | Interface | Description |
+|--------|------|-----------|-------------|
+| tun_wg2 | 51822 | opt5 (AIRVPN_NZ implied, descr OPT5) | WG_AIRVPN (New Zealand) |
+| tun_wg0 | 51823 | opt1 (AIRVPN_SG) | WG_AIRVPN_SG (Singapore) |
+
+Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the same server pubkey (`PyLCXA...`) across regions. The SG peer was injected directly into config.xml via PHP to bypass this API-layer constraint — WireGuard kernel itself supports same peer pubkey on different interfaces. The SG tunnel uses a distinct client private key and client IP (10.136.216.104/32).
 
 ## VPN Routing Policy
 
@@ -129,8 +136,8 @@ Traffic is routed through AirVPN based on source IP using aliases:
 | Src | Dest Port | Target | Local Port | Description |
 |-----|-----------|--------|------------|-------------|
 | any | 11338 (WAN) | 192.168.1.2 | 32400 | Plex |
-| any | 45726 (OPT5/AirVPN) | 192.168.1.4 | 45726 | Torrent |
-| any | 45727 (OPT5/AirVPN) | 192.168.11.3 | 45727 | Torrent (Docker VLAN) |
+| any | 45726 (OPT5/AirVPN NZ) | 192.168.1.4 | 45726 | Torrent |
+| any | 45727 (OPT5/AirVPN NZ) | 192.168.11.3 | 45727 | Torrent (Docker VLAN) |
 | LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |
