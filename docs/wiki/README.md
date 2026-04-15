@@ -7,3 +7,21 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - `claude-code/` — Claude Code features, plugins, skills, bugs, workarounds
 - `infrastructure/` — Network, VMs, storage, monitoring
 - `services/` — Container stacks, integrations, service-specific docs
+
+## Index
+
+### Infrastructure
+
+- [igpu-passthrough](infrastructure/igpu-passthrough.md) — AMD iGPU → `igpu` VM, `/dev/dri` health, kernel-reboot footgun
+
+### Services
+
+- [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
+- [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
+- [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
+- [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
+
+### Claude Code
+
+- [auto-memory-directory](claude-code/auto-memory-directory.md) — persistent memory layout
+- [skills-in-subagents](claude-code/skills-in-subagents.md) — skill availability inside spawned subagents

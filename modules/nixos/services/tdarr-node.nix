@@ -1,3 +1,5 @@
+# See docs/wiki/services/tdarr-node.md for role, passthrough, and gotchas.
+# See docs/wiki/infrastructure/igpu-passthrough.md for /dev/dri health checks.
 {
   config,
   lib,
