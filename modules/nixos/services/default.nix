@@ -38,6 +38,7 @@
     ./smokeping.nix
     ./uptime-kuma.nix
     ./jdownloader2.nix
+    ./tdarr-node.nix
     ./netboot.nix
     ./overseerr.nix
     ./youtarr.nix
