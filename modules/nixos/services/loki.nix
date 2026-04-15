@@ -1,3 +1,6 @@
+# Alloy shipper + optional syslog receiver on every NixOS host.
+# Ships journald + node_exporter to the LGTM stack via HTTPS FQDN.
+# See docs/wiki/services/lgtm-stack.md for the server side + DNS-first rule.
 {
   config,
   lib,
