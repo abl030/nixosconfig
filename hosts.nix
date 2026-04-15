@@ -191,6 +191,12 @@ in {
       diskInterface = "scsi0";
       cloneFromTemplate = false; # imported VM; no clone block
       ignoreInit = true; # keep existing cloud-init settings
+      # NOTE: virtiofs here is documentation-only — ignoreInit=true means
+      # OpenTofu will not drive it. Applied manually via `qm set 109 -virtiofsN dirid=…`.
+      virtiofs = [
+        {mapping = "music";}
+        {mapping = "media_metadata";}
+      ];
       tags = [];
       ignoreChangesExtra = [
         "description"

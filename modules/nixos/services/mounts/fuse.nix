@@ -17,10 +17,12 @@ with lib; let
   mfs = "${pkgs.mergerfs}/bin/mergerfs";
   umnt = "${pkgs.util-linux}/bin/umount";
 
-  brMovies = "/mnt/data/Media/Metadata/Movies=RW:/mnt/data/Media/Movies=RO";
-  brTV = "/mnt/data/Media/Metadata/TV Shows=RW:/mnt/data/Media/TV Shows=RO";
-  brMusic = "/mnt/data/Media/Metadata/Music=RW:/mnt/data/Media/Music=RO";
-  brMusicRW = "/mnt/data/Media/Music=RW";
+  # Metadata (RW) lives on prom virtiofs (/mnt/virtio/media_metadata); media (RO)
+  # for Movies/TV stays on tower NFS (/mnt/data), Music RO/RW is direct prom virtiofs.
+  brMovies = "/mnt/virtio/media_metadata/Movies=RW:/mnt/data/Media/Movies=RO";
+  brTV = "/mnt/virtio/media_metadata/TV Shows=RW:/mnt/data/Media/TV Shows=RO";
+  brMusic = "/mnt/virtio/media_metadata/Music=RW:/mnt/virtio/Music=RO";
+  brMusicRW = "/mnt/virtio/Music=RW";
 
   dstMovies = "/mnt/fuse/Media/Movies";
   dstTV = "/mnt/fuse/Media/TV_Shows";
@@ -54,6 +56,7 @@ in {
           after = ["mnt-data.mount"];
           requires = ["mnt-data.mount"];
           bindsTo = ["mnt-data.mount"];
+          unitConfig.RequiresMountsFor = ["/mnt/virtio/media_metadata"];
           serviceConfig = {
             Type = "simple";
             ExecStart = mkExecStart brMovies dstMovies;
@@ -68,6 +71,7 @@ in {
           after = ["mnt-data.mount"];
           requires = ["mnt-data.mount"];
           bindsTo = ["mnt-data.mount"];
+          unitConfig.RequiresMountsFor = ["/mnt/virtio/media_metadata"];
           serviceConfig = {
             Type = "simple";
             ExecStart = mkExecStart brTV dstTV;
@@ -77,11 +81,10 @@ in {
           wantedBy = ["multi-user.target"];
         };
 
+        # Music is pure virtiofs now (no tower NFS dependency).
         "fuse-mergerfs-music" = {
           description = "mergerfs union for Music (Metadata=RW, Media=RO)";
-          after = ["mnt-data.mount"];
-          requires = ["mnt-data.mount"];
-          bindsTo = ["mnt-data.mount"];
+          unitConfig.RequiresMountsFor = ["/mnt/virtio/Music" "/mnt/virtio/media_metadata"];
           serviceConfig = {
             Type = "simple";
             ExecStart = mkExecStart brMusic dstMusic;
@@ -93,9 +96,7 @@ in {
 
         "fuse-mergerfs-music-rw" = {
           description = "mergerfs wrapper for Music (RW for Lidarr)";
-          after = ["mnt-data.mount"];
-          requires = ["mnt-data.mount"];
-          bindsTo = ["mnt-data.mount"];
+          unitConfig.RequiresMountsFor = ["/mnt/virtio/Music"];
           serviceConfig = {
             Type = "simple";
             ExecStart = mkExecStart brMusicRW dstMusicRW;

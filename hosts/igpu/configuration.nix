@@ -84,6 +84,21 @@
     nvtopPackages.amd
   ]);
 
+  # Virtiofs mounts from prom. Music is the canonical 668GB ZFS child dataset;
+  # media_metadata is the jellyfin-writable tree (NFOs, artwork, trickplay)
+  # backed by nvmeprom/containers/media_metadata. Movies and TV Shows media
+  # themselves continue to come from tower via NFS (see modules/nixos/services/mounts).
+  fileSystems."/mnt/virtio/Music" = {
+    device = "music";
+    fsType = "virtiofs";
+    options = ["rw" "relatime"];
+  };
+  fileSystems."/mnt/virtio/media_metadata" = {
+    device = "media_metadata";
+    fsType = "virtiofs";
+    options = ["rw" "relatime"];
+  };
+
   services.qemuGuest.enable = true;
 
   sops.age = {
