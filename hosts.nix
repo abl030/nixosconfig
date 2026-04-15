@@ -107,7 +107,6 @@ in {
     localIp = "192.168.1.29";
     # Stacks disabled for testing - enable one by one
     containerStacks = [
-      "management"
       "tailscale-caddy"
       # "paperless" — migrated to native NixOS services on doc2
       # "mealie" — migrated to native NixOS services on doc2
