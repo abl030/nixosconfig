@@ -13,6 +13,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 ### Infrastructure
 
 - [igpu-passthrough](infrastructure/igpu-passthrough.md) — AMD iGPU → `igpu` VM, `/dev/dri` health, kernel-reboot footgun
+- [media-filesystem](infrastructure/media-filesystem.md) — mergerfs + virtiofs + tower NFS layout, where each library's media/metadata lives
 
 ### Services
 
