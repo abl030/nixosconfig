@@ -25,11 +25,6 @@ Goal: prefer stable, unauthenticated health endpoints when they exist, rather th
 - **Why:** Jellyfin’s OpenAPI schema exposes `/System/Info/Public` as a public info endpoint; better than `/` which may redirect or require auth.
 - **Source:** citeturn10open1
 
-### Plex (plex2.ablz.au)
-- **Recommended (already set):** `https://plex2.ablz.au/identity`
-- **Why:** `/` may return 401; `/identity` is a safe 200 OK health endpoint commonly used for monitoring.
-- **Source:** community guidance. citeturn6reddit46
-
 
 ### Gotify (gotify.ablz.au)
 - **Recommended:** keep `/` for HTTP checks.

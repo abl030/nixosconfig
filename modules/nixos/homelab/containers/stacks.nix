@@ -21,7 +21,6 @@
     netboot = ../../../../stacks/netboot/docker-compose.nix;
     openobserve = ../../../../stacks/openobserve/docker-compose.nix;
     paperless = ../../../../stacks/paperless/docker-compose.nix;
-    plex = ../../../../stacks/plex/docker-compose.nix;
     restart-probe = ../../../../stacks/restart-probe/docker-compose.nix;
     restart-probe-b = ../../../../stacks/restart-probe-b/docker-compose.nix;
     smokeping = ../../../../stacks/smokeping/docker-compose.nix;
