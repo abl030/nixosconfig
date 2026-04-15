@@ -27,6 +27,18 @@
     };
     tailscale.enable = true;
 
+    # LGTM observability stack — migrated from igpu per #208.
+    # Also receive syslog (pfSense, tower) on 1514/udp+tcp.
+    loki.syslogReceiver = {
+      enable = true;
+      sources = [
+        {
+          ipRegex = "192\\.168\\.1\\.1";
+          label = "pfsense";
+        }
+      ];
+    };
+
     # NFS for Immich media — same writable mount as doc1
     mounts.nfsLocal.enable = true;
     # Bindfs FUSE over NFS Music dir — generates local inotify events
@@ -57,6 +69,12 @@
 
     # Services
     services = {
+      # LGTM observability stack (migrated from igpu per #208).
+      # Data on virtiofs so the VM is disposable.
+      loki = {
+        enable = true;
+        dataDir = "/mnt/virtio/loki";
+      };
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";

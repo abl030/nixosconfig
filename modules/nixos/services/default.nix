@@ -15,6 +15,7 @@
     ./monitoring_sync.nix
     ./gotify.nix
     ./loki.nix
+    ./loki-server.nix
     ./prometheus.nix
     ./openobserve.nix
     ./mcp.nix

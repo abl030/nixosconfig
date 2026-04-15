@@ -33,7 +33,7 @@
       enable = true;
       secure = false;
     };
-    loki.syslogReceiver.enable = true;
+    # Syslog receiver moved to doc2 with the LGTM stack (#208).
     tailscale.enable = true;
     mdnsReflector = {
       enable = true;
