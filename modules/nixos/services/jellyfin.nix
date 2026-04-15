@@ -94,10 +94,26 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # Pre-create the root-owned parent so child tmpfiles rules (some
-    # jellyfin-owned, some root-owned) can land cleanly without tripping
-    # systemd-tmpfiles unsafe-path-transition canonicalization checks.
-    systemd.tmpfiles.rules = ["d ${cfg.dataRoot} 0755 root root - -"];
+    # `mkBefore` pins our rules ahead of tailscaleShare's (which creates
+    # children under ${dataRoot}/ts). tmpfiles needs the parent rule to
+    # land first or child rules silently fail.
+    #
+    # Pre-create the root-owned `dataRoot` parent so jellyfin-owned
+    # (data/config/log) and root-owned (ts) children can coexist without
+    # tripping systemd-tmpfiles unsafe-path-transition canonicalization.
+    #
+    # Legacy LSIO container paths (/data/{tvshows,movies,music}) preserved
+    # as symlinks so libraries in the migrated libraries.db resolve without
+    # a destructive re-import — jellyfin refuses to edit a library whose
+    # path doesn't exist on disk. Remap paths in Dashboard → Libraries
+    # to /mnt/fuse/Media/<lib> at leisure, then these can be dropped.
+    systemd.tmpfiles.rules = lib.mkBefore [
+      "d ${cfg.dataRoot} 0755 root root - -"
+      "d /data 0755 root root - -"
+      "L+ /data/tvshows - - - - /mnt/fuse/Media/TV_Shows"
+      "L+ /data/movies  - - - - /mnt/fuse/Media/Movies"
+      "L+ /data/music   - - - - /mnt/fuse/Media/Music"
+    ];
 
     services.jellyfin = {
       enable = true;
