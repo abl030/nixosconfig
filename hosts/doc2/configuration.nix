@@ -43,9 +43,6 @@
     mounts.nfsLocal.enable = true;
     # Bindfs FUSE over NFS Music dir — generates local inotify events
     mounts.bindfsMusic.enable = false; # Migrated to downloader (192.168.1.4)
-    # NFS Music export moved to prom (ZFS-direct) — virtiofs lacks
-    # FUSE_EXPORT_SUPPORT causing stale NFS file handles for subdirs.
-    mounts.nfsMusicServer.enable = false;
 
     nixCaches = {
       enable = true;
