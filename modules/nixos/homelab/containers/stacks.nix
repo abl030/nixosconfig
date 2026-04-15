@@ -27,7 +27,6 @@
     smokeping = ../../../../stacks/smokeping/docker-compose.nix;
     stirlingpdf = ../../../../stacks/StirlingPDF/docker-compose.nix;
     tautulli = ../../../../stacks/tautulli/docker-compose.nix;
-    tdarr-igp = ../../../../stacks/tdarr/igp/docker-compose.nix;
     uptime-kuma = ../../../../stacks/uptime-kuma/docker-compose.nix;
     webdav = ../../../../stacks/WebDav/docker-compose.nix;
     youtarr = ../../../../stacks/youtarr/docker-compose.nix;

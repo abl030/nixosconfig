@@ -29,6 +29,7 @@
     containers = {
       enable = true;
     };
+    services.tdarrNode.enable = true;
     ssh = {
       enable = true;
       secure = false;
