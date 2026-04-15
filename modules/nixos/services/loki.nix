@@ -2,55 +2,43 @@
   config,
   lib,
   pkgs,
-  allHosts,
   ...
 }: let
   cfg = config.homelab.loki;
-  lokiHosts = lib.attrNames (
-    lib.filterAttrs (
-      _: host:
-        (host ? containerStacks)
-        && lib.elem "loki" host.containerStacks
-    )
-    allHosts
-  );
-  autoHostName =
-    if lokiHosts != []
-    then builtins.head (lib.sort lib.lessThan lokiHosts)
-    else null;
-  hostName =
-    if cfg.host != null
-    then cfg.host
-    else autoHostName;
-  lokiHost =
-    if hostName != null
-    then allHosts.${hostName} or null
-    else null;
-  lokiIp =
-    if lokiHost != null && lokiHost ? localIp
-    then lokiHost.localIp
-    else hostName;
+
+  # Ship via HTTPS to the service FQDN (Cloudflare A records are synced by
+  # homelab.localProxy on whichever host runs homelab.services.loki — moving
+  # the server is a one-deploy change, no grep-and-replace). If THIS host
+  # runs the server, short-circuit to localhost to skip the nginx round-trip.
+  selfHostsLoki = config.homelab.services.loki.enable or false;
+
   lokiUrl =
-    if lokiIp != null
-    then "http://${lokiIp}:${toString cfg.port}/loki/api/v1/push"
-    else null;
+    if selfHostsLoki
+    then "http://127.0.0.1:${toString (config.homelab.services.loki.lokiPort or 3100)}/loki/api/v1/push"
+    else cfg.lokiPushUrl;
+
   mimirUrl =
-    if lokiIp != null
-    then "http://${lokiIp}:${toString cfg.mimirPort}/api/v1/push"
-    else null;
+    if selfHostsLoki
+    then "http://127.0.0.1:${toString (config.homelab.services.loki.mimirPort or 9009)}/api/v1/push"
+    else cfg.mimirPushUrl;
 
   syslogCfg = cfg.syslogReceiver;
 
-  syslogBlocks = lib.optionalString syslogCfg.enable ''
-    loki.relabel "syslog" {
-      forward_to = []
+  syslogSourceRules =
+    lib.concatMapStringsSep "\n" (src: ''
 
       rule {
         source_labels = ["__syslog_connection_ip_address"]
-        regex         = "192\\.168\\.1\\.1"
-        replacement   = "pfsense"
+        regex         = ${builtins.toJSON src.ipRegex}
+        replacement   = ${builtins.toJSON src.label}
         target_label  = "host"
-      }
+      }'')
+    syslogCfg.sources;
+
+  syslogBlocks = lib.optionalString syslogCfg.enable ''
+    loki.relabel "syslog" {
+      forward_to = []${syslogSourceRules}
+
       rule {
         source_labels = ["__syslog_message_app_name"]
         target_label  = "app"
@@ -193,24 +181,27 @@
   '';
 in {
   options.homelab.loki = {
-    enable = lib.mkEnableOption "Ship journald logs to Loki";
+    enable = lib.mkEnableOption "Ship journald logs and node metrics to the LGTM stack";
 
-    host = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "hosts.nix name for the Loki host. Null picks the first host with the loki stack.";
+    lokiPushUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "https://loki.ablz.au/loki/api/v1/push";
+      description = ''
+        Full URL for Loki's push endpoint. Default uses the Cloudflare FQDN
+        which resolves to whichever host currently runs
+        `homelab.services.loki` (the localProxy module owns the A record).
+        Ignored when `homelab.services.loki.enable = true` on this host —
+        that case short-circuits to localhost.
+      '';
     };
 
-    port = lib.mkOption {
-      type = lib.types.port;
-      default = 3100;
-      description = "Loki HTTP port.";
-    };
-
-    mimirPort = lib.mkOption {
-      type = lib.types.port;
-      default = 9009;
-      description = "Mimir HTTP port for remote_write.";
+    mimirPushUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "https://mimir.ablz.au/api/v1/push";
+      description = ''
+        Full URL for Mimir's remote_write endpoint. Default uses the
+        Cloudflare FQDN — see lokiPushUrl for rationale.
+      '';
     };
 
     syslogReceiver = {
@@ -225,6 +216,29 @@ in {
         default = "0.0.0.0";
         description = "Address to bind syslog listener.";
       };
+      sources = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            ipRegex = lib.mkOption {
+              type = lib.types.str;
+              description = ''
+                Regex matched against the sender's connection IP
+                (__syslog_connection_ip_address). That field is populated
+                from the raw UDP/TCP source IP, so the match must be on an
+                IP — DNS names don't work here. Escape dots as \\..
+              '';
+              example = "192\\.168\\.1\\.1";
+            };
+            label = lib.mkOption {
+              type = lib.types.str;
+              description = "Friendly host label to stamp on matching syslog lines.";
+              example = "pfsense";
+            };
+          };
+        });
+        default = [];
+        description = "Syslog senders to relabel with a friendly host name.";
+      };
     };
 
     extraScrapeTargets = lib.mkOption {
@@ -236,7 +250,10 @@ in {
           };
           address = lib.mkOption {
             type = lib.types.str;
-            description = "Target address (host:port)";
+            description = ''
+              Target address (host:port). Prefer DNS hostnames over hardcoded
+              IPs — hardcoded IPs break silently when hosts are renumbered.
+            '';
           };
           instance = lib.mkOption {
             type = lib.types.str;
@@ -251,13 +268,6 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = lokiUrl != null;
-        message = "homelab.loki: no Loki host detected; set homelab.loki.host or add loki stack to a host with localIp.";
-      }
-    ];
-
     networking.firewall.allowedTCPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
     networking.firewall.allowedUDPPorts = lib.mkIf syslogCfg.enable [syslogCfg.port];
 
