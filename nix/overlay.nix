@@ -114,6 +114,20 @@
     }
   )
 
+  # netwatch overlay: real-time network diagnostics TUI from upstream flake
+  (
+    final: _prev: {
+      netwatch = inputs.netwatch.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
+
+  # sheets overlay: terminal spreadsheet from upstream flake
+  (
+    final: _prev: {
+      sheets = inputs.sheets.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
+
   # plexamp overlay: pin to 4.12.3 — audio broken on Linux in 4.12.4 and 4.13.0
   # Fixed upstream in 4.13.1 (2026-04-13). Drop this overlay once nixpkgs ships >=4.13.1.
   # https://forums.plex.tv/t/plexamp-flatpak-appimage-does-not-start-playback-until-audio-device-switched/929631
