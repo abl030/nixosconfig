@@ -147,15 +147,22 @@ Do NOT duplicate rationale into MEMORY.md — point to the issue or wiki page in
 
 MCP servers are defined in `.mcp.json` (source of truth). Use `/add-mcp` to add new servers.
 
-### Loki
+### Loki / LGTM stack
 
-The Loki MCP server queries logs from the homelab fleet. Usage notes:
-- **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) or relative durations (`1h`, `30m`). Do NOT use `24h` or other durations as the `start` parameter — use an RFC3339 timestamp instead.
-- Default query range is 1 hour. For longer ranges, compute the RFC3339 start time.
-- Metric queries (`bytes_over_time`, `rate`, `count_over_time`) are not supported by the MCP tool — use log queries only.
-- Hosts are labelled: `wsl`, `proxmox-vm` (doc1), `igpu`, `dev`, `cache`, `tower`.
-- Container logs use the `container` label (e.g., `{host="proxmox-vm", container="immich-server"}`).
-- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query it with `unit="rolling-flake-update.service"` and `host="proxmox-vm"`. Use a start time before 14:15 UTC of the relevant day.
+Logs, metrics, and traces live on **doc2** (LGTM: Loki + Grafana + Tempo + Mimir). See `docs/wiki/services/lgtm-stack.md` for architecture, gotchas, and migration history.
+
+Agent-facing query paths:
+- **Grafana Explore:** https://logs.ablz.au — interactive log/metric browsing.
+- **Loki HTTP API:** `https://loki.ablz.au/loki/api/v1/query_range?query={host="<h>"}&start=<RFC3339-or-ns>&end=<…>&limit=<n>`.
+- **Label values:** `curl -s https://loki.ablz.au/loki/api/v1/label/host/values | jq .data` → returns the current ingesting hosts.
+
+Usage notes:
+- **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) in queries. Loki also accepts nanosecond epochs.
+- Default query range is 1 hour; compute a start timestamp for longer windows.
+- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `cache`, `dev`, `tower` (Unraid), `pfsense` (via syslog).
+- Container logs use the `container` label (e.g. `{host="proxmox-vm", container="immich-server"}`).
+- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 14:15 UTC of the relevant day.
+- The former `loki-mcp` server was removed in April 2026 — query Loki directly via HTTP or Grafana.
 
 ### Home Assistant, pfSense, UniFi
 

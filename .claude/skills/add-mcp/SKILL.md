@@ -12,7 +12,7 @@ Add a new MCP server to `.mcp.json` (the single source of truth) and sync to all
 ## Steps
 
 1. Parse the arguments: `$ARGUMENTS`
-   - Format: `<name> <url>` for HTTP servers (e.g. `loki http://loki-mcp.ablz.au:8081/stream`)
+   - Format: `<name> <url>` for HTTP servers (e.g. `homeassistant http://homeassistant.local/api/mcp`)
    - Format: `<name> <command> [args...]` for stdio servers (e.g. `mcp-nixos uvx mcp-nixos`)
    - If arguments are missing or ambiguous, ask the user.
 

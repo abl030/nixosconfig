@@ -5,11 +5,15 @@ This document outlines the plan to implement distributed tracing via OpenTelemet
 ## Current State
 
 The fleet already has:
-- **Loki** (logs) on igpu
-- **Mimir** (metrics) on igpu
-- **Tempo** (traces) on igpu — **still idle, no apps support trace export**
-- **Grafana** on igpu — dashboards at logs.ablz.au
-- **Alloy** on each NixOS host — shipping journald logs to Loki, node metrics to Mimir
+- **Loki** (logs) on doc2 (migrated from igpu April 2026, #208)
+- **Mimir** (metrics) on doc2
+- **Tempo** (traces) on doc2 — **still idle, no apps support trace export**
+- **Grafana** on doc2 — dashboards at logs.ablz.au
+- **Alloy** on each NixOS host — shipping journald logs to Loki, node metrics to Mimir via `https://{loki,mimir}.ablz.au`
+- **pfSense** syslog → doc2:1514 (source-restricted)
+- **Unraid tower** alloy+node-exporter pushing via HTTPS FQDN
+
+Architecture + operational quirks: see `docs/wiki/services/lgtm-stack.md`.
 
 What's implemented:
 - **Immich Prometheus metrics** — scraping :8081/metrics via Alloy
@@ -300,7 +304,7 @@ If exporters run in the same podman network, use container labels for auto-disco
 
 - [x] Does Tempo on igpu have OTLP receiver enabled? **YES** — receivers configured for both gRPC and HTTP
 - [x] What port is Tempo OTLP listening on? **4317 (gRPC) and 4318 (HTTP)** — both exposed
-- [x] Do we need to open firewall ports between doc1 and igpu for OTLP? **YES** — ports 4317/4318 need to be open, done via loki stack config
+- [x] Do we need to open firewall ports between doc1 and doc2 for OTLP? **YES** — 4317/4318 are open on doc2 as part of the LGTM server module. Currently unused (no OTEL-native emitters). Source-restrict when a trace producer comes online.
 - [ ] Should exporters run as sidecars in each stack or in a dedicated "monitoring" stack?
 - [ ] Where to store exporter API keys? (sops secrets)
 - [ ] **NEW**: Which apps actually support OTEL traces? (Current answer: possibly none in our fleet)

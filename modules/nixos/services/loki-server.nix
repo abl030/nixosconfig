@@ -1,3 +1,5 @@
+# LGTM observability stack (Grafana + Loki + Tempo + Mimir) for doc2.
+# Architecture, gotchas, and migration runbook: docs/wiki/services/lgtm-stack.md
 {
   config,
   lib,
