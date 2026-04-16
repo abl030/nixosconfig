@@ -92,7 +92,8 @@
         if target.instance != ""
         then target.instance
         else target.job
-      }",
+      }",${lib.optionalString (target.targetParam != null) ''
+          __param_target = "${target.targetParam}",''}
         }]
         forward_to      = [prometheus.remote_write.mimir.receiver]
         scrape_interval = "60s"
@@ -278,6 +279,16 @@ in {
             default = "";
             description = "Instance label (defaults to job name)";
           };
+          targetParam = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              If set, passed as `?target=<value>` query parameter. Used by
+              multi-target exporters (snmp_exporter, pfsense_exporter, etc.)
+              where `address` is the exporter and `targetParam` is the device
+              being scraped.
+            '';
+          };
         };
       });
       default = [];
@@ -429,13 +440,14 @@ in {
             job = "pfsense";
             address = "localhost:${toString pfeCfg.port}";
             instance = "pfsense";
+            targetParam = pfeCfg.pfsenseHost;
           }
         ];
 
         monitoring.monitors = [
           {
             name = "pfSense Exporter";
-            url = "http://localhost:${toString pfeCfg.port}/metrics";
+            url = "http://localhost:${toString pfeCfg.port}/metrics?target=${pfeCfg.pfsenseHost}";
           }
         ];
       };
