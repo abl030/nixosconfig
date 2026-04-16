@@ -283,42 +283,162 @@ in {
       default = [];
       description = "Additional Prometheus scrape targets for this host.";
     };
-  };
 
-  config = lib.mkIf cfg.enable {
-    # Source-restrict the syslog port to declared senders only. NixOS's
-    # firewall module still uses iptables on our hosts (nftables not
-    # enabled), so go through extraCommands/extraStopCommands. No blanket
-    # allowedTCPPorts/UDP entry — the port stays closed to every other
-    # LAN host.
-    networking.firewall = lib.mkMerge [
-      (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
-        extraCommands = lib.concatMapStringsSep "\n" (src: ''
-          iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-          iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-          ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
-        '') syslogCfg.sources;
-        extraStopCommands = lib.concatMapStringsSep "\n" (src: ''
-          iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
-          iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
-        '') syslogCfg.sources;
-      })
-    ];
+    # ----------------------------------------------------------------
+    # pfSense Prometheus exporter (OCI on the host running loki)
+    # ----------------------------------------------------------------
+    pfsenseExporter = {
+      enable = lib.mkEnableOption "pfSense Prometheus exporter via REST API (OCI)";
 
-    systemd.tmpfiles.rules = [
-      "d /var/lib/alloy 0755 root root - -"
-    ];
+      pfsenseHost = lib.mkOption {
+        type = lib.types.str;
+        default = "192.168.1.1";
+        description = ''
+          pfSense host address. Hardcoded IP is an accepted exception to the
+          DNS-first rule — pfSense IS the gateway/router by network design
+          and has no localProxy-managed FQDN.
+        '';
+      };
 
-    systemd.services.alloy-loki = {
-      description = "Grafana Alloy journald shipper (Loki)";
-      after = ["network-online.target"];
-      wants = ["network-online.target"];
-      wantedBy = ["multi-user.target"];
-      serviceConfig = {
-        ExecStart = "${pkgs.grafana-alloy}/bin/alloy run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy --disable-reporting ${alloyConfig}";
-        Restart = "on-failure";
-        RestartSec = "10s";
+      pfsensePort = lib.mkOption {
+        type = lib.types.port;
+        default = 443;
+        description = "pfSense HTTPS port.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 9945;
+        description = "Host port the exporter listens on (exposes /metrics).";
+      };
+
+      image = lib.mkOption {
+        type = lib.types.str;
+        default = "ghcr.io/pfrest/pfsense_exporter:latest";
+        description = "OCI image for the pfSense exporter.";
       };
     };
   };
+
+  config = lib.mkMerge [
+    # ============================================================
+    # Alloy shipper (every host with homelab.loki.enable)
+    # ============================================================
+    (lib.mkIf cfg.enable {
+      networking.firewall = lib.mkMerge [
+        (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
+          extraCommands = lib.concatMapStringsSep "\n" (src: ''
+            iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+            iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+            ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
+          '') syslogCfg.sources;
+          extraStopCommands = lib.concatMapStringsSep "\n" (src: ''
+            iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+            iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+          '') syslogCfg.sources;
+        })
+      ];
+
+      systemd.tmpfiles.rules = [
+        "d /var/lib/alloy 0755 root root - -"
+      ];
+
+      systemd.services.alloy-loki = {
+        description = "Grafana Alloy journald shipper (Loki)";
+        after = ["network-online.target"];
+        wants = ["network-online.target"];
+        wantedBy = ["multi-user.target"];
+        serviceConfig = {
+          ExecStart = "${pkgs.grafana-alloy}/bin/alloy run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy --disable-reporting ${alloyConfig}";
+          Restart = "on-failure";
+          RestartSec = "10s";
+        };
+      };
+    })
+
+    # ============================================================
+    # pfSense Prometheus exporter (doc2 — the observability host)
+    # ============================================================
+    (lib.mkIf cfg.pfsenseExporter.enable (let
+      pfeCfg = cfg.pfsenseExporter;
+
+      configTemplate = pkgs.writeText "pfsense-exporter-config.yml" ''
+        address: 0.0.0.0
+        port: ${toString pfeCfg.port}
+        targets:
+          - host: ${pfeCfg.pfsenseHost}
+            port: ${toString pfeCfg.pfsensePort}
+            scheme: https
+            auth_method: key
+            key: __PFSENSE_API_KEY__
+            validate_cert: false
+            timeout: 30
+      '';
+
+      preStartScript = pkgs.writeShellScript "pfsense-exporter-prestart" ''
+        set -euo pipefail
+        config_dir="/var/lib/pfsense-exporter"
+        mkdir -p "$config_dir"
+
+        env_file="/run/secrets/pfsense-exporter/env"
+        if [[ ! -r "$env_file" ]]; then
+          echo "pfsense-exporter: sops env not readable: $env_file" >&2
+          exit 1
+        fi
+
+        api_key=$(${pkgs.gnugrep}/bin/grep -m1 '^PFSENSE_API_KEY=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+        ${pkgs.gnused}/bin/sed "s/__PFSENSE_API_KEY__/$api_key/" \
+          ${configTemplate} > "$config_dir/config.yml"
+        chmod 600 "$config_dir/config.yml"
+      '';
+    in {
+      sops.secrets."pfsense-exporter/env" = {
+        sopsFile = config.homelab.secrets.sopsFile "pfsense-mcp.env";
+        format = "dotenv";
+        mode = "0400";
+      };
+
+      systemd.tmpfiles.rules = [
+        "d /var/lib/pfsense-exporter 0755 root root -"
+      ];
+
+      virtualisation.oci-containers.containers.pfsense-exporter = {
+        image = pfeCfg.image;
+        autoStart = true;
+        pull = "newer";
+        ports = ["${toString pfeCfg.port}:${toString pfeCfg.port}"];
+        volumes = [
+          "/var/lib/pfsense-exporter/config.yml:/pfsense_exporter/config.yml:ro"
+        ];
+      };
+
+      systemd.services.podman-pfsense-exporter.serviceConfig.ExecStartPre =
+        lib.mkBefore [preStartScript];
+
+      homelab = {
+        podman.enable = true;
+        podman.containers = [
+          {
+            unit = "podman-pfsense-exporter.service";
+            image = pfeCfg.image;
+          }
+        ];
+
+        loki.extraScrapeTargets = [
+          {
+            job = "pfsense";
+            address = "localhost:${toString pfeCfg.port}";
+            instance = "pfsense";
+          }
+        ];
+
+        monitoring.monitors = [
+          {
+            name = "pfSense Exporter";
+            url = "http://localhost:${toString pfeCfg.port}/metrics";
+          }
+        ];
+      };
+    }))
+  ];
 }
