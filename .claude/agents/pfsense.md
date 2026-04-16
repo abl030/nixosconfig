@@ -130,6 +130,25 @@ Traffic is routed through AirVPN based on source IP using aliases:
 - DNS redirect NAT rules force LG TV, DHCP_Dynamic, and all IOT_OF_DEATH devices to use pfSense DNS (Unbound)
 - Prevents devices from using their own DoH/DoT resolvers
 - pfBlockerNG DNSBL active for ad/malware blocking
+- `regdhcp: false`, `regdhcpstatic: false` — DHCP leases/static mappings are NOT auto-registered in Unbound. Kea DHCP still writes PTR entries for static mappings that have a hostname field set. To avoid PTR conflicts on shared IPs, clear the hostname from the DHCP static mapping and use a Host Override instead.
+
+### Unbound Host Overrides (manually managed)
+
+These exist either because the device has no DHCP lease (statically-assigned NIC) or because we need a different name than the DHCP mapping carries.
+
+| Host | Domain | IP | Reason |
+|------|--------|----|--------|
+| bastion | local.com | 192.168.1.3 | DHCP mapping had no hostname |
+| prom | local.com | 192.168.1.12 | DHCP mapping had no hostname — physical Proxmox host |
+| doc1 | local.com | 192.168.1.29 | DHCP mapping previously had generic "nixos" hostname |
+| pbs | local.com | 192.168.1.30 | DHCP mapping had no hostname — Proxmox Backup Server |
+| igpu | local.com | 192.168.1.33 | DHCP mapping previously had generic "nixos" hostname |
+| doc2 | local.com | 192.168.1.35 | doc2 primary NIC (ens18) |
+| doc2-vpn | local.com | 192.168.1.36 | doc2 2nd NIC (ens19) — static-only, no DHCP lease |
+| lgwebostv | local.com | 192.168.1.42 | LG TV — moved off .36 which collided with doc2-vpn |
+| prom-mgmt | local.com | 192.168.11.12 | prom's management NIC on Docker VLAN |
+
+Rationale: whenever an IP is static (no DHCP lease) or needs a different name than the DHCP mapping has, use a Host Override rather than fighting Kea's auto-PTR generation. If two devices share an IP in DHCP static mappings (like the LG TV at .36 that was never online while doc2-vpn took the IP), move the inactive device to a clean IP and restore the Host Override.
 
 ## NAT Port Forwards
 
@@ -171,17 +190,37 @@ Traffic is routed through AirVPN based on source IP using aliases:
 | 192.168.1.21 | brw... | Brother printer |
 | 192.168.1.23 | slzb-06p7 | Zigbee coordinator |
 | 192.168.1.27 | ollama | GPU server |
-| 192.168.1.29 | nixos | NixOS Docker host |
+| 192.168.1.29 | doc1 | doc1 (proxmox-vm) — primary NixOS services VM |
 | 192.168.1.30 | — | Proxmox Backup Server |
-| 192.168.1.33 | nixos | Prometheus/iGPU VM |
+| 192.168.1.33 | igpu | iGPU transcoding VM (VMID 109) |
 | 192.168.1.35 | doc2 | NixOS service appliance VM |
-| 192.168.1.36 | lgwebostv / doc2-vpn | LG TV + doc2 VPN NIC (shared IP) |
+| 192.168.1.36 | doc2-vpn | doc2 2nd NIC — VPN-routed traffic (slskd) |
 | 192.168.1.37 | framework | Framework 13 Laptop |
 | 192.168.1.38 | s-a55 | Samsung Galaxy A55 |
 | 192.168.1.39 | daikin-ir | Seeed XIAO IR - Daikin AC |
 | 192.168.1.40-41 | chromecast-ultra, google-home | Google devices |
+| 192.168.1.42 | lgwebostv | LG webOS TV (moved from .36 — was conflicting with doc2-vpn) |
 | 192.168.1.50-54 | — | UniFi APs and switches |
 | 192.168.11.12 | — | Prom management (Docker VLAN) |
+
+## DNS Resolver Host Overrides
+
+All overrides use domain `local.com` to match existing convention.
+
+| Host | IP | Description |
+|------|----|-------------|
+| bastion.local.com | 192.168.1.3 | BastionProxy |
+| doc1.local.com | 192.168.1.29 | doc1 (proxmox-vm) — primary services VM |
+| doc2.local.com | 192.168.1.35 | doc2 primary NIC (ens18) |
+| doc2-vpn.local.com | 192.168.1.36 | doc2 2nd NIC (ens19) — VPN-routed (slskd) |
+| lgwebostv.local.com | 192.168.1.42 | LG webOS TV (DHCP static at .42, MAC 14:c9:13:49:95:fe) |
+| prom.local.com | 192.168.1.12 | Proxmox host — AMD 9950X hypervisor |
+| pbs.local.com | 192.168.1.30 | Proxmox Backup Server |
+| igpu.local.com | 192.168.1.33 | iGPU transcoding VM (VMID 109) |
+| homeassistant.local.com | 192.168.1.20 | Home Assistant (pre-existing) |
+| prom-mgmt.local.com | 192.168.11.12 | prom management interface (Docker VLAN 10) |
+
+Note: .29 (doc1) may show a stale `nixos.local.com` PTR alongside `doc1.local.com` until the DHCP lease renews or Unbound restarts — the `doc1` PTR is correct and returned first.
 
 ## Services
 
