@@ -77,6 +77,20 @@ pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+
 
 No apps in our fleet push OTEL traces. See `docs/observability-plan.md` for the investigation — current answer is that most homelab apps only expose Prometheus metrics. Tempo infrastructure + OTLP receivers are ready for when something lands.
 
+## pfSense Prometheus exporter
+
+**Added:** 2026-04-16 (Phase 4 of #208)
+
+OCI container `ghcr.io/pfrest/pfsense_exporter` on doc2, configured via `homelab.loki.pfsenseExporter.enable = true`. Polls pfSense's REST API package for metrics and exposes them on `:9945/metrics`.
+
+**Metrics coverage:** CPU, memory, disk, swap, mbuf, interface bytes/packets/errors, firewall state count, gateway latency + loss + status (WAN_DHCP, AirVPN, AirVPN_SG), CARP status, service health, temperature.
+
+**Architecture:** multi-target exporter pattern — alloy scrapes `localhost:9945/metrics?target=192.168.1.1` (the `targetParam` option in `extraScrapeTargets` emits `__param_target` in alloy HCL). Config.yml generated at runtime from sops (`secrets/pfsense-mcp.env` — reuses the existing pfSense REST API key).
+
+**pfSense host IP exception:** `192.168.1.1` is hardcoded as the default because pfSense IS the gateway — no localProxy-managed FQDN exists. Documented exception to the DNS-first rule. The option is configurable if the IP ever changes.
+
+**Prerequisites on pfSense:** the `pfSense-pkg-RESTAPI` package must be installed. It's removed on every pfSense major upgrade and must be reinstalled manually.
+
 ## DNS-first rule
 
 **Rule:** all observability shipping URLs use Cloudflare FQDNs, never hardcoded LAN IPs.
