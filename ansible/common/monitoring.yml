@@ -12,10 +12,13 @@
 
   vars:
     monitoring_hostname: "{{ inventory_hostname }}"
-    loki_ip: "192.168.1.33"
-    loki_port: "3100"
-    mimir_ip: "192.168.1.33"
-    mimir_port: "9009"
+    # DNS-first: Cloudflare A records for these FQDNs are owned by the
+    # homelab.localProxy module on whichever NixOS host currently runs
+    # homelab.services.loki (doc2 today). Moving the LGTM stack is a
+    # one-deploy change on the Nix side — no playbook rerun needed.
+    # See .claude/rules/nixos-service-modules.md "DNS-First Networking".
+    loki_push_url: "https://loki.ablz.au/loki/api/v1/push"
+    mimir_push_url: "https://mimir.ablz.au/api/v1/push"
     alloy_version: "1.*"
 
   tasks:

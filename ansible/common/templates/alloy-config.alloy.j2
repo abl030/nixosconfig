@@ -21,7 +21,7 @@ loki.source.journal "read" {
 
 loki.write "loki" {
   endpoint {
-    url = "http://{{ loki_ip }}:{{ loki_port }}/loki/api/v1/push"
+    url = "{{ loki_push_url }}"
   }
 }
 
@@ -39,7 +39,7 @@ prometheus.scrape "node" {
 // Push metrics to Mimir
 prometheus.remote_write "mimir" {
   endpoint {
-    url = "http://{{ mimir_ip }}:{{ mimir_port }}/api/v1/push"
+    url = "{{ mimir_push_url }}"
   }
   external_labels = {
     host = "{{ monitoring_hostname }}",
