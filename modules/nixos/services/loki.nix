@@ -84,22 +84,56 @@
 
   # Generate extra scrape blocks for additional targets
   extraScrapeBlocks =
-    lib.concatMapStringsSep "\n" (target: ''
-      prometheus.scrape "${target.job}" {
-        targets = [{
-          __address__ = "${target.address}",
-          instance    = "${
-        if target.instance != ""
-        then target.instance
-        else target.job
-      }",${lib.optionalString (target.targetParam != null) ''
-          __param_target = "${target.targetParam}",''}
-        }]
-        forward_to      = [prometheus.remote_write.mimir.receiver]
-        scrape_interval = "60s"
-        job_name        = "${target.job}"
-      }
-    '')
+    lib.concatMapStringsSep "\n" (target: let
+      hasRelabels = target.labelRewrites != {};
+      # Emit one rule per source-label per raw-value. Each rule matches the
+      # exact raw value and rewrites the label to the friendly value.
+      # Alloy/prom relabel regexes are anchored — use ^...$ to avoid partial
+      # matches (e.g. "igc1" would otherwise also match "igc1.10").
+      relabelRules = lib.concatStringsSep "\n" (
+        lib.flatten (
+          lib.mapAttrsToList (
+            labelName: valueMap:
+              lib.mapAttrsToList (rawValue: friendly: ''
+                rule {
+                  source_labels = ["${labelName}"]
+                  regex         = "^${rawValue}$"
+                  replacement   = "${friendly}"
+                  target_label  = "${labelName}"
+                }
+              '') valueMap
+          )
+          target.labelRewrites
+        )
+      );
+      forwardTo =
+        if hasRelabels
+        then "[prometheus.relabel.${target.job}.receiver]"
+        else "[prometheus.remote_write.mimir.receiver]";
+    in
+      ''
+        prometheus.scrape "${target.job}" {
+          targets = [{
+            __address__ = "${target.address}",
+            instance    = "${
+          if target.instance != ""
+          then target.instance
+          else target.job
+        }",${lib.optionalString (target.targetParam != null) ''
+            __param_target = "${target.targetParam}",''}
+          }]
+          forward_to      = ${forwardTo}
+          scrape_interval = "60s"
+          job_name        = "${target.job}"
+        }
+      ''
+      + lib.optionalString hasRelabels ''
+
+        prometheus.relabel "${target.job}" {
+          forward_to = [prometheus.remote_write.mimir.receiver]
+        ${relabelRules}
+        }
+      '')
     cfg.extraScrapeTargets;
 
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
@@ -289,6 +323,29 @@ in {
               being scraped.
             '';
           };
+          labelRewrites = lib.mkOption {
+            type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
+            default = {};
+            description = ''
+              Label-value rewrites applied at scrape time (alloy
+              `prometheus.relabel`). Map of `label_name` → { raw_value =
+              friendly_value; ... }. Useful for renaming upstream-exporter
+              values that are meaningless to humans (e.g. ntopng's
+              `ifname = "igc0"` → "WAN").
+
+              Example:
+                labelRewrites.ifname = {
+                  igc0 = "WAN";
+                  igc1 = "LAN";
+                };
+            '';
+            example = {
+              ifname = {
+                igc0 = "WAN";
+                igc1 = "LAN";
+              };
+            };
+          };
         };
       });
       default = [];
@@ -369,6 +426,24 @@ in {
               https://pfsense/lua/rest/v1/get/ntopng/interfaces.lua
           to list them. Must match ntopng's `ifname` values or the
           exporter emits empty series.
+        '';
+      };
+
+      ifnameAliases = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {
+          "igc0" = "WAN";
+          "igc1" = "LAN";
+          "igc1.10" = "Docker VLAN";
+          "igc1.100" = "IoT VLAN";
+          "tun_wg0" = "AirVPN SG";
+          "tun_wg2" = "AirVPN NZ";
+        };
+        description = ''
+          Device-name → friendly-name rewrites applied to the `ifname`
+          label at scrape time (via alloy's prometheus.relabel). Dashboard
+          variable queries pick up the friendly names automatically.
+          Keys must be exact ntopng `ifname` values; see interfacesToMonitor.
         '';
       };
 
@@ -622,6 +697,7 @@ in {
             job = "ntopng";
             address = "localhost:${toString neCfg.port}";
             instance = "ntopng";
+            labelRewrites.ifname = neCfg.ifnameAliases;
           }
         ];
 
