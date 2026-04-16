@@ -329,6 +329,82 @@ in {
         description = "OCI image for the pfSense exporter.";
       };
     };
+
+    # ----------------------------------------------------------------
+    # ntopng exporter — per-client IP traffic metrics
+    # ----------------------------------------------------------------
+    # Depends on ntopng installed + running on a pfSense host (see
+    # docs/wiki/services/lgtm-stack.md). The exporter polls ntopng's
+    # REST API and exposes metrics with labels `ip`, `mac`, `ifname`,
+    # letting us break bandwidth down per-client and per-interface.
+    ntopngExporter = {
+      enable = lib.mkEnableOption "ntopng per-client traffic exporter (OCI)";
+
+      ntopngUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "https://192.168.1.1:3000";
+        description = ''
+          Base URL of ntopng's REST API on pfSense. Hardcoded IP is an
+          accepted DNS-first exception — pfSense IS the gateway and has
+          no localProxy-managed FQDN.
+        '';
+      };
+
+      allowUnsafeTLS = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Accept pfSense's self-signed webgui TLS cert (ntopng reuses it).
+          Safe because the connection stays on the LAN.
+        '';
+      };
+
+      interfacesToMonitor = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = ["igc0" "igc1" "igc1.10" "igc1.100" "tun_wg0" "tun_wg2"];
+        description = ''
+          Real device names (not pfSense "lan"/"wan" labels) that ntopng
+          is monitoring. Query
+            curl -k --cookie "user=admin; password=..." \
+              https://pfsense/lua/rest/v1/get/ntopng/interfaces.lua
+          to list them. Must match ntopng's `ifname` values or the
+          exporter emits empty series.
+        '';
+      };
+
+      localSubnets = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "192.168.1.0/24"    # LAN
+          "192.168.11.0/24"   # DockerVLAN
+          "192.168.101.0/24"  # IoT
+          "224.0.0.0/4"       # multicast (for mDNS etc.)
+        ];
+        description = ''
+          Cardinality filter — only hosts in these CIDRs become Prometheus
+          series. Without this, every public-internet destination you ever
+          touch creates a new timeseries and Mimir fills up.
+        '';
+      };
+
+      scrapeInterval = lib.mkOption {
+        type = lib.types.str;
+        default = "60s";
+        description = "How often the exporter polls ntopng (matches alloy scrape interval).";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 9946;
+        description = "Host port the exporter listens on (exposes /metrics).";
+      };
+
+      image = lib.mkOption {
+        type = lib.types.str;
+        default = "docker.io/aauren/ntopng-exporter:latest";
+        description = "OCI image for the ntopng exporter.";
+      };
+    };
   };
 
   config = lib.mkMerge [
@@ -448,6 +524,111 @@ in {
           {
             name = "pfSense Exporter";
             url = "http://localhost:${toString pfeCfg.port}/metrics?target=${pfeCfg.pfsenseHost}";
+          }
+        ];
+      };
+    }))
+
+    # ============================================================
+    # ntopng exporter (doc2 — per-client traffic from pfSense)
+    # ============================================================
+    (lib.mkIf cfg.ntopngExporter.enable (let
+      neCfg = cfg.ntopngExporter;
+
+      # Exporter config template. Password placeholder is substituted at
+      # service start from the sops-decrypted env file so creds never hit
+      # the Nix store. Format: YAML (a superset of JSON, so we can use
+      # builtins.toJSON for the mechanically-generated parts and sed in
+      # the password at runtime).
+      ntopngConfig = pkgs.writeText "ntopng-exporter-config.yml" (lib.generators.toYAML {} {
+        ntopng = {
+          endpoint = neCfg.ntopngUrl;
+          allowUnsafeTLS = neCfg.allowUnsafeTLS;
+          user = "__NTOPNG_USER__";
+          password = "__NTOPNG_PASSWORD__";
+          authMethod = "cookie";
+          scrapeInterval = neCfg.scrapeInterval;
+          scrapeTargets = ["hosts" "interfaces" "l7protocols"];
+        };
+        host = {
+          interfacesToMonitor = neCfg.interfacesToMonitor;
+        };
+        metric = {
+          localSubnetsOnly = neCfg.localSubnets;
+          excludeDNSMetrics = false;
+          serve = {
+            ip = "0.0.0.0";
+            port = neCfg.port;
+          };
+        };
+      });
+
+      preStartScript = pkgs.writeShellScript "ntopng-exporter-prestart" ''
+        set -euo pipefail
+        config_dir="/var/lib/ntopng-exporter"
+        mkdir -p "$config_dir"
+
+        env_file="/run/secrets/ntopng-exporter/env"
+        if [[ ! -r "$env_file" ]]; then
+          echo "ntopng-exporter: sops env not readable: $env_file" >&2
+          exit 1
+        fi
+
+        user=$(${pkgs.gnugrep}/bin/grep -m1 '^NTOPNG_USER=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+        password=$(${pkgs.gnugrep}/bin/grep -m1 '^NTOPNG_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
+
+        ${pkgs.gnused}/bin/sed \
+          -e "s|__NTOPNG_USER__|$user|" \
+          -e "s|__NTOPNG_PASSWORD__|$password|" \
+          ${ntopngConfig} > "$config_dir/ntopng-exporter.yaml"
+        chmod 600 "$config_dir/ntopng-exporter.yaml"
+      '';
+    in {
+      sops.secrets."ntopng-exporter/env" = {
+        sopsFile = config.homelab.secrets.sopsFile "ntopng.env";
+        format = "dotenv";
+        mode = "0400";
+      };
+
+      systemd.tmpfiles.rules = [
+        "d /var/lib/ntopng-exporter 0755 root root -"
+      ];
+
+      virtualisation.oci-containers.containers.ntopng-exporter = {
+        image = neCfg.image;
+        autoStart = true;
+        pull = "newer";
+        ports = ["${toString neCfg.port}:${toString neCfg.port}"];
+        # Exporter Dockerfile expects /config/ntopng-exporter.yaml.
+        volumes = [
+          "/var/lib/ntopng-exporter:/config:ro"
+        ];
+      };
+
+      systemd.services.podman-ntopng-exporter.serviceConfig.ExecStartPre =
+        lib.mkBefore [preStartScript];
+
+      homelab = {
+        podman.enable = true;
+        podman.containers = [
+          {
+            unit = "podman-ntopng-exporter.service";
+            image = neCfg.image;
+          }
+        ];
+
+        loki.extraScrapeTargets = [
+          {
+            job = "ntopng";
+            address = "localhost:${toString neCfg.port}";
+            instance = "ntopng";
+          }
+        ];
+
+        monitoring.monitors = [
+          {
+            name = "ntopng Exporter";
+            url = "http://localhost:${toString neCfg.port}/metrics";
           }
         ];
       };

@@ -128,6 +128,14 @@
       flake = false;
     };
 
+    # ntopng-exporter — per-client IP traffic metrics (bytes/packets by
+    # ip+ifname+mac). Repo ships a Grafana dashboard at resources/
+    # co-versioned with its metric schema. See homelab.loki.ntopngExporter.
+    ntopng-exporter-src = {
+      url = "github:aauren/ntopng-exporter";
+      flake = false;
+    };
+
     jolt = {
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -193,3 +193,5 @@ Traffic is routed through AirVPN based on source IP using aliases:
 - **UPnP/PCP** — enabled
 - **SSH** — enabled
 - **NTP** — running
+- **ntopng** (v6.2) — running on 192.168.1.1:3000 (HTTPS), monitoring: igc1, igc0, tun_wg0, igc1.10, igc1.100, tun_wg2; scraped by aauren/ntopng-exporter on doc2
+- **redis** (v7.4.1) — running (ntopng dependency, loopback-only bind)

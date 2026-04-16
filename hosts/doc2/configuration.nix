@@ -39,6 +39,7 @@
       ];
     };
     loki.pfsenseExporter.enable = true;
+    loki.ntopngExporter.enable = true;
 
     # NFS for Immich media — same writable mount as doc1
     mounts.nfsLocal.enable = true;
