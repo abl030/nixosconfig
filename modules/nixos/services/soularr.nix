@@ -229,15 +229,19 @@
     dsn = ${cfg.pipelineDb.dsn}
 
     [Meelo]
-    url = http://192.168.1.29:5001
+    url = https://meelo.ablz.au
     username = MEELO_USERNAME_PLACEHOLDER
     password = MEELO_PASSWORD_PLACEHOLDER
 
     [Plex]
-    url = http://192.168.1.2:32400
+    url = https://plex.ablz.au
     token = PLEX_TOKEN_PLACEHOLDER
     library_section_id = 3
     path_map = /mnt/virtio/Music/Beets:/prom_music
+
+    [Jellyfin]
+    url = https://jelly.ablz.au
+    token = JELLYFIN_TOKEN_PLACEHOLDER
 
     [Logging]
     level = INFO
@@ -289,6 +293,7 @@
     meelo_user=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_USERNAME=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     meelo_pass=$(${pkgs.gnugrep}/bin/grep -m1 '^MEELO_PASSWORD=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2-)
     plex_token=$(${pkgs.gnugrep}/bin/grep -m1 '^PLEX_TOKEN=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2- || true)
+    jellyfin_token=$(${pkgs.gnugrep}/bin/grep -m1 '^JELLYFIN_TOKEN=' "$env_file" | ${pkgs.coreutils}/bin/cut -d= -f2- || true)
 
     # Generate config.ini with real API keys
     ${pkgs.gnused}/bin/sed \
@@ -296,6 +301,7 @@
       -e "s/MEELO_USERNAME_PLACEHOLDER/$meelo_user/" \
       -e "s/MEELO_PASSWORD_PLACEHOLDER/$meelo_pass/" \
       -e "s/PLEX_TOKEN_PLACEHOLDER/$plex_token/" \
+      -e "s/JELLYFIN_TOKEN_PLACEHOLDER/$jellyfin_token/" \
       ${configTemplate} > "$config_dir/config.ini"
 
     chmod 600 "$config_dir/config.ini"
