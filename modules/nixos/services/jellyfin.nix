@@ -303,7 +303,7 @@ in {
       systemd.services.jellyfin.environment.JELLYFIN_PublishedServerUrl = cfg.publishedServerUrl;
 
       homelab = {
-        # LAN: jelly.ablz.au → 192.168.1.33:8096 via igpu's own nginx + ACME.
+        # LAN: jelly.ablz.au via igpu's own nginx + ACME.
         localProxy.hosts = [
           {
             host = cfg.fqdn;
