@@ -29,8 +29,16 @@
 
     # ntopng per-client traffic dashboard — co-versioned with the
     # aauren/ntopng-exporter metric schema. See homelab.loki.ntopngExporter.
-    cp ${inputs.ntopng-exporter-src}/resources/grafana-dashboard.json \
-      $out/ntopng-exporter.json
+    #
+    # Patch: the upstream JSON is designed for Grafana's interactive import
+    # flow — panels reference ''${PROM} (an __inputs placeholder) that only
+    # gets resolved when the user picks a datasource during import. File-
+    # provisioned dashboards skip that prompt, so the placeholder stays
+    # literal and every panel shows "no data". Substitute it with our
+    # datasource's pinned UID at build time.
+    ${pkgs.gnused}/bin/sed 's/''${PROM}/Prometheus/g' \
+      ${inputs.ntopng-exporter-src}/resources/grafana-dashboard.json \
+      > $out/ntopng-exporter.json
   '';
 in {
   options.homelab.services.loki = {
