@@ -34,6 +34,11 @@
   extensions ? (_ps: []),
   pgSettings ? {},
   postStartSQL ? null,
+  # Additional databases to ensure on top of `name`. Useful when a service
+  # connects with user=<name> but expects a differently-named database
+  # (e.g. jellystat: user=jellystat, database=jfstat). All extra databases
+  # are created with `name` as the owner.
+  extraDatabases ? [],
 }: let
   hostAddress = "192.168.100.${toString (hostNum * 2)}";
   localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
@@ -63,7 +68,7 @@ in {
         enableTCPIP = true;
         inherit extensions;
         settings = pgSettings;
-        ensureDatabases = [name];
+        ensureDatabases = [name] ++ extraDatabases;
         ensureUsers = [
           {
             inherit name;
@@ -76,9 +81,13 @@ in {
         '';
       };
 
-      systemd.services.postgresql-setup.serviceConfig.ExecStartPost = lib.mkIf (postStartSQL != null) [
-        ''${lib.getExe' pgPackage "psql"} -d "${name}" -f "${pkgs.writeText "${name}-pg-init.sql" postStartSQL}"''
-      ];
+      # ensureDBOwnership only handles the primary DB; re-own any extras to
+      # the same user so the app can create/drop tables without superuser.
+      # postStartSQL runs last so it sees the correct ownership.
+      systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
+        (map (db: ''${lib.getExe' pgPackage "psql"} -d "${db}" -c "ALTER DATABASE \"${db}\" OWNER TO \"${name}\""'') extraDatabases)
+        ++ lib.optional (postStartSQL != null)
+        ''${lib.getExe' pgPackage "psql"} -d "${name}" -f "${pkgs.writeText "${name}-pg-init.sql" postStartSQL}"'';
 
       networking.firewall.allowedTCPPorts = [5432];
 
