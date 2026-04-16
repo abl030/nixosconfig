@@ -71,11 +71,11 @@ Next sync rebuilds the cache from the host's desired_hosts only. Nothing to clea
 
 ### pfSense syslog target is an IP, not a DNS name
 
-pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+port string only. Short names and FQDNs both fail silently. We use `192.168.1.35:1514` literally. Documented workaround + toggle-off-on dance in `stacks/loki/README.md`.
+pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+port string only. Short names and FQDNs both fail silently. We use `192.168.1.35:1514` literally.
 
 ### Tempo is still empty
 
-No apps in our fleet push OTEL traces. See `docs/observability-plan.md` for the investigation — current answer is that most homelab apps only expose Prometheus metrics. Tempo infrastructure + OTLP receivers are ready for when something lands.
+No apps in our fleet push OTEL traces. Most homelab apps only expose Prometheus metrics. Tempo infrastructure + OTLP receivers are ready for when something lands.
 
 ## pfSense Prometheus exporter
 
@@ -140,6 +140,4 @@ The only exception is pfSense syslog, forced to raw IP by pfSense itself (see ab
 
 - `modules/nixos/services/loki-server.nix` — server config
 - `modules/nixos/services/loki.nix` — alloy shipper + syslog receiver (`homelab.loki`)
-- `stacks/loki/README.md` — pfSense syslog config details + label reference
-- `docs/observability-plan.md` — OTEL/Prometheus roadmap
 - `docker/unraid-alloy/` — tower's alloy shipper

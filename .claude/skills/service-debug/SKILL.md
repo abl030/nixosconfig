@@ -19,8 +19,6 @@ grep -rl "homelab.services.<name>" hosts/*/configuration.nix
 grep -rl "services.<name>" hosts/*/configuration.nix
 ```
 
-Also check `hosts.nix` for `containerStacks` entries if the service might be a compose stack.
-
 If unclear, search the module for clues:
 ```bash
 grep -l "<service>" modules/nixos/services/*.nix

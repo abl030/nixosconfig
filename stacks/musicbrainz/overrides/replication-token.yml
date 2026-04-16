@@ -1,4 +1,0 @@
-services:
-  musicbrainz:
-    volumes:
-      - /run/secrets/musicbrainz-replication-token:/run/secrets/metabrainz_access_token:ro

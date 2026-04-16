@@ -85,10 +85,6 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
     authorizedKeys = masterKeys;
     sudoPasswordless = true;
-    containerStacks = [
-      "restart-probe"
-      "restart-probe-b"
-    ];
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
   };
 
@@ -105,24 +101,6 @@ in {
     sudoPasswordless = true;
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
-    # Stacks disabled for testing - enable one by one
-    containerStacks = [
-      "tailscale-caddy"
-      # "paperless" — migrated to native NixOS services on doc2
-      # "mealie" — migrated to native NixOS services on doc2
-      # "kopia" — migrated to native NixOS module on doc2
-      # "domain-monitor" — migrated to native Gatus service on doc2
-      # "invoices" — disabled, unused (stack + data retained on doc1)
-      # "jdownloader2" — migrated to OCI container on doc2
-      # "music" — migrated to native NixOS services on doc2
-      # "netboot" — migrated to OCI container on doc2
-      # "smokeping" — migrated to native NixOS services on doc2
-      # "stirlingpdf" — migrated to native NixOS services on doc2
-      # "uptime-kuma" — migrated to native NixOS services on doc2
-      # "webdav" — migrated to native NixOS services on doc2
-      # "youtarr" — migrated to OCI container on doc2
-      # "musicbrainz" — migrated to NixOS service on doc2
-    ];
     proxmox = {
       vmid = 104;
       cores = 8;
@@ -172,7 +150,6 @@ in {
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "igpu";
-    containerStacks = [];
     localIp = "192.168.1.33";
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";

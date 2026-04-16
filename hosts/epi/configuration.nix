@@ -50,9 +50,6 @@
       collectGarbage = false;
       trim = true;
     };
-    containers = {
-      enable = true;
-    };
   };
 
   boot = {
