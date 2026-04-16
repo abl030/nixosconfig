@@ -131,7 +131,11 @@ in {
             url = "http://127.0.0.1:${toString cfg.tempoPort}";
           }
           {
-            name = "Mimir";
+            # Name is "Prometheus" (not "Mimir") because community dashboards
+            # commonly hardcode the datasource name to "Prometheus" — the
+            # upstream pfSense exporter dashboards do, and would show "no
+            # data" otherwise. Type is still `prometheus`; backend is Mimir.
+            name = "Prometheus";
             type = "prometheus";
             access = "proxy";
             url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
