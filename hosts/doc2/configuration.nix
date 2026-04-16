@@ -162,6 +162,13 @@
         enable = true;
         dataDir = "/mnt/virtio/overseerr";
       };
+      # Jellystat + watchstate live on doc2; jellyfin itself stays on igpu.
+      # All three sub-services share the homelab.services.jellyfin module —
+      # see modules/nixos/services/jellyfin.nix header.
+      jellyfin = {
+        jellystat.enable = true;
+        watchstate.enable = true;
+      };
       domain-monitor.enable = true;
       rtrfm-nowplaying.enable = true;
       kopia = {
