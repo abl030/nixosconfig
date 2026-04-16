@@ -295,6 +295,22 @@
         "type": "gitlab"
       }
     },
+    "grafana-dashboards-rfmoz": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776105816,
+        "narHash": "sha256-phqtDu/oLwqB+R+Dn9WyHyYbNcKR43uIy+F3BrAvwg4=",
+        "owner": "rfmoz",
+        "repo": "grafana-dashboards",
+        "rev": "fa9f41fa3efed31d5c2de73cd332a340797c0ec7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rfmoz",
+        "repo": "grafana-dashboards",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -555,6 +571,7 @@
         "flake-utils": "flake-utils_3",
         "fzf-preview": "fzf-preview",
         "gaj-shared": "gaj-shared",
+        "grafana-dashboards-rfmoz": "grafana-dashboards-rfmoz",
         "home-manager": "home-manager",
         "jolt": "jolt",
         "lidarr-mcp": "lidarr-mcp",

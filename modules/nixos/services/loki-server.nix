@@ -3,9 +3,21 @@
 {
   config,
   lib,
+  pkgs,
+  inputs,
   ...
 }: let
   cfg = config.homelab.services.loki;
+
+  # Declarative dashboards live in a per-deploy directory — grafana's
+  # provisioning watches this path and loads any JSON files as dashboards.
+  # Sourced from flake inputs so nightly rolling-flake-update.service picks
+  # up upstream dashboard changes automatically; no manual hash bumps.
+  dashboardsDir = pkgs.runCommand "grafana-dashboards" {} ''
+    mkdir -p $out
+    cp ${inputs.grafana-dashboards-rfmoz}/prometheus/node-exporter-full.json \
+      $out/node-exporter-full.json
+  '';
 in {
   options.homelab.services.loki = {
     enable = lib.mkEnableOption "LGTM observability stack (Grafana + Loki + Tempo + Mimir)";
@@ -117,6 +129,20 @@ in {
             type = "prometheus";
             access = "proxy";
             url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
+          }
+        ];
+
+        # Dashboard provisioning. Files in `path` are auto-loaded on grafana
+        # start (and re-scanned every `updateIntervalSeconds`). Source of
+        # truth is the flake-input repo, so nightly flake updates bring in
+        # upstream dashboard revisions without manual hash bumps.
+        dashboards.settings.providers = [
+          {
+            name = "flake-inputs";
+            type = "file";
+            disableDeletion = true;
+            updateIntervalSeconds = 300;
+            options.path = dashboardsDir;
           }
         ];
       };
