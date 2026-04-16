@@ -147,6 +147,14 @@ in {
             # upstream pfSense exporter dashboards do, and would show "no
             # data" otherwise. Type is still `prometheus`; backend is Mimir.
             name = "Prometheus";
+            # Pin the UID to match the dashboard variable's saved `value`.
+            # Grafana dashboard JSON panels reference datasources by UID via
+            # `uid: "$datasource"`. The pfSense dashboards save the variable
+            # as `current.value = "Prometheus"` — that literal string must
+            # match the datasource UID for panels to resolve. Without this,
+            # Grafana auto-generates an opaque UID (PBFA97CFB590B2093) and
+            # every panel silently shows "no data".
+            uid = "Prometheus";
             type = "prometheus";
             access = "proxy";
             url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
