@@ -57,7 +57,7 @@ services.<service>.database = {
 ```
 
 **Existing hostNums** (check before assigning):
-- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=soularr
+- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=soularr, 6=discogs, 7=jellystat
 
 ### CRITICAL: restartTriggers for container dependencies
 
@@ -80,6 +80,19 @@ Why: `config.containers.<svc>-db.config.system.build.toplevel` is the NixOS syst
 `config.systemd.units."container@<svc>-db.service".unit` is the host-side unit derivation and captures those wrapper script paths. It changes whenever anything about the container unit changes, which is what you actually want.
 
 See `modules/nixos/lib/mk-pg-container.nix` header comment for the full pathology.
+
+## DNS-First Networking
+
+**All service-to-service URLs, scrape targets, and remote_write endpoints MUST use DNS names (FQDNs via `localProxy`, `tailscaleShare`, or Tailscale MagicDNS), never hardcoded LAN IPs.**
+
+Hardcoded IPs break silently when hosts are renumbered, VMs are moved between hypervisors, or services migrate between hosts. The whole point of `localProxy` is that its Cloudflare A records follow the service — a move is a one-deploy change with zero consumer updates.
+
+Concrete rules:
+
+1. **Module code** (`modules/nixos/services/*.nix`): never embed `192.168.x.x` in option defaults, environment variables, or config templates. Use the service's FQDN option (e.g. `cfg.fqdn`, `https://${cfg.fqdn}`).
+2. **Runtime config** (container env, application config files): same principle. If a container needs to reach another service, pass `https://<service>.ablz.au`, not a LAN IP.
+3. **Exceptions**: nspawn-internal IPs (the `192.168.100.x` range from mk-pg-container) are derived from `hostNum` and don't represent fleet hosts — these are fine. pfSense's `remoteserver` field only accepts IPs (upstream limitation, documented in #208).
+4. **Non-NixOS devices** (tower/Unraid, pfSense): if the device has no FQDN managed by `localProxy`, document the IP usage and why a DNS name isn't viable. Prefer setting up a FQDN when possible.
 
 ## Infrastructure Wiring
 
@@ -269,5 +282,6 @@ Before submitting a new service module:
 - [ ] `homelab.monitoring.monitors` entry for health checking
 - [ ] `homelab.nfsWatchdog` if service depends on NFS paths
 - [ ] Secrets via `sops.secrets` + `config.homelab.secrets.sopsFile`
+- [ ] No hardcoded LAN IPs in module code or runtime config (see DNS-First Networking above)
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds

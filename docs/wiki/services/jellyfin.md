@@ -104,10 +104,55 @@ Jellyfin refuses to edit a library whose declared path doesn't resolve on disk. 
 
 LSIO jellyfin had both `jellyfin.db` and `library.db` in some older versions; 10.11.8 consolidates into a single `jellyfin.db`. No special migration needed — rsync copies the file, jellyfin runs its own schema migrations on first start.
 
+## Companion services (Phase 4 of #208)
+
+Jellystat (analytics) and watchstate (Plex<->Jellyfin sync) live in the same module as independently-toggled sub-services. Both run on **doc2** (not igpu — they don't need the iGPU).
+
+### Jellystat
+
+```nix
+homelab.services.jellyfin.jellystat.enable = true;
+```
+
+OCI container `cyfershepard/jellystat:latest` + nspawn PostgreSQL (mk-pg-container, hostNum=7).
+
+| | |
+|---|---|
+| FQDN | `jellystat.ablz.au` |
+| Host port | 3010 (container 3000) |
+| DB | nspawn `jellystat-db`, user=jellystat, database=jfstat (upstream default, via `extraDatabases`) |
+| Data | `/mnt/virtio/jellystat/{backup-data,postgres}` (abl030:users except pg internal) |
+| Kuma monitor | `https://jellystat.ablz.au/` |
+
+Container runs as `--user=1000:100` so host-side files land abl030-owned. Connects to nspawn PG via podman MASQUERADE (source IP rewritten to 192.168.100.14, matching pg_hba trust rule).
+
+First-run setup: visit `https://jellystat.ablz.au/`, add Jellyfin API key + URL (`https://jelly.ablz.au`), trigger initial sync.
+
+### watchstate
+
+```nix
+homelab.services.jellyfin.watchstate.enable = true;
+```
+
+OCI container `ghcr.io/arabcoders/watchstate:latest`, no DB.
+
+| | |
+|---|---|
+| FQDN | `watchstate.ablz.au` |
+| Host port | 8099 (container 8080) |
+| Data | `/mnt/virtio/watchstate` mounted as `/config` (abl030:users) |
+| Kuma monitor | `https://watchstate.ablz.au/` |
+
+Backends configured via WebUI (not env vars). Migrated state from igpu compose era:
+- **Plex** (tower): `http://192.168.1.2:32400` — no FQDN available (tower/Unraid doesn't have a localProxy-managed record)
+- **Jellyfin** (igpu): `https://jelly.ablz.au` — FQDN, follows jellyfin if it moves
+
+### Monitoring sync gotcha
+
+`homelab-monitoring-sync.service` is a oneshot that syncs Nix-declared monitors to Uptime Kuma. Prior to Phase 4, it only ran at boot — `nixos-rebuild switch` without a reboot silently skipped syncing new monitors. This was masked by doc2's nightly auto-update reboots. Fixed in Phase 4 with `RemainAfterExit = true` + `restartTriggers` on the monitor/maintenance JSON derivations.
+
 ## Known follow-ups
 
-- **Music library content**: the new music tree under `/mnt/virtio/Music` has a flat structure (`AI/`, `Beets/`, etc.) different from what the migrated library database expects. After re-adding the Music path, jellyfin will discover the actual tree on next scan and rebuild its library — expect some "missing" items for the stale entries.
-- **iGPU recovery**: at time of writing `/dev/dri/renderD128` is stuck on igpu from an earlier `qm stop` (#211). Jellyfin will fall back to software transcode until the next Proxmox host reboot.
 - **Dashboard migration**: the Immich dashboard from the old compose-era Grafana didn't make it; unrelated to this module but listed in #208.
 
 ## Verification after any future change

@@ -26,6 +26,14 @@ Goal: prefer stable, unauthenticated health endpoints when they exist, rather th
 - **Source:** citeturn10open1
 
 
+### Jellystat (jellystat.ablz.au)
+- **Recommended:** `https://jellystat.ablz.au/`
+- **Why:** Root returns 200 (login page). No dedicated health endpoint documented.
+
+### watchstate (watchstate.ablz.au)
+- **Recommended:** `https://watchstate.ablz.au/`
+- **Why:** Root returns 200 (WebUI). No dedicated health endpoint documented.
+
 ### Gotify (gotify.ablz.au)
 - **Recommended:** keep `/` for HTTP checks.
 - **Why:** Official docs emphasize websocket proxy headers for Gotify, but do not document a public HTTP health endpoint. Use root + websocket support.
