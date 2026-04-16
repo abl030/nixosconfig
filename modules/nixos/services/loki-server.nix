@@ -176,7 +176,11 @@ in {
           {
             name = "flake-inputs";
             type = "file";
-            disableDeletion = true;
+            # disableDeletion = false so Grafana drops dashboards when their
+            # source JSON is removed from dashboardsDir (e.g. we excluded
+            # pfSense CARP because we have no HA pair). Source of truth is
+            # the flake-input dir; UI edits are read-only anyway.
+            disableDeletion = false;
             updateIntervalSeconds = 300;
             options.path = dashboardsDir;
           }
