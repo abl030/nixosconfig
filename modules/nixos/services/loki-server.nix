@@ -26,6 +26,11 @@
     # pfsense_carp_enabled = 0 and the dashboard is always empty.
     cp ${inputs.pfsense-exporter-src}/dashboards/*.json $out/
     rm -f $out/pfsense_carp.json
+
+    # ntopng per-client traffic dashboard — co-versioned with the
+    # aauren/ntopng-exporter metric schema. See homelab.loki.ntopngExporter.
+    cp ${inputs.ntopng-exporter-src}/resources/grafana-dashboard.json \
+      $out/ntopng-exporter.json
   '';
 in {
   options.homelab.services.loki = {

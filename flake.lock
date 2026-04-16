@@ -498,6 +498,22 @@
         "type": "github"
       }
     },
+    "ntopng-exporter-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1766899291,
+        "narHash": "sha256-ChbjGzfvz1cyGb7fsQhXFYAYgZrFNzz+ogvV9wvpuZw=",
+        "owner": "aauren",
+        "repo": "ntopng-exporter",
+        "rev": "0d6ec131b6498e15007b146f82a185f2244fe986",
+        "type": "github"
+      },
+      "original": {
+        "owner": "aauren",
+        "repo": "ntopng-exporter",
+        "type": "github"
+      }
+    },
     "nvchad-starter": {
       "flake": false,
       "locked": {
@@ -597,6 +613,7 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
+        "ntopng-exporter-src": "ntopng-exporter-src",
         "nvchad4nix": "nvchad4nix",
         "pfsense-exporter-src": "pfsense-exporter-src",
         "pfsense-mcp": "pfsense-mcp",
