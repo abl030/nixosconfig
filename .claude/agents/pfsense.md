@@ -175,11 +175,13 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 
 ## DHCP Static Mappings (Key Hosts)
 
+RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's MAC) are reserved with fake MACs so nobody accidentally assigns a DHCP static to those IPs. Pattern: `00:00:00:00:00:00` (the existing .34 entry) and `00:00:00:00:00:01`–`03` for newer entries. Kea enforces global MAC uniqueness so each placeholder must be unique. OPT3 is a separate pool scope so `00:00:00:00:00:00` can be reused there.
+
 | IP | Hostname | Description |
 |----|----------|-------------|
 | 192.168.1.2 | tower | Unraid Server |
 | 192.168.1.3 | — | BastionProxy |
-| 192.168.1.4 | genericvm | Downloader+PiHole |
+| 192.168.1.4 | downloader2 | Downloader+PiHole (Unraid KVM, MAC 52:54:00:1a:06:52) |
 | 192.168.1.5 | epimetheus | DanCase workstation |
 | 192.168.1.6 | caddy | Caddy reverse proxy |
 | 192.168.1.7-8 | — | VTech Baby Monitors |
@@ -187,7 +189,10 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | 192.168.1.12 | — | Proxmox (prom) |
 | 192.168.1.14 | chromecast-audio | Chromecast Audio |
 | 192.168.1.20 | homeassistant | Home Assistant |
-| 192.168.1.21 | brw... | Brother printer |
+| 192.168.1.17 | — | tower nzbget (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:01) |
+| 192.168.1.18 | — | tower nzbhydra2 (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:02) |
+| 192.168.1.21 | printer | Brother printer (MAC 4c:d5:77:31:8e:30) |
+| 192.168.1.22 | — | tower zigbee2mqtt (ipvlan on br0, RESERVED placeholder MAC 00:00:00:00:00:03) |
 | 192.168.1.23 | slzb-06p7 | Zigbee coordinator |
 | 192.168.1.27 | ollama | GPU server |
 | 192.168.1.29 | doc1 | doc1 (proxmox-vm) — primary NixOS services VM |
@@ -201,6 +206,7 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | 192.168.1.40-41 | chromecast-ultra, google-home | Google devices |
 | 192.168.1.42 | lgwebostv | LG webOS TV (moved from .36 — was conflicting with doc2-vpn) |
 | 192.168.1.50-54 | — | UniFi APs and switches |
+| 192.168.11.3 | — | tower nicotine-plus (ipvlan on br0.10, Docker VLAN, RESERVED placeholder MAC 00:00:00:00:00:00) |
 | 192.168.11.12 | — | Prom management (Docker VLAN) |
 
 ## DNS Resolver Host Overrides
@@ -218,9 +224,16 @@ All overrides use domain `local.com` to match existing convention.
 | pbs.local.com | 192.168.1.30 | Proxmox Backup Server |
 | igpu.local.com | 192.168.1.33 | iGPU transcoding VM (VMID 109) |
 | homeassistant.local.com | 192.168.1.20 | Home Assistant (pre-existing) |
+| nzbget.local.com | 192.168.1.17 | tower Docker container (ipvlan on br0) |
+| nzbhydra2.local.com | 192.168.1.18 | tower Docker container (ipvlan on br0) |
+| zigbee2mqtt.local.com | 192.168.1.22 | tower Docker container (ipvlan on br0) |
+| nicotine-plus.local.com | 192.168.11.3 | tower Docker container (ipvlan on br0.10, Docker VLAN) |
+| printer.local.com | 192.168.1.21 | Brother printer (MAC 4c:d5:77:31:8e:30) |
 | prom-mgmt.local.com | 192.168.11.12 | prom management interface (Docker VLAN 10) |
 
 Note: .29 (doc1) may show a stale `nixos.local.com` PTR alongside `doc1.local.com` until the DHCP lease renews or Unbound restarts — the `doc1` PTR is correct and returned first.
+
+Note: .21 printer PTR returns both `brw4cd577318e30.local.com` (Kea auto-generated, TTL 2400) and `printer.local.com` (Host Override, TTL 3600) transiently after the hostname rename. The stale Kea PTR ages out within ~40 minutes.
 
 ## Services
 
