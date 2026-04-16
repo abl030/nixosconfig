@@ -116,17 +116,11 @@ in {
       };
       provision = {
         enable = true;
-        # Cleanup: "Mimir" was renamed to "Prometheus" (2026-04-16) for
-        # compatibility with community dashboards that hardcode the name.
-        # Keep this entry so the old datasource is removed even after a
-        # fresh grafana.db, or drop it in a future cleanup pass once every
-        # deploy has converged.
-        datasources.settings.deleteDatasources = [
-          {
-            name = "Mimir";
-            orgId = 1;
-          }
-        ];
+        # Note (2026-04-16): historically had "Mimir" as the prom datasource
+        # name. Renamed to "Prometheus" for community dashboard compat.
+        # `deleteDatasources` for "Mimir" is NOT idempotent in Grafana —
+        # it errors if the target doesn't exist, breaking startup. Since
+        # Mimir is already gone fleet-wide, we don't declare the cleanup.
         datasources.settings.datasources = [
           {
             name = "Loki";
