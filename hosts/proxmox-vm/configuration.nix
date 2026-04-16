@@ -6,7 +6,6 @@
   imports = [
     ./hardware-configuration.nix
     ../../modules/nixos/services/podcast.nix
-    # Stacks managed via hosts.nix containerStacks
   ];
 
   homelab = {
@@ -30,10 +29,6 @@
       updateDates = "03:00";
       gcDates = "03:30";
       rebootOnKernelUpdate = true;
-    };
-
-    containers = {
-      enable = true;
     };
 
     cache = {

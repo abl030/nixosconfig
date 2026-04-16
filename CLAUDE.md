@@ -274,92 +274,15 @@ All settings use `lib.mkDefault` so individual hosts can override.
 - `flake-root`: The flake root (self)
 - `system`: "x86_64-linux"
 
-### Container Stack Management
+### Containers
 
-**Current Implementation:** All container stacks use `podman compose` (built-in podman subcommand wrapping docker-compose Go binary). This replaced the Python `podman-compose` wrapper in Feb 2025 for better reliability.
+The rootless `podman compose` stack system was retired on 2026-04-16 — every stack became a native NixOS module under `modules/nixos/services/`. For service-adjacent containers that remain (tdarr-node, youtarr, netboot, jdownloader2, the tailscale-share sidecars), use:
 
-**Stack Architecture:**
-- Stack definitions: `stacks/*/docker-compose.nix`
-- Core library: `stacks/lib/podman-compose.nix`
-- Configuration: `modules/nixos/homelab/containers/default.nix`
+- **`virtualisation.oci-containers.containers.<name>`** — standard nixpkgs OCI wrapper, driven by `homelab.podman` (rootful) for autoupdate + autoheal.
+- **`modules/nixos/services/tailscale-share.nix`** — per-service inter-tailnet pinhole pattern (ts sidecar + caddy sidecar, each a dedicated tailnet node).
+- **`modules/nixos/lib/mk-pg-container.nix`** — isolated PostgreSQL via systemd-nspawn when a service needs its own DB.
 
-**Key Features:**
-- Deploy path uses `podman compose up -d --remove-orphans` (no deploy-time `--wait` gating)
-- API socket communication eliminates SQLite lock contention
-- Single user service ownership (`${stackName}.service`) for stack lifecycle
-- Native system-scope `sops.secrets` wiring for env files, with one-release legacy fallback support
-- Hard-fail startup invariants (`PODMAN_SYSTEMD_UNIT` ownership + missing secret handling)
-
-**Migration Gotchas (podman-compose → podman compose):**
-
-1. **Network Label Mismatch** - OLD networks created by podman-compose lack `com.docker.compose.network` label that docker-compose requires. **Solution:** Remove old networks before first deployment:
-   ```bash
-   # List networks to remove
-   podman network ls --format "{{.Name}}" | grep "_default$"
-
-   # Remove unused networks (no containers attached)
-   for net in $(podman network ls --format "{{.Name}}" | grep "_default$"); do
-     containers=$(podman network inspect "$net" -f "{{len .Containers}}" 2>/dev/null || echo "0")
-     if [ "$containers" -eq 0 ]; then
-       podman network rm "$net"
-     fi
-   done
-   ```
-
-2. **Stale Container Reuse** - Docker-compose reuses existing containers if they match the config. If a container has a failed/stuck health check, docker-compose with `--wait` will wait forever for that stale health status to change. **Solution:** Remove containers with stuck health before redeploying:
-   ```bash
-   # Check for containers in perpetual "starting" state
-   podman ps -a --format "table {{.Names}}\t{{.Status}}" | grep "starting"
-
-   # Remove them to force fresh creation
-   podman rm -f <container-name>
-   ```
-   This is **ongoing risk**, not just migration - can happen anytime a container gets into bad health state and isn't cleaned up before restart.
-
-3. **Stricter YAML Parsing** - Docker-compose rejects duplicate mapping keys (podman-compose silently merged them). **Solution:** Fix YAML syntax errors:
-   ```yaml
-   # BAD (duplicate labels)
-   labels:
-     - io.containers.autoupdate=registry
-   ...
-   labels:
-     - autoheal=true
-
-   # GOOD (merged)
-   labels:
-     - io.containers.autoupdate=registry
-     - autoheal=true
-   ```
-
-4. **Flag Compatibility** - `--in-pod` flag is podman-compose-specific and not recognized by docker-compose. Default behavior (no pod wrapping) is correct for docker-compose. **Solution:** Remove `--in-pod false` from stack definitions.
-
-**IMPORTANT: Oneshot Service Behavior**
-Container stacks use `Type=oneshot` with `restartIfChanged=true`. They only restart when config changes, NOT on every rebuild. If containers are manually removed (e.g., via `podman rm -f` or network cleanup), you must manually restart the services:
-```bash
-sudo runuser -u abl030 -- systemctl --user restart <stack-name>
-```
-
-**Migration verified on:** doc1 (proxmox-vm), igpu
-**Remaining hosts:** None - all container hosts migrated
-
-**Debugging Stuck Deployments:**
-```bash
-# Check what systemd is waiting on
-systemctl list-jobs
-
-# Check which services are stuck
-systemctl list-units --state=activating
-
-# Find the docker-compose process
-ps aux | grep docker-compose
-
-# Check container health status
-podman inspect <container> --format '{{json .State.Health}}' | jq
-
-# Kill stuck docker-compose and restart service
-sudo kill <pid>
-sudo runuser -u abl030 -- systemctl --user restart <stack-name>
-```
+See `docs/wiki/services/retired-container-stacks.md` for what was retired and how to recover a stack from git history if needed. See `.claude/rules/nixos-service-modules.md` for the service hierarchy (upstream module > custom module > OCI container).
 
 ## Important Files
 

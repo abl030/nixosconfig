@@ -6,7 +6,7 @@ These rules apply when creating or modifying NixOS service modules under `module
 
 1. **Use the upstream nixpkgs module** if one exists (`services.<name>.enable = true`). Wrap it in a `homelab.services.<name>` module that wires in our infrastructure (proxy, monitoring, secrets, DB).
 2. **Build a custom module** if the package exists in nixpkgs but has no module. Use `pkgs.<name>` and write a systemd service.
-3. **Use podman/OCI containers** as a last resort. Use `virtualisation.oci-containers.containers` for simple cases, or compose stacks via `homelab.containers` for multi-container services.
+3. **Use podman/OCI containers** as a last resort. Use `virtualisation.oci-containers.containers` driven by `homelab.podman` (rootful, with autoupdate + autoheal). Multi-container services get split into per-container OCI entries plus a systemd unit to glue them together — the rootless `podman compose` stack system was retired on 2026-04-16 (see `docs/wiki/services/retired-container-stacks.md`).
 
 ## Module Structure
 

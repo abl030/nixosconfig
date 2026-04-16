@@ -64,7 +64,6 @@ The hearring-aid docs reference a "Tubifarry" Lidarr plugin that may change how 
 - `modules/nixos/services/musicbrainz.nix` — The musicbrainz stack module on doc2
 - `hosts/doc2/configuration.nix` — doc2 host config (enables musicbrainz service)
 - `modules/nixos/services/lidarr.nix` — Lidarr service module
-- `stacks/musicbrainz/` — Old doc1 stack (for reference, no longer active)
 
 ## Current State
 

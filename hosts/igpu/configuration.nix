@@ -22,9 +22,6 @@
       nfsLocal.enable = true;
       fuse.enable = true;
     };
-    # Rootless compose retired (#208 Phase 3): jellyfin is native,
-    # tdarr-node uses homelab.podman (rootful OCI). No more compose stacks.
-    containers.enable = false;
     services.tdarrNode.enable = true;
     services.jellyfin = {
       enable = true;

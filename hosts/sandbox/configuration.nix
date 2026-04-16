@@ -36,11 +36,6 @@
     update.enable = false;
     # No Syncthing - sandbox is isolated
     syncthing.enable = false;
-    containers = {
-      enable = true;
-      dataRoot = "/home/abl030/podman-data";
-      autoUpdate.enable = false;
-    };
   };
 
   # Enable QEMU guest agent for Proxmox integration
