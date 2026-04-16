@@ -152,6 +152,16 @@ in {
             type = "prometheus";
             access = "proxy";
             url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
+            jsonData = {
+              # Our alloy scrape interval is 60s (see homelab.loki module).
+              # Without this hint, Grafana defaults `$__rate_interval` to
+              # 15s which is too short for 60s-scraped counters — rate()
+              # returns NaN and panels show "no data" despite series
+              # existing. Setting timeInterval ensures $__rate_interval
+              # expands to at least scrape_interval * 4 = 240s.
+              timeInterval = "60s";
+              prometheusType = "Mimir";
+            };
           }
         ];
 
