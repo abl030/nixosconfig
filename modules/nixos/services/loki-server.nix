@@ -22,7 +22,10 @@
       $out/node-exporter-full.json
 
     # pfSense exporter dashboards — co-versioned with the scrape metrics.
+    # Skip the CARP dashboard: we run a single pfSense (no HA pair), so
+    # pfsense_carp_enabled = 0 and the dashboard is always empty.
     cp ${inputs.pfsense-exporter-src}/dashboards/*.json $out/
+    rm -f $out/pfsense_carp.json
   '';
 in {
   options.homelab.services.loki = {
