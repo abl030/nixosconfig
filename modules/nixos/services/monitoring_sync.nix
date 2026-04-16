@@ -593,8 +593,17 @@ in {
       after = ["network-online.target"];
       wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
+      # Re-run on every rebuild when the desired monitor/maintenance set
+      # changes. Without these, the oneshot goes inactive after its first
+      # boot-time run and switch-to-configuration never triggers it again —
+      # new homelab.monitoring.monitors entries would never land in Kuma.
+      restartTriggers = [monitorsJson maintenancesJson];
       serviceConfig = {
         Type = "oneshot";
+        # RemainAfterExit keeps the unit `active (exited)` so
+        # switch-to-configuration treats it as live and honours
+        # restartIfChanged (default true) on derivation changes.
+        RemainAfterExit = true;
         ExecStart = monitoringScript;
       };
     };
