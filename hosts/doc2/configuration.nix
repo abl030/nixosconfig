@@ -72,6 +72,9 @@
         enable = true;
         dataDir = "/mnt/virtio/loki";
       };
+      # Grafana alerting → Gotify (#201). Default rule: alert on
+      # unexpected reboots of prom (the canonical case from 2026-02-22).
+      alerting.enable = true;
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";
