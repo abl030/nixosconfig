@@ -156,11 +156,11 @@ in {
 
       port = lib.mkOption {
         type = lib.types.port;
-        default = 3001;
+        default = 3010;
         description = ''
           Host-side port. The container always listens on 3000 internally;
-          this is what nginx upstream-proxies to. 3001 because 3000 is
-          occupied on doc2 (mealie-gotenberg).
+          this is what nginx upstream-proxies to. 3010 because 3000 is
+          occupied on doc2 (mealie-gotenberg) and 3001 by uptime-kuma.
         '';
       };
 
@@ -205,10 +205,10 @@ in {
 
       port = lib.mkOption {
         type = lib.types.port;
-        default = 8081;
+        default = 8099;
         description = ''
-          Host-side port. Container listens on 8080 internally; 8081 on host
-          because 8080 is in use on doc2.
+          Host-side port. Container listens on 8080 internally; 8099 on host
+          because 8080-8086 are in use on doc2 (immich, stirling-pdf).
         '';
       };
 
