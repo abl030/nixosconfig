@@ -122,10 +122,6 @@
       enable = lib.mkDefault true;
     };
 
-    openobserve = {
-      enable = lib.mkDefault false;
-    };
-
     loki = {
       enable = lib.mkDefault true;
     };

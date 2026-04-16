@@ -17,7 +17,6 @@
     ./loki.nix
     ./loki-server.nix
     ./prometheus.nix
-    ./openobserve.nix
     ./mcp.nix
     ./mdns-reflector.nix
     ./framework
