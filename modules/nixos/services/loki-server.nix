@@ -30,13 +30,25 @@
     # ntopng per-client traffic dashboard — co-versioned with the
     # aauren/ntopng-exporter metric schema. See homelab.loki.ntopngExporter.
     #
-    # Patch: the upstream JSON is designed for Grafana's interactive import
-    # flow — panels reference ''${PROM} (an __inputs placeholder) that only
-    # gets resolved when the user picks a datasource during import. File-
-    # provisioned dashboards skip that prompt, so the placeholder stays
-    # literal and every panel shows "no data". Substitute it with our
-    # datasource's pinned UID at build time.
-    ${pkgs.gnused}/bin/sed 's/''${PROM}/Prometheus/g' \
+    # Two build-time patches:
+    #
+    # 1. Replace ''${PROM} with our pinned datasource UID. The upstream JSON
+    #    is designed for Grafana's interactive import flow — panels
+    #    reference `uid: "''${PROM}"` (an __inputs placeholder) that only
+    #    gets filled when the user picks a datasource during import. File-
+    #    provisioned dashboards skip that prompt, so the placeholder stays
+    #    literal and every panel shows "no data".
+    #
+    # 2. Rewrite `irate(X[1m])` → `rate(X[5m])`. The dashboard is tuned for
+    #    ~15s scrape intervals; irate over 1 minute needs ≥2 samples in
+    #    that window. At our 60s scrape cadence (homelab.loki.ntopngExporter
+    #    .scrapeInterval), a 1-minute window has exactly 1 sample most of
+    #    the time → irate returns NaN → panel shows "no data" despite
+    #    series existing. rate over 5 minutes is smoother and works at our
+    #    cadence without needing a tighter scrape.
+    ${pkgs.gnused}/bin/sed \
+      -e 's/''${PROM}/Prometheus/g' \
+      -e 's/irate(\([^)]*\)\[1m\])/rate(\1[5m])/g' \
       ${inputs.ntopng-exporter-src}/resources/grafana-dashboard.json \
       > $out/ntopng-exporter.json
   '';
