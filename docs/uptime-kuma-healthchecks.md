@@ -34,6 +34,10 @@ Goal: prefer stable, unauthenticated health endpoints when they exist, rather th
 - **Recommended:** `https://watchstate.ablz.au/`
 - **Why:** Root returns 200 (WebUI). No dedicated health endpoint documented.
 
+
+### pfSense Exporter (internal, localhost:9945)
+- **Recommended:** `http://localhost:9945/metrics?target=192.168.1.1`
+- **Why:** Multi-target exporter; requires `?target=` param. Returns Prometheus text format — Kuma checks HTTP 200.
 ### Gotify (gotify.ablz.au)
 - **Recommended:** keep `/` for HTTP checks.
 - **Why:** Official docs emphasize websocket proxy headers for Gotify, but do not document a public HTTP health endpoint. Use root + websocket support.
