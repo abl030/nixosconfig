@@ -17,7 +17,7 @@ in {
     musicPath = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/data/Media/Music";
-      description = "Path to the music library. Use a bindfs mount for inotify over NFS.";
+      description = "Path to the music library.";
     };
   };
 
