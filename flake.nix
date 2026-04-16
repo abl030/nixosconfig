@@ -111,6 +111,14 @@
       flake = false;
     };
 
+    # Grafana dashboards — rfmoz is the upstream author of the canonical
+    # "Node Exporter Full" dashboard (grafana.com/dashboards/1860). Tracking
+    # the repo auto-updates the dashboard on nightly rolling-flake-update.
+    grafana-dashboards-rfmoz = {
+      url = "github:rfmoz/grafana-dashboards";
+      flake = false;
+    };
+
     jolt = {
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";
