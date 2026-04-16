@@ -18,10 +18,6 @@
   };
 
   homelab = {
-    openobserve = {
-      enable = false;
-      debug = false;
-    };
     mounts = {
       nfsLocal.enable = true;
       fuse.enable = true;
