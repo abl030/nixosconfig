@@ -38,6 +38,11 @@ Goal: prefer stable, unauthenticated health endpoints when they exist, rather th
 ### pfSense Exporter (internal, localhost:9945)
 - **Recommended:** `http://localhost:9945/metrics?target=192.168.1.1`
 - **Why:** Multi-target exporter; requires `?target=` param. Returns Prometheus text format — Kuma checks HTTP 200.
+
+### ntopng Exporter (internal, localhost:9946)
+- **Recommended:** `http://localhost:9946/metrics`
+- **Why:** Exposes Prometheus text format directly on the metrics path (no auth). Kuma checks HTTP 200. Exporter pulls from ntopng via REST on pfSense.
+
 ### Gotify (gotify.ablz.au)
 - **Recommended:** keep `/` for HTTP checks.
 - **Why:** Official docs emphasize websocket proxy headers for Gotify, but do not document a public HTTP health endpoint. Use root + websocket support.
