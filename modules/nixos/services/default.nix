@@ -16,6 +16,7 @@
     ./gotify.nix
     ./loki.nix
     ./loki-server.nix
+    ./alerting.nix
     ./prometheus.nix
     ./mcp.nix
     ./mdns-reflector.nix

@@ -129,6 +129,52 @@ Why: we verified from doc1, tower, and other hosts that `<service>.ablz.au` reso
 
 The only exception is pfSense syslog, forced to raw IP by pfSense itself (see above).
 
+## Alerting → Gotify
+
+**Added:** 2026-04-16 (issue [#201](https://github.com/abl030/nixosconfig/issues/201))
+**Module:** `modules/nixos/services/alerting.nix` (`homelab.services.alerting`)
+
+We use **Grafana's built-in alerting** (not standalone Alertmanager) and route notifications to **Gotify via a webhook contact point**. No Alertmanager is deployed — Grafana already has a full alerting engine, and adding another layer would only buy us features we don't use yet.
+
+### Why a webhook works directly with Gotify (no bridge)
+
+Gotify's `POST /message?token=X` endpoint accepts JSON bodies and picks up the top-level `title` and `message` fields, ignoring everything else in the payload. Grafana's default webhook payload happens to put both fields at the top level alongside its alertmanager-style metadata — so Gotify silently extracts the two it cares about and discards the rest. No body-template override, no translation bridge.
+
+Verified by sending a synthetic Grafana-shape payload to the contact-point URL on 2026-04-16 — Gotify created message id 2571 (appid 7) and delivered the push.
+
+### How the token stays out of the Nix store
+
+The contact-point URL needs `?token=<secret>`. Grafana's `services.grafana.provision.alerting.contactPoints.settings` (Nix-native) would serialise that into the store. To avoid leaking:
+
+1. We declare `contactPoints.path = "/var/lib/grafana-alerting/contactPoints.yaml"` (a runtime-mutable path, not a store path).
+2. A oneshot prestart unit (`grafana-alerting-prestart.service`) materialises that file before grafana starts: reads the sops-decrypted token from `/run/secrets/gotify-alerting/token`, sed-substitutes a `__GOTIFY_TOKEN__` placeholder in a store-side template, writes the result.
+3. `requiredBy = ["grafana.service"]` + `before = ["grafana.service"]` makes grafana wait on prestart and fail-stop if it errors.
+4. `restartTriggers` on `grafana.service` keyed off the prestart unit's derivation hash means URL/token-extraction changes propagate via `nixos-rebuild switch` (otherwise grafana would keep its in-memory contact points until manually restarted).
+
+Same pattern as `pfsense-exporter` in `loki.nix` — both bind a runtime-rendered config to an upstream service's startup.
+
+### sops-nix dotenv gotcha (already cost an hour once)
+
+`sops.secrets.X = { format = "dotenv"; key = "GOTIFY_TOKEN"; ... }` does **NOT** extract the bare value — the materialised file content is the literal `KEY=VALUE` line. Verified on doc2: `/run/secrets/gotify/token` is 29 bytes containing `GOTIFY_TOKEN=AJ.SqA-aYIJDnFU\n`. The `gotify-ping.sh` script handles both formats defensively, and the alerting prestart strips `${raw#GOTIFY_TOKEN=}` for the same reason.
+
+Don't try to use `$__file{/run/secrets/gotify/token}` directly in a Grafana webhook URL — it would inject the `GOTIFY_TOKEN=` prefix into the URL and break the request.
+
+### The reboot alert (the canonical first rule)
+
+`homelab-reboot-prom`: fires when `time() - node_boot_time_seconds{instance="prom"} < 600`. One notification per reboot, auto-resolves after 10 minutes. The DAG is `query → reduce → threshold` — Grafana 10+ requires this explicit shape (no PromQL `ALERT` short form). `for: 0s` because reboot detection is binary; `noDataState/execErrState: OK` so a Mimir blip doesn't fire spurious alerts.
+
+The motivating incident: prom hard-crashed at 02:17 AWST on 2026-02-22, went unnoticed until morning because igpu (which then hosted Loki) was also down. With LGTM now on doc2 and this alert rule, a future reboot pages immediately.
+
+To add more reboot alerts, append instance labels to `homelab.services.alerting.rebootAlert.instances` — one alert rule per instance, no duplication needed.
+
+### Token reuse vs split
+
+Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "application" stream as agent pings. If the noise mix becomes a problem, create a separate Gotify app, store its token in `secrets/gotify-alerting.env`, and point `homelab.services.alerting.gotifyTokenSopsFile` at it.
+
+### Maintenance windows
+
+Not implemented. The motivating use case is "alert me when prom reboots, full stop" — the user usually knows when they're about to reboot prom and can ignore the page. If we end up with regular planned-reboot windows, add a Grafana mute timing via `services.grafana.provision.alerting.muteTimings.settings` and reference it from the policy.
+
 ## When to revisit
 
 - When someone wires an OTEL-native app → Tempo receivers come alive. Add source restriction for 4317/4318.
@@ -140,4 +186,5 @@ The only exception is pfSense syslog, forced to raw IP by pfSense itself (see ab
 
 - `modules/nixos/services/loki-server.nix` — server config
 - `modules/nixos/services/loki.nix` — alloy shipper + syslog receiver (`homelab.loki`)
+- `modules/nixos/services/alerting.nix` — Grafana alerting → Gotify (`homelab.services.alerting`, #201)
 - `docker/unraid-alloy/` — tower's alloy shipper
