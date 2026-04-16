@@ -15,8 +15,14 @@
   # up upstream dashboard changes automatically; no manual hash bumps.
   dashboardsDir = pkgs.runCommand "grafana-dashboards" {} ''
     mkdir -p $out
+
+    # Node Exporter Full (grafana.com/dashboards/1860) — fleet-wide
+    # CPU/memory/disk/network views.
     cp ${inputs.grafana-dashboards-rfmoz}/prometheus/node-exporter-full.json \
       $out/node-exporter-full.json
+
+    # pfSense exporter dashboards — co-versioned with the scrape metrics.
+    cp ${inputs.pfsense-exporter-src}/dashboards/*.json $out/
   '';
 in {
   options.homelab.services.loki = {

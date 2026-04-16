@@ -119,6 +119,15 @@
       flake = false;
     };
 
+    # pfSense exporter ships its own Grafana dashboards (carp/firewall/
+    # gateways/interface/services/system/traffic) co-versioned with the
+    # exporter metric schema. Track the same repo we already scrape from
+    # (see homelab.loki.pfsenseExporter).
+    pfsense-exporter-src = {
+      url = "github:pfrest/pfsense_exporter";
+      flake = false;
+    };
+
     jolt = {
       url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
       inputs.nixpkgs.follows = "nixpkgs";

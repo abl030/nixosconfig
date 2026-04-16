@@ -539,6 +539,22 @@
         "type": "github"
       }
     },
+    "pfsense-exporter-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776220630,
+        "narHash": "sha256-qx1LAf8v5kTPqq+B1wBdUd/7KskSqTnHGXOldBoXp3U=",
+        "owner": "pfrest",
+        "repo": "pfsense_exporter",
+        "rev": "5228c28c7733e8a33d51c1a1dc1c66283957f364",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pfrest",
+        "repo": "pfsense_exporter",
+        "type": "github"
+      }
+    },
     "pfsense-mcp": {
       "inputs": {
         "nixpkgs": [
@@ -582,6 +598,7 @@
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
         "nvchad4nix": "nvchad4nix",
+        "pfsense-exporter-src": "pfsense-exporter-src",
         "pfsense-mcp": "pfsense-mcp",
         "sheets": "sheets",
         "slskd-mcp": "slskd-mcp",
