@@ -27,3 +27,4 @@ Internal knowledge base for research findings, architectural decisions, and oper
 
 - [auto-memory-directory](claude-code/auto-memory-directory.md) — persistent memory layout
 - [skills-in-subagents](claude-code/skills-in-subagents.md) — skill availability inside spawned subagents
+- [playwright-subagent](claude-code/playwright-subagent.md) — headed/headless browser automation via CDP-attach Chrome
