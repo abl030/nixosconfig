@@ -177,9 +177,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Vinsight MCP - MCP server for Vinsight winery API
+    # Vinsight MCP - MCP server for Vinsight winery API.
+    # Private repo: fetched over SSH with the fleet identity deploy key
+    # (hosts.nix:masterKeys) so the rest of the flake stays resilient when
+    # the GitHub PAT rotates. See issue #210 and
+    # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
     vinsight-mcp = {
-      url = "github:abl030/vinsight-mcp";
+      url = "git+ssh://git@github.com/abl030/vinsight-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

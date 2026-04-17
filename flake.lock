@@ -916,15 +916,15 @@
       "locked": {
         "lastModified": 1771901753,
         "narHash": "sha256-F4wQ293vjwh2usqelMWBmVXIV2nuzK5rw0nUKyETiLM=",
-        "owner": "abl030",
-        "repo": "vinsight-mcp",
+        "ref": "refs/heads/master",
         "rev": "f3d1132db90b4da4be406c177cf2741f29a6c414",
-        "type": "github"
+        "revCount": 70,
+        "type": "git",
+        "url": "ssh://git@github.com/abl030/vinsight-mcp"
       },
       "original": {
-        "owner": "abl030",
-        "repo": "vinsight-mcp",
-        "type": "github"
+        "type": "git",
+        "url": "ssh://git@github.com/abl030/vinsight-mcp"
       }
     },
     "yt-dlp-src": {
