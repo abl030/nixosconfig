@@ -1,6 +1,7 @@
 {
   lib,
   config,
+  pkgs,
   allHosts,
   hostname,
   ...
@@ -76,8 +77,38 @@ in {
       mode = "0600";
     };
 
+    # 3b. Mirror the fleet identity into root's ~/.ssh so `nixos-rebuild`
+    # (which runs as root during auto-upgrade) can fetch `git+ssh://` flake
+    # inputs like vinsight-mcp. See issue #210 and
+    # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
+    system.activationScripts.rootFleetIdentity = lib.mkIf cfg.deployIdentity {
+      deps = ["setupSecrets" "users"];
+      text = ''
+        src="${homeDirectory}/.ssh/id_ed25519"
+        if [ -r "$src" ]; then
+          ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root /root/.ssh
+          ${pkgs.coreutils}/bin/install -m 0400 -o root -g root "$src" /root/.ssh/id_ed25519
+        fi
+      '';
+    };
+
+    # 3c. System-wide SSH client config: route github.com through the fleet
+    # identity — but ONLY for root, so regular users' `git push` continues to
+    # work with their own ~/.ssh/config (or default identity handling).
+    # Pin algorithms and disable agent/pubkey fallback so a misplaced agent
+    # socket or stray key can't authenticate as someone else.
+    programs.ssh.extraConfig = lib.mkIf cfg.deployIdentity ''
+      Match User root Host github.com
+        User git
+        IdentityFile /root/.ssh/id_ed25519
+        IdentitiesOnly yes
+        HostKeyAlgorithms ssh-ed25519
+        PubkeyAcceptedAlgorithms ssh-ed25519
+    '';
+
     # 4. Declarative Known Hosts
     # Automatically trust all other hosts in the fleet defined in hosts.nix
+    # plus GitHub (pinned so `git+ssh://` fetches never TOFU).
     programs.ssh.knownHosts = let
       # Filter to find other hosts that have a valid public key
       otherHostsWithKeys =
@@ -86,16 +117,29 @@ in {
             name != hostname && (host ? publicKey) && host.publicKey != ""
         )
         allHosts;
+
+      fleetKnownHosts =
+        lib.mapAttrs' (
+          name: host:
+            lib.nameValuePair "homelab-${name}" {
+              # Trust the hostname and the sshAlias.
+              # Note: IP addresses are not currently in hosts.nix, so they are not added here.
+              hostNames = [host.hostname host.sshAlias];
+              inherit (host) publicKey;
+            }
+        )
+        otherHostsWithKeys;
+
+      # GitHub's documented SSH host keys — see
+      # https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+      # Update if GitHub rotates (rare; last rotation 2023-03-24 for RSA).
+      githubKnownHosts = {
+        "github.com-ed25519" = {
+          hostNames = ["github.com"];
+          publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+        };
+      };
     in
-      lib.mapAttrs' (
-        name: host:
-          lib.nameValuePair "homelab-${name}" {
-            # Trust the hostname and the sshAlias.
-            # Note: IP addresses are not currently in hosts.nix, so they are not added here.
-            hostNames = [host.hostname host.sshAlias];
-            inherit (host) publicKey;
-          }
-      )
-      otherHostsWithKeys;
+      fleetKnownHosts // (lib.optionalAttrs cfg.deployIdentity githubKnownHosts);
   };
 }

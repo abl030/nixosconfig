@@ -177,19 +177,21 @@
   };
 
   # Derive access-tokens from netrc so flake metadata resolution works
-  # for private GitHub repos (netrc-file only covers archive downloads).
+  # for public GitHub repos without hitting anonymous rate limits. If the
+  # token is definitively 401/403 (rotated/revoked) we fall back to an
+  # empty file — a stale token poisons *every* github.com fetch with 401,
+  # so absence is strictly better than staleness. Network blips preserve
+  # the token (we only invalidate on a definitive GitHub response).
+  #
+  # The same script runs as an ExecStartPre on nixos-upgrade.service so
+  # the next scheduled upgrade refreshes access-tokens BEFORE it fetches
+  # the flake, not after. See issue #210,
+  # modules/nixos/lib/refresh-access-tokens.nix, and
+  # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
   system.activationScripts.nix-access-tokens = {
     deps = ["setupSecrets"];
     text = ''
-      token=$(${pkgs.gawk}/bin/awk '/machine github\.com/{found=1} found && /password/{print $2; exit}' /run/secrets/nix-netrc 2>/dev/null || true)
-      if [ -n "$token" ]; then
-        printf 'access-tokens = github.com=%s\n' "$token" > /run/secrets/nix-access-tokens
-        chmod 444 /run/secrets/nix-access-tokens
-      else
-        # Ensure the file exists (even empty) so !include doesn't error
-        touch /run/secrets/nix-access-tokens
-        chmod 444 /run/secrets/nix-access-tokens
-      fi
+      ${import ../lib/refresh-access-tokens.nix {inherit pkgs;}}
     '';
   };
 
