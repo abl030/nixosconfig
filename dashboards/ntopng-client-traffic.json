@@ -300,7 +300,7 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "Prometheus"},
-      "description": "Top 10 LAN hosts by current bandwidth, over time. Filters out samples with empty `name` — ntopng occasionally emits a transient blank-name scrape for a host that normally resolves, which would otherwise produce a duplicate series in the legend. Hosts that NEVER resolve (e.g. devices with no rDNS, no DHCP hostname) will be absent from this panel — see the table above for the full list. Because topk re-evaluates at each time-slice, the set of series can shift as traffic patterns change.",
+      "description": "Top 10 LAN hosts by current bandwidth, over time. Legend uses a `display` label computed via two chained label_replace calls: first sets display=ip for every series (the fallback), then overrides display=name whenever the name label is non-empty. Same resolution behaviour as the table above — hosts that ntopng can't resolve show as IP-only, the rest show by hostname. Because topk re-evaluates at each time-slice, the set of series can shift as traffic patterns change.",
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
@@ -341,8 +341,8 @@
         {
           "datasource": {"type": "prometheus", "uid": "Prometheus"},
           "editorMode": "code",
-          "expr": "topk(10, sum by (ip, name) (rate(ntopng_host_bytes_sent{ifname=\"LAN\", name!=\"\"}[$__rate_interval]) + rate(ntopng_host_bytes_rcvd{ifname=\"LAN\", name!=\"\"}[$__rate_interval])) * 8)",
-          "legendFormat": "{{name}} ({{ip}})",
+          "expr": "label_replace(label_replace(topk(10, sum by (ip, name) (rate(ntopng_host_bytes_sent{ifname=\"LAN\"}[$__rate_interval]) + rate(ntopng_host_bytes_rcvd{ifname=\"LAN\"}[$__rate_interval])) * 8), \"display\", \"$1\", \"ip\", \"(.+)\"), \"display\", \"$1\", \"name\", \"(.+)\")",
+          "legendFormat": "{{display}}",
           "range": true,
           "refId": "A"
         }
