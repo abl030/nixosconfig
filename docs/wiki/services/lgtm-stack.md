@@ -166,6 +166,37 @@ The watchdog cron runs every minute on its own; `php ...servicewatchdog_cron.php
 
 **Detection gap that let this go unnoticed for 4h:** `up{job="ntopng"}` stays 1 when only ntopng (not the exporter) dies. A better alert would fire on `absent_over_time(ntopng_interface_num_devices[10m])` or on the drop in `scrape_samples_scraped{job="ntopng"}`. Not yet implemented — TODO when another dashboard gap appears and this becomes a pattern.
 
+### Custom dashboard: "ntopng — Client Traffic"
+
+**Added:** 2026-04-17. Lives at `dashboards/ntopng-client-traffic.json` — our own, not a flake input.
+
+**Why it exists:** the vendored `aauren/ntopng-exporter` dashboard is noisy and confusing for the thing we actually want: "how much is flowing over WAN + each VPN tunnel, and which LAN client is responsible." The vendored one repeats stat panels per interface (including empty VPN ones), collapses into row-repeats that silently fail to render when template vars resolve weird, and doesn't flag VPN-routed clients. This custom one is narrower:
+
+1. Three stat panels — WAN / AirVPN NZ / AirVPN SG current bps.
+2. A single timeseries with those three interfaces overlaid.
+3. A LAN top-talkers **table** with a "Route" column showing VPN or Direct per host.
+4. A top-10 LAN timeseries underneath for historical context.
+
+**Key design note — why "VPN" is inferred from LAN-side policy-routing, not observed on the tunnel:** ntopng can't see individual LAN clients on `tun_wg*` interfaces. From ntopng's point of view, the only host on a WireGuard tunnel is the tunnel endpoint itself (or multicast leaking onto it). LAN clients get NAT'd into the tunnel before ntopng's observation point on the VPN side. So the only way to answer "which LAN clients are using the VPN" is to consult pfSense's policy-routing config and check LAN-side bytes for those IPs.
+
+### VPN-routed IP sync contract
+
+`homelab.loki.ntopngExporter.vpnClientIPs` in `modules/nixos/services/loki.nix` is a mirror of pfSense's `MV_VPN_IPS` alias. It's plumbed into the custom dashboard at Nix build time via a regex substitution (Nix `builtins.replaceStrings` — not sed, because sed eats the backslashes we need for JSON-escaped dots in a PromQL regex).
+
+The contract:
+
+- **Source of truth is pfSense** (operational state — rules fire from the alias).
+- **Nix mirror is doc2** (`hosts/doc2/configuration.nix`).
+- **Propagation requires a rebuild** of doc2. The regex is baked into the dashboard at build time, so a drift between the two silently mis-tags hosts without raising an error.
+
+When modifying MV_VPN_IPS via the pfsense subagent:
+1. Subagent updates the pfSense alias.
+2. Subagent updates `vpnClientIPs` in `hosts/doc2/configuration.nix` to match.
+3. Subagent reminds the user to rebuild doc2.
+4. Subagent audits both sides agree after the change.
+
+This is codified in `.claude/agents/pfsense.md` front-matter under "Cross-repo sync contract: MV_VPN_IPS ↔ Nix" — future pfsense sessions enforce it automatically.
+
 ### Fleet dashboard audit — 2026-04-17
 
 During the ntopng incident investigation we swept every provisioned dashboard for silent failures. Summary — 8 dashboards, fleet is healthy:

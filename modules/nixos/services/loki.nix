@@ -489,6 +489,34 @@ in {
         default = "docker.io/aauren/ntopng-exporter:latest";
         description = "OCI image for the ntopng exporter.";
       };
+
+      vpnClientIPs = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["192.168.1.4" "192.168.1.36"];
+        description = ''
+          LAN IPs that pfSense policy-routes through AirVPN (i.e. the
+          `MV_VPN_IPS` alias on pfSense). Consumed by the "ntopng —
+          Client Traffic" custom dashboard to tag which LAN hosts are
+          actively using the VPN.
+
+          ntopng structurally cannot break down VPN tunnel traffic by
+          LAN client (the clients are NAT'd behind the tunnel), so the
+          dashboard infers VPN usage from policy-routing membership on
+          the LAN side. This list is that membership.
+
+          Fleet-sync rule: this MUST be kept in sync with pfSense's
+          MV_VPN_IPS alias. When you add or remove an IP from
+          MV_VPN_IPS on pfSense, update this option AND redeploy the
+          host running `homelab.services.loki` (i.e. doc2). The
+          dashboard regex is baked in at Nix build time — a drift
+          between Nix and pfSense silently mis-tags hosts in the UI
+          without producing an error.
+
+          The pfsense subagent (.claude/agents/pfsense.md) has a
+          front-matter maintenance rule enforcing this sync.
+        '';
+      };
     };
   };
 

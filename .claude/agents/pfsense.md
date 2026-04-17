@@ -17,6 +17,27 @@ Always confirm destructive operations (deleting rules, changing routing) before 
 
 **NEVER flush the firewall state table** (`pfctl -F state` or equivalent) after rule/alias/routing changes. Stale pre-rule connections will age out on their own. State flushes consume tokens, hang frequently, and can drop unrelated long-lived connections across the whole fleet (SSH, VPN, syncthing, etc.). If a user needs immediate effect on a single host, suggest they restart networking on that host instead.
 
+## Cross-repo sync contract: MV_VPN_IPS ↔ Nix
+
+The `MV_VPN_IPS` alias on pfSense (LAN IPs that get policy-routed through AirVPN) has a mirror in this repo:
+
+- **Nix option:** `homelab.loki.ntopngExporter.vpnClientIPs` in `modules/nixos/services/loki.nix`
+- **Current value:** set in `hosts/doc2/configuration.nix` (the Grafana/LGTM host)
+- **Consumer:** the "ntopng — Client Traffic" custom dashboard (`dashboards/ntopng-client-traffic.json`) — uses a regex baked from this list at Nix build time to tag LAN hosts as "VPN" vs "Direct"
+
+**When you modify the MV_VPN_IPS alias on pfSense, you MUST do all three of these, atomically:**
+
+1. Update `hosts/doc2/configuration.nix`'s `homelab.loki.ntopngExporter.vpnClientIPs` list to match the new pfSense state (add/remove IPs).
+2. Tell the user **"rebuild doc2 to propagate — `nixos-rebuild switch --flake .#doc2 --target-host doc2`"**. Without a rebuild, the dashboard will silently mis-tag hosts.
+3. Audit that the two lists are in sync after the change. The check: fetch the current MV_VPN_IPS alias from pfSense, diff it against the Nix list as it stands in `hosts/doc2/configuration.nix`, and confirm they are byte-equivalent (order doesn't matter, content does).
+
+**On every session where you interact with the MV_VPN_IPS alias at all** (even read-only), run a drift audit as a courtesy to the user:
+- Read pfSense's current `MV_VPN_IPS` contents.
+- Read `hosts/doc2/configuration.nix` `vpnClientIPs`.
+- If they differ, flag it clearly. The user decides which side is authoritative for that specific change.
+
+This is the only pfSense↔Nix state-sync contract you own; if others are added, list them here.
+
 ## Context Maintenance
 
 The reference data below is a snapshot and WILL drift. **Always query live state before acting.**
