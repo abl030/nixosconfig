@@ -9,10 +9,69 @@
 }: let
   cfg = config.homelab.services.loki;
 
+  # VPN-routed LAN IPs are plumbed from homelab.loki.ntopngExporter.vpnClientIPs
+  # (owned by modules/nixos/services/loki.nix) into our custom client-traffic
+  # dashboard below. Fleet-sync contract: matches pfSense's MV_VPN_IPS alias.
+  vpnClientIPs = config.homelab.loki.ntopngExporter.vpnClientIPs;
+
+  # Build a PromQL/RE2 regex that matches any of the VPN-routed IPs.
+  # Example output: 192\.168\.1\.(4|15|17|18|24|34|36|118)
+  # Escape dots; collapse shared /24 prefixes into a single alternation to
+  # keep the regex compact. Falls back to "$.^" (matches nothing) if the
+  # list is empty, so every LAN host gets tagged "Direct".
+  vpnClientIPRegex =
+    if vpnClientIPs == []
+    then "$.^"
+    else let
+      escape = s: builtins.replaceStrings ["."] ["\\\\."] s;
+      # Group IPs by their /24 prefix: {"192.168.1." = ["4" "15" ...];}
+      groupByPrefix = ips:
+        lib.foldl' (
+          acc: ip: let
+            parts = lib.splitString "." ip;
+            prefix = lib.concatStringsSep "." (lib.take 3 parts) + ".";
+            last = lib.last parts;
+          in
+            acc // {${prefix} = (acc.${prefix} or []) ++ [last];}
+        ) {}
+        ips;
+      groups = groupByPrefix vpnClientIPs;
+      renderGroup = prefix: hosts:
+        if lib.length hosts == 1
+        then "${escape prefix}${lib.head hosts}"
+        else "${escape prefix}(${lib.concatStringsSep "|" hosts})";
+      rendered = lib.mapAttrsToList renderGroup groups;
+    in
+      if lib.length rendered == 1
+      then lib.head rendered
+      else "(" + lib.concatStringsSep "|" rendered + ")";
+
+  # Custom dashboards live alongside the vendored ones. Sourced from the
+  # repo via builtins.path (isolates the tree from flake-source churn — see
+  # CLAUDE.md "Stabilization Rules").
+  customDashboardsSrc = builtins.path {
+    path = ../../../dashboards;
+    name = "homelab-grafana-dashboards";
+  };
+
+  # Substitute the VPN regex into the custom ntopng client-traffic dashboard
+  # at Nix eval time (NOT via sed in runCommand — sed would eat the escaped
+  # backslashes). The regex lands in the JSON as "192\\.168\\.1\\.(4|...)"
+  # which JSON parses to "192\.168\.1\.(4|...)" which PromQL reads as the
+  # literal-dot regex we want.
+  ntopngClientTrafficJson = pkgs.writeText "ntopng-client-traffic.json" (
+    builtins.replaceStrings
+    ["__VPN_IPS_REGEX__"]
+    [vpnClientIPRegex]
+    (builtins.readFile "${customDashboardsSrc}/ntopng-client-traffic.json")
+  );
+
   # Declarative dashboards live in a per-deploy directory — grafana's
   # provisioning watches this path and loads any JSON files as dashboards.
-  # Sourced from flake inputs so nightly rolling-flake-update.service picks
-  # up upstream dashboard changes automatically; no manual hash bumps.
+  # Vendored ones are sourced from flake inputs so nightly
+  # rolling-flake-update.service picks up upstream dashboard changes
+  # automatically; no manual hash bumps. Custom ones live in ../../../dashboards
+  # at the repo root.
   dashboardsDir = pkgs.runCommand "grafana-dashboards" {} ''
     mkdir -p $out
 
@@ -51,6 +110,10 @@
       -e 's/irate(\([^)]*\)\[1m\])/rate(\1[5m])/g' \
       ${inputs.ntopng-exporter-src}/resources/grafana-dashboard.json \
       > $out/ntopng-exporter.json
+
+    # Custom: ntopng — Client Traffic. Substitution happened at eval time
+    # above; just drop the rendered JSON into place.
+    cp ${ntopngClientTrafficJson} $out/ntopng-client-traffic.json
   '';
 in {
   options.homelab.services.loki = {
