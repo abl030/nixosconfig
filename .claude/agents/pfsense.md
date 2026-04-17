@@ -245,5 +245,15 @@ Note: .21 printer PTR returns both `brw4cd577318e30.local.com` (Kea auto-generat
 - **UPnP/PCP** — enabled
 - **SSH** — enabled
 - **NTP** — running
-- **ntopng** (v6.2) — running on 192.168.1.1:3000 (HTTPS), monitoring: igc1, igc0, tun_wg0, igc1.10, igc1.100, tun_wg2; scraped by aauren/ntopng-exporter on doc2
+- **ntopng** (v6.2) — running on 192.168.1.1:3000 **(HTTPS)**, monitoring: igc1, igc0, tun_wg0, igc1.10, igc1.100, tun_wg2; scraped by aauren/ntopng-exporter on doc2.
+
+  **Two rc scripts, one right answer:**
+  - `/usr/local/etc/rc.d/ntopng` — bare FreeBSD rc script with hardcoded `command_args`, NO conf file → **HTTP only**. This is what `service ntopng onestart` invokes. Never use.
+  - `/usr/local/etc/rc.d/ntopng.sh` — pfSense-package-generated wrapper that runs `/usr/local/bin/ntopng /usr/local/etc/ntopng.conf` (conf file contains `--https-port=192.168.1.1:3000`) → **HTTPS**. Always use this for manual restarts: `/usr/local/etc/rc.d/ntopng.sh restart`.
+
+  **Auto-restart (Service Watchdog — WORKING as of 2026-04-17):** ntopng is registered in `installedpackages/service[]` in config.xml with `rcfile=ntopng.sh`. This means `start_service("ntopng")` finds the entry and invokes `/usr/local/etc/rc.d/ntopng.sh start` (with HTTPS). Service Watchdog runs every minute via cron; on detecting ntopng down it calls `service_control_start("ntopng", ...)` → `default:` → `start_service("ntopng")` → `ntopng.sh start`. Verified 2026-04-17: `pkill -9 ntopng` + manual `php /usr/local/pkg/servicewatchdog_cron.php` → ntopng came back in ~3s with HTTPS (`curl -skI https://192.168.1.1:3000/` returned `HTTP/1.1 302` with `Secure` cookie).
+
+  **To validate auto-restart still works:** `pkill -9 ntopng && sleep 65 && curl -skI https://192.168.1.1:3000/ | head -2` — should see HTTP 302 within 2 minutes.
+
+  **config.xml entry** (in `installedpackages/service[]`): `{name: ntopng, rcfile: ntopng.sh, executable: ntopng, description: "ntopng Network Monitoring (HTTPS)"}`. Injected via PHP `write_config()` on 2026-04-17. Full incident context: `docs/wiki/services/lgtm-stack.md` §"2026-04-17 incident summary".
 - **redis** (v7.4.1) — running (ntopng dependency, loopback-only bind)

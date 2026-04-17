@@ -106,6 +106,78 @@ For the per-host / per-flow visibility that the REST-API exporter can't give. Mo
 
 **Upstream does NOT publish to grafana.com.** Canonical dashboard lives in the exporter repo at `resources/grafana-dashboard.json` — tracked as flake input `ntopng-exporter-src` so nightly flake update picks up upstream revisions.
 
+### ntopng has two rc scripts on pfSense — only one starts HTTPS
+
+Bitten by this during the 2026-04-17 incident (below). pfSense's ntopng package installs **two** rc scripts side by side:
+
+| Script | What it runs | SSL? |
+|---|---|---|
+| `/usr/local/etc/rc.d/ntopng` | Bare FreeBSD rc, hardcoded `command_args` with NO conf file | **No** — HTTP-only on :3000 |
+| `/usr/local/etc/rc.d/ntopng.sh` | pfSense-package generated wrapper: `/usr/local/bin/ntopng /usr/local/etc/ntopng.conf` | **Yes** — `ntopng.conf` contains `--https-port=192.168.1.1:3000` |
+
+`service ntopng onestart` (the obvious "just restart it" incantation) invokes the **bare script**, so it brings ntopng up without SSL. The ntopng-exporter on doc2 is configured for `https://192.168.1.1:3000` — so when HTTPS silently disappears, the exporter's TLS handshake gets 5 bytes of garbage from the HTTP server, interprets it as a failed scrape, and returns empty for every interface. The exporter's `/metrics` shrinks to just Go runtime stats (48 samples) and every panel goes "No Data" without an obvious error.
+
+**Correct manual restart:** `/usr/local/etc/rc.d/ntopng.sh restart` (stop + start, HTTPS preserved).
+
+**Never use:** `service ntopng onestart` or `service ntopng start`.
+
+### Service Watchdog needs ntopng registered in `installedpackages/service[]`
+
+pfSense's `pfSense-pkg-Service_Watchdog` monitors services via `is_service_running()` (which works fine for anything with a process), but when it tries to restart a failed service it calls `service_control_start("<name>", ...)`. That function's `default:` branch ends up in `start_service()` in `service-utils.inc`, which searches `installedpackages/service[]` in `config.xml` for an rcfile entry — if the service isn't there, it silently no-ops.
+
+**ntopng is not registered by its package in that array.** So a Watchdog-only setup (monitor enabled, no registration) will **detect** a down ntopng and log "Restarting ntopng", but nothing actually restarts.
+
+**Fix:** inject an `installedpackages/service` entry pointing at `ntopng.sh` (not the bare `ntopng` rc — see section above):
+
+```xml
+<service>
+  <name>ntopng</name>
+  <rcfile>ntopng.sh</rcfile>
+  <executable>ntopng</executable>
+  <description>ntopng Network Monitoring (HTTPS)</description>
+</service>
+```
+
+`rcfile = ntopng.sh` is the load-bearing field — `start_service()` constructs `/usr/local/etc/rc.d/ntopng.sh start` from it. `executable = ntopng` is only used as a `killall` fallback by `stop_service()`. Entries in this array do NOT cause pfSense to auto-start the service on boot; it's purely a lookup table for `start_service()`/`stop_service()` calls.
+
+**Validate** the whole chain works:
+
+```sh
+# On pfSense:
+pkill -9 ntopng        # simulate crash
+php /usr/local/pkg/servicewatchdog_cron.php   # run the watchdog check synchronously
+pgrep ntopng           # should return a PID within a few seconds
+curl -skI https://192.168.1.1:3000/   # should return 302 with self-signed cert
+```
+
+The watchdog cron runs every minute on its own; `php ...servicewatchdog_cron.php` just forces an immediate run for testing.
+
+### 2026-04-17 incident summary
+
+- **09:23:49 AWST** — ntopng segfaulted on pfSense (`pid N (ntopng), exited on signal 11 — no core dump — bad address`). Single journal line, no follow-up.
+- Dashboard silently went flat from ~09:30 onwards. No alert fired because the exporter target stayed `up=1` (the sidecar was still serving `/metrics`, just with no ntopng data left to scrape).
+- **~13:00** — user noticed during Grafana work.
+- pfsense subagent did `service ntopng onestart` → ntopng was up but on HTTP-only (see above) → exporter still returned empty.
+- Traced via `curl -skI http://192.168.1.1:3000/` returning 302 while HTTPS failed TLS handshake → discovered the two-rc-script split.
+- Restarted via `ntopng.sh restart`, HTTPS back, exporter recovered within one 60s scrape cycle.
+- Then discovered the Watchdog registration gotcha while verifying auto-restart worked. Registered ntopng in `installedpackages/service[]`; verified a `pkill -9` → 3-second restart cycle.
+
+**Root cause of the original segfault is unknown** — pfSense's ntopng 6.2.250909 is out-of-tree from upstream ntopng and occasional crashes under sustained load are a known class of issue. No core dump (FreeBSD default — `kern.coredump=1` + a `coredumpdir` would help if it recurs). We decided coredump capture isn't worth the state-dir footprint unless it crashes again. Watchdog + the registration fix above is the safety net.
+
+**Detection gap that let this go unnoticed for 4h:** `up{job="ntopng"}` stays 1 when only ntopng (not the exporter) dies. A better alert would fire on `absent_over_time(ntopng_interface_num_devices[10m])` or on the drop in `scrape_samples_scraped{job="ntopng"}`. Not yet implemented — TODO when another dashboard gap appears and this becomes a pattern.
+
+### Fleet dashboard audit — 2026-04-17
+
+During the ntopng incident investigation we swept every provisioned dashboard for silent failures. Summary — 8 dashboards, fleet is healthy:
+
+| Dashboard | Health | Notes |
+|---|---|---|
+| pfSense Firewall / Gateways / Interfaces / Services / System / Traffic | OK | All panels rendering, all template variables populate |
+| ntopng-exporter | **Fixed** | See incident summary above |
+| Node Exporter Full | **Partial (UX trap)** | Defaults to `nodename=Tower` (Unraid). Unraid's node_exporter doesn't emit `node_pressure_*`, `node_filesystem_*` for `/`, or swap, so Pressure / Root FS / SWAP panels show N/A. Not a pipeline failure — the metrics genuinely don't exist on that host. |
+
+**Node Exporter Full `nodename=Tower` default** is the only outstanding item. Fixing it cleanly would mean patching the vendored JSON at build time in `loki-server.nix` (same pattern as the ntopng `${PROM}` + `irate` rewrites). The simplest sed replacement is to change the variable's `current.value` and `current.text` from `"Tower"` to `"doc2"` (or any host with full Linux metrics). Not urgent — users can pick a proper host from the dropdown — but worth doing next time we touch that module.
+
 ## Declarative Grafana dashboards
 
 **Pattern** (see `loki-server.nix` — `dashboardsDir` runCommand): flake inputs hold git-tracked dashboard JSON, a `pkgs.runCommand` stages them into a single directory, Grafana's `provision.dashboards.settings.providers` points at that path with `disableDeletion = false` so removed files actually disappear on next deploy.

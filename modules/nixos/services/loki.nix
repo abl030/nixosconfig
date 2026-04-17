@@ -394,6 +394,16 @@ in {
     # docs/wiki/services/lgtm-stack.md). The exporter polls ntopng's
     # REST API and exposes metrics with labels `ip`, `mac`, `ifname`,
     # letting us break bandwidth down per-client and per-interface.
+    #
+    # OPERATIONAL GOTCHAS (see wiki §"ntopng has two rc scripts" +
+    # §"Service Watchdog needs ntopng registered"):
+    #   - The hardcoded `https://` endpoint is correct, but pfSense's
+    #     `service ntopng onestart` silently starts ntopng without SSL.
+    #     Always restart via `/usr/local/etc/rc.d/ntopng.sh restart`.
+    #   - pfSense Service Watchdog needs ntopng in
+    #     `installedpackages/service[]` (rcfile=ntopng.sh) or it silently
+    #     no-ops on "restart". See `.claude/agents/pfsense.md` for the
+    #     injected config.xml entry.
     ntopngExporter = {
       enable = lib.mkEnableOption "ntopng per-client traffic exporter (OCI)";
 
