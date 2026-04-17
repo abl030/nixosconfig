@@ -15,15 +15,26 @@
   vpnClientIPs = config.homelab.loki.ntopngExporter.vpnClientIPs;
 
   # Build a PromQL/RE2 regex that matches any of the VPN-routed IPs.
-  # Example output: 192\.168\.1\.(4|15|17|18|24|34|36|118)
-  # Escape dots; collapse shared /24 prefixes into a single alternation to
-  # keep the regex compact. Falls back to "$.^" (matches nothing) if the
-  # list is empty, so every LAN host gets tagged "Direct".
+  # Example of what ends up inside PromQL's regex engine:
+  #   192\.168\.1\.(4|15|17|18|24|34|36|118)
+  #
+  # Escape depth is subtle — the regex goes through THREE parsers before it
+  # matches anything:
+  #   1. JSON parse (Grafana reads the dashboard JSON file)
+  #   2. PromQL string parse (Go-style string literals inside label_replace)
+  #   3. Go regex engine (RE2, in PromQL)
+  #
+  # Each layer eats one level of backslashes. To land a literal "\." at the
+  # regex engine, we need "\\\\." in the JSON file on disk, which requires
+  # the Nix value to be "\\\\." (4 backslashes + dot), which needs 8
+  # backslashes in Nix source (each `\\` → one backslash at eval time).
+  # Getting this wrong just produces a PromQL "unknown escape sequence"
+  # error silently inside a panel inspector — no flake-check warning.
   vpnClientIPRegex =
     if vpnClientIPs == []
     then "$.^"
     else let
-      escape = s: builtins.replaceStrings ["."] ["\\\\."] s;
+      escape = s: builtins.replaceStrings ["."] ["\\\\\\\\."] s;
       # Group IPs by their /24 prefix: {"192.168.1." = ["4" "15" ...];}
       groupByPrefix = ips:
         lib.foldl' (
@@ -55,10 +66,9 @@
   };
 
   # Substitute the VPN regex into the custom ntopng client-traffic dashboard
-  # at Nix eval time (NOT via sed in runCommand — sed would eat the escaped
-  # backslashes). The regex lands in the JSON as "192\\.168\\.1\\.(4|...)"
-  # which JSON parses to "192\.168\.1\.(4|...)" which PromQL reads as the
-  # literal-dot regex we want.
+  # at Nix eval time (NOT via sed in runCommand — sed would also eat
+  # backslashes, making the round-trip even more confusing).
+  # Escape chain: see comment on vpnClientIPRegex above.
   ntopngClientTrafficJson = pkgs.writeText "ntopng-client-traffic.json" (
     builtins.replaceStrings
     ["__VPN_IPS_REGEX__"]
