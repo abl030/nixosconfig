@@ -74,6 +74,11 @@ in {
   };
 
   config = lib.mkIf cfg.enable (let
+    # Shared with base.nix's activation script. Runs BEFORE the flake
+    # fetch so a stale PAT can't poison every github.com request with 401.
+    # See docs/wiki/infrastructure/github-pat-and-private-inputs.md.
+    refreshAccessTokens = import ../lib/refresh-access-tokens.nix {inherit pkgs;};
+
     smartUpgrade = pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
       set -euo pipefail
 
@@ -274,25 +279,31 @@ in {
         # Timeout for the entire update operation (DNS check + rebuild + activation)
         # Prevents indefinite hangs from stuck activations (e.g., systemd generator bugs)
         TimeoutStartSec = cfg.timeout;
-        ExecStartPre = pkgs.writeShellScript "nixos-upgrade-dns-ready" ''
-          set -euo pipefail
-          log() { echo "[SmartUpdate] $*"; }
+        ExecStartPre = [
+          (pkgs.writeShellScript "nixos-upgrade-dns-ready" ''
+            set -euo pipefail
+            log() { echo "[SmartUpdate] $*"; }
 
-          log "Waiting for DNS readiness (max 5 minutes)..."
-          for i in $(seq 1 300); do
-            if ${pkgs.getent}/bin/getent hosts api.github.com >/dev/null 2>&1; then
-              log "DNS ready."
-              exit 0
-            fi
-            if [ "$i" -eq 1 ]; then
-              log "DNS not ready yet; retrying..."
-            fi
-            sleep 1
-          done
+            log "Waiting for DNS readiness (max 5 minutes)..."
+            for i in $(seq 1 300); do
+              if ${pkgs.getent}/bin/getent hosts api.github.com >/dev/null 2>&1; then
+                log "DNS ready."
+                exit 0
+              fi
+              if [ "$i" -eq 1 ]; then
+                log "DNS not ready yet; retrying..."
+              fi
+              sleep 1
+            done
 
-          log "DNS not ready after 5 minutes; skipping update."
-          exit 0
-        '';
+            log "DNS not ready after 5 minutes; skipping update."
+            exit 0
+          '')
+          # Revalidate the GitHub PAT BEFORE the fetch. A stale token poisons
+          # every github.com request with 401, so this must run before the
+          # flake is resolved, not just as a post-switch activation. See #210.
+          refreshAccessTokens
+        ];
         ExecStart = lib.mkForce (
           if cfg.checkAcPower
           then lib.getExe laptopWrapper
