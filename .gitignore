@@ -19,3 +19,6 @@ ha/esphome/.esphome/
 
 # Claude Code machine-local settings (autoMemoryDirectory etc.)
 .claude/settings.local.json
+
+# Playwright MCP screenshot output dir (see .claude/agents/playwright.md)
+.playwright-mcp/
