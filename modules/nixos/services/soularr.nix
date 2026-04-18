@@ -100,9 +100,12 @@
   '';
 
   # CLI wrapper — `pipeline-cli status`, `pipeline-cli list wanted`, etc.
+  # PYTHONPATH exposes only the repo root so every module has a single canonical
+  # import path (`lib.X`, `web.X`, `scripts.X`). Listing `lib/` / `web/` here
+  # would let the same module load twice with distinct class objects (issue #95).
   pipelineCli = pkgs.writeShellScriptBin "pipeline-cli" ''
     export PATH="${pkgs.ffmpeg}/bin:${pkgs.sox}/bin:${pkgs.mp3val}/bin:${pkgs.flac}/bin:$PATH"
-    export PYTHONPATH="${inputs.soularr-src}:${inputs.soularr-src}/lib:''${PYTHONPATH:-}"
+    export PYTHONPATH="${inputs.soularr-src}:''${PYTHONPATH:-}"
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/scripts/pipeline_cli.py \
       --dsn "${cfg.pipelineDb.dsn}" "$@"
   '';
@@ -111,7 +114,7 @@
   # versioned migrator (lib/migrator.py). Idempotent: a no-op if the schema
   # is already current. Run as a oneshot systemd unit on every rebuild.
   pipelineMigrate = pkgs.writeShellScriptBin "pipeline-migrate" ''
-    export PYTHONPATH="${inputs.soularr-src}:${inputs.soularr-src}/lib:''${PYTHONPATH:-}"
+    export PYTHONPATH="${inputs.soularr-src}:''${PYTHONPATH:-}"
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/scripts/migrate_db.py \
       --dsn "${cfg.pipelineDb.dsn}" \
       --migrations-dir "${inputs.soularr-src}/migrations" "$@"
@@ -121,7 +124,7 @@
   # PATH includes tools needed by import_one.py (manual import feature)
   webPkg = pkgs.writeShellScriptBin "soularr-web" ''
     export PATH="${pkgs.bash}/bin:${pkgs.ffmpeg}/bin:${pkgs.sox}/bin:${pkgs.mp3val}/bin:${pkgs.flac}/bin:$PATH"
-    export PYTHONPATH="${inputs.soularr-src}:${inputs.soularr-src}/lib:${inputs.soularr-src}/web:''${PYTHONPATH:-}"
+    export PYTHONPATH="${inputs.soularr-src}:''${PYTHONPATH:-}"
     exec ${pythonEnv}/bin/python ${inputs.soularr-src}/web/server.py \
       --port ${toString cfg.web.port} \
       --dsn "${cfg.pipelineDb.dsn}" \
