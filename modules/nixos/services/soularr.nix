@@ -90,6 +90,7 @@
     ps.music-tag
     ps.psycopg2
     ps.redis
+    ps.msgspec
     slskd-api
   ]);
 
