@@ -143,6 +143,14 @@ in {
     services.soularr = {
       enable = true;
 
+      # Allow the operator (member of `users` group) to read config.ini so
+      # `pipeline-cli` works without sudo. Default 0600 hides config from
+      # non-root and silently breaks force-import via cryptic errors —
+      # tracked in issue #117 (which removes the secrets from config.ini
+      # entirely). Until then, this group-readable mode is the band-aid.
+      configMode = "0640";
+      configGroup = "users";
+
       slskd = {
         apiKeyFile = "/run/soularr-secrets/SOULARR_SLSKD_API_KEY";
         downloadDir = cfg.downloadDir;
