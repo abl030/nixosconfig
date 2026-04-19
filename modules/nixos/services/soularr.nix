@@ -67,44 +67,44 @@ in {
 
   config = lib.mkIf cfg.enable {
     # ---------------------------------------------------------------------
-    # sops-nix: extract each individual secret from soularr.env.
-    # The upstream module wants per-key file paths, not a multi-key envfile.
+    # sops-nix: decrypt the dotenv-format envfile, then split it into
+    # per-key files that the upstream module can consume.
+    #
+    # NOTE: sops-nix `key = "X"` extraction does NOT work for multi-key
+    # dotenv files — it writes the whole `KEY=VALUE` envfile regardless
+    # (verified on doc2; same gotcha is documented in alerting.nix for
+    # the gotify token). The upstream module wants raw values per file,
+    # so we materialize them via a oneshot at boot.
     # ---------------------------------------------------------------------
-    sops.secrets = {
-      "soularr/slskd-api-key" = {
-        inherit sopsFile;
-        format = "dotenv";
-        key = "SOULARR_SLSKD_API_KEY";
-        owner = "root";
-        mode = "0400";
-      };
-      "soularr/meelo-username" = {
-        inherit sopsFile;
-        format = "dotenv";
-        key = "MEELO_USERNAME";
-        owner = "root";
-        mode = "0400";
-      };
-      "soularr/meelo-password" = {
-        inherit sopsFile;
-        format = "dotenv";
-        key = "MEELO_PASSWORD";
-        owner = "root";
-        mode = "0400";
-      };
-      "soularr/plex-token" = {
-        inherit sopsFile;
-        format = "dotenv";
-        key = "PLEX_TOKEN";
-        owner = "root";
-        mode = "0400";
-      };
-      "soularr/jellyfin-token" = {
-        inherit sopsFile;
-        format = "dotenv";
-        key = "JELLYFIN_TOKEN";
-        owner = "root";
-        mode = "0400";
+    sops.secrets."soularr/env" = {
+      inherit sopsFile;
+      format = "dotenv";
+      owner = "root";
+      mode = "0400";
+    };
+
+    systemd.services.soularr-secrets-split = {
+      description = "Split soularr.env into per-key secret files for the upstream module";
+      wantedBy = ["multi-user.target"];
+      before = ["soularr.service" "soularr-web.service" "soularr-db-migrate.service"];
+      after = ["sysinit-reactivation.target"];
+      restartTriggers = [config.sops.secrets."soularr/env".path];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = pkgs.writeShellScript "soularr-secrets-split" ''
+          set -euo pipefail
+          env_file="${config.sops.secrets."soularr/env".path}"
+          out_dir="/run/soularr-secrets"
+          ${pkgs.coreutils}/bin/install -d -m 0700 "$out_dir"
+          for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
+            ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
+              | ${pkgs.coreutils}/bin/cut -d= -f2- \
+              | ${pkgs.coreutils}/bin/tr -d '\n' \
+              > "$out_dir/$key"
+            ${pkgs.coreutils}/bin/chmod 0400 "$out_dir/$key"
+          done
+        '';
       };
     };
 
@@ -144,7 +144,7 @@ in {
       enable = true;
 
       slskd = {
-        apiKeyFile = config.sops.secrets."soularr/slskd-api-key".path;
+        apiKeyFile = "/run/soularr-secrets/SOULARR_SLSKD_API_KEY";
         downloadDir = cfg.downloadDir;
       };
 
@@ -166,20 +166,20 @@ in {
         meelo = {
           enable = true;
           url = "https://meelo.ablz.au";
-          usernameFile = config.sops.secrets."soularr/meelo-username".path;
-          passwordFile = config.sops.secrets."soularr/meelo-password".path;
+          usernameFile = "/run/soularr-secrets/MEELO_USERNAME";
+          passwordFile = "/run/soularr-secrets/MEELO_PASSWORD";
         };
         plex = {
           enable = true;
           url = "https://plex.ablz.au";
-          tokenFile = config.sops.secrets."soularr/plex-token".path;
+          tokenFile = "/run/soularr-secrets/PLEX_TOKEN";
           librarySectionId = 3;
           pathMap = "/mnt/virtio/Music/Beets:/prom_music";
         };
         jellyfin = {
           enable = true;
           url = "https://jelly.ablz.au";
-          tokenFile = config.sops.secrets."soularr/jellyfin-token".path;
+          tokenFile = "/run/soularr-secrets/JELLYFIN_TOKEN";
         };
       };
 
