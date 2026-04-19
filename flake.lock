@@ -713,11 +713,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1776577564,
-        "narHash": "sha256-bxPM2afek/iaI/9n640X+6rjHHZVhKPzxeBm6HET7Dg=",
+        "lastModified": 1776578152,
+        "narHash": "sha256-sG6yJoGQJRmeUYwczJ2ag3g9DBcKPSozB6sY15Fp2N4=",
         "owner": "abl030",
         "repo": "soularr",
-        "rev": "fea18c5be8b71632b29abb517fcf14f0f52725a7",
+        "rev": "5c4da64a7bcdcb12eb2f89ddcfc32b342176e129",
         "type": "github"
       },
       "original": {
