@@ -96,13 +96,21 @@ in {
           set -euo pipefail
           env_file="${config.sops.secrets."soularr/env".path}"
           out_dir="/run/soularr-secrets"
-          ${pkgs.coreutils}/bin/install -d -m 0700 "$out_dir"
+          # Dir is 0750 root:users + files are 0440 root:users so operators
+          # in the `users` group (notably abl030) can read the raw secrets
+          # when running `pipeline-cli force-import` from a non-root shell.
+          # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
+          # CLI invocations silently no-op — the upstream module doesn't copy
+          # plaintext into config.ini anymore (issue #117), so the operator
+          # has to read the source files directly.
+          ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g users "$out_dir"
           for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
             ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
               | ${pkgs.coreutils}/bin/cut -d= -f2- \
               | ${pkgs.coreutils}/bin/tr -d '\n' \
               > "$out_dir/$key"
-            ${pkgs.coreutils}/bin/chmod 0400 "$out_dir/$key"
+            ${pkgs.coreutils}/bin/chmod 0440 "$out_dir/$key"
+            ${pkgs.coreutils}/bin/chgrp users "$out_dir/$key"
           done
         '';
       };
@@ -143,13 +151,11 @@ in {
     services.soularr = {
       enable = true;
 
-      # Allow the operator (member of `users` group) to read config.ini so
-      # `pipeline-cli` works without sudo. Default 0600 hides config from
-      # non-root and silently breaks force-import via cryptic errors —
-      # tracked in issue #117 (which removes the secrets from config.ini
-      # entirely). Until then, this group-readable mode is the band-aid.
-      configMode = "0640";
-      configGroup = "users";
+      # config.ini is world-readable (0644) since issue #117 — it contains
+      # only *_file paths, no secrets. The raw secrets live under
+      # /run/soularr-secrets (group-readable by `users`, see the splitter
+      # above) and the Python pipeline reads them on demand via
+      # SoularrConfig.resolved_*() accessors.
 
       slskd = {
         apiKeyFile = "/run/soularr-secrets/SOULARR_SLSKD_API_KEY";
