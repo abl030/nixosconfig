@@ -126,17 +126,6 @@
       soularr = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
-        beetsValidation = {
-          enable = true;
-          stagingDir = "/mnt/virtio/Music/Incoming";
-          verifiedLosslessTarget = "opus 128";
-        };
-        pipelineDb = {
-          enable = true;
-        };
-        web = {
-          enable = true;
-        };
       };
       paperless = {
         enable = true;
@@ -231,6 +220,11 @@
       firewallPorts = [5055];
     };
   };
+
+  # Soularr — host-specific app tuning. Everything else lives in the
+  # homelab wrapper at modules/nixos/services/soularr.nix, which configures
+  # the upstream module from the soularr flake (inputs.soularr-src).
+  services.soularr.beetsValidation.verifiedLosslessTarget = "opus 128";
 
   # Virtiofs mount — ALL service state lives here
   # This is the whole point: storage decoupled from compute.

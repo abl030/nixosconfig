@@ -103,7 +103,6 @@
 
     soularr-src = {
       url = "github:abl030/soularr";
-      flake = false;
     };
 
     discogs-src = {
