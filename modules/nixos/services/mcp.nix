@@ -106,6 +106,21 @@ in {
         description = "Path to decrypted Vinsight MCP env file.";
       };
     };
+
+    audiobookshelf = {
+      enable = lib.mkEnableOption "Audiobookshelf API credentials for the subagent";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "audiobookshelf-mcp.env";
+        description = "Sops file containing Audiobookshelf API URL + token.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/audiobookshelf.env";
+        description = "Path to decrypted Audiobookshelf env file.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -121,6 +136,7 @@ in {
       lidarrFile = cfg.lidarr.sopsFile;
       slskdFile = cfg.slskd.sopsFile;
       vinsightFile = cfg.vinsight.sopsFile;
+      audiobookshelfFile = cfg.audiobookshelf.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -166,6 +182,12 @@ in {
           chmod 400 ${cfg.vinsight.path}
           chown ${user}:users ${cfg.vinsight.path}
         ''}
+
+        ${lib.optionalString cfg.audiobookshelf.enable ''
+          ${sops} -d --output-type dotenv ${audiobookshelfFile} | grep -v '^#' > ${cfg.audiobookshelf.path}
+          chmod 400 ${cfg.audiobookshelf.path}
+          chown ${user}:users ${cfg.audiobookshelf.path}
+        ''}
       '';
 
     # Export paths as environment variables for convenience
@@ -187,6 +209,9 @@ in {
       })
       (lib.mkIf cfg.vinsight.enable {
         VINSIGHT_MCP_ENV_FILE = cfg.vinsight.path;
+      })
+      (lib.mkIf cfg.audiobookshelf.enable {
+        AUDIOBOOKSHELF_MCP_ENV_FILE = cfg.audiobookshelf.path;
       })
     ];
   };

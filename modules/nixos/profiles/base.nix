@@ -146,6 +146,7 @@
       lidarr.enable = lib.mkDefault true;
       slskd.enable = lib.mkDefault true;
       vinsight.enable = lib.mkDefault true;
+      audiobookshelf.enable = lib.mkDefault true;
     };
   };
 
