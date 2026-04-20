@@ -1,8 +1,8 @@
-# Soularr — homelab wrapper around the upstream module.
+# Cratedigger — homelab wrapper around the upstream module.
 # =====================================================
 #
-# The actual NixOS module lives in the soularr repo at nix/module.nix and is
-# consumed via inputs.soularr-src.nixosModules.default. This wrapper supplies
+# The actual NixOS module lives in the cratedigger repo at nix/module.nix and is
+# consumed via inputs.cratedigger-src.nixosModules.default. This wrapper supplies
 # the homelab-specific bits the upstream module deliberately doesn't know
 # about:
 #
@@ -10,22 +10,22 @@
 #   - the nspawn PostgreSQL container backing the pipeline DB
 #   - the redis instance that the web UI's cache uses
 #   - the localProxy entry that puts the web UI behind music.ablz.au
-#   - systemd ordering against container@soularr-db.service
+#   - systemd ordering against container@cratedigger-db.service
 #
 # Tuning notes that used to live in the giant downstream module now live in
-# the upstream module's option docs (or in the soularr README for quality
+# the upstream module's option docs (or in the cratedigger README for quality
 # rank tuning). Anything past the option-set below is purely homelab plumbing.
 #
 # Network topology (unchanged from the legacy module):
 #   doc2 has two NICs on 192.168.1.0/24:
-#     ens18 = 192.168.1.35 (main, DHCP) — Lidarr, soularr, NFS, everything else
+#     ens18 = 192.168.1.35 (main, DHCP) — Lidarr, cratedigger, NFS, everything else
 #     ens19 = 192.168.1.36 (VPN, static) — slskd Soulseek traffic only
 #   See slskd.nix for the policy routing.
 #
 # Debugging:
-#   journalctl -u soularr -f              — watch a run in real time
-#   sudo systemctl start soularr          — trigger a run now
-#   sudo cat /var/lib/soularr/config.ini  — verify rendered config
+#   journalctl -u cratedigger -f              — watch a run in real time
+#   sudo systemctl start cratedigger          — trigger a run now
+#   sudo cat /var/lib/cratedigger/config.ini  — verify rendered config
 #   curl -s localhost:5030/api/v0/searches -H 'X-API-Key: <key>' | jq
 #                                         — check slskd search queue
 {
@@ -35,27 +35,27 @@
   inputs,
   ...
 }: let
-  cfg = config.homelab.services.soularr;
+  cfg = config.homelab.services.cratedigger;
 
   # PostgreSQL in an nspawn container — data lives at cfg.dataDir/postgres
   pgc = import ../lib/mk-pg-container.nix {
     inherit pkgs;
-    name = "soularr";
+    name = "cratedigger";
     hostNum = 5;
     dataDir = cfg.dataDir;
   };
 
   sopsFile = config.homelab.secrets.sopsFile "soularr.env";
 in {
-  imports = [inputs.soularr-src.nixosModules.default];
+  imports = [inputs.cratedigger-src.nixosModules.default];
 
-  options.homelab.services.soularr = {
-    enable = lib.mkEnableOption "Soularr — Soulseek download pipeline (homelab wrapper)";
+  options.homelab.services.cratedigger = {
+    enable = lib.mkEnableOption "Cratedigger — Soulseek download pipeline (homelab wrapper)";
 
     dataDir = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/virtio/soularr";
-      description = "Directory for all Soularr state (contains postgres subdirectory).";
+      default = "/mnt/virtio/cratedigger";
+      description = "Directory for all Cratedigger state (contains postgres subdirectory).";
     };
 
     downloadDir = lib.mkOption {
@@ -83,19 +83,19 @@ in {
       mode = "0400";
     };
 
-    systemd.services.soularr-secrets-split = {
+    systemd.services.cratedigger-secrets-split = {
       description = "Split soularr.env into per-key secret files for the upstream module";
       wantedBy = ["multi-user.target"];
-      before = ["soularr.service" "soularr-web.service" "soularr-db-migrate.service"];
+      before = ["cratedigger.service" "cratedigger-web.service" "cratedigger-db-migrate.service"];
       after = ["sysinit-reactivation.target"];
       restartTriggers = [config.sops.secrets."soularr/env".path];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = pkgs.writeShellScript "soularr-secrets-split" ''
+        ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
           set -euo pipefail
           env_file="${config.sops.secrets."soularr/env".path}"
-          out_dir="/run/soularr-secrets"
+          out_dir="/run/cratedigger-secrets"
           # Dir is 0750 root:users + files are 0440 root:users so operators
           # in the `users` group (notably abl030) can read the raw secrets
           # when running `pipeline-cli force-import` from a non-root shell.
@@ -119,7 +119,7 @@ in {
     # ---------------------------------------------------------------------
     # PostgreSQL container — pipeline DB.
     # ---------------------------------------------------------------------
-    containers.soularr-db = pgc.containerConfig;
+    containers.cratedigger-db = pgc.containerConfig;
 
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir} 0755 root root -"
@@ -129,7 +129,7 @@ in {
     # ---------------------------------------------------------------------
     # Redis cache for the web UI (in-memory only, no persistence).
     # ---------------------------------------------------------------------
-    services.redis.servers.soularr = {
+    services.redis.servers.cratedigger = {
       enable = true;
       port = 6379;
       save = []; # no persistence — pure cache
@@ -141,24 +141,24 @@ in {
     homelab.localProxy.hosts = [
       {
         host = "music.ablz.au";
-        port = config.services.soularr.web.port;
+        port = config.services.cratedigger.web.port;
       }
     ];
 
     # ---------------------------------------------------------------------
     # Wire up the upstream module.
     # ---------------------------------------------------------------------
-    services.soularr = {
+    services.cratedigger = {
       enable = true;
 
       # config.ini is world-readable (0644) since issue #117 — it contains
       # only *_file paths, no secrets. The raw secrets live under
-      # /run/soularr-secrets (group-readable by `users`, see the splitter
+      # /run/cratedigger-secrets (group-readable by `users`, see the splitter
       # above) and the Python pipeline reads them on demand via
-      # SoularrConfig.resolved_*() accessors.
+      # CratediggerConfig.resolved_*() accessors.
 
       slskd = {
-        apiKeyFile = "/run/soularr-secrets/SOULARR_SLSKD_API_KEY";
+        apiKeyFile = "/run/cratedigger-secrets/SOULARR_SLSKD_API_KEY";
         downloadDir = cfg.downloadDir;
       };
 
@@ -180,20 +180,20 @@ in {
         meelo = {
           enable = true;
           url = "https://meelo.ablz.au";
-          usernameFile = "/run/soularr-secrets/MEELO_USERNAME";
-          passwordFile = "/run/soularr-secrets/MEELO_PASSWORD";
+          usernameFile = "/run/cratedigger-secrets/MEELO_USERNAME";
+          passwordFile = "/run/cratedigger-secrets/MEELO_PASSWORD";
         };
         plex = {
           enable = true;
           url = "https://plex.ablz.au";
-          tokenFile = "/run/soularr-secrets/PLEX_TOKEN";
+          tokenFile = "/run/cratedigger-secrets/PLEX_TOKEN";
           librarySectionId = 3;
           pathMap = "/mnt/virtio/Music/Beets:/prom_music";
         };
         jellyfin = {
           enable = true;
           url = "https://jelly.ablz.au";
-          tokenFile = "/run/soularr-secrets/JELLYFIN_TOKEN";
+          tokenFile = "/run/cratedigger-secrets/JELLYFIN_TOKEN";
         };
       };
 
@@ -205,26 +205,26 @@ in {
 
     # ---------------------------------------------------------------------
     # Homelab-specific systemd ordering against the nspawn DB container.
-    # The upstream module already sets the cross-unit deps among the soularr
-    # services themselves; we just splice in container@soularr-db.service.
+    # The upstream module already sets the cross-unit deps among the cratedigger
+    # services themselves; we just splice in container@cratedigger-db.service.
     # restartTriggers ensure switch-to-configuration re-runs the migrate
     # oneshot whenever the container derivation changes.
     # ---------------------------------------------------------------------
-    systemd.services.soularr-db-migrate = {
-      after = ["container@soularr-db.service"];
-      requires = ["container@soularr-db.service"];
-      restartTriggers = [config.systemd.units."container@soularr-db.service".unit];
+    systemd.services.cratedigger-db-migrate = {
+      after = ["container@cratedigger-db.service"];
+      requires = ["container@cratedigger-db.service"];
+      restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
     };
 
-    systemd.services.soularr = {
-      after = ["slskd.service" "container@soularr-db.service"];
-      wants = ["slskd.service" "container@soularr-db.service"];
+    systemd.services.cratedigger = {
+      after = ["slskd.service" "container@cratedigger-db.service"];
+      wants = ["slskd.service" "container@cratedigger-db.service"];
     };
 
-    systemd.services.soularr-web = {
-      after = ["container@soularr-db.service" "redis-soularr.service"];
-      wants = ["container@soularr-db.service" "redis-soularr.service"];
-      restartTriggers = [config.systemd.units."container@soularr-db.service".unit];
+    systemd.services.cratedigger-web = {
+      after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+      wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+      restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
     };
   };
 }

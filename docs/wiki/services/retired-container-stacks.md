@@ -64,7 +64,7 @@ in the former GitHub issue #208)
 - `jdownloader2/` → OCI container via `services/jdownloader2.nix`
 - `kopia/` → `services/kopia.nix`
 - `mealie/` → `services/mealie.nix`
-- `music/` → `services/{lidarr,slskd,soularr,discogs}.nix` (the stack split into
+- `music/` → `services/{lidarr,slskd,cratedigger,discogs}.nix` (the stack split into
   per-app modules)
 - `musicbrainz/` → `services/musicbrainz.nix` (NixOS-native mirror, replaced
   the compose-based mb-docker mirror — see `docs/wiki/services/` for the

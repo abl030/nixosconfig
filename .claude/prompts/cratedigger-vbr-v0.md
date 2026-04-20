@@ -1,23 +1,23 @@
-# Implement VBR V0 Support in Soularr (Red/Green TDD)
+# Implement VBR V0 Support in Cratedigger (Red/Green TDD)
 
 ## Issue
-https://github.com/abl030/soularr/issues/1
+https://github.com/abl030/cratedigger/issues/1
 
 ## Objective
-Add `mp3 v0` and `mp3 v2` support to soularr's `allowed_filetypes` config so VBR MP3 files can be specifically targeted instead of falling through to the catch-all bare `mp3` entry.
+Add `mp3 v0` and `mp3 v2` support to cratedigger's `allowed_filetypes` config so VBR MP3 files can be specifically targeted instead of falling through to the catch-all bare `mp3` entry.
 
 ## Repos & Files
 
-**Soularr fork** (where the code change goes):
-- Local clone: `~/soularr/` (remote: `github:abl030/soularr`)
-- Main file: `~/soularr/soularr.py`
+**Cratedigger fork** (where the code change goes):
+- Local clone: `~/soularr/` (remote: `github:abl030/cratedigger`)
+- Main file: `~/soularr/cratedigger.py`
 - Key function: `verify_filetype()` at ~line 280
-- No existing tests — you'll create `~/soularr/test_soularr.py`
+- No existing tests — you'll create `~/soularr/test_cratedigger.py`
 
 **nixosconfig** (where deployment config lives):
-- Soularr nix module: `modules/nixos/services/soularr.nix`
-- Flake input `soularr-src` pins the fork (line in `flake.nix`)
-- Config template with `allowed_filetypes` is in `soularr.nix` ~line 129
+- Cratedigger nix module: `modules/nixos/services/cratedigger.nix`
+- Flake input `cratedigger-src` pins the fork (line in `flake.nix`)
+- Config template with `allowed_filetypes` is in `cratedigger.nix` ~line 129
 - Currently set to: `flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,mp3 320,mp3`
 
 ## How `verify_filetype()` Works Today
@@ -51,7 +51,7 @@ The `file` dict from slskd API contains:
 
 ### Phase 1: RED — Write Failing Tests
 
-Create `~/soularr/test_soularr.py` with pytest. Test `verify_filetype()` in isolation — it's a pure function, no mocking needed.
+Create `~/soularr/test_cratedigger.py` with pytest. Test `verify_filetype()` in isolation — it's a pure function, no mocking needed.
 
 **Test cases to write:**
 
@@ -135,14 +135,14 @@ def test_mp3_v0_cbr_with_vbr_flag_false():
     assert verify_filetype(file, "mp3 v0") == False
 ```
 
-**Run tests**: `cd ~/soularr && python -m pytest test_soularr.py -v`
+**Run tests**: `cd ~/soularr && python -m pytest test_cratedigger.py -v`
 (You may need `nix-shell -p python3Packages.pytest` or similar)
 
 Confirm the VBR tests fail. Existing tests should pass.
 
 ### Phase 2: GREEN — Implement
 
-Modify `verify_filetype()` in `~/soularr/soularr.py` to handle `v0` and `v2` as special attribute values.
+Modify `verify_filetype()` in `~/soularr/cratedigger.py` to handle `v0` and `v2` as special attribute values.
 
 **VBR V0 spec** (LAME -V 0): average bitrate typically 220-260kbps, targets ~245kbps
 **VBR V2 spec** (LAME -V 2): average bitrate typically 170-210kbps, targets ~190kbps
@@ -175,10 +175,10 @@ Run tests again. All should pass (green).
 
 ### Phase 3: Deploy & Verify on doc2
 
-1. **Commit to soularr fork**:
+1. **Commit to cratedigger fork**:
    ```bash
    cd ~/soularr
-   git add soularr.py test_soularr.py
+   git add cratedigger.py test_cratedigger.py
    git commit -m "feat: add VBR V0/V2 support in allowed_filetypes"
    git push
    ```
@@ -186,10 +186,10 @@ Run tests again. All should pass (green).
 2. **Update flake input in nixosconfig**:
    ```bash
    cd ~/nixosconfig
-   nix flake update soularr-src
+   nix flake update cratedigger-src
    ```
 
-3. **Update `allowed_filetypes` in soularr.nix** to use `mp3 v0` instead of bare `mp3`:
+3. **Update `allowed_filetypes` in cratedigger.nix** to use `mp3 v0` instead of bare `mp3`:
    Change: `flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,mp3 320,mp3`
    To: `flac 24/192,flac 24/96,flac 24/48,flac 16/44.1,flac,alac,mp3 v0,mp3 320`
 
@@ -198,7 +198,7 @@ Run tests again. All should pass (green).
 5. **Deploy to doc2**:
    ```bash
    cd ~/nixosconfig
-   git add -A && git commit -m "feat(soularr): update fork with VBR V0 support, restrict allowed filetypes"
+   git add -A && git commit -m "feat(cratedigger): update fork with VBR V0 support, restrict allowed filetypes"
    git push
    ssh doc2 "cd ~/nixosconfig && git pull && sudo nixos-rebuild switch --flake .#doc2 --refresh"
    ```
@@ -206,10 +206,10 @@ Run tests again. All should pass (green).
 6. **Verify on doc2**:
    ```bash
    # Check the generated config
-   ssh doc2 "sudo cat /var/lib/soularr/config.ini | grep allowed_filetypes"
+   ssh doc2 "sudo cat /var/lib/cratedigger/config.ini | grep allowed_filetypes"
 
-   # Trigger a soularr run and watch
-   ssh doc2 "sudo systemctl start soularr && journalctl -u soularr -f"
+   # Trigger a cratedigger run and watch
+   ssh doc2 "sudo systemctl start cratedigger && journalctl -u cratedigger -f"
 
    # Look for VBR matches vs rejections in logs
    ```
@@ -218,7 +218,7 @@ Run tests again. All should pass (green).
 
 If you want to verify against real slskd data, SSH to doc2 and query the slskd API for a recent search result to see what fields are actually present:
 ```bash
-ssh doc2 'SLSKD_KEY=$(sudo grep SOULARR_SLSKD_API_KEY /var/lib/soularr/config.ini | cut -d= -f2 | tr -d " "); curl -s "http://localhost:5030/api/v0/searches" -H "X-API-Key: $SLSKD_KEY" | python3 -m json.tool | head -100'
+ssh doc2 'SLSKD_KEY=$(sudo grep SOULARR_SLSKD_API_KEY /var/lib/cratedigger/config.ini | cut -d= -f2 | tr -d " "); curl -s "http://localhost:5030/api/v0/searches" -H "X-API-Key: $SLSKD_KEY" | python3 -m json.tool | head -100'
 ```
 
 This tells you whether `isVariableBitRate` exists in the response. Adjust the implementation accordingly.
@@ -235,4 +235,4 @@ This tells you whether `isVariableBitRate` exists in the response. Adjust the im
 
 - Run the existing tests to make sure nothing breaks
 - The `get_existing_quality_tier()` function (~line 824) also maps Lidarr quality names to `allowed_filetypes` — check if it needs updating for VBR
-- Close the GitHub issue when done: `gh issue close 1 --repo abl030/soularr`
+- Close the GitHub issue when done: `gh issue close 1 --repo abl030/cratedigger`

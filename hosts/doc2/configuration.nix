@@ -123,7 +123,7 @@
         downloadDir = "/mnt/virtio/music/slskd";
         musicDir = "/mnt/virtio/music/lidarr";
       };
-      soularr = {
+      cratedigger = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
       };
@@ -221,10 +221,10 @@
     };
   };
 
-  # Soularr — host-specific app tuning. Everything else lives in the
-  # homelab wrapper at modules/nixos/services/soularr.nix, which configures
-  # the upstream module from the soularr flake (inputs.soularr-src).
-  services.soularr.beetsValidation.verifiedLosslessTarget = "opus 128";
+  # Cratedigger — host-specific app tuning. Everything else lives in the
+  # homelab wrapper at modules/nixos/services/cratedigger.nix, which configures
+  # the upstream module from the cratedigger flake (inputs.cratedigger-src).
+  services.cratedigger.beetsValidation.verifiedLosslessTarget = "opus 128";
 
   # Virtiofs mount — ALL service state lives here
   # This is the whole point: storage decoupled from compute.

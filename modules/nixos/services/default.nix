@@ -29,7 +29,7 @@
     ./atuin.nix
     ./lidarr.nix
     ./slskd.nix
-    ./soularr.nix
+    ./cratedigger.nix
     ./discogs.nix
     ./paperless.nix
     ./mealie.nix

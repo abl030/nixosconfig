@@ -112,7 +112,7 @@ in {
       };
     };
 
-    # World-writable — soularr + lidarr both need full access to downloads
+    # World-writable — cratedigger + lidarr both need full access to downloads
     systemd.services.slskd.serviceConfig.UMask = "0000";
 
     # slskd user needs media access
