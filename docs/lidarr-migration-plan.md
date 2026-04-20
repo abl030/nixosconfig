@@ -1,6 +1,6 @@
 # Lidarr Stack Migration: doc2 -> downloader
 
-**Goal**: Move Lidarr + slskd + soularr from doc2 (NixOS VM on Proxmox, NFS over network) to downloader (Ubuntu VM on Unraid, CIFS local to NAS) for dramatically better I/O performance.
+**Goal**: Move Lidarr + slskd + cratedigger from doc2 (NixOS VM on Proxmox, NFS over network) to downloader (Ubuntu VM on Unraid, CIFS local to NAS) for dramatically better I/O performance.
 
 **Temporary migration** — NixOS modules stay intact for future return.
 
@@ -10,7 +10,7 @@
 |---------|---------------------|--------------------------|
 | Lidarr | NixOS native, port 8686, 15GB data dir | Not installed |
 | slskd | NixOS native, port 5030/50300, VPN via ens19 | Not present |
-| soularr | NixOS native, 5min timer, from abl030/soularr fork | Not present |
+| cratedigger | NixOS native, 5min timer, from abl030/cratedigger fork | Not present |
 | Prowlarr | — | Already running, port 9696, already has Lidarr app connection |
 | Deluge | — | Already running, port 8112/58846 |
 | Music path | `/mnt/fuse/Media/Music/AI` (bindfs over NFS) | `/media/data/Media/Music/AI` (CIFS, local to NAS) |
@@ -25,7 +25,7 @@ Prowlarr (downloader:9696)  --syncs indexers-->  Lidarr (downloader:8686)
                                                     ^
                                                     |  pyarr API
                                                     v
-soularr (cron/systemd)  --slskd-api-->  slskd (downloader:5030)
+cratedigger (cron/systemd)  --slskd-api-->  slskd (downloader:5030)
                                           |
                                           |  Soulseek P2P (VPN at router level)
                                           v
@@ -46,14 +46,14 @@ soularr (cron/systemd)  --slskd-api-->  slskd (downloader:5030)
 
 ```bash
 # On doc2 — stop all three services
-ssh doc2 "sudo systemctl stop soularr.timer soularr.service"
+ssh doc2 "sudo systemctl stop cratedigger.timer cratedigger.service"
 ssh doc2 "sudo systemctl stop slskd.service"
 ssh doc2 "sudo systemctl stop lidarr.service"
 ```
 
 Verify nothing is running:
 ```bash
-ssh doc2 "systemctl status lidarr slskd soularr --no-pager"
+ssh doc2 "systemctl status lidarr slskd cratedigger --no-pager"
 ```
 
 ### Phase 2: Install Lidarr on downloader
@@ -245,35 +245,35 @@ ssh downloader "curl -s http://localhost:5030/api/v0/server | head -c 200"
 
 **VPN**: The downloader VM is routed through VPN at the router level (pfSense), so no per-service VPN config is needed. Soulseek traffic is automatically tunnelled.
 
-### Phase 4: Install soularr on downloader
+### Phase 4: Install cratedigger on downloader
 
 #### 4a. Install Python and dependencies
 ```bash
 ssh downloader << 'INSTALL'
 sudo apt-get update
 sudo apt-get install -y python3 python3-pip python3-venv
-sudo python3 -m venv /opt/soularr-venv
-sudo /opt/soularr-venv/bin/pip install requests music-tag pyarr slskd-api configparser
+sudo python3 -m venv /opt/cratedigger-venv
+sudo /opt/cratedigger-venv/bin/pip install requests music-tag pyarr slskd-api configparser
 # Clone the fork
-sudo git clone https://github.com/abl030/soularr.git /opt/soularr
+sudo git clone https://github.com/abl030/cratedigger.git /opt/cratedigger
 INSTALL
 ```
 
-#### 4b. Create soularr config
+#### 4b. Create cratedigger config
 ```bash
-# Decrypt soularr secrets
-sops -d secrets/soularr.env > /tmp/soularr-secrets.env
-source /tmp/soularr-secrets.env
+# Decrypt cratedigger secrets
+sops -d secrets/soularr.env > /tmp/cratedigger-secrets.env
+source /tmp/cratedigger-secrets.env
 
-ssh downloader "sudo mkdir -p /var/lib/soularr"
+ssh downloader "sudo mkdir -p /var/lib/cratedigger"
 
 # Need slskd API key too
 sops -d secrets/slskd.env > /tmp/slskd-secrets.env
 source /tmp/slskd-secrets.env
 
-ssh downloader "sudo tee /var/lib/soularr/config.ini << EOFCFG
+ssh downloader "sudo tee /var/lib/cratedigger/config.ini << EOFCFG
 [Lidarr]
-api_key = ${SOULARR_LIDARR_API_KEY}
+api_key = ${CRATEDIGGER_LIDARR_API_KEY}
 host_url = http://localhost:8686
 monitor_new_artists = false
 search_type = incrementing_page
@@ -300,30 +300,30 @@ allowed_filetypes = flac,mp3,ogg,m4a,wma,aac,opus,alac
 log_level = INFO
 EOFCFG"
 
-ssh downloader "sudo chown -R root:root /var/lib/soularr"
+ssh downloader "sudo chown -R root:root /var/lib/cratedigger"
 
-rm /tmp/soularr-secrets.env /tmp/slskd-secrets.env
+rm /tmp/cratedigger-secrets.env /tmp/slskd-secrets.env
 ```
 
-#### 4c. Create soularr systemd timer + service
+#### 4c. Create cratedigger systemd timer + service
 ```bash
-ssh downloader "sudo tee /etc/systemd/system/soularr.service << 'EOF'
+ssh downloader "sudo tee /etc/systemd/system/cratedigger.service << 'EOF'
 [Unit]
-Description=Soularr — Soulseek downloader for Lidarr
+Description=Cratedigger — Soulseek downloader for Lidarr
 After=lidarr.service slskd.service
 Wants=lidarr.service slskd.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/soularr-venv/bin/python /opt/soularr/soularr.py
-WorkingDirectory=/opt/soularr
-Environment=SOULARR_CONFIG=/var/lib/soularr/config.ini
+ExecStart=/opt/cratedigger-venv/bin/python /opt/cratedigger/cratedigger.py
+WorkingDirectory=/opt/cratedigger
+Environment=CRATEDIGGER_CONFIG=/var/lib/cratedigger/config.ini
 TimeoutStartSec=1800
 EOF"
 
-ssh downloader "sudo tee /etc/systemd/system/soularr.timer << 'EOF'
+ssh downloader "sudo tee /etc/systemd/system/cratedigger.timer << 'EOF'
 [Unit]
-Description=Run Soularr every 5 minutes
+Description=Run Cratedigger every 5 minutes
 
 [Timer]
 OnBootSec=2min
@@ -334,9 +334,9 @@ WantedBy=timers.target
 EOF"
 ```
 
-#### 4d. Start soularr
+#### 4d. Start cratedigger
 ```bash
-ssh downloader "sudo systemctl daemon-reload && sudo systemctl enable --now soularr.timer"
+ssh downloader "sudo systemctl daemon-reload && sudo systemctl enable --now cratedigger.timer"
 ```
 
 ### Phase 5: Update paths and integrations
@@ -446,8 +446,8 @@ curl -s http://192.168.1.4:8686/ping
 # 2. slskd is connected to Soulseek
 curl -s http://192.168.1.4:5030/api/v0/server | jq '.isConnected'
 
-# 3. Soularr timer is active
-ssh downloader "systemctl list-timers soularr.timer"
+# 3. Cratedigger timer is active
+ssh downloader "systemctl list-timers cratedigger.timer"
 
 # 4. Prowlarr syncs indexers to Lidarr
 # Check Lidarr Settings -> Indexers — should show synced indexers
@@ -471,7 +471,7 @@ Disable services in `hosts/doc2/configuration.nix` so they stay off after rebuil
 # In hosts/doc2/configuration.nix — disable but keep code
 homelab.services.lidarr.enable = false;      # or just comment out enable = true
 homelab.services.slskd.enable = false;
-homelab.services.soularr.enable = false;
+homelab.services.cratedigger.enable = false;
 homelab.services.inotify-receiver.enable = false;
 homelab.mounts.bindfsMusic.enable = false;
 ```
@@ -490,14 +490,14 @@ To move back to doc2:
 
 1. Stop services on downloader:
 ```bash
-ssh downloader "sudo systemctl stop soularr.timer slskd lidarr"
+ssh downloader "sudo systemctl stop cratedigger.timer slskd lidarr"
 ```
 
 2. Re-enable in `hosts/doc2/configuration.nix`:
 ```nix
 homelab.services.lidarr.enable = true;
 homelab.services.slskd.enable = true;
-homelab.services.soularr.enable = true;
+homelab.services.cratedigger.enable = true;
 homelab.services.inotify-receiver.enable = true;
 homelab.mounts.bindfsMusic.enable = true;
 ```
@@ -518,14 +518,14 @@ ssh doc2 "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#doc2 --ref
 1. **VPN for slskd**: Downloader is routed through VPN at router level (pfSense). No per-service VPN config needed.
 2. **Reverse proxy**: Use Caddy on cad (192.168.1.6) — wildcard DNS `*.ablz.au` already points there. Add `lidarr.ablz.au` and `slskd.ablz.au` entries.
 3. **Inotify receiver on doc2**: Disable via NixOS config (`enable = false`), leave all code in the repo for rollback.
-4. **Soularr fork**: Clone `github:abl030/soularr` on downloader. Verify monitored-release patch works with pip-installed deps.
+4. **Cratedigger fork**: Clone `github:abl030/cratedigger` on downloader. Verify monitored-release patch works with pip-installed deps.
 5. **Lidarr download clients**: Deluge on downloader uses categories for Sonarr/Radarr. Add a `lidarr` category.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `hosts/doc2/configuration.nix` | Disable lidarr, slskd, soularr, inotify-receiver, bindfsMusic (set `enable = false`) |
+| `hosts/doc2/configuration.nix` | Disable lidarr, slskd, cratedigger, inotify-receiver, bindfsMusic (set `enable = false`) |
 | `hosts/doc2/configuration.nix` | Remove lidarr.ablz.au and slskd.ablz.au from localProxy.hosts |
 | `/etc/caddy/Caddyfile` on cad | Add lidarr.ablz.au and slskd.ablz.au reverse proxy entries |
 

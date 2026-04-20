@@ -361,7 +361,7 @@ in {
         "d ${cfg.jellystat.dataDir} 0755 ${hostConfig.user} users -"
         "d ${cfg.jellystat.dataDir}/backup-data 0755 ${hostConfig.user} users -"
         # mk-pg-container bindmounts ${dataDir}/postgres into the nspawn.
-        # 0700 root:root matches the pattern used by soularr/immich/etc.
+        # 0700 root:root matches the pattern used by cratedigger/immich/etc.
         "d ${cfg.jellystat.dataDir}/postgres 0700 root root -"
       ];
 

@@ -254,7 +254,7 @@ See `vms/proxmox-ops.sh` (VM ops) and `secrets/.sops.yaml` (secrets). Longer-for
 - **caddy**: Server/container (Home Manager only)
 - **wsl**: WSL instance (full NixOS with NixOS-WSL)
 - **proxmox-vm** (doc1): Main services VM on Proxmox (VMID 104, imported)
-- **doc2**: Secondary services VM on Proxmox (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, soularr, lidarr, musicbrainz, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
+- **doc2**: Secondary services VM on Proxmox (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, lidarr, musicbrainz, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
 - **igpu**: Media transcoding with AMD iGPU passthrough (VMID 109, imported)
 - **dev**: Development VM (VMID 110, managed)
 

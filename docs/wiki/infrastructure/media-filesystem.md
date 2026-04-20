@@ -23,7 +23,7 @@ The current split:
 | TV Shows | `/mnt/data/Media/TV Shows` (tower NFS) | `/mnt/virtio/media_metadata/TV Shows` (prom virtiofs) |
 | Music    | `/mnt/virtio/Music` (prom virtiofs) | `/mnt/virtio/media_metadata/Music` (prom virtiofs) |
 
-Music is the odd one — both branches are on prom virtiofs because the canonical music tree itself moved to prom (it's the 668GB `nvmeprom/containers/Music` ZFS child dataset, served to soularr/lidarr/beets on doc2 via the same virtiofs). Movies and TV's media still lives on tower's spinning disks; only their metadata moved.
+Music is the odd one — both branches are on prom virtiofs because the canonical music tree itself moved to prom (it's the 668GB `nvmeprom/containers/Music` ZFS child dataset, served to cratedigger/lidarr/beets on doc2 via the same virtiofs). Movies and TV's media still lives on tower's spinning disks; only their metadata moved.
 
 ## Storage topology
 
@@ -45,7 +45,7 @@ Music is the odd one — both branches are on prom virtiofs because the canonica
                     │                          (Phase 3 of #208; owned root:root 0755 so
                     │                          jellyfin-owned and root-owned children coexist.)
                     │
-                    ├── <all other service state>   atuin, immich, paperless, mealie, soularr, ...
+                    ├── <all other service state>   atuin, immich, paperless, mealie, cratedigger, ...
                     ▼
    ┌────────────────────────┬─────────────────────────┐
    │                        │                         │
@@ -72,7 +72,7 @@ Music is the odd one — both branches are on prom virtiofs because the canonica
 
 ## Why one broad `containers` mapping on every host
 
-doc1 and doc2 always had the full `containers` mapping because they're the service hosts — they need to see every service's state dir (immich, paperless, mealie, soularr, …). As of Phase 3 of #208, igpu follows the same pattern: jellyfin runs native (`dataRoot = /mnt/virtio/jellyfin`) alongside tdarr-node, so it needs the same broad view.
+doc1 and doc2 always had the full `containers` mapping because they're the service hosts — they need to see every service's state dir (immich, paperless, mealie, cratedigger, …). As of Phase 3 of #208, igpu follows the same pattern: jellyfin runs native (`dataRoot = /mnt/virtio/jellyfin`) alongside tdarr-node, so it needs the same broad view.
 
 Phase 1 originally tried a narrow approach for igpu — separate `music` + `media_metadata` directory mappings — to minimise blast radius. That worked for the Phase 1 scope (virtiofs music only) but fell apart in Phase 3 when we added jellyfin state, which would have required yet another narrow mapping. A single broad mapping is the cleaner pattern and matches the rest of the fleet. See the [decision history](#decision-history) below.
 
