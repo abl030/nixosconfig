@@ -93,6 +93,41 @@ Providers: `audible`, `audible.co.uk`, `audible.com.au`, `google`, `openlibrary`
 
 **IMPORTANT**: Always use `audible.co.uk` as the default provider. The bare `audible` provider can return non-English results (Spanish, German, etc.). Only use other regional providers if the user specifically asks for non-English content.
 
+**Match endpoint hidden params** (not in official docs):
+- `overrideDetails` (boolean) — overwrite existing metadata fields instead of additive-only
+- `overrideCover` (boolean) — replace existing cover art
+
+### Fallback: OpenLibrary for descriptions and covers
+
+When Audible returns wrong-language matches (common for classic children's books where Spanish translations rank higher), use OpenLibrary as a fallback. It provides consistent English descriptions and cover art within a series.
+
+```bash
+# 1. Find the OpenLibrary work key
+curl -s "https://openlibrary.org/search.json?title=Book+Title&author=Author+Name&limit=1" \
+  | jq '.docs[0].key'
+# Returns e.g. "/works/OL1948396W"
+
+# 2. Get cover ID and description from the work
+curl -s "https://openlibrary.org/works/OL1948396W.json" \
+  | jq '{covers: .covers[0], description: (if .description | type == "string" then .description else .description.value end)}'
+
+# 3. Upload cover to ABS from OpenLibrary (use -L for large size)
+curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"url":"https://covers.openlibrary.org/b/id/<COVER_ID>-L.jpg"}' \
+  "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>/cover"
+
+# 4. PATCH the description
+curl -s -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"metadata":{"description":"..."}}' \
+  "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>/media"
+```
+
+**When to use OpenLibrary instead of Audible:**
+- Audible match returns non-English metadata despite using `audible.co.uk`
+- You need consistent covers across a series (Audible may have different editions with mismatched art)
+- The English audiobook edition doesn't exist on Audible (common for older/classic titles)
+- Use OpenLibrary for the WHOLE series, not just the broken books — mixing Audible and OpenLibrary covers looks inconsistent
+
 **Force-overwrite metadata** (when `/match` leaves a stale file-tag title in place):
 
 ```bash
@@ -176,7 +211,8 @@ Check if an author is matched by looking for `imagePath` in `GET /api/authors/{i
 
 ## Known gotchas
 
-- `/match` is **additive only**: if the m4b's `TITLE` tag is wrong (e.g. "Audible Children's Collection"), `/match` won't overwrite it. Follow with `PATCH /media` to force the title.
+- `/match` is **additive only by default**: if the m4b's `TITLE` tag is wrong (e.g. "Audible Children's Collection"), `/match` won't overwrite it. Pass `"overrideDetails":true` to force-overwrite, or follow with `PATCH /media`.
+- **Audible Spanish trap**: Classic children's books (Enid Blyton, Roald Dahl, etc.) often have Spanish translations ranking higher on ALL Audible regions (including `.co.uk` and `.com.au`). The `/match` `asin` param is just a search hint, not a direct lookup — it can still return Spanish editions. When this happens, fall back to OpenLibrary for the whole series.
 - `POST /scan` returns `OK` instantly but the scan runs async — list items or wait a few seconds before searching.
 - Search endpoint returns empty `{"book":[], …}` while a scan is still processing. Retry after 2–5s.
 - Book matches sometimes return garbage descriptions ("Bayside." etc.) from Audible scraping. Always eyeball the `description` after `/match` and rewrite via `PATCH /media` if needed.
