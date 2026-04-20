@@ -32,6 +32,27 @@ in {
       StateDirectory = lib.mkForce "";
     };
 
+    # Weekly cleanup of embed-metadata backups (originals stashed by ABS
+    # when the API embed endpoint writes tags into audio files)
+    systemd.services.audiobookshelf-cache-cleanup = {
+      description = "Purge Audiobookshelf embed-metadata backup cache";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe' config.systemd.package "rm"} -rf ${cfg.dataDir}/metadata/cache/items";
+        User = "audiobookshelf";
+      };
+    };
+
+    systemd.timers.audiobookshelf-cache-cleanup = {
+      description = "Weekly Audiobookshelf cache cleanup";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "weekly";
+        Persistent = true;
+        RandomizedDelaySec = "1h";
+      };
+    };
+
     homelab = {
       localProxy.hosts = [
         {
