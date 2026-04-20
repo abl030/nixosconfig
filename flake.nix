@@ -101,8 +101,8 @@
       flake = false;
     };
 
-    soularr-src = {
-      url = "github:abl030/soularr";
+    cratedigger-src = {
+      url = "github:abl030/cratedigger";
     };
 
     discogs-src = {

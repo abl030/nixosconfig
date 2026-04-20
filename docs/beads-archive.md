@@ -17,7 +17,7 @@ Track current rootless Podman compose operating model, accepted residual risks, 
 
 ### Notes
 
-2026-02-24 incident: music stack went down after a compose file change (slskd/soularr commented out) triggered a service restart. compose stop left containers in Exited state; compose up then failed because the old network-holder pod still had dependent containers registered against it, so docker-compose couldn't recreate the pod. The ExecStartPre recreate-if-label-mismatch script only removed containers with a PODMAN_SYSTEMD_UNIT label mismatch — correctly-labelled Exited containers were untouched. Fix (untested): extended the script to also rm -f --depend all exited/created/dead containers for the project before compose up, giving it a clean slate. All persistent state is in volumes so this is safe.
+2026-02-24 incident: music stack went down after a compose file change (slskd/cratedigger commented out) triggered a service restart. compose stop left containers in Exited state; compose up then failed because the old network-holder pod still had dependent containers registered against it, so docker-compose couldn't recreate the pod. The ExecStartPre recreate-if-label-mismatch script only removed containers with a PODMAN_SYSTEMD_UNIT label mismatch — correctly-labelled Exited containers were untouched. Fix (untested): extended the script to also rm -f --depend all exited/created/dead containers for the project before compose up, giving it a clean slate. All persistent state is in volumes so this is safe.
 
 ---
 
@@ -4178,7 +4178,7 @@ UNICODE HYPHEN BUG: Lidarr's release parser splits on ASCII hyphen (U+002D) but 
 
 ---
 
-## nixosconfig-ixw — Soularr Xavier matching diagnosis: peer availability + track count mismatch
+## nixosconfig-ixw — Cratedigger Xavier matching diagnosis: peer availability + track count mismatch
 
 - **Status:** open
 - **Type:** task
@@ -4188,12 +4188,12 @@ UNICODE HYPHEN BUG: Lidarr's release parser splits on ASCII hyphen (U+002D) but 
 ### Description
 
 ## Problem
-Soularr repeatedly fails to download MP3 320 of xaviersobased - Xavier despite correct matches existing on soulseek.
+Cratedigger repeatedly fails to download MP3 320 of xaviersobased - Xavier despite correct matches existing on soulseek.
 
 ## Root Causes Found (3 issues, all fixed)
 
 ### Issue 1: No user fallback on download failure (FIXED)
-When downloads from the matched user all error out (e.g. claire419 — user is Away, transfers rejected), soularr gave up on the entire album. Never tried the next matching user.
+When downloads from the matched user all error out (e.g. claire419 — user is Away, transfers rejected), cratedigger gave up on the entire album. Never tried the next matching user.
 
 ### Issue 2: Search cache filetype narrowing excludes valid users (FIXED)
 verify_filetype("mp3 320") requires bitRate=320 in search metadata. Many soulseek clients don't report bitrate → files cached under generic "mp3" only. Combined with cutoff_unmet logic restricting to ["mp3 320"], most valid users were invisible.
@@ -4204,7 +4204,7 @@ Diagnostic evidence: out of 16 search result users, only 3 had "mp3 320" in cach
 BonteKraai had 20 correct MP3 320 tracks but scored 0.5-0.73 due to filename format mismatch. The check_ratio truncation works for standard "01. artist - title.mp3" but not all naming conventions. Consider reducing to 0.6.
 
 ## Changes Made
-File: /tmp/soularr/soularr.py (volume-mounted into soularr container on doc1)
+File: /tmp/cratedigger/cratedigger.py (volume-mounted into cratedigger container on doc1)
 
 1. skip_users parameter threading through try_enqueue → try_multi_enqueue → find_download
 2. monitor_downloads.delete_album() tries fallback before failing (max 3 users)
@@ -4221,16 +4221,16 @@ File: /tmp/soularr/soularr.py (volume-mounted into soularr container on doc1)
 ## Patch Plumbing
 
 ### Current patch (cutoff_unmet quality skip + user fallback + filetype broadening)
-- Source: /tmp/soularr/soularr.py (git clone of mrusse/soularr + local edits)
-- Deployed via: scp to doc1:/mnt/docker/music/soularr/soularr.py
+- Source: /tmp/cratedigger/cratedigger.py (git clone of mrusse/soularr + local edits)
+- Deployed via: scp to doc1:/mnt/docker/music/cratedigger/cratedigger.py
 - Volume mount in stacks/music/docker-compose.yml line 97:
-  ${DATA_ROOT}/music/soularr/soularr.py:/app/soularr.py:ro
+  ${DATA_ROOT}/music/cratedigger/cratedigger.py:/app/cratedigger.py:ro
 - Container restart picks up changes (no nix rebuild needed for py changes)
 
 ### Deployment workflow
-1. Edit /tmp/soularr/soularr.py on WSL
-2. scp to doc1:/mnt/docker/music/soularr/soularr.py
-3. ssh doc1 "podman restart soularr" (or systemctl restart music.service)
+1. Edit /tmp/cratedigger/cratedigger.py on WSL
+2. scp to doc1:/mnt/docker/music/cratedigger/cratedigger.py
+3. ssh doc1 "podman restart cratedigger" (or systemctl restart music.service)
 
 ## Implemented Fixes (2026-02-17)
 
@@ -4650,7 +4650,7 @@ Phase 4+5: MCP servers working and full pipeline validated.
 
 ---
 
-## nixosconfig-aw3 — Fresh Lidarr setup and soularr bridge configuration
+## nixosconfig-aw3 — Fresh Lidarr setup and cratedigger bridge configuration
 
 - **Status:** open
 - **Type:** task
@@ -4659,15 +4659,15 @@ Phase 4+5: MCP servers working and full pipeline validated.
 
 ### Description
 
-Phase 2+3: Configure Lidarr and wire up soularr.
+Phase 2+3: Configure Lidarr and wire up cratedigger.
 
 - Fresh Lidarr config at http://doc1:8686
 - Set root folder to /mnt/data/music/ai
 - Configure import settings (tagging, naming)
 - Grab API key from Settings → General
 - Update secrets/arr-mcp.env with Lidarr API key
-- Copy soularr config to doc1 with Lidarr API key
-- Test: add album to Lidarr wanted list, verify soularr picks it up
+- Copy cratedigger config to doc1 with Lidarr API key
+- Test: add album to Lidarr wanted list, verify cratedigger picks it up
 
 ---
 
@@ -4732,7 +4732,7 @@ BLOCKS:
 
 Enable Claude Code to fulfill requests like "get me this album" by searching Soulseek, downloading via slskd, tagging via Lidarr, and serving via Plex.
 
-Architecture: Option C (Hybrid) — Soularr daemon for bulk/background, direct MCP for immediate requests.
+Architecture: Option C (Hybrid) — Cratedigger daemon for bulk/background, direct MCP for immediate requests.
 Host: doc1 (proxmox-vm). Music library: /mnt/data/music/ai.
 Quality default: 320kbps MP3 (overridable per request).
 
@@ -4759,7 +4759,7 @@ Full plan originally in docs/music-automation-plan.md (moved here).
 | **Music library path** | `/mnt/data/music/ai` (new subfolder for AI-sourced) |
 | **Soulseek credentials** | Existing account, store in sops |
 | **Secrets storage** | sops-encrypted (consistent with repo pattern) |
-| **Architecture** | Option C: Hybrid (Soularr daemon + direct MCP for immediate) |
+| **Architecture** | Option C: Hybrid (Cratedigger daemon + direct MCP for immediate) |
 | **Default quality** | 320kbps MP3 (overridable per request) |
 | **Duplicate handling** | Skip and warn if exists in library |
 | **Plex scanning** | Auto-scan enabled (no action needed) |
@@ -4811,12 +4811,12 @@ Claude controls each step directly via MCP servers:
 **Pros**: Full control, can handle edge cases, immediate feedback
 **Cons**: More MCP servers to maintain, Claude orchestrates everything
 
-### Option B: Soularr Daemon (Most Hands-Off)
+### Option B: Cratedigger Daemon (Most Hands-Off)
 
-Claude only adds to Lidarr's wanted list; Soularr daemon handles the rest:
+Claude only adds to Lidarr's wanted list; Cratedigger daemon handles the rest:
 1. Add album to Lidarr wanted list via Lidarr MCP
-2. Soularr (daemon) monitors wanted list every 5 min
-3. Soularr searches slskd and triggers download
+2. Cratedigger (daemon) monitors wanted list every 5 min
+3. Cratedigger searches slskd and triggers download
 4. Lidarr auto-imports from download folder
 5. Plex auto-scans library
 
@@ -4825,7 +4825,7 @@ Claude only adds to Lidarr's wanted list; Soularr daemon handles the rest:
 
 ### Option C: Hybrid
 
-Claude can do both — use Soularr for bulk/background, direct MCP for immediate requests.
+Claude can do both — use Cratedigger for bulk/background, direct MCP for immediate requests.
 
 ---
 
@@ -4836,13 +4836,13 @@ Claude can do both — use Soularr for bulk/background, direct MCP for immediate
 | Service | Image | Purpose | Port |
 |---------|-------|---------|------|
 | slskd | `slskd/slskd` | Soulseek client with REST API | 5030 (web), 5031 (API) |
-| soularr | `mrusse/soularr` | Lidarr ↔ slskd bridge | None (daemon) |
+| cratedigger | `mrusse/soularr` | Lidarr ↔ slskd bridge | None (daemon) |
 
 ### Existing Services to Configure
 
 | Service | Current State | Changes Needed |
 |---------|---------------|----------------|
-| Lidarr | Deployed on doc1, unused | Fresh config: root folder `/mnt/data/music/ai`, Soularr as download bridge |
+| Lidarr | Deployed on doc1, unused | Fresh config: root folder `/mnt/data/music/ai`, Cratedigger as download bridge |
 | Plex | Working, auto-scan enabled | Add `/mnt/data/music/ai` to music library |
 
 ### MCP Servers to Add
@@ -4862,7 +4862,7 @@ Claude can do both — use Soularr for bulk/background, direct MCP for immediate
 | Item | File | Notes |
 |------|------|-------|
 | Docker compose for slskd | `stacks/music/docker-compose.yml` | Added slskd service with volumes, ports 5030/5031 |
-| Docker compose for soularr | `stacks/music/docker-compose.yml` | Daemon that bridges Lidarr wanted list → slskd |
+| Docker compose for cratedigger | `stacks/music/docker-compose.yml` | Daemon that bridges Lidarr wanted list → slskd |
 | Firewall ports | `stacks/music/docker-compose.nix` | Added 5030, 5031 to firewallPorts |
 | MCP wrapper: arr | `scripts/mcp-arr.sh` | Sources secrets, runs `npx -y mcp-arr-server` |
 | MCP wrapper: soulseek | `scripts/mcp-soulseek.sh` | Sources secrets, runs soulseek MCP |
@@ -4871,7 +4871,7 @@ Claude can do both — use Soularr for bulk/background, direct MCP for immediate
 | Secrets: arr-mcp.env | `secrets/arr-mcp.env` | sops-encrypted, has placeholder API key |
 | Secrets: soulseek-mcp.env | `secrets/soulseek-mcp.env` | sops-encrypted, has placeholder credentials |
 | Secrets: music.env | `secrets/music.env` | Updated with SOULSEEK_USERNAME/PASSWORD placeholders |
-| Soularr config template | `stacks/music/soularr/config.yaml` | Template config, needs Lidarr API key |
+| Cratedigger config template | `stacks/music/cratedigger/config.yaml` | Template config, needs Lidarr API key |
 | Quality gate | - | `check` passes |
 
 **Note**: The MCP module is defined but NOT enabled in any host config yet. Nothing will run until you explicitly enable it.
@@ -4913,16 +4913,16 @@ nixos-rebuild switch --flake .#proxmox-vm --target-host proxmox-vm
 sops secrets/arr-mcp.env
 # Change LIDARR_API_KEY to the key from Lidarr
 
-# 7. Copy soularr config to doc1 and update it
-scp stacks/music/soularr/config.yaml proxmox-vm:/mnt/data/music/soularr/
-ssh proxmox-vm 'nano /mnt/data/music/soularr/config.yaml'
+# 7. Copy cratedigger config to doc1 and update it
+scp stacks/music/cratedigger/config.yaml proxmox-vm:/mnt/data/music/cratedigger/
+ssh proxmox-vm 'nano /mnt/data/music/cratedigger/config.yaml'
 # Update the lidarr.api_key field with your Lidarr API key
 
 # 8. Restart the music stack on doc1
 ssh proxmox-vm 'systemctl --user restart podman-compose@music'
 
 # 9. Verify services are running
-ssh proxmox-vm 'podman ps | grep -E "slskd|soularr|lidarr"'
+ssh proxmox-vm 'podman ps | grep -E "slskd|cratedigger|lidarr"'
 
 # 10. Test slskd web UI
 #     Browse to http://doc1:5030
@@ -4938,7 +4938,7 @@ Once setup is complete:
 
 1. **Test Lidarr MCP**: Restart Claude Code, then ask "search for artist Lucinda Williams in Lidarr"
 2. **Test slskd connection**: Check http://doc1:5030 shows "Connected" to Soulseek
-3. **Test Soularr**: Add an album to Lidarr's wanted list, wait 5 min, check if Soularr triggers a search
+3. **Test Cratedigger**: Add an album to Lidarr's wanted list, wait 5 min, check if Cratedigger triggers a search
 4. **End-to-end**: Ask Claude "get me Whiskeytown Strangers Almanac" and watch it flow through
 
 ---
@@ -4965,7 +4965,7 @@ Once setup is complete:
 
 ### Phase 1: Infrastructure [CODE COMPLETE]
 - [x] Docker compose for slskd
-- [x] Docker compose for soularr
+- [x] Docker compose for cratedigger
 - [x] Firewall ports configured
 - [ ] Deploy to doc1
 - [ ] Configure Soulseek credentials (fill in sops placeholders)
@@ -4980,10 +4980,10 @@ Once setup is complete:
 - [ ] Test manual import of a downloaded album
 
 ### Phase 3: Bridge Setup [CODE COMPLETE]
-- [x] Soularr container added to docker-compose
-- [x] Soularr config template created
+- [x] Cratedigger container added to docker-compose
+- [x] Cratedigger config template created
 - [ ] Copy config to doc1 and add Lidarr API key
-- [ ] Test: add album to Lidarr, verify Soularr picks it up
+- [ ] Test: add album to Lidarr, verify Cratedigger picks it up
 
 ### Phase 4: MCP Integration [CODE COMPLETE]
 - [x] Add mcp-arr-server to .mcp.json
@@ -4998,7 +4998,7 @@ Once setup is complete:
 - [ ] Update CLAUDE.md with music automation workflow
 - [ ] Add Plex library path if not present
 - [ ] Optional: Gotify notifications on download complete
-- [ ] Optional: Quality filters in Soularr/slskd config
+- [ ] Optional: Quality filters in Cratedigger/slskd config
 
 ---
 
@@ -5058,13 +5058,13 @@ services:
       - "5031:5031"  # API
     restart: unless-stopped
 
-  soularr:
+  cratedigger:
     image: mrusse/soularr:latest
-    container_name: soularr
+    container_name: cratedigger
     environment:
       - ANTHROPIC_API_KEY=not_needed   # Only if using AI features
     volumes:
-      - ./soularr/config:/config
+      - ./cratedigger/config:/config
     depends_on:
       - slskd
     restart: unless-stopped
@@ -5088,7 +5088,7 @@ services:
 2. **Enable MCP module** in `hosts/proxmox-vm/configuration.nix` (see Remaining Manual Steps)
 3. **Deploy to doc1**: `nixos-rebuild switch --flake .#proxmox-vm --target-host proxmox-vm`
 4. **Fresh Lidarr setup** at http://doc1:8686, get API key
-5. **Update Lidarr API key** in `secrets/arr-mcp.env` and soularr config on doc1
+5. **Update Lidarr API key** in `secrets/arr-mcp.env` and cratedigger config on doc1
 6. **Test the pipeline** end-to-end
 
 ---
@@ -5097,8 +5097,8 @@ services:
 
 - [slskd GitHub](https://github.com/slskd/slskd)
 - [slskd API Docs](https://github.com/slskd/slskd/blob/master/docs/api.md)
-- [Soularr](https://soularr.net)
-- [Soularr GitHub](https://github.com/mrusse/soularr)
+- [Cratedigger](https://cratedigger.net)
+- [Cratedigger GitHub](https://github.com/mrusse/soularr)
 - [SoulseekMCP](https://glama.ai/mcp/servers/@jotraynor/SoulseekMCP)
 - [mcp-arr-server](https://www.npmjs.com/package/mcp-arr-server)
 - [Lidarr](https://lidarr.audio/)
@@ -5133,9 +5133,9 @@ fetchurl pre-built binary from GitHub Releases into nix/overlay.nix. Temporary u
 Before any deployment, review the full plan together:
 
 1. Audit existing code:
-   - stacks/music/docker-compose.yml (slskd + soularr services)
+   - stacks/music/docker-compose.yml (slskd + cratedigger services)
    - stacks/music/docker-compose.nix (firewall ports, nix integration)
-   - stacks/music/soularr/config.yaml (template config)
+   - stacks/music/cratedigger/config.yaml (template config)
    - scripts/mcp-arr.sh, scripts/mcp-soulseek.sh (MCP wrappers)
    - modules/nixos/services/mcp.nix (arr/soulseek options)
    - .mcp.json entries for arr + soulseek
@@ -5143,7 +5143,7 @@ Before any deployment, review the full plan together:
 2. Check infra state on doc1:
    - Is Lidarr already running? What state is it in?
    - Does /mnt/data/music/ exist? What's in it?
-   - Are slskd/soularr containers deployed or just defined?
+   - Are slskd/cratedigger containers deployed or just defined?
    - Network: can doc1 reach Soulseek network?
 
 3. Validate decisions still make sense:
@@ -5155,7 +5155,7 @@ Before any deployment, review the full plan together:
 
 ---
 
-## nixosconfig-k4e — Deploy slskd + soularr to doc1 and fill sops credentials
+## nixosconfig-k4e — Deploy slskd + cratedigger to doc1 and fill sops credentials
 
 - **Status:** closed
 - **Type:** task

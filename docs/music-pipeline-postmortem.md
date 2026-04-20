@@ -2,7 +2,7 @@
 
 ## What We Built
 
-Automated music acquisition pipeline: **Lidarr** (want list) -> **Soularr** (bridge) -> **slskd** (Soulseek downloads), with NZBGet as a secondary download source via Usenet/Newznab indexers. All running as podman containers on doc1 (proxmox-vm).
+Automated music acquisition pipeline: **Lidarr** (want list) -> **Cratedigger** (bridge) -> **slskd** (Soulseek downloads), with NZBGet as a secondary download source via Usenet/Newznab indexers. All running as podman containers on doc1 (proxmox-vm).
 
 ## What Went Wrong (and token cost)
 
@@ -50,7 +50,7 @@ This also caused directory name mismatches — we created a directory with an AS
 - Add a remote path mapping: `/downloads/completed` -> correct container path
 - Or route ALL downloads through a common path
 
-### 5. Soularr quality settings iteration (LOW token cost)
+### 5. Cratedigger quality settings iteration (LOW token cost)
 
 **Problem:** Had to iterate through quality settings:
 1. Started with FLAC-first (default) -> downloaded FLAC that would be rejected by 320 profile
@@ -161,7 +161,7 @@ NZBGet reports paths as `/downloads/completed/Music/...` but Lidarr has no mappi
 - Cutoff: High Quality Lossy (contains MP3-320)
 - Behavior: grabs anything available, keeps upgrading until MP3-320
 
-**Soularr `allowed_filetypes` order:**
+**Cratedigger `allowed_filetypes` order:**
 ```ini
 allowed_filetypes = mp3 320,flac 24/192,flac 16/44.1,flac,mp3
 ```

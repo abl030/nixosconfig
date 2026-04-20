@@ -57,7 +57,7 @@ services.<service>.database = {
 ```
 
 **Existing hostNums** (check before assigning):
-- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=soularr, 6=discogs, 7=jellystat
+- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=cratedigger, 6=discogs, 7=jellystat
 
 ### CRITICAL: restartTriggers for container dependencies
 
