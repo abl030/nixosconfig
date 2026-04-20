@@ -25,7 +25,7 @@ All requests below assume those vars + `$AUTH` are set. If the file is missing, 
 - ABS runs on **doc2** as a native NixOS service (`modules/nixos/services/audiobookshelf.nix`), port `13378`, data at `/var/lib/audiobookshelf`.
 - Single library: **AudioBooks** (id via `$AUDIOBOOKSHELF_LIBRARY_ID`), folder root `/mnt/data/Media/Books/Audiobooks`, layout `Author/[Series/]Book/…`. ABS parses `#N - Title` folder names into series sequence numbers.
 - Metadata precedence: `folderStructure → audioMetatags → nfoFile → txtFiles → opfFile → absMetadata`. Folder name wins for author/series, but embedded m4b `TITLE` tag can override the book title — use a `PATCH /media` to force a specific title.
-- Default library provider is `google`; `audible` gives better audiobook metadata (covers, ASIN, narrators). Pass `"provider":"audible"` to `/match` explicitly.
+- Default library provider is `google`; `audible` gives better audiobook metadata (covers, ASIN, narrators). Pass `"provider":"audible.co.uk"` to `/match` explicitly.
 - Library auto-scans every hour (`"autoScanCronExpression":"0 * * * *"`). Trigger manually with `POST /api/libraries/{id}/scan` after a filesystem change.
 
 ## Filesystem layout
@@ -52,7 +52,8 @@ When asked to bring books from Temp into ABS:
 8. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
 9. **Rename files**: rename audio files from ugly `01_Title_Here.mp3` to clean `01 - Title.mp3` format using `mv`.
 10. **Rescan item**: `POST /api/items/<id>/scan` — ABS picks up renamed files, keeps the same item ID and all metadata. Safe because ABS matches by folder path, not individual filenames.
-11. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
+11. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
+12. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
 
 Note: embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2 — no manual cleanup needed.
 
@@ -84,11 +85,13 @@ curl -s -X POST -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/libraries/$AUDIOBOOKSHELF_LI
 
 ```bash
 curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"provider":"audible","title":"The Folk of the Faraway Tree","author":"Enid Blyton"}' \
+  -d '{"provider":"audible.co.uk","title":"The Folk of the Faraway Tree","author":"Enid Blyton"}' \
   "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>/match"
 ```
 
-Providers: `audible`, `audible.uk`, `audible.com.au`, `google`, `openlibrary`, `itunes`, `audnexus.audible.*`.
+Providers: `audible`, `audible.co.uk`, `audible.com.au`, `google`, `openlibrary`, `itunes`, `audnexus.audible.*`.
+
+**IMPORTANT**: Always use `audible.co.uk` as the default provider. The bare `audible` provider can return non-English results (Spanish, German, etc.). Only use other regional providers if the user specifically asks for non-English content.
 
 **Force-overwrite metadata** (when `/match` leaves a stale file-tag title in place):
 
@@ -125,7 +128,7 @@ curl -s -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>?expanded=1" | jq '.m
 
 ```bash
 curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"provider":"audible","title":"...","author":"..."}' \
+  -d '{"provider":"audible.co.uk","title":"...","author":"..."}' \
   "$AUDIOBOOKSHELF_URL/api/search/books" | jq '.[0:3]'
 ```
 
@@ -155,6 +158,21 @@ curl -s -X POST -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>/scan"
 This is safe because ABS matches by folder path, not individual filenames. Always rescan after renaming.
 
 Embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2.
+
+**Match an author** (pulls photo + bio from Audible):
+
+```bash
+# First find the author ID — search library items and extract from metadata
+curl -s -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/search?q=Author+Name" \
+  | jq '.book[0].libraryItem.media.metadata.authors[0].id'
+
+# Then match the author
+curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"q":"Author Name"}' \
+  "$AUDIOBOOKSHELF_URL/api/authors/<AUTHOR_ID>/match"
+```
+
+Check if an author is matched by looking for `imagePath` in `GET /api/authors/{id}` — if null, the author is unmatched.
 
 ## Known gotchas
 
