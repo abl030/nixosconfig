@@ -43,12 +43,23 @@ All requests below assume those vars + `$AUTH` are set. If the file is missing, 
 When asked to bring books from Temp into ABS:
 
 1. **Inspect source**: `ls -la "/mnt/data/Media/Temp/<dir>"` — understand what's there (single file vs multi-part, cover art, metadata .txt files)
-2. **Convert to m4b** (if MP3): Use the repo's conversion script on doc2:
-   - **Multiple MP3s**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/mp3-to-m4b.sh "/mnt/data/Media/Temp/<dir>"` — concatenates all MP3s into a single m4b with chapter markers derived from filenames. No re-encoding (stream copy).
-   - **Single MP3**: same script handles it — just remuxes the container.
-   - **Already m4b/m4a**: skip this step.
-   - The script lives at `/home/abl030/nixosconfig/scripts/mp3-to-m4b.sh` on doc2 (pulled from git). Requires `ffmpeg` and `ffprobe`.
-   - After conversion, remove the source MP3 files and keep only the .m4b.
+2. **Convert/concat to single m4b**: Use the repo's conversion scripts on doc2:
+   - **Multiple MP3s**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/mp3-to-m4b.sh "<dir>"`
+   - **Multiple m4b/m4a**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/m4b-concat.sh "<dir>"`
+   - **Single MP3**: use `mp3-to-m4b.sh` — just remuxes the container.
+   - **Already single m4b/m4a**: skip this step.
+   - Scripts live at `/home/abl030/nixosconfig/scripts/` on doc2 (pulled from git). Require `ffmpeg`, `ffprobe`, `bc`.
+   - After conversion, the output m4b is in the source dir. Copy it out (step 4), leave source files alone.
+   
+   **CRITICAL — verify chapters after conversion:**
+   After any concat/conversion, ALWAYS verify the result before importing:
+   1. Run `ffprobe -v quiet -show_chapters <output.m4b>` and check chapter titles + ordering
+   2. Compare against the source filenames — are chapters in the right numeric order?
+   3. Do the chapter titles make sense? If the script produced garbage titles (e.g. wrong numbers, book title instead of chapter number), fix them MANUALLY via the ABS chapters API after import
+   4. For files with purely numeric names (01.m4b, 02.m4b), expect "Chapter 1", "Chapter 2" etc.
+   5. For files with descriptive names ("Chapter One - The Angel.m4b"), those names should appear as chapter titles
+   
+   **Use your judgement.** The scripts handle common cases but can't anticipate every filename convention. If the output looks wrong, don't blindly import it — fix the chapter metadata via the ABS API (`POST /api/items/<id>/chapters`) after import.
 3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
 4. **Copy files**: `cp` converted m4b (and cover art) into the library root with clean names. Do NOT delete source files from Temp — the user handles that.
 5. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
