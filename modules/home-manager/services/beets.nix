@@ -285,11 +285,20 @@ in {
           incremental = true;
           incremental_skip_later = true;
           log = "/mnt/virtio/Music/beets-import.log";
-        };
 
-        duplicate_keys = {
-          album = ["albumartist" "album" "mb_albumid"];
-          item = ["artist" "title"];
+          # MUST be under `import:` — beets reads it strictly from
+          # config["import"]["duplicate_keys"]["album"]. A top-level
+          # `duplicate_keys =` is silently ignored and beets falls back
+          # to the default `[albumartist, album]` (no mb_albumid). That
+          # silent fallback enabled the 2026-04-20 Shearwater "Palo Santo"
+          # data-loss event: find_duplicates matched a cross-MBID sibling
+          # on (albumartist, album) alone, the harness sent "remove"
+          # thinking it was a same-MBID stale entry, and beets'
+          # task.should_remove_duplicates blast-radius wiped the sibling.
+          duplicate_keys = {
+            album = ["albumartist" "album" "mb_albumid"];
+            item = ["artist" "title"];
+          };
         };
 
         paths = {
