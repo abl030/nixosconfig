@@ -3,14 +3,17 @@
 #
 # Usage: mp3-to-m4b.sh <input-dir> [output-file.m4b]
 #
-# If output-file is omitted, writes to <input-dir>/../<dirname>.m4b
+# If output-file is omitted, writes <dirname>.m4b inside the input directory.
 #
 # Strategy:
 #   - Single MP3: remux to m4b container (no re-encode, stream copy)
 #   - Multiple MP3s: concatenate in sorted order, stream copy, generate
 #     chapter markers from file boundaries using each filename as chapter title
 #
-# Requirements: ffmpeg, ffprobe (both in PATH)
+# Requirements: ffmpeg, ffprobe, bc (all in PATH or via nix shell)
+#
+# On NixOS where these tools are not in PATH by default, run via:
+#   nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash mp3-to-m4b.sh <dir>
 #
 # This does NO lossy-to-lossy transcoding. Audio data is copied bit-for-bit.
 # The only change is the container (MPEG → MP4/M4B).
@@ -26,7 +29,7 @@ INPUT_DIR="${1%/}"
 [[ -d "$INPUT_DIR" ]] || die "Not a directory: $INPUT_DIR"
 
 # Collect MP3 files sorted naturally (handles 01_foo, 02_bar etc)
-mapfile -t MP3_FILES < <(find "$INPUT_DIR" -maxdepth 1 -iname '*.mp3' -print0 | sort -z | tr '\0' '\n')
+mapfile -t MP3_FILES < <(find "$INPUT_DIR" -maxdepth 1 -iname '*.mp3' -print0 | sort -zV | tr '\0' '\n')
 [[ ${#MP3_FILES[@]} -eq 0 ]] && die "No MP3 files found in $INPUT_DIR"
 
 # Output path
@@ -70,7 +73,8 @@ for f in "${MP3_FILES[@]}"; do
     TITLE="$(basename "$f" .mp3)"
     TITLE="$(basename "$TITLE" .MP3)"
     # Strip common prefixes: "01 - ", "01_", "01. ", "Track 01 - " etc
-    TITLE="$(echo "$TITLE" | sed -E 's/^[0-9]+[\s]*[-_.\)]\s*//; s/^Track\s*[0-9]+\s*[-_]\s*//i')"
+    # Note: use [[:space:]] not \s for portability in sed -E
+    TITLE="$(echo "$TITLE" | sed -E 's/^[0-9]+[[:space:]]*[-_.)][[:space:]]*//; s/^[Tt]rack[[:space:]]*[0-9]+[[:space:]]*[-_][[:space:]]*//')"
     # If title ended up empty, use original filename
     [[ -z "$TITLE" ]] && TITLE="$(basename "$f" .mp3)"
 
