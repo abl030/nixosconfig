@@ -102,6 +102,21 @@ at all.
 
 Their secret (`secrets/caddy-tailscale.env`) was removed too.
 
+## How the retired system worked (historical)
+
+The rootless stacks ran as user-scope systemd units (`${stackName}.service`),
+deployed via `podman compose up -d --remove-orphans`. Updates went through a
+separate scheduled `*-update.service` that did compose pull/redeploy — **not**
+`podman auto-update`. The reason: `podman auto-update` relies on
+`RawImageName` metadata that the Docker compat path did not populate for
+compose-managed containers, so auto-update silently no-ops. Compose
+pull/redeploy was deterministic and worked. The compose provider was pinned to
+`docker compose` via `PODMAN_COMPOSE_PROVIDER` (so `docker-client` was a
+required runtime dep). Home Manager owned the unit files in
+`~/.config/systemd/user`.
+
+If you ever resurrect any piece of this, those are the gotchas.
+
 ## Recovering a retired stack
 
 If you ever need to bring one back:
