@@ -50,7 +50,7 @@ When asked to bring books from Temp into ABS:
    - The script lives at `/home/abl030/nixosconfig/scripts/mp3-to-m4b.sh` on doc2 (pulled from git). Requires `ffmpeg` and `ffprobe`.
    - After conversion, remove the source MP3 files and keep only the .m4b.
 3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
-4. **Move files**: `mv` source dirs into the library root with clean names. Remove the empty source dir with `rmdir` afterwards.
+4. **Copy files**: `cp` converted m4b (and cover art) into the library root with clean names. Do NOT delete source files from Temp — the user handles that.
 5. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
 6. **Find new items**: search or list recently added items to get their IDs.
 7. **Match metadata**: run `POST /api/items/<id>/match` with `provider: "audible"` for each book. Audible gives best audiobook metadata (cover, narrator, ASIN).
@@ -61,7 +61,7 @@ When asked to bring books from Temp into ABS:
 
 Note: embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2 — no manual cleanup needed.
 
-**Important**: always use `mv` (not `cp`) since source and dest are on the same filesystem. Clean up empty source dirs after moving.
+**Important**: always use `cp` (not `mv`) when bringing files from Temp into the library. The user manages deletion of source files in Temp themselves. Do NOT delete or move source files from Temp — only copy them to the library destination.
 
 ## Common recipes
 
