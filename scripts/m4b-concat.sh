@@ -59,6 +59,7 @@ CHAPTERS_META="$TMPDIR/chapters.txt"
 echo ";FFMETADATA1" > "$CHAPTERS_META"
 
 CUMULATIVE_MS=0
+CHAPTER_COUNT=0
 
 for f in "${AUDIO_FILES[@]}"; do
     # Escape special chars for ffmpeg concat demuxer
@@ -81,11 +82,12 @@ for f in "${AUDIO_FILES[@]}"; do
     TITLE="$(echo "$TITLE" | sed -E 's/^DW[0-9]+[[:space:]]*-[[:space:]]*[^-]+[[:space:]]*-[[:space:]]*[0-9]+[[:space:]]*//')"
     # Strip trailing " (enhanced)" or similar tags
     TITLE="$(echo "$TITLE" | sed -E 's/[[:space:]]*\([^)]*\)[[:space:]]*$//')"
-    # If title is just a number or empty, use "Part N"
-    if [[ -z "$TITLE" ]] || [[ "$TITLE" =~ ^[0-9]+$ ]]; then
-        # Extract the number for "Part N" naming
-        NUM="$(basename "$f" | grep -oE '[0-9]+' | head -1)"
-        TITLE="Part ${NUM:-$((CUMULATIVE_MS > 0 ? 2 : 1))}"
+    # If title is just a number or empty, use "Chapter N"
+    # Use the number itself if available, otherwise use sequential position
+    if [[ -z "$TITLE" ]]; then
+        TITLE="Chapter $((++CHAPTER_COUNT))"
+    elif [[ "$TITLE" =~ ^[0-9]+$ ]]; then
+        TITLE="Chapter $TITLE"
     fi
     # Strip "Opening Credits" / "End Credits" prefix numbers but keep the title
     # (these are valid chapter names, keep as-is)
