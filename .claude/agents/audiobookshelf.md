@@ -43,17 +43,21 @@ All requests below assume those vars + `$AUTH` are set. If the file is missing, 
 When asked to bring books from Temp into ABS:
 
 1. **Inspect source**: `ls -la "/mnt/data/Media/Temp/<dir>"` — understand what's there (single file vs multi-part, cover art, metadata .txt files)
-2. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
-3. **Move files**: `mv` source dirs into the library root with clean names. Remove the empty source dir with `rmdir` afterwards.
-4. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
-5. **Find new items**: search or list recently added items to get their IDs.
-6. **Match metadata**: run `POST /api/items/<id>/match` with `provider: "audible"` for each book. Audible gives best audiobook metadata (cover, narrator, ASIN).
-7. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
-8. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
-9. **Rename files**: rename audio files from ugly `01_Title_Here.mp3` to clean `01 - Title.mp3` format using `mv`.
-10. **Rescan item**: `POST /api/items/<id>/scan` — ABS picks up renamed files, keeps the same item ID and all metadata. Safe because ABS matches by folder path, not individual filenames.
-11. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
-12. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
+2. **Convert to m4b** (if MP3): Use the repo's conversion script on doc2:
+   - **Multiple MP3s**: `ssh doc2 '/path/to/mp3-to-m4b.sh "/mnt/data/Media/Temp/<dir>"'` — concatenates all MP3s into a single m4b with chapter markers derived from filenames. No re-encoding (stream copy).
+   - **Single MP3**: same script handles it — just remuxes the container.
+   - **Already m4b/m4a**: skip this step.
+   - The script is at `scripts/mp3-to-m4b.sh` in the nixosconfig repo. It requires `ffmpeg` and `ffprobe` on the target host.
+   - After conversion, remove the source MP3 files and keep only the .m4b.
+3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
+4. **Move files**: `mv` source dirs into the library root with clean names. Remove the empty source dir with `rmdir` afterwards.
+5. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
+6. **Find new items**: search or list recently added items to get their IDs.
+7. **Match metadata**: run `POST /api/items/<id>/match` with `provider: "audible"` for each book. Audible gives best audiobook metadata (cover, narrator, ASIN).
+8. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
+9. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
+10. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
+11. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
 
 Note: embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2 — no manual cleanup needed.
 
