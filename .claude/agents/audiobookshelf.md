@@ -44,10 +44,10 @@ When asked to bring books from Temp into ABS:
 
 1. **Inspect source**: `ls -la "/mnt/data/Media/Temp/<dir>"` — understand what's there (single file vs multi-part, cover art, metadata .txt files)
 2. **Convert to m4b** (if MP3): Use the repo's conversion script on doc2:
-   - **Multiple MP3s**: `ssh doc2 '/path/to/mp3-to-m4b.sh "/mnt/data/Media/Temp/<dir>"'` — concatenates all MP3s into a single m4b with chapter markers derived from filenames. No re-encoding (stream copy).
+   - **Multiple MP3s**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/mp3-to-m4b.sh "/mnt/data/Media/Temp/<dir>"` — concatenates all MP3s into a single m4b with chapter markers derived from filenames. No re-encoding (stream copy).
    - **Single MP3**: same script handles it — just remuxes the container.
    - **Already m4b/m4a**: skip this step.
-   - The script is at `scripts/mp3-to-m4b.sh` in the nixosconfig repo. It requires `ffmpeg` and `ffprobe` on the target host.
+   - The script lives at `/home/abl030/nixosconfig/scripts/mp3-to-m4b.sh` on doc2 (pulled from git). Requires `ffmpeg` and `ffprobe`.
    - After conversion, remove the source MP3 files and keep only the .m4b.
 3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
 4. **Move files**: `mv` source dirs into the library root with clean names. Remove the empty source dir with `rmdir` afterwards.
