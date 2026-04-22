@@ -122,6 +122,9 @@
     #   ${pkgs.xorg.xrandr}/bin/xrandr --output DP-3 --mode 2560x1440 --primary --pos 1080x0
     #   ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-3 --mode 1920x1080 --pos 3640x0
     # '';
+
+    # See docs/wiki/services/teamviewer.md
+    teamviewer.enable = true;
   };
 
   virtualisation.docker.enable = false;

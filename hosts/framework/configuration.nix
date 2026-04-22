@@ -91,6 +91,9 @@
     };
 
     openssh.enable = true;
+
+    # See docs/wiki/services/teamviewer.md
+    teamviewer.enable = true;
   };
 
   hardware.wirelessRegulatoryDatabase = true;
