@@ -60,15 +60,20 @@ When asked to bring books from Temp into ABS:
    5. For files with descriptive names ("Chapter One - The Angel.m4b"), those names should appear as chapter titles
    
    **Use your judgement.** The scripts handle common cases but can't anticipate every filename convention. If the output looks wrong, don't blindly import it — fix the chapter metadata via the ABS API (`POST /api/items/<id>/chapters`) after import.
+   If the rip stripped story names entirely but the matched ABS item has an ASIN, query Audnexus chapters for that ASIN and use that as the source of truth for chapter repair. In practice this is the fastest way to recover Audible chapter names that were lost during AAX -> MP3/M4B conversion.
 3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
 4. **Copy files**: `cp` converted m4b (and cover art) into the library root with clean names. Do NOT delete source files from Temp — the user handles that.
 5. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
 6. **Find new items**: search or list recently added items to get their IDs.
 7. **Match metadata**: run `POST /api/items/<id>/match` with `provider: "audible"` for each book. Audible gives best audiobook metadata (cover, narrator, ASIN).
 8. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
-9. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
-10. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
-11. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
+9. **Repair chapters if needed**: if the imported item has generic chapters (`Chapter 1`, `001`, etc.), decide whether to:
+   - keep the existing boundaries and only replace titles, or
+   - replace the boundaries entirely with the official Audible/Audnexus offsets if the user wants precise story skip points.
+   Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
+10. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
+11. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
+12. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
 
 Note: embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2 — no manual cleanup needed.
 
@@ -174,6 +179,69 @@ curl -s -X POST -H "$AUTH" -F "cover=@/path/to/cover.jpg" \
 curl -s -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>?expanded=1" | jq '.media.metadata'
 ```
 
+**Recover stripped chapter titles from Audnexus** (best when the rip preserved timing but lost chapter names):
+
+```bash
+# 1. Get the matched ASIN from ABS
+curl -s -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/items/<ITEM_ID>?expanded=1" \
+  | jq -r '.media.metadata.asin'
+
+# 2. Fetch Audible chapter data from Audnexus
+python - <<'PY'
+from urllib.request import Request, urlopen
+import json
+asin = "0241440807"
+req = Request(f"https://api.audnex.us/books/{asin}/chapters", headers={"User-Agent": "Mozilla/5.0"})
+data = json.loads(urlopen(req, timeout=20).read().decode())
+for ch in data["chapters"]:
+    print(f'{ch["startOffsetSec"]}\t{ch["lengthMs"]/1000:.3f}\t{ch["title"]}')
+PY
+```
+
+If Audnexus chapter count roughly matches the current file-based chapters, it is usually safest to keep ABS's current `start`/`end` times and only replace the titles. If the user wants chapter skip points to land on the real story starts, replace the boundaries with the Audnexus offsets instead.
+
+**Update ABS chapters manually**:
+
+```bash
+python - <<'PY'
+from urllib.request import Request, urlopen
+import json, os
+
+base = os.environ["AUDIOBOOKSHELF_URL"]
+token = os.environ["AUDIOBOOKSHELF_TOKEN"]
+item = "<ITEM_ID>"
+auth = {"Authorization": f"Bearer {token}"}
+
+with urlopen(Request(f"{base}/api/items/{item}?expanded=1", headers=auth), timeout=30) as r:
+    data = json.load(r)
+
+chapters = data["media"]["chapters"]
+titles = [
+    "Chapter title 1",
+    "Chapter title 2",
+]
+
+for ch, title in zip(chapters, titles):
+    ch["title"] = title
+
+payload = json.dumps({"chapters": chapters}).encode()
+req = Request(
+    f"{base}/api/items/{item}/chapters",
+    data=payload,
+    headers={**auth, "Content-Type": "application/json"},
+    method="POST",
+)
+with urlopen(req, timeout=30) as r:
+    print(r.read().decode())
+PY
+```
+
+Always re-run embed after chapter edits so the M4B itself carries the corrected chapter names:
+
+```bash
+curl -s -X POST -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/tools/item/<ITEM_ID>/embed-metadata"
+```
+
 **Match-search without applying** (preview what Audible would return):
 
 ```bash
@@ -181,6 +249,8 @@ curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"provider":"audible.co.uk","title":"...","author":"..."}' \
   "$AUDIOBOOKSHELF_URL/api/search/books" | jq '.[0:3]'
 ```
+
+Note: this endpoint returned `404` on the current ABS version during live testing in April 2026. Prefer matching the item directly, or use Audnexus by ASIN when you need chapter data.
 
 **Embed metadata into audio files** (writes ABS metadata back into ID3/m4b tags, backs up originals):
 
@@ -233,6 +303,9 @@ Check if an author is matched by looking for `imagePath` in `GET /api/authors/{i
 - Book matches sometimes return garbage descriptions ("Bayside." etc.) from Audible scraping. Always eyeball the `description` after `/match` and rewrite via `PATCH /media` if needed.
 - Series sequence comes from `#N - Title` folder naming (`folderStructure` precedence). If the user has `Author/Series Name/3 - Book/` layout, sequence is auto-parsed as `3`.
 - Audible Children's Collection packs embed the collection title in every volume's m4b tag; always `PATCH /media` the title after matching.
+- Some rippers preserve chapter timing but strip chapter names down to `001`, `Chapter 1`, etc. If the book has a valid ASIN after match, try `https://api.audnex.us/books/<ASIN>/chapters` before doing any manual chapter naming from scratch.
+- Audnexus chapter data can be richer than ABS's stored narrator field. A short top-billed narrator list on the item does not automatically mean the match is wrong if the title, ASIN, ISBN, runtime, and cover all line up.
+- `POST /api/search/books` appears stale on the current ABS version and may return `404`.
 
 ## Destructive actions — confirm first
 
