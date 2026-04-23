@@ -109,6 +109,15 @@ ffprobe -v error -show_streams -of compact=p=0:nk=1 <book.m4b> | sed -n '1,8p'
 ```
 
    Expect an `mjpeg` video stream when cover art is embedded. If ABS serves the new cover but the single-file `.m4b` still has no embedded artwork stream, use `AtomicParsley` as a fallback to attach the local `cover.jpg`.
+   Do not assume `embed-metadata` really touched the source files just because the API returned `OK`. On the current setup, the library is an NFS export from tower with `all_squash,anonuid=99,anongid=100`, so doc2 can only write when the library tree itself is owned/grouped compatibly (`99:100` / `nobody:users`). If the subtree drifted to `root:root`, ABS will happily update its database while the on-disk `.m4b` tags remain stale.
+   If you suspect that, verify from doc2 as the `audiobookshelf` user before trusting any embed result:
+
+```bash
+sudo -u audiobookshelf touch /mnt/data/Media/Books/Audiobooks/<BookDir>/.abs-write-test && rm /mnt/data/Media/Books/Audiobooks/<BookDir>/.abs-write-test
+sudo -u audiobookshelf dd if=/dev/zero of="<book.m4b>" bs=1 count=0 conv=notrunc status=none
+```
+
+   If either command returns `Permission denied`, fix the storage-side ownership/perms first on tower, then rerun ABS embed. For this export model, the intended state is `uid=99 gid=100`, directories `2775`, files `664`.
 12. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
 13. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. In the final pass, ALWAYS compare the matched edition runtime to the local file/runtime one more time and flag or fix discrepancies before reporting success. Report results to the user.
 
