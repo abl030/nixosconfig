@@ -61,19 +61,36 @@ When asked to bring books from Temp into ABS:
    
    **Use your judgement.** The scripts handle common cases but can't anticipate every filename convention. If the output looks wrong, don't blindly import it — fix the chapter metadata via the ABS API (`POST /api/items/<id>/chapters`) after import.
    If the rip stripped story names entirely but the matched ABS item has an ASIN, query Audnexus chapters for that ASIN and use that as the source of truth for chapter repair. In practice this is the fastest way to recover Audible chapter names that were lost during AAX -> MP3/M4B conversion.
+
+   **CRITICAL — verify runtime/timeline before import:**
+   Run the local audit script against every freshly built output before it goes into the library:
+
+```bash
+python /home/abl030/nixosconfig/scripts/audio-silence-audit.py --only-suspicious <output.m4b>
+```
+
+   If it reports a packet gap, large header/playable duration drift, or a long decoded silence span, stop and investigate before importing. The common failure mode is not true audio silence but a bad concat timeline that makes the file appear much longer than its playable audio.
 3. **Plan folder structure**: determine Author, Series (if applicable), and per-book folders. Use the `N - Title` naming convention for series entries.
 4. **Copy files**: `cp` converted m4b (and cover art) into the library root with clean names. Do NOT delete source files from Temp — the user handles that.
 5. **Trigger scan**: `POST /api/libraries/$AUDIOBOOKSHELF_LIBRARY_ID/scan` — wait a few seconds for async scan to complete.
 6. **Find new items**: search or list recently added items to get their IDs.
 7. **Match metadata**: run `POST /api/items/<id>/match` with `provider: "audible"` for each book. Audible gives best audiobook metadata (cover, narrator, ASIN).
-8. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
-9. **Repair chapters if needed**: if the imported item has generic chapters (`Chapter 1`, `001`, etc.), decide whether to:
+8. **Compare runtime against the match**: if the item has an ASIN after matching, fetch the Audnexus/Audible runtime and compare it to ABS's current `media.duration`. Treat a mismatch larger than about `120s` or `2%` as suspicious until explained.
+   Use the local audit script if you need to distinguish a true file-length problem from bogus container timestamps:
+
+```bash
+python /home/abl030/nixosconfig/scripts/audio-silence-audit.py --skip-rms --only-suspicious <output.m4b>
+```
+
+   Do not wave this through just because the narrator or title looks right. If runtime and timeline disagree with the matched edition, flag it and fix or rebuild before finalizing the import.
+9. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
+10. **Repair chapters if needed**: if the imported item has generic chapters (`Chapter 1`, `001`, etc.), decide whether to:
    - keep the existing boundaries and only replace titles, or
    - replace the boundaries entirely with the official Audible/Audnexus offsets if the user wants precise story skip points.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
-10. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
-11. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
-12. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. Report results to the user.
+11. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
+12. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
+13. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. In the final pass, ALWAYS compare the matched edition runtime to the local file/runtime one more time and flag or fix discrepancies before reporting success. Report results to the user.
 
 Note: embed backups at `/var/lib/audiobookshelf/metadata/cache/items/` are cleaned up automatically by a weekly systemd timer on doc2 — no manual cleanup needed.
 
