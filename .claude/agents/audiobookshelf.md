@@ -103,10 +103,12 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    Search for chapter names in this order:
    - **Audnexus by ASIN first** when the match is trusted and the current chapter count roughly lines up. This is the cleanest source for Audible-derived books.
    - **Then manually inspect web TOC pages** when Audnexus is missing, wrong, or too coarse. In practice, Google Books often exposes a usable `Contents` block in the normal HTML even when the accessible view is blocked. Use `curl` or the browser to read the page HTML, look for `toc_entry` blocks, and extract the headings by hand.
+   - **Then look for plain-text/public-domain editions** when the book is old enough that a clean text source exists. In practice, FadedPage is often better than Google Books for classic children's series because the downloaded `.txt` file usually has a readable `Contents` section with chapter number, title, and page number in plain text.
    - **Then use retailer/publisher track lists** (Tonies, Yoto, publisher preview pages, etc.) when they clearly match the edition and runtime.
    Do not try to fully automate this. The markup is inconsistent and often needs judgement:
    - clean OCR noise, page numbers, duplicated fragments, and `Copyright` / `If you liked this...` junk by hand
    - if Google Books returns headings out of order, use the embedded page numbers and the surrounding HTML to put them back in reading order
+   - if a plain-text source gives you a clean numbered TOC, prefer that over messy HTML fragments
    - if a source only gives you a partial or ambiguous TOC, stop rather than forcing bad names into ABS
    - if the local file already has many fine-grained chapters, it is usually a rename job; if it only has a few coarse parts, do not force a full chapter TOC onto those boundaries
    For Enid Blyton specifically, treat `St. Clare's`, `Secret Seven`, and `Find-Outers` as likely rename-only candidates, while many `Famous Five` releases are only coarse part splits and need boundary work before real chapter naming makes sense.
@@ -264,6 +266,7 @@ Use judgement, not a brittle scraper. The goal is to surface likely chapter head
 
 Good source order:
 - Google Books `books/about` pages with a visible `Contents` block
+- Plain-text/public-domain editions such as FadedPage when a clean text transcription exists
 - Publisher or retailer track lists that match the edition/runtime
 - Other preview pages only if the chapter count/order clearly lines up with the local file
 
@@ -281,6 +284,15 @@ When you use Google Books TOCs:
 - it is normal to reorder entries manually if the page clearly shows them out of sequence
 - if the local audio already has correct chapter boundaries, only replace titles
 - if the local audio has 3-8 coarse parts for a full novel, do not pretend those are real chapter boundaries just because you found a book TOC
+
+When a plain-text edition exists, it is often an easier source of truth than HTML. For example, classic Enid Blyton books on FadedPage usually expose a plain `CONTENTS` block in the downloaded `.txt` file:
+
+```bash
+curl -A 'Mozilla/5.0' -Ls 'https://www.fadedpage.com/books/<BOOK_ID>/<BOOK_ID>.txt' \
+  | sed -n '/CONTENTS/,/CHAPTER ONE/p'
+```
+
+Those text files often preserve chapter number, title, and page number cleanly enough that you can lift the headings manually with minimal cleanup. This worked well for the original `Secret Seven` books.
 
 This is intentionally an LLM judgement task. "Squint at the HTML, clean it up, and decide whether it is safe" is the correct workflow here.
 
@@ -325,6 +337,15 @@ Always re-run embed after chapter edits so the M4B itself carries the corrected 
 ```bash
 curl -s -X POST -H "$AUTH" "$AUDIOBOOKSHELF_URL/api/tools/item/<ITEM_ID>/embed-metadata"
 ```
+
+Then verify the file itself, not just the ABS API view:
+
+```bash
+ffprobe -v error -print_format json -show_chapters <book.m4b> \
+  | jq -r '.chapters[0].tags.title, .chapters[-1].tags.title'
+```
+
+ABS can update the database successfully while one file in a batch still keeps stale chapter tags on disk. If the ABS item looks correct but the `.m4b` still shows generic chapter names, rerun `embed-metadata` for that specific item and verify again.
 
 **Match-search without applying** (preview what Audible would return):
 
