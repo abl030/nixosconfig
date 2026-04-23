@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776816577,
-        "narHash": "sha256-2UjmJWKYdJbJx2J+fWz5+KAVqcO5PRCwQEU4uhhjAsI=",
+        "lastModified": 1776913134,
+        "narHash": "sha256-/9vfRJTDh9Y4Duo862rzDqBIN7cEFTsAffVZ/UvxVas=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "b80b5551dfc7bf94fd653a882f331c454d2092c6",
+        "rev": "20e4b82d08d97bf45d78f32c31eb3509db1c2f2a",
         "type": "github"
       },
       "original": {
@@ -45,11 +45,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776799156,
-        "narHash": "sha256-qaMsAUfm5LMHJd/csXmp6xdESYFkyDKCjlx9QdxynVo=",
+        "lastModified": 1776913907,
+        "narHash": "sha256-WZ3VViGjZhQA85NhWFchyYLdXHt8T3WYP1Kwu7RsIPI=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "0c2a4f7df15f9f9f304a5aaa82660b42e177a422",
+        "rev": "63698f33d39a9e1d66657d7f1c7e57b293189ec4",
         "type": "github"
       },
       "original": {
@@ -300,11 +300,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1776865327,
-        "narHash": "sha256-C+GGyrp4/L4ak8OOHnZ5J6H4EpuWc1ZmGX0W1DFYqm8=",
+        "lastModified": 1776950104,
+        "narHash": "sha256-zFGblA5NgGyLclffx0kPAnumQzZD6bLXDNtt9OhXGXs=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "d806228fc00b1044894ff308a7229d2b75d2ad85",
+        "rev": "69023c2577d35f98844e23fb63763757460fc3d7",
         "type": "gitlab"
       },
       "original": {
@@ -336,11 +336,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776777932,
-        "narHash": "sha256-0R3Yow/NzSeVGUke5tL7CCkqmss4Vmi6BbV6idHzq/8=",
+        "lastModified": 1776950293,
+        "narHash": "sha256-t6KMARLILjPuTBSRoYanUxV+FU50IFZ7L5XVdOcdtaY=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "5d5640599a0050b994330328b9fd45709c909720",
+        "rev": "6837e0d6c5eda81fd26308489799fbf83a160465",
         "type": "github"
       },
       "original": {
@@ -411,11 +411,11 @@
     "musicbrainz-docker": {
       "flake": false,
       "locked": {
-        "lastModified": 1775774054,
-        "narHash": "sha256-xxAYGmri+vccOnBc939V0tT1gmRY64b6/JKiIduaVoc=",
+        "lastModified": 1776881045,
+        "narHash": "sha256-sFm1zhVViAExTAuwC3KxEvKKhnbUXw75XUJ4mAfYqdk=",
         "owner": "metabrainz",
         "repo": "musicbrainz-docker",
-        "rev": "5489387f5d38780392b0bb4fbba4dc25d9a3d245",
+        "rev": "b36ea4b33c6efa071236d70efcc06527e8b40be4",
         "type": "github"
       },
       "original": {
@@ -434,11 +434,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776771139,
-        "narHash": "sha256-/Q2RW1kkt7AC7sSwScLLSJ706yQrPR3yThifY17EiOE=",
+        "lastModified": 1776892400,
+        "narHash": "sha256-US4sCiEDTA7PyKZCX1GUObnGBN6tivSwZ9EY86jI+eE=",
         "owner": "matthart1983",
         "repo": "netwatch",
-        "rev": "b92f0be2cf485244e25974d51b0c455b728c7920",
+        "rev": "bc5c5186528793ce04678b358327e324e20e5c35",
         "type": "github"
       },
       "original": {
@@ -471,11 +471,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1776692876,
-        "narHash": "sha256-7Q05rUgwbkJnjxIJyi8bHUG+XnyZqLxFJz7c8RncpeU=",
+        "lastModified": 1776910211,
+        "narHash": "sha256-0ku3gW8bZ9TTpEU2fQw86oU6ZLT2vF6pacF+cLaf7VY=",
         "owner": "nix-community",
         "repo": "NixOS-WSL",
-        "rev": "51b302c28dbf904a5c341be005eebe0779cf4f16",
+        "rev": "4e6cad241baa0115a7aae8c55b04c166da4997c9",
         "type": "github"
       },
       "original": {
@@ -734,11 +734,11 @@
         "systems": "systems_6"
       },
       "locked": {
-        "lastModified": 1776578704,
-        "narHash": "sha256-4+JHYCweZ/SSrMcu2nJ5gc7gop2scBk0JIIfaUKuTaQ=",
+        "lastModified": 1776894239,
+        "narHash": "sha256-Nse4cQgvcAcxTOevHGDvvQyJ9znCAkKFJxHEVEuHNOM=",
         "owner": "Gerg-L",
         "repo": "spicetify-nix",
-        "rev": "73f6d24b4f5bdacc3b41ddcf9965bef2781f97dd",
+        "rev": "de18e77f3c18dc568ca600ba8d72727b7829c798",
         "type": "github"
       },
       "original": {
