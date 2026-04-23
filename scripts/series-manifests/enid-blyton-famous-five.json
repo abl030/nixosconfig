@@ -1,0 +1,32 @@
+{
+  "slug": "famous-five",
+  "name": "Famous Five",
+  "series_root": "/mnt/data/Media/Books/Audiobooks/Enid Blyton/Famous Five",
+  "toc_source": {
+    "type": "fadedpage",
+    "author": "Blyton, Enid"
+  },
+  "books": [
+    {"number": 1, "title": "Five on a Treasure Island", "folder": "1 - Five on a Treasure Island", "filename": "1 - Five on a Treasure Island.m4b"},
+    {"number": 2, "title": "Five Go Adventuring Again", "folder": "2 - Five Go Adventuring Again", "filename": "2 - Five Go Adventuring Again.m4b"},
+    {"number": 3, "title": "Five Run Away Together", "folder": "3 - Five Run Away Together", "filename": "3 - Five Run Away Together.m4b"},
+    {"number": 4, "title": "Five Go to Smuggler's Top", "folder": "4 - Five Go to Smugglers Top", "filename": "4 - Five Go to Smugglers Top.m4b"},
+    {"number": 5, "title": "Five Go Off in a Caravan", "folder": "5 - Five Go Off in a Caravan", "filename": "5 - Five Go Off in a Caravan.m4b"},
+    {"number": 6, "title": "Five on Kirrin Island Again", "folder": "6 - Five on Kirrin Island Again", "filename": "6 - Five on Kirrin Island Again.m4b"},
+    {"number": 7, "title": "Five Go Off to Camp", "folder": "7 - Five Go Off to Camp", "filename": "7 - Five Go Off to Camp.m4b"},
+    {"number": 8, "title": "Five Get into Trouble", "folder": "8 - Five Get into Trouble", "filename": "8 - Five Get into Trouble.m4b"},
+    {"number": 9, "title": "Five Fall into Adventure", "folder": "9 - Five Fall into Adventure", "filename": "9 - Five Fall into Adventure.m4b"},
+    {"number": 10, "title": "Five on a Hike Together", "folder": "10 - Five on a Hike Together", "filename": "10 - Five on a Hike Together.m4b"},
+    {"number": 11, "title": "Five Have a Wonderful Time", "folder": "11 - Five Have a Wonderful Time", "filename": "11 - Five Have a Wonderful Time.m4b"},
+    {"number": 12, "title": "Five Go Down to the Sea", "folder": "12 - Five Go Down to the Sea", "filename": "12 - Five Go Down to the Sea.m4b"},
+    {"number": 13, "title": "Five Go to Mystery Moor", "folder": "13 - Five Go to Mystery Moor", "filename": "13 - Five Go to Mystery Moor.m4b"},
+    {"number": 14, "title": "Five Have Plenty of Fun", "folder": "14 - Five Have Plenty of Fun", "filename": "14 - Five Have Plenty of Fun.m4b"},
+    {"number": 15, "title": "Five on a Secret Trail", "folder": "15 - Five on a Secret Trail", "filename": "15 - Five on a Secret Trail.m4b"},
+    {"number": 16, "title": "Five Go to Billycock Hill", "folder": "16 - Five Go to Billycock Hill", "filename": "16 - Five Go to Billycock Hill.m4b"},
+    {"number": 17, "title": "Five Get into a Fix", "folder": "17 - Five Get into a Fix", "filename": "17 - Five Get into a Fix.m4b"},
+    {"number": 18, "title": "Five on Finniston Farm", "folder": "18 - Five on Finniston Farm", "filename": "18 - Five on Finniston Farm.m4b"},
+    {"number": 19, "title": "Five Go to Demon's Rocks", "folder": "19 - Five Go to Demons Rocks", "filename": "19 - Five Go to Demons Rocks.m4b"},
+    {"number": 20, "title": "Five Have a Mystery to Solve", "folder": "20 - Five Have a Mystery to Solve", "filename": "20 - Five Have a Mystery to Solve.m4b"},
+    {"number": 21, "title": "Five Are Together Again", "folder": "21 - Five Are Together Again", "filename": "21 - Five Are Together Again.m4b"}
+  ]
+}
