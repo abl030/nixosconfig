@@ -718,11 +718,15 @@ def wait_for_abs_chapter_titles(item_id: str, chapters: list[dict], timeout_seco
     )
 
 
-def verify_file_titles(book: Book) -> tuple[str, str]:
-    titles = existing_titles(book.file_path)
-    if not titles:
-        raise RuntimeError(f"No chapters found in {book.file_path}")
-    return titles[0], titles[-1]
+def verify_file_titles(book: Book, timeout_seconds: float = 20.0) -> tuple[str, str]:
+    deadline = time.time() + timeout_seconds
+    while True:
+        titles = existing_titles(book.file_path)
+        if titles:
+            return titles[0], titles[-1]
+        if time.time() >= deadline:
+            raise RuntimeError(f"No chapters found in {book.file_path}")
+        time.sleep(1)
 
 
 def analyze_book(
