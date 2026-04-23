@@ -250,23 +250,52 @@ def parse_toc(text: str) -> list[str]:
         raise RuntimeError("Could not find CONTENTS block")
     tail = text[start_match.start() :]
     end_match = re.search(r"(?im)^\s*chapter[ \t]+(?:one|i|1)\b", tail)
-    if not end_match:
-        raise RuntimeError("Could not find first chapter marker after CONTENTS")
-    block = tail[: end_match.start()]
-    titles: list[tuple[int, str]] = []
-    for line in block.splitlines():
-        match = re.match(r"^\s*(\d+)\.?\s+(.+?)\s+(?:_?p\.?_?\s*)?\d+\s*$", line, flags=re.IGNORECASE)
-        if not match:
+    if end_match:
+        block = tail[: end_match.start()]
+        titles: list[tuple[int, str]] = []
+        for line in block.splitlines():
+            match = re.match(r"^\s*(\d+)\.?\s+(.+?)\s+(?:_?p\.?_?\s*)?\d+\s*$", line, flags=re.IGNORECASE)
+            if not match:
+                continue
+            number = int(match.group(1))
+            raw_title = clean_toc_title(match.group(2).strip())
+            titles.append((number, title_case(raw_title)))
+        if titles:
+            numbers = [number for number, _ in titles]
+            if numbers != list(range(1, len(numbers) + 1)):
+                raise RuntimeError(f"Unexpected chapter numbering in TOC: {numbers}")
+            return [title for _, title in titles]
+
+    lines = tail.replace("\r", "").splitlines()
+    while lines and not re.match(
+        r"^\s*(?:contents|the chapters|c\s+o\s+n\s+t\s+e\s+n\s+t\s+s)\s*$",
+        lines[0],
+        flags=re.IGNORECASE,
+    ):
+        lines.pop(0)
+    if lines:
+        lines = lines[1:]
+    titles: list[str] = []
+    started = False
+    blank_lines = 0
+    for line in lines:
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if not stripped:
+            blank_lines += 1
+            if started and blank_lines >= 2:
+                break
             continue
-        number = int(match.group(1))
-        raw_title = clean_toc_title(match.group(2).strip())
-        titles.append((number, title_case(raw_title)))
-    if not titles:
-        raise RuntimeError("No chapter titles parsed from CONTENTS")
-    numbers = [number for number, _ in titles]
-    if numbers != list(range(1, len(numbers) + 1)):
-        raise RuntimeError(f"Unexpected chapter numbering in TOC: {numbers}")
-    return [title for _, title in titles]
+        blank_lines = 0
+        if indent >= 10 and len(stripped) <= 80 and not stripped.startswith("_"):
+            started = True
+            titles.append(title_case(clean_toc_title(stripped)))
+            continue
+        if started:
+            break
+    if titles:
+        return titles
+    raise RuntimeError("No chapter titles parsed from CONTENTS")
 
 
 def parse_heading_titles(text: str, *, book_title: str) -> list[str]:

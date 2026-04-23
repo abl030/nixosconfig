@@ -1,0 +1,117 @@
+{
+  "slug": "find-outers",
+  "name": "The Find-Outers",
+  "series_root": "/mnt/data/Media/Books/Audiobooks/Enid Blyton/The Find-Outers",
+  "toc_source": {
+    "type": "fadedpage",
+    "author": "Blyton, Enid"
+  },
+  "books": [
+    {
+      "number": 1,
+      "title": "The Mystery of the Burnt Cottage",
+      "folder": "1 - The Mystery of the Burnt Cottage",
+      "filename": "1 - The Mystery of the Burnt Cottage.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 2,
+      "title": "The Mystery of the Disappearing Cat",
+      "folder": "2 - The Mystery of the Disappearing Cat",
+      "filename": "2 - The Mystery of the Disappearing Cat.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 3,
+      "title": "The Mystery of the Secret Room",
+      "folder": "3 - The Mystery of the Secret Room",
+      "filename": "3 - The Mystery of the Secret Room.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 4,
+      "title": "The Mystery of the Spiteful Letters",
+      "folder": "4 - The Mystery of the Spiteful Letters",
+      "filename": "4 - The Mystery of the Spiteful Letters.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 5,
+      "title": "The Mystery of the Missing Necklace",
+      "folder": "5 - The Mystery of the Missing Necklace",
+      "filename": "5 - The Mystery of the Missing Necklace.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 6,
+      "title": "The Mystery of the Hidden House",
+      "folder": "6 - The Mystery of the Hidden House",
+      "filename": "6 - The Mystery of the Hidden House.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 7,
+      "title": "The Mystery of the Pantomime Cat",
+      "folder": "7 - The Mystery of the Pantomime Cat",
+      "filename": "7 - The Mystery of the Pantomime Cat.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 8,
+      "title": "The Mystery of the Invisible Thief",
+      "folder": "8 - The Mystery of the Invisible Thief",
+      "filename": "8 - The Mystery of the Invisible Thief.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 9,
+      "title": "The Mystery of the Vanished Prince",
+      "folder": "9 - The Mystery of the Vanished Prince",
+      "filename": "9 - The Mystery of the Vanished Prince.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 10,
+      "title": "The Mystery of the Strange Bundle",
+      "folder": "10 - The Mystery of the Strange Bundle",
+      "filename": "10 - The Mystery of the Strange Bundle.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 11,
+      "title": "The Mystery of Holly Lane",
+      "folder": "11 - The Mystery of Holly Lane",
+      "filename": "11 - The Mystery of Holly Lane.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 12,
+      "title": "The Mystery of Tally-Ho Cottage",
+      "folder": "12 - The Mystery of Tally-Ho Cottage",
+      "filename": "12 - The Mystery of Tally-Ho Cottage.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 13,
+      "title": "The Mystery of the Missing Man",
+      "folder": "13 - The Mystery of the Missing Man",
+      "filename": "13 - The Mystery of the Missing Man.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 14,
+      "title": "The Mystery of the Strange Messages",
+      "folder": "14 - The Mystery of the Strange Messages",
+      "filename": "14 - The Mystery of the Strange Messages.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 15,
+      "title": "The Mystery of Banshee Towers",
+      "folder": "15 - The Mystery of Banshee Towers",
+      "filename": "15 - The Mystery of Banshee Towers.m4b",
+      "search_title": "The Mystery of the Banshee Towers",
+      "boundary_source": "existing"
+    }
+  ]
+}
