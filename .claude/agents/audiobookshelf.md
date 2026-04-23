@@ -356,6 +356,7 @@ Hard stop rule:
 - if the exploratory pass does not surface real spoken chapter starts in order, stop and leave the book alone
 - do not assign boundaries just because the pause count is "close enough" to the printed TOC count
 - a clean title source plus coarse pauses is not enough on its own; `First Term at Malory Towers` looked promising by count, but the pauses were scene/narrative breaks rather than spoken chapter starts
+- if you already have a good full transcript plus a matching ebook or text, stop doing more silence work and use the `audiobook-chapter-recovery` skill instead
 
 After you have the accepted starts, build a fresh chapter list from those start offsets plus the final file duration. Then write that list into ABS and re-embed metadata. Always verify the resulting chapter count and first/last titles in both ABS and `ffprobe` before moving on.
 
