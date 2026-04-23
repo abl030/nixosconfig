@@ -22,6 +22,30 @@ set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# Decode-time is slower than ffprobe's container duration, but MP3 VBR headers
+# can lie badly enough to create huge concat timestamp gaps. We need the actual
+# playable duration here, not the advertised one.
+decode_duration_s() {
+    local file="$1"
+    local time_hms
+
+    time_hms="$(
+        ffmpeg -hide_banner -i "$file" -map 0:a:0 -f null - 2>&1 \
+            | sed -n 's/.*time=\([0-9:.]*\).*/\1/p' \
+            | tail -n 1
+    )"
+
+    [[ -n "$time_hms" ]] || die "Could not determine decoded duration for $file"
+
+    awk -v t="$time_hms" 'BEGIN {
+        split(t, a, ":")
+        if (length(a) != 3) {
+            exit 1
+        }
+        printf "%.3f\n", (a[1] * 3600) + (a[2] * 60) + a[3]
+    }' || die "Could not parse decoded duration for $file: $time_hms"
+}
+
 # --- Args ---
 [[ $# -lt 1 ]] && die "Usage: $0 <input-dir> [output.m4b]"
 
@@ -65,8 +89,10 @@ for f in "${MP3_FILES[@]}"; do
     escaped="$(echo "$f" | sed "s/'/'\\\\''/g")"
     echo "file '$escaped'" >> "$CONCAT_LIST"
 
-    # Get duration in milliseconds
-    DURATION_S="$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$f")"
+    # Get actual decoded duration. Using container metadata here can produce
+    # wildly wrong timestamps when VBR/Xing headers are broken.
+    DURATION_S="$(decode_duration_s "$f")"
+    printf 'duration %s\n' "$DURATION_S" >> "$CONCAT_LIST"
     DURATION_MS="$(echo "$DURATION_S * 1000" | bc | cut -d. -f1)"
 
     # Chapter title from filename (strip path, extension, leading track numbers)
