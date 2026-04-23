@@ -206,7 +206,12 @@ def title_case(raw: str) -> str:
         if token in MINOR_WORDS and 1 < word_index < word_total and prev_token not in {"-", "—", ":", "/", "!", "?"}:
             pieces.append(token)
         else:
-            pieces.append(token[0].upper() + token[1:])
+            match = re.search(r"[A-Za-z0-9]", token)
+            if not match:
+                pieces.append(token)
+            else:
+                idx = match.start()
+                pieces.append(token[:idx] + token[idx].upper() + token[idx + 1 :])
         prev_token = token
     result = "".join(pieces)
     result = re.sub(r"\b([A-Z][A-Za-z]+)'S\b", r"\1's", result)
@@ -253,7 +258,19 @@ def parse_toc(text: str) -> list[str]:
     if end_match:
         block = tail[: end_match.start()]
         titles: list[tuple[int, str]] = []
+        pending_title_line = False
         for line in block.splitlines():
+            chapter_line = re.match(r"^\s*_?\s*chapter\s+(\d+)\s*_?\s*$", line, flags=re.IGNORECASE)
+            if chapter_line:
+                pending_title_line = True
+                continue
+            if pending_title_line:
+                match = re.match(r"^\s*(.+?)\s+\d+\s*$", line)
+                if match:
+                    raw_title = clean_toc_title(match.group(1).strip())
+                    titles.append((len(titles) + 1, title_case(raw_title)))
+                    pending_title_line = False
+                    continue
             match = re.match(r"^\s*(\d+)\.?\s+(.+?)\s+(?:_?p\.?_?\s*)?\d+\s*$", line, flags=re.IGNORECASE)
             if not match:
                 continue

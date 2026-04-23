@@ -1,0 +1,135 @@
+{
+  "slug": "adventure-series",
+  "name": "The Adventure Series",
+  "series_root": "/mnt/data/Media/Books/Audiobooks/Enid Blyton/The Adventure Series",
+  "toc_source": {
+    "type": "fadedpage",
+    "author": "Blyton, Enid"
+  },
+  "books": [
+    {
+      "number": 1,
+      "title": "The Island of Adventure",
+      "folder": "1 - The Island of Adventure",
+      "filename": "1 - The Island of Adventure.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 2,
+      "title": "The Castle of Adventure",
+      "folder": "2 - The Castle of Adventure",
+      "filename": "2 - The Castle of Adventure.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 3,
+      "title": "The Valley of Adventure",
+      "folder": "3 - The Valley of Adventure",
+      "filename": "3 - The Valley of Adventure.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 4,
+      "title": "The Sea of Adventure",
+      "folder": "4 - The Sea of Adventure",
+      "filename": "4 - The Sea of Adventure.m4b",
+      "boundary_source": "existing",
+      "chapter_titles": [
+        "Opening Credits",
+        "No Governess, Thank You!",
+        "A Glorious Idea",
+        "Very Mysterious",
+        "A Visit from Bill—And a Great Idea",
+        "Exciting Plans",
+        "Travelling Far",
+        "On the Sea at Last",
+        "The Island of Birds",
+        "Hurrah for Puffin Island!",
+        "A Little Exploring",
+        "Huffin and Puffin",
+        "Bill Goes off on His Own",
+        "What Happened in the Night?",
+        "A Few Plans",
+        "A Really Terrible Storm",
+        "Next Day",
+        "A Boat, a Boat!",
+        "The Enemy—And Kiki",
+        "Someone Else Comes to the Island",
+        "Mr. Horace Tipperlong Gets a Shock",
+        "Horace Does Not Like Puffin Island",
+        "The Enemy",
+        "The Secret Lagoon",
+        "An Amazing Discovery",
+        "Another Surprise",
+        "Off to the Enemy's Island",
+        "Escape",
+        "A Night of Talking",
+        "Bill Makes a Grand Find",
+        "Ahoy There! Show Yourselves!",
+        "Over the Sea of Adventure"
+      ]
+    },
+    {
+      "number": 5,
+      "title": "The Mountain of Adventure",
+      "folder": "5 - The Mountain of Adventure",
+      "filename": "5 - The Mountain of Adventure.m4b",
+      "boundary_source": "existing",
+      "chapter_titles": [
+        "Opening Credits",
+        "All Set for a Summer Holiday",
+        "At the Farm-House",
+        "The First Morning",
+        "Up on the Mountain-Side",
+        "Arrival of the Donkeys",
+        "Off to the Vale of Butterflies",
+        "On the Way",
+        "First Night in Camp",
+        "A Different World",
+        "A Disturbing Night",
+        "A Strange Happening",
+        "Wolves in the Night!",
+        "The Face in the Tree",
+        "Plenty of Things Happen",
+        "Behind the Green Curtain",
+        "Inside the Mountain",
+        "Philip Again",
+        "A Little Exploring",
+        "The King of the Mountain",
+        "An Amazing Secret",
+        "On the Mountain-Top",
+        "The Helicopter",
+        "The Wonderful Wings",
+        "The Helicopter Comes Again",
+        "A Thrilling Night",
+        "Flight Through the Mountain",
+        "Escape at Last",
+        "Trailed by the Dogs",
+        "The Tables Are Turned!",
+        "The End of It All!",
+        "Outro"
+      ]
+    },
+    {
+      "number": 6,
+      "title": "The Ship of Adventure",
+      "folder": "6 - The Ship of Adventure",
+      "filename": "6 - The Ship of Adventure.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 7,
+      "title": "The Circus of Adventure",
+      "folder": "7 - The Circus of Adventure",
+      "filename": "7 - The Circus of Adventure.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 8,
+      "title": "The River of Adventure",
+      "folder": "8 - The River of Adventure",
+      "filename": "8 - The River of Adventure.m4b",
+      "boundary_source": "existing"
+    }
+  ]
+}
