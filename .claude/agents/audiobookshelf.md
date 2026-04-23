@@ -83,12 +83,32 @@ python /home/abl030/nixosconfig/scripts/audio-silence-audit.py --skip-rms --only
 ```
 
    Do not wave this through just because the narrator or title looks right. If runtime and timeline disagree with the matched edition, flag it and fix or rebuild before finalizing the import.
-9. **Fix titles**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title.
+   If the runtime mismatch is real but the file itself looks structurally fine, inspect the local source before trusting the match:
+   - read local `metadata.json` / sidecar text first
+   - look at the track list; if it is clearly a bundle, anthology, or summary pack, do NOT force a single-book match
+   - extract and transcribe the first minute on the host with direct access to the files (usually `doc2`) to capture the spoken title / narrator / publisher from the intro
+
+```bash
+ffmpeg -hide_banner -loglevel error -y -i <book.m4b> -t 60 -ac 1 -ar 16000 /tmp/abs-intro.wav
+whisper /tmp/abs-intro.wav --model tiny.en --language en --task transcribe --output_format txt --output_dir /tmp/abs-intros
+sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
+```
+
+   In practice, the intro is often the fastest way to confirm the real narrator / publisher / edition. If the intro contradicts the current ASIN match, trust the audio, clear the bad ASIN, and patch the item manually instead of keeping a plausible-but-wrong match.
+9. **Fix metadata consistently**: `/match` is additive-only and won't overwrite embedded m4b TITLE tags. If the title is wrong (e.g. "Audible Children's Collection"), `PATCH /api/items/<id>/media` to force the correct title. When you have to repair a bad match manually, update the whole visible item state together: title/subtitle, authors, narrators, publisher, description, series, and cover. Do not leave a half-fixed item with one edition's text and another edition's art.
+   If the item is really a collection (e.g. a Blinkist bundle, anthology, or mixed summaries folder), set collection-level metadata instead of pretending it is a single retail audiobook.
 10. **Repair chapters if needed**: if the imported item has generic chapters (`Chapter 1`, `001`, etc.), decide whether to:
    - keep the existing boundaries and only replace titles, or
    - replace the boundaries entirely with the official Audible/Audnexus offsets if the user wants precise story skip points.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
 11. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
+   After any manual cover/metadata repair, verify that the file itself now carries the expected art and tags, not just the ABS database entry:
+
+```bash
+ffprobe -v error -show_streams -of compact=p=0:nk=1 <book.m4b> | sed -n '1,8p'
+```
+
+   Expect an `mjpeg` video stream when cover art is embedded. If ABS serves the new cover but the single-file `.m4b` still has no embedded artwork stream, use `AtomicParsley` as a fallback to attach the local `cover.jpg`.
 12. **Match authors**: after all books are processed, check if the author(s) have been matched in ABS. Use `GET /api/authors/{id}` or search for them. If an author has no image/bio (unmatched), run `POST /api/authors/{id}/match` with `{"q":"Author Name"}` to pull in the author photo and bio from Audible.
 13. **Verify**: list the items again and confirm title, series, sequence, cover, narrator, and track filenames are all correct. In the final pass, ALWAYS compare the matched edition runtime to the local file/runtime one more time and flag or fix discrepancies before reporting success. Report results to the user.
 
@@ -174,6 +194,8 @@ curl -s -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
 ```
 
 Patchable fields under `metadata`: `title`, `subtitle`, `authors`, `narrators`, `series`, `genres`, `tags`, `publishedYear`, `publisher`, `description`, `isbn`, `asin`, `language`, `explicit`, `abridged`.
+
+For `authors`, pass objects like `{"name":"Dale Carnegie"}`. For `series`, pass objects like `{"name":"Foundation","sequence":"4"}`.
 
 **Upload cover from URL**:
 
@@ -318,10 +340,14 @@ Check if an author is matched by looking for `imagePath` in `GET /api/authors/{i
 - `POST /scan` returns `OK` instantly but the scan runs async — list items or wait a few seconds before searching.
 - Search endpoint returns empty `{"book":[], …}` while a scan is still processing. Retry after 2–5s.
 - Book matches sometimes return garbage descriptions ("Bayside." etc.) from Audible scraping. Always eyeball the `description` after `/match` and rewrite via `PATCH /media` if needed.
+- A plausible title plus narrator is not enough to trust a match. If runtime drifts by more than about `120s` or `2%`, transcribe the first minute and use the spoken intro to confirm the actual edition before you keep the ASIN.
+- Some folders are not single books at all. Blinkist packs, anthologies, and mixed summary folders often match to the first track's book unless you inspect the track list first.
 - Series sequence comes from `#N - Title` folder naming (`folderStructure` precedence). If the user has `Author/Series Name/3 - Book/` layout, sequence is auto-parsed as `3`.
+- Manual metadata repair can also require manual series repair. If a bad match or cleanup leaves a known series fragmented, patch `metadata.series` explicitly and then re-embed.
 - Audible Children's Collection packs embed the collection title in every volume's m4b tag; always `PATCH /media` the title after matching.
 - Some rippers preserve chapter timing but strip chapter names down to `001`, `Chapter 1`, etc. If the book has a valid ASIN after match, try `https://api.audnex.us/books/<ASIN>/chapters` before doing any manual chapter naming from scratch.
 - Audnexus chapter data can be richer than ABS's stored narrator field. A short top-billed narrator list on the item does not automatically mean the match is wrong if the title, ASIN, ISBN, runtime, and cover all line up.
+- Updating the ABS item cover does not always guarantee the file art is embedded the way you expect on disk. Verify with `ffprobe`, and use `AtomicParsley` if a single-file `.m4b` still has no artwork stream after embed.
 - `POST /api/search/books` appears stale on the current ABS version and may return `404`.
 
 ## Destructive actions — confirm first
