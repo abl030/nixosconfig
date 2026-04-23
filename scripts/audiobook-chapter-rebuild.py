@@ -108,6 +108,8 @@ class Book:
     root: Path
     search_title: str | None = None
     chapter_titles: tuple[str, ...] | None = None
+    boundary_source: str | None = None
+    skip_reason: str | None = None
 
     @property
     def dir_path(self) -> Path:
@@ -150,6 +152,8 @@ def load_manifest(path: Path) -> SeriesConfig:
             root=root,
             search_title=entry.get("search_title"),
             chapter_titles=tuple(entry["chapter_titles"]) if entry.get("chapter_titles") else None,
+            boundary_source=entry.get("boundary_source"),
+            skip_reason=entry.get("skip_reason"),
         )
         for entry in data["books"]
     }
@@ -234,6 +238,12 @@ def clean_manual_title(raw: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def normalize_compare_text(raw: str) -> str:
+    cleaned = clean_manual_title(raw).lower()
+    cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
 def parse_toc(text: str) -> list[str]:
     start_match = re.search(r"(?im)^\s*(?:contents|the chapters|c\s+o\s+n\s+t\s+e\s+n\s+t\s+s)\s*$", text)
     if not start_match:
@@ -259,7 +269,65 @@ def parse_toc(text: str) -> list[str]:
     return [title for _, title in titles]
 
 
-def fadedpage_titles(book: Book, *, author: str) -> tuple[str, list[str]]:
+def parse_heading_titles(text: str, *, book_title: str) -> list[str]:
+    lines = text.replace("\r", "").splitlines()
+    titles: list[str] = []
+    book_title_normalized = normalize_compare_text(book_title)
+
+    def blank_run(start: int, step: int) -> int:
+        count = 0
+        index = start
+        while 0 <= index < len(lines) and not lines[index].strip():
+            count += 1
+            index += step
+        return count
+
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if not stripped or indent < 10 or len(stripped) > 60:
+            index += 1
+            continue
+
+        block: list[str] = []
+        start = index
+        while index < len(lines):
+            current = lines[index]
+            stripped = current.strip()
+            indent = len(current) - len(current.lstrip())
+            if not stripped or indent < 10 or len(stripped) > 60:
+                break
+            block.append(stripped)
+            index += 1
+
+        title = clean_toc_title(" ".join(block))
+        normalized = normalize_compare_text(title)
+        if blank_run(start - 1, -1) < 2 or blank_run(index, 1) < 2:
+            continue
+        if not normalized:
+            continue
+        if normalized == book_title_normalized:
+            continue
+        if normalized == "transcriber notes":
+            continue
+        if title.endswith(","):
+            continue
+        if title.startswith("First published in "):
+            continue
+        if title.startswith("Text of this book from "):
+            continue
+        if title.startswith("Illustrations from "):
+            continue
+        titles.append(title_case(title))
+
+    if not titles:
+        raise RuntimeError("No chapter titles parsed from heading blocks")
+    return titles
+
+
+def fadedpage_titles(book: Book, *, author: str) -> tuple[str, list[str], str]:
     data = fetch_json(
         FADEDPAGE_SEARCH_URL,
         data={
@@ -280,19 +348,22 @@ def fadedpage_titles(book: Book, *, author: str) -> tuple[str, list[str]]:
         raise RuntimeError(f"No FadedPage result for {book.title}")
     pid = rows[0]["pid"]
     text = fetch_text(FADEDPAGE_TXT_URL.format(pid=pid))
-    return pid, parse_toc(text)
+    try:
+        return pid, parse_toc(text), "toc"
+    except RuntimeError:
+        return pid, parse_heading_titles(text, book_title=book.toc_title), "headings"
 
 
 def book_titles(series: SeriesConfig, book: Book) -> tuple[list[str], dict[str, str]]:
     if book.chapter_titles:
         return [clean_manual_title(title) for title in book.chapter_titles], {"title_source": "manifest"}
     if series.toc_source.type == "fadedpage":
-        pid, titles = fadedpage_titles(book, author=series.toc_source.author)
-        return titles, {"title_source": "fadedpage", "fadedpage_pid": pid}
+        pid, titles, mode = fadedpage_titles(book, author=series.toc_source.author)
+        return titles, {"title_source": f"fadedpage-{mode}", "fadedpage_pid": pid}
     raise RuntimeError(f"Unsupported TOC source: {series.toc_source.type}")
 
 
-def existing_titles(path: Path) -> list[str]:
+def existing_chapters(path: Path) -> list[dict]:
     probe = run(
         [
             "ffprobe",
@@ -305,7 +376,19 @@ def existing_titles(path: Path) -> list[str]:
         ]
     )
     data = json.loads(probe.stdout)
-    return [chapter.get("tags", {}).get("title", "") for chapter in data.get("chapters", [])]
+    return [
+        {
+            "id": index,
+            "start": float(chapter.get("start_time", 0.0)),
+            "end": float(chapter.get("end_time", 0.0)),
+            "title": chapter.get("tags", {}).get("title", ""),
+        }
+        for index, chapter in enumerate(data.get("chapters", []))
+    ]
+
+
+def existing_titles(path: Path) -> list[str]:
+    return [chapter["title"] for chapter in existing_chapters(path)]
 
 
 def needs_rebuild(path: Path) -> bool:
@@ -514,6 +597,26 @@ def finalize_chapters(chapters: list[dict], duration: float) -> list[dict]:
     return fixed
 
 
+def existing_boundary_report(book: Book, titles: list[str], duration: float) -> list[dict]:
+    chapters = existing_chapters(book.file_path)
+    if not chapters:
+        raise RuntimeError(f"No existing chapters found for {book.title}")
+    if len(chapters) != len(titles):
+        raise RuntimeError(
+            f"Existing chapter count mismatch for {book.title}: file has {len(chapters)}, source has {len(titles)}"
+        )
+    chapter_seed = [
+        {
+            "id": index,
+            "start": chapter["start"],
+            "end": chapter["end"],
+            "title": title,
+        }
+        for index, (chapter, title) in enumerate(zip(chapters, titles))
+    ]
+    return finalize_chapters(chapter_seed, duration)
+
+
 def auth_headers() -> dict[str, str]:
     base = os.environ.get("AUDIOBOOKSHELF_URL")
     token = os.environ.get("AUDIOBOOKSHELF_TOKEN")
@@ -567,6 +670,23 @@ def analyze_book(
 ) -> dict:
     titles, title_metadata = book_titles(series, book)
     duration = duration_seconds(book.file_path)
+    if book.boundary_source == "existing":
+        chapters = existing_boundary_report(book, titles, duration)
+        report = {
+            "book_number": book.number,
+            "title": book.title,
+            "file": str(book.file_path),
+            "duration": round(duration, 3),
+            "chapter_count": len(chapters),
+            "chapters": chapters,
+            "boundary_source": "existing",
+            "candidates": [],
+        }
+        report.update(title_metadata)
+        output_path = output_dir / f"{book.number:02d}.json"
+        output_path.write_text(json.dumps(report, indent=2) + "\n")
+        return report
+
     thresholds: list[float] = []
     for value in [minimum_silence, 3.0, 2.6, 2.2]:
         if value not in thresholds:
@@ -675,23 +795,29 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    manifest_path = Path(args.manifest)
+    series = load_manifest(manifest_path)
+    selected_numbers = parse_numbers(args.books, series.books)
+
     if not args.reuse_reports:
-        required = ["ffmpeg", "ffprobe", "whisper-ctranslate2"]
+        required = ["ffprobe"]
+        if any(series.books[number].boundary_source != "existing" for number in selected_numbers):
+            required.extend(["ffmpeg", "whisper-ctranslate2"])
         missing = [name for name in required if shutil.which(name) is None]
         if missing:
             parser.error(f"Missing required tools in PATH: {', '.join(missing)}")
-
-    manifest_path = Path(args.manifest)
-    series = load_manifest(manifest_path)
 
     output_dir = Path(args.output_dir or f"/tmp/{series.slug}-chapters")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     reports: list[dict] = []
     failures: list[tuple[int, str, str]] = []
-    for number in parse_numbers(args.books, series.books):
+    for number in selected_numbers:
         book = series.books[number]
         try:
+            if book.skip_reason:
+                log(f"skip {book.number:02d} {book.title}: {book.skip_reason}")
+                continue
             report_path = output_dir / f"{book.number:02d}.json"
             if args.reuse_reports:
                 if not report_path.exists():
