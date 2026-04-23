@@ -653,6 +653,25 @@ def abs_items_by_path() -> dict[str, str]:
     return {result["path"]: result["id"] for result in data.get("results", [])}
 
 
+def abs_item_chapter_titles(item_id: str) -> list[str]:
+    item = abs_get(f"/api/items/{item_id}?expanded=1")
+    return [chapter.get("title", "") for chapter in item.get("media", {}).get("chapters", [])]
+
+
+def wait_for_abs_chapter_titles(item_id: str, chapters: list[dict], timeout_seconds: float = 20.0) -> None:
+    expected = [chapter["title"] for chapter in chapters]
+    deadline = time.time() + timeout_seconds
+    last_seen: list[str] = []
+    while time.time() < deadline:
+        last_seen = abs_item_chapter_titles(item_id)
+        if last_seen == expected:
+            return
+        time.sleep(1)
+    raise RuntimeError(
+        f"ABS chapter update did not settle for {item_id}: expected {len(expected)} titles, got {len(last_seen)}"
+    )
+
+
 def verify_file_titles(book: Book) -> tuple[str, str]:
     titles = existing_titles(book.file_path)
     if not titles:
@@ -761,6 +780,7 @@ def apply_report(report: dict, item_map: dict[str, str]) -> None:
         raise RuntimeError(f"No ABS item for {book_dir}")
     payload = {"chapters": report["chapters"]}
     abs_post(f"/api/items/{item_id}/chapters", payload)
+    wait_for_abs_chapter_titles(item_id, report["chapters"])
     abs_post(f"/api/tools/item/{item_id}/embed-metadata")
     time.sleep(4)
 

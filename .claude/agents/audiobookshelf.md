@@ -118,6 +118,7 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    - if you have to reconstruct boundaries from audio, do it one book at a time until the method is proven on that series/edition
    For Enid Blyton specifically, treat `St. Clare's`, `Secret Seven`, and `Find-Outers` as likely rename-only candidates, while many `Famous Five` releases are only coarse part splits and need boundary work before real chapter naming makes sense.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
+   When you intend to embed right after a chapter repair, do not fire `embed-metadata` blindly against a just-updated item. Poll the expanded item until ABS itself returns the new chapter titles, then run the embed. Otherwise you can race the database update and write stale `Chapter N` tags back into the file.
 11. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
    After any manual cover/metadata repair, verify that the file itself now carries the expected art and tags, not just the ABS database entry:
 
