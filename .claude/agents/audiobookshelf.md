@@ -104,6 +104,7 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    - **Audnexus by ASIN first** when the match is trusted and the current chapter count roughly lines up. This is the cleanest source for Audible-derived books.
    - **Then manually inspect web TOC pages** when Audnexus is missing, wrong, or too coarse. In practice, Google Books often exposes a usable `Contents` block in the normal HTML even when the accessible view is blocked. Use `curl` or the browser to read the page HTML, look for `toc_entry` blocks, and extract the headings by hand.
    - **Then look for plain-text/public-domain editions** when the book is old enough that a clean text source exists. In practice, FadedPage is often better than Google Books for classic children's series because the downloaded `.txt` file usually has a readable `Contents` section with chapter number, title, and page number in plain text.
+     If the `.txt` does not have a `Contents` block, do not give up immediately: many FadedPage books still expose clean chapter-heading lines in the body text, which are good enough for a rename-only manifest when the local file already has the right number of chapter boundaries.
    - **Then use retailer/publisher track lists** (Tonies, Yoto, publisher preview pages, etc.) when they clearly match the edition and runtime.
    - **Only after exhausting those options**, if the file still has only coarse part splits but you have a trustworthy printed TOC and local audio access, use a speech-assisted boundary reconstruction pass. This is a recovery workflow, not the default path.
    - If the best source is human-readable but messy (Google Books HTML, Bookey preview PDF, retailer page, etc.), read it yourself and put the final cleaned chapter titles into a manifest for `scripts/audiobook-chapter-rebuild.py`. Do not add a bespoke scraper for one site just to save a minute of copy cleanup.
@@ -113,6 +114,7 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    - if a plain-text source gives you a clean numbered TOC, prefer that over messy HTML fragments
    - if a source only gives you a partial or ambiguous TOC, stop rather than forcing bad names into ABS
    - if the local file already has many fine-grained chapters, it is usually a rename job; if it only has a few coarse parts, do not force a full chapter TOC onto those boundaries
+   - for rename-only jobs, prefer the manifest/helper path with `boundary_source: existing` so you reuse the on-disk chapter starts and only replace titles
    - if you have to reconstruct boundaries from audio, do it one book at a time until the method is proven on that series/edition
    For Enid Blyton specifically, treat `St. Clare's`, `Secret Seven`, and `Find-Outers` as likely rename-only candidates, while many `Famous Five` releases are only coarse part splits and need boundary work before real chapter naming makes sense.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.

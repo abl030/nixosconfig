@@ -1,0 +1,122 @@
+{
+  "slug": "st-clares",
+  "name": "St. Clare's",
+  "series_root": "/mnt/data/Media/Books/Audiobooks/Enid Blyton/St. Clare's",
+  "toc_source": {
+    "type": "fadedpage",
+    "author": "Blyton, Enid"
+  },
+  "books": [
+    {
+      "number": 1,
+      "title": "The Twins at St. Clare's",
+      "folder": "1 - The Twins at St. Clare's",
+      "filename": "The Twins at St. Clare's.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 2,
+      "title": "The O'Sullivan Twins at St. Clare's",
+      "folder": "2 - The O'Sullivan Twins at St. Clare's",
+      "filename": "The O'Sullivan Twins at St. Clare's.m4b",
+      "search_title": "The O'Sullivan Twins",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 3,
+      "title": "Summer Term at St. Clare's",
+      "folder": "3 - Summer Term at St. Clare's",
+      "filename": "Summer Term at St. Clare's.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 4,
+      "title": "The Second Form at St. Clare's",
+      "folder": "4 - The Second Form at St. Clare's",
+      "filename": "The Second Form at St. Clare's.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 5,
+      "title": "The Third Form at St. Clare's",
+      "folder": "5 - The Third Form at St. Clare's",
+      "filename": "The Third Form at St. Clare's.m4b",
+      "boundary_source": "existing",
+      "chapter_titles": [
+        "Back to School",
+        "Another New Girl",
+        "And a Head Girl",
+        "A Very Important Meeting",
+        "Settling Down",
+        "A Wonderful Day",
+        "An Announcement and a Plan",
+        "A Ghostly Trick",
+        "Carlotta in Hot Water",
+        "A Birthday Party",
+        "Half-Term",
+        "A Bad Day for Rachel",
+        "Another Row",
+        "An Apology and a Birthday",
+        "Midnight Feast",
+        "A Very Angry Third Form",
+        "A Hard Time for Fern",
+        "Fern Is Foolish",
+        "Bad News and Good News",
+        "Things Are Sorted Out",
+        "A Marvellous Play",
+        "Home for the Holidays"
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Kitty at St. Clare's",
+      "folder": "6 - Kitty at St. Clare's",
+      "filename": "Kitty at St. Clare's.m4b",
+      "boundary_source": "existing",
+      "chapter_titles": [
+        "Where's Pat?",
+        "An Unusual Schoolmate",
+        "The Deputy Head Girl",
+        "Isabel Makes a Friend",
+        "Alison Makes an Enemy",
+        "The Feud",
+        "An Unexpected Arrival",
+        "The Third Form Hatches a Plot",
+        "A Very Successful Trick",
+        "A Shock for the Second Form",
+        "A Truce and More Trouble",
+        "Alison Makes a Discovery",
+        "Amanda Is Caught Out",
+        "A Very Unhappy Girl",
+        "Kitty's Secret Plan",
+        "Midnight Fun",
+        "McGinty the Hero",
+        "Margaret in Disgrace",
+        "Home for the Holidays"
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Claudine at St. Clare's",
+      "folder": "7 - Claudine at St. Clare's",
+      "filename": "Claudine at St. Clare's.m4b",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 8,
+      "title": "Fifth Formers of St. Clare's",
+      "folder": "8 - Fifth Formers of St. Clare's",
+      "filename": "Fifth Formers of St. Clare's.m4b",
+      "search_title": "Fifth Formers at St. Clare's",
+      "boundary_source": "existing"
+    },
+    {
+      "number": 9,
+      "title": "The Sixth Form at St. Clare's",
+      "folder": "9 - The Sixth Form at St. Clare's",
+      "filename": "The Sixth Form at St. Clare's.m4b",
+      "boundary_source": "existing",
+      "skip_reason": "existing chapter starts do not reliably line up with spoken chapter titles; leave unresolved until a safer source is found"
+    }
+  ]
+}
