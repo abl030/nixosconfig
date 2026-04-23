@@ -105,12 +105,14 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    - **Then manually inspect web TOC pages** when Audnexus is missing, wrong, or too coarse. In practice, Google Books often exposes a usable `Contents` block in the normal HTML even when the accessible view is blocked. Use `curl` or the browser to read the page HTML, look for `toc_entry` blocks, and extract the headings by hand.
    - **Then look for plain-text/public-domain editions** when the book is old enough that a clean text source exists. In practice, FadedPage is often better than Google Books for classic children's series because the downloaded `.txt` file usually has a readable `Contents` section with chapter number, title, and page number in plain text.
    - **Then use retailer/publisher track lists** (Tonies, Yoto, publisher preview pages, etc.) when they clearly match the edition and runtime.
+   - **Only after exhausting those options**, if the file still has only coarse part splits but you have a trustworthy printed TOC and local audio access, use a speech-assisted boundary reconstruction pass. This is a recovery workflow, not the default path.
    Do not try to fully automate this. The markup is inconsistent and often needs judgement:
    - clean OCR noise, page numbers, duplicated fragments, and `Copyright` / `If you liked this...` junk by hand
    - if Google Books returns headings out of order, use the embedded page numbers and the surrounding HTML to put them back in reading order
    - if a plain-text source gives you a clean numbered TOC, prefer that over messy HTML fragments
    - if a source only gives you a partial or ambiguous TOC, stop rather than forcing bad names into ABS
    - if the local file already has many fine-grained chapters, it is usually a rename job; if it only has a few coarse parts, do not force a full chapter TOC onto those boundaries
+   - if you have to reconstruct boundaries from audio, do it one book at a time until the method is proven on that series/edition
    For Enid Blyton specifically, treat `St. Clare's`, `Secret Seven`, and `Find-Outers` as likely rename-only candidates, while many `Famous Five` releases are only coarse part splits and need boundary work before real chapter naming makes sense.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
 11. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
@@ -270,6 +272,12 @@ Good source order:
 - Publisher or retailer track lists that match the edition/runtime
 - Other preview pages only if the chapter count/order clearly lines up with the local file
 
+Only reach for speech-assisted boundary reconstruction after you have already tried the source order above and concluded that:
+- the local file only has coarse part markers or `0` usable chapters
+- you still have a reliable printed TOC to supply the chapter titles
+- there is no trusted Audnexus/official chapter-offset source for that exact edition
+- you have local access to the audio on a host that can run `ffmpeg` and `whisper-ctranslate2`
+
 Fast way to inspect a Google Books page from the shell:
 
 ```bash
@@ -295,6 +303,48 @@ curl -A 'Mozilla/5.0' -Ls 'https://www.fadedpage.com/books/<BOOK_ID>/<BOOK_ID>.t
 Those text files often preserve chapter number, title, and page number cleanly enough that you can lift the headings manually with minimal cleanup. This worked well for the original `Secret Seven` books.
 
 This is intentionally an LLM judgement task. "Squint at the HTML, clean it up, and decide whether it is safe" is the correct workflow here.
+
+**Last resort: speech-assisted boundary reconstruction**
+
+Use this only when rename-only repair is impossible and there is no trustworthy official chapter-offset source. The idea is:
+1. get the chapter titles from a printed TOC first
+2. use silence detection only to narrow candidate breakpoints
+3. use ASR on short clips around those breakpoints to tell real chapter starts from junk like `End of side ...`
+
+Recommended workflow:
+
+```bash
+# 1. Find strong candidate pauses in the local file
+ffmpeg -hide_banner -nostats -i <book.m4b> \
+  -af silencedetect=noise=-30dB:d=3.5 -f null - 2>&1 \
+  | rg 'silence_end'
+```
+
+Then cut short clips around those candidates and transcribe them locally:
+
+```bash
+ffmpeg -hide_banner -loglevel error -y -ss <candidate_minus_2_5s> -t 28 \
+  -i <book.m4b> -ac 1 -ar 16000 /tmp/abs-boundary.wav
+
+nix shell nixpkgs#whisper-ctranslate2 --command bash -lc '
+  whisper-ctranslate2 --model tiny.en --device cpu --threads 4 \
+    --language en --task transcribe --output_dir /tmp/abs-boundary-out \
+    --output_format txt /tmp/abs-boundary.wav
+'
+
+sed -n '1,3p' /tmp/abs-boundary-out/abs-boundary.txt
+```
+
+What to keep:
+- clips whose transcript clearly starts with `Chapter ...` and the expected heading
+- breaks that line up with the printed TOC sequence
+
+What to reject:
+- `End of side ...`, `Side two`, end credits, publisher outros
+- ordinary narrative pauses that just happen to be long
+- ambiguous clips where the heading is not actually spoken
+
+After you have the accepted starts, build a fresh chapter list from those start offsets plus the final file duration. Then write that list into ABS and re-embed metadata. Always verify the resulting chapter count and first/last titles in both ABS and `ffprobe` before moving on.
 
 **Update ABS chapters manually**:
 
