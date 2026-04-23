@@ -100,6 +100,16 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
 10. **Repair chapters if needed**: if the imported item has generic chapters (`Chapter 1`, `001`, etc.), decide whether to:
    - keep the existing boundaries and only replace titles, or
    - replace the boundaries entirely with the official Audible/Audnexus offsets if the user wants precise story skip points.
+   Search for chapter names in this order:
+   - **Audnexus by ASIN first** when the match is trusted and the current chapter count roughly lines up. This is the cleanest source for Audible-derived books.
+   - **Then manually inspect web TOC pages** when Audnexus is missing, wrong, or too coarse. In practice, Google Books often exposes a usable `Contents` block in the normal HTML even when the accessible view is blocked. Use `curl` or the browser to read the page HTML, look for `toc_entry` blocks, and extract the headings by hand.
+   - **Then use retailer/publisher track lists** (Tonies, Yoto, publisher preview pages, etc.) when they clearly match the edition and runtime.
+   Do not try to fully automate this. The markup is inconsistent and often needs judgement:
+   - clean OCR noise, page numbers, duplicated fragments, and `Copyright` / `If you liked this...` junk by hand
+   - if Google Books returns headings out of order, use the embedded page numbers and the surrounding HTML to put them back in reading order
+   - if a source only gives you a partial or ambiguous TOC, stop rather than forcing bad names into ABS
+   - if the local file already has many fine-grained chapters, it is usually a rename job; if it only has a few coarse parts, do not force a full chapter TOC onto those boundaries
+   For Enid Blyton specifically, treat `St. Clare's`, `Secret Seven`, and `Find-Outers` as likely rename-only candidates, while many `Famous Five` releases are only coarse part splits and need boundary work before real chapter naming makes sense.
    Use `POST /api/items/<id>/chapters`, then verify via `GET /api/items/<id>?expanded=1`.
 11. **Embed metadata**: `POST /api/tools/item/<id>/embed-metadata` — writes ABS metadata into audio file tags. ABS backs up originals to doc2's `/var/lib/audiobookshelf/metadata/cache/items/<id>/`.
    After any manual cover/metadata repair, verify that the file itself now carries the expected art and tags, not just the ABS database entry:
@@ -248,6 +258,32 @@ PY
 
 If Audnexus chapter count roughly matches the current file-based chapters, it is usually safest to keep ABS's current `start`/`end` times and only replace the titles. If the user wants chapter skip points to land on the real story starts, replace the boundaries with the Audnexus offsets instead.
 
+**Manual TOC search when Audnexus is missing or wrong**:
+
+Use judgement, not a brittle scraper. The goal is to surface likely chapter headings and then read the HTML yourself.
+
+Good source order:
+- Google Books `books/about` pages with a visible `Contents` block
+- Publisher or retailer track lists that match the edition/runtime
+- Other preview pages only if the chapter count/order clearly lines up with the local file
+
+Fast way to inspect a Google Books page from the shell:
+
+```bash
+curl -L -s 'https://books.google.com.au/books/about/<slug>.html?id=<BOOKS_ID>&hl=en&redir_esc=y' \
+  | perl -0pe 's/></>\n</g' \
+  | rg -n 'Table of Contents|Contents|toc_entry' -C 2
+```
+
+When you use Google Books TOCs:
+- read the headings yourself instead of trusting a scraper blindly
+- expect truncated lines, stray page numbers, OCR noise, and extra `Copyright` rows
+- it is normal to reorder entries manually if the page clearly shows them out of sequence
+- if the local audio already has correct chapter boundaries, only replace titles
+- if the local audio has 3-8 coarse parts for a full novel, do not pretend those are real chapter boundaries just because you found a book TOC
+
+This is intentionally an LLM judgement task. "Squint at the HTML, clean it up, and decide whether it is safe" is the correct workflow here.
+
 **Update ABS chapters manually**:
 
 ```bash
@@ -356,6 +392,8 @@ Check if an author is matched by looking for `imagePath` in `GET /api/authors/{i
 - Audible Children's Collection packs embed the collection title in every volume's m4b tag; always `PATCH /media` the title after matching.
 - Some rippers preserve chapter timing but strip chapter names down to `001`, `Chapter 1`, etc. If the book has a valid ASIN after match, try `https://api.audnex.us/books/<ASIN>/chapters` before doing any manual chapter naming from scratch.
 - Audnexus chapter data can be richer than ABS's stored narrator field. A short top-billed narrator list on the item does not automatically mean the match is wrong if the title, ASIN, ISBN, runtime, and cover all line up.
+- Google Books is often the best fallback for classic children's books with generic `Chapter N` titles, but its TOC HTML is messy. Read it manually, clean the headings yourself, and do not force a bad or truncated TOC onto the file just because you found one.
+- `Secret Seven`, `Find-Outers`, and many `St. Clare's` books often already have good chapter boundaries and only need title repair. Many `Famous Five` rips only have a few disc/part boundaries, so treat them as boundary-rebuild candidates rather than simple rename jobs.
 - Updating the ABS item cover does not always guarantee the file art is embedded the way you expect on disk. Verify with `ffprobe`, and use `AtomicParsley` if a single-file `.m4b` still has no artwork stream after embed.
 - `POST /api/search/books` appears stale on the current ABS version and may return `404`.
 
