@@ -301,6 +301,7 @@ curl -A 'Mozilla/5.0' -Ls 'https://www.fadedpage.com/books/<BOOK_ID>/<BOOK_ID>.t
 ```
 
 Those text files often preserve chapter number, title, and page number cleanly enough that you can lift the headings manually with minimal cleanup. This worked well for the original `Secret Seven` books.
+Watch for small layout variants: some FadedPage texts put a standalone `CHAPTER` header line between `CONTENTS` and the numbered entries, and some use `_p._` page markers. Read the block yourself instead of assuming every TOC is `CONTENTS` immediately followed by `CHAPTER ONE`.
 
 This is intentionally an LLM judgement task. "Squint at the HTML, clean it up, and decide whether it is safe" is the correct workflow here.
 
@@ -323,11 +324,11 @@ ffmpeg -hide_banner -nostats -i <book.m4b> \
 Then cut short clips around those candidates and transcribe them locally:
 
 ```bash
-ffmpeg -hide_banner -loglevel error -y -ss <candidate_minus_2_5s> -t 28 \
+ffmpeg -hide_banner -loglevel error -y -ss <candidate_minus_1_5s> -t 16 \
   -i <book.m4b> -ac 1 -ar 16000 /tmp/abs-boundary.wav
 
 nix shell nixpkgs#whisper-ctranslate2 --command bash -lc '
-  whisper-ctranslate2 --model tiny.en --device cpu --threads 4 \
+  whisper-ctranslate2 --model tiny.en --device cpu --threads 8 \
     --language en --task transcribe --output_dir /tmp/abs-boundary-out \
     --output_format txt /tmp/abs-boundary.wav
 '
@@ -338,11 +339,12 @@ sed -n '1,3p' /tmp/abs-boundary-out/abs-boundary.txt
 What to keep:
 - clips whose transcript clearly starts with `Chapter ...` and the expected heading
 - breaks that line up with the printed TOC sequence
+- if the spoken sequence is almost complete but one chapter heading is missing or garbled, keep the surrounding confirmed chapters and use the single plausible unused pause inside that gap as a conservative boundary fill
 
 What to reject:
 - `End of side ...`, `Side two`, end credits, publisher outros
 - ordinary narrative pauses that just happen to be long
-- ambiguous clips where the heading is not actually spoken
+- ambiguous clips where the heading is not actually spoken, unless they are the only plausible unused pause left between two surrounding confirmed chapter starts
 
 After you have the accepted starts, build a fresh chapter list from those start offsets plus the final file duration. Then write that list into ABS and re-embed metadata. Always verify the resulting chapter count and first/last titles in both ABS and `ffprobe` before moving on.
 
