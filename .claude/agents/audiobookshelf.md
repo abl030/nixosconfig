@@ -106,6 +106,7 @@ sed -n '1,12p' /tmp/abs-intros/abs-intro.txt
    - **Then look for plain-text/public-domain editions** when the book is old enough that a clean text source exists. In practice, FadedPage is often better than Google Books for classic children's series because the downloaded `.txt` file usually has a readable `Contents` section with chapter number, title, and page number in plain text.
    - **Then use retailer/publisher track lists** (Tonies, Yoto, publisher preview pages, etc.) when they clearly match the edition and runtime.
    - **Only after exhausting those options**, if the file still has only coarse part splits but you have a trustworthy printed TOC and local audio access, use a speech-assisted boundary reconstruction pass. This is a recovery workflow, not the default path.
+   - If the best source is human-readable but messy (Google Books HTML, Bookey preview PDF, retailer page, etc.), read it yourself and put the final cleaned chapter titles into a manifest for `scripts/audiobook-chapter-rebuild.py`. Do not add a bespoke scraper for one site just to save a minute of copy cleanup.
    Do not try to fully automate this. The markup is inconsistent and often needs judgement:
    - clean OCR noise, page numbers, duplicated fragments, and `Copyright` / `If you liked this...` junk by hand
    - if Google Books returns headings out of order, use the embedded page numbers and the surrounding HTML to put them back in reading order
@@ -292,6 +293,7 @@ When you use Google Books TOCs:
 - it is normal to reorder entries manually if the page clearly shows them out of sequence
 - if the local audio already has correct chapter boundaries, only replace titles
 - if the local audio has 3-8 coarse parts for a full novel, do not pretend those are real chapter boundaries just because you found a book TOC
+- if you can source reliable titles but the page structure is too messy to parse safely, treat that as a manual-title input problem, not a scraper problem; feed the cleaned list into the manifest-driven rebuild helper
 
 When a plain-text edition exists, it is often an easier source of truth than HTML. For example, classic Enid Blyton books on FadedPage usually expose a plain `CONTENTS` block in the downloaded `.txt` file:
 
@@ -345,6 +347,11 @@ What to reject:
 - `End of side ...`, `Side two`, end credits, publisher outros
 - ordinary narrative pauses that just happen to be long
 - ambiguous clips where the heading is not actually spoken, unless they are the only plausible unused pause left between two surrounding confirmed chapter starts
+
+Hard stop rule:
+- if the exploratory pass does not surface real spoken chapter starts in order, stop and leave the book alone
+- do not assign boundaries just because the pause count is "close enough" to the printed TOC count
+- a clean title source plus coarse pauses is not enough on its own; `First Term at Malory Towers` looked promising by count, but the pauses were scene/narrative breaks rather than spoken chapter starts
 
 After you have the accepted starts, build a fresh chapter list from those start offsets plus the final file duration. Then write that list into ABS and re-embed metadata. Always verify the resulting chapter count and first/last titles in both ABS and `ffprobe` before moving on.
 
