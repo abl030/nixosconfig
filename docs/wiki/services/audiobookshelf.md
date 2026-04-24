@@ -46,6 +46,24 @@ Do not assume the first `ffprobe` check reflects the final state. Wait and re-ch
 - For `The Willows at Christmas`, Audible match did not populate narrator/publisher/year, but the cover was usable and the remaining metadata was patched manually.
 - The HarperCollins SoundCloud page for `The Willows at Christmas` identified the narrator as Andrew Sachs and gave enough synopsis context for a short manual description.
 
+## Anthology chapter repair
+
+Observed on 2026-04-24 with `The Enchanted Collection [B081S6J5JJ]`:
+
+- The file shipped with 151 generic `Chapter N` markers, but the boundaries themselves were mostly usable.
+- Broad Whisper spot-checks at likely handoff chapters were enough to map the anthology structure without a full rebuild:
+  - `1` anthology/Alice intro
+  - `2-13` `Alice's Adventures in Wonderland` chapters 1-12
+  - `14-40` `The Secret Garden` intro + chapters 1-27 (`14` contains the Brilliance intro and chapter 1 in one cut)
+  - `41` `Black Beauty` intro
+  - `42-90` `Black Beauty` chapters 1-49
+  - `91` `The Wind in the Willows` intro
+  - `92-103` `The Wind in the Willows` chapters 1-12
+  - `104` `Little Women` intro
+  - `105-151` `Little Women` chapters 1-47
+- Project Gutenberg TOCs were good enough to recover the real chapter titles for all five books.
+- For this class of anthology, prefer renaming the existing ABS chapter table and re-embedding before attempting a boundary rebuild.
+
 ## Audnexus caveat
 
 The obvious Audnexus endpoints returned `404` for the William Horwood ASINs tested on 2026-04-23:
