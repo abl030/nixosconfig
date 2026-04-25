@@ -86,7 +86,13 @@ in {
     systemd.services.cratedigger-secrets-split = {
       description = "Split soularr.env into per-key secret files for the upstream module";
       wantedBy = ["multi-user.target"];
-      before = ["cratedigger.service" "cratedigger-web.service" "cratedigger-db-migrate.service"];
+      before = [
+        "cratedigger.service"
+        "cratedigger-web.service"
+        "cratedigger-db-migrate.service"
+        "cratedigger-importer.service"
+        "cratedigger-import-preview-worker.service"
+      ];
       after = ["sysinit-reactivation.target"];
       restartTriggers = [config.sops.secrets."soularr/env".path];
       serviceConfig = {
@@ -163,6 +169,7 @@ in {
       };
 
       pipelineDb.dsn = pgc.dbUri;
+      importer.preview.enable = true;
 
       beetsValidation = {
         enable = true;
