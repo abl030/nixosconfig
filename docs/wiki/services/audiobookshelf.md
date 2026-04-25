@@ -64,6 +64,13 @@ Observed on 2026-04-24 with `The Enchanted Collection [B081S6J5JJ]`:
 - Project Gutenberg TOCs were good enough to recover the real chapter titles for all five books.
 - For this class of anthology, prefer renaming the existing ABS chapter table and re-embedding before attempting a boundary rebuild.
 
+Observed on 2026-04-25 with Enid Blyton anthologies:
+
+- `Christmas Stories`, `Christmas Tales`, and `Stories of Wizards and Witches` were rename-only jobs; the existing chapter boundaries were usable.
+- Enid Blyton Society `List of Contents` pages gave the reliable ordering for all three. This mattered for `Christmas Stories`, where publisher/retailer blurbs flatten the `A Family Christmas` parts into a misleading order and include title noise that does not match the audio.
+- `Christmas Tales` has 26 markers for 25 stories: chapter 1 is a spoken introduction, then chapters 2-26 follow the printed contents.
+- Short `whisper-cpp` spot checks around a few chapter starts were enough to confirm the catalogue order before writing to ABS.
+
 ## Audnexus caveat
 
 The obvious Audnexus endpoints returned `404` for the William Horwood ASINs tested on 2026-04-23:
