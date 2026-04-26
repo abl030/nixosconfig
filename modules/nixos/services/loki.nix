@@ -35,16 +35,15 @@
   in
     lib.replaceStrings ["."] ["\\."] stripped;
 
-  syslogSourceRules =
-    lib.concatMapStringsSep "\n" (src: ''
+  syslogSourceRules = lib.concatMapStringsSep "\n" (src: ''
 
-      rule {
-        source_labels = ["__syslog_connection_ip_address"]
-        regex         = ${builtins.toJSON (ipToRegex src.ip)}
-        replacement   = ${builtins.toJSON src.label}
-        target_label  = "host"
-      }'')
-    syslogCfg.sources;
+    rule {
+      source_labels = ["__syslog_connection_ip_address"]
+      regex         = ${builtins.toJSON (ipToRegex src.ip)}
+      replacement   = ${builtins.toJSON src.label}
+      target_label  = "host"
+    }'')
+  syslogCfg.sources;
 
   syslogBlocks = lib.optionalString syslogCfg.enable ''
     loki.relabel "syslog" {
@@ -83,58 +82,58 @@
   '';
 
   # Generate extra scrape blocks for additional targets
-  extraScrapeBlocks =
-    lib.concatMapStringsSep "\n" (target: let
-      hasRelabels = target.labelRewrites != {};
-      # Emit one rule per source-label per raw-value. Each rule matches the
-      # exact raw value and rewrites the label to the friendly value.
-      # Alloy/prom relabel regexes are anchored — use ^...$ to avoid partial
-      # matches (e.g. "igc1" would otherwise also match "igc1.10").
-      relabelRules = lib.concatStringsSep "\n" (
-        lib.flatten (
-          lib.mapAttrsToList (
-            labelName: valueMap:
-              lib.mapAttrsToList (rawValue: friendly: ''
-                rule {
-                  source_labels = ["${labelName}"]
-                  regex         = "^${rawValue}$"
-                  replacement   = "${friendly}"
-                  target_label  = "${labelName}"
-                }
-              '') valueMap
-          )
-          target.labelRewrites
+  extraScrapeBlocks = lib.concatMapStringsSep "\n" (target: let
+    hasRelabels = target.labelRewrites != {};
+    # Emit one rule per source-label per raw-value. Each rule matches the
+    # exact raw value and rewrites the label to the friendly value.
+    # Alloy/prom relabel regexes are anchored — use ^...$ to avoid partial
+    # matches (e.g. "igc1" would otherwise also match "igc1.10").
+    relabelRules = lib.concatStringsSep "\n" (
+      lib.flatten (
+        lib.mapAttrsToList (
+          labelName: valueMap:
+            lib.mapAttrsToList (rawValue: friendly: ''
+              rule {
+                source_labels = ["${labelName}"]
+                regex         = "^${rawValue}$"
+                replacement   = "${friendly}"
+                target_label  = "${labelName}"
+              }
+            '')
+            valueMap
         )
-      );
-      forwardTo =
-        if hasRelabels
-        then "[prometheus.relabel.${target.job}.receiver]"
-        else "[prometheus.remote_write.mimir.receiver]";
-    in
-      ''
-        prometheus.scrape "${target.job}" {
-          targets = [{
-            __address__ = "${target.address}",
-            instance    = "${
-          if target.instance != ""
-          then target.instance
-          else target.job
-        }",${lib.optionalString (target.targetParam != null) ''
-            __param_target = "${target.targetParam}",''}
-          }]
-          forward_to      = ${forwardTo}
-          scrape_interval = "60s"
-          job_name        = "${target.job}"
-        }
-      ''
-      + lib.optionalString hasRelabels ''
+        target.labelRewrites
+      )
+    );
+    forwardTo =
+      if hasRelabels
+      then "[prometheus.relabel.${target.job}.receiver]"
+      else "[prometheus.remote_write.mimir.receiver]";
+  in
+    ''
+      prometheus.scrape "${target.job}" {
+        targets = [{
+          __address__ = "${target.address}",
+          instance    = "${
+        if target.instance != ""
+        then target.instance
+        else target.job
+      }",${lib.optionalString (target.targetParam != null) ''
+          __param_target = "${target.targetParam}",''}
+        }]
+        forward_to      = ${forwardTo}
+        scrape_interval = "60s"
+        job_name        = "${target.job}"
+      }
+    ''
+    + lib.optionalString hasRelabels ''
 
-        prometheus.relabel "${target.job}" {
-          forward_to = [prometheus.remote_write.mimir.receiver]
-        ${relabelRules}
-        }
-      '')
-    cfg.extraScrapeTargets;
+      prometheus.relabel "${target.job}" {
+        forward_to = [prometheus.remote_write.mimir.receiver]
+      ${relabelRules}
+      }
+    '')
+  cfg.extraScrapeTargets;
 
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
     loki.write "loki" {
@@ -460,10 +459,10 @@ in {
       localSubnets = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [
-          "192.168.1.0/24"    # LAN
-          "192.168.11.0/24"   # DockerVLAN
-          "192.168.101.0/24"  # IoT
-          "224.0.0.0/4"       # multicast (for mDNS etc.)
+          "192.168.1.0/24" # LAN
+          "192.168.11.0/24" # DockerVLAN
+          "192.168.101.0/24" # IoT
+          "224.0.0.0/4" # multicast (for mDNS etc.)
         ];
         description = ''
           Cardinality filter — only hosts in these CIDRs become Prometheus
@@ -527,15 +526,19 @@ in {
     (lib.mkIf cfg.enable {
       networking.firewall = lib.mkMerge [
         (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
-          extraCommands = lib.concatMapStringsSep "\n" (src: ''
-            iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-            iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-            ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
-          '') syslogCfg.sources;
-          extraStopCommands = lib.concatMapStringsSep "\n" (src: ''
-            iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
-            iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
-          '') syslogCfg.sources;
+          extraCommands =
+            lib.concatMapStringsSep "\n" (src: ''
+              iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+              iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
+              ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
+            '')
+            syslogCfg.sources;
+          extraStopCommands =
+            lib.concatMapStringsSep "\n" (src: ''
+              iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+              iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+            '')
+            syslogCfg.sources;
         })
       ];
 
