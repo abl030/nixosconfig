@@ -44,110 +44,110 @@
   # explicit shape (vs Prometheus' single-PromQL alert form). Each step has a
   # refId; the rule's `condition` names the final boolean refId.
   rebootAlerts = lib.optionals cfg.rebootAlert.enable (map (instance: {
-    uid = "homelab-reboot-${instance}";
-    title = "${instance} unexpected reboot";
-    condition = "C";
-    # Fire after a single positive evaluation. Reboot-detection is binary —
-    # there's no flapping to suppress, and `for: 0s` minimises notification
-    # latency. The alert auto-resolves once uptime crosses the threshold.
-    "for" = "0s";
-    # When Mimir is briefly unreachable (network blip, server restart),
-    # treat that as "no event" rather than firing a spurious alert. The host
-    # reboot signal is what we care about, not query-pipeline health.
-    noDataState = "OK";
-    execErrState = "OK";
-    data = [
-      {
-        refId = "A";
-        queryType = "";
-        relativeTimeRange = {
-          from = 600;
-          to = 0;
-        };
-        # UID matches the pinned datasource in loki-server.nix.
-        datasourceUid = "Prometheus";
-        model = {
+      uid = "homelab-reboot-${instance}";
+      title = "${instance} unexpected reboot";
+      condition = "C";
+      # Fire after a single positive evaluation. Reboot-detection is binary —
+      # there's no flapping to suppress, and `for: 0s` minimises notification
+      # latency. The alert auto-resolves once uptime crosses the threshold.
+      "for" = "0s";
+      # When Mimir is briefly unreachable (network blip, server restart),
+      # treat that as "no event" rather than firing a spurious alert. The host
+      # reboot signal is what we care about, not query-pipeline health.
+      noDataState = "OK";
+      execErrState = "OK";
+      data = [
+        {
           refId = "A";
-          # Uptime in seconds. Filtered to this instance only — the alert
-          # rule itself is per-instance so we never need to demux by label.
-          expr = ''time() - node_boot_time_seconds{instance="${instance}"}'';
-          instant = true;
-          intervalMs = 60000;
-          maxDataPoints = 43200;
-          datasource = {
-            type = "prometheus";
-            uid = "Prometheus";
+          queryType = "";
+          relativeTimeRange = {
+            from = 600;
+            to = 0;
           };
-        };
-      }
-      {
-        refId = "B";
-        queryType = "";
-        relativeTimeRange = {
-          from = 0;
-          to = 0;
-        };
-        datasourceUid = "__expr__";
-        model = {
+          # UID matches the pinned datasource in loki-server.nix.
+          datasourceUid = "Prometheus";
+          model = {
+            refId = "A";
+            # Uptime in seconds. Filtered to this instance only — the alert
+            # rule itself is per-instance so we never need to demux by label.
+            expr = ''time() - node_boot_time_seconds{instance="${instance}"}'';
+            instant = true;
+            intervalMs = 60000;
+            maxDataPoints = 43200;
+            datasource = {
+              type = "prometheus";
+              uid = "Prometheus";
+            };
+          };
+        }
+        {
           refId = "B";
-          type = "reduce";
-          expression = "A";
-          reducer = "last";
-          datasource = {
-            type = "__expr__";
-            uid = "__expr__";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
           };
-        };
-      }
-      {
-        refId = "C";
-        queryType = "";
-        relativeTimeRange = {
-          from = 0;
-          to = 0;
-        };
-        datasourceUid = "__expr__";
-        model = {
+          datasourceUid = "__expr__";
+          model = {
+            refId = "B";
+            type = "reduce";
+            expression = "A";
+            reducer = "last";
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+        {
           refId = "C";
-          type = "threshold";
-          expression = "B";
-          conditions = [
-            {
-              evaluator = {
-                params = [cfg.rebootAlert.uptimeThresholdSeconds];
-                type = "lt";
-              };
-              operator.type = "and";
-              query.params = ["C"];
-              reducer = {
-                params = [];
-                type = "last";
-              };
-              type = "query";
-            }
-          ];
-          datasource = {
-            type = "__expr__";
-            uid = "__expr__";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
           };
-        };
-      }
-    ];
-    annotations = {
-      summary = "${instance} rebooted recently";
-      description = ''
-        Host ${instance} has uptime < ${toString cfg.rebootAlert.uptimeThresholdSeconds}s.
-        If this is outside a planned maintenance window, investigate (power
-        transient, kernel panic, OOM, hardware fault). The 2026-02-22 prom
-        crash that motivated this alert (#201) is the canonical example.
-      '';
-    };
-    labels = {
-      severity = "warning";
-      host = instance;
-    };
-  })
-  cfg.rebootAlert.instances);
+          datasourceUid = "__expr__";
+          model = {
+            refId = "C";
+            type = "threshold";
+            expression = "B";
+            conditions = [
+              {
+                evaluator = {
+                  params = [cfg.rebootAlert.uptimeThresholdSeconds];
+                  type = "lt";
+                };
+                operator.type = "and";
+                query.params = ["C"];
+                reducer = {
+                  params = [];
+                  type = "last";
+                };
+                type = "query";
+              }
+            ];
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+      ];
+      annotations = {
+        summary = "${instance} rebooted recently";
+        description = ''
+          Host ${instance} has uptime < ${toString cfg.rebootAlert.uptimeThresholdSeconds}s.
+          If this is outside a planned maintenance window, investigate (power
+          transient, kernel panic, OOM, hardware fault). The 2026-02-22 prom
+          crash that motivated this alert (#201) is the canonical example.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        host = instance;
+      };
+    })
+    cfg.rebootAlert.instances);
 
   rules = {
     apiVersion = 1;
