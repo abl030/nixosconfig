@@ -32,7 +32,7 @@ in {
     sops.secrets."acme/cloudflare" = {
       sopsFile = cfg.cloudflareSopsFile;
       format = "dotenv";
-      key = ""; # Output entire file content for ACME credentialsFile
+      key = ""; # Output entire file content for ACME environmentFile
       owner = "acme";
       # Note: We removed restartUnits = ["nginx.service"] to prevent reload failures
     };
@@ -43,7 +43,7 @@ in {
       defaults = {
         email = cfg.acmeEmail;
         dnsProvider = "cloudflare";
-        credentialsFile = config.sops.secrets."acme/cloudflare".path;
+        environmentFile = config.sops.secrets."acme/cloudflare".path;
         # Use public DNS for propagation checks (bypasses Tailscale's 100.100.100.100)
         dnsResolver = "1.1.1.1:53";
         extraLegoFlags = [
