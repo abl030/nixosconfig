@@ -17,6 +17,7 @@
     ssh = {
       enable = true;
       secure = false;
+      inhibitors.enable = true;
     };
     tailscale.enable = true;
     pve.enable = true;
