@@ -20,6 +20,12 @@
         pluginName = "home-assistant-skills";
         # version auto-detected from plugin.json
       }
+      {
+        source = inputs.claude-plugin-compound-engineering;
+        marketplaceName = "everyinc-compound-engineering";
+        pluginName = "compound-engineering";
+        # version auto-detected from plugin.json
+      }
       # episodic-memory disabled: npm deps require manual install which breaks
       # Nix-managed Claude Code (see MEMORY.md). Re-evaluate when upstream
       # plugin dep management improves or we have credits to justify the effort.

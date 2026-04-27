@@ -96,6 +96,11 @@
       flake = false;
     };
 
+    claude-plugin-compound-engineering = {
+      url = "github:EveryInc/compound-engineering-plugin";
+      flake = false;
+    };
+
     episodic-memory = {
       url = "github:abl030/episodic-memory";
       flake = false;

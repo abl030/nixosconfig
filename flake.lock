@@ -21,6 +21,22 @@
         "type": "github"
       }
     },
+    "claude-plugin-compound-engineering": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777264333,
+        "narHash": "sha256-rOw2zWPeTM0stCTa/EhXO0hVN42BwU+ekymvYR6mNrM=",
+        "owner": "EveryInc",
+        "repo": "compound-engineering-plugin",
+        "rev": "4b5f28da9746aae8f2c5dd715d7029d0ab2758a6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "EveryInc",
+        "repo": "compound-engineering-plugin",
+        "type": "github"
+      }
+    },
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
@@ -628,6 +644,7 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
+        "claude-plugin-compound-engineering": "claude-plugin-compound-engineering",
         "claude-plugin-ha-skills": "claude-plugin-ha-skills",
         "codex-cli-nix": "codex-cli-nix",
         "cratedigger-src": "cratedigger-src",

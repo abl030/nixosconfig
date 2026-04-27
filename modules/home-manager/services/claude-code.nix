@@ -96,12 +96,19 @@
       fi
     '';
 
-  # Read version from plugin's plugin.json if it exists
-  getPluginVersion = source: let
-    pluginJsonPath = "${source}/.claude-plugin/plugin.json";
+  # Read version from plugin's plugin.json if it exists.
+  # For single-plugin marketplaces, plugin.json sits at the repo root.
+  # For multi-plugin marketplaces (e.g. compound-engineering), it lives at
+  # plugins/<pluginName>/.claude-plugin/plugin.json — try root first, then
+  # fall back to the conventional subdir layout.
+  getPluginVersion = source: pluginName: let
+    rootPath = "${source}/.claude-plugin/plugin.json";
+    subdirPath = "${source}/plugins/${pluginName}/.claude-plugin/plugin.json";
     pluginJson =
-      if builtins.pathExists pluginJsonPath
-      then builtins.fromJSON (builtins.readFile pluginJsonPath)
+      if builtins.pathExists rootPath
+      then builtins.fromJSON (builtins.readFile rootPath)
+      else if builtins.pathExists subdirPath
+      then builtins.fromJSON (builtins.readFile subdirPath)
       else {};
   in
     pluginJson.version or "1.0.0";
@@ -138,7 +145,7 @@
       version =
         if plugin.version != null
         then plugin.version
-        else getPluginVersion plugin.source;
+        else getPluginVersion plugin.source plugin.pluginName;
       source = patchedSource;
     };
 
