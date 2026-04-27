@@ -295,8 +295,14 @@ in {
           # on (albumartist, album) alone, the harness sent "remove"
           # thinking it was a same-MBID stale entry, and beets'
           # task.should_remove_duplicates blast-radius wiped the sibling.
+          #
+          # Do not keep albumartist/album here. The guarded-replacement
+          # deploy on 2026-04-27 proved those mutable keys are too strict:
+          # same-release upgrades with normalized artist/title drift miss
+          # Beets' duplicate callback and fall back to Cratedigger's
+          # temporary stale-row cleanup. Exact release ids only.
           duplicate_keys = {
-            album = ["albumartist" "album" "mb_albumid"];
+            album = ["mb_albumid" "discogs_albumid"];
             item = ["artist" "title"];
           };
         };
