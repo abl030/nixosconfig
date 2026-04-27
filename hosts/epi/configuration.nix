@@ -28,6 +28,7 @@
     ssh = {
       enable = true;
       secure = false;
+      inhibitors.enable = true;
     };
     hyprland.enable = false; # Kept available, just disabled
     sunshine.enable = true;
