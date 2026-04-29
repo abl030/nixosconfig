@@ -79,11 +79,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1777429604,
-        "narHash": "sha256-zuU06XcOa0CZL8xCvJQJRNfQOX3V81J1tVPJNZ0iHWk=",
+        "lastModified": 1777440621,
+        "narHash": "sha256-+BAviErRHuXt2U0T9wNQ3km9gq/6sJXwBuOpBcf6pgY=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "ecc133976ae40be5ad6051b585b9ed8473f94622",
+        "rev": "5dab86940015b25721c961206c07ed20d2a438ae",
         "type": "github"
       },
       "original": {
@@ -95,11 +95,11 @@
     "discogs-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1777429982,
-        "narHash": "sha256-8N8o4L5ZxNXeUm6xAB4yGf/PCUNhzUxsFahRoyR+VMQ=",
+        "lastModified": 1777440621,
+        "narHash": "sha256-HP2urAcq/nvDnBdJ+lD3BiuVd8qSYzEg459+cm5AmsE=",
         "owner": "abl030",
         "repo": "discogs-api",
-        "rev": "6053896eb88a8f529d2195090214ab2e850a56d5",
+        "rev": "dc4038073eece441729458addadc2976ebce5361",
         "type": "github"
       },
       "original": {
