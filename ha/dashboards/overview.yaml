@@ -10,6 +10,11 @@ views:
     entity: binary_sensor.garage_door_tilt_contact
     name: Garage Door
     icon: mdi:garage
+    tap_action:
+      action: perform-action
+      perform_action: switch.turn_on
+      target:
+        entity_id: switch.garage_door
   - type: tile
     entity: sensor.garage_door_tilt_battery
     name: Garage Door Battery
