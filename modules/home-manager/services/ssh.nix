@@ -51,6 +51,17 @@ in {
       in
         generatedHosts
         // {
+          # Termux on Galaxy A55 — joins the tailnet, sshd on 8022, Android-assigned UID user.
+          phone = {
+            hostname = "s-a55";
+            user = "u0_a357";
+            port = 8022;
+            extraOptions = {
+              ServerAliveInterval = "30";
+              ServerAliveCountMax = "3";
+            };
+          };
+
           # Global Defaults (merged at the end)
           "*" = {
             forwardAgent = true; # Useful for git
