@@ -19,7 +19,16 @@ AUTH="Authorization: Token $PAPERLESS_TOKEN"
 ACCEPT="Accept: application/json; version=9"
 ```
 
-All examples below assume `$PAPERLESS_URL`, `$AUTH`, and `$ACCEPT` are set. If `$PAPERLESS_MCP_ENV_FILE` is empty or the file is missing, the host hasn't been rebuilt with `homelab.mcp.paperless.enable = true` — ask the user to rebuild.
+**GOTCHA (confirmed 2026-04-30): `$PAPERLESS_MCP_ENV_FILE` may be empty even when the file exists.** The env var is only populated when the host has been rebuilt with `homelab.mcp.paperless.enable = true`. Until then, fall back to the hardcoded path:
+
+```bash
+ENV_FILE="${PAPERLESS_MCP_ENV_FILE:-/run/secrets/mcp/paperless.env}"
+set -a; . "$ENV_FILE"; set +a
+AUTH="Authorization: Token $PAPERLESS_TOKEN"
+ACCEPT="Accept: application/json; version=9"
+```
+
+All examples below assume `$PAPERLESS_URL`, `$AUTH`, and `$ACCEPT` are set. If the env file is missing entirely, the host hasn't been rebuilt with `homelab.mcp.paperless.enable = true` — ask the user to rebuild.
 
 **Never echo, log, or cat `$PAPERLESS_TOKEN`.** It grants full read/write to every document. Treat it like an SSH key.
 
@@ -268,6 +277,178 @@ ssh doc2 "sudo journalctl -u paperless-task-queue --since '1h ago' --no-pager" |
 
 The Celery worker log on doc2 has the full Python traceback. The `/api/tasks/?status=FAILURE` endpoint has the user-facing summary.
 
+## Known API quirks (verified against v2.20.14 / API v9)
+
+### `/api/status/` version field is null
+
+`GET /api/status/` returns `{"version": null, ...}` — the version field is never populated in practice. To get the actual server version, inspect the **response headers**:
+
+```bash
+curl -sS -I -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/status/" | grep -i 'x-version\|x-api-version'
+# x-api-version: 9
+# x-version: 2.20.14
+```
+
+### `/api/tags/?is_inbox_tag=true` filter does nothing
+
+The query parameter `is_inbox_tag=true` is silently ignored — it returns all tags. To find the inbox tag, fetch all tags with `page_size=200` and filter client-side on `is_inbox_tag`:
+
+```bash
+curl -sS -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/tags/?page_size=200" \
+  | jq '.results[] | select(.is_inbox_tag == true) | {id, name, document_count}'
+```
+
+As of 2026-04-30 this system has **no inbox tag configured** (the query above returns empty). `is_in_inbox=true` on the documents endpoint returns 0 documents — inbox is clean.
+
+### `/api/statistics/` characters_count is null
+
+`characters_count` always comes back `null`. `documents_total` is reliable (359 documents as of 2026-04-30). Storage fields (`total`, `available`) are in bytes and accurate.
+
+### `tags__id__none=0` does NOT return tagless documents
+
+The query `?tags__id__none=0` returns ALL 359 documents (the total), not the subset with no tags. There is no direct API filter for "document has zero tags". To count/find tagless docs, page through with `?fields=id,tags` and filter client-side on `tags == []`.
+
+### `document_count` on taxonomy endpoints is accurate at list time
+
+`/api/tags/`, `/api/correspondents/`, `/api/document_types/` all include `document_count` in list results — this is live, not cached. Safe to use for auditing without fetching individual docs.
+
+### `content` field is on the document detail response directly
+
+`GET /api/documents/{id}/` includes the full OCR text in the `content` field. You do NOT need to call `/api/documents/{id}/metadata/` to read the text — that endpoint only adds sidecar metadata (media filename, original checksum, etc.). Using `?fields=id,title,content` on the list endpoint also works and returns OCR text inline, keeping responses manageable for skimming.
+
+### Library snapshot (as of 2026-04-30, post-cleanup)
+
+This section is **pre-warming context** — re-fetch from the API before acting on any of these IDs in case they've moved, but use this to skip the discovery round-trip when the user asks something like "tag every Synergy doc".
+
+**Library size:** ~360 documents (mostly PDF). Web UI: https://paperless.ablz.au.
+
+**Storage paths (4):**
+| ID | Name | Docs | Property option |
+|----|------|------|-----------------|
+| 1  | Coronation | 123 | `coronation` |
+| 2  | Riverslea  | 60  | `riverslea`  |
+| 3  | Grevillea  | 19  | `grevillea`  |
+| 4  | Magpie     | 1   | `magpie`     |
+
+156 documents still have no storage_path — they're orphans the user hasn't classified yet.
+
+**Canonical correspondents (the merge winners + the recent additions):**
+| ID  | Name | Notes |
+|-----|------|-------|
+| 9   | Halsall & Associates | absorbed "Halsall And Associates" |
+| 13  | Synergy | electricity → Utilities workflow |
+| 15  | Water Corporation | water → Utilities workflow |
+| 22  | Western Power | → Utilities workflow |
+| 32  | AMR Shire | rate notices → Utilities workflow |
+| 36  | Summit | builder for Riverslea house build → its own workflow |
+| 82  | Suncorp | absorbed "Suncorp Bank" |
+| 92  | Western Australia Births, Deaths and Marriages | absorbed two BDM variants |
+| 95  | Cullen Wines | absorbed two zero-doc variants |
+| 100 | Ashore Plumbing and Gas | absorbed two variants |
+| 107 | Cloudflare | absorbed "Cloudflare, Inc." |
+| 144 | Ford & Doonan South West | created during cleanup; HVAC supplier for Riverslea |
+
+92 total correspondents after the 22-ghost sweep. Down from 124.
+
+**Canonical document types (the merge survivors):**
+| ID | Name | Notes |
+|----|------|-------|
+| 8  | Invoice | absorbed Tax Invoice + Bill/Invoice (94 docs) |
+| 20 | Insurance Policy | absorbed policy schedule + policy confirmation + Policy Summary |
+| 22 | Statement | absorbed loan statement |
+| 27 | House Plans | absorbed Floor Plan + Site Plan + plan + architectural drawing + Layout (43 docs) |
+| 67 | Payslip | absorbed Pay Slip + Pay Advice |
+
+47 document types remain (down from 77). Generic-name types still present (use cautiously, may be flagged for cleanup later): `Information` (5), `summary` (2), `Schedule` (1), `Confirmation` (1), `collection of documents` (1), `Employer` (1), `recommendations` (1), `annual return` (1).
+
+**Structural tags (created 2026-04-30, back-applied):**
+| ID  | Name | Color | Back-applied to |
+|-----|------|-------|-----------------|
+| 77  | Utilities | `#a6cee3` | 22 docs (Synergy + Water Corp + Western Power + AMR Shire) |
+| 333 | Riverslea - House Build | `#2a9d8f` | 60 docs (storage_path = Riverslea) |
+| 334 | Coronation | `#e76f51` | 123 docs (storage_path = Coronation) |
+| 335 | Grevillea | `#57cc99` | 19 docs (storage_path = Grevillea) |
+| 336 | Personal Records | `#9b72cf` | 7 docs (correspondent = WA BDM) |
+
+**Process tag (low-signal):** `ai-processed` (id 258) marks 139 docs processed by the paperless-gpt workflow. Don't filter by it for content questions.
+
+**Other tags:** ~330 more, mostly AI-generated near-duplicates ("architecture" / "architectural" / "architectural drawing" etc.). The user has NOT yet approved a tag-merge cleanup pass — leave them alone unless asked.
+
+**Custom fields:**
+| ID | Name | Type | Notes |
+|----|------|------|-------|
+| 1  | Invoice Number | string | pre-existing, ~20 docs use it |
+| 2  | Amount Due | monetary (AUD) | created 2026-04-30, NOT back-applied — populate per-doc by reading OCR `content` |
+| 3  | Property | select | options `riverslea`/`grevillea`/`coronation`/`magpie`/`other`; back-applied to 203 docs from storage_path |
+
+**Active workflows (consumption automation):**
+| ID | Name | Behaviour |
+|----|------|-----------|
+| 1  | Auto-tag utility bills | New docs from correspondents 13/15/22/32 → tag 77 (Utilities) + type 8 (Invoice) |
+| 2  | Auto-classify Summit builder docs | New docs from correspondent 36 (Summit) → storage_path 2 (Riverslea) + tag 333 (Riverslea - House Build) |
+
+Both use trigger type 2 (Document Added — fires after correspondent is determined). See `## Workflows` further down for the schema gotchas.
+
+**Standing taxonomy conventions (user preferences):**
+- **Title-case** for canonical names (`Insurance Policy`, not `insurance policy`).
+- **Tag pattern for property-scoped work:** `<Property> - <Activity>` with a spaced hyphen (e.g. `Riverslea - House Build`). Mirror this if you create another property-scoped tag.
+- **Don't auto-set Property = "Other"** for orphans — the user wants to triage those manually.
+- **Don't blindly merge tags.** The user has approved correspondent and type merges but is still deciding on the AI-tag chaos. Propose, don't execute.
+
+### Correspondent merge recipe (confirmed 2026-04-30)
+
+```bash
+# 1. Move docs from variant to canonical
+curl -sS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
+  -d '{"documents": [<id1>,<id2>], "method": "set_correspondent", "parameters": {"correspondent": <canonical_id>}}' \
+  "$PAPERLESS_URL/api/documents/bulk_edit/"
+# Returns: {"result":"OK"} on success
+
+# 2. Belt-and-braces: re-confirm variant is at zero IMMEDIATELY before delete
+curl -sS -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/correspondents/<variant_id>/" | jq '.document_count'
+
+# 3. Delete variant (returns 204 No Content on success)
+curl -sS -o /dev/null -w "%{http_code}" -X DELETE -H "$AUTH" -H "$ACCEPT" \
+  "$PAPERLESS_URL/api/correspondents/<variant_id>/"
+```
+
+Key API facts confirmed:
+- `bulk_edit` with `set_correspondent` or `set_document_type` returns `{"result":"OK"}` synchronously (not a task UUID).
+- DELETE on correspondents/tags/document_types/etc. returns HTTP 204, not 200.
+- `document_count` on `GET /api/correspondents/{id}/` and `GET /api/document_types/{id}/` is live (not cached) — safe to use as gate before delete.
+- Creating a correspondent: `POST /api/correspondents/` with `{"name": "..."}` — returns full object including new `id`.
+- Shell loop gotcha: bash `for id in $VAR` where `$VAR` is a space-separated string fails if the variable is set in a previous Bash tool call (session state doesn't persist). Always inline the ID list in the loop.
+- **Name-uniqueness gotcha (PATCH rename):** `PATCH /api/document_types/{id}/` (and correspondents/tags) with a name that already exists returns `{"non_field_errors":["The fields name, owner must make a unique set."]}`. When renaming a type to match another existing type (as part of a merge), you MUST delete the old one FIRST before renaming the survivor. Move all its docs away first, confirm 0, delete, then rename.
+- **Tag exact-name lookup gotcha:** `GET /api/tags/?name=Foo` does NOT filter by exact name — it appears to be ignored and returns all tags. Use `jq 'select(.name == "Foo")'` client-side after fetching the full list, or use `name__icontains=Foo` and then filter. Always check the full list rather than trusting the query param for exact matching.
+- **`add_tag` document_count reflects prior tags too:** after `add_tag`, the tag's `document_count` may be higher than the number of docs you just tagged if some already had that tag. This is correct — it's a total, not a delta.
+- **`correspondent__id__in=1,2,3` filter works** on `/api/documents/` for fetching docs from multiple correspondents in one call.
+- **Tag create returns `{"error":"Object violates owner / name unique constraint"}` (not a 4xx status code with JSON errors field)** when a tag name already exists for that owner. The HTTP status is still 200 but `id` is null. Always check for a null `id` in the response when creating taxonomy objects.
+
+### Custom fields
+
+**Creating custom fields:**
+- `POST /api/custom_fields/` with `{"name":"...", "data_type":"...", "extra_data":{...}}`
+- Monetary: `{"data_type":"monetary","extra_data":{"default_currency":"AUD"}}`
+- Select (v7+): `{"data_type":"select","extra_data":{"select_options":[{"id":"foo","label":"Foo"},...]}}` — option `id` is an arbitrary stable string (e.g. lowercase slug), `label` is the display name.
+- On a document, select field value is stored as the option id string: `{"field":3,"value":"riverslea"}`
+
+**`modify_custom_fields` bulk_edit (confirmed shape):**
+```bash
+curl -sS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
+  -d '{"documents":[...], "method":"modify_custom_fields",
+      "parameters":{"add_custom_fields":{"<field_id_as_string>":"<value>"},"remove_custom_fields":[]}}' \
+  "$PAPERLESS_URL/api/documents/bulk_edit/"
+```
+- `add_custom_fields` is a `{field_id_string: value}` object. For select fields, value is the option id string.
+- `remove_custom_fields` must be present (even as empty array) — omitting it returns `{"non_field_errors":["remove_custom_fields not specified"]}`.
+- Returns `{"result":"OK"}` synchronously.
+- Operation is additive/replace — it sets the value; if the field already exists on the doc, it is overwritten.
+
+**`custom_field_query` filter:**
+- Field ID must be an **integer** in the JSON array, not a string: `[3,"isnull",false]` works; `["3","isnull",false]` returns `{"custom_field_query":{"0":["'3' is not a valid custom field."]}}`.
+- `count` in the response is `null` when `custom_field_query` is active — use `page_size=500` (or higher) and count `results` client-side.
+- Operators confirmed: `isnull` (bool), `exact` (string/value), `exists` (bool — same as isnull false).
+
 ## Full endpoint inventory
 
 The OpenAPI schema lives at `$PAPERLESS_URL/api/schema/` (JSON, ~600 KB) and the browsable HTML at `$PAPERLESS_URL/api/schema/view/`. Re-fetch when you need request/response details for an endpoint not covered above:
@@ -366,6 +547,53 @@ Things you MUST capture the moment you find them:
 **If you remove or change something the user previously relied on, leave a one-line note saying what you changed and why.** Future you will thank present you.
 
 The cost of NOT doing this is that the next session re-discovers the same gotcha, burns the same hour, and asks the user the same dumb question. We compound by writing things down. **Compound.**
+
+## Workflows
+
+### Shape (confirmed 2026-04-30)
+
+Workflows, triggers, and actions are **all created inline in a single POST to `/api/workflows/`** — there are no separate `/api/workflow_triggers/` or `/api/workflow_actions/` create endpoints. The GET endpoints exist for reading, but creation always goes through the workflow.
+
+```bash
+curl -sS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
+  -d '{
+    "name": "My workflow",
+    "enabled": true,
+    "order": 1,
+    "triggers": [{"type": 2, "sources": [1,2,3], "matching_algorithm": 0, "filter_has_correspondent": 13}],
+    "actions": [{"type": 1, "assign_tags": [77], "assign_document_type": 8}]
+  }' "$PAPERLESS_URL/api/workflows/"
+```
+
+Response includes assigned `id` on the workflow and each trigger/action.
+
+### Trigger types
+- `1` = Consumption Started — fires before OCR/classification; correspondent/type not yet set. **Requires at least one of `filter_filename`, `filter_path`, or `filter_mailrule` — `filter_has_correspondent` alone is rejected.**
+- `2` = Document Added — fires after full processing; correspondent/type already assigned. **Use this for correspondent-based rules.**
+- `3` = Document Updated
+- `4` = Scheduled
+
+### Sources enum
+`1` = Consume Folder, `2` = API Upload, `3` = Mail Fetch, `4` = Web UI. Pass `[1,2,3]` to catch all ingest paths.
+
+### Action types
+- `1` = Assignment — use `assign_tags` (array), `assign_correspondent`, `assign_document_type`, `assign_storage_path`, `assign_custom_fields`, `assign_custom_fields_values`.
+
+### Multi-correspondent triggers
+`filter_has_correspondent` accepts exactly one integer. To match multiple correspondents, add multiple trigger objects to the `triggers` array — one per correspondent. A single workflow handles all of them.
+
+### Footgun: type 1 (Consumption Started) + correspondent filter
+This combination is silently rejected (`File name, path or mail rule filter are required`). The correspondent isn't determined yet at consumption time — use type 2 (Document Added) instead for correspondent-based rules.
+
+### Matching algorithm
+`0` = None (no title/content matching — just the filter_* fields). Use 0 for pure correspondent/tag/type filters.
+
+### Our workflows (created 2026-04-30)
+
+| ID | Name | Trigger IDs | Action IDs |
+|----|------|-------------|------------|
+| 1 | Auto-tag utility bills | 1,2,3,4 (type 2, correspondents 13,15,22,32) | 1 (assign tag 77 + doc_type 8) |
+| 2 | Auto-classify Summit builder docs | 5 (type 2, correspondent 36) | 2 (assign storage_path 2 + tag 333) |
 
 ## When to escalate to the host
 
