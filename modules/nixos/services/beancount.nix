@@ -52,6 +52,9 @@ in {
     ];
 
     # Initial clone — runs once. After this the working tree exists; pulls keep it fresh.
+    # GIT_SSH_COMMAND is exported inside the script body, not via Environment=,
+    # because systemd splits unquoted Environment= values on whitespace and
+    # nix's default rendering doesn't add quotes.
     systemd.services.beancount-clone = {
       description = "Clone books repo on first run";
       wantedBy = ["multi-user.target"];
@@ -67,10 +70,10 @@ in {
         User = "fava";
         Group = "fava";
         WorkingDirectory = cfg.dataDir;
-        Environment = "GIT_SSH_COMMAND=${gitSshCommand}";
       };
 
       script = ''
+        export GIT_SSH_COMMAND='${gitSshCommand}'
         if [ ! -d "${cloneDir}/.git" ]; then
           git clone ${bookRepoSsh} ${cloneDir}
         else
@@ -92,10 +95,10 @@ in {
         User = "fava";
         Group = "fava";
         WorkingDirectory = cloneDir;
-        Environment = "GIT_SSH_COMMAND=${gitSshCommand}";
       };
 
       script = ''
+        export GIT_SSH_COMMAND='${gitSshCommand}'
         git fetch --quiet origin
         git reset --hard origin/master
       '';
