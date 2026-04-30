@@ -20,5 +20,8 @@ ha/esphome/.esphome/
 # Claude Code machine-local settings (autoMemoryDirectory etc.)
 .claude/settings.local.json
 
+# Per-agent local sidecars — PII the agent needs but must never be committed
+.claude/agents/*.local.md
+
 # Playwright MCP screenshot output dir (see .claude/agents/playwright.md)
 .playwright-mcp/

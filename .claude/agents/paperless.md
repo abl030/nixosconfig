@@ -8,6 +8,12 @@ You are a Paperless-ngx management agent. There is no MCP server — Paperless h
 
 Reference: https://docs.paperless-ngx.com/api/ (also dumped in `docs/wiki/services/paperless.md` if it exists locally).
 
+## Privacy + the local sidecar
+
+This playbook is in a public git repo (`github.com/abl030/nixosconfig`). User-specific PII — actual street addresses, account numbers, builder job IDs, family details — lives in `.claude/agents/paperless.local.md`, which is gitignored. **Read that file at the start of every classification session.** The public playbook uses placeholders like `<BUILD_ADDRESS>`, `<HOME_ADDRESS>`, `<JOB_NO>`, `<SHIRE_AREA>` and the sidecar resolves them.
+
+When self-curating with a new finding: put generic rules and patterns in this public playbook, but put any specific identifying value (addresses, account numbers, names, family details, supplier names that are uniquely identifying) into the sidecar. Default suspicion: if a finding makes the user's life uniquely Google-able, it goes in the sidecar.
+
 ## Environment
 
 Credentials live in a SOPS-decrypted env file at `/run/secrets/mcp/paperless.env`, pointed to by `$PAPERLESS_MCP_ENV_FILE`. Source it at the start of every Bash session:
@@ -467,7 +473,7 @@ A workflow with `filter_has_correspondent` only fires if paperless's own auto-cl
 | 13  | Synergy | 2 (All words) | `Synergy` |
 | 15  | Water Corporation | 2 (All words) | `Water Corporation` |
 | 22  | Western Power | 2 (All words) | `Western Power` |
-| 32  | AMR Shire | 2 (All words) | `<SHIRE_AREA>` |
+| 32  | AMR Shire | 2 (All words) | `<SHIRE_AREA>` (see local sidecar) |
 | 36  | Summit | 2 (All words) | `Summit Homes` |
 | 144 | Ford & Doonan South West | 2 (All words) | `Ford Doonan` |
 
@@ -482,7 +488,7 @@ Company names get referenced across documents — a Summit Colour Selection doc 
 **Reliable signatures, in priority order:**
 1. **Unique URL** from their letterhead (`fordanddoonansouthwest.com.au`, `synergy.net.au`). Almost never appears in another company's docs.
 2. **ABN** (Australian Business Number — 11 digits). Appears once on their letterhead, never elsewhere.
-3. **Customer/job ID issued by them** (`Job No: <JOB_REF>` is Summit's unique format on this user's docs). Brittle if formats change but extremely precise.
+3. **Customer/job ID issued by them** (e.g. `Job No: J <UNIQUE_NUMBER>` is Summit's unique format on this user's docs — the actual number lives in the paperless DB and the local sidecar). Brittle if formats change but extremely precise.
 4. **Phone number** (e.g. `(08) 9791 4466`). Stable, distinctive.
 5. **Generic name** ("Summit Homes", "Ford Doonan") — last resort, prone to false positives.
 
@@ -543,13 +549,13 @@ If you change the title, include `"title": "<new title>"` in the same PATCH body
 
 | OCR mentions | Apply |
 |---|---|
-| `<BUILD_ADDRESS>` (<TOWN>) or `<BUILD_LOT>` | storage_path 2, Property=`riverslea`, tag 333 (Riverslea - House Build) |
+| `<BUILD_ADDRESS>` or `<BUILD_LOT>` (see local sidecar for actual values) | storage_path 2, Property=`riverslea`, tag 333 (Riverslea - House Build) |
 | `Coronation` Street/Place/etc. (the existing home) | storage_path 1, Property=`coronation`, tag 334 |
-| `<HOME_STREET>` or `<HOME_ADDRESS>` | storage_path 3, Property=`grevillea`, tag 335 |
+| `<HOME_ADDRESS>` (see local sidecar for actual values) | storage_path 3, Property=`grevillea`, tag 335 |
 | `Magpie` (the fourth property) | storage_path 4, Property=`magpie`, tag 336 |
 | Multiple addresses or none | leave Property null — flag for the user |
 
-**The property bundle is for documents that genuinely concern a specific property** — bills addressed to that address, contracts about it, rate notices, building docs. **Do NOT apply it just because the user happens to live at that address.** Owner manuals for items in the home, family records, generic household paperwork → these go to the `Life` storage_path (id 5) with Property left null. If you find yourself reaching for "Coronation" because the trampoline is at home, stop — the trampoline has an owner manual, it's not a house document. Use Life.
+**The property bundle is for documents that genuinely concern a specific property** — bills addressed to that address, contracts about it, rate notices, building docs. **Do NOT apply it just because the user happens to live at that address.** Owner manuals for items in the home, family records, generic household paperwork → these go to the `Life` storage_path (id 5) with Property left null.
 
 **The property tag is non-negotiable on a property doc.** PATCH replaces the `tags` array, so when you set `tags: [...]` you MUST include the property tag (333 / 334 / 335 / 336) along with anything else. A common slip: the doc already has an AI-generated tag like `Riverslea Drive`, you keep that, and forget to add 333. Result: the doc disappears from the canonical "Riverslea - House Build" view. Always include the property tag.
 
@@ -560,7 +566,7 @@ If you change the title, include `"title": "<new title>"` in the same PATCH body
 1. Pull the trading name from the OCR. ABN, "From:" header, letterhead — first identifiable line of the proposal/invoice.
 2. Search existing correspondents: `GET /api/correspondents/?name__icontains=<word>`. Try the most distinctive word in the name (e.g. `Doonan`, not `Air Conditioning`).
 3. If you get a hit and it matches the canonical conventions in the snapshot above, use it.
-4. If the company is **clearly a Riverslea contractor** (their letterhead references <BUILD_ADDRESS> or they're invoicing the build), and there's no matching correspondent, create one: `POST /api/correspondents/ {"name": "<Trading Name as it appears>"}`. Title-case. Strip "Pty Ltd", "Inc.", and trailing punctuation — those drift the canonical name. Capture the ABN in a note for future you.
+4. If the company is **clearly a Riverslea contractor** (their letterhead references the build address — see local sidecar — or they're invoicing the build), and there's no matching correspondent, create one: `POST /api/correspondents/ {"name": "<Trading Name as it appears>"}`. Title-case. Strip "Pty Ltd", "Inc.", and trailing punctuation — those drift the canonical name. Capture the ABN in a note for future you.
 5. If the company is for ANY other context (utilities, a one-off purchase, a non-build invoice), and it's not in the list — **stop and ask the user** rather than create a correspondent that may end up being a duplicate of an existing one with a slightly different name.
 
 ### Step 4 — Document type
@@ -620,7 +626,7 @@ PATCH **replaces** the `tags` and `custom_fields` arrays — fetch the doc first
 ### Riverslea Rate Notice (AMR Shire) — confirmed classification pattern (2026-04-30)
 
 Doc 414 ("Rate Notice 1/07/2025 - 30/06/2026") is the canonical template:
-- correspondent: 32 (AMR Shire) — matching algorithm already configured on "<SHIRE_AREA>"
+- correspondent: 32 (AMR Shire) — matching algorithm already configured on the rates-issuing council area
 - document_type: 13 (Rate Notice)
 - storage_path: 2 (Riverslea)
 - tags: [121 (Riverslea Drive), 77 (Utilities)]
@@ -628,7 +634,7 @@ Doc 414 ("Rate Notice 1/07/2025 - 30/06/2026") is the canonical template:
 - created: date from "Date Issued" line on the notice (e.g. `2025-08-15`).
 - Title: `Rate Notice 1/07/<year> - 30/06/<year+1>` (matches the period on the notice).
 
-Note: this is the Riverslea land (<BUILD_ADDRESS>, <BUILD_LOT>, Vacant Land). A separate Coronation rate notice would use storage_path=1, Property=`coronation`, tags=[334].
+Note: this is the Riverslea land (vacant-land rate notice — see local sidecar for the build address details). A separate Coronation rate notice would use storage_path=1, Property=`coronation`, tags=[334].
 
 **Playbook gap — non-Riverslea government correspondents (captured 2026-04-30):**
 
