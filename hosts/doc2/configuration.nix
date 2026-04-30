@@ -113,6 +113,7 @@
         enable = true;
         dataDir = "/mnt/virtio/atuin";
       };
+      beancount.enable = true;
       lidarr = {
         enable = true;
         dataDir = "/mnt/virtio/lidarr";
