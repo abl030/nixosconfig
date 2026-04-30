@@ -932,3 +932,47 @@ This combination is silently rejected (`File name, path or mail rule filter are 
 - Files in the consume folder not being picked up → check `paperless-consumer.service` on doc2 and the `mnt-data-Life-Meg\x20and\x20Andy-Paperless-Import-scans.mount` bind mount. NFS staleness has bitten us before.
 - Schema/migration errors after a paperless package bump → may need `paperless-manage migrate` on doc2; ask before running.
 - Postgres connection errors → the DB lives in the `paperless-db` nspawn container; restart with `sudo machinectl restart paperless-db`.
+
+## Batch triage session 2026-04-30 — 49-doc classification
+
+**Scope:** IDs 434, 398, 355, 350, 337, 336, 335, 334, 333, 332, 331, 330, 329, 328, 327, 326, 325, 324, 323, 322, 321, 320, 319, 318, 317, 316, 315, 314, 313, 312, 311, 310, 309, 306, 305, 304, 303, 302, 301, 300, 299, 298, 297, 296, 288, 286, 281, 255, 156 (434 skipped).
+
+**Results:** 36 docs fully classified with complete correspondent/type. 13 docs classified with correspondent=null (pending user decisions for government/insurance/real-estate correspondents). Zero errors.
+
+**Key learnings for future batches:**
+
+1. **Water Corporation account ambiguity (doc 299):** Billing address shows "1 Grevillea Lane" but OCR account detail says "1 Coronation St, Lot 49". Always read the full OCR, not just letterhead, to find the actual property. This was correctly classified to Coronation (sp=1).
+
+2. **Insurance issuer vs. sales channel (doc 286):** Home insurance policy shows Bank of Melbourne as correspondent but actual insurer is Allianz (sold through their partnership). Corrected the title. Pattern: always check the carrier/issuer name in policy text, not just the letterhead.
+
+3. **Real estate agent pattern (docs 336, 337, 322):** Coronation property sale docs list "Ray White Stocker Preston" (128 Bussell Hwy, Margaret River) as the exclusive agent across multiple agreement types (selling agency, listing authority, fee schedule). Not yet a correspondent in library — flagged for user decision.
+
+4. **Campaign Agent (doc 332):** Distinct from real estate agent. Campaign Agent Pty Ltd (ABN 33 608 962 812) is the marketing/campaign coordinator for Coronation property sale. Also not yet in library.
+
+5. **Contractor invoices (docs 304, 306):** Engineering Solutions (Invoice 2706) and Zeewyk Contracting (Invoice 112) both for Coronation property work. Correspondents don't exist; flagged for user decision.
+
+6. **Government payslip employer (docs 330, 329, 328):** Meagan's payslips from "Department of Communities" (Government of Western Australia). Employee ID 016882. No correspondent in library. Flagged for user decision.
+
+7. **Manual identification is reliable:** All 6 product manuals cleanly identified by "User Manual" / "E-Manual" / "Owner's Manual" in OCR head. Apply universal bundle: corr=145 (User Manual), type=74 (Instruction Manual), sp=5 (Life), tags=[], custom_fields=[]. Titles rewritten to drop underscores and part numbers.
+
+8. **Duplicate detection:** Docs 333 and 337 both titled "Listing Authority - PL492 & PL493 Willmott Ave". Same property, Docusign envelope IDs are different. Check OCR content before assuming merge candidate.
+
+9. **Subdivision property routing:** Docs mentioning "PL492" or "PL493" (Willmott Ave subdivisions) belong to Coronation bundle (sp=1, tag=334, Property=coronation) even if different mailing address — they are subdivisions of original Lot 49 Coronation Street. Always read title and OCR carefully.
+
+10. **Scanner output OCR quality:** Docs 303, 300, 325 were scanner outputs with initially poor OCR head readability. Full OCR read resolved them: doc 303 was ECU student name change form, doc 300 was MLC life insurance policy, doc 325 was vehicle licence/insurance. Don't skip large OCR slices.
+
+**Correspondents flagged for creation:**
+- Ray White Stocker Preston (real estate agent, docs 336, 337, 322) — pattern: `raywhitestockerpreston.com.au` or `stocker-preston.com.au` (ABN to be found)
+- Campaign Agent Pty Ltd (marketing coordinator, doc 332) — ABN 33 608 962 812 (already in OCR)
+- Department of Communities / Government of Western Australia (Meagan's employer, docs 330, 329, 328, 327)
+- Zeewyk Contracting (contractor, doc 306) — ABN to be found
+- Engineering Solutions (contractor, doc 304) — ABN to be found
+- Allianz (home insurance issuer, doc 286) — currently sold via Bank of Melbourne
+
+**Invoice/Account custom fields populated:**
+- 305: Invoice Number = 13768
+- 299: Invoice Number = 90066737009 (Water Corp account), Amount Due = 301.96
+- 306: Invoice Number = 112
+- 304: Invoice Number = 2706
+
+**Real estate document classification on hold:** 10 docs (336, 337, 333, 322, 321, 320, 319, 318, 323, 332) all have storage_path=1 (Coronation), tag=334, Property=coronation, but correspondent=null pending user decision on whether to create Ray White / Campaign Agent / generic real estate correspondents or leave as-is.
