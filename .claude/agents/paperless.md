@@ -369,8 +369,9 @@ The first four are **property-bound**. `Life` is the catch-all for general house
 | 107 | Cloudflare | absorbed "Cloudflare, Inc." |
 | 144 | Ford & Doonan South West | created during cleanup; HVAC supplier for Riverslea |
 | 145 | User Manual | catch-all for owner manuals — set this on every doc with type=Instruction Manual regardless of brand. Pair with storage_path Life. |
+| 146 | Services Australia | Centrelink/Medicare/MyGov. Regex matches ABN `90 794 605 008` or URL `servicesaustralia.gov.au` — both unique to their letterhead. Pair with storage_path Life. Add tag 336 (Personal Records) for life-event forms. |
 
-92 total correspondents after the 22-ghost sweep. Down from 124.
+93 total correspondents (after 22-ghost sweep + 2 created during the playbook era).
 
 **Canonical document types (the merge survivors):**
 | ID | Name | Notes |
@@ -504,6 +505,10 @@ If you change the title, include `"title": "<new title>"` in the same PATCH body
 
 **The property bundle is for documents that genuinely concern a specific property** — bills addressed to that address, contracts about it, rate notices, building docs. **Do NOT apply it just because the user happens to live at that address.** Owner manuals for items in the home, family records, generic household paperwork → these go to the `Life` storage_path (id 5) with Property left null. If you find yourself reaching for "Coronation" because the trampoline is at home, stop — the trampoline has an owner manual, it's not a house document. Use Life.
 
+**The property tag is non-negotiable on a property doc.** PATCH replaces the `tags` array, so when you set `tags: [...]` you MUST include the property tag (333 / 334 / 335 / 336) along with anything else. A common slip: the doc already has an AI-generated tag like `Riverslea Drive`, you keep that, and forget to add 333. Result: the doc disappears from the canonical "Riverslea - House Build" view. Always include the property tag.
+
+**AI-generated tags that overlap with a structural tag should be merged, not coexisted.** If you encounter a tag like `Riverslea Drive` (id was 121, merged 2026-04-30) that duplicates a structural tag's intent, merge it: `bulk_edit modify_tags {add_tags: [<structural>], remove_tags: [<ai>]}` over every doc carrying it, then DELETE the AI tag. Don't ask permission for AI/structural duplicates — the user has standing approval for these. Ask before merging two AI tags that overlap with each other (e.g. `architecture` vs `architectural`) — that's a separate cleanup the user is still deciding on.
+
 ### Step 3 — Correspondent
 
 1. Pull the trading name from the OCR. ABN, "From:" header, letterhead — first identifiable line of the proposal/invoice.
@@ -563,6 +568,28 @@ PATCH **replaces** the `tags` and `custom_fields` arrays — fetch the doc first
 - **Proceed without asking** when: signal in the OCR is unambiguous, all required IDs already exist, and you're applying canonical taxonomy from the snapshot above.
 - **Ask first** when: creating a non-Riverslea correspondent, choosing between two equally plausible types, the address is missing/ambiguous, or the dollar figure is unclear.
 - **Always report what you applied** so the user can spot a wrong call. PATCH returns the full record — `jq` it down to the just-changed fields.
+
+### Riverslea Rate Notice (AMR Shire) — confirmed classification pattern (2026-04-30)
+
+Doc 414 ("Rate Notice 1/07/2025 - 30/06/2026") is the canonical template:
+- correspondent: 32 (AMR Shire) — matching algorithm already configured on "<SHIRE_AREA>"
+- document_type: 13 (Rate Notice)
+- storage_path: 2 (Riverslea)
+- tags: [121 (Riverslea Drive), 77 (Utilities)]
+- custom_fields: Property=`riverslea`, Amount Due = total payment-in-full (not instalment). From OCR: `TOTAL (GST is Nil)` line has the full-year amount; `Option [ 1| Payment in Full ...` line confirms. Strip `$` and `,`.
+- created: date from "Date Issued" line on the notice (e.g. `2025-08-15`).
+- Title: `Rate Notice 1/07/<year> - 30/06/<year+1>` (matches the period on the notice).
+
+Note: this is the Riverslea land (<BUILD_ADDRESS>, <BUILD_LOT>, Vacant Land). A separate Coronation rate notice would use storage_path=1, Property=`coronation`, tags=[334].
+
+**Playbook gap — non-Riverslea government correspondents (captured 2026-04-30):**
+
+The playbook says "stop and ask" for non-Riverslea correspondents not already in the library. But for clearly identified federal government agencies (Services Australia / Centrelink, ATO, etc.) this is blocking — these are canonical, unambiguous, and not at risk of being accidental duplicates of an existing entry. Recommended extension:
+
+- If the correspondent is **clearly a federal/state government agency** with a known canonical name (e.g. "Services Australia", "ATO"), and is not already in the library, create it directly. Set matching_algorithm=2, match on ABN or unique URL. Add `storage_path=5` (Life) and appropriate document_type (Form, Application, Certificate).
+- Reserve "stop and ask" for private companies, unclear ABNs, or cases where the document sender is ambiguous.
+
+This rule is pending user approval — current session still stopped and asked for doc 413.
 
 ### Correspondent merge recipe (confirmed 2026-04-30)
 
