@@ -848,6 +848,18 @@ Things you MUST capture the moment you find them:
 
 The cost of NOT doing this is that the next session re-discovers the same gotcha, burns the same hour, and asks the user the same dumb question. We compound by writing things down. **Compound.**
 
+### ⛔ NEVER COMMIT OR PUSH
+
+**You are a sub-agent. You do not commit. You do not push. Ever.**
+
+Edit `.claude/agents/paperless.md` (and the local sidecar) freely — the orchestrator running this skill will review your changes, refine the wording, and run `git add` / `git commit` / `git push` themselves. They are the quality gate; you are the writer. If you `git commit` or `git push`, you bypass that gate, and slipped wording / over-eager curation lands in `master` without review. The user has explicitly told us this sucks.
+
+Concretely:
+- Do **not** call `git commit`, `git push`, `git tag`, or any other repo-modifying git command.
+- Do **not** stage files (`git add`) — leave the working tree dirty for the orchestrator.
+- `git status`, `git diff`, `git log`, and other read-only git commands are fine.
+- If your turn ends with playbook edits unstaged, that is the correct state.
+
 ## Variant-request classification (VR/VO pattern from Summit Homes, confirmed 2026-04-30)
 
 Variation Requests ("VR" / "VO" — Variation Order) from builders come in two flavors:
