@@ -36,7 +36,16 @@ in {
           ROOT_URL = "https://git.ablz.au/";
           HTTP_ADDR = "127.0.0.1";
           HTTP_PORT = 3023;
-          DISABLE_SSH = true;
+          # SSH re-enabled 2026-04-30 after v0 hit the friction the brainstorm
+          # warned about — using the built-in Go SSH server on :2222 (sshd
+          # already owns 22 on doc2). Existing master-fleet-identity key is
+          # uploaded to the user's Forgejo profile post-deploy.
+          DISABLE_SSH = false;
+          START_SSH_SERVER = true;
+          SSH_PORT = 2222;
+          SSH_LISTEN_HOST = "0.0.0.0";
+          SSH_LISTEN_PORT = 2222;
+          SSH_DOMAIN = "git.ablz.au";
           OFFLINE_MODE = true;
         };
         service = {
@@ -67,6 +76,9 @@ in {
       after = ["mnt-data.mount"];
       requires = ["mnt-data.mount"];
     };
+
+    # Forgejo's built-in Go SSH server on :2222 (separate from sshd on :22).
+    networking.firewall.allowedTCPPorts = [2222];
 
     homelab = {
       localProxy.hosts = [
