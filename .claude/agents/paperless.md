@@ -528,6 +528,13 @@ curl -sS -X PATCH -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
 - **Summit HVAC/ducted-split design drawings → type=House Plans (id=27), correspondent=36 (Summit).** The drawing sheet has initials like `CST`/`BMN` in the title block — these are Summit's own draughtspeople, not a separate HVAC company. Only assign Ford & Doonan (144) if the Ford & Doonan URL/ABN/letterhead appears in the OCR. A "Ducted and Split" drawing from Summit's own plans is Summit's work.
 - **Off-topic scanner outputs in the Riverslea batch:** scanner filenames (brw4cd577318e30_XXXXXX) can contain completely non-Riverslea docs — product manuals, health fact sheets, anything left on the scanner glass. Always read the OCR head; don't assume just because it arrived in the same scanner batch that it belongs to the Riverslea bundle. Apply the standard Life/other-property routing as appropriate, and do NOT apply tag 333 or storage_path 2 to non-Riverslea content.
 - **`created` date vs. OCR date diverge for old scanned docs.** A DA form created 2021-02-01 in Paperless had OCR showing "Date: 9/2/2026" — that's the signature date someone filled in when scanning it in 2026. Trust the `created` date as the user set it (date of the original document), not the recent fill-in date from OCR. Only correct `created` if the OCR date and Paperless date are from the same epoch and clearly disagree.
+- **Settlement Statement (type 21) vs. Invoice (type 8) — property settlement context (confirmed 2026-04-30).** When a property is sold and goes to settlement:
+  - "Confirmation of Settlement" from the conveyancer → type=Settlement Statement (21). This letter confirms the transaction completed on a specific date and shows the final balance paid to you.
+  - Tax invoice for conveyancing/settlement fees (e.g. "Selling Fee") → type=Invoice (8), NOT Settlement Statement. It's a bill for services, not the settlement outcome.
+  - "Variation for settlement" (change to contract terms) → type=Form (23).
+  - Balance confirmation from your bank on the settlement date → type=Statement (22), not type 21.
+  - Offer & Acceptance / O&A (the executed sale contract) → type=Contract for Sale (41).
+  - Listing Authority (real estate agent's authority to sell) → type=Form (23).
 
 ## Triage playbook — classifying an unclassified document
 
@@ -832,6 +839,26 @@ Things you MUST capture the moment you find them:
 **If you remove or change something the user previously relied on, leave a one-line note saying what you changed and why.** Future you will thank present you.
 
 The cost of NOT doing this is that the next session re-discovers the same gotcha, burns the same hour, and asks the user the same dumb question. We compound by writing things down. **Compound.**
+
+## Variant-request classification (VR/VO pattern from Summit Homes, confirmed 2026-04-30)
+
+Variation Requests ("VR" / "VO" — Variation Order) from builders come in two flavors:
+
+**Pricing variant (Quote type 12):**
+- Contains language: "Variations will be invoiced at the first progress claim request"
+- Includes a pricing table with line items (debit/credit columns showing dollar amounts)
+- Example: Summit VO1-4, id 400 (VO002)
+- Classification: type=Quote (12), extract Variation Value as Amount Due (custom field 2)
+- Variation Value appears near bottom as "Total Debit" or totalled credit line
+
+**Spec-only variant (House Plans type 27):**
+- Shows design options, selections, and changes WITHOUT pricing
+- Language like "To Be Priced At Pre-Start" or "These are design preferences pending final quoting"
+- Example: "Prestart portal selections" (id 380), "Edited Pre-start options" (id 396 — this one has some prices but appears to be a draft/working edit, not a formal quote)
+- Judgment call: 396 was classified as type 12 (Quote) because it shows multiple dollar values despite "draft" status; 380 was type 27 (House Plans) because "To Be Priced At Pre-Start" explicitly says no pricing yet
+- When in doubt: if there's a totalled price or "Amount Due" line anywhere, → type 12. If options are pure design selections pending pricing, → type 27
+
+This distinction matters for the user's build cost tracking — Quotes go into the financial pipeline; Specs are design records.
 
 ## Workflows
 
