@@ -244,6 +244,26 @@ These are real endpoints if needed but rarely touched manually:
 
 ## Common workflow recipes
 
+### Vuly Play trampoline manuals (2026-04-30, reclassified 2026-04-30)
+
+Six instruction manuals for a Vuly Play trampoline + accessories (doc IDs 428-433).
+
+**Initial classification (wrong):** storage_path=1 (Coronation), tags=[334], Property=coronation, correspondent=null.
+
+**Reclassified to:** correspondent=145 (User Manual), storage_path=5 (Life), tags=[], custom_fields=[] (Property cleared). Owner manuals for household items go to Life, not a property path — they don't concern the property, they concern the item.
+
+**Title rewrites applied (underscore-killing + brand prefix):**
+- 428: `341_Trampoline_ladder` → `Vuly Trampoline Ladder`
+- 429: `258_Trampoline_Accessory_-_Tent_Wall` → `Vuly Trampoline Tent Wall`
+- 430: `259_Trampoline_-_Shade_Cover_` → `Vuly Trampoline Shade Cover`
+- 431: `362_Basketball_Set` → `Vuly Trampoline Basketball Set`
+- 432: `249_Trampoline_-_S` → `Vuly Trampoline S` (original filename itself truncated; "S" likely model suffix — PDF content check via metadata confirms no richer filename available)
+- 433: `271_Anchor_Kit` → `Vuly Trampoline Anchor Kit`
+
+**Clearing `custom_fields` confirmed working:** sending `"custom_fields": []` in a PATCH body fully clears all custom fields. No gotcha — the API accepts an empty array and returns `[]`.
+
+**Pattern worth a future workflow rule:** every Vuly PDF starts with `vulyplay.com` in the first line of OCR. A workflow trigger on `content icontains "vulyplay.com"` could auto-apply document_type=74 + correspondent=145 + storage_path=5. Recommend creating this rule if more Vuly manuals appear.
+
 ### "What's still in the inbox?"
 
 ```bash
@@ -322,15 +342,16 @@ This section is **pre-warming context** — re-fetch from the API before acting 
 
 **Library size:** ~360 documents (mostly PDF). Web UI: https://paperless.ablz.au.
 
-**Storage paths (4):**
-| ID | Name | Docs | Property option |
-|----|------|------|-----------------|
-| 1  | Coronation | 123 | `coronation` |
-| 2  | Riverslea  | 60  | `riverslea`  |
-| 3  | Grevillea  | 19  | `grevillea`  |
-| 4  | Magpie     | 1   | `magpie`     |
+**Storage paths (5):**
+| ID | Name | Docs | Property option | Use for |
+|----|------|------|-----------------|---------|
+| 1  | Coronation | 123 | `coronation` | docs about the existing home |
+| 2  | Riverslea  | 60  | `riverslea`  | docs about the new build |
+| 3  | Grevillea  | 19  | `grevillea`  | docs about the Grevillea property |
+| 4  | Magpie     | 1   | `magpie`     | docs about Magpie |
+| 5  | Life       | 6+  | (none — leave Property null) | manuals, household paperwork, family records, anything not bound to a property |
 
-156 documents still have no storage_path — they're orphans the user hasn't classified yet.
+The first four are **property-bound**. `Life` is the catch-all for general household life. Default for unclassified things should be `Life`, not null and not Coronation. Property custom field is left null on Life docs (Property is property-tax-style ownership, not "where it physically lives").
 
 **Canonical correspondents (the merge winners + the recent additions):**
 | ID  | Name | Notes |
@@ -347,6 +368,7 @@ This section is **pre-warming context** — re-fetch from the API before acting 
 | 100 | Ashore Plumbing and Gas | absorbed two variants |
 | 107 | Cloudflare | absorbed "Cloudflare, Inc." |
 | 144 | Ford & Doonan South West | created during cleanup; HVAC supplier for Riverslea |
+| 145 | User Manual | catch-all for owner manuals — set this on every doc with type=Instruction Manual regardless of brand. Pair with storage_path Life. |
 
 92 total correspondents after the 22-ghost sweep. Down from 124.
 
@@ -438,6 +460,18 @@ curl -sS -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/documents/$ID/" \
 
 That gives you sender, recipient, address, ABN, date, dollar amount, document kind — almost always enough to classify.
 
+### Step 1b — Title hygiene (always)
+
+Paperless full-text search tokenises on whitespace and punctuation but **does not split underscores** — a title like `341_Trampoline_ladder` is one search token. Manufacturer-supplied filenames are full of underscores, leading SKUs, trailing version stamps, and capitalisation accidents. Always rewrite the title before you finish a PATCH:
+
+- **Replace `_` with spaces.** No exceptions. Underscores are search-killers in this library.
+- **Drop leading SKU/part numbers** that aren't useful to a human (e.g. `341_Trampoline_ladder` → `Trampoline Ladder`, `<JOB_NO>__Slab_Down` → `Summit Progress Payment - Slab Down`). Keep the SKU only if it's the *only* identifier (e.g. an invoice number with no other context).
+- **Title-case the meaningful words.** Don't shout (no ALL CAPS), don't whisper (no all-lowercase). `summit progress payment` → `Summit Progress Payment`.
+- **Add a brand prefix when missing and helpful.** A title like `Anchor Kit` is meaningless six months from now; `Vuly Trampoline Anchor Kit` is searchable. Only add the brand if it's unambiguously identified in the OCR.
+- **Don't lengthen titles past ~80 chars.** Paperless truncates in list views; aim for "you'd recognise it from the title alone".
+
+If you change the title, include `"title": "<new title>"` in the same PATCH body that sets the other fields.
+
 ### Step 2 — Property bundle (if applicable)
 
 | OCR mentions | Apply |
@@ -447,6 +481,8 @@ That gives you sender, recipient, address, ABN, date, dollar amount, document ki
 | `<HOME_STREET>` or `<HOME_ADDRESS>` | storage_path 3, Property=`grevillea`, tag 335 |
 | `Magpie` (the fourth property) | storage_path 4, Property=`magpie`, tag 336 |
 | Multiple addresses or none | leave Property null — flag for the user |
+
+**The property bundle is for documents that genuinely concern a specific property** — bills addressed to that address, contracts about it, rate notices, building docs. **Do NOT apply it just because the user happens to live at that address.** Owner manuals for items in the home, family records, generic household paperwork → these go to the `Life` storage_path (id 5) with Property left null. If you find yourself reaching for "Coronation" because the trampoline is at home, stop — the trampoline has an owner manual, it's not a house document. Use Life.
 
 ### Step 3 — Correspondent
 
