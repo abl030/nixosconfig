@@ -936,6 +936,9 @@ This combination is silently rejected (`File name, path or mail rule filter are 
 | 149 | Commonwealth Bank | (none yet) | CBA — used for one of the user's banking accounts |
 | 150 | Busselton Toyota | `busseltontoyota.com.au` | Vehicle servicing for the family Prado |
 | 151 | Daniel Hunt | (none yet) | Maintenance contractor (worked on 1 Coronation Street) |
+| 152 | RAC | `rac.com.au` | Motor insurance / vehicle services |
+| 153 | Ray White Stocker Preston | (none yet) | Real estate agent — Coronation/Willmott sale, including campaign-marketing docs that arrive under the agent's own brand or under "Campaign Agent Pty Ltd" (their marketing partner). File ALL Coronation/Willmott sale-process docs under this correspondent: listing authority, selling agency agreement, sellers disclosure, marketing packages, campaign statements, fee schedules, appraisals. |
+| 154 | Zeewyk Contracting | (none yet) | Construction/maintenance contractor at Coronation |
 
 **Post-classification note:** Home Integrity (147) was created during batch triaging on 2026-04-30 for doc 384 (building inspection quote on the Riverslea build). If more building-related services from this contractor appear, their matching is not yet configured — add regex or ABN-based matching when their second doc arrives to auto-assign correspondence to the Riverslea bundle.
 
