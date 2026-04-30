@@ -176,6 +176,7 @@
         watchstate.enable = true;
       };
       domain-monitor.enable = true;
+      forgejo.enable = true;
       rtrfm-nowplaying.enable = true;
       kopia = {
         enable = true;

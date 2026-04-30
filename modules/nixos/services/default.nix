@@ -47,6 +47,7 @@
     ./kopia.nix
     ./meelo.nix
     ./domain-monitor.nix
+    ./forgejo.nix
     ./nfs-watchdog.nix
     ./tailscale-share.nix
     ./rtrfm-nowplaying
