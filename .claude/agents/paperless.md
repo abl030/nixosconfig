@@ -438,10 +438,11 @@ The first four are **property-bound**. `Life` is the catch-all for general house
 | ID  | Name | Color | Back-applied to |
 |-----|------|-------|-----------------|
 | 77  | Utilities | `#a6cee3` | 22 docs (Synergy + Water Corp + Western Power + AMR Shire) |
-| 333 | Riverslea - House Build | `#2a9d8f` | 60 docs (storage_path = Riverslea) |
+| 333 | Riverslea - House Build | `#2a9d8f` | 72 docs (storage_path = Riverslea) |
 | 334 | Coronation | `#e76f51` | 123 docs (storage_path = Coronation) |
 | 335 | Grevillea | `#57cc99` | 19 docs (storage_path = Grevillea) |
-| 336 | Personal Records | `#9b72cf` | 7 docs (correspondent = WA BDM) |
+| 336 | Personal Records | `#9b72cf` | 7 docs (correspondent = Births/Deaths/Marriages) |
+| 338 | Magpie | `#f4a261` | 2 docs (storage_path = Magpie) |
 
 **Process tags (low-signal — don't treat as content):**
 - `Triage` (id 337) — paperless's auto-applied inbox tag (`is_inbox_tag=true`). Every newly consumed doc has this. The "process the inbox" recipe finds them via `is_in_inbox=true`. Removed by PATCH when classification succeeds; left on when the agent hands a doc back to the user.
@@ -552,12 +553,22 @@ If you change the title, include `"title": "<new title>"` in the same PATCH body
 | `<BUILD_ADDRESS>` or `<BUILD_LOT>` (see local sidecar for actual values) | storage_path 2, Property=`riverslea`, tag 333 (Riverslea - House Build) |
 | `Coronation` Street/Place/etc. (the existing home) | storage_path 1, Property=`coronation`, tag 334 |
 | `<HOME_ADDRESS>` (see local sidecar for actual values) | storage_path 3, Property=`grevillea`, tag 335 |
-| `Magpie` (the fourth property) | storage_path 4, Property=`magpie`, tag 336 |
+| `Magpie` (the fourth property) | storage_path 4, Property=`magpie`, tag 338 |
 | Multiple addresses or none | leave Property null — flag for the user |
 
 **The property bundle is for documents that genuinely concern a specific property** — bills addressed to that address, contracts about it, rate notices, building docs. **Do NOT apply it just because the user happens to live at that address.** Owner manuals for items in the home, family records, generic household paperwork → these go to the `Life` storage_path (id 5) with Property left null.
 
-**The property tag is non-negotiable on a property doc.** PATCH replaces the `tags` array, so when you set `tags: [...]` you MUST include the property tag (333 / 334 / 335 / 336) along with anything else. A common slip: the doc already has an AI-generated tag like `Riverslea Drive`, you keep that, and forget to add 333. Result: the doc disappears from the canonical "Riverslea - House Build" view. Always include the property tag.
+**The property tag is non-negotiable on a property doc.** PATCH replaces the `tags` array, so when you set `tags: [...]` you MUST include the property tag (333 / 334 / 335 / 338) along with anything else. A common slip: the doc already has an AI-generated tag like `Riverslea Drive`, you keep that, and forget to add 333. Result: the doc disappears from the canonical "Riverslea - House Build" view. Always include the property tag.
+
+**Account-number routing for multi-asset correspondents.** Some correspondents (banks, insurers) issue documents for several different accounts/assets — a single Suncorp covers an everyday transaction account AND multiple property loans, each with its own account number. The correspondent matcher only identifies "this is from Suncorp"; you still need to disambiguate which account/asset before applying the property bundle.
+
+The rule:
+1. Read the OCR for an account number (banks call it Account Number, BSB+Account, Loan Account, Reference, etc.).
+2. Look up the account number in the local sidecar's "Account/loan identifiers" table to find which asset/property it belongs to.
+3. Apply the property bundle for that asset (storage_path + Property + property tag), or `Life` if it's an unbound everyday account.
+4. Always set the account number on the `Invoice Number` custom field (id 1). Future statements for the same account become a searchable series via `?custom_field_query=["Invoice Number","exact","<acct>"]`.
+
+If the account number isn't in the sidecar, ask the user which property/asset it represents, then update the sidecar before finishing the classification.
 
 **AI-generated tags that overlap with a structural tag should be merged, not coexisted.** If you encounter a tag like `Riverslea Drive` (id was 121, merged 2026-04-30) that duplicates a structural tag's intent, merge it: `bulk_edit modify_tags {add_tags: [<structural>], remove_tags: [<ai>]}` over every doc carrying it, then DELETE the AI tag. Don't ask permission for AI/structural duplicates — the user has standing approval for these. Ask before merging two AI tags that overlap with each other (e.g. `architecture` vs `architectural`) — that's a separate cleanup the user is still deciding on.
 
