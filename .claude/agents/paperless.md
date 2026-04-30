@@ -426,15 +426,31 @@ A workflow with `filter_has_correspondent` only fires if paperless's own auto-cl
 
 All `is_insensitive: true`. Algorithm 2 is "match documents containing all of these words (case-insensitive)" and works immediately, no classifier training required.
 
-**When you create a new correspondent (e.g. a Riverslea contractor via the playbook), set its matching too** — otherwise paperless will never auto-assign it on future ingest and any workflow you build for it is dead-letter. Pattern:
+**When you create a new correspondent (e.g. a Riverslea contractor via the playbook), set its matching too** — otherwise paperless will never auto-assign it on future ingest and any workflow you build for it is dead-letter.
+
+**Critical lesson (confirmed 2026-04-30 the hard way): match against a unique signature, NEVER a company name alone.**
+
+Company names get referenced across documents — a Summit Colour Selection doc mentions "Ford & Doonan" as the chosen aircon supplier, so a name-based "Ford Doonan" matcher steals every Summit doc that names them. Names are bait; signatures are the hook.
+
+**Reliable signatures, in priority order:**
+1. **Unique URL** from their letterhead (`fordanddoonansouthwest.com.au`, `synergy.net.au`). Almost never appears in another company's docs.
+2. **ABN** (Australian Business Number — 11 digits). Appears once on their letterhead, never elsewhere.
+3. **Customer/job ID issued by them** (`Job No: <JOB_REF>` is Summit's unique format on this user's docs). Brittle if formats change but extremely precise.
+4. **Phone number** (e.g. `(08) 9791 4466`). Stable, distinctive.
+5. **Generic name** ("Summit Homes", "Ford Doonan") — last resort, prone to false positives.
+
+Use algorithm 4 (Regex) for URL/ABN/ID patterns. Escape dots: `synergy\.net\.au`. Pipe-separate fallbacks: `Job No:\s*J\s+<JOB_NO>|Summit Homes`. Use algorithm 3 (Literal phrase) only for company names with ampersands or punctuation that needs exact matching.
+
+**Don't use algorithm 6 (Auto)** unless the correspondent has 20+ trained docs AND there are no near-similar correspondents in the library that could confuse it.
 
 ```bash
+# Pattern: regex match on unique URL (best)
 curl -sS -X PATCH -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
-  -d '{"matching_algorithm": 2, "match": "<unique two or three words from their letterhead>", "is_insensitive": true}' \
+  -d '{"matching_algorithm": 4, "match": "<their-domain>\\.com\\.au", "is_insensitive": true}' \
   "$PAPERLESS_URL/api/correspondents/<id>/"
 ```
 
-Pick `match` words that are distinctive enough to never collide with another correspondent. ABNs are good if you want algorithm 3 (Literal). Don't use algorithm 6 (Auto) unless the correspondent already has 5+ classified docs to train the classifier from.
+**Caveat: matching only fires at consume time.** Reconfiguring matching does NOT retroactively assign correspondents on existing docs. To apply matching to a doc that's already in the library, either PATCH the correspondent directly, or use `bulk_edit` with method `reprocess` (heavy — re-runs OCR too).
 
 **OBSERVED 2026-04-30 — Workflow #2 did NOT fire on real ingest.** Docs 418 and 419 were uploaded to Paperless (via the consume directory, based on their titles), had no correspondent set at consume time, and arrived with all fields blank (correspondent=null, tags=[], storage_path=null). Trigger type 2 fires after the *correspondent is determined* — but if the consumer assigns no correspondent (OCR/title matching didn't match "Summit"), the trigger condition `filter_has_correspondent=36` is never satisfied and the whole workflow is skipped.
 
@@ -446,6 +462,10 @@ Pick `match` words that are distinctive enough to never collide with another cor
 - **Don't auto-set Property = "Other"** for orphans — the user wants to triage those manually.
 - **Don't blindly merge tags.** The user has approved correspondent and type merges but is still deciding on the AI-tag chaos. Propose, don't execute.
 - **`Quote`, not `Proposal`.** A pre-purchase price offer with an expiry date is a `Quote` (id 12), even if the document calls itself a "Proposal" or "Quotation" in the heading. The `Proposal` type was merged into `Quote` on 2026-04-30 and deleted. Don't recreate it. (Reasoning: "Proposal" overlaps with project-management proposals which we don't have, and forcing one canonical name is the whole point of the cleanup.)
+- **Summit Variation Requests are Quotes, not Invoices.** The VO ("Variation Order") letter template says: "Variations will be invoiced at the first progress claim request." The doc itself is pre-acceptance — the builder issues it, the client signs back. Map to Quote (id 12). The net `Variation Value` line is the Amount Due to set (custom field 2). Values can be negative (credit), zero, or positive. Strip `$` and `,` — send as plain decimal e.g. `"-37365.00"`.
+- **Summit VO "Amount Due" gotcha:** The `metadata/` endpoint does NOT expose OCR text — it only returns PDF XMP/EXIF metadata (producer, creator, dates). Use `GET /api/documents/{id}/` and read `.content` for OCR text. For variation requests, the total appears as `Variation Value $ X.XX` near the bottom of the last page — always fetch the tail of long docs.
+- **Summit Colour Selection docs (e.g. "Colour Selection Final"): leave `document_type` null.** They're spec sheets, not financial instruments, and no canonical type fits cleanly. Don't reach for `Quote` unless there's an explicit pricing table — the colourway names and product specs listed there are not a price offer.
+- **LSK / User Manual pattern (confirmed 2026-04-30):** Manufacturer owner manuals for products (sandpit, trampoline, etc.) use correspondent 145 (`User Manual`), document_type 74 (`Instruction Manual`), storage_path 5 (`Life`), no tags, no custom fields. Do NOT apply a property bundle just because the item lives at a property. These are `Life` documents. Follow trampoline batch (docs ~430+) as the template.
 
 ## Triage playbook — classifying an unclassified document
 
