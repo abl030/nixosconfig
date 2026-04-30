@@ -872,6 +872,15 @@ This combination is silently rejected (`File name, path or mail rule filter are 
 | 1 | Auto-tag utility bills | 1,2,3,4 (type 2, correspondents 13,15,22,32) | 1 (assign tag 77 + doc_type 8) |
 | 2 | Auto-classify Summit builder docs | 5 (type 2, correspondent 36) | 2 (assign storage_path 2 + tag 333) |
 
+## New correspondents (created 2026-04-30, batch classification)
+
+| ID | Name | Pattern | Notes |
+|----|------|---------|-------|
+| 147 | Home Integrity | `homeintegrity.com.au` | Building inspection contractor (Riverslea). ABN 94 104 055174 |
+| 148 | Supagas | `supagas.com.au` | LPG supplier |
+
+**Post-classification note:** Home Integrity (147) was created during batch triaging on 2026-04-30 for doc 384 (building inspection quote on the Riverslea build). If more building-related services from this contractor appear, their matching is not yet configured — add regex or ABN-based matching when their second doc arrives to auto-assign correspondence to the Riverslea bundle.
+
 ## When to escalate to the host
 
 - Files in the consume folder not being picked up → check `paperless-consumer.service` on doc2 and the `mnt-data-Life-Meg\x20and\x20Andy-Paperless-Import-scans.mount` bind mount. NFS staleness has bitten us before.
