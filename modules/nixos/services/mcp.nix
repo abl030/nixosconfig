@@ -121,6 +121,21 @@ in {
         description = "Path to decrypted Audiobookshelf env file.";
       };
     };
+
+    paperless = {
+      enable = lib.mkEnableOption "Paperless-ngx API credentials for the subagent";
+      sopsFile = lib.mkOption {
+        type = lib.types.path;
+        default = config.homelab.secrets.sopsFile "paperless-mcp.env";
+        description = "Sops file containing Paperless API URL + token.";
+      };
+      path = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default = "${secretsDir}/paperless.env";
+        description = "Path to decrypted Paperless env file.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -137,6 +152,7 @@ in {
       slskdFile = cfg.slskd.sopsFile;
       vinsightFile = cfg.vinsight.sopsFile;
       audiobookshelfFile = cfg.audiobookshelf.sopsFile;
+      paperlessFile = cfg.paperless.sopsFile;
     in
       lib.stringAfter ["setupSecrets"] ''
         echo "Decrypting MCP secrets..."
@@ -188,6 +204,12 @@ in {
           chmod 400 ${cfg.audiobookshelf.path}
           chown ${user}:users ${cfg.audiobookshelf.path}
         ''}
+
+        ${lib.optionalString cfg.paperless.enable ''
+          ${sops} -d --output-type dotenv ${paperlessFile} | grep -v '^#' > ${cfg.paperless.path}
+          chmod 400 ${cfg.paperless.path}
+          chown ${user}:users ${cfg.paperless.path}
+        ''}
       '';
 
     # Export paths as environment variables for convenience
@@ -212,6 +234,9 @@ in {
       })
       (lib.mkIf cfg.audiobookshelf.enable {
         AUDIOBOOKSHELF_MCP_ENV_FILE = cfg.audiobookshelf.path;
+      })
+      (lib.mkIf cfg.paperless.enable {
+        PAPERLESS_MCP_ENV_FILE = cfg.paperless.path;
       })
     ];
   };

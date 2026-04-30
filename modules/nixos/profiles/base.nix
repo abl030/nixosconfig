@@ -147,6 +147,7 @@
       slskd.enable = lib.mkDefault true;
       vinsight.enable = lib.mkDefault true;
       audiobookshelf.enable = lib.mkDefault true;
+      paperless.enable = lib.mkDefault true;
     };
   };
 
