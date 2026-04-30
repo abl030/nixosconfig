@@ -47,6 +47,14 @@ in {
       "L+ ${consumeLink} - - - - /mnt/data/Life/Meg and Andy/Paperless/Import"
     ];
 
+    # Overlay the Scans folder onto Import/scans so recursive consume picks
+    # up scanner output. Mirrors the original podman-compose two-mount layout.
+    fileSystems."/mnt/data/Life/Meg and Andy/Paperless/Import/scans" = {
+      device = "/mnt/data/Life/Meg and Andy/Scans";
+      fsType = "none";
+      options = ["bind" "x-systemd.requires=mnt-data.mount" "x-systemd.after=mnt-data.mount"];
+    };
+
     services.paperless = {
       enable = true;
       port = 28981;
