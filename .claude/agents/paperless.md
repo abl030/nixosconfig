@@ -244,6 +244,50 @@ These are real endpoints if needed but rarely touched manually:
 
 ## Common workflow recipes
 
+### "Process the inbox" — the canonical batch entry point
+
+The user often asks to "process the inbox", "triage what I just uploaded", or "do the new docs". This is the standard hands-off ingest cycle:
+
+**The setup (already in place as of 2026-04-30):** tag id **337 `Triage`** has `is_inbox_tag=true`. Paperless auto-applies it to every consumed document. A doc with the Triage tag = "user wants this triaged". A doc without it = "already classified or never needed Triage".
+
+**The recipe:**
+
+```bash
+# 1. Find every doc currently in the inbox.
+curl -sS -H "$AUTH" -H "$ACCEPT" \
+  "$PAPERLESS_URL/api/documents/?is_in_inbox=true&page_size=200&ordering=-added" \
+  | jq '.results[] | {id, title, original_file_name, content_chars: (.content|length)}'
+```
+
+(`is_in_inbox=true` is a synthetic filter — paperless evaluates "doc carries any tag with is_inbox_tag=true". Survives if the inbox tag id ever changes.)
+
+**2. For each doc, run the playbook end-to-end (Steps 1 → 6).**
+
+**3. CRITICAL — drop the Triage tag in your PATCH.** PATCH replaces `tags`. The doc has `[337, ...]` going in; your final `tags` array must NOT contain 337. The Triage tag leaves; the property tag and any other tags you applied stay. That's how the doc exits the inbox.
+
+```bash
+# Example final PATCH for a Riverslea doc that arrived with Triage:
+# Old tags: [337]      (just Triage from auto-apply)
+# New tags: [333]      (Riverslea - House Build, no Triage)
+curl -sS -X PATCH -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
+  -d '{"correspondent": 36, "document_type": 12, "storage_path": 2, "tags": [333], ...}' \
+  "$PAPERLESS_URL/api/documents/$ID/"
+```
+
+**4. After the batch, verify the inbox is empty (or down to docs that genuinely need human input):**
+
+```bash
+curl -sS -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/documents/?is_in_inbox=true&page_size=200" \
+  | jq '.count, [.results[] | {id,title}]'
+```
+
+**Stop-and-ask cases stay in the inbox.** If the playbook says "ask the user" (non-Riverslea correspondent that doesn't exist, ambiguous document type, missing dollar figure that the user might want set), DO NOT remove the Triage tag. Leave it on the doc, list it in your "needs human input" section of the report, and move on. Triage tag = "still needs attention". The user reviews the inbox after each batch to spot what you flagged.
+
+**Reporting shape:**
+- ✅ Classified and exited inbox: `<count>` docs, summary table.
+- 🟡 Still in inbox (needs human input): `<count>` docs, with the question for each.
+- ❌ Errors: `<count>` docs, with what failed.
+
 ### Vuly Play trampoline manuals (2026-04-30, reclassified 2026-04-30)
 
 Six instruction manuals for a Vuly Play trampoline + accessories (doc IDs 428-433).
@@ -393,7 +437,9 @@ The first four are **property-bound**. `Life` is the catch-all for general house
 | 335 | Grevillea | `#57cc99` | 19 docs (storage_path = Grevillea) |
 | 336 | Personal Records | `#9b72cf` | 7 docs (correspondent = WA BDM) |
 
-**Process tag (low-signal):** `ai-processed` (id 258) marks 139 docs processed by the paperless-gpt workflow. Don't filter by it for content questions.
+**Process tags (low-signal — don't treat as content):**
+- `Triage` (id 337) — paperless's auto-applied inbox tag (`is_inbox_tag=true`). Every newly consumed doc has this. The "process the inbox" recipe finds them via `is_in_inbox=true`. Removed by PATCH when classification succeeds; left on when the agent hands a doc back to the user.
+- `ai-processed` (id 258) — marks ~139 docs processed by the paperless-gpt workflow. Historical, no longer applied. Ignore for content questions.
 
 **Other tags:** ~330 more, mostly AI-generated near-duplicates ("architecture" / "architectural" / "architectural drawing" etc.). The user has NOT yet approved a tag-merge cleanup pass — leave them alone unless asked.
 
@@ -562,6 +608,8 @@ curl -sS -X PATCH -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
 ```
 
 PATCH **replaces** the `tags` and `custom_fields` arrays — fetch the doc first if it already has tags you want to keep, and merge them in your payload. Don't `bulk_edit add_tag` for single-doc work; PATCH is one round-trip.
+
+**Triage tag (337) handling on every PATCH:** if the doc came from the inbox it'll have tag 337 in its current tags. **DO NOT carry 337 forward into your new `tags` array** unless you genuinely couldn't classify it (in which case leave 337 on and don't PATCH at all — the inbox keeps the doc visible). Successful classification = doc leaves the inbox = Triage tag dropped.
 
 ### When to ask vs proceed
 
