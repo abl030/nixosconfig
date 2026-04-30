@@ -394,6 +394,85 @@ Both use trigger type 2 (Document Added — fires after correspondent is determi
 - **Tag pattern for property-scoped work:** `<Property> - <Activity>` with a spaced hyphen (e.g. `Riverslea - House Build`). Mirror this if you create another property-scoped tag.
 - **Don't auto-set Property = "Other"** for orphans — the user wants to triage those manually.
 - **Don't blindly merge tags.** The user has approved correspondent and type merges but is still deciding on the AI-tag chaos. Propose, don't execute.
+- **`Quote`, not `Proposal`.** A pre-purchase price offer with an expiry date is a `Quote` (id 12), even if the document calls itself a "Proposal" or "Quotation" in the heading. The `Proposal` type was merged into `Quote` on 2026-04-30 and deleted. Don't recreate it. (Reasoning: "Proposal" overlaps with project-management proposals which we don't have, and forcing one canonical name is the whole point of the cleanup.)
+
+## Triage playbook — classifying an unclassified document
+
+When asked to classify a doc (typical user prompt: "look at the latest doc / look at doc N / triage the orphans"), follow this decision tree. **Do NOT dump the full `content` field into your reasoning context** — fetch the head only with `?fields=id,title,content,...` and slice `content[0:600]` in jq. The OCR is usually 5–20 KB and you only need the first page to triage.
+
+### Step 1 — Read the head
+
+```bash
+curl -sS -H "$AUTH" -H "$ACCEPT" "$PAPERLESS_URL/api/documents/$ID/" \
+  | jq '{id, title, created, correspondent, document_type, storage_path, tags, custom_fields, original_file_name, content_chars: (.content|length), content_head: (.content[0:600])}'
+```
+
+That gives you sender, recipient, address, ABN, date, dollar amount, document kind — almost always enough to classify.
+
+### Step 2 — Property bundle (if applicable)
+
+| OCR mentions | Apply |
+|---|---|
+| `<BUILD_ADDRESS>` (<TOWN>) or `<BUILD_LOT>` | storage_path 2, Property=`riverslea`, tag 333 (Riverslea - House Build) |
+| `Coronation` Street/Place/etc. (the existing home) | storage_path 1, Property=`coronation`, tag 334 |
+| `<HOME_STREET>` or `<HOME_ADDRESS>` | storage_path 3, Property=`grevillea`, tag 335 |
+| `Magpie` (the fourth property) | storage_path 4, Property=`magpie`, tag 336 |
+| Multiple addresses or none | leave Property null — flag for the user |
+
+### Step 3 — Correspondent
+
+1. Pull the trading name from the OCR. ABN, "From:" header, letterhead — first identifiable line of the proposal/invoice.
+2. Search existing correspondents: `GET /api/correspondents/?name__icontains=<word>`. Try the most distinctive word in the name (e.g. `Doonan`, not `Air Conditioning`).
+3. If you get a hit and it matches the canonical conventions in the snapshot above, use it.
+4. If the company is **clearly a Riverslea contractor** (their letterhead references <BUILD_ADDRESS> or they're invoicing the build), and there's no matching correspondent, create one: `POST /api/correspondents/ {"name": "<Trading Name as it appears>"}`. Title-case. Strip "Pty Ltd", "Inc.", and trailing punctuation — those drift the canonical name. Capture the ABN in a note for future you.
+5. If the company is for ANY other context (utilities, a one-off purchase, a non-build invoice), and it's not in the list — **stop and ask the user** rather than create a correspondent that may end up being a duplicate of an existing one with a slightly different name.
+
+### Step 4 — Document type
+
+Decision rules (in priority order):
+
+| Signal | Type | ID |
+|---|---|---|
+| Pre-purchase price offer with an **expiry date** ("valid until", "expires") | Quote | 12 |
+| Has a "Tax Invoice" / "Invoice" / "Amount Due by" header AND a payable amount | Invoice | 8 |
+| Periodic financial activity ledger (transactions, opening/closing balance) | Statement | 22 |
+| Sworn/registered government doc (birth/marriage/death certificate, passport) | (look up — `/api/document_types/?name__icontains=...`) | varies |
+| Council rates / land tax / shire fees | Rate Notice (look up) | varies |
+| Construction drawings, site plans, floor plans | House Plans | 27 |
+| Insurance | Insurance Policy | 20 |
+| Owner manual / install guide | Instruction Manual | 74 |
+| Pay slip from an employer | Payslip | 67 |
+| **None of the above is obviously right** | leave null and flag — generic types like `Information` are noise |
+
+### Step 5 — Tags & custom fields
+
+- If the property bundle was applied, the property tag is already on it from Step 2.
+- If the correspondent is in the Utilities set (Synergy / Water Corp / Western Power / AMR Shire), apply tag 77 `Utilities`. (Workflow 1 will catch new ingest, but back-applying is your job for orphans.)
+- If the doc is an Invoice or Quote with a clear dollar amount in the OCR, populate `Amount Due` (custom field id 2) with the figure. Strip `$` and `AUD`, send a number. **Don't guess a figure** — only set it if the OCR shows an unambiguous "Total" / "Amount Due" / "Grand Total" line.
+- Don't touch the AI-generated tags (the 300+ near-duplicates). The user is still deciding on those.
+
+### Step 6 — Apply with one PATCH
+
+```bash
+curl -sS -X PATCH -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' \
+  -d '{
+    "correspondent": <id>,
+    "document_type": <id>,
+    "storage_path": <id-or-null>,
+    "tags": [<existing_tag_ids_too>, <new_id>],
+    "custom_fields": [{"field": 3, "value": "<property-slug>"}, {"field": 2, "value": "1234.56"}]
+  }' \
+  "$PAPERLESS_URL/api/documents/<id>/" \
+  | jq '{id, title, correspondent, document_type, storage_path, tags, custom_fields}'
+```
+
+PATCH **replaces** the `tags` and `custom_fields` arrays — fetch the doc first if it already has tags you want to keep, and merge them in your payload. Don't `bulk_edit add_tag` for single-doc work; PATCH is one round-trip.
+
+### When to ask vs proceed
+
+- **Proceed without asking** when: signal in the OCR is unambiguous, all required IDs already exist, and you're applying canonical taxonomy from the snapshot above.
+- **Ask first** when: creating a non-Riverslea correspondent, choosing between two equally plausible types, the address is missing/ambiguous, or the dollar figure is unclear.
+- **Always report what you applied** so the user can spot a wrong call. PATCH returns the full record — `jq` it down to the just-changed fields.
 
 ### Correspondent merge recipe (confirmed 2026-04-30)
 
