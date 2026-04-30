@@ -597,6 +597,10 @@ Decision rules (in priority order):
 | Pre-purchase price offer with an **expiry date** ("valid until", "expires") | Quote | 12 |
 | Has a "Tax Invoice" / "Invoice" / "Amount Due by" header AND a payable amount | Invoice | 8 |
 | Periodic financial activity ledger (transactions, opening/closing balance) | Statement | 22 |
+| Signed building / services / lump sum contract (e.g. HIA Lump Sum Contract, builder contract) | Contract | 3 |
+| Land sale / strata title contract | Contract for Sale | 41 |
+| Bank cover letter announcing a loan settlement / disbursement | Loan Confirmation | 55 |
+| Bank cover letter / Notice of Variation / one-off correspondence | Letter | 56 |
 | Sworn/registered government doc (birth/marriage/death certificate, passport) | (look up — `/api/document_types/?name__icontains=...`) | varies |
 | Council rates / land tax / shire fees | Rate Notice (look up) | varies |
 | Construction drawings, site plans, floor plans | House Plans | 27 |
@@ -604,6 +608,8 @@ Decision rules (in priority order):
 | Owner manual / install guide | Instruction Manual | 74 |
 | Pay slip from an employer | Payslip | 67 |
 | **None of the above is obviously right** | leave null and flag — generic types like `Information` are noise |
+
+> **Type-ID gotcha.** Type **6 is `Report`**, not Contract. Contract is **3**. Easy slip when reading from the type table — confirm by name, not by intuition. (Pattern: any signed multi-page agreement → 3 Contract. A "report" produced by an inspector / valuer / accountant → 6 Report.)
 
 **Deny-list — NEVER auto-assign these types**, even if the OCR vaguely matches them. They exist in the library but are flagged for cleanup; assigning them just adds noise:
 `Information` (id 5), `summary` (id 45), `Schedule` (id 50), `Confirmation` (id 47), `collection of documents` (id 2), `Employer` (id 63), `recommendations` (id 48), `annual return` (id 1).
@@ -615,6 +621,8 @@ If the document genuinely doesn't fit any of the canonical types in the table ab
 - **Manual check.** If the OCR head clearly identifies the doc as an owner manual / quick-start guide / install guide / spec sheet for a consumer product (Vuly, LSK, LG, Merlin, ThirdReality, Bosch, anything with a model number and an "Important Safety Information" section), the answer is ALWAYS: correspondent=145 (User Manual), document_type=74 (Instruction Manual), storage_path=5 (Life), tags=[], custom_fields=[]. Don't leave correspondent or storage_path null on a manual "because the brand isn't in the correspondent list" — that's what 145 is for. The brand goes in the title.
 - **Public reference doc check.** Gov fact sheets, brochures, agency advisories, council notices are NOT manuals. They're reference material, not products you bought. Don't pin them to correspondent=145. Either use the issuing agency's correspondent if it exists (Services Australia, AMR Shire, etc.) or leave correspondent=null + storage_path=5 (Life) + document_type=null and flag. Rule of thumb: if you wouldn't say "this is the manual for the X I own", it's not a manual.
 - **Deny-list check.** Did you reach for `Information`, `summary`, `Schedule`, `Confirmation`, `collection of documents`, `Employer`, `recommendations`, or `annual return`? Those are on the deny list — leave document_type=null instead.
+- **Address-based property routing.** Utility bills, bank/loan letters, and other recurring household correspondence often have *no Riverslea/Coronation/etc. branding* but the OCR shows a residential street address. If the address matches a known property (e.g. `1 Grevillea Lane`, `22 Riverslea Drive`), route to that property's storage_path **and** property tag — not `Life` (sp=5). Examples seen: Supagas LPG bill addressed to Grevillea (sp=3, tag 335); Suncorp loan settlement letter to Grevillea (sp=3, tag 335); these were initially mis-filed to `Life` because the supplier branding didn't carry property context. The address always wins.
+- **Title-actually-PATCHed check.** When the OCR identifies the doc and you decide on a clean title, the `title` field MUST appear in your PATCH body. Reading the OCR and *describing* a new title in your report is not enough — scanner-output filenames (`20260104_132324_brw4cd577318e30_000425`) stay raw unless you actually send the PATCH. Re-fetch any retitled doc and confirm `title` no longer matches the original scanner pattern.
 
 ### Step 5 — Tags & custom fields
 
