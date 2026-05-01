@@ -106,6 +106,8 @@ Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`.
 - `docs/wiki/infrastructure/` — Network, VMs, storage, monitoring
 - `docs/wiki/services/` — Container stacks, integrations, service-specific docs
 
+**For external agents** (paperless, accounting/beancount from `git.ablz.au/abl030/agents`): start at [`docs/wiki/agent-operations.md`](docs/wiki/agent-operations.md) — service module map, edit/deploy workflow, secrets layout.
+
 **Rules:**
 - Update the wiki as you go. When you research something, document it.
 - In modules, agents, and config files, add comment pointers to relevant wiki docs (e.g. `# See docs/wiki/claude-code/skills-in-subagents.md`). This creates a breadcrumb trail so future sessions can find context fast.

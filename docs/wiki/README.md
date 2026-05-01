@@ -10,6 +10,10 @@ Internal knowledge base for research findings, architectural decisions, and oper
 
 ## Index
 
+### Top-level
+
+- [agent-operations](agent-operations.md) — primer for external agents (paperless, accounting/beancount): module map, edit/deploy workflow, secrets layout
+
 ### Infrastructure
 
 - [igpu-passthrough](infrastructure/igpu-passthrough.md) — AMD iGPU → `igpu` VM, `/dev/dri` health, kernel-reboot footgun
