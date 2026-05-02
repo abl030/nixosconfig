@@ -142,6 +142,21 @@
     extraGroups = ["libvirtd" "vboxusers" "dialout"];
   };
 
+  # Passwordless nixos-rebuild for the admin user on this workstation.
+  # Lets Claude iterate on rebuilds without prompting; scoped to nixos-rebuild
+  # only. Other sudo invocations still require a password.
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     gnome-remote-desktop
     kdiskmark
