@@ -96,11 +96,12 @@ local plugins = {
 	},
 
 	{
+		-- The fenced-code highlighting here depends on nvim-treesitter's
+		-- (#set-lang-from-info-string!) directive, which is broken on nvim 0.12+.
+		-- Patched in plugins/treesitter.lua. See docs/wiki/dev/neovim-debugging.md.
 		"MeanderingProgrammer/markdown.nvim",
 		main = "render-markdown",
 		opts = {
-			-- Disable code language injection to avoid treesitter query directive errors
-			-- The 'set-lang-from-info-string' directive is not supported in current treesitter
 			code = {
 				enabled = true,
 				sign = true,
@@ -115,7 +116,6 @@ local plugins = {
 				below = "▀",
 				highlight = "RenderMarkdownCode",
 				highlight_inline = "RenderMarkdownCodeInline",
-				-- Disable language injection which uses the problematic directive
 				language_pad = 0,
 				disable_background = { "diff" },
 			},
