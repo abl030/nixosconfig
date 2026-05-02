@@ -39,5 +39,11 @@
   home.packages = [
     pkgs.whosthere
     pkgs.yq-go
+    # Beancount CLI suite — bean-check, bean-format, bean-doctor, bean-extract,
+    # bean-identify, bean-file, bean-example, bean-report. bean-query and
+    # bean-price were split out of the core package in 3.x.
+    pkgs.beancount
+    pkgs.beanquery
+    pkgs.beanprice
   ];
 }
