@@ -25,3 +25,7 @@ ha/esphome/.esphome/
 
 # Playwright MCP screenshot output dir (see .claude/agents/playwright.md)
 .playwright-mcp/
+
+# Beads tracker retired 2026-04-14 — see docs/beads-archive.md.
+# Ignored in case any stray daemon recreates the directory.
+.beads/
