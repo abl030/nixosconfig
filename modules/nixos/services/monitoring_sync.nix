@@ -170,8 +170,14 @@
                 else:
                     kuma_type = MonitorType.HTTP
 
-                # Build kwargs common to add/edit
+                # Build kwargs common to add/edit. `type` MUST be in here so
+                # edit_monitor() actually updates an existing monitor's type
+                # when the desired type changes (e.g. http → json-query).
+                # Previously type was only passed on the add path, so a monitor
+                # created as "http" stayed "http" forever and the json-query
+                # fields were silently orphaned.
                 common_kwargs = dict(
+                    type=kuma_type,
                     name=name,
                     url=url,
                     ignoreTls=ignore_tls,
@@ -218,7 +224,8 @@
                     except TypeError:
                         desired_notifications = notification_ids
                     needs_update = (
-                        existing.get("name") != name
+                        str(existing.get("type") or "") != mon_type
+                        or existing.get("name") != name
                         or existing.get("url") != url
                         or bool(existing.get("ignoreTls")) != ignore_tls
                         or (host_header and existing.get("headers") != headers_json)
@@ -244,7 +251,7 @@
                 # uptime-kuma-api 1.2.1 doesn't support it, so inject
                 # into the built data and call the socket directly.
                 from uptime_kuma_api.api import _convert_monitor_input, _check_arguments_monitor, Event
-                data = api._build_monitor_data(type=kuma_type, **common_kwargs)
+                data = api._build_monitor_data(**common_kwargs)
                 _convert_monitor_input(data)
                 _check_arguments_monitor(data)
                 data["conditions"] = ""
