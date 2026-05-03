@@ -65,6 +65,10 @@ in {
     ];
 
     # Importer — downloads latest XML dumps and loads into Postgres
+    # Auto-retry on failure: importer is idempotent (drops + recreates tables),
+    # so transient I/O glitches (e.g. virtiofs hiccup that crashes pg checkpoint
+    # mid-load, observed 2026-05-02) self-heal instead of leaving the mirror
+    # empty until the next monthly timer fires.
     systemd.services.discogs-import = {
       description = "Discogs dump importer";
       after = ["container@discogs-db.service" "network-online.target"];
@@ -72,9 +76,15 @@ in {
       wants = ["network-online.target"];
       # Don't restart on nixos-rebuild — runs monthly via timer
       restartIfChanged = false;
+      unitConfig = {
+        StartLimitIntervalSec = "4h";
+        StartLimitBurst = 4;
+      };
       serviceConfig = {
         Type = "oneshot";
         TimeoutStartSec = "3h";
+        Restart = "on-failure";
+        RestartSec = "15min";
         ExecStart = "${discogsPkg}/bin/discogs-import --dsn '${pgc.dbUri}' --dump-dir '${cfg.mirrorDir}/dumps'";
       };
     };
@@ -117,7 +127,13 @@ in {
       monitoring.monitors = [
         {
           name = "Discogs";
+          type = "json-query";
           url = "https://discogs.ablz.au/health";
+          # /health returns status="ok" only when releases > 0; status="awaiting_import"
+          # when tables are empty (e.g. importer crashed mid-load and dropped tables).
+          # Plain HTTP 200 is not enough — empty mirror still returns 200.
+          jsonPath = "status";
+          expectedValue = "ok";
         }
       ];
     };
