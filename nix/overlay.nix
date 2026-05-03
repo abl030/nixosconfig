@@ -121,20 +121,4 @@
     }
   )
 
-  # plexamp overlay: pin to 4.12.3 — audio broken on Linux in 4.12.4 and 4.13.0
-  # Fixed upstream in 4.13.1 (2026-04-13). Drop this overlay once nixpkgs ships >=4.13.1.
-  # https://forums.plex.tv/t/plexamp-flatpak-appimage-does-not-start-playback-until-audio-device-switched/929631
-  # https://github.com/flathub/com.plexamp.Plexamp/issues/270
-  (
-    _final: prev: {
-      plexamp = prev.plexamp.overrideAttrs (_old: rec {
-        version = "4.12.3";
-        src = prev.fetchurl {
-          url = "https://plexamp.plex.tv/plexamp.plex.tv/desktop/Plexamp-${version}.AppImage";
-          name = "plexamp-${version}.AppImage";
-          hash = "sha512-gjOjk/JtHbhEDGzWH/bBtNd7qsYS97hBlPbRw7uWH/PCXD4urUWBrlihNWAOgYClVwl7nbrx/y7mhCrI2N6c1w==";
-        };
-      });
-    }
-  )
 ]

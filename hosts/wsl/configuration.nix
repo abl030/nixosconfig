@@ -15,6 +15,10 @@
   boot.loader.systemd-boot.enable = false;
   # WSL doesn't use standard NetworkManager logic
   networking.networkmanager.enable = false;
+  # WSL manages /etc/resolv.conf itself (wsl.wslConf.network.generateResolvConf).
+  # nixos-wsl sets environment.etc."resolv.conf".enable = false, which trips
+  # the upstream resolvconf assertion (checks for attr presence, not enable).
+  networking.resolvconf.enable = false;
   # fstrim is handled by the host OS / WSL engine usually
   services.fstrim.enable = false;
 
