@@ -79,11 +79,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1777903541,
-        "narHash": "sha256-3wmXyTy/7jD/Yptu7XWvXa9elOxLP7OXCyCVhzF5n00=",
+        "lastModified": 1777904798,
+        "narHash": "sha256-oF1TNdrGk5NzisPljTXZGz+hilROCrpUpobNBRJTouc=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "5b299a7d446de06e365114b295db5fd5c0a9dade",
+        "rev": "f5a15bd2eb91aefc10846d79c809f205214ec266",
         "type": "github"
       },
       "original": {
