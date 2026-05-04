@@ -262,6 +262,11 @@
   vmTools = import ../vms/package.nix {inherit pkgs;};
 
   proxmoxTemplate = (pkgs.nixos [../vms/template/configuration.nix]).config.system.build.VMA;
+
+  # Mailarchive OAuth2 helper — exposed as a flake app so the bootstrap
+  # device-code flow can be run from any clone before the module is enabled
+  # on doc2 (chicken-and-egg fix). See docs/wiki/services/mailarchive.md.
+  oauth2Helper = import ./pkgs/oauth2-helper.nix {inherit pkgs;};
 in {
   # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
@@ -279,6 +284,7 @@ in {
     tofu-output = tofuOutput;
     tofu-show = tofuShow;
     proxmox-template = proxmoxTemplate;
+    oauth2-helper = oauth2Helper;
   };
 
   apps = {
@@ -337,6 +343,11 @@ in {
       type = "app";
       program = "${lib.getExe tofuShow}";
       meta.description = "Show generated Terranix/OpenTofu config";
+    };
+    oauth2-helper = {
+      type = "app";
+      program = "${lib.getExe oauth2Helper}";
+      meta.description = "OAuth2 device-code bootstrap + refresh helper for mbsync";
     };
   };
 
