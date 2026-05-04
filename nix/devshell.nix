@@ -174,6 +174,11 @@
       exit "$ec"
     '';
   };
+
+  # Mailarchive OAuth2 helper — exposed as a flake app so the bootstrap
+  # device-code flow can be run from any clone before the module is enabled
+  # on doc2 (chicken-and-egg fix). See docs/wiki/services/mailarchive.md.
+  oauth2Helper = import ./pkgs/oauth2-helper.nix {inherit pkgs;};
 in {
   # Make `nix fmt` use Alejandra across the whole repo (defaults to --write).
   formatter = fmtNix;
@@ -182,6 +187,7 @@ in {
   packages = {
     lint-nix = lintNix;
     fmt-nix = fmtNix;
+    oauth2-helper = oauth2Helper;
   };
 
   apps = {
@@ -194,6 +200,11 @@ in {
       type = "app";
       program = "${lib.getExe fmtNix}";
       meta.description = "Format Nix files with Alejandra.";
+    };
+    oauth2-helper = {
+      type = "app";
+      program = "${lib.getExe oauth2Helper}";
+      meta.description = "OAuth2 device-code bootstrap + refresh helper for mbsync";
     };
   };
 
