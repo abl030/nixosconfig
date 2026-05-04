@@ -179,6 +179,26 @@
       domain-monitor.enable = true;
       forgejo.enable = true;
       rtrfm-nowplaying.enable = true;
+      # Mail archival — replaces Win10 MailStore VM (VMID 102).
+      # Two accounts: personal Gmail and work O365 (cullenwines.com.au).
+      # Bootstrap procedure (per-account refresh tokens, sops env files):
+      #   docs/wiki/services/mailarchive.md
+      # After both secrets/hosts/doc2/mailarchive-{work,gmail}.env exist,
+      # flip `enable = true;` and redeploy.
+      mailarchive = {
+        enable = false;
+        accounts = {
+          work = {
+            provider = "o365";
+            remoteUser = "andy@cullenwines.com.au";
+          };
+          gmail = {
+            provider = "gmail";
+            remoteUser = "abl030@gmail.com";
+          };
+        };
+      };
+
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";

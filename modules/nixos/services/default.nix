@@ -46,6 +46,7 @@
     ./youtarr.nix
     ./musicbrainz.nix
     ./kopia.nix
+    ./mailarchive.nix
     ./meelo.nix
     ./domain-monitor.nix
     ./forgejo.nix
