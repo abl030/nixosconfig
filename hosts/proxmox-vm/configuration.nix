@@ -66,6 +66,7 @@
   # We just set interface specifics here.
   networking.interfaces.ens18.mtu = 1400;
   networking.firewall.enable = true;
+  networking.firewall.allowedTCPPorts = [8096];
 
   boot.kernel.sysctl = {
     # Allow rootless containers to use ping (required by smokeping/fping).
