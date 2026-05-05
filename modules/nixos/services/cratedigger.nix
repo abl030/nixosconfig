@@ -8,7 +8,6 @@
 #
 #   - sops-nix per-key secret extraction (slskd API key, notifier creds)
 #   - the nspawn PostgreSQL container backing the pipeline DB
-#   - the redis instance that the web UI's cache uses
 #   - the localProxy entry that puts the web UI behind music.ablz.au
 #   - systemd ordering against container@cratedigger-db.service
 #
@@ -131,15 +130,6 @@ in {
       "d ${cfg.dataDir} 0755 root root -"
       "d ${cfg.dataDir}/postgres 0700 root root -"
     ];
-
-    # ---------------------------------------------------------------------
-    # Redis cache for the web UI (in-memory only, no persistence).
-    # ---------------------------------------------------------------------
-    services.redis.servers.cratedigger = {
-      enable = true;
-      port = 6379;
-      save = []; # no persistence — pure cache
-    };
 
     # ---------------------------------------------------------------------
     # Reverse proxy entry.
