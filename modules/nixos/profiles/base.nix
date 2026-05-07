@@ -78,9 +78,9 @@
   # ---------------------------------------------------------
   # Cap coredump storage to prevent crash-looping containers (e.g. Ombi)
   # from filling disk. Keeps recent dumps available for debugging.
-  systemd.coredump.extraConfig = ''
-    MaxUse=100M
-  '';
+  systemd.coredump.settings.Coredump = {
+    MaxUse = "100M";
+  };
 
   # ---------------------------------------------------------
   # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
