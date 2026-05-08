@@ -13,6 +13,18 @@
     enable = lib.mkDefault true;
     agentTeams = lib.mkDefault true;
     repoMemoryDirectory = lib.mkDefault ".claude/memory";
+    # Privacy: opt out of telemetry, error reporting, surveys, and the autoupdater.
+    # Nix manages the package, so the autoupdater can't write to /nix/store anyway.
+    # True ZDR is Enterprise-only; pair this with the training opt-out in
+    # claude.ai → Settings → Privacy on each Max account.
+    settings = lib.mkDefault {
+      env = {
+        DISABLE_TELEMETRY = "1";
+        DISABLE_ERROR_REPORTING = "1";
+        DISABLE_AUTOUPDATER = "1";
+        CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY = "1";
+      };
+    };
     plugins = lib.mkDefault [
       {
         source = inputs.claude-plugin-ha-skills;
