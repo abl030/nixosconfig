@@ -8,11 +8,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1778199440,
-        "narHash": "sha256-neEu92AczcHfO4tENmyFnzQXvk5b/Tp+VM7hsevCYOk=",
+        "lastModified": 1778308666,
+        "narHash": "sha256-/QvFJXlv/pABobnxNBbJY6ghULMO+3SLZhiJMdAGXLU=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "bacfe205bb986634fe4c60d2aaf3e3ce2fe40c11",
+        "rev": "072c584bd19bfb91961e773b6b25a0a3a5eeb238",
         "type": "github"
       },
       "original": {
@@ -24,11 +24,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1778166678,
-        "narHash": "sha256-uJ7v599i8PsC14k7Pcg7QUvH4MyavEHBwYyXADkFclM=",
+        "lastModified": 1778284244,
+        "narHash": "sha256-mM2mt8z60tC4B5BtE59YVFqeT9aRx7JdAAvRXexBjlg=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "0bb53dfad0a502d39727d2392c5038ff2a0d99ae",
+        "rev": "834ca4e58a82c4e06040ff448bc4bd97551f4be9",
         "type": "github"
       },
       "original": {
@@ -61,11 +61,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1778175487,
-        "narHash": "sha256-eBoHv4Ha4Phyqc1BibguvgebYHNIdB1lYNDc5tdmw0M=",
+        "lastModified": 1778282716,
+        "narHash": "sha256-fHo9PlYWu970hmdVkDB2Jqeu0VmhmqQ5iKOnPjf/I1E=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "84ef41fa58a1731da7e2d9856f8358cdbec8f6e3",
+        "rev": "7f0f3802287581e04501e2fea26b56d63df18ebd",
         "type": "github"
       },
       "original": {
@@ -316,11 +316,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1778240782,
-        "narHash": "sha256-lh4ek+PAsRUGbiK7CUvns01A86cgHfMBQ72TcxiCDwg=",
+        "lastModified": 1778308042,
+        "narHash": "sha256-iBbQmcQ8XBZ4SBHQrOpAZMjdI03xHAOnbzCqUjl/ZWA=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "d11ae4d64cdae78b7713ca863661545a369a0a9d",
+        "rev": "10fcf4bbe1112eaf3845e8eecaf2b285c9be3241",
         "type": "gitlab"
       },
       "original": {
@@ -427,11 +427,11 @@
     "musicbrainz-docker": {
       "flake": false,
       "locked": {
-        "lastModified": 1778195274,
-        "narHash": "sha256-VUY4QK/7X+/3fJhxu2Wl/SoxsU9FjZRAL4JTkyen9+0=",
+        "lastModified": 1778335998,
+        "narHash": "sha256-m+Gtu4j8E/IUeM10z5R0bGmSKD1E7LInQ+KmylsU6Wk=",
         "owner": "metabrainz",
         "repo": "musicbrainz-docker",
-        "rev": "bb72367a3e9bbee64e9607d674a5e6d0f05b4a69",
+        "rev": "9d3b9026f3de23f4774af85cfa3c99242e2fc589",
         "type": "github"
       },
       "original": {
@@ -450,11 +450,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1778100906,
-        "narHash": "sha256-EmT8Pjk4hed2f4ngaTpteOZ0dMg0cFmE6Ys089/poTI=",
+        "lastModified": 1778310190,
+        "narHash": "sha256-yc1I+oP3Z8wDjka8thFj53ik5N7P0SG96bmqOeb17qY=",
         "owner": "matthart1983",
         "repo": "netwatch",
-        "rev": "5b8cece1243f3d2c1bb0bb1ce7e040cb347830da",
+        "rev": "9a94e9d062f7955da3551df0003059b5d1b6c934",
         "type": "github"
       },
       "original": {

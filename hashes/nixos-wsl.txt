@@ -1,1 +1,1 @@
-/nix/store/awpa6iqmcckslfgkzgv74gjpma1wrijg-nixos-system-wsl-26.05.20260507.68a8af9
+/nix/store/vkavf1jlwvv3m6yhdwakglfgj180856w-nixos-system-wsl-26.05.20260507.68a8af9
