@@ -48,6 +48,15 @@
           type: none
           device: ${cfg.mirrorDir}/pgdata
           o: bind
+      # PG18 layout: postgres home is the volume root (was pgdata=/var/lib/postgresql/data).
+      # Bind to mirrorDir so it shares a filesystem with pgdata — pg_upgrade --link uses
+      # hardlinks across the two during the 16→18 migration, which require same-fs targets.
+      pghome:
+        driver: local
+        driver_opts:
+          type: none
+          device: ${cfg.mirrorDir}/pghome
+          o: bind
       solrdata:
         driver: local
         driver_opts:
@@ -444,6 +453,7 @@ in {
         # Mirror data (large, re-downloadable, NOT backed up)
         "d ${cfg.mirrorDir} 0755 root root - -"
         "d ${cfg.mirrorDir}/pgdata 0755 root root - -"
+        "d ${cfg.mirrorDir}/pghome 0755 root root - -"
         "d ${cfg.mirrorDir}/solrdata 0755 root root - -"
         "d ${cfg.mirrorDir}/dbdump 0755 root root - -"
         "d ${cfg.mirrorDir}/solrdump 0755 root root - -"

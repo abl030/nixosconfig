@@ -427,17 +427,17 @@
     "musicbrainz-docker": {
       "flake": false,
       "locked": {
-        "lastModified": 1778195274,
-        "narHash": "sha256-VUY4QK/7X+/3fJhxu2Wl/SoxsU9FjZRAL4JTkyen9+0=",
+        "lastModified": 1778335998,
+        "narHash": "sha256-m+Gtu4j8E/IUeM10z5R0bGmSKD1E7LInQ+KmylsU6Wk=",
         "owner": "metabrainz",
         "repo": "musicbrainz-docker",
-        "rev": "bb72367a3e9bbee64e9607d674a5e6d0f05b4a69",
+        "rev": "9d3b9026f3de23f4774af85cfa3c99242e2fc589",
         "type": "github"
       },
       "original": {
         "owner": "metabrainz",
         "repo": "musicbrainz-docker",
-        "rev": "bb72367a3e9bbee64e9607d674a5e6d0f05b4a69",
+        "rev": "9d3b9026f3de23f4774af85cfa3c99242e2fc589",
         "type": "github"
       }
     },
