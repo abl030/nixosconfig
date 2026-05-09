@@ -81,7 +81,10 @@
     };
 
     musicbrainz-docker = {
-      url = "github:metabrainz/musicbrainz-docker";
+      # Pinned pre-PG18 bump. Upstream 9d3b9026 swaps the db image to PG18,
+      # which won't load our existing PG16 cluster (pg_amqp.so missing).
+      # Unpin once we run the pg_upgrade-16-to-18 script and verify extensions.
+      url = "github:metabrainz/musicbrainz-docker/bb72367a3e9bbee64e9607d674a5e6d0f05b4a69";
       flake = false;
     };
 
