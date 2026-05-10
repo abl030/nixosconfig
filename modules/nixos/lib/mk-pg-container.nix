@@ -131,10 +131,14 @@ in {
               echo "${name}-set-password: POSTGRES_PASSWORD not found in ${pgpassPath}" >&2
               exit 1
             fi
-            # psql -v with :'pwd' substitution properly quotes the value, so the
-            # password itself can contain SQL metacharacters without breaking.
-            ${lib.getExe' pgPackage "psql"} -d "${name}" -v "pwd=$PASS" \
-              -tAc "ALTER USER \"${name}\" WITH PASSWORD :'pwd'"
+            # Double single-quotes in the password to escape them for the SQL
+            # string literal. Our generator uses hex (no quotes possible) but
+            # this stays defensive for any future password format.
+            # Note: psql's :'var' interpolation does NOT work with -c — only in
+            # interactive or -f file mode. Inline the value with shell escaping.
+            PASS_ESC=$(printf '%s' "$PASS" | ${pkgs.gnused}/bin/sed "s/'/''/g")
+            ${lib.getExe' pgPackage "psql"} -d "${name}" \
+              -tAc "ALTER USER \"${name}\" WITH PASSWORD '$PASS_ESC'"
           '')
         ];
 
