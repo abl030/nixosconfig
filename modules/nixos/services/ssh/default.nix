@@ -63,7 +63,11 @@ in {
     };
 
     # 2. Authorized Keys (Sourced from hosts.nix)
-    users.users.${user}.openssh.authorizedKeys.keys = authorizedKeys;
+    # Entries can be plain strings (legacy) or structured attrsets with
+    # from=/expiry-time/restrict/command (Phase 1 of #241).
+    users.users.${user}.openssh.authorizedKeys.keys =
+      (import ../../../../nix/render-authorized-keys.nix {inherit lib;}).renderList
+      authorizedKeys;
 
     # 3. Decrypt the Master Identity (System Level)
     # We do this here because only root can read the Host Key needed to decrypt it

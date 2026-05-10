@@ -64,7 +64,12 @@ in {
 
           # Global Defaults (merged at the end)
           "*" = {
-            forwardAgent = true; # Useful for git
+            # ForwardAgent is OFF by default (Phase 1 of #241). The previous
+            # `forwardAgent = true` on `*` exposed the local key surface to
+            # every host we SSH into — a compromised remote could use the
+            # forwarded agent to hop further. Re-enable per host only where
+            # genuinely needed (git operations against Forgejo, etc.).
+            forwardAgent = false;
             setEnv = {TERM = "xterm-256color";};
 
             # Explicitly disable X11
