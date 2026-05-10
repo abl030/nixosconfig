@@ -53,10 +53,16 @@ in {
     # ExecStartPre that builds /run/atuin/db-env from POSTGRES_PASSWORD.
     # Keeps the password out of /nix/store and out of static unit env, while
     # still letting atuin connect via its standard ATUIN_DB_URI mechanism.
+    #
+    # restartTriggers includes the sops secret path so out-of-band password
+    # rotations (sops edit + systemctl restart, no nixos-rebuild) re-render
+    # the db-env file. Without this, RemainAfterExit would skip the rebuild
+    # and atuin would reconnect with the stale URI.
     systemd.services.atuin-db-uri = {
       description = "Render atuin DB URI with PG password";
       wantedBy = ["multi-user.target"];
       before = ["atuin.service"];
+      restartTriggers = [config.sops.secrets."atuin-pgpass".path];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

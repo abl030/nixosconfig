@@ -71,12 +71,11 @@ in {
       serviceConfig =
         {
           DynamicUser = lib.mkForce false;
-          # Layer pgpass after credentialsFile so POSTGRES_PASSWORD wins.
+          # Layer pgpass after upstream's credentialsFile (which sets
+          # EnvironmentFile=mealie/env). lib.mkAfter appends, so the final
+          # list is [mealie/env, mealie-pgpass] without duplicates.
           # systemd merges multiple EnvironmentFile= entries; later wins.
-          EnvironmentFile = [
-            config.sops.secrets."mealie/env".path
-            config.sops.secrets."mealie-pgpass".path
-          ];
+          EnvironmentFile = lib.mkAfter [config.sops.secrets."mealie-pgpass".path];
         }
         // lib.optionalAttrs (cfg.dataDir != "/var/lib/mealie") {
           BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
