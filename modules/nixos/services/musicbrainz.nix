@@ -220,6 +220,19 @@
         image: lrclib-nix:latest
   '';
 
+  # Override the db build context to upstream's `build/postgres` (from-scratch)
+  # path which compiles pg_amqp into the image. Upstream's default points at
+  # `build/postgres-prebuilt` which uses metabrainz/musicbrainz-docker-db:18-build0
+  # — that prebuilt image was published WITHOUT pg_amqp.so, so the cluster fails
+  # to start with `shared_preload_libraries=pg_amqp.so`. Drop this override once
+  # upstream republishes a working build (or we move to mk-pg-container per #228).
+  dbBuildOverride = pkgs.writeText "musicbrainz-db-build.yml" ''
+    services:
+      db:
+        build:
+          context: ${inputs.musicbrainz-docker}/build/postgres
+  '';
+
   envFile = config.sops.secrets."musicbrainz/env".path;
 
   composeFiles = [
@@ -229,6 +242,7 @@
     lmdOverride
     replicationTokenOverride
     lrclibImageOverride
+    dbBuildOverride
   ];
   composeFlags = lib.concatMapStringsSep " " (f: "-f ${f}") composeFiles;
 
