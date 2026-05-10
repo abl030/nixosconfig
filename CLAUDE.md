@@ -30,6 +30,40 @@
 # Do this silently — no need to announce it, just know your context.
 #
 
+# !! CRITICAL: AUDIT FOR LEAST PRIVILEGE !!
+#
+# This repo is moving to least-privilege bit by bit. Any new module you add,
+# OR existing code you touch, gets a privilege/blast-radius audit before
+# commit. Two threat models, both of which assume things will go wrong:
+#
+# 1. EXTERNAL ATTACKER. Anything reachable from the LAN, internet, or
+#    Tailscale gets actively probed. Default-deny mindset:
+#     - Bind 127.0.0.1 + surface via `homelab.localProxy`, never 0.0.0.0.
+#     - Digest-pin third-party images. No `:latest` / `:master` with
+#       `pull = "newer"` on services that hold state we care about.
+#     - Don't open firewall ports beyond what the service strictly needs.
+#
+# 2. EVIL MAID / POST-COMPROMISE LATERAL MOVEMENT. Assume an upstream
+#    container we follow gets supply-chain-compromised, OR an attacker
+#    already has code execution inside one container. The blast radius
+#    must stay bounded to that one service:
+#     - No UID 0 inside OCI containers with rw shared bind mounts
+#       (`/mnt/data/*`, `/mnt/mirrors/*`).
+#     - No `trust` auth on shared resources (DBs, sockets, mounts).
+#     - No hardcoded secrets in `environment` attrsets — sops-managed
+#       env files only.
+#     - No shared podman network namespaces between containers with
+#       different privilege requirements.
+#
+# Before committing, walk the checklist + anti-patterns in
+# `.claude/rules/nixos-service-modules.md`. If your change touches PG
+# auth, OCI container privileges, image refs, network bindings, or
+# bind mounts to shared host paths — flag it, don't paper over it.
+#
+# Outstanding least-privilege work is tracked in #232 (umbrella audit).
+# When you find a new TIER-1/2/3 finding, append it there.
+#
+
 # Repository Guidelines
 
 This file provides guidance to AI coding assistants working with this repository.
