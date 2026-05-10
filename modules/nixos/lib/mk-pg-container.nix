@@ -2,8 +2,8 @@
 #
 # Returns an attrset with:
 #   containerConfig — value for containers.<name>
-#   dbUri           — connection string for the service (no password — use dbUriWithPass)
-#   dbUriWithPass   — function: pwd: full URI with password embedded for runtime use
+#   dbUri           — connection string without password (consumer adds password
+#                     via PGPASSWORD env or DSN templating in ExecStart wrapper)
 #   dbHost          — container-side IP (for TCP connections)
 #   dbPort          — 5432
 #   hostAddress     — host-side veth IP
@@ -68,10 +68,6 @@ in {
   dbHost = localAddress;
   dbPort = 5432;
   dbUri = "postgresql://${name}@${localAddress}:5432/${name}";
-  # Helper for consumers that need the password embedded in a URI at runtime.
-  # Pass the literal string to use; the consumer is responsible for sourcing
-  # POSTGRES_PASSWORD from sops env in their unit and substituting at exec time.
-  dbUriWithPass = pwd: "postgresql://${name}:${pwd}@${localAddress}:5432/${name}";
 
   containerConfig = {
     autoStart = true;
