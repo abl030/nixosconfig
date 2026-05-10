@@ -131,12 +131,14 @@ in {
               echo "${name}-set-password: POSTGRES_PASSWORD not found in ${pgpassPath}" >&2
               exit 1
             fi
-            # Double single-quotes in the password to escape them for the SQL
-            # string literal. Our generator uses hex (no quotes possible) but
-            # this stays defensive for any future password format.
-            # Note: psql's :'var' interpolation does NOT work with -c — only in
-            # interactive or -f file mode. Inline the value with shell escaping.
-            PASS_ESC=$(printf '%s' "$PASS" | ${pkgs.gnused}/bin/sed "s/'/''/g")
+            # Escape any single quote in the password by doubling it, for SQL
+            # string-literal context. Done via bash parameter expansion to keep
+            # the Nix source free of literal double-single-quote sequences,
+            # which Nix would otherwise treat as the end of the indented string.
+            # Our hex generator can't produce quotes; this stays defensive.
+            # Note: psql's :var interpolation does NOT work with -c — only in
+            # interactive or -f file mode.
+            PASS_ESC=''${PASS//\'/\'\'}
             ${lib.getExe' pgPackage "psql"} -d "${name}" \
               -tAc "ALTER USER \"${name}\" WITH PASSWORD '$PASS_ESC'"
           '')
