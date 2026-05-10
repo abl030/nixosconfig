@@ -50,9 +50,12 @@
   cfg = config.homelab.services.jellyfin;
 
   # Nspawn PostgreSQL for jellystat. hostNum=7 (next slot after discogs=6).
-  # Trust auth accepts connections from 192.168.100.14 (host side of the
-  # veth). The jellystat OCI container on podman0 reaches pg by routing
-  # through the host, which MASQUERADEs the source IP to 192.168.100.14.
+  # Connections from 192.168.100.14 (host side of veth) are scram-sha-256
+  # authed since #232 — trust auth was retired after we found any OCI
+  # container on podman0 could pivot to superuser fleet-wide. PG password
+  # lives in the sops-managed jellystat-pgpass.env (alongside the existing
+  # jellystat.env), bindmounted into the nspawn for ALTER USER and merged
+  # into the OCI container's environmentFiles for the consumer side.
   #
   # Schema note: jellystat connects with user=jellystat but hardcodes its
   # database name as `jfstat` (upstream default). mk-pg-container creates
@@ -63,6 +66,7 @@
     hostNum = 7;
     dataDir = cfg.jellystat.dataDir;
     extraDatabases = ["jfstat"];
+    passwordFile = "/run/secrets/jellystat-pgpass";
   };
 
   # Container runs as host abl030 (1000:100) so virtiofs files land
@@ -354,6 +358,15 @@ in {
         mode = "0400";
       };
 
+      # PG password — separate file from jellystat/env so the nspawn container
+      # can read it via mode=0444 bindmount without exposing other jellystat
+      # secrets (JWT_SECRET etc.) to anyone with shell access on doc2.
+      sops.secrets."jellystat-pgpass" = {
+        sopsFile = config.homelab.secrets.sopsFile "jellystat-pgpass.env";
+        format = "dotenv";
+        mode = "0444";
+      };
+
       # nspawn PostgreSQL. See mk-pg-container header for cascade-stop gotcha.
       containers.jellystat-db = jellystatPgc.containerConfig;
 
@@ -369,7 +382,13 @@ in {
         image = cfg.jellystat.image;
         autoStart = true;
         pull = "newer";
-        environmentFiles = [config.sops.secrets."jellystat/env".path];
+        # Order matters: pgpass loads after jellystat/env so the canonical
+        # POSTGRES_PASSWORD takes effect even if a stale value remains in
+        # jellystat/env.
+        environmentFiles = [
+          config.sops.secrets."jellystat/env".path
+          config.sops.secrets."jellystat-pgpass".path
+        ];
         environment = {
           POSTGRES_USER = "jellystat";
           POSTGRES_IP = jellystatPgc.dbHost;

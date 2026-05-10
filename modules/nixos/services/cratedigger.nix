@@ -42,6 +42,7 @@
     name = "cratedigger";
     hostNum = 5;
     dataDir = cfg.dataDir;
+    passwordFile = "/run/secrets/cratedigger-pgpass";
   };
 
   sopsFile = config.homelab.secrets.sopsFile "soularr.env";
@@ -80,6 +81,16 @@ in {
       format = "dotenv";
       owner = "root";
       mode = "0400";
+    };
+
+    # PG password file — POSTGRES_PASSWORD is set, and we mirror it as
+    # PGPASSWORD/PIPELINE_DB_PASSWORD in cratedigger units below so libpq
+    # / sqlx / Python clients pick it up. mode 0444 because the nspawn
+    # container reads it via bindmount; see #232.
+    sops.secrets."cratedigger-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "cratedigger-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
     };
 
     systemd.services.cratedigger-secrets-split = {
@@ -212,22 +223,38 @@ in {
     # services themselves; we just splice in container@cratedigger-db.service.
     # restartTriggers ensure switch-to-configuration re-runs the migrate
     # oneshot whenever the container derivation changes.
+    #
+    # PGPASSWORD env injection (#232): every cratedigger unit that connects to
+    # PG needs to pick up the password. PGPASSWORD is the libpq standard env
+    # var and is respected by sqlx (Rust importer/preview-worker), psycopg /
+    # asyncpg (Python pipeline-cli, web), and plain psql.
     # ---------------------------------------------------------------------
     systemd.services.cratedigger-db-migrate = {
       after = ["container@cratedigger-db.service"];
       requires = ["container@cratedigger-db.service"];
       restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
     };
 
     systemd.services.cratedigger = {
       after = ["slskd.service" "container@cratedigger-db.service"];
       wants = ["slskd.service" "container@cratedigger-db.service"];
+      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
     };
 
     systemd.services.cratedigger-web = {
       after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
       wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
       restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+    };
+
+    systemd.services.cratedigger-importer = {
+      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+    };
+
+    systemd.services.cratedigger-import-preview-worker = {
+      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
     };
   };
 }

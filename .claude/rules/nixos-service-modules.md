@@ -43,11 +43,21 @@ pgc = import ../lib/mk-pg-container.nix {
   name = "<service>";
   hostNum = <unique-number>;  # Check existing hostNums to avoid collisions
   inherit (cfg) dataDir;
+  # REQUIRED: path to a sops-managed dotenv with POSTGRES_PASSWORD.
+  # mode 0444 on the secret entry so the postgres user inside the
+  # nspawn can read the bindmounted file. See "PG auth" below.
+  passwordFile = "/run/secrets/<service>-pgpass";
   # Optional: pgPackage, extensions, pgSettings, postStartSQL
 };
 
 # In config:
 containers.<service>-db = pgc.containerConfig;
+
+sops.secrets."<service>-pgpass" = {
+  sopsFile = config.homelab.secrets.sopsFile "<service>-pgpass.env";
+  format = "dotenv";
+  mode = "0444";
+};
 
 services.<service>.database = {
   enable = false;  # Don't use system-wide PG
@@ -58,6 +68,49 @@ services.<service>.database = {
 
 **Existing hostNums** (check before assigning):
 - 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=cratedigger, 6=discogs, 7=jellystat
+
+### PG auth — never `trust` over TCP
+
+**`mk-pg-container` requires `passwordFile`** and uses `scram-sha-256` for the
+TCP rule. `peer` auth on the local Unix socket inside the container is the
+always-available superuser backdoor — `sudo machinectl shell <name>-db` then
+`sudo -u postgres psql` for schema work, password resets, etc.
+
+**Never reintroduce `trust` over TCP.** It was retired on 2026-05-10 (see #232)
+after empirical verification that any OCI container on `podman0` could pivot
+to `postgres` superuser on every nspawn DB in the fleet — Linux IP forwarding
+rewrites the source to `hostAddress`, which matched the `${hostAddress}/32 trust`
+rule from outside the trust boundary.
+
+**Wiring the password into the consumer.** The same sops secret feeds both
+sides — `passwordFile` for the nspawn ALTER USER, plus the consumer reads
+the same file (or a derivative). Three patterns by consumer shape:
+
+1. **OCI containers** (jellystat): append the pgpass file to `environmentFiles`.
+   Order matters — pgpass last so it wins on duplicate keys.
+
+2. **nixpkgs services with a single env-file option** (immich, paperless, mealie):
+   the upstream `secretsFile`/`environmentFile`/`credentialsFile` option still
+   wires the consumer's main env file; layer the pgpass file via
+   `systemd.services.<svc>.serviceConfig.EnvironmentFile = lib.mkAfter [...]`.
+   For services where the consumer reads a non-canonical env var (e.g. Immich
+   reads `DB_PASSWORD`, Paperless reads `PAPERLESS_DBPASSWORD`), include the
+   alias in the pgpass.env file alongside `POSTGRES_PASSWORD`.
+
+3. **Custom systemd services or DSN-as-CLI-arg modules** (atuin, cratedigger,
+   discogs): EnvironmentFile loads `POSTGRES_PASSWORD` (and `PGPASSWORD` —
+   the libpq standard, respected by sqlx, psycopg, and the postgres CLI).
+   For services that need a full URI in their config, either:
+   - Construct it in an `ExecStartPre` oneshot that writes a runtime env
+     file (atuin pattern), or
+   - Use a `writeShellScript` ExecStart wrapper that builds the DSN at
+     runtime from `$POSTGRES_PASSWORD` (discogs pattern), or
+   - Rely on `PGPASSWORD` being set in the unit env so libpq picks it up
+     without the URI (cratedigger pattern).
+
+**Out-of-band psql from the doc2 host** needs a credential lookup since the
+operator account isn't auth'd by `peer`. One-liner:
+`PGPASSWORD=$(sops -d secrets/hosts/<host>/<svc>-pgpass.env | grep ^POSTGRES_PASSWORD= | cut -d= -f2-) psql -h <ip> -U <name> -d <name>`.
 
 ### CRITICAL: restartTriggers for container dependencies
 
@@ -271,6 +324,63 @@ Use `firewallPorts` to open the upstream service's port on the `podman0` bridge 
 - [ ] `firewallPorts` set to the upstream service's port
 - [ ] `dataDir` subdirs (`ts-state/`, `caddy-data/`, `caddy-config/`) survive any rsync operations (use `--exclude ts/` or similar if rsyncing the parent)
 
+## Anti-Patterns (avoid)
+
+Concrete failure modes we've hit. Add to this list when you find a new one.
+
+### Auth & secrets
+
+- **`host all all <addr>/32 trust` in pg_hba.** Caused fleet-wide superuser
+  pivot from any OCI container (#232, 2026-05-10). `mk-pg-container` enforces
+  `scram-sha-256` with `passwordFile` now — don't relax it.
+- **DB password embedded in a Nix-eval string** (e.g. `pipelineDb.dsn =
+  "postgresql://user:${pwdLiteral}@..."`). Leaks to `/nix/store`. Construct
+  DSNs at runtime from EnvironmentFile-loaded vars instead.
+- **Hardcoded passwords in container env attrsets.** `environment.POSTGRES_PASSWORD = "abc"`
+  is plaintext in /nix/store and the systemd unit. Use `environmentFiles =
+  [config.sops.secrets...path]` instead.
+- **Decrypting a multi-secret env file at mode 0444 just to share one field
+  with another consumer.** Splits the trust boundary for every other secret
+  in the file. Put the shared field in its own `<svc>-pgpass.env` (or similar
+  narrow file) at 0444; keep the wider env file at 0400.
+
+### Privilege & isolation
+
+- **OCI container running as UID 0** with rw bind mounts to shared host paths
+  (`/mnt/data/Media`, `/mnt/mirrors`). A compromised container can encrypt or
+  delete adjacent services' data. Pin a non-root UID via `--user=<uid>:<gid>`
+  in `extraOptions` (see jellystat for the pattern).
+- **`pull = "newer"` on `:latest`/`:master` tags.** Nightly auto-update can
+  silently swap the image — including supply-chain compromises in upstream's
+  Docker Hub or GitHub. Pin to digests (`@sha256:...`) for any service whose
+  upstream isn't ours.
+- **Sharing a podman network namespace between containers with mismatched
+  privilege**: e.g. caddy joining a tailscale container's namespace inherits
+  `--cap-add=NET_ADMIN`. Either separate the containers, or drop caps explicitly
+  on the joining container.
+
+### Network exposure
+
+- **`listen 0.0.0.0` when only LAN access is wanted.** Every consumer should
+  bind `127.0.0.1` and surface via `homelab.localProxy.hosts`. Binding to all
+  interfaces gives any LAN segment direct unauthenticated access — no nginx
+  rate-limit, no ACL, nothing.
+- **Services on the default `podman` bridge that don't need to talk to each
+  other.** Default-network membership lets every container L3-reach every
+  other on `10.88.0.0/16`. Per-service podman networks are cheap and bound the
+  pivot surface.
+
+### Image trust
+
+- **Personal Dockerhub repos** (`docker.io/<personal-handle>/...`) without
+  digest pinning. Single-author trust chain, no signing. Always pin to
+  `@sha256:...`. If the project is unmaintained, vendor the image into
+  `pkgs.dockerTools` instead.
+- **Tracking upstream `master` of a `flake = false` input that builds an
+  image we run** (`musicbrainz-docker` learned this on 2026-05-10 when the
+  PG16→PG18 bump broke our cluster — #228, #229). Pin those inputs explicitly
+  and bump them by hand.
+
 ## Checklist
 
 Before submitting a new service module:
@@ -278,10 +388,16 @@ Before submitting a new service module:
 - [ ] Options under `homelab.services.<name>` with `enable` and `dataDir`
 - [ ] Added to `modules/nixos/services/default.nix` imports
 - [ ] If using DB container: `restartTriggers` on app service referencing container toplevel
+- [ ] If using `mk-pg-container`: `passwordFile` set to a 0444 sops dotenv with
+      `POSTGRES_PASSWORD`, consumer wired to load same file (see PG auth section)
+- [ ] OCI containers run with `--user=<non-root-uid>:<gid>` in `extraOptions`
+- [ ] Image refs pinned to digests for any non-nixpkgs upstream
+- [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts`
 - [ ] `homelab.localProxy.hosts` entry for DNS/SSL/nginx
 - [ ] `homelab.monitoring.monitors` entry for health checking
 - [ ] `homelab.nfsWatchdog` if service depends on NFS paths
 - [ ] Secrets via `sops.secrets` + `config.homelab.secrets.sopsFile`
 - [ ] No hardcoded LAN IPs in module code or runtime config (see DNS-First Networking above)
+- [ ] No hardcoded passwords in `environment` attrsets — use `environmentFiles`
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds
