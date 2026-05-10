@@ -10,6 +10,7 @@
     name = "paperless";
     hostNum = 3;
     inherit (cfg) dataDir;
+    passwordFile = "/run/secrets/paperless-pgpass";
   };
 
   # Symlinks to NFS paths — avoids spaces in paths which break systemd ReadWritePaths
@@ -89,12 +90,17 @@ in {
       };
     };
 
-    # All paperless services must wait for DB container and NFS
-    systemd.services = {
-      paperless-scheduler = dbAndNfs;
-      paperless-task-queue = dbAndNfs;
-      paperless-consumer = dbAndNfs;
-      paperless-web = dbAndNfs;
+    # All paperless services must wait for DB container and NFS, plus pick up
+    # the pgpass env file so PAPERLESS_DBPASSWORD is set for libpq.
+    systemd.services = let
+      base = dbAndNfs // {
+        serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."paperless-pgpass".path];
+      };
+    in {
+      paperless-scheduler = base;
+      paperless-task-queue = base;
+      paperless-consumer = base;
+      paperless-web = base;
     };
 
     # Paperless user needs NFS access
@@ -112,6 +118,14 @@ in {
       format = "binary";
       owner = "paperless";
       mode = "0400";
+    };
+    # PG password file — POSTGRES_PASSWORD + PAPERLESS_DBPASSWORD aliases of
+    # the same value; see #232. mode 0444 because the nspawn container reads
+    # via bindmount; the file contains nothing but the DB password.
+    sops.secrets."paperless-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "paperless-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
     };
 
     homelab = {

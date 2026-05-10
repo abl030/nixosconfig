@@ -11,6 +11,7 @@
     hostNum = 4;
     pgPackage = pkgs.postgresql_15;
     inherit (cfg) dataDir;
+    passwordFile = "/run/secrets/mealie-pgpass";
   };
 in {
   options.homelab.services.mealie = {
@@ -63,10 +64,19 @@ in {
     systemd.services.mealie = {
       after = ["container@mealie-db.service"];
       requires = ["container@mealie-db.service"];
-      restartTriggers = [config.systemd.units."container@mealie-db.service".unit];
+      restartTriggers = [
+        config.systemd.units."container@mealie-db.service".unit
+        config.sops.secrets."mealie-pgpass".path
+      ];
       serviceConfig =
         {
           DynamicUser = lib.mkForce false;
+          # Layer pgpass after credentialsFile so POSTGRES_PASSWORD wins.
+          # systemd merges multiple EnvironmentFile= entries; later wins.
+          EnvironmentFile = [
+            config.sops.secrets."mealie/env".path
+            config.sops.secrets."mealie-pgpass".path
+          ];
         }
         // lib.optionalAttrs (cfg.dataDir != "/var/lib/mealie") {
           BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
@@ -78,6 +88,13 @@ in {
       format = "dotenv";
       owner = "mealie";
       mode = "0400";
+    };
+    # Separate PG password file — mode 0444 so the nspawn container can read
+    # it via bindmount; see #232.
+    sops.secrets."mealie-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "mealie-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
     };
 
     homelab = {

@@ -24,6 +24,7 @@
     name = "discogs";
     hostNum = 6;
     dataDir = cfg.mirrorDir;
+    passwordFile = "/run/secrets/discogs-pgpass";
   };
 
   discogsPkg = pkgs.rustPlatform.buildRustPackage {
@@ -53,6 +54,13 @@ in {
 
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [discogsPkg];
+
+    # PG password — sops-managed dotenv with POSTGRES_PASSWORD; see #232.
+    sops.secrets."discogs-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "discogs-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
+    };
 
     # PostgreSQL nspawn container
     containers.discogs-db = pgc.containerConfig;
@@ -85,7 +93,15 @@ in {
         TimeoutStartSec = "3h";
         Restart = "on-failure";
         RestartSec = "15min";
-        ExecStart = "${discogsPkg}/bin/discogs-import --dsn '${pgc.dbUri}' --dump-dir '${cfg.mirrorDir}/dumps'";
+        EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+        # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
+        # out of /nix/store, which the bare DSN string would otherwise leak.
+        ExecStart = pkgs.writeShellScript "discogs-import-start" ''
+          set -eu
+          exec ${discogsPkg}/bin/discogs-import \
+            --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
+            --dump-dir '${cfg.mirrorDir}/dumps'
+        '';
       };
     };
 
@@ -107,10 +123,19 @@ in {
       after = ["container@discogs-db.service"];
       requires = ["container@discogs-db.service"];
       wantedBy = ["multi-user.target"];
-      restartTriggers = [config.systemd.units."container@discogs-db.service".unit];
+      restartTriggers = [
+        config.systemd.units."container@discogs-db.service".unit
+        config.sops.secrets."discogs-pgpass".path
+      ];
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${discogsPkg}/bin/discogs-api --dsn '${pgc.dbUri}' --port ${toString cfg.apiPort}";
+        EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+        ExecStart = pkgs.writeShellScript "discogs-api-start" ''
+          set -eu
+          exec ${discogsPkg}/bin/discogs-api \
+            --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
+            --port ${toString cfg.apiPort}
+        '';
         Restart = "on-failure";
         RestartSec = 5;
       };

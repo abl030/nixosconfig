@@ -39,6 +39,7 @@
       search_path = ''"$user", public'';
     };
     postStartSQL = immichExtensionSQL;
+    passwordFile = "/run/secrets/immich-pgpass";
   };
 in {
   options.homelab.services.immich = {
@@ -119,6 +120,19 @@ in {
       group = "immich";
       mode = "0400";
     };
+    # PG password — POSTGRES_PASSWORD + DB_PASSWORD aliases of the same value;
+    # see #232. mode 0444 because the nspawn container reads via bindmount.
+    # Loaded after immich/env so the canonical value wins on duplicate keys.
+    sops.secrets."immich-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "immich-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
+    };
+
+    # Inject pgpass into immich-server's EnvironmentFile after immich/env
+    # (which `secretsFile` populates). Later entries win in systemd.
+    systemd.services.immich-server.serviceConfig.EnvironmentFile =
+      lib.mkAfter [config.sops.secrets."immich-pgpass".path];
 
     # Wire into existing infrastructure
     homelab = {
