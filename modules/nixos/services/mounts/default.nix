@@ -3,7 +3,7 @@
   imports = [
     ./nfs.nix
     ./nfs-local.nix
-    ./external.nix
+    ./mum-nfs.nix
     ./fuse.nix
     ./drvfs.nix
     ./ops-sync.nix

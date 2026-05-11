@@ -53,8 +53,12 @@ in {
     # need a working tunnel should `Requires=`/`After=` this oneshot
     # instead of `tailscaled.service` directly.
     #
-    # See docs/wiki/infrastructure/nfs-over-tailscale.md for the full
-    # pathology and the 2026-05-11 incident that drove this.
+    # Scope: LOCAL interface bindability only. Does NOT verify any peer
+    # is reachable — that's intentional. Peer reachability at boot/rebuild
+    # time predicts nothing about reachability at runtime; the mount.nfs
+    # call itself is the peer-reachability signal. See
+    # docs/wiki/infrastructure/nfs-over-tailscale.md § "Scope of the
+    # readiness gate" for why peer-ping was rejected.
     systemd.services.tailscale-wait = {
       description = "Wait for Tailscale interface to be bindable";
       after = ["tailscaled.service"];
@@ -63,6 +67,10 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        # systemd backstop above the CLI's own --timeout. Oneshots default
+        # TimeoutStartSec to infinity, so a hung tailscale binary (deadlock,
+        # SIGSTOP) would stall every downstream consumer forever.
+        TimeoutStartSec = "150s";
         ExecStart = "${pkgs.tailscale}/bin/tailscale wait --timeout=120s";
       };
     };
