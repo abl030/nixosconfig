@@ -29,3 +29,9 @@ ha/esphome/.esphome/
 # Beads tracker retired 2026-04-14 — see docs/beads-archive.md.
 # Ignored in case any stray daemon recreates the directory.
 .beads/
+
+# cratedigger is its own repo (github:abl030/cratedigger) checked out
+# alongside this one for convenience. The flake consumes it via the
+# `cratedigger-src` input — nothing here depends on the local copy.
+# Untracked so its own git activity doesn't drift this repo's index.
+/cratedigger/
