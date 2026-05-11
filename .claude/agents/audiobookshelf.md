@@ -45,10 +45,10 @@ All requests below assume those vars + `$AUTH` are set. If the file is missing, 
 When asked to bring books from Temp into ABS:
 
 1. **Inspect source**: `ls -la "/mnt/data/Media/Temp/<dir>"` — understand what's there (single file vs multi-part, cover art, metadata .txt files)
-2. **Convert/concat to single m4b**: Use the repo's conversion scripts on doc2:
+2. **Convert/concat to single m4b**: **The final file in the library MUST be `.m4b`. No exceptions.** Use the repo's conversion scripts on doc2:
    - **Multiple MP3s**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/mp3-to-m4b.sh "<dir>"`
    - **Multiple m4b/m4a**: `nix shell nixpkgs#ffmpeg nixpkgs#bc --command bash /home/abl030/nixosconfig/scripts/m4b-concat.sh "<dir>"`
-   - **Single MP3**: use `mp3-to-m4b.sh` — just remuxes the container.
+   - **Single MP3**: ALWAYS run `mp3-to-m4b.sh` to remux the container — even if ABS would play the MP3 fine. Do NOT skip this just because the source is "already a single file". m4b is the canonical library format (proper chapter atoms, clean cover embed, uniform extension across the library). Chapter tags and embedded art survive the remux.
    - **Already single m4b/m4a**: skip this step.
    - Scripts live at `/home/abl030/nixosconfig/scripts/` on doc2 (pulled from git). Require `ffmpeg`, `ffprobe`, `bc`.
    - After conversion, the output m4b is in the source dir. Copy it out (step 4), leave source files alone.
