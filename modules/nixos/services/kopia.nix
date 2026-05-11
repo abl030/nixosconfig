@@ -219,16 +219,21 @@ in {
       kernelModules = lib.mkOrder 1600 ["nfs"];
     };
 
-    # /mnt/mum NFS mount — only when an instance references it
+    # /mnt/mum NFS mount — only when an instance references it.
+    # See docs/wiki/infrastructure/nfs-over-tailscale.md for why this
+    # depends on tailscale-wait.service rather than tailscaled.service
+    # directly. Keep in sync with modules/nixos/services/mounts/external.nix.
     fileSystems."/mnt/mum" = lib.mkIf needsMumMount {
       device = "100.100.237.21:/volumeUSB1/usbshare";
       fsType = "nfs";
       options = [
         "x-systemd.automount"
         "noauto"
+        "nofail"
         "_netdev"
-        "x-systemd.requires=tailscaled.service"
-        "x-systemd.after=tailscaled.service"
+        "x-systemd.requires=tailscale-wait.service"
+        "x-systemd.after=tailscale-wait.service"
+        "x-systemd.mount-timeout=30s"
         "x-systemd.idle-timeout=300"
         "noatime"
         "retry=10"
