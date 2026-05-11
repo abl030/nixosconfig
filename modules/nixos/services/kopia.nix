@@ -323,10 +323,11 @@ in {
     # localProxy + monitoring + NFS watchdog
     homelab = {
       # NFS watchdog — restart kopia instance if its NFS paths go stale.
-      # Probe the most-failure-prone path: /mnt/mum (Tailscale → mum's
-      # Synology) ranks above /mnt/data (LAN → tower). A stale repo is
-      # the more catastrophic failure for kopia-mum; /mnt/data going
-      # stale is far rarer.
+      # Probe the path more likely to flake: /mnt/mum (Tailscale → mum's
+      # residential Synology) ranks above /mnt/data (LAN → tower). The
+      # single-path nfsWatchdog can't probe both, so we pick the more
+      # failure-prone one and rely on kopia's own errorCount monitor to
+      # catch the rarer /mnt/data flake.
       nfsWatchdog = lib.mapAttrs' (name: inst: let
         allPaths = inst.sources ++ inst.repositoryMounts;
         hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;

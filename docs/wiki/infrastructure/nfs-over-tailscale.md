@@ -334,6 +334,14 @@ gate Tailscale behind an explicit opt-in.
   range (`{host=~"doc2|proxmox-vm"} |= "/mnt/mum" |~ "Mounting|Mounted"`),
   re-evaluate `x-systemd.mount-timeout=30s`. Current data shows p99
   at 6.10s; new evidence above that ceiling would change the calculus.
+- The Loki p99 was measured under the old literal-IP regime
+  (`100.100.237.21`). After the switch to MagicDNS (`kerrynas`), the
+  mount adds a DNS lookup step. On cold boot, MagicDNS resolution
+  becomes available alongside the tailscale interface — tailscale-wait
+  unblocks on interface bindability, not on the in-process resolver
+  being warm. Watch the first month of post-deploy mount durations
+  for any successful-but-slower mounts and tighten or loosen the
+  timeout accordingly.
 - If kopia ever introduces "snapshot empty source as zero-byte entry"
   semantics that bypass `errorCount`, the "Empirical: ELOOP" section
   no longer protects us — add an active `totalFileSize > N` monitor.
