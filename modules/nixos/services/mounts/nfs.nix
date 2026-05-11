@@ -40,10 +40,19 @@ in {
       description = ''
         Use Tailscale to reach tower (via the "tower" MagicDNS name).
         Set this on hosts outside the home LAN (framework when on the
-        road). Defaults to false — at-home hosts use the LAN IP set by
-        the `server` option, avoiding a Tailscale dependency on every
-        NFS operation. Ignored when `server` is explicitly set to
-        something other than the LAN IP default.
+        road). Defaults to false — at-home hosts use the LAN address
+        set by the `server` option, avoiding a Tailscale dependency
+        on every NFS operation.
+
+        When `external = true`, the server address becomes "tower"
+        regardless of what `server` is set to (`external` takes
+        precedence). For non-standard topologies that need a
+        Tailscale-only mount but with a different address, leave
+        `external = false` and set `server` to the desired name —
+        but note the routing detector only treats `server == "tower"`
+        as the tailnet path; any other name evaluates as LAN routing.
+        If you need to add another tailnet server in the future,
+        widen the `useTailscale` predicate in this module.
       '';
     };
 
@@ -51,10 +60,12 @@ in {
       type = types.str;
       default = "192.168.1.2";
       description = ''
-        NFS server address. Defaults to tower's LAN IP. Set
-        `external = true` to use the Tailscale MagicDNS name "tower"
-        instead, or override directly for non-standard topologies (wsl
-        uses the Windows-host-relayed subnet route).
+        NFS server address. Defaults to tower's LAN IP. When
+        `external = false`, this is the literal address mount.nfs
+        uses. When `external = true`, this option is **overridden**
+        (the resulting mount targets "tower" via MagicDNS).
+        wsl overrides this directly to its Windows-host-relayed
+        subnet route.
       '';
     };
 

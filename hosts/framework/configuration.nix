@@ -235,25 +235,21 @@
   # =======================================================================
 
   # 1. DEFENSE IN DEPTH: Soft Mounts
-  # Ensure the mounts themselves are less likely to hang the kernel
-  # even if our service fails.
+  # Append soft-mount semantics to the module's defaults so a dead
+  # tailnet path doesn't pin the kernel. The base options
+  # (x-systemd.automount, noauto, _netdev, noatime, the tailscale-wait
+  # gate, etc.) come from modules/nixos/services/mounts/nfs.nix — only
+  # framework-specific additions live here to avoid duplicating the
+  # shared list.
   fileSystems."/mnt/data".options = [
-    "x-systemd.automount"
-    "noauto"
-    "_netdev"
-    "soft"
-    "timeo=30"
-    "retrans=2" # Fail fast if network is gone
-    "noatime"
-  ];
-  fileSystems."/mnt/appdata".options = [
-    "x-systemd.automount"
-    "noauto"
-    "_netdev"
     "soft"
     "timeo=30"
     "retrans=2"
-    "noatime"
+  ];
+  fileSystems."/mnt/appdata".options = [
+    "soft"
+    "timeo=30"
+    "retrans=2"
   ];
 
   # 2. THE CIRCUIT BREAKER SERVICE
