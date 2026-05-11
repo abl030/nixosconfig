@@ -13,6 +13,7 @@ tfplan
 
 # Nix build outputs and local caches
 result
+result-*
 .cache/
 ha/esphome/secrets.yaml
 ha/esphome/.esphome/
