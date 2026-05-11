@@ -11,7 +11,10 @@
   ];
 
   homelab = {
-    mounts.nfs.enable = true;
+    mounts.nfs = {
+      enable = true;
+      external = true; # framework is mobile — reach tower over Tailscale
+    };
     mounts.nfsMusic.enable = true;
     rdpInhibitor.enable = true;
     ssh = {

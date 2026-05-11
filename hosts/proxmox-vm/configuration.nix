@@ -12,7 +12,7 @@
     mounts = {
       nfsLocal.enable = true;
       nfsLocal.readOnly = false; # Safety during podman testing
-      external.enable = true;
+      mumNfs.enable = true;
       fuse.enable = true;
     };
     # Base.nix enables ssh=true/secure=true.

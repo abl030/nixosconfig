@@ -197,7 +197,7 @@
             port = 51516;
             configDir = "/mnt/virtio/kopia/mum";
             sources = ["/mnt/data"];
-            readWriteSources = ["/mnt/mum"];
+            repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
             verifyPercent = 2;
             overrideHostname = "kopia";

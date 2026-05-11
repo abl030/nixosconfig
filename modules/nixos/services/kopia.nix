@@ -90,12 +90,12 @@
 
   # Check if any instance references /mnt/mum
   needsMumMount = lib.any (inst:
-    lib.any (s: lib.hasPrefix "/mnt/mum" s) (inst.sources ++ inst.readWriteSources))
+    lib.any (s: lib.hasPrefix "/mnt/mum" s) (inst.sources ++ inst.repositoryMounts))
   (lib.attrValues cfg.instances);
 
   # Build mount dependencies for an instance
   mountDepsFor = inst: let
-    allPaths = inst.sources ++ inst.readWriteSources;
+    allPaths = inst.sources ++ inst.repositoryMounts;
     hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
     hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
   in
@@ -114,16 +114,37 @@
         description = "Directory containing repository.config for this instance.";
       };
 
+      # Source vs repository: kopia "sources" are paths kopia walks and snapshots
+      # (read-only — kopia never modifies the data it's backing up).
+      # kopia "repositories" are destinations where kopia writes blob/index files
+      # (read-write — kopia owns these). For filesystem-type repos the repo lives
+      # on a mounted path that must be brought up before kopia starts and watched
+      # for staleness. The two roles look identical to the host config (both are
+      # just paths) but failure modes diverge — a stale source means a snapshot
+      # might miss data; a stale repo means a snapshot can't land at all. Don't
+      # mix them up.
       sources = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        description = "Read-only paths to back up.";
+        description = ''
+          Read-only source paths kopia walks and snapshots. Mounts referenced
+          here are added as systemd dependencies so kopia waits for them at
+          startup. Use `repositoryMounts` for the destination side.
+        '';
       };
 
-      readWriteSources = lib.mkOption {
+      repositoryMounts = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        description = "Read-write paths to back up (e.g. /mnt/mum needs rw for NFS).";
+        description = ''
+          Mounted filesystem paths hosting kopia repositories that this instance
+          writes to (i.e. the destination side — where kopia stores its
+          `kopia.repository`, indexes, and blob packs). Kopia needs read-write
+          access; mount staleness here is more catastrophic than a stale source
+          because snapshots can't land. Triggers the same systemd dependency
+          wiring as `sources`. Currently used for `/mnt/mum` (mum's Synology
+          over Tailscale).
+        '';
       };
 
       proxyHost = lib.mkOption {
@@ -211,34 +232,11 @@ in {
       config.sops.secrets.${kopiaMonitoringSecret}.path
     ];
 
-    # /mnt/mum NFS mount — only when needed
-    environment.systemPackages = lib.mkIf needsMumMount (lib.mkOrder 1600 (with pkgs; [nfs-utils]));
-
-    boot.initrd = lib.mkIf needsMumMount {
-      supportedFilesystems = lib.mkOrder 1600 ["nfs"];
-      kernelModules = lib.mkOrder 1600 ["nfs"];
-    };
-
-    # /mnt/mum NFS mount — only when an instance references it.
-    # See docs/wiki/infrastructure/nfs-over-tailscale.md for why this
-    # depends on tailscale-wait.service rather than tailscaled.service
-    # directly. Keep in sync with modules/nixos/services/mounts/external.nix.
-    fileSystems."/mnt/mum" = lib.mkIf needsMumMount {
-      device = "100.100.237.21:/volumeUSB1/usbshare";
-      fsType = "nfs";
-      options = [
-        "x-systemd.automount"
-        "noauto"
-        "nofail"
-        "_netdev"
-        "x-systemd.requires=tailscale-wait.service"
-        "x-systemd.after=tailscale-wait.service"
-        "x-systemd.mount-timeout=30s"
-        "x-systemd.idle-timeout=300"
-        "noatime"
-        "retry=10"
-      ];
-    };
+    # /mnt/mum is the kopia *repository* destination (Mum's Synology over
+    # Tailscale), NOT a source path. The actual fileSystems definition lives
+    # in modules/nixos/services/mounts/mum-nfs.nix — kopia just opts in here
+    # whenever an instance references /mnt/mum.
+    homelab.mounts.mumNfs.enable = lib.mkIf needsMumMount true;
 
     # Per-instance systemd services + verify services
     systemd.services =
@@ -308,7 +306,14 @@ in {
         description = "Daily Kopia verify for ${name}";
         wantedBy = ["timers.target"];
         timerConfig = {
-          OnCalendar = "*-*-* 04:00:00";
+          # 05:30 sits well after doc2's nixos-upgrade window closes
+          # (updateDates="04:00" + randomizedDelaySec=60min → window
+          # nominally ends 05:00). An upgrade that fires at 04:59 still
+          # needs time to actually run — verify after upgrade so we
+          # also catch any post-upgrade breakage; the 30min gap absorbs
+          # the upgrade's runtime plus any tailscale/kopia cascade
+          # settling.
+          OnCalendar = "*-*-* 05:30:00";
           Persistent = true;
           Unit = "kopia-verify-${name}.service";
         };
@@ -317,18 +322,25 @@ in {
 
     # localProxy + monitoring + NFS watchdog
     homelab = {
-      # NFS watchdog — restart kopia instance if its NFS paths go stale
+      # NFS watchdog — restart kopia instance if its NFS paths go stale.
+      # Probe the most-failure-prone path: /mnt/mum (Tailscale → mum's
+      # Synology) ranks above /mnt/data (LAN → tower). A stale repo is
+      # the more catastrophic failure for kopia-mum; /mnt/data going
+      # stale is far rarer.
       nfsWatchdog = lib.mapAttrs' (name: inst: let
-        allPaths = inst.sources ++ inst.readWriteSources;
+        allPaths = inst.sources ++ inst.repositoryMounts;
+        hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
         hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
       in
         lib.nameValuePair "kopia-${name}" {
           path =
-            if hasMntData
+            if hasMntMum
+            then "/mnt/mum"
+            else if hasMntData
             then "/mnt/data"
             else builtins.head allPaths;
         })
-      (lib.filterAttrs (_name: inst: (inst.sources ++ inst.readWriteSources) != []) cfg.instances);
+      (lib.filterAttrs (_name: inst: (inst.sources ++ inst.repositoryMounts) != []) cfg.instances);
 
       localProxy.hosts =
         lib.mapAttrsToList (_name: inst: {
