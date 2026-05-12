@@ -328,6 +328,7 @@ in {
         };
 
         match = {
+          ignore_video_tracks = false;
           strong_rec_thresh = 0.10;
           medium_rec_thresh = 0.25;
           preferred = {
