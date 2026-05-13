@@ -173,6 +173,93 @@
       done
       echo "MeiliSearch not ready after 60s, starting anyway"
     '';
+
+  apkDir = "${cfg.dataDir}/apk";
+  apkMirrorScript = pkgs.writeShellScript "meelo-apk-mirror" ''
+    set -euo pipefail
+
+    repo="Arthi-chaud/Meelo"
+    api="https://api.github.com/repos/$repo/releases/latest"
+    dir=${lib.escapeShellArg apkDir}
+
+    ${pkgs.coreutils}/bin/mkdir -p "$dir"
+
+    release_json=$(${pkgs.curl}/bin/curl \
+      -fsSL \
+      --retry 3 \
+      --retry-all-errors \
+      --connect-timeout 20 \
+      "$api")
+
+    tag=$(printf '%s' "$release_json" | ${pkgs.jq}/bin/jq -r '.tag_name // empty')
+    url=$(printf '%s' "$release_json" | ${pkgs.jq}/bin/jq -r '.assets[] | select(.name == "meelo.apk") | .browser_download_url' | ${pkgs.coreutils}/bin/head -n1)
+    expected_size=$(printf '%s' "$release_json" | ${pkgs.jq}/bin/jq -r '.assets[] | select(.name == "meelo.apk") | .size' | ${pkgs.coreutils}/bin/head -n1)
+
+    if [[ -z "$tag" || -z "$url" || -z "$expected_size" || "$url" == "null" ]]; then
+      echo "meelo-apk-mirror: latest release is missing meelo.apk metadata" >&2
+      exit 1
+    fi
+
+    safe_tag=$(${pkgs.coreutils}/bin/printf '%s' "$tag" | ${pkgs.gnused}/bin/sed 's/[^A-Za-z0-9._-]/_/g')
+    versioned_apk="$dir/meelo-$safe_tag.apk"
+
+    if [[ -f "$versioned_apk" ]]; then
+      current_size=$(${pkgs.coreutils}/bin/stat -c %s "$versioned_apk")
+      if [[ "$current_size" == "$expected_size" ]]; then
+        echo "meelo-apk-mirror: $tag already downloaded"
+      else
+        ${pkgs.coreutils}/bin/rm -f "$versioned_apk"
+      fi
+    fi
+
+    if [[ ! -f "$versioned_apk" ]]; then
+      tmp=$(${pkgs.coreutils}/bin/mktemp "$dir/.meelo.apk.XXXXXX")
+      cleanup() {
+        ${pkgs.coreutils}/bin/rm -f "$tmp"
+      }
+      trap cleanup EXIT
+
+      ${pkgs.curl}/bin/curl \
+        -fL \
+        --retry 5 \
+        --retry-all-errors \
+        --connect-timeout 20 \
+        --max-time 900 \
+        --output "$tmp" \
+        "$url"
+
+      actual_size=$(${pkgs.coreutils}/bin/stat -c %s "$tmp")
+      if [[ "$actual_size" != "$expected_size" ]]; then
+        echo "meelo-apk-mirror: size mismatch for $tag: expected $expected_size, got $actual_size" >&2
+        exit 1
+      fi
+
+      ${pkgs.coreutils}/bin/chmod 0644 "$tmp"
+      ${pkgs.coreutils}/bin/mv "$tmp" "$versioned_apk"
+      trap - EXIT
+    fi
+
+    sha256=$(${pkgs.coreutils}/bin/sha256sum "$versioned_apk" | ${pkgs.coreutils}/bin/cut -d' ' -f1)
+    ${pkgs.findutils}/bin/find "$dir" -maxdepth 1 -type f -name 'meelo-*.apk' ! -name "meelo-$safe_tag.apk" -delete
+    ${pkgs.coreutils}/bin/ln -f "$versioned_apk" "$dir/meelo.apk"
+
+    ${pkgs.coreutils}/bin/printf '%s\n' "$tag" > "$dir/latest.version"
+    ${pkgs.coreutils}/bin/printf '{"tag":"%s","url":"https://meelo.ablz.au/apk/meelo-%s.apk","latestUrl":"https://meelo.ablz.au/apk/meelo.apk","size":%s,"sha256":"%s"}\n' \
+      "$tag" "$safe_tag" "$expected_size" "$sha256" > "$dir/latest.json"
+    ${pkgs.coreutils}/bin/printf '%s\n' \
+      '<!doctype html>' \
+      '<html>' \
+      '  <head><title>Meelo Android APK</title></head>' \
+      '  <body>' \
+      "    <p>Latest: $tag</p>" \
+      "    <a href=\"meelo-$safe_tag.apk\">meelo-$tag.apk</a>" \
+      '  </body>' \
+      '</html>' \
+      > "$dir/index.html"
+    ${pkgs.coreutils}/bin/chmod 0644 "$dir/latest.version" "$dir/latest.json" "$dir/index.html" "$dir/meelo.apk" "$versioned_apk"
+
+    echo "meelo-apk-mirror: mirrored $tag ($expected_size bytes, sha256=$sha256)"
+  '';
 in {
   options.homelab.services.meelo = {
     enable = lib.mkEnableOption "Meelo music server (OCI containers)";
@@ -305,10 +392,33 @@ in {
           ];
           serviceConfig.ExecStartPre = lib.mkBefore [waitForPostgres];
         };
+
+        meelo-apk-mirror = {
+          description = "Mirror latest Meelo Android APK for stable Obtainium downloads";
+          wants = ["network-online.target"];
+          after = ["network-online.target"];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = apkMirrorScript;
+          };
+        };
+      };
+
+      timers.meelo-apk-mirror = {
+        description = "Refresh mirrored Meelo Android APK";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "10min";
+          OnCalendar = "*-*-* 03:30:00";
+          Persistent = true;
+          RandomizedDelaySec = "30min";
+          Unit = "meelo-apk-mirror.service";
+        };
       };
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
+        "d ${apkDir} 0755 root root - -"
         "d ${cfg.dataDir}/postgres-nspawn 0755 root root - -"
         "d ${cfg.dataDir}/postgres-nspawn/postgres 0700 root root - -"
         "d ${cfg.dataDir}/config 0755 root root - -"
@@ -316,6 +426,21 @@ in {
         "d ${cfg.dataDir}/rabbitmq 0755 root root - -"
         "d ${cfg.dataDir}/transcoder_cache 0755 root root - -"
       ];
+    };
+
+    services.nginx.virtualHosts."meelo.ablz.au".locations."/apk/" = {
+      root = cfg.dataDir;
+      extraConfig = ''
+        types {
+          application/vnd.android.package-archive apk;
+          application/json json;
+          text/html html;
+          text/plain version;
+        }
+        default_type application/octet-stream;
+        add_header Cache-Control "public, max-age=300";
+        try_files $uri =404;
+      '';
     };
 
     virtualisation.oci-containers.containers = {

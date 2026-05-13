@@ -75,6 +75,23 @@ During the switch, host routing initially sent `192.168.100.17` through Tailscal
 
 The pgpass secret is loaded after `meelo/env` for the server. After the migration, the non-database containers (`meelo-scanner`, `meelo-matcher`, `meelo-mq`, `meelo-search`) were restarted and verified not to expose `POSTGRES*`, `PG*`, or `DATABASE_URL` variables.
 
+## Android APK Mirror
+
+Meelo's upstream Android APK is published as a GitHub release asset. GitHub serves the asset through a one-hour signed `release-assets.githubusercontent.com` redirect. On Android/Obtainium this has repeatedly failed while receiving the 160+ MB APK, with the signed URL expiring mid-flow.
+
+The Meelo module mirrors the latest upstream `meelo.apk` to the existing `meelo.ablz.au` nginx vhost:
+
+- Obtainium source URL: `https://meelo.ablz.au/apk/`
+- Current versioned APK link: `https://meelo.ablz.au/apk/meelo-<tag>.apk`
+- Stable APK URL: `https://meelo.ablz.au/apk/meelo.apk`
+- Metadata: `https://meelo.ablz.au/apk/latest.json`
+- Version marker: `https://meelo.ablz.au/apk/latest.version`
+- Local directory: `/mnt/virtio/meelo/apk`
+- Refresh unit: `meelo-apk-mirror.service`
+- Refresh timer: `meelo-apk-mirror.timer`
+
+For semantic auto-updates in Obtainium, add it as an `HTML` source pointed at `https://meelo.ablz.au/apk/` and set version extraction to match `Latest: (v[0-9][^<[:space:]]*)` with group `1` over the whole page. Direct APK Link also works with Obtainium's default partial-APK-hash pseudo-versioning, but the HTML source preserves upstream `v*` release tags.
+
 ## Rollback Window Closed
 
 The old OCI PostgreSQL data directory was removed after the migrated runtime and transcoder were verified. The module no longer creates `/mnt/virtio/meelo/postgres`.
