@@ -1,5 +1,9 @@
 # Native Kopia backup server module
 # Replaces the podman-compose stack with systemd services
+#
+# See docs/wiki/services/kopia.md for the full backup architecture:
+# Object Lock policy, Wasabi IAM scoping, secret handling, snapshot
+# policies, and the key rotation playbook.
 {
   config,
   lib,
