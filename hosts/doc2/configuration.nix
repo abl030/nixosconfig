@@ -288,12 +288,14 @@
     firewall.enable = true;
   };
 
-  # 16GB swapfile — no swap partition in disko layout, and 16GB RAM is tight
-  # for this workload (MusicBrainz Solr+PG alone is ~5GB)
+  # 30GB swapfile — RAM bumped to 30GB on 2026-05-13 after cratedigger +
+  # kopia thrashing pushed the previous 16GB swap to 11GB used. Matching swap
+  # to RAM gives headroom for parallel import_preview workers without paging
+  # death.
   swapDevices = [
     {
       device = "/var/lib/swapfile";
-      size = 16 * 1024; # 16 GiB in MiB
+      size = 30 * 1024; # 30 GiB in MiB
     }
   ];
 
