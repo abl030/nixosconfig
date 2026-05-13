@@ -96,6 +96,7 @@ For semantic auto-updates in Obtainium, use the "Add or update Meelo in Obtainiu
 - `Version string extraction RegEx`: `v\d+\.\d+\.\d+`.
 - `Match group to use`: blank. Obtainium defaults blank to group `0`, so the whole regex match becomes the version.
 - `Filter APKs by RegEx`: `meelo-v\d+\.\d+\.\d+\.apk$`.
+- `Reconcile version string with version detected from OS`: off. The upstream v3.11.0 APK declares Android `versionName: 1.0.0` and `versionCode: 1`, so OS version detection causes Obtainium to permanently report an available update.
 - `Sort by only the last segment of the link`: on.
 - `Apply version string extraction RegEx to entire page`: off.
 - `Attempt to filter APKs by CPU architecture if possible`: off.

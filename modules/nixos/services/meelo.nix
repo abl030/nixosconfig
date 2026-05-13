@@ -188,7 +188,7 @@
     trackOnly = false;
     versionExtractionRegEx = "v\\d+\\.\\d+\\.\\d+";
     matchGroupToUse = "";
-    versionDetection = true;
+    versionDetection = false;
     useVersionCodeAsOSVersion = false;
     apkFilterRegEx = "meelo-v\\d+\\.\\d+\\.\\d+\\.apk$";
     invertAPKFilter = false;
