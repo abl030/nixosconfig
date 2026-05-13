@@ -75,7 +75,7 @@ in {
         PUID = "0";
         PGID = "0";
         UMASK_SET = "002";
-        nodeName = cfg.nodeName;
+        inherit (cfg) nodeName;
         serverIP = cfg.serverIp;
         serverPort = toString cfg.serverPort;
         inContainer = "true";

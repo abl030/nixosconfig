@@ -184,262 +184,274 @@ in {
     # Parent + per-component state dirs. Grafana/Loki own their subdirs via
     # upstream modules (static users); tempo/mimir have DynamicUser upstream
     # so we create static users below and tmpfiles owns those subdirs for us.
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir}          0755 root    root    - -"
-      "d ${cfg.dataDir}/grafana  0750 grafana grafana - -"
-      "d ${cfg.dataDir}/loki     0750 loki    loki    - -"
-      "d ${cfg.dataDir}/tempo    0750 tempo   tempo   - -"
-      "d ${cfg.dataDir}/mimir    0750 mimir   mimir   - -"
-    ];
+    systemd = {
+      tmpfiles.rules = [
+        "d ${cfg.dataDir}          0755 root    root    - -"
+        "d ${cfg.dataDir}/grafana  0750 grafana grafana - -"
+        "d ${cfg.dataDir}/loki     0750 loki    loki    - -"
+        "d ${cfg.dataDir}/tempo    0750 tempo   tempo   - -"
+        "d ${cfg.dataDir}/mimir    0750 mimir   mimir   - -"
+      ];
 
-    # -------- Grafana --------
-    services.grafana = {
-      enable = true;
-      dataDir = "${cfg.dataDir}/grafana";
-      settings = {
-        server = {
-          http_addr = "127.0.0.1";
-          http_port = cfg.grafanaPort;
-          domain = "logs.ablz.au";
-          root_url = "https://logs.ablz.au";
+      services = {
+        # Grafana admin creds injected via env so they never hit the Nix store.
+        grafana.serviceConfig.EnvironmentFile =
+          config.sops.secrets."loki/grafana.env".path;
+
+        tempo.serviceConfig = {
+          DynamicUser = lib.mkForce false;
+          User = "tempo";
+          Group = "tempo";
+          WorkingDirectory = lib.mkForce "${cfg.dataDir}/tempo";
+          StateDirectory = lib.mkForce "";
+          ReadWritePaths = ["${cfg.dataDir}/tempo"];
         };
-        security = {
-          admin_user = "$__env{GRAFANA_ADMIN_USER}";
-          admin_password = "$__env{GRAFANA_ADMIN_PASSWORD}";
-          # Env provider so the key stays out of the Nix store. Seeded to
-          # Grafana's historical upstream default so an old grafana.db from
-          # the compose-era stack would still decrypt; rotate later if any
-          # real secrets land in the DB.
-          secret_key = "$__env{GRAFANA_SECRET_KEY}";
+
+        mimir.serviceConfig = {
+          DynamicUser = lib.mkForce false;
+          User = "mimir";
+          Group = "mimir";
+          WorkingDirectory = lib.mkForce "${cfg.dataDir}/mimir";
+          StateDirectory = lib.mkForce "";
+          ReadWritePaths = ["${cfg.dataDir}/mimir"];
         };
-        users.allow_sign_up = false;
-        analytics.reporting_enabled = false;
       };
-      provision = {
+    };
+
+    services = {
+      # -------- Grafana --------
+      grafana = {
         enable = true;
-        # Note (2026-04-16): historically had "Mimir" as the prom datasource
-        # name. Renamed to "Prometheus" for community dashboard compat.
-        # `deleteDatasources` for "Mimir" is NOT idempotent in Grafana —
-        # it errors if the target doesn't exist, breaking startup. Since
-        # Mimir is already gone fleet-wide, we don't declare the cleanup.
-        datasources.settings.datasources = [
-          {
-            name = "Loki";
-            type = "loki";
-            access = "proxy";
-            url = "http://127.0.0.1:${toString cfg.lokiPort}";
-            isDefault = true;
-          }
-          {
-            name = "Tempo";
-            type = "tempo";
-            access = "proxy";
-            url = "http://127.0.0.1:${toString cfg.tempoPort}";
-          }
-          {
-            # Name is "Prometheus" (not "Mimir") because community dashboards
-            # commonly hardcode the datasource name to "Prometheus" — the
-            # upstream pfSense exporter dashboards do, and would show "no
-            # data" otherwise. Type is still `prometheus`; backend is Mimir.
-            name = "Prometheus";
-            # Pin the UID to match the dashboard variable's saved `value`.
-            # Grafana dashboard JSON panels reference datasources by UID via
-            # `uid: "$datasource"`. The pfSense dashboards save the variable
-            # as `current.value = "Prometheus"` — that literal string must
-            # match the datasource UID for panels to resolve. Without this,
-            # Grafana auto-generates an opaque UID (PBFA97CFB590B2093) and
-            # every panel silently shows "no data".
-            uid = "Prometheus";
-            type = "prometheus";
-            access = "proxy";
-            url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
-            jsonData = {
-              # Our alloy scrape interval is 60s (see homelab.loki module).
-              # Without this hint, Grafana defaults `$__rate_interval` to
-              # 15s which is too short for 60s-scraped counters — rate()
-              # returns NaN and panels show "no data" despite series
-              # existing. Setting timeInterval ensures $__rate_interval
-              # expands to at least scrape_interval * 4 = 240s.
-              timeInterval = "60s";
-              prometheusType = "Mimir";
-            };
-          }
-        ];
-
-        # Dashboard provisioning. Files in `path` are auto-loaded on grafana
-        # start (and re-scanned every `updateIntervalSeconds`). Source of
-        # truth is the flake-input repo, so nightly flake updates bring in
-        # upstream dashboard revisions without manual hash bumps.
-        dashboards.settings.providers = [
-          {
-            name = "flake-inputs";
-            type = "file";
-            # disableDeletion = false so Grafana drops dashboards when their
-            # source JSON is removed from dashboardsDir (e.g. we excluded
-            # pfSense CARP because we have no HA pair). Source of truth is
-            # the flake-input dir; UI edits are read-only anyway.
-            disableDeletion = false;
-            updateIntervalSeconds = 300;
-            options.path = dashboardsDir;
-          }
-        ];
-      };
-    };
-
-    # Grafana admin creds injected via env so they never hit the Nix store.
-    systemd.services.grafana.serviceConfig.EnvironmentFile =
-      config.sops.secrets."loki/grafana.env".path;
-
-    # -------- Loki --------
-    services.loki = {
-      enable = true;
-      dataDir = "${cfg.dataDir}/loki";
-      configuration = {
-        auth_enabled = false;
-        server = {
-          http_listen_address = "0.0.0.0";
-          http_listen_port = cfg.lokiPort;
-          # Each dskit-based service defaults gRPC to :9095 — collides when
-          # loki+tempo+mimir share a host. Spread them and bind to loopback.
-          # dskit ring advertises the resolved host IP, not the listen address —
-          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
-          # still keeps 9095/9096/9097 off the LAN.
-          grpc_listen_address = "0.0.0.0";
-          grpc_listen_port = 9096;
-        };
-        common = {
-          path_prefix = "${cfg.dataDir}/loki";
-          replication_factor = 1;
-          ring.kvstore.store = "inmemory";
-          storage.filesystem = {
-            chunks_directory = "${cfg.dataDir}/loki/chunks";
-            rules_directory = "${cfg.dataDir}/loki/rules";
+        dataDir = "${cfg.dataDir}/grafana";
+        settings = {
+          server = {
+            http_addr = "127.0.0.1";
+            http_port = cfg.grafanaPort;
+            domain = "logs.ablz.au";
+            root_url = "https://logs.ablz.au";
           };
-        };
-        schema_config.configs = [
-          {
-            from = "2024-01-01";
-            store = "tsdb";
-            object_store = "filesystem";
-            schema = "v13";
-            index = {
-              prefix = "index_";
-              period = "24h";
-            };
-          }
-        ];
-        storage_config.tsdb_shipper = {
-          active_index_directory = "${cfg.dataDir}/loki/index";
-          cache_location = "${cfg.dataDir}/loki/index_cache";
-        };
-        compactor = {
-          working_directory = "${cfg.dataDir}/loki/compactor";
-          compaction_interval = "10m";
-          retention_enabled = true;
-          retention_delete_delay = "2h";
-          delete_request_store = "filesystem";
-        };
-        limits_config.retention_period = "${toString cfg.retentionHours}h";
-        ruler = {
-          storage = {
-            type = "local";
-            local.directory = "${cfg.dataDir}/loki/rules";
+          security = {
+            admin_user = "$__env{GRAFANA_ADMIN_USER}";
+            admin_password = "$__env{GRAFANA_ADMIN_PASSWORD}";
+            # Env provider so the key stays out of the Nix store. Seeded to
+            # Grafana's historical upstream default so an old grafana.db from
+            # the compose-era stack would still decrypt; rotate later if any
+            # real secrets land in the DB.
+            secret_key = "$__env{GRAFANA_SECRET_KEY}";
           };
-          rule_path = "${cfg.dataDir}/loki/rules-temp";
-          ring.kvstore.store = "inmemory";
-          enable_api = true;
+          users.allow_sign_up = false;
+          analytics.reporting_enabled = false;
         };
-        analytics.reporting_enabled = false;
+        provision = {
+          enable = true;
+          # Note (2026-04-16): historically had "Mimir" as the prom datasource
+          # name. Renamed to "Prometheus" for community dashboard compat.
+          # `deleteDatasources` for "Mimir" is NOT idempotent in Grafana —
+          # it errors if the target doesn't exist, breaking startup. Since
+          # Mimir is already gone fleet-wide, we don't declare the cleanup.
+          datasources.settings.datasources = [
+            {
+              name = "Loki";
+              type = "loki";
+              access = "proxy";
+              url = "http://127.0.0.1:${toString cfg.lokiPort}";
+              isDefault = true;
+            }
+            {
+              name = "Tempo";
+              type = "tempo";
+              access = "proxy";
+              url = "http://127.0.0.1:${toString cfg.tempoPort}";
+            }
+            {
+              # Name is "Prometheus" (not "Mimir") because community dashboards
+              # commonly hardcode the datasource name to "Prometheus" — the
+              # upstream pfSense exporter dashboards do, and would show "no
+              # data" otherwise. Type is still `prometheus`; backend is Mimir.
+              name = "Prometheus";
+              # Pin the UID to match the dashboard variable's saved `value`.
+              # Grafana dashboard JSON panels reference datasources by UID via
+              # `uid: "$datasource"`. The pfSense dashboards save the variable
+              # as `current.value = "Prometheus"` — that literal string must
+              # match the datasource UID for panels to resolve. Without this,
+              # Grafana auto-generates an opaque UID (PBFA97CFB590B2093) and
+              # every panel silently shows "no data".
+              uid = "Prometheus";
+              type = "prometheus";
+              access = "proxy";
+              url = "http://127.0.0.1:${toString cfg.mimirPort}/prometheus";
+              jsonData = {
+                # Our alloy scrape interval is 60s (see homelab.loki module).
+                # Without this hint, Grafana defaults `$__rate_interval` to
+                # 15s which is too short for 60s-scraped counters — rate()
+                # returns NaN and panels show "no data" despite series
+                # existing. Setting timeInterval ensures $__rate_interval
+                # expands to at least scrape_interval * 4 = 240s.
+                timeInterval = "60s";
+                prometheusType = "Mimir";
+              };
+            }
+          ];
+
+          # Dashboard provisioning. Files in `path` are auto-loaded on grafana
+          # start (and re-scanned every `updateIntervalSeconds`). Source of
+          # truth is the flake-input repo, so nightly flake updates bring in
+          # upstream dashboard revisions without manual hash bumps.
+          dashboards.settings.providers = [
+            {
+              name = "flake-inputs";
+              type = "file";
+              # disableDeletion = false so Grafana drops dashboards when their
+              # source JSON is removed from dashboardsDir (e.g. we excluded
+              # pfSense CARP because we have no HA pair). Source of truth is
+              # the flake-input dir; UI edits are read-only anyway.
+              disableDeletion = false;
+              updateIntervalSeconds = 300;
+              options.path = dashboardsDir;
+            }
+          ];
+        };
+      };
+
+      # -------- Loki --------
+      loki = {
+        enable = true;
+        dataDir = "${cfg.dataDir}/loki";
+        configuration = {
+          auth_enabled = false;
+          server = {
+            http_listen_address = "0.0.0.0";
+            http_listen_port = cfg.lokiPort;
+            # Each dskit-based service defaults gRPC to :9095 — collides when
+            # loki+tempo+mimir share a host. Spread them and bind to loopback.
+            # dskit ring advertises the resolved host IP, not the listen address —
+            # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+            # still keeps 9095/9096/9097 off the LAN.
+            grpc_listen_address = "0.0.0.0";
+            grpc_listen_port = 9096;
+          };
+          common = {
+            path_prefix = "${cfg.dataDir}/loki";
+            replication_factor = 1;
+            ring.kvstore.store = "inmemory";
+            storage.filesystem = {
+              chunks_directory = "${cfg.dataDir}/loki/chunks";
+              rules_directory = "${cfg.dataDir}/loki/rules";
+            };
+          };
+          schema_config.configs = [
+            {
+              from = "2024-01-01";
+              store = "tsdb";
+              object_store = "filesystem";
+              schema = "v13";
+              index = {
+                prefix = "index_";
+                period = "24h";
+              };
+            }
+          ];
+          storage_config.tsdb_shipper = {
+            active_index_directory = "${cfg.dataDir}/loki/index";
+            cache_location = "${cfg.dataDir}/loki/index_cache";
+          };
+          compactor = {
+            working_directory = "${cfg.dataDir}/loki/compactor";
+            compaction_interval = "10m";
+            retention_enabled = true;
+            retention_delete_delay = "2h";
+            delete_request_store = "filesystem";
+          };
+          limits_config.retention_period = "${toString cfg.retentionHours}h";
+          ruler = {
+            storage = {
+              type = "local";
+              local.directory = "${cfg.dataDir}/loki/rules";
+            };
+            rule_path = "${cfg.dataDir}/loki/rules-temp";
+            ring.kvstore.store = "inmemory";
+            enable_api = true;
+          };
+          analytics.reporting_enabled = false;
+        };
+      };
+
+      # -------- Tempo --------
+      tempo = {
+        enable = true;
+        settings = {
+          server = {
+            http_listen_address = "0.0.0.0";
+            http_listen_port = cfg.tempoPort;
+            # dskit ring advertises the resolved host IP, not the listen address —
+            # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+            # still keeps 9095/9096/9097 off the LAN.
+            grpc_listen_address = "0.0.0.0";
+            grpc_listen_port = 9095;
+          };
+          distributor.receivers.otlp.protocols = {
+            grpc.endpoint = "0.0.0.0:${toString cfg.tempoOtlpGrpcPort}";
+            http.endpoint = "0.0.0.0:${toString cfg.tempoOtlpHttpPort}";
+          };
+          ingester.max_block_duration = "5m";
+          storage.trace = {
+            backend = "local";
+            local.path = "${cfg.dataDir}/tempo";
+            wal.path = "${cfg.dataDir}/tempo/wal";
+          };
+          usage_report.reporting_enabled = false;
+        };
+      };
+
+      # -------- Mimir --------
+      mimir = {
+        enable = true;
+        configuration = {
+          multitenancy_enabled = false;
+          server = {
+            http_listen_address = "0.0.0.0";
+            http_listen_port = cfg.mimirPort;
+            # dskit ring advertises the resolved host IP, not the listen address —
+            # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
+            # still keeps 9095/9096/9097 off the LAN.
+            grpc_listen_address = "0.0.0.0";
+            grpc_listen_port = 9097;
+          };
+          common.storage = {
+            backend = "filesystem";
+            filesystem.dir = "${cfg.dataDir}/mimir";
+          };
+          blocks_storage = {
+            backend = "filesystem";
+            filesystem.dir = "${cfg.dataDir}/mimir/blocks";
+            tsdb.dir = "${cfg.dataDir}/mimir/tsdb";
+          };
+          ingester.ring.replication_factor = 1;
+          compactor.data_dir = "${cfg.dataDir}/mimir/compactor";
+          usage_stats.enabled = false;
+        };
       };
     };
 
-    # -------- Tempo --------
-    # Static user so data on virtiofs survives without DynamicUID churn.
-    users.users.tempo = {
-      isSystemUser = true;
-      group = "tempo";
-      home = "${cfg.dataDir}/tempo";
-    };
-    users.groups.tempo = {};
-
-    services.tempo = {
-      enable = true;
-      settings = {
-        server = {
-          http_listen_address = "0.0.0.0";
-          http_listen_port = cfg.tempoPort;
-          # dskit ring advertises the resolved host IP, not the listen address —
-          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
-          # still keeps 9095/9096/9097 off the LAN.
-          grpc_listen_address = "0.0.0.0";
-          grpc_listen_port = 9095;
+    # Static users so data on virtiofs survives without DynamicUID churn.
+    users = {
+      users = {
+        tempo = {
+          isSystemUser = true;
+          group = "tempo";
+          home = "${cfg.dataDir}/tempo";
         };
-        distributor.receivers.otlp.protocols = {
-          grpc.endpoint = "0.0.0.0:${toString cfg.tempoOtlpGrpcPort}";
-          http.endpoint = "0.0.0.0:${toString cfg.tempoOtlpHttpPort}";
+        mimir = {
+          isSystemUser = true;
+          group = "mimir";
+          home = "${cfg.dataDir}/mimir";
         };
-        ingester.max_block_duration = "5m";
-        storage.trace = {
-          backend = "local";
-          local.path = "${cfg.dataDir}/tempo";
-          wal.path = "${cfg.dataDir}/tempo/wal";
-        };
-        usage_report.reporting_enabled = false;
       };
-    };
 
-    systemd.services.tempo.serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "tempo";
-      Group = "tempo";
-      WorkingDirectory = lib.mkForce "${cfg.dataDir}/tempo";
-      StateDirectory = lib.mkForce "";
-      ReadWritePaths = ["${cfg.dataDir}/tempo"];
-    };
-
-    # -------- Mimir --------
-    users.users.mimir = {
-      isSystemUser = true;
-      group = "mimir";
-      home = "${cfg.dataDir}/mimir";
-    };
-    users.groups.mimir = {};
-
-    services.mimir = {
-      enable = true;
-      configuration = {
-        multitenancy_enabled = false;
-        server = {
-          http_listen_address = "0.0.0.0";
-          http_listen_port = cfg.mimirPort;
-          # dskit ring advertises the resolved host IP, not the listen address —
-          # binding to 127.0.0.1 breaks single-host ring self-discovery. Firewall
-          # still keeps 9095/9096/9097 off the LAN.
-          grpc_listen_address = "0.0.0.0";
-          grpc_listen_port = 9097;
-        };
-        common.storage = {
-          backend = "filesystem";
-          filesystem.dir = "${cfg.dataDir}/mimir";
-        };
-        blocks_storage = {
-          backend = "filesystem";
-          filesystem.dir = "${cfg.dataDir}/mimir/blocks";
-          tsdb.dir = "${cfg.dataDir}/mimir/tsdb";
-        };
-        ingester.ring.replication_factor = 1;
-        compactor.data_dir = "${cfg.dataDir}/mimir/compactor";
-        usage_stats.enabled = false;
+      groups = {
+        tempo = {};
+        mimir = {};
       };
-    };
-
-    systemd.services.mimir.serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "mimir";
-      Group = "mimir";
-      WorkingDirectory = lib.mkForce "${cfg.dataDir}/mimir";
-      StateDirectory = lib.mkForce "";
-      ReadWritePaths = ["${cfg.dataDir}/mimir"];
     };
 
     # -------- Firewall --------

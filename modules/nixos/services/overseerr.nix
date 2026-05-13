@@ -26,7 +26,7 @@ in {
     # configDir sets CONFIG_DIRECTORY env var — points directly to virtiofs path.
     services.seerr = {
       enable = true;
-      port = cfg.port;
+      inherit (cfg) port;
       configDir = cfg.dataDir;
     };
 
@@ -60,7 +60,7 @@ in {
       localProxy.hosts = [
         {
           host = "request.ablz.au";
-          port = cfg.port;
+          inherit (cfg) port;
         }
       ];
 

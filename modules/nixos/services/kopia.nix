@@ -232,15 +232,10 @@ in {
       group = "root";
       mode = "0400";
     };
-    homelab.monitoring.secretEnvFiles = [
-      config.sops.secrets.${kopiaMonitoringSecret}.path
-    ];
-
     # /mnt/mum is the kopia *repository* destination (Mum's Synology over
     # Tailscale), NOT a source path. The actual fileSystems definition lives
     # in modules/nixos/services/mounts/mum-nfs.nix — kopia just opts in here
     # whenever an instance references /mnt/mum.
-    homelab.mounts.mumNfs.enable = lib.mkIf needsMumMount true;
 
     # Per-instance systemd services + verify services
     systemd.services =
@@ -338,8 +333,37 @@ in {
       })
     cfg.instances;
 
-    # localProxy + monitoring + NFS watchdog
     homelab = {
+      monitoring = {
+        secretEnvFiles = [
+          config.sops.secrets.${kopiaMonitoringSecret}.path
+        ];
+
+        monitors =
+          # HTTPS availability monitors (accept 401)
+          (lib.mapAttrsToList (name: inst: {
+              name = "Kopia ${name}";
+              url = "https://${inst.proxyHost}/";
+              acceptedStatusCodes = ["200-299" "300-399" "401"];
+            })
+            cfg.instances)
+          ++
+          # JSON-query backup health monitors
+          (lib.mapAttrsToList (name: inst: {
+              name = "Kopia ${name} Backup";
+              type = "json-query";
+              url = "http://localhost:${toString inst.port}/api/v1/sources";
+              basicAuthUserEnv = "KOPIA_SERVER_USER";
+              basicAuthPassEnv = "KOPIA_SERVER_PASSWORD";
+              jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
+              expectedValue = "0";
+              interval = 300;
+            })
+            cfg.instances);
+      };
+
+      mounts.mumNfs.enable = lib.mkIf needsMumMount true;
+
       # NFS watchdog — restart kopia instance if its NFS paths go stale.
       # Probe the path more likely to flake: /mnt/mum (Tailscale → mum's
       # residential Synology) ranks above /mnt/data (LAN → tower). The
@@ -367,28 +391,6 @@ in {
           inherit (inst) port;
         })
         cfg.instances;
-
-      monitoring.monitors =
-        # HTTPS availability monitors (accept 401)
-        (lib.mapAttrsToList (name: inst: {
-            name = "Kopia ${name}";
-            url = "https://${inst.proxyHost}/";
-            acceptedStatusCodes = ["200-299" "300-399" "401"];
-          })
-          cfg.instances)
-        ++
-        # JSON-query backup health monitors
-        (lib.mapAttrsToList (name: inst: {
-            name = "Kopia ${name} Backup";
-            type = "json-query";
-            url = "http://localhost:${toString inst.port}/api/v1/sources";
-            basicAuthUserEnv = "KOPIA_SERVER_USER";
-            basicAuthPassEnv = "KOPIA_SERVER_PASSWORD";
-            jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
-            expectedValue = "0";
-            interval = 300;
-          })
-          cfg.instances);
     };
   };
 }

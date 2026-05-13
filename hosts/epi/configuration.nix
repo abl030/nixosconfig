@@ -132,10 +132,11 @@
   virtualisation.docker.liveRestore = false;
 
   # GDM auto-login workaround: prevent race with getty on tty1
-  systemd.services."getty@tty1".enable = false;
-  systemd.services."autovt@tty1".enable = false;
-
-  systemd.services."gnome-remote-desktop".wantedBy = ["graphical.target"];
+  systemd.services = {
+    "getty@tty1".enable = false;
+    "autovt@tty1".enable = false;
+    "gnome-remote-desktop".wantedBy = ["graphical.target"];
+  };
   security.rtkit.enable = true;
 
   users.users.abl030 = {

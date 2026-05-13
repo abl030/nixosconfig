@@ -112,8 +112,8 @@ in {
     homelab = {
       localProxy.hosts = [
         {
-          host = cfg.host;
-          port = cfg.port;
+          inherit (cfg) host;
+          inherit (cfg) port;
         }
       ];
       monitoring.monitors = [

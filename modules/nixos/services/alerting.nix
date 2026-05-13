@@ -243,9 +243,64 @@ in {
     # Grafana reads provisioning files at startup. The contact-point YAML
     # is rendered into this directory by the prestart unit below, with the
     # Gotify token sed-substituted in (so the secret never hits the store).
-    systemd.tmpfiles.rules = [
-      "d /var/lib/grafana-alerting 0750 grafana grafana - -"
-    ];
+    systemd = {
+      tmpfiles.rules = [
+        "d /var/lib/grafana-alerting 0750 grafana grafana - -"
+      ];
+
+      services = {
+        grafana-alerting-prestart = {
+          description = "Render Grafana contact-points YAML with Gotify token";
+          wantedBy = ["multi-user.target"];
+          # Order after sops so /run/secrets/gotify-alerting/token exists.
+          # We read /run/secrets directly (not via EnvironmentFile=), so
+          # sops-nix can't infer the ordering for us.
+          after = ["sops-install-secrets.service"];
+          wants = ["sops-install-secrets.service"];
+          before = ["grafana.service"];
+          requiredBy = ["grafana.service"];
+          path = with pkgs; [coreutils gnused];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = "grafana";
+            Group = "grafana";
+          };
+          script = ''
+            set -euo pipefail
+            token_file="/run/secrets/gotify-alerting/token"
+            if [[ ! -r "$token_file" ]]; then
+              echo "grafana-alerting: token file not readable: $token_file" >&2
+              exit 1
+            fi
+            raw=$(cat "$token_file")
+            token="''${raw#GOTIFY_TOKEN=}"
+            token=$(printf '%s' "$token" | tr -d '\r\n')
+            if [[ -z "$token" ]]; then
+              echo "grafana-alerting: empty token after strip" >&2
+              exit 1
+            fi
+            out="/var/lib/grafana-alerting/contactPoints.yaml"
+            sed "s|__GOTIFY_TOKEN__|$token|" \
+              ${contactPointsTemplate} > "$out"
+            chmod 0640 "$out"
+          '';
+        };
+
+        # Force grafana to restart whenever our prestart unit's derivation
+        # changes (e.g. URL change, token-extraction logic change). Without
+        # this, switch-to-configuration would update the prestart unit but
+        # leave grafana running with the old contact-points file in memory.
+        # See .claude/rules/nixos-service-modules.md "restartTriggers" for the
+        # general pattern (originally for nspawn DB containers; same lesson
+        # applies to any prestart-materialized config).
+        grafana = {
+          restartTriggers = [
+            config.systemd.units."grafana-alerting-prestart.service".unit
+          ];
+        };
+      };
+    };
 
     sops.secrets."gotify-alerting/token" = {
       sopsFile = cfg.gotifyTokenSopsFile;
@@ -253,64 +308,6 @@ in {
       key = "GOTIFY_TOKEN";
       owner = "grafana";
       mode = "0400";
-    };
-
-    # Materialize the contact-points YAML before grafana starts.
-    #
-    # Subtlety: sops-nix `format = "dotenv"` + `key = ...` does NOT extract
-    # the bare value — the file content is the literal `KEY=VALUE` line
-    # (verified on doc2 against /run/secrets/gotify/token which is 29 bytes
-    # `GOTIFY_TOKEN=AJ.SqA-aYIJDnFU\n`). Strip the `KEY=` prefix and trim
-    # whitespace so the resulting URL is clean.
-    systemd.services.grafana-alerting-prestart = {
-      description = "Render Grafana contact-points YAML with Gotify token";
-      wantedBy = ["multi-user.target"];
-      # Order after sops so /run/secrets/gotify-alerting/token exists.
-      # We read /run/secrets directly (not via EnvironmentFile=), so
-      # sops-nix can't infer the ordering for us.
-      after = ["sops-install-secrets.service"];
-      wants = ["sops-install-secrets.service"];
-      before = ["grafana.service"];
-      requiredBy = ["grafana.service"];
-      path = with pkgs; [coreutils gnused];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        User = "grafana";
-        Group = "grafana";
-      };
-      script = ''
-        set -euo pipefail
-        token_file="/run/secrets/gotify-alerting/token"
-        if [[ ! -r "$token_file" ]]; then
-          echo "grafana-alerting: token file not readable: $token_file" >&2
-          exit 1
-        fi
-        raw=$(cat "$token_file")
-        token="''${raw#GOTIFY_TOKEN=}"
-        token=$(printf '%s' "$token" | tr -d '\r\n')
-        if [[ -z "$token" ]]; then
-          echo "grafana-alerting: empty token after strip" >&2
-          exit 1
-        fi
-        out="/var/lib/grafana-alerting/contactPoints.yaml"
-        sed "s|__GOTIFY_TOKEN__|$token|" \
-          ${contactPointsTemplate} > "$out"
-        chmod 0640 "$out"
-      '';
-    };
-
-    # Force grafana to restart whenever our prestart unit's derivation
-    # changes (e.g. URL change, token-extraction logic change). Without
-    # this, switch-to-configuration would update the prestart unit but
-    # leave grafana running with the old contact-points file in memory.
-    # See .claude/rules/nixos-service-modules.md "restartTriggers" for the
-    # general pattern (originally for nspawn DB containers; same lesson
-    # applies to any prestart-materialized config).
-    systemd.services.grafana = {
-      restartTriggers = [
-        config.systemd.units."grafana-alerting-prestart.service".unit
-      ];
     };
 
     services.grafana.provision.alerting = {

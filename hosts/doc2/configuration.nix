@@ -29,34 +29,36 @@
 
     # LGTM observability stack — migrated from igpu per #208.
     # Also receive syslog (pfSense, tower) on 1514/udp+tcp.
-    loki.syslogReceiver = {
-      enable = true;
-      sources = [
-        {
-          ip = "192.168.1.1";
-          label = "pfsense";
-        }
-      ];
-    };
-    loki.pfsenseExporter.enable = true;
-    loki.ntopngExporter = {
-      enable = true;
-      # Must stay in sync with pfSense's MV_VPN_IPS alias — consumed by the
-      # custom ntopng client-traffic dashboard to tag VPN-routed LAN hosts.
-      # The pfsense subagent is contractually obliged to update this list
-      # (and flag a rebuild) whenever MV_VPN_IPS changes. See
-      # .claude/agents/pfsense.md front-matter and
-      # docs/wiki/services/lgtm-stack.md §"VPN-routed IP sync contract".
-      vpnClientIPs = [
-        "192.168.1.4" # downloader2 (Unraid KVM — torrent/PiHole)
-        "192.168.1.15"
-        "192.168.1.17" # tower nzbget (ipvlan on br0)
-        "192.168.1.18" # tower nzbhydra2 (ipvlan on br0)
-        "192.168.1.24"
-        "192.168.1.34"
-        "192.168.1.36" # doc2-vpn (2nd NIC — slskd)
-        "192.168.1.118"
-      ];
+    loki = {
+      syslogReceiver = {
+        enable = true;
+        sources = [
+          {
+            ip = "192.168.1.1";
+            label = "pfsense";
+          }
+        ];
+      };
+      pfsenseExporter.enable = true;
+      ntopngExporter = {
+        enable = true;
+        # Must stay in sync with pfSense's MV_VPN_IPS alias — consumed by the
+        # custom ntopng client-traffic dashboard to tag VPN-routed LAN hosts.
+        # The pfsense subagent is contractually obliged to update this list
+        # (and flag a rebuild) whenever MV_VPN_IPS changes. See
+        # .claude/agents/pfsense.md front-matter and
+        # docs/wiki/services/lgtm-stack.md §"VPN-routed IP sync contract".
+        vpnClientIPs = [
+          "192.168.1.4" # downloader2 (Unraid KVM — torrent/PiHole)
+          "192.168.1.15"
+          "192.168.1.17" # tower nzbget (ipvlan on br0)
+          "192.168.1.18" # tower nzbhydra2 (ipvlan on br0)
+          "192.168.1.24"
+          "192.168.1.34"
+          "192.168.1.36" # doc2-vpn (2nd NIC — slskd)
+          "192.168.1.118"
+        ];
+      };
     };
 
     # NFS for Immich media — same writable mount as doc1

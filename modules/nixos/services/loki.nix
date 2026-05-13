@@ -606,7 +606,7 @@ in {
       ];
 
       virtualisation.oci-containers.containers.pfsense-exporter = {
-        image = pfeCfg.image;
+        inherit (pfeCfg) image;
         autoStart = true;
         pull = "newer";
         ports = ["${toString pfeCfg.port}:${toString pfeCfg.port}"];
@@ -623,7 +623,7 @@ in {
         podman.containers = [
           {
             unit = "podman-pfsense-exporter.service";
-            image = pfeCfg.image;
+            inherit (pfeCfg) image;
           }
         ];
 
@@ -659,22 +659,22 @@ in {
       ntopngConfig = pkgs.writeText "ntopng-exporter-config.yml" (lib.generators.toYAML {} {
         ntopng = {
           endpoint = neCfg.ntopngUrl;
-          allowUnsafeTLS = neCfg.allowUnsafeTLS;
+          inherit (neCfg) allowUnsafeTLS;
           user = "__NTOPNG_USER__";
           password = "__NTOPNG_PASSWORD__";
           authMethod = "cookie";
-          scrapeInterval = neCfg.scrapeInterval;
+          inherit (neCfg) scrapeInterval;
           scrapeTargets = ["hosts" "interfaces" "l7protocols"];
         };
         host = {
-          interfacesToMonitor = neCfg.interfacesToMonitor;
+          inherit (neCfg) interfacesToMonitor;
         };
         metric = {
           localSubnetsOnly = neCfg.localSubnets;
           excludeDNSMetrics = false;
           serve = {
             ip = "0.0.0.0";
-            port = neCfg.port;
+            inherit (neCfg) port;
           };
         };
       });
@@ -711,7 +711,7 @@ in {
       ];
 
       virtualisation.oci-containers.containers.ntopng-exporter = {
-        image = neCfg.image;
+        inherit (neCfg) image;
         autoStart = true;
         pull = "newer";
         ports = ["${toString neCfg.port}:${toString neCfg.port}"];
@@ -729,7 +729,7 @@ in {
         podman.containers = [
           {
             unit = "podman-ntopng-exporter.service";
-            image = neCfg.image;
+            inherit (neCfg) image;
           }
         ];
 

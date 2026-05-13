@@ -26,30 +26,34 @@ in {
     # (audiobook dirs are gid=users with setgid)
     users.users.audiobookshelf.extraGroups = ["users"];
 
-    # Override upstream service to use custom data dir (virtiofs)
-    systemd.services.audiobookshelf.serviceConfig = {
-      WorkingDirectory = lib.mkForce cfg.dataDir;
-      StateDirectory = lib.mkForce "";
-    };
+    systemd = {
+      services = {
+        # Override upstream service to use custom data dir (virtiofs)
+        audiobookshelf.serviceConfig = {
+          WorkingDirectory = lib.mkForce cfg.dataDir;
+          StateDirectory = lib.mkForce "";
+        };
 
-    # Weekly cleanup of embed-metadata backups (originals stashed by ABS
-    # when the API embed endpoint writes tags into audio files)
-    systemd.services.audiobookshelf-cache-cleanup = {
-      description = "Purge Audiobookshelf embed-metadata backup cache";
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${lib.getExe' config.systemd.package "rm"} -rf ${cfg.dataDir}/metadata/cache/items";
-        User = "audiobookshelf";
+        # Weekly cleanup of embed-metadata backups (originals stashed by ABS
+        # when the API embed endpoint writes tags into audio files)
+        audiobookshelf-cache-cleanup = {
+          description = "Purge Audiobookshelf embed-metadata backup cache";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe' config.systemd.package "rm"} -rf ${cfg.dataDir}/metadata/cache/items";
+            User = "audiobookshelf";
+          };
+        };
       };
-    };
 
-    systemd.timers.audiobookshelf-cache-cleanup = {
-      description = "Weekly Audiobookshelf cache cleanup";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnCalendar = "weekly";
-        Persistent = true;
-        RandomizedDelaySec = "1h";
+      timers.audiobookshelf-cache-cleanup = {
+        description = "Weekly Audiobookshelf cache cleanup";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "weekly";
+          Persistent = true;
+          RandomizedDelaySec = "1h";
+        };
       };
     };
 

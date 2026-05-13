@@ -47,88 +47,92 @@ in {
     };
     users.groups.fava = {};
 
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0750 fava fava - -"
-    ];
+    systemd = {
+      tmpfiles.rules = [
+        "d ${cfg.dataDir} 0750 fava fava - -"
+      ];
 
-    # Initial clone — runs once. After this the working tree exists; pulls keep it fresh.
-    # GIT_SSH_COMMAND is exported inside the script body, not via Environment=,
-    # because systemd splits unquoted Environment= values on whitespace and
-    # nix's default rendering doesn't add quotes.
-    systemd.services.beancount-clone = {
-      description = "Clone books repo on first run";
-      wantedBy = ["multi-user.target"];
-      after = ["network-online.target"];
-      wants = ["network-online.target"];
-      before = ["fava.service"];
+      services = {
+        # Initial clone — runs once. After this the working tree exists; pulls keep it fresh.
+        # GIT_SSH_COMMAND is exported inside the script body, not via Environment=,
+        # because systemd splits unquoted Environment= values on whitespace and
+        # nix's default rendering doesn't add quotes.
+        beancount-clone = {
+          description = "Clone books repo on first run";
+          wantedBy = ["multi-user.target"];
+          after = ["network-online.target"];
+          wants = ["network-online.target"];
+          before = ["fava.service"];
 
-      path = [pkgs.git pkgs.openssh];
+          path = [pkgs.git pkgs.openssh];
 
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        User = "fava";
-        Group = "fava";
-        WorkingDirectory = cfg.dataDir;
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = "fava";
+            Group = "fava";
+            WorkingDirectory = cfg.dataDir;
+          };
+
+          script = ''
+            export GIT_SSH_COMMAND='${gitSshCommand}'
+            if [ ! -d "${cloneDir}/.git" ]; then
+              git clone ${bookRepoSsh} ${cloneDir}
+            else
+              echo "books repo already cloned"
+            fi
+          '';
+        };
+
+        # Periodic pull — picks up agent commits within ~5 min.
+        beancount-pull = {
+          description = "Pull books repo from Forgejo";
+          after = ["beancount-clone.service"];
+          requires = ["beancount-clone.service"];
+
+          path = [pkgs.git pkgs.openssh];
+
+          serviceConfig = {
+            Type = "oneshot";
+            User = "fava";
+            Group = "fava";
+            WorkingDirectory = cloneDir;
+          };
+
+          script = ''
+            export GIT_SSH_COMMAND='${gitSshCommand}'
+            git fetch --quiet origin
+            git reset --hard origin/master
+          '';
+        };
+
+        # Fava — read-mostly web UI for the journal.
+        fava = {
+          description = "Fava (Beancount web UI)";
+          wantedBy = ["multi-user.target"];
+          after = ["beancount-clone.service"];
+          requires = ["beancount-clone.service"];
+
+          serviceConfig = {
+            ExecStart = "${pkgs.fava}/bin/fava --host 127.0.0.1 --port ${toString cfg.port} ${cloneDir}/${cfg.journalFile}";
+            User = "fava";
+            Group = "fava";
+            WorkingDirectory = cfg.dataDir;
+            Restart = "on-failure";
+            RestartSec = "10s";
+            ReadWritePaths = [cfg.dataDir];
+          };
+        };
       };
 
-      script = ''
-        export GIT_SSH_COMMAND='${gitSshCommand}'
-        if [ ! -d "${cloneDir}/.git" ]; then
-          git clone ${bookRepoSsh} ${cloneDir}
-        else
-          echo "books repo already cloned"
-        fi
-      '';
-    };
-
-    # Periodic pull — picks up agent commits within ~5 min.
-    systemd.services.beancount-pull = {
-      description = "Pull books repo from Forgejo";
-      after = ["beancount-clone.service"];
-      requires = ["beancount-clone.service"];
-
-      path = [pkgs.git pkgs.openssh];
-
-      serviceConfig = {
-        Type = "oneshot";
-        User = "fava";
-        Group = "fava";
-        WorkingDirectory = cloneDir;
-      };
-
-      script = ''
-        export GIT_SSH_COMMAND='${gitSshCommand}'
-        git fetch --quiet origin
-        git reset --hard origin/master
-      '';
-    };
-
-    systemd.timers.beancount-pull = {
-      description = "Pull books repo every 5 minutes";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnBootSec = "2min";
-        OnUnitActiveSec = "5min";
-        Persistent = true;
-      };
-    };
-
-    # Fava — read-mostly web UI for the journal.
-    systemd.services.fava = {
-      description = "Fava (Beancount web UI)";
-      wantedBy = ["multi-user.target"];
-      after = ["beancount-clone.service"];
-      requires = ["beancount-clone.service"];
-
-      serviceConfig = {
-        ExecStart = "${pkgs.fava}/bin/fava --host 127.0.0.1 --port ${toString cfg.port} ${cloneDir}/${cfg.journalFile}";
-        User = "fava";
-        Group = "fava";
-        WorkingDirectory = cfg.dataDir;
-        Restart = "on-failure";
-        RestartSec = "10s";
-        ReadWritePaths = [cfg.dataDir];
+      timers.beancount-pull = {
+        description = "Pull books repo every 5 minutes";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "2min";
+          OnUnitActiveSec = "5min";
+          Persistent = true;
+        };
       };
     };
 
@@ -136,7 +140,7 @@ in {
       localProxy.hosts = [
         {
           host = "books.ablz.au";
-          port = cfg.port;
+          inherit (cfg) port;
           websocket = true;
         }
       ];

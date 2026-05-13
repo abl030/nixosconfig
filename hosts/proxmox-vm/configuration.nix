@@ -45,28 +45,34 @@
       enable = true;
       repoDir = "/home/abl030/nixosconfig";
     };
-    services.githubRunner = {
-      enable = true;
-      repoUrl = "https://github.com/abl030/nixosconfig";
-      tokenFile = "/var/lib/github-runner/registration-token";
-      runnerName = "proxmox-bastion";
-    };
-    # Immich moved to doc2 (2026-02-25)
-    services.immich.enable = false;
+    services = {
+      githubRunner = {
+        enable = true;
+        repoUrl = "https://github.com/abl030/nixosconfig";
+        tokenFile = "/var/lib/github-runner/registration-token";
+        runnerName = "proxmox-bastion";
+      };
+      # Immich moved to doc2 (2026-02-25)
+      immich.enable = false;
 
-    services.meelo = {
-      enable = true;
-      dataDir = "/mnt/virtio/meelo";
-      mediaDir = "/mnt/virtio/Music";
-      port = 5001;
+      meelo = {
+        enable = true;
+        dataDir = "/mnt/virtio/meelo";
+        mediaDir = "/mnt/virtio/Music";
+        port = 5001;
+      };
     };
   };
 
   # Base.nix enables NetworkManager.
   # We just set interface specifics here.
-  networking.interfaces.ens18.mtu = 1400;
-  networking.firewall.enable = true;
-  networking.firewall.allowedTCPPorts = [8096];
+  networking = {
+    interfaces.ens18.mtu = 1400;
+    firewall = {
+      enable = true;
+      allowedTCPPorts = [8096];
+    };
+  };
 
   boot.kernel.sysctl = {
     # Allow rootless containers to use ping (required by smokeping/fping).

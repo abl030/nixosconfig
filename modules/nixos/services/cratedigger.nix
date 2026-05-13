@@ -41,7 +41,7 @@
     inherit pkgs;
     name = "cratedigger";
     hostNum = 5;
-    dataDir = cfg.dataDir;
+    inherit (cfg) dataDir;
     passwordFile = "/run/secrets/cratedigger-pgpass";
   };
 
@@ -93,54 +93,86 @@ in {
       mode = "0444";
     };
 
-    systemd.services.cratedigger-secrets-split = {
-      description = "Split soularr.env into per-key secret files for the upstream module";
-      wantedBy = ["multi-user.target"];
-      before = [
-        "cratedigger.service"
-        "cratedigger-web.service"
-        "cratedigger-db-migrate.service"
-        "cratedigger-importer.service"
-        "cratedigger-import-preview-worker.service"
-      ];
-      after = ["sysinit-reactivation.target"];
-      restartTriggers = [config.sops.secrets."soularr/env".path];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
-          set -euo pipefail
-          env_file="${config.sops.secrets."soularr/env".path}"
-          out_dir="/run/cratedigger-secrets"
-          # Dir is 0750 root:users + files are 0440 root:users so operators
-          # in the `users` group (notably abl030) can read the raw secrets
-          # when running `pipeline-cli force-import` from a non-root shell.
-          # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
-          # CLI invocations silently no-op — the upstream module doesn't copy
-          # plaintext into config.ini anymore (issue #117), so the operator
-          # has to read the source files directly.
-          ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g users "$out_dir"
-          for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
-            ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
-              | ${pkgs.coreutils}/bin/cut -d= -f2- \
-              | ${pkgs.coreutils}/bin/tr -d '\n' \
-              > "$out_dir/$key"
-            ${pkgs.coreutils}/bin/chmod 0440 "$out_dir/$key"
-            ${pkgs.coreutils}/bin/chgrp users "$out_dir/$key"
-          done
-        '';
-      };
-    };
-
     # ---------------------------------------------------------------------
     # PostgreSQL container — pipeline DB.
     # ---------------------------------------------------------------------
     containers.cratedigger-db = pgc.containerConfig;
 
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0755 root root -"
-      "d ${cfg.dataDir}/postgres 0700 root root -"
-    ];
+    systemd = {
+      tmpfiles.rules = [
+        "d ${cfg.dataDir} 0755 root root -"
+        "d ${cfg.dataDir}/postgres 0700 root root -"
+      ];
+
+      services = {
+        cratedigger-secrets-split = {
+          description = "Split soularr.env into per-key secret files for the upstream module";
+          wantedBy = ["multi-user.target"];
+          before = [
+            "cratedigger.service"
+            "cratedigger-web.service"
+            "cratedigger-db-migrate.service"
+            "cratedigger-importer.service"
+            "cratedigger-import-preview-worker.service"
+          ];
+          after = ["sysinit-reactivation.target"];
+          restartTriggers = [config.sops.secrets."soularr/env".path];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
+              set -euo pipefail
+              env_file="${config.sops.secrets."soularr/env".path}"
+              out_dir="/run/cratedigger-secrets"
+              # Dir is 0750 root:users + files are 0440 root:users so operators
+              # in the `users` group (notably abl030) can read the raw secrets
+              # when running `pipeline-cli force-import` from a non-root shell.
+              # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
+              # CLI invocations silently no-op — the upstream module doesn't copy
+              # plaintext into config.ini anymore (issue #117), so the operator
+              # has to read the source files directly.
+              ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g users "$out_dir"
+              for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
+                ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
+                  | ${pkgs.coreutils}/bin/cut -d= -f2- \
+                  | ${pkgs.coreutils}/bin/tr -d '\n' \
+                  > "$out_dir/$key"
+                ${pkgs.coreutils}/bin/chmod 0440 "$out_dir/$key"
+                ${pkgs.coreutils}/bin/chgrp users "$out_dir/$key"
+              done
+            '';
+          };
+        };
+
+        cratedigger-db-migrate = {
+          after = ["container@cratedigger-db.service"];
+          requires = ["container@cratedigger-db.service"];
+          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+        };
+
+        cratedigger = {
+          after = ["slskd.service" "container@cratedigger-db.service"];
+          wants = ["slskd.service" "container@cratedigger-db.service"];
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+        };
+
+        cratedigger-web = {
+          after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+          wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+        };
+
+        cratedigger-importer = {
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+        };
+
+        cratedigger-import-preview-worker = {
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+        };
+      };
+    };
 
     # ---------------------------------------------------------------------
     # Reverse proxy entry.
@@ -166,7 +198,7 @@ in {
 
       slskd = {
         apiKeyFile = "/run/cratedigger-secrets/SOULARR_SLSKD_API_KEY";
-        downloadDir = cfg.downloadDir;
+        inherit (cfg) downloadDir;
       };
 
       pipelineDb.dsn = pgc.dbUri;
@@ -230,32 +262,5 @@ in {
     # var and is respected by sqlx (Rust importer/preview-worker), psycopg /
     # asyncpg (Python pipeline-cli, web), and plain psql.
     # ---------------------------------------------------------------------
-    systemd.services.cratedigger-db-migrate = {
-      after = ["container@cratedigger-db.service"];
-      requires = ["container@cratedigger-db.service"];
-      restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-    };
-
-    systemd.services.cratedigger = {
-      after = ["slskd.service" "container@cratedigger-db.service"];
-      wants = ["slskd.service" "container@cratedigger-db.service"];
-      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-    };
-
-    systemd.services.cratedigger-web = {
-      after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
-      wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
-      restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-    };
-
-    systemd.services.cratedigger-importer = {
-      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-    };
-
-    systemd.services.cratedigger-import-preview-worker = {
-      serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-    };
   };
 }

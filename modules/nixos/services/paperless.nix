@@ -102,9 +102,11 @@ in {
     # All paperless services must wait for DB container and NFS, plus pick up
     # the pgpass env file so PAPERLESS_DBPASSWORD is set for libpq.
     systemd.services = let
-      base = dbAndNfs // {
-        serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."paperless-pgpass".path];
-      };
+      base =
+        dbAndNfs
+        // {
+          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."paperless-pgpass".path];
+        };
     in {
       paperless-scheduler = base;
       paperless-task-queue = base;
@@ -115,26 +117,28 @@ in {
     # Paperless user needs NFS access
     users.users.paperless.extraGroups = ["users"];
 
-    # Secrets
-    sops.secrets."paperless/env" = {
-      sopsFile = config.homelab.secrets.sopsFile "paperless.env";
-      format = "dotenv";
-      owner = "paperless";
-      mode = "0400";
-    };
-    sops.secrets."paperless/password" = {
-      sopsFile = config.homelab.secrets.sopsFile "paperless-admin-password";
-      format = "binary";
-      owner = "paperless";
-      mode = "0400";
-    };
-    # PG password file — POSTGRES_PASSWORD + PAPERLESS_DBPASSWORD aliases of
-    # the same value; see #232. mode 0444 because the nspawn container reads
-    # via bindmount; the file contains nothing but the DB password.
-    sops.secrets."paperless-pgpass" = {
-      sopsFile = config.homelab.secrets.sopsFile "paperless-pgpass.env";
-      format = "dotenv";
-      mode = "0444";
+    sops.secrets = {
+      # Secrets
+      "paperless/env" = {
+        sopsFile = config.homelab.secrets.sopsFile "paperless.env";
+        format = "dotenv";
+        owner = "paperless";
+        mode = "0400";
+      };
+      "paperless/password" = {
+        sopsFile = config.homelab.secrets.sopsFile "paperless-admin-password";
+        format = "binary";
+        owner = "paperless";
+        mode = "0400";
+      };
+      # PG password file — POSTGRES_PASSWORD + PAPERLESS_DBPASSWORD aliases of
+      # the same value; see #232. mode 0444 because the nspawn container reads
+      # via bindmount; the file contains nothing but the DB password.
+      "paperless-pgpass" = {
+        sopsFile = config.homelab.secrets.sopsFile "paperless-pgpass.env";
+        format = "dotenv";
+        mode = "0444";
+      };
     };
 
     homelab = {

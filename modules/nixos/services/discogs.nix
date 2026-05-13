@@ -65,79 +65,83 @@ in {
     # PostgreSQL nspawn container
     containers.discogs-db = pgc.containerConfig;
 
-    # Ensure data directories exist
-    systemd.tmpfiles.rules = [
-      "d ${cfg.mirrorDir} 0755 root root -"
-      "d ${cfg.mirrorDir}/postgres 0700 root root -"
-      "d ${cfg.mirrorDir}/dumps 0755 root root -"
-    ];
-
-    # Importer — downloads latest XML dumps and loads into Postgres
-    # Auto-retry on failure: importer is idempotent (drops + recreates tables),
-    # so transient I/O glitches (e.g. virtiofs hiccup that crashes pg checkpoint
-    # mid-load, observed 2026-05-02) self-heal instead of leaving the mirror
-    # empty until the next monthly timer fires.
-    systemd.services.discogs-import = {
-      description = "Discogs dump importer";
-      after = ["container@discogs-db.service" "network-online.target"];
-      requires = ["container@discogs-db.service"];
-      wants = ["network-online.target"];
-      # Don't restart on nixos-rebuild — runs monthly via timer
-      restartIfChanged = false;
-      unitConfig = {
-        StartLimitIntervalSec = "4h";
-        StartLimitBurst = 4;
-      };
-      serviceConfig = {
-        Type = "oneshot";
-        TimeoutStartSec = "3h";
-        Restart = "on-failure";
-        RestartSec = "15min";
-        EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
-        # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
-        # out of /nix/store, which the bare DSN string would otherwise leak.
-        ExecStart = pkgs.writeShellScript "discogs-import-start" ''
-          set -eu
-          exec ${discogsPkg}/bin/discogs-import \
-            --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
-            --dump-dir '${cfg.mirrorDir}/dumps'
-        '';
-      };
-    };
-
-    systemd.timers.discogs-import = {
-      description = "Monthly Discogs dump import";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnCalendar = "*-*-02 04:00:00";
-        Persistent = true;
-      };
-    };
-
-    # API server — long-running axum HTTP server
-    # restartTriggers: see immich.nix comment — Requires= cascade-stops discogs-api
-    # when the container restarts, and switch-to-configuration won't bring it back
-    # unless the container's host-side unit derivation changed.
-    systemd.services.discogs-api = {
-      description = "Discogs mirror JSON API — discogs.ablz.au";
-      after = ["container@discogs-db.service"];
-      requires = ["container@discogs-db.service"];
-      wantedBy = ["multi-user.target"];
-      restartTriggers = [
-        config.systemd.units."container@discogs-db.service".unit
-        config.sops.secrets."discogs-pgpass".path
+    systemd = {
+      # Ensure data directories exist
+      tmpfiles.rules = [
+        "d ${cfg.mirrorDir} 0755 root root -"
+        "d ${cfg.mirrorDir}/postgres 0700 root root -"
+        "d ${cfg.mirrorDir}/dumps 0755 root root -"
       ];
-      serviceConfig = {
-        Type = "simple";
-        EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
-        ExecStart = pkgs.writeShellScript "discogs-api-start" ''
-          set -eu
-          exec ${discogsPkg}/bin/discogs-api \
-            --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
-            --port ${toString cfg.apiPort}
-        '';
-        Restart = "on-failure";
-        RestartSec = 5;
+
+      services = {
+        # Importer — downloads latest XML dumps and loads into Postgres
+        # Auto-retry on failure: importer is idempotent (drops + recreates tables),
+        # so transient I/O glitches (e.g. virtiofs hiccup that crashes pg checkpoint
+        # mid-load, observed 2026-05-02) self-heal instead of leaving the mirror
+        # empty until the next monthly timer fires.
+        discogs-import = {
+          description = "Discogs dump importer";
+          after = ["container@discogs-db.service" "network-online.target"];
+          requires = ["container@discogs-db.service"];
+          wants = ["network-online.target"];
+          # Don't restart on nixos-rebuild — runs monthly via timer
+          restartIfChanged = false;
+          unitConfig = {
+            StartLimitIntervalSec = "4h";
+            StartLimitBurst = 4;
+          };
+          serviceConfig = {
+            Type = "oneshot";
+            TimeoutStartSec = "3h";
+            Restart = "on-failure";
+            RestartSec = "15min";
+            EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+            # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
+            # out of /nix/store, which the bare DSN string would otherwise leak.
+            ExecStart = pkgs.writeShellScript "discogs-import-start" ''
+              set -eu
+              exec ${discogsPkg}/bin/discogs-import \
+                --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
+                --dump-dir '${cfg.mirrorDir}/dumps'
+            '';
+          };
+        };
+
+        # API server — long-running axum HTTP server
+        # restartTriggers: see immich.nix comment — Requires= cascade-stops discogs-api
+        # when the container restarts, and switch-to-configuration won't bring it back
+        # unless the container's host-side unit derivation changed.
+        discogs-api = {
+          description = "Discogs mirror JSON API — discogs.ablz.au";
+          after = ["container@discogs-db.service"];
+          requires = ["container@discogs-db.service"];
+          wantedBy = ["multi-user.target"];
+          restartTriggers = [
+            config.systemd.units."container@discogs-db.service".unit
+            config.sops.secrets."discogs-pgpass".path
+          ];
+          serviceConfig = {
+            Type = "simple";
+            EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+            ExecStart = pkgs.writeShellScript "discogs-api-start" ''
+              set -eu
+              exec ${discogsPkg}/bin/discogs-api \
+                --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
+                --port ${toString cfg.apiPort}
+            '';
+            Restart = "on-failure";
+            RestartSec = 5;
+          };
+        };
+      };
+
+      timers.discogs-import = {
+        description = "Monthly Discogs dump import";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "*-*-02 04:00:00";
+          Persistent = true;
+        };
       };
     };
 
