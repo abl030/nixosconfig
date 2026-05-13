@@ -171,6 +171,7 @@ in {
 
       pipelineDb.dsn = pgc.dbUri;
       importer.preview.enable = true;
+      importer.previewWorkers = 4;
 
       # Absolute path to the beets library root. Beets stores file paths in
       # its SQLite DB as relative to this root; consumers that absolutize
