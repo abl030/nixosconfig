@@ -47,6 +47,20 @@
 # in issue #232; new findings get appended there.
 #
 
+# !! NO SCOPE-SPLITTING TO DEFER WORK !!
+#
+# When an issue or task contains multiple related items, tackle ALL of
+# them in one session. Do NOT propose splitting items out into
+# follow-up issues "for later" — follow-ups accumulate, never get
+# prioritised, and the original work stays half-finished forever.
+#
+# Force a decision on every item in scope, even if some parts will
+# land in multiple PRs over a few days. "Different shape of work" or
+# "outside the module" is not a reason to defer — it's a reason to
+# brainstorm harder. Genuinely blocked items get an explicit blocker
+# named in the issue, not a sibling-issue dump.
+#
+
 # Repository Guidelines
 
 This file provides guidance to AI coding assistants working with this repository.
