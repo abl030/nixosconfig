@@ -1,1 +1,1 @@
-/nix/store/yp61zyg0nwl3kzrqn0xadkrdpj39gr3b-nixos-system-sandbox-26.05.20260511.c6e5ca3
+/nix/store/232nqz4jizvx1qhn2yar83ql58q6md74-nixos-system-sandbox-26.05.20260512.48d91f2
