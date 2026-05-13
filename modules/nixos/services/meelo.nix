@@ -175,6 +175,39 @@
     '';
 
   apkDir = "${cfg.dataDir}/apk";
+  obtainiumAdditionalSettings = builtins.toJSON {
+    intermediateLink = [];
+    customLinkFilterRegex = "";
+    filterByLinkText = false;
+    matchLinksOutsideATags = false;
+    skipSort = false;
+    reverseSort = false;
+    sortByLastLinkSegment = true;
+    versionExtractWholePage = false;
+    defaultPseudoVersioningMethod = "partialAPKHash";
+    trackOnly = false;
+    versionExtractionRegEx = "v\\d+\\.\\d+\\.\\d+";
+    matchGroupToUse = "";
+    versionDetection = true;
+    useVersionCodeAsOSVersion = false;
+    apkFilterRegEx = "meelo-v\\d+\\.\\d+\\.\\d+\\.apk$";
+    invertAPKFilter = false;
+    autoApkFilterByArch = false;
+    appName = "Meelo";
+    appAuthor = "ArtiChaud";
+    refreshBeforeDownload = false;
+  };
+  obtainiumApp = builtins.toJSON {
+    id = "dev.artichaud.meelo";
+    url = "https://meelo.ablz.au/apk/";
+    author = "meelo.ablz.au";
+    name = "Meelo";
+    preferredApkIndex = 0;
+    additionalSettings = obtainiumAdditionalSettings;
+    overrideSource = null;
+  };
+  obtainiumUri = "obtainium://app/${lib.escapeURL obtainiumApp}";
+  obtainiumRedirectUrl = "https://apps.obtainium.imranr.dev/redirect?r=${lib.escapeURL obtainiumUri}";
   apkMirrorScript = pkgs.writeShellScript "meelo-apk-mirror" ''
     set -euo pipefail
 
@@ -252,7 +285,9 @@
       '  <head><title>Meelo Android APK</title></head>' \
       '  <body>' \
       "    <p>Latest: $tag</p>" \
+      '    <p><a href="${obtainiumRedirectUrl}">Add or update Meelo in Obtainium</a></p>' \
       "    <a href=\"meelo-$safe_tag.apk\">meelo-$tag.apk</a>" \
+      '    <p>Version regex: <code>v\d+\.\d+\.\d+</code></p>' \
       '  </body>' \
       '</html>' \
       > "$dir/index.html"
