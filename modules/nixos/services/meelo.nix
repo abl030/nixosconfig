@@ -439,7 +439,7 @@ in {
         }
         default_type application/octet-stream;
         add_header Cache-Control "public, max-age=300";
-        try_files $uri =404;
+        try_files $uri $uri/index.html =404;
       '';
     };
 
