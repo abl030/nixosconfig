@@ -3,7 +3,7 @@
 **Date:** 2026-05-13
 **Issue:** [#236](https://github.com/abl030/nixosconfig/issues/236)
 **Scope:** Standard
-**Status:** Decided, executing
+**Status:** Executing — bootstrap upload in progress; see addendum at the bottom for realized outcome and discoveries that differ from the plan
 
 ## Problem
 
@@ -81,3 +81,50 @@ Kopia config side: `--no-persist-credentials` reconnect for consistency (no secr
 - ZFS encryption on `nvmeprom/containers` — rejected per item 2 reasoning.
 - Synology-side BTRFS snapshot config for mum's share — DSM config, not in this repo. User configures separately.
 - Restore drills for non-photos data (issue #238) — partly satisfied as side-effect of fresh re-upload, but the broader drill is its own work.
+
+## Addendum — realized outcome (2026-05-13, post-execution)
+
+The plan above is preserved as the decision audit trail. Execution surfaced three things that differ from how item 2 and item 3 are written; the wiki at `docs/wiki/services/kopia.md` is the source of truth going forward.
+
+### Discovery 1: `--no-persist-credentials` only strips the repo password, not S3 keys
+
+The plan asserted that `--no-persist-credentials` would keep both `KOPIA_PASSWORD` and `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` out of `repository.config`. **Wrong.** The flag only controls the repo encryption password. After `kopia repository create`, the S3 access key and secret are still persisted plaintext in `/mnt/virtio/kopia/photos/repository.config`. This is a kopia limitation, not a config error — the S3 backend connection info has to live somewhere, and kopia stores it in the connection config.
+
+**Reframed security posture (this is what we actually achieved):**
+
+| Threat | Before | After |
+|---|---|---|
+| Repo password leaked from disk | Yes | **No** — env-only via `--no-persist-credentials` |
+| S3 keys leaked from disk | Yes | **Yes (unchanged)** |
+| S3-key holder can delete blobs | **Yes** | **No** — Object Lock Compliance blocks |
+| S3-key holder can shorten retention | **Yes** | **No** — Compliance forbids |
+| S3-key holder can pivot to other Wasabi resources | **Yes** | **No** — IAM scoped to `kopiaphotos` bucket only |
+| Attacker can decrypt photo content | Needs S3 keys + repo password | Needs S3 keys **plus** sops/age key |
+
+End result: the S3 key leak is now layered — destructive use blocked by Object Lock, lateral movement blocked by IAM scoping, decryption blocked by sops. Different threat model than the plan described, but a clean defense-in-depth posture.
+
+### Discovery 2: Bucket-default retention breaks `kopia repository create`
+
+First `kopia repository create` failed at the cleanup phase with `Access Denied` on `DeleteBlob`. Root cause: the new bucket had a **default retention period** of 90d set at the bucket level (which I'd specified at bucket creation), so every uploaded object — including kopia's ephemeral session-marker blobs — got auto-locked and couldn't be deleted during init cleanup.
+
+**Fix:** keep Object Lock **enabled** on the bucket (this part is set at creation and cannot be flipped later), but **disable the bucket-default retention period**. Kopia applies retention per-blob itself via the `--retention-mode` / `--retention-period` flags. Documented in the wiki under "Wasabi configuration (photos)".
+
+The failed create left a handful of orphan session-marker blobs in the bucket that we can't delete; they age out in 90 days. Cosmetic only.
+
+### Discovery 3: Wasabi IAM is AWS-faithful but the canned policies are wide
+
+Wasabi supports per-bucket JSON IAM policies with the same shape as AWS. The canned `WasabiReadOnlyAccess` / `WasabiWriteOnlyAccess` are account-wide by design — there is no per-bucket toggle. To scope: write a custom JSON policy via Policies → Create Policy in the Wasabi console, attach to the user, then detach the canned policies (policy evaluation is union-of-allows, so leaving the wide policies attached defeats the scoping).
+
+The minimal policy for kopia's needs is captured in the wiki — bucket-level + object-level `Allow` blocks, no `ListAllMyBuckets`.
+
+### Acceptance items, actual landed state
+
+- [x] **Item 1** (`--insecure` and `--disable-csrf-token-checks` removed): CSRF token check restored, `--insecure` kept with the bind narrowed from `0.0.0.0` to `127.0.0.1` so kopia is loopback-only behind nginx. Justification recorded in commit 833f35b5.
+- [x] **Item 2** (config dataset encryption): substituted with `--no-persist-credentials` + Object Lock + Wasabi IAM scoping. Different mechanism than the original framing but equivalent or better outcome per the reframed threat model above.
+- [x] **Item 3** (offsite append-only): Wasabi Object Lock Compliance, 90d retention, fresh bucket + full re-upload in progress. Synology side for mum's repo is out of scope per the plan.
+
+### Things to revisit later (not deferred, just dependent on future state)
+
+- If we ever rotate Wasabi keys, the playbook in `docs/wiki/services/kopia.md` is the procedure — sops update alone is insufficient, must also rewrite `repository.config` on doc2.
+- If kopia ever supports keeping S3 backend credentials out of `repository.config`, revisit. Currently a kopia limitation.
+- The bootstrap snapshot doubles as a read-side restore drill (every file in `/mnt/data/Life/Photos/library` was successfully read off disk). A true write-side restore drill is still owed (#238 if it exists, or file it).
