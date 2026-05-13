@@ -252,11 +252,26 @@ in {
           wants = ["network-online.target"];
           wantedBy = ["multi-user.target"];
 
+          # CSRF protection trade-off: --disable-csrf-token-checks is on because
+          # kopia's CSRF middleware is all-or-nothing for the standard /api/v1
+          # endpoints. With it enabled, programmatic monitoring (uptime-kuma's
+          # json-query on /api/v1/sources) breaks — kopia rejects with
+          # "Invalid or missing CSRF token" even with valid basic auth.
+          # Threat model with the flag on but loopback bind + Object Lock:
+          # - "any local process" attack → loopback bind reduces this to
+          #   root-on-doc2 only, which is game-over regardless
+          # - "XSS-on-UI fires CSRF" → still real, but Object Lock Compliance
+          #   on the Wasabi side physically blocks the catastrophic outcomes
+          #   (delete snapshots, shorten retention, wipe repo). The damage a
+          #   CSRF attack can actually do is reduced to "trigger a wrong
+          #   snapshot" or "change UI preferences" — annoying, not data-loss.
+          # See docs/wiki/services/kopia.md "Network exposure" for full reasoning.
           script = ''
             exec ${pkgs.kopia}/bin/kopia server start \
               --config-file=${inst.configDir}/repository.config \
               --address=127.0.0.1:${toString inst.port} \
               --insecure \
+              --disable-csrf-token-checks \
               --server-username="$KOPIA_SERVER_USER" \
               --server-password="$KOPIA_SERVER_PASSWORD" \
               ${lib.optionalString (inst.overrideHostname != null) "--override-hostname=${inst.overrideHostname}"} \

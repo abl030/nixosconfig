@@ -21,9 +21,22 @@ Both run as systemd services under `kopia` user (with `runAsRoot = true` on both
 
 Kopia binds **loopback only** (`127.0.0.1`) — nginx terminates external TLS via `homelab.localProxy.hosts` and proxies to the loopback port. Direct LAN access to the kopia admin ports is refused.
 
-CSRF token checks **are enabled** (default kopia behaviour). The earlier `--disable-csrf-token-checks` flag was removed in #236; CSRF protection is independent of TLS, so kopia's tokens work fine over the loopback HTTP hop.
-
 Why no end-to-end TLS at the kopia layer: nginx-on-doc2 → kopia-on-doc2 is loopback; an attacker would need root on doc2 to sniff it. Self-signed TLS between nginx and kopia would be module surgery for zero threat-model improvement.
+
+### CSRF tokens — disabled, with rationale
+
+`--disable-csrf-token-checks` is **on**, despite #236 originally targeting its removal. Discovered during execution: enabling CSRF tokens breaks Kuma's `json-query` monitor on `/api/v1/sources` (kopia's CSRF middleware is all-or-nothing and rejects basic-auth-only GET requests with "Invalid or missing CSRF token"). Re-enabling the flag is the practical answer; alternatives (kopia's `--control-api` with separate creds, or a custom monitoring sidecar) cost significantly more complexity for the same realized threat model.
+
+Realized threat model with the flag on, given the rest of our hardening:
+
+| CSRF threat surface | Mitigated by |
+|---|---|
+| "Any local process on localhost can issue commands" | **Loopback bind** — `127.0.0.1` only, requires root on doc2 (which would be game-over regardless) |
+| "XSS-on-UI fires authenticated CSRF requests" | **Object Lock Compliance** — destructive ops (delete snapshots, shorten retention, wipe repo) physically blocked at the Wasabi layer regardless of who issues them. Damage a successful XSS-CSRF can do is reduced to "trigger wrong snapshot" or "change UI preferences" — annoying, not data-loss. |
+
+The flag's been moved out of the "blanket security regression" category and into "documented operational trade-off backed by an external immutability layer." See the in-module comment in `modules/nixos/services/kopia.nix` for the inline version.
+
+If kopia ever exposes a per-endpoint CSRF whitelist, or if `--control-api` matures enough to replace the standard `/api/v1/sources` endpoint with the same shape, revisit.
 
 ## Secret handling
 

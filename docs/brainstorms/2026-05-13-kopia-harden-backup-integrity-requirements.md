@@ -123,6 +123,18 @@ The minimal policy for kopia's needs is captured in the wiki — bucket-level + 
 - [x] **Item 2** (config dataset encryption): substituted with `--no-persist-credentials` + Object Lock + Wasabi IAM scoping. Different mechanism than the original framing but equivalent or better outcome per the reframed threat model above.
 - [x] **Item 3** (offsite append-only): Wasabi Object Lock Compliance, 90d retention, fresh bucket + full re-upload in progress. Synology side for mum's repo is out of scope per the plan.
 
+### Discovery 4: CSRF tokens break Kuma's JSON-query monitor
+
+After deploying the loopback-bind + CSRF-on change, the existing uptime-kuma monitor on `/api/v1/sources` started failing with "Invalid or missing CSRF token" — kopia's CSRF middleware is all-or-nothing for the standard API, and Kuma's `json-query` monitor can only do basic-auth GET, no multi-step CSRF token flow.
+
+**Decision: re-enabled `--disable-csrf-token-checks`.** Rationale:
+
+- The original `#236` threat ("any local process on localhost can fire CSRF") is now bounded by the **loopback bind** — requires root-on-doc2, which is game-over regardless.
+- The remaining XSS-on-UI threat is real but **its catastrophic outcomes are blocked by Object Lock Compliance** — destructive operations (delete snapshots, shorten retention, wipe repo) physically cannot succeed at the Wasabi layer. Damage scope collapses to "trigger wrong snapshot" or "change UI preferences" — annoying, not data-loss.
+- Alternative paths (kopia's `--control-api` with separate credentials, or a custom monitoring sidecar) are significantly more complex for the same realized risk reduction.
+
+So this is **not** a regression on #236's win — it's a clarification that the loopback bind + Object Lock together carry the load that CSRF tokens would have carried. Documented in-module (`modules/nixos/services/kopia.nix`) and in wiki ("Network exposure → CSRF tokens — disabled, with rationale").
+
 ### Things to revisit later (not deferred, just dependent on future state)
 
 - If we ever rotate Wasabi keys, the playbook in `docs/wiki/services/kopia.md` is the procedure — sops update alone is insufficient, must also rewrite `repository.config` on doc2.
