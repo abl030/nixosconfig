@@ -76,6 +76,7 @@ The `kopia` Wasabi user has a single custom JSON policy attached (no canned `Was
       "Effect": "Allow",
       "Action": [
         "s3:ListBucket",
+        "s3:ListBucketVersions",
         "s3:GetBucketLocation",
         "s3:GetBucketVersioning",
         "s3:GetBucketObjectLockConfiguration"
@@ -87,8 +88,10 @@ The `kopia` Wasabi user has a single custom JSON policy attached (no canned `Was
       "Effect": "Allow",
       "Action": [
         "s3:GetObject",
+        "s3:GetObjectVersion",
         "s3:PutObject",
         "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
         "s3:GetObjectRetention",
         "s3:PutObjectRetention",
         "s3:GetObjectLegalHold",
@@ -100,7 +103,13 @@ The `kopia` Wasabi user has a single custom JSON policy attached (no canned `Was
 }
 ```
 
-No `s3:ListAllMyBuckets` — leaked keys can't enumerate the rest of the Wasabi account. `s3:DeleteObject` is granted because kopia's maintenance compacts old indexes; the bucket-level Object Lock blocks destructive use regardless.
+No `s3:ListAllMyBuckets` — leaked keys can't enumerate the rest of the Wasabi account.
+
+`s3:DeleteObject` is granted because kopia's maintenance compacts old indexes. `s3:DeleteObjectVersion` + `s3:ListBucketVersions` + `s3:GetObjectVersion` were added on 2026-05-13 after we discovered that without them, even *we* couldn't clean up an accidental delete marker — only account-admin credentials could. The trade-off analysis:
+
+- Destruction ceiling is unchanged — any version still inside its Compliance retention window cannot be deleted regardless of these permissions. Object Lock blocks the destructive use, not IAM.
+- Added capabilities (enumerate versions, remove delete markers, target version-specific deletes) are cosmetic for an attacker — they can clean up their own delete-marker noise but cannot permanently destroy data covered by Object Lock.
+- Operator + kopia-maintenance gain the agility to fix accidental delete markers and to compact away post-retention-expiry blobs (kopia's long-term maintenance correctness).
 
 ## Snapshot policy (photos)
 
