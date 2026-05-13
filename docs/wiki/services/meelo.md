@@ -1,8 +1,8 @@
 # Meelo
 
 Date researched: 2026-05-13
-Status: PostgreSQL extracted to nspawn on `proxmox-vm`
-Related: issue #230, #228, #232
+Status: PostgreSQL extracted to nspawn on `proxmox-vm`; rollback window closed
+Related: issue #230, #228, #232, #245, #246
 
 ## Service Shape
 
@@ -44,11 +44,9 @@ Preflight on 2026-05-13:
 
 The target nspawn database uses PostgreSQL 14 so the move is not also an unplanned major-version upgrade. The target data parent is separate from the old OCI data directory:
 
-- Old OCI data: `/mnt/virtio/meelo/postgres`
+- Former OCI data: `/mnt/virtio/meelo/postgres` (removed after verification on 2026-05-13)
 - New nspawn parent: `/mnt/virtio/meelo/postgres-nspawn`
 - New nspawn data: `/mnt/virtio/meelo/postgres-nspawn/postgres`
-
-Keep the old OCI data directory intact until the migrated runtime is verified and the rollback window is deliberately closed.
 
 Migration run on 2026-05-13:
 
@@ -57,6 +55,7 @@ Migration run on 2026-05-13:
 - Dump size: 330M
 - Restored schema table counts: `public:37`, `gocoder:6`
 - Target PostgreSQL version after restore: 14.22
+- Focused gocoder backup before transcoder migration repair: `/mnt/virtio/meelo/migration-20260513-160628/gocoder-before-transcoder-fix-20260513-170831.dump`
 
 During the switch, host routing initially sent `192.168.100.17` through Tailscale table 52 instead of the local nspawn veth. `modules/nixos/services/tailscale/subnet-priority.nix` now installs an explicit priority rule for `192.168.100.0/24` so local nspawn service traffic uses the main table. Verified route:
 
@@ -76,17 +75,17 @@ During the switch, host routing initially sent `192.168.100.17` through Tailscal
 
 The pgpass secret is loaded after `meelo/env` for the server. After the migration, the non-database containers (`meelo-scanner`, `meelo-matcher`, `meelo-mq`, `meelo-search`) were restarted and verified not to expose `POSTGRES*`, `PG*`, or `DATABASE_URL` variables.
 
-## Rollback While Old OCI Data Is Retained
+## Rollback Window Closed
 
-Rollback is available while `/mnt/virtio/meelo/postgres` remains intact:
+The old OCI PostgreSQL data directory was removed after the migrated runtime and transcoder were verified. The module no longer creates `/mnt/virtio/meelo/postgres`.
 
-1. Restore the previous module shape with the bundled `meelo-db` OCI container.
-2. Restore the old database variables to `secrets/meelo.env` or adapt the rollback module to use `secrets/hosts/proxmox-vm/meelo-pgpass.env`.
-3. Rebuild `proxmox-vm`.
-4. Verify `podman-meelo-db.service`, `podman-meelo-server.service`, and `podman-meelo-nginx.service`.
+Recovery now means restoring into the nspawn PostgreSQL runtime from the retained dump, not reverting to the old OCI database container:
+
+1. Stop Meelo app services that write to the database.
+2. Restore `/mnt/virtio/meelo/migration-20260513-160628/meelo.dump` into `container@meelo-db.service`.
+3. Restart Meelo services.
+4. Verify `container@meelo-db.service`, `podman-meelo-server.service`, `podman-meelo-transcoder.service`, and `podman-meelo-nginx.service`.
 5. Check `https://meelo.ablz.au/`.
-
-Do not delete or move `/mnt/virtio/meelo/postgres` until the migration has soaked and rollback is no longer needed.
 
 ## Verification Checklist
 
@@ -99,13 +98,24 @@ After the nspawn migration:
 - `https://meelo.ablz.au/` returns HTTP 200.
 - Existing Meelo library metadata is visible in the UI/API.
 
-Verified on 2026-05-13 after the final switch:
+Verified on 2026-05-13 after the final switch and transcoder repair:
 
-- Active: `container@meelo-db.service`, `podman-meelo-server.service`, `podman-meelo-scanner.service`, `podman-meelo-matcher.service`, `podman-meelo-front.service`, `podman-meelo-nginx.service`
-- Inactive with the known dirty migration failure: `podman-meelo-transcoder.service`
-- OCI containers still running: `meelo-mq`, `meelo-search`, `meelo-server`, `meelo-scanner`, `meelo-front`, `meelo-matcher`, `meelo-nginx`
+- Active: `container@meelo-db.service`, `podman-meelo-server.service`, `podman-meelo-scanner.service`, `podman-meelo-matcher.service`, `podman-meelo-front.service`, `podman-meelo-transcoder.service`, `podman-meelo-nginx.service`
+- OCI containers still running: `meelo-mq`, `meelo-search`, `meelo-server`, `meelo-scanner`, `meelo-front`, `meelo-matcher`, `meelo-transcoder`, `meelo-nginx`
 - No OCI `meelo-db` container remains.
 
-## Known Pre-Existing Issue
+## Transcoder Migration Repair
 
-`podman-meelo-transcoder.service` was already inactive before the PostgreSQL extraction. On 2026-05-13 it exited after reporting a dirty database migration version. Treat that as a separate issue unless the PostgreSQL extraction changes the failure mode.
+`podman-meelo-transcoder.service` was already failing around the PostgreSQL extraction with:
+
+```text
+Dirty database version 4. Fix and force version.
+```
+
+Investigation showed the gocoder schema was still at migration 3: no `id` columns had been added and the constraints still referenced `sha`. The only inconsistent state was `gocoder.schema_migrations` marking version 4 as dirty. After taking the focused gocoder dump above, the marker was reset to version 3 clean, then `podman-meelo-transcoder.service` was restarted. The upstream migrator applied versions 4 and 5 and started successfully.
+
+Post-repair marker:
+
+```text
+5:false
+```

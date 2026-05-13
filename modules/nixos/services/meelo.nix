@@ -309,7 +309,6 @@ in {
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
-        "d ${cfg.dataDir}/postgres 0755 root root - -"
         "d ${cfg.dataDir}/postgres-nspawn 0755 root root - -"
         "d ${cfg.dataDir}/postgres-nspawn/postgres 0700 root root - -"
         "d ${cfg.dataDir}/config 0755 root root - -"
