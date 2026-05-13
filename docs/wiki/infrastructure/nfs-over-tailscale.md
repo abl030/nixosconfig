@@ -349,6 +349,10 @@ gate Tailscale behind an explicit opt-in.
   away from the LAN IP, it's almost certainly a regression. See the
   "LAN-vs-Tailscale routing" section.
 
+## Related wiki pages
+
+- [`systemd-mount-ordering-cycles.md`](systemd-mount-ordering-cycles.md) — separate class of NFS-related boot failure: bind mounts on NFS paths must carry `_netdev` or they create ordering cycles through `network-online.target`. Different mechanism, same fleet pattern (`_netdev` + `nofail`).
+
 ## Sources
 
 - [tailscale/tailscale#11504 — readiness reported before bindable](https://github.com/tailscale/tailscale/issues/11504)

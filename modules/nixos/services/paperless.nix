@@ -50,10 +50,19 @@ in {
 
     # Overlay the Scans folder onto Import/scans so recursive consume picks
     # up scanner output. Mirrors the original podman-compose two-mount layout.
+    #
+    # _netdev is REQUIRED — source path is under /mnt/data (NFS). Without it,
+    # systemd-fstab-generator places this unit in local-fs.target, which is
+    # ordered BEFORE network-online.target. The bind After= mnt-data.mount
+    # After= network-online.target then closes a cycle through local-fs.target,
+    # and systemd resolves it by deleting random start jobs (witnessed on
+    # 2026-05-13: network-online.target/start was deleted, taking down gatus
+    # and webdav on boot). _netdev moves the unit to remote-fs.target.
+    # See docs/wiki/infrastructure/systemd-mount-ordering-cycles.md.
     fileSystems."/mnt/data/Life/Meg and Andy/Paperless/Import/scans" = {
       device = "/mnt/data/Life/Meg and Andy/Scans";
       fsType = "none";
-      options = ["bind" "x-systemd.requires=mnt-data.mount" "x-systemd.after=mnt-data.mount"];
+      options = ["bind" "_netdev" "nofail" "x-systemd.requires=mnt-data.mount" "x-systemd.after=mnt-data.mount"];
     };
 
     services.paperless = {

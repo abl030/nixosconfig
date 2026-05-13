@@ -381,6 +381,21 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
   PG16→PG18 bump broke our cluster — #228, #229). Pin those inputs explicitly
   and bump them by hand.
 
+### Mount ordering
+
+- **`fileSystems` bind/overlay/fuse entries whose source path lives on a
+  network filesystem (NFS, CIFS, sshfs, …) that lack `_netdev`.**
+  systemd-fstab-generator places non-`_netdev` mounts in `local-fs.target`,
+  which is ordered *before* `network-online.target`. When such a unit also
+  declares `After=mnt-data.mount` (or any other network-backed mount), it
+  closes an ordering cycle: `local-fs.target → bind.mount → mnt-data.mount
+  → network-online.target → … → local-fs.target`. systemd resolves the
+  cycle by deleting a start job at random — on 2026-05-13 this took out
+  `network-online.target/start` twice, causing gatus and webdav (and a
+  failed `multi-user.target`) on a doc2 boot. The fix is `_netdev` (places
+  the unit in `remote-fs.target` instead, breaking the cycle) plus `nofail`
+  for resilience. See `docs/wiki/infrastructure/systemd-mount-ordering-cycles.md`.
+
 ## Checklist
 
 Before submitting a new service module:
@@ -399,5 +414,7 @@ Before submitting a new service module:
 - [ ] Secrets via `sops.secrets` + `config.homelab.secrets.sopsFile`
 - [ ] No hardcoded LAN IPs in module code or runtime config (see DNS-First Networking above)
 - [ ] No hardcoded passwords in `environment` attrsets — use `environmentFiles`
+- [ ] Any `fileSystems` entry whose source lives on a network filesystem
+      carries `_netdev` (and ideally `nofail`); see Mount ordering anti-pattern
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds
