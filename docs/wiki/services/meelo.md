@@ -90,7 +90,7 @@ The Meelo module mirrors the latest upstream `meelo.apk` to the existing `meelo.
 - Refresh unit: `meelo-apk-mirror.service`
 - Refresh timer: `meelo-apk-mirror.timer`
 
-For semantic auto-updates in Obtainium, add it as an `HTML` source pointed at `https://meelo.ablz.au/apk/` and set version extraction to match `Latest: (v[0-9][^<[:space:]]*)` with group `1` over the whole page. Direct APK Link also works with Obtainium's default partial-APK-hash pseudo-versioning, but the HTML source preserves upstream `v*` release tags.
+For semantic auto-updates in Obtainium, add it as an `HTML` source pointed at `https://meelo.ablz.au/apk/` and set version extraction to match `Latest:\s*(v[0-9][^<\s]*)` with group `1` over the whole page. Direct APK Link also works with Obtainium's default partial-APK-hash pseudo-versioning, but the HTML source preserves upstream `v*` release tags.
 
 ## Rollback Window Closed
 
