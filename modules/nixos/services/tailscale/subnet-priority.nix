@@ -5,6 +5,30 @@
   ...
 }: let
   cfg = config.homelab.tailscale;
+  localRules = [
+    {
+      cidr = "192.168.1.0/24";
+      priority = "2500";
+      label = "home network";
+      onlyOnLan = true;
+    }
+    {
+      cidr = "192.168.100.0/24";
+      priority = "2490";
+      label = "local nspawn service network";
+      onlyOnLan = false;
+    }
+  ];
+  ruleScript =
+    lib.concatMapStringsSep "\n" (rule: ''
+      manage_rule "${rule.cidr}" "${rule.priority}" "${rule.label}" "${toString rule.onlyOnLan}"
+    '')
+    localRules;
+  cleanupScript =
+    lib.concatMapStringsSep "\n" (rule: ''
+      remove_rule "${rule.cidr}" "${rule.priority}" "${rule.label}"
+    '')
+    localRules;
 in {
   config = lib.mkIf cfg.enable {
     systemd.services.tailscale-lan-priority = {
@@ -27,24 +51,50 @@ in {
             logger -t tailscale-lan-priority "$1"
           }
 
-          # Check if we're on the target network
-          if ip -4 addr show | grep -q "192\\.168\\.1\\."; then
-            # Add rule only if it doesn't exist
-            if ! ip rule show | grep -q "to 192.168.1.0/24 lookup main"; then
-              ip rule add to 192.168.1.0/24 priority 2500 lookup main
-              log_msg "Added priority rule for home network"
+          on_lan() {
+            ip -4 addr show | grep -q "192\\.168\\.1\\."
+          }
+
+          add_rule() {
+            local cidr="$1"
+            local priority="$2"
+            local label="$3"
+
+            if ! ip rule show | grep -q "to $cidr lookup main"; then
+              ip rule add to "$cidr" priority "$priority" lookup main
+              log_msg "Added priority rule for $label"
             else
-              log_msg "Priority rule already exists"
+              log_msg "Priority rule for $label already exists"
             fi
-          else
-            # Remove rule only if it exists
-            if ip rule show | grep -q "to 192.168.1.0/24 lookup main"; then
-              ip rule del to 192.168.1.0/24 priority 2500 lookup main
-              log_msg "Removed priority rule (not on target network)"
+          }
+
+          remove_rule() {
+            local cidr="$1"
+            local priority="$2"
+            local label="$3"
+
+            if ip rule show | grep -q "to $cidr lookup main"; then
+              ip rule del to "$cidr" priority "$priority" lookup main
+              log_msg "Removed priority rule for $label"
             else
-              log_msg "No rule to remove"
+              log_msg "No priority rule for $label to remove"
             fi
-          fi
+          }
+
+          manage_rule() {
+            local cidr="$1"
+            local priority="$2"
+            local label="$3"
+            local only_on_lan="$4"
+
+            if [[ "$only_on_lan" == "true" ]] && ! on_lan; then
+              remove_rule "$cidr" "$priority" "$label"
+            else
+              add_rule "$cidr" "$priority" "$label"
+            fi
+          }
+
+          ${ruleScript}
         ''}";
 
         ExecStop = "${pkgs.writeScript "tailscale-lan-priority-stop" ''
@@ -56,12 +106,20 @@ in {
             logger -t tailscale-lan-priority "$1"
           }
 
-          if ip rule show | grep -q "to 192.168.1.0/24 lookup main"; then
-            ip rule del to 192.168.1.0/24 priority 2500 lookup main
-            log_msg "Cleaned up priority rule"
-          else
-            log_msg "No rule to clean up"
-          fi
+          remove_rule() {
+            local cidr="$1"
+            local priority="$2"
+            local label="$3"
+
+            if ip rule show | grep -q "to $cidr lookup main"; then
+              ip rule del to "$cidr" priority "$priority" lookup main
+              log_msg "Cleaned up priority rule for $label"
+            else
+              log_msg "No priority rule for $label to clean up"
+            fi
+          }
+
+          ${cleanupScript}
         ''}";
       };
     };

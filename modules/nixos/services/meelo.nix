@@ -7,9 +7,25 @@
   cfg = config.homelab.services.meelo;
 
   envFile = config.sops.secrets."meelo/env".path;
+  pgpassFile = config.sops.secrets."meelo-pgpass".path;
+
+  # PostgreSQL 14 matches the existing bundled postgres:alpine3.14 cluster.
+  # Do not make the extraction also be a database major upgrade.
+  pgc = import ../lib/mk-pg-container.nix {
+    inherit pkgs;
+    name = "meelo";
+    hostNum = 8;
+    dataDir = "${cfg.dataDir}/postgres-nspawn";
+    passwordFile = "/run/secrets/meelo-pgpass";
+    pgPackage = pkgs.postgresql_14;
+    # Meelo runs Prisma migrations at startup and needs a shadow database.
+    # This is scoped to the isolated Meelo PostgreSQL container.
+    postStartSQL = ''
+      ALTER ROLE "meelo" CREATEDB;
+    '';
+  };
 
   allContainerServices = [
-    "podman-meelo-db.service"
     "podman-meelo-mq.service"
     "podman-meelo-search.service"
     "podman-meelo-server.service"
@@ -103,6 +119,24 @@
 
   podman = "${config.virtualisation.podman.package}/bin/podman";
 
+  waitForPostgres = pkgs.writeShellScript "meelo-wait-for-postgres" ''
+    for i in $(seq 1 60); do
+      if ${lib.getExe' pkgs.postgresql_14 "pg_isready"} \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U meelo \
+        -d meelo >/dev/null 2>&1; then
+        echo "PostgreSQL is ready"
+        exit 0
+      fi
+      echo "Waiting for PostgreSQL... ($i/60)"
+      sleep 1
+    done
+
+    echo "PostgreSQL not ready after 60s"
+    exit 1
+  '';
+
   # Wait for MeiliSearch to be healthy and cancel any stale task backlog.
   # Meelo's server has a hardcoded 5s waitForTask timeout; if MeiliSearch has
   # enqueued tasks from previous crash-loop restarts, the server's indexCreation
@@ -173,16 +207,22 @@ in {
       sopsFile = config.homelab.secrets.sopsFile "meelo.env";
       format = "dotenv";
     };
+    # Narrow DB password file for the nspawn PostgreSQL container and the
+    # Meelo consumers that actually connect to it. The broad meelo/env file
+    # still carries non-DB app secrets (RabbitMQ, Meili, JWT, API keys).
+    sops.secrets."meelo-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "meelo-pgpass.env";
+      format = "dotenv";
+      mode = "0444";
+    };
+
+    containers.meelo-db = pgc.containerConfig;
 
     homelab = {
       nfsWatchdog.podman-meelo-server.path = cfg.mediaDir;
 
       podman.enable = true;
       podman.containers = [
-        {
-          unit = "podman-meelo-db.service";
-          image = "docker.io/library/postgres:alpine3.14";
-        }
         {
           unit = "podman-meelo-mq.service";
           image = "docker.io/library/rabbitmq:4.2-alpine";
@@ -233,24 +273,45 @@ in {
     };
 
     systemd = {
-      services.podman-network-meelo = {
-        description = "Create podman network for Meelo";
-        before = allContainerServices;
-        requiredBy = allContainerServices;
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${config.virtualisation.podman.package}/bin/podman network create meelo --ignore";
+      services = {
+        podman-network-meelo = {
+          description = "Create podman network for Meelo";
+          before = allContainerServices;
+          requiredBy = allContainerServices;
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${config.virtualisation.podman.package}/bin/podman network create meelo --ignore";
+          };
+        };
+
+        podman-meelo-server = {
+          after = ["container@meelo-db.service"];
+          requires = ["container@meelo-db.service"];
+          restartTriggers = [
+            config.systemd.units."container@meelo-db.service".unit
+            pgpassFile
+          ];
+          # Wait for MeiliSearch + template settings.json before server starts
+          serviceConfig.ExecStartPre = lib.mkBefore [waitForPostgres waitForMeili initConfig];
+        };
+
+        podman-meelo-transcoder = {
+          after = ["container@meelo-db.service"];
+          requires = ["container@meelo-db.service"];
+          restartTriggers = [
+            config.systemd.units."container@meelo-db.service".unit
+            pgpassFile
+          ];
+          serviceConfig.ExecStartPre = lib.mkBefore [waitForPostgres];
         };
       };
-
-      # Wait for MeiliSearch + template settings.json before server starts
-      services.podman-meelo-server.serviceConfig.ExecStartPre =
-        lib.mkBefore [waitForMeili initConfig];
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
         "d ${cfg.dataDir}/postgres 0755 root root - -"
+        "d ${cfg.dataDir}/postgres-nspawn 0755 root root - -"
+        "d ${cfg.dataDir}/postgres-nspawn/postgres 0700 root root - -"
         "d ${cfg.dataDir}/config 0755 root root - -"
         "d ${cfg.dataDir}/search 0755 root root - -"
         "d ${cfg.dataDir}/rabbitmq 0755 root root - -"
@@ -259,17 +320,6 @@ in {
     };
 
     virtualisation.oci-containers.containers = {
-      meelo-db = {
-        image = "docker.io/library/postgres:alpine3.14";
-        autoStart = true;
-        pull = "newer";
-        environmentFiles = [envFile];
-        volumes = [
-          "${cfg.dataDir}/postgres:/var/lib/postgresql/data"
-        ];
-        extraOptions = ["--network=meelo" "--shm-size=256m"];
-      };
-
       meelo-mq = {
         image = "docker.io/library/rabbitmq:4.2-alpine";
         autoStart = true;
@@ -300,8 +350,10 @@ in {
         image = "docker.io/arthichaud/meelo-server:${cfg.tag}";
         autoStart = true;
         pull = "newer";
-        dependsOn = ["meelo-db" "meelo-search" "meelo-mq"];
-        environmentFiles = [envFile];
+        dependsOn = ["meelo-search" "meelo-mq"];
+        # pgpassFile comes last so DATABASE_URL/PG* values override any
+        # temporary rollback-era DB keys still present in meelo/env.
+        environmentFiles = [envFile pgpassFile];
         environment = {
           TRANSCODER_URL = "http://meelo-transcoder:7666";
           MEILI_HOST = "http://meelo-search:7700";
@@ -353,8 +405,7 @@ in {
         image = "ghcr.io/zoriya/kyoo_transcoder:master";
         autoStart = true;
         pull = "newer";
-        dependsOn = ["meelo-db"];
-        environmentFiles = [envFile];
+        environmentFiles = [pgpassFile];
         environment = {
           GOCODER_SAFE_PATH = "/data";
         };

@@ -1,7 +1,7 @@
 ---
 title: "fix: Isolate Meelo PostgreSQL from upstream OCI image"
 type: fix
-status: active
+status: completed
 date: 2026-05-13
 origin: docs/brainstorms/2026-05-13-meelo-database-isolation-requirements.md
 ---
