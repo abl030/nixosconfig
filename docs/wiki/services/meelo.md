@@ -90,7 +90,7 @@ The Meelo module mirrors the latest upstream `meelo.apk` to the existing `meelo.
 - Refresh unit: `meelo-apk-mirror.service`
 - Refresh timer: `meelo-apk-mirror.timer`
 
-For semantic auto-updates in Obtainium, use the "Add or update Meelo in Obtainium" link on `https://meelo.ablz.au/apk/`. The generated config is source-checked against Obtainium's HTML source behavior:
+For semantic auto-updates in Obtainium, use the "Add or repair Meelo in Obtainium" link on `https://meelo.ablz.au/apk/`. The generated config is source-checked against Obtainium's HTML source behavior:
 
 - `Override source`: unset, so the fallback HTML source handles the page.
 - `Version string extraction RegEx`: `v\d+\.\d+\.\d+`.
@@ -101,6 +101,8 @@ For semantic auto-updates in Obtainium, use the "Add or update Meelo in Obtainiu
 - `Apply version string extraction RegEx to entire page`: off.
 - `Attempt to filter APKs by CPU architecture if possible`: off.
 - `Refresh app details before download`: off.
+
+The generated import intentionally uses a numeric temporary Obtainium app id plus `allowIdChange = true`. Obtainium's `obtainium://app/...` import path seeds `installedVersion` from Android package metadata when the real package id is present, which would reintroduce `1.0.0`. The temporary id keeps the imported entry uninstalled until the user installs once from Obtainium; during that install, Obtainium reads the APK package id, replaces the temporary entry with `dev.artichaud.meelo`, and stores the release tag as the installed version.
 
 Direct APK Link also works with Obtainium's default partial-APK-hash pseudo-versioning, but the HTML source preserves upstream `v*` release tags.
 

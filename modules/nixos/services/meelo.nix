@@ -197,17 +197,6 @@
     appAuthor = "ArtiChaud";
     refreshBeforeDownload = false;
   };
-  obtainiumApp = builtins.toJSON {
-    id = "dev.artichaud.meelo";
-    url = "https://meelo.ablz.au/apk/";
-    author = "meelo.ablz.au";
-    name = "Meelo";
-    preferredApkIndex = 0;
-    additionalSettings = obtainiumAdditionalSettings;
-    overrideSource = null;
-  };
-  obtainiumUri = "obtainium://app/${lib.escapeURL obtainiumApp}";
-  obtainiumRedirectUrl = "https://apps.obtainium.imranr.dev/redirect?r=${lib.escapeURL obtainiumUri}";
   apkMirrorScript = pkgs.writeShellScript "meelo-apk-mirror" ''
     set -euo pipefail
 
@@ -276,16 +265,43 @@
     ${pkgs.findutils}/bin/find "$dir" -maxdepth 1 -type f -name 'meelo-*.apk' ! -name "meelo-$safe_tag.apk" -delete
     ${pkgs.coreutils}/bin/ln -f "$versioned_apk" "$dir/meelo.apk"
 
+    apk_url="https://meelo.ablz.au/apk/meelo-$safe_tag.apk"
+    apk_urls_json=$(${pkgs.jq}/bin/jq -cn --arg name "meelo-$safe_tag.apk" --arg url "$apk_url" '[[$name, $url]]')
+    obtainium_app_json=$(${pkgs.jq}/bin/jq -cn \
+      --arg id "488959298" \
+      --arg source_url "https://meelo.ablz.au/apk/" \
+      --arg author "meelo.ablz.au" \
+      --arg name "Meelo" \
+      --arg latest_version "$tag" \
+      --arg apk_urls "$apk_urls_json" \
+      --arg additional_settings '${obtainiumAdditionalSettings}' \
+      '{
+        id: $id,
+        url: $source_url,
+        author: $author,
+        name: $name,
+        installedVersion: null,
+        latestVersion: $latest_version,
+        apkUrls: $apk_urls,
+        preferredApkIndex: 0,
+        additionalSettings: $additional_settings,
+        overrideSource: null,
+        allowIdChange: true
+      }')
+    obtainium_app_encoded=$(${pkgs.jq}/bin/jq -nr --arg value "$obtainium_app_json" '$value|@uri')
+    obtainium_redirect_url="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/$obtainium_app_encoded"
+
     ${pkgs.coreutils}/bin/printf '%s\n' "$tag" > "$dir/latest.version"
-    ${pkgs.coreutils}/bin/printf '{"tag":"%s","url":"https://meelo.ablz.au/apk/meelo-%s.apk","latestUrl":"https://meelo.ablz.au/apk/meelo.apk","size":%s,"sha256":"%s"}\n' \
-      "$tag" "$safe_tag" "$expected_size" "$sha256" > "$dir/latest.json"
+    ${pkgs.coreutils}/bin/printf '{"tag":"%s","url":"%s","latestUrl":"https://meelo.ablz.au/apk/meelo.apk","size":%s,"sha256":"%s"}\n' \
+      "$tag" "$apk_url" "$expected_size" "$sha256" > "$dir/latest.json"
     ${pkgs.coreutils}/bin/printf '%s\n' \
       '<!doctype html>' \
       '<html>' \
       '  <head><title>Meelo Android APK</title></head>' \
       '  <body>' \
       "    <p>Latest: $tag</p>" \
-      '    <p><a href="${obtainiumRedirectUrl}">Add or update Meelo in Obtainium</a></p>' \
+      "    <p><a href=\"$obtainium_redirect_url\">Add or repair Meelo in Obtainium</a></p>" \
+      "    <p>Use the imported entry to install once; Obtainium will then bind it to the real app package without trusting the APK manifest's broken 1.0.0 version.</p>" \
       "    <a href=\"meelo-$safe_tag.apk\">meelo-$tag.apk</a>" \
       '    <p>Version regex: <code>v\d+\.\d+\.\d+</code></p>' \
       '  </body>' \
