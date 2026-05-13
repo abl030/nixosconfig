@@ -395,6 +395,12 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
   failed `multi-user.target`) on a doc2 boot. The fix is `_netdev` (places
   the unit in `remote-fs.target` instead, breaking the cycle) plus `nofail`
   for resilience. See `docs/wiki/infrastructure/systemd-mount-ordering-cycles.md`.
+- **`fileSystems` mountpoints containing literal spaces.** Nix writes spaces
+  to fstab as `\040`, but switch-to-configuration-ng currently derives mount
+  unit names from the still-escaped fstab field and asks systemd for
+  `\x5c040` instead of `\x20` (#247). If a service path must live under a
+  human-named NFS directory, expose a space-free runtime path (usually a
+  symlink under `/var/lib/<service>-...`) and point the service at that.
 
 ## Checklist
 
@@ -416,5 +422,7 @@ Before submitting a new service module:
 - [ ] No hardcoded passwords in `environment` attrsets — use `environmentFiles`
 - [ ] Any `fileSystems` entry whose source lives on a network filesystem
       carries `_netdev` (and ideally `nofail`); see Mount ordering anti-pattern
+- [ ] No `fileSystems` mountpoint contains literal spaces; use space-free
+      service-facing paths instead
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds

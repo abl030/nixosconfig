@@ -1,7 +1,7 @@
 # systemd mount ordering cycles: `_netdev` and target placement
 
 **Date researched:** 2026-05-13
-**Status:** Active rule; fix applied to the one offender in `paperless.nix`.
+**Status:** Active rule; the Paperless offender was removed entirely on 2026-05-14.
 **Affects:** any `fileSystems.<path>` entry whose source path lives on a network filesystem (NFS, CIFS, sshfs, etc.) and lacks `_netdev`.
 
 ## The failure
@@ -55,7 +55,8 @@ The cycle was present in every boot since the bind mount was added (2026-04-30, 
 
 ## The fix
 
-Add `_netdev` (and `nofail` for resilience) to the bind mount options:
+The first fix was to add `_netdev` (and `nofail` for resilience) to the bind
+mount options:
 
 ```nix
 options = ["bind" "_netdev" "nofail" "x-systemd.requires=mnt-data.mount" "x-systemd.after=mnt-data.mount"];
@@ -66,6 +67,36 @@ options = ["bind" "_netdev" "nofail" "x-systemd.requires=mnt-data.mount" "x-syst
 `nofail` is defensive — prevents `multi-user.target` from failing if the bind itself ever errors (e.g. source path doesn't exist after some future refactor). It does **not** mask failures from `switch-to-configuration-ng`, whose failed-unit scan ignores `nofail` (verified in [`nfs-over-tailscale.md`](nfs-over-tailscale.md)).
 
 `x-systemd.mount-timeout` is **not** needed here. That option exists to bound the Tailscale-readiness race documented in [`nfs-over-tailscale.md`](nfs-over-tailscale.md). A bind mount is an in-kernel `mount(MS_BIND)` syscall — once the source path is reachable (i.e. `mnt-data.mount` is up), the bind returns synchronously. No timeout headroom required.
+
+## 2026-05-14 follow-up: remove the docker-era bind mount
+
+Issue [#247](https://github.com/abl030/nixosconfig/issues/247) exposed a
+separate activation failure in the same Paperless mount:
+
+```
+Error: Failed to get unit mnt-data-Life-Meg\x5c040and\x5c040Andy-Paperless-Import-scans.mount
+Caused by:
+    Unit mnt-data-Life-Meg\x5c040and\x5c040Andy-Paperless-Import-scans.mount not loaded.
+```
+
+The real systemd-generated unit was
+`mnt-data-Life-Meg\x20and\x20Andy-Paperless-Import-scans.mount`. The bad
+`\x5c040` form means switch-to-configuration-ng read the fstab field
+`Meg\040and\040Andy`, treated the backslash as literal, and escaped it again
+instead of unescaping the fstab path before deriving the mount unit name.
+
+The proper local fix was not another mount workaround. The bind mount only
+existed to preserve an old docker-compose layout where Paperless consumed
+`Paperless/Import` recursively and scanner output was overlaid at
+`Paperless/Import/scans`. In practice, scanner output is the only import
+source. `modules/nixos/services/paperless.nix` now points the space-free
+runtime consume path `/var/lib/paperless-consume` directly at
+`/mnt/data/Life/Meg and Andy/Scans` and deletes the `fileSystems` bind mount.
+
+Operational rule added after #247: **avoid `fileSystems` mountpoints with
+literal spaces.** If storage lives under a human-named directory, expose a
+space-free service-facing path and keep the real path behind a symlink or
+other non-fstab alias.
 
 ## The rule
 
@@ -95,7 +126,7 @@ A cycle warning in the journal is **not** a "systemd is being noisy" event — i
 
 ## Audit
 
-`grep -rn 'options.*\[.*"bind"' modules/ hosts/` across the entire repo on 2026-05-13: **one** offender, `modules/nixos/services/paperless.nix:56`. Fixed in the same change that introduced this wiki page.
+`grep -rn 'options.*\[.*"bind"' modules/ hosts/` across the entire repo on 2026-05-13: **one** offender, `modules/nixos/services/paperless.nix:56`. Initially fixed with `_netdev`; removed entirely on 2026-05-14 after #247 showed the space-bearing fstab mountpoint could still fail activation.
 
 If a future PR adds another bind/overlay/fuse mount on top of a network path, the rule above is mirrored in `.claude/rules/nixos-service-modules.md` (Anti-Patterns).
 

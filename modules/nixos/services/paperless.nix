@@ -13,7 +13,11 @@
     passwordFile = "/run/secrets/paperless-pgpass";
   };
 
-  # Symlinks to NFS paths — avoids spaces in paths which break systemd ReadWritePaths
+  # Real Paperless storage paths live on tower NFS under a path with spaces.
+  # Expose space-free symlinks to Paperless because the upstream module wires
+  # these into systemd ReadWritePaths=, where literal spaces are fragile.
+  mediaDir = "/mnt/data/Life/Meg and Andy/Paperless/Documents";
+  scanDir = "/mnt/data/Life/Meg and Andy/Scans";
   mediaLink = "/var/lib/paperless-media";
   consumeLink = "/var/lib/paperless-consume";
 
@@ -40,30 +44,16 @@ in {
     # PostgreSQL in nspawn container (pattern: immich, atuin)
     containers.paperless-db = pgc.containerConfig;
 
-    # Symlinks from space-free paths to NFS dirs.
-    # Upstream paperless module puts mediaDir/consumptionDir into systemd
-    # ReadWritePaths= which splits on spaces — paths with spaces silently break.
-    systemd.tmpfiles.rules = [
-      "L+ ${mediaLink} - - - - /mnt/data/Life/Meg and Andy/Paperless/Documents"
-      "L+ ${consumeLink} - - - - /mnt/data/Life/Meg and Andy/Paperless/Import"
-    ];
-
-    # Overlay the Scans folder onto Import/scans so recursive consume picks
-    # up scanner output. Mirrors the original podman-compose two-mount layout.
-    #
-    # _netdev is REQUIRED — source path is under /mnt/data (NFS). Without it,
-    # systemd-fstab-generator places this unit in local-fs.target, which is
-    # ordered BEFORE network-online.target. The bind After= mnt-data.mount
-    # After= network-online.target then closes a cycle through local-fs.target,
-    # and systemd resolves it by deleting random start jobs (witnessed on
-    # 2026-05-13: network-online.target/start was deleted, taking down gatus
-    # and webdav on boot). _netdev moves the unit to remote-fs.target.
+    # Paperless consumes scanner output directly. The older docker-era layout
+    # consumed Paperless/Import with Scans bind-mounted underneath it, but that
+    # introduced a space-bearing fstab mountpoint. switch-to-configuration-ng
+    # double-escapes fstab's \040 spaces when deciding which mount unit to
+    # reload, so keep the runtime path space-free instead.
     # See docs/wiki/infrastructure/systemd-mount-ordering-cycles.md.
-    fileSystems."/mnt/data/Life/Meg and Andy/Paperless/Import/scans" = {
-      device = "/mnt/data/Life/Meg and Andy/Scans";
-      fsType = "none";
-      options = ["bind" "_netdev" "nofail" "x-systemd.requires=mnt-data.mount" "x-systemd.after=mnt-data.mount"];
-    };
+    systemd.tmpfiles.rules = [
+      "L+ ${mediaLink} - - - - ${mediaDir}"
+      "L+ ${consumeLink} - - - - ${scanDir}"
+    ];
 
     services.paperless = {
       enable = true;
