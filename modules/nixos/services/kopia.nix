@@ -251,9 +251,8 @@ in {
           script = ''
             exec ${pkgs.kopia}/bin/kopia server start \
               --config-file=${inst.configDir}/repository.config \
-              --address=0.0.0.0:${toString inst.port} \
+              --address=127.0.0.1:${toString inst.port} \
               --insecure \
-              --disable-csrf-token-checks \
               --server-username="$KOPIA_SERVER_USER" \
               --server-password="$KOPIA_SERVER_PASSWORD" \
               ${lib.optionalString (inst.overrideHostname != null) "--override-hostname=${inst.overrideHostname}"} \
