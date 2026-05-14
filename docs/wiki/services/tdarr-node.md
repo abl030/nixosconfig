@@ -1,7 +1,7 @@
 # tdarr-node on igpu
 
 **Last updated:** 2026-05-14
-**Status:** least-privilege hardening in progress; VAAPI must remain verified
+**Status:** least-privilege hardening verified; VAAPI working
 **Owner:** `modules/nixos/services/tdarr-node.nix`
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208), [#232](https://github.com/abl030/nixosconfig/issues/232)
 
@@ -81,6 +81,20 @@ The node does not receive Music, YouTube output, Metadata, downloads, or the
 media root parent. Runtime verification should prove that cache writes work,
 source writes fail through the mounted paths, and unrelated media areas are not
 visible in the container.
+
+Least-privilege verification on 2026-05-14 after deploying commit `dc455e5b`:
+
+- `podman-tdarr-node.service` was active and igpu had no failed systemd units.
+- Host process inspection showed root-owned `conmon`/`s6-supervise`, then the
+  long-running workload as `tdarr` with `uid=2010` and `gid=100`:
+  `/app/Tdarr_Node/Tdarr_Node`.
+- `/mnt/docker/tdarr/{configs,logs}` were `2010:100 0750`; transcode scratch was
+  `99:100 2775`.
+- The running `Tdarr_Node` process mount namespace showed `/mnt/media/Movies`
+  and `/mnt/media/TV Shows` mounted `ro`, while `/temp` was mounted `rw`.
+- Music, YouTube, and Metadata were absent from `/mnt/media` in that namespace.
+- Startup logs showed `Node connected & registered` and
+  `hevc_vaapi-true-true` with render-node-only device exposure.
 
 ## Non-obvious things we learned
 

@@ -1,7 +1,7 @@
 # iGPU passthrough to the `igpu` VM
 
 **Last updated:** 2026-05-14
-**Status:** working (after Proxmox host reboot)
+**Status:** working; tdarr-node render-node-only access verified 2026-05-14
 **Host:** `igpu` (VMID 109) on `prom` (AMD 9950X)
 **Owner:** `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.hostpci`)
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208)
@@ -76,6 +76,11 @@ encoder-enabled-working,libx264-true-true,libx265-true-true,
 ```
 
 `hevc_vaapi-true-true` = VAAPI HEVC encode path is functional. That's the one plex and jellyfin also use.
+
+On 2026-05-14, `tdarr-node` was redeployed with only
+`/dev/dri/renderD128:/dev/dri/renderD128` passed into the container. The startup
+probe still reported `hevc_vaapi-true-true`, so the broader `/dev/dri` directory
+was not needed for the current Tdarr node image.
 
 ## Failure mode: driver bound, no DRI device
 

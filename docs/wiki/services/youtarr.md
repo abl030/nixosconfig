@@ -1,7 +1,7 @@
 # Youtarr
 
 Date researched: 2026-05-14
-Status: MariaDB extraction completed; least-privilege runtime hardening in progress
+Status: MariaDB extraction and least-privilege runtime hardening verified on doc2
 Related: issue #231, #228, #230, #232
 
 ## Service Shape
@@ -49,6 +49,19 @@ Youtarr does not receive the media root, Movies, TV Shows, Music, Metadata,
 downloads, or Tdarr's transcode scratch. The module's tmpfiles rules recursively
 move the app-state directories to `youtarr:youtarr` before the non-root workload
 starts, while the MariaDB nspawn state remains root-owned and separate.
+
+Least-privilege verification on 2026-05-14 after deploying commit `dc455e5b`:
+
+- `container@youtarr-db.service` and `podman-youtarr.service` were active.
+- `podman exec youtarr id` reported `uid=2009(youtarr) gid=100(users)`.
+- `/mnt/virtio/youtarr/{config,images,jobs}` were `2009:2009 0750`.
+- Runtime mounts were only YouTube output plus config, images, and jobs, all
+  read-write.
+- Harmless writes through the container succeeded in `/app/config`, `/app/jobs`,
+  `/app/server/images`, and `/usr/src/app/data`.
+- `/mnt/media` and `/temp` were absent inside the container.
+- `https://youtarr.ablz.au/` returned HTTP 200, and logs showed successful
+  database connection plus valid schema status.
 
 ## Secret Layout
 

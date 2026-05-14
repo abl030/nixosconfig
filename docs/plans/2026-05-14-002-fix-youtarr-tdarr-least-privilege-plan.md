@@ -1,7 +1,7 @@
 ---
 title: fix: Harden Youtarr and Tdarr container privileges
 type: fix
-status: active
+status: completed
 date: 2026-05-14
 origin: docs/brainstorms/2026-05-14-youtarr-tdarr-least-privilege-hardening-requirements.md
 ---
