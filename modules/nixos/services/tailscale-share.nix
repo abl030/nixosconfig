@@ -7,6 +7,13 @@
   # Only enabled instances
   instances = lib.filterAttrs (_: v: v.enable) config.homelab.tailscaleShare;
 
+  # The active caddy-cloudflare image writes state as this numeric identity.
+  # Keep it numeric because the image does not expose a named caddy user.
+  caddyUid = 980;
+  caddyGid = 977;
+  caddyOwner = toString caddyUid;
+  caddyGroup = toString caddyGid;
+
   # Generate a Cloudflare DNS sync script for one instance.
   # After the tailscale container is online, queries its IP and upserts the A record.
   mkDnsSyncScript = name: cfg:
@@ -88,6 +95,7 @@
       name = "tailscale-share-${name}-Caddyfile";
       text = ''
         {
+          admin off
           acme_dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
         }
 
@@ -179,9 +187,11 @@ in {
     # Persistent directories
     systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (_: cfg: [
         "d ${cfg.dataDir} 0755 root root - -"
-        "d ${cfg.dataDir}/ts-state 0755 root root - -"
-        "d ${cfg.dataDir}/caddy-data 0755 root root - -"
-        "d ${cfg.dataDir}/caddy-config 0755 root root - -"
+        "d ${cfg.dataDir}/ts-state 0750 root root - -"
+        "d ${cfg.dataDir}/caddy-data 0750 ${caddyOwner} ${caddyGroup} - -"
+        "d ${cfg.dataDir}/caddy-config 0750 ${caddyOwner} ${caddyGroup} - -"
+        "Z ${cfg.dataDir}/caddy-data - ${caddyOwner} ${caddyGroup} - -"
+        "Z ${cfg.dataDir}/caddy-config - ${caddyOwner} ${caddyGroup} - -"
       ])
       instances);
 
@@ -199,6 +209,7 @@ in {
             TS_EXTRA_ARGS = "--accept-routes=false";
           };
           # Secret file format: TS_AUTHKEY=tskey-auth-...
+          # Keep this on the tailscale sidecar only; caddy has no TS state or auth key.
           environmentFiles = [config.sops.secrets."tailscale-share/${name}/authkey".path];
           volumes = [
             "${cfg.dataDir}/ts-state:/var/lib/tailscale"
@@ -220,7 +231,8 @@ in {
           image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
           autoStart = true;
           pull = "newer";
-          # Reuse the existing acme/cloudflare sops secret (CLOUDFLARE_DNS_API_TOKEN=...)
+          # Reuse the existing acme/cloudflare sops secret (CLOUDFLARE_DNS_API_TOKEN=...).
+          # Keep this on caddy/DNS sync only; tailscale has no Cloudflare token or cert state.
           environmentFiles = [config.sops.secrets."acme/cloudflare".path];
           volumes = [
             "${toString (mkCaddyFile name cfg)}:/etc/caddy/Caddyfile:ro"
@@ -228,6 +240,10 @@ in {
             "${cfg.dataDir}/caddy-config:/config"
           ];
           extraOptions = [
+            "--user=${caddyOwner}:${caddyGroup}"
+            "--security-opt=no-new-privileges"
+            "--cap-drop=ALL"
+            "--cap-add=NET_BIND_SERVICE"
             # Share the tailscale container's network namespace — caddy binds on the TS IP.
             # Containers joining a namespace cannot set --add-host; host resolution is
             # inherited from the ts container's /etc/hosts (set via --add-host on ts above).

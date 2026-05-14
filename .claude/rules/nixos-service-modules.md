@@ -328,7 +328,7 @@ homelab.tailscaleShare.<name> = {
 ### What gets provisioned per instance
 
 - `ts-<name>` OCI container — tailscale, joins tailnet with dedicated identity, persists state to `dataDir/ts-state/`
-- `caddy-<name>` OCI container — caddy-cloudflare image, shares ts's network namespace, handles HTTPS + ACME via Cloudflare DNS challenge, certs in `dataDir/caddy-data/`
+- `caddy-<name>` OCI container — caddy-cloudflare image, shares ts's network namespace, handles HTTPS + ACME via Cloudflare DNS challenge, certs in `dataDir/caddy-data/`. Its Caddy admin API is disabled because the shared loopback is reachable from `ts-<name>`.
 - `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP
 - sops secret `tailscale-share/<name>/authkey` — sourced from `secrets/hosts/<hostname>/<name>-tailscale-authkey.env`
 
@@ -353,12 +353,21 @@ Containers joining another container's network namespace (`--network=container:t
 **3. NixOS firewall blocks container→host by default.**
 Use `firewallPorts` to open the upstream service's port on the `podman0` bridge interface. Without this, caddy gets a 502 even though `host.docker.internal` resolves correctly.
 
+**4. Shared loopback is shared control-plane surface.**
+Caddy does not inherit `NET_ADMIN` from the tailscale sidecar, but both
+containers share one network namespace. Anything Caddy exposes on
+`127.0.0.1` is reachable from `ts-<name>`. Keep `admin off` in the generated
+Caddyfile and verify from the tailscale sidecar after deploy.
+
 ### Checklist additions for tailscaleShare
 
 - [ ] Secret file named `<name>-tailscale-authkey.env` (with `.env` extension) in `secrets/hosts/<hostname>/`
 - [ ] `upstream` uses `http://host.docker.internal:<port>`, not `127.0.0.1`
 - [ ] `firewallPorts` set to the upstream service's port
 - [ ] `dataDir` subdirs (`ts-state/`, `caddy-data/`, `caddy-config/`) survive any rsync operations (use `--exclude ts/` or similar if rsyncing the parent)
+- [ ] Caddy admin endpoint stays disabled; `ts-<name>` cannot fetch `127.0.0.1:2019/config/`
+- [ ] Caddy runs non-root with `NoNewPrivs=1`, default capabilities dropped, and only `NET_BIND_SERVICE` added back for 80/443
+- [ ] Tailscale auth/state and Caddy Cloudflare/cert state remain separate in env and mounts
 
 ## Anti-Patterns (avoid)
 
@@ -390,10 +399,11 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
   silently swap the image — including supply-chain compromises in upstream's
   Docker Hub or GitHub. Pin to digests (`@sha256:...`) for any service whose
   upstream isn't ours.
-- **Sharing a podman network namespace between containers with mismatched
-  privilege**: e.g. caddy joining a tailscale container's namespace inherits
-  `--cap-add=NET_ADMIN`. Either separate the containers, or drop caps explicitly
-  on the joining container.
+- **Shared network namespace without shared-loopback audit.** Capabilities are
+  per-container, so caddy does not inherit tailscale's `NET_ADMIN`; the real
+  failure mode is control-plane exposure over shared `127.0.0.1` plus a broad
+  caddy runtime. Disable local admin/control endpoints, drop capabilities on
+  the joining container, and verify from both containers.
 
 ### Network exposure
 

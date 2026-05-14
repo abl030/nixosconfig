@@ -1,6 +1,6 @@
 # Jellyfin (native, on igpu)
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-14
 **Status:** working
 **Host:** `igpu` (VM 109)
 **Owner:** `modules/nixos/services/jellyfin.nix` under `homelab.services.jellyfin`
@@ -32,7 +32,7 @@ RDNA3 iGPU supports HEVC + AV1 hardware encode; both enabled by default in the m
 
 ### Filesystem layout
 
-Single root-owned parent (`dataRoot`, default `/mnt/virtio/jellyfin`) so jellyfin-owned children (`data/`, `config/`, `log/`) and root-owned children (`ts/`) can coexist without systemd-tmpfiles "unsafe path transition" errors:
+Single root-owned parent (`dataRoot`, default `/mnt/virtio/jellyfin`) so jellyfin-owned children (`data/`, `config/`, `log/`) and mixed-owner `tailscaleShare` children (`ts/`) can coexist without systemd-tmpfiles "unsafe path transition" errors:
 
 ```
 /mnt/virtio/jellyfin/       root:root 0755  ← dataRoot (pre-created via tmpfiles.rules mkBefore)
@@ -40,6 +40,9 @@ Single root-owned parent (`dataRoot`, default `/mnt/virtio/jellyfin`) so jellyfi
 ├── config/                 jellyfin:jellyfin 0750  — --configdir: system.xml / network.xml / ...
 ├── log/                    jellyfin:jellyfin 0750  — --logdir
 └── ts/                     root:root 0755          — homelab.tailscaleShare.jellyfin state
+    ├── ts-state/           root:root 0750          — tailscale node state
+    ├── caddy-data/         980:977 0750            — caddy cert/storage state
+    └── caddy-config/       980:977 0750            — caddy runtime config state
 ```
 
 `/var/cache/jellyfin` stays on local igpu storage (regenerable; not worth virtiofs).
@@ -64,6 +67,8 @@ Net effect: `ls /mnt/virtio/jellyfin/data/ROOT/` works without sudo. Writes stil
 | Inter-tailnet | `jellyfinn.ablz.au` | `homelab.tailscaleShare.jellyfin` → dedicated tailscale node + caddy → `host.docker.internal:8096` |
 
 The compose stack used `jellyfinn.ablz.au` for external tailnet sharing; we kept the same FQDN to avoid reconfiguring downstream clients. `jelly.ablz.au` is the new short-form LAN convention (localProxy creates Cloudflare A records pointing at igpu's LAN IP; nginx terminates TLS with ACME).
+
+`jellyfinn.ablz.au` uses the shared `tailscaleShare` hardening model: Caddy admin disabled, Caddy running as numeric uid/gid `980:977`, only `NET_BIND_SERVICE` added back after dropping default capabilities, and Tailscale/Caddy state kept in separate mounts.
 
 ### Monitoring
 

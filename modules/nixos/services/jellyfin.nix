@@ -14,13 +14,14 @@
 #   - data/   (jellyfin --datadir, libraries.db, plugins, metadata cache)
 #   - config/ (jellyfin --configdir, XML files)
 #   - log/    (jellyfin --logdir)
-#   - ts/     (homelab.tailscaleShare.jellyfin state — root-owned sidecars)
+#   - ts/     (homelab.tailscaleShare.jellyfin state — root-owned TS state,
+#              caddy state owned by the numeric caddy image identity)
 # Cache stays local at /var/cache/jellyfin (regenerable, not worth virtiofs).
 #
 # Why root-owned parent: systemd-tmpfiles refuses ("unsafe path transition")
-# to create root-owned children inside a jellyfin-owned parent, so we keep
+# to create mixed-owner children inside a jellyfin-owned parent, so we keep
 # dataRoot root-owned 0755 and let services.jellyfin's tmpfiles + the share's
-# tmpfiles each create their own jellyfin/root-owned children as siblings.
+# tmpfiles create their own jellyfin/root/caddy-owned children as siblings.
 #
 # Hardware acceleration uses upstream services.jellyfin.hardwareAcceleration
 # (declarative encoding.xml). forceEncodingConfig = true so NixOS owns the
@@ -83,9 +84,9 @@ in {
       default = "/var/lib/jellyfin";
       description = ''
         Parent directory holding ALL jellyfin-related state (data, config,
-        log, tailscale-share). Created root-owned 0755 so jellyfin-owned
-        and root-owned children can coexist as siblings without
-        systemd-tmpfiles "unsafe path transition" errors.
+        log, tailscale-share). Created root-owned 0755 so jellyfin-owned,
+        root-owned, and numeric caddy-owned children can coexist as siblings
+        without systemd-tmpfiles "unsafe path transition" errors.
 
         Per .claude/rules/nixos-service-modules.md, set this to
         /mnt/virtio/jellyfin in the host config so service state lives
@@ -235,7 +236,8 @@ in {
       # and silently fail.
       #
       # Pre-create the root-owned `dataRoot` parent so jellyfin-owned
-      # (data/config/log) and root-owned (ts) children can coexist without
+      # (data/config/log), root-owned, and caddy-owned (ts) children can
+      # coexist without
       # tripping systemd-tmpfiles unsafe-path-transition canonicalization.
       systemd = {
         tmpfiles = {
@@ -330,7 +332,7 @@ in {
           # NEVER 127.0.0.1 — caddy shares the ts container's net namespace;
           # 127.0.0.1 there is the container's loopback, not the host.
           upstream = "http://host.docker.internal:${toString cfg.port}";
-          # Sibling of jellyfin's data/config/log; root-owned 0755 (see header).
+          # Sibling of jellyfin's data/config/log; mixed owner subdirs (see header).
           dataDir = "${cfg.dataRoot}/ts";
           hostname = "jellyfin";
           firewallPorts = [cfg.port];
