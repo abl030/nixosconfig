@@ -37,6 +37,11 @@ The gate deliberately does not stop `container@cratedigger-db.service`,
 `cratedigger-db-migrate.service`, or `redis-cratedigger.service`; those are
 state plumbing and do not generate metadata API traffic by themselves.
 
+`cratedigger-temp-clean.timer` removes stale `/tmp/cratedigger-import-preview-*`
+and `/tmp/cratedigger-v0-probe-*` directories older than six hours. This keeps
+large preview/probe scratch from filling doc2's root filesystem without touching
+active short-lived jobs.
+
 ## Operator Commands
 
 ```bash

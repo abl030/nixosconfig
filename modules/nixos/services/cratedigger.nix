@@ -526,6 +526,19 @@ in {
             };
           };
 
+          cratedigger-temp-clean = {
+            description = "Remove stale cratedigger scratch directories from /tmp";
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = pkgs.writeShellScript "cratedigger-temp-clean" ''
+                set -euo pipefail
+                ${pkgs.findutils}/bin/find /tmp -maxdepth 1 -type d \
+                  \( -name 'cratedigger-import-preview-*' -o -name 'cratedigger-v0-probe-*' \) \
+                  -mmin +360 -exec ${pkgs.coreutils}/bin/rm -rf -- {} +
+              '';
+            };
+          };
+
           cratedigger-musicbrainz-maintenance-hold = {
             description = "Hold cratedigger before MusicBrainz provider transitions";
             before = musicbrainzMaintenanceUnits;
@@ -564,6 +577,16 @@ in {
           timerConfig = {
             OnBootSec = "2min";
             OnUnitInactiveSec = "1min";
+          };
+        };
+
+        cratedigger-temp-clean = {
+          description = "Cratedigger scratch cleanup timer";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnBootSec = "30min";
+            OnUnitInactiveSec = "1h";
+            Persistent = true;
           };
         };
       };
