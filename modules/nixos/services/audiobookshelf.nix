@@ -60,20 +60,29 @@ in {
     homelab = {
       localProxy.hosts = [
         {
-          host = "audiobooks.ablz.au";
-          port = 13378;
-          websocket = true;
-        }
-        {
           host = "audiobook.ablz.au";
           port = 13378;
           websocket = true;
         }
       ];
 
+      tailscaleShare.audiobookshelf = {
+        enable = true;
+        fqdn = "audiobooks.ablz.au";
+        upstream = "http://host.docker.internal:13378";
+        dataDir = "/mnt/virtio/tailscale-share/audiobookshelf";
+        hostname = "audiobookshelf";
+        authKeySecret = null;
+        firewallPorts = [13378];
+      };
+
       monitoring.monitors = [
         {
-          name = "Audiobookshelf";
+          name = "Audiobookshelf (LAN)";
+          url = "https://audiobook.ablz.au/";
+        }
+        {
+          name = "Audiobookshelf (Tailnet)";
           url = "https://audiobooks.ablz.au/";
         }
       ];

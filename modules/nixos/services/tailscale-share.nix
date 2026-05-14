@@ -135,6 +135,16 @@ in {
           description = "Tailscale node hostname (defaults to the attrset key).";
         };
 
+        authKeySecret = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = "${name}-tailscale-authkey.env";
+          description = ''
+            Sops dotenv file containing TS_AUTHKEY for this share. Set to null
+            for first-run interactive Tailscale login; the ts container will
+            print the login URL and persist state under dataDir/ts-state.
+          '';
+        };
+
         firewallPorts = lib.mkOption {
           type = lib.types.listOf lib.types.port;
           default = [];
@@ -156,7 +166,8 @@ in {
       - ACME certs via Cloudflare DNS challenge
 
       Requires: homelab.podman.enable = true, sops secret "acme/cloudflare" on the host,
-      and a per-instance sops secret "tailscale-share/<name>/authkey" (dotenv: TS_AUTHKEY=...).
+      and either a per-instance auth key secret (dotenv: TS_AUTHKEY=...) or
+      authKeySecret = null for interactive first-run login.
     '';
   };
 
@@ -219,7 +230,9 @@ in {
           };
           # Secret file format: TS_AUTHKEY=tskey-auth-...
           # Keep this on the tailscale sidecar only; caddy has no TS state or auth key.
-          environmentFiles = [config.sops.secrets."tailscale-share/${name}/authkey".path];
+          environmentFiles = lib.optionals (cfg.authKeySecret != null) [
+            config.sops.secrets."tailscale-share/${name}/authkey".path
+          ];
           volumes = [
             "${cfg.dataDir}/ts-state:/var/lib/tailscale"
             "/dev/net/tun:/dev/net/tun"
@@ -283,13 +296,14 @@ in {
 
     # Per-instance sops secrets for tailscale auth keys
     # Secret file must be dotenv format: TS_AUTHKEY=tskey-auth-...
-    sops.secrets = lib.mkMerge (lib.mapAttrsToList (name: _: {
+    sops.secrets = lib.mkMerge (lib.mapAttrsToList (name: cfg:
+      lib.mkIf (cfg.authKeySecret != null) {
         "tailscale-share/${name}/authkey" = {
-          sopsFile = config.homelab.secrets.sopsFile "${name}-tailscale-authkey.env";
+          sopsFile = config.homelab.secrets.sopsFile cfg.authKeySecret;
           format = "dotenv";
           mode = "0400";
         };
       })
-      instances);
+    instances);
   };
 }

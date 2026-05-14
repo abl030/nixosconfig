@@ -1,8 +1,15 @@
 # Audiobookshelf import notes
 
-**Last researched:** 2026-04-23
+**Last researched:** 2026-05-14
 **Status:** working with a few sharp edges
 **Hosts:** `doc2` (service + API), `framework`/others (can see shared media mounts but may not have ABS API env)
+
+## Access paths
+
+- `audiobook.ablz.au` is the normal LAN/localProxy route on doc2.
+- `audiobooks.ablz.au` is the inter-tailnet route via `homelab.tailscaleShare.audiobookshelf`.
+
+The Tailscale sidecar uses interactive first-run login (`authKeySecret = null`) and persists node state under `/mnt/virtio/tailscale-share/audiobookshelf/ts-state`. After first login, restart `tailscale-share-dns-sync-audiobookshelf.service` if the DNS record has not yet been synced.
 
 ## What worked
 
