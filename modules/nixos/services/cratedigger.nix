@@ -65,6 +65,18 @@
     "musicbrainz.service"
     "discogs-api.service"
   ];
+  musicbrainzMaintenanceUnits = [
+    "musicbrainz-retire-compose.service"
+    "musicbrainz-build-images.service"
+    "musicbrainz-token.service"
+    "podman-musicbrainz-valkey-1.service"
+    "podman-musicbrainz-mq-1.service"
+    "podman-musicbrainz-search-1.service"
+    "podman-musicbrainz-indexer-1.service"
+    "podman-musicbrainz-musicbrainz-1.service"
+    "podman-musicbrainz-lrclib-1.service"
+    "musicbrainz.service"
+  ];
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
   metadataGateTool = pkgs.writeShellApplication {
     name = "cratedigger-metadata-gate";
@@ -415,116 +427,130 @@ in {
         "d ${metadataGateHoldDir} 0755 root root -"
       ];
 
-      services = {
-        cratedigger-secrets-split = {
-          description = "Split soularr.env into per-key secret files for the upstream module";
-          wantedBy = ["multi-user.target"];
-          before = [
-            "cratedigger.service"
-            "cratedigger-web.service"
-            "cratedigger-db-migrate.service"
-            "cratedigger-importer.service"
-            "cratedigger-import-preview-worker.service"
-          ];
-          after = ["sysinit-reactivation.target"];
-          restartTriggers = [config.sops.secrets."soularr/env".path];
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
-              set -euo pipefail
-              env_file="${config.sops.secrets."soularr/env".path}"
-              out_dir="/run/cratedigger-secrets"
-              # Dir is 0750 root:cratedigger-ops + files are 0440 root:cratedigger-ops
-              # so the operator can read the raw secrets when running
-              # `pipeline-cli force-import` from a non-root shell.
-              # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
-              # CLI invocations silently no-op — the upstream module doesn't copy
-              # plaintext into config.ini anymore (issue #117), so the operator
-              # has to read the source files directly.
-              ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g cratedigger-ops "$out_dir"
-              for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
-                ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
-                  | ${pkgs.coreutils}/bin/cut -d= -f2- \
-                  | ${pkgs.coreutils}/bin/tr -d '\n' \
-                  > "$out_dir/$key"
-                ${pkgs.coreutils}/bin/chmod 0440 "$out_dir/$key"
-                ${pkgs.coreutils}/bin/chgrp cratedigger-ops "$out_dir/$key"
-              done
-            '';
+      services =
+        {
+          cratedigger-secrets-split = {
+            description = "Split soularr.env into per-key secret files for the upstream module";
+            wantedBy = ["multi-user.target"];
+            before = [
+              "cratedigger.service"
+              "cratedigger-web.service"
+              "cratedigger-db-migrate.service"
+              "cratedigger-importer.service"
+              "cratedigger-import-preview-worker.service"
+            ];
+            after = ["sysinit-reactivation.target"];
+            restartTriggers = [config.sops.secrets."soularr/env".path];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
+                set -euo pipefail
+                env_file="${config.sops.secrets."soularr/env".path}"
+                out_dir="/run/cratedigger-secrets"
+                # Dir is 0750 root:cratedigger-ops + files are 0440 root:cratedigger-ops
+                # so the operator can read the raw secrets when running
+                # `pipeline-cli force-import` from a non-root shell.
+                # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
+                # CLI invocations silently no-op — the upstream module doesn't copy
+                # plaintext into config.ini anymore (issue #117), so the operator
+                # has to read the source files directly.
+                ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g cratedigger-ops "$out_dir"
+                for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
+                  ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
+                    | ${pkgs.coreutils}/bin/cut -d= -f2- \
+                    | ${pkgs.coreutils}/bin/tr -d '\n' \
+                    > "$out_dir/$key"
+                  ${pkgs.coreutils}/bin/chmod 0440 "$out_dir/$key"
+                  ${pkgs.coreutils}/bin/chgrp cratedigger-ops "$out_dir/$key"
+                done
+              '';
+            };
           };
-        };
 
-        cratedigger-db-migrate = {
-          after = ["container@cratedigger-db.service"];
-          requires = ["container@cratedigger-db.service"];
-          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-        };
-
-        cratedigger = {
-          after = ["slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
-          wants = ["slskd.service" "container@cratedigger-db.service"];
-          serviceConfig = {
-            ExecCondition = metadataGateStartCheckCommand;
-            EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-            UMask = lib.mkForce "0002";
+          cratedigger-db-migrate = {
+            after = ["container@cratedigger-db.service"];
+            requires = ["container@cratedigger-db.service"];
+            restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+            serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
           };
-        };
 
-        cratedigger-web = {
-          after = ["container@cratedigger-db.service" "redis-cratedigger.service"] ++ metadataGateDependencyUnits;
-          wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
-          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-          serviceConfig = {
-            ExecCondition = metadataGateStartCheckCommand;
-            EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-            UMask = lib.mkForce "0002";
+          cratedigger = {
+            after = ["slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            wants = ["slskd.service" "container@cratedigger-db.service"];
+            serviceConfig = {
+              ExecCondition = metadataGateStartCheckCommand;
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              UMask = lib.mkForce "0002";
+            };
           };
-        };
 
-        cratedigger-importer = {
-          after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
-          wants = ["container@cratedigger-db.service"];
-          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-          serviceConfig = {
-            ExecCondition = metadataGateStartCheckCommand;
-            EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-            UMask = lib.mkForce "0002";
+          cratedigger-web = {
+            after = ["container@cratedigger-db.service" "redis-cratedigger.service"] ++ metadataGateDependencyUnits;
+            wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+            restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+            serviceConfig = {
+              ExecCondition = metadataGateStartCheckCommand;
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              UMask = lib.mkForce "0002";
+            };
           };
-        };
 
-        cratedigger-import-preview-worker = {
-          after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
-          wants = ["container@cratedigger-db.service"];
-          restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
-          serviceConfig = {
-            ExecCondition = metadataGateStartCheckCommand;
-            EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
-            UMask = lib.mkForce "0002";
+          cratedigger-importer = {
+            after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            wants = ["container@cratedigger-db.service"];
+            restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+            serviceConfig = {
+              ExecCondition = metadataGateStartCheckCommand;
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              UMask = lib.mkForce "0002";
+            };
           };
-        };
 
-        cratedigger-metadata-gate-watchdog = {
-          description = "Stop cratedigger API-producing units when local metadata APIs are unhealthy";
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${metadataGateCommand} watchdog";
+          cratedigger-import-preview-worker = {
+            after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            wants = ["container@cratedigger-db.service"];
+            restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
+            serviceConfig = {
+              ExecCondition = metadataGateStartCheckCommand;
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              UMask = lib.mkForce "0002";
+            };
           };
-        };
 
-        musicbrainz.serviceConfig = {
-          ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
-          ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "musicbrainz-maintenance"}"];
-          ExecStop = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
-        };
+          cratedigger-metadata-gate-watchdog = {
+            description = "Stop cratedigger API-producing units when local metadata APIs are unhealthy";
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = "${metadataGateCommand} watchdog";
+            };
+          };
 
-        discogs-import.serviceConfig = {
-          ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold discogs-import"];
-          ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "discogs-import"}"];
-          ExecStopPost = lib.mkAfter ["${metadataGateReleaseIfClearScript "discogs-import"}"];
-        };
-      };
+          cratedigger-musicbrainz-maintenance-hold = {
+            description = "Hold cratedigger before MusicBrainz provider transitions";
+            before = musicbrainzMaintenanceUnits;
+            requiredBy = musicbrainzMaintenanceUnits;
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = "${metadataGateCommand} hold musicbrainz-maintenance";
+            };
+          };
+
+          musicbrainz.serviceConfig = {
+            ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "musicbrainz-maintenance"}"];
+            ExecStop = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
+          };
+
+          discogs-import.serviceConfig = {
+            ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold discogs-import"];
+            ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "discogs-import"}"];
+            ExecStopPost = lib.mkAfter ["${metadataGateReleaseIfClearScript "discogs-import"}"];
+          };
+        }
+        // lib.genAttrs (map (lib.removeSuffix ".service") musicbrainzMaintenanceUnits) (_: {
+          after = ["cratedigger-musicbrainz-maintenance-hold.service"];
+          requires = ["cratedigger-musicbrainz-maintenance-hold.service"];
+        });
 
       timers = {
         cratedigger = {

@@ -60,7 +60,7 @@
   indexerImage = "docker.io/library/musicbrainz-indexer:latest";
   mqImage = "docker.io/library/musicbrainz-mq:latest";
   searchImage = "docker.io/library/musicbrainz-docker_search:4.1.0";
-  valkeyImage = "docker.io/valkey/valkey:9-alpine";
+  valkeyImage = "docker.io/valkey/valkey@sha256:aba3ce55601d0cf7e121fc3c5d9e23bea99bd0df5466500df46c157313226d2e";
   lrclibImageName = "lrclib-nix:latest";
 
   upstreamImageInputs = [
@@ -131,7 +131,10 @@
       '')
       upstreamImageInputs}
 
-    if [ -e "$stamp" ] && [ "$needs_build" = 0 ]; then
+    if [ "$needs_build" = 0 ]; then
+      ${pkgs.coreutils}/bin/install -d -m 0755 "$stamp_dir"
+      ${pkgs.findutils}/bin/find "$stamp_dir" -mindepth 1 -maxdepth 1 -type f -delete
+      ${pkgs.coreutils}/bin/touch "$stamp"
       exit 0
     fi
 
@@ -329,14 +332,14 @@
   # Extract replication token from sops env file into standalone file for bind mount
   tokenExtractScript = pkgs.writeShellScript "musicbrainz-extract-token" ''
     set -euo pipefail
-    mkdir -p /run/secrets
-    token=$(grep '^REPLICATION_ACCESS_TOKEN=' ${envFile} | cut -d= -f2-)
+    ${pkgs.coreutils}/bin/mkdir -p /run/secrets
+    token=$(${pkgs.gnugrep}/bin/grep '^REPLICATION_ACCESS_TOKEN=' ${envFile} | ${pkgs.coreutils}/bin/cut -d= -f2-)
     if [ -z "$token" ]; then
       echo "ERROR: REPLICATION_ACCESS_TOKEN not found in ${envFile}" >&2
       exit 1
     fi
     printf '%s' "$token" > ${mbTokenPath}
-    chmod 600 ${mbTokenPath}
+    ${pkgs.coreutils}/bin/chmod 600 ${mbTokenPath}
   '';
 in {
   options.homelab.services.musicbrainz = {
@@ -372,7 +375,7 @@ in {
       podman.enable = true;
       podman.containers = [
         {
-          unit = "podman-musicbrainz-valkey-1.service";
+          unit = "musicbrainz.service";
           image = valkeyImage;
         }
       ];
@@ -456,7 +459,7 @@ in {
         pull = "never";
         dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1" "musicbrainz-valkey-1"];
         ports = ["${toString cfg.webPort}:5000"];
-        environmentFiles = [envFile pgpassSecret];
+        environmentFiles = [pgpassSecret];
         environment = {
           POSTGRES_USER = "musicbrainz";
           MUSICBRAINZ_POSTGRES_SERVER = pgc.dbHost;
@@ -520,6 +523,18 @@ in {
             };
           };
 
+          musicbrainz-token = {
+            description = "Extract MusicBrainz replication token for container bind mount";
+            before = ["podman-musicbrainz-musicbrainz-1.service"];
+            requiredBy = ["podman-musicbrainz-musicbrainz-1.service"];
+            after = ["sops-install-secrets.service"];
+            wants = ["sops-install-secrets.service"];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = tokenExtractScript;
+            };
+          };
+
           musicbrainz = {
             description = "MusicBrainz Mirror + LRCLIB stack readiness";
             after = ["network-online.target" "container@musicbrainz-db.service"] ++ containerServices;
@@ -536,7 +551,6 @@ in {
 
             preStart = ''
               ${dbPreflightVerifyScript}
-              ${tokenExtractScript}
             '';
 
             script = ''
@@ -551,9 +565,11 @@ in {
                 amqpSetupScript
                 apiVerifyScript
                 pgpassSecret
+                tokenExtractScript
                 retireComposeScript
                 buildImagesScript
                 config.systemd.units."container@musicbrainz-db.service".unit
+                config.systemd.units."musicbrainz-token.service".unit
               ]
               ++ map (unit: config.systemd.units.${unit}.unit) containerServices;
 
@@ -593,6 +609,12 @@ in {
           requires = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
           unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
         }))
+        {
+          podman-musicbrainz-musicbrainz-1 = {
+            after = ["musicbrainz-token.service"];
+            requires = ["musicbrainz-token.service"];
+          };
+        }
       ];
 
       timers = {

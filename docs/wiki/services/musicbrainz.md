@@ -53,11 +53,15 @@ Steady-state containers are explicit NixOS OCI units:
 nspawn unit and all OCI container units, then runs API, DB, AMQP broker, and SIR
 trigger verification before the service is considered started.
 
-`musicbrainz-build-images.service` builds the local upstream MusicBrainz images
-from the pinned `inputs.musicbrainz-docker` source. `musicbrainz-retire-compose`
-removes legacy compose containers/volumes once and creates the shared
-`musicbrainz` podman network. Compose must not be reintroduced as steady-state
-runtime; translate upstream compose changes into explicit OCI entries.
+`musicbrainz-build-images.service` verifies that the local upstream MusicBrainz
+images exist and only builds missing images from the pinned `inputs.musicbrainz-docker`
+source. Existing local images are reused because runtime Dockerfile builds depend
+on mutable Ubuntu package mirrors and proved brittle during deployment.
+`musicbrainz-token.service` extracts the replication token before the web
+container bind-mounts it. `musicbrainz-retire-compose` removes legacy compose
+containers/volumes once and creates the shared `musicbrainz` podman network.
+Compose must not be reintroduced as steady-state runtime; translate upstream
+compose changes into explicit OCI entries.
 
 ## Maintenance Flow
 
@@ -107,5 +111,8 @@ Live verification after deployment:
 - The host-side pgpass secret is root-only. `mk-pg-container` copies it inside
   the nspawn container to a private postgres-readable runtime file before setup.
 - The remaining MusicBrainz env secret contains only the replication token.
+- The replication token is mounted as a read-only file; it is not passed through
+  the web container environment.
+- Valkey is pinned by digest, not a mutable tag.
 - Cratedigger owns the metadata gate policy and installs MusicBrainz systemd
   drop-ins. MusicBrainz only owns its provider runtime and verification.

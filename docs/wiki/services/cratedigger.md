@@ -53,6 +53,8 @@ released only by their owner.
 
 MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. The migration
 is complete; this hold now protects ordinary provider restarts and rebuilds.
+Cratedigger attaches the hold before MusicBrainz retire/build/token/container
+units, then releases it only after `musicbrainz.service` verification succeeds.
 
 ## Probe Shape
 
