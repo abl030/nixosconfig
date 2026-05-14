@@ -1,9 +1,9 @@
 # tdarr-node on igpu
 
-**Last updated:** 2026-04-15
-**Status:** working
+**Last updated:** 2026-05-14
+**Status:** least-privilege hardening in progress; VAAPI must remain verified
 **Owner:** `modules/nixos/services/tdarr-node.nix`
-**Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208)
+**Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208), [#232](https://github.com/abl030/nixosconfig/issues/232)
 
 ## It's a *node*, not the server
 
@@ -29,22 +29,32 @@ If you want an external view of whether the node is *connected* rather than just
 ## Where it lives
 
 - **Host:** igpu
-- **Data:** `/mnt/docker/tdarr/{configs,logs}` — still on local ext4 (not on virtiofs). Will move to `/mnt/virtio/tdarr` when igpu's container-storage retirement lands alongside the jellyfin migration (Phase 3 of #208).
-- **Media mount:** `/mnt/data/Media` (NFS from tower) → bind-mounted to `/mnt/media` inside the container. Tower remains the source of truth for Movies/TV media; tdarr operates on those, not on Music. Music itself moved off tower to prom virtiofs in Phase 1 of #208 (see [`docs/wiki/infrastructure/media-filesystem.md`](../infrastructure/media-filesystem.md)) but tdarr only ever transcoded video.
-- **Transcode scratch:** `/mnt/data/Media/Transcode Temp` → `/temp` inside the container (note: path contains a space; oci-containers handles it fine via `-v src:dst` since `-v` only splits on `:`)
+- **Data:** `/mnt/docker/tdarr/{configs,logs}` — still on local ext4 (not on virtiofs), owned by the dedicated `tdarr` service identity. Will move to `/mnt/virtio/tdarr` when igpu's container-storage retirement lands alongside the jellyfin migration (Phase 3 of #208).
+- **Media mounts:** `/mnt/data/Media/Movies` -> `/mnt/media/Movies:ro` and `/mnt/data/Media/TV Shows` -> `/mnt/media/TV Shows:ro`. Tower remains the source of truth for Movies/TV media; the node reads sources and writes transcode output to cache.
+- **Transcode scratch:** `/mnt/data/Media/Transcode Temp` -> `/temp:rw` inside the container (note: path contains a space; oci-containers handles it fine via `-v src:dst` since `-v` only splits on `:`)
 - **Container runtime:** rootful podman via `virtualisation.oci-containers`, systemd unit `podman-tdarr-node.service`
-- **NFS watchdog:** `homelab.nfsWatchdog.podman-tdarr-node.path = /mnt/data/Media` — restarts the service if the mount goes stale
+- **NFS watchdog:** `homelab.nfsWatchdog.podman-tdarr-node.path = /mnt/data/Media/Movies` — restarts the service if the source media mount goes stale
 
 ## `/dev/dri` passthrough
 
 ```nix
 virtualisation.oci-containers.containers.tdarr-node = {
   # ...
-  extraOptions = ["--device=/dev/dri:/dev/dri"];
+  extraOptions = ["--device=/dev/dri/renderD128:/dev/dri/renderD128"];
 };
 ```
 
-That's it — container runs as root inside (PUID=0/PGID=0), so it has read/write on `card1` and `renderD128` without needing `video`/`render` group mapping. Verified at boot by tdarr's own encoder-probe output:
+The container still starts with the upstream image's root init because that init
+mutates the internal `Tdarr` user to `PUID`/`PGID`, fixes writable app
+directories, and adds device groups. The steady-state node workload runs as
+`PUID=2010` with `PGID=100`; root is not the long-running transcoder identity.
+
+The first-choice device exposure is the render node only. If verification shows
+that this image requires broader DRM exposure for its startup probe or active
+transcodes, widen only to the smallest working `/dev/dri` shape and document the
+failure here. Do not use privileged mode or a root workload as a GPU workaround.
+
+Verified at boot by tdarr's own encoder-probe output:
 
 ```
 encoder-enabled-working, libx264-true-true, libx265-true-true,
@@ -52,6 +62,25 @@ encoder-enabled-working, libx264-true-true, libx265-true-true,
 ```
 
 `hevc_vaapi-true-true` is the "iGPU is working" signal. If this flips to `-false`, check `docs/wiki/infrastructure/igpu-passthrough.md` for the "driver bound, no DRI device" failure mode (answer: reboot Proxmox host).
+
+## Least-Privilege Runtime
+
+The host module defines a dedicated `tdarr` service identity (`uid=2010`,
+`gid=2010`) and adds it to `users`, `render`, and `video`. The `users` group is
+for the shared transcode scratch directory; `render`/`video` are for scoped GPU
+access. These memberships do not justify mounting the whole media tree.
+
+The active mapped-node model is:
+
+- Source libraries are read-only: Movies and TV Shows only.
+- Transcode cache is read-write: `/mnt/data/Media/Transcode Temp` -> `/temp`.
+- The server on tower remains responsible for library management and final
+  source-media decisions after the node produces cache output.
+
+The node does not receive Music, YouTube output, Metadata, downloads, or the
+media root parent. Runtime verification should prove that cache writes work,
+source writes fail through the mounted paths, and unrelated media areas are not
+visible in the container.
 
 ## Non-obvious things we learned
 
@@ -84,11 +113,11 @@ systemctl --user start podman.socket
 
 **When to revisit:** if this bites a third time, split `storage.conf` per-backend (rootful at `/var/lib/containers`, rootless at `/mnt/docker/containers`), or move tdarr-node's rootful storage explicitly via the container's `extraOptions`.
 
-### Data dir ownership flipped on migration
+### Data dir ownership changed during least-privilege hardening
 
-Pre-migration (compose, rootless): `/mnt/docker/tdarr/{configs,logs}` was `abl030:users 0750`. New module declares `root:root 0755` via `systemd.tmpfiles.rules`. We stopped the old rootless container **before** deploying so tmpfiles didn't chown under a running process. Existing files (abl030:users) are still readable by the new root-inside-container because mode was 0750 with world-none but root bypasses DAC via `CAP_DAC_READ_SEARCH`. New files land as root:root. Clean.
+Pre-migration (compose, rootless): `/mnt/docker/tdarr/{configs,logs}` was `abl030:users 0750`. The first OCI module version used `root:root 0755` because the container workload was root. The least-privilege module declares the directories as `tdarr:tdarr 0750` and applies recursive tmpfiles ownership before startup so the `PUID=2010` workload can keep using existing config and log state.
 
-If this gets re-run on a fresh host, tmpfiles will just create the dirs root-owned from scratch.
+If this gets re-run on a fresh host, tmpfiles will create the directories with the dedicated service ownership from scratch.
 
 ### Node connects outbound only; no firewall port needed
 

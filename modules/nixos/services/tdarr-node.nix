@@ -6,6 +6,8 @@
   ...
 }: let
   cfg = config.homelab.services.tdarrNode;
+  tdarrUid = 2010;
+  tdarrGid = 2010;
 in {
   options.homelab.services.tdarrNode = {
     enable = lib.mkEnableOption "Tdarr worker node (OCI container with /dev/dri passthrough)";
@@ -54,6 +56,17 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    users = {
+      users.tdarr = {
+        isSystemUser = true;
+        uid = tdarrUid;
+        group = "tdarr";
+        extraGroups = ["users" "render" "video"];
+        home = cfg.dataDir;
+      };
+      groups.tdarr.gid = tdarrGid;
+    };
+
     homelab = {
       podman.enable = true;
       podman.containers = [
@@ -63,7 +76,7 @@ in {
         }
       ];
 
-      nfsWatchdog.podman-tdarr-node.path = cfg.mediaRoot;
+      nfsWatchdog.podman-tdarr-node.path = "${cfg.mediaRoot}/Movies";
     };
 
     virtualisation.oci-containers.containers.tdarr-node = {
@@ -72,8 +85,8 @@ in {
       pull = "newer";
       environment = {
         TZ = "Australia/Perth";
-        PUID = "0";
-        PGID = "0";
+        PUID = toString tdarrUid;
+        PGID = "100";
         UMASK_SET = "002";
         inherit (cfg) nodeName;
         serverIP = cfg.serverIp;
@@ -82,18 +95,21 @@ in {
         ffmpegVersion = "7";
       };
       volumes = [
-        "${cfg.dataDir}/configs:/app/configs"
-        "${cfg.dataDir}/logs:/app/logs"
-        "${cfg.mediaRoot}:/mnt/media"
-        "${cfg.transcodeTemp}:/temp"
+        "${cfg.dataDir}/configs:/app/configs:rw"
+        "${cfg.dataDir}/logs:/app/logs:rw"
+        "${cfg.mediaRoot}/Movies:/mnt/media/Movies:ro"
+        "${cfg.mediaRoot}/TV Shows:/mnt/media/TV Shows:ro"
+        "${cfg.transcodeTemp}:/temp:rw"
       ];
-      extraOptions = ["--device=/dev/dri:/dev/dri"];
+      extraOptions = ["--device=/dev/dri/renderD128:/dev/dri/renderD128"];
     };
 
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir} 0755 root root - -"
-      "d ${cfg.dataDir}/configs 0755 root root - -"
-      "d ${cfg.dataDir}/logs 0755 root root - -"
+      "d ${cfg.dataDir}/configs 0750 tdarr tdarr - -"
+      "d ${cfg.dataDir}/logs 0750 tdarr tdarr - -"
+      "Z ${cfg.dataDir}/configs - tdarr tdarr - -"
+      "Z ${cfg.dataDir}/logs - tdarr tdarr - -"
     ];
 
     systemd.services.podman-tdarr-node = {

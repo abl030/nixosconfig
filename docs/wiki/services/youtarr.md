@@ -1,7 +1,7 @@
 # Youtarr
 
 Date researched: 2026-05-14
-Status: MariaDB extraction completed and verified on doc2
+Status: MariaDB extraction completed; least-privilege runtime hardening in progress
 Related: issue #231, #228, #230, #232
 
 ## Service Shape
@@ -24,6 +24,31 @@ bundled `mariadb:10.3` OCI container into the fleet-owned nspawn MariaDB helper:
 MariaDB 10.3 reached EOL on 2023-05-25. Upstream Youtarr's compose defaults
 still use `mariadb:10.3`, but upstream also supports external database mode via
 `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`.
+
+## Least-Privilege Runtime
+
+The Youtarr app workload runs as the dedicated host identity `youtarr`
+(`uid=2009`, `gid=2009`) instead of root. The service user is also a member of
+the shared `users` group because the YouTube output directory lives on the
+existing shared media filesystem.
+
+The pinned Youtarr image exposes `YOUTARR_UID` and `YOUTARR_GID`, but inspection
+on 2026-05-14 showed those values are only used for config diagnostics in this
+image. The actual privilege boundary is Podman's `--user=2009:100`, which starts
+the Node.js process with the dedicated UID and the shared media GID needed for
+`/mnt/data/Media/YouTube`.
+
+Writable mounts are intentionally limited to:
+
+- `/mnt/virtio/youtarr/config` -> `/app/config`
+- `/mnt/virtio/youtarr/images` -> `/app/server/images`
+- `/mnt/virtio/youtarr/jobs` -> `/app/jobs`
+- `/mnt/data/Media/YouTube` -> `/usr/src/app/data`
+
+Youtarr does not receive the media root, Movies, TV Shows, Music, Metadata,
+downloads, or Tdarr's transcode scratch. The module's tmpfiles rules recursively
+move the app-state directories to `youtarr:youtarr` before the non-root workload
+starts, while the MariaDB nspawn state remains root-owned and separate.
 
 ## Secret Layout
 
@@ -137,3 +162,7 @@ After migration:
 - Youtarr logs show successful database connectivity.
 - The app image is digest-pinned.
 - No plaintext database password appears in the module.
+- The long-running app process is UID 2009, not UID 0.
+- Writes through the container succeed only in app state and YouTube output.
+- The container has no mounted access to broader media libraries or transcode
+  scratch.

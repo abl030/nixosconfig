@@ -1,6 +1,6 @@
 # iGPU passthrough to the `igpu` VM
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-14
 **Status:** working (after Proxmox host reboot)
 **Host:** `igpu` (VMID 109) on `prom` (AMD 9950X)
 **Owner:** `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.hostpci`)
@@ -111,13 +111,13 @@ hardware = {
 };
 ```
 
-`amdgpu` is provided by `hardware.graphics.enable = true`. User `abl030` is in `video` and `render` groups (for rootless compose stacks — tdarr-node runs rootful so it doesn't need this).
+`amdgpu` is provided by `hardware.graphics.enable = true`. User `abl030` is in `video` and `render` groups for local/operator access. `tdarr-node` still uses a rootful OCI wrapper so the upstream image can run its init, but the steady-state node workload drops to the dedicated `tdarr` identity and uses scoped GPU/device group handling rather than root as the access model.
 
 ## What uses the iGPU today
 
 | Consumer | How it gets `/dev/dri` | Lives in |
 |---|---|---|
-| `tdarr-node` | `virtualisation.oci-containers.containers.tdarr-node.extraOptions = ["--device=/dev/dri:/dev/dri"]` | `modules/nixos/services/tdarr-node.nix` |
+| `tdarr-node` | `virtualisation.oci-containers.containers.tdarr-node.extraOptions = ["--device=/dev/dri/renderD128:/dev/dri/renderD128"]` | `modules/nixos/services/tdarr-node.nix` |
 | `jellyfin` | `services.jellyfin.hardwareAcceleration.device = "/dev/dri/renderD128"` (native, declarative `encoding.xml`) | `modules/nixos/services/jellyfin.nix` |
 
 Post-Phase-3 of `#208`: jellyfin is a native NixOS service (no compose), igpu's `homelab.containers.enable` is `false`, the rootful/rootless `storage.conf` race documented in [tdarr-node.md](../services/tdarr-node.md#shared-storageconf-race-between-rootful-and-rootless-podman) is gone for good.

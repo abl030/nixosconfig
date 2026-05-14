@@ -6,6 +6,8 @@
 }: let
   cfg = config.homelab.services.youtarr;
   dbSecret = config.sops.secrets."youtarr-db".path;
+  youtarrUid = 2009;
+  youtarrGid = 2009;
 
   # Pinned 2026-05-14 while extracting MariaDB from upstream's EOL
   # mariadb:10.3 compose default. See docs/wiki/services/youtarr.md.
@@ -56,8 +58,19 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    users = {
+      users.youtarr = {
+        isSystemUser = true;
+        uid = youtarrUid;
+        group = "youtarr";
+        extraGroups = ["users"];
+        home = cfg.dataDir;
+      };
+      groups.youtarr.gid = youtarrGid;
+    };
+
     homelab = {
-      nfsWatchdog.podman-youtarr.path = cfg.mediaDir;
+      nfsWatchdog.podman-youtarr.path = "${cfg.mediaDir}/YouTube";
 
       podman.enable = true;
       podman.containers = [
@@ -103,9 +116,12 @@ in {
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
-        "d ${cfg.dataDir}/config 0755 root root - -"
-        "d ${cfg.dataDir}/images 0755 root root - -"
-        "d ${cfg.dataDir}/jobs 0755 root root - -"
+        "d ${cfg.dataDir}/config 0750 youtarr youtarr - -"
+        "d ${cfg.dataDir}/images 0750 youtarr youtarr - -"
+        "d ${cfg.dataDir}/jobs 0750 youtarr youtarr - -"
+        "Z ${cfg.dataDir}/config - youtarr youtarr - -"
+        "Z ${cfg.dataDir}/images - youtarr youtarr - -"
+        "Z ${cfg.dataDir}/jobs - youtarr youtarr - -"
         "d ${cfg.dataDir}/mariadb-nspawn 0755 root root - -"
         "d ${cfg.dataDir}/mariadb-nspawn/mysql 0755 root root - -"
       ];
@@ -118,8 +134,10 @@ in {
       environmentFiles = [dbSecret];
       environment = {
         TZ = "Australia/Perth";
-        YOUTARR_UID = "0";
-        YOUTARR_GID = "0";
+        # Upstream only uses these values for permission diagnostics. Podman's
+        # --user below is what actually makes the Node.js process non-root.
+        YOUTARR_UID = toString youtarrUid;
+        YOUTARR_GID = "100";
         YOUTUBE_OUTPUT_DIR = "/usr/src/app/data";
         DB_HOST = mdbc.dbHost;
         DB_PORT = toString mdbc.dbPort;
@@ -128,10 +146,13 @@ in {
         AUTH_ENABLED = "false";
       };
       volumes = [
-        "${cfg.mediaDir}/YouTube:/usr/src/app/data"
-        "${cfg.dataDir}/config:/app/config"
-        "${cfg.dataDir}/images:/app/server/images"
-        "${cfg.dataDir}/jobs:/app/jobs"
+        "${cfg.mediaDir}/YouTube:/usr/src/app/data:rw"
+        "${cfg.dataDir}/config:/app/config:rw"
+        "${cfg.dataDir}/images:/app/server/images:rw"
+        "${cfg.dataDir}/jobs:/app/jobs:rw"
+      ];
+      extraOptions = [
+        "--user=${toString youtarrUid}:100"
       ];
     };
   };
