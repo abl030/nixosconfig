@@ -15,7 +15,7 @@
 #   - config/ (jellyfin --configdir, XML files)
 #   - log/    (jellyfin --logdir)
 #   - ts/     (homelab.tailscaleShare.jellyfin state — root-owned TS state,
-#              caddy state owned by the numeric caddy image identity)
+#              caddy state owned by tailscale-share-caddy)
 # Cache stays local at /var/cache/jellyfin (regenerable, not worth virtiofs).
 #
 # Why root-owned parent: systemd-tmpfiles refuses ("unsafe path transition")

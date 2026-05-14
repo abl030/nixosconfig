@@ -219,7 +219,9 @@
       enable = true;
       fqdn = "overseer.ablz.au";
       upstream = "http://host.docker.internal:5055";
-      dataDir = "/mnt/virtio/overseerr/ts";
+      # Keep sidecar state outside the seerr-owned app data root. A compromised
+      # Overseerr process must not be able to rename or replace TS/Caddy state.
+      dataDir = "/mnt/virtio/tailscale-share/overseerr";
       hostname = "overseer";
       firewallPorts = [5055];
     };

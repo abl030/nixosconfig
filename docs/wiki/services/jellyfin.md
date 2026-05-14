@@ -41,8 +41,8 @@ Single root-owned parent (`dataRoot`, default `/mnt/virtio/jellyfin`) so jellyfi
 ├── log/                    jellyfin:jellyfin 0750  — --logdir
 └── ts/                     root:root 0755          — homelab.tailscaleShare.jellyfin state
     ├── ts-state/           root:root 0750          — tailscale node state
-    ├── caddy-data/         980:977 0750            — caddy cert/storage state
-    └── caddy-config/       980:977 0750            — caddy runtime config state
+    ├── caddy-data/         tailscale-share-caddy 0750 — caddy cert/storage state
+    └── caddy-config/       tailscale-share-caddy 0750 — caddy runtime config state
 ```
 
 `/var/cache/jellyfin` stays on local igpu storage (regenerable; not worth virtiofs).
@@ -68,7 +68,7 @@ Net effect: `ls /mnt/virtio/jellyfin/data/ROOT/` works without sudo. Writes stil
 
 The compose stack used `jellyfinn.ablz.au` for external tailnet sharing; we kept the same FQDN to avoid reconfiguring downstream clients. `jelly.ablz.au` is the new short-form LAN convention (localProxy creates Cloudflare A records pointing at igpu's LAN IP; nginx terminates TLS with ACME).
 
-`jellyfinn.ablz.au` uses the shared `tailscaleShare` hardening model: Caddy admin disabled, Caddy running as numeric uid/gid `980:977`, only `NET_BIND_SERVICE` added back after dropping default capabilities, and Tailscale/Caddy state kept in separate mounts.
+`jellyfinn.ablz.au` uses the shared `tailscaleShare` hardening model: Caddy admin disabled, Caddy running as `tailscale-share-caddy` (`2011:2011`), only `NET_BIND_SERVICE` added back after dropping default capabilities, and Tailscale/Caddy state kept in separate mounts.
 
 ### Monitoring
 

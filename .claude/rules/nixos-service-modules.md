@@ -366,8 +366,9 @@ Caddyfile and verify from the tailscale sidecar after deploy.
 - [ ] `firewallPorts` set to the upstream service's port
 - [ ] `dataDir` subdirs (`ts-state/`, `caddy-data/`, `caddy-config/`) survive any rsync operations (use `--exclude ts/` or similar if rsyncing the parent)
 - [ ] Caddy admin endpoint stays disabled; `ts-<name>` cannot fetch `127.0.0.1:2019/config/`
-- [ ] Caddy runs non-root with `NoNewPrivs=1`, default capabilities dropped, and only `NET_BIND_SERVICE` added back for 80/443
+- [ ] Caddy runs as the dedicated `tailscale-share-caddy` user with `NoNewPrivs=1`, default capabilities dropped, and only `NET_BIND_SERVICE` added back for 80/443
 - [ ] Tailscale auth/state and Caddy Cloudflare/cert state remain separate in env and mounts
+- [ ] `dataDir` is under a root-owned parent, not inside an upstream service-owned app data directory
 
 ## Anti-Patterns (avoid)
 

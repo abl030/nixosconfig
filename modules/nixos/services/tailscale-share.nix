@@ -7,12 +7,11 @@
   # Only enabled instances
   instances = lib.filterAttrs (_: v: v.enable) config.homelab.tailscaleShare;
 
-  # The active caddy-cloudflare image writes state as this numeric identity.
-  # Keep it numeric because the image does not expose a named caddy user.
-  caddyUid = 980;
-  caddyGid = 977;
-  caddyOwner = toString caddyUid;
-  caddyGroup = toString caddyGid;
+  caddyUser = "tailscale-share-caddy";
+  caddyGroup = "tailscale-share-caddy";
+  caddyUid = 2011;
+  caddyGid = 2011;
+  caddyRunAs = "${toString caddyUid}:${toString caddyGid}";
 
   # Generate a Cloudflare DNS sync script for one instance.
   # After the tailscale container is online, queries its IP and upserts the A record.
@@ -162,6 +161,16 @@ in {
   };
 
   config = lib.mkIf (instances != {}) {
+    users = {
+      users.${caddyUser} = {
+        isSystemUser = true;
+        uid = caddyUid;
+        group = caddyGroup;
+        home = "/var/empty";
+      };
+      groups.${caddyGroup}.gid = caddyGid;
+    };
+
     # Podman infrastructure (idempotent if already enabled by another module)
     homelab.podman.enable = lib.mkDefault true;
 
@@ -188,10 +197,10 @@ in {
     systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (_: cfg: [
         "d ${cfg.dataDir} 0755 root root - -"
         "d ${cfg.dataDir}/ts-state 0750 root root - -"
-        "d ${cfg.dataDir}/caddy-data 0750 ${caddyOwner} ${caddyGroup} - -"
-        "d ${cfg.dataDir}/caddy-config 0750 ${caddyOwner} ${caddyGroup} - -"
-        "Z ${cfg.dataDir}/caddy-data - ${caddyOwner} ${caddyGroup} - -"
-        "Z ${cfg.dataDir}/caddy-config - ${caddyOwner} ${caddyGroup} - -"
+        "d ${cfg.dataDir}/caddy-data 0750 ${caddyUser} ${caddyGroup} - -"
+        "d ${cfg.dataDir}/caddy-config 0750 ${caddyUser} ${caddyGroup} - -"
+        "Z ${cfg.dataDir}/caddy-data - ${caddyUser} ${caddyGroup} - -"
+        "Z ${cfg.dataDir}/caddy-config - ${caddyUser} ${caddyGroup} - -"
       ])
       instances);
 
@@ -240,7 +249,7 @@ in {
             "${cfg.dataDir}/caddy-config:/config"
           ];
           extraOptions = [
-            "--user=${caddyOwner}:${caddyGroup}"
+            "--user=${caddyRunAs}"
             "--security-opt=no-new-privileges"
             "--cap-drop=ALL"
             "--cap-add=NET_BIND_SERVICE"
