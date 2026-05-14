@@ -336,6 +336,8 @@ in {
           dataDir = "${cfg.dataRoot}/ts";
           hostname = "jellyfin";
           firewallPorts = [cfg.port];
+          monitorName = "Jellyfin (Tailnet)";
+          monitorPath = "/System/Info/Public";
         };
 
         # Tower NFS provides the Movies/TV_Shows media branches; if it goes
@@ -347,10 +349,6 @@ in {
           {
             name = "Jellyfin (LAN)";
             url = "https://${cfg.fqdn}/System/Info/Public";
-          }
-          {
-            name = "Jellyfin (Tailnet)";
-            url = "https://${cfg.tailscaleFqdn}/System/Info/Public";
           }
         ];
       };

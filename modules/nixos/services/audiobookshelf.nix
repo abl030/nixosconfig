@@ -74,16 +74,13 @@ in {
         hostname = "audiobookshelf";
         authKeySecret = null;
         firewallPorts = [13378];
+        monitorName = "Audiobookshelf (Tailnet)";
       };
 
       monitoring.monitors = [
         {
           name = "Audiobookshelf (LAN)";
           url = "https://audiobook.ablz.au/";
-        }
-        {
-          name = "Audiobookshelf (Tailnet)";
-          url = "https://audiobooks.ablz.au/";
         }
       ];
     };

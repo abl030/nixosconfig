@@ -1,9 +1,9 @@
 # tailscaleShare
 
 **Last updated:** 2026-05-14
-**Status:** working, hardened for issue #232 Tier 2
+**Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up
 **Owner:** `modules/nixos/services/tailscale-share.nix`
-**Issue:** [#232](https://github.com/abl030/nixosconfig/issues/232)
+**Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)
 
 ## Purpose
 
@@ -13,8 +13,18 @@
 - a Caddy sidecar sharing that network namespace
 - a repo-owned FQDN and Cloudflare DNS A record
 - Caddy-managed ACME certs through the Cloudflare DNS challenge
+- a Uptime Kuma monitor for the tailnet-served HTTPS URL
 
 This is a least-privilege sharing pattern: one pinhole per application, not a broad host proxy.
+
+## Monitoring
+
+Every enabled `tailscaleShare` instance registers a `homelab.monitoring.monitors`
+entry for `https://<fqdn><monitorPath>`. Use `monitorPath` for application
+health endpoints such as Jellyfin's `/System/Info/Public` or Overseerr's
+`/api/v1/status`; otherwise the default `/` is fine. Do not add a separate
+manual tailnet monitor in the service module unless the central monitor is
+deliberately disabled in a future module change.
 
 ## Security boundary
 
@@ -36,6 +46,7 @@ Current hardening:
 | Service | Host | FQDN | Data path |
 |---|---|---|---|
 | Overseerr | `doc2` | `overseer.ablz.au` | `/mnt/virtio/tailscale-share/overseerr` |
+| Audiobookshelf | `doc2` | `audiobooks.ablz.au` | `/mnt/virtio/tailscale-share/audiobookshelf` |
 | Jellyfin | `igpu` | `jellyfinn.ablz.au` | `/mnt/virtio/jellyfin/ts` |
 
 The Overseerr share state was moved on 2026-05-14 from `/mnt/virtio/overseerr/ts` because `/mnt/virtio/overseerr` is owned by `seerr`. Keeping share state there would let a compromised Overseerr process rename or replace the sidecar state directory.
@@ -142,4 +153,3 @@ igpu generated systemd start scripts showed the same split:
 - Do not enable Caddy admin, Caddy reload sockets, or Tailscale access to Caddy state unless the threat model is rewritten first.
 - `NET_ADMIN` remains scoped to the Tailscale sidecar for `/dev/net/tun`; Caddy should not have it.
 - Image pinning remains separate Tier 4 work in issue #232.
-

@@ -322,6 +322,8 @@ homelab.tailscaleShare.<name> = {
   dataDir     = "/mnt/virtio/overseerr/ts";       # tailscale state + caddy certs
   hostname    = "overseer";                       # tailscale node name (default: attrset key)
   firewallPorts = [5055];                         # ports to open on podman0 bridge
+  monitorName = "Overseerr (Tailnet)";             # optional friendly Kuma name
+  monitorPath = "/api/v1/status";                  # optional health endpoint, default "/"
 };
 ```
 
@@ -330,6 +332,7 @@ homelab.tailscaleShare.<name> = {
 - `ts-<name>` OCI container — tailscale, joins tailnet with dedicated identity, persists state to `dataDir/ts-state/`
 - `caddy-<name>` OCI container — caddy-cloudflare image, shares ts's network namespace, handles HTTPS + ACME via Cloudflare DNS challenge, certs in `dataDir/caddy-data/`. Its Caddy admin API is disabled because the shared loopback is reachable from `ts-<name>`.
 - `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP
+- `homelab.monitoring.monitors` entry — Uptime Kuma checks the tailscale-served HTTPS URL itself, not just the LAN/localProxy URL
 - sops secret `tailscale-share/<name>/authkey` — sourced from `secrets/hosts/<hostname>/<name>-tailscale-authkey.env`
   unless `authKeySecret = null`, which uses Tailscale's interactive first-run login URL and persists the resulting node state.
 
@@ -371,6 +374,7 @@ Caddyfile and verify from the tailscale sidecar after deploy.
 - [ ] Caddy runs as the dedicated `tailscale-share-caddy` user with `NoNewPrivs=1`, default capabilities dropped, and only `NET_BIND_SERVICE` added back for 80/443
 - [ ] Tailscale auth/state and Caddy Cloudflare/cert state remain separate in env and mounts
 - [ ] `dataDir` is under a root-owned parent, not inside an upstream service-owned app data directory
+- [ ] Kuma monitor exists for the tailscale-served URL; set `monitorPath` to the app health endpoint when one exists
 
 ## Anti-Patterns (avoid)
 

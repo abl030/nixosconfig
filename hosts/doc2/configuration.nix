@@ -224,6 +224,8 @@
       dataDir = "/mnt/virtio/tailscale-share/overseerr";
       hostname = "overseer";
       firewallPorts = [5055];
+      monitorName = "Overseerr (Tailnet)";
+      monitorPath = "/api/v1/status";
     };
   };
 

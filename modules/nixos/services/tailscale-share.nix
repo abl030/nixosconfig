@@ -103,6 +103,19 @@
         }
       '';
     };
+
+  mkMonitor = name: cfg: {
+    name =
+      if cfg.monitorName != null
+      then cfg.monitorName
+      else "${name} (Tailnet)";
+    url = "https://${cfg.fqdn}${
+      if lib.hasPrefix "/" cfg.monitorPath
+      then cfg.monitorPath
+      else "/${cfg.monitorPath}"
+    }";
+    acceptedStatusCodes = cfg.monitorAcceptedStatusCodes;
+  };
 in {
   options.homelab.tailscaleShare = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({name, ...}: {
@@ -155,6 +168,30 @@ in {
             Typically the port your upstream service listens on.
           '';
         };
+
+        monitorName = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            Uptime Kuma monitor display name for the tailscale-served URL.
+            Defaults to "<instance> (Tailnet)".
+          '';
+        };
+
+        monitorPath = lib.mkOption {
+          type = lib.types.str;
+          default = "/";
+          description = ''
+            HTTPS path on fqdn for the automatic Uptime Kuma monitor. Prefer
+            an application health endpoint when the service provides one.
+          '';
+        };
+
+        monitorAcceptedStatusCodes = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = ["200-299" "300-399"];
+          description = "Accepted HTTP status code ranges for the automatic Uptime Kuma monitor.";
+        };
       };
     }));
     default = {};
@@ -164,6 +201,7 @@ in {
       - A Caddy container sharing that network namespace (pinhole, not the whole VM)
       - A Cloudflare DNS A record synced to the tailscale IP on startup
       - ACME certs via Cloudflare DNS challenge
+      - A Uptime Kuma monitor for the tailscale-served HTTPS URL
 
       Requires: homelab.podman.enable = true, sops secret "acme/cloudflare" on the host,
       and either a per-instance auth key secret (dotenv: TS_AUTHKEY=...) or
@@ -182,27 +220,36 @@ in {
       groups.${caddyGroup}.gid = caddyGid;
     };
 
-    # Podman infrastructure (idempotent if already enabled by another module)
-    homelab.podman.enable = lib.mkDefault true;
-
     # Open upstream ports on the podman bridge so containers can reach host services.
     # NixOS firewall blocks container-to-host traffic by default; caddy uses
     # host.docker.internal (10.88.0.1) which routes via the podman0 bridge.
     networking.firewall.interfaces.podman0.allowedTCPPorts =
       lib.concatLists (lib.mapAttrsToList (_: cfg: cfg.firewallPorts) instances);
 
-    # Register containers for auto-update tracking
-    homelab.podman.containers = lib.concatLists (lib.mapAttrsToList (name: _: [
-        {
-          unit = "podman-ts-${name}.service";
-          image = "docker.io/tailscale/tailscale:latest";
-        }
-        {
-          unit = "podman-caddy-${name}.service";
-          image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
-        }
-      ])
-      instances);
+    homelab = {
+      # Podman infrastructure (idempotent if already enabled by another module)
+      podman = {
+        enable = lib.mkDefault true;
+
+        # Register containers for auto-update tracking
+        containers = lib.concatLists (lib.mapAttrsToList (name: _: [
+            {
+              unit = "podman-ts-${name}.service";
+              image = "docker.io/tailscale/tailscale:latest";
+            }
+            {
+              unit = "podman-caddy-${name}.service";
+              image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
+            }
+          ])
+          instances);
+      };
+
+      # Every inter-tailnet pinhole gets an external-health monitor. This keeps
+      # monitoring attached to the shared URL itself rather than relying on the
+      # separate LAN/localProxy path.
+      monitoring.monitors = lib.mapAttrsToList mkMonitor instances;
+    };
 
     # Persistent directories
     systemd.tmpfiles.rules = lib.concatLists (lib.mapAttrsToList (_: cfg: [
