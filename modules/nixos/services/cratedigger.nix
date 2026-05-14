@@ -61,6 +61,10 @@
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
   ];
+  metadataGateDependencyUnits = [
+    "musicbrainz.service"
+    "discogs-api.service"
+  ];
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
   metadataGateTool = pkgs.writeShellApplication {
     name = "cratedigger-metadata-gate";
@@ -469,7 +473,7 @@ in {
         };
 
         cratedigger = {
-          after = ["slskd.service" "container@cratedigger-db.service"];
+          after = ["slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
           wants = ["slskd.service" "container@cratedigger-db.service"];
           serviceConfig = {
             ExecCondition = metadataGateStartCheckCommand;
@@ -479,7 +483,7 @@ in {
         };
 
         cratedigger-web = {
-          after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
+          after = ["container@cratedigger-db.service" "redis-cratedigger.service"] ++ metadataGateDependencyUnits;
           wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
           restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
           serviceConfig = {
@@ -490,7 +494,7 @@ in {
         };
 
         cratedigger-importer = {
-          after = ["container@cratedigger-db.service"];
+          after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
           wants = ["container@cratedigger-db.service"];
           restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
           serviceConfig = {
@@ -501,7 +505,7 @@ in {
         };
 
         cratedigger-import-preview-worker = {
-          after = ["container@cratedigger-db.service"];
+          after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
           wants = ["container@cratedigger-db.service"];
           restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
           serviceConfig = {
