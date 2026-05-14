@@ -128,6 +128,16 @@ Set on the source `root@kopia:/mnt/data/Life/Photos/library`:
 
 Mum's repo backs up `/mnt/data` recursively — broader scope. Policies are kopia defaults; verify runs at 2% sample (vs photos at 5%) because the data volume is larger and full verify would take too long. Schedule for mum is currently driven by the kopia server's defaults — revisit if/when reliability requires.
 
+## Bootstrap verification
+
+The fresh `kopiaphotos` repository bootstrap completed on 2026-05-13. The transient `kopia-verify-post-bootstrap.service` then ran a one-off 100% verify and completed successfully on 2026-05-13 22:57 AWST:
+
+```text
+Finished processing 49963 objects (324.8 GB). Read 45086 files (324.8 GB).
+```
+
+The service no longer exists because it was a transient closeout unit, but the journal entry remains on doc2. This verifies the fresh Wasabi repository could read back the entire initial photo snapshot.
+
 ## Append-only enforcement
 
 - **Photos (Wasabi)**: server-side Object Lock Compliance as described above. No filesystem snapshots or other layers — Wasabi enforces.
