@@ -1,7 +1,7 @@
 ---
 title: fix: Harden tailscaleShare sidecar boundary
 type: fix
-status: active
+status: completed
 date: 2026-05-14
 origin: docs/brainstorms/2026-05-14-tailscale-share-boundary-hardening-requirements.md
 ---

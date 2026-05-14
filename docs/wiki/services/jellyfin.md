@@ -179,6 +179,7 @@ Expect both endpoints to return jellyfin's ServerId + version; journal should me
 
 - `modules/nixos/services/jellyfin.nix` — the module
 - `modules/nixos/services/tailscale-share.nix` — the tailnet-share plumbing
+- [`tailscale-share.md`](tailscale-share.md) — inter-tailnet share threat model and verification evidence
 - `modules/nixos/services/nfs-watchdog.nix` — stale-mount watchdog
 - [`media-filesystem.md`](../infrastructure/media-filesystem.md) — mergerfs/virtiofs/tower NFS layout
 - [`igpu-passthrough.md`](../infrastructure/igpu-passthrough.md) — `/dev/dri` health + FLR failure mode
