@@ -5,15 +5,32 @@
   ...
 }: let
   cfg = config.homelab.services.youtarr;
+  dbSecret = config.sops.secrets."youtarr-db".path;
 
-  # Remove corrupted tc.log before MariaDB starts so it doesn't abort
-  # after unclean VM shutdowns (e.g. Proxmox PSU issues)
-  fixTcLog = pkgs.writeShellScript "youtarr-db-fix-tclog" ''
-    tclog="${cfg.dataDir}/database/tc.log"
-    if [ -f "$tclog" ]; then
-      echo "Removing tc.log to prevent MariaDB crash recovery failure"
-      rm -f "$tclog"
+  # Pinned 2026-05-14 while extracting MariaDB from upstream's EOL
+  # mariadb:10.3 compose default. See docs/wiki/services/youtarr.md.
+  youtarrImage = "docker.io/dialmaster/youtarr@sha256:8c891a4f96e7b7c37d9915e7b78b919fe03f0aacd87eab76d751f761003e5ee1";
+
+  mdbc = import ../lib/mk-mariadb-container.nix {
+    inherit pkgs;
+    name = "youtarr";
+    hostNum = 9;
+    dataDir = "${cfg.dataDir}/mariadb-nspawn";
+    passwordFile = "/run/secrets/youtarr-db";
+  };
+
+  migrationMarker = "${cfg.dataDir}/mariadb-nspawn/imported-from-oci";
+  migrationGate = pkgs.writeShellScript "youtarr-db-migration-gate" ''
+    if [ -e "${migrationMarker}" ]; then
+      exit 0
     fi
+
+    if [ -d "${cfg.dataDir}/database/mysql" ]; then
+      echo "Legacy Youtarr MariaDB state exists at ${cfg.dataDir}/database; restore it into container@youtarr-db.service and touch ${migrationMarker} before starting Youtarr." >&2
+      exit 1
+    fi
+
+    exit 0
   '';
 in {
   options.homelab.services.youtarr = {
@@ -46,11 +63,7 @@ in {
       podman.containers = [
         {
           unit = "podman-youtarr.service";
-          image = "docker.io/dialmaster/youtarr:latest";
-        }
-        {
-          unit = "podman-youtarr-db.service";
-          image = "docker.io/library/mariadb:10.3";
+          image = youtarrImage;
         }
       ];
 
@@ -69,48 +82,49 @@ in {
       ];
     };
 
-    systemd = {
-      # Create a shared podman network so containers can resolve each other by name
-      services.podman-network-youtarr = {
-        description = "Create podman network for Youtarr";
-        before = ["podman-youtarr.service" "podman-youtarr-db.service"];
-        requiredBy = ["podman-youtarr.service" "podman-youtarr-db.service"];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${config.virtualisation.podman.package}/bin/podman network create youtarr --ignore";
-        };
-      };
+    sops.secrets."youtarr-db" = {
+      sopsFile = config.homelab.secrets.sopsFile "youtarr-db.env";
+      format = "dotenv";
+      mode = "0444";
+    };
 
-      # Remove corrupted tc.log before MariaDB starts (unclean VM shutdowns)
-      services.podman-youtarr-db.serviceConfig.ExecStartPre =
-        lib.mkBefore [fixTcLog];
+    containers.youtarr-db = mdbc.containerConfig;
+
+    systemd = {
+      services.podman-youtarr = {
+        after = ["container@youtarr-db.service"];
+        requires = ["container@youtarr-db.service"];
+        restartTriggers = [
+          config.systemd.units."container@youtarr-db.service".unit
+          dbSecret
+        ];
+        serviceConfig.ExecCondition = migrationGate;
+      };
 
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root - -"
         "d ${cfg.dataDir}/config 0755 root root - -"
         "d ${cfg.dataDir}/images 0755 root root - -"
         "d ${cfg.dataDir}/jobs 0755 root root - -"
-        "d ${cfg.dataDir}/database 0755 root root - -"
+        "d ${cfg.dataDir}/mariadb-nspawn 0755 root root - -"
+        "d ${cfg.dataDir}/mariadb-nspawn/mysql 0755 root root - -"
       ];
     };
 
     virtualisation.oci-containers.containers.youtarr = {
-      image = "docker.io/dialmaster/youtarr:latest";
+      image = youtarrImage;
       autoStart = true;
-      pull = "newer";
       ports = ["${toString cfg.port}:3011"];
-      dependsOn = ["youtarr-db"];
+      environmentFiles = [dbSecret];
       environment = {
         TZ = "Australia/Perth";
         YOUTARR_UID = "0";
         YOUTARR_GID = "0";
         YOUTUBE_OUTPUT_DIR = "/usr/src/app/data";
-        DB_HOST = "youtarr-db";
-        DB_PORT = "3306";
+        DB_HOST = mdbc.dbHost;
+        DB_PORT = toString mdbc.dbPort;
         DB_NAME = "youtarr";
         DB_USER = "youtarr";
-        DB_PASSWORD = "youtarr";
         AUTH_ENABLED = "false";
       };
       volumes = [
@@ -119,24 +133,6 @@ in {
         "${cfg.dataDir}/images:/app/server/images"
         "${cfg.dataDir}/jobs:/app/jobs"
       ];
-      extraOptions = ["--network=youtarr"];
-    };
-
-    virtualisation.oci-containers.containers.youtarr-db = {
-      image = "docker.io/library/mariadb:10.3";
-      autoStart = true;
-      pull = "newer";
-      cmd = ["--character-set-server=utf8mb4" "--collation-server=utf8mb4_unicode_ci"];
-      environment = {
-        MYSQL_DATABASE = "youtarr";
-        MYSQL_USER = "youtarr";
-        MYSQL_PASSWORD = "youtarr";
-        MYSQL_ROOT_PASSWORD = "youtarr";
-      };
-      volumes = [
-        "${cfg.dataDir}/database:/var/lib/mysql:U"
-      ];
-      extraOptions = ["--network=youtarr"];
     };
   };
 }

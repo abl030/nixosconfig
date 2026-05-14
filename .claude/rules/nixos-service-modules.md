@@ -67,7 +67,43 @@ services.<service>.database = {
 ```
 
 **Existing hostNums** (check before assigning):
-- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=cratedigger, 6=discogs, 7=jellystat
+- 1=atuin, 2=immich, 3=paperless, 4=mealie, 5=cratedigger, 6=discogs, 7=jellystat, 8=meelo, 9=youtarr
+
+## Database Container Pattern (mk-mariadb-container)
+
+When a service needs MariaDB/MySQL, use the MariaDB nspawn helper instead of a
+shared host-level database:
+
+```nix
+mdbc = import ../lib/mk-mariadb-container.nix {
+  inherit pkgs;
+  name = "<service>";
+  hostNum = <unique-number>; # Check existing hostNums to avoid collisions
+  inherit (cfg) dataDir;
+  # REQUIRED: path to a sops-managed dotenv with MYSQL_PASSWORD by default.
+  passwordFile = "/run/secrets/<service>-db";
+};
+
+containers.<service>-db = mdbc.containerConfig;
+
+sops.secrets."<service>-db" = {
+  sopsFile = config.homelab.secrets.sopsFile "<service>-db.env";
+  format = "dotenv";
+  mode = "0444";
+};
+```
+
+### MariaDB auth — no broad grants
+
+`mk-mariadb-container` grants the service user access only to the service
+database, only from the helper's host-side veth address. Do not add `%` grants,
+TCP root access, or a shared host-level MariaDB instance unless there is a
+separate threat-model writeup explaining why the blast radius is acceptable.
+
+Local socket access inside the nspawn remains the ops path:
+`sudo machinectl shell <name>-db`, then use the MariaDB client as the mysql user.
+This mirrors the PostgreSQL helper's "local superuser, authenticated TCP
+consumer" model without exposing fleet-wide database admin over podman.
 
 ### PG auth — never `trust` over TCP
 
