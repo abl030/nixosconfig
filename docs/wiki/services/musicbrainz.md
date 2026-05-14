@@ -114,5 +114,11 @@ Live verification after deployment:
 - The replication token is mounted as a read-only file; it is not passed through
   the web container environment.
 - Valkey is pinned by digest, not a mutable tag.
+- The Nix-built LRCLIB image runs as numeric UID/GID `65532:65532` and owns only
+  its SQLite state directory.
+- Upstream MusicBrainz, indexer, RabbitMQ, and Solr images retain their entrypoint
+  user behavior; forcing arbitrary UIDs there risks breaking their startup
+  scripts and state ownership. RabbitMQ, Solr, and Valkey drop their main
+  processes to service users at runtime.
 - Cratedigger owns the metadata gate policy and installs MusicBrainz systemd
   drop-ins. MusicBrainz only owns its provider runtime and verification.

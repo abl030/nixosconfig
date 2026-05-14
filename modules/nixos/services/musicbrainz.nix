@@ -49,6 +49,7 @@
     config = {
       Cmd = ["${lrclibPkg}/bin/lrclib" "serve" "--port" "3300" "--database" "/data/db.sqlite3"];
       ExposedPorts = {"3300/tcp" = {};};
+      User = "65532:65532";
       Volumes = {"/data" = {};};
     };
   };
@@ -488,7 +489,7 @@ in {
         pull = "never";
         ports = ["${toString cfg.lrclibPort}:3300"];
         volumes = ["${cfg.mirrorDir}/lrclib:/data"];
-        extraOptions = ["--network=musicbrainz" "--network-alias=lrclib"];
+        extraOptions = ["--network=musicbrainz" "--network-alias=lrclib" "--user=65532:65532"];
       };
     };
 
@@ -648,7 +649,8 @@ in {
         "d ${cfg.mirrorDir}/solrdata 0755 root root - -"
         "d ${cfg.mirrorDir}/dbdump 0755 root root - -"
         "d ${cfg.mirrorDir}/solrdump 0755 root root - -"
-        "d ${cfg.mirrorDir}/lrclib 0755 root root - -"
+        "d ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
+        "Z ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
       ];
     };
   };
