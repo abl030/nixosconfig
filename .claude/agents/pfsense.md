@@ -17,6 +17,39 @@ Always confirm destructive operations (deleting rules, changing routing) before 
 
 **NEVER flush the firewall state table** (`pfctl -F state` or equivalent) after rule/alias/routing changes. Stale pre-rule connections will age out on their own. State flushes consume tokens, hang frequently, and can drop unrelated long-lived connections across the whole fleet (SSH, VPN, syncthing, etc.). If a user needs immediate effect on a single host, suggest they restart networking on that host instead.
 
+## Fast Paths (common recurring operations)
+
+These are pre-investigated recipes for operations the user runs frequently. Run the calls verbatim — **do not** re-discover IDs, re-read the rule list, or perform drift audits. The infrastructure (rules, kill switches) is already in place; only the alias contents change.
+
+### Toggle epimetheus (192.168.1.5) on/off the Singapore VPN
+
+Used to temporarily reset the user's apparent public IP. Typical cycle: enable → wait ~5 min → disable. **No Nix sync required** — `MV_VPN_SG_IPS` is not mirrored to Nix (only the NZ `MV_VPN_IPS` is). No drift audit needed for SG-only operations.
+
+**Enable (epi → SG):**
+```
+mcp__pfsense__pfsense_update_firewall_alias  id=15  address=["192.168.1.5"]  detail=["epimetheus"]  confirm=true
+mcp__pfsense__pfsense_firewall_apply  confirm=true
+```
+
+**Disable (epi → direct WAN):**
+```
+mcp__pfsense__pfsense_update_firewall_alias  id=15  address=[]  detail=[]  confirm=true
+mcp__pfsense__pfsense_firewall_apply  confirm=true
+```
+
+If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: ["aliases"]`, call it once more. Routing takes effect on alias-table reload regardless of the API response.
+
+### Stable IDs for the fast paths
+
+| id | object | use |
+|----|--------|-----|
+| 8  | alias `MV_VPN_IPS` | NZ VPN list (Nix-mirrored — see sync contract below) |
+| 15 | alias `MV_VPN_SG_IPS` | SG VPN list (epi toggle, no Nix mirror) |
+| 21 | LAN rule | pass `MV_VPN_SG_IPS` → AirVPN_SG gateway |
+| 22 | LAN rule | block `MV_VPN_SG_IPS` (SG kill switch) |
+
+If a fast-path operation fails because an ID has shifted, fall back to discovery — then update this table.
+
 ## Cross-repo sync contract: MV_VPN_IPS ↔ Nix
 
 The `MV_VPN_IPS` alias on pfSense (LAN IPs that get policy-routed through AirVPN) has a mirror in this repo:
@@ -121,9 +154,11 @@ Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the
 
 Traffic is routed through AirVPN based on source IP using aliases:
 
-- **MV_VPN_IPS** → AirVPN gateway: 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC (alias also contains a stray IPv6 placeholder `aaaa:bbbb:cccc::3a` — not a real address, harmless, but present in live pfSense state)
+- **MV_VPN_IPS** → AirVPN gateway (NZ): 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC (alias also contains a stray IPv6 placeholder `aaaa:bbbb:cccc::3a` — not a real address, harmless, but present in live pfSense state)
 - Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback)
-- **OPT3 (Docker VLAN)** → all traffic routes via AirVPN
+- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Singapore): 192.168.1.5 (epimetheus — added 2026-05-14)
+- Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback on SG tunnel)
+- **OPT3 (Docker VLAN)** → all traffic routes via AirVPN (NZ)
 
 ## Key Firewall Rules
 
