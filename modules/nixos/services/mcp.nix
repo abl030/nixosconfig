@@ -62,21 +62,6 @@ in {
       };
     };
 
-    lidarr = {
-      enable = lib.mkEnableOption "Lidarr MCP server secrets";
-      sopsFile = lib.mkOption {
-        type = lib.types.path;
-        default = config.homelab.secrets.sopsFile "lidarr-mcp.env";
-        description = "Sops file containing Lidarr MCP credentials.";
-      };
-      path = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${secretsDir}/lidarr.env";
-        description = "Path to decrypted Lidarr MCP env file.";
-      };
-    };
-
     slskd = {
       enable = lib.mkEnableOption "slskd MCP server secrets";
       sopsFile = lib.mkOption {
@@ -148,7 +133,6 @@ in {
       pfsenseFile = cfg.pfsense.sopsFile;
       unifiFile = cfg.unifi.sopsFile;
       homeassistantFile = cfg.homeassistant.sopsFile;
-      lidarrFile = cfg.lidarr.sopsFile;
       slskdFile = cfg.slskd.sopsFile;
       vinsightFile = cfg.vinsight.sopsFile;
       audiobookshelfFile = cfg.audiobookshelf.sopsFile;
@@ -179,12 +163,6 @@ in {
           ${sops} -d --output-type dotenv ${homeassistantFile} | grep -v '^#' > ${cfg.homeassistant.path}
           chmod 400 ${cfg.homeassistant.path}
           chown ${user}:users ${cfg.homeassistant.path}
-        ''}
-
-        ${lib.optionalString cfg.lidarr.enable ''
-          ${sops} -d --output-type dotenv ${lidarrFile} | grep -v '^#' > ${cfg.lidarr.path}
-          chmod 400 ${cfg.lidarr.path}
-          chown ${user}:users ${cfg.lidarr.path}
         ''}
 
         ${lib.optionalString cfg.slskd.enable ''
@@ -222,9 +200,6 @@ in {
       })
       (lib.mkIf cfg.homeassistant.enable {
         HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
-      })
-      (lib.mkIf cfg.lidarr.enable {
-        LIDARR_MCP_ENV_FILE = cfg.lidarr.path;
       })
       (lib.mkIf cfg.slskd.enable {
         SLSKD_MCP_ENV_FILE = cfg.slskd.path;

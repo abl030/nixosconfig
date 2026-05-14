@@ -143,7 +143,6 @@
       pfsense.enable = lib.mkDefault true;
       unifi.enable = lib.mkDefault true;
       homeassistant.enable = lib.mkDefault true;
-      lidarr.enable = lib.mkDefault true;
       slskd.enable = lib.mkDefault true;
       vinsight.enable = lib.mkDefault true;
       audiobookshelf.enable = lib.mkDefault true;

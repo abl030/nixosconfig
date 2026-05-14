@@ -116,15 +116,10 @@
         dataDir = "/mnt/virtio/atuin";
       };
       beancount.enable = true;
-      lidarr = {
-        enable = true;
-        dataDir = "/mnt/virtio/lidarr";
-        musicPath = "/mnt/virtio/music/lidarr";
-      };
       slskd = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
-        musicDir = "/mnt/virtio/music/lidarr";
+        musicDir = "/mnt/virtio/Music/Beets";
       };
       cratedigger = {
         enable = true;

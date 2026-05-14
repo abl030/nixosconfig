@@ -351,7 +351,7 @@ in {
     sops.secrets."meelo-pgpass" = {
       sopsFile = config.homelab.secrets.sopsFile "meelo-pgpass.env";
       format = "dotenv";
-      mode = "0444";
+      mode = "0400";
     };
 
     containers.meelo-db = pgc.containerConfig;

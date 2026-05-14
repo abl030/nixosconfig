@@ -388,26 +388,6 @@
         "type": "github"
       }
     },
-    "lidarr-mcp": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1771560435,
-        "narHash": "sha256-crOdhEQTCyMwFYkBaTJrfVxxAyg5JBVYm3M20a3RA0s=",
-        "owner": "abl030",
-        "repo": "lidarr-mcp",
-        "rev": "b0840100f12e2fde0eecb0d9b7b5a296153b978f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "abl030",
-        "repo": "lidarr-mcp",
-        "type": "github"
-      }
-    },
     "lrclib-src": {
       "flake": false,
       "locked": {
@@ -659,7 +639,6 @@
         "grafana-dashboards-rfmoz": "grafana-dashboards-rfmoz",
         "home-manager": "home-manager",
         "jolt": "jolt",
-        "lidarr-mcp": "lidarr-mcp",
         "lrclib-src": "lrclib-src",
         "musicbrainz-docker": "musicbrainz-docker",
         "netwatch": "netwatch",

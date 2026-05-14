@@ -44,8 +44,8 @@ pgc = import ../lib/mk-pg-container.nix {
   hostNum = <unique-number>;  # Check existing hostNums to avoid collisions
   inherit (cfg) dataDir;
   # REQUIRED: path to a sops-managed dotenv with POSTGRES_PASSWORD.
-  # mode 0444 on the secret entry so the postgres user inside the
-  # nspawn can read the bindmounted file. See "PG auth" below.
+  # Prefer mode 0400 root:root; mk-pg-container copies the bindmount to
+  # a private postgres-readable runtime file inside the nspawn.
   passwordFile = "/run/secrets/<service>-pgpass";
   # Optional: pgPackage, extensions, pgSettings, postStartSQL
 };
@@ -56,7 +56,7 @@ containers.<service>-db = pgc.containerConfig;
 sops.secrets."<service>-pgpass" = {
   sopsFile = config.homelab.secrets.sopsFile "<service>-pgpass.env";
   format = "dotenv";
-  mode = "0444";
+  mode = "0400";
 };
 
 services.<service>.database = {
@@ -89,7 +89,7 @@ containers.<service>-db = mdbc.containerConfig;
 sops.secrets."<service>-db" = {
   sopsFile = config.homelab.secrets.sopsFile "<service>-db.env";
   format = "dotenv";
-  mode = "0444";
+  mode = "0400";
 };
 ```
 
@@ -108,9 +108,12 @@ consumer" model without exposing fleet-wide database admin over podman.
 ### PG auth — never `trust` over TCP
 
 **`mk-pg-container` requires `passwordFile`** and uses `scram-sha-256` for the
-TCP rule. `peer` auth on the local Unix socket inside the container is the
-always-available superuser backdoor — `sudo machinectl shell <name>-db` then
-`sudo -u postgres psql` for schema work, password resets, etc.
+TCP rule. The host-side SOPS file should stay `0400 root:root` unless a service
+consumer genuinely needs to read it directly; the helper copies it to a private
+postgres-readable runtime file inside the nspawn before setup. `peer` auth on
+the local Unix socket inside the container is the always-available superuser
+backdoor — `sudo machinectl shell <name>-db` then `sudo -u postgres psql` for
+schema work, password resets, etc.
 
 **Never reintroduce `trust` over TCP.** It was retired on 2026-05-10 (see #232)
 after empirical verification that any OCI container on `podman0` could pivot
@@ -394,7 +397,10 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
 - **Decrypting a multi-secret env file at mode 0444 just to share one field
   with another consumer.** Splits the trust boundary for every other secret
   in the file. Put the shared field in its own `<svc>-pgpass.env` (or similar
-  narrow file) at 0444; keep the wider env file at 0400.
+  narrow file) at 0400; keep the wider env file at 0400. `mk-pg-container`
+  copies root-only pgpass files to a private postgres-readable runtime file
+  inside the nspawn container, so host-side pgpass files do not need to be
+  world-readable.
 
 ### Privilege & isolation
 
@@ -462,7 +468,7 @@ Before submitting a new service module:
 - [ ] Options under `homelab.services.<name>` with `enable` and `dataDir`
 - [ ] Added to `modules/nixos/services/default.nix` imports
 - [ ] If using DB container: `restartTriggers` on app service referencing container toplevel
-- [ ] If using `mk-pg-container`: `passwordFile` set to a 0444 sops dotenv with
+- [ ] If using `mk-pg-container`: `passwordFile` set to a 0400 sops dotenv with
       `POSTGRES_PASSWORD`, consumer wired to load same file (see PG auth section)
 - [ ] OCI containers run with `--user=<non-root-uid>:<gid>` in `extraOptions`
 - [ ] Image refs pinned to digests for any non-nixpkgs upstream

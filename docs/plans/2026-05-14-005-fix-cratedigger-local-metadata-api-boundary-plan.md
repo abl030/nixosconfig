@@ -1,7 +1,7 @@
 ---
 title: "fix: Gate cratedigger on local metadata APIs and retire Lidarr/LMD"
 type: fix
-status: active
+status: completed
 date: 2026-05-14
 origin: docs/brainstorms/2026-05-14-cratedigger-local-metadata-api-boundary-requirements.md
 issue: 228

@@ -86,13 +86,6 @@
     }
   )
 
-  # lidarr-mcp overlay: MCP server for Lidarr music management
-  (
-    final: _prev: {
-      lidarr-mcp = inputs.lidarr-mcp.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
   # slskd-mcp overlay: MCP server for slskd (Soulseek client)
   (
     final: _prev: {
@@ -118,6 +111,18 @@
   (
     final: _prev: {
       sheets = inputs.sheets.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
+
+  # MusicBrainz PostgreSQL AMQP extension, pinned to upstream docker build ref.
+  (
+    _final: prev: {
+      musicbrainz-pg-amqp = prev.callPackage ./pkgs/musicbrainz-pg-amqp.nix {
+        postgresql = prev.postgresql_18;
+        postgresqlBuildExtension = prev.callPackage "${inputs.nixpkgs}/pkgs/servers/sql/postgresql/postgresqlBuildExtension.nix" {
+          postgresql = prev.postgresql_18;
+        };
+      };
     }
   )
 ]

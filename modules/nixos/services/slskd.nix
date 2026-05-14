@@ -1,9 +1,11 @@
 {
   config,
   lib,
+  hostConfig,
   ...
 }: let
   cfg = config.homelab.services.slskd;
+  operatorUser = hostConfig.user or "abl030";
 in {
   options.homelab.services.slskd = {
     enable = lib.mkEnableOption "slskd Soulseek client with VPN-routed NIC";
@@ -29,7 +31,7 @@ in {
     downloadDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/data/Media/Temp/slskd";
-      description = "Directory for completed downloads (shared with Lidarr).";
+      description = "Directory for completed downloads consumed by Cratedigger.";
     };
 
     musicDir = lib.mkOption {
@@ -95,6 +97,7 @@ in {
 
     services.slskd = {
       enable = true;
+      group = "music-import";
       domain = null; # We use homelab.localProxy instead of upstream nginx
       openFirewall = true; # Soulseek listen port
       environmentFile = config.sops.secrets."slskd/env".path;
@@ -112,11 +115,20 @@ in {
       };
     };
 
-    # World-writable — cratedigger + lidarr both need full access to downloads
-    systemd.services.slskd.serviceConfig.UMask = "0000";
+    systemd.tmpfiles.rules = [
+      "d ${cfg.downloadDir} 0770 slskd music-import -"
+      "d ${cfg.downloadDir}/incomplete 0770 slskd music-import -"
+    ];
 
-    # slskd user needs media access
-    users.users.slskd.extraGroups = ["users"];
+    # Slskd downloads are handed to root-run cratedigger, then Beets/operator
+    # tooling needs group access after import. Keep that boundary on the
+    # dedicated music-import group instead of world-writable files.
+    systemd.services.slskd.serviceConfig.UMask = "0002";
+
+    users = {
+      groups.music-import = {};
+      users.${operatorUser}.extraGroups = ["music-import"];
+    };
 
     sops.secrets."slskd/env" = {
       sopsFile = config.homelab.secrets.sopsFile "slskd.env";

@@ -6,8 +6,33 @@
   hostConfig,
   ...
 }: let
+  # Operations and cutover guard: docs/wiki/services/musicbrainz.md
   cfg = config.homelab.services.musicbrainz;
   localIp = hostConfig.localIp or "127.0.0.1";
+  pgpassSecret = config.sops.secrets."musicbrainz-pgpass".path;
+  cratediggerGate = config.homelab.services.cratedigger.metadataGate;
+  cratediggerGateEnabled = config.homelab.services.cratedigger.enable;
+
+  pgc = import ../lib/mk-pg-container.nix {
+    inherit pkgs;
+    name = "musicbrainz";
+    hostNum = 10;
+    dataDir = "${cfg.mirrorDir}/postgres-nspawn";
+    passwordFile = pgpassSecret;
+    pgPackage = pkgs.postgresql_18;
+    extensions = _ps: [pkgs.musicbrainz-pg-amqp];
+    pgSettings = {
+      shared_buffers = "2GB";
+      shared_preload_libraries = ["pg_amqp.so"];
+    };
+    extraDatabases = ["musicbrainz_db"];
+    postStartSQLByDatabase.musicbrainz_db = ''
+      CREATE EXTENSION IF NOT EXISTS cube;
+      CREATE EXTENSION IF NOT EXISTS earthdistance;
+      CREATE EXTENSION IF NOT EXISTS unaccent;
+      CREATE EXTENSION IF NOT EXISTS amqp;
+    '';
+  };
 
   # --- lrclib image build (no public image available) ---
   lrclibPkg = pkgs.rustPlatform.buildRustPackage {
@@ -32,8 +57,17 @@
 
   # --- Compose files ---
   baseCompose = "${inputs.musicbrainz-docker}/docker-compose.yml";
+  dbShimImage = pkgs.dockerTools.buildLayeredImage {
+    name = "musicbrainz-db-disabled";
+    tag = "latest";
+    contents = [pkgs.busybox];
+    config.Cmd = ["/bin/sleep" "infinity"];
+  };
 
-  # All named volume bind mounts — mirrors vs backed-up split
+  # All named volume bind mounts — mirrors vs backed-up split. PostgreSQL is
+  # intentionally absent here; the compose-owned DB was retired in favor of the
+  # nspawn database below. Legacy pghome/pgdata directories are retained only as
+  # rollback state until the external DB cutover is verified.
   volumeOverride = pkgs.writeText "musicbrainz-volumes.yml" ''
     volumes:
       mqdata:
@@ -41,21 +75,6 @@
         driver_opts:
           type: none
           device: ${cfg.dataDir}/mqdata
-          o: bind
-      pgdata:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/pgdata
-          o: bind
-      # PG18 layout: postgres home is the volume root (was pgdata=/var/lib/postgresql/data).
-      # Bind to mirrorDir so it shares a filesystem with pgdata — pg_upgrade --link uses
-      # hardlinks across the two during the 16→18 migration, which require same-fs targets.
-      pghome:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/pghome
           o: bind
       solrdata:
         driver: local
@@ -75,12 +94,6 @@
           type: none
           device: ${cfg.mirrorDir}/solrdump
           o: bind
-      lmdconfig:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.dataDir}/lmdconfig
-          o: bind
       lrclib-data:
         driver: local
         driver_opts:
@@ -89,112 +102,66 @@
           o: bind
   '';
 
-  # Postgres tuning, credentials, Solr heap, MB web server host
+  # Solr heap and MB web server host. DB credentials and host live in
+  # externalDbOverride so they can consume the narrow pgpass env file.
   settingsOverride = pkgs.writeText "musicbrainz-settings.yml" ''
     services:
       musicbrainz:
         environment:
-          POSTGRES_USER: "abc"
-          POSTGRES_PASSWORD: "abc"
           MUSICBRAINZ_WEB_SERVER_HOST: "${localIp}"
-      db:
-        environment:
-          POSTGRES_USER: "abc"
-          POSTGRES_PASSWORD: "abc"
-        command: postgres -c "shared_buffers=2GB" -c "shared_preload_libraries=pg_amqp.so"
-      indexer:
-        environment:
-          POSTGRES_USER: "abc"
-          POSTGRES_PASSWORD: "abc"
       search:
         mem_swappiness: -1
         environment:
           - SOLR_HEAP=2g
   '';
 
-  # nginx config for LMD proxy shim — falls back /album/<artist-mbid> → /artist/<mbid>
-  lmdProxyConf = pkgs.writeText "lmd-proxy.conf" ''
-    server {
-        listen 5001;
-
-        # Default: pass all requests through to LMD
-        location / {
-            proxy_pass http://lmd:5001;
-            proxy_set_header Host ''$host;
-        }
-
-        # Album endpoint: try LMD first, fallback to artist endpoint on 404.
-        # Lidarr calls GET /album/<artist-mbid> expecting artist albums, but LMD
-        # treats /album/ as a release-group lookup and returns 404 for artist MBIDs.
-        location ~ ^/album/([0-9a-f-]+)''$ {
-            proxy_pass http://lmd:5001;
-            proxy_set_header Host ''$host;
-            proxy_intercept_errors on;
-            error_page 404 = @album_fallback;
-        }
-
-        location @album_fallback {
-            rewrite ^/album/(.+)''$ /artist/''$1 break;
-            proxy_pass http://lmd:5001;
-            proxy_set_header Host ''$host;
-        }
-    }
-  '';
-
-  # LMD, Redis, LRCLIB service definitions
-  lmdOverride = pkgs.writeText "musicbrainz-lmd.yml" ''
+  # Replace upstream's compose-owned PostgreSQL service with an inert
+  # compatibility container, and point MusicBrainz/indexer at the fleet-managed
+  # nspawn database. The reset/override tags are verified with docker-compose
+  # config in the validation flow.
+  externalDbOverride = pkgs.writeText "musicbrainz-external-db.yml" ''
     services:
-      redis:
-        image: docker.io/library/redis:7-alpine
-        restart: unless-stopped
+      db:
+        image: musicbrainz-db-disabled:latest
+        build: !reset null
+        command: ["/bin/sleep", "infinity"]
+        env_file: !reset []
+        pull_policy: never
+        shm_size: !reset null
+        volumes: !reset []
+        expose: !reset []
 
-      lmd-proxy:
-        image: docker.io/library/nginx:alpine
+      # The external nspawn DB must publish SIR trigger events into RabbitMQ.
+      # Bind only on the host side of the nspawn veth, not on a LAN address.
+      mq:
         ports:
-          - "${toString cfg.lmdPort}:5001"
-        volumes:
-          - ${lmdProxyConf}:/etc/nginx/conf.d/default.conf:ro
-        depends_on:
-          - lmd
-        restart: unless-stopped
+          - "${pgc.hostAddress}:5672:5672"
 
-      lmd:
-        image: blampe/lidarr.metadata:70a9707
-        environment:
-          DEBUG: "false"
-          PRODUCTION: "false"
-          USE_CACHE: "true"
-          ENABLE_STATS: "false"
-          ROOT_PATH: ""
-          IMAGE_CACHE_HOST: "theaudiodb.com"
-          EXTERNAL_TIMEOUT: "1000"
-          INVALIDATE_APIKEY: ""
-          REDIS_HOST: "redis"
-          REDIS_PORT: "6379"
-          FANART_KEY: "''${FANART_KEY}"
-          PROVIDERS__FANARTTVPROVIDER__0__0: "''${FANART_KEY}"
-          SPOTIFY_ID: "''${SPOTIFY_ID}"
-          SPOTIFY_SECRET: "''${SPOTIFY_SECRET}"
-          SPOTIFY_REDIRECT_URL: "http://${localIp}:${toString cfg.lmdPort}"
-          PROVIDERS__SPOTIFYPROVIDER__1__CLIENT_ID: "''${SPOTIFY_ID}"
-          PROVIDERS__SPOTIFYPROVIDER__1__CLIENT_SECRET: "''${SPOTIFY_SECRET}"
-          PROVIDERS__SPOTIFYAUTHPROVIDER__1__CLIENT_ID: "''${SPOTIFY_ID}"
-          PROVIDERS__SPOTIFYAUTHPROVIDER__1__CLIENT_SECRET: "''${SPOTIFY_SECRET}"
-          PROVIDERS__SPOTIFYAUTHPROVIDER__1__REDIRECT_URI: "http://${localIp}:${toString cfg.lmdPort}"
-          TADB_KEY: "2"
-          PROVIDERS__THEAUDIODBPROVIDER__0__0: "2"
-          LASTFM_KEY: "''${LASTFM_KEY}"
-          LASTFM_SECRET: "''${LASTFM_SECRET}"
-          PROVIDERS__SOLRSEARCHPROVIDER__1__SEARCH_SERVER: "http://search:8983/solr"
-        restart: unless-stopped
-        volumes:
-          - lmdconfig:/config
-        depends_on:
-          - db
+      musicbrainz:
+        depends_on: !override
           - mq
           - search
-          - redis
+          - valkey
+        environment:
+          POSTGRES_USER: "musicbrainz"
+          POSTGRES_PASSWORD: "''${POSTGRES_PASSWORD}"
+          MUSICBRAINZ_POSTGRES_SERVER: "${pgc.dbHost}"
+          MUSICBRAINZ_POSTGRES_READONLY_SERVER: "${pgc.dbHost}"
 
+      indexer:
+        depends_on: !override
+          - mq
+          - search
+        environment:
+          POSTGRES_USER: "musicbrainz"
+          POSTGRES_PASSWORD: "''${POSTGRES_PASSWORD}"
+          MUSICBRAINZ_POSTGRES_SERVER: "${pgc.dbHost}"
+          MUSICBRAINZ_POSTGRES_READONLY_SERVER: "${pgc.dbHost}"
+  '';
+
+  # LRCLIB service definition for local Beets lyrics lookup.
+  lrclibOverride = pkgs.writeText "musicbrainz-lrclib.yml" ''
+    services:
       lrclib:
         container_name: musicbrainz-lrclib-1
         ports:
@@ -220,29 +187,16 @@
         image: lrclib-nix:latest
   '';
 
-  # Override the db build context to upstream's `build/postgres` (from-scratch)
-  # path which compiles pg_amqp into the image. Upstream's default points at
-  # `build/postgres-prebuilt` which uses metabrainz/musicbrainz-docker-db:18-build0
-  # — that prebuilt image was published WITHOUT pg_amqp.so, so the cluster fails
-  # to start with `shared_preload_libraries=pg_amqp.so`. Drop this override once
-  # upstream republishes a working build (or we move to mk-pg-container per #228).
-  dbBuildOverride = pkgs.writeText "musicbrainz-db-build.yml" ''
-    services:
-      db:
-        build:
-          context: ${inputs.musicbrainz-docker}/build/postgres
-  '';
-
   envFile = config.sops.secrets."musicbrainz/env".path;
 
   composeFiles = [
     baseCompose
     volumeOverride
     settingsOverride
-    lmdOverride
+    externalDbOverride
+    lrclibOverride
     replicationTokenOverride
     lrclibImageOverride
-    dbBuildOverride
   ];
   composeFlags = lib.concatMapStringsSep " " (f: "-f ${f}") composeFiles;
 
@@ -251,7 +205,209 @@
       --project-name musicbrainz \
       ${composeFlags} \
       --env-file ${envFile} \
+      --env-file ${pgpassSecret} \
       "$@"
+  '';
+
+  cutoverApprovalPath = "/var/lib/musicbrainz-cutover/external-db-approved.json";
+  cutoverGuard = pkgs.writeShellScript "musicbrainz-external-db-cutover-guard" ''
+    set -euo pipefail
+
+    if [ ! -s ${cutoverApprovalPath} ]; then
+      echo "ERROR: ${cutoverApprovalPath} is required before starting MusicBrainz against the external PostgreSQL boundary." >&2
+      echo "Record the migration/rebuild path, source state, rollback ref, old data paths, and ${cfg.mirrorDir}/postgres-nspawn in that JSON file." >&2
+      exit 1
+    fi
+
+    ${pkgs.jq}/bin/jq -e '
+      (.path == "dump-restore" or .path == "rebuild-import") and
+      .sourceState and
+      (.rollbackRef | type == "string" and length > 0) and
+      (.oldDataPaths | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)) and
+      .newDataPath == "${cfg.mirrorDir}/postgres-nspawn/postgres"
+    ' ${cutoverApprovalPath} >/dev/null
+
+    ${pkgs.jq}/bin/jq -r '.oldDataPaths[]' ${cutoverApprovalPath} | while IFS= read -r path; do
+      if [ ! -e "$path" ]; then
+        echo "ERROR: oldDataPaths entry does not exist: $path" >&2
+        exit 1
+      fi
+    done
+
+    if [ ! -d "${cfg.mirrorDir}/postgres-nspawn/postgres" ]; then
+      echo "ERROR: expected new MusicBrainz DB path is missing: ${cfg.mirrorDir}/postgres-nspawn/postgres" >&2
+      exit 1
+    fi
+  '';
+
+  dbPasswordEnv = ''
+    PASS=$(${pkgs.gnugrep}/bin/grep '^POSTGRES_PASSWORD=' ${pgpassSecret} | ${pkgs.coreutils}/bin/cut -d= -f2-)
+    if [ -z "$PASS" ]; then
+      echo "ERROR: POSTGRES_PASSWORD missing from ${pgpassSecret}" >&2
+      exit 1
+    fi
+    export PGPASSWORD="$PASS"
+  '';
+
+  dbPreflightVerifyScript = pkgs.writeShellScript "musicbrainz-external-db-preflight" ''
+    set -euo pipefail
+    ${dbPasswordEnv}
+
+    psql() {
+      ${pkgs.postgresql_18}/bin/psql \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U musicbrainz \
+        -d musicbrainz_db \
+        -v ON_ERROR_STOP=1 \
+        -tAc "$1"
+    }
+
+    require_true() {
+      local label="$1"
+      local sql="$2"
+      local result
+      result="$(psql "$sql")"
+      if [ "$result" != "t" ]; then
+        echo "ERROR: MusicBrainz DB verification failed: $label ($result)" >&2
+        exit 1
+      fi
+    }
+
+    require_true "artist/release tables are populated" \
+      "SELECT (SELECT count(*) FROM artist) > 1000000 AND (SELECT count(*) FROM release) > 1000000"
+
+    require_true "application tables are owned by musicbrainz" \
+      "SELECT count(*) = 0 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_roles r ON r.oid = c.relowner WHERE c.relkind IN ('r','p','v','m','S','f') AND n.nspname NOT IN ('pg_catalog','information_schema') AND r.rolname <> 'musicbrainz'"
+  '';
+
+  dbVerifyScript = pkgs.writeShellScript "musicbrainz-external-db-verify" ''
+    set -euo pipefail
+    ${dbPreflightVerifyScript}
+    ${dbPasswordEnv}
+
+    psql() {
+      ${pkgs.postgresql_18}/bin/psql \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U musicbrainz \
+        -d musicbrainz_db \
+        -v ON_ERROR_STOP=1 \
+        -tAc "$1"
+    }
+
+    require_true() {
+      local label="$1"
+      local sql="$2"
+      local result
+      result="$(psql "$sql")"
+      if [ "$result" != "t" ]; then
+        echo "ERROR: MusicBrainz DB verification failed: $label ($result)" >&2
+        exit 1
+      fi
+    }
+
+    require_true "amqp extension exists" \
+      "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'amqp')"
+
+    require_true "amqp broker points at nspawn host bridge" \
+      "SELECT EXISTS (SELECT 1 FROM amqp.broker WHERE host = '${pgc.hostAddress}' AND port = 5672)"
+
+    require_true "SIR/indexer triggers exist" \
+      "SELECT count(*) > 0 FROM pg_trigger WHERE NOT tgisinternal"
+  '';
+
+  amqpSetupScript = pkgs.writeShellScript "musicbrainz-amqp-setup" ''
+    set -euo pipefail
+
+    ${dbPreflightVerifyScript}
+    if ${dbVerifyScript}; then
+      exit 0
+    fi
+
+    ${dbPasswordEnv}
+
+    psql_scalar() {
+      ${pkgs.postgresql_18}/bin/psql \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U musicbrainz \
+        -d musicbrainz_db \
+        -v ON_ERROR_STOP=1 \
+        -tAc "$1"
+    }
+
+    psql_exec() {
+      ${pkgs.postgresql_18}/bin/psql \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U musicbrainz \
+        -d musicbrainz_db \
+        -v ON_ERROR_STOP=1 \
+        -c "$1"
+    }
+
+    psql_file() {
+      ${pkgs.postgresql_18}/bin/psql \
+        -h ${pgc.dbHost} \
+        -p ${toString pgc.dbPort} \
+        -U musicbrainz \
+        -d musicbrainz_db \
+        -v ON_ERROR_STOP=1 \
+        -f "$1"
+    }
+
+    tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
+    trap '${pkgs.coreutils}/bin/rm -rf "$tmp"' EXIT
+
+    ${composeScript} exec -T indexer python -m sir amqp_setup
+
+    if [ "$(psql_scalar "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'amqp')")" != "t" ]; then
+      ${composeScript} exec -T indexer sh -c 'MUSICBRAINZ_RABBITMQ_SERVER=${pgc.hostAddress} python -m sir extension'
+      indexer_id="$(${composeScript} ps -q indexer)"
+      ${pkgs.podman}/bin/podman cp "$indexer_id:/code/sql/CreateExtension.sql" "$tmp/CreateExtension.sql"
+      psql_file "$tmp/CreateExtension.sql"
+    fi
+
+    psql_exec "INSERT INTO amqp.broker (host, port) SELECT '${pgc.hostAddress}', 5672 WHERE NOT EXISTS (SELECT 1 FROM amqp.broker)"
+    psql_exec "UPDATE amqp.broker SET host = '${pgc.hostAddress}', port = 5672"
+    if [ "$(psql_scalar "SELECT EXISTS (SELECT 1 FROM amqp.broker WHERE host = '${pgc.hostAddress}' AND port = 5672)")" != "t" ]; then
+      echo "ERROR: MusicBrainz AMQP broker was not configured for ${pgc.hostAddress}:5672" >&2
+      exit 1
+    fi
+
+    if [ "$(psql_scalar "SELECT count(*) > 0 FROM pg_trigger WHERE NOT tgisinternal")" != "t" ]; then
+      ${composeScript} exec -T indexer python -m sir triggers
+      ${composeScript} exec -T indexer ./GenerateDropSql.pl
+      indexer_id="$(${composeScript} ps -q indexer)"
+      musicbrainz_id="$(${composeScript} ps -q musicbrainz)"
+      ${pkgs.podman}/bin/podman cp "$indexer_id:/code/sql" "$tmp/indexer-sql"
+      ${pkgs.podman}/bin/podman cp "$tmp/indexer-sql" "$musicbrainz_id:/tmp/indexer-sql"
+      ${composeScript} exec -T musicbrainz indexer-triggers.sh /tmp/indexer-sql create
+      ${composeScript} exec -T musicbrainz rm -rf /tmp/indexer-sql
+    fi
+
+    ${dbVerifyScript}
+  '';
+
+  apiVerifyScript = pkgs.writeShellScript "musicbrainz-api-verify" ''
+    set -euo pipefail
+    for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+      response="$(
+        ${pkgs.curl}/bin/curl -fsS \
+          --connect-timeout 3 \
+          --max-time 10 \
+          -H 'User-Agent: musicbrainz-cutover-verify/1.0 (local homelab)' \
+          --get \
+          --data-urlencode 'query=artist:Radiohead AND release:"OK Computer"' \
+          --data 'fmt=json' \
+          --data 'limit=1' \
+          "http://127.0.0.1:${toString cfg.webPort}/ws/2/release" 2>/dev/null
+      )" && ${pkgs.jq}/bin/jq -e '((.count // 0) | tonumber) > 0 or ((.releases // []) | length > 0)' >/dev/null <<<"$response" && exit 0
+      ${pkgs.coreutils}/bin/sleep 2
+    done
+    echo "ERROR: MusicBrainz /ws/2 representative lookup did not become healthy" >&2
+    exit 1
   '';
 
   # Extract replication token from sops env file into standalone file for bind mount
@@ -266,54 +422,14 @@
     printf '%s' "$token" > ${mbTokenPath}
     chmod 600 ${mbTokenPath}
   '';
-
-  # LMD cache DB init — creates database and schema in the MB postgres instance
-  lmCacheInitSql = pkgs.writeText "lm-cache-init.sql" ''
-    -- LMD cache schema (idempotent)
-    CREATE OR REPLACE FUNCTION cache_updated() RETURNS TRIGGER AS $body$
-    BEGIN NEW.updated = current_timestamp; RETURN NEW; END;
-    $body$ LANGUAGE plpgsql;
-
-    DO $init$
-    DECLARE t text;
-    BEGIN
-      FOREACH t IN ARRAY ARRAY['fanart','tadb','wikipedia','artist','album','spotify'] LOOP
-        EXECUTE format('CREATE TABLE IF NOT EXISTS %I (key varchar PRIMARY KEY, expires timestamptz, updated timestamptz DEFAULT current_timestamp, value bytea)', t);
-        EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(expires)', t || '_expires_idx', t);
-        EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I(updated DESC) INCLUDE (key)', t || '_updated_idx', t);
-        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = t || '_updated_trigger') THEN
-          EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON %I FOR EACH ROW WHEN (OLD.value IS DISTINCT FROM NEW.value) EXECUTE PROCEDURE cache_updated()', t || '_updated_trigger', t);
-        END IF;
-      END LOOP;
-    END
-    $init$;
-  '';
-
-  lmCacheInitStep = pkgs.writeShellScript "musicbrainz-lm-cache-init" ''
-    set -euo pipefail
-    # Wait up to 60s for postgres to be ready
-    for i in $(seq 1 30); do
-      ${pkgs.podman}/bin/podman exec musicbrainz-db-1 psql -U abc -c "SELECT 1" >/dev/null 2>&1 && break
-      sleep 2
-    done
-    # Create lm_cache_db if not present
-    db_exists=$(${pkgs.podman}/bin/podman exec musicbrainz-db-1 \
-      psql -U abc -tAc "SELECT 1 FROM pg_database WHERE datname='lm_cache_db'" 2>/dev/null || true)
-    if [ -z "$db_exists" ]; then
-      ${pkgs.podman}/bin/podman exec musicbrainz-db-1 psql -U abc -c "CREATE DATABASE lm_cache_db"
-    fi
-    # Apply schema (fully idempotent)
-    ${pkgs.podman}/bin/podman exec -i musicbrainz-db-1 \
-      psql -U abc -d lm_cache_db < ${lmCacheInitSql}
-  '';
 in {
   options.homelab.services.musicbrainz = {
-    enable = lib.mkEnableOption "MusicBrainz mirror with LMD and LRCLIB";
+    enable = lib.mkEnableOption "MusicBrainz mirror with LRCLIB lyrics";
 
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/musicbrainz";
-      description = "Directory for backed-up app state (mqdata, lmdconfig).";
+      description = "Directory for backed-up app state (mqdata).";
     };
 
     mirrorDir = lib.mkOption {
@@ -326,12 +442,6 @@ in {
       type = lib.types.port;
       default = 5200;
       description = "Port for the MusicBrainz web interface.";
-    };
-
-    lmdPort = lib.mkOption {
-      type = lib.types.port;
-      default = 5001;
-      description = "Port for the LMD (Lidarr Metadata) service.";
     };
 
     lrclibPort = lib.mkOption {
@@ -350,10 +460,6 @@ in {
 
       monitoring.monitors = [
         {
-          name = "LMD (Lidarr Metadata)";
-          url = "http://${localIp}:${toString cfg.lmdPort}/";
-        }
-        {
           name = "LRCLIB";
           url = "http://${localIp}:${toString cfg.lrclibPort}/api/search?artist_name=Radiohead&track_name=Creep";
         }
@@ -365,15 +471,30 @@ in {
       format = "dotenv";
     };
 
-    networking.firewall.allowedTCPPorts = [cfg.webPort cfg.lmdPort cfg.lrclibPort];
+    sops.secrets."musicbrainz-pgpass" = {
+      sopsFile = config.homelab.secrets.sopsFile "musicbrainz-pgpass.env";
+      format = "dotenv";
+      mode = "0400";
+    };
+
+    containers.musicbrainz-db = pgc.containerConfig;
+
+    networking.firewall.allowedTCPPorts = [cfg.webPort cfg.lrclibPort];
 
     systemd = {
       services = {
         musicbrainz = {
-          description = "MusicBrainz Mirror + LMD + LRCLIB stack";
-          after = ["network-online.target" "podman.service"];
+          description = "MusicBrainz Mirror + LRCLIB stack";
+          after = ["network-online.target" "podman.service" "container@musicbrainz-db.service"];
           wants = ["network-online.target"];
+          requires = ["container@musicbrainz-db.service"];
           wantedBy = ["multi-user.target"];
+          # DB cutover is migration-sensitive. Rebuilds should not silently stop
+          # the old compose DB and start the external-DB path before the approval
+          # marker exists. The DB container postStart below recovers this unit
+          # after approved cutover if a container restart cascade-stops it.
+          restartIfChanged = false;
+          unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
 
           environment = {
             MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
@@ -385,34 +506,70 @@ in {
             Type = "oneshot";
             RemainAfterExit = true;
             TimeoutStartSec = "600s";
-            RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+            StateDirectory = "musicbrainz-cutover";
             ExecStop = "${composeScript} stop";
           };
 
           preStart = ''
+            ${cutoverGuard}
+            ${dbPreflightVerifyScript}
+            ${lib.optionalString cratediggerGateEnabled ''
+              ${cratediggerGate.holdCommand} musicbrainz-maintenance
+              release_gate_on_error() {
+                ${cratediggerGate.releaseCommand} musicbrainz-maintenance || true
+              }
+              trap release_gate_on_error ERR
+            ''}
             # Load Nix-built lrclib image into podman
             ${pkgs.podman}/bin/podman load --input ${lrclibImage}
+            # Load Nix-built inert db shim so compose never pulls a mutable DB image
+            ${pkgs.podman}/bin/podman load --input ${dbShimImage}
             # Extract replication token from sops env file
             ${tokenExtractScript}
+            ${lib.optionalString cratediggerGateEnabled ''
+              trap - ERR
+            ''}
           '';
 
           script = ''
             ${composeScript} up -d --remove-orphans
           '';
 
-          postStart = ''
-            ${lmCacheInitStep}
-          '';
-
           restartTriggers = [
             lrclibImage
             volumeOverride
             settingsOverride
-            lmdOverride
-            lmdProxyConf
+            externalDbOverride
+            lrclibOverride
+            dbShimImage
+            dbPreflightVerifyScript
+            dbVerifyScript
+            amqpSetupScript
+            apiVerifyScript
             replicationTokenOverride
             lrclibImageOverride
+            pgpassSecret
+            cutoverGuard
+            config.systemd.units."container@musicbrainz-db.service".unit
           ];
+
+          postStart = ''
+            ${amqpSetupScript}
+            ${apiVerifyScript}
+            ${dbVerifyScript}
+            ${lib.optionalString cratediggerGateEnabled ''
+              ${cratediggerGate.releaseCommand} musicbrainz-maintenance
+              ${cratediggerGate.resumeIfClearCommand} || true
+            ''}
+          '';
+        };
+
+        "container@musicbrainz-db" = {
+          postStart = ''
+            if [ -s ${cutoverApprovalPath} ]; then
+              ${pkgs.systemd}/bin/systemctl --no-block start musicbrainz.service
+            fi
+          '';
         };
 
         # Daily replication — pulls latest MusicBrainz data
@@ -463,11 +620,12 @@ in {
         # Backed-up data (small, operational)
         "d ${cfg.dataDir} 0755 root root - -"
         "d ${cfg.dataDir}/mqdata 0755 root root - -"
-        "d ${cfg.dataDir}/lmdconfig 0755 root root - -"
         # Mirror data (large, re-downloadable, NOT backed up)
         "d ${cfg.mirrorDir} 0755 root root - -"
         "d ${cfg.mirrorDir}/pgdata 0755 root root - -"
         "d ${cfg.mirrorDir}/pghome 0755 root root - -"
+        "d ${cfg.mirrorDir}/postgres-nspawn 0755 root root - -"
+        "d ${cfg.mirrorDir}/postgres-nspawn/postgres 0700 root root - -"
         "d ${cfg.mirrorDir}/solrdata 0755 root root - -"
         "d ${cfg.mirrorDir}/dbdump 0755 root root - -"
         "d ${cfg.mirrorDir}/solrdump 0755 root root - -"

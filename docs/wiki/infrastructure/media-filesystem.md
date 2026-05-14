@@ -1,6 +1,6 @@
 # Media filesystem layout (mergerfs + virtiofs + tower NFS)
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-05-14
 **Status:** working
 **Hosts:** `igpu` (consumer), `proxmox-vm`/doc1 (consumer), `prom` (storage), `tower`/Unraid (storage)
 **Owner:** `modules/nixos/services/mounts/fuse.nix` + `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.virtiofs`)
@@ -23,7 +23,7 @@ The current split:
 | TV Shows | `/mnt/data/Media/TV Shows` (tower NFS) | `/mnt/virtio/media_metadata/TV Shows` (prom virtiofs) |
 | Music    | `/mnt/virtio/Music` (prom virtiofs) | `/mnt/virtio/media_metadata/Music` (prom virtiofs) |
 
-Music is the odd one — both branches are on prom virtiofs because the canonical music tree itself moved to prom (it's the 668GB `nvmeprom/containers/Music` ZFS child dataset, served to cratedigger/lidarr/beets on doc2 via the same virtiofs). Movies and TV's media still lives on tower's spinning disks; only their metadata moved.
+Music is the odd one — both branches are on prom virtiofs because the canonical music tree itself moved to prom (it's the 668GB `nvmeprom/containers/Music` ZFS child dataset, served to cratedigger, slskd, and Beets on doc2 via the same virtiofs). Movies and TV's media still lives on tower's spinning disks; only their metadata moved.
 
 ## Storage topology
 
@@ -32,7 +32,7 @@ Music is the odd one — both branches are on prom virtiofs because the canonica
                     │
                     │ ZFS pool: nvmeprom/containers   ← one broad virtiofs mapping (`containers`)
                     │                                    shared by doc1, doc2, igpu
-                    ├── Music                ← 668GB ZFS child dataset (jellyfin RO + lidarr RW)
+                    ├── Music                ← 668GB ZFS child dataset (jellyfin RO + music services RW)
                     │                          Auto-submounts at /mnt/virtio/Music in every guest.
                     │
                     ├── media_metadata       ← 55GB ZFS child dataset (jellyfin RW)
@@ -115,7 +115,7 @@ mergerfs /mnt/virtio/media_metadata/Music (RW) + /mnt/virtio/Music (RO) → /mnt
 mergerfs /mnt/virtio/Music (RW) → /mnt/fuse/Media/Music_RW
 ```
 
-The `Music_RW` wrapper exists so Lidarr (running on doc2) can write new albums into the canonical tree without having to know about the union. Jellyfin reads from `Music`; Lidarr writes to `Music_RW`; both ultimately hit the same `nvmeprom/containers/Music` dataset.
+The `Music_RW` wrapper is a direct writable view of the canonical tree for import/repair tooling that needs a FUSE path. Jellyfin reads from `Music`; Beets and cratedigger library/import paths use `/mnt/virtio/Music` directly, while slskd's temporary download handoff stays under its configured download directory. Canonical-library views ultimately hit the same `nvmeprom/containers/Music` dataset.
 
 Jellyfin itself stores its state under `/mnt/virtio/jellyfin` (Phase 3 of #208):
 
@@ -190,7 +190,7 @@ Music units dropped their `mnt-data.mount` dependency in Phase 1. If tower goes 
 
 ### doc1 also runs the mergerfs units
 
-doc1 (proxmox-vm) enables `homelab.mounts.fuse.enable = true` for tautulli and the music compose stack. It picks up the same fuse.nix changes as igpu. This works because doc1 has the full `containers` mapping and `media_metadata`/`Music` are ZFS child datasets, so they auto-submount without any extra Proxmox config. All four mergerfs units are active on doc1 with the same branch paths as igpu.
+doc1 (proxmox-vm) enables `homelab.mounts.fuse.enable = true` for tautulli and local media tooling. It picks up the same fuse.nix changes as igpu. This works because doc1 has the full `containers` mapping and `media_metadata`/`Music` are ZFS child datasets, so they auto-submount without any extra Proxmox config. All four mergerfs units are active on doc1 with the same branch paths as igpu.
 
 ### Adding a new library
 

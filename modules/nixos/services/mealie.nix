@@ -88,12 +88,12 @@ in {
       owner = "mealie";
       mode = "0400";
     };
-    # Separate PG password file — mode 0444 so the nspawn container can read
-    # it via bindmount; see #232.
+    # Separate root-only PG password file. mk-pg-container copies it into a
+    # postgres-readable runtime file inside the nspawn container.
     sops.secrets."mealie-pgpass" = {
       sopsFile = config.homelab.secrets.sopsFile "mealie-pgpass.env";
       format = "dotenv";
-      mode = "0444";
+      mode = "0400";
     };
 
     homelab = {
