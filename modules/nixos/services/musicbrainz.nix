@@ -225,12 +225,12 @@
       (.path == "dump-restore" or .path == "rebuild-import") and
       .sourceState and
       (.rollbackRef | type == "string") and
-      ((.rollbackArtifactsRetained // true) | type == "boolean") and
+      ((if has("rollbackArtifactsRetained") then .rollbackArtifactsRetained else true end) | type == "boolean") and
       ((.oldDataPaths // []) | type == "array" and all(.[]; type == "string" and length > 0)) and
       .newDataPath == "${cfg.mirrorDir}/postgres-nspawn/postgres"
     ' ${cutoverApprovalPath} >/dev/null
 
-    if [ "$(${pkgs.jq}/bin/jq -r '.rollbackArtifactsRetained // true' ${cutoverApprovalPath})" = "true" ]; then
+    if [ "$(${pkgs.jq}/bin/jq -r 'if has("rollbackArtifactsRetained") then .rollbackArtifactsRetained else true end' ${cutoverApprovalPath})" = "true" ]; then
       ${pkgs.jq}/bin/jq -e '(.oldDataPaths | length > 0)' ${cutoverApprovalPath} >/dev/null
       ${pkgs.jq}/bin/jq -r '.oldDataPaths[]' ${cutoverApprovalPath} | while IFS= read -r path; do
         if [ ! -e "$path" ]; then
