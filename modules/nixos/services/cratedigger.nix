@@ -427,7 +427,7 @@ in {
         "d ${metadataGateHoldDir} 0755 root root -"
       ];
 
-      services =
+      services = lib.mkMerge [
         {
           cratedigger-secrets-split = {
             description = "Split soularr.env into per-key secret files for the upstream module";
@@ -547,10 +547,11 @@ in {
             ExecStopPost = lib.mkAfter ["${metadataGateReleaseIfClearScript "discogs-import"}"];
           };
         }
-        // lib.genAttrs (map (lib.removeSuffix ".service") musicbrainzMaintenanceUnits) (_: {
+        (lib.genAttrs (map (lib.removeSuffix ".service") musicbrainzMaintenanceUnits) (_: {
           after = ["cratedigger-musicbrainz-maintenance-hold.service"];
           requires = ["cratedigger-musicbrainz-maintenance-hold.service"];
-        });
+        }))
+      ];
 
       timers = {
         cratedigger = {
