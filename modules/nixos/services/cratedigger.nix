@@ -545,6 +545,7 @@ in {
             requiredBy = musicbrainzMaintenanceUnits;
             serviceConfig = {
               Type = "oneshot";
+              RemainAfterExit = true;
               ExecStart = "${metadataGateCommand} hold musicbrainz-maintenance";
             };
           };
