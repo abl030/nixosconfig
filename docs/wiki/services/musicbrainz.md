@@ -1,7 +1,7 @@
 # MusicBrainz
 
 **Last updated:** 2026-05-14
-**Status:** active on `doc2`; external PostgreSQL cutover is staged in config
+**Status:** active on `doc2`; external PostgreSQL cutover completed 2026-05-14
 **Owner:** `modules/nixos/services/musicbrainz.nix`
 **Issue:** #228
 
@@ -59,14 +59,19 @@ The JSON must include:
 
 - `path`: `dump-restore` or `rebuild-import`
 - `sourceState`: what was verified about the old DB before cutover
-- `rollbackRef`: git ref or flake ref to return to the old compose DB config
-- `oldDataPaths`: old compose DB locations retained for rollback
+- `rollbackRef`: git ref or flake ref for the pre-cutover config, or an empty
+  string once rollback artifacts are intentionally removed
+- `rollbackArtifactsRetained`: boolean; `false` means old DB rollback data has
+  been deleted after verification
+- `oldDataPaths`: old compose DB locations retained for rollback, or an empty
+  array when `rollbackArtifactsRetained = false`
 - `newDataPath`: `/mnt/mirrors/musicbrainz/postgres-nspawn/postgres`
 
-The guard also verifies that every old data path still exists, the new DB path
-exists, `musicbrainz_db` is populated, user tables are owned by `musicbrainz`,
-the `amqp` extension exists, its broker row points at `192.168.100.20:5672`,
-and non-internal indexer triggers exist. The marker alone is not enough.
+The guard also verifies retained old data paths when
+`rollbackArtifactsRetained = true`, the new DB path exists, `musicbrainz_db` is
+populated, user tables are owned by `musicbrainz`, the `amqp` extension exists,
+its broker row points at `192.168.100.20:5672`, and non-internal indexer
+triggers exist. The marker alone is not enough.
 
 Example shape:
 
@@ -79,12 +84,8 @@ Example shape:
     "verifiedAt": "2026-05-14T00:00:00Z"
   },
   "rollbackRef": "github:abl030/nixosconfig/<commit>#doc2",
-  "oldDataPaths": [
-    "/var/lib/containers/storage/volumes/musicbrainz_pghome/_data",
-    "/var/lib/containers/storage/volumes/musicbrainz_pgdata/_data",
-    "/mnt/mirrors/musicbrainz/pghome",
-    "/mnt/mirrors/musicbrainz/pgdata"
-  ],
+  "rollbackArtifactsRetained": false,
+  "oldDataPaths": [],
   "newDataPath": "/mnt/mirrors/musicbrainz/postgres-nspawn/postgres"
 }
 ```
@@ -109,8 +110,39 @@ and leaves the `musicbrainz-maintenance` cratedigger hold in place.
 8. Verify `/ws/2` health/search, replication readiness, LRCLIB, Discogs gate,
    and cratedigger resume.
 
-Do not delete the old compose DB volumes until the new API has survived a normal
-restart/rebuild cycle and issue #228 records rollback confidence.
+Rollback artifacts are not retained after successful verification. A future full
+rebuild should redownload upstream MusicBrainz dumps.
+
+## 2026-05-14 Cutover Record
+
+The live cutover used the `dump-restore` path:
+
+- Old DB container: `musicbrainz-db-1`
+- Old DB user: `abc`
+- Temporary dump: `/mnt/mirrors/musicbrainz/dbdump/cutover-20260514T080208Z.dump`
+  was removed after verification.
+- Restored counts: `artist = 2872585`, `release = 5496911`
+- Non-internal triggers restored: `39`
+- Rollback ref recorded in marker: `github:abl030/nixosconfig/933fd9a1#doc2`
+- Rollback artifacts retained: `false`
+- Approval marker: `/var/lib/musicbrainz-cutover/external-db-approved.json`
+
+Post-restore ownership was narrowed to the `musicbrainz` database role for all
+application relations. The compose DB is now the inert
+`musicbrainz-db-disabled:latest` shim, while `container@musicbrainz-db.service`
+owns the real PostgreSQL data path.
+
+Live verification after deployment:
+
+- `musicbrainz.service`, `container@musicbrainz-db.service`, `discogs-api.service`,
+  and cratedigger units active.
+- `sudo cratedigger-metadata-gate status` showed no holds and probes `ok`.
+- Local MusicBrainz `/ws/2` representative release query returned results.
+- Discogs `/health` returned `status = ok`.
+- `https://music.ablz.au/` returned HTTP 200.
+- No LMD/Lidarr containers or `5001`/`8686` listeners remained.
+- Temporary dump and old compose DB rollback paths were removed after
+  verification.
 
 ## Least Privilege Notes
 

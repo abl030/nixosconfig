@@ -217,24 +217,28 @@
 
     if [ ! -s ${cutoverApprovalPath} ]; then
       echo "ERROR: ${cutoverApprovalPath} is required before starting MusicBrainz against the external PostgreSQL boundary." >&2
-      echo "Record the migration/rebuild path, source state, rollback ref, old data paths, and ${cfg.mirrorDir}/postgres-nspawn in that JSON file." >&2
+      echo "Record the migration/rebuild path, source state, rollback disposition, and ${cfg.mirrorDir}/postgres-nspawn in that JSON file." >&2
       exit 1
     fi
 
     ${pkgs.jq}/bin/jq -e '
       (.path == "dump-restore" or .path == "rebuild-import") and
       .sourceState and
-      (.rollbackRef | type == "string" and length > 0) and
-      (.oldDataPaths | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)) and
+      (.rollbackRef | type == "string") and
+      ((.rollbackArtifactsRetained // true) | type == "boolean") and
+      ((.oldDataPaths // []) | type == "array" and all(.[]; type == "string" and length > 0)) and
       .newDataPath == "${cfg.mirrorDir}/postgres-nspawn/postgres"
     ' ${cutoverApprovalPath} >/dev/null
 
-    ${pkgs.jq}/bin/jq -r '.oldDataPaths[]' ${cutoverApprovalPath} | while IFS= read -r path; do
-      if [ ! -e "$path" ]; then
-        echo "ERROR: oldDataPaths entry does not exist: $path" >&2
-        exit 1
-      fi
-    done
+    if [ "$(${pkgs.jq}/bin/jq -r '.rollbackArtifactsRetained // true' ${cutoverApprovalPath})" = "true" ]; then
+      ${pkgs.jq}/bin/jq -e '(.oldDataPaths | length > 0)' ${cutoverApprovalPath} >/dev/null
+      ${pkgs.jq}/bin/jq -r '.oldDataPaths[]' ${cutoverApprovalPath} | while IFS= read -r path; do
+        if [ ! -e "$path" ]; then
+          echo "ERROR: oldDataPaths entry does not exist: $path" >&2
+          exit 1
+        fi
+      done
+    fi
 
     if [ ! -d "${cfg.mirrorDir}/postgres-nspawn/postgres" ]; then
       echo "ERROR: expected new MusicBrainz DB path is missing: ${cfg.mirrorDir}/postgres-nspawn/postgres" >&2
