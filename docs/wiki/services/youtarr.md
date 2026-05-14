@@ -1,7 +1,7 @@
 # Youtarr
 
 Date researched: 2026-05-14
-Status: MariaDB extraction in progress for issue #231
+Status: MariaDB extraction completed and verified on doc2
 Related: issue #231, #228, #230, #232
 
 ## Service Shape
@@ -80,7 +80,7 @@ Final dump with writes stopped:
 - Dump size: 336K
 - SHA256: `16728d47b6c3082f9e9d27ef271aa330065aa4bb362c9b50e3457b5e9b5faf6e`
 
-Expected cutover shape:
+Completed cutover:
 
 1. Stop writes by stopping `podman-youtarr.service`.
 2. Dump the old MariaDB 10.3 database from `podman-youtarr-db.service`.
@@ -94,8 +94,18 @@ Expected cutover shape:
 10. Keep the old database directory until at least one normal rebuild/restart
    cycle succeeds.
 
-Exact commands belong in this document after the live source state has been
-verified during implementation.
+Post-cutover verification on 2026-05-14:
+
+- `container@youtarr-db.service`: active
+- `podman-youtarr.service`: active
+- `podman-youtarr-db.service`: not generated
+- Restored MariaDB version: `10.11.15-MariaDB`
+- Restored table count: 9
+- `https://youtarr.ablz.au/`: HTTP 200
+- Startup logs: database connection successful, schema validation valid with
+  zero errors, server listening on port 3011, 101 video files found on disk
+- App image running by digest:
+  `docker.io/dialmaster/youtarr@sha256:8c891a4f96e7b7c37d9915e7b78b919fe03f0aacd87eab76d751f761003e5ee1`
 
 The app unit has an `ExecCondition` migration gate: if the old
 `/mnt/virtio/youtarr/database/mysql` directory exists and the import marker is

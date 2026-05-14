@@ -1,7 +1,7 @@
 ---
 title: "fix: Own Youtarr MariaDB lifecycle"
 type: fix
-status: active
+status: completed
 date: 2026-05-14
 origin: docs/brainstorms/2026-05-14-youtarr-mariadb-lifecycle-requirements.md
 ---
@@ -11,6 +11,8 @@ origin: docs/brainstorms/2026-05-14-youtarr-mariadb-lifecycle-requirements.md
 ## Summary
 
 Build a reusable isolated MariaDB helper, migrate Youtarr onto it with a logical dump/restore, and pin Youtarr's app image so routine rebuilds no longer inherit mutable database or app runtime changes from upstream defaults.
+
+Completed on 2026-05-14. Doc2 now runs Youtarr against `container@youtarr-db.service` on MariaDB 10.11.15, the old `podman-youtarr-db.service` is no longer generated, and `https://youtarr.ablz.au/` returned HTTP 200 after cutover.
 
 ---
 
