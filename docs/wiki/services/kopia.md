@@ -1,10 +1,10 @@
 # Kopia Backup Architecture
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-05-14
 **Status:** Operational
 **Source module:** `modules/nixos/services/kopia.nix`
 **Host:** doc2
-**Related:** [issue #236](https://github.com/abl030/nixosconfig/issues/236) (security hardening — landed 2026-05-13), brainstorm [`docs/brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md`](../../brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md)
+**Related:** [issue #236](https://github.com/abl030/nixosconfig/issues/236) (security hardening / closeout), brainstorm [`docs/brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md`](../../brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md)
 
 ## Topology
 
@@ -62,6 +62,7 @@ Bucket: `kopiaphotos` (ap-southeast-2, Sydney).
 - **Default Retention on bucket**: **DISABLED**. Critical — if the bucket sets a default retention, kopia's session-marker blobs get locked too and can't be cleaned up after init, causing `kopia repository create` to fail with `Access Denied` on the cleanup phase. Kopia sets per-blob retention itself via the `--retention-mode` / `--retention-period` flags.
 - **Mode**: **Compliance** (not Governance). Governance allows a privileged IAM credential to override — but that credential is itself an attack surface, and we'd never legitimately use the override. Compliance removes that branch entirely.
 - **Retention period**: **90 days** rolling. Kopia maintenance extends retention on existing blobs to keep a rolling window. If maintenance stops running for >90 days, blobs become deletable — this is the natural "migrate-off-Wasabi" escape hatch.
+- **Object Lock Extension**: enabled in kopia maintenance. Verified on 2026-05-14 with a forced full maintenance run: `extend-blob-retention-time` succeeded and extended 15,729 blobs for the 90-day retention period.
 
 ### IAM policy for the kopia user
 
@@ -135,6 +136,7 @@ Mum's repo backs up `/mnt/data` recursively — broader scope. Policies are kopi
 ## Key operational details
 
 - **Verify timer**: `kopia-verify-{photos,mum}.service` runs daily at 05:30 (`OnCalendar=*-*-* 05:30:00`). Photos verifies at 5% sample, mum at 2%. Failures send a Gotify ping.
+- **Photos maintenance owner**: `root@kopia`. This must match the migrated source identity (`overrideHostname = "kopia"; overrideUsername = "root"`); otherwise manual full maintenance exits with `maintenance must be run by designated user: root@doc2`.
 - **Both kopia instances share `secrets/kopia.env`** — adding/removing creds touches both services. Verify both instances after env changes.
 - **Future Wasabi key rotation**: requires rewriting both `secrets/kopia.env` (sops) AND `/mnt/virtio/kopia/photos/repository.config` on doc2. Updating sops alone is insufficient because kopia reads S3 creds from the persisted config, not env, after initial connect. See the rotation playbook below.
 - **NFS watchdog**: `homelab.nfsWatchdog` probes the mum NFS path every 5 min; restarts `kopia-mum.service` if the mount goes stale. Configured automatically by the module when an instance references `/mnt/mum`.
@@ -152,14 +154,18 @@ When rotating the Wasabi keys (e.g. after a suspected leak, or routine rotation)
    sudo systemctl stop kopia-photos.service
    sudo bash -c '
      set -a; source /run/secrets/kopia/env; set +a
-     kopia repository disconnect --config-file=/mnt/virtio/kopia/photos/repository.config
-     kopia repository connect s3 \
+     nix run nixpkgs#kopia -- repository disconnect --config-file=/mnt/virtio/kopia/photos/repository.config
+     nix run nixpkgs#kopia -- repository connect s3 \
        --bucket=kopiaphotos \
        --endpoint=s3.ap-southeast-2.wasabisys.com \
        --no-persist-credentials \
        --override-hostname=kopia \
        --override-username=root \
        --config-file=/mnt/virtio/kopia/photos/repository.config
+     nix run nixpkgs#kopia -- maintenance set \
+       --config-file=/mnt/virtio/kopia/photos/repository.config \
+       --owner=root@kopia \
+       --extend-object-locks=true
    '
    sudo systemctl start kopia-photos.service
    ```
@@ -168,7 +174,7 @@ When rotating the Wasabi keys (e.g. after a suspected leak, or routine rotation)
 
 ## Restore drill
 
-A real restore drill is its own work — see [#238](https://github.com/abl030/nixosconfig/issues/238) if it exists, or file it. The fresh-repo + 500GB re-upload performed on 2026-05-13 was effectively a read-side drill of the whole dataset (every file was successfully read off `/mnt/data/Life/Photos/library`), but a true restore drill would write a snapshot back to a scratch path and compare. Not done yet.
+A real restore drill is its own work — see [#238](https://github.com/abl030/nixosconfig/issues/238) if it exists, or file it. The fresh-repo re-upload performed on 2026-05-13 was effectively a read-side drill of the whole dataset (every file in the 334.8 GB `/mnt/data/Life/Photos/library` snapshot was successfully read), but a true restore drill would write a snapshot back to a scratch path and compare. Not done yet.
 
 ## Decision history
 
@@ -178,7 +184,7 @@ All decisions on this page were made via the 2026-05-13 brainstorm. Key moments:
 - **Why not ZFS encryption on `nvmeprom/containers`**: `--no-persist-credentials` for the password sidesteps the at-rest issue cleanly; ZFS encryption would touch every VM on prom and add unattended-mount key handling for negligible residual benefit.
 - **Why Compliance not Governance**: single-operator homelab — the Governance override credential is theatre, and removing it removes its attack surface.
 - **Why 90d retention**: balance — protects against slow-burn ransomware (attacker sits in systems for weeks before triggering), bounded migration cost (~3 months dual-pay worst case), storage-cost-free for static data.
-- **Why fresh bucket and full re-upload**: Object Lock applies at upload time. Existing blobs uploaded years ago would never get retroactively locked, defeating the whole point. The only path to genuine immutability for static data is a fresh bucket + full re-upload.
+- **Why fresh bucket and full re-upload**: Object Lock applies at upload time. Existing blobs uploaded years ago would never get retroactively locked, defeating the whole point. The only path to genuine immutability for static data was a fresh bucket + full re-upload.
 - **Why narrow source to `/library` not full Photos dir**: positive scope is cleaner than maintaining ignore patterns for immich's regenerable subdirs. Single source-of-truth.
 - **Why Covert Copy was rejected**: considered (Wasabi marketing surfaced it), rejected because single-operator means the multi-user-auth gate is theatre, and the doubling of storage cost outweighs the marginal protection beyond Object Lock.
 - **Why daily snapshots at 06:00**: after the 04:00–05:00 nixos-upgrade window and the 05:30 kopia-verify, with a full day of headroom for retries.

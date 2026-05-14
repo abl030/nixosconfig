@@ -188,7 +188,7 @@
           photos = {
             port = 51515;
             configDir = "/mnt/virtio/kopia/photos";
-            sources = ["/mnt/data/Life/Photos"];
+            sources = ["/mnt/data/Life/Photos/library"];
             proxyHost = "kopiaphotos.ablz.au";
             # Match container identity so existing snapshot policies/schedules work
             overrideHostname = "kopia";

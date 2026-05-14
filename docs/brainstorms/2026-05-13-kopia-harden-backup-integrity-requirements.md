@@ -3,7 +3,7 @@
 **Date:** 2026-05-13
 **Issue:** [#236](https://github.com/abl030/nixosconfig/issues/236)
 **Scope:** Standard
-**Status:** Executing — bootstrap upload in progress; see addendum at the bottom for realized outcome and discoveries that differ from the plan
+**Status:** Operational closeout mostly complete; old Wasabi bucket deletion remains blocked on account-admin access. See addenda for realized outcome and discoveries that differ from the plan.
 
 ## Problem
 
@@ -59,7 +59,7 @@ Kopia config side: `--no-persist-credentials` reconnect for consistency (no secr
 3. **(User) Wasabi**: rotate keys (new pair with `s3:PutObjectRetention`, disable old pair), create new bucket with Object Lock at creation, Compliance mode, 90d default retention.
 4. **Sops update** — new `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` into `secrets/hosts/doc2/kopia.env`. Deploy.
 5. **Fresh photos repo** — stop `kopia-photos.service`, move `/mnt/virtio/kopia/photos` aside as `photos.old`. `kopia repository create s3 --bucket=<new> --endpoint=s3.ap-southeast-2.wasabisys.com --no-persist-credentials --retention-mode=COMPLIANCE --retention-period=90d`. Start service.
-6. **(User) Kick first snapshot** — `kopia snapshot create /mnt/data/Life/Photos`. ~10-12hr at fibre upload. No maintenance window needed.
+6. **(User) Kick first snapshot** — `kopia snapshot create /mnt/data/Life/Photos/library`. ~10-12hr at fibre upload. No maintenance window needed.
 7. **Verify** — `kopia snapshot verify --verify-files-percent=100` once upload completes.
 8. **Decommission** — delete `photos.old`, delete old Wasabi bucket, confirm old keys revoked.
 9. **Close #236** — link commits, note all three acceptance items satisfied.
@@ -68,11 +68,11 @@ Kopia config side: `--no-persist-credentials` reconnect for consistency (no secr
 
 - [x] Drop `--insecure` and `--disable-csrf-token-checks` → **partial**: CSRF flag dropped, `--insecure` kept with loopback bind as justified alternative. Decision recorded above.
 - [x] Kopia config dataset has encryption → **substituted**: `--no-persist-credentials` removes the need (no plaintext secrets at rest).
-- [x] Offsite kopia repo is in append-only / object-lock mode → **yes, Wasabi Object Lock Compliance 90d on a fresh bucket with full re-upload**.
+- [x] Offsite kopia repo is in append-only / object-lock mode → **yes, Wasabi Object Lock Compliance 90d on a fresh bucket with full re-upload and object-lock extension enabled**.
 
 ## Risks / unknowns
 
-- **Kopia retention extension in Compliance mode.** Kopia's maintenance bumps retention forward on existing blobs to keep a rolling window. Compliance lets you *lengthen* retention but never shorten — this matches kopia's needs. Verify by reading kopia logs after first maintenance cycle.
+- **Kopia retention extension in Compliance mode.** Resolved 2026-05-14: object-lock extension was explicitly enabled and a forced full maintenance run extended 15,729 blobs for the 90-day retention period.
 - **500GB upload duration.** Estimated 10-12hr at fibre. Concurrency with mum's NFS backup on `/mnt/data` traffic is fine — different egress path.
 - **Cutover gap.** Between stopping the old photos service and the new repo completing its first snapshot, photos backup is not happening to either Wasabi bucket. Mum repo still snapshots `/mnt/data` (which includes `/mnt/data/Life/Photos`) so the dataset is still backed up to Synology over Tailscale during the window. Acceptable.
 
@@ -121,7 +121,7 @@ The minimal policy for kopia's needs is captured in the wiki — bucket-level + 
 
 - [x] **Item 1** (`--insecure` and `--disable-csrf-token-checks` removed): CSRF token check restored, `--insecure` kept with the bind narrowed from `0.0.0.0` to `127.0.0.1` so kopia is loopback-only behind nginx. Justification recorded in commit 833f35b5.
 - [x] **Item 2** (config dataset encryption): substituted with `--no-persist-credentials` + Object Lock + Wasabi IAM scoping. Different mechanism than the original framing but equivalent or better outcome per the reframed threat model above.
-- [x] **Item 3** (offsite append-only): Wasabi Object Lock Compliance, 90d retention, fresh bucket + full re-upload in progress. Synology side for mum's repo is out of scope per the plan.
+- [x] **Item 3** (offsite append-only): Wasabi Object Lock Compliance, 90d retention, fresh bucket + full re-upload completed and verified. Object-lock extension is enabled in kopia maintenance. Synology side for mum's repo is out of scope per the plan.
 
 ### Discovery 4: CSRF tokens break Kuma's JSON-query monitor
 
@@ -140,3 +140,25 @@ So this is **not** a regression on #236's win — it's a clarification that the 
 - If we ever rotate Wasabi keys, the playbook in `docs/wiki/services/kopia.md` is the procedure — sops update alone is insufficient, must also rewrite `repository.config` on doc2.
 - If kopia ever supports keeping S3 backend credentials out of `repository.config`, revisit. Currently a kopia limitation.
 - The bootstrap snapshot doubles as a read-side restore drill (every file in `/mnt/data/Life/Photos/library` was successfully read off disk). A true write-side restore drill is still owed (#238 if it exists, or file it).
+
+### Discovery 5: 2026-05-14 closeout findings
+
+Bootstrap and verification completed:
+
+- `kopia-bootstrap-photos.service` completed the first real snapshot on 2026-05-13.
+- `kopia-verify-post-bootstrap.service` completed a 100% verify on 2026-05-13 22:57 AWST: 49,963 objects / 324.8 GB processed, 45,086 files / 324.8 GB read, exit code 0.
+- The regular `kopia-verify-photos.service` timer also succeeded on 2026-05-14 05:35 AWST at the normal 5% sample.
+
+Two repo settings needed post-bootstrap correction:
+
+- `hosts/doc2/configuration.nix` still declared the photos dependency/watchdog source as `/mnt/data/Life/Photos`; the live kopia policy correctly snapshots `/mnt/data/Life/Photos/library`. The Nix host config was narrowed to `/library` to match the real policy.
+- Kopia maintenance had `Object Lock Extension: disabled` and owner `root@doc2`. Set owner to `root@kopia` to match the migrated source identity, enabled `--extend-object-locks=true`, and forced a full maintenance run. The run succeeded; `extend-blob-retention-time` extended 15,729 blobs for the 90-day retention period.
+
+Local decommissioning completed:
+
+- Removed `/mnt/virtio/kopia/photos.old` from doc2 after confirming it only contained the retired repository config and UI prefs.
+- The old Wasabi key stored in that retired config is already invalid (`InvalidAccessKeyId` from Wasabi), satisfying the key-disable requirement.
+
+Remaining blocker:
+
+- The old Wasabi bucket (`apollophotos`) cannot be deleted from this environment because the old key is invalid and this repo has no account-admin Wasabi credential. Delete it in the Wasabi console or with an account-admin credential; this is an explicit external blocker, not a new issue.
