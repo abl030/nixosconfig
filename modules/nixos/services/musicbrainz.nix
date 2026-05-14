@@ -6,12 +6,10 @@
   hostConfig,
   ...
 }: let
-  # Operations and cutover guard: docs/wiki/services/musicbrainz.md
+  # Operations: docs/wiki/services/musicbrainz.md
   cfg = config.homelab.services.musicbrainz;
   localIp = hostConfig.localIp or "127.0.0.1";
   pgpassSecret = config.sops.secrets."musicbrainz-pgpass".path;
-  cratediggerGate = config.homelab.services.cratedigger.metadataGate;
-  cratediggerGateEnabled = config.homelab.services.cratedigger.enable;
 
   pgc = import ../lib/mk-pg-container.nix {
     inherit pkgs;
@@ -55,195 +53,96 @@
     };
   };
 
-  # --- Compose files ---
-  baseCompose = "${inputs.musicbrainz-docker}/docker-compose.yml";
-  dbShimImage = pkgs.dockerTools.buildLayeredImage {
-    name = "musicbrainz-db-disabled";
-    tag = "latest";
-    contents = [pkgs.busybox];
-    config.Cmd = ["/bin/sleep" "infinity"];
-  };
-
-  # All named volume bind mounts — mirrors vs backed-up split. PostgreSQL is
-  # intentionally absent here; the compose-owned DB was retired in favor of the
-  # nspawn database below. Legacy pghome/pgdata directories are retained only as
-  # rollback state until the external DB cutover is verified.
-  volumeOverride = pkgs.writeText "musicbrainz-volumes.yml" ''
-    volumes:
-      mqdata:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.dataDir}/mqdata
-          o: bind
-      solrdata:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/solrdata
-          o: bind
-      dbdump:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/dbdump
-          o: bind
-      solrdump:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/solrdump
-          o: bind
-      lrclib-data:
-        driver: local
-        driver_opts:
-          type: none
-          device: ${cfg.mirrorDir}/lrclib
-          o: bind
-  '';
-
-  # Solr heap and MB web server host. DB credentials and host live in
-  # externalDbOverride so they can consume the narrow pgpass env file.
-  settingsOverride = pkgs.writeText "musicbrainz-settings.yml" ''
-    services:
-      musicbrainz:
-        environment:
-          MUSICBRAINZ_WEB_SERVER_HOST: "${localIp}"
-      search:
-        mem_swappiness: -1
-        environment:
-          - SOLR_HEAP=2g
-  '';
-
-  # Replace upstream's compose-owned PostgreSQL service with an inert
-  # compatibility container, and point MusicBrainz/indexer at the fleet-managed
-  # nspawn database. The reset/override tags are verified with docker-compose
-  # config in the validation flow.
-  externalDbOverride = pkgs.writeText "musicbrainz-external-db.yml" ''
-    services:
-      db:
-        image: musicbrainz-db-disabled:latest
-        build: !reset null
-        command: ["/bin/sleep", "infinity"]
-        env_file: !reset []
-        pull_policy: never
-        shm_size: !reset null
-        volumes: !reset []
-        expose: !reset []
-
-      # The external nspawn DB must publish SIR trigger events into RabbitMQ.
-      # Bind only on the host side of the nspawn veth, not on a LAN address.
-      mq:
-        ports:
-          - "${pgc.hostAddress}:5672:5672"
-
-      musicbrainz:
-        depends_on: !override
-          - mq
-          - search
-          - valkey
-        environment:
-          POSTGRES_USER: "musicbrainz"
-          POSTGRES_PASSWORD: "''${POSTGRES_PASSWORD}"
-          MUSICBRAINZ_POSTGRES_SERVER: "${pgc.dbHost}"
-          MUSICBRAINZ_POSTGRES_READONLY_SERVER: "${pgc.dbHost}"
-          MUSICBRAINZ_REDIS_SERVER: "valkey"
-          MUSICBRAINZ_VALKEY_SERVER: "valkey"
-
-      indexer:
-        depends_on: !override
-          - mq
-          - search
-        environment:
-          POSTGRES_USER: "musicbrainz"
-          POSTGRES_PASSWORD: "''${POSTGRES_PASSWORD}"
-          MUSICBRAINZ_POSTGRES_SERVER: "${pgc.dbHost}"
-          MUSICBRAINZ_POSTGRES_READONLY_SERVER: "${pgc.dbHost}"
-  '';
-
-  # LRCLIB service definition for local Beets lyrics lookup.
-  lrclibOverride = pkgs.writeText "musicbrainz-lrclib.yml" ''
-    services:
-      lrclib:
-        container_name: musicbrainz-lrclib-1
-        ports:
-          - "${toString cfg.lrclibPort}:3300"
-        volumes:
-          - lrclib-data:/data
-        restart: unless-stopped
-  '';
-
   mbTokenPath = "/run/secrets/musicbrainz-mb-token";
-
-  replicationTokenOverride = pkgs.writeText "musicbrainz-replication-token.yml" ''
-    services:
-      musicbrainz:
-        volumes:
-          - ${mbTokenPath}:/run/secrets/metabrainz_access_token:ro
-  '';
-
-  # Set lrclib to use our Nix-built image
-  lrclibImageOverride = pkgs.writeText "musicbrainz-lrclib-image.yml" ''
-    services:
-      lrclib:
-        image: lrclib-nix:latest
-  '';
-
   envFile = config.sops.secrets."musicbrainz/env".path;
 
-  composeFiles = [
-    baseCompose
-    volumeOverride
-    settingsOverride
-    externalDbOverride
-    lrclibOverride
-    replicationTokenOverride
-    lrclibImageOverride
+  musicbrainzImage = "docker.io/library/musicbrainz-musicbrainz:latest";
+  indexerImage = "docker.io/library/musicbrainz-indexer:latest";
+  mqImage = "docker.io/library/musicbrainz-mq:latest";
+  searchImage = "docker.io/library/musicbrainz-docker_search:4.1.0";
+  valkeyImage = "docker.io/valkey/valkey:9-alpine";
+  lrclibImageName = "lrclib-nix:latest";
+
+  upstreamImageInputs = [
+    musicbrainzImage
+    indexerImage
+    mqImage
+    searchImage
   ];
-  composeFlags = lib.concatMapStringsSep " " (f: "-f ${f}") composeFiles;
+  musicbrainzDockerRev = inputs.musicbrainz-docker.rev or inputs.musicbrainz-docker.lastModifiedDate or "source";
 
-  composeScript = pkgs.writeShellScript "musicbrainz-compose" ''
-    exec ${pkgs.podman}/bin/podman compose \
-      --project-name musicbrainz \
-      ${composeFlags} \
-      --env-file ${envFile} \
-      --env-file ${pgpassSecret} \
-      "$@"
-  '';
+  containerNames = [
+    "musicbrainz-valkey-1"
+    "musicbrainz-mq-1"
+    "musicbrainz-search-1"
+    "musicbrainz-indexer-1"
+    "musicbrainz-musicbrainz-1"
+    "musicbrainz-lrclib-1"
+  ];
+  containerUnitNames = map (name: "podman-${name}") containerNames;
+  containerServices = map (name: "${name}.service") containerUnitNames;
 
-  cutoverApprovalPath = "/var/lib/musicbrainz-cutover/external-db-approved.json";
-  cutoverGuard = pkgs.writeShellScript "musicbrainz-external-db-cutover-guard" ''
+  retireComposeScript = pkgs.writeShellScript "musicbrainz-retire-compose" ''
     set -euo pipefail
 
-    if [ ! -s ${cutoverApprovalPath} ]; then
-      echo "ERROR: ${cutoverApprovalPath} is required before starting MusicBrainz against the external PostgreSQL boundary." >&2
-      echo "Record the migration/rebuild path, source state, rollback disposition, and ${cfg.mirrorDir}/postgres-nspawn in that JSON file." >&2
-      exit 1
-    fi
-
-    ${pkgs.jq}/bin/jq -e '
-      (.path == "dump-restore" or .path == "rebuild-import") and
-      .sourceState and
-      (.rollbackRef | type == "string") and
-      ((if has("rollbackArtifactsRetained") then .rollbackArtifactsRetained else true end) | type == "boolean") and
-      ((.oldDataPaths // []) | type == "array" and all(.[]; type == "string" and length > 0)) and
-      .newDataPath == "${cfg.mirrorDir}/postgres-nspawn/postgres"
-    ' ${cutoverApprovalPath} >/dev/null
-
-    if [ "$(${pkgs.jq}/bin/jq -r 'if has("rollbackArtifactsRetained") then .rollbackArtifactsRetained else true end' ${cutoverApprovalPath})" = "true" ]; then
-      ${pkgs.jq}/bin/jq -e '(.oldDataPaths | length > 0)' ${cutoverApprovalPath} >/dev/null
-      ${pkgs.jq}/bin/jq -r '.oldDataPaths[]' ${cutoverApprovalPath} | while IFS= read -r path; do
-        if [ ! -e "$path" ]; then
-          echo "ERROR: oldDataPaths entry does not exist: $path" >&2
-          exit 1
-        fi
+    marker="${cfg.dataDir}/oci-migrated"
+    if [ ! -e "$marker" ]; then
+      for container in \
+        musicbrainz-db-1 \
+        musicbrainz-indexer-1 \
+        musicbrainz-lrclib-1 \
+        musicbrainz-mq-1 \
+        musicbrainz-musicbrainz-1 \
+        musicbrainz-redis-1 \
+        musicbrainz-search-1 \
+        musicbrainz-valkey-1
+      do
+        ${pkgs.podman}/bin/podman rm -f "$container" 2>/dev/null || true
       done
+
+      ${pkgs.podman}/bin/podman network rm musicbrainz_default 2>/dev/null || true
+      for volume in \
+        musicbrainz_dbdump \
+        musicbrainz_lmdconfig \
+        musicbrainz_lrclib-data \
+        musicbrainz_mqdata \
+        musicbrainz_pgdata \
+        musicbrainz_pghome \
+        musicbrainz_solrdata \
+        musicbrainz_solrdump
+      do
+        ${pkgs.podman}/bin/podman volume rm "$volume" 2>/dev/null || true
+      done
+
+      ${pkgs.coreutils}/bin/touch "$marker"
     fi
 
-    if [ ! -d "${cfg.mirrorDir}/postgres-nspawn/postgres" ]; then
-      echo "ERROR: expected new MusicBrainz DB path is missing: ${cfg.mirrorDir}/postgres-nspawn/postgres" >&2
-      exit 1
+    ${pkgs.podman}/bin/podman network create musicbrainz --ignore
+  '';
+
+  buildImagesScript = pkgs.writeShellScript "musicbrainz-build-images" ''
+    set -euo pipefail
+
+    stamp_dir="${cfg.dataDir}/image-build-stamps"
+    stamp="$stamp_dir/${musicbrainzDockerRev}"
+    needs_build=0
+    ${lib.concatMapStringsSep "\n" (image: ''
+        ${pkgs.podman}/bin/podman image exists ${lib.escapeShellArg image} || needs_build=1
+      '')
+      upstreamImageInputs}
+
+    if [ -e "$stamp" ] && [ "$needs_build" = 0 ]; then
+      exit 0
     fi
+
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg musicbrainzImage} ${inputs.musicbrainz-docker}/build/musicbrainz-prebuilt
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg indexerImage} ${inputs.musicbrainz-docker}/build/sir
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg mqImage} ${inputs.musicbrainz-docker}/build/rabbitmq
+    ${pkgs.podman}/bin/podman build --build-arg MB_SOLR_VERSION=4.1.0 -t ${lib.escapeShellArg searchImage} ${inputs.musicbrainz-docker}/build/solr
+
+    ${pkgs.coreutils}/bin/install -d -m 0755 "$stamp_dir"
+    ${pkgs.findutils}/bin/find "$stamp_dir" -mindepth 1 -maxdepth 1 -type f -delete
+    ${pkgs.coreutils}/bin/touch "$stamp"
   '';
 
   dbPasswordEnv = ''
@@ -380,12 +279,11 @@
     }
 
     wait_for_tcp ${pgc.hostAddress} 5672
-    ${composeScript} exec -T indexer python -m sir amqp_setup
+    ${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir amqp_setup
 
     if [ "$(psql_scalar "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'amqp')")" != "t" ]; then
-      ${composeScript} exec -T indexer sh -c 'MUSICBRAINZ_RABBITMQ_SERVER=${pgc.hostAddress} python -m sir extension'
-      indexer_id="$(${composeScript} ps -q indexer)"
-      ${pkgs.podman}/bin/podman cp "$indexer_id:/code/sql/CreateExtension.sql" "$tmp/CreateExtension.sql"
+      ${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 sh -c 'MUSICBRAINZ_RABBITMQ_SERVER=${pgc.hostAddress} python -m sir extension'
+      ${pkgs.podman}/bin/podman cp musicbrainz-indexer-1:/code/sql/CreateExtension.sql "$tmp/CreateExtension.sql"
       psql_file "$tmp/CreateExtension.sql"
     fi
 
@@ -397,14 +295,12 @@
     fi
 
     if [ "$(psql_scalar "SELECT count(*) > 0 FROM pg_trigger WHERE NOT tgisinternal")" != "t" ]; then
-      ${composeScript} exec -T indexer python -m sir triggers
-      ${composeScript} exec -T indexer ./GenerateDropSql.pl
-      indexer_id="$(${composeScript} ps -q indexer)"
-      musicbrainz_id="$(${composeScript} ps -q musicbrainz)"
-      ${pkgs.podman}/bin/podman cp "$indexer_id:/code/sql" "$tmp/indexer-sql"
-      ${pkgs.podman}/bin/podman cp "$tmp/indexer-sql" "$musicbrainz_id:/tmp/indexer-sql"
-      ${composeScript} exec -T musicbrainz indexer-triggers.sh /tmp/indexer-sql create
-      ${composeScript} exec -T musicbrainz rm -rf /tmp/indexer-sql
+      ${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir triggers
+      ${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 ./GenerateDropSql.pl
+      ${pkgs.podman}/bin/podman cp musicbrainz-indexer-1:/code/sql "$tmp/indexer-sql"
+      ${pkgs.podman}/bin/podman cp "$tmp/indexer-sql" musicbrainz-musicbrainz-1:/tmp/indexer-sql
+      ${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 indexer-triggers.sh /tmp/indexer-sql create
+      ${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 rm -rf /tmp/indexer-sql
     fi
 
     ${dbVerifyScript}
@@ -417,7 +313,7 @@
         ${pkgs.curl}/bin/curl -fsS \
           --connect-timeout 3 \
           --max-time 10 \
-          -H 'User-Agent: musicbrainz-cutover-verify/1.0 (local homelab)' \
+          -H 'User-Agent: musicbrainz-api-verify/1.0 (local homelab)' \
           --get \
           --data-urlencode 'query=artist:Radiohead AND release:"OK Computer"' \
           --data 'fmt=json' \
@@ -475,7 +371,10 @@ in {
     homelab = {
       podman.enable = true;
       podman.containers = [
-        {unit = "musicbrainz.service";}
+        {
+          unit = "podman-musicbrainz-valkey-1.service";
+          image = valkeyImage;
+        }
       ];
 
       monitoring.monitors = [
@@ -501,120 +400,200 @@ in {
 
     networking.firewall.allowedTCPPorts = [cfg.webPort cfg.lrclibPort];
 
-    systemd = {
-      services = {
-        musicbrainz = {
-          description = "MusicBrainz Mirror + LRCLIB stack";
-          after = ["network-online.target" "podman.service" "container@musicbrainz-db.service"];
-          wants = ["network-online.target"];
-          requires = ["container@musicbrainz-db.service"];
-          wantedBy = ["multi-user.target"];
-          # DB cutover is migration-sensitive. Rebuilds should not silently stop
-          # the old compose DB and start the external-DB path before the approval
-          # marker exists. The DB container postStart below recovers this unit
-          # after approved cutover if a container restart cascade-stops it.
-          restartIfChanged = false;
-          unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
-
-          environment = {
-            MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
-          };
-
-          path = [pkgs.podman pkgs.docker-compose pkgs.coreutils pkgs.gnugrep];
-
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            TimeoutStartSec = "600s";
-            StateDirectory = "musicbrainz-cutover";
-            ExecStop = "${composeScript} stop";
-          };
-
-          preStart = ''
-            ${cutoverGuard}
-            ${dbPreflightVerifyScript}
-            ${lib.optionalString cratediggerGateEnabled ''
-              ${cratediggerGate.holdCommand} musicbrainz-maintenance
-              release_gate_on_error() {
-                ${cratediggerGate.releaseCommand} musicbrainz-maintenance || true
-              }
-              trap release_gate_on_error ERR
-            ''}
-            # Load Nix-built lrclib image into podman
-            ${pkgs.podman}/bin/podman load --input ${lrclibImage}
-            # Load Nix-built inert db shim so compose never pulls a mutable DB image
-            ${pkgs.podman}/bin/podman load --input ${dbShimImage}
-            # Extract replication token from sops env file
-            ${tokenExtractScript}
-            ${lib.optionalString cratediggerGateEnabled ''
-              trap - ERR
-            ''}
-          '';
-
-          script = ''
-            ${composeScript} up -d --remove-orphans
-          '';
-
-          restartTriggers = [
-            lrclibImage
-            volumeOverride
-            settingsOverride
-            externalDbOverride
-            lrclibOverride
-            dbShimImage
-            dbPreflightVerifyScript
-            dbVerifyScript
-            amqpSetupScript
-            apiVerifyScript
-            replicationTokenOverride
-            lrclibImageOverride
-            pgpassSecret
-            cutoverGuard
-            config.systemd.units."container@musicbrainz-db.service".unit
-          ];
-
-          postStart = ''
-            ${amqpSetupScript}
-            ${apiVerifyScript}
-            ${dbVerifyScript}
-            ${lib.optionalString cratediggerGateEnabled ''
-              ${cratediggerGate.releaseCommand} musicbrainz-maintenance
-              ${cratediggerGate.resumeIfClearCommand} || true
-            ''}
-          '';
-        };
-
-        "container@musicbrainz-db" = {
-          postStart = ''
-            if [ -s ${cutoverApprovalPath} ]; then
-              ${pkgs.systemd}/bin/systemctl --no-block start musicbrainz.service
-            fi
-          '';
-        };
-
-        # Daily replication — pulls latest MusicBrainz data
-        musicbrainz-replication = {
-          description = "MusicBrainz daily replication";
-          after = ["musicbrainz.service"];
-          requires = ["musicbrainz.service"];
-          serviceConfig = {
-            Type = "oneshot";
-            TimeoutStartSec = "3600s";
-            ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh";
-          };
-        };
-
-        # Weekly Solr reindex — rebuilds search index
-        musicbrainz-reindex = {
-          description = "MusicBrainz weekly Solr reindex";
-          after = ["musicbrainz.service"];
-          requires = ["musicbrainz.service"];
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir reindex --entity-type artist --entity-type release";
-          };
-        };
+    virtualisation.oci-containers.containers = {
+      musicbrainz-valkey-1 = {
+        image = valkeyImage;
+        autoStart = false;
+        pull = "newer";
+        extraOptions = ["--network=musicbrainz" "--network-alias=valkey"];
       };
+
+      musicbrainz-mq-1 = {
+        image = mqImage;
+        autoStart = false;
+        pull = "never";
+        ports = ["${pgc.hostAddress}:5672:5672"];
+        volumes = ["${cfg.dataDir}/mqdata:/var/lib/rabbitmq"];
+        extraOptions = ["--network=musicbrainz" "--network-alias=mq" "--hostname=mq"];
+      };
+
+      musicbrainz-search-1 = {
+        image = searchImage;
+        autoStart = false;
+        pull = "never";
+        environment = {
+          SOLR_HEAP = "2g";
+          LOG4J_FORMAT_MSG_NO_LOOKUPS = "true";
+        };
+        volumes = [
+          "${cfg.mirrorDir}/dbdump:/media/dbdump:ro"
+          "${cfg.mirrorDir}/solrdata:/var/solr"
+          "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups"
+        ];
+        extraOptions = ["--network=musicbrainz" "--network-alias=search" "--memory-swappiness=-1"];
+      };
+
+      musicbrainz-indexer-1 = {
+        image = indexerImage;
+        autoStart = false;
+        pull = "never";
+        dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1"];
+        environmentFiles = [pgpassSecret];
+        environment = {
+          POSTGRES_USER = "musicbrainz";
+          MUSICBRAINZ_POSTGRES_SERVER = pgc.dbHost;
+          MUSICBRAINZ_POSTGRES_READONLY_SERVER = pgc.dbHost;
+          MUSICBRAINZ_RABBITMQ_SERVER = "mq";
+          MUSICBRAINZ_SEARCH_SERVER = "search:8983/solr";
+        };
+        volumes = ["${inputs.musicbrainz-docker}/default/indexer.ini:/code/config.ini:ro"];
+        extraOptions = ["--network=musicbrainz" "--network-alias=indexer"];
+      };
+
+      musicbrainz-musicbrainz-1 = {
+        image = musicbrainzImage;
+        autoStart = false;
+        pull = "never";
+        dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1" "musicbrainz-valkey-1"];
+        ports = ["${toString cfg.webPort}:5000"];
+        environmentFiles = [envFile pgpassSecret];
+        environment = {
+          POSTGRES_USER = "musicbrainz";
+          MUSICBRAINZ_POSTGRES_SERVER = pgc.dbHost;
+          MUSICBRAINZ_POSTGRES_READONLY_SERVER = pgc.dbHost;
+          MUSICBRAINZ_REDIS_SERVER = "valkey";
+          MUSICBRAINZ_VALKEY_SERVER = "valkey";
+          MUSICBRAINZ_WEB_SERVER_HOST = localIp;
+          MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
+          MUSICBRAINZ_BASE_FTP_URL = "";
+          MUSICBRAINZ_BASE_DOWNLOAD_URL = "https://data.metabrainz.org/pub/musicbrainz";
+          MUSICBRAINZ_SERVER_PROCESSES = "10";
+          MUSICBRAINZ_USE_PROXY = "1";
+        };
+        volumes = [
+          "${cfg.mirrorDir}/dbdump:/media/dbdump"
+          "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups:ro"
+          "${mbTokenPath}:/run/secrets/metabrainz_access_token:ro"
+        ];
+        extraOptions = ["--network=musicbrainz" "--network-alias=musicbrainz"];
+      };
+
+      musicbrainz-lrclib-1 = {
+        image = lrclibImageName;
+        imageFile = lrclibImage;
+        autoStart = false;
+        pull = "never";
+        ports = ["${toString cfg.lrclibPort}:3300"];
+        volumes = ["${cfg.mirrorDir}/lrclib:/data"];
+        extraOptions = ["--network=musicbrainz" "--network-alias=lrclib"];
+      };
+    };
+
+    systemd = {
+      services = lib.mkMerge [
+        {
+          musicbrainz-retire-compose = {
+            description = "Retire legacy MusicBrainz compose containers";
+            before = containerServices;
+            requiredBy = containerServices;
+            after = ["podman.service"];
+            requires = ["podman.service"];
+            unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = retireComposeScript;
+            };
+          };
+
+          musicbrainz-build-images = {
+            description = "Build upstream MusicBrainz OCI images";
+            before = containerServices;
+            requiredBy = containerServices;
+            after = ["podman.service" "musicbrainz-retire-compose.service"];
+            requires = ["podman.service" "musicbrainz-retire-compose.service"];
+            unitConfig.RequiresMountsFor = [cfg.dataDir];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = buildImagesScript;
+            };
+          };
+
+          musicbrainz = {
+            description = "MusicBrainz Mirror + LRCLIB stack readiness";
+            after = ["network-online.target" "container@musicbrainz-db.service"] ++ containerServices;
+            wants = ["network-online.target"];
+            requires = ["container@musicbrainz-db.service"] ++ containerServices;
+            wantedBy = ["multi-user.target"];
+            unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              TimeoutStartSec = "600s";
+            };
+
+            preStart = ''
+              ${dbPreflightVerifyScript}
+              ${tokenExtractScript}
+            '';
+
+            script = ''
+              true
+            '';
+
+            restartTriggers =
+              [
+                lrclibImage
+                dbPreflightVerifyScript
+                dbVerifyScript
+                amqpSetupScript
+                apiVerifyScript
+                pgpassSecret
+                retireComposeScript
+                buildImagesScript
+                config.systemd.units."container@musicbrainz-db.service".unit
+              ]
+              ++ map (unit: config.systemd.units.${unit}.unit) containerServices;
+
+            postStart = ''
+              ${amqpSetupScript}
+              ${apiVerifyScript}
+              ${dbVerifyScript}
+            '';
+          };
+
+          # Daily replication — pulls latest MusicBrainz data
+          musicbrainz-replication = {
+            description = "MusicBrainz daily replication";
+            after = ["musicbrainz.service"];
+            requires = ["musicbrainz.service"];
+            serviceConfig = {
+              Type = "oneshot";
+              TimeoutStartSec = "3600s";
+              ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh";
+            };
+          };
+
+          # Weekly Solr reindex — rebuilds search index
+          musicbrainz-reindex = {
+            description = "MusicBrainz weekly Solr reindex";
+            after = ["musicbrainz.service"];
+            requires = ["musicbrainz.service"];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir reindex --entity-type artist --entity-type release";
+            };
+          };
+        }
+        (lib.genAttrs containerUnitNames (_: {
+          partOf = ["musicbrainz.service"];
+          after = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
+          requires = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
+          unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+        }))
+      ];
 
       timers = {
         musicbrainz-replication = {
@@ -642,8 +621,6 @@ in {
         "d ${cfg.dataDir}/mqdata 0755 root root - -"
         # Mirror data (large, re-downloadable, NOT backed up)
         "d ${cfg.mirrorDir} 0755 root root - -"
-        "d ${cfg.mirrorDir}/pgdata 0755 root root - -"
-        "d ${cfg.mirrorDir}/pghome 0755 root root - -"
         "d ${cfg.mirrorDir}/postgres-nspawn 0755 root root - -"
         "d ${cfg.mirrorDir}/postgres-nspawn/postgres 0700 root root - -"
         "d ${cfg.mirrorDir}/solrdata 0755 root root - -"

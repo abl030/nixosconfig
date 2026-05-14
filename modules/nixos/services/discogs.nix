@@ -38,9 +38,6 @@
     nativeBuildInputs = [pkgs.pkg-config];
     buildInputs = [pkgs.openssl];
   };
-
-  cratediggerGate = config.homelab.services.cratedigger.metadataGate;
-  cratediggerGateEnabled = config.homelab.services.cratedigger.enable;
 in {
   options.homelab.services.discogs = {
     enable = lib.mkEnableOption "Discogs data mirror";
@@ -104,29 +101,11 @@ in {
             EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
             # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
             # out of /nix/store, which the bare DSN string would otherwise leak.
-            # Discogs imports drop/recreate mirror tables, so cratedigger must be
-            # held before import work begins and resumed only after local health
-            # and representative metadata probes pass.
             ExecStart = pkgs.writeShellScript "discogs-import-start" ''
               set -eu
-              ${lib.optionalString cratediggerGateEnabled ''
-                ${cratediggerGate.holdCommand} discogs-import
-                cleanup_failed_import() {
-                  if ${cratediggerGate.checkCommand}; then
-                    ${cratediggerGate.releaseCommand} discogs-import
-                    ${cratediggerGate.resumeIfClearCommand} || true
-                  fi
-                }
-                trap cleanup_failed_import ERR
-              ''}
               ${discogsPkg}/bin/discogs-import \
                 --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
                 --dump-dir '${cfg.mirrorDir}/dumps'
-              ${lib.optionalString cratediggerGateEnabled ''
-                trap - ERR
-                ${cratediggerGate.releaseCommand} discogs-import
-                ${cratediggerGate.resumeIfClearCommand} || true
-              ''}
             '';
           };
         };

@@ -20,8 +20,8 @@ only HTTP 200.
 
 ## Cratedigger Boundary
 
-Discogs import is part of the cratedigger maintenance boundary. The
-`discogs-import.service` wrapper:
+Discogs import is part of the cratedigger maintenance boundary. Cratedigger owns
+that coordination policy by attaching a systemd drop-in to `discogs-import.service`:
 
 1. Enters the `discogs-import` hold with `cratedigger-metadata-gate`.
 2. Runs the dump import, which drops and recreates mirror tables.

@@ -287,6 +287,20 @@
   };
   metadataGateCommand = "${metadataGateTool}/bin/cratedigger-metadata-gate";
   metadataGateStartCheckCommand = "${metadataGateCommand} start-check";
+  metadataGateReleaseAndResumeScript = reason:
+    pkgs.writeShellScript "cratedigger-release-${reason}-and-resume" ''
+      set -euo pipefail
+      ${metadataGateCommand} release ${lib.escapeShellArg reason}
+      ${metadataGateCommand} resume-if-clear || true
+    '';
+  metadataGateReleaseIfClearScript = reason:
+    pkgs.writeShellScript "cratedigger-release-${reason}-if-clear" ''
+      set -euo pipefail
+      if ${metadataGateCommand} check; then
+        ${metadataGateCommand} release ${lib.escapeShellArg reason}
+        ${metadataGateCommand} resume-if-clear || true
+      fi
+    '';
 
   # PostgreSQL in an nspawn container — data lives at cfg.dataDir/postgres
   pgc = import ../lib/mk-pg-container.nix {
@@ -344,45 +358,21 @@ in {
         default = 10;
         description = "Maximum seconds each metadata gate HTTP probe may take.";
       };
-
-      checkCommand = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${metadataGateCommand} check";
-        description = "Read-only command that checks local MusicBrainz and Discogs metadata API readiness.";
-      };
-
-      holdCommand = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${metadataGateCommand} hold";
-        description = "Read-only command prefix for entering a cratedigger metadata hold with a fixed reason.";
-      };
-
-      releaseCommand = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${metadataGateCommand} release";
-        description = "Read-only command prefix for releasing one fixed cratedigger metadata hold reason.";
-      };
-
-      resumeIfClearCommand = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${metadataGateCommand} resume-if-clear";
-        description = "Read-only command that resumes cratedigger only when all hold reasons are clear and probes pass.";
-      };
-
-      statusCommand = lib.mkOption {
-        type = lib.types.str;
-        readOnly = true;
-        default = "${metadataGateCommand} status";
-        description = "Read-only command that reports current cratedigger metadata gate hold and probe status.";
-      };
     };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = config.homelab.services.musicbrainz.enable;
+        message = "homelab.services.cratedigger requires homelab.services.musicbrainz because MusicBrainz /ws/2 is a hard metadata gate.";
+      }
+      {
+        assertion = config.homelab.services.discogs.enable;
+        message = "homelab.services.cratedigger requires homelab.services.discogs because Discogs is a hard metadata gate.";
+      }
+    ];
+
     environment.systemPackages = [metadataGateTool];
 
     # ---------------------------------------------------------------------
@@ -521,6 +511,18 @@ in {
             Type = "oneshot";
             ExecStart = "${metadataGateCommand} watchdog";
           };
+        };
+
+        musicbrainz.serviceConfig = {
+          ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
+          ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "musicbrainz-maintenance"}"];
+          ExecStop = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
+        };
+
+        discogs-import.serviceConfig = {
+          ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold discogs-import"];
+          ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "discogs-import"}"];
+          ExecStopPost = lib.mkAfter ["${metadataGateReleaseIfClearScript "discogs-import"}"];
         };
       };
 

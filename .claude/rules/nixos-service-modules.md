@@ -8,6 +8,13 @@ These rules apply when creating or modifying NixOS service modules under `module
 2. **Build a custom module** if the package exists in nixpkgs but has no module. Use `pkgs.<name>` and write a systemd service.
 3. **Use podman/OCI containers** as a last resort. Use `virtualisation.oci-containers.containers` driven by `homelab.podman` (rootful, with autoupdate + autoheal). Multi-container services get split into per-container OCI entries plus a systemd unit to glue them together — the rootless `podman compose` stack system was retired on 2026-04-16 (see `docs/wiki/services/retired-container-stacks.md`).
 
+`podman compose` / `docker-compose` is an anti-pattern in service modules. It
+has repeatedly hidden lifecycle semantics from systemd and hung during stop
+operations. Translate upstream compose files into explicit
+`virtualisation.oci-containers` entries. If upstream only publishes Dockerfiles,
+add a narrow image-build oneshot that runs `podman build` for those images; do
+not put compose back into the steady-state runtime.
+
 ## Module Structure
 
 Every service module lives at `modules/nixos/services/<name>.nix` and follows this pattern:

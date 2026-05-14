@@ -61,6 +61,19 @@
 # named in the issue, not a sibling-issue dump.
 #
 
+# !! CRITICAL: DO THE MIGRATION, DON'T CODE A DEFERRAL MACHINE !!
+#
+# When the real task is a data/service migration, perform the migration during
+# the work session. Do NOT replace it with runtime cutover guards, approval
+# JSON, rollback state machines, or "operator must later..." paths unless the
+# user explicitly asks to stage instead of migrate.
+#
+# Safety belongs in preflight checks, backups when needed, verification, and a
+# clear rollback command — not in permanent code that exists only because the
+# migration was deferred. If the system is already live and verified, remove
+# migration scaffolding before calling the work complete.
+#
+
 # Repository Guidelines
 
 This file provides guidance to AI coding assistants working with this repository.

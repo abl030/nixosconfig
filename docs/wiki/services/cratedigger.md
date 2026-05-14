@@ -51,8 +51,8 @@ local metadata probes pass. The dependency watchdog can clear only the
 `dependency` hold; manual, Discogs import, and MusicBrainz maintenance holds are
 released only by their owner.
 
-MusicBrainz database maintenance uses the `musicbrainz-maintenance` hold. See
-`docs/wiki/services/musicbrainz.md` for the external PostgreSQL cutover guard.
+MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. The migration
+is complete; this hold now protects ordinary provider restarts and rebuilds.
 
 ## Probe Shape
 
