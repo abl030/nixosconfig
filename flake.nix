@@ -173,12 +173,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Lidarr MCP - MCP server for Lidarr music management
-    lidarr-mcp = {
-      url = "github:abl030/lidarr-mcp";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # slskd MCP - MCP server for slskd (Soulseek client)
     slskd-mcp = {
       url = "github:abl030/slskd-mcp";

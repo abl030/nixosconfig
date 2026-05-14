@@ -364,13 +364,12 @@ in {
         mode = "0400";
       };
 
-      # PG password — separate file from jellystat/env so the nspawn container
-      # can read it via mode=0444 bindmount without exposing other jellystat
-      # secrets (JWT_SECRET etc.) to anyone with shell access on doc2.
+      # PG password — separate file from jellystat/env so DB credentials stay
+      # narrow without exposing other jellystat secrets (JWT_SECRET etc.).
       sops.secrets."jellystat-pgpass" = {
         sopsFile = config.homelab.secrets.sopsFile "jellystat-pgpass.env";
         format = "dotenv";
-        mode = "0444";
+        mode = "0400";
       };
 
       # nspawn PostgreSQL. See mk-pg-container header for cascade-stop gotcha.

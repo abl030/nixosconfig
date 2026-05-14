@@ -98,7 +98,7 @@ in {
     sops.secrets."youtarr-db" = {
       sopsFile = config.homelab.secrets.sopsFile "youtarr-db.env";
       format = "dotenv";
-      mode = "0444";
+      mode = "0400";
     };
 
     containers.youtarr-db = mdbc.containerConfig;

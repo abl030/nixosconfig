@@ -20,8 +20,9 @@
 # rule). See #232 for the audit and the security ramifications walkthrough.
 #
 # `passwordFile` is REQUIRED — point it at a sops-managed dotenv file
-# containing `POSTGRES_PASSWORD=<value>` with mode 0444 (readable inside
-# the container by the postgres user via the bindmount).
+# containing `POSTGRES_PASSWORD=<value>`. The host-side secret can stay
+# root-only; the container copies it to a private postgres-readable runtime
+# file before setup instead of requiring the bindmount itself to be world-readable.
 #
 # Recovery / out-of-band ops: peer auth on the local socket inside the
 # container is unchanged. `sudo machinectl shell <name>-db` then
@@ -52,6 +53,7 @@
   extensions ? (_ps: []),
   pgSettings ? {},
   postStartSQL ? null,
+  postStartSQLByDatabase ? {},
   # Additional databases to ensure on top of `name`. Useful when a service
   # connects with user=<name> but expects a differently-named database
   # (e.g. jellystat: user=jellystat, database=jfstat). All extra databases
@@ -63,6 +65,7 @@
 
   # Path inside the container where the bindmounted password file appears.
   pgpassPath = "/run/secrets/pgpass.env";
+  pgpassRuntimePath = "/run/postgresql-${name}-pgpass.env";
 in {
   inherit hostAddress localAddress;
   dbHost = localAddress;
@@ -113,22 +116,39 @@ in {
       };
 
       # postgresql-setup runs ensureDatabases/ensureUsers, then our own steps:
+      #   0. Copy the root-readable bindmounted pgpass into a private runtime
+      #      file owned by postgres.
       #   1. Re-own extra databases to ${name} (ensureDBOwnership only handles primary)
-      #   2. Apply postStartSQL if provided
-      #   3. Set the user's password from the bindmounted sops file
+      #   2. Apply postStartSQL if provided, plus per-database init SQL
+      #   3. Set the user's password from the private runtime pgpass file
       #
       # The password step uses psql's `:'pwd'` variable interpolation which
       # properly quotes/escapes the value — safe regardless of password contents.
+      systemd.services.postgresql-setup.serviceConfig.ExecStartPre = [
+        "+${pkgs.writeShellScript "${name}-prepare-pgpass" ''
+          set -eu
+          ${pkgs.coreutils}/bin/install -m 0400 -o postgres -g postgres ${pgpassPath} ${pgpassRuntimePath}
+        ''}"
+      ];
+
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
         (map (db: ''${lib.getExe' pgPackage "psql"} -d "${db}" -c "ALTER DATABASE \"${db}\" OWNER TO \"${name}\""'') extraDatabases)
         ++ lib.optional (postStartSQL != null)
         ''${lib.getExe' pgPackage "psql"} -d "${name}" -f "${pkgs.writeText "${name}-pg-init.sql" postStartSQL}"''
+        ++ lib.flatten (
+          lib.mapAttrsToList (
+            db: sql:
+              lib.optional (sql != null)
+              ''${lib.getExe' pgPackage "psql"} -d "${db}" -f "${pkgs.writeText "${name}-${db}-pg-init.sql" sql}"''
+          )
+          postStartSQLByDatabase
+        )
         ++ [
           (pkgs.writeShellScript "${name}-set-password" ''
             set -eu
-            PASS=$(${pkgs.gnugrep}/bin/grep '^POSTGRES_PASSWORD=' ${pgpassPath} | ${pkgs.coreutils}/bin/cut -d= -f2-)
+            PASS=$(${pkgs.gnugrep}/bin/grep '^POSTGRES_PASSWORD=' ${pgpassRuntimePath} | ${pkgs.coreutils}/bin/cut -d= -f2-)
             if [ -z "$PASS" ]; then
-              echo "${name}-set-password: POSTGRES_PASSWORD not found in ${pgpassPath}" >&2
+              echo "${name}-set-password: POSTGRES_PASSWORD not found in ${pgpassRuntimePath}" >&2
               exit 1
             fi
             # Escape any single quote in the password by doubling it, for SQL

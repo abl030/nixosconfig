@@ -33,7 +33,7 @@ in {
     sops.secrets."atuin-pgpass" = {
       sopsFile = config.homelab.secrets.sopsFile "atuin-pgpass.env";
       format = "dotenv";
-      mode = "0444"; # bindmounted into nspawn; postgres user inside reads via mount
+      mode = "0400";
     };
 
     services.atuin = {

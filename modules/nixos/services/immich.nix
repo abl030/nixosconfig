@@ -126,13 +126,12 @@ in {
       group = "immich";
       mode = "0400";
     };
-    # PG password — POSTGRES_PASSWORD + DB_PASSWORD aliases of the same value;
-    # see #232. mode 0444 because the nspawn container reads via bindmount.
+    # PG password — POSTGRES_PASSWORD + DB_PASSWORD aliases of the same value.
     # Loaded after immich/env so the canonical value wins on duplicate keys.
     sops.secrets."immich-pgpass" = {
       sopsFile = config.homelab.secrets.sopsFile "immich-pgpass.env";
       format = "dotenv";
-      mode = "0444";
+      mode = "0400";
     };
 
     # Wire into existing infrastructure

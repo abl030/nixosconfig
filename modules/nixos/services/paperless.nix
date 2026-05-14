@@ -122,12 +122,11 @@ in {
         mode = "0400";
       };
       # PG password file — POSTGRES_PASSWORD + PAPERLESS_DBPASSWORD aliases of
-      # the same value; see #232. mode 0444 because the nspawn container reads
-      # via bindmount; the file contains nothing but the DB password.
+      # the same value; the file contains nothing but the DB password.
       "paperless-pgpass" = {
         sopsFile = config.homelab.secrets.sopsFile "paperless-pgpass.env";
         format = "dotenv";
-        mode = "0444";
+        mode = "0400";
       };
     };
 

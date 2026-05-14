@@ -97,7 +97,7 @@ in {
         };
 
         "fuse-mergerfs-music-rw" = {
-          description = "mergerfs wrapper for Music (RW for Lidarr)";
+          description = "mergerfs wrapper for Music (direct RW service access)";
           unitConfig.RequiresMountsFor = ["/mnt/virtio/Music"];
           serviceConfig = {
             Type = "simple";

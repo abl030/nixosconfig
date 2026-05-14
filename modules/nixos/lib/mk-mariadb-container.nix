@@ -16,6 +16,10 @@
 # container remains the ops backdoor via:
 #   sudo machinectl shell <name>-db
 # then use the local MariaDB client as the mysql user.
+#
+# `passwordFile` should be a root-only SOPS dotenv. The container copies the
+# bindmounted file to a private mysql-readable runtime path before setup, so the
+# host-side secret does not need to be world-readable.
 {
   pkgs,
   name,
@@ -33,6 +37,7 @@
   localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
 
   dbpassPath = "/run/secrets/mariadb.env";
+  dbpassRuntimePath = "/run/mariadb-${name}-dbpass.env";
 in {
   inherit hostAddress localAddress;
   dbHost = localAddress;
@@ -70,11 +75,18 @@ in {
           // mysqlSettings;
       };
 
+      systemd.services.mysql.serviceConfig.ExecStartPre = [
+        "+${pkgs.writeShellScript "${name}-prepare-dbpass" ''
+          set -eu
+          ${pkgs.coreutils}/bin/install -m 0400 -o mysql -g mysql ${dbpassPath} ${dbpassRuntimePath}
+        ''}"
+      ];
+
       systemd.services.mysql.postStart = lib.mkAfter ''
         set -eu
-        PASS=$(${pkgs.gnugrep}/bin/grep '^${passwordVariable}=' ${dbpassPath} | ${pkgs.coreutils}/bin/cut -d= -f2-)
+        PASS=$(${pkgs.gnugrep}/bin/grep '^${passwordVariable}=' ${dbpassRuntimePath} | ${pkgs.coreutils}/bin/cut -d= -f2-)
         if [ -z "$PASS" ]; then
-          echo "${name}-mariadb-setup: ${passwordVariable} not found in ${dbpassPath}" >&2
+          echo "${name}-mariadb-setup: ${passwordVariable} not found in ${dbpassRuntimePath}" >&2
           exit 1
         fi
         PASS_ESC=''${PASS//\'/\'\'}
