@@ -147,6 +147,8 @@
           POSTGRES_PASSWORD: "''${POSTGRES_PASSWORD}"
           MUSICBRAINZ_POSTGRES_SERVER: "${pgc.dbHost}"
           MUSICBRAINZ_POSTGRES_READONLY_SERVER: "${pgc.dbHost}"
+          MUSICBRAINZ_REDIS_SERVER: "valkey"
+          MUSICBRAINZ_VALKEY_SERVER: "valkey"
 
       indexer:
         depends_on: !override
@@ -360,6 +362,20 @@
     tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
     trap '${pkgs.coreutils}/bin/rm -rf "$tmp"' EXIT
 
+    wait_for_tcp() {
+      local host="$1"
+      local port="$2"
+      for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+        if ${pkgs.bash}/bin/bash -c ":</dev/tcp/$host/$port" 2>/dev/null; then
+          return 0
+        fi
+        ${pkgs.coreutils}/bin/sleep 1
+      done
+      echo "ERROR: timed out waiting for $host:$port" >&2
+      return 1
+    }
+
+    wait_for_tcp ${pgc.hostAddress} 5672
     ${composeScript} exec -T indexer python -m sir amqp_setup
 
     if [ "$(psql_scalar "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'amqp')")" != "t" ]; then
