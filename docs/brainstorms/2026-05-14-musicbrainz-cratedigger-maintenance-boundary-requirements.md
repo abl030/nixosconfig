@@ -1,9 +1,14 @@
 ---
 date: 2026-05-14
 topic: musicbrainz-cratedigger-maintenance-boundary
+status: superseded
+superseded_by: docs/brainstorms/2026-05-14-cratedigger-local-metadata-api-boundary-requirements.md
 ---
 
 # MusicBrainz Database Isolation and Cratedigger Maintenance Boundary
+
+> Superseded on 2026-05-14 by `docs/brainstorms/2026-05-14-cratedigger-local-metadata-api-boundary-requirements.md`.
+> The newer scope removes Lidarr/LMD as active requirements and gates cratedigger only on the local MusicBrainz API and local Discogs API.
 
 ## Summary
 

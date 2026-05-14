@@ -1,13 +1,17 @@
 ---
 title: "fix: Isolate MusicBrainz PostgreSQL and pause cratedigger during maintenance"
 type: fix
-status: active
+status: superseded
 date: 2026-05-14
 origin: docs/brainstorms/2026-05-14-musicbrainz-cratedigger-maintenance-boundary-requirements.md
 issue: 228
+superseded_by: docs/brainstorms/2026-05-14-cratedigger-local-metadata-api-boundary-requirements.md
 ---
 
 # MusicBrainz PostgreSQL Isolation and Cratedigger Maintenance Boundary Plan
+
+> Superseded on 2026-05-14 by `docs/brainstorms/2026-05-14-cratedigger-local-metadata-api-boundary-requirements.md`.
+> The newer scope removes Lidarr/LMD as active requirements and adds Discogs API as an equal hard gate for cratedigger.
 
 ## Summary
 
