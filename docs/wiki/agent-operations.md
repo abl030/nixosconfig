@@ -14,7 +14,7 @@ Each row: enable site -> module file -> what it owns. All current services run o
 
 | Service | Enabled in | Module | Notes |
 |---|---|---|---|
-| paperless-ngx | `hosts/doc2/configuration.nix` (`homelab.services.paperless`) | `modules/nixos/services/paperless.nix` | Wraps upstream `services.paperless`. NFS-backed media/consume dirs symlinked through `/var/lib/paperless-{media,consume}`. Postgres in nspawn container (`paperless-db`). |
+| paperless-ngx | `hosts/doc2/configuration.nix` (`homelab.services.paperless`) | `modules/nixos/services/paperless.nix` | Wraps upstream `services.paperless`. NFS-backed media/consume dirs symlinked through `/var/lib/paperless-{media,consume}`; consume points directly at the scanner directory, not an intermediate import tree. Postgres in nspawn container (`paperless-db`). |
 | beancount + Fava | `hosts/doc2/configuration.nix` (`homelab.services.beancount`) | `modules/nixos/services/beancount.nix` | Custom module: clones `git.ablz.au/abl030/books`, runs `fava` directly. **No Fava config file** — see Fava section below. |
 | books-repo auto-pull | (same as beancount) | `modules/nixos/services/beancount.nix` | `beancount-clone.service` (oneshot, first run) + `beancount-pull.timer` (every 5 min, `git fetch` + `git reset --hard origin/master`). User: `fava`. |
 
@@ -71,6 +71,8 @@ sed -n '/homelab.services.paperless/,/^      [a-z]/p' hosts/doc2/configuration.n
 ```
 
 For paperless application settings (PAPERLESS_*), the source of truth is the `settings = { ... }` attrset in `paperless.nix`. Anything not listed there is at upstream nixpkgs default.
+
+Paperless consumes scanner output directly: `/var/lib/paperless-consume` -> `/mnt/data/Life/Meg and Andy/Scans`. Do not recreate the retired `Paperless/Import` bind-mount layout.
 
 ---
 
