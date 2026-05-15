@@ -615,6 +615,20 @@ in {
             after = ["musicbrainz-token.service"];
             requires = ["musicbrainz-token.service"];
           };
+
+          # mq binds to ${pgc.hostAddress}:5672 — the host-side veth IP of the
+          # musicbrainz-db nspawn. Without an explicit ordering dep, parallel
+          # restart during switch-to-configuration races: mq tries to bind
+          # before the veth exists and burns through StartLimitBurst.
+          podman-musicbrainz-mq-1 = {
+            after = ["container@musicbrainz-db.service"];
+            requires = ["container@musicbrainz-db.service"];
+            serviceConfig.RestartSec = "5s";
+            unitConfig = {
+              StartLimitIntervalSec = "120s";
+              StartLimitBurst = "10";
+            };
+          };
         }
       ];
 
