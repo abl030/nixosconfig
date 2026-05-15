@@ -2,11 +2,14 @@
   lib,
   config,
   pkgs,
+  hostConfig,
   ...
 }: let
   cfg = config.homelab.update;
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
+  diagnoseUser = hostConfig.user;
+  diagnoseHome = hostConfig.homeDirectory or "/home/${diagnoseUser}";
 in {
   options.homelab.update = {
     enable = lib.mkEnableOption "Nightly flake switch & housekeeping (via system.autoUpgrade + timers)";
@@ -71,6 +74,10 @@ in {
       default = "60min";
       description = "Maximum time allowed for the entire update operation (DNS check + rebuild + activation). Prevents hangs from stuck activations.";
     };
+
+    diagnose = {
+      enable = lib.mkEnableOption "Run claude -p on nixos-upgrade failure and post the diagnosis to Gotify (replaces the raw-log failure ping). Requires one-time interactive `sudo -u abl030 --login claude` per host.";
+    };
   };
 
   config = lib.mkIf cfg.enable (let
@@ -78,6 +85,88 @@ in {
     # fetch so a stale PAT can't poison every github.com request with 401.
     # See docs/wiki/infrastructure/github-pat-and-private-inputs.md.
     refreshAccessTokens = import ../lib/refresh-access-tokens.nix {inherit pkgs;};
+
+    diagnoseSystemPrompt = ''
+      You are triaging a NixOS nixos-rebuild switch failure.
+      You receive: a recent git diff of the flake repo, then the last 200 lines of the rebuild log.
+
+      Output ONLY this format, nothing else:
+
+      **Classification**: upstream | actionable | transient
+      **Summary**: 1-2 sentences describing what failed and why.
+      **Fix**: If actionable, name the file and option to change (e.g. `modules/nixos/services/foo.nix:42` add `RemainAfterExit = true`). If upstream, say "wait for nixpkgs" and mention the package/module. If transient (network blip, GitHub timeout, cache miss), say "retry on next run".
+
+      Rules:
+      - Lean on the diff: if the failure traces to a unit/module that was just changed, the fix is almost always in that change.
+      - "transient" is for non-deterministic infra failures (timeout, DNS, 5xx from a cache).
+      - "actionable" needs a concrete file+line+change suggestion.
+      - "upstream" is for genuine nixpkgs bugs.
+      - Keep total output under 600 characters. No preamble, no sign-off, no markdown headers other than the three labels above.
+    '';
+
+    diagnoseScript = pkgs.writeShellScript "nixos-upgrade-diagnose" ''
+      set -uo pipefail
+      log_file=/var/lib/nixos-upgrade/last-failure.log
+      if [ ! -r "$log_file" ]; then
+        echo "[Diagnose] No failure log at $log_file; nothing to do."
+        exit 0
+      fi
+
+      diff_section="(no local checkout — diff unavailable on this host)"
+      for repo in ${diagnoseHome}/nixosconfig /home/abl030/nixosconfig; do
+        if [ -d "$repo/.git" ]; then
+          cd "$repo"
+          diff_section="$(${pkgs.git}/bin/git log -1 --stat 2>/dev/null || true)
+      $(${pkgs.git}/bin/git diff HEAD~1 HEAD 2>/dev/null | ${pkgs.coreutils}/bin/head -n 200 || true)"
+          break
+        fi
+      done
+
+      log_tail="$(${pkgs.coreutils}/bin/tail -n 200 "$log_file")"
+
+      prompt="Recent git diff (most likely root cause if classification=actionable):
+
+      $diff_section
+
+      ---
+
+      Rebuild log tail:
+
+      $log_tail"
+
+      summary="$(printf '%s' "$prompt" | ${pkgs.coreutils}/bin/timeout 600 ${pkgs.claude-code}/bin/claude -p \
+        --system-prompt ${lib.escapeShellArg diagnoseSystemPrompt} \
+        --model haiku \
+        --allowedTools "" \
+        "Triage this NixOS rebuild failure. Diff first, log second." \
+        2>&1)"
+      claude_status=$?
+
+      if [ $claude_status -ne 0 ] || [ -z "$summary" ]; then
+        echo "[Diagnose] claude triage unavailable (status=$claude_status); falling back to raw log tail."
+        summary="(claude triage unavailable, raw log tail follows)
+      $(printf '%s' "$log_tail" | ${pkgs.gnused}/bin/sed 's/[[:cntrl:]]/ /g')"
+      fi
+
+      echo "[Diagnose] === diagnosis for ${config.networking.hostName} ==="
+      printf '%s\n' "$summary"
+      echo "[Diagnose] === end diagnosis ==="
+
+      token_file="${
+        if gotifyTokenFile != null
+        then gotifyTokenFile
+        else ""
+      }"
+      if [ -n "$token_file" ] && [ -r "$token_file" ]; then
+        token="$(${pkgs.gawk}/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
+        if [ -n "$token" ]; then
+          ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
+            -F "title=nixos-upgrade failed on ${config.networking.hostName}" \
+            -F "message=$summary" \
+            -F "priority=8" >/dev/null || true
+        fi
+      fi
+    '';
 
     smartUpgrade = pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
       set -euo pipefail
@@ -193,7 +282,13 @@ in {
       else
         log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
         log "Check journal above for nixos-rebuild errors."
-        notify_failure "$UPDATE_EXIT_CODE" "$log_file" || true
+        /run/current-system/sw/bin/mkdir -p /var/lib/nixos-upgrade
+        /run/current-system/sw/bin/cp "$log_file" /var/lib/nixos-upgrade/last-failure.log || true
+        ${
+        if cfg.diagnose.enable
+        then ""
+        else ''notify_failure "$UPDATE_EXIT_CODE" "$log_file" || true''
+      }
       fi
 
       /run/current-system/sw/bin/rm -f "$log_file"
@@ -258,6 +353,8 @@ in {
     # Order after sleep services so we only run AFTER resume completes.
     # Do NOT use Wants= here - that would TRIGGER these services to start!
     systemd.services.nixos-upgrade = {
+      onFailure = lib.optional cfg.diagnose.enable "nixos-upgrade-diagnose.service";
+
       after = lib.mkAfter [
         "network-online.target"
         "systemd-suspend.service"
@@ -311,6 +408,27 @@ in {
         );
       };
     };
+
+    systemd.services.nixos-upgrade-diagnose = lib.mkIf cfg.diagnose.enable {
+      description = "Triage the last nixos-upgrade failure via claude -p and notify Gotify";
+      serviceConfig = {
+        Type = "oneshot";
+        User = diagnoseUser;
+        # Read the failure log written by root.
+        ReadOnlyPaths = ["/var/lib/nixos-upgrade"];
+        # Bounded — never longer than the failure log is interesting for.
+        TimeoutStartSec = "15min";
+        # Don't propagate failure: the parent unit already failed; this is just notification.
+        SuccessExitStatus = ["0" "1"];
+        ExecStart = diagnoseScript;
+      };
+    };
+
+    # Ensure the persisted log directory exists and is readable by abl030 (the
+    # diagnose unit reads it).
+    systemd.tmpfiles.rules = lib.mkIf cfg.diagnose.enable [
+      "d /var/lib/nixos-upgrade 0755 root root -"
+    ];
 
     nix.gc = lib.mkIf cfg.collectGarbage {
       automatic = true;

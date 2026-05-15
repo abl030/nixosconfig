@@ -109,6 +109,11 @@
       trim = lib.mkDefault true;
       # Don't reboot by default, let specific servers opt-in
       rebootOnKernelUpdate = lib.mkDefault false;
+      # claude -p triage of nightly nixos-upgrade failures → Gotify + journal
+      # (queried by the triage-overnight skill). One-time bootstrap per host:
+      # `sudo -u <user> --login claude` then complete the OAuth flow. Until
+      # bootstrapped, falls back to raw-log Gotify (same as pre-diagnose).
+      diagnose.enable = lib.mkDefault true;
     };
 
     # 3. Caching
