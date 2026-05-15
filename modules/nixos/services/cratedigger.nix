@@ -314,12 +314,23 @@
       fi
     '';
 
-  # PostgreSQL in an nspawn container — data lives at cfg.dataDir/postgres
+  # PostgreSQL in an nspawn container — data lives at pgDataDirRoot/postgres
+  # on doc2's LOCAL disk (NOT on virtiofs). The /mnt/virtio/cratedigger/postgres
+  # path (cfg.dataDir/postgres) was hitting recurring virtiofs-mediated PANICs:
+  #   PANIC: could not open file "/var/lib/postgresql/16/global/pg_control":
+  #          Permission denied
+  # — 21 events between 2026-04-25 and 2026-05-15 on cratedigger-db alone,
+  # always at checkpoint time, all dropping every connected client. Postgres
+  # has no soft-fail mode for pg_control I/O failures (LWN fsyncgate).
+  # The original data has been preserved at /mnt/virtio/cratedigger/postgres
+  # (a frozen snapshot taken at the cutover) for rollback. cfg.dataDir is
+  # kept pointed at /mnt/virtio/cratedigger so backups/ still lives there.
+  pgDataDirRoot = "/var/lib/cratedigger-db";
   pgc = import ../lib/mk-pg-container.nix {
     inherit pkgs;
     name = "cratedigger";
     hostNum = 5;
-    inherit (cfg) dataDir;
+    dataDir = pgDataDirRoot;
     passwordFile = "/run/secrets/cratedigger-pgpass";
   };
 
@@ -422,7 +433,11 @@ in {
     systemd = {
       tmpfiles.rules = [
         "d ${cfg.dataDir} 0755 root root -"
-        "d ${cfg.dataDir}/postgres 0700 root root -"
+        # Postgres data dir now on local disk — see pgDataDirRoot comment above.
+        # The original /mnt/virtio/cratedigger/postgres is preserved untouched
+        # as the pre-migration rollback snapshot.
+        "d ${pgDataDirRoot} 0755 root root -"
+        "d ${pgDataDirRoot}/postgres 0700 root root -"
         "d ${metadataGateStateDir} 0755 root root -"
         "d ${metadataGateHoldDir} 0755 root root -"
       ];
