@@ -13,28 +13,49 @@ Two nightly jobs run claude -p on failure and emit a structured diagnosis to jou
 
 Both diagnoses land in journal as plain text and ship to Loki. Your job in the morning is to pull them out, summarise, and propose fixes.
 
-## Step 1: Query Loki for both units, last 24h, all hosts
+## Step 1: Query Loki for failures, last 24h, all hosts
 
-Use the two queries in parallel. Time format: RFC3339, anchor ~24h before now.
+Run all three queries in parallel. Time format: RFC3339, anchor ~24h before now.
+
+**Critical:** the diagnose unit only fires if the *currently-active* system generation has it. A host whose rebuild has failed since the diagnose feature landed will never activate it — its failures show up under `nixos-upgrade.service` only, and the Gotify ping comes from the inline `notify_failure` fallback. Always query both unit names.
 
 ```bash
 START=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
 END=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
-# nixos-upgrade-diagnose: claude triage of nightly rebuild failures (any host)
+# A. nixos-upgrade-diagnose: claude triage (when the diagnose unit fires)
 curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
   --data-urlencode "query={unit=\"nixos-upgrade-diagnose.service\"}" \
   --data-urlencode "start=$START" --data-urlencode "end=$END" \
   --data-urlencode 'limit=2000' --data-urlencode 'direction=forward' \
   | jq -r '.data.result[] | "=== \(.stream.host // "?") ===", (.values[] | .[1])'
 
-# rolling-flake-update: claude triage on doc1 (proxmox-vm)
+# B. nixos-upgrade FAILURES — catches hosts that haven't activated the diagnose unit yet
+curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
+  --data-urlencode 'query={unit="nixos-upgrade.service"} |~ "FAILURE|exit-code|error:"' \
+  --data-urlencode "start=$START" --data-urlencode "end=$END" \
+  --data-urlencode 'limit=500' --data-urlencode 'direction=forward' \
+  | jq -r '.data.result[] | "=== \(.stream.host // "?") ===", (.values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])")'
+
+# C. rolling-flake-update on doc1 (proxmox-vm)
 curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
   --data-urlencode "query={unit=\"rolling-flake-update.service\", host=\"proxmox-vm\"}" \
   --data-urlencode "start=$START" --data-urlencode "end=$END" \
   --data-urlencode 'limit=2000' --data-urlencode 'direction=forward' \
   | jq -r '.values[] | .[1]'
 ```
+
+For any host that shows up in query B but not A, fetch the full unit log for context:
+
+```bash
+curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
+  --data-urlencode 'query={host="<h>", unit="nixos-upgrade.service"}' \
+  --data-urlencode "start=$START" --data-urlencode "end=$END" \
+  --data-urlencode 'limit=500' --data-urlencode 'direction=forward' \
+  | jq -r '.data.result[].values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])"' | tail -50
+```
+
+Then classify manually using the same three-bucket scheme (upstream / actionable / transient).
 
 Both diagnoses follow the same three-label format produced by the system prompt:
 
@@ -68,6 +89,9 @@ For `upstream` entries: open or update a GitHub issue (`gh issue list --search '
 - **`claude triage unavailable`** appears in the Loki output → the host has not been bootstrapped (no `~/.claude.json` for the service user yet), or the claude OAuth token expired, or the network was down at triage time. The raw log tail is included instead. Tell the user the host needs a one-time `sudo -u <user> --login claude` bootstrap if the message has fired more than once.
 - **No Loki results for a host that you know failed** → the diagnose unit itself failed to start. Query `{host="<h>"} |~ "nixos-upgrade-diagnose"` to find the systemd-level error.
 - **rolling-flake-update fires `transient` repeatedly** → flake-update is rate-limited or hitting upstream throttling. Check the actual `rolling_flake_update.sh` output, not just claude's summary.
+- **`epimetheus` and `framework` are usually asleep overnight.** SSH timeouts to those hosts during morning triage are expected — they suspend after idle and don't run the nightly timer until they're woken. If a host hasn't shipped journal lines since yesterday evening, treat it as "didn't run" rather than "failed silently". Don't block triage on reaching them; use Loki labels (`host="<h>"`) to confirm whether they ingested anything overnight before chasing SSH.
+- **Persistent timer catchup race.** When a sleeping host wakes after missing its scheduled nightly window, `Persistent=true` fires `nixos-upgrade.timer` immediately on resume. The "wait for DNS" gate (`autoupdate/update.nix`) passes as soon as resolv.conf has servers — typically within seconds — but outbound to `api.github.com` can still time out (curl 28 / "Timeout was reached") if the upstream link / Tailscale / DERP hasn't fully reconverged. Classify as **transient**; will succeed on next run once the host has been up for a while. Don't chase a fix for the GitHub fetch — the problem is the timer firing too eagerly post-resume, not the fetcher.
+- **Pre-diagnose generation.** Until a host successfully rebuilds *after* the diagnose feature commit lands, its failures will run the legacy inline `notify_failure` path: raw log tail to Gotify, no diagnose unit, nothing under `unit="nixos-upgrade-diagnose.service"` in Loki. You'll only find them via query B (failures in `nixos-upgrade.service` itself). Once the host has one successful rebuild, the new generation activates and future failures route through the diagnose unit normally.
 
 ## Configuration knobs (for reference)
 

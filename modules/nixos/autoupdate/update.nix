@@ -377,23 +377,29 @@ in {
         # Prevents indefinite hangs from stuck activations (e.g., systemd generator bugs)
         TimeoutStartSec = cfg.timeout;
         ExecStartPre = [
-          (pkgs.writeShellScript "nixos-upgrade-dns-ready" ''
+          (pkgs.writeShellScript "nixos-upgrade-net-ready" ''
             set -euo pipefail
             log() { echo "[SmartUpdate] $*"; }
 
-            log "Waiting for DNS readiness (max 5 minutes)..."
-            for i in $(seq 1 300); do
-              if ${pkgs.getent}/bin/getent hosts api.github.com >/dev/null 2>&1; then
-                log "DNS ready."
+            # Probe actual reachability of api.github.com, not just DNS
+            # resolution. tailscaled's stub resolver answers within seconds
+            # of resume-from-suspend, but the WAN route can still be down
+            # for 30s+ after that — long enough to blow through the rebuild's
+            # 5×15s curl retry budget. A real TLS request is the only honest
+            # signal that the upcoming flake fetch will actually work.
+            log "Waiting for api.github.com reachability (max 5 minutes)..."
+            for i in $(seq 1 60); do
+              if ${pkgs.curl}/bin/curl -sSf --max-time 5 https://api.github.com/zen >/dev/null 2>&1; then
+                log "GitHub reachable."
                 exit 0
               fi
               if [ "$i" -eq 1 ]; then
-                log "DNS not ready yet; retrying..."
+                log "GitHub not reachable yet; retrying every 5s..."
               fi
-              sleep 1
+              sleep 5
             done
 
-            log "DNS not ready after 5 minutes; skipping update."
+            log "GitHub unreachable after 5 minutes; skipping update."
             exit 0
           '')
           # Revalidate the GitHub PAT BEFORE the fetch. A stale token poisons
