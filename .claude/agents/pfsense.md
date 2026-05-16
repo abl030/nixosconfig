@@ -25,19 +25,27 @@ These are pre-investigated recipes for operations the user runs frequently. Run 
 
 Used to temporarily reset the user's apparent public IP. Typical cycle: enable → wait ~5 min → disable. **No Nix sync required** — `MV_VPN_SG_IPS` is not mirrored to Nix (only the NZ `MV_VPN_IPS` is). No drift audit needed for SG-only operations.
 
-**Enable (epi → SG):**
+**Rules 21 (pass via SG) and 22 (kill switch) are kept disabled while the alias is empty.** This is a deliberate safety posture: an enabled kill switch with a transient/empty alias can interact badly during apply, and leaving them off when unused means a stray alias entry can never accidentally block traffic. The toggle therefore flips the rule state too, not just the alias contents.
+
+**Enable (epi → SG)** — alias first, then enable rules in order (pass before kill switch), then apply:
 ```
 mcp__pfsense__pfsense_update_firewall_alias  id=15  address=["192.168.1.5"]  detail=["epimetheus"]  confirm=true
+mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=false  confirm=true
+mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=false  confirm=true
 mcp__pfsense__pfsense_firewall_apply  confirm=true
 ```
 
-**Disable (epi → direct WAN):**
+**Disable (epi → direct WAN)** — kill switch off first (so an empty alias never co-exists with an enabled block rule), then pass rule, then empty alias, then apply:
 ```
-mcp__pfsense__pfsense_update_firewall_alias  id=15  address=[]  detail=[]  confirm=true
+mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=true  confirm=true
+mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=true  confirm=true
+mcp__pfsense__pfsense_update_firewall_alias   id=15  address=[]  detail=[]  confirm=true
 mcp__pfsense__pfsense_firewall_apply  confirm=true
 ```
 
-If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: ["aliases"]`, call it once more. Routing takes effect on alias-table reload regardless of the API response.
+If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: [...]`, call it once more. Routing takes effect on table reload regardless of the API response.
+
+**Verification:** ask the user to run `curl -s ipinfo.io/json | jq .country` from epi — should return `"SG"` when enabled, `"AU"` when disabled. The alias state alone is not proof; rule state matters too.
 
 ### Stable IDs for the fast paths
 
@@ -156,7 +164,7 @@ Traffic is routed through AirVPN based on source IP using aliases:
 
 - **MV_VPN_IPS** → AirVPN gateway (NZ): 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC (alias also contains a stray IPv6 placeholder `aaaa:bbbb:cccc::3a` — not a real address, harmless, but present in live pfSense state)
 - Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback)
-- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Singapore): 192.168.1.5 (epimetheus — added 2026-05-14)
+- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Singapore): 192.168.1.5 (epimetheus) — rules 21 (pass) + 22 (kill switch) enabled 2026-05-16
 - Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback on SG tunnel)
 - **OPT3 (Docker VLAN)** → all traffic routes via AirVPN (NZ)
 
