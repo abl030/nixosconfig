@@ -274,6 +274,12 @@ in {
         directory = "/mnt/virtio/Music/Beets";
         library = "/mnt/virtio/Music/beets-library.db";
 
+        # Transliterate non-Latin scripts (Japanese, Korean, etc.) to ASCII in
+        # rendered paths. Filesystem-only — DB rows and on-disk tags are
+        # untouched. Applied per-component via unidecode in
+        # beets/library/models.py:1221.
+        asciify_paths = true;
+
         # Files left behind after move that should be treated as empty dir
         clutter = ["Thumbs.DB" "Thumbs.db" ".DS_Store" "*.jpg" "*.png" "AlbumArt*" "Folder.*" "desktop.ini"];
 
@@ -285,6 +291,13 @@ in {
           incremental = true;
           incremental_skip_later = true;
           log = "/mnt/virtio/Music/beets-import.log";
+
+          # Prefer English-locale aliases when MusicBrainz has one tagged
+          # `primary`. Rewrites both canonical name and sort name during
+          # MB fetch (_preferred_alias in beetsplug/musicbrainz.py:121).
+          # Only affects future imports / mbsync — existing DB rows keep
+          # their current values until re-fetched from MB.
+          languages = ["en"];
 
           # MUST be under `import:` — beets reads it strictly from
           # config["import"]["duplicate_keys"]["album"]. A top-level
