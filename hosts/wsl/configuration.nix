@@ -50,6 +50,7 @@
       opsSync.enable = true;
       nfsMusic.enable = true;
     };
+    services.cullen-dashboard.enable = true;
   };
 
   # Suppress duplicate filesystem metric warnings for /run/user tmpfs

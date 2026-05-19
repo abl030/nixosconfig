@@ -52,5 +52,6 @@
     ./tailscale-share.nix
     ./rtrfm-nowplaying
     ./claude-voice.nix
+    ./cullen-dashboard.nix
   ];
 }

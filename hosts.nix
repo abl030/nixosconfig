@@ -88,6 +88,10 @@ in {
     authorizedKeys = masterKeys;
     sudoPasswordless = true;
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
+    # Windows host LAN IP at the Cullen office. Cloudflare A records for
+    # services exposed via homelab.localProxy point here; Windows then
+    # port-forwards 443 into the WSL VM's eth0.
+    localIp = "192.168.100.128";
   };
 
   proxmox-vm = {
