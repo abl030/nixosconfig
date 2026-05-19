@@ -29,8 +29,8 @@ in {
 
     dashboardsDir = lib.mkOption {
       type = lib.types.str;
-      default = "/home/${hostConfig.user}/cullen/dashboards";
-      description = "Directory of static dashboard HTML/CSV files, mounted at /dashboards/ by the FastAPI app.";
+      default = "/home/${hostConfig.user}/cellar-manager/dashboards";
+      description = "Directory of static dashboard HTML/CSV files, mounted at /dashboards/ by the FastAPI app. Defaults to the cellar-manager checkout so symlinked sub-dashboards (e.g. fruit-weights) resolve.";
     };
 
     fqdn = lib.mkOption {
