@@ -34,6 +34,10 @@
     services.whisper-server = {
       enable = true;
       dataDir = "/mnt/virtio/whisper-server";
+      # small.en struggled with car-cabin background noise. large-v3-turbo
+      # is multilingual but much more robust, and on the iGPU it's still
+      # well under realtime for short utterances.
+      model = "large-v3-turbo";
     };
     ssh = {
       enable = true;
