@@ -104,6 +104,7 @@ in {
     systemd.services.cullen-dashboard-sync = {
       description = "Incremental Vinsight audit-log sync for Cullen dashboards";
       after = ["network-online.target" "cullen-dashboard-init.service"];
+      wants = ["network-online.target"];
       requires = ["cullen-dashboard-init.service"];
       serviceConfig = {
         Type = "oneshot";
