@@ -230,6 +230,31 @@ in {
       default = [];
       description = "List of Claude Code plugins to install";
     };
+
+    skills = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "Skill name. Becomes ~/.claude/skills/<name>.";
+          };
+          source = lib.mkOption {
+            type = lib.types.path;
+            description = ''
+              Path to the skill directory (should contain SKILL.md at its root).
+              Typically a relative path inside this flake.
+            '';
+          };
+        };
+      });
+      default = [];
+      description = ''
+        Repo-tracked Claude Code skills to symlink into ~/.claude/skills/.
+        Each entry creates a symlink at ~/.claude/skills/<name> pointing at
+        the source directory in the Nix store, making the skill available
+        to every host that imports this module.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -247,14 +272,26 @@ in {
 
       # Create symlinks for plugins in marketplace (read-only)
       # Cache will be populated as writable copies in activation script
-      file = lib.mkIf (cfg.plugins != []) (builtins.listToAttrs (map (plugin: {
-          name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
-          value = {
-            inherit (plugin) source;
-            recursive = true;
-          };
-        })
-        resolvedPlugins));
+      # Skills are symlinked directly into ~/.claude/skills/<name> — read-only
+      # store paths; the runtime side is purely about looking up the directory.
+      file = lib.mkMerge [
+        (lib.mkIf (cfg.plugins != []) (builtins.listToAttrs (map (plugin: {
+            name = ".claude/plugins/marketplaces/${plugin.marketplaceName}";
+            value = {
+              inherit (plugin) source;
+              recursive = true;
+            };
+          })
+          resolvedPlugins)))
+        (lib.mkIf (cfg.skills != []) (builtins.listToAttrs (map (skill: {
+            name = ".claude/skills/${skill.name}";
+            value = {
+              inherit (skill) source;
+              recursive = true;
+            };
+          })
+          cfg.skills)))
+      ];
 
       # Activation script to merge settings and plugin configs
       activation.claudeCode = lib.hm.dag.entryAfter ["writeBoundary"] ''
