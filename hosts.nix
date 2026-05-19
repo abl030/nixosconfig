@@ -103,6 +103,7 @@ in {
     sudoPasswordless = true;
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
+    tailscaleIp = "100.89.160.60";
     proxmox = {
       vmid = 104;
       cores = 8;

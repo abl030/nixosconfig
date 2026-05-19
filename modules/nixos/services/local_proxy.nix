@@ -10,10 +10,21 @@
   haveHosts = cfg.hosts != [];
   hostEntries = cfg.hosts;
 
+  # Per-host effective IP: tailscaleOnly hosts get the tailnet IP, others get LAN.
+  ipForEntry = entry:
+    if entry.tailscaleOnly or false
+    then cfg.tailscaleIp
+    else cfg.localIp;
+
+  enrichedEntries = map (entry: entry // {ip = ipForEntry entry;}) hostEntries;
+
   hostsJson = pkgs.writeTextFile {
     name = "local-proxy-hosts.json";
-    text = builtins.toJSON hostEntries;
+    text = builtins.toJSON enrichedEntries;
   };
+
+  anyTailscaleOnly = lib.any (e: e.tailscaleOnly or false) hostEntries;
+  anyLanHost = lib.any (e: ! (e.tailscaleOnly or false)) hostEntries;
 
   dnsSyncScript = pkgs.writeShellScript "homelab-dns-sync" ''
     set -euo pipefail
@@ -21,7 +32,6 @@
     api="https://api.cloudflare.com/client/v4"
     zone_name="ablz.au"
     ttl=60
-    local_ip=${lib.escapeShellArg (cfg.localIp or "")}
 
     cache_dir="/var/lib/homelab/dns"
     zone_cache="$cache_dir/zone-id"
@@ -106,7 +116,12 @@
 
     while read -r entry; do
       host=$(printf '%s' "$entry" | ${pkgs.jq}/bin/jq -r '.host')
+      entry_ip=$(printf '%s' "$entry" | ${pkgs.jq}/bin/jq -r '.ip')
       if [[ -z "$host" || "$host" == "null" ]]; then
+        continue
+      fi
+      if [[ -z "$entry_ip" || "$entry_ip" == "null" ]]; then
+        echo "homelab-dns-sync: $host has no resolved ip — skipping" >&2
         continue
       fi
 
@@ -114,7 +129,7 @@
       cache_ttl=$(${pkgs.jq}/bin/jq -r --arg host "$host" '.[$host].ttl // ""' "$records_cache")
       cache_id=$(${pkgs.jq}/bin/jq -r --arg host "$host" '.[$host].recordId // ""' "$records_cache")
 
-      if [[ "$cache_ip" == "$local_ip" && "$cache_ttl" == "$ttl" && -n "$cache_id" ]]; then
+      if [[ "$cache_ip" == "$entry_ip" && "$cache_ttl" == "$ttl" && -n "$cache_id" ]]; then
         echo "homelab-dns-sync: $host up-to-date (cache)"
         continue
       fi
@@ -125,7 +140,7 @@
         record_id=$(printf '%s' "$resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""')
       fi
 
-      payload=$(printf '{"type":"A","name":"%s","content":"%s","ttl":%s,"proxied":false}' "$host" "$local_ip" "$ttl")
+      payload=$(printf '{"type":"A","name":"%s","content":"%s","ttl":%s,"proxied":false}' "$host" "$entry_ip" "$ttl")
 
       if [[ -n "$record_id" ]]; then
         cf_request PUT "$api/zones/$zone_id/dns_records/$record_id" "$payload" >/dev/null
@@ -139,12 +154,12 @@
         exit 1
       fi
 
-      ${pkgs.jq}/bin/jq --arg host "$host" --arg ip "$local_ip" --arg ttl "$ttl" --arg id "$record_id" \
+      ${pkgs.jq}/bin/jq --arg host "$host" --arg ip "$entry_ip" --arg ttl "$ttl" --arg id "$record_id" \
         '. + {($host): {ip: $ip, ttl: ($ttl|tonumber), recordId: $id}}' \
         "$tmp_cache" > "$tmp_cache.next"
       mv "$tmp_cache.next" "$tmp_cache"
 
-      echo "homelab-dns-sync: ensured $host -> $local_ip"
+      echo "homelab-dns-sync: ensured $host -> $entry_ip"
     done < <(${pkgs.jq}/bin/jq -c '.[]' "$hosts_json")
 
     mv "$tmp_cache" "$records_cache"
@@ -163,7 +178,6 @@
   dnsValidateScript = pkgs.writeShellScript "homelab-dns-validate" ''
     set -euo pipefail
 
-    local_ip=${lib.escapeShellArg (cfg.localIp or "")}
     cache="/var/lib/homelab/dns/records.json"
 
     if [[ ! -f "$cache" ]]; then
@@ -174,13 +188,18 @@
     invalidated=0
 
     for host in $(${pkgs.jq}/bin/jq -r 'keys[]' "$cache"); do
+      expected=$(${pkgs.jq}/bin/jq -r --arg host "$host" '.[$host].ip // ""' "$cache")
+      if [[ -z "$expected" ]]; then
+        echo "homelab-dns-validate: $host has no cached ip — skipping"
+        continue
+      fi
       actual=$(${pkgs.dnsutils}/bin/dig +short "$host" | ${pkgs.coreutils}/bin/head -1)
       if [[ -z "$actual" ]]; then
         echo "homelab-dns-validate: $host did not resolve — skipping"
         continue
       fi
-      if [[ "$actual" != "$local_ip" ]]; then
-        echo "homelab-dns-validate: $host resolves to $actual, expected $local_ip — invalidating"
+      if [[ "$actual" != "$expected" ]]; then
+        echo "homelab-dns-validate: $host resolves to $actual, expected $expected — invalidating"
         ${pkgs.jq}/bin/jq --arg host "$host" 'del(.[$host])' "$cache" > "$cache.tmp" && mv "$cache.tmp" "$cache"
         invalidated=$((invalidated + 1))
       fi
@@ -202,23 +221,31 @@
         if entry.maxBodySize or null != null
         then "client_max_body_size ${entry.maxBodySize};"
         else "";
+      # When tailscaleOnly, bind nginx to the tailnet IP only. Anything hitting
+      # the LAN IP with this Host header will fall through to whatever default
+      # server happens to be on that interface (typically a 404).
+      vhostListen =
+        lib.optionalAttrs (entry.tailscaleOnly or false)
+        {listenAddresses = [cfg.tailscaleIp];};
     in {
       name = entry.host;
-      value = {
-        useACMEHost = entry.host;
-        onlySSL = true;
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:${toString entry.port}";
-          extraConfig = ''
-            ${maxBodySizeConfig}
-            ${websocketConfig}
-            proxy_set_header X-Forwarded-Proto https;
-            proxy_set_header X-Forwarded-Port 443;
-            proxy_redirect http://$host/ https://$host/;
-            proxy_redirect http:// https://;
-          '';
+      value =
+        vhostListen
+        // {
+          useACMEHost = entry.host;
+          onlySSL = true;
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:${toString entry.port}";
+            extraConfig = ''
+              ${maxBodySizeConfig}
+              ${websocketConfig}
+              proxy_set_header X-Forwarded-Proto https;
+              proxy_set_header X-Forwarded-Port 443;
+              proxy_redirect http://$host/ https://$host/;
+              proxy_redirect http:// https://;
+            '';
+          };
         };
-      };
     })
     hostEntries);
 
@@ -239,6 +266,17 @@ in {
       type = lib.types.nullOr lib.types.str;
       default = hostConfig.localIp or null;
       description = "Local IPv4 for host A records (e.g., 192.168.1.29).";
+    };
+
+    tailscaleIp = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = hostConfig.tailscaleIp or null;
+      description = ''
+        Tailnet IPv4 for this host (e.g., 100.89.160.60). Used by entries with
+        tailscaleOnly = true: nginx binds to this address only, and the
+        Cloudflare A record points here so the FQDN is only routable via
+        Tailscale.
+      '';
     };
 
     hosts = lib.mkOption {
@@ -262,6 +300,16 @@ in {
             default = null;
             description = "Nginx client_max_body_size for this host (e.g., \"0\" for unlimited, \"50G\"). Null uses nginx default (1m).";
           };
+          tailscaleOnly = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              When true, this vhost is only reachable from the tailnet:
+              nginx binds to the host's Tailscale IP (not the LAN IP),
+              and the Cloudflare A record points at the Tailscale IP.
+              Requires homelab.localProxy.tailscaleIp to be set.
+            '';
+          };
         };
       });
       default = [];
@@ -272,8 +320,12 @@ in {
   config = lib.mkIf (cfg.enable && haveHosts) {
     assertions = [
       {
-        assertion = cfg.localIp != null && cfg.localIp != "";
-        message = "homelab.localProxy.localIp must be set when localProxy.hosts is non-empty.";
+        assertion = !anyLanHost || (cfg.localIp != null && cfg.localIp != "");
+        message = "homelab.localProxy.localIp must be set when there is at least one LAN-routable host.";
+      }
+      {
+        assertion = !anyTailscaleOnly || (cfg.tailscaleIp != null && cfg.tailscaleIp != "");
+        message = "homelab.localProxy.tailscaleIp must be set when any host has tailscaleOnly = true.";
       }
     ];
 
