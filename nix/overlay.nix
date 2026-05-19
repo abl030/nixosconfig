@@ -100,6 +100,36 @@
     }
   )
 
+  # vinsight-local overlay: FastAPI server + SQLite mirror tool built from
+  # the cellar-manager source tree. Consumed by the cullen-dashboard service
+  # on wsl. Bundles spec/metadata under $out/share since pyproject.toml only
+  # ships the python package itself.
+  (
+    final: _prev: {
+      vinsight-local = final.python3Packages.buildPythonApplication {
+        pname = "vinsight-local";
+        version = "0.1.0";
+        pyproject = true;
+        src = inputs.cellar-manager + "/vinsight-local";
+
+        build-system = with final.python3Packages; [hatchling];
+
+        dependencies = with final.python3Packages; [
+          httpx
+          fastapi
+          uvicorn
+        ];
+
+        postInstall = ''
+          mkdir -p $out/share/vinsight-local
+          cp -r ${inputs.cellar-manager + "/vinsight-local/spec"} $out/share/vinsight-local/spec
+        '';
+
+        doCheck = false;
+      };
+    }
+  )
+
   # netwatch overlay: real-time network diagnostics TUI from upstream flake
   (
     final: _prev: {

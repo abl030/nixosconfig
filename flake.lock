@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "cellar-manager": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779173671,
+        "narHash": "sha256-Yh+7hmUcZmNQJ/g0ova93XcjWri5goITwxhg8JCQxEo=",
+        "owner": "abl030",
+        "repo": "cellar-manager",
+        "rev": "524943bc13f9fe445502aa0e80502347197de4f1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "abl030",
+        "repo": "cellar-manager",
+        "type": "github"
+      }
+    },
     "claude-code-nix": {
       "inputs": {
         "flake-utils": "flake-utils",
@@ -624,6 +640,7 @@
     },
     "root": {
       "inputs": {
+        "cellar-manager": "cellar-manager",
         "claude-code-nix": "claude-code-nix",
         "claude-plugin-compound-engineering": "claude-plugin-compound-engineering",
         "claude-plugin-ha-skills": "claude-plugin-ha-skills",

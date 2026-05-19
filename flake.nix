@@ -189,6 +189,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # cellar-manager - source tree for vinsight-local (FastAPI + sync tool)
+    # served on wsl at cullen.ablz.au. Public repo; consumed as plain source
+    # because the repo has no flake of its own — overlay.nix builds the
+    # vinsight-local Python package from this tree.
+    cellar-manager = {
+      url = "github:abl030/cellar-manager";
+      flake = false;
+    };
+
     # netwatch - real-time network diagnostics TUI (Rust)
     netwatch = {
       url = "github:matthart1983/netwatch";

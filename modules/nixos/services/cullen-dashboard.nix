@@ -6,53 +6,144 @@
   ...
 }: let
   cfg = config.homelab.services.cullen-dashboard;
+
+  metadataDir = "${pkgs.vinsight-local}/share/vinsight-local/spec/metadata";
+  dbPath = "${cfg.stateDir}/vinsight.db";
+  vinsight = "${pkgs.vinsight-local}/bin/vinsight-sync";
+
+  baseArgs = "--db ${dbPath} --metadata ${metadataDir}";
+
+  seedScript = pkgs.writeShellScript "cullen-dashboard-seed" ''
+    set -euo pipefail
+    if [[ ! -s ${dbPath} ]]; then
+      echo "cullen-dashboard: seeding Vinsight mirror at ${dbPath}"
+      ${vinsight} ${baseArgs} init
+      ${vinsight} ${baseArgs} run --full
+    else
+      echo "cullen-dashboard: ${dbPath} already exists, skipping seed"
+    fi
+  '';
 in {
   options.homelab.services.cullen-dashboard = {
-    enable = lib.mkEnableOption "Cullen winery dashboards (static HTML/CSV served via python http.server)";
+    enable = lib.mkEnableOption "Cullen winery dashboards + vinsight-local FastAPI server";
 
-    dataDir = lib.mkOption {
+    dashboardsDir = lib.mkOption {
       type = lib.types.str;
       default = "/home/${hostConfig.user}/cullen/dashboards";
-      description = "Directory containing dashboard HTML/CSV files.";
+      description = "Directory of static dashboard HTML/CSV files, mounted at /dashboards/ by the FastAPI app.";
     };
 
     fqdn = lib.mkOption {
       type = lib.types.str;
       default = "cullen.ablz.au";
-      description = "Public FQDN for the dashboards. Cloudflare A record is synced to homelab.localProxy.localIp.";
+      description = "Public FQDN. Cloudflare A record is synced to homelab.localProxy.localIp.";
     };
 
     port = lib.mkOption {
       type = lib.types.port;
       default = 8421;
-      description = "Loopback port for the static file server. Nginx proxies https://fqdn to 127.0.0.1:<port>. 8000 is reserved for ad-hoc testing.";
+      description = "Loopback port the FastAPI app binds to. Nginx proxies https://fqdn to 127.0.0.1:<port>.";
     };
 
     user = lib.mkOption {
       type = lib.types.str;
       default = hostConfig.user;
-      description = "User to run the static server as. Needs read access to dataDir.";
+      description = "User to run the FastAPI server and sync timer as. Needs read on dashboardsDir.";
+    };
+
+    envFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/run/secrets/mcp/vinsight.env";
+      description = "Env file containing VINSIGHT_API_KEY. Decrypted by homelab.mcp.vinsight.";
+    };
+
+    stateDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/cullen-dashboard";
+      description = "Persistent location for the SQLite mirror.";
+    };
+
+    syncOnCalendar = lib.mkOption {
+      type = lib.types.str;
+      default = "*:0/30";
+      description = "systemd OnCalendar spec for the incremental Vinsight sync timer.";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.services.cullen-dashboard = {
-      description = "Cullen winery static dashboard server";
-      after = ["network.target"];
+    systemd.tmpfiles.rules = [
+      "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.user} -"
+    ];
+
+    systemd.services.cullen-dashboard-init = {
+      description = "Seed local Vinsight mirror if missing";
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
       serviceConfig = {
-        ExecStart = "${pkgs.python3}/bin/python3 -m http.server ${toString cfg.port} --bind 127.0.0.1 --directory ${cfg.dataDir}";
-        Restart = "on-failure";
-        RestartSec = "5s";
+        Type = "oneshot";
+        RemainAfterExit = true;
         User = cfg.user;
+        EnvironmentFile = cfg.envFile;
+        ExecStart = seedScript;
+        TimeoutStartSec = "15min";
         ProtectSystem = "strict";
         ProtectHome = "read-only";
         PrivateTmp = true;
         NoNewPrivileges = true;
+        ReadWritePaths = [cfg.stateDir];
+      };
+    };
+
+    systemd.services.cullen-dashboard-sync = {
+      description = "Incremental Vinsight audit-log sync for Cullen dashboards";
+      after = ["network-online.target" "cullen-dashboard-init.service"];
+      requires = ["cullen-dashboard-init.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        User = cfg.user;
+        EnvironmentFile = cfg.envFile;
+        ExecStart = "${vinsight} ${baseArgs} run";
+        TimeoutStartSec = "10min";
+        ProtectSystem = "strict";
+        ProtectHome = "read-only";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        ReadWritePaths = [cfg.stateDir];
+      };
+    };
+
+    systemd.timers.cullen-dashboard-sync = {
+      description = "Run vinsight-sync every ${cfg.syncOnCalendar}";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = cfg.syncOnCalendar;
+        OnBootSec = "3min";
+        Persistent = true;
+        Unit = "cullen-dashboard-sync.service";
+      };
+    };
+
+    systemd.services.cullen-dashboard = {
+      description = "Cullen winery dashboards (FastAPI + static)";
+      after = ["network.target" "cullen-dashboard-init.service"];
+      requires = ["cullen-dashboard-init.service"];
+      wantedBy = ["multi-user.target"];
+      serviceConfig = {
+        Type = "simple";
+        User = cfg.user;
+        EnvironmentFile = cfg.envFile;
+        ExecStart = "${vinsight} ${baseArgs} serve --host 127.0.0.1 --port ${toString cfg.port} --dashboards ${cfg.dashboardsDir}";
+        Restart = "on-failure";
+        RestartSec = "5s";
+        ProtectSystem = "strict";
+        ProtectHome = "read-only";
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        ReadWritePaths = [cfg.stateDir];
         RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
         RestrictNamespaces = true;
         LockPersonality = true;
-        MemoryDenyWriteExecute = true;
         SystemCallArchitectures = "native";
       };
     };
