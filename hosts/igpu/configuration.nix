@@ -28,6 +28,13 @@
       # Service state on virtiofs (per .claude/rules/nixos-service-modules.md).
       dataRoot = "/mnt/virtio/jellyfin";
     };
+    # OpenAI-compatible whisper.cpp endpoint, GPU-accelerated via the iGPU's
+    # Vulkan backend. Lets Dictate Keyboard and anything else point at our
+    # tailnet instead of Groq/OpenAI.
+    services.whisper-server = {
+      enable = true;
+      dataDir = "/mnt/virtio/whisper-server";
+    };
     ssh = {
       enable = true;
       secure = false;
