@@ -47,6 +47,16 @@
       #   pluginName = "episodic-memory";
       # }
     ];
+    # Fleet-global skills: symlinked into ~/.claude/skills/<name> so they're
+    # available regardless of CWD (the matching .claude/skills/<name> entry
+    # in the nixosconfig repo is project-local and only works when claude
+    # runs from this checkout).
+    skills = lib.mkDefault [
+      {
+        name = "talk-to-me";
+        source = ../../../.claude/skills/talk-to-me;
+      }
+    ];
   };
   home.packages = [
     pkgs.whosthere
