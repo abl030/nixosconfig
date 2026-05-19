@@ -105,6 +105,11 @@ in {
       after = ["network-online.target"];
       wants = ["network-online.target"];
 
+      # whisper-server's --convert flag shells out to ffmpeg to transcode
+      # incoming audio (mp3/m4a/opus) to WAV before transcribing. Without this
+      # in PATH the service exits at startup.
+      path = [pkgs.ffmpeg-headless];
+
       # First-start: fetch the model file. The helper script bundled with the
       # nix package uses wget and writes ggml-<model>.bin into CWD.
       preStart = ''
