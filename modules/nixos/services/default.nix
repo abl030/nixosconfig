@@ -52,6 +52,7 @@
     ./tailscale-share.nix
     ./rtrfm-nowplaying
     ./claude-voice.nix
+    ./whisper-server.nix
     ./cullen-dashboard.nix
   ];
 }
