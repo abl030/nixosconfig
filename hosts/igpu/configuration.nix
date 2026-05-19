@@ -34,10 +34,17 @@
     services.whisper-server = {
       enable = true;
       dataDir = "/mnt/virtio/whisper-server";
-      # small.en struggled with car-cabin background noise. large-v3-turbo
-      # is multilingual but much more robust, and on the iGPU it's still
-      # well under realtime for short utterances.
-      model = "large-v3-turbo";
+      # Three concurrent backends with a dispatcher in front — switch in
+      # Dictate by changing only the model field (small/medium/large).
+      # large-v3-turbo is the default since small.en struggled with
+      # car-cabin background noise; small + medium are there for low-latency
+      # cases where speech is clean.
+      models = {
+        small = "tiny.en";
+        medium = "small.en";
+        large = "large-v3-turbo";
+      };
+      defaultModel = "large";
     };
     ssh = {
       enable = true;
