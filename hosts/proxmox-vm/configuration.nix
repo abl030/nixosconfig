@@ -61,6 +61,13 @@
         mediaDir = "/mnt/virtio/Music";
         port = 5001;
       };
+      # SSE bridge that streams this host's Claude transcripts to the phone.
+      # Tailnet-only via homelab.localProxy.tailscaleOnly; bound to
+      # voice.ablz.au which Cloudflare resolves to the Tailscale IP.
+      claude-voice = {
+        enable = true;
+        user = "abl030";
+      };
     };
   };
 
