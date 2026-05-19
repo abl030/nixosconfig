@@ -138,6 +138,11 @@ in {
             "--threads"
             (toString cfg.threads)
             "--convert" # let the server transcode mp3/m4a → wav via ffmpeg
+            # Default --tmp-dir is "." which is the unit's WorkingDirectory
+            # (i.e. "/" under our hardened config — read-only). Point it at
+            # /tmp, which PrivateTmp makes a per-service tmpfs.
+            "--tmp-dir"
+            "/tmp"
           ]
           ++ cfg.extraArgs);
 
