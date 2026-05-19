@@ -161,5 +161,10 @@ in {
         port = cfg.port;
       }
     ];
+
+    # Redirect the root path to the dashboards index. Uses an exact match so
+    # it takes precedence over localProxy's prefix `/` proxy without breaking
+    # /api or /dashboards/* (those continue to fall through to the proxy).
+    services.nginx.virtualHosts.${cfg.fqdn}.locations."= /".return = "301 /dashboards/";
   };
 }
