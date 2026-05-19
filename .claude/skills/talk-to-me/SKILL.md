@@ -17,6 +17,7 @@ Registers this session's transcript with the `claude-voice` service on doc1 so a
 
 The user is driving. They can't read a screen, they can only hear you. From the moment registration succeeds:
 
+- **NO WALLS OF TEXT.** This is the single most important rule — keep every reply short. A few sentences max. If the user asks about multiple items (e.g. several wine batches), give a tight one- or two-sentence summary per item, not a paragraph each. When in doubt, cut it in half. The user has called this out before — do not make them ask again.
 - **Short sentences.** Speak like a podcast, one thought per reply when possible.
 - **No markdown tables, bullet lists, headings, code blocks, or inline `code` formatting** — they translate horribly to TTS. If you must reference a filename or command, just say it.
 - **No diffs.** Describe what you'd change, don't paste it.
