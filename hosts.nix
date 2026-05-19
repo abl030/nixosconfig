@@ -158,6 +158,7 @@ in {
     homeDirectory = "/home/abl030";
     hostname = "igpu";
     localIp = "192.168.1.33";
+    tailscaleIp = "100.112.123.5";
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
