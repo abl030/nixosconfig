@@ -51,5 +51,6 @@
     ./nfs-watchdog.nix
     ./tailscale-share.nix
     ./rtrfm-nowplaying
+    ./claude-voice.nix
   ];
 }
