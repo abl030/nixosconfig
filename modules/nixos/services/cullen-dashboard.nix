@@ -51,6 +51,12 @@ in {
       description = "User to run the FastAPI server and sync timer as. Needs read on dashboardsDir.";
     };
 
+    group = lib.mkOption {
+      type = lib.types.str;
+      default = "users";
+      description = "Primary group of user. systemd-tmpfiles skips the rule silently if the group can't be resolved, so this must be a real group on the host.";
+    };
+
     envFile = lib.mkOption {
       type = lib.types.str;
       default = "/run/secrets/mcp/vinsight.env";
@@ -72,7 +78,7 @@ in {
 
   config = lib.mkIf cfg.enable {
     systemd.tmpfiles.rules = [
-      "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.user} -"
+      "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} -"
     ];
 
     systemd.services.cullen-dashboard-init = {
