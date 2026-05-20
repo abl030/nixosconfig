@@ -177,24 +177,26 @@ in {
       ];
 
       # When postgresql-setup fails (e.g. the schema-ownership invariant
-      # raises), make sure the outer container@${name}-db.service goes red
-      # so the existing Kuma monitor catches it. Two changes together do
-      # the job — neither alone is sufficient:
+      # raises), make sure the outer container@${name}-db.service goes
+      # `failed` so the existing Kuma monitor catches it red. Two changes
+      # together do the job — neither alone is sufficient:
       #
       # 1. requiredBy=multi-user.target so multi-user fails to reach when
       #    postgresql-setup fails (instead of merely being a soft "want").
-      # 2. OnFailure=poweroff.target so the inner systemd shuts the
-      #    container down on postgresql-setup failure. Without this the
-      #    container's pid 1 just sits there with a dead multi-user.target
-      #    and nspawn considers it "running" from the outside. With it,
-      #    each failed start powers the container off, the outer service
-      #    auto-restarts, and after the StartLimit burst the outer
-      #    container@${name}-db.service goes failed (start-limit-hit) —
-      #    which Kuma sees. See issue #250.
+      # 2. FailureAction=exit-force with non-zero exit status so the inner
+      #    PID 1 (the container's systemd) exits non-zero on postgresql-setup
+      #    failure. Without this, the inner systemd just sits there with a
+      #    dead multi-user.target and nspawn considers it "running" from the
+      #    outside. With it, PID 1 exits non-zero, systemd-nspawn returns
+      #    non-zero, and the outer container@${name}-db.service goes failed
+      #    — which Kuma sees directly. (poweroff.target was the first attempt
+      #    here but exits cleanly with 0, leaving outer state "inactive
+      #    success" rather than "failed". See issue #250.)
       systemd.services.postgresql-setup = {
         wantedBy = lib.mkForce [];
         requiredBy = ["multi-user.target"];
-        unitConfig.OnFailure = ["poweroff.target"];
+        unitConfig.FailureAction = "exit-force";
+        unitConfig.FailureActionExitStatus = 1;
       };
 
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
