@@ -195,18 +195,15 @@
       }
     }
 
+    // path=/var/log/journal/ enumerates all machine subdirs so
+    // systemd-nspawn container journals reach Loki (otherwise sd_journal
+    // opens only the host's namespace). DB DDL audit alert in
+    // alerting.nix depends on those lines — see issue #251 and the
+    // audit-logging section in .claude/rules/nixos-service-modules.md.
     loki.source.journal "read" {
       forward_to    = [loki.process.filter.receiver]
       relabel_rules = loki.relabel.journal.rules
       labels        = { source = "journald", host = "${config.networking.hostName}" }
-      # Read the FULL local journal tree so entries from systemd-nspawn
-      # containers (under /var/log/journal/<container-machine-id>/) reach
-      # Loki too. Without an explicit `path`, the sd_journal API opens
-      # only the host's own namespace, so inner-container unit logs
-      # (e.g. postgresql.service inside immich-db) are invisible. The
-      # DB DDL audit alert in alerting.nix depends on those lines. See
-      # issue #251 and the audit-logging section in
-      # .claude/rules/nixos-service-modules.md.
       path          = "/var/log/journal/"
     }
 
