@@ -334,19 +334,13 @@
   # selector, used by the alert-bridge to fetch actual log lines for
   # claude). See #253 and the rules-doc "Per-service errorPatterns"
   # section for the per-service audit methodology.
-  errorPatternSlug = name:
-    pkgs.lib.toLower (
-      pkgs.lib.concatStrings (
-        pkgs.lib.filter (c: builtins.match "[a-z0-9-]" c != null) (
-          pkgs.lib.stringToCharacters (
-            builtins.replaceStrings
-            ["/" " " "(" ")" "—" "[" "]" "." "_" ":"]
-            ["-" "-" "" "" "-" "" "" "-" "-" "-"]
-            (pkgs.lib.toLower name)
-          )
-        )
-      )
-    );
+  # Grafana enforces a hard 40-char limit on alert rule UIDs. Our prefix
+  # "homelab-err-" is 12, so the slug part must be ≤28. To stay
+  # deterministic and collision-free across long pattern names, derive
+  # the slug from a sha256 of the name: first 16 hex chars. Trade-off:
+  # less readable in the Grafana UI (slug is opaque), but the rule
+  # `title` (= ep.name) is the human-friendly field everywhere else.
+  errorPatternSlug = name: builtins.substring 0 16 (builtins.hashString "sha256" name);
 
   # Compose the LogQL stream selector for an errorPattern entry.
   errorPatternSelector = ep: let
