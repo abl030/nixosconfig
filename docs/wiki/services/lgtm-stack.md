@@ -274,6 +274,24 @@ To add more reboot alerts, append instance labels to `homelab.services.alerting.
 
 Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "application" stream as agent pings. If the noise mix becomes a problem, create a separate Gotify app, store its token in `secrets/gotify-alerting.env`, and point `homelab.services.alerting.gotifyTokenSopsFile` at it.
 
+### alert-bridge — claude-summarised Gotify pushes (added 2026-05-20)
+
+Grafana's webhook payload is enormous (30+ lines per alert: LogQL, DAG metadata, annotations); reading it on a phone at speed is painful. `modules/nixos/services/alert-bridge.nix` runs a small Python HTTP listener on `127.0.0.1:9876` between Grafana and Gotify. When `homelab.services.alertBridge.enable = true`, `alerting.nix` automatically swaps Grafana's webhook URL from the direct-Gotify form to the bridge URL.
+
+**Per-alert flow:**
+1. Grafana POSTs the alert JSON to the bridge (`/alert`).
+2. For each `status=firing` alert, the bridge reads `labels.loki_lines` (if present) and runs that raw stream-selector query against Loki to fetch up to 10 matching log lines from the last 10 minutes. `labels.loki_query` is the aggregated form used by Grafana for the alert *condition* — it returns scalar counts, not text, so don't use that for context.
+3. The bridge composes a `## Alert metadata` block + `## Matching log lines` block and pipes the lot to `claude -p --model opus --allowedTools ""` with a tight system prompt asking for 2-3 lines of phone-readable summary.
+4. The summary goes to Gotify with severity-aware priority (`critical → priority 8`, others → 5). Resolved alerts are skipped.
+
+**Why opus, not haiku:** the DDL classification needs reasoning over actual log lines (operator session vs drift), not pattern-match. Audit alerts are rare so cost isn't a concern. `homelab.services.alertBridge.model` overrides per-host.
+
+**Why `labels.loki_lines` matters:** the alert *condition* needs the aggregation (`sum(count_over_time(...))`) to produce a numeric series to threshold on. But running that same query for context returns the count, not the text. Two label slots split the concern. `mkLokiAlert`'s `lokiLines` argument is optional — Prometheus rules can skip it and the bridge falls through to metadata-only context.
+
+**Auth gotcha:** the bridge runs as `abl030` because `claude-code` auth lives in `~/.claude` after the one-time interactive `sudo -u abl030 --login claude` setup. Same constraint as `nixos-upgrade-diagnose` in `modules/nixos/autoupdate/update.nix`. The bridge service has its own sops decryption of the Gotify token (`alert-bridge/gotify-token`) with `owner=abl030` so the systemd service can read it.
+
+**Group gotcha:** systemd service `Group=` needs a real group; `abl030` user has primary group `users` (not a group named `abl030`). Use `Group = "users"` in the service config.
+
 ### DB DDL audit rules (added 2026-05-20 via #251)
 
 Two Loki-backed alert rules in the `db-audit` group:

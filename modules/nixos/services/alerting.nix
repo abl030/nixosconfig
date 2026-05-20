@@ -29,6 +29,7 @@
   # straight to Gotify — the bridge re-queries Loki for matching lines,
   # pipes context to claude -p, and forwards a summary to Gotify itself.
   # The URL has no `?token=` because the bridge holds the token.
+  # See docs/wiki/services/lgtm-stack.md "alert-bridge" section.
   bridgeEnabled = config.homelab.services.alertBridge.enable or false;
   bridgePort = config.homelab.services.alertBridge.listenPort or 9876;
   webhookUrl =
