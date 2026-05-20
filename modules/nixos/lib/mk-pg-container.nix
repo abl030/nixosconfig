@@ -127,13 +127,15 @@ in {
         hostPath = passwordFile;
         isReadOnly = true;
       };
-      # Bind the host's journald socket into the container so postgres'
-      # syslog writes land directly in the host journal (and from there
-      # into Loki via alloy). nspawn's --link-journal=try-guest does not
-      # merge inner journal entries to the host in our setup (#251), so
-      # we sidestep the journal-merge problem by writing through syslog.
-      "/run/systemd/journal/socket" = {
-        hostPath = "/run/systemd/journal/socket";
+      # Bind the host's syslog-compatible journald socket into the
+      # container so postgres' libc syslog() writes land directly in the
+      # host journal (and from there into Loki via alloy). nspawn's
+      # --link-journal=try-guest does not merge inner journal entries to
+      # the host in our setup (#251), so we sidestep the journal-merge
+      # problem by writing through syslog. postgres uses /dev/log, which
+      # on modern systemd symlinks to /run/systemd/journal/dev-log.
+      "/run/systemd/journal/dev-log" = {
+        hostPath = "/run/systemd/journal/dev-log";
         isReadOnly = false;
       };
     };
