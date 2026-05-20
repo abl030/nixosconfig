@@ -180,6 +180,10 @@ in {
       # the schema-ownership invariant (or any other startup step) fails,
       # multi-user.target fails to reach inside the container.
       #
+      # See docs/wiki/infrastructure/nspawn-failureaction-pidns-wedge.md
+      # for why we did NOT add FailureAction/OnFailure here (kernel pidns
+      # wedge bug).
+      #
       # NOTE on outer visibility: this alone does NOT make the outer
       # container@${name}-db.service go `failed`. systemd-nspawn with
       # --notify-ready=yes considers the container "active" as long as its

@@ -44,7 +44,8 @@
     # asserts every public.* table/view/sequence/index is owned by `immich`;
     # these are the legitimate exceptions owned by the postgres superuser
     # because they're loaded/created by the extension or geocoder import
-    # rather than by app migrations. See issue #250.
+    # rather than by app migrations.
+    # See docs/wiki/services/immich-asset-edit-audit-incident.md and #250.
     ownershipAllowList = [
       # Reverse-geocoder data tables (loaded via COPY as superuser)
       "geodata_places"
