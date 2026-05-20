@@ -59,5 +59,27 @@ in {
         };
       })
     cfg;
+
+    # See #253 audit + rules-doc "Per-service errorPatterns".
+    # Single uniform alert for ALL watchdog units. Warning, not critical —
+    # the watchdog is doing its job — but persistent firing indicates
+    # genuine NFS flakiness that needs human eyes.
+    homelab.monitoring.errorPatterns = [
+      {
+        name = "NFS watchdog tripped";
+        unit = ".+-nfs-watchdog\\.service";
+        unitIsRegex = true;
+        pattern = "(?i)NFS path .* is stale, restarting";
+        severity = "warning";
+        summary = "an NFS-dependent service was restarted by its watchdog";
+        description = ''
+          The watchdog stat-probed an NFS mount, it failed, the dependent
+          service got restarted. Single trip can be a one-off blip
+          (tower or Synology rebooted). Repeated trips on the same
+          service = real NFS path is unhealthy; check
+          docs/wiki/infrastructure/nfs-over-tailscale.md.
+        '';
+      }
+    ];
   };
 }

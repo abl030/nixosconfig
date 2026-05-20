@@ -351,6 +351,12 @@ in {
             url = "https://${cfg.fqdn}/System/Info/Public";
           }
         ];
+
+        # See #253 audit. Jellyfin proper produced no actionable error
+        # logs in the 30-day window. Real outages flow through the
+        # Kuma HTTP monitor on /System/Info/Public above. (caddy/ts
+        # sidecars have their own patterns in tailscale-share.nix.)
+        monitoring.errorPatterns = [];
       };
     })
 
@@ -443,6 +449,20 @@ in {
             url = "https://${cfg.jellystat.fqdn}/";
           }
         ];
+
+        # See #253 audit + rules-doc "Per-service errorPatterns".
+        # AxiosError dumps from polling Jellyfin are routine WARN noise.
+        # DB-pool timeouts mean the jellystat-db container is dead or
+        # the connection pool is exhausted — actionable.
+        monitoring.errorPatterns = [
+          {
+            name = "Jellystat DB pool timeout";
+            unit = "podman-jellystat.service";
+            pattern = "(?i)Connection terminated due to connection timeout|FATAL";
+            severity = "warning";
+            summary = "jellystat lost its DB connection pool";
+          }
+        ];
       };
     })
 
@@ -492,6 +512,13 @@ in {
             url = "https://${cfg.watchstate.fqdn}/";
           }
         ];
+
+        # See #253 audit. SKIPPED — all watchstate ERROR lines in the
+        # 30-day window are per-webhook 400s from Plex sending
+        # unsupported content types (album/artist). Not a
+        # service-broken signal; the Kuma HTTP monitor covers real
+        # outages.
+        monitoring.errorPatterns = [];
       };
     })
   ];

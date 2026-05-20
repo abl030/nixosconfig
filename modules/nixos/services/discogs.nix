@@ -168,6 +168,20 @@ in {
           expectedValue = "ok";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      monitoring.errorPatterns = [
+        {
+          name = "Discogs API DB error";
+          unit = "discogs-api.service";
+          # "Connection error: connection closed" alone is transient
+          # WARN noise — excluded. Real failure = repeated db error
+          # from migrations / schema-side, or post-#232 pgauth class.
+          pattern = "(?i)Error occurred while creating a new object: db error|password authentication failed for user \"discogs\"";
+          severity = "critical";
+          summary = "discogs-api can't talk to its DB";
+        }
+      ];
     };
   };
 }

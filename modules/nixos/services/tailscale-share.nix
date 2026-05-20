@@ -249,6 +249,29 @@ in {
       # monitoring attached to the shared URL itself rather than relying on the
       # separate LAN/localProxy path.
       monitoring.monitors = lib.mapAttrsToList mkMonitor instances;
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # Each ts-* container gets a "logged out" pattern — that means
+      # the tailscale node lost its auth and the inter-tailnet share
+      # is effectively offline. context-canceled and PollNetMap noise
+      # is excluded (normal transient). Per-instance caddy sidecars
+      # are NOT instrumented separately — their failures show as Kuma
+      # HTTP monitor failures on the tailnet URL.
+      monitoring.errorPatterns =
+        lib.mapAttrsToList (name: _: {
+          name = "tailscale-share ${name} logged out";
+          unit = "podman-ts-${name}.service";
+          pattern = "(?i)logged out\\.|fetch control key.*context canceled";
+          severity = "warning";
+          summary = "tailscale sidecar for ${name} lost its auth — share is offline";
+          description = ''
+            The tailscale-share node identity got rejected by the
+            coordinator. Inter-tailnet access to the shared URL won't
+            work until the node re-authenticates. Check
+            secrets/hosts/<host>/<name>-tailscale-authkey.env.
+          '';
+        })
+        instances;
     };
 
     # Persistent directories

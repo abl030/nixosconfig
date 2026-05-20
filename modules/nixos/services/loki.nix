@@ -566,6 +566,28 @@ in {
           RestartSec = "10s";
         };
       };
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # HIGHEST priority: when alloy drops batches, we lose logs — every
+      # other alert in this stack assumes logs are reaching Loki, so this
+      # is the canary on the canary. `failed to register collector with
+      # remote server` is benign noop-client startup chatter, excluded.
+      homelab.monitoring.errorPatterns = [
+        {
+          name = "Alloy dropping log batches";
+          unit = "alloy-loki.service";
+          pattern = "(?i)final error sending batch, no retries left, dropping data";
+          severity = "critical";
+          summary = "alloy gave up on a log batch — we are losing logs";
+          description = ''
+            All Loki-based alerts assume logs are arriving. This alert
+            fires when alloy exhausts retries and DROPS a batch — meaning
+            other service alerts in this same time window may have been
+            silenced by the data loss. Investigate the Loki ingester
+            state, network to Loki, and disk pressure on /var/lib/alloy.
+          '';
+        }
+      ];
     })
 
     # ============================================================

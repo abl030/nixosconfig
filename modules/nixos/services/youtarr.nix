@@ -93,6 +93,23 @@ in {
           url = "https://youtarr.ablz.au/";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # `podman-youtarr.service` itself is SKIPPED — all its ERROR
+      # lines are yt-dlp per-video failures (members-only videos,
+      # transient resolver failures during downloads). Real service
+      # outages surface as the Kuma HTTP monitor failing. We DO catch
+      # MariaDB permission failures on the underlying DB container
+      # though — that's the chown/UID-mismatch class.
+      monitoring.errorPatterns = [
+        {
+          name = "Youtarr DB unable to write";
+          unit = "podman-youtarr-db.service";
+          pattern = "(?i)\\[ERROR\\] (InnoDB|mysqld):.*(Permission denied|Cannot open)";
+          severity = "critical";
+          summary = "MariaDB can't open data files — likely UID mismatch";
+        }
+      ];
     };
 
     sops.secrets."youtarr-db" = {

@@ -387,6 +387,40 @@ in {
           url = "http://${localIp}:${toString cfg.lrclibPort}/api/search?artist_name=Radiohead&track_name=Creep";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # Skipped containers: musicbrainz-musicbrainz-1 (only webpack
+      # progress noise) and musicbrainz-valkey-1 (silent in 30d) — both
+      # surface via the LRCLIB Kuma monitor.
+      monitoring.errorPatterns = [
+        {
+          name = "MusicBrainz post-deploy verification failed";
+          unit = "musicbrainz.service";
+          # Catches DB-verification + /ws/2 health check refusals from
+          # the orchestration script. Historical compose orchestration
+          # errors won't recur (compose retired 2026-04-16).
+          pattern = "(?i)MusicBrainz (?:DB verification failed|.*did not become healthy)|build images failed";
+          severity = "critical";
+          summary = "musicbrainz orchestration's post-deploy verification failed";
+        }
+        {
+          name = "MusicBrainz indexer DNS plane failure";
+          unit = "podman-musicbrainz-indexer-1.service";
+          # podman/aardvark DNS plane failure affects all MB containers.
+          pattern = "(?i)aardvark-dns failed to start";
+          severity = "warning";
+          summary = "podman DNS plane is unhealthy — MB containers can't resolve each other";
+        }
+        {
+          name = "MusicBrainz Solr proxy failure";
+          unit = "podman-musicbrainz-search-1.service";
+          # Real partial-outage signature; transient single 500s are
+          # still useful as warning.
+          pattern = "(?i)SolrException.*Error trying to proxy request|Connection pool shut down";
+          severity = "warning";
+          summary = "Solr search container is failing to proxy";
+        }
+      ];
     };
 
     sops.secrets."musicbrainz/env" = {

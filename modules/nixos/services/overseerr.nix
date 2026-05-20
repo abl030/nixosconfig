@@ -70,6 +70,12 @@ in {
           url = "https://request.ablz.au/api/v1/status";
         }
       ];
+
+      # See #253 audit. Overseerr container produced no actionable
+      # error logs in the 30-day window; real outages flow through
+      # the Kuma HTTP monitor above and through the tailscale-share
+      # sidecar pattern in tailscale-share.nix.
+      monitoring.errorPatterns = [];
     };
   };
 }

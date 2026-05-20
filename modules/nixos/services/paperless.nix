@@ -146,6 +146,52 @@ in {
           url = "https://paperless.ablz.au/";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      monitoring.errorPatterns = [
+        {
+          name = "Paperless web NFS/auth failure";
+          unit = "paperless-web.service";
+          # NAMESPACE failure = NFS+BindPaths cycle.
+          # pgauth failure = DB grant regression (#232 trust→scram).
+          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"";
+          severity = "critical";
+          summary = "paperless-web cannot start or connect to DB";
+          description = ''
+            NAMESPACE failures are an NFS/mount issue — check
+            mnt-data-*.mount on doc2 and the nfs-watchdog. pgauth
+            failures match the #232 trust→scram class.
+          '';
+        }
+        {
+          name = "Paperless consumer DB auth";
+          unit = "paperless-consumer.service";
+          # Excludes the chronic ConsumerError(duplicate) noise from
+          # the per-file retry loop on stuck imports.
+          pattern = "(?i)password authentication failed for user \"paperless\"";
+          severity = "warning";
+          summary = "paperless-consumer cannot connect to DB";
+          description = "Document ingest is stopped while DB auth is broken.";
+        }
+        {
+          name = "Paperless scheduler degraded";
+          unit = "paperless-scheduler.service";
+          # Redis MISCONF = disk persistence is broken; celery.beat
+          # then refuses to schedule. DB auth = #232 class.
+          pattern = "(?i)password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
+          severity = "warning";
+          summary = "celery beat scheduler is degraded";
+        }
+        {
+          name = "Paperless task queue worker dead";
+          unit = "paperless-task-queue.service";
+          # Worker death = ingest pipeline stops entirely. Excludes
+          # per-doc ConsumerError + OCR ghostscript warnings.
+          pattern = "(?i)\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
+          severity = "critical";
+          summary = "celery worker died — document ingest stopped";
+        }
+      ];
     };
   };
 }

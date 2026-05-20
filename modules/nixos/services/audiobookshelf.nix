@@ -83,6 +83,15 @@ in {
           url = "https://audiobook.ablz.au/";
         }
       ];
+
+      # See #253 audit. SKIPPED. The 30-day audit showed only:
+      #   - "Cannot validate socket - invalid token" (benign auth/idle)
+      #   - GoogleBooks 429 rate-limits (upstream)
+      #   - per-asset [AudioFileScanner] failures on malformed media
+      # None of these represent service-broken state — they're per-asset
+      # or external-API noise. Real outages flow through the Kuma HTTP
+      # monitor above.
+      monitoring.errorPatterns = [];
     };
   };
 }

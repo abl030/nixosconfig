@@ -109,6 +109,19 @@ in {
           url = "https://cooking.ablz.au/api/app/about";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      monitoring.errorPatterns = [
+        {
+          name = "Mealie DB connection failure";
+          unit = "mealie.service";
+          # Worker SIGTERM is graceful reload — excluded.
+          pattern = "(?i)password authentication failed for user \"mealie\"|Error connecting to database";
+          severity = "critical";
+          summary = "Mealie cannot reach its DB";
+          description = "Matches the #232 trust→scram regression class.";
+        }
+      ];
     };
   };
 }

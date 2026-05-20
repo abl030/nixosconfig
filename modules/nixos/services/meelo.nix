@@ -408,6 +408,11 @@ in {
           url = "https://meelo.ablz.au/";
         }
       ];
+
+      # See #253 audit. SKIPPED — server/scanner/matcher/db containers
+      # produced no actionable error logs in the 30-day window; real
+      # outages flow through the Kuma HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
 
     systemd = {

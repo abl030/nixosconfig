@@ -175,6 +175,27 @@ in {
         }
       ];
 
+      # Service-broken log signatures. See #253 audit + rules-doc
+      # "Per-service errorPatterns".
+      monitoring.errorPatterns = [
+        {
+          name = "Immich DB write failure";
+          unit = "immich-server.service";
+          # Catches the #250 asset_edit_audit class (permission denied
+          # for table) plus any pg_dump backup failure. Skips noisy
+          # ERR_HTTP_HEADERS_SENT and "Failed to fetch latest release"
+          # — those are warns, not service-broken.
+          pattern = "(?i)permission denied for table|pg_dump non-zero exit code|Database Backup Failure";
+          severity = "critical";
+          summary = "Immich app is throwing DB errors — uploads likely broken";
+          description = ''
+            The #250 signature. Cross-reference the schema-ownership
+            invariant in mk-pg-container.nix + the asset_edit_audit
+            incident wiki.
+          '';
+        }
+      ];
+
       # Deep write-path probe — catches the #250 asset_edit_audit class
       # of failure (DB permission drift that the shallow
       # /api/server/ping is blind to). Probes asset_edit_audit directly

@@ -626,6 +626,32 @@ in {
       }
     ];
 
+    # See #253 audit + rules-doc "Per-service errorPatterns".
+    # cratedigger-web and -importer are intentionally SKIPPED — the web
+    # service emits thousands of [ERROR] beets-distance API lines per
+    # import session (expected scoring backoff), and the importer logs
+    # per-file move errors as normal Windows-path rollback artifacts.
+    # Real outages on either surface as Kuma HTTP failures.
+    homelab.monitoring.errorPatterns = [
+      {
+        name = "Cratedigger preview worker died";
+        unit = "cratedigger-import-preview-worker.service";
+        # Per-thread "crashed" alone is too low-bar (ffmpeg per-file
+        # failures). "exiting after N crash(es)" is when the worker
+        # actually gives up and the preview pipeline stops.
+        pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash";
+        severity = "critical";
+        summary = "preview worker hit the crash limit and exited";
+      }
+      {
+        name = "Cratedigger DB migration failed";
+        unit = "cratedigger-db-migrate.service";
+        pattern = "(?i)error: .*migrat|migration failed|relation .* does not exist";
+        severity = "critical";
+        summary = "schema migration failed — app likely won't start";
+      }
+    ];
+
     # ---------------------------------------------------------------------
     # Wire up the upstream module.
     # ---------------------------------------------------------------------

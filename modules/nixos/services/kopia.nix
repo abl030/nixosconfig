@@ -360,6 +360,45 @@ in {
               interval = 300;
             })
             cfg.instances);
+
+        # See #253 audit + rules-doc "Per-service errorPatterns".
+        # Excludes the chronic `broken pipe` / `error encoding response`
+        # noise from kopia's web UI clients — we want repository-broken
+        # signals only.
+        errorPatterns = [
+          {
+            name = "Kopia mum repository broken";
+            unit = "kopia-mum.service";
+            # `despite N retries` is the post-backoff signature when
+            # the NFS dest is gone or the repo is unreachable.
+            pattern = "(?i)unable to (?:write|read).*despite \\d+ retries|cannot open storage|backup failed";
+            severity = "critical";
+            summary = "kopia-mum backup is unable to write";
+          }
+          {
+            name = "Kopia photos repository broken";
+            unit = "kopia-photos.service";
+            # Wasabi/DNS outage class. `refresh error ... despite N
+            # retries` is the post-backoff signature.
+            pattern = "(?i)refresh error.*despite \\d+ retries|cannot open storage";
+            severity = "critical";
+            summary = "kopia-photos backup cannot reach repository";
+          }
+          {
+            name = "Kopia mum verify failed";
+            unit = "kopia-verify-mum.service";
+            pattern = "(?i)unable to open repository|verification failed|Temporary failure in name resolution";
+            severity = "warning";
+            summary = "kopia-mum integrity verification did not run";
+          }
+          {
+            name = "Kopia photos verify failed";
+            unit = "kopia-verify-photos.service";
+            pattern = "(?i)unable to open repository|verification failed|Temporary failure in name resolution";
+            severity = "warning";
+            summary = "kopia-photos integrity verification did not run";
+          }
+        ];
       };
 
       mounts.mumNfs.enable = lib.mkIf needsMumMount true;
