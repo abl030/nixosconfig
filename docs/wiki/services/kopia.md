@@ -130,6 +130,47 @@ Mum's repo backs up specific subdirectories under `/mnt/data` (`Life`, `Media/Bo
 
 **Schedules:** all three mum sources are on `06:00 daily, runMissed: true`, configured via the kopia API (not declaratively in nix — see #255). Drift on these schedules is what the freshness deep probe (#254) detects.
 
+## Declarative source registration — `kopia-<name>-source-sync` (added 2026-05-20, #255)
+
+After the #254 freshness probe caught 12 weeks of silent backup loss, we made `inst.sources` the source of truth via `kopia-<name>-source-sync.service` (per-instance systemd oneshot).
+
+**What it does on every rebuild:**
+
+1. Waits up to 90s for `/api/v1/repo/status` to be reachable (the daemon may still be starting).
+2. For every path in `inst.sources`:
+   - `PUT /api/v1/policy?...path=...` with `scheduling.timeOfDay = [{ hour, min }]` from `inst.snapshotScheduleHour/Minute` (default `06:00`).
+   - If the source isn't already registered in the daemon, `POST /api/v1/sources/upload` to create + trigger the initial snapshot.
+3. Logs a WARNING for any registered source NOT in `inst.sources` — orphan detection. We never auto-remove; cleanup is manual via the kopia CLI (see below).
+
+**Idempotent.** Re-running on unrelated rebuilds is cheap (~50ms per source). `restartTriggers` are keyed off the JSON-encoded `(sources, snapshotScheduleHour, snapshotScheduleMinute)` so any change re-runs the reconcile.
+
+### Cleaning up orphan sources
+
+The reconciler logs orphans to stderr but doesn't touch them. To remove via the kopia CLI:
+
+```sh
+# Find the policy manifest IDs for the unwanted source
+sudo bash -c 'set -a; . /run/secrets/kopia/env; set +a
+  /nix/store/<...>/kopia/bin/kopia --config-file=/mnt/virtio/kopia/<instance>/repository.config policy list'
+
+# Delete each manifest (kopia warns; pass --dangerous-commands=enabled)
+sudo bash -c 'set -a; . /run/secrets/kopia/env; set +a
+  /nix/store/<...>/kopia/bin/kopia --config-file=... manifest delete --dangerous-commands=enabled <id>'
+
+# Restart the kopia daemon so it re-reads source list from manifests
+sudo systemctl restart kopia-<instance>.service
+```
+
+The daemon caches the source list in memory. Deleting the policy manifest alone doesn't drop the source from `/api/v1/sources` — the restart forces a re-read.
+
+### Gotcha: kopia API can stall mid-snapshot
+
+During a large initial upload (e.g. the 333 GB photos library), the kopia daemon's PUT/POST endpoints become unresponsive — 30s timeout. The reconciler doesn't fail loudly when this happens; it just logs `policy update failed` and the next rebuild retries. If you see "reconcile complete — declared=N missing=0 orphans=0" but the policy state didn't update, kopia was likely busy. Check `currentTask` on the affected source via `/api/v1/sources`.
+
+### Gotcha: bash here-strings add a trailing newline
+
+`url_encode() { jq -sRr @uri <<<"$1"; }` looks reasonable but the `<<<` operator appends a `\n` before passing to jq. jq's `@uri` faithfully encodes the newline as `%0A`, kopia accepts the URL, and creates a NEW SOURCE with a literal `\n` in the path. The fix is `printf '%s' "$1" | jq -sRr @uri`. Hit this on first deploy of the reconciler; left 3 orphan sources behind that needed manual `manifest delete` cleanup.
+
 ## Freshness monitoring — `check-kopia-fresh` (added 2026-05-20)
 
 Per-instance deep probe declared in `modules/nixos/services/kopia.nix`:
