@@ -269,6 +269,28 @@ under `postgres`; they aren't in scope and don't need to be listed. The audit
 scope — they're stored in `pg_proc`, not `pg_class` — and need separate
 investigation (likely upstream).
 
+**Grant-presence assertion** (added 2026-05-20 after the geodata_places
+incident). Allow-listed objects are not owned by the service role, so the
+service role has zero implicit privileges on them. The invariant therefore
+runs a second `DO` block that asserts `has_table_privilege` /
+`has_sequence_privilege` `SELECT` for the service role on every relation/
+sequence whose name is in `ownershipAllowList`. Indexes are skipped (grants
+inherit from the table).
+
+Triggered by today's silent failure: Immich's reverse-geocoder tables
+(`geodata_places`, `naturalearth_countries`) had been postgres-owned with
+no `GRANT SELECT` to `immich` for 10+ days. Every photo upload's
+`AssetExtractMetadata` job failed silently — the new errorPattern alert
+caught it on the first fresh upload. Now the deploy would refuse to come
+up if a service module declares an allow-list entry without the
+corresponding grant in `postStartSQL`.
+
+Pair this with `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+GRANT SELECT ON TABLES TO <service>` in `postStartSQL` so any future
+postgres-created table inherits SELECT automatically — that handles the
+extension-or-microservice creates-new-postgres-owned-table case at the
+source.
+
 Populating the allow-list for a new service:
 
 ```nix

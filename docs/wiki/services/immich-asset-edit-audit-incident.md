@@ -100,6 +100,22 @@ Verified working both ways on 2026-05-20:
 - `REVOKE SELECT ON TABLE asset_edit_audit FROM immich` → probe logs `ERROR: permission denied for table asset_edit_audit` (exact original signature), exits 1, monitor goes DOWN.
 - `GRANT SELECT ...` → exit 0, monitor UP within one interval.
 
+## Geodata_places — sibling incident discovered same day (2026-05-20)
+
+Hours after #250 closed and the new errorPattern alerts (#253) went live, the user uploaded fresh photos for the first time in 11+ days. The metadata-extraction worker tripped on a SIBLING permission issue: `permission denied for table geodata_places`. Loki history showed the error going back 10+ days (April 13 onwards on close inspection).
+
+Same class as #250 (postgres-owned table that the immich role can't read) but a different table. `geodata_places` and `naturalearth_countries` are Immich's reverse-geocoder data, bulk-loaded via `COPY` as the postgres superuser → postgres-owned by construction → no implicit grants to immich. The schema-ownership invariant correctly allow-listed them (they ARE legitimately postgres-owned) but nothing was granting SELECT.
+
+**Two-layer fix:**
+
+1. `postStartSQL` in `modules/nixos/services/immich.nix`:
+   - `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO immich` — any future postgres-created table is auto-readable.
+   - Retroactive `DO` block grants on the three known geocoder objects (idempotent).
+
+2. `mk-pg-container.nix` invariant extended with a second `DO $grants$` block (#250 follow-up): asserts `has_table_privilege` / `has_sequence_privilege` SELECT for the service role on every allow-listed object. Container start fails if a future allow-list entry forgets the grant. Tripwire for cases postStartSQL can't auto-fix.
+
+The errorPattern → alert-bridge → claude chain caught this within minutes of the first fresh upload. Without the new alerting it would have continued failing silently — photos appearing in the library but with no place names.
+
 ## Class of failure this exposed
 
 Three observability gaps fired in this incident, all tracked:
