@@ -289,7 +289,7 @@ in {
 
       serviceConfig = {
         User = cfg.user;
-        Group = cfg.user;
+        Group = "users";
         ExecStart = bridgeScript;
         Restart = "on-failure";
         RestartSec = "5s";
