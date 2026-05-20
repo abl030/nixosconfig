@@ -433,5 +433,11 @@ in {
         url = "https://${cfg.fqdn}/";
       }
     ];
+
+    # See #253 audit. Skipped — transcription service where transient
+    # OOMs and per-request failures are normal operation, not an
+    # actionable failure fingerprint. Outages surface via the Kuma HTTP
+    # monitor above.
+    homelab.monitoring.errorPatterns = [];
   };
 }

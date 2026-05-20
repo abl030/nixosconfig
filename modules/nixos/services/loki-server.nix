@@ -517,6 +517,32 @@ in {
           url = "https://mimir.ablz.au/ready";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # The LGTM stack itself — if this fails, every other log-pattern
+      # alert breaks because Loki stops serving. Treat as P0.
+      monitoring.errorPatterns = [
+        {
+          name = "Loki ingester unhealthy";
+          unit = "loki.service";
+          pattern = "(?i)final error|too many outstanding requests|ingester not healthy|terminating loki";
+          severity = "critical";
+          summary = "Loki itself is failing — alert chain is at risk";
+          description = ''
+            The LGTM stack is the canary for everything else. If Loki goes
+            down, the alert-bridge can still page (Grafana → bridge → Gotify
+            doesn't traverse Loki), but log-pattern alerts (#253 errorPatterns,
+            the DDL audit) all stop firing. Treat as a P0 incident.
+          '';
+        }
+        {
+          name = "Grafana failed to provision";
+          unit = "grafana.service";
+          pattern = "(?i)Failed to provision|Module failed.*provisioning";
+          severity = "critical";
+          summary = "Grafana failed to start — alerting may be silent";
+        }
+      ];
     };
   };
 }

@@ -59,6 +59,19 @@ in {
         }
       ];
 
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # If Kuma fails, its HTTP monitors silently stop — every other
+      # monitor in the fleet goes dark without notification.
+      monitoring.errorPatterns = [
+        {
+          name = "Uptime Kuma server failure";
+          unit = "uptime-kuma.service";
+          pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked";
+          severity = "critical";
+          summary = "Uptime Kuma is failing — HTTP monitors will silently stop";
+        }
+      ];
+
       # Fleet-wide maintenance window covering nightly auto-updates.
       #
       # Why this exists: `homelab.update` runs on every host between 01:00

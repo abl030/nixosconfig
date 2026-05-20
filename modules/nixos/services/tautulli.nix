@@ -37,6 +37,11 @@ in {
           url = "https://tau.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — Plex stats viewer with no actionable
+      # failure log fingerprint; outages surface via the Kuma HTTP
+      # monitor above.
+      monitoring.errorPatterns = [];
     };
   };
 }

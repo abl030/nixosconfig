@@ -32,6 +32,11 @@ in {
           url = "https://pdf.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — stateless PDF tools service with no
+      # actionable failure log fingerprint; outages surface via the Kuma
+      # HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
   };
 }

@@ -162,6 +162,11 @@ in {
       }
     ];
 
+    # See #253 audit. Skipped — small FastAPI dashboard with no
+    # actionable failure log fingerprint; outages surface via the Kuma
+    # HTTP monitor (and via the sync timer's own systemd state).
+    homelab.monitoring.errorPatterns = [];
+
     # Redirect the root path to the dashboards index. Uses an exact match so
     # it takes precedence over localProxy's prefix `/` proxy without breaking
     # /api or /dashboards/* (those continue to fall through to the proxy).

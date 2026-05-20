@@ -89,6 +89,11 @@ in {
           url = "https://domains.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — Gatus is a simple Cloudflare DNS/SSL
+      # checker; no actionable failure log fingerprint. Outages surface
+      # via the Kuma HTTP monitor above (and via Gatus's own Gotify alerts).
+      monitoring.errorPatterns = [];
     };
   };
 }

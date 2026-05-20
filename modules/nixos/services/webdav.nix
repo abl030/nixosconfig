@@ -57,6 +57,11 @@ in {
           acceptedStatusCodes = ["200-299" "300-399" "401"];
         }
       ];
+
+      # See #253 audit. Skipped — simple file server with no actionable
+      # failure log fingerprint; NFS-backed outages already covered by
+      # the nfsWatchdog above and the Kuma HTTP monitor.
+      monitoring.errorPatterns = [];
     };
   };
 }

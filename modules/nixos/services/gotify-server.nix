@@ -57,6 +57,18 @@ in {
           url = "https://gotify.ablz.au/";
         }
       ];
+
+      # See #253 audit + rules-doc "Per-service errorPatterns".
+      # If Gotify fails, no alerts reach the phone. Critical.
+      monitoring.errorPatterns = [
+        {
+          name = "Gotify server failure";
+          unit = "gotify-server.service";
+          pattern = "(?i)panic|fatal|listen tcp.*bind";
+          severity = "critical";
+          summary = "Gotify server crashed — push notifications offline";
+        }
+      ];
     };
   };
 }

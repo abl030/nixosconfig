@@ -151,6 +151,11 @@ in {
           url = "https://slskd.ablz.au/health";
         }
       ];
+
+      # See #253 audit. Skipped — Soulseek client where peer/network
+      # errors are normal operation, not an actionable failure
+      # fingerprint. Outages surface via the Kuma HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
   };
 }

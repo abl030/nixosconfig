@@ -56,6 +56,11 @@ in {
           url = "https://netboot.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — very simple iPXE/TFTP/HTTP server with
+      # no actionable failure log fingerprint; outages surface via the
+      # Kuma HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
 
     virtualisation.oci-containers.containers.netboot = {

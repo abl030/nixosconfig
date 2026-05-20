@@ -151,6 +151,11 @@ in {
           url = "https://books.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — Fava is a read-only ledger UI with no
+      # actionable failure log fingerprint; outages surface via the Kuma
+      # HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
   };
 }

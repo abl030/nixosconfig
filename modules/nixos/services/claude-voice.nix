@@ -337,5 +337,10 @@ in {
         url = "https://${cfg.fqdn}/healthz";
       }
     ];
+
+    # See #253 audit. Skipped — SSE bridge whose transient subscriber
+    # disconnects and reconnects are normal; no actionable failure log
+    # fingerprint. Outages surface via the Kuma HTTP monitor above.
+    homelab.monitoring.errorPatterns = [];
   };
 }

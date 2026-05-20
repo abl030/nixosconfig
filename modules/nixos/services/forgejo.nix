@@ -95,6 +95,11 @@ in {
           url = "https://git.ablz.au/api/healthz";
         }
       ];
+
+      # See #253 audit. Skipped — important git server but no observed
+      # failure fingerprints in casual operation; outages surface via
+      # the Kuma HTTP monitor above (/api/healthz).
+      monitoring.errorPatterns = [];
     };
   };
 }

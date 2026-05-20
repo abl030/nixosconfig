@@ -52,6 +52,11 @@ in {
           url = "https://download.ablz.au/";
         }
       ];
+
+      # See #253 audit. Skipped — download client where per-file errors
+      # are normal operation, not an actionable failure fingerprint.
+      # Outages surface via the Kuma HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
 
     virtualisation.oci-containers.containers.jdownloader2 = {

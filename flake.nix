@@ -295,12 +295,45 @@
                 touch $out
               '')
             self.homeConfigurations;
+          # Lightweight text-based check: every service module declaring
+          # `homelab.localProxy.hosts` must also declare
+          # `homelab.monitoring.errorPatterns` (or an explicit empty list
+          # with a justifying comment). Catches the omission introduced
+          # in #253 — without an errorPatterns declaration the service's
+          # real failure logs are invisible to alerting.
+          errorPatternsCheck = pkgs.runCommand "errorPatterns-coverage" {} ''
+            fail=0
+            for f in ${./modules/nixos/services}/*.nix; do
+              base=$(basename "$f")
+              if ${pkgs.gnugrep}/bin/grep -q "localProxy.hosts" "$f"; then
+                if ! ${pkgs.gnugrep}/bin/grep -q "errorPatterns" "$f"; then
+                  echo "MISSING errorPatterns: $base declares localProxy.hosts but not homelab.monitoring.errorPatterns"
+                  fail=1
+                fi
+              fi
+            done
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "Each module declaring localProxy.hosts must also declare"
+              echo "homelab.monitoring.errorPatterns. Use \`errorPatterns = [];\`"
+              echo "with a one-line justifying comment for services whose"
+              echo "failure modes are genuinely covered by the Kuma HTTP"
+              echo "monitor alone. See .claude/rules/nixos-service-modules.md"
+              echo "\"Per-service errorPatterns\" section."
+              exit 1
+            fi
+            echo "All service modules with localProxy.hosts declare errorPatterns."
+            touch $out
+          '';
         in
-          if !fullCheck
-          then {}
-          else if hostFilter == null
-          then hostChecks
-          else lib.filterAttrs (name: _: lib.elem name hostFilter) hostChecks;
+          {inherit errorPatternsCheck;}
+          // (
+            if !fullCheck
+            then {}
+            else if hostFilter == null
+            then hostChecks
+            else lib.filterAttrs (name: _: lib.elem name hostFilter) hostChecks
+          );
       };
     };
 }

@@ -295,6 +295,10 @@ in {
           url = "https://ping.ablz.au/smokeping.fcgi";
         }
       ];
+
+      # See #253 audit. Skipped — just runs pings; no actionable failure
+      # log fingerprint. Outages surface via the Kuma HTTP monitor above.
+      monitoring.errorPatterns = [];
     };
 
     # dig binary needed for DNS probe
