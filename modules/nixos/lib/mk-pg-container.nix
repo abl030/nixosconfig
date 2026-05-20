@@ -176,27 +176,29 @@ in {
         ''}"
       ];
 
-      # When postgresql-setup fails (e.g. the schema-ownership invariant
-      # raises), make sure the outer container@${name}-db.service goes
-      # `failed` so the existing Kuma monitor catches it red. Two changes
-      # together do the job — neither alone is sufficient:
+      # Promote postgresql-setup to RequiredBy=multi-user.target so when
+      # the schema-ownership invariant (or any other startup step) fails,
+      # multi-user.target fails to reach inside the container.
       #
-      # 1. requiredBy=multi-user.target so multi-user fails to reach when
-      #    postgresql-setup fails (instead of merely being a soft "want").
-      # 2. FailureAction=exit-force with non-zero exit status so the inner
-      #    PID 1 (the container's systemd) exits non-zero on postgresql-setup
-      #    failure. Without this, the inner systemd just sits there with a
-      #    dead multi-user.target and nspawn considers it "running" from the
-      #    outside. With it, PID 1 exits non-zero, systemd-nspawn returns
-      #    non-zero, and the outer container@${name}-db.service goes failed
-      #    — which Kuma sees directly. (poweroff.target was the first attempt
-      #    here but exits cleanly with 0, leaving outer state "inactive
-      #    success" rather than "failed". See issue #250.)
+      # NOTE on outer visibility: this alone does NOT make the outer
+      # container@${name}-db.service go `failed`. systemd-nspawn with
+      # --notify-ready=yes considers the container "active" as long as its
+      # PID 1 is alive, regardless of whether inner targets reached. So the
+      # failure is currently visible only in the inner journal — which the
+      # Loki alert from issue #253 (per-service errorPatterns) catches.
+      #
+      # The natural alternative — FailureAction=exit-force or
+      # OnFailure=poweroff.target — tickles a kernel bug
+      # (zap_pid_ns_processes wedge) that leaves a `[systemd-shutdow]`
+      # process stuck in D-state, holding the pidns and the machinectl
+      # registration, requiring a host reboot to recover. We hit this on
+      # 2026-05-20 during the #250 deliberate-failure test; jellystat-db
+      # had been carrying the same wedge from a prior incident. So we
+      # explicitly DO NOT use those propagation mechanisms — outer-service
+      # visibility waits on the Loki path.
       systemd.services.postgresql-setup = {
         wantedBy = lib.mkForce [];
         requiredBy = ["multi-user.target"];
-        unitConfig.FailureAction = "exit-force";
-        unitConfig.FailureActionExitStatus = 1;
       };
 
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
