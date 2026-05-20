@@ -198,7 +198,17 @@
           mum = {
             port = 51516;
             configDir = "/mnt/virtio/kopia/mum";
-            sources = ["/mnt/data"];
+            # Three deliberately-narrow subdirs — NOT all of /mnt/data
+            # (which would include video media we don't ship offsite).
+            # The 2026-02-26 migration silently dropped these from the
+            # daemon schedule for 12 weeks (#254); the reconciler in
+            # the new module + this declarative list (#255) keeps them
+            # synced going forward.
+            sources = [
+              "/mnt/data/Life"
+              "/mnt/data/Media/Books"
+              "/mnt/data/Media/Music"
+            ];
             repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
             verifyPercent = 2;

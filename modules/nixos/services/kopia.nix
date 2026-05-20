@@ -15,6 +15,129 @@
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
 
+  # Reconciliation script — makes `inst.sources` the source of truth
+  # for what's registered in the running kopia daemon. Runs once on every
+  # rebuild via `kopia-<name>-source-sync.service`. Idempotent.
+  #
+  # See #255 for the motivating incident (12 weeks of silent backup loss
+  # because the 2026-02-26 migration's `sources = ["/mnt/data"]` was
+  # never registered with the new daemon, and the orphaned per-subdir
+  # sources lost their schedules).
+  #
+  # Logic:
+  #   1. Wait up to 90s for the daemon to be reachable.
+  #   2. Query /api/v1/sources for the current source list.
+  #   3. For every path in inst.sources:
+  #        - If the source key isn't registered, POST /api/v1/sources/upload
+  #          (auto-creates + triggers initial snapshot).
+  #        - Always PUT /api/v1/policy with the configured timeOfDay.
+  #   4. For every registered source NOT in inst.sources, log a WARNING
+  #      to stderr. Do not auto-remove — that's destructive.
+  mkSourceSyncScript = {
+    name,
+    inst,
+  }:
+    pkgs.writeShellScript "kopia-${name}-source-sync" ''
+      set -uo pipefail
+
+      base="http://127.0.0.1:${toString inst.port}"
+      hour="${toString inst.snapshotScheduleHour}"
+      min="${toString inst.snapshotScheduleMinute}"
+
+      auth_user="''${KOPIA_SERVER_USER:?}"
+      auth_pass="''${KOPIA_SERVER_PASSWORD:?}"
+
+      override_host="${
+        if inst.overrideHostname != null
+        then inst.overrideHostname
+        else "doc2"
+      }"
+      override_user="${
+        if inst.overrideUsername != null
+        then inst.overrideUsername
+        else "kopia"
+      }"
+
+      # Wait for daemon ready (HTTP 200 from /api/v1/repo/status).
+      max_wait=90
+      waited=0
+      while ! ${pkgs.curl}/bin/curl -fsS --max-time 3 \
+        -u "$auth_user:$auth_pass" \
+        "$base/api/v1/repo/status" >/dev/null 2>&1; do
+        if [ "$waited" -ge "$max_wait" ]; then
+          echo "kopia-${name}-source-sync: daemon not reachable after ''${max_wait}s — aborting" >&2
+          exit 1
+        fi
+        sleep 3
+        waited=$((waited + 3))
+      done
+
+      declared_paths=(${
+        lib.concatMapStringsSep " "
+        (s: lib.escapeShellArg s)
+        inst.sources
+      })
+
+      # Current registered paths (for orphan detection).
+      current_json=$(${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" "$base/api/v1/sources")
+      current_paths=$(printf '%s' "$current_json" | ${pkgs.jq}/bin/jq -r '.sources[].source.path')
+
+      url_encode() {
+        ${pkgs.jq}/bin/jq -sRr @uri <<<"$1"
+      }
+
+      # PUT policy with the configured schedule (idempotent; works for
+      # both new and existing sources).
+      set_policy() {
+        local path="$1"
+        local encp
+        encp=$(url_encode "$path")
+        ${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" \
+          -X PUT \
+          -H 'content-type: application/json' \
+          --data "{\"scheduling\":{\"timeOfDay\":[{\"hour\":$hour,\"min\":$min}],\"runMissed\":true}}" \
+          "$base/api/v1/policy?host=$override_host&userName=$override_user&path=$encp" \
+          >/dev/null
+      }
+
+      # Trigger upload (creates source + snapshot on first call;
+      # idempotent thereafter — kopia just notes the source is busy or
+      # queues another snapshot).
+      trigger_upload() {
+        local path="$1"
+        local encp
+        encp=$(url_encode "$path")
+        ${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" \
+          -X POST \
+          "$base/api/v1/sources/upload?host=$override_host&userName=$override_user&path=$encp" \
+          >/dev/null
+      }
+
+      missing=0
+      for path in "''${declared_paths[@]}"; do
+        if printf '%s\n' "$current_paths" | ${pkgs.gnugrep}/bin/grep -Fxq "$path"; then
+          echo "kopia-${name}-source-sync: source ALREADY registered: $path — refreshing policy"
+          set_policy "$path" || echo "  (policy update failed for $path)" >&2
+        else
+          echo "kopia-${name}-source-sync: source MISSING: $path — creating + triggering initial snapshot"
+          set_policy "$path" || echo "  (policy create failed for $path)" >&2
+          trigger_upload "$path" || echo "  (upload trigger failed for $path)" >&2
+          missing=$((missing + 1))
+        fi
+      done
+
+      # Orphan detection — sources in the daemon but not in nix.
+      orphans=0
+      for path in $current_paths; do
+        if ! printf '%s\n' "''${declared_paths[@]}" | ${pkgs.gnugrep}/bin/grep -Fxq "$path"; then
+          echo "kopia-${name}-source-sync: WARNING orphan source in daemon (not in nix): $path" >&2
+          orphans=$((orphans + 1))
+        fi
+      done
+
+      echo "kopia-${name}-source-sync: reconcile complete — declared=''${#declared_paths[@]} missing=$missing orphans=$orphans"
+    '';
+
   # Generate a verify script for a kopia instance
   mkVerifyScript = {
     name,
@@ -185,6 +308,24 @@
         default = [];
         description = "Additional arguments for kopia server start.";
       };
+
+      snapshotScheduleHour = lib.mkOption {
+        type = lib.types.int;
+        default = 6;
+        description = ''
+          Hour-of-day (0-23, local time) the source-reconciler sets as
+          the kopia snapshot schedule for every source declared in
+          `sources`. Used by `kopia-<name>-source-sync.service` on
+          every rebuild. See #255 for the migration that motivated
+          declarative source registration.
+        '';
+      };
+
+      snapshotScheduleMinute = lib.mkOption {
+        type = lib.types.int;
+        default = 0;
+        description = "Minute-of-hour for the snapshot schedule.";
+      };
     };
   };
 
@@ -312,7 +453,38 @@ in {
             ExecStart = mkVerifyScript {inherit name inst;};
           };
         })
-      cfg.instances);
+      cfg.instances
+      // (lib.mapAttrs' (name: inst:
+        lib.nameValuePair "kopia-${name}-source-sync" {
+          description = "Reconcile kopia ${name} declared sources with the daemon";
+          after = ["kopia-${name}.service"];
+          requires = ["kopia-${name}.service"];
+          wantedBy = ["multi-user.target"];
+          environment.HOME = cfg.dataDir;
+          # Re-run on every deploy where the source list or schedule
+          # changes. The script itself is idempotent so re-running on
+          # unrelated rebuilds is cheap (one PUT per source = ~50 ms each).
+          restartTriggers = [
+            (builtins.toJSON {
+              inherit (inst) sources snapshotScheduleHour snapshotScheduleMinute;
+            })
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
+            Group =
+              if inst.runAsRoot
+              then "root"
+              else "kopia";
+            EnvironmentFile = [config.sops.secrets."kopia/env".path];
+            ExecStart = mkSourceSyncScript {inherit name inst;};
+          };
+        })
+      cfg.instances));
 
     systemd.timers = lib.mapAttrs' (name: _inst:
       lib.nameValuePair "kopia-verify-${name}" {
