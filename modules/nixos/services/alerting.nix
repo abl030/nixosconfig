@@ -178,7 +178,7 @@
           from = 600;
           to = 0;
         };
-        datasourceUid = "Loki";
+        datasourceUid = cfg.dbAuditAlert.lokiDatasourceUid;
         model = {
           refId = "A";
           # Loki range query — Grafana wraps the expr in its own time-window
@@ -190,7 +190,7 @@
           maxDataPoints = 43200;
           datasource = {
             type = "loki";
-            uid = "Loki";
+            uid = cfg.dbAuditAlert.lokiDatasourceUid;
           };
         };
       }
