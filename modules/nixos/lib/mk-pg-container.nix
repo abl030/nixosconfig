@@ -106,6 +106,47 @@
       END IF;
     END
     $invariant$;
+
+    -- Grant-presence assertion. Allow-listed objects are not owned by
+    -- the service role, so the service has zero implicit privileges on
+    -- them. They MUST be GRANT'd explicitly or the app gets
+    -- "permission denied for table ..." at runtime. (Caught the
+    -- geodata_places class on 2026-05-20 — 10+ days of silent
+    -- AssetExtractMetadata failures on Immich's reverse-geocoder.)
+    -- Indexes inherit grants from their table; skipped. Sequences and
+    -- relations checked with the appropriate `has_*_privilege` helper.
+    DO $grants$
+    DECLARE
+      bad_grants text;
+    BEGIN
+      SELECT string_agg(
+        c.relkind::text || ':' || c.relname || ' (owner=' || c.relowner::regrole::text || ')',
+        E'\n  '
+        ORDER BY c.relkind, c.relname
+      )
+      INTO bad_grants
+      FROM pg_class c
+      JOIN pg_namespace n ON c.relnamespace = n.oid
+      WHERE n.nspname = 'public'
+        AND c.relowner::regrole::text <> '${name}'
+        AND c.relname = ANY(${allowListSql})
+        AND (
+          -- Tables / views / mviews / foreign tables: need SELECT
+          (c.relkind IN ('r','v','m','f')
+            AND NOT has_table_privilege('${name}', c.oid, 'SELECT'))
+          OR
+          -- Sequences: need SELECT (the standard read privilege; also
+          -- covers nextval if the app needs it — bump to USAGE,SELECT
+          -- if a service ever needs nextval and complains).
+          (c.relkind = 'S'
+            AND NOT has_sequence_privilege('${name}', c.oid, 'SELECT'))
+        );
+      IF bad_grants IS NOT NULL THEN
+        RAISE EXCEPTION E'grant-presence invariant violated; allow-listed objects exist but service role cannot SELECT them:\n  %', bad_grants
+          USING HINT = 'Add GRANT SELECT ON <obj> TO <service> to postStartSQL. Or use ALTER DEFAULT PRIVILEGES FOR ROLE <other> IN SCHEMA public GRANT SELECT ON TABLES TO <service> if these are created by another role at runtime.';
+      END IF;
+    END
+    $grants$;
   '';
 in {
   inherit hostAddress localAddress;
