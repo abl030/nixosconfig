@@ -543,7 +543,10 @@ in {
         {
           name = "Grafana failed to provision";
           unit = "grafana.service";
-          pattern = "(?i)Failed to provision|Module failed.*provisioning";
+          # Scope to level=error — info logs include the alert's own
+          # query string being echoed by the Loki query plugin (same
+          # self-reference loop as the Loki ingester pattern below).
+          pattern = "level=error.*(Failed to provision|Module failed.*provisioning)";
           severity = "critical";
           summary = "Grafana failed to start — alerting may be silent";
         }
