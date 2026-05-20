@@ -1,4 +1,7 @@
 # Deep freshness probe for a Kopia repository.
+# See docs/wiki/services/kopia.md "Freshness monitoring" section for
+# the why, the probe output classes, and the #255 follow-up on making
+# kopia.nix's `sources` declarative.
 #
 # Queries kopia's /api/v1/sources, parses the `lastSnapshot.endTime` for
 # each source, and exits non-zero if any source is older than

@@ -126,7 +126,41 @@ Set on the source `root@kopia:/mnt/data/Life/Photos/library`:
 
 ## Snapshot policy (mum)
 
-Mum's repo backs up `/mnt/data` recursively — broader scope. Policies are kopia defaults; verify runs at 2% sample (vs photos at 5%) because the data volume is larger and full verify would take too long. Schedule for mum is currently driven by the kopia server's defaults — revisit if/when reliability requires.
+Mum's repo backs up specific subdirectories under `/mnt/data` (`Life`, `Media/Books`, `Media/Music` — NOT all of `/mnt/data`, which would include video media we deliberately don't ship offsite). Each subdirectory is its own kopia source with its own policy. Verify runs at 2% sample (vs photos at 5%) because the data volume is larger and full verify would take too long.
+
+**Schedules:** all three mum sources are on `06:00 daily, runMissed: true`, configured via the kopia API (not declaratively in nix — see #255). Drift on these schedules is what the freshness deep probe (#254) detects.
+
+## Freshness monitoring — `check-kopia-fresh` (added 2026-05-20)
+
+Per-instance deep probe declared in `modules/nixos/services/kopia.nix`:
+
+```nix
+monitoring.deepProbes = lib.mapAttrsToList (name: inst: {
+  name = "Kopia ${name} freshness";
+  command = ".../check-kopia-fresh";
+  intervalSecs = 3600;     # check hourly
+  serviceConfig.Environment = [
+    "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
+    "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
+    "KOPIA_MAX_AGE_HOURS=36"
+  ];
+}) cfg.instances;
+```
+
+The probe (`modules/nixos/services/probes/check-kopia-fresh.nix`) queries `/api/v1/sources`, parses each source's `lastSnapshot.endTime`, and fails if any source is older than `KOPIA_MAX_AGE_HOURS` (default 36h — covers the daily 06:00 schedule with 12h slack for slow runs / weekend skips).
+
+**On a fresh deploy this immediately caught a 12-week-old silent backup outage**: the migration from doc1's container kopia to doc2's native module on 2026-02-26 left the 3 mum sources without schedules. The orphaned sources had `schedule: {runMissed: true}` with no `timeOfDay` — kopia knew about them but wouldn't snapshot. No HTTP probe noticed because they returned 200 with `errorCount: 0` (the error count of the LAST snapshot, taken 83 days ago, was indeed 0). #254 deep probe caught it; #255 tracks the kopia.nix change to prevent recurrence.
+
+**Probe output classes:**
+
+| Output | Meaning | Action |
+|---|---|---|
+| `OK` | All sources within `MAX_AGE_HOURS` | Push UP to Kuma. |
+| `EMPTY` | `/api/v1/sources` returned no sources | Daemon up but no sources registered — investigate config. |
+| `NEVER <paths>` | Source registered but never snapshotted | Run `kopia snapshot create <path>` once via API/CLI. |
+| `STALE <paths> (<n>h)` | Source has snapshotted before but not within window | Check the source's schedule / repository connectivity. |
+
+## Bootstrap verification
 
 ## Bootstrap verification
 
