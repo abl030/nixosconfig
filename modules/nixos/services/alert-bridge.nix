@@ -150,7 +150,12 @@
     def handle_alert(alert):
         if alert.get("status") != "firing":
             return
+        fp = alert.get("fingerprint", "?")
         labels = alert.get("labels", {})
+        print(f"[bridge] handle fp={fp} name={labels.get('alertname','?')} "
+              f"has_loki_lines={bool(labels.get('loki_lines'))} "
+              f"has_loki_query={bool(labels.get('loki_query'))}",
+              file=sys.stderr, flush=True)
         annotations = alert.get("annotations", {})
         alertname = labels.get("alertname", "unknown")
         severity = labels.get("severity", "warning")
@@ -183,10 +188,21 @@
             body = self.rfile.read(length)
             try:
                 data = json.loads(body)
-                for alert in data.get("alerts", []):
+                alerts = data.get("alerts", [])
+                firing = [a for a in alerts if a.get("status") == "firing"]
+                print(f"[bridge] POST received: {len(alerts)} alerts ({len(firing)} firing)",
+                      file=sys.stderr, flush=True)
+                for a in alerts:
+                    fp = a.get("fingerprint", "?")
+                    name = a.get("labels", {}).get("alertname", "?")
+                    status = a.get("status", "?")
+                    starts = a.get("startsAt", "?")
+                    print(f"[bridge]   alert fp={fp} name={name} status={status} startsAt={starts}",
+                          file=sys.stderr, flush=True)
+                for alert in alerts:
                     handle_alert(alert)
             except Exception as e:
-                print(f"[bridge] handler error: {e}", file=sys.stderr)
+                print(f"[bridge] handler error: {e}", file=sys.stderr, flush=True)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"ok\n")
