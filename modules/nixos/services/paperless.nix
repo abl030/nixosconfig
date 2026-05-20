@@ -14,12 +14,34 @@
   };
 
   # Real Paperless storage paths live on tower NFS under a path with spaces.
-  # Expose space-free symlinks to Paperless because the upstream module wires
-  # these into systemd ReadWritePaths=, where literal spaces are fragile.
-  mediaDir = "/mnt/data/Life/Meg and Andy/Paperless/Documents";
-  scanDir = "/mnt/data/Life/Meg and Andy/Scans";
-  mediaLink = "/var/lib/paperless-media";
-  consumeLink = "/var/lib/paperless-consume";
+  # The space-bearing source paths are escaped per systemd.exec(5) (backslash-
+  # space) and bound to space-free destinations inside the unit's sandboxed
+  # /mnt tmpfs — see sandbox below. Upstream paperless's `mediaDir` /
+  # `consumptionDir` then point at the space-free destinations directly, no
+  # symlinks required.
+  realMediaDir = ''/mnt/data/Life/Meg\ and\ Andy/Paperless/Documents'';
+  realScansDir = ''/mnt/data/Life/Meg\ and\ Andy/Scans'';
+  mediaDir = "/mnt/paperless-media";
+  consumeDir = "/mnt/paperless-consume";
+
+  # Per-unit sandbox: replace /mnt with an empty tmpfs and bind only the three
+  # paths paperless actually needs. This narrows paperless's visible filesystem
+  # to its own data (cf. anti-pattern: paperless used to see all of /mnt/data,
+  # /mnt/appdata, /mnt/mum, /mnt/mirrors, /mnt/virtio — ro but every byte
+  # readable). BindPaths fails loudly if a source isn't bindable
+  # (status=226/NAMESPACE), so a missing/stale NFS path will surface as a
+  # failed unit + the unit's existing errorPattern alert, not silent
+  # read-only-fs at first write.
+  mntSandbox = {
+    serviceConfig = {
+      TemporaryFileSystem = "/mnt";
+      BindPaths = [
+        "${realMediaDir}:${mediaDir}"
+        "${realScansDir}:${consumeDir}"
+        "${cfg.dataDir}"
+      ];
+    };
+  };
 
   # Shared deps for all paperless systemd services.
   # restartTriggers: see immich.nix comment — Requires= cascade-stops paperless
@@ -44,25 +66,14 @@ in {
     # PostgreSQL in nspawn container (pattern: immich, atuin)
     containers.paperless-db = pgc.containerConfig;
 
-    # Paperless consumes scanner output directly. The older docker-era layout
-    # consumed Paperless/Import with Scans bind-mounted underneath it, but that
-    # introduced a space-bearing fstab mountpoint. switch-to-configuration-ng
-    # double-escapes fstab's \040 spaces when deciding which mount unit to
-    # reload, so keep the runtime path space-free instead.
-    # See docs/wiki/infrastructure/systemd-mount-ordering-cycles.md.
-    systemd.tmpfiles.rules = [
-      "L+ ${mediaLink} - - - - ${mediaDir}"
-      "L+ ${consumeLink} - - - - ${scanDir}"
-    ];
-
     services.paperless = {
       enable = true;
       port = 28981;
       address = "0.0.0.0";
       inherit (cfg) dataDir;
 
-      mediaDir = mediaLink;
-      consumptionDir = consumeLink;
+      mediaDir = mediaDir;
+      consumptionDir = consumeDir;
 
       # Tika + Gotenberg for OCR of Office docs and emails
       configureTika = true;
@@ -89,13 +100,18 @@ in {
       };
     };
 
-    # All paperless services must wait for DB container and NFS, plus pick up
-    # the pgpass env file so PAPERLESS_DBPASSWORD is set for libpq.
+    # All paperless services must wait for DB container and NFS, pick up the
+    # pgpass env file so PAPERLESS_DBPASSWORD is set for libpq, and sandbox
+    # /mnt to only the paths paperless legitimately needs.
     systemd.services = let
       base =
         dbAndNfs
         // {
-          serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."paperless-pgpass".path];
+          serviceConfig =
+            mntSandbox.serviceConfig
+            // {
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."paperless-pgpass".path];
+            };
         };
     in {
       paperless-scheduler = base;
@@ -164,32 +180,34 @@ in {
           '';
         }
         {
-          name = "Paperless consumer DB auth";
+          name = "Paperless consumer NFS/auth failure";
           unit = "paperless-consumer.service";
-          # Excludes the chronic ConsumerError(duplicate) noise from
-          # the per-file retry loop on stuck imports.
-          pattern = "(?i)password authentication failed for user \"paperless\"";
-          severity = "warning";
-          summary = "paperless-consumer cannot connect to DB";
-          description = "Document ingest is stopped while DB auth is broken.";
+          # NAMESPACE = BindPaths source unavailable (NFS stale, dir gone).
+          # Excludes the chronic ConsumerError(duplicate) noise.
+          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"";
+          severity = "critical";
+          summary = "paperless-consumer cannot start or connect to DB";
+          description = "Document ingest is stopped while NFS/DB is broken.";
         }
         {
-          name = "Paperless scheduler degraded";
+          name = "Paperless scheduler NFS/degraded";
           unit = "paperless-scheduler.service";
-          # Redis MISCONF = disk persistence is broken; celery.beat
-          # then refuses to schedule. DB auth = #232 class.
-          pattern = "(?i)password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
+          # NAMESPACE = BindPaths source unavailable.
+          # Redis MISCONF = disk persistence broken; beat won't schedule.
+          # DB auth = #232 class.
+          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
           severity = "warning";
           summary = "celery beat scheduler is degraded";
         }
         {
-          name = "Paperless task queue worker dead";
+          name = "Paperless task queue NFS/worker dead";
           unit = "paperless-task-queue.service";
-          # Worker death = ingest pipeline stops entirely. Excludes
-          # per-doc ConsumerError + OCR ghostscript warnings.
-          pattern = "(?i)\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
+          # NAMESPACE = BindPaths source unavailable.
+          # Worker death = ingest pipeline stops. Excludes per-doc
+          # ConsumerError + OCR ghostscript warnings.
+          pattern = "(?i)Failed at step NAMESPACE|\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
           severity = "critical";
-          summary = "celery worker died — document ingest stopped";
+          summary = "celery worker can't start or died — document ingest stopped";
         }
       ];
     };

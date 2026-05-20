@@ -700,8 +700,73 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
   to fstab as `\040`, but switch-to-configuration-ng currently derives mount
   unit names from the still-escaped fstab field and asks systemd for
   `\x5c040` instead of `\x20` (#247). If a service path must live under a
-  human-named NFS directory, expose a space-free runtime path (usually a
-  symlink under `/var/lib/<service>-...`) and point the service at that.
+  human-named NFS directory, expose a space-free runtime path via the per-
+  unit `BindPaths=` sandbox pattern below — symlinks were the prior workaround
+  but the 2026-05-20 paperless incident showed they fail silently when
+  `ReadWritePaths=` is involved.
+
+### Sandbox patterns — `ReadWritePaths` vs `BindPaths`
+
+systemd's two ways to make a path writable in an otherwise-`ProtectSystem=strict`
+unit have very different failure semantics, which matters for paths backed by
+NFS or accessed through symlinks. From systemd.exec(5):
+
+- **`ReadWritePaths=` / `ReadOnlyPaths=` / `InaccessiblePaths=` silently skip
+  missing sources.** "If the path itself or any of its parents do not exist
+  on the host, the corresponding mount will be skipped." Convenient for
+  defining protections that should work across hosts. Dangerous when the
+  source is on NFS or behind a symlink whose target lives on NFS — a
+  concurrent mount manipulation (switch-to-configuration touching mount
+  units, NFS automount idle, watchdog probe) can race the unit's namespace
+  setup and the rw bind is silently not created. First write fails with
+  `EROFS` minutes or hours later, with no log line tying the failure to
+  the setup race.
+- **`BindPaths=src:dst` / `BindReadOnlyPaths=src:dst` are fail-loud.**
+  Missing or unbindable source → `status=226/NAMESPACE` and a
+  `Failed to set up mount namespacing: <path>: <reason>` entry in
+  journald. The unit refuses to start until the source is bindable.
+
+**Rule.** For service-critical mount-ins on NFS-backed paths, use `BindPaths=`,
+not `ReadWritePaths=`. Always pair with a `Failed at step NAMESPACE`
+`errorPatterns` entry so a real bind failure pages.
+
+### Narrowing `/mnt` visibility — `TemporaryFileSystem=/mnt`
+
+`ProtectSystem=strict` + `PrivateMounts=yes` do **not** narrow which `/mnt/*`
+paths a unit can see. They privatise the namespace and bind `/usr` / `/boot`
+/ `/etc` ro, but every host mount under `/mnt` is inherited as-is. On doc2
+that means a default-hardened service can read all of `/mnt/data`,
+`/mnt/appdata`, `/mnt/mum`, `/mnt/mirrors`, `/mnt/virtio` even when its
+legitimate scope is two NFS subdirs.
+
+For services where the visible-mount blast radius matters (anything stateful
+that touches NFS, or anything with credentials that could pivot to other
+services' on-disk state), wrap the unit's `/mnt` in a fresh tmpfs and bind
+back only what's needed:
+
+```nix
+serviceConfig = {
+  TemporaryFileSystem = "/mnt";
+  BindPaths = [
+    "${realMediaDir}:${mediaDir}"   # space-bearing src → space-free dst
+    "${realScansDir}:${consumeDir}"
+    "${cfg.dataDir}"                # src==dst when no rename needed
+  ];
+};
+```
+
+`TemporaryFileSystem=` only affects the unit's own namespace, never the host.
+Combined with `BindPaths=` this gives both least-privilege scope **and**
+fail-loud failure if a bind source goes away.
+
+Spaces in `BindPaths=` sources: escape as `\ ` (backslash-space) in the unit
+value. In Nix, the indented-string form `''/path/with\ space''` writes the
+right bytes directly. `\x20` does **not** work — the BindPaths parser takes
+it literally.
+
+See `docs/wiki/infrastructure/systemd-sandbox-mnt.md` for the failure-mode
+narrative this rule grew out of, and `modules/nixos/services/paperless.nix`
+for the canonical implementation.
 
 ## Checklist
 
@@ -736,6 +801,10 @@ Before submitting a new service module:
 - [ ] Any `fileSystems` entry whose source lives on a network filesystem
       carries `_netdev` (and ideally `nofail`); see Mount ordering anti-pattern
 - [ ] No `fileSystems` mountpoint contains literal spaces; use space-free
-      service-facing paths instead
+      service-facing paths via `TemporaryFileSystem=/mnt`+`BindPaths=`
+      instead (see Sandbox patterns section)
+- [ ] For NFS-backed writable paths: use `BindPaths=` not `ReadWritePaths=`
+      (fail-loud vs silent-skip), and add `Failed at step NAMESPACE` to
+      every unit's `errorPatterns` entry
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds
