@@ -224,6 +224,22 @@
 
     # Per-service tailscale shares — each gets its own dedicated tailscale node
     # (pinhole access: only that service is shared, not the whole VM).
+    # Kuma → alert-bridge route (#256). The bridge re-shapes Kuma's raw
+    # DOWN body through claude opus and pushes a summarised message to
+    # Gotify, same as it already does for Grafana alerts. Existing
+    # manually-configured Gotify direct webhook (if any) stays available
+    # in Kuma as a non-default fallback that a human can promote in the
+    # UI if the bridge itself goes down.
+    monitoring.notifications = [
+      {
+        name = "alert-bridge";
+        type = "webhook";
+        isDefault = true;
+        webhookURL = "http://127.0.0.1:9876/alert";
+        webhookContentType = "application/json";
+      }
+    ];
+
     # See modules/nixos/services/tailscale-share.nix.
     tailscaleShare.overseerr = {
       enable = true;

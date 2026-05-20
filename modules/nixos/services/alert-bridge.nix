@@ -31,12 +31,14 @@
   cfg = config.homelab.services.alertBridge;
 
   systemPrompt = ''
-    You are summarising a Grafana alert for a homelab operator reading it on
-    a phone push notification. Be terse. Output plain text only, no markdown.
+    You are summarising a homelab alert for an operator reading it on a
+    phone push notification. Be terse. Output plain text only, no markdown.
 
-    Input format:
-    - "## Alert metadata" block: alertname, severity, startedAt, annotations
-    - Optional "## Matching log lines" block: log entries that caused the alert
+    Input is one of:
+    - Grafana alert: "## Alert metadata" + optional "## Matching log lines"
+    - Kuma DOWN: "## Kuma monitor DOWN" with monitor + heartbeat fields,
+      and (for push-type monitors) "## Recent journal for <unit>" with
+      the failing probe's stdout/stderr.
 
     Output format — exactly 2 or 3 lines, total under 300 characters:
     Line 1 (required): <emoji> <one-line: who/what/where>
@@ -44,9 +46,14 @@
     Line 3 (optional): Next: <one-line action>, or omit if no action needed.
 
     Emoji rule: critical=🔴, warning=🟡, info=ℹ️
-    Classification rule for DB DDL alerts: EXPECTED (operator session),
-    DRIFT (unexpected schema mutation matching incident patterns), or
-    UNKNOWN. For other alerts: pick the natural classification.
+    Classifications:
+    - DB DDL alerts: EXPECTED (operator session), DRIFT (matches incident
+      patterns), or UNKNOWN.
+    - Kuma DOWN: read the journal lines if present; classify the
+      underlying failure (e.g. "permission denied for table" = drift
+      regression, network/DNS issues = upstream, "command exited N" =
+      probe internal).
+    - Other alerts: pick the natural classification.
 
     Do not output anything else. No prefatory text, no closing remarks,
     no "I'll analyse...", no bullet points, no JSON.
@@ -147,6 +154,103 @@
         except Exception as e:
             print(f"[bridge] gotify push failed: {e}", file=sys.stderr)
 
+    # Mirror of the probeSlug helper in monitoring_sync.nix so we can
+    # reverse a Kuma push-monitor name back to its systemd unit. Must
+    # stay in sync with the Nix-side function.
+    _PROBE_SLUG_REPLACEMENTS = [
+        ("/", "-"), (" ", "-"), ("(", ""), (")", ""),
+        ("—", "-"), ("[", ""), ("]", ""),
+    ]
+
+    def probe_slug(name):
+        s = name.lower()
+        for src, dst in _PROBE_SLUG_REPLACEMENTS:
+            s = s.replace(src, dst)
+        return s
+
+    def fetch_journal(unit, since_minutes=15, limit=30):
+        """Return recent journal lines for a systemd unit. Empty list on
+        error; we still want to push the alert even without journal
+        context."""
+        try:
+            result = subprocess.run(
+                ["journalctl", "-u", unit, "--no-pager",
+                 "--since", f"{since_minutes} min ago",
+                 "-n", str(limit), "-o", "short"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode != 0:
+                print(f"[bridge] journalctl rc={result.returncode} for {unit}: "
+                      f"{result.stderr[:200]}", file=sys.stderr, flush=True)
+                return []
+            return [ln for ln in result.stdout.splitlines() if ln.strip()][-limit:]
+        except Exception as e:
+            print(f"[bridge] journalctl exception for {unit}: {e}",
+                  file=sys.stderr, flush=True)
+            return []
+
+    def handle_kuma_alert(data):
+        """Kuma webhook payload — push-monitor or HTTP-monitor down/up.
+        See docs/wiki/services/lgtm-stack.md for the alert-bridge flow."""
+        heartbeat = data.get("heartbeat") or {}
+        monitor = data.get("monitor") or {}
+        msg = data.get("msg", "")
+
+        mon_name = monitor.get("name", "?")
+        mon_type = monitor.get("type", "?")
+        mon_url = monitor.get("url", "")
+        # heartbeat.status: 0=DOWN, 1=UP, 2=PENDING, 3=MAINTENANCE
+        status_code = heartbeat.get("status")
+        status_str = {0: "DOWN", 1: "UP", 2: "PENDING", 3: "MAINTENANCE"}.get(
+            status_code, f"status={status_code}")
+        heartbeat_msg = heartbeat.get("msg", "")
+        ping = heartbeat.get("ping")
+        hb_time = heartbeat.get("time", "")
+
+        # Skip UP/recovery for now — only push state-degradation events.
+        # If this changes, also adjust the title/priority/system-prompt
+        # to differentiate recovery from new failure.
+        if status_code != 0:
+            print(f"[bridge] kuma alert ignored ({status_str}): {mon_name}",
+                  file=sys.stderr, flush=True)
+            return
+
+        print(f"[bridge] kuma alert: {mon_name} type={mon_type} {status_str}",
+              file=sys.stderr, flush=True)
+
+        ctx = "## Kuma monitor DOWN\n"
+        ctx += f"monitor: {mon_name}\n"
+        ctx += f"type: {mon_type}\n"
+        if mon_url:
+            ctx += f"url: {mon_url}\n"
+        ctx += f"status: {status_str}\n"
+        if hb_time:
+            ctx += f"failedAt: {hb_time}\n"
+        if ping is not None:
+            ctx += f"ping_ms: {ping}\n"
+        if heartbeat_msg:
+            ctx += f"heartbeat_msg: {heartbeat_msg[:500]}\n"
+        if msg:
+            ctx += f"kuma_msg: {msg[:500]}\n"
+
+        # Push-monitor → enrich with the corresponding deep-probe
+        # oneshot's recent journal. Convention: monitor name maps to
+        # `deep-probe-<slug>.service` via the same probeSlug helper
+        # monitoring_sync.nix uses.
+        if mon_type == "push":
+            slug = probe_slug(mon_name)
+            unit = f"deep-probe-{slug}.service"
+            lines = fetch_journal(unit, since_minutes=20, limit=40)
+            if lines:
+                ctx += f"\n## Recent journal for {unit} (last 40 lines, 20m window)\n"
+                ctx += "\n".join(line[:400] for line in lines) + "\n"
+            else:
+                ctx += f"\n## (no journal lines found for {unit})\n"
+
+        summary = claude_summarise(ctx)
+        title = f"[critical] {mon_name} DOWN"
+        gotify_push(title, summary, priority=8)
+
     def handle_alert(alert):
         if alert.get("status") != "firing":
             return
@@ -188,19 +292,30 @@
             body = self.rfile.read(length)
             try:
                 data = json.loads(body)
-                alerts = data.get("alerts", [])
-                firing = [a for a in alerts if a.get("status") == "firing"]
-                print(f"[bridge] POST received: {len(alerts)} alerts ({len(firing)} firing)",
-                      file=sys.stderr, flush=True)
-                for a in alerts:
-                    fp = a.get("fingerprint", "?")
-                    name = a.get("labels", {}).get("alertname", "?")
-                    status = a.get("status", "?")
-                    starts = a.get("startsAt", "?")
-                    print(f"[bridge]   alert fp={fp} name={name} status={status} startsAt={starts}",
+                # Detect payload shape:
+                #   Grafana → has "alerts": [...]
+                #   Kuma    → has "heartbeat" + "monitor" at top level
+                if "alerts" in data:
+                    alerts = data.get("alerts", [])
+                    firing = [a for a in alerts if a.get("status") == "firing"]
+                    print(f"[bridge] POST received (grafana): {len(alerts)} alerts ({len(firing)} firing)",
                           file=sys.stderr, flush=True)
-                for alert in alerts:
-                    handle_alert(alert)
+                    for a in alerts:
+                        fp = a.get("fingerprint", "?")
+                        name = a.get("labels", {}).get("alertname", "?")
+                        status = a.get("status", "?")
+                        starts = a.get("startsAt", "?")
+                        print(f"[bridge]   alert fp={fp} name={name} status={status} startsAt={starts}",
+                              file=sys.stderr, flush=True)
+                    for alert in alerts:
+                        handle_alert(alert)
+                elif "heartbeat" in data or "monitor" in data:
+                    print(f"[bridge] POST received (kuma): monitor={data.get('monitor',{}).get('name','?')}",
+                          file=sys.stderr, flush=True)
+                    handle_kuma_alert(data)
+                else:
+                    print(f"[bridge] POST received: unknown payload shape — keys={list(data.keys())[:10]}",
+                          file=sys.stderr, flush=True)
             except Exception as e:
                 print(f"[bridge] handler error: {e}", file=sys.stderr, flush=True)
             self.send_response(200)
@@ -310,6 +425,13 @@ in {
       serviceConfig = {
         User = cfg.user;
         Group = "users";
+        # systemd-journal membership lets the bridge run `journalctl -u
+        # deep-probe-<slug>.service` to fetch context for Kuma DOWN
+        # alerts (#256). Without it, journalctl prints "No journal files
+        # were opened" and the alert lands without journal context.
+        SupplementaryGroups = ["systemd-journal"];
+        # journalctl needs to be on PATH for fetch_journal in the script.
+        Environment = ["PATH=${pkgs.systemd}/bin"];
         ExecStart = bridgeScript;
         Restart = "on-failure";
         RestartSec = "5s";

@@ -48,6 +48,11 @@
     text = builtins.toJSON allMonitors;
   };
 
+  notificationsJson = pkgs.writeTextFile {
+    name = "homelab-notifications.json";
+    text = builtins.toJSON cfg.notifications;
+  };
+
   maintenancesJson = pkgs.writeTextFile {
     name = "homelab-maintenance-windows.json";
     text = builtins.toJSON cfg.maintenanceWindows;
@@ -70,6 +75,7 @@
         env_file=${lib.escapeShellArg config.sops.secrets."uptime-kuma/env".path}
         desired_file=${lib.escapeShellArg monitorsJson}
         maintenances_file=${lib.escapeShellArg maintenancesJson}
+        notifications_file=${lib.escapeShellArg notificationsJson}
         kuma_url=${lib.escapeShellArg cfg.kumaUrl}
 
         mkdir -p "$cache_dir"
@@ -105,6 +111,7 @@
         export KUMA_PASS="$kuma_pass"
         export DESIRED_FILE="$desired_file"
         export MAINTENANCES_FILE="$maintenances_file"
+        export NOTIFICATIONS_FILE="$notifications_file"
         export CACHE_FILE="$cache_file"
         export TMP_CACHE="$tmp_cache"
         export MAINT_CACHE_FILE="$maint_cache_file"
@@ -134,6 +141,7 @@
     kuma_pass = os.environ["KUMA_PASS"]
     desired_path = os.environ["DESIRED_FILE"]
     maintenances_path = os.environ["MAINTENANCES_FILE"]
+    notifications_path = os.environ["NOTIFICATIONS_FILE"]
     cache_path = os.environ["CACHE_FILE"]
     tmp_path = os.environ["TMP_CACHE"]
     maint_cache_path = os.environ["MAINT_CACHE_FILE"]
@@ -144,6 +152,9 @@
 
     with open(maintenances_path, "r", encoding="utf-8") as fh:
         desired_maintenances = json.load(fh)
+
+    with open(notifications_path, "r", encoding="utf-8") as fh:
+        desired_notifications = json.load(fh)
 
     try:
         with open(cache_path, "r", encoding="utf-8") as fh:
@@ -190,6 +201,67 @@
         updated_maint = {}
         with UptimeKumaApi(kuma_url, timeout=30) as api:
             api.login(username=kuma_user, password=kuma_pass)
+
+            # ---------------------------------------------------------------
+            # Notifications reconcile (#256). Declared entries become the
+            # authoritative state — webhook URL, contentType, isDefault.
+            # Existing notifications NOT in the declared list are left alone
+            # (so a user can keep a manually-added backup Gotify route);
+            # they just have isDefault demoted if a declared one claims it.
+            # ---------------------------------------------------------------
+            if desired_notifications:
+                existing_notif = api.get_notifications() or []
+                by_notif_name = {n.get("name"): n for n in existing_notif if n.get("name")}
+                declared_names = {entry["name"] for entry in desired_notifications}
+                wants_default = {
+                    entry["name"] for entry in desired_notifications
+                    if entry.get("isDefault")
+                }
+
+                # Demote any existing isDefault=True notification whose name is
+                # NOT in our declared list. Lets a declared entry safely claim
+                # default without two notifications firing for every monitor.
+                if wants_default:
+                    for n in existing_notif:
+                        n_name = n.get("name")
+                        if (
+                            n.get("isDefault")
+                            and n_name not in declared_names
+                        ):
+                            api.edit_notification(n["id"], isDefault=False)
+
+                for entry in desired_notifications:
+                    n_name = entry["name"]
+                    n_type = entry.get("type", "webhook")
+                    n_default = bool(entry.get("isDefault", False))
+                    if n_type != "webhook":
+                        raise UptimeKumaException(
+                            f"notification {n_name!r}: only webhook type is supported"
+                        )
+
+                    payload = dict(
+                        name=n_name,
+                        type=n_type,
+                        isDefault=n_default,
+                        # applyExisting attaches the notification to ALL
+                        # existing monitors when we (re)create with
+                        # isDefault — without it, existing monitors keep
+                        # whatever notification(s) they were already
+                        # bound to and won't pick up this one until
+                        # they're individually edited.
+                        applyExisting=n_default,
+                        webhookURL=entry["webhookURL"],
+                        webhookContentType=entry.get("webhookContentType", "application/json"),
+                    )
+
+                    existing = by_notif_name.get(n_name)
+                    if existing:
+                        api.edit_notification(existing["id"], **payload)
+                    else:
+                        api.add_notification(**payload)
+
+            # Re-fetch after the reconcile so the monitor loop uses the
+            # latest default IDs.
             monitors = api.get_monitors()
             notifications = api.get_notifications()
             default_notification_ids = [
@@ -694,6 +766,53 @@ in {
         Use deepProbes for any stateful service whose HTTP healthcheck
         doesn't actually exercise the DB write path. See issue #252 and
         `.claude/rules/nixos-service-modules.md` Deep probes section.
+      '';
+    };
+
+    notifications = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "Notification name (unique key for reconciliation).";
+          };
+          type = lib.mkOption {
+            type = lib.types.enum ["webhook"];
+            default = "webhook";
+            description = "Notification type. Only webhook is supported here.";
+          };
+          isDefault = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Attach this notification to every monitor automatically.
+              Reconciler ensures only ONE notification has isDefault=true
+              at a time — declaring a new one with isDefault=true demotes
+              previous defaults to non-default. Other notifications stay
+              available as manually-selectable for specific monitors.
+            '';
+          };
+          webhookURL = lib.mkOption {
+            type = lib.types.str;
+            description = "Target URL for webhook notifications.";
+          };
+          webhookContentType = lib.mkOption {
+            type = lib.types.enum ["application/json" "application/x-www-form-urlencoded"];
+            default = "application/json";
+            description = ''
+              Content type Kuma uses for the webhook body. The
+              alert-bridge expects JSON (#256).
+            '';
+          };
+        };
+      });
+      default = [];
+      description = ''
+        Kuma notification entries reconciled declaratively by
+        `homelab-monitoring-sync.service`. The default Kuma setup uses
+        an in-UI Gotify webhook; declaring a notification here
+        overrides/manages it as nix-as-source-of-truth. See #256 for
+        the bridge-fronting design.
       '';
     };
 
