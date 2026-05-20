@@ -276,13 +276,25 @@ Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "applicat
 
 ### alert-bridge — claude-summarised Gotify pushes (added 2026-05-20)
 
-Grafana's webhook payload is enormous (30+ lines per alert: LogQL, DAG metadata, annotations); reading it on a phone at speed is painful. `modules/nixos/services/alert-bridge.nix` runs a small Python HTTP listener on `127.0.0.1:9876` between Grafana and Gotify. When `homelab.services.alertBridge.enable = true`, `alerting.nix` automatically swaps Grafana's webhook URL from the direct-Gotify form to the bridge URL.
+Grafana and Kuma both have verbose default webhook payloads (30+ lines per alert: LogQL, DAG metadata, raw monitor body); reading them on a phone at speed is painful. `modules/nixos/services/alert-bridge.nix` runs a small Python HTTP listener on `127.0.0.1:9876` between BOTH systems and Gotify. When `homelab.services.alertBridge.enable = true`:
 
-**Per-alert flow:**
-1. Grafana POSTs the alert JSON to the bridge (`/alert`).
-2. For each `status=firing` alert, the bridge reads `labels.loki_lines` (if present) and runs that raw stream-selector query against Loki to fetch up to 10 matching log lines from the last 10 minutes. `labels.loki_query` is the aggregated form used by Grafana for the alert *condition* — it returns scalar counts, not text, so don't use that for context.
-3. The bridge composes a `## Alert metadata` block + `## Matching log lines` block and pipes the lot to `claude -p --model opus --allowedTools ""` with a tight system prompt asking for 2-3 lines of phone-readable summary.
-4. The summary goes to Gotify with severity-aware priority (`critical → priority 8`, others → 5). Resolved alerts are skipped.
+- `alerting.nix` automatically swaps Grafana's webhook URL from the direct-Gotify form to the bridge URL.
+- `monitoring_sync.nix` declaratively provisions a Kuma webhook notification (`alert-bridge`, isDefault=true) pointing at the bridge (#256).
+
+**Per-alert flow.** The bridge detects payload shape on each POST:
+
+**Grafana shape** (`alerts: [...]` at top level):
+1. For each `status=firing` alert, read `labels.loki_lines` and run that raw stream-selector against Loki to fetch up to 10 matching lines (10m window). `labels.loki_query` is the aggregated form used for the alert *condition* and returns scalar counts — don't use it for context.
+2. Compose `## Alert metadata` + `## Matching log lines` block, pipe to `claude -p --model opus --allowedTools ""`.
+3. Push summary to Gotify with severity-aware priority (critical → 8, others → 5). Resolved alerts skipped.
+
+**Kuma shape** (`heartbeat` + `monitor` at top level — added 2026-05-20, #256):
+1. Skip recovery (UP) events. Only DOWN (`heartbeat.status = 0`) fires the bridge.
+2. For push-type monitors, infer the corresponding systemd unit via the `probeSlug` convention (`Kopia mum freshness` → `deep-probe-kopia-mum-freshness.service`) and `journalctl --since=20min -n 40` to fetch the probe's stdout/stderr — this is the actual diagnostic context.
+3. For HTTP-type monitors, the journal fetch is skipped (no per-monitor unit to read); the bridge passes the URL, status code, ping ms, and Kuma's `msg` field to claude as the only context.
+4. Compose `## Kuma monitor DOWN` block + optional `## Recent journal for <unit>`, pipe to the same claude system prompt (which knows both formats), and push.
+
+The system prompt knows about both shapes and produces the same 2-3 line output format either way, so the phone push looks consistent.
 
 **Why opus, not haiku:** the DDL classification needs reasoning over actual log lines (operator session vs drift), not pattern-match. Audit alerts are rare so cost isn't a concern. `homelab.services.alertBridge.model` overrides per-host.
 
@@ -291,6 +303,12 @@ Grafana's webhook payload is enormous (30+ lines per alert: LogQL, DAG metadata,
 **Auth gotcha:** the bridge runs as `abl030` because `claude-code` auth lives in `~/.claude` after the one-time interactive `sudo -u abl030 --login claude` setup. Same constraint as `nixos-upgrade-diagnose` in `modules/nixos/autoupdate/update.nix`. The bridge service has its own sops decryption of the Gotify token (`alert-bridge/gotify-token`) with `owner=abl030` so the systemd service can read it.
 
 **Group gotcha:** systemd service `Group=` needs a real group; `abl030` user has primary group `users` (not a group named `abl030`). Use `Group = "users"` in the service config.
+
+**Journal access for Kuma push enrichment.** The bridge service has `SupplementaryGroups = ["systemd-journal"]` so `journalctl -u deep-probe-<slug>.service` works without sudo. Plus `PATH=${pkgs.systemd}/bin` since journalctl isn't in the default `writeShellApplication` runtime PATH. Without these, push-monitor enrichment silently degrades — the alert still fires but claude sees only Kuma metadata, no journal context.
+
+**Re-alert cadence:** the bridge itself doesn't dedupe — that's Grafana's notification policy (`repeat_interval = "24h"`) and Kuma's per-monitor `resendInterval`. Effective re-page cadence is documented in the next subsection.
+
+**probeSlug must stay in sync** between `monitoring_sync.nix` (Nix-side, used to build push monitor names) and `alert-bridge.nix` (Python-side, used to reverse-map names to systemd units). If you change one, change both. The exact replacements: `/` → `-`, `space` → `-`, `(` → ``, `)` → ``, `—` → `-`, `[` → ``, `]` → ``, then lowercase.
 
 ### DB DDL audit rules (added 2026-05-20 via #251)
 

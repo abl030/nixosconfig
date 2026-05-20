@@ -1,6 +1,7 @@
-# Grafana → claude -p → Gotify webhook bridge.
+# Grafana + Kuma → claude -p → Gotify webhook bridge.
 # See docs/wiki/services/lgtm-stack.md "alert-bridge" for the why,
-# the per-alert flow, and the auth/group gotchas.
+# the per-alert flow, the payload-shape detection logic (Grafana vs
+# Kuma), and the auth/group gotchas (#251 + #256).
 #
 # Inserts itself between Grafana's alerting and Gotify so each fired alert
 # can be summarised by claude (haiku) before pushing. The raw Grafana
