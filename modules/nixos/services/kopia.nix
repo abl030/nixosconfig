@@ -399,6 +399,26 @@ in {
             summary = "kopia-photos integrity verification did not run";
           }
         ];
+
+        # Stale-snapshot deep probe per kopia instance — see #254.
+        # Catches the "backups stopped silently" class: kopia is up, the
+        # repository is reachable, but no new snapshot has landed within
+        # `KOPIA_MAX_AGE_HOURS`. Default 36h covers the daily 06:00
+        # schedule with 12h slack for slow runs / weekend skips.
+        deepProbes = lib.mapAttrsToList (name: inst: {
+          name = "Kopia ${name} freshness";
+          command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
+          interval = "1h";
+          intervalSecs = 3600;
+          serviceConfig = {
+            Environment = [
+              "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
+              "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
+              "KOPIA_MAX_AGE_HOURS=36"
+            ];
+          };
+        })
+        cfg.instances;
       };
 
       mounts.mumNfs.enable = lib.mkIf needsMumMount true;
