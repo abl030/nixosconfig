@@ -328,6 +328,68 @@
     })
   ];
 
+  # Per-service errorPatterns from `homelab.monitoring.errorPatterns`.
+  # Each entry becomes a Loki alert rule with both `loki_query` (aggregated
+  # count, used as the alert condition) and `loki_lines` (raw stream
+  # selector, used by the alert-bridge to fetch actual log lines for
+  # claude). See #253 and the rules-doc "Per-service errorPatterns"
+  # section for the per-service audit methodology.
+  errorPatternSlug = name:
+    pkgs.lib.toLower (
+      pkgs.lib.concatStrings (
+        pkgs.lib.filter (c: builtins.match "[a-z0-9-]" c != null) (
+          pkgs.lib.stringToCharacters (
+            builtins.replaceStrings
+            ["/" " " "(" ")" "—" "[" "]" "." "_" ":"]
+            ["-" "-" "" "" "-" "" "" "-" "-" "-"]
+            (pkgs.lib.toLower name)
+          )
+        )
+      )
+    );
+
+  # Compose the LogQL stream selector for an errorPattern entry.
+  errorPatternSelector = ep: let
+    hostPart =
+      if ep.host == null
+      then ''host=~".+"''
+      else ''host="${ep.host}"'';
+    unitPart =
+      if ep.unitIsRegex
+      then ''unit=~"${ep.unit}"''
+      else ''unit="${ep.unit}"'';
+    containerPart =
+      pkgs.lib.optionalString (ep.container != null)
+      '', container="${ep.container}"'';
+  in "{${hostPart}, ${unitPart}${containerPart}}";
+
+  errorPatternAlerts =
+    map (ep: let
+      slug = errorPatternSlug ep.name;
+      selector = errorPatternSelector ep;
+      pattern = ep.pattern;
+      desc =
+        (
+          if ep.description == ""
+          then ""
+          else ep.description + "\n\n"
+        )
+        + ''
+          Query in Grafana Explore (Loki):
+            ${selector} |~ "${pattern}"
+        '';
+    in
+      mkLokiAlert {
+        uid = "homelab-err-${slug}";
+        title = ep.name;
+        severity = ep.severity;
+        summary = ep.summary;
+        description = desc;
+        logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
+        lokiLines = ''${selector} |~ "${pattern}"'';
+      })
+    config.homelab.monitoring.errorPatterns;
+
   rules = {
     apiVersion = 1;
     groups =
@@ -348,6 +410,15 @@
           folder = "Homelab";
           interval = "1m";
           rules = dbAuditAlerts;
+        }
+      ]
+      ++ lib.optionals (errorPatternAlerts != []) [
+        {
+          orgId = 1;
+          name = "service-errors";
+          folder = "Homelab";
+          interval = "1m";
+          rules = errorPatternAlerts;
         }
       ];
   };

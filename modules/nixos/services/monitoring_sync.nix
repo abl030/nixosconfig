@@ -697,6 +697,114 @@ in {
       '';
     };
 
+    errorPatterns = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              Short alert title — becomes the Grafana alert name and the
+              Gotify push title. Must be unique across the fleet.
+            '';
+            example = "Immich DB write failure";
+          };
+          unit = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              systemd `unit` label to match in Loki. Usually exact
+              (e.g. `immich-server.service`). For multi-unit services
+              you can use a regex like `paperless-.+\\.service` — wrap
+              it in `unit=~"..."` form by setting `unitIsRegex = true`.
+            '';
+          };
+          unitIsRegex = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              If true, `unit` is treated as a regex (`unit=~"..."`).
+              If false, exact match (`unit="..."`).
+            '';
+          };
+          host = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              Optional host filter. Default null = any host. Mostly
+              useful when you have the same service on multiple hosts
+              and want to alert per-host.
+            '';
+          };
+          container = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              Optional `container` label filter (set by alloy from
+              `_CONTAINER_NAME`). Useful for podman-driven services
+              where the journal unit is generic (e.g. `podman-foo.service`)
+              and we want to scope to a specific container name.
+            '';
+          };
+          pattern = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              LogQL regex (the part inside `|~ "..."`). Use `(?i)` for
+              case-insensitive. Keep tight — broad patterns like
+              `error` are noise. Target the SPECIFIC strings the
+              service emits when actually broken. See #253 audit
+              methodology.
+            '';
+            example = "PostgresError|permission denied for table|migration failed";
+          };
+          severity = lib.mkOption {
+            type = lib.types.enum ["critical" "warning" "info"];
+            default = "warning";
+            description = ''
+              Alert severity — critical maps to Gotify priority 8 in
+              the alert-bridge. Use "critical" for service-unusable
+              failures, "warning" for degraded states, "info" if you
+              just want to know (rare; usually means the pattern
+              shouldn't be an alert).
+            '';
+          };
+          summary = lib.mkOption {
+            type = lib.types.str;
+            description = "One-line summary surfaced in the alert annotation + Gotify body.";
+          };
+          description = lib.mkOption {
+            type = lib.types.lines;
+            default = "";
+            description = ''
+              Optional longer description shown in Grafana and included
+              in the claude context block. Use it to capture investigation
+              tips: where to look, what the failure usually means.
+            '';
+          };
+          window = lib.mkOption {
+            type = lib.types.str;
+            default = "5m";
+            description = ''
+              LogQL `count_over_time` window. Default 5m — match-within-5min
+              is enough to debounce nearly anything, while staying short
+              enough to page within ~6 min of the first failure (eval
+              cadence is 1m).
+            '';
+          };
+        };
+      });
+      default = [];
+      description = ''
+        Per-service error log patterns. Each entry compiles into a
+        Grafana Loki alert rule (see alerting.nix), fires on the first
+        match within `window`, and routes through the alert-bridge for
+        claude-summarised Gotify pushes.
+
+        Quiet-by-construction: only patterns you opt into can alert.
+        Don't catch generic "error" — see #253 audit methodology for
+        the per-service fingerprint rationale and the rules-doc section
+        for severity tiering.
+      '';
+    };
+
     maintenanceWindows = lib.mkOption {
       type = lib.types.listOf (lib.types.submodule {
         options = {
