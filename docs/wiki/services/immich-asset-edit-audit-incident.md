@@ -90,6 +90,16 @@ We tried two mechanisms to fix this:
 
 Both reverted in commit `630b2788`. Outer-service visibility deferred to [issue #253](https://github.com/abl030/nixosconfig/issues/253) — per-service Loki errorPatterns alert on the inner journal line. See [nspawn-failureaction-pidns-wedge.md](../infrastructure/nspawn-failureaction-pidns-wedge.md) for the kernel-bug write-up.
 
+## Deep probe (#252) — surgical check for next-time
+
+Landed 2026-05-20: `modules/nixos/services/probes/check-immich-sync.nix`. Runs `SELECT 1 FROM asset_edit_audit LIMIT 1` as the `immich` role over the nspawn veth every 5 min via a systemd timer. Exit 0 → Kuma push monitor "Immich sync write-path" gets a heartbeat (UP). Permission denied → no push → Kuma flips DOWN after maxretries (default 2 = ~15 min from first failure).
+
+This is the surgical version of the alert that would have caught the original incident. It bypasses the HTTP API entirely — we tried `POST /api/sync/stream` first but Immich rejects API-key auth on sync endpoints. The SQL-level probe doesn't need an API key, doesn't break when Immich renames endpoints, and tests the exact permission state we care about.
+
+Verified working both ways on 2026-05-20:
+- `REVOKE SELECT ON TABLE asset_edit_audit FROM immich` → probe logs `ERROR: permission denied for table asset_edit_audit` (exact original signature), exits 1, monitor goes DOWN.
+- `GRANT SELECT ...` → exit 0, monitor UP within one interval.
+
 ## Class of failure this exposed
 
 Three observability gaps fired in this incident, all tracked:

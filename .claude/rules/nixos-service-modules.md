@@ -401,7 +401,9 @@ homelab.monitoring.deepProbes = [
 - Reads secrets from `<SERVICE>_API_KEY_FILE`, not from `EnvironmentFile` directly — survives systemd hardening.
 - Exits 0 on healthy, non-zero on any failure. Distinguish auth (4xx) from server error (5xx) in the log message so operators can triage without re-running.
 - Uses `curl -sS -o /dev/null -w '%{http_code}'` rather than `-f` so we can branch on status. `-f` fails on >=400 without giving us the status code.
-- Picks the endpoint most likely to catch the failure class. For Immich that's `/api/sync/asset-edits-v1` — the exact endpoint that broke in #250.
+- Picks the probe target most likely to catch the failure class. For Immich that's a direct SQL `SELECT 1 FROM asset_edit_audit LIMIT 1` as the immich role over the nspawn veth — the exact failure mode from #250. We initially tried POSTing to `/api/sync/stream` but Immich rejects API-key auth on sync endpoints (`"Sync endpoints cannot be used with API keys"`). Direct SQL is tighter anyway: no API key to rotate, no API surface drift across Immich versions, no auth dance.
+
+**HTTP probe vs SQL probe.** For services where the failure mode is "the app can't talk to its DB" (most stateful services), an HTTP probe through an auth'd endpoint is good. For services where the failure is specifically a permission/schema state we know how to assert directly (the #250 class), a SQL probe is more surgical — and avoids the "API endpoint we needed got renamed" tax. Pick per service.
 
 **Where to look when a probe goes red:**
 

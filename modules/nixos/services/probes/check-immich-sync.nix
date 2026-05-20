@@ -6,6 +6,10 @@
 # `permission denied for table asset_edit_audit` — at the SQL layer,
 # independent of any application-level retry/wrap logic.
 #
+# See docs/wiki/services/immich-asset-edit-audit-incident.md (the
+# incident this probe defends against) and the "Deep write-path probes"
+# section of .claude/rules/nixos-service-modules.md for the pattern.
+#
 # Why not probe via Immich's HTTP API? Upstream Immich (≥2.x) blocks
 # API-key auth on /api/sync/* endpoints:
 #   {"message":"Sync endpoints cannot be used with API keys",
