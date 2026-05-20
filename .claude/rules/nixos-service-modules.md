@@ -411,6 +411,55 @@ homelab.monitoring.deepProbes = [
 - Kuma UI heartbeat history → last-good timestamp shows when it last passed.
 - `/var/lib/homelab/monitoring/push-urls/<slug>.url` — confirm the file exists and is the right Kuma URL (sometimes monitor_sync hasn't caught up yet on a fresh deploy).
 
+### Per-service `errorPatterns` (log-line alert rules)
+
+Shallow HTTP healthchecks and deep probes catch their own failure classes (process up / write path healthy). Neither catches the third class: **the service is up, the DB is fine, but the app itself is logging that something is broken** — failed migrations, hung queues, queue dispatcher exceptions, machine-learning model load failures. The 2026-05-20 `asset_edit_audit` incident (#250) lived in this class for 11 days — Immich's logs screamed `PostgresError: permission denied for table asset_edit_audit` while every monitor stayed green.
+
+`homelab.monitoring.errorPatterns` closes that gap. Each entry compiles into a Grafana Loki alert rule scoped to a (host, unit, optional container) tuple plus a regex. Fires when the pattern matches inside a sliding window (default 5m), routes through the alert-bridge for a claude-summarised Gotify push.
+
+```nix
+homelab.monitoring.errorPatterns = [
+  {
+    name = "Immich DB write failure";
+    unit = "immich-server.service";
+    pattern = "PostgresError|permission denied for table|migration failed";
+    severity = "critical";
+    summary = "Immich app is throwing DB errors — uploads likely broken";
+    description = ''
+      Likely class of failure: schema-permission drift like #250, or a
+      failed migration that didn't roll back. Cross-reference the
+      schema-ownership invariant from mk-pg-container.nix and the
+      kysely_migrations table inside immich-db.
+    '';
+  }
+];
+```
+
+**Quiet-by-construction.** Only patterns you opt into can alert. Don't catch generic `error` or `failed` — that's noise from systemd unit cleanup, k8s probe failures, and routine log chatter. Catch the SPECIFIC strings the service emits when actually broken. The #253 audit produced per-service fingerprints by reading 30 days of Loki history; replicate that methodology if you add a new service.
+
+**Severity tiering:**
+
+| Severity | When to use | Bridge priority |
+|---|---|---|
+| `critical` | Service is unusable; user-visible feature broken (uploads, login, search). | Gotify 8 (high) |
+| `warning` | Degraded — some users affected, retries may recover, partial functionality. | Gotify 5 |
+| `info` | Worth knowing about but no action expected. | Gotify 5 (rare; usually means the pattern shouldn't be an alert) |
+
+**Pattern hygiene:**
+
+- Use `(?i)` for case-insensitive only when needed; not all services log lowercase consistently.
+- Avoid backreferences and lookarounds — Loki's regex engine is `re2`, no support.
+- Test the pattern in Grafana Explore before committing: `{host="<host>", unit="<unit>"} |~ "<pattern>"` should return real failures over the last 30 days. If it returns zero, the pattern is wrong (no test data) or the failure class never happens (great, but verify).
+- For Postgres-backed services, include `PostgresError|permission denied for table` to catch the #250 class globally.
+- For Node/Express services, `UnhandledPromiseRejection|Cannot set headers after they are sent` are common but noisy — only include if they fire on real failures in your audit window.
+
+**Investigation flow when a pattern fires:**
+
+1. Read the Gotify push — claude has already classified the failure class.
+2. Open Grafana Explore with the LogQL from the alert annotation (already pre-filled in the description).
+3. Look at the matching lines + surrounding minutes for context (stack traces, preceding errors).
+4. Cross-check related units (e.g. if `immich-server` fires, check `immich-machine-learning` and `container@immich-db.service`).
+
 ### NFS Watchdog (for NFS-dependent services)
 
 ```nix
@@ -653,6 +702,11 @@ Before submitting a new service module:
       service-specific probe script under `modules/nixos/services/probes/`,
       OR an explicit comment justifying why a shallow HTTP check is
       sufficient (high bar — see Deep probes section above)
+- [ ] `homelab.monitoring.errorPatterns` entries for the service's
+      real failure log fingerprints, OR an explicit
+      `errorPatterns = []` with a comment justifying (services where
+      every failure surfaces as HTTP 5xx — bar is high; see
+      Per-service errorPatterns section)
 - [ ] `homelab.nfsWatchdog` if service depends on NFS paths
 - [ ] Secrets via `sops.secrets` + `config.homelab.secrets.sopsFile`
 - [ ] No hardcoded LAN IPs in module code or runtime config (see DNS-First Networking above)
