@@ -127,6 +127,15 @@ in {
         hostPath = passwordFile;
         isReadOnly = true;
       };
+      # Bind the host's journald socket into the container so postgres'
+      # syslog writes land directly in the host journal (and from there
+      # into Loki via alloy). nspawn's --link-journal=try-guest does not
+      # merge inner journal entries to the host in our setup (#251), so
+      # we sidestep the journal-merge problem by writing through syslog.
+      "/run/systemd/journal/socket" = {
+        hostPath = "/run/systemd/journal/socket";
+        isReadOnly = false;
+      };
     };
 
     config = {lib, ...}: {
@@ -157,6 +166,13 @@ in {
             log_connections = true;
             log_disconnections = true;
             log_line_prefix = "%m [%p] %u@%d/%a from %h: ";
+            # Write logs via the host's systemd journald (bound into the
+            # container above). The inner journal isn't merged to the host
+            # — syslog routes the entries directly into the host journal,
+            # which alloy ships to Loki. See #251. mkForce overrides the
+            # upstream "stderr" default in nixpkgs' postgresql module.
+            log_destination = lib.mkForce "syslog";
+            syslog_ident = "postgres-${name}";
           }
           // pgSettings;
         ensureDatabases = [name] ++ extraDatabases;
