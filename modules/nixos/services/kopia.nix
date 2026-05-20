@@ -82,8 +82,12 @@
       current_json=$(${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" "$base/api/v1/sources")
       current_paths=$(printf '%s' "$current_json" | ${pkgs.jq}/bin/jq -r '.sources[].source.path')
 
+      # NOTE: use `printf '%s'`, NOT `<<<` — bash here-strings add a
+      # trailing newline, which jq's @uri then URL-encodes as %0A.
+      # kopia accepts the encoded form and CREATES A SOURCE with a
+      # literal \n in the path. (Bit me on first deploy.)
       url_encode() {
-        ${pkgs.jq}/bin/jq -sRr @uri <<<"$1"
+        printf '%s' "$1" | ${pkgs.jq}/bin/jq -sRr @uri
       }
 
       # PUT policy with the configured schedule (idempotent; works for
