@@ -525,7 +525,12 @@ in {
         {
           name = "Loki ingester unhealthy";
           unit = "loki.service";
-          pattern = "(?i)final error|too many outstanding requests|ingester not healthy|terminating loki";
+          # Scope to level=error/warn only — level=info is mostly the
+          # querier echoing the alert's own query string (self-reference
+          # loop that fired a false-positive on first deploy), and
+          # level=debug is request tracing. Catch real ingester /
+          # pusher failures only.
+          pattern = "level=(error|warn).*(final error|too many outstanding requests|ingester not healthy|terminating loki|push request failed|flush error)";
           severity = "critical";
           summary = "Loki itself is failing — alert chain is at risk";
           description = ''
