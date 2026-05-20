@@ -180,6 +180,60 @@ Why: `config.containers.<svc>-db.config.system.build.toplevel` is the NixOS syst
 
 See `modules/nixos/lib/mk-pg-container.nix` header comment for the full pathology.
 
+### Schema-ownership invariant — assert clean on every container start
+
+`mk-pg-container` runs a final `RAISE EXCEPTION`-on-violation check against every
+database in the instance: any table, view, materialized view, sequence, foreign
+table or index in `public` whose owner is not the service role MUST appear in
+the per-service `ownershipAllowList` or the container start fails (which fires
+the existing `container@<svc>-db.service` Kuma monitor).
+
+This exists because on 2026-05-20 we discovered Immich uploads had been silently
+broken for 11+ days — `asset_edit_audit` had been recreated as `postgres`-owned
+somewhere along the way, every monitor stayed green, and the only smoking gun
+was buried in immich-server logs. The invariant catches the *next* such drift
+on the next container restart (system rebuilds restart any nspawn whose unit
+wrapper changes), turning a silent symptom into a loud container-down alert.
+See issue #250 for the postmortem.
+
+Scope is intentional: only "user data" object kinds (`r`,`v`,`m`,`S`,`f`,`i`).
+Extension internals (functions, types, operators, opclasses) routinely live
+under `postgres`; they aren't in scope and don't need to be listed. The audit
+*trigger functions* Immich's migrations create as postgres are also out of
+scope — they're stored in `pg_proc`, not `pg_class` — and need separate
+investigation (likely upstream).
+
+Populating the allow-list for a new service:
+
+```nix
+pgc = import ../lib/mk-pg-container.nix {
+  # ... usual args ...
+  ownershipAllowList = [
+    # objects that are LEGITIMATELY owned by postgres (extension data tables,
+    # geocoder imports loaded via COPY as superuser, etc.). List each by name
+    # including supporting indexes/sequences explicitly.
+    "geodata_places"
+    "geodata_places_pkey"
+    # ...
+  ];
+};
+```
+
+Empty list is the default and correct for every service except Immich today.
+If a deploy fails with `schema-ownership invariant violated`, read the error
+list and decide for each object: is it drift (run `ALTER ... OWNER TO <svc>`
+to fix) or legitimate (add to the allow-list and re-deploy).
+
+Operators can probe ownership state directly:
+
+```sh
+ssh <host> 'pid=$(sudo machinectl show <svc>-db -p Leader --value); \
+  sudo nsenter -t $pid -m -p -u -i -n su -s /bin/sh postgres -c \
+  "psql -d <db> -c \"SELECT relkind, relname, relowner::regrole FROM pg_class c \
+  JOIN pg_namespace n ON c.relnamespace=n.oid WHERE n.nspname='\''public'\'' AND \
+  c.relowner::regrole::text <> '\''<svc>'\'';\""'
+```
+
 ## DNS-First Networking
 
 **All service-to-service URLs, scrape targets, and remote_write endpoints MUST use DNS names (FQDNs via `localProxy`, `tailscaleShare`, or Tailscale MagicDNS), never hardcoded LAN IPs.**
@@ -477,6 +531,9 @@ Before submitting a new service module:
 - [ ] If using DB container: `restartTriggers` on app service referencing container toplevel
 - [ ] If using `mk-pg-container`: `passwordFile` set to a 0400 sops dotenv with
       `POSTGRES_PASSWORD`, consumer wired to load same file (see PG auth section)
+- [ ] If using `mk-pg-container`: any postgres-owned objects in `public` are
+      declared in `ownershipAllowList`; deploy fails loudly otherwise (see
+      Schema-ownership invariant section)
 - [ ] OCI containers run with `--user=<non-root-uid>:<gid>` in `extraOptions`
 - [ ] Image refs pinned to digests for any non-nixpkgs upstream
 - [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts`

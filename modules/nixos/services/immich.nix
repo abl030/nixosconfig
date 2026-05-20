@@ -40,6 +40,26 @@
     };
     postStartSQL = immichExtensionSQL;
     passwordFile = "/run/secrets/immich-pgpass";
+    # Schema-ownership allow-list. The invariant in mk-pg-container.nix
+    # asserts every public.* table/view/sequence/index is owned by `immich`;
+    # these are the legitimate exceptions owned by the postgres superuser
+    # because they're loaded/created by the extension or geocoder import
+    # rather than by app migrations. See issue #250.
+    ownershipAllowList = [
+      # Reverse-geocoder data tables (loaded via COPY as superuser)
+      "geodata_places"
+      "naturalearth_countries"
+      "naturalearth_countries_tmp_id_seq1"
+      "geodata_places_pkey"
+      "idx_geodata_places_admin1_name"
+      "idx_geodata_places_admin2_name"
+      "idx_geodata_places_alternate_names"
+      "idx_geodata_places_name"
+      "IDX_geodata_gist_earthcoord"
+      "naturalearth_countries_pkey"
+      # vectorchord (vchord) extension materialized helper
+      "vchordrq_sampled_queries"
+    ];
   };
 in {
   options.homelab.services.immich = {

@@ -59,6 +59,14 @@
   # (e.g. jellystat: user=jellystat, database=jfstat). All extra databases
   # are created with `name` as the owner.
   extraDatabases ? [],
+  # Schema-ownership allow-list for the invariant assertion. Tables, views,
+  # materialized views, sequences, foreign tables and indexes in `public`
+  # MUST be owned by the service role `name`; anything not in this list will
+  # fail the container startup. Names that don't exist are ignored — list
+  # legitimate exceptions (extension-owned data tables, sequences/indexes
+  # supporting them) here so genuine drift surfaces as a container-start
+  # failure. See issue #250 for the asset_edit_audit incident that drove this.
+  ownershipAllowList ? [],
 }: let
   hostAddress = "192.168.100.${toString (hostNum * 2)}";
   localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
@@ -66,6 +74,39 @@
   # Path inside the container where the bindmounted password file appears.
   pgpassPath = "/run/secrets/pgpass.env";
   pgpassRuntimePath = "/run/postgresql-${name}-pgpass.env";
+
+  # Schema-ownership invariant. Runs on every database in this instance
+  # after init. RAISE EXCEPTION fails the psql step → fails postgresql-setup
+  # → fails container start → fires existing container@<name>-db.service alert.
+  allowListSql =
+    if ownershipAllowList == []
+    then "ARRAY[]::text[]"
+    else "ARRAY[" + (pkgs.lib.concatMapStringsSep "," (s: "'${s}'") ownershipAllowList) + "]::text[]";
+
+  ownershipInvariantSql = ''
+    DO $invariant$
+    DECLARE
+      bad_objects text;
+    BEGIN
+      SELECT string_agg(
+        c.relkind::text || ':' || c.relname || ' (owner=' || c.relowner::regrole::text || ')',
+        E'\n  '
+        ORDER BY c.relkind, c.relname
+      )
+      INTO bad_objects
+      FROM pg_class c
+      JOIN pg_namespace n ON c.relnamespace = n.oid
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r','v','m','S','f','i')
+        AND c.relowner::regrole::text <> '${name}'
+        AND c.relname <> ALL(${allowListSql});
+      IF bad_objects IS NOT NULL THEN
+        RAISE EXCEPTION E'schema-ownership invariant violated; objects in public not owned by service role and not in ownershipAllowList:\n  %', bad_objects
+          USING HINT = 'Either ALTER ... OWNER TO the service role (drift) or add the object name to ownershipAllowList (legitimate).';
+      END IF;
+    END
+    $invariant$;
+  '';
 in {
   inherit hostAddress localAddress;
   dbHost = localAddress;
@@ -121,6 +162,10 @@ in {
       #   1. Re-own extra databases to ${name} (ensureDBOwnership only handles primary)
       #   2. Apply postStartSQL if provided, plus per-database init SQL
       #   3. Set the user's password from the private runtime pgpass file
+      #   4. Assert schema-ownership invariant on every database (LAST — must
+      #      see the post-init state. Failure → fail container start so the
+      #      existing container@${name}-db.service Kuma monitor alerts.
+      #      See issue #250 for the asset_edit_audit incident that drove this.)
       #
       # The password step uses psql's `:'pwd'` variable interpolation which
       # properly quotes/escapes the value — safe regardless of password contents.
@@ -162,7 +207,11 @@ in {
             ${lib.getExe' pgPackage "psql"} -d "${name}" \
               -tAc "ALTER USER \"${name}\" WITH PASSWORD '$PASS_ESC'"
           '')
-        ];
+        ]
+        # Schema-ownership invariant — runs LAST, against every database in
+        # this instance. Any object in `public` not owned by ${name} and not
+        # in `ownershipAllowList` raises an exception → container start fails.
+        ++ (map (db: ''${lib.getExe' pgPackage "psql"} -d "${db}" -v ON_ERROR_STOP=1 -f "${pkgs.writeText "${name}-${db}-ownership-invariant.sql" ownershipInvariantSql}"'') ([name] ++ extraDatabases));
 
       networking.firewall.allowedTCPPorts = [5432];
 
