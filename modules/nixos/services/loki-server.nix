@@ -252,12 +252,6 @@ in {
           datasources.settings.datasources = [
             {
               name = "Loki";
-              # Pin the UID so declarative alert rules in alerting.nix can
-              # reference it stably. Same rationale as the Prometheus UID
-              # pinning further down — without an explicit UID, Grafana
-              # auto-generates an opaque one that varies per instance
-              # (and changes if you delete-recreate the datasource).
-              uid = "Loki";
               type = "loki";
               access = "proxy";
               url = "http://127.0.0.1:${toString cfg.lokiPort}";
