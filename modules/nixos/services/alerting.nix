@@ -25,6 +25,17 @@
   # else. Grafana's default webhook payload happens to put both fields at the
   # top level, so no body-template override is needed — the payload's extra
   # alertmanager-style metadata is silently discarded by Gotify.
+  # When alertBridge is enabled, Grafana posts to the bridge instead of
+  # straight to Gotify — the bridge re-queries Loki for matching lines,
+  # pipes context to claude -p, and forwards a summary to Gotify itself.
+  # The URL has no `?token=` because the bridge holds the token.
+  bridgeEnabled = config.homelab.services.alertBridge.enable or false;
+  bridgePort = config.homelab.services.alertBridge.listenPort or 9876;
+  webhookUrl =
+    if bridgeEnabled
+    then "http://127.0.0.1:${toString bridgePort}/alert"
+    else "${cfg.gotifyUrl}/message?token=__GOTIFY_TOKEN__";
+
   contactPointsTemplate = pkgs.writeText "grafana-contact-points.yaml" ''
     apiVersion: 1
     contactPoints:
@@ -35,7 +46,7 @@
             type: webhook
             disableResolveMessage: false
             settings:
-              url: ${cfg.gotifyUrl}/message?token=__GOTIFY_TOKEN__
+              url: ${webhookUrl}
               httpMethod: POST
               maxAlerts: 0
   '';
@@ -250,7 +261,16 @@
     annotations = {
       inherit summary description;
     };
-    labels = {inherit severity;};
+    # `loki_query` is read by the alert-bridge service (see
+    # services/alert-bridge.nix). When set, the bridge re-runs the query
+    # against Loki at notification time to fetch the actual matching
+    # lines, then pipes them through claude -p for a human-readable
+    # summary before forwarding to Gotify. Prometheus-based rules don't
+    # set this; the bridge handles them with metadata only.
+    labels = {
+      inherit severity;
+      loki_query = logql;
+    };
   };
 
   dbAuditAlerts = lib.optionals cfg.dbAuditAlert.enable [

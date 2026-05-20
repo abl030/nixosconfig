@@ -95,6 +95,11 @@
       # Grafana alerting → Gotify (#201). Default rule: alert on
       # unexpected reboots of prom (the canonical case from 2026-02-22).
       alerting.enable = true;
+      # claude-p summary bridge in front of Gotify. When enabled,
+      # alerting.nix automatically points Grafana's webhook at the
+      # bridge (127.0.0.1:9876) instead of Gotify, and the bridge
+      # forwards a summarised push.
+      alertBridge.enable = true;
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";

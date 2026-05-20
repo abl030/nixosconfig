@@ -17,6 +17,7 @@
     ./loki.nix
     ./loki-server.nix
     ./alerting.nix
+    ./alert-bridge.nix
     ./prometheus.nix
     ./mcp.nix
     ./mdns-reflector.nix
