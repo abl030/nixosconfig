@@ -154,6 +154,16 @@ in {
       format = "dotenv";
       mode = "0400";
     };
+    # Immich service-account API key for the deepProbe (#252). Ships
+    # with a placeholder; user replaces with a real key via `sops`
+    # after generating one in Immich's UI. Probe stays red until then —
+    # which is the intended signal.
+    sops.secrets."immich-monitor/api-key" = {
+      sopsFile = config.homelab.secrets.sopsFile "immich-monitor.env";
+      format = "dotenv";
+      key = "IMMICH_API_KEY";
+      mode = "0400";
+    };
 
     # Wire into existing infrastructure
     homelab = {
@@ -172,6 +182,34 @@ in {
         {
           name = "Immich";
           url = "https://photos.ablz.au/api/server/ping";
+        }
+      ];
+
+      # Deep write-path probe — fixed-purpose for catching the #250
+      # asset_edit_audit class of failure (DB permission drift that the
+      # shallow /api/server/ping is blind to). Probes the
+      # /api/sync/asset-edits-v1 endpoint with an Immich service-account
+      # API key. See docs/wiki/services/immich-asset-edit-audit-incident.md
+      # and issue #252.
+      #
+      # SETUP (one-time per fresh Immich install):
+      #   1. Web UI → Account → API Keys → Create.
+      #   2. Replace REPLACE_ME_WITH_REAL_KEY_FROM_IMMICH_UI in
+      #      secrets/hosts/doc2/immich-monitor.env via `sops`.
+      #   3. nixos-rebuild switch. Kuma's "Immich sync write-path"
+      #      monitor flips green within one interval (~5 min).
+      monitoring.deepProbes = [
+        {
+          name = "Immich sync write-path";
+          command = "${pkgs.callPackage ./probes/check-immich-sync.nix {}}/bin/check-immich-sync";
+          interval = "5m";
+          intervalSecs = 300;
+          serviceConfig = {
+            Environment = [
+              "IMMICH_API_KEY_FILE=${config.sops.secrets."immich-monitor/api-key".path}"
+              "IMMICH_BASE_URL=https://photos.ablz.au"
+            ];
+          };
         }
       ];
 

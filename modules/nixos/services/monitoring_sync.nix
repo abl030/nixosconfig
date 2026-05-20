@@ -5,11 +5,47 @@
   ...
 }: let
   cfg = config.homelab.monitoring;
-  haveMonitoringConfig = cfg.monitors != [] || cfg.maintenanceWindows != [];
+
+  # Auto-materialise deepProbes into push-type monitors so the existing
+  # sync code provisions them in Kuma. Users only ever declare deepProbes;
+  # the monitors entry is generated.
+  deepProbeMonitors =
+    map (probe: {
+      inherit (probe) name maxretries retryInterval resendInterval;
+      url = "";
+      type = "push";
+      interval = probe.intervalSecs;
+      hostHeader = null;
+      ignoreTls = false;
+      acceptedStatusCodes = ["200-299"];
+      jsonPath = null;
+      expectedValue = null;
+      method = "GET";
+      basicAuthUser = null;
+      basicAuthPass = null;
+      basicAuthUserEnv = null;
+      basicAuthPassEnv = null;
+    })
+    cfg.deepProbes;
+
+  allMonitors = cfg.monitors ++ deepProbeMonitors;
+
+  # Safe basename for state file lookup — must match the python
+  # write_push_url() regex/lower transform.
+  probeSlug = name:
+    lib.toLower (
+      builtins.replaceStrings
+      ["/" " " "(" ")" "—" "[" "]"]
+      ["-" "-" "" "" "-" "" ""]
+      name
+    );
+
+  haveMonitoringConfig =
+    allMonitors != [] || cfg.maintenanceWindows != [];
 
   monitorsJson = pkgs.writeTextFile {
     name = "homelab-monitors.json";
-    text = builtins.toJSON cfg.monitors;
+    text = builtins.toJSON allMonitors;
   };
 
   maintenancesJson = pkgs.writeTextFile {
@@ -125,6 +161,30 @@
         h, m = value.split(":", 1)
         return {"hours": int(h), "minutes": int(m)}
 
+    def write_push_url(api, monitor_id, name, kuma_url):
+        """Look up the push monitor by id, read its pushToken, write the
+        push URL to /var/lib/homelab/monitoring/push-urls/<safe-name>.url.
+        deep-probe oneshots read this file at runtime."""
+        import re
+        import pathlib
+        # Re-fetch monitor to get the pushToken — get_monitor includes it.
+        mon = api.get_monitor(monitor_id)
+        token = mon.get("pushToken") or mon.get("push_token")
+        if not token:
+            print(f"[push] monitor {name!r} (id={monitor_id}) has no pushToken yet",
+                  flush=True)
+            return
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-").lower()
+        url_dir = pathlib.Path("/var/lib/homelab/monitoring/push-urls")
+        url_dir.mkdir(parents=True, exist_ok=True)
+        push_url = f"{kuma_url.rstrip('/')}/api/push/{token}"
+        target = url_dir / f"{safe}.url"
+        tmp = target.with_suffix(".url.tmp")
+        tmp.write_text(push_url + "\n")
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, target)
+        print(f"[push] wrote {target} for monitor {name!r}", flush=True)
+
     def sync_once() -> tuple:
         updated = {}
         updated_maint = {}
@@ -167,6 +227,8 @@
 
                 if mon_type == "json-query":
                     kuma_type = MonitorType.JSON_QUERY
+                elif mon_type == "push":
+                    kuma_type = MonitorType.PUSH
                 else:
                     kuma_type = MonitorType.HTTP
 
@@ -176,19 +238,31 @@
                 # Previously type was only passed on the add path, so a monitor
                 # created as "http" stayed "http" forever and the json-query
                 # fields were silently orphaned.
-                common_kwargs = dict(
-                    type=kuma_type,
-                    name=name,
-                    url=url,
-                    ignoreTls=ignore_tls,
-                    accepted_statuscodes=accepted_codes,
-                    notificationIDList=notification_ids,
-                    maxredirects=10,
-                    interval=interval,
-                    maxretries=maxretries,
-                    retryInterval=retry_interval,
-                    resendInterval=resend_interval,
-                )
+                # Push monitors don't have URL/statuscodes/etc.; Kuma rejects them.
+                if mon_type == "push":
+                    common_kwargs = dict(
+                        type=kuma_type,
+                        name=name,
+                        notificationIDList=notification_ids,
+                        interval=interval,
+                        maxretries=maxretries,
+                        retryInterval=retry_interval,
+                        resendInterval=resend_interval,
+                    )
+                else:
+                    common_kwargs = dict(
+                        type=kuma_type,
+                        name=name,
+                        url=url,
+                        ignoreTls=ignore_tls,
+                        accepted_statuscodes=accepted_codes,
+                        notificationIDList=notification_ids,
+                        maxredirects=10,
+                        interval=interval,
+                        maxretries=maxretries,
+                        retryInterval=retry_interval,
+                        resendInterval=resend_interval,
+                    )
                 if headers_json:
                     common_kwargs["headers"] = headers_json
                 if basic_auth_user:
@@ -204,7 +278,8 @@
                     if expected_value:
                         common_kwargs["expectedValue"] = expected_value
 
-                existing = by_url.get(url) or by_name.get(name)
+                # Push monitors have no URL — look up only by name.
+                existing = by_name.get(name) if mon_type == "push" else (by_url.get(url) or by_name.get(name))
                 if existing:
                     monitor_id = existing.get("id")
                     existing_codes = existing.get("accepted_statuscodes") or existing.get("acceptedStatusCodes") or []
@@ -244,7 +319,10 @@
                     )
                     if needs_update:
                         api.edit_monitor(monitor_id, **common_kwargs)
-                    updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+                    cache_key = name if mon_type == "push" else url
+                    updated[cache_key] = {"name": name, "url": url, "monitorId": monitor_id, "type": mon_type}
+                    if mon_type == "push":
+                        write_push_url(api, monitor_id, name, kuma_url)
                     continue
 
                 # Uptime Kuma 2.x requires conditions (NOT NULL).
@@ -258,7 +336,10 @@
                 with api.wait_for_event(Event.MONITOR_LIST):
                     resp = api._call('add', data)
                 monitor_id = resp.get("monitorID") or resp.get("monitorId")
-                updated[url] = {"name": name, "url": url, "monitorId": monitor_id}
+                cache_key = name if mon_type == "push" else url
+                updated[cache_key] = {"name": name, "url": url, "monitorId": monitor_id, "type": mon_type}
+                if mon_type == "push":
+                    write_push_url(api, monitor_id, name, kuma_url)
 
             # ---------------------------------------------------------------
             # Maintenance windows
@@ -403,7 +484,12 @@ in {
           };
           url = lib.mkOption {
             type = lib.types.str;
-            description = "URL to monitor.";
+            default = "";
+            description = ''
+              URL to monitor. Required for http/json-query types.
+              Push monitors don't have an outbound URL — they wait
+              for inbound heartbeats — so set to "" or omit.
+            '';
           };
           hostHeader = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
@@ -421,9 +507,14 @@ in {
             description = "Accepted HTTP status code ranges for the monitor.";
           };
           type = lib.mkOption {
-            type = lib.types.enum ["http" "json-query"];
+            type = lib.types.enum ["http" "json-query" "push"];
             default = "http";
-            description = "Monitor type: http or json-query.";
+            description = ''
+              Monitor type: http, json-query, or push. Push monitors
+              are created by `homelab.monitoring.deepProbes` — don't
+              declare them directly here unless you know what you're
+              doing.
+            '';
           };
           jsonPath = lib.mkOption {
             type = lib.types.nullOr lib.types.str;
@@ -494,6 +585,116 @@ in {
       });
       default = [];
       description = "List of monitors to ensure in Uptime Kuma.";
+    };
+
+    deepProbes = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule ({config, ...}: {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              Probe identifier — used as the Kuma monitor name, the
+              systemd unit suffix, and the state-file basename. Must be
+              unique across the fleet and stable: changing it orphans
+              the previous Kuma push monitor.
+            '';
+            example = "Immich sync write-path";
+          };
+          command = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              Absolute path to an executable that performs the probe.
+              Exit 0 = healthy (oneshot then pushes to Kuma); any
+              non-zero or timeout = unhealthy (no push, Kuma misses
+              heartbeat and eventually marks DOWN). Stdout/stderr are
+              journaled under the oneshot unit for forensics.
+            '';
+          };
+          interval = lib.mkOption {
+            type = lib.types.str;
+            default = "5m";
+            description = ''
+              systemd OnUnitActiveSec value — how often the probe runs.
+              The corresponding Kuma push monitor's `interval` is set
+              to `intervalSecs` (see below) which should be ≥ this.
+            '';
+          };
+          intervalSecs = lib.mkOption {
+            type = lib.types.int;
+            default = 300;
+            description = ''
+              Kuma push monitor's `interval` field (seconds). Kuma
+              expects a heartbeat at most this often; if it goes
+              `intervalSecs * (1 + maxretries) + retryInterval` seconds
+              without one, the monitor goes DOWN. Match this to
+              `interval` (default 5m = 300s).
+            '';
+          };
+          timeout = lib.mkOption {
+            type = lib.types.str;
+            default = "60s";
+            description = ''
+              systemd TimeoutStartSec for the oneshot. If the probe
+              command runs longer than this it is killed (SIGTERM →
+              SIGKILL) and the run counts as a failure. Pick something
+              short enough to surface hangs but long enough for a
+              healthy probe with a degraded upstream — Immich's sync
+              endpoint typically responds in <2s but can spike during
+              heavy ingest.
+            '';
+          };
+          maxretries = lib.mkOption {
+            type = lib.types.int;
+            default = 2;
+            description = ''
+              Kuma maxretries — consecutive missed heartbeats before
+              the monitor flips DOWN and pages. Default 2 with
+              intervalSecs=300 = ~15 min of continuous failure before
+              alerting. Less forgiving than the HTTP monitor defaults
+              because deep-probe failures indicate real write-path
+              breaks, not transient blips.
+            '';
+          };
+          retryInterval = lib.mkOption {
+            type = lib.types.int;
+            default = 60;
+            description = "Kuma retryInterval — seconds between retries after a failed heartbeat.";
+          };
+          resendInterval = lib.mkOption {
+            type = lib.types.int;
+            default = 48;
+            description = ''
+              Kuma resendInterval — heartbeats between re-notifications
+              while the monitor is still DOWN. At intervalSecs=300, 48 ≈
+              4 hours, matching the standard alert re-page cadence.
+            '';
+          };
+          serviceConfig = lib.mkOption {
+            type = lib.types.attrs;
+            default = {};
+            description = ''
+              Extra systemd serviceConfig for the probe oneshot.
+              Common use: EnvironmentFile for API keys, LoadCredential
+              for SOPS-managed secrets, RuntimeDirectory for state.
+            '';
+          };
+        };
+      }));
+      default = [];
+      description = ''
+        Deep write-path probes. Each entry provisions:
+          1. A Kuma push monitor (type=push) with the given name.
+          2. A systemd timer + oneshot service named `deep-probe-<name>`.
+          3. On healthy run, the oneshot curls the monitor's push URL
+             (read from /var/lib/homelab/monitoring/push-urls/<name>.url
+             which monitor_sync writes after creating the Kuma monitor).
+        On non-zero exit OR timeout, no push happens and Kuma eventually
+        marks DOWN after the configured maxretries.
+
+        Use deepProbes for any stateful service whose HTTP healthcheck
+        doesn't actually exercise the DB write path. See issue #252 and
+        `.claude/rules/nixos-service-modules.md` Deep probes section.
+      '';
     };
 
     maintenanceWindows = lib.mkOption {
@@ -593,9 +794,16 @@ in {
 
     systemd.tmpfiles.rules = lib.mkOrder 2000 [
       "d /var/lib/homelab/monitoring 0750 root root -"
+      # Push-URL state dir: monitor_sync writes <safe-name>.url here
+      # after creating each push monitor in Kuma; deep-probe oneshots
+      # read those files at runtime. 0755 so non-root probe users can
+      # read; the URLs are not secret (they're tokens specific to
+      # individual monitors), but we keep the dir restricted-write.
+      "d /var/lib/homelab/monitoring/push-urls 0755 root root -"
     ];
 
-    systemd.services.homelab-monitoring-sync = {
+    systemd.services = {
+      homelab-monitoring-sync = {
       description = "Sync Uptime Kuma monitors for local stacks";
       after = ["network-online.target"];
       wants = ["network-online.target"];
@@ -613,6 +821,83 @@ in {
         RemainAfterExit = true;
         ExecStart = monitoringScript;
       };
-    };
+      };
+    } // (
+    # Generate one (oneshot, timer) pair per deepProbe. The oneshot reads
+    # the push URL from /var/lib/homelab/monitoring/push-urls/<slug>.url
+    # (written by monitor_sync after the corresponding Kuma push monitor
+    # is provisioned), runs the probe command, and on success curls the
+    # push URL. On any failure (non-zero exit or timeout), no curl
+    # happens; Kuma misses the heartbeat and eventually flips DOWN.
+      lib.listToAttrs (map (probe: let
+          slug = probeSlug probe.name;
+          urlFile = "/var/lib/homelab/monitoring/push-urls/${slug}.url";
+          probeRunner = pkgs.writeShellScript "deep-probe-${slug}-runner" ''
+            set -uo pipefail
+
+            url_file=${lib.escapeShellArg urlFile}
+
+            # Run the probe; capture exit + duration for the push payload.
+            t0=$(${pkgs.coreutils}/bin/date +%s%N)
+            ${probe.command}
+            rc=$?
+            t1=$(${pkgs.coreutils}/bin/date +%s%N)
+            ms=$(( (t1 - t0) / 1000000 ))
+
+            if [ "$rc" -ne 0 ]; then
+              echo "[deep-probe] ${probe.name}: command exited $rc — NOT pushing to Kuma" >&2
+              exit "$rc"
+            fi
+
+            if [ ! -r "$url_file" ]; then
+              echo "[deep-probe] ${probe.name}: push URL file missing: $url_file" >&2
+              echo "[deep-probe]   (waiting for homelab-monitoring-sync to provision the Kuma monitor)" >&2
+              exit 0   # don't fail the unit just because Kuma sync hasn't caught up yet
+            fi
+
+            push_url=$(${pkgs.coreutils}/bin/head -n1 "$url_file")
+            ${pkgs.curl}/bin/curl -fsS --max-time 10 \
+              --data-urlencode "status=up" \
+              --data-urlencode "msg=OK rc=0" \
+              --data-urlencode "ping=$ms" \
+              -G "$push_url" >/dev/null
+          '';
+        in {
+          name = "deep-probe-${slug}";
+          value = {
+            description = "Deep write-path probe: ${probe.name}";
+            after = ["network-online.target" "homelab-monitoring-sync.service"];
+            wants = ["network-online.target"];
+            serviceConfig =
+              {
+                Type = "oneshot";
+                ExecStart = probeRunner;
+                TimeoutStartSec = probe.timeout;
+              }
+              // probe.serviceConfig;
+          };
+        })
+        cfg.deepProbes));
+
+    systemd.timers =
+      lib.listToAttrs (map (probe: let
+          slug = probeSlug probe.name;
+        in {
+          name = "deep-probe-${slug}";
+          value = {
+            description = "Deep write-path probe timer: ${probe.name}";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnBootSec = "2m";
+              OnUnitActiveSec = probe.interval;
+              # AccuracySec keeps the timer tightly on-schedule; the
+              # alert latency math (intervalSecs * maxretries) assumes
+              # we don't drift more than a few seconds.
+              AccuracySec = "10s";
+              Unit = "deep-probe-${slug}.service";
+            };
+          };
+        })
+        cfg.deepProbes);
   };
 }
