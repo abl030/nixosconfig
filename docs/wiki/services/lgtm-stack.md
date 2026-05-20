@@ -274,6 +274,29 @@ To add more reboot alerts, append instance labels to `homelab.services.alerting.
 
 Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "application" stream as agent pings. If the noise mix becomes a problem, create a separate Gotify app, store its token in `secrets/gotify-alerting.env`, and point `homelab.services.alerting.gotifyTokenSopsFile` at it.
 
+### DB DDL audit rules (added 2026-05-20 via #251)
+
+Two Loki-backed alert rules in the `db-audit` group:
+
+- `homelab-pg-superuser-ddl` — fires on any PG superuser DDL in a `container@*-db.service` journal that isn't tagged `application_name=mk-pg-container-startup`. Catches both legitimate operator shell sessions (machinectl shell → psql) and silent drift like the `asset_edit_audit` incident (#250).
+- `homelab-mariadb-audit-ddl` — fires on any MariaDB `server_audit` `QUERY_DDL` event from a user not in `server_audit_excl_users` (local socket root/mysql are excluded as ops backdoor).
+
+Both depend on inner-container postgres/mariadb logs reaching Loki, which only works because `mk-pg-container.nix` routes through syslog rather than the inner journal — see [`docs/wiki/infrastructure/nspawn-journal-shipping.md`](../infrastructure/nspawn-journal-shipping.md) for the why.
+
+### Loki datasource UID auto-generation gotcha
+
+The Loki datasource in `loki-server.nix` has no explicit `uid:` — Grafana auto-generates one at first startup (currently `P8E80F9AEF21F6940` on doc2). Pinning the UID at provisioning time *after* the datasource already exists breaks Grafana with `Datasource provisioning error: data source not found` because the upsert path can't change UIDs in-place, and the `deleteDatasources` workaround would risk breaking dashboards that reference Loki by UID.
+
+For declarative alert rules that need to reference Loki, expose the UID as a module option and document the lookup command:
+
+```sh
+PASS=$(sudo grep ^GRAFANA_ADMIN_PASSWORD= /run/secrets/loki/grafana.env | cut -d= -f2-)
+curl -sG -u "abl030:$PASS" http://127.0.0.1:3030/api/datasources \
+  | jq -r '.[] | select(.name=="Loki").uid'
+```
+
+If we ever nuke `/var/lib/grafana` (or migrate hosts), update the default in `homelab.services.alerting.dbAuditAlert.lokiDatasourceUid` to the new auto-UID. Same Prometheus pinning rationale applies but Prometheus *was* pinned cleanly from day 1; Loki was created without a UID before we needed declarative alerting against it.
+
 ### Maintenance windows
 
 Not implemented. The motivating use case is "alert me when prom reboots, full stop" — the user usually knows when they're about to reboot prom and can ignore the page. If we end up with regular planned-reboot windows, add a Grafana mute timing via `services.grafana.provision.alerting.muteTimings.settings` and reference it from the policy.

@@ -197,9 +197,12 @@
 
     // path=/var/log/journal/ enumerates all machine subdirs so
     // systemd-nspawn container journals reach Loki (otherwise sd_journal
-    // opens only the host's namespace). DB DDL audit alert in
-    // alerting.nix depends on those lines — see issue #251 and the
-    // audit-logging section in .claude/rules/nixos-service-modules.md.
+    // opens only the host's namespace). NOTE: in practice this alone is
+    // insufficient for nspawn inner-unit logs — sd_journal_open still
+    // scopes to the host's machine-id. The actual working path for inner
+    // postgres/mariadb logs is the syslog-bindmount workaround in
+    // mk-pg-container.nix. We keep this here as defence-in-depth.
+    // See docs/wiki/infrastructure/nspawn-journal-shipping.md.
     loki.source.journal "read" {
       forward_to    = [loki.process.filter.receiver]
       relabel_rules = loki.relabel.journal.rules

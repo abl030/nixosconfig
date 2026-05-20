@@ -134,6 +134,9 @@ in {
       # the host in our setup (#251), so we sidestep the journal-merge
       # problem by writing through syslog. postgres uses /dev/log, which
       # on modern systemd symlinks to /run/systemd/journal/dev-log.
+      #
+      # See docs/wiki/infrastructure/nspawn-journal-shipping.md for the
+      # full picture: what we tried, what didn't work, when to revisit.
       "/run/systemd/journal/dev-log" = {
         hostPath = "/run/systemd/journal/dev-log";
         isReadOnly = false;

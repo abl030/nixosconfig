@@ -371,20 +371,9 @@ in {
         default = "P8E80F9AEF21F6940";
         description = ''
           UID of the Loki datasource in Grafana, used by the DDL audit
-          alert rules. The Loki datasource in loki-server.nix is provisioned
-          without an explicit `uid:`, so Grafana auto-generates one at first
-          startup; the default here is the auto-generated value on the
-          current doc2 instance (verified via `/api/datasources` on
-          2026-05-20). If Grafana state is ever nuked or this UID
-          drifts, look it up with:
-            curl -u abl030:<pw> http://localhost:3030/api/datasources \
-              | jq '.[] | select(.name=="Loki").uid'
-          and update either this default or the host-specific override.
-
-          We can't pin Loki's UID at the provisioning side (in loki-server.nix)
-          because Grafana doesn't update existing datasources' UIDs in place
-          and the safe deleteDatasources/recreate dance risks breaking
-          dashboards that reference Loki by UID.
+          alert rules. See docs/wiki/services/lgtm-stack.md "Loki
+          datasource UID auto-generation gotcha" for full context and
+          the lookup command if this needs to change.
         '';
       };
     };
