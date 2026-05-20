@@ -51,11 +51,11 @@ pkgs.writeShellApplication {
       exit 1
     fi
 
-    # Parse + check. jq exit:
-    #   0 = all sources fresh, output count
-    #   1 = at least one source stale, output names+ages
-    #   2 = parse error / no sources
+    # Parse + check. Kopia emits ISO8601 with fractional seconds
+    # (`2026-02-26T04:01:04.419581466Z`); jq's fromdateiso8601 only
+    # accepts `%Y-%m-%dT%H:%M:%SZ` so strip the `.\d+` before parsing.
     result=$(printf '%s' "$resp" | jq -r --argjson max_secs "$((max_age_hours * 3600))" '
+      def parse_iso: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
       if (.sources | length) == 0 then
         "EMPTY"
       else
@@ -67,7 +67,7 @@ pkgs.writeShellApplication {
         (now) as $now |
         ($rows
           | map(select(.last != null))
-          | map(. + {age: ($now - (.last | fromdateiso8601))})
+          | map(. + {age: ($now - (.last | parse_iso))})
           | map(select(.age > $max_secs))) as $stale |
         if ($never | length) > 0 then
           "NEVER " + (($never | map(.path)) | join(", "))
