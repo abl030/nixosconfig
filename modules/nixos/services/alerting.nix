@@ -441,7 +441,11 @@
         group_interval = "5m";
         # 12h re-page if still firing — a permanently-firing alert without
         # auto-resolve would otherwise stay silent after the first page.
-        repeat_interval = "12h";
+        # 24h re-page cadence (2026-05-20 operator preference). Lower
+        # than this gets spammy on long-lived alerts (e.g. a deepProbe
+        # red because a downstream service is being repaired); higher
+        # risks forgetting the alert exists.
+        repeat_interval = "24h";
       }
     ];
   };

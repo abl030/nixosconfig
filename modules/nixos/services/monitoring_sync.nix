@@ -734,11 +734,16 @@ in {
           };
           resendInterval = lib.mkOption {
             type = lib.types.int;
-            default = 48;
+            default = 24;
             description = ''
               Kuma resendInterval — heartbeats between re-notifications
-              while the monitor is still DOWN. At intervalSecs=300, 48 ≈
-              4 hours, matching the standard alert re-page cadence.
+              while the monitor is still DOWN. At the default
+              `intervalSecs = 300` (5 min) this is 2h; at intervalSecs=
+              3600 (kopia freshness, 1h) it's 24h. Pick a number that
+              gives the cadence you want.
+              Operator preference recorded 2026-05-20: HTTP monitors
+              stay at 4h (default below), push/deep probes re-page
+              once a day.
             '';
           };
           serviceConfig = lib.mkOption {
