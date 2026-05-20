@@ -59,7 +59,6 @@
       "naturalearth_countries_pkey"
       # vectorchord (vchord) extension materialized helper
       "vchordrq_sampled_queries"
-      "drift_test"
     ];
   };
 in {
