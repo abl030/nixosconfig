@@ -95,9 +95,6 @@
       # Grafana alerting → Gotify (#201). Default rule: alert on
       # unexpected reboots of prom (the canonical case from 2026-02-22).
       alerting.enable = true;
-      # TEMP for #253 e2e test — remove after verifying alert flow.
-      # Will fire when we systemd-run a unit named e2e253-trigger
-      # that logs the synthetic marker string.
       # claude-p summary bridge in front of Gotify. When enabled,
       # alerting.nix automatically points Grafana's webhook at the
       # bridge (127.0.0.1:9876) instead of Gotify, and the bridge
@@ -231,18 +228,6 @@
       monitorPath = "/api/v1/status";
     };
 
-    # TEMP for #253 e2e test — fires on a synthetic systemd-run unit.
-    # Will be removed after the alert path is verified end-to-end.
-    monitoring.errorPatterns = [
-      {
-        name = "Synthetic 253 test trigger";
-        unit = "e2e253-trigger.+";
-        unitIsRegex = true;
-        pattern = "synthetic-test-marker-253";
-        severity = "warning";
-        summary = "synthetic e2e test for #253 — confirm alert chain works";
-      }
-    ];
   };
 
   # Cratedigger — host-specific app tuning. Everything else lives in the
