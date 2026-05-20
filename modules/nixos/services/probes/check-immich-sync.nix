@@ -1,10 +1,12 @@
 # Deep write-path probe for Immich.
 #
-# Authenticated GET against /api/sync/asset-edits-v1 — the endpoint that
-# was returning PostgresError: permission denied for table asset_edit_audit
-# in the #250 incident. Exits 0 if the API returns 2xx, non-zero
-# otherwise. The deep-probe oneshot in monitoring_sync.nix pushes a
-# heartbeat to Kuma on exit 0 and silently fails on anything else.
+# Authenticated POST against /api/sync/stream with types=["AssetEditsV1"],
+# which exercises sync.repository.AssetEditSync.getDeletes — the exact
+# code path that returned PostgresError: permission denied for table
+# asset_edit_audit in the #250 incident. Exits 0 if the API returns 2xx,
+# non-zero otherwise. The deep-probe oneshot in monitoring_sync.nix
+# pushes a heartbeat to Kuma on exit 0 and silently fails on anything
+# else (Kuma flips DOWN after the configured maxretries).
 #
 # Auth: reads the API key from $IMMICH_API_KEY_FILE (path to a sops
 # secret containing IMMICH_API_KEY=...). The probe oneshot loads that
@@ -13,10 +15,13 @@
 # against env stripping under PrivateTmp etc.
 #
 # Endpoint choice:
-#   /api/sync/asset-edits-v1 is the canonical post-incident probe — it
-#   hits the exact SQL that broke. If upstream Immich removes or renames
-#   this endpoint we'll need to revisit; see docs/wiki/services/
-#   immich-asset-edit-audit-incident.md for the original failure mode.
+#   POST /api/sync/stream is the canonical post-incident probe — body
+#   {"types":["AssetEditsV1"]} triggers AssetEditSync.getDeletes, which
+#   runs the exact SQL that broke. The endpoint returns a streaming
+#   response; we only care about the initial HTTP status (200 = code
+#   path completed without raising; 5xx = something blew up before
+#   sending headers). If upstream Immich renames the endpoint we'll
+#   need to revisit; see docs/wiki/services/immich-asset-edit-audit-incident.md.
 {pkgs}:
 pkgs.writeShellApplication {
   name = "check-immich-sync";
@@ -26,7 +31,7 @@ pkgs.writeShellApplication {
 
     base="''${IMMICH_BASE_URL:-https://photos.ablz.au}"
     key_file="''${IMMICH_API_KEY_FILE:?IMMICH_API_KEY_FILE not set}"
-    endpoint="''${IMMICH_PROBE_PATH:-/api/sync/asset-edits-v1}"
+    endpoint="''${IMMICH_PROBE_PATH:-/api/sync/stream}"
 
     if [ ! -r "$key_file" ]; then
       echo "[probe] key file unreadable: $key_file" >&2
@@ -42,14 +47,20 @@ pkgs.writeShellApplication {
       exit 2
     fi
 
-    # -fsS: fail on >=400, silent progress, show errors on 4xx/5xx.
-    # --max-time covers both connect + transfer.
-    # -G + --data-urlencode would matter for query strings; not needed here.
+    # POST /api/sync/stream with types=["AssetEditsV1"]. The response is
+    # NDJSON streamed; we read at most 4 KiB then close the connection.
+    # We only branch on HTTP status, so the body content doesn't matter.
+    # --max-time covers both connect + read; --connect-timeout is just
+    # the initial TCP/TLS handshake.
     status=$(curl -sS -o /dev/null -w '%{http_code}' \
       --max-time 30 \
       --connect-timeout 5 \
+      -X POST \
       -H "x-api-key: $key" \
-      "$base$endpoint")
+      -H "content-type: application/json" \
+      --max-filesize 4096 \
+      -d '{"types":["AssetEditsV1"]}' \
+      "$base$endpoint" 2>/dev/null || true)
     rc=$?
 
     if [ "$rc" -ne 0 ]; then
