@@ -154,7 +154,7 @@
         desired_maintenances = json.load(fh)
 
     with open(notifications_path, "r", encoding="utf-8") as fh:
-        desired_notifications = json.load(fh)
+        desired_notifications_config = json.load(fh)
 
     try:
         with open(cache_path, "r", encoding="utf-8") as fh:
@@ -209,12 +209,12 @@
             # (so a user can keep a manually-added backup Gotify route);
             # they just have isDefault demoted if a declared one claims it.
             # ---------------------------------------------------------------
-            if desired_notifications:
+            if desired_notifications_config:
                 existing_notif = api.get_notifications() or []
                 by_notif_name = {n.get("name"): n for n in existing_notif if n.get("name")}
-                declared_names = {entry["name"] for entry in desired_notifications}
+                declared_names = {entry["name"] for entry in desired_notifications_config}
                 wants_default = {
-                    entry["name"] for entry in desired_notifications
+                    entry["name"] for entry in desired_notifications_config
                     if entry.get("isDefault")
                 }
 
@@ -230,7 +230,7 @@
                         ):
                             api.edit_notification(n["id"], isDefault=False)
 
-                for entry in desired_notifications:
+                for entry in desired_notifications_config:
                     n_name = entry["name"]
                     n_type = entry.get("type", "webhook")
                     n_default = bool(entry.get("isDefault", False))
@@ -367,9 +367,9 @@
                     except TypeError:
                         desired_codes = accepted_codes
                     try:
-                        desired_notifications = sorted(notification_ids)
+                        desired_notification_ids = sorted(notification_ids)
                     except TypeError:
-                        desired_notifications = notification_ids
+                        desired_notification_ids = notification_ids
                     needs_update = (
                         str(existing.get("type") or "") != mon_type
                         or existing.get("name") != name
@@ -377,7 +377,7 @@
                         or bool(existing.get("ignoreTls")) != ignore_tls
                         or (host_header and existing.get("headers") != headers_json)
                         or existing_codes != desired_codes
-                        or existing_notifications != desired_notifications
+                        or existing_notifications != desired_notification_ids
                         or existing.get("interval") != interval
                         or int(existing.get("maxretries") or 0) != maxretries
                         or int(existing.get("retryInterval") or 0) != retry_interval
