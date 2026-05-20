@@ -26,6 +26,32 @@
     ALTER SCHEMA public OWNER TO immich;
     REINDEX INDEX IF EXISTS face_index;
     REINDEX INDEX IF EXISTS clip_index;
+    -- Geocoder tables (geodata_places, naturalearth_countries) are loaded
+    -- by Immich's microservices AS THE postgres superuser via COPY, so
+    -- they end up postgres-owned with no grants for the immich role.
+    -- The app then 'permission denied for table geodata_places' on
+    -- reverse-geocode lookups during AssetExtractMetadata. Fixed
+    -- declaratively: any future postgres-created table in `public`
+    -- auto-grants SELECT to immich, and we retroactively grant on the
+    -- geocoder tables if they already exist (idempotent).
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+      GRANT SELECT ON TABLES TO immich;
+    ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+      GRANT SELECT ON SEQUENCES TO immich;
+    DO $immich_grants$ BEGIN
+      IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+                  WHERE n.nspname = 'public' AND c.relname = 'geodata_places') THEN
+        EXECUTE 'GRANT SELECT ON TABLE public.geodata_places TO immich';
+      END IF;
+      IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+                  WHERE n.nspname = 'public' AND c.relname = 'naturalearth_countries') THEN
+        EXECUTE 'GRANT SELECT ON TABLE public.naturalearth_countries TO immich';
+      END IF;
+      IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+                  WHERE n.nspname = 'public' AND c.relname = 'naturalearth_countries_tmp_id_seq1') THEN
+        EXECUTE 'GRANT SELECT ON SEQUENCE public.naturalearth_countries_tmp_id_seq1 TO immich';
+      END IF;
+    END $immich_grants$;
   '';
 
   pgc = import ../lib/mk-pg-container.nix {
