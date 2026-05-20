@@ -40,9 +40,23 @@ in {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = pkgs.writeShellScript "${name}-nfs-watchdog" ''
+            svc=${lib.escapeShellArg "${name}.service"}
             if ! timeout 10 stat ${lib.escapeShellArg entry.path} >/dev/null 2>&1; then
+              # NFS path is dead. Clear any start-limit-hit residue before
+              # restarting so the watchdog isn't gagged by systemd burst caps
+              # during a long outage (services like paperless / podman exhaust
+              # the default 5-in-10s burst within seconds when their bind/volume
+              # source is gone).
               echo "${name}: NFS path ${entry.path} is stale, restarting" >&2
-              systemctl restart ${lib.escapeShellArg "${name}.service"}
+              systemctl reset-failed "$svc" 2>/dev/null || true
+              systemctl restart "$svc"
+            elif ! systemctl is-active --quiet "$svc"; then
+              # Path is healthy but the service is dead — typical after an NFS
+              # outage that outlasted the service's restart burst. Bring it
+              # back; the watchdog is the single source of recovery here.
+              echo "${name}: NFS path ${entry.path} healthy but service is down, recovering" >&2
+              systemctl reset-failed "$svc" 2>/dev/null || true
+              systemctl start "$svc"
             fi
           '';
         };
@@ -69,7 +83,7 @@ in {
         name = "NFS watchdog tripped";
         unit = ".+-nfs-watchdog\\.service";
         unitIsRegex = true;
-        pattern = "(?i)NFS path .* is stale, restarting";
+        pattern = "(?i)NFS path .* (is stale, restarting|healthy but service is down, recovering)";
         severity = "warning";
         summary = "an NFS-dependent service was restarted by its watchdog";
         description = ''
