@@ -172,6 +172,10 @@
     description,
     severity,
     logql,
+    # Raw stream-selector form of the query, no aggregation wrapper.
+    # Used by alert-bridge to fetch actual matching log lines rather
+    # than scalar counts.
+    lokiLines ? null,
   }: {
     inherit uid title;
     condition = "C";
@@ -261,16 +265,19 @@
     annotations = {
       inherit summary description;
     };
-    # `loki_query` is read by the alert-bridge service (see
-    # services/alert-bridge.nix). When set, the bridge re-runs the query
-    # against Loki at notification time to fetch the actual matching
-    # lines, then pipes them through claude -p for a human-readable
-    # summary before forwarding to Gotify. Prometheus-based rules don't
-    # set this; the bridge handles them with metadata only.
-    labels = {
-      inherit severity;
-      loki_query = logql;
-    };
+    # `loki_lines` is read by alert-bridge (services/alert-bridge.nix).
+    # The bridge runs THIS raw stream-selector query (not the aggregated
+    # `logql` used for the alert condition) to fetch actual matching log
+    # lines, then pipes them through claude -p for a summary before
+    # forwarding to Gotify. `loki_query` is the aggregated form, kept
+    # for reference in the alert payload; Prometheus-based rules set
+    # neither and the bridge handles them with metadata only.
+    labels =
+      {
+        inherit severity;
+        loki_query = logql;
+      }
+      // (lib.optionalAttrs (lokiLines != null) {loki_lines = lokiLines;});
   };
 
   dbAuditAlerts = lib.optionals cfg.dbAuditAlert.enable [
@@ -297,6 +304,7 @@
       # block we filter on. We exclude our own setup tag so boot-time
       # extension SQL doesn't fire.
       logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service"} |~ "postgres@[^ ]+ from .+ LOG: +statement: (?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)" !~ "mk-pg-container-startup" [5m]))'';
+      lokiLines = ''{host=~".+", unit=~"container@.+-db\\.service"} |~ "postgres@[^ ]+ from .+ LOG: +statement: (?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)" !~ "mk-pg-container-startup"'';
     })
     (mkLokiAlert {
       uid = "homelab-mariadb-audit-ddl";
@@ -315,6 +323,7 @@
             |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) "
       '';
       logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service"} |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) " [5m]))'';
+      lokiLines = ''{host=~".+", unit=~"container@.+-db\\.service"} |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) "'';
     })
   ];
 

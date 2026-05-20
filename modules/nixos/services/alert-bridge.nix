@@ -160,9 +160,11 @@
         if annotations.get("description"):
             ctx += f"description: {annotations['description'][:500]}\n"
 
-        logql = labels.get("loki_query")
-        if logql:
-            lines = query_loki(logql)
+        # Prefer the raw stream-selector query so we get actual log lines;
+        # the aggregated loki_query returns scalar counts not text.
+        lines_query = labels.get("loki_lines") or labels.get("loki_query")
+        if lines_query:
+            lines = query_loki(lines_query)
             if lines:
                 ctx += "\n## Matching log lines (last 10, newest first)\n"
                 for line in lines:
