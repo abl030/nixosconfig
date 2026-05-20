@@ -149,18 +149,177 @@
     })
     cfg.rebootAlert.instances);
 
-  rules = {
-    apiVersion = 1;
-    groups = lib.optionals (rebootAlerts != []) [
+  # Helper: build a Loki-backed alert rule with the same A/B/C DAG shape
+  # as the Prometheus reboot rule above.
+  #   uid, title, summary, description, severity — alert identity + body
+  #   logql — the LogQL expression (must produce numeric series via
+  #     count_over_time/sum/etc.) that is > 0 when the alert should fire
+  mkLokiAlert = {
+    uid,
+    title,
+    summary,
+    description,
+    severity,
+    logql,
+  }: {
+    inherit uid title;
+    condition = "C";
+    # `for: 0s`: fire on first positive evaluation. The query already uses
+    # a 5m count_over_time window so flapping is absorbed inside the query.
+    "for" = "0s";
+    # Loki transient unreachability shouldn't page; treat as no event.
+    noDataState = "OK";
+    execErrState = "OK";
+    data = [
       {
-        orgId = 1;
-        name = "host-health";
-        folder = "Homelab";
-        # 1m matches the alloy scrape interval; finer eval is wasted work.
-        interval = "1m";
-        rules = rebootAlerts;
+        refId = "A";
+        queryType = "range";
+        relativeTimeRange = {
+          from = 600;
+          to = 0;
+        };
+        datasourceUid = "Loki";
+        model = {
+          refId = "A";
+          # Loki range query — Grafana wraps the expr in its own time-window
+          # handling. The count_over_time window inside is what controls
+          # the lookback for matches.
+          expr = logql;
+          queryType = "range";
+          intervalMs = 60000;
+          maxDataPoints = 43200;
+          datasource = {
+            type = "loki";
+            uid = "Loki";
+          };
+        };
+      }
+      {
+        refId = "B";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "B";
+          type = "reduce";
+          expression = "A";
+          reducer = "last";
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
+      }
+      {
+        refId = "C";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "C";
+          type = "threshold";
+          expression = "B";
+          conditions = [
+            {
+              evaluator = {
+                params = [0];
+                type = "gt";
+              };
+              operator.type = "and";
+              query.params = ["C"];
+              reducer = {
+                params = [];
+                type = "last";
+              };
+              type = "query";
+            }
+          ];
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
       }
     ];
+    annotations = {
+      inherit summary description;
+    };
+    labels = {inherit severity;};
+  };
+
+  dbAuditAlerts = lib.optionals cfg.dbAuditAlert.enable [
+    (mkLokiAlert {
+      uid = "homelab-pg-superuser-ddl";
+      title = "Unexpected postgres-superuser DDL in *-db container";
+      severity = "warning";
+      summary = "postgres-role DDL outside mk-pg-container startup";
+      description = ''
+        A nspawn *-db container's journal logged a CREATE/ALTER/DROP/etc.
+        statement issued as the `postgres` superuser, NOT tagged with
+        application_name=mk-pg-container-startup. This is the signature
+        of either a legitimate operator shell session (machinectl shell
+        + psql) OR drift like the asset_edit_audit incident (#250). Worth
+        a glance either way — the journal entry has user, db, pid, client.
+
+        Query in Grafana Explore (Loki):
+          {host=~".+", unit=~"container@.+-db\\.service"}
+            |~ "postgres@[^ ]+ from .+ LOG: +statement: (?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)"
+            !~ "mk-pg-container-startup"
+      '';
+      # `LOG:  statement:` is what postgres emits when log_statement=ddl
+      # is on. log_line_prefix gives us the `<user>@<db>/<app> from <host>:`
+      # block we filter on. We exclude our own setup tag so boot-time
+      # extension SQL doesn't fire.
+      logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service"} |~ "postgres@[^ ]+ from .+ LOG: +statement: (?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)" !~ "mk-pg-container-startup" [5m]))'';
+    })
+    (mkLokiAlert {
+      uid = "homelab-mariadb-audit-ddl";
+      title = "MariaDB audit: DDL from non-excluded user";
+      severity = "warning";
+      summary = "mariadb DDL via TCP — server_audit caught it";
+      description = ''
+        A nspawn *-db container running MariaDB logged a server_audit
+        QUERY_DDL event from a user not in server_audit_excl_users
+        (i.e. not local root/mysql). That means external TCP DDL, which
+        we don't expect under normal app traffic. Investigate the
+        session — server_audit's syslog line includes user, host, query.
+
+        Query in Grafana Explore (Loki):
+          {host=~".+", unit=~"container@.+-db\\.service"}
+            |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) "
+      '';
+      logql = ''sum(count_over_time({host=~".+", unit=~"container@.+-db\\.service"} |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) " [5m]))'';
+    })
+  ];
+
+  rules = {
+    apiVersion = 1;
+    groups =
+      lib.optionals (rebootAlerts != []) [
+        {
+          orgId = 1;
+          name = "host-health";
+          folder = "Homelab";
+          # 1m matches the alloy scrape interval; finer eval is wasted work.
+          interval = "1m";
+          rules = rebootAlerts;
+        }
+      ]
+      ++ lib.optionals (dbAuditAlerts != []) [
+        {
+          orgId = 1;
+          name = "db-audit";
+          folder = "Homelab";
+          interval = "1m";
+          rules = dbAuditAlerts;
+        }
+      ];
   };
 
   policies = {
@@ -200,6 +359,12 @@ in {
         alerts share one Gotify "application" stream. Split into a dedicated
         token if/when you want independently-revocable credentials.
       '';
+    };
+
+    dbAuditAlert = {
+      enable =
+        lib.mkEnableOption "Alert on unexpected DB DDL (mk-pg-container superuser, mk-mariadb non-excluded user)"
+        // {default = true;};
     };
 
     rebootAlert = {

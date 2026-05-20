@@ -180,6 +180,64 @@ Why: `config.containers.<svc>-db.config.system.build.toplevel` is the NixOS syst
 
 See `modules/nixos/lib/mk-pg-container.nix` header comment for the full pathology.
 
+### DB audit logging — always on, alerted on non-startup superuser DDL
+
+`mk-pg-container` ships every nspawn PG instance with:
+
+```
+log_statement      = 'ddl'   -- every CREATE/ALTER/DROP/etc.
+log_connections    = on      -- every auth attempt
+log_disconnections = on      -- every session end
+log_line_prefix    = '%m [%p] %u@%d/%a from %h: '
+```
+
+DDL on a steady-state DB is rare, so volume is low. Connection logs add a few hundred lines per day per DB at most. All journal output ships through alloy → Loki under `unit=container@<svc>-db.service`.
+
+`mk-mariadb-container` has the equivalent: `server_audit` plugin loaded with `server_audit_events = 'CONNECT,QUERY_DDL'`, syslog output, excluding `root@localhost,mysql@localhost` (local-socket ops backdoor stays silent so the alert layer only sees external TCP sessions).
+
+#### `mk-pg-container-startup` — the tag for our own boot-time DDL
+
+Both helpers' postStart scripts run CREATE EXTENSION / ALTER EXTENSION UPDATE / ALTER SCHEMA OWNER / etc. on every container start. These are DDL as the `postgres` superuser and would flood the alert below. We tag them via:
+
+```nix
+systemd.services.postgresql-setup.environment.PGAPPNAME = "mk-pg-container-startup";
+```
+
+The Loki alert excludes lines containing that string. If you add another psql invocation to `mk-pg-container.nix` (or similar) make sure it inherits the environment, or set `PGAPPNAME` explicitly on its `serviceConfig.Environment`.
+
+#### Alert: `homelab-pg-superuser-ddl`
+
+LogQL (lives in `modules/nixos/services/alerting.nix`):
+
+```
+sum(count_over_time(
+  {host=~".+", unit=~"container@.+-db\\.service"}
+  |~ "postgres@[^ ]+ from .+ LOG: +statement: (?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE)"
+  !~ "mk-pg-container-startup"
+  [5m]
+)) > 0
+```
+
+Fires on any postgres-role DDL outside our tagged startup. That covers two legitimate cases (operator shell sessions, restore scripts) and one drift case (silent superuser rewrite, like #250). All three deserve a glance — the alert annotation includes a Grafana Explore query to find the offending line in Loki.
+
+#### Alert: `homelab-mariadb-audit-ddl`
+
+LogQL:
+
+```
+sum(count_over_time(
+  {host=~".+", unit=~"container@.+-db\\.service"}
+  |~ ",QUERY,.*,'(?i)(CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE) "
+  [5m]
+)) > 0
+```
+
+`server_audit` syslog format includes `,QUERY,<db>,'<sql>',<errno>` — we match on `QUERY` events containing DDL keywords. The plugin's `server_audit_excl_users` already filters out local-socket root/mysql; anything that gets logged here is by definition a TCP session as a non-excluded user, which is alarmworthy by default.
+
+#### Investigating an alert
+
+Open Grafana Explore on the Loki datasource, paste the LogQL from the alert's annotation. The line includes `<user>@<db>/<application_name> from <client_host>: LOG:  statement: <SQL>` (PG) or `,<user>@<host>,...,QUERY,<db>,'<SQL>',<errno>` (MariaDB). PID + timestamp let you cross-reference with `log_connections` lines to find the connect/disconnect window of the session.
+
 ### Schema-ownership invariant — assert clean on every container start
 
 `mk-pg-container` runs a final `RAISE EXCEPTION`-on-violation check against every

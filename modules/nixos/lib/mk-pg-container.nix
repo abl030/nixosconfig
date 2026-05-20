@@ -138,7 +138,27 @@ in {
         package = pgPackage;
         enableTCPIP = true;
         inherit extensions;
-        settings = pgSettings;
+        # Audit-friendly defaults — issue #251.
+        #   log_statement = 'ddl' — record every CREATE/ALTER/DROP/etc.
+        #     in pg_log so we can trace ownership/schema drift back to
+        #     a session. Low-volume; DDL on a steady-state DB is rare.
+        #   log_connections / log_disconnections = on — every TCP/socket
+        #     auth attempt and disconnect, for forensic "who connected
+        #     when". Pairs with the DDL log to attribute drift to a
+        #     specific session.
+        #   log_line_prefix — '%m [%p] %u@%d/%a from %h: ' — timestamp,
+        #     pid, user, db, application_name, client host. We also tag
+        #     the postgresql-setup service with PGAPPNAME=mk-pg-container-
+        #     startup (below) so legitimate boot-time DDL can be filtered
+        #     out at the alert layer.
+        settings =
+          {
+            log_statement = "ddl";
+            log_connections = true;
+            log_disconnections = true;
+            log_line_prefix = "%m [%p] %u@%d/%a from %h: ";
+          }
+          // pgSettings;
         ensureDatabases = [name] ++ extraDatabases;
         ensureUsers = [
           {
@@ -169,6 +189,12 @@ in {
       #
       # The password step uses psql's `:'pwd'` variable interpolation which
       # properly quotes/escapes the value — safe regardless of password contents.
+      # Tag all psql invocations from our setup with application_name=
+      # mk-pg-container-startup so audit log lines from our own boot-time
+      # DDL/extension setup can be excluded from the Grafana alert in
+      # alerting.nix. PGAPPNAME is the libpq env var psql honours.
+      systemd.services.postgresql-setup.environment.PGAPPNAME = "mk-pg-container-startup";
+
       systemd.services.postgresql-setup.serviceConfig.ExecStartPre = [
         "+${pkgs.writeShellScript "${name}-prepare-pgpass" ''
           set -eu

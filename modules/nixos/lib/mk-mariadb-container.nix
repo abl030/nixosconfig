@@ -65,12 +65,31 @@ in {
       services.mysql = {
         enable = true;
         package = mariadbPackage;
+        # Audit-friendly defaults — issue #251.
+        #   server_audit plugin loaded with events scoped to CONNECT and
+        #     QUERY_DDL only. Connections give us forensic "who/when"
+        #     for any later schema drift; QUERY_DDL records the actual
+        #     CREATE/ALTER/DROP. We deliberately do NOT enable
+        #     QUERY_DML (would log every read/write, far too noisy).
+        #   server_audit_excl_users = 'root@localhost,mysql@localhost'
+        #     — local socket access by root is the documented ops backdoor
+        #     and runs every container boot. Exclude it from the audit
+        #     stream so the alert layer only sees external (TCP, host-side
+        #     veth) sessions, which are the threat-model'd surface.
+        #   server_audit_output_type = syslog so journald picks it up
+        #     and alloy ships it to Loki under the container unit label.
         settings.mysqld =
           {
             bind-address = localAddress;
             port = 3306;
             character-set-server = "utf8mb4";
             collation-server = "utf8mb4_unicode_ci";
+            plugin_load_add = "server_audit";
+            server_audit_logging = "ON";
+            server_audit_events = "CONNECT,QUERY_DDL";
+            server_audit_excl_users = "root@localhost,mysql@localhost";
+            server_audit_output_type = "syslog";
+            server_audit_syslog_priority = "LOG_INFO";
           }
           // mysqlSettings;
       };
