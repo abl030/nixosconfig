@@ -1,90 +1,73 @@
 # Deep write-path probe for Immich.
 #
-# Authenticated POST against /api/sync/stream with types=["AssetEditsV1"],
-# which exercises sync.repository.AssetEditSync.getDeletes — the exact
-# code path that returned PostgresError: permission denied for table
-# asset_edit_audit in the #250 incident. Exits 0 if the API returns 2xx,
-# non-zero otherwise. The deep-probe oneshot in monitoring_sync.nix
-# pushes a heartbeat to Kuma on exit 0 and silently fails on anything
-# else (Kuma flips DOWN after the configured maxretries).
+# Runs `SELECT 1 FROM asset_edit_audit LIMIT 1` against the immich
+# database AS THE IMMICH ROLE (over the nspawn veth TCP, same auth path
+# the immich app uses). This catches the exact #250 failure mode —
+# `permission denied for table asset_edit_audit` — at the SQL layer,
+# independent of any application-level retry/wrap logic.
 #
-# Auth: reads the API key from $IMMICH_API_KEY_FILE (path to a sops
-# secret containing IMMICH_API_KEY=...). The probe oneshot loads that
-# file as an EnvironmentFile, so IMMICH_API_KEY is also directly
-# available as an env var — but we read from the file for resilience
-# against env stripping under PrivateTmp etc.
+# Why not probe via Immich's HTTP API? Upstream Immich (≥2.x) blocks
+# API-key auth on /api/sync/* endpoints:
+#   {"message":"Sync endpoints cannot be used with API keys",
+#    "error":"Forbidden","statusCode":403}
+# Sync is reserved for cookie-authenticated app sessions. Going through
+# the user's session would require storing an email+password and
+# implementing the login dance — gross. A direct SQL probe is surgical:
+# it tests the precise table-permission state, doesn't need additional
+# secrets, and survives Immich API churn.
 #
-# Endpoint choice:
-#   POST /api/sync/stream is the canonical post-incident probe — body
-#   {"types":["AssetEditsV1"]} triggers AssetEditSync.getDeletes, which
-#   runs the exact SQL that broke. The endpoint returns a streaming
-#   response; we only care about the initial HTTP status (200 = code
-#   path completed without raising; 5xx = something blew up before
-#   sending headers). If upstream Immich renames the endpoint we'll
-#   need to revisit; see docs/wiki/services/immich-asset-edit-audit-incident.md.
+# Auth: reads the password from $IMMICH_PG_PASSWORD_FILE (path to a
+# sops dotenv with POSTGRES_PASSWORD=...). The same pgpass already
+# used by immich-server.service — no new secret needed.
+#
+# Endpoint state:
+#   exit 0 → table readable → push UP to Kuma
+#   exit 1 → permission denied or any other SQL error → no push, monitor flips DOWN
+#   exit 2 → environment/secret missing → no push, monitor flips DOWN
 {pkgs}:
 pkgs.writeShellApplication {
   name = "check-immich-sync";
-  runtimeInputs = with pkgs; [curl coreutils gnugrep];
+  runtimeInputs = with pkgs; [postgresql_16 coreutils gnugrep];
   text = ''
     set -uo pipefail
 
-    base="''${IMMICH_BASE_URL:-https://photos.ablz.au}"
-    key_file="''${IMMICH_API_KEY_FILE:?IMMICH_API_KEY_FILE not set}"
-    endpoint="''${IMMICH_PROBE_PATH:-/api/sync/stream}"
+    host="''${IMMICH_PG_HOST:-192.168.100.5}"
+    port="''${IMMICH_PG_PORT:-5432}"
+    user="''${IMMICH_PG_USER:-immich}"
+    db="''${IMMICH_PG_DB:-immich}"
+    pwd_file="''${IMMICH_PG_PASSWORD_FILE:?IMMICH_PG_PASSWORD_FILE not set}"
+    table="''${IMMICH_PG_TABLE:-asset_edit_audit}"
 
-    if [ ! -r "$key_file" ]; then
-      echo "[probe] key file unreadable: $key_file" >&2
+    if [ ! -r "$pwd_file" ]; then
+      echo "[probe] password file unreadable: $pwd_file" >&2
       exit 2
     fi
 
-    # Accept either KEY=value or bare-value forms.
-    raw=$(cat "$key_file")
-    key=''${raw#IMMICH_API_KEY=}
-    key=$(printf '%s' "$key" | tr -d '\r\n')
-    if [ -z "$key" ]; then
-      echo "[probe] empty IMMICH_API_KEY" >&2
+    PGPASSWORD=$(grep ^POSTGRES_PASSWORD= "$pwd_file" | cut -d= -f2-)
+    if [ -z "$PGPASSWORD" ]; then
+      echo "[probe] empty POSTGRES_PASSWORD in $pwd_file" >&2
       exit 2
     fi
+    export PGPASSWORD
 
-    # POST /api/sync/stream with types=["AssetEditsV1"]. The response is
-    # NDJSON streamed; we read at most 4 KiB then close the connection.
-    # We only branch on HTTP status, so the body content doesn't matter.
-    # --max-time covers both connect + read; --connect-timeout is just
-    # the initial TCP/TLS handshake.
-    status=$(curl -sS -o /dev/null -w '%{http_code}' \
-      --max-time 30 \
-      --connect-timeout 5 \
-      -X POST \
-      -H "x-api-key: $key" \
-      -H "content-type: application/json" \
-      --max-filesize 4096 \
-      -d '{"types":["AssetEditsV1"]}' \
-      "$base$endpoint" 2>/dev/null || true)
-    rc=$?
-
-    if [ "$rc" -ne 0 ]; then
-      echo "[probe] curl exit $rc against $base$endpoint" >&2
-      exit "$rc"
+    # ON_ERROR_STOP so psql returns non-zero on the permission-denied
+    # error (default is to print error and exit 0 for SELECT failures).
+    # application_name tags the connection so DDL audit alerts and
+    # log-line forensics can distinguish probe traffic from real app.
+    # -A -t -q together = unaligned, tuples-only, quiet — no banner.
+    if ! psql \
+      -h "$host" -p "$port" -U "$user" -d "$db" \
+      -v ON_ERROR_STOP=1 \
+      -A -t -q \
+      -c "SET application_name = 'check-immich-sync-probe'" \
+      -c "SELECT 1 FROM \"$table\" LIMIT 1" \
+      >/dev/null 2>/tmp/check-immich-sync.err; then
+      echo "[probe] psql failed:" >&2
+      cat /tmp/check-immich-sync.err >&2
+      rm -f /tmp/check-immich-sync.err
+      exit 1
     fi
-
-    case "$status" in
-      2*)
-        # Healthy.
-        exit 0
-        ;;
-      401|403)
-        echo "[probe] auth failed ($status) — API key may need regeneration" >&2
-        exit 1
-        ;;
-      5*)
-        echo "[probe] server error $status — probe sees a real failure" >&2
-        exit 1
-        ;;
-      *)
-        echo "[probe] unexpected status $status" >&2
-        exit 1
-        ;;
-    esac
+    rm -f /tmp/check-immich-sync.err
+    exit 0
   '';
 }
