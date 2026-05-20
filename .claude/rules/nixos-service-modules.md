@@ -196,6 +196,14 @@ on the next container restart (system rebuilds restart any nspawn whose unit
 wrapper changes), turning a silent symptom into a loud container-down alert.
 See issue #250 for the postmortem.
 
+`mk-pg-container` also promotes `postgresql-setup.service` from
+`WantedBy=multi-user.target` to `RequiredBy=multi-user.target` so a failed
+invariant (or any other failed startup step) propagates outward: inner
+`multi-user.target` doesn't reach, the nspawn notify-ready times out, and
+the outer `container@<svc>-db.service` goes red — which the existing Kuma
+monitor on that unit catches automatically. Without this promotion the
+inner failure is journal-only and Kuma stays green.
+
 Scope is intentional: only "user data" object kinds (`r`,`v`,`m`,`S`,`f`,`i`).
 Extension internals (functions, types, operators, opclasses) routinely live
 under `postgres`; they aren't in scope and don't need to be listed. The audit

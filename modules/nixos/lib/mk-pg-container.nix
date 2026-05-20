@@ -176,6 +176,17 @@ in {
         ''}"
       ];
 
+      # Promote postgresql-setup from WantedBy to RequiredBy multi-user.target.
+      # When the ownership invariant (or anything else in postgresql-setup)
+      # fails, multi-user.target fails to reach inside the container, which
+      # propagates to the outer container@${name}-db.service going red (the
+      # nspawn boot wait-for-readiness times out). Without this, the inner
+      # failure is journal-only — invisible to Kuma. See issue #250.
+      systemd.services.postgresql-setup = {
+        wantedBy = lib.mkForce [];
+        requiredBy = ["multi-user.target"];
+      };
+
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
         (map (db: ''${lib.getExe' pgPackage "psql"} -d "${db}" -c "ALTER DATABASE \"${db}\" OWNER TO \"${name}\""'') extraDatabases)
         ++ lib.optional (postStartSQL != null)
