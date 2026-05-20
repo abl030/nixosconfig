@@ -343,6 +343,8 @@
   errorPatternSlug = name: builtins.substring 0 16 (builtins.hashString "sha256" name);
 
   # Compose the LogQL stream selector for an errorPattern entry.
+  # Note: `unit` regexes also need logqlEscape applied — same backslash
+  # double-escape requirement as patterns.
   errorPatternSelector = ep: let
     hostPart =
       if ep.host == null
@@ -350,18 +352,26 @@
       else ''host="${ep.host}"'';
     unitPart =
       if ep.unitIsRegex
-      then ''unit=~"${ep.unit}"''
+      then ''unit=~"${logqlEscape ep.unit}"''
       else ''unit="${ep.unit}"'';
     containerPart =
       pkgs.lib.optionalString (ep.container != null)
       '', container="${ep.container}"'';
   in "{${hostPart}, ${unitPart}${containerPart}}";
 
+  # LogQL string literals require backslashes to be doubled (`\\`) — the
+  # parser otherwise rejects regex metacharacters like `\d`, `\.`, `\[`
+  # with "invalid char escape" before the regex engine ever sees them.
+  # Users write patterns the way they'd type them in Grafana Explore
+  # (`\d+`, `\.`); we double-escape here at framework level so the
+  # final LogQL query string is well-formed.
+  logqlEscape = s: builtins.replaceStrings ["\\"] ["\\\\"] s;
+
   errorPatternAlerts =
     map (ep: let
       slug = errorPatternSlug ep.name;
       selector = errorPatternSelector ep;
-      pattern = ep.pattern;
+      pattern = logqlEscape ep.pattern;
       desc =
         (
           if ep.description == ""
