@@ -176,15 +176,25 @@ in {
         ''}"
       ];
 
-      # Promote postgresql-setup from WantedBy to RequiredBy multi-user.target.
-      # When the ownership invariant (or anything else in postgresql-setup)
-      # fails, multi-user.target fails to reach inside the container, which
-      # propagates to the outer container@${name}-db.service going red (the
-      # nspawn boot wait-for-readiness times out). Without this, the inner
-      # failure is journal-only — invisible to Kuma. See issue #250.
+      # When postgresql-setup fails (e.g. the schema-ownership invariant
+      # raises), make sure the outer container@${name}-db.service goes red
+      # so the existing Kuma monitor catches it. Two changes together do
+      # the job — neither alone is sufficient:
+      #
+      # 1. requiredBy=multi-user.target so multi-user fails to reach when
+      #    postgresql-setup fails (instead of merely being a soft "want").
+      # 2. OnFailure=poweroff.target so the inner systemd shuts the
+      #    container down on postgresql-setup failure. Without this the
+      #    container's pid 1 just sits there with a dead multi-user.target
+      #    and nspawn considers it "running" from the outside. With it,
+      #    each failed start powers the container off, the outer service
+      #    auto-restarts, and after the StartLimit burst the outer
+      #    container@${name}-db.service goes failed (start-limit-hit) —
+      #    which Kuma sees. See issue #250.
       systemd.services.postgresql-setup = {
         wantedBy = lib.mkForce [];
         requiredBy = ["multi-user.target"];
+        unitConfig.OnFailure = ["poweroff.target"];
       };
 
       systemd.services.postgresql-setup.serviceConfig.ExecStartPost =
