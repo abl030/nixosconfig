@@ -290,8 +290,12 @@
       # Core groups. Hosts can add more (e.g. docker) via extraGroups in their own config
       extraGroups = ["wheel" "networkmanager"];
 
-      # Automatically pull authorized keys from hosts.nix
-      openssh.authorizedKeys.keys = hostConfig.authorizedKeys or [];
+      # Automatically pull authorized keys from hosts.nix. Entries can be
+      # plain strings (legacy) or structured attrsets (Phase 1 of #241);
+      # the renderer handles both.
+      openssh.authorizedKeys.keys =
+        (import ../../../nix/render-authorized-keys.nix {inherit lib;}).renderList
+        (hostConfig.authorizedKeys or []);
     }
     // lib.optionalAttrs (hostConfig ? initialHashedPassword) {
       # Optional per-host initial password hash (set in hosts.nix).

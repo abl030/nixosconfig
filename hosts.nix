@@ -21,13 +21,34 @@
 #    Set 'readonly = true' for VMs that should not be managed by automation.
 #
 let
+  # Role-based authorized-keys inventory (Phase 1 of #241).
+  #
+  # Plain strings are still accepted (legacy compat); attrsets get rendered
+  # to authorized_keys lines with from=/expiry-time/restrict/command prefixes
+  # by `nix/render-authorized-keys.nix`, called from base.nix and homelab.ssh.
+  #
+  # Restrictions are conservative for Phase 1 — phone is locked to the tailnet
+  # with a quarterly expiry; master and pihole keys remain unrestricted because
+  # doc1's rolling-flake-update and various ops scripts still need broad
+  # access. Phase 3 (#241) tightens these once the CA is in place.
   masterKeys = [
-    # Master Fleet Identity
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
-    # Manual Keys
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
-    # Termux on Galaxy A55 — separate identity, revocable if phone is lost
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55"
+    # Master fleet identity. Currently unrestricted; Phase 3 moves this onto
+    # a cold YubiKey and adds `from="100.64.0.0/10"` + `expiry-time`.
+    {
+      key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity";
+    }
+    # Legacy root@pihole — kept for now, audit if still needed.
+    {
+      key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole";
+    }
+    # Termux on Galaxy A55. Tailnet-only (CGNAT 100.64.0.0/10) — phone is
+    # never on the LAN with this key. Quarterly expiry forces a rotation
+    # ritual; bump `expiryTime` when refreshing the key.
+    {
+      key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55";
+      from = ["100.64.0.0/10"];
+      expiryTime = "20260901";
+    }
   ];
 in {
   # Proxmox Infrastructure Configuration
