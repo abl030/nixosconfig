@@ -913,6 +913,18 @@ in {
               cadence is 1m).
             '';
           };
+          threshold = lib.mkOption {
+            type = lib.types.int;
+            default = 0;
+            description = ''
+              count_over_time threshold to fire (count > threshold).
+              Default 0 = ANY match within `window` pages. Bump for
+              patterns where the service emits matching strings during
+              normal startup/restart noise (e.g. Solr proxy 500s while
+              replica peers reconnect — bump to 3 means "must see 4+
+              errors in 5m before paging").
+            '';
+          };
         };
       });
       default = [];

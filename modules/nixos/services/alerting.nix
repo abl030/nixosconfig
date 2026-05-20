@@ -177,6 +177,12 @@
     # Used by alert-bridge to fetch actual matching log lines rather
     # than scalar counts.
     lokiLines ? null,
+    # count_over_time threshold to fire. Default 0 = ANY match in the
+    # window pages. Bump for noisy patterns where the underlying
+    # service emits the matching string during startup/restart cascades
+    # — e.g. Solr proxy 500s while replica peers reconnect. A bigger
+    # number turns the alert into "sustained failure" not "any blip".
+    threshold ? 0,
   }: {
     inherit uid title;
     condition = "C";
@@ -244,7 +250,7 @@
           conditions = [
             {
               evaluator = {
-                params = [0];
+                params = [threshold];
                 type = "gt";
               };
               operator.type = "and";
@@ -391,6 +397,7 @@
         description = desc;
         logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
         lokiLines = ''${selector} |~ "${pattern}"'';
+        inherit (ep) threshold;
       })
     config.homelab.monitoring.errorPatterns;
 

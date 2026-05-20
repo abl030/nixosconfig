@@ -414,11 +414,16 @@ in {
         {
           name = "MusicBrainz Solr proxy failure";
           unit = "podman-musicbrainz-search-1.service";
-          # Real partial-outage signature; transient single 500s are
-          # still useful as warning.
+          # Solr emits "Error trying to proxy request" routinely for
+          # ~30s after container restart while the replica peer
+          # reconnects (caught a false positive 2026-05-20 immediately
+          # after a deploy). Require sustained errors (>3 in 5m) to
+          # distinguish the transient startup cascade from a genuine
+          # partial-outage. Single transient 500s are now silent.
           pattern = "(?i)SolrException.*Error trying to proxy request|Connection pool shut down";
           severity = "warning";
-          summary = "Solr search container is failing to proxy";
+          summary = "Solr search container is failing to proxy (sustained)";
+          threshold = 3;
         }
       ];
     };
