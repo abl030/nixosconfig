@@ -52,7 +52,7 @@
     no "I'll analyse...", no bullet points, no JSON.
   '';
 
-  bridgeScript = pkgs.writers.writePython3 "alert-bridge" {flakeIgnore = ["E501" "W293" "E302" "E305" "E402" "E741" "W391" "E401"];} ''
+  bridgeScript = pkgs.writers.writePython3 "alert-bridge" {flakeIgnore = ["E501" "W293" "E302" "E305" "E402" "E741" "W391" "E401" "E231"];} ''
     import http.server
     import json
     import os
