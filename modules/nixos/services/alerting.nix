@@ -403,6 +403,163 @@
     })
   config.homelab.monitoring.errorPatterns;
 
+  # Fleet-wide OOM alert. Reuses mkLokiAlert so the alert-bridge can
+  # fetch the actual oom-kill log line and feed it to claude for a useful
+  # Gotify body ("oom-killed: postgres pid 12345 ..." instead of just a
+  # count).
+  #
+  # CRITICAL: scope to transport="kernel" — alloy promotes the journald
+  # _TRANSPORT field to a stream label, so `transport="kernel"` matches
+  # only the actual kernel ring buffer (which is where oom_kill emits).
+  # An earlier version of this rule used just `{source="journald"}` and
+  # immediately self-triggered: Grafana's scheduler logs the alert query
+  # string to journald, alloy ships it back to Loki, next eval matches
+  # the regex inside the logged query. transport="kernel" cuts off the
+  # feedback loop because no userland app logs under that transport.
+  #
+  # Tower (Unraid) ships via syslog, not journald — its OOMs would slip
+  # past this rule. Acceptable for now; document when/if it bites.
+  oomAlerts = lib.optionals cfg.oomAlert.enable [
+    (mkLokiAlert {
+      uid = "homelab-oom-fleet";
+      title = "Kernel OOM killer fired";
+      severity = "warning";
+      summary = "OOM kill detected in kernel log — see line for the victim";
+      description = ''
+        The Linux OOM killer ran on a fleet host within the last 5 minutes.
+        Check the matched log line (delivered via alert-bridge) for the
+        process that died, or query Grafana Explore:
+          {source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)"
+      '';
+      # Regex covers:
+      #   - "Out of memory: Killed process ..." (classic kernel oom_kill)
+      #   - "oom-kill:" / "oom_reaper:" (newer kernels)
+      #   - "Memory cgroup out of memory" (cgroup OOM)
+      logql = ''sum(count_over_time({source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)" [5m]))'';
+      lokiLines = ''{source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)"'';
+    })
+  ];
+
+  # Fleet-wide disk-pressure alert. Prometheus rule — the alerting query
+  # returns one series per host/mountpoint/fstype, so the alert fires
+  # independently per filesystem and the labels carry through to the
+  # Gotify body. Excludes ephemeral and pseudo filesystems where
+  # "fullness" is either expected or meaningless.
+  diskAlerts = lib.optionals cfg.diskPressureAlert.enable [
+    {
+      uid = "homelab-disk-pressure-fleet";
+      title = "Filesystem ≥ ${toString cfg.diskPressureAlert.thresholdPercent}% full";
+      condition = "C";
+      "for" = cfg.diskPressureAlert.forDuration;
+      noDataState = "OK";
+      execErrState = "OK";
+      data = [
+        {
+          refId = "A";
+          queryType = "";
+          relativeTimeRange = {
+            from = 600;
+            to = 0;
+          };
+          datasourceUid = "Prometheus";
+          model = {
+            refId = "A";
+            datasource = {
+              type = "prometheus";
+              uid = "Prometheus";
+            };
+            # Percent used per filesystem. Using avail rather than (size -
+            # free) because ext4/xfs reserve ~5% for root and avail
+            # accounts for that — matches what `df` shows.
+            expr = ''
+              100 * (1 - (
+                node_filesystem_avail_bytes{
+                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
+                }
+                /
+                node_filesystem_size_bytes{
+                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
+                }
+              ))
+            '';
+            instant = true;
+            intervalMs = 60000;
+            maxDataPoints = 43200;
+          };
+        }
+        {
+          refId = "B";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "B";
+            type = "reduce";
+            expression = "A";
+            reducer = "last";
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+        {
+          refId = "C";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "C";
+            type = "threshold";
+            expression = "B";
+            conditions = [
+              {
+                evaluator = {
+                  params = [cfg.diskPressureAlert.thresholdPercent];
+                  type = "gt";
+                };
+                operator.type = "and";
+                query.params = ["C"];
+                reducer = {
+                  params = [];
+                  type = "last";
+                };
+                type = "query";
+              }
+            ];
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+      ];
+      annotations = {
+        summary = "{{ $labels.host }} {{ $labels.mountpoint }} ≥ ${toString cfg.diskPressureAlert.thresholdPercent}% full";
+        description = ''
+          Filesystem {{ $labels.mountpoint }} on host {{ $labels.host }}
+          ({{ $labels.fstype }}) crossed ${toString cfg.diskPressureAlert.thresholdPercent}%
+          usage and stayed there for ${cfg.diskPressureAlert.forDuration}.
+          Free space, prune snapshots, or grow the volume — at our nightly
+          ingest rates a filesystem hitting 100% will block kopia backups
+          and likely take services offline.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        category = "disk";
+      };
+    }
+  ];
+
   rules = {
     apiVersion = 1;
     groups =
@@ -432,6 +589,24 @@
           folder = "Homelab";
           interval = "1m";
           rules = errorPatternAlerts;
+        }
+      ]
+      ++ lib.optionals (oomAlerts != []) [
+        {
+          orgId = 1;
+          name = "memory-pressure";
+          folder = "Homelab";
+          interval = "1m";
+          rules = oomAlerts;
+        }
+      ]
+      ++ lib.optionals (diskAlerts != []) [
+        {
+          orgId = 1;
+          name = "disk-pressure";
+          folder = "Homelab";
+          interval = "1m";
+          rules = diskAlerts;
         }
       ];
   };
@@ -517,6 +692,61 @@ in {
           Fire when (time() - node_boot_time_seconds) is below this many
           seconds. 600s = 10 minutes — long enough to survive a missed
           eval after boot, short enough that the alert doesn't linger.
+        '';
+      };
+    };
+
+    oomAlert = {
+      enable = lib.mkEnableOption "Alert when the kernel OOM killer fires on any fleet host" // {default = true;};
+    };
+
+    diskPressureAlert = {
+      enable = lib.mkEnableOption "Alert when any filesystem crosses a usage threshold" // {default = true;};
+
+      thresholdPercent = lib.mkOption {
+        type = lib.types.int;
+        default = 90;
+        description = ''
+          Fire when filesystem usage (1 - avail/size) exceeds this many
+          percent. 90% leaves enough headroom for typical churn while
+          still giving us time to act before a disk fills.
+        '';
+      };
+
+      forDuration = lib.mkOption {
+        type = lib.types.str;
+        default = "15m";
+        description = ''
+          How long the threshold must be exceeded before firing. 15m rides
+          through nightly backup spikes and large transient writes; shorter
+          values pager-bomb during kopia/borg snapshot churn.
+        '';
+      };
+
+      fstypeExcludeRegex = lib.mkOption {
+        type = lib.types.str;
+        # Escape depth: this string is emitted into a PromQL string literal,
+        # which uses Go-style escapes. `\.` is "unknown escape" — to land a
+        # literal backslash inside the PromQL string we need `\\`, which
+        # requires `\\\\` in Nix source. The regex engine then reads `\\.`
+        # → literal `.`. Same chain as the ntopng dashboard escapes in
+        # loki-server.nix vpnClientIPRegex.
+        default = "tmpfs|devtmpfs|overlay|squashfs|fuse\\\\..*|nsfs|tracefs|debugfs|cgroup.*|proc|sysfs|configfs|autofs|mqueue|pstore|bpf|securityfs|ramfs|hugetlbfs";
+        description = ''
+          fstype label values to exclude from the disk-pressure query.
+          Strips ephemeral/pseudo filesystems where "fullness" is either
+          expected or meaningless.
+        '';
+      };
+
+      mountpointExcludeRegex = lib.mkOption {
+        type = lib.types.str;
+        default = "/nix/store|/run(/.*)?|/proc(/.*)?|/sys(/.*)?|/dev(/.*)?|/snap(/.*)?|/var/lib/docker/.*|/var/lib/containers/.*|/var/lib/nspawn/.*|/var/lib/machines/.*";
+        description = ''
+          mountpoint label values to exclude from the disk-pressure query.
+          Strips read-only Nix store views, ephemeral /run, and container/
+          nspawn-internal overlays whose backing filesystem is alerted on
+          via its real mountpoint.
         '';
       };
     };

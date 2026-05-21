@@ -6,6 +6,46 @@
 # Getting this wrong rebuilds the WRONG system config onto the current machine.
 #
 
+# !! CRITICAL: NEVER REBUILD FROM A STALE LOCAL CHECKOUT !!
+#
+# Every fleet host runs `rolling-flake-update.service` nightly — it bumps
+# `flake.lock` to tip AND deploys against `github:abl030/nixosconfig`. So
+# every host's currently-running closure is pinned to "tip of master at
+# 22:15 AWST last night" with a HOT binary cache for those store paths.
+#
+# If you rebuild from a local checkout that is behind origin/master, you
+# will:
+#   1. Resolve an OLDER flake.lock → downgrade the entire world (kernel,
+#      systemd, every package).
+#   2. Miss the warm cache — every downgraded store path is re-downloaded
+#      from upstream, not our mirror.
+#   3. Potentially destabilise things that depend on newer upstream fixes.
+#
+# Before ANY `nixos-rebuild switch` on a fleet host, check:
+#   git fetch && git status -sb
+# If the local branch is behind origin/master, do ONE of:
+#   a) Rebase/fast-forward to tip, re-apply your in-progress changes:
+#        git stash && git pull --rebase && git stash pop
+#   b) Build from the GitHub flake directly (skip the local tree entirely):
+#        sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<host> --refresh
+#      Use this when you have NO local changes to apply.
+#
+# NEVER `nixos-rebuild switch --flake .#<host>` while the working tree is
+# behind origin. The 5–10 minute "fast" rebuild you expected becomes a
+# multi-gigabyte re-fetch of a downgraded world.
+#
+
+# !! INTERACTION STYLE !!
+#
+# DO NOT use AskUserQuestion / the structured question UI. The user dislikes
+# it — just chat in plain text. Present decisions as a conversational message
+# and let them reply normally.
+#
+# When there are multiple decisions to make, present them ONE AT A TIME and
+# wait for an answer before moving to the next. Only bundle questions when
+# they are very small or tightly linked.
+#
+
 # !! CRITICAL: NEVER DEPLOY REMOTELY WITH --target-host !!
 #
 # To deploy to a remote host (doc1/doc2/igpu/etc.):
