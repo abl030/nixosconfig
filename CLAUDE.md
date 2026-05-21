@@ -23,6 +23,19 @@
 # built closure. The service-deploy skill has a full runbook; always follow it.
 #
 
+# !! CRITICAL: NEVER `nix build` ON WSL !!
+#
+# When `hostname` reports `wsl`, do NOT run `nix build .#nixosConfigurations.<host>...`
+# to validate a remote-host change. WSL pulls the full closure (tens of GB) from
+# the binary cache over a slow link — it will hang or burn bandwidth for nothing,
+# and the build artefact isn't used anywhere (the remote host rebuilds from
+# GitHub via the deploy pattern above).
+#
+# To validate a change for a remote host from WSL:
+#   - `nix flake check` (eval-only, no closure fetch) for syntax/type errors, OR
+#   - push and let the remote host build it during `nixos-rebuild switch --refresh`.
+#
+
 # !! SESSION START: ALWAYS RUN THESE FIRST !!
 #
 # At the START of every conversation, run `hostname` and `date` before doing

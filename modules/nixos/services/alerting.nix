@@ -368,10 +368,13 @@
   # LogQL string literals require backslashes to be doubled (`\\`) — the
   # parser otherwise rejects regex metacharacters like `\d`, `\.`, `\[`
   # with "invalid char escape" before the regex engine ever sees them.
+  # Double quotes must also be backslash-escaped, otherwise a pattern
+  # containing a literal `"` (e.g. `user "paperless"`) terminates the
+  # LogQL string mid-regex and the rule fails to evaluate.
   # Users write patterns the way they'd type them in Grafana Explore
-  # (`\d+`, `\.`); we double-escape here at framework level so the
+  # (`\d+`, `\.`, `"foo"`); we escape here at framework level so the
   # final LogQL query string is well-formed.
-  logqlEscape = s: builtins.replaceStrings ["\\"] ["\\\\"] s;
+  logqlEscape = s: builtins.replaceStrings ["\\" "\""] ["\\\\" "\\\""] s;
 
   errorPatternAlerts =
     map (ep: let
