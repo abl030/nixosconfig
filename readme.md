@@ -97,10 +97,18 @@ brings a full desktop: pick **Hyprland** or **GNOME** per host, with
 the rest of the stack (waybar, fuzzel, wallpapers, theming, audio,
 fonts) configured to match. Headless hosts skip all of it.
 
-The CLI environment is fully configured too — zsh + starship,
-direnv, atuin, fzf, neovim (via `nvchad4nix`), tmux, the lot. Every
-machine, from the desktop to the wsl box to the headless service VMs,
-gets the same shell.
+The CLI environment is fully configured too — direnv, atuin, fzf,
+neovim (via `nvchad4nix`), tmux, the lot. Every machine, from the
+desktop to the wsl box to the headless service VMs, gets the same
+shell.
+
+It's also **polyglot**. Drop into **zsh**, **bash**, or **fish** and
+you get the same aliases, macros, and history. The starship prompt
+**changes colour per shell** so you always know where you are, and
+[`blesh`](https://github.com/akinomyoga/ble.sh) gives bash zsh-ish
+autocomplete so the three feel genuinely interchangeable. I almost
+never actually drop into one any more — the agent does the work —
+but it's nice that they all just work.
 
 ## Other things worth mentioning
 
