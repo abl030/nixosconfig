@@ -251,23 +251,36 @@ in {
       monitoring.monitors = lib.mapAttrsToList mkMonitor instances;
 
       # See #253 audit + rules-doc "Per-service errorPatterns".
-      # Each ts-* container gets a "logged out" pattern — that means
-      # the tailscale node lost its auth and the inter-tailnet share
-      # is effectively offline. context-canceled and PollNetMap noise
-      # is excluded (normal transient). Per-instance caddy sidecars
-      # are NOT instrumented separately — their failures show as Kuma
-      # HTTP monitor failures on the tailnet URL.
+      # Each ts-* container gets a real-auth-failure pattern. We match
+      # only signatures that indicate the coordinator actually rejected
+      # the node (401, key expired/rejected, control logout) — NOT the
+      # transient "You are logged out … context canceled" health line
+      # tailscale always prints during boot/restart before the first
+      # successful key fetch. That benign startup message caused the
+      # 2026-05-21 false-positive flap (regex matched container restarts
+      # from podman auto-update, not real auth loss).
+      #
+      # Belt-and-suspenders: threshold=1, window=10m means "fire only
+      # if 2+ real failures land within 10 min" — a genuine auth loss
+      # repeats every poll; any remaining benign one-off won't page.
+      #
+      # Per-instance caddy sidecars are NOT instrumented separately —
+      # their failures show as Kuma HTTP monitor failures on the
+      # tailnet URL.
       monitoring.errorPatterns =
         lib.mapAttrsToList (name: _: {
           name = "tailscale-share ${name} logged out";
           unit = "podman-ts-${name}.service";
-          pattern = "(?i)logged out\\.|fetch control key.*context canceled";
+          pattern = "(?i)control:.*(401|unauthorized)|key (expired|rejected|invalid)|auth.*rejected|control: logout";
           severity = "warning";
+          window = "10m";
+          threshold = 1;
           summary = "tailscale sidecar for ${name} lost its auth — share is offline";
           description = ''
             The tailscale-share node identity got rejected by the
-            coordinator. Inter-tailnet access to the shared URL won't
-            work until the node re-authenticates. Check
+            coordinator (auth key expired/revoked, or node force-logged
+            out). Inter-tailnet access to the shared URL won't work
+            until the node re-authenticates. Refresh
             secrets/hosts/<host>/<name>-tailscale-authkey.env.
           '';
         })

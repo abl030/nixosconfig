@@ -139,6 +139,24 @@
     loki.write "loki" {
       endpoint {
         url = "${lokiUrl}"
+        // doc2 (which currently hosts Loki) auto-reboots nightly and is
+        // unreachable for ~10-15 min. Default max_backoff_period=5m made
+        // alloy exhaust retries at ~9 min and drop batches. Bump so the
+        // in-memory queue rides through normal maintenance windows; the
+        // WAL below covers anything longer. See RCA 2026-05-21.
+        max_backoff_period = "10m"
+      }
+
+      // Persist queued batches to /var/lib/alloy so we don't lose logs
+      // when Loki is briefly down OR when alloy itself restarts. WAL is
+      // off by default in alloy; prometheus.remote_write to Mimir already
+      // has its own on-disk WAL, so this closes the symmetric gap on the
+      // Loki side. max_segment_age caps how stale a replayed segment can
+      // be — older than that and we accept the loss rather than ship
+      // hours-old logs.
+      wal {
+        enabled         = true
+        max_segment_age = "2h"
       }
     }
 
