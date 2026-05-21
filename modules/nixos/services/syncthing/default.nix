@@ -29,7 +29,7 @@
   peerNames = lib.attrNames syncthingPeers;
 in {
   options.homelab.syncthing = {
-    enable = lib.mkEnableOption "Declarative Syncthing for episodic memory sync";
+    enable = lib.mkEnableOption "Declarative Syncthing for fleet-wide conversation-archive sync";
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = hostConfig.homeDirectory;

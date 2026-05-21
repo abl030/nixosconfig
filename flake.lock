@@ -144,22 +144,6 @@
         "type": "github"
       }
     },
-    "episodic-memory": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1770785805,
-        "narHash": "sha256-+QVWNRlaMXcg7Yn/ePqoNSBX54lkH97gJ2HlipHQeAk=",
-        "owner": "abl030",
-        "repo": "episodic-memory",
-        "rev": "04675d893bfceac811070bd3f9378aeff799c56d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "abl030",
-        "repo": "episodic-memory",
-        "type": "github"
-      }
-    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -627,7 +611,6 @@
         "cratedigger-src": "cratedigger-src",
         "discogs-src": "discogs-src",
         "disko": "disko",
-        "episodic-memory": "episodic-memory",
         "flake-parts": "flake-parts",
         "flake-utils": "flake-utils_3",
         "fzf-preview": "fzf-preview",

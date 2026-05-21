@@ -63,10 +63,27 @@ interesting part is everything that had to be engineered to make it
   writes a human-readable diagnosis to Gotify instead of a raw stack
   trace.
 
-The rolling flake-update unit (runs on doc1 at 22:15 AWST) pushes new
-inputs to `master`; each host pulls the GitHub flake on its own
-schedule. No CI/CD pipeline, no `--target-host` over flaky links — each
-host self-heals from GitHub.
+### Rolling flake-update — fleet in sync, daily
+
+Sitting upstream of all that is a **rolling `nix flake update`** that
+runs nightly on doc1. It bumps `flake.lock`, builds every host's
+configuration as a gate, and only **commits and pushes to `master`** if
+every host evaluates and builds clean. If any host fails:
+
+- The build log's last 200 lines are piped through `claude -p` (Haiku,
+  headless, no API cost) for a one-paragraph triage — *"upstream
+  nixpkgs broke X"* vs *"our config needs Y"* — and pushed to Gotify
+  along with the raw tail.
+- `master` stays unchanged, so no host pulls a broken lock.
+- The next nightly run retries.
+
+When it passes, every host's nightly `nixos-rebuild switch` picks up the
+new lock and rolls forward together. Net effect: **the fleet is in lock
+step and fully up to date every day**, kernels included — hosts even
+auto-reboot when a kernel update comes in (`rebootOnKernelUpdate`).
+
+No CI/CD pipeline, no `--target-host` over flaky links — each host
+self-heals from GitHub.
 
 ## Tailscale-share sidecars
 
@@ -122,8 +139,9 @@ but it's nice that they all just work.
   autoheal via `homelab.podman`) or `mk-pg-container` (per-service
   Postgres in an isolated systemd-nspawn machine).
 - **AI integration** — `.mcp.json` for MCP servers (pfsense, unifi,
-  homeassistant, loki, mcp-nixos), a `claude-code` home-manager module,
-  episodic memory synced fleet-wide via Syncthing.
+  homeassistant, loki, mcp-nixos), a `claude-code` home-manager
+  module, fleet-wide Syncthing for the Claude Code conversation
+  archive.
 - **NFS watchdog** — services that depend on NFS mounts get restarted
   when the mount comes back from a network blip, instead of going
   zombie.

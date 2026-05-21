@@ -99,11 +99,6 @@
       flake = false;
     };
 
-    episodic-memory = {
-      url = "github:abl030/episodic-memory";
-      flake = false;
-    };
-
     cratedigger-src = {
       url = "github:abl030/cratedigger";
     };
