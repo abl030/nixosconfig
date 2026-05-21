@@ -697,9 +697,13 @@ in {
             description = ''
               Kuma push monitor's `interval` field (seconds). Kuma
               expects a heartbeat at most this often; if it goes
-              `intervalSecs * (1 + maxretries) + retryInterval` seconds
-              without one, the monitor goes DOWN. Match this to
-              `interval` (default 5m = 300s).
+              `intervalSecs + maxretries * retryInterval` seconds
+              without one, the monitor goes DOWN. Empirically verified
+              2026-05-21 against kuma.db heartbeat history for
+              monitor 60 (kopia-mum freshness): with interval=3600,
+              maxretries=2, retryInterval=60 the gap from last UP to
+              status=DOWN was 3721s, matching the formula above.
+              Match this to `interval` (default 5m = 300s).
             '';
           };
           timeout = lib.mkOption {
