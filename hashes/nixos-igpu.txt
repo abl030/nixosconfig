@@ -1,1 +1,1 @@
-/nix/store/9sx96g0lmwxn7gq4q0qsg24l7hgcv2s4-nixos-system-igpu-26.05.20260515.d233902
+/nix/store/vpkcxz2c1xxjswndcaqvhkvy0qzz09n1-nixos-system-igpu-26.05.20260520.d99b013
