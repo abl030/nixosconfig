@@ -7,12 +7,4 @@
 
 
 
-1. ~~Make it easier to spin up new proxmox vm's~~ **[IN PROGRESS - See vm-automation-plan.md]**
-    - ✅ Git commit hardware.nix and all configs automatically
-    - ✅ Template with NixOS ready (VMID 9001: NixosServerBlank)
-    - ✅ Proxmox operations library (vms/proxmox-ops.sh)
-    - ✅ Knowledge base for tracking VMs (docs/machines.md)
-    - 🚧 Automated nixos-anywhere installation
-    - 🚧 Automatic secret management (sops updatekeys)
-    - **See**: `docs/vm-automation-plan.md` for full details
-    - **Wishlist**: `docs/vm-automation-wishlist.md` for future enhancements
+1. ~~Make it easier to spin up new proxmox vm's~~ **[ABANDONED 2026-05-21]** — Tofu/Terranix automation removed; provisioning is now manual via Proxmox UI. Revisit as a Proxmox MCP sub-agent if/when worth it.

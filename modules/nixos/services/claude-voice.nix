@@ -326,7 +326,7 @@ in {
     homelab.localProxy.hosts = [
       {
         host = cfg.fqdn;
-        port = cfg.port;
+        inherit (cfg) port;
         tailscaleOnly = true;
       }
     ];

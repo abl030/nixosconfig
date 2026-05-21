@@ -30,12 +30,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # terranix for OpenTofu/Terraform configuration in Nix
-    terranix = {
-      url = "github:terranix/terranix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # --- 3. Hardware & WSL ---
     #nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
@@ -228,7 +222,6 @@
 
       imports = [
         ./nix/pkgs.nix
-        ./nix/tofu.nix
       ];
 
       perSystem = {...}: {
@@ -318,7 +311,7 @@
               echo "homelab.monitoring.errorPatterns. Use \`errorPatterns = [];\`"
               echo "with a one-line justifying comment for services whose"
               echo "failure modes are genuinely covered by the Kuma HTTP"
-              echo "monitor alone. See .claude/rules/nixos-service-modules.md"
+              echo "monitor alone. See docs/wiki/nixos-service-modules.md"
               echo "\"Per-service errorPatterns\" section."
               exit 1
             fi

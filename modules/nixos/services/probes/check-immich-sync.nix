@@ -8,7 +8,7 @@
 #
 # See docs/wiki/services/immich-asset-edit-audit-incident.md (the
 # incident this probe defends against) and the "Deep write-path probes"
-# section of .claude/rules/nixos-service-modules.md for the pattern.
+# section of docs/wiki/nixos-service-modules.md for the pattern.
 #
 # Why not probe via Immich's HTTP API? Upstream Immich (≥2.x) blocks
 # API-key auth on /api/sync/* endpoints:

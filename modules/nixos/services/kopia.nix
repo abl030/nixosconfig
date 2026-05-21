@@ -438,57 +438,57 @@ in {
         })
       cfg.instances)
       // (lib.mapAttrs' (name: inst:
-        lib.nameValuePair "kopia-verify-${name}" {
-          description = "Kopia snapshot verify for ${name}";
-          after = ["kopia-${name}.service"];
-          requires = ["kopia-${name}.service"];
-          environment.HOME = cfg.dataDir;
-          serviceConfig = {
-            Type = "oneshot";
-            User =
-              if inst.runAsRoot
-              then "root"
-              else "kopia";
-            Group =
-              if inst.runAsRoot
-              then "root"
-              else "kopia";
-            EnvironmentFile = [config.sops.secrets."kopia/env".path];
-            ExecStart = mkVerifyScript {inherit name inst;};
-          };
-        })
-      cfg.instances
-      // (lib.mapAttrs' (name: inst:
-        lib.nameValuePair "kopia-${name}-source-sync" {
-          description = "Reconcile kopia ${name} declared sources with the daemon";
-          after = ["kopia-${name}.service"];
-          requires = ["kopia-${name}.service"];
-          wantedBy = ["multi-user.target"];
-          environment.HOME = cfg.dataDir;
-          # Re-run on every deploy where the source list or schedule
-          # changes. The script itself is idempotent so re-running on
-          # unrelated rebuilds is cheap (one PUT per source = ~50 ms each).
-          restartTriggers = [
-            (builtins.toJSON {
-              inherit (inst) sources snapshotScheduleHour snapshotScheduleMinute;
-            })
-          ];
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            User =
-              if inst.runAsRoot
-              then "root"
-              else "kopia";
-            Group =
-              if inst.runAsRoot
-              then "root"
-              else "kopia";
-            EnvironmentFile = [config.sops.secrets."kopia/env".path];
-            ExecStart = mkSourceSyncScript {inherit name inst;};
-          };
-        })
-      cfg.instances));
+          lib.nameValuePair "kopia-verify-${name}" {
+            description = "Kopia snapshot verify for ${name}";
+            after = ["kopia-${name}.service"];
+            requires = ["kopia-${name}.service"];
+            environment.HOME = cfg.dataDir;
+            serviceConfig = {
+              Type = "oneshot";
+              User =
+                if inst.runAsRoot
+                then "root"
+                else "kopia";
+              Group =
+                if inst.runAsRoot
+                then "root"
+                else "kopia";
+              EnvironmentFile = [config.sops.secrets."kopia/env".path];
+              ExecStart = mkVerifyScript {inherit name inst;};
+            };
+          })
+        cfg.instances
+        // (lib.mapAttrs' (name: inst:
+          lib.nameValuePair "kopia-${name}-source-sync" {
+            description = "Reconcile kopia ${name} declared sources with the daemon";
+            after = ["kopia-${name}.service"];
+            requires = ["kopia-${name}.service"];
+            wantedBy = ["multi-user.target"];
+            environment.HOME = cfg.dataDir;
+            # Re-run on every deploy where the source list or schedule
+            # changes. The script itself is idempotent so re-running on
+            # unrelated rebuilds is cheap (one PUT per source = ~50 ms each).
+            restartTriggers = [
+              (builtins.toJSON {
+                inherit (inst) sources snapshotScheduleHour snapshotScheduleMinute;
+              })
+            ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              User =
+                if inst.runAsRoot
+                then "root"
+                else "kopia";
+              Group =
+                if inst.runAsRoot
+                then "root"
+                else "kopia";
+              EnvironmentFile = [config.sops.secrets."kopia/env".path];
+              ExecStart = mkSourceSyncScript {inherit name inst;};
+            };
+          })
+        cfg.instances));
 
     systemd.timers = lib.mapAttrs' (name: _inst:
       lib.nameValuePair "kopia-verify-${name}" {
@@ -581,20 +581,21 @@ in {
         # repository is reachable, but no new snapshot has landed within
         # `KOPIA_MAX_AGE_HOURS`. Default 36h covers the daily 06:00
         # schedule with 12h slack for slow runs / weekend skips.
-        deepProbes = lib.mapAttrsToList (name: inst: {
-          name = "Kopia ${name} freshness";
-          command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
-          interval = "1h";
-          intervalSecs = 3600;
-          serviceConfig = {
-            Environment = [
-              "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
-              "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
-              "KOPIA_MAX_AGE_HOURS=36"
-            ];
-          };
-        })
-        cfg.instances;
+        deepProbes =
+          lib.mapAttrsToList (name: inst: {
+            name = "Kopia ${name} freshness";
+            command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
+            interval = "1h";
+            intervalSecs = 3600;
+            serviceConfig = {
+              Environment = [
+                "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
+                "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
+                "KOPIA_MAX_AGE_HOURS=36"
+              ];
+            };
+          })
+          cfg.instances;
       };
 
       mounts.mumNfs.enable = lib.mkIf needsMumMount true;

@@ -91,7 +91,7 @@ If you see this, the container is unrecoverable without a host reboot. Don't was
 
 - Linux kernel ≥ 6.20-ish if `zap_pid_ns_processes` gets a stronger "abandoned child" reaper.
 - systemd-nspawn change that drains inner processes before the inner systemd can exit (i.e. nspawn-driven shutdown vs inner-init-driven).
-- Migration off nspawn for service DBs entirely. We chose nspawn for blast-radius reasons (see `.claude/rules/nixos-service-modules.md`); a future move to e.g. dedicated VMs would avoid this whole class.
+- Migration off nspawn for service DBs entirely. We chose nspawn for blast-radius reasons (see `docs/wiki/nixos-service-modules.md`); a future move to e.g. dedicated VMs would avoid this whole class.
 
 ## Related
 

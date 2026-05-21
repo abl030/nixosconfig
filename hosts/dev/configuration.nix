@@ -20,9 +20,6 @@
       enable = true;
       secure = false;
     };
-    pve = {
-      enable = true;
-    };
     tailscale.enable = true;
     nixCaches = {
       enable = true;
@@ -46,8 +43,6 @@
     git
     curl
     jq
-    # OpenTofu/Terranix testing
-    opentofu
     sops
     age
   ]);

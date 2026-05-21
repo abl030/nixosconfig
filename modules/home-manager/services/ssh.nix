@@ -38,7 +38,7 @@ in {
         # Helper to generate blocks for every host defined in hosts.nix
         # We use mapAttrs' (prime) to rename the key from the internal ID (e.g. "epimetheus")
         # to the sshAlias (e.g. "epi").
-        # Filter out entries starting with "_" (e.g., _proxmox config block)
+        # Defensive: filter out any entries starting with "_" (reserved for future non-host config blocks).
         actualHosts = lib.filterAttrs (name: _: !lib.hasPrefix "_" name) allHosts;
         generatedHosts =
           lib.mapAttrs' (_: hostConfig: {

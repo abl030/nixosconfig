@@ -72,7 +72,7 @@ in {
       address = "0.0.0.0";
       inherit (cfg) dataDir;
 
-      mediaDir = mediaDir;
+      inherit mediaDir;
       consumptionDir = consumeDir;
 
       # Tika + Gotenberg for OCR of Office docs and emails

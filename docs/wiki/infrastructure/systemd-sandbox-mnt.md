@@ -2,7 +2,7 @@
 
 **Status:** Active pattern (paperless as of 2026-05-20).
 **Researched:** 2026-05-20.
-**Related issues:** This page, [systemd-mount-ordering-cycles.md](systemd-mount-ordering-cycles.md), `.claude/rules/nixos-service-modules.md`.
+**Related issues:** This page, [systemd-mount-ordering-cycles.md](systemd-mount-ordering-cycles.md), `docs/wiki/nixos-service-modules.md`.
 
 ## Why this exists
 

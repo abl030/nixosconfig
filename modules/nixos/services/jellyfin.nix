@@ -88,7 +88,7 @@ in {
         root-owned, and numeric caddy-owned children can coexist as siblings
         without systemd-tmpfiles "unsafe path transition" errors.
 
-        Per .claude/rules/nixos-service-modules.md, set this to
+        Per docs/wiki/nixos-service-modules.md, set this to
         /mnt/virtio/jellyfin in the host config so service state lives
         on virtiofs (host VM disposable, data survives on prom ZFS).
       '';

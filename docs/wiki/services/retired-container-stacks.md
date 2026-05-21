@@ -8,7 +8,7 @@
 The homelab started on podman-compose container stacks under `stacks/*/`. Over
 early-to-mid 2026 almost every service was rewritten as a native NixOS module
 under `modules/nixos/services/` (the "service hierarchy" in
-`.claude/rules/nixos-service-modules.md` — prefer upstream module > custom
+`docs/wiki/nixos-service-modules.md` — prefer upstream module > custom
 module > OCI container > compose stack). The stack definitions were left in
 place as a rollback escape hatch, with the entries commented out in
 `hosts.nix#containerStacks`. Several more stacks (graylog, nicotine, nzbget,
@@ -129,7 +129,7 @@ git show <commit>^:stacks/<name>/docker-compose.nix
 
 The removal commit is the one immediately after `2408349f` (openobserve retirement).
 
-Before resurrecting, re-read `.claude/rules/nixos-service-modules.md` — the
+Before resurrecting, re-read `docs/wiki/nixos-service-modules.md` — the
 service hierarchy prefers a native NixOS module over an OCI container over
 (now) nothing. Compose stacks are no longer a supported deployment shape in
 this repo; if you truly need compose, you'd need to bring the

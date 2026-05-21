@@ -117,10 +117,10 @@ identity public key (see `hosts.nix:masterKeys`), read-only, title
 
 ## New-host bootstrap
 
-`vms/post-provision.sh` uses `nixos-rebuild switch --target-host`, which
-builds the closure on the **provisioning host** and ships it to the new
-VM. The provisioning host has the fleet key in its user account, so
-git+ssh fetches work during the build. The VM receives a fully-activated
+When provisioning a new host, build the closure on an existing fleet
+host (which already has the fleet SSH key in its user account, so
+git+ssh fetches work during the build) and ship it to the new VM with
+`nixos-rebuild switch --target-host`. The VM receives a fully-activated
 closure on first boot; our activation script then mirrors the key into
 `/root/.ssh/id_ed25519` for future self-rebuilds.
 

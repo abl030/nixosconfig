@@ -7,7 +7,6 @@
     ./ci
     ./autoupdate
     ./services
-    ./shell
     ./homelab
   ];
 }

@@ -774,7 +774,7 @@ in {
 
         Use deepProbes for any stateful service whose HTTP healthcheck
         doesn't actually exercise the DB write path. See issue #252 and
-        `.claude/rules/nixos-service-modules.md` Deep probes section.
+        `docs/wiki/nixos-service-modules.md` Deep probes section.
       '';
     };
 
@@ -1050,102 +1050,104 @@ in {
       "d /var/lib/homelab/monitoring/push-urls 0755 root root -"
     ];
 
-    systemd.services = {
-      homelab-monitoring-sync = {
-      description = "Sync Uptime Kuma monitors for local stacks";
-      after = ["network-online.target"];
-      wants = ["network-online.target"];
-      wantedBy = ["multi-user.target"];
-      # Re-run on every rebuild when the desired monitor/maintenance set
-      # changes. Without these, the oneshot goes inactive after its first
-      # boot-time run and switch-to-configuration never triggers it again —
-      # new homelab.monitoring.monitors entries would never land in Kuma.
-      restartTriggers = [monitorsJson maintenancesJson];
-      serviceConfig = {
-        Type = "oneshot";
-        # RemainAfterExit keeps the unit `active (exited)` so
-        # switch-to-configuration treats it as live and honours
-        # restartIfChanged (default true) on derivation changes.
-        RemainAfterExit = true;
-        ExecStart = monitoringScript;
-      };
-      };
-    } // (
-    # Generate one (oneshot, timer) pair per deepProbe. The oneshot reads
-    # the push URL from /var/lib/homelab/monitoring/push-urls/<slug>.url
-    # (written by monitor_sync after the corresponding Kuma push monitor
-    # is provisioned), runs the probe command, and on success curls the
-    # push URL. On any failure (non-zero exit or timeout), no curl
-    # happens; Kuma misses the heartbeat and eventually flips DOWN.
-      lib.listToAttrs (map (probe: let
-          slug = probeSlug probe.name;
-          urlFile = "/var/lib/homelab/monitoring/push-urls/${slug}.url";
-          probeRunner = pkgs.writeShellScript "deep-probe-${slug}-runner" ''
-            set -uo pipefail
-
-            url_file=${lib.escapeShellArg urlFile}
-
-            # Run the probe; capture exit + duration for the push payload.
-            t0=$(${pkgs.coreutils}/bin/date +%s%N)
-            ${probe.command}
-            rc=$?
-            t1=$(${pkgs.coreutils}/bin/date +%s%N)
-            ms=$(( (t1 - t0) / 1000000 ))
-
-            if [ "$rc" -ne 0 ]; then
-              echo "[deep-probe] ${probe.name}: command exited $rc — NOT pushing to Kuma" >&2
-              exit "$rc"
-            fi
-
-            if [ ! -r "$url_file" ]; then
-              echo "[deep-probe] ${probe.name}: push URL file missing: $url_file" >&2
-              echo "[deep-probe]   (waiting for homelab-monitoring-sync to provision the Kuma monitor)" >&2
-              exit 0   # don't fail the unit just because Kuma sync hasn't caught up yet
-            fi
-
-            push_url=$(${pkgs.coreutils}/bin/head -n1 "$url_file")
-            ${pkgs.curl}/bin/curl -fsS --max-time 10 \
-              --data-urlencode "status=up" \
-              --data-urlencode "msg=OK rc=0" \
-              --data-urlencode "ping=$ms" \
-              -G "$push_url" >/dev/null
-          '';
-        in {
-          name = "deep-probe-${slug}";
-          value = {
-            description = "Deep write-path probe: ${probe.name}";
-            after = ["network-online.target" "homelab-monitoring-sync.service"];
-            wants = ["network-online.target"];
-            serviceConfig =
-              {
-                Type = "oneshot";
-                ExecStart = probeRunner;
-                TimeoutStartSec = probe.timeout;
-              }
-              // probe.serviceConfig;
+    systemd.services =
+      {
+        homelab-monitoring-sync = {
+          description = "Sync Uptime Kuma monitors for local stacks";
+          after = ["network-online.target"];
+          wants = ["network-online.target"];
+          wantedBy = ["multi-user.target"];
+          # Re-run on every rebuild when the desired monitor/maintenance set
+          # changes. Without these, the oneshot goes inactive after its first
+          # boot-time run and switch-to-configuration never triggers it again —
+          # new homelab.monitoring.monitors entries would never land in Kuma.
+          restartTriggers = [monitorsJson maintenancesJson];
+          serviceConfig = {
+            Type = "oneshot";
+            # RemainAfterExit keeps the unit `active (exited)` so
+            # switch-to-configuration treats it as live and honours
+            # restartIfChanged (default true) on derivation changes.
+            RemainAfterExit = true;
+            ExecStart = monitoringScript;
           };
-        })
-        cfg.deepProbes));
+        };
+      }
+      // (
+        # Generate one (oneshot, timer) pair per deepProbe. The oneshot reads
+        # the push URL from /var/lib/homelab/monitoring/push-urls/<slug>.url
+        # (written by monitor_sync after the corresponding Kuma push monitor
+        # is provisioned), runs the probe command, and on success curls the
+        # push URL. On any failure (non-zero exit or timeout), no curl
+        # happens; Kuma misses the heartbeat and eventually flips DOWN.
+        lib.listToAttrs (map (probe: let
+            slug = probeSlug probe.name;
+            urlFile = "/var/lib/homelab/monitoring/push-urls/${slug}.url";
+            probeRunner = pkgs.writeShellScript "deep-probe-${slug}-runner" ''
+              set -uo pipefail
 
-    systemd.timers =
-      lib.listToAttrs (map (probe: let
-          slug = probeSlug probe.name;
-        in {
-          name = "deep-probe-${slug}";
-          value = {
-            description = "Deep write-path probe timer: ${probe.name}";
-            wantedBy = ["timers.target"];
-            timerConfig = {
-              OnBootSec = "2m";
-              OnUnitActiveSec = probe.interval;
-              # AccuracySec keeps the timer tightly on-schedule; the
-              # alert latency math (intervalSecs * maxretries) assumes
-              # we don't drift more than a few seconds.
-              AccuracySec = "10s";
-              Unit = "deep-probe-${slug}.service";
+              url_file=${lib.escapeShellArg urlFile}
+
+              # Run the probe; capture exit + duration for the push payload.
+              t0=$(${pkgs.coreutils}/bin/date +%s%N)
+              ${probe.command}
+              rc=$?
+              t1=$(${pkgs.coreutils}/bin/date +%s%N)
+              ms=$(( (t1 - t0) / 1000000 ))
+
+              if [ "$rc" -ne 0 ]; then
+                echo "[deep-probe] ${probe.name}: command exited $rc — NOT pushing to Kuma" >&2
+                exit "$rc"
+              fi
+
+              if [ ! -r "$url_file" ]; then
+                echo "[deep-probe] ${probe.name}: push URL file missing: $url_file" >&2
+                echo "[deep-probe]   (waiting for homelab-monitoring-sync to provision the Kuma monitor)" >&2
+                exit 0   # don't fail the unit just because Kuma sync hasn't caught up yet
+              fi
+
+              push_url=$(${pkgs.coreutils}/bin/head -n1 "$url_file")
+              ${pkgs.curl}/bin/curl -fsS --max-time 10 \
+                --data-urlencode "status=up" \
+                --data-urlencode "msg=OK rc=0" \
+                --data-urlencode "ping=$ms" \
+                -G "$push_url" >/dev/null
+            '';
+          in {
+            name = "deep-probe-${slug}";
+            value = {
+              description = "Deep write-path probe: ${probe.name}";
+              after = ["network-online.target" "homelab-monitoring-sync.service"];
+              wants = ["network-online.target"];
+              serviceConfig =
+                {
+                  Type = "oneshot";
+                  ExecStart = probeRunner;
+                  TimeoutStartSec = probe.timeout;
+                }
+                // probe.serviceConfig;
             };
+          })
+          cfg.deepProbes)
+      );
+
+    systemd.timers = lib.listToAttrs (map (probe: let
+        slug = probeSlug probe.name;
+      in {
+        name = "deep-probe-${slug}";
+        value = {
+          description = "Deep write-path probe timer: ${probe.name}";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnBootSec = "2m";
+            OnUnitActiveSec = probe.interval;
+            # AccuracySec keeps the timer tightly on-schedule; the
+            # alert latency math (intervalSecs * maxretries) assumes
+            # we don't drift more than a few seconds.
+            AccuracySec = "10s";
+            Unit = "deep-probe-${slug}.service";
           };
-        })
-        cfg.deepProbes);
+        };
+      })
+      cfg.deepProbes);
   };
 }

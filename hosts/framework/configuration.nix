@@ -23,7 +23,6 @@
       inhibitors.enable = true;
     };
     tailscale.enable = true;
-    pve.enable = true;
     nixCaches = {
       enable = true;
       profile = "internal";

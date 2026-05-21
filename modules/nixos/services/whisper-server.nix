@@ -33,153 +33,154 @@
 
   backendsEnv = lib.concatStringsSep "," (map (n: "${n}=http://127.0.0.1:${toString (backendPort n)}") modelNames);
 
-  dispatcher = pkgs.writers.writePython3Bin "whisper-dispatcher" {
-    flakeIgnore = ["E501" "E402"];
-  } ''
-    """Whisper multi-model dispatcher.
+  dispatcher =
+    pkgs.writers.writePython3Bin "whisper-dispatcher" {
+      flakeIgnore = ["E501" "E402"];
+    } ''
+      """Whisper multi-model dispatcher.
 
-    Reads the `model` multipart form field on incoming POSTs to
-    /v1/audio/transcriptions and forwards the request unchanged to the
-    backend whisper-server instance that has that model loaded. Falls back
-    to WHISPER_DEFAULT when the field is missing or unknown.
+      Reads the `model` multipart form field on incoming POSTs to
+      /v1/audio/transcriptions and forwards the request unchanged to the
+      backend whisper-server instance that has that model loaded. Falls back
+      to WHISPER_DEFAULT when the field is missing or unknown.
 
-    Environment:
-      WHISPER_BACKENDS  comma-separated name=url pairs
-      WHISPER_DEFAULT   name of the default backend (must appear in BACKENDS)
-      HOST, PORT        listen address (default 127.0.0.1:9875)
-    """
-    import os
-    import sys
-    import urllib.request
-    import urllib.error
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-    from socketserver import ThreadingMixIn
+      Environment:
+        WHISPER_BACKENDS  comma-separated name=url pairs
+        WHISPER_DEFAULT   name of the default backend (must appear in BACKENDS)
+        HOST, PORT        listen address (default 127.0.0.1:9875)
+      """
+      import os
+      import sys
+      import urllib.request
+      import urllib.error
+      from http.server import HTTPServer, BaseHTTPRequestHandler
+      from socketserver import ThreadingMixIn
 
-    BACKENDS: dict[str, str] = {}
-    DEFAULT_BACKEND: str | None = None
+      BACKENDS: dict[str, str] = {}
+      DEFAULT_BACKEND: str | None = None
 
-    HOP_HEADERS = {"connection", "transfer-encoding", "content-length", "host", "expect"}
-
-
-    def parse_model_field(body: bytes, content_type: str) -> str | None:
-        if "multipart/form-data" not in content_type.lower():
-            return None
-        boundary = None
-        for part in content_type.split(";"):
-            part = part.strip()
-            if part.lower().startswith("boundary="):
-                boundary = part[len("boundary="):].strip().strip('"')
-                break
-        if not boundary:
-            return None
-        sep = b"--" + boundary.encode()
-        for chunk in body.split(sep):
-            if b'name="model"' not in chunk:
-                continue
-            i = chunk.find(b"\r\n\r\n")
-            if i < 0:
-                return None
-            value = chunk[i + 4:]
-            # Trim trailing CRLF and any boundary suffix dashes.
-            value = value.rstrip(b"-").rstrip(b"\r\n")
-            try:
-                return value.decode("utf-8").strip()
-            except UnicodeDecodeError:
-                return None
-        return None
+      HOP_HEADERS = {"connection", "transfer-encoding", "content-length", "host", "expect"}
 
 
-    class Handler(BaseHTTPRequestHandler):
-        server_version = "whisper-dispatcher/1"
-
-        def log_message(self, fmt, *args):
-            sys.stderr.write("dispatcher: " + (fmt % args) + "\n")
-
-        def do_GET(self):  # noqa: N802 (stdlib signature)
-            self._proxy("GET", b"")
-
-        def do_POST(self):  # noqa: N802
-            length = int(self.headers.get("content-length", "0") or "0")
-            body = self.rfile.read(length) if length > 0 else b""
-            self._proxy("POST", body)
-
-        def _proxy(self, method: str, body: bytes) -> None:
-            ctype = self.headers.get("content-type", "")
-            model = parse_model_field(body, ctype) if body else None
-            backend = BACKENDS.get(model) if model else None
-            picked = model if backend else "default"
-            if backend is None:
-                backend = DEFAULT_BACKEND
-            if backend is None:
-                self.send_error(503, "no backends configured")
-                return
-            target = backend.rstrip("/") + self.path
-            req = urllib.request.Request(target, data=body if body else None, method=method)
-            for k, v in self.headers.items():
-                if k.lower() in HOP_HEADERS:
-                    continue
-                req.add_header(k, v)
-            if body:
-                req.add_header("content-length", str(len(body)))
-            sys.stderr.write(f"dispatcher: {method} {self.path} model={model!r} backend={picked} -> {target}\n")
-            try:
-                with urllib.request.urlopen(req, timeout=600) as up:
-                    payload = up.read()
-                    self.send_response(up.status)
-                    for k, v in up.headers.items():
-                        if k.lower() in HOP_HEADERS:
-                            continue
-                        self.send_header(k, v)
-                    self.send_header("content-length", str(len(payload)))
-                    self.end_headers()
-                    self.wfile.write(payload)
-            except urllib.error.HTTPError as e:
-                payload = e.read()
-                self.send_response(e.code)
-                for k, v in e.headers.items():
-                    if k.lower() in HOP_HEADERS:
-                        continue
-                    self.send_header(k, v)
-                self.send_header("content-length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-            except Exception as e:  # noqa: BLE001
-                self.send_error(502, f"upstream error: {e}")
+      def parse_model_field(body: bytes, content_type: str) -> str | None:
+          if "multipart/form-data" not in content_type.lower():
+              return None
+          boundary = None
+          for part in content_type.split(";"):
+              part = part.strip()
+              if part.lower().startswith("boundary="):
+                  boundary = part[len("boundary="):].strip().strip('"')
+                  break
+          if not boundary:
+              return None
+          sep = b"--" + boundary.encode()
+          for chunk in body.split(sep):
+              if b'name="model"' not in chunk:
+                  continue
+              i = chunk.find(b"\r\n\r\n")
+              if i < 0:
+                  return None
+              value = chunk[i + 4:]
+              # Trim trailing CRLF and any boundary suffix dashes.
+              value = value.rstrip(b"-").rstrip(b"\r\n")
+              try:
+                  return value.decode("utf-8").strip()
+              except UnicodeDecodeError:
+                  return None
+          return None
 
 
-    class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-        daemon_threads = True
-        allow_reuse_address = True
+      class Handler(BaseHTTPRequestHandler):
+          server_version = "whisper-dispatcher/1"
+
+          def log_message(self, fmt, *args):
+              sys.stderr.write("dispatcher: " + (fmt % args) + "\n")
+
+          def do_GET(self):  # noqa: N802 (stdlib signature)
+              self._proxy("GET", b"")
+
+          def do_POST(self):  # noqa: N802
+              length = int(self.headers.get("content-length", "0") or "0")
+              body = self.rfile.read(length) if length > 0 else b""
+              self._proxy("POST", body)
+
+          def _proxy(self, method: str, body: bytes) -> None:
+              ctype = self.headers.get("content-type", "")
+              model = parse_model_field(body, ctype) if body else None
+              backend = BACKENDS.get(model) if model else None
+              picked = model if backend else "default"
+              if backend is None:
+                  backend = DEFAULT_BACKEND
+              if backend is None:
+                  self.send_error(503, "no backends configured")
+                  return
+              target = backend.rstrip("/") + self.path
+              req = urllib.request.Request(target, data=body if body else None, method=method)
+              for k, v in self.headers.items():
+                  if k.lower() in HOP_HEADERS:
+                      continue
+                  req.add_header(k, v)
+              if body:
+                  req.add_header("content-length", str(len(body)))
+              sys.stderr.write(f"dispatcher: {method} {self.path} model={model!r} backend={picked} -> {target}\n")
+              try:
+                  with urllib.request.urlopen(req, timeout=600) as up:
+                      payload = up.read()
+                      self.send_response(up.status)
+                      for k, v in up.headers.items():
+                          if k.lower() in HOP_HEADERS:
+                              continue
+                          self.send_header(k, v)
+                      self.send_header("content-length", str(len(payload)))
+                      self.end_headers()
+                      self.wfile.write(payload)
+              except urllib.error.HTTPError as e:
+                  payload = e.read()
+                  self.send_response(e.code)
+                  for k, v in e.headers.items():
+                      if k.lower() in HOP_HEADERS:
+                          continue
+                      self.send_header(k, v)
+                  self.send_header("content-length", str(len(payload)))
+                  self.end_headers()
+                  self.wfile.write(payload)
+              except Exception as e:  # noqa: BLE001
+                  self.send_error(502, f"upstream error: {e}")
 
 
-    def main() -> None:
-        global DEFAULT_BACKEND
-        spec = os.environ.get("WHISPER_BACKENDS", "")
-        for entry in spec.split(","):
-            entry = entry.strip()
-            if not entry:
-                continue
-            name, _, url = entry.partition("=")
-            name = name.strip()
-            url = url.strip()
-            if not name or not url:
-                continue
-            BACKENDS[name] = url
-        default_name = os.environ.get("WHISPER_DEFAULT", "").strip()
-        DEFAULT_BACKEND = BACKENDS.get(default_name)
-        if DEFAULT_BACKEND is None and BACKENDS:
-            DEFAULT_BACKEND = next(iter(BACKENDS.values()))
-        host = os.environ.get("HOST", "127.0.0.1")
-        port = int(os.environ.get("PORT", "9875"))
-        sys.stderr.write(
-            f"dispatcher: listening on {host}:{port} backends={BACKENDS} default={DEFAULT_BACKEND}\n"
-        )
-        ThreadedHTTPServer((host, port), Handler).serve_forever()
+      class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+          daemon_threads = True
+          allow_reuse_address = True
 
 
-    if __name__ == "__main__":
-        main()
-  '';
+      def main() -> None:
+          global DEFAULT_BACKEND
+          spec = os.environ.get("WHISPER_BACKENDS", "")
+          for entry in spec.split(","):
+              entry = entry.strip()
+              if not entry:
+                  continue
+              name, _, url = entry.partition("=")
+              name = name.strip()
+              url = url.strip()
+              if not name or not url:
+                  continue
+              BACKENDS[name] = url
+          default_name = os.environ.get("WHISPER_DEFAULT", "").strip()
+          DEFAULT_BACKEND = BACKENDS.get(default_name)
+          if DEFAULT_BACKEND is None and BACKENDS:
+              DEFAULT_BACKEND = next(iter(BACKENDS.values()))
+          host = os.environ.get("HOST", "127.0.0.1")
+          port = int(os.environ.get("PORT", "9875"))
+          sys.stderr.write(
+              f"dispatcher: listening on {host}:{port} backends={BACKENDS} default={DEFAULT_BACKEND}\n"
+          )
+          ThreadedHTTPServer((host, port), Handler).serve_forever()
+
+
+      if __name__ == "__main__":
+          main()
+    '';
 
   pkg = pkgs.whisper-cpp-vulkan;
 
@@ -421,7 +422,7 @@ in {
     homelab.localProxy.hosts = [
       {
         host = cfg.fqdn;
-        port = cfg.port;
+        inherit (cfg) port;
         tailscaleOnly = true;
         maxBodySize = "100M";
       }

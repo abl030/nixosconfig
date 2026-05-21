@@ -56,7 +56,7 @@
 # or shared resources — flag it, don't paper over it.
 #
 # Concrete patterns / anti-patterns / checklist live in
-# `.claude/rules/nixos-service-modules.md`. Outstanding work is tracked
+# `docs/wiki/nixos-service-modules.md`. Outstanding work is tracked
 # in issue #232; new findings get appended there.
 #
 
@@ -135,10 +135,6 @@ The presence of `configurationFile` determines whether a host is a full NixOS sy
 - Registered in `modules/home-manager/default.nix`
 - Display, shell, services, and multimedia configurations
 - Automatically imported for both NixOS (via HM module) and standalone HM configs
-
-## VM Automation
-
-**CRITICAL**: Always use `vms/proxmox-ops.sh`, NEVER run Proxmox commands directly via SSH.
 
 ## Secrets Management
 
@@ -256,54 +252,6 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 - Validates package names and option paths against official APIs
 - Eliminates guesswork about deprecated options or renamed packages
 
-## Common Commands
-
-### Building and Deploying
-
-```bash
-# Build configuration
-nix build .#nixosConfigurations.<hostname>.config.system.build.toplevel
-
-# Deploy to local machine
-sudo nixos-rebuild switch --flake .#<hostname>
-
-# Deploy to remote machine
-nixos-rebuild switch --flake .#<hostname> --target-host <hostname>
-
-# Build from GitHub (no local checkout needed)
-nixos-rebuild switch --flake github:abl030/nixosconfig#<hostname>
-
-# Test configuration without switching
-nix flake check
-
-# Show what would change
-nixos-rebuild build --flake .#<hostname>
-nix run nixpkgs#nvd -- diff /run/current-system ./result
-```
-
-### Development Tools
-
-```bash
-# Format all Nix files
-nix fmt
-
-# Check formatting without writing
-nix run .#fmt-nix -- --check
-
-# Show formatting diffs
-nix run .#fmt-nix -- --diff
-
-# Lint with deadnix + statix
-nix run .#lint-nix
-
-# Enter dev shell
-nix develop
-```
-
-### VM Operations & Secrets
-
-See `vms/proxmox-ops.sh` (VM ops) and `secrets/.sops.yaml` (secrets). Longer-form notes live in `docs/wiki/infrastructure/`.
-
 ## Fleet Overview
 
 ### Current Hosts
@@ -312,45 +260,17 @@ See `vms/proxmox-ops.sh` (VM ops) and `secrets/.sops.yaml` (secrets). Longer-for
 - **framework**: Laptop (Framework 13, full NixOS with hibernation)
 - **caddy**: Server/container (Home Manager only)
 - **wsl**: WSL instance (full NixOS with NixOS-WSL)
-- **proxmox-vm** (doc1): Main services VM on Proxmox (VMID 104, imported)
-- **doc2**: Secondary services VM on Proxmox (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
-- **igpu**: Media transcoding with AMD iGPU passthrough (VMID 109, imported)
-- **dev**: Development VM (VMID 110, managed)
+- **proxmox-vm** (doc1): Main services VM on Proxmox prom
+- **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
+- **igpu**: Media transcoding VM on Proxmox prom with AMD iGPU passthrough
+- **dev**: Development VM on Proxmox prom
 
-### Proxmox Infrastructure
+### Hypervisors
 
-- **Primary Host**: prom (192.168.1.12) - AMD 9950X with iGPU
-- **Default Storage**: nvmeprom (ZFS pool, 3.53 TB available)
-- **VMID Ranges**:
-  - 100-199: Production VMs
-  - 200-299: LXC containers
-  - 9000-9999: Templates
+- **prom** (192.168.1.12, AMD 9950X): Proxmox host running most VMs (doc1, doc2, igpu, dev, …). Manage via the Proxmox web UI; no in-repo automation.
+- **tower** (192.168.1.2): Unraid host running NAS + some VMs + docker stacks. `ssh root@tower` works but is gated — ask the user to unlock first.
 
-## Key Design Patterns
-
-### Base Profile Application
-
-Every NixOS host automatically gets `modules/nixos/profiles/base.nix` which:
-- Sets hostname from `hostConfig.hostname`
-- Configures locales (Australia/Perth, en_GB)
-- Enables flakes and auto-optimise-store
-- Enables `homelab.*` defaults (SSH, Tailscale, updates, nix caches)
-- Creates user from `hostConfig.user` with authorized keys
-- Adds standard packages (git, vim, wget, home-manager, nvd)
-- Shows nvd diff on system activation
-
-All settings use `lib.mkDefault` so individual hosts can override.
-
-### Special Arguments Available in Modules
-
-- `inputs`: All flake inputs (nixpkgs, home-manager, sops-nix, etc.)
-- `hostname`: Current host's name (from hosts.nix key)
-- `hostConfig`: Full host definition from hosts.nix
-- `allHosts`: All hosts from hosts.nix (for cross-host reference)
-- `flake-root`: The flake root (self)
-- `system`: "x86_64-linux"
-
-### Containers
+## Containers
 
 The rootless `podman compose` stack system was retired on 2026-04-16 — every stack became a native NixOS module under `modules/nixos/services/`. For service-adjacent containers that remain (tdarr-node, youtarr, netboot, jdownloader2, the tailscale-share sidecars), use:
 
@@ -358,75 +278,16 @@ The rootless `podman compose` stack system was retired on 2026-04-16 — every s
 - **`modules/nixos/services/tailscale-share.nix`** — per-service inter-tailnet pinhole pattern (ts sidecar + caddy sidecar, each a dedicated tailnet node).
 - **`modules/nixos/lib/mk-pg-container.nix`** — isolated PostgreSQL via systemd-nspawn when a service needs its own DB.
 
-See `docs/wiki/services/retired-container-stacks.md` for what was retired and how to recover a stack from git history if needed. See `.claude/rules/nixos-service-modules.md` for the service hierarchy (upstream module > custom module > OCI container).
-
-## Important Files
-
-- `flake.nix`: Entry point, defines outputs and imports
-- `hosts.nix`: Single source of truth for fleet identity
-- `nix/lib.nix`: Configuration factory functions
-- `modules/nixos/profiles/base.nix`: Base profile for all NixOS hosts
-- `vms/definitions.nix`: VM specifications and inventory
-- `vms/proxmox-ops.sh`: Safe Proxmox operations wrapper
-- `secrets/.sops.yaml`: Age key configuration for secrets
+See `docs/wiki/services/retired-container-stacks.md` for what was retired and how to recover a stack from git history if needed. See `docs/wiki/nixos-service-modules.md` for the service hierarchy (upstream module > custom module > OCI container).
 
 ## Special Configurations
 
 Host-specific details for doc1, igpu, and framework live in their respective `hosts/<name>/configuration.nix` and `hosts/<name>/home.nix` files.
 
-## Landing the Plane (Session Completion)
+## Session Completion
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+When work is committed, push it. `git pull --rebase && git push` is pre-authorised in this repo — don't ask, don't leave commits stranded locally, don't say "ready to push when you are". If push fails, resolve and retry.
 
-**MANDATORY WORKFLOW:**
+## Issue Tracking
 
-1. **File issues for remaining work** - Create GitHub issues (`gh issue create`) for anything that needs follow-up.
-2. **Update issue status** - Close finished work, update in-progress items via `gh issue close` / `gh issue comment`.
-3. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-4. **Clean up** - Clear stashes, prune remote branches
-5. **Verify** - All changes committed AND pushed
-6. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-
-## Issue Tracking with GitHub Issues
-
-Use **GitHub issues** (via `gh`) for all non-trivial task tracking. Lightweight TODOs go in `docs/todo/*.md`.
-
-### Quick reference
-
-```bash
-gh issue list --state=open              # See open issues
-gh issue list --search="label:bug"      # Filter by label
-gh issue view <n>                       # View issue details
-gh issue create --title "..." --body "..." --label bug,priority:high
-gh issue close <n> --reason completed --comment "Shipped in <commit>"
-gh issue comment <n> --body "..."       # Add a comment
-```
-
-### Suggested labels
-
-Apply labels per issue as appropriate:
-
-- **Type**: `bug`, `feature`, `task`, `chore`, `epic`
-- **Priority**: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
-- **Area**: `area:nix`, `area:containers`, `area:monitoring`, `area:vm`, etc.
-
-### Workflow for AI agents
-
-1. **Check open work**: `gh issue list --state=open --assignee=@me` (or no assignee for grab-bag).
-2. **Claim a task**: `gh issue edit <n> --add-assignee @me` and drop a starter comment.
-3. **Work on it**: Implement, test, document.
-4. **Discover new work?** `gh issue create` and, if related, link it in a comment on the parent (`Related to #<n>`).
-5. **Complete**: Commit with `Closes #<n>` in the message, or close explicitly with `gh issue close <n>`.
-
-Historical issues from the retired beads tracker are read-only in `docs/beads-archive.md`.
+GitHub issues (`gh`) cover both real bugs/features and long-running session work that spans multiple conversations. Historical beads issues are read-only in `docs/beads-archive.md`.

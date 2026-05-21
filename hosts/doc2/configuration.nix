@@ -220,8 +220,6 @@
       };
     };
 
-    pve.enable = true;
-
     # Per-service tailscale shares — each gets its own dedicated tailscale node
     # (pinhole access: only that service is shared, not the whole VM).
     # Kuma → alert-bridge route (#256). The bridge re-shapes Kuma's raw
@@ -253,7 +251,6 @@
       monitorName = "Overseerr (Tailnet)";
       monitorPath = "/api/v1/status";
     };
-
   };
 
   # Cratedigger — host-specific app tuning. Everything else lives in the

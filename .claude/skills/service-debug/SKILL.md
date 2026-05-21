@@ -101,7 +101,7 @@ Services with `Requires=` on a DB container can be cascade-stopped when the cont
 ```bash
 grep "X-Restart-Triggers" /etc/systemd/system/<service>.service
 ```
-If missing, the service needs `restartTriggers` in its module (see `.claude/rules/nixos-service-modules.md`).
+If missing, the service needs `restartTriggers` in its module (see `docs/wiki/nixos-service-modules.md`).
 
 **Quick fix:** `sudo systemctl start <service>`
 
@@ -161,7 +161,7 @@ Fold the subagent's findings into your final report — especially the fleet aud
 
 ## Step 7b: Rule audit for modules touched by this debug
 
-Every debug session touches a set of modules. Before closing out, spot-check each one against `.claude/rules/nixos-service-modules.md` — the checklist items in particular. Typical things that silently drift out of compliance over time:
+Every debug session touches a set of modules. Before closing out, spot-check each one against `docs/wiki/nixos-service-modules.md` — the checklist items in particular. Typical things that silently drift out of compliance over time:
 
 - Missing `homelab.monitoring.monitors` entry (service can die invisibly — this was how the 2026-04-13 discogs-api outage slipped for 28h)
 - Missing `homelab.localProxy.hosts` for web-facing services

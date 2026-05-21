@@ -128,7 +128,7 @@ A cycle warning in the journal is **not** a "systemd is being noisy" event — i
 
 `grep -rn 'options.*\[.*"bind"' modules/ hosts/` across the entire repo on 2026-05-13: **one** offender, `modules/nixos/services/paperless.nix:56`. Initially fixed with `_netdev`; removed entirely on 2026-05-14 after #247 showed the space-bearing fstab mountpoint could still fail activation.
 
-If a future PR adds another bind/overlay/fuse mount on top of a network path, the rule above is mirrored in `.claude/rules/nixos-service-modules.md` (Anti-Patterns).
+If a future PR adds another bind/overlay/fuse mount on top of a network path, the rule above is mirrored in `docs/wiki/nixos-service-modules.md` (Anti-Patterns).
 
 ## Sources
 

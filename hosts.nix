@@ -15,11 +15,6 @@
 #    If the script fails, run this on the target host to get the string:
 #      $ cat /etc/ssh/ssh_host_ed25519_key.pub
 #
-# 3. Proxmox VMs (Optional)
-#    Hosts running on Proxmox can have a 'proxmox' attribute with VM specs.
-#    This is the single source of truth for OpenTofu/Terranix provisioning.
-#    Set 'readonly = true' for VMs that should not be managed by automation.
-#
 let
   masterKeys = [
     # Master Fleet Identity
@@ -30,15 +25,6 @@ let
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55"
   ];
 in {
-  # Proxmox Infrastructure Configuration
-  # Used by OpenTofu/Terranix for VM provisioning
-  _proxmox = {
-    host = "192.168.1.12";
-    node = "prom";
-    defaultStorage = "nvmeprom";
-    templateVmid = 9003;
-  };
-
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
     homeFile = ./hosts/epi/home.nix;
@@ -108,47 +94,6 @@ in {
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
     tailscaleIp = "100.89.160.60";
-    proxmox = {
-      vmid = 104;
-      cores = 8;
-      memory = 32000;
-      disk = "400G";
-      name = "Doc1";
-      bios = "ovmf";
-      cpuType = "x86-64-v3";
-      diskInterface = "scsi0";
-      cloneFromTemplate = false; # imported VM; no clone block
-      ignoreInit = true; # keep existing cloud-init settings
-      tags = [];
-      ignoreChangesExtra = [
-        "description"
-        "tags"
-        "keyboard_layout"
-        "migrate"
-        "on_boot"
-        "reboot"
-        "stop_on_destroy"
-        "timeout_clone"
-        "timeout_create"
-        "timeout_migrate"
-        "timeout_reboot"
-        "timeout_shutdown_vm"
-        "timeout_start_vm"
-        "timeout_stop_vm"
-        "operating_system"
-        "cpu"
-        "memory"
-        "agent"
-        "scsi_hardware"
-        "network_device"
-        "disk"
-        "efi_disk"
-        "machine"
-        "vga"
-        "initialization"
-      ];
-      readonly = false; # Managed by OpenTofu
-    };
   };
 
   igpu = {
@@ -164,58 +109,6 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = masterKeys;
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
-    proxmox = {
-      vmid = 109;
-      cores = 8;
-      memory = 8096;
-      disk = "150G";
-      storage = "Test";
-      bios = "ovmf";
-      cpuType = "host";
-      machine = "q35";
-      diskInterface = "scsi0";
-      cloneFromTemplate = false; # imported VM; no clone block
-      ignoreInit = true; # keep existing cloud-init settings
-      # NOTE: virtiofs here is documentation-only — ignoreInit=true means
-      # OpenTofu will not drive it. Applied manually via `qm set 109 -virtiofsN dirid=…`.
-      # Single broad `containers` mapping (matches doc1/doc2 pattern). Music
-      # and media_metadata are ZFS child datasets of containers and appear
-      # automatically as /mnt/virtio/{Music,media_metadata} via virtiofs
-      # submount propagation. See docs/wiki/infrastructure/media-filesystem.md.
-      virtiofs = [
-        {mapping = "containers";}
-      ];
-      tags = [];
-      ignoreChangesExtra = [
-        "description"
-        "tags"
-        "keyboard_layout"
-        "migrate"
-        "on_boot"
-        "reboot"
-        "stop_on_destroy"
-        "timeout_clone"
-        "timeout_create"
-        "timeout_migrate"
-        "timeout_reboot"
-        "timeout_shutdown_vm"
-        "timeout_start_vm"
-        "timeout_stop_vm"
-        "operating_system"
-        "cpu"
-        "memory"
-        "agent"
-        "scsi_hardware"
-        "network_device"
-        "disk"
-        "efi_disk"
-        "machine"
-        "vga"
-        "hostpci"
-        "initialization"
-      ];
-      readonly = false; # Managed by OpenTofu
-    };
   };
 
   dev = {
@@ -229,39 +122,6 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
     authorizedKeys = masterKeys;
     syncthingDeviceId = "SDQORDI-5A2PG3X-PUXSXH6-EKSB3XD-H3S23CP-OX3PMSK-BBPYEGU-XGZWBQJ";
-    proxmox = {
-      vmid = 110;
-      cores = 4;
-      memory = 12192;
-      disk = "64G";
-      bios = "ovmf";
-      cpuType = "qemu64";
-      machine = "q35";
-      diskInterface = "scsi0";
-      cloneFromTemplate = false; # imported VM; no clone block
-      ignoreInit = true; # keep existing cloud-init settings
-      tags = [];
-      ignoreChangesExtra = [
-        "description"
-        "tags"
-        "keyboard_layout"
-        "migrate"
-        "on_boot"
-        "reboot"
-        "stop_on_destroy"
-        "timeout_clone"
-        "timeout_create"
-        "timeout_migrate"
-        "timeout_reboot"
-        "timeout_shutdown_vm"
-        "timeout_start_vm"
-        "timeout_stop_vm"
-        "operating_system"
-        "cpu[0].type"
-        "agent[0].type"
-      ];
-      # readonly = true; # Already exists - don't let OpenTofu recreate it
-    };
   };
 
   # =============================================================
@@ -287,18 +147,6 @@ in {
     initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHg+0cl2eSRJP0uMoScnKY9J6ZvYERwjc843qO2BNqfB";
     authorizedKeys = masterKeys; # Fleet CAN access this VM
-    proxmox = {
-      vmid = 111;
-      cores = 14;
-      memory = 18192;
-      disk = "64G";
-      # Use defaults to match template 9003:
-      # - bios = "seabios" (not ovmf)
-      # - diskInterface = "virtio0" (not scsi0)
-      # - no machine override
-      tags = ["sandbox" "isolated" "claude-code"];
-      description = "Isolated sandbox VM for autonomous Claude Code development";
-    };
   };
 
   doc2 = {
@@ -314,20 +162,6 @@ in {
     sudoPasswordless = true; # temporary — lock down once appliance is stable
     localIp = "192.168.1.35";
     gotifyServer = true;
-    proxmox = {
-      vmid = 114;
-      cores = 8;
-      memory = 20480;
-      disk = "64G";
-      storage = "nvmeprom";
-      cpuType = "x86-64-v3";
-      tags = ["opentofu" "nixos" "managed"];
-      description = "Service appliance VM — native NixOS services on virtiofs storage";
-      virtiofs = [
-        {mapping = "containers";}
-        {mapping = "mirrors";}
-      ];
-    };
   };
 
   cache = {
@@ -342,13 +176,5 @@ in {
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHYh5BYMlU8u7RGjChPe7QON+adENp+SUtg2+HYAV9FD";
     authorizedKeys = masterKeys;
     syncthingDeviceId = "VFUAMOE-ID4MCL2-KQZX22M-BUCYDOM-KSHMW2Y-XYYBJI4-2FD77RH-RPGOOAJ";
-    proxmox = {
-      vmid = 112;
-      cores = 4;
-      memory = 8192;
-      disk = "64G";
-      storage = "nvmeprom";
-      description = "cache";
-    };
   };
 }

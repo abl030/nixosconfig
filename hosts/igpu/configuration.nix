@@ -25,7 +25,7 @@
     services.tdarrNode.enable = true;
     services.jellyfin = {
       enable = true;
-      # Service state on virtiofs (per .claude/rules/nixos-service-modules.md).
+      # Service state on virtiofs (per docs/wiki/nixos-service-modules.md).
       dataRoot = "/mnt/virtio/jellyfin";
     };
     # OpenAI-compatible whisper.cpp endpoint, GPU-accelerated via the iGPU's

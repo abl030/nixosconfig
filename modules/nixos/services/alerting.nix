@@ -376,33 +376,32 @@
   # final LogQL query string is well-formed.
   logqlEscape = s: builtins.replaceStrings ["\\" "\""] ["\\\\" "\\\""] s;
 
-  errorPatternAlerts =
-    map (ep: let
-      slug = errorPatternSlug ep.name;
-      selector = errorPatternSelector ep;
-      pattern = logqlEscape ep.pattern;
-      desc =
-        (
-          if ep.description == ""
-          then ""
-          else ep.description + "\n\n"
-        )
-        + ''
-          Query in Grafana Explore (Loki):
-            ${selector} |~ "${pattern}"
-        '';
-    in
-      mkLokiAlert {
-        uid = "homelab-err-${slug}";
-        title = ep.name;
-        severity = ep.severity;
-        summary = ep.summary;
-        description = desc;
-        logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
-        lokiLines = ''${selector} |~ "${pattern}"'';
-        inherit (ep) threshold;
-      })
-    config.homelab.monitoring.errorPatterns;
+  errorPatternAlerts = map (ep: let
+    slug = errorPatternSlug ep.name;
+    selector = errorPatternSelector ep;
+    pattern = logqlEscape ep.pattern;
+    desc =
+      (
+        if ep.description == ""
+        then ""
+        else ep.description + "\n\n"
+      )
+      + ''
+        Query in Grafana Explore (Loki):
+          ${selector} |~ "${pattern}"
+      '';
+  in
+    mkLokiAlert {
+      uid = "homelab-err-${slug}";
+      title = ep.name;
+      inherit (ep) severity;
+      inherit (ep) summary;
+      description = desc;
+      logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
+      lokiLines = ''${selector} |~ "${pattern}"'';
+      inherit (ep) threshold;
+    })
+  config.homelab.monitoring.errorPatterns;
 
   rules = {
     apiVersion = 1;
@@ -586,7 +585,7 @@ in {
         # changes (e.g. URL change, token-extraction logic change). Without
         # this, switch-to-configuration would update the prestart unit but
         # leave grafana running with the old contact-points file in memory.
-        # See .claude/rules/nixos-service-modules.md "restartTriggers" for the
+        # See docs/wiki/nixos-service-modules.md "restartTriggers" for the
         # general pattern (originally for nspawn DB containers; same lesson
         # applies to any prestart-materialized config).
         grafana = {

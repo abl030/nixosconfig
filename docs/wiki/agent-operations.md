@@ -142,7 +142,7 @@ To edit a secret: use the `sops-decrypt` skill (it handles the keyring + sops bi
 
 - Agents repo: `git.ablz.au/abl030/agents` — agent definitions (paperless triage, accounting, etc.) that consume the services this primer maps.
 - This repo's `CLAUDE.md` -> "AI Tool Integration" section: where MCP servers are wired in.
-- `.claude/rules/nixos-service-modules.md` — module-authoring rules; read this before *adding* a service, not before tweaking one.
+- `docs/wiki/nixos-service-modules.md` — module-authoring rules; read this before *adding* a service, not before tweaking one.
 - `docs/wiki/services/lgtm-stack.md` — log/metric query paths if you need to debug a service after deploy.
 
 ---

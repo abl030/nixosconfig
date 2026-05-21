@@ -21,8 +21,6 @@
 
     # Base.nix enables tailscale=true.
 
-    pve.enable = true;
-
     # Base.nix enables update=true.
     # We just add specific timing/dates here.
     update = {
