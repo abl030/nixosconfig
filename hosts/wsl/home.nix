@@ -85,5 +85,11 @@
   programs = {
     # Let Home Manager install and manage itself.
     home-manager.enable = true;
+
+    tmux = {
+      enable = true;
+      mouse = true;
+      historyLimit = 50000;
+    };
   };
 }
