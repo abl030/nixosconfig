@@ -736,14 +736,26 @@ in {
           };
           maxretries = lib.mkOption {
             type = lib.types.int;
-            default = 2;
+            default = 10;
             description = ''
               Kuma maxretries — consecutive missed heartbeats before
-              the monitor flips DOWN and pages. Default 2 with
-              intervalSecs=300 = ~15 min of continuous failure before
-              alerting. Less forgiving than the HTTP monitor defaults
-              because deep-probe failures indicate real write-path
-              breaks, not transient blips.
+              the monitor flips DOWN and pages.
+
+              Time-to-DOWN = `intervalSecs + maxretries * retryInterval`.
+              With defaults intervalSecs=300, retryInterval=60, maxretries=10
+              that's 300 + 600 = 900s = 15 min of continuous failure
+              before alerting.
+
+              History: was `2` until 2026-05-22, but Kuma's push-monitor
+              scheduler considers a heartbeat overdue at exactly the
+              `interval` boundary — if the probe timer drifts even 1 s
+              past Kuma's deadline (systemd AccuracySec + curl latency
+              easily covers that) the DOWN counter starts and a `2`
+              ceiling fires after only 2 min of "lateness", even though
+              the next push arrives ~5 min later on schedule. See
+              docs/wiki/services/lgtm-stack.md for the 2026-05-22 RCA.
+              `10` gives 15 min of slop, which covers ordinary boundary
+              races while still catching real write-path stalls.
             '';
           };
           retryInterval = lib.mkOption {

@@ -405,6 +405,47 @@ For belt-and-suspenders on any pattern that *might* match transient startup chat
 
 See `modules/nixos/services/tailscale-share.nix:260-280` for the canonical example.
 
+## Kuma push-monitor boundary race — why `maxretries = 2` lied
+
+**Researched:** 2026-05-22. **Status:** fixed (default bumped to `10` in `modules/nixos/services/monitoring_sync.nix` deepProbe schema).
+
+### What broke
+
+`Immich sync write-path` push monitor went DOWN at **11:09:50 AWST** and paged via the bridge. Heartbeat history showed it had received a perfectly clean UP at **11:07:50**, only 2 minutes before the DOWN. Next push at **11:12:50** resolved it. Total false-alert window: ~3 min. The probe systemd unit was running every 5 min on schedule, exit 0, with normal IP traffic — no probe-side issue.
+
+### Why
+
+Kuma's push monitor scheduler runs an internal tick that, when the time since the last received heartbeat exceeds `interval`, inserts a synthetic "No heartbeat in the time window" entry and counts a retry. After `maxretries` retries, the monitor flips DOWN.
+
+The race today on monitor 59 (Immich sync, `interval=300, maxretries=2, retryInterval=60`):
+
+| Local time | Event |
+|---|---|
+| 11:02:49 | probe push received → UP |
+| 11:07:49 | Kuma tick: `now - last_hb = 300s`, deadline hit → synthetic PENDING |
+| 11:07:50 | probe push arrives **1s late** — Kuma records the UP, but the PENDING entry from 1s earlier is already in the table and the retry counter is armed |
+| 11:08:50 | Kuma tick: still counting → PENDING (retry 1) |
+| 11:09:50 | Kuma tick: counting → DOWN (retry 2 = maxretries) → **bridge fires** |
+| 11:12:50 | probe push received → UP → resolves |
+
+The probe didn't fail. The probe wasn't late by any meaningful measure. The probe drifted 1s past Kuma's deadline because of normal systemd `AccuracySec=10s` jitter plus ~20ms curl round-trip latency. With `maxretries = 2`, Kuma's DOWN tick wins the race against the next regularly-scheduled push.
+
+### What the docstring claimed vs reality
+
+The `deepProbes.maxretries` option docstring used to say:
+
+> Default 2 with intervalSecs=300 = ~15 min of continuous failure before alerting.
+
+That arithmetic was wrong. The formula is `intervalSecs + maxretries * retryInterval`, so with the old defaults it was `300 + 2*60 = 420 s = 7 min` — and in practice, the boundary race makes effective tolerance closer to zero whenever push timing drifts by ≥1 s past `interval`.
+
+### The fix
+
+Default bumped to `maxretries = 10`. Time-to-DOWN now `300 + 10*60 = 900 s = 15 min`, which matches what the docstring originally claimed AND survives the 1-s boundary race comfortably. Existing deepProbes (Immich sync, Kopia mum freshness, Kopia photos freshness) inherit the new default — none had an explicit override.
+
+### General lesson
+
+Push-monitor `maxretries` is **not** "tolerance for repeated probe failures" the way active-monitor `maxretries` is. It's "how many `retryInterval` cycles past the original `interval` deadline you'll tolerate before pulling the alarm." If your probe runs on a timer that aligns within tens of seconds of the Kuma interval (any systemd timer does, by default), you must budget for boundary jitter — `maxretries = 2` will flap.
+
 ## When to revisit
 
 - When someone wires an OTEL-native app → Tempo receivers come alive. Add source restriction for 4317/4318.
