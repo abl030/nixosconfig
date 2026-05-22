@@ -52,6 +52,59 @@
     requires = ["container@paperless-db.service" "mnt-data.mount"];
     restartTriggers = [config.systemd.units."container@paperless-db.service".unit];
   };
+
+  # Pre-consume script: scanner defaults to duplex, so every other page on
+  # single-sided originals is a blank back. Rasterise each page at 50 DPI and
+  # drop any where stddev < 0.01 AND mean > 0.985 (calibrated against doc 742
+  # — content pages sit at stddev >=0.089, blanks at <=0.005, so the 0.01 cut
+  # has a ~18x safety margin against false positives).
+  blankStrip = pkgs.writeShellApplication {
+    name = "paperless-strip-blank-pages";
+    runtimeInputs = with pkgs; [ghostscript imagemagick qpdf gawk coreutils];
+    text = ''
+      doc="''${DOCUMENT_WORKING_PATH:-}"
+      [[ -z "$doc" ]] && exit 0
+      [[ "''${doc,,}" != *.pdf ]] && exit 0
+      [[ -f "$doc" ]] || exit 0
+
+      tmp="$(mktemp -d)"
+      trap 'rm -rf "$tmp"' EXIT
+
+      pages=$(qpdf --show-npages "$doc")
+      (( pages <= 1 )) && exit 0
+
+      keep=()
+      for ((i=1; i<=pages; i++)); do
+        png="$tmp/p.png"
+        gs -q -dNOPAUSE -dBATCH -dSAFER \
+          -sDEVICE=pnggray -r50 \
+          -dFirstPage="$i" -dLastPage="$i" \
+          -sOutputFile="$png" "$doc" >/dev/null 2>&1 || { keep+=("$i"); continue; }
+        stats=$(magick "$png" -format "%[fx:mean] %[fx:standard_deviation]" info: 2>/dev/null) || stats="0 1"
+        mean="''${stats% *}"
+        sd="''${stats#* }"
+        if awk -v m="$mean" -v s="$sd" 'BEGIN { exit !(s < 0.01 && m > 0.985) }'; then
+          echo "blank-strip: dropping page $i (mean=$mean stddev=$sd)" >&2
+        else
+          keep+=("$i")
+        fi
+      done
+
+      if (( ''${#keep[@]} == 0 )); then
+        echo "blank-strip: every page looked blank, leaving $doc untouched" >&2
+        exit 0
+      fi
+      if (( ''${#keep[@]} == pages )); then
+        exit 0
+      fi
+
+      ranges=$(IFS=,; echo "''${keep[*]}")
+      out="$tmp/out.pdf"
+      qpdf --empty --pages "$doc" "$ranges" -- "$out"
+      mv "$out" "$doc"
+      echo "blank-strip: kept ''${#keep[@]} of $pages pages" >&2
+    '';
+  };
 in {
   options.homelab.services.paperless = {
     enable = lib.mkEnableOption "Paperless-ngx document management";
@@ -97,6 +150,7 @@ in {
         PAPERLESS_CONSUMER_RECURSIVE = true;
         PAPERLESS_CONSUMER_POLLING = 60;
         PAPERLESS_TIME_ZONE = "Australia/Perth";
+        PAPERLESS_PRE_CONSUME_SCRIPT = "${blankStrip}/bin/paperless-strip-blank-pages";
       };
     };
 
