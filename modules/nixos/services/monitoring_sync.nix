@@ -296,6 +296,7 @@
                 maxretries = int(entry.get("maxretries", 10))
                 retry_interval = int(entry.get("retryInterval", 60))
                 resend_interval = int(entry.get("resendInterval", 240))
+                timeout = entry.get("timeout")
 
                 if mon_type == "json-query":
                     kuma_type = MonitorType.JSON_QUERY
@@ -335,6 +336,8 @@
                         retryInterval=retry_interval,
                         resendInterval=resend_interval,
                     )
+                    if timeout is not None:
+                        common_kwargs["timeout"] = int(timeout)
                 if headers_json:
                     common_kwargs["headers"] = headers_json
                 if basic_auth_user:
@@ -382,6 +385,7 @@
                         or int(existing.get("maxretries") or 0) != maxretries
                         or int(existing.get("retryInterval") or 0) != retry_interval
                         or int(existing.get("resendInterval") or 0) != resend_interval
+                        or (timeout is not None and int(existing.get("timeout") or 0) != int(timeout))
                         or (json_path and existing.get("jsonPath") != json_path)
                         or (expected_value and str(existing.get("expectedValue", "")) != expected_value)
                         or (basic_auth_user and str(existing.get("authMethod", "")) != str(AuthMethod.HTTP_BASIC))
@@ -651,6 +655,17 @@ in {
               Number of heartbeats between re-notifications while a monitor is
               still DOWN. At interval=60s, 240 ≈ 4 hours — persistent outages
               re-page so you notice if you missed the first ping.
+            '';
+          };
+          timeout = lib.mkOption {
+            type = lib.types.nullOr lib.types.int;
+            default = null;
+            description = ''
+              Per-probe HTTP timeout in seconds. Kuma's default is 48s, which
+              is too tight for endpoints that can legitimately block (e.g.
+              kopia's /api/v1/sources during full-maintenance GC, which holds
+              the repo lock for several minutes). Set higher for known-slow
+              probes; leave null to inherit kuma's default.
             '';
           };
         };

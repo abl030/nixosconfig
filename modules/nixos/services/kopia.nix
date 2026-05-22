@@ -524,7 +524,21 @@ in {
             })
             cfg.instances)
           ++
-          # JSON-query backup health monitors
+          # JSON-query backup health monitors.
+          #
+          # `timeout = 180` and `maxretries = 25` exist to absorb kopia's
+          # daily full-maintenance window. Full maintenance (GC + epoch
+          # compaction + content sweep) holds the repository lock for
+          # 10-15 min on a 1.5 TB repo; /api/v1/sources blocks behind
+          # that lock and Kuma's default 48s timeout trips. With 180s
+          # per-probe timeout each individual probe survives most lock
+          # waits; 25 retries × 60s = 25 min of continuous failure
+          # before paging, comfortably above observed 12-min maintenance
+          # but below "service genuinely broken" thresholds.
+          #
+          # Real backup failures are caught by the errorPatterns alerts
+          # below (Kopia <name> repository broken / verify failed) which
+          # read journald instead of poking the busy API.
           (lib.mapAttrsToList (name: inst: {
               name = "Kopia ${name} Backup";
               type = "json-query";
@@ -534,6 +548,8 @@ in {
               jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
               expectedValue = "0";
               interval = 300;
+              timeout = 180;
+              maxretries = 25;
             })
             cfg.instances);
 
