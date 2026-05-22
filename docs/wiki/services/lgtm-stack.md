@@ -337,6 +337,74 @@ If we ever nuke `/var/lib/grafana` (or migrate hosts), update the default in `ho
 
 Not implemented. The motivating use case is "alert me when prom reboots, full stop" — the user usually knows when they're about to reboot prom and can ignore the page. If we end up with regular planned-reboot windows, add a Grafana mute timing via `services.grafana.provision.alerting.muteTimings.settings` and reference it from the policy.
 
+## Shipper resilience — alloy WAL + retry budget
+
+**Researched:** 2026-05-22. **Status:** deployed (NixOS module + ansible template + unraid compose), live on prom.
+
+### What broke
+
+2026-05-21 ~20:18-20:30 UTC, doc2 ran its nightly `nixos-upgrade` and rebooted. Loki/Mimir were unreachable for ~12 minutes. Alloy on `prom` exhausted its retry budget at minute 7 and emitted `final error sending batch, no retries left, dropping data` — one Loki batch lost. Other fleet hosts' batches happened to retry past the gap and recovered. No Mimir data was lost (prometheus.remote_write has a built-in on-disk WAL).
+
+### Why it could happen at all
+
+The default `loki.write` block in alloy uses **`max_backoff_period = 5m, max_retries = 10`** and has **WAL disabled**. Exponential backoff (500ms × 2^n) caps at the 5m ceiling and gives up ≈9 min after the first failure. Anything longer than that drops batches.
+
+This is asymmetric with `prometheus.remote_write`, which keeps an on-disk WAL by default — that's why Loki has historically been the only side to drop on doc2 reboots.
+
+### The fix
+
+Two changes on every alloy instance:
+
+```hcl
+loki.write "loki" {
+  endpoint {
+    url = "..."
+    max_backoff_period = "10m"   # was 5m
+  }
+  wal {
+    enabled         = true        # was off
+    max_segment_age = "2h"
+  }
+}
+```
+
+- `max_backoff_period = 10m` keeps the in-memory queue alive through the normal ~15-min maintenance reboot window.
+- `wal { enabled = true }` persists queued batches to `/var/lib/alloy/data/loki.write.<name>/` so they survive even longer outages AND alloy restarts. `max_segment_age = 2h` caps how stale a replayed segment can be — past that we accept the loss rather than ship hours-old logs.
+
+### Four places to keep in sync
+
+Every alloy instance in the fleet must carry these settings. Today:
+
+| Host(s) | Config source | Notes |
+|---|---|---|
+| All NixOS hosts (`homelab.loki = true`) | `modules/nixos/services/loki.nix` (`alloyConfig` heredoc) | Canonical. Rolls via `rolling-flake-update.service` overnight. |
+| `prom`, `pbs-tower`, `pve-epi` (Proxmox/Debian) | `ansible/common/templates/alloy-config.alloy.j2` | Deployed via `ansible/common/monitoring.yml`. Inventories: `prom_prox/`, `epi_prox/`, `pbs_tower/`. |
+| `tower` (Unraid) | `docker/unraid-alloy/config.alloy` + `docker-compose.yml` | Compose command must include `--storage.path=/var/lib/alloy/data` so WAL lands in the `alloy-data` named volume, not the container's writeable layer. |
+
+If you change one, change all four. Drift here means silent log loss the next time doc2 reboots.
+
+## Per-service errorPattern alerts — startup-noise trap
+
+**Researched:** 2026-05-22.
+
+Loki errorPattern alerts ([`homelab.monitoring.errorPatterns`](../../../modules/nixos/services/monitoring_sync.nix)) compile to `sum(count_over_time({...} |~ "<pattern>" [<window>]))` with `for: 0s` and a 10-minute Grafana frame. Two consequences worth knowing:
+
+1. **A single matched log line keeps the alert firing for `window + 10m`**, then resolves. With the default `window = "5m"`, that's the **exactly 15-minute** "fire → resolve" cycle seen on flap alerts. This is by design, but means a startup transient that matches once still pages for 15 min.
+
+2. **Tailscale daemons print "You are logged out … fetch control key: … context canceled" during normal boot**, before the first successful key fetch. This matches a naive `(?i)logged out\.` pattern. Every podman auto-update of a `ts-*` sidecar therefore looked like a real auth loss until 2026-05-22.
+
+**General rule for errorPattern regexes on container/service logs:** distinguish *startup race* signatures from *operational failure* signatures. For tailscale specifically:
+
+- ❌ `logged out\.` — matches startup health-check line on every restart.
+- ❌ `fetch control key.*context canceled` — matches container shutdown race.
+- ✅ `control:.*(401|unauthorized)` — coordinator actively rejected.
+- ✅ `key (expired|rejected|invalid)` — auth key dead.
+- ✅ `control: logout` — explicit logout.
+
+For belt-and-suspenders on any pattern that *might* match transient startup chatter, set `threshold = 1, window = "10m"` — requires 2+ matches in 10 min, so a single boot-time emission cannot page. Real failures repeat on every coordinator poll.
+
+See `modules/nixos/services/tailscale-share.nix:260-280` for the canonical example.
+
 ## When to revisit
 
 - When someone wires an OTEL-native app → Tempo receivers come alive. Add source restriction for 4317/4318.
@@ -349,4 +417,6 @@ Not implemented. The motivating use case is "alert me when prom reboots, full st
 - `modules/nixos/services/loki-server.nix` — server config
 - `modules/nixos/services/loki.nix` — alloy shipper + syslog receiver (`homelab.loki`)
 - `modules/nixos/services/alerting.nix` — Grafana alerting → Gotify (`homelab.services.alerting`, #201)
+- `modules/nixos/services/monitoring_sync.nix` — `errorPatterns` option schema (`window`, `threshold`)
+- `ansible/common/templates/alloy-config.alloy.j2` + `ansible/common/monitoring.yml` — alloy on Proxmox/Debian hosts (prom, pve-epi, pbs-tower)
 - `docker/unraid-alloy/` — tower's alloy shipper

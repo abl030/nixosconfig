@@ -52,6 +52,21 @@ loki.source.docker "containers" {
 loki.write "default" {
   endpoint {
     url = "https://loki.ablz.au/loki/api/v1/push"
+    // doc2 (Loki host) auto-reboots nightly for ~10-15 min. Default
+    // max_backoff_period=5m exhausted retries at ~9 min and dropped
+    // a batch on 2026-05-21. Bump so the in-memory queue rides
+    // normal maintenance windows; WAL covers anything longer.
+    max_backoff_period = "10m"
+  }
+
+  // Persist queued batches to /var/lib/alloy/data (alloy-data volume)
+  // so we do not lose logs when Loki is briefly down OR when the
+  // container restarts. WAL is off by default in alloy;
+  // prometheus.remote_write to Mimir already has its own on-disk WAL.
+  // Mirrors modules/nixos/services/loki.nix.
+  wal {
+    enabled         = true
+    max_segment_age = "2h"
   }
 }
 

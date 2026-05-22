@@ -1,7 +1,7 @@
 # tailscaleShare
 
-**Last updated:** 2026-05-14
-**Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up
+**Last updated:** 2026-05-22
+**Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up; "logged out" alert pattern narrowed 2026-05-22 (see [lgtm-stack.md](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap))
 **Owner:** `modules/nixos/services/tailscale-share.nix`
 **Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)
 
@@ -146,6 +146,18 @@ igpu generated systemd start scripts showed the same split:
 
 - `podman-ts-jellyfin`: Tailscale env and `/run/secrets/tailscale-share/jellyfin/authkey`
 - `podman-caddy-jellyfin`: Cloudflare env and Caddy-only mounts
+
+## "logged out" alert — false positives and the narrowed pattern
+
+**2026-05-22 RCA.** The `homelab.monitoring.errorPatterns` entry registered by this module used to fire on `(?i)logged out\.|fetch control key.*context canceled`. Both substrings appear in **normal** tailscale-daemon startup output — `health(warnable=login-state): error: You are logged out. The last login error was: fetch control key: ... context canceled` is what a fresh `tailscale` process prints between boot and its first successful key fetch. Every podman auto-update pull-and-restart of a `ts-*` sidecar therefore looked like a real coordinator rejection until 2026-05-22.
+
+The narrowed pattern (committed `modules/nixos/services/tailscale-share.nix:260-280`) matches only operational failure signatures:
+
+```regex
+(?i)control:.*(401|unauthorized)|key (expired|rejected|invalid)|auth.*rejected|control: logout
+```
+
+…plus `threshold = 1, window = "10m"` as belt-and-suspenders — fires only if 2+ matches land within 10 min, so any remaining one-off won't page. Real auth loss repeats on every coordinator poll; transient startup chatter does not. See [lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap) for the general lesson on errorPattern startup-noise traps.
 
 ## Operational notes
 
