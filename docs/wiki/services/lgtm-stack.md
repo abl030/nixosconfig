@@ -446,6 +446,46 @@ Default bumped to `maxretries = 10`. Time-to-DOWN now `300 + 10*60 = 900 s = 15 
 
 Push-monitor `maxretries` is **not** "tolerance for repeated probe failures" the way active-monitor `maxretries` is. It's "how many `retryInterval` cycles past the original `interval` deadline you'll tolerate before pulling the alarm." If your probe runs on a timer that aligns within tens of seconds of the Kuma interval (any systemd timer does, by default), you must budget for boundary jitter — `maxretries = 2` will flap.
 
+## Alert query self-reference loop — anchor on `msg="<text>`, not free-floating substrings
+
+**Researched:** 2026-05-22. **Status:** patched on grafana-provisioning alert; pattern audit recommended for the rest.
+
+### What broke
+
+`Grafana failed to provision` alert kept firing continuously from the 2026-05-20 morning incident onwards, weeks after the underlying issue cleared. The bridge's claude triage flagged that the matched log samples "showed only scheduler query info lines, no actual 'Failed to provision' errors visible."
+
+### Why
+
+Grafana's alert scheduler logs every Loki query evaluation at `level=info` with the LogQL query string echoed inline:
+
+```
+level=info msg="Response received from loki" ... query="sum(count_over_time({host=~\".+\", unit=\"grafana.service\"} |~ \"level=error.*(Failed to provision|Module failed.*provisioning)\" [5m]))"
+```
+
+The line's actual log level is `info`, but the `query=...` attribute contains the literal substring `level=error.*(Failed to provision|Module failed.*provisioning)` — the regex of the alert itself. Alloy ships this info log to Loki. On the next evaluation, the same regex matches the substring it just embedded into its own scheduler output. Self-reference loop: alert fires, evaluator logs the firing query, the query log matches the firing pattern, alert stays firing.
+
+This is a **bytes-level RE2 match** — the regex doesn't know `level=error` is sitting inside a quoted string field rather than being the line's own level. The original author of the pattern correctly diagnosed the trap (see the now-removed comment `# Scope to level=error — info logs include the alert's own query string`) but applied the wrong remedy: scoping to `level=error` didn't help because the literal text `level=error` appears inside the echo.
+
+### The fix
+
+Anchor on `msg="<error-prefix>` instead of `level=error.*<error-substring>`:
+
+```nix
+pattern = ''level=error msg=\"(Failed to provision|Module failed)'';
+```
+
+`msg="..."` is the **structural** field that carries the human-readable error in Grafana's logfmt output. A scheduler echo embeds the regex *as the query argument*, never as the current line's own msg field. So a query log line will never have `msg="Failed to provision"` — only real provisioning failures will.
+
+### Other patterns to audit
+
+This trap is latent in any errorPattern of the form `level=(error|warn).*<text>` when `<text>` is a short, distinctive English string the regex itself contains. The repo has one survivor that escapes by accident:
+
+- `Loki ingester unhealthy` (`loki-server.nix:533`): uses `level=(error|warn).*(final error|…)`. The echo embeds `level=(error|warn)` as a literal — the `(error|warn)` regex group can't match the literal `(` byte that follows `level=` in the echo, so the loop doesn't form. **Not a fix, just an accident.** Worth re-anchoring on `msg="<text>` next time someone touches it.
+
+### General rule for new errorPatterns
+
+Prefer **structural anchors** (`msg="X"`, `caller=Y.go`, `unit="Z.service"`) over free-floating regex anchors (`level=error.*X`). Structural anchors fail to match scheduler echoes because the echo's structure embeds the pattern in a *different field* (the query argument), not the field the pattern claims to scope to.
+
 ## When to revisit
 
 - When someone wires an OTEL-native app → Tempo receivers come alive. Add source restriction for 4317/4318.

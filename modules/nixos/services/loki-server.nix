@@ -543,10 +543,27 @@ in {
         {
           name = "Grafana failed to provision";
           unit = "grafana.service";
-          # Scope to level=error — info logs include the alert's own
-          # query string being echoed by the Loki query plugin (same
-          # self-reference loop as the Loki ingester pattern below).
-          pattern = "level=error.*(Failed to provision|Module failed.*provisioning)";
+          # Anchor on `msg="<prefix>` rather than `level=error.*<prefix>`.
+          #
+          # The old pattern was self-referential: grafana's scheduler logs
+          # every alert evaluation at level=info with the LogQL query
+          # string echoed inline. That echo line contains the literal
+          # substring `level=error.*(Failed to provision|Module failed
+          # .*provisioning)` (as the query parameter). RE2 reading the
+          # bytes happily matched the echo against itself — alert never
+          # resolved after the genuine 2026-05-20 incident cleared, and
+          # paged perpetually. The Loki ingester pattern below escapes
+          # the same trap by accident: its `(error|warn)` group can't
+          # match the literal `(` that appears in echoed alternation
+          # groups.
+          #
+          # Real provisioning errors take the form `level=error
+          # msg="Failed to provision data sources"` or `level=error
+          # msg="Module failed"`. Anchoring on `msg="` is structural — a
+          # query echo embeds the regex *as the query argument*, never as
+          # this log line's actual msg field. See lgtm-stack.md
+          # "Alert query self-reference" section.
+          pattern = ''level=error msg=\"(Failed to provision|Module failed)'';
           severity = "critical";
           summary = "Grafana failed to start — alerting may be silent";
         }
