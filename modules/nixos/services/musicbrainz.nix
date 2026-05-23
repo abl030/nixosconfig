@@ -359,7 +359,7 @@
             -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
             -e "DB_SCHEMA_SEQUENCE=$codebase" \
             -e REPLICATION_TYPE=2 \
-            musicbrainz-musicbrainz-1 carton exec -- ./upgrade.sh; then
+            musicbrainz-musicbrainz-1 /root/perl5/bin/carton exec -- ./upgrade.sh; then
             echo "[mb-replication] schema upgrade succeeded; retrying replication"
             retry_out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh 2>&1) || true
             printf '%s\n' "$retry_out"
