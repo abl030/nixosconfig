@@ -123,6 +123,9 @@ in {
         pattern = "PFSENSE-BACKUP FAIL";
         severity = "warning";
         summary = "pfSense ZFS backup is stale, failed, or unreachable";
+        # Single-shot per watchdog run; "FAIL" prefix is emitted once
+        # and the unit exits. Page immediately.
+        threshold = 0;
         description = ''
           The doc2-side watchdog can't see a healthy ${cfg.statusFile}.
           Most likely causes: prom's syncoid-pfsense.timer failed to run,

@@ -558,6 +558,11 @@ in {
         # noise from kopia's web UI clients — we want repository-broken
         # signals only.
         errorPatterns = [
+          # `threshold = 0` on every kopia pattern: these are single-shot
+          # terminal errors logged exactly once after kopia exhausts its
+          # internal retry budget (25 retries × backoff = many minutes).
+          # By the time the line lands in journald the failure is real and
+          # sustained — no reason to require a 2nd occurrence to page.
           {
             name = "Kopia mum repository broken";
             unit = "kopia-mum.service";
@@ -566,6 +571,7 @@ in {
             pattern = "(?i)unable to (?:write|read).*despite \\d+ retries|cannot open storage|backup failed";
             severity = "critical";
             summary = "kopia-mum backup is unable to write";
+            threshold = 0;
           }
           {
             name = "Kopia photos repository broken";
@@ -575,6 +581,7 @@ in {
             pattern = "(?i)refresh error.*despite \\d+ retries|cannot open storage";
             severity = "critical";
             summary = "kopia-photos backup cannot reach repository";
+            threshold = 0;
           }
           {
             name = "Kopia mum verify failed";
@@ -582,6 +589,7 @@ in {
             pattern = "(?i)unable to open repository|verification failed|Temporary failure in name resolution";
             severity = "warning";
             summary = "kopia-mum integrity verification did not run";
+            threshold = 0;
           }
           {
             name = "Kopia photos verify failed";
@@ -589,6 +597,7 @@ in {
             pattern = "(?i)unable to open repository|verification failed|Temporary failure in name resolution";
             severity = "warning";
             summary = "kopia-photos integrity verification did not run";
+            threshold = 0;
           }
         ];
 

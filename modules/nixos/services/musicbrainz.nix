@@ -402,6 +402,9 @@ in {
           pattern = "(?i)MusicBrainz (?:DB verification failed|.*did not become healthy)|build images failed";
           severity = "critical";
           summary = "musicbrainz orchestration's post-deploy verification failed";
+          # Single-shot: emitted once per failed deploy run; the
+          # service exits after logging. Page on first occurrence.
+          threshold = 0;
         }
         {
           name = "MusicBrainz indexer DNS plane failure";

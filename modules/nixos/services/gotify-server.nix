@@ -67,6 +67,9 @@ in {
           pattern = "(?i)panic|fatal|listen tcp.*bind";
           severity = "critical";
           summary = "Gotify server crashed — push notifications offline";
+          # Single-shot: panic/fatal lines emit once before the process
+          # exits. Sustained-threshold would silently lose the alert.
+          threshold = 0;
         }
       ];
     };

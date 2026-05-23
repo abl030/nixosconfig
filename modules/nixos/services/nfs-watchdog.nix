@@ -86,6 +86,10 @@ in {
         pattern = "(?i)NFS path .* (is stale, restarting|healthy but service is down, recovering)";
         severity = "warning";
         summary = "an NFS-dependent service was restarted by its watchdog";
+        # Single-shot per watchdog tick (5min interval). One tripped
+        # mount = one log line per cycle; default threshold=2 would
+        # need 3 cycles ≈ 15min before paging. Keep eager.
+        threshold = 0;
         description = ''
           The watchdog stat-probed an NFS mount, it failed, the dependent
           service got restarted. Single trip can be a one-off blip

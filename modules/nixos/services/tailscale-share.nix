@@ -260,9 +260,13 @@ in {
       # 2026-05-21 false-positive flap (regex matched container restarts
       # from podman auto-update, not real auth loss).
       #
-      # Belt-and-suspenders: threshold=1, window=10m means "fire only
-      # if 2+ real failures land within 10 min" — a genuine auth loss
-      # repeats every poll; any remaining benign one-off won't page.
+      # Belt-and-suspenders: window=10m + default threshold (2) means
+      # "fire only if 3+ real failures land within 10 min" — a genuine
+      # auth loss repeats every poll; any remaining benign one-off
+      # (e.g. boot-time "You are logged out … context canceled")
+      # won't page. (Pre-2026-05-23 this used threshold=1; the
+      # fleet-wide default was bumped to 2 to glide reboots, and the
+      # explicit override is no longer needed.)
       #
       # Per-instance caddy sidecars are NOT instrumented separately —
       # their failures show as Kuma HTTP monitor failures on the
@@ -274,7 +278,6 @@ in {
           pattern = "(?i)control:.*(401|unauthorized)|key (expired|rejected|invalid)|auth.*rejected|control: logout";
           severity = "warning";
           window = "10m";
-          threshold = 1;
           summary = "tailscale sidecar for ${name} lost its auth — share is offline";
           description = ''
             The tailscale-share node identity got rejected by the

@@ -453,11 +453,34 @@ homelab.monitoring.errorPatterns = [
       schema-ownership invariant from mk-pg-container.nix and the
       kysely_migrations table inside immich-db.
     '';
+    # Single-shot terminal pattern — page on first occurrence.
+    threshold = 0;
   }
 ];
 ```
 
 **Quiet-by-construction.** Only patterns you opt into can alert. Don't catch generic `error` or `failed` — that's noise from systemd unit cleanup, k8s probe failures, and routine log chatter. Catch the SPECIFIC strings the service emits when actually broken. The #253 audit produced per-service fingerprints by reading 30 days of Loki history; replicate that methodology if you add a new service.
+
+**Threshold — sustained vs single-shot (the "glide out of a reboot" rule):**
+
+Default `threshold = 2` (since 2026-05-23 — issue #281). Meaning: `count > 2`, i.e. needs **3+ matches in the 5min window** before the alert fires. This absorbs the 1-2 transient log lines a service emits on the way down during a planned reboot (alloy can't push, aardvark-dns can't start a transient scope, anything-logs-on-shutdown), so a doc2 reboot doesn't generate a fleet-wide alert burst. Real sustained failures still fire within ~6 min.
+
+Decide per pattern:
+
+| Pattern shape | `threshold` | Why |
+|---|---|---|
+| Service crash / `panic` / `FATAL` / `UnhandledPromiseRejection` | `0` | Process dies after one log line; default would silently lose the alert. |
+| `Failed at step NAMESPACE` / start failure | `0` | systemd `StartLimitBurst` caps retries; can't rely on 3+ occurrences. |
+| Backup hook failure (`pg_dump non-zero`, `Database Backup Failure`, kopia `despite N retries`) | `0` | Backup unit logs the give-up line once then exits. By the time it lands, the failure already represents many internal retries. |
+| Migration failed / `relation does not exist` | `0` | Migration unit exits on first failure. |
+| Watchdog tripped (`is stale, restarting`) | `0` | Watchdog only logs once per cycle (e.g. 5min); waiting for 3 cycles = ~15min lag. |
+| DB connection failure during sustained outage | default (`2`) | Repeats on every connection attempt — accumulates quickly. |
+| Replication/network-style transient (e.g. Solr proxy 500s while peer reconnects) | `3` or higher | Routinely emits ~30s of matching lines during normal restart cascades; need to distinguish from real partial-outage. |
+| Auth-loss style ("control: 401" every poll) | default (`2`) | Real auth loss repeats every poll; benign boot-time one-off filtered. |
+
+**Catalogue of current `threshold = 0` overrides** (search `threshold = 0` in `modules/nixos/services/` to find them): kopia (all 4 patterns), gotify-server, uptime-kuma, musicbrainz post-deploy, nfs-watchdog, paperless (all 4 patterns), pfsense-backup-watchdog, cratedigger (both patterns), immich.
+
+**Don't blindly add `threshold = 0`.** If the failure mode is "repeats while broken" (DB connection failures, push-batch drops, podman aardvark-dns retrying), keep the default — it's the buffer that lets a reboot pass silently. If you're tempted to override, ask: "would this log line appear during a 5-min planned reboot?" If yes, default. If it only appears when something is *actually* broken, `threshold = 0`.
 
 **Severity tiering:**
 

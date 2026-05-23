@@ -401,9 +401,9 @@ Loki errorPattern alerts ([`homelab.monitoring.errorPatterns`](../../../modules/
 - ✅ `key (expired|rejected|invalid)` — auth key dead.
 - ✅ `control: logout` — explicit logout.
 
-For belt-and-suspenders on any pattern that *might* match transient startup chatter, set `threshold = 1, window = "10m"` — requires 2+ matches in 10 min, so a single boot-time emission cannot page. Real failures repeat on every coordinator poll.
+As of 2026-05-23 (issue #281) the **default `threshold` is `2`** — i.e. `count > 2`, needs 3+ matches in `window` (default 5m) before paging. That alone glides past most planned-reboot transients without needing per-pattern overrides. Bump `window` to `10m` for noisier patterns that emit slowly (e.g. tailscale auth polls). Set `threshold = 0` for single-shot terminal errors (process crashes, backup hook failures) that must page on first occurrence. See the decision table in [nixos-service-modules.md `Per-service errorPatterns`](../nixos-service-modules.md#per-service-errorpatterns-log-line-alert-rules).
 
-See `modules/nixos/services/tailscale-share.nix:260-280` for the canonical example.
+See `modules/nixos/services/tailscale-share.nix:255-285` for the canonical example (relies on the new default + a widened `window`).
 
 ## Kuma push-monitor boundary race — why `maxretries = 2` lied
 

@@ -642,6 +642,8 @@ in {
         pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash";
         severity = "critical";
         summary = "preview worker hit the crash limit and exited";
+        # Single-shot: worker logs the give-up line once and exits.
+        threshold = 0;
       }
       {
         name = "Cratedigger DB migration failed";
@@ -649,6 +651,8 @@ in {
         pattern = "(?i)error: .*migrat|migration failed|relation .* does not exist";
         severity = "critical";
         summary = "schema migration failed — app likely won't start";
+        # Single-shot: migration unit exits on first failure.
+        threshold = 0;
       }
     ];
 

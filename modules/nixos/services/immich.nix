@@ -219,6 +219,13 @@ in {
             invariant in mk-pg-container.nix + the asset_edit_audit
             incident wiki.
           '';
+          # `pg_dump non-zero exit code` / `Database Backup Failure`
+          # are single-shot terminal errors from the backup hook.
+          # `permission denied for table` is the #250 class — at the
+          # time of incident this was emitted on most user actions, so
+          # would easily hit the default sustained threshold too, but
+          # we want #250-class drift to page on the very first hit.
+          threshold = 0;
         }
       ];
 

@@ -219,6 +219,10 @@ in {
 
       # See #253 audit + rules-doc "Per-service errorPatterns".
       monitoring.errorPatterns = [
+        # All paperless patterns: threshold=0. Each catches a
+        # start-failure or DB-auth failure that emits the matching
+        # line once per restart attempt; systemd's StartLimitBurst
+        # caps retries, so we can't rely on N occurrences.
         {
           name = "Paperless web NFS/auth failure";
           unit = "paperless-web.service";
@@ -232,6 +236,7 @@ in {
             mnt-data-*.mount on doc2 and the nfs-watchdog. pgauth
             failures match the #232 trust→scram class.
           '';
+          threshold = 0;
         }
         {
           name = "Paperless consumer NFS/auth failure";
@@ -242,6 +247,7 @@ in {
           severity = "critical";
           summary = "paperless-consumer cannot start or connect to DB";
           description = "Document ingest is stopped while NFS/DB is broken.";
+          threshold = 0;
         }
         {
           name = "Paperless scheduler NFS/degraded";
@@ -252,6 +258,7 @@ in {
           pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
           severity = "warning";
           summary = "celery beat scheduler is degraded";
+          threshold = 0;
         }
         {
           name = "Paperless task queue NFS/worker dead";
@@ -262,6 +269,7 @@ in {
           pattern = "(?i)Failed at step NAMESPACE|\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
           severity = "critical";
           summary = "celery worker can't start or died — document ingest stopped";
+          threshold = 0;
         }
       ];
     };

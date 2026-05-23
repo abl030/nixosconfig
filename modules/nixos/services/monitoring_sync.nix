@@ -946,14 +946,32 @@ in {
           };
           threshold = lib.mkOption {
             type = lib.types.int;
-            default = 0;
+            default = 2;
             description = ''
               count_over_time threshold to fire (count > threshold).
-              Default 0 = ANY match within `window` pages. Bump for
-              patterns where the service emits matching strings during
-              normal startup/restart noise (e.g. Solr proxy 500s while
-              replica peers reconnect — bump to 3 means "must see 4+
-              errors in 5m before paging").
+              Default 2 = needs 3+ matches in `window` before paging.
+              This is the "glide out of a reboot" buffer: 1-2 transient
+              log lines emitted as a host goes down (alloy can't push,
+              aardvark-dns can't start, anything-logs-on-shutdown) get
+              absorbed without paging. Sustained real failures still
+              fire within 5-6 min.
+
+              Override to 0 for SINGLE-SHOT terminal errors that emit
+              the matching line exactly once when something actually
+              broke (e.g. "kopia backup failed despite N retries",
+              "gotify panic", systemd "Failed at step NAMESPACE",
+              "Database Backup Failure" from a backup hook). Those
+              must page on first occurrence — they won't repeat.
+
+              Override higher (3+) for chronic-noise patterns that emit
+              matching strings during normal startup cascades (e.g. Solr
+              500s while replica peer reconnects — set to 3 means "must
+              see 4+ errors in 5m before paging"). See per-pattern
+              comments in `services/musicbrainz.nix` (Solr proxy) and
+              `services/tailscale-share.nix` (auth) for examples.
+
+              See docs/wiki/nixos-service-modules.md
+              "Per-service errorPatterns" for the decision table.
             '';
           };
         };

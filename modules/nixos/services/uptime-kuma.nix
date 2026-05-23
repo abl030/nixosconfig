@@ -69,6 +69,9 @@ in {
           pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked";
           severity = "critical";
           summary = "Uptime Kuma is failing — HTTP monitors will silently stop";
+          # Single-shot: a FATAL / UnhandledPromiseRejection takes the
+          # process down — won't repeat. Page on first occurrence.
+          threshold = 0;
         }
       ];
 
