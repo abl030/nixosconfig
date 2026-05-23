@@ -771,11 +771,15 @@ in {
             requires = ["musicbrainz.service"];
             serviceConfig = {
               Type = "oneshot";
-              # upgrade.sh can take a while: it runs full-DB DDL plus VACUUM
-              # ANALYZE on application tables (~5GB). Original 1h budget was
-              # for replication-only; double it to cover an in-band schema
-              # migration without timing out.
-              TimeoutStartSec = "7200s";
+              # Three independent budgets live inside this timeout:
+              #   - normal daily replication (~20 min for ~24 packets)
+              #   - in-band schema upgrade (DDL + VACUUM ANALYZE, ~1 min)
+              #   - recovery catch-up after a missed window (worst case
+              #     was 11 days × ~24 packets/day at ~1.5 packets/min ≈
+              #     ~3 h during the May 2026 incident).
+              # 4 h covers all three. Steady-state daily runs finish in
+              # tens of minutes; a multi-day gap recovers in one run.
+              TimeoutStartSec = "14400s";
               ExecStart = replicationScript;
             };
           };
