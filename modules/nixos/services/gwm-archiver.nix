@@ -54,9 +54,11 @@
   notifySuccess = pkgs.writeShellScript "gwm-archiver-notify-success" ''
     ${readGotifyToken}
     # Window matches the unit's TimeoutStartSec ceiling so we don't drag in
-    # an earlier run's lines if two runs happened within an hour.
+    # an earlier run's lines if two runs happened within an hour. `|| true`
+    # on the grep so the empty-result case (a no-op week) isn't propagated
+    # to a unit-level failure under set -eu / pipefail in readGotifyToken.
     new_lines="$(journalctl -u gwm-archiver.service --since='-45min' --no-pager 2>/dev/null \
-                   | grep -E 'NEW_ISSUE:' \
+                   | { grep -E 'NEW_ISSUE:' || true; } \
                    | sed 's/^[^]]*\] //; s/[[:cntrl:]]/ /g')"
     if [ -z "$new_lines" ]; then
       exit 0
