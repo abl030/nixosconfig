@@ -310,6 +310,69 @@
     ${dbVerifyScript}
   '';
 
+  # Replication wrapper — fixes the silent-failure class that froze the mirror
+  # for ~13 days during the v-2026-05-11.0 schema upgrade.
+  #
+  # Upstream `mirror.sh` does `LoadReplicationChanges >> mirror.log 2>&1 || { echo failed; }`
+  # so the script always returns 0 even when replication failed. systemd marked
+  # the unit "Finished" and nothing alerted. This wrapper:
+  #
+  #   1. Runs `replication.sh` inside the container, tee'ing output to journal.
+  #   2. If output contains "Schema sequence mismatch" (codebase ahead of DB)
+  #      AND the DB schema is exactly one behind the codebase, runs upgrade.sh
+  #      to migrate then retries replication.
+  #   3. Treats any `LoadReplicationChanges failed` or `Schema sequence mismatch`
+  #      line in the final run as a hard failure (exit non-zero) so the unit
+  #      goes to `activating (start) → failed`, which is what the errorPattern
+  #      + freshness probe also catch.
+  replicationScript = pkgs.writeShellScript "musicbrainz-replication-run" ''
+    set -uo pipefail
+
+    out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh 2>&1) || true
+    printf '%s\n' "$out"
+
+    failed_re='LoadReplicationChanges failed|Schema sequence mismatch'
+
+    if printf '%s' "$out" | ${pkgs.gnugrep}/bin/grep -qE "$failed_re"; then
+      mirror_log=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 \
+        ${pkgs.coreutils}/bin/cat /musicbrainz-server/mirror.log 2>/dev/null || true)
+      printf '%s\n' "$mirror_log"
+
+      schema_line=$(printf '%s\n%s' "$out" "$mirror_log" \
+        | ${pkgs.gnugrep}/bin/grep -m1 'Schema sequence mismatch' || true)
+
+      if [ -n "$schema_line" ]; then
+        codebase=$(printf '%s' "$schema_line" | ${pkgs.gnused}/bin/sed -n 's/.*codebase is \([0-9]\+\), database is \([0-9]\+\).*/\1/p')
+        db_seq=$(printf '%s' "$schema_line" | ${pkgs.gnused}/bin/sed -n 's/.*codebase is \([0-9]\+\), database is \([0-9]\+\).*/\2/p')
+
+        if [ -n "$codebase" ] && [ -n "$db_seq" ] && [ "$((codebase - db_seq))" = 1 ]; then
+          echo "[mb-replication] auto-applying schema upgrade $db_seq -> $codebase"
+          if ${pkgs.podman}/bin/podman exec \
+            -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
+            musicbrainz-musicbrainz-1 ./upgrade.sh; then
+            echo "[mb-replication] schema upgrade succeeded; retrying replication"
+            retry_out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh 2>&1) || true
+            printf '%s\n' "$retry_out"
+            if printf '%s' "$retry_out" | ${pkgs.gnugrep}/bin/grep -qE "$failed_re"; then
+              echo "[mb-replication] retry still failed after schema upgrade" >&2
+              exit 1
+            fi
+            exit 0
+          else
+            echo "[mb-replication] upgrade.sh failed" >&2
+            exit 1
+          fi
+        else
+          echo "[mb-replication] schema mismatch not single-step (codebase=$codebase db=$db_seq); needs manual intervention" >&2
+          exit 1
+        fi
+      fi
+
+      echo "[mb-replication] LoadReplicationChanges failed (no schema mismatch detected); see journal + mirror.log above" >&2
+      exit 1
+    fi
+  '';
+
   apiVerifyScript = pkgs.writeShellScript "musicbrainz-api-verify" ''
     set -euo pipefail
     for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
@@ -415,6 +478,34 @@ in {
           summary = "podman DNS plane is unhealthy — MB containers can't resolve each other";
         }
         {
+          name = "MusicBrainz replication failed";
+          unit = "musicbrainz-replication.service";
+          # Matches both the cron wrapper's swallowed-rc message and the
+          # bare schema-mismatch line from LoadReplicationChanges. Either
+          # one means the daily run made no forward progress.
+          #
+          # Single-shot: the unit fires once a day and the wrapper exits
+          # immediately after printing the failure. threshold=0 ⇒ page
+          # on the first occurrence.
+          pattern = "(?i)LoadReplicationChanges failed|Schema sequence mismatch";
+          severity = "critical";
+          summary = "MusicBrainz daily replication did not make forward progress";
+          description = ''
+            Indicates either upstream replication packets failed to apply
+            (codebase ahead of DB schema, DB unreachable, packet auth
+            issue) or the wrapper's auto-heal upgrade.sh attempt failed.
+
+            Drill into journal: `sudo journalctl -u musicbrainz-replication.service -e`.
+            Mirror log inside the container: `sudo podman exec musicbrainz-musicbrainz-1 tail -200 /musicbrainz-server/mirror.log`.
+
+            For a one-major-version-behind schema mismatch, the wrapper
+            normally heals automatically; if this alert fires, the auto-heal
+            path bailed (multi-step jump, upgrade.sh failure, perms). See
+            docs/wiki/services/musicbrainz.md "Replication monitoring".
+          '';
+          threshold = 0;
+        }
+        {
           name = "MusicBrainz Solr proxy failure";
           unit = "podman-musicbrainz-search-1.service";
           # Solr emits "Error trying to proxy request" routinely for
@@ -427,6 +518,31 @@ in {
           severity = "warning";
           summary = "Solr search container is failing to proxy (sustained)";
           threshold = 3;
+        }
+      ];
+
+      # State-based freshness signal. Backstop for the errorPattern above:
+      # if the daily unit doesn't run at all (timer disabled, DB unreachable,
+      # whatever), the errorPattern can't fire — but `last_replication_date`
+      # ages out and this probe goes DOWN. Hourly cadence so we notice
+      # within ~hours of a 24h+ stall.
+      monitoring.deepProbes = [
+        {
+          name = "MusicBrainz replication freshness";
+          command = "${pkgs.callPackage ./probes/check-musicbrainz-replication.nix {}}/bin/check-musicbrainz-replication";
+          interval = "1h";
+          intervalSecs = 3600;
+          serviceConfig = {
+            Environment = [
+              "MB_PG_HOST=${pgc.dbHost}"
+              "MB_PG_PORT=${toString pgc.dbPort}"
+              "MB_PG_USER=musicbrainz"
+              "MB_PG_DB=musicbrainz_db"
+              "MB_PGPASS_FILE=${pgpassSecret}"
+              # Daily replication + 12h slack for slow runs / boot drift.
+              "MB_MAX_REPLICATION_AGE_HOURS=36"
+            ];
+          };
         }
       ];
     };
@@ -623,15 +739,23 @@ in {
             '';
           };
 
-          # Daily replication — pulls latest MusicBrainz data
+          # Daily replication — pulls latest MusicBrainz data.
+          # ExecStart wraps replication.sh so failures (incl. swallowed-by-mirror.sh
+          # rc=1) fail the unit, and single-step schema mismatches auto-heal
+          # by running upgrade.sh then re-replicating. See replicationScript
+          # above for the why (May 2026 silent freeze incident).
           musicbrainz-replication = {
             description = "MusicBrainz daily replication";
             after = ["musicbrainz.service"];
             requires = ["musicbrainz.service"];
             serviceConfig = {
               Type = "oneshot";
-              TimeoutStartSec = "3600s";
-              ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh";
+              # upgrade.sh can take a while: it runs full-DB DDL plus VACUUM
+              # ANALYZE on application tables (~5GB). Original 1h budget was
+              # for replication-only; double it to cover an in-band schema
+              # migration without timing out.
+              TimeoutStartSec = "7200s";
+              ExecStart = replicationScript;
             };
           };
 
