@@ -58,5 +58,6 @@
     ./cullen-dashboard.nix
     ./gwm-archiver.nix
     ./komga.nix
+    ./komga-sync.nix
   ];
 }

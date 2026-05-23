@@ -191,6 +191,7 @@
         enable = true;
         dataDir = "/mnt/virtio/komga";
       };
+      komga-sync.enable = true;
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
