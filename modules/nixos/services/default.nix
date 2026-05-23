@@ -50,6 +50,7 @@
     ./domain-monitor.nix
     ./forgejo.nix
     ./nfs-watchdog.nix
+    ./pfsense-backup-watchdog.nix
     ./tailscale-share.nix
     ./rtrfm-nowplaying
     ./claude-voice.nix

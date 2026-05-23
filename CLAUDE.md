@@ -313,6 +313,7 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 ### Network & DNS Topology (non-obvious — read before debugging)
 
 - **`192.168.1.1` and `100.123.61.111` are the same box: pfSense.** LAN interface and Tailscale interface. Logs that mention both are not describing two failures.
+- **pfSense runs on bare metal — a small dedicated appliance in the cupboard.** It is NOT a VM on `prom`. That means no ZFS send, no PBS, no vzdump, no qemu-guest-agent. Backups are pfSense-native (config.xml + ACB) only.
 - **pfSense's unbound is the single recursive DNS resolver for the entire fleet.** Every NixOS host's `tailscaled` forwards DNS upstream to pfSense; pfSense forwards out to Cloudflare DoT (`1.1.1.2`/`1.0.0.2`). If pfSense unbound stops, the whole fleet loses non-MagicDNS resolution.
 - **`tailscaled` uses TCP/53 for forwarded queries in this environment** (empirical, despite public Tailscale docs suggesting UDP-only). Each NixOS host holds ~4 persistent ESTABLISHED TCP/53 connections to pfSense at idle. Check with `sudo ss -tnp '( dport = :53 )'` on any fleet host.
 - **ntopng runs on pfSense, NOT on doc2.** doc2 only runs the Go `ntopng-exporter` (HTTP scraper, no DNS). ntopng tuning (e.g. `--dns-mode`) is pfSense-side.

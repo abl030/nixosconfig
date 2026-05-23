@@ -6,7 +6,7 @@
 
 ## Role
 
-pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical box, two interfaces**) is the **single recursive DNS resolver for the entire fleet**. Every NixOS host's `tailscaled` runs as the local stub resolver and forwards upstream queries to pfSense. pfSense's unbound then forwards out to Cloudflare DoT (`1.1.1.2:853`, `1.0.0.2:853`).
+pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical box, two interfaces**) is the **single recursive DNS resolver for the entire fleet**. It runs on **bare metal** — a dedicated small appliance, not a VM on `prom`. No ZFS, no PBS, no vzdump available; backup options are pfSense-native (config.xml + ACB). Every NixOS host's `tailscaled` runs as the local stub resolver and forwards upstream queries to pfSense. pfSense's unbound then forwards out to Cloudflare DoT (`1.1.1.2:853`, `1.0.0.2:853`).
 
 If pfSense's unbound stops answering, **the whole fleet loses non-MagicDNS resolution within seconds** — including build sandboxes, package fetches, and any service that hits public hostnames.
 

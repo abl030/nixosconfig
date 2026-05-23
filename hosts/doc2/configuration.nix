@@ -95,6 +95,11 @@
       # Grafana alerting → Gotify (#201). Default rule: alert on
       # unexpected reboots of prom (the canonical case from 2026-02-22).
       alerting.enable = true;
+      # Watchdog over the prom-replicated pfSense ZFS backup status file
+      # (mounted RO at /mnt/pfsense-backup via virtiofs). Logs a
+      # "PFSENSE-BACKUP FAIL" line when the syncoid run is stale or red,
+      # which routes through homelab.monitoring.errorPatterns → Gotify.
+      pfsenseBackupWatchdog.enable = true;
       # claude-p summary bridge in front of Gotify. When enabled,
       # alerting.nix automatically points Grafana's webhook at the
       # bridge (127.0.0.1:9876) instead of Gotify, and the bridge
@@ -272,6 +277,18 @@
     device = "mirrors";
     fsType = "virtiofs";
     options = ["rw" "relatime"];
+  };
+
+  # pfSense backup virtiofs mount — READ-ONLY consumer view of the ZFS-replicated
+  # pfSense backup on prom (nvmeprom/backup/pfsense). prom pulls via syncoid
+  # nightly; this VM exposes the result to Kopia for off-site replication and
+  # runs a watchdog that alerts if the syncoid status file is stale or red.
+  # See docs/wiki/infrastructure/pfsense-dns-resolver.md and the watchdog unit
+  # in homelab.services.pfsenseBackupWatchdog below.
+  fileSystems."/mnt/pfsense-backup" = {
+    device = "pfsense-backup";
+    fsType = "virtiofs";
+    options = ["ro" "relatime" "nofail" "x-systemd.device-timeout=10s"];
   };
 
   # No tmpfiles rules for virtiofs directories — they already exist on
