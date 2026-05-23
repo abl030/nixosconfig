@@ -383,6 +383,53 @@ Every alloy instance in the fleet must carry these settings. Today:
 
 If you change one, change all four. Drift here means silent log loss the next time doc2 reboots.
 
+## Alloy holds stale TCP connections across vhost migrations — silent log loss
+
+**Researched:** 2026-05-24. **Status:** fixed (prom alloy restarted); pattern applies to any future vhost relocation.
+
+### What broke
+
+When triaging an unrelated alert, asked "is prom even shipping to Loki?" The answer was supposedly "no, prom does not ship logs to Loki" (per a stale comment in `pfsense-backup-watchdog.nix`). Reality check: `curl -s 'https://loki.ablz.au/loki/api/v1/label/host/values' | jq` returned all hosts EXCEPT prom. But `systemctl status alloy` on prom showed it active for 1d 22h, with config pointing at `loki.ablz.au` and `mimir.ablz.au` as endpoints.
+
+Then noticed alloy's journal was full of:
+
+```
+level=error msg="final error sending batch, no retries left, dropping data"
+component_id=loki.write.loki status=421
+error="server returned HTTP status 421 Misdirected Request (421): Unknown host"
+```
+
+Every single Loki batch since alloy started was getting dropped. Mimir batches were succeeding (visible in doc2's nginx access log as `POST /api/v1/push HTTP/1.1` from 192.168.1.12). Loki batches never appeared in the access log at all.
+
+### Why
+
+`ss -tnp | grep alloy` on prom revealed two ESTABLISHED connections:
+
+```
+192.168.1.12:52864  →  192.168.1.6:443   ← caddy (the OLD reverse proxy)
+192.168.1.12:46756  →  192.168.1.35:443  ← doc2 (current LGTM host)
+```
+
+`loki.ablz.au` previously resolved to caddy (192.168.1.6) when LGTM was hosted there. At some point the Cloudflare DNS sync moved the A record to doc2 (192.168.1.35). But alloy's `loki.write` had opened a long-lived HTTP/2 connection to .6 BEFORE the DNS change and never re-resolved. nginx on caddy has no `server_name loki.ablz.au` vhost, so it returned 421 Misdirected Request for every push. Mimir's connection happened to land on .35 (or was opened after the DNS change) and worked fine.
+
+`getent hosts loki.ablz.au` from prom correctly returned `192.168.1.35` — DNS was fine. The problem was 100% in alloy's connection cache.
+
+### The fix
+
+```sh
+ssh root@192.168.1.12 systemctl restart alloy
+```
+
+Within seconds, prom appeared in Loki's host label values and kernel logs were flowing. The connection re-established to the correct .35.
+
+### General lesson
+
+**Any time a `*.ablz.au` vhost migrates between hosts, restart alloy on every client.** alloy will not re-resolve DNS on its own as long as the existing TCP connection responds at all (a 421 response IS still a response from alloy's PoV — the connection is "healthy" at the TCP/HTTP layer). The wiki entry for the destination move should include a restart-alloy step. Worth considering: a daily `systemctl restart alloy` on remote-write clients to bound this risk, traded against burning the WAL queue more often.
+
+### Detect-this-class-of-failure
+
+A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. The push-monitor pattern (Kuma push with `interval > <heartbeat threshold>`) per fleet host would close the loop. Not implemented yet; tracked as a future enhancement.
+
 ## Per-service errorPattern alerts — startup-noise trap
 
 **Researched:** 2026-05-22.

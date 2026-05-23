@@ -271,7 +271,7 @@ Agent-facing query paths:
 Usage notes:
 - **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) in queries. Loki also accepts nanosecond epochs.
 - Default query range is 1 hour; compute a start timestamp for longer windows.
-- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `cache`, `dev`, `tower` (Unraid), `pfsense` (via syslog).
+- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `cache`, `dev`, `tower` (Unraid), `pfsense` (via syslog), `prom` (alloy on the Proxmox hypervisor; deployed via `ansible/common/monitoring.yml`).
 - Container logs use the `container` label (e.g. `{host="proxmox-vm", container="immich-server"}`).
 - **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 14:15 UTC of the relevant day.
 - The former `loki-mcp` server was removed in April 2026 — query Loki directly via HTTP or Grafana.

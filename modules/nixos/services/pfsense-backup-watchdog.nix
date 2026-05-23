@@ -13,11 +13,21 @@
 # Loki picks up the journal output; `homelab.monitoring.errorPatterns` below
 # routes the "PFSENSE-BACKUP FAIL" pattern through the alert-bridge → Gotify.
 #
-# Why a watchdog on doc2 rather than alerting on prom: prom does not ship
-# logs to Loki (its journal lives only on the box). The status file pattern
-# crosses the prom/doc2 boundary via virtiofs and lets the existing alerting
-# fabric on doc2 do the rest. See discussion in the 2026-05-23 backup-design
-# session.
+# Why a watchdog on doc2 rather than alerting on prom's syncoid-pfsense
+# journal directly: even though prom DOES ship to Loki via the
+# ansible-deployed alloy (we'd missed this for months — see the
+# 2026-05-24 "stale alloy connection" incident in lgtm-stack.md, where
+# prom's alloy was silently dropping every batch to a dead vhost IP),
+# the status-file approach is structurally stronger:
+#   1. Verifies the doc2 virtiofs share is mounted and readable
+#      (catches a class of failure the journal alone can't see).
+#   2. Independent of alloy/Loki health — if alloy goes silent again,
+#      this watchdog still pages.
+#   3. Reads the actual JSON the kopia source consumes, so an alert
+#      means "the bytes kopia would back up are broken", not just
+#      "syncoid logged something".
+# A prom-side journal alert via errorPatterns would be a useful
+# *additional* signal but is not the primary defence.
 {
   config,
   lib,
