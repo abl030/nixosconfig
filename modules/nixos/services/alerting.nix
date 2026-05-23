@@ -440,6 +440,131 @@
     })
   ];
 
+  # Per-host log-ingestion silence alert. Fires when a fleet host that
+  # should always be shipping logs to Loki has sent zero lines in the
+  # past `window`. Closes the silent-log-loss gap that hid prom's
+  # broken alloy for weeks (2026-05-24 stale-TCP-connection trap —
+  # see docs/wiki/services/lgtm-stack.md "Alloy holds stale TCP
+  # connections across vhost migrations").
+  #
+  # CRITICAL settings vs the rest of the alert family:
+  #   - noDataState = Alerting: if the host has been silent long
+  #     enough that even its `host` label has aged out of Loki's
+  #     cache, the query returns no data — we still want that to fire.
+  #   - threshold "lt": fires when count < 1 (i.e. 0 log lines).
+  #     The default mkLokiAlert uses "gt" which is the opposite shape.
+  ingestionSilenceAlerts = lib.optionals cfg.ingestionSilenceAlert.enable (
+    map (host: {
+      uid = "homelab-loki-silent-${host}";
+      title = "${host} stopped shipping logs to Loki";
+      condition = "C";
+      "for" = cfg.ingestionSilenceAlert.forDuration;
+      noDataState = "Alerting";
+      execErrState = "OK";
+      data = [
+        {
+          refId = "A";
+          queryType = "range";
+          relativeTimeRange = {
+            from = 900;
+            to = 0;
+          };
+          datasourceUid = cfg.dbAuditAlert.lokiDatasourceUid;
+          model = {
+            refId = "A";
+            expr = ''sum(count_over_time({host="${host}"}[${cfg.ingestionSilenceAlert.window}]))'';
+            queryType = "range";
+            intervalMs = 60000;
+            maxDataPoints = 43200;
+            datasource = {
+              type = "loki";
+              uid = cfg.dbAuditAlert.lokiDatasourceUid;
+            };
+          };
+        }
+        {
+          refId = "B";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "B";
+            type = "reduce";
+            expression = "A";
+            reducer = "last";
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+        {
+          refId = "C";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "C";
+            type = "threshold";
+            expression = "B";
+            conditions = [
+              {
+                evaluator = {
+                  params = [1];
+                  type = "lt";
+                };
+                operator.type = "and";
+                query.params = ["C"];
+                reducer = {
+                  params = [];
+                  type = "last";
+                };
+                type = "query";
+              }
+            ];
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+      ];
+      annotations = {
+        summary = "Loki received 0 log lines from ${host} in the last ${cfg.ingestionSilenceAlert.window}.";
+        description = ''
+          Either ${host} is genuinely offline OR its log shipper has
+          stopped sending. Common causes:
+
+          - alloy holding a stale TCP connection to a migrated vhost
+            (2026-05-24 incident on prom). Fix: `ssh ${host}
+            systemctl restart alloy`.
+          - alloy config error after a NixOS rebuild. Check:
+            `ssh ${host} journalctl -u alloy -n 50`.
+          - Host actually down. Check Tailscale + the relevant
+            hypervisor (prom for VMs, tower for VMs on tower).
+          - For tower/pfsense: syslog forwarder broken. Check syslog
+            config on the box.
+
+          See docs/wiki/services/lgtm-stack.md "Alloy holds stale TCP
+          connections across vhost migrations" for the 2026-05-24
+          incident that motivated this alert.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        category = "ingestion";
+        host = host;
+      };
+    })
+    cfg.ingestionSilenceAlert.hosts
+  );
+
   # Fleet-wide disk-pressure alert. Prometheus rule — the alerting query
   # returns one series per host/mountpoint/fstype, so the alert fires
   # independently per filesystem and the labels carry through to the
@@ -608,6 +733,15 @@
           interval = "1m";
           rules = diskAlerts;
         }
+      ]
+      ++ lib.optionals (ingestionSilenceAlerts != []) [
+        {
+          orgId = 1;
+          name = "log-ingestion-silence";
+          folder = "Homelab";
+          interval = "1m";
+          rules = ingestionSilenceAlerts;
+        }
       ];
   };
 
@@ -698,6 +832,55 @@ in {
 
     oomAlert = {
       enable = lib.mkEnableOption "Alert when the kernel OOM killer fires on any fleet host" // {default = true;};
+    };
+
+    ingestionSilenceAlert = {
+      enable = lib.mkEnableOption "Alert when a monitored fleet host stops shipping logs to Loki" // {default = true;};
+
+      hosts = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = ["doc2" "proxmox-vm" "igpu" "prom" "tower" "pfsense" "wsl"];
+        description = ''
+          `host` label values that should always be sending logs. One
+          alert rule is generated per host; each fires after `window`
+          of zero ingest plus `forDuration` of persistent silence.
+
+          Excludes legitimately-offline hosts:
+          - framework, epimetheus (workstations that sleep)
+          - dev (development VM, off most of the time)
+          - caddy, cache (Home Manager-only; no alloy/journald to ship)
+
+          Background: alloy can silently drop every batch with HTTP 421
+          if it holds a stale TCP connection to a migrated vhost IP.
+          This happened to prom from the LGTM migration through
+          2026-05-24 — nobody noticed because alloy itself reported
+          healthy. The per-host silence alert closes that gap. See
+          docs/wiki/services/lgtm-stack.md "Alloy holds stale TCP
+          connections across vhost migrations".
+        '';
+        example = ["doc2" "prom"];
+      };
+
+      window = lib.mkOption {
+        type = lib.types.str;
+        default = "15m";
+        description = ''
+          LogQL `count_over_time` lookback window. 15m absorbs nightly
+          maintenance reboots (typically 5-10 min) without firing while
+          still catching real silent-failure inside one cycle.
+        '';
+      };
+
+      forDuration = lib.mkOption {
+        type = lib.types.str;
+        default = "5m";
+        description = ''
+          How long the silence must persist past `window` before paging.
+          5m + the 15m window = ~20 min minimum time-to-fire. Trades
+          alert latency for noise floor — at 5m, a maintenance reboot
+          that runs over by a few minutes still won't page.
+        '';
+      };
     };
 
     diskPressureAlert = {

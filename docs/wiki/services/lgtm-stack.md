@@ -428,7 +428,9 @@ Within seconds, prom appeared in Loki's host label values and kernel logs were f
 
 ### Detect-this-class-of-failure
 
-A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. The push-monitor pattern (Kuma push with `interval > <heartbeat threshold>`) per fleet host would close the loop. Not implemented yet; tracked as a future enhancement.
+A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. **Implemented same day** as `homelab.services.alerting.ingestionSilenceAlert` in `modules/nixos/services/alerting.nix`. Default: per-host LogQL `sum(count_over_time({host="<name>"}[15m]))` rule per always-on host (`doc2 proxmox-vm igpu prom tower pfsense wsl`), threshold `< 1`, `for: 5m`, `noDataState: Alerting`. Time-to-fire ~20 min. Skips workstations (framework, epimetheus), workstation WSL when it's offline (wsl is in the list but you'll get the page if you shut down — that's intended), `dev` (off most of the time), and HM-only hosts that have no journal/alloy to begin with (caddy, cache).
+
+Tune via `homelab.services.alerting.ingestionSilenceAlert.{hosts,window,forDuration}` per host config. Disable per-fleet with `enable = false` (default true, only loads on the Loki host since the rest of the alerting module is gated on `homelab.services.loki.enable`).
 
 ## Per-service errorPattern alerts — startup-noise trap
 
