@@ -334,8 +334,10 @@
     failed_re='LoadReplicationChanges failed|Schema sequence mismatch'
 
     if printf '%s' "$out" | ${pkgs.gnugrep}/bin/grep -qE "$failed_re"; then
+      # `cat` resolves inside the container (Ubuntu) — never use a host
+      # /nix/store path as an in-container command path.
       mirror_log=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 \
-        ${pkgs.coreutils}/bin/cat /musicbrainz-server/mirror.log 2>/dev/null || true)
+        cat /musicbrainz-server/mirror.log 2>/dev/null || true)
       printf '%s\n' "$mirror_log"
 
       schema_line=$(printf '%s\n%s' "$out" "$mirror_log" \
