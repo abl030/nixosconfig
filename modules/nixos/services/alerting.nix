@@ -454,11 +454,20 @@
   #   - threshold "lt": fires when count < 1 (i.e. 0 log lines).
   #     The default mkLokiAlert uses "gt" which is the opposite shape.
   ingestionSilenceAlerts = lib.optionals cfg.ingestionSilenceAlert.enable (
-    map (host: {
+    lib.mapAttrsToList (host: hostCfg: let
+      window =
+        if hostCfg.window != null
+        then hostCfg.window
+        else cfg.ingestionSilenceAlert.defaultWindow;
+      forDuration =
+        if hostCfg.forDuration != null
+        then hostCfg.forDuration
+        else cfg.ingestionSilenceAlert.defaultForDuration;
+    in {
       uid = "homelab-loki-silent-${host}";
       title = "${host} stopped shipping logs to Loki";
       condition = "C";
-      "for" = cfg.ingestionSilenceAlert.forDuration;
+      "for" = forDuration;
       noDataState = "Alerting";
       execErrState = "OK";
       data = [
@@ -472,7 +481,7 @@
           datasourceUid = cfg.dbAuditAlert.lokiDatasourceUid;
           model = {
             refId = "A";
-            expr = ''sum(count_over_time({host="${host}"}[${cfg.ingestionSilenceAlert.window}]))'';
+            expr = ''sum(count_over_time({host="${host}"}[${window}]))'';
             queryType = "range";
             intervalMs = 60000;
             maxDataPoints = 43200;
@@ -536,7 +545,7 @@
         }
       ];
       annotations = {
-        summary = "Loki received 0 log lines from ${host} in the last ${cfg.ingestionSilenceAlert.window}.";
+        summary = "Loki received 0 log lines from ${host} in the last ${window}.";
         description = ''
           Either ${host} is genuinely offline OR its log shipper has
           stopped sending. Common causes:
@@ -837,13 +846,74 @@ in {
     ingestionSilenceAlert = {
       enable = lib.mkEnableOption "Alert when a monitored fleet host stops shipping logs to Loki" // {default = true;};
 
-      hosts = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = ["doc2" "proxmox-vm" "igpu" "prom" "tower" "pfsense" "wsl"];
+      defaultWindow = lib.mkOption {
+        type = lib.types.str;
+        default = "15m";
         description = ''
-          `host` label values that should always be sending logs. One
-          alert rule is generated per host; each fires after `window`
-          of zero ingest plus `forDuration` of persistent silence.
+          Default LogQL `count_over_time` lookback window when a host
+          entry doesn't override `window`. 15m absorbs nightly
+          maintenance reboots (typically 5-10 min) without firing
+          while still catching real silent-failure inside one cycle.
+        '';
+      };
+
+      defaultForDuration = lib.mkOption {
+        type = lib.types.str;
+        default = "5m";
+        description = ''
+          Default for-duration when a host entry doesn't override
+          `forDuration`. 5m + the 15m default window = ~20 min
+          minimum time-to-fire.
+        '';
+      };
+
+      hosts = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.submodule {
+          options = {
+            window = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Override the default count_over_time window for this host.";
+            };
+            forDuration = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Override the default for-duration for this host.";
+            };
+          };
+        });
+        # Tier 1 (critical infra: firewall, hypervisor, NAS) — 5min
+        # window + 1min for = ~6min time-to-fire. These boxes don't
+        # do nightly reboots, so the maintenance-window safety margin
+        # other hosts need doesn't apply. Silence on these = real loss.
+        #
+        # Tier 2 (defaults: 15m window + 5m for = ~20min time-to-fire)
+        # for VMs that DO have nightly auto-reboots.
+        default = {
+          # Tier 1: critical, page fast.
+          tower = {
+            window = "5m";
+            forDuration = "1m";
+          };
+          prom = {
+            window = "5m";
+            forDuration = "1m";
+          };
+          pfsense = {
+            window = "5m";
+            forDuration = "1m";
+          };
+          # Tier 2: services that auto-reboot overnight (use defaults).
+          doc2 = {};
+          proxmox-vm = {};
+          igpu = {};
+          wsl = {};
+        };
+        description = ''
+          `host` label values that should always be sending logs.
+          Each key generates one alert rule; values can override
+          `window` and/or `forDuration` independently of the fleet
+          defaults. An empty `{}` uses both defaults.
 
           Excludes legitimately-offline hosts:
           - framework, epimetheus (workstations that sleep)
@@ -858,27 +928,11 @@ in {
           docs/wiki/services/lgtm-stack.md "Alloy holds stale TCP
           connections across vhost migrations".
         '';
-        example = ["doc2" "prom"];
-      };
-
-      window = lib.mkOption {
-        type = lib.types.str;
-        default = "15m";
-        description = ''
-          LogQL `count_over_time` lookback window. 15m absorbs nightly
-          maintenance reboots (typically 5-10 min) without firing while
-          still catching real silent-failure inside one cycle.
-        '';
-      };
-
-      forDuration = lib.mkOption {
-        type = lib.types.str;
-        default = "5m";
-        description = ''
-          How long the silence must persist past `window` before paging.
-          5m + the 15m window = ~20 min minimum time-to-fire. Trades
-          alert latency for noise floor — at 5m, a maintenance reboot
-          that runs over by a few minutes still won't page.
+        example = lib.literalExpression ''
+          {
+            tower = { window = "5m"; forDuration = "1m"; };
+            doc2 = {};  # use defaults
+          }
         '';
       };
     };
