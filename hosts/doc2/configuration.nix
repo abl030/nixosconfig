@@ -186,6 +186,7 @@
       domain-monitor.enable = true;
       forgejo.enable = true;
       rtrfm-nowplaying.enable = true;
+      gwm-archiver.enable = true;
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
