@@ -360,8 +360,9 @@
           # entrypoint, so we source it explicitly inside a bash login.
           #
           # DB_SCHEMA_SEQUENCE / REPLICATION_TYPE are passed in so
-          # upgrade.sh's `: ${VAR:=$(perl -Ilib …)}` defaults skip the
-          # extra perl invocations entirely. REPLICATION_TYPE=2 = RT_MIRROR.
+          # upgrade.sh has fallback perl probes for these vars; passing
+          # them avoids those extra perl invocations. REPLICATION_TYPE=2
+          # = RT_MIRROR.
           if ${pkgs.podman}/bin/podman exec \
             -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
             -e "DB_SCHEMA_SEQUENCE=$codebase" \
