@@ -193,7 +193,13 @@
           photos = {
             port = 51515;
             configDir = "/mnt/virtio/kopia/photos";
-            sources = ["/mnt/data/Life/Photos/library"];
+            sources = [
+              "/mnt/data/Life/Photos/library"
+              # pfSense ZFS backup (read-only via virtiofs from prom).
+              # Belt-and-braces: both kopia repos carry a copy so the firewall
+              # config survives loss of either off-site target.
+              "/mnt/pfsense-backup"
+            ];
             proxyHost = "kopiaphotos.ablz.au";
             # Match container identity so existing snapshot policies/schedules work
             overrideHostname = "kopia";
@@ -213,6 +219,9 @@
               "/mnt/data/Life"
               "/mnt/data/Media/Books"
               "/mnt/data/Media/Music"
+              # pfSense ZFS backup (read-only via virtiofs from prom).
+              # Belt-and-braces alongside the photos repo.
+              "/mnt/pfsense-backup"
             ];
             repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
