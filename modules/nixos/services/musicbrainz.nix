@@ -368,7 +368,7 @@
             -e "DB_SCHEMA_SEQUENCE=$codebase" \
             -e REPLICATION_TYPE=2 \
             musicbrainz-musicbrainz-1 \
-            bash -c '. /noninteractive.bash_env && carton exec -- ./upgrade.sh'; then
+            bash -c '. /noninteractive.bash_env; carton exec -- ./upgrade.sh'; then
             echo "[mb-replication] schema upgrade succeeded; retrying replication"
             retry_out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh 2>&1) || true
             printf '%s\n' "$retry_out"
