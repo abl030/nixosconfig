@@ -362,10 +362,12 @@
           # DB_SCHEMA_SEQUENCE / REPLICATION_TYPE are passed in so
           # upgrade.sh has fallback perl probes for these vars; passing
           # them avoids those extra perl invocations. REPLICATION_TYPE=2
-          # = RT_MIRROR.
+          # = RT_MIRROR. Despite the name, upgrade.sh's DB_SCHEMA_SEQUENCE
+          # is the *current* DB schema (the script asserts it equals
+          # NEW_SCHEMA_SEQUENCE - 1) — pass db_seq, not codebase.
           if ${pkgs.podman}/bin/podman exec \
             -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
-            -e "DB_SCHEMA_SEQUENCE=$codebase" \
+            -e "DB_SCHEMA_SEQUENCE=$db_seq" \
             -e REPLICATION_TYPE=2 \
             musicbrainz-musicbrainz-1 \
             bash -c '. /noninteractive.bash_env; carton exec -- ./upgrade.sh'; then
