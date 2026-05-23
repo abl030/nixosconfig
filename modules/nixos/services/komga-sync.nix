@@ -1,3 +1,7 @@
+# Daily Komga metadata sync from JSON sidecars (REST PATCH).
+# See docs/wiki/services/komga-sync.md for the field mapping +
+# idempotency design notes. Top-level overview at
+# docs/wiki/services/magazines.md.
 {
   config,
   lib,

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# See docs/wiki/services/wvj-archive.md for the full write-up, and
+# docs/wiki/services/magazines.md for the overall magazine archive system.
 """One-shot archiver for the Wine & Viticulture Journal (winetitles.com.au/wvj).
 
 The journal ended publication in 2024 (Vol 39 No 3 — lead article was

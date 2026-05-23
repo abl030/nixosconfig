@@ -1,3 +1,7 @@
+# Grapegrower & Winemaker weekly archiver (winetitles.com.au).
+# See docs/wiki/services/gwm-archiver.md for the WordPress download flow,
+# slug -> year/month math, qpdf-vs-pdfunite gotcha, OnSuccess/OnFailure
+# wiring. Top-level overview at docs/wiki/services/magazines.md.
 {
   config,
   lib,

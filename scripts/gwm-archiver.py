@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# See docs/wiki/services/gwm-archiver.md for the full write-up, and
+# docs/wiki/services/magazines.md for the overall magazine archive system.
 """Grapegrower & Winemaker (winetitles.com.au) archiver.
 
 For every magazine issue listed at https://winetitles.com.au/gwm/articles/:

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# See docs/wiki/services/komga-sync.md for field mapping + idempotency,
+# and docs/wiki/services/magazines.md for the overall archive system.
 """Sync JSON sidecars under /mnt/data/Media/Magazines into Komga metadata.
 
 Walks every <basename>.json that sits next to <basename>.pdf, looks up the

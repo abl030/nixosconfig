@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# See docs/wiki/services/magazine-epub-pipeline.md §"marker-to-epub.py — the
+# post-processor" for the fuzzy-match logic, OPF metadata payload, calibration
+# results. Companion script is scripts/marker-batch.py (orchestrator).
 """Marker markdown -> clean EPUB post-processor for GAW magazine issues.
 
 Pipeline:

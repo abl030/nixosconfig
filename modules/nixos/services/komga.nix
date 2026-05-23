@@ -1,3 +1,7 @@
+# Komga magazine library (https://magazines.ablz.au).
+# See docs/wiki/services/komga.md for the why/what/gotchas write-up, and
+# docs/wiki/services/magazines.md for how this fits into the overall
+# magazine archive system (gwm-archiver / komga-sync / EPUB pipeline).
 {
   config,
   lib,

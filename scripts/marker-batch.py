@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# See docs/wiki/services/magazine-epub-pipeline.md for the why/what + tuning
+# notes (WORKERS, --disable_ocr, expected wall times). Companion script is
+# scripts/marker-to-epub.py (post-processor). Top-level overview at
+# docs/wiki/services/magazines.md.
 """Batch convert every magazine PDF in the archive to an EPUB next to it.
 
 For each `<dir>/<basename>.pdf` with a matching `<basename>.json` sidecar:

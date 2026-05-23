@@ -7,6 +7,11 @@
 **Output:** `/mnt/data/Media/Magazines/GAW/<YYYY>/<MM>_<basename>.{pdf,json}`
 **Schedule:** weekly, Sun 03:30 AWST + 1 h jitter
 
+> 📂 Part of the magazine archive system. Start at
+> [magazines.md](./magazines.md) for the overall picture.
+> Siblings: [wvj-archive.md](./wvj-archive.md), [komga.md](./komga.md),
+> [komga-sync.md](./komga-sync.md), [magazine-epub-pipeline.md](./magazine-epub-pipeline.md).
+
 ## What this does
 
 Weekly oneshot that walks `https://winetitles.com.au/gwm/articles/` while
