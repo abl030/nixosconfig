@@ -57,5 +57,6 @@
     ./whisper-server.nix
     ./cullen-dashboard.nix
     ./gwm-archiver.nix
+    ./komga.nix
   ];
 }

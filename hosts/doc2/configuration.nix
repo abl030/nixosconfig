@@ -187,6 +187,10 @@
       forgejo.enable = true;
       rtrfm-nowplaying.enable = true;
       gwm-archiver.enable = true;
+      komga = {
+        enable = true;
+        dataDir = "/mnt/virtio/komga";
+      };
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
