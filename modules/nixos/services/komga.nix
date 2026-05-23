@@ -27,7 +27,9 @@ in {
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 8085;
+      # 8085 = cratedigger, 8086 = discogs-api, 8090 = gatus on doc2.
+      # Pick a slot that doesn't collide on the current host.
+      default = 8089;
       description = "Loopback port Komga listens on. Surfaced via homelab.localProxy.hosts.";
     };
 
@@ -72,27 +74,17 @@ in {
       wants = ["mnt-data.mount"];
 
       serviceConfig = {
-        # Narrow /mnt visibility: only the magazines tree is bindable.
+        # Narrow /mnt visibility: only the magazines tree + stateDir.
         # Per `.claude/rules/nixos-service-modules.md` (Sandbox patterns):
-        # BindReadOnlyPaths is fail-loud (status=226/NAMESPACE) if the
-        # source is unavailable, so a stale NFS gets caught immediately
-        # instead of presenting an empty library hours later.
+        # BindReadOnlyPaths / BindPaths are fail-loud (status=226/NAMESPACE)
+        # if the source is unavailable, so a stale NFS gets caught
+        # immediately instead of presenting an empty library hours later.
         TemporaryFileSystem = "/mnt";
         BindReadOnlyPaths = [magazinesHost];
-
-        # Upstream ProtectSystem=full keeps /etc /usr /boot ro and lets
-        # the StateDirectory path (set via stateDir handling above) stay
-        # rw. We don't need to override.
-
-        # Tighten read-only file system visibility further — Komga has
-        # no business touching anything else under /mnt.
-        ReadOnlyPaths = lib.mkAfter ["/etc"];
-
-        # The upstream module sets `StateDirectory = "komga"` ONLY when
-        # stateDir == "/var/lib/komga". When we override stateDir we
-        # need to ensure tmpfiles creates+chowns the directory ourselves
-        # — handled by the upstream tmpfiles.settings."10-komga" entry
-        # which uses `cfg.stateDir`, so no override needed here.
+        # stateDir lives under /mnt/virtio (virtiofs), so it'd also be
+        # masked by the TemporaryFileSystem above without this bind.
+        # rw — Komga writes its sqlite DB, thumbnails, search index here.
+        BindPaths = [cfg.dataDir];
       };
     };
 
