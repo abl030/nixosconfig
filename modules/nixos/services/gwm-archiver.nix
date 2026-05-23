@@ -212,13 +212,9 @@ in {
       };
     };
 
-    # NFS path watchdog: if the media share goes stale, kick the mount before
-    # the timer's next firing instead of failing the unit.
-    homelab.nfsWatchdog.gwm-archiver-data =
-      lib.mkIf
-      (lib.hasPrefix "/mnt/data" cfg.outDir)
-      {
-        path = cfg.outDir;
-      };
+    # No homelab.nfsWatchdog wiring: the watchdog auto-restarts dead services,
+    # which on a oneshot would re-fire the run. If /mnt/data is stale at the
+    # weekly trigger time, the script fails, OnFailure pings Gotify, and the
+    # following week's timer picks up cleanly once the mount recovers.
   };
 }
