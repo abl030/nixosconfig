@@ -430,6 +430,9 @@ in {
     #     `installedpackages/service[]` (rcfile=ntopng.sh) or it silently
     #     no-ops on "restart". See `.claude/agents/pfsense.md` for the
     #     injected config.xml entry.
+    #   - ntopng's `--dns-mode` is currently 2 (passive decode). Mode 1
+    #     created loopback PTR storms that saturated pfSense unbound.
+    #     See docs/wiki/infrastructure/pfsense-dns-resolver.md.
     ntopngExporter = {
       enable = lib.mkEnableOption "ntopng per-client traffic exporter (OCI)";
 
