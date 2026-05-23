@@ -1,7 +1,7 @@
 # MusicBrainz
 
-**Last updated:** 2026-05-14
-**Status:** active on `doc2`; external PostgreSQL and OCI migration completed 2026-05-14
+**Last updated:** 2026-05-23
+**Status:** active on `doc2`; external PostgreSQL and OCI migration completed 2026-05-14; replication fail-loud + schema auto-heal landed 2026-05-23
 **Owner:** `modules/nixos/services/musicbrainz.nix`
 **Issue:** #228
 
@@ -101,6 +101,112 @@ Live verification after deployment:
 - No LMD/Lidarr containers or `5001`/`8686` listeners remained.
 - Temporary dump and old compose DB rollback paths were removed after
   verification.
+
+## Replication Monitoring & Self-Heal (2026-05-23 incident)
+
+### Background
+
+The mirror silently froze from 2026-05-11 to 2026-05-23. MetaBrainz cut a
+schema-change image (`v-2026-05-11.0-schema-change`, bumping replication
+schema sequence 30 → 31); `LoadReplicationChanges` started refusing packets
+with `Schema sequence mismatch - codebase is 31, database is 30`.
+
+Three layered failures masked it:
+
+1. Upstream `admin/cron/mirror.sh` does
+   `./admin/replication/LoadReplicationChanges >> $MIRROR_LOG 2>&1 || { echo failed; }`,
+   so any rc≠0 is captured and the script returns 0.
+2. Our systemd unit had `ExecStart = podman exec ... replication.sh`,
+   inheriting that swallowed rc=0 — unit "Finished" cleanly every night.
+3. No state-based freshness check; the daily Kuma monitor only verified
+   the LRCLIB endpoint.
+
+Net: 13 days of no replication, no alert.
+
+### Resilience layers
+
+`replicationScript` in `musicbrainz.nix` wraps `replication.sh` to:
+
+- Tee output to the journal.
+- Detect `LoadReplicationChanges failed` and `Schema sequence mismatch`
+  in stdout or `mirror.log`.
+- For a one-step schema mismatch, run upstream `upgrade.sh` in-band
+  (under `carton exec`, sourcing `/noninteractive.bash_env` for the
+  image's local::lib env) and retry replication.
+- Exit non-zero on any remaining failure so the systemd unit goes to
+  `failed`.
+
+The image's `upgrade.sh` has a few non-obvious requirements the wrapper
+satisfies:
+
+- It needs `carton exec` — bare invocation can't find `aliased.pm`.
+- `carton` itself needs `local::lib` env (PATH, PERL5LIB, etc.) which
+  the image's entrypoint dumps to `/noninteractive.bash_env`; podman
+  exec bypasses the entrypoint so we source the dump explicitly. Use
+  `;` not `&&` after sourcing — the file ends with a `[[ -n ... ]]`
+  guard that returns 1 in our context.
+- `DB_SCHEMA_SEQUENCE` env is the *current* DB version (the script
+  asserts it equals `NEW_SCHEMA_SEQUENCE - 1 = 30` for a 30→31 jump);
+  pass `db_seq`, not the codebase value.
+- Pass `REPLICATION_TYPE=2` (RT_MIRROR) to skip the perl probe.
+- `SKIP_EXPORT=1` since this is a mirror, not a master.
+- In-container command paths must NOT be host `/nix/store` paths
+  (Ubuntu container has no Nix store).
+
+### Monitoring layers
+
+Two independent signals — either one fires if replication is broken:
+
+1. **errorPattern `MusicBrainz replication failed`** — Loki match on
+   `LoadReplicationChanges failed|Schema sequence mismatch` in
+   `musicbrainz-replication.service` journal. threshold=0 (single-shot;
+   the unit runs once daily). Validates that auto-heal didn't engage.
+
+2. **deepProbe `MusicBrainz replication freshness`** —
+   `modules/nixos/services/probes/check-musicbrainz-replication.nix`.
+   Hourly. Queries `replication_control.last_replication_date` via psql
+   on the nspawn DB at `192.168.100.21:5432` using the
+   `musicbrainz-pgpass` secret. Marks DOWN at >36h staleness. Pushes UP
+   to Kuma on success.
+
+### Timeout choice
+
+`TimeoutStartSec = 14400s` (4 h) covers:
+
+- Steady daily run: ~20 min for one packet's worth (`LoadReplicationChanges`
+  loops via `goto NEXT_PACKET` until upstream returns 404 for the next
+  sequence).
+- In-band schema upgrade: ~1 min of DDL + VACUUM ANALYZE on the ~5 GB
+  application schema.
+- Recovery catch-up: worst observed was 11 days × ~24 hourly packets at
+  ~1-3 min/packet = ~3 h.
+
+Cron-frequency note: upstream packets are produced hourly but our
+timer is `*-*-* 03:00:00` (daily). LoadReplicationChanges drains all
+available packets per invocation via its NEXT_PACKET loop, so a daily
+cadence is "wakes up once a day and catches up everything since
+yesterday". Moving to hourly is a future optimisation, not a
+correctness fix.
+
+### Manual replays / debugging
+
+```
+# Check current DB state
+sudo podman exec musicbrainz-musicbrainz-1 bash -c '. /noninteractive.bash_env; carton exec -- ./admin/psql MAINTENANCE -c "SELECT * FROM replication_control"'
+
+# Force replication outside the unit (uses container's own lock):
+sudo podman exec musicbrainz-musicbrainz-1 replication.sh
+
+# Read the cron wrapper's swallowed-error log:
+sudo podman exec musicbrainz-musicbrainz-1 tail -200 /musicbrainz-server/mirror.log
+
+# Replay schema upgrade manually (matches what replicationScript does):
+sudo podman exec \
+  -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
+  -e DB_SCHEMA_SEQUENCE=<current-db-seq> -e REPLICATION_TYPE=2 \
+  musicbrainz-musicbrainz-1 \
+  bash -c '. /noninteractive.bash_env; carton exec -- ./upgrade.sh'
+```
 
 ## Least Privilege Notes
 
