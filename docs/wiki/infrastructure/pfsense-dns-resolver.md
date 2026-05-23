@@ -3,6 +3,7 @@
 **Date researched:** 2026-05-23
 **Status:** Tuned (2026-05-23). Was chronically saturated under stock defaults.
 **Related incident:** [dns-saturation-incident-2026-05-22](dns-saturation-incident-2026-05-22.md).
+**Backup architecture:** [pfsense-backup](pfsense-backup.md) (ZFS-pull-to-prom + dual-Kopia off-site).
 
 ## Role
 

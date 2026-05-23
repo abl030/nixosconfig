@@ -198,6 +198,7 @@
               # pfSense ZFS backup (read-only via virtiofs from prom).
               # Belt-and-braces: both kopia repos carry a copy so the firewall
               # config survives loss of either off-site target.
+              # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
               "/mnt/pfsense-backup"
             ];
             proxyHost = "kopiaphotos.ablz.au";
@@ -221,6 +222,7 @@
               "/mnt/data/Media/Music"
               # pfSense ZFS backup (read-only via virtiofs from prom).
               # Belt-and-braces alongside the photos repo.
+              # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
               "/mnt/pfsense-backup"
             ];
             repositoryMounts = ["/mnt/mum"];
@@ -292,8 +294,9 @@
   # pfSense backup on prom (nvmeprom/backup/pfsense). prom pulls via syncoid
   # nightly; this VM exposes the result to Kopia for off-site replication and
   # runs a watchdog that alerts if the syncoid status file is stale or red.
-  # See docs/wiki/infrastructure/pfsense-dns-resolver.md and the watchdog unit
-  # in homelab.services.pfsenseBackupWatchdog below.
+  # Full architecture + restore procedures:
+  #   docs/wiki/infrastructure/pfsense-backup.md
+  # Watchdog source: modules/nixos/services/pfsense-backup-watchdog.nix
   fileSystems."/mnt/pfsense-backup" = {
     device = "pfsense-backup";
     fsType = "virtiofs";

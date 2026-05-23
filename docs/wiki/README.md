@@ -20,6 +20,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [media-filesystem](infrastructure/media-filesystem.md) — mergerfs + virtiofs + tower NFS layout, where each library's media/metadata lives
 - [nfs-over-tailscale](infrastructure/nfs-over-tailscale.md) — Tailscale readiness gap, `tailscale-wait.service`, LAN-vs-tailnet routing for tower NFS
 - [pfsense-dns-resolver](infrastructure/pfsense-dns-resolver.md) — pfSense as the fleet DNS resolver: tunables, restart commands, ntopng/pfBlockerNG/kea2unbound footguns
+- [pfsense-backup](infrastructure/pfsense-backup.md) — ACB + ZFS-pull-to-prom + dual-Kopia off-site architecture, restore procedures incl. VM-on-prom emergency play
 - [dns-saturation-incident-2026-05-22](infrastructure/dns-saturation-incident-2026-05-22.md) — RCA: chronic unbound TCP/53 saturation surfaced via `rolling-flake-update`; subagent → research debugging-loop pattern
 - [systemd-mount-ordering-cycles](infrastructure/systemd-mount-ordering-cycles.md) — why bind mounts on NFS need `_netdev`; cycle topology and latency-bomb properties
 

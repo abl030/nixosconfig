@@ -1,9 +1,11 @@
 # pfSense backup watchdog
 #
-# Watches the syncoid status JSON written by prom's syncoid-pfsense.service
-# (see docs/wiki/infrastructure/pfsense-dns-resolver.md). Runs hourly,
-# reads the status file via the read-only virtiofs mount, and emits a
-# distinctive log line on:
+# Watches the syncoid status JSON written by prom's syncoid-pfsense.service.
+# Full architecture + restore procedures + prom-side rebuild steps:
+#   docs/wiki/infrastructure/pfsense-backup.md
+#
+# Runs hourly, reads the status file via the read-only virtiofs mount, and
+# emits a distinctive log line on:
 #   - missing status file
 #   - status file older than maxAgeHours
 #   - exit_code != 0 from the last syncoid run
