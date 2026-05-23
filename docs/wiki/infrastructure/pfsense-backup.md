@@ -187,9 +187,15 @@ Should prom ever be reinstalled or moved, redo this sequence:
 # 1. Install sanoid + syncoid
 apt install -y sanoid
 
-# 2. Create destination dataset
+# 2. Create destination dataset PARENT only — do NOT pre-create
+#    nvmeprom/backup/pfsense itself. Let syncoid create the wrapper
+#    as part of the recursive replication. Pre-creating it causes
+#    syncoid to refuse forever ("Cowardly refusing to destroy your
+#    existing target") because the hand-created wrapper has no
+#    snapshot matching the source pool. See "Known footguns" →
+#    "Initial `zfs create` of the target was suboptimal" for the
+#    2026-05-24 incident this caused.
 zfs create -o compression=lz4 -o atime=off nvmeprom/backup
-zfs create -o compression=lz4 -o atime=off nvmeprom/backup/pfsense
 
 # 3. Generate keypair (ed25519, no passphrase)
 ssh-keygen -t ed25519 -N "" \
@@ -273,17 +279,36 @@ ls /nvmeprom/backup/pfsense/ROOT/default/cf/
 
 ### Force a fresh full pull (discard target state)
 
-If snapshot chains get out of sync (rare), nuke and start over:
+If snapshot chains get out of sync (rare), nuke and start over.
+
+**Critical:** `zfs destroy -r` on the wrapper will fail while doc2's
+virtiofs share is open (`pool or dataset is busy`). And worse — the
+destroy is partially atomic: it destroys all CHILD SNAPSHOTS first,
+then errors on the busy mount. You're left with empty target datasets
+and no common ancestor — every subsequent run fails with "no snapshots
+matching." Always shut doc2 down first.
+
+After destroy, do NOT pre-create `nvmeprom/backup/pfsense` — let
+syncoid build the wrapper itself so it gets a proper snapshot base.
 
 ```sh
+# 1. Stop doc2 to release virtiofsd handles on the share.
+ssh root@192.168.1.12 'qm shutdown 114 --timeout 60 && qm status 114'
+
+# 2. Destroy + re-pull from source. (Note: NO `zfs create` after destroy.)
 ssh root@192.168.1.12 '
-  zfs destroy -r nvmeprom/backup/pfsense  # destroys all received snapshots
-  zfs create -o compression=lz4 -o atime=off nvmeprom/backup/pfsense
-  syncoid --recursive --exclude=pfSense/var/db/ntopng \
-    --sshkey=/root/.ssh/id_ed25519_syncoid_pfsense \
-    root@192.168.1.1:pfSense nvmeprom/backup/pfsense
+  zfs destroy -r nvmeprom/backup/pfsense
+  systemctl start syncoid-pfsense.service
+  cat /nvmeprom/backup/pfsense/.syncoid-status.json
 '
+
+# 3. Bring doc2 back; virtiofs reattaches at VM start.
+ssh root@192.168.1.12 'qm start 114'
 ```
+
+Expect ~1-2 min downtime on doc2 and ~30-90s for the ~1.5GB pull on
+LAN. The status file should show `ok: true, exit_code: 0` afterwards;
+the doc2 watchdog reports `PFSENSE-BACKUP OK` on its next tick.
 
 ### Inspect a specific historical snapshot
 
@@ -332,9 +357,21 @@ The watchdog also recognises the "placeholder" state (the JSON file written befo
 
 The actual replicated data lives in *children* (`nvmeprom/backup/pfsense/ROOT/default`, etc.). The parent `nvmeprom/backup/pfsense` exists only to host the status file and the share point. **Do not `zfs destroy nvmeprom/backup/pfsense` without `-r`** — and if you `-r`, you've thrown the whole backup away. Sanoid's prune only ever removes individual snapshots, never datasets.
 
-### Initial `zfs create` of the target was suboptimal — syncoid warned
+### Initial `zfs create` of the target was a BUG, not a warning — fixed 2026-05-24
 
-The first run from a hand-created target dataset prints `Cowardly refusing to destroy your existing target`. This is harmless — syncoid proceeds with each child dataset replicating into its own newly-created child target. The wrapping dataset stays empty (just hosts the status file). If you want the truly-canonical setup, the recommended sequence is to NOT pre-create the target — let syncoid create it. But once it's working, leave it alone.
+**Original framing:** the first run from a hand-created target dataset prints `Cowardly refusing to destroy your existing target`. Believed harmless — syncoid proceeds with each child dataset replicating into its own newly-created child target. The wrapping dataset stays empty (just hosts the status file).
+
+**Reality (discovered 2026-05-24):** syncoid exits with `rc=2` on every single run because the wrapper refuses. The doc2 watchdog reads `exit_code != 0` from the status JSON and pages every hour. Result: continuous alert flapping starting the very first scheduled run. The `homelab.monitoring.errorPatterns` route doesn't suppress it — `pfsense-backup-watchdog` is wired with `threshold = 0` (single-shot terminal) precisely because each watchdog tick logs the failure exactly once before exiting.
+
+**Two-part fix in place:**
+
+1. **Rebuild recipe** (above, step 2) no longer pre-creates `nvmeprom/backup/pfsense`. Only `nvmeprom/backup` is created. syncoid creates the wrapper itself during the first recursive replication and gets a proper snapshot base.
+
+2. **Safety net in the syncoid wrapper script** (`/usr/local/sbin/syncoid-pfsense.sh` on prom): if syncoid exits 2 AND the LAST critical-level line in its output matches `Cowardly refusing to destroy your existing target`, the wrapper masks `rc` to 0 and prefixes `last_error` with `(masked benign wrapper refusal)`. This catches any future drift back into the pre-create state without re-triggering the alert storm.
+
+**Incident detail (2026-05-24 morning):** the original watchdog noise was a sequence of warnings escalating to my own destructive intervention that made it worse. I ran `zfs destroy -r nvmeprom/backup/pfsense` while doc2's virtiofs share was holding the mounts open. The destroy is **partially atomic** — it destroyed every snapshot in the tree FIRST, then errored on the busy mounts. That left every child dataset with data but zero snapshots, breaking the incremental chain completely. Recovery required `qm shutdown 114` → destroy (now successful) → fresh full pull (NOT pre-creating) → `qm start 114`. ~2 min doc2 downtime, ~80s for the ~1.5GB initial pull on LAN. Total backup downtime: ~5 min.
+
+**Lesson:** always shut doc2 down before any destructive operation on `nvmeprom/backup/pfsense` or its children. virtiofsd holds the shared-dir open as its root inode and won't release on `umount -f` — only VM shutdown drops the handle.
 
 ### virtiofs share changes require VM restart (qm stop + qm start, not `reboot`)
 
