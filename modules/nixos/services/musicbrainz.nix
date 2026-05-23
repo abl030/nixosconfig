@@ -349,9 +349,17 @@
 
         if [ -n "$codebase" ] && [ -n "$db_seq" ] && [ "$((codebase - db_seq))" = 1 ]; then
           echo "[mb-replication] auto-applying schema upgrade $db_seq -> $codebase"
+          # `carton exec` provides the local::lib perl environment that
+          # upgrade.sh's perl shells (DBDefs probe, admin/psql,
+          # UpdateDatabasePrivileges.pl) need. DB_SCHEMA_SEQUENCE/
+          # REPLICATION_TYPE are passed explicitly so upgrade.sh skips the
+          # perl probe entirely — that probe is the part that fails first
+          # in a broken-perl-env container; REPLICATION_TYPE=2 = RT_MIRROR.
           if ${pkgs.podman}/bin/podman exec \
             -e SKIP_EXPORT=1 -e SKIP_VACUUM=0 \
-            musicbrainz-musicbrainz-1 ./upgrade.sh; then
+            -e "DB_SCHEMA_SEQUENCE=$codebase" \
+            -e REPLICATION_TYPE=2 \
+            musicbrainz-musicbrainz-1 carton exec -- ./upgrade.sh; then
             echo "[mb-replication] schema upgrade succeeded; retrying replication"
             retry_out=$(${pkgs.podman}/bin/podman exec musicbrainz-musicbrainz-1 replication.sh 2>&1) || true
             printf '%s\n' "$retry_out"
