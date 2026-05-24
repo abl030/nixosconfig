@@ -13,11 +13,21 @@
 }: let
   cfg = config.homelab.services.komga;
 
-  # Path on the host (NFS-mounted) that holds the magazine archive.
-  # We bind this read-only into the service namespace so the service can
-  # scan and serve files, but cannot mutate the canonical archive (Komga
-  # stores its index + thumbnails inside its own stateDir).
+  # Paths on the host (NFS-mounted) that Komga scans and serves.
+  # We bind these read-only into the service namespace -- the service can
+  # scan + serve files but cannot mutate them. Komga writes its own
+  # index/thumbnails/DB inside cfg.dataDir.
+  #
+  # * magazines -- owned by gwm-archiver, marker-batch, komga-sync (write
+  #   side via REST, not file-system).
+  # * Calibre LIbrary -- owned by Calibre on the user's desktop. Komga is
+  #   strictly read-only; if we ever want OPDS upload or in-Komga metadata
+  #   edits, that fights Calibre's metadata management and we revisit.
+  #   Note the literal capital-I "LIbrary" in the path -- that's the
+  #   actual directory name on disk, not a typo.
   magazinesHost = "/mnt/data/Media/Magazines";
+  calibreHost = "/mnt/data/Media/Books/Calibre LIbrary";
+  libraryRoots = [magazinesHost calibreHost];
 in {
   options.homelab.services.komga = {
     enable = lib.mkEnableOption "Komga magazine/comic/ebook server (native NixOS module)";
@@ -81,13 +91,13 @@ in {
       wants = ["mnt-data.mount"];
 
       serviceConfig = {
-        # Narrow /mnt visibility: only the magazines tree + stateDir.
+        # Narrow /mnt visibility: only the library roots + stateDir.
         # Per `.claude/rules/nixos-service-modules.md` (Sandbox patterns):
         # BindReadOnlyPaths / BindPaths are fail-loud (status=226/NAMESPACE)
         # if the source is unavailable, so a stale NFS gets caught
         # immediately instead of presenting an empty library hours later.
         TemporaryFileSystem = "/mnt";
-        BindReadOnlyPaths = [magazinesHost];
+        BindReadOnlyPaths = libraryRoots;
         # stateDir lives under /mnt/virtio (virtiofs), so it'd also be
         # masked by the TemporaryFileSystem above without this bind.
         # rw — Komga writes its sqlite DB, thumbnails, search index here.
@@ -172,6 +182,9 @@ in {
       # NFS watchdog — restart Komga if the bind-source mount goes stale.
       # The 5min-interval timer + service restart is the canonical pattern
       # used by paperless, immich, etc.
+      # magazinesHost is a canary for the whole /mnt/data NFS mount; both
+      # library roots live on it, so a stale stat on one means both bind
+      # mounts are toast and the unit needs a restart either way.
       nfsWatchdog.komga.path = magazinesHost;
     };
   };
