@@ -27,7 +27,12 @@
   #   actual directory name on disk, not a typo.
   magazinesHost = "/mnt/data/Media/Magazines";
   calibreHost = "/mnt/data/Media/Books/Calibre LIbrary";
-  libraryRoots = [magazinesHost calibreHost];
+  # systemd parses BindReadOnlyPaths values as whitespace-separated within
+  # each assignment, so paths containing literal spaces have to be escaped
+  # with \x20 in the rendered unit. systemd unescapes back to a real space
+  # before resolving the path on disk, so the filesystem lookup is fine.
+  escapeSystemdPath = lib.replaceStrings [" "] ["\\x20"];
+  libraryRoots = map escapeSystemdPath [magazinesHost calibreHost];
 in {
   options.homelab.services.komga = {
     enable = lib.mkEnableOption "Komga magazine/comic/ebook server (native NixOS module)";
