@@ -44,12 +44,6 @@
       repoDir = "/home/abl030/nixosconfig";
     };
     services = {
-      githubRunner = {
-        enable = true;
-        repoUrl = "https://github.com/abl030/nixosconfig";
-        tokenFile = "/var/lib/github-runner/registration-token";
-        runnerName = "proxmox-bastion";
-      };
       # Immich moved to doc2 (2026-02-25)
       immich.enable = false;
 

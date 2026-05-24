@@ -103,7 +103,6 @@ networking.interfaces.ens18.mtu = 1400;
 networking.firewall.enable = false;
 homelab.cache.enable = true;
 homelab.ci.rollingFlakeUpdate.enable = true;
-homelab.services.githubRunner.enable = true;
 ```
 
 ---
