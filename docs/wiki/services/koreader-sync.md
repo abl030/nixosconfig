@@ -17,9 +17,9 @@ the OPDS catalog is also the sync backend — no separate `kosync-py`/
 End result: read 40 % of a magazine on the phone, open it on a Boox, KOReader
 silently jumps to page N. No taps, no manual "Sync now".
 
-## The four landmines
+## The landmines
 
-Bringing this up from zero hit four non-obvious failure modes in sequence.
+Bringing this up from zero hit several non-obvious failure modes in sequence.
 Future-you needs to know each one or you'll re-debug the same wall:
 
 ### 1. Komga needs `hashKoreader=true` per library
@@ -94,12 +94,102 @@ you made meanwhile.
 Termux's `am force-stop` is hijacked; the system `am` requires
 `FORCE_STOP_PACKAGES` permission you don't have without root.
 
+### 5. OPDS `raw_names = true` + Komga = garbage filenames
+
+Komga's OPDS download endpoint serves files with a `Content-Disposition`
+header whose filename is wrapped in RFC 2047 MIME Q-encoding even when the
+filename is plain ASCII: `=?UTF-8?Q?05_GW_MAY_2026-WEB.epub?=`.
+
+KOReader's "raw_names" code path takes the Content-Disposition string
+literally and doesn't decode the MIME wrapper, so the downloaded file
+lands as `=?UTF-8?Q?...?=` (literal). The file is still valid EPUB but
+nothing recognises the extension and the kosync binary-hash lookup fails.
+
+**Don't set `raw_names = true` on the Komga OPDS catalog entry.** Let
+KOReader fall back to title-based renaming — the default. If you've
+inherited an existing catalog entry with `raw_names = true`, strip it.
+
+### 6. F-Droid build of KOReader has user patches DISABLED
+
+`frontend/userpatch.lua` short-circuits on the F-Droid flavor:
+
+```lua
+if isAndroid and android.prop.flavor == "fdroid" then
+    return userpatch -- allows to use applyPatches as a no-op on F-Droid flavor
+end
+```
+
+F-Droid policy forbids loading arbitrary unbuilt Lua at runtime, so they
+ship a stub. Anything in `koreader/patches/*.lua` will never run.
+
+**If you need user patches (e.g. the rotation_map override for Boox below),
+install the regular APK from https://github.com/koreader/koreader/releases
+instead of (or alongside) the F-Droid build.** Different package IDs
+(`org.koreader.launcher` vs `.fdroid`), they coexist, and they share the
+same shared-storage data dir (`/storage/emulated/0/koreader/`) so settings
++ catalogs + the patch carry over automatically. Uninstall the F-Droid one
+afterwards so you can't open the wrong icon by accident.
+
+### 7. Boox firmware overrides device orientation
+
+KOReader on Android is hardcoded `hasGSensor = no` in
+`frontend/device/android/device.lua` — it never polls the orientation
+sensor. It restores `closed_rotation_mode` from `settings.reader.lua` at
+launch and reacts to Android `APP_CMD_CONFIG_CHANGED` events thereafter.
+
+Boox firmware ships a per-app **"Force to follow system orientation"**
+toggle. When ON for KOReader, the firmware locks orientation for the app
+regardless of system rotation events — KOReader never sees the rotation
+change. Symptom: tablet is in landscape, but KOReader opens in portrait
+and stays there.
+
+**Fix on the Boox:** Apps → ☰ (top right) → App Management → **Force to
+follow system orientation** → KOReader: **disable**. Path varies slightly
+by firmware. Once off, KOReader picks up rotation changes via Android
+config-change events.
+
+### 8. Boox volume-rocker layout breaks KOReader's default rotation_map
+
+KOReader has a `rotation_map` (`frontend/device/input.lua`) that swaps
+page-turn keycodes when the screen rotates, so the *physical* bottom
+button keeps producing "page forward" regardless of orientation. For
+several Boox models (`go7`, `gocolor7`, `hibreak`, `moaanmix7`, etc.,
+hardcoded in `frontend/device/android/device.lua:247`) KOReader calls
+`disableRotationMap()` because Android already rotates the events for
+those models.
+
+The Boox Page is **not** in that hardcoded list, so KOReader's default
+swap applies — but the swap polarity is wrong for the Page's volume
+rocker layout. With the default, pressing the now-bottom physical button
+in upside-down rotation produces "page back" instead of "page forward".
+
+**Fix:** drop a user patch at `koreader/patches/2-enable-rotation-map.lua`
+that replaces `rotation_map[UPSIDE_DOWN]` with an empty table (no swap):
+
+```lua
+local Device = require("device")
+local framebuffer = require("ffi/framebuffer")
+Device.input.rotation_map = {
+    [framebuffer.DEVICE_ROTATED_UPRIGHT]           = {},
+    [framebuffer.DEVICE_ROTATED_CLOCKWISE]         = { LPgBack="LPgFwd", LPgFwd="LPgBack", RPgBack="RPgFwd", RPgFwd="RPgBack" },
+    [framebuffer.DEVICE_ROTATED_UPSIDE_DOWN]       = {},
+    [framebuffer.DEVICE_ROTATED_COUNTER_CLOCKWISE] = { LPgBack="LPgFwd", LPgFwd="LPgBack", RPgBack="RPgFwd", RPgFwd="RPgBack" },
+}
+```
+
+Requires the non-F-Droid build (see landmine #6). Other Boox models may
+need different polarities — test by pressing the now-bottom physical
+button in upside-down: it should produce page forward. If it goes back,
+flip whichever entry you need.
+
 ## End-to-end headless setup for a new device
 
-Prereqs: SSH access to the phone/tablet via Termux (`ssh phone`,
+Prereqs: SSH access to the phone/tablet via Termux (`ssh <alias>`,
 `termux-setup-storage` already granted), KOReader installed, on version
 **2026.03 or newer** (older versions silently drop progress pulls from
 Komga — see [koreader#14596](https://github.com/koreader/koreader/issues/14596)).
+For a Boox or any device where you also want the rotation_map patch,
+install the **non-F-Droid** KOReader APK (see landmine #6).
 
 ### 1. Mint a Komga API key for this device
 
@@ -221,6 +311,13 @@ practice this never bites because the next page turn re-triggers a push.
 6. **"Sync works for one EPUB but not another"** — the failing EPUB came
    from somewhere other than Komga (different binary hash). Re-download
    from Komga's OPDS to get the canonical file.
+7. **"Downloaded file is named `=?UTF-8?Q?...?=`"** — landmine #5. Strip
+   `raw_names = true` from the Komga OPDS catalog entry.
+8. **"User patch doesn't load"** — landmine #6. Probably the F-Droid build;
+   patches are no-ops there. Switch to the regular APK.
+9. **"KOReader opens in the wrong orientation on Boox"** — landmine #7.
+   Boox "Force to follow system orientation" is on for KOReader; disable
+   it in the Boox firmware settings.
 
 ## How we figured this out (chronological)
 
@@ -242,6 +339,30 @@ For posterity. Future debugging shortcuts.
 5. Total time from "should be a 5-min job" to working: ~3 hours, across
    ~8 false leads. Most of the time was on the cached-process problem (#2);
    second most on assuming standard kosync auth (#3).
+
+### Adding the Boox Page (second device)
+
+Most of the same recipe worked first time on the Boox thanks to the wiki
+above, but it added three new landmines (#5–#8 above):
+
+1. Inherited Komga OPDS entry had `raw_names = true` → downloads landed as
+   `=?UTF-8?Q?05_GW_MAY_2026-WEB.epub?=` (literal). Removed the flag.
+2. Wrote a user patch to fix the volume-rocker rotation map; nothing
+   happened. Discovered the F-Droid build of KOReader silently disables
+   the patch system. Installed the regular APK from GitHub releases,
+   uninstalled the F-Droid one.
+3. KOReader was opening in stale orientation regardless of how the
+   tablet was held. Root cause: Boox's "Force to follow system
+   orientation" was overriding KOReader's rotation handling. Disabling
+   it fixed the screen, and then the rotation_map patch needed its
+   polarity tweaked for the Boox Page's volume-rocker layout (final
+   state: empty swap at UPSIDE_DOWN, default swaps for landscape).
+
+Once those three were resolved, kosync worked end-to-end in <5 minutes —
+KOReader pulled the phone's last-read position automatically, pushed new
+progress back, and the Komga webreader picked it up too (Komga bridges
+its native read-progress store into the kosync store, contrary to what
+early research suggested).
 
 ## See also
 
