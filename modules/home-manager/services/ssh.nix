@@ -62,6 +62,18 @@ in {
             };
           };
 
+          # Termux on the Boox e-reader. LAN-only for now (no tailnet); change
+          # `hostname` to the tailnet name if the Boox ever joins Tailscale.
+          boox = {
+            hostname = "192.168.1.113";
+            user = "u0_a133";
+            port = 8022;
+            extraOptions = {
+              ServerAliveInterval = "30";
+              ServerAliveCountMax = "3";
+            };
+          };
+
           # Global Defaults (merged at the end)
           "*" = {
             forwardAgent = true; # Useful for git
