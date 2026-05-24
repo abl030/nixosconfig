@@ -431,6 +431,26 @@ def find_sidecars(root: Path) -> list[Path]:
 YEAR_RE = re.compile(r"/(?P<kind>GAW|WVJ)/(?P<year>\d{4})/")
 
 
+def ensure_hashkoreader() -> None:
+    # Komga needs `hashKoreader=true` per library to populate `fileHashKoreader`
+    # (partial-md5 over the file head/tail). Without it the /koreader/syncs/progress
+    # endpoint 404s on every KOReader push because no book matches the hash.
+    # See docs/wiki/services/koreader-sync.md.
+    status, libs = get("/api/v1/libraries")
+    if status != 200 or not isinstance(libs, list):
+        return
+    for lib_ in libs:
+        if lib_.get("hashKoreader"):
+            continue
+        lid, name = lib_["id"], lib_["name"]
+        s, _ = patch(f"/api/v1/libraries/{lid}", {"hashKoreader": True})
+        if s != 204:
+            log(f"WARN  hashKoreader enable failed for {name}: {s}")
+            continue
+        log(f"ok   hashKoreader enabled for {name}; triggering analyze")
+        http("POST", f"/api/v1/libraries/{lid}/analyze")
+
+
 def main() -> int:
     if not API_KEY:
         log("KOMGA_API_KEY not set")
@@ -444,6 +464,8 @@ def main() -> int:
     if status != 200:
         log(f"Komga unreachable: GET /api/v1/libraries -> {status}")
         return 1
+
+    ensure_hashkoreader()
 
     sidecars = find_sidecars(SIDECAR_ROOT)
     log(f"Found {len(sidecars)} sidecars under {SIDECAR_ROOT}")

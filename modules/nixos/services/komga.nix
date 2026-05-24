@@ -1,7 +1,10 @@
 # Komga magazine library (https://magazines.ablz.au).
-# See docs/wiki/services/komga.md for the why/what/gotchas write-up, and
+# See docs/wiki/services/komga.md for the why/what/gotchas write-up,
 # docs/wiki/services/magazines.md for how this fits into the overall
-# magazine archive system (gwm-archiver / komga-sync / EPUB pipeline).
+# magazine archive system (gwm-archiver / komga-sync / EPUB pipeline),
+# and docs/wiki/services/koreader-sync.md for cross-device read-position
+# sync (Komga serves the kosync wire protocol at /koreader/*; libraries
+# need `hashKoreader=true`, which komga-sync.service ensures daily).
 {
   config,
   lib,

@@ -28,6 +28,7 @@ TOC instead of horrible multi-column raster scroll.
 | **The broken pre-2017 winetitles archive** | upstream | 150 GAW + 41 WVJ issues are 0-byte server-side; documented for the publisher follow-up | [gwm-archiver-broken-archive.md](./gwm-archiver-broken-archive.md) |
 | **Komga library** | doc2, magazines.ablz.au | Web UI + OPDS + reader for the PDF/EPUB tree | [komga.md](./komga.md) |
 | **Komga metadata sync** | doc2 daily oneshot | PATCHes Komga book/series metadata from the JSON sidecars via REST | [komga-sync.md](./komga-sync.md) |
+| **KOReader cross-device sync** | client-side (phone/Boox) | Read-position sync via Komga's `/koreader` endpoint, auto-pull on open, auto-push on close | [koreader-sync.md](./koreader-sync.md) |
 | **PDF → EPUB pipeline** | epi background batch | Marker + post-processor + batch orchestrator. Produces per-issue EPUBs from the magazine PDFs | [magazine-epub-pipeline.md](./magazine-epub-pipeline.md) |
 
 ## Daily flow (no human action needed)

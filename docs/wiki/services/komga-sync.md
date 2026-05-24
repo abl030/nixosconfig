@@ -15,6 +15,13 @@ links to the publisher's website), and Komga's REST API accepts metadata
 PATCHes with field-level `*Lock=true` so library refreshes don't stomp
 them. This script is the bridge — see the field mapping below.
 
+It also owns a small side-task: **ensure every library has
+`hashKoreader=true`** so KOReader cross-device progress sync keeps working.
+See [koreader-sync.md](./koreader-sync.md) for why this matters and the
+client-side setup. The `ensure_hashkoreader()` step in `komga-sync.py` is
+a no-op when the flag is already set; on a brand-new library it flips the
+flag and triggers an analyze so the partial-MD5 index gets built.
+
 ## Field mapping — JSON sidecar → Komga
 
 ### Per-book (`PATCH /api/v1/books/{id}/metadata`)
@@ -126,4 +133,6 @@ python3 scripts/komga-sync.py
 
 * [magazines.md](./magazines.md) — overview hub
 * [komga.md](./komga.md) — the Komga deploy
+* [koreader-sync.md](./koreader-sync.md) — cross-device progress sync (this
+  script ensures the server-side `hashKoreader` flag for it)
 * Komga REST OpenAPI: https://komga.org/docs/openapi/

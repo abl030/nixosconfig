@@ -187,7 +187,8 @@ during bootstrap → **rotate it** at convenience:
 ## See also
 
 * [magazines.md](./magazines.md) — overview hub
-* [komga-sync.md](./komga-sync.md) — metadata sync via REST
+* [komga-sync.md](./komga-sync.md) — metadata sync via REST (also auto-enables `hashKoreader` on every library)
+* [koreader-sync.md](./koreader-sync.md) — cross-device read-position sync via Komga's `/koreader` endpoint
 * [magazine-epub-pipeline.md](./magazine-epub-pipeline.md) — why we make EPUBs
 * Komga official docs: https://komga.org/docs/
 * Komga OpenAPI: https://komga.org/docs/openapi/
