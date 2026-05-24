@@ -52,16 +52,46 @@ own the write side; Komga only consumes.
 
 ## Libraries
 
-Two libraries configured via REST API on first deploy:
+Three libraries configured via REST API on first deploy:
 
-| Library | ID (env-specific) | Root | Books |
-|---|---|---|---|
-| Grapegrower & Winemaker | `0QFB0VEFMZBE3` | `/mnt/data/Media/Magazines/GAW` | 107 PDFs (→ 214 once EPUBs land) |
-| Wine & Viticulture Journal | `0QFB0WAJ0Z3KF` | `/mnt/data/Media/Magazines/WVJ` | 28 PDFs (→ 56) |
+| Library | ID (env-specific) | Root | Books | Source of truth |
+|---|---|---|---|---|
+| Grapegrower & Winemaker | `0QFB0VEFMZBE3` | `/mnt/data/Media/Magazines/GAW` | 107 PDFs (→ 214 once EPUBs land) | gwm-archiver + marker-batch |
+| Wine & Viticulture Journal | `0QFB0WAJ0Z3KF` | `/mnt/data/Media/Magazines/WVJ` | 28 PDFs (→ 56) | wvj-archive + marker-batch |
+| Calibre Library | `0QFQQFTD08FRG` | `/mnt/data/Media/Books/Calibre LIbrary` | 273 (228 EPUB + 45 PDF, 3.2 GB) | Calibre on the desktop |
 
 Settings used at creation: `scanPdf=true`, `scanEpub=true`,
 `scanForceModifiedTime=true`, `scanInterval=DAILY`, `scanOnStartup=true`,
 `importLocalArtwork=true`, `analyzeDimensions=true`, `hashFiles=true`.
+`hashKoreader` is set to true at creation (Calibre Library) or
+auto-flipped on next komga-sync run (the magazine libraries pre-date
+the [koreader-sync.md](./koreader-sync.md) work).
+
+### Calibre Library specifics
+
+- **Layout:** Calibre stores each book at
+  `<Author>/<Title> (<calibre_id>)/<Book>.{epub,pdf}` plus `cover.jpg`
+  and `metadata.opf`. Komga creates a series per `Title (id)`
+  directory; Author dirs become parent series. Each leaf series has
+  exactly one book.
+- **Read-only by design.** The Komga unit binds the Calibre tree with
+  `BindReadOnlyPaths` -- Calibre on the desktop is the canonical owner
+  of metadata, conversions, and the OPF sidecar. Komga's only writes
+  are inside its own stateDir (H2 DB, thumbnails, search index). If
+  we ever want OPDS upload or Komga-side metadata edits, that fights
+  Calibre's metadata management and we'd need to revisit. For now,
+  Komga is purely a serve-side for OPDS access to KOReader on the
+  Boox/phone.
+- **Path has a literal space in `Calibre LIbrary`** (capital I in
+  "LIbrary", that's the actual directory name). systemd
+  `BindReadOnlyPaths` parses each line as whitespace-separated, so
+  paths with spaces must be **double-quoted in the value** -- the
+  `\x20` escape is NOT honoured for path entries (only for
+  ExecStart-style args). Module handles this via `quotePathIfSpaced`.
+- **KOReader sync works out of the box.** The library was created
+  with `hashKoreader=true`, so partial-MD5 hashes are populated as
+  Komga analyzes each book. KOReader on Boox/phone can pull and push
+  progress for any Calibre EPUB the same way it does for magazines.
 
 ## Surprising facts
 
@@ -122,9 +152,13 @@ fully visible. Our module wraps the unit in:
 
 ```nix
 TemporaryFileSystem = "/mnt";
-BindReadOnlyPaths = [ "/mnt/data/Media/Magazines" ];
+BindReadOnlyPaths = libraryRoots;     # magazines + Calibre Library
 BindPaths = [ cfg.dataDir ];          # /mnt/virtio/komga, rw
 ```
+
+`libraryRoots` is a list assembled in the module's `let` block.
+Adding a new library root is a one-line append. Paths containing
+whitespace must be double-quoted (handled by `quotePathIfSpaced`).
 
 Per the [Sandbox patterns rule](../nixos-service-modules.md):
 
