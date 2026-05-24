@@ -55,3 +55,39 @@ Hosts to bootstrap (everything with `homelab.update.enable = true`, which is the
 - If a host fires `(claude triage unavailable…)` more than once → bootstrap that host.
 - If diagnoses are systematically wrong → tune `diagnoseSystemPrompt` in `update.nix`.
 - If we ever want to act on diagnoses (not just read them) → see the conversation history; we explicitly chose **not** to do this because the autofix path crosses our least-privilege rules.
+
+## 2026-05-25 — diagnose was silently blind to activation-phase failures
+
+**Symptom:** epi's `nixos-upgrade.service` failed at 01:18 AWST (avahi PID-file
+race during activation, `switch-to-configuration` returned 4). `nixos-upgrade-diagnose.service`
+fired on the `OnFailure=` trigger but its Loki line was just:
+
+> `[Diagnose] No failure log at /var/lib/nixos-upgrade/last-failure.log; nothing to do.`
+
+No claude triage, no Gotify ping, no idea anything was wrong until the next morning.
+
+**Root cause:** `smartUpgrade` was writing the failure log with plain `cp` from
+a `mktemp` source. mktemp creates files with mode `0600 root:root`, and `cp`
+preserves the source mode — so the persisted log was unreadable by the diagnose
+unit's `User=abl030`. The script's `[ -r "$log_file" ]` guard returned false,
+and the misleading "No failure log" branch ran. **The file was there the whole
+time, just unreadable.**
+
+**Fix in `daa705d2`:**
+
+1. Swap `cp` → `install -m 0644` in the smartUpgrade failure branch so the
+   persisted log is world-readable.
+2. Split the diagnose-script guard into three explicit branches: missing,
+   present-but-unreadable (now loud + named), and OK.
+3. Add a **`journalctl -u nixos-upgrade.service` fallback** for the missing
+   branch. This covers cases where smartUpgrade exits before reaching the
+   failure-write branch (e.g. `set -e` triggered earlier in the script).
+4. Add `SupplementaryGroups=systemd-journal` to the diagnose unit so the
+   journalctl fallback works under `User=` (which drops normal supplementary
+   groups including `wheel`).
+5. Tag the diagnosis line in Loki with `source=<log_file|journalctl|perm-error>`
+   so we can tell at a glance which path fired.
+
+**Look for in Loki:** `{unit="nixos-upgrade-diagnose.service"} |~ "source="`
+gives you the route each diagnosis took. `source=perm-error` should now be
+unreachable — if it ever fires, smartUpgrade regressed the mode again.
