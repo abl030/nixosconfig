@@ -107,9 +107,24 @@ in {
     diagnoseScript = pkgs.writeShellScript "nixos-upgrade-diagnose" ''
       set -uo pipefail
       log_file=/var/lib/nixos-upgrade/last-failure.log
-      if [ ! -r "$log_file" ]; then
-        echo "[Diagnose] No failure log at $log_file; nothing to do."
-        exit 0
+      if [ ! -e "$log_file" ]; then
+        # No log file written → smartUpgrade either exited before reaching the
+        # failure branch (rare, set -e crash) OR an earlier failure path was
+        # taken. Fall back to journalctl for the failed unit invocation.
+        echo "[Diagnose] No failure log at $log_file; falling back to journalctl tail."
+        log_tail="$(${pkgs.systemd}/bin/journalctl -u nixos-upgrade.service -n 200 --no-pager 2>&1 || true)"
+        log_source="journalctl"
+      elif [ ! -r "$log_file" ]; then
+        # File exists but the diagnose user can't read it. This was the
+        # epimetheus 2026-05-25 bug — root-owned 0600 from cp of a mktemp.
+        # We now install -m 0644 in smartUpgrade so this branch should be
+        # unreachable; keep it as a loud guard.
+        echo "[Diagnose] $log_file exists but is not readable as $(id -un) — perms bug, see modules/nixos/autoupdate/update.nix."
+        log_tail="(failure log present but unreadable as $(id -un); fix perms in smartUpgrade)"
+        log_source="perm-error"
+      else
+        log_tail="$(${pkgs.coreutils}/bin/tail -n 200 "$log_file")"
+        log_source="$log_file"
       fi
 
       diff_section="(no local checkout — diff unavailable on this host)"
@@ -121,8 +136,6 @@ in {
           break
         fi
       done
-
-      log_tail="$(${pkgs.coreutils}/bin/tail -n 200 "$log_file")"
 
       prompt="Recent git diff (most likely root cause if classification=actionable):
 
@@ -148,7 +161,7 @@ in {
       $(printf '%s' "$log_tail" | ${pkgs.gnused}/bin/sed 's/[[:cntrl:]]/ /g')"
       fi
 
-      echo "[Diagnose] === diagnosis for ${config.networking.hostName} ==="
+      echo "[Diagnose] === diagnosis for ${config.networking.hostName} (source=$log_source) ==="
       printf '%s\n' "$summary"
       echo "[Diagnose] === end diagnosis ==="
 
@@ -283,7 +296,10 @@ in {
         log "--- UPDATE FAILED (Exit Code $UPDATE_EXIT_CODE) ---"
         log "Check journal above for nixos-rebuild errors."
         /run/current-system/sw/bin/mkdir -p /var/lib/nixos-upgrade
-        /run/current-system/sw/bin/cp "$log_file" /var/lib/nixos-upgrade/last-failure.log || true
+        # install -m 0644 so the diagnose unit (runs as a non-root user) can
+        # actually read the log. Plain `cp` preserves mktemp's 0600 mode and
+        # was the silent root cause of "No failure log" diagnoses (epi 2026-05-25).
+        /run/current-system/sw/bin/install -m 0644 "$log_file" /var/lib/nixos-upgrade/last-failure.log || true
         ${
         if cfg.diagnose.enable
         then ""
@@ -420,6 +436,10 @@ in {
       serviceConfig = {
         Type = "oneshot";
         User = diagnoseUser;
+        # Allow journalctl fallback when last-failure.log isn't present.
+        # User= drops supplementary groups; systemd-journal grants read access
+        # to /var/log/journal regardless of wheel membership.
+        SupplementaryGroups = ["systemd-journal"];
         # Read the failure log written by root.
         ReadOnlyPaths = ["/var/lib/nixos-upgrade"];
         # Bounded — never longer than the failure log is interesting for.
