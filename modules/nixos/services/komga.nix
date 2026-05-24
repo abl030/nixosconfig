@@ -28,11 +28,15 @@
   magazinesHost = "/mnt/data/Media/Magazines";
   calibreHost = "/mnt/data/Media/Books/Calibre LIbrary";
   # systemd parses BindReadOnlyPaths values as whitespace-separated within
-  # each assignment, so paths containing literal spaces have to be escaped
-  # with \x20 in the rendered unit. systemd unescapes back to a real space
-  # before resolving the path on disk, so the filesystem lookup is fine.
-  escapeSystemdPath = lib.replaceStrings [" "] ["\\x20"];
-  libraryRoots = map escapeSystemdPath [magazinesHost calibreHost];
+  # each assignment, so paths with literal spaces must be double-quoted
+  # per systemd.exec(5). The \x20 escape is NOT honoured for path entries
+  # (only for ExecStart-style arguments) -- systemd just strips the
+  # backslash and tries to open the literal "Calibrex20LIbrary".
+  quotePathIfSpaced = p:
+    if lib.hasInfix " " p
+    then "\"${p}\""
+    else p;
+  libraryRoots = map quotePathIfSpaced [magazinesHost calibreHost];
 in {
   options.homelab.services.komga = {
     enable = lib.mkEnableOption "Komga magazine/comic/ebook server (native NixOS module)";
