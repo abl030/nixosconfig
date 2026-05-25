@@ -333,8 +333,6 @@ views:
         - **Projected annual savings**: ${{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) | round(0) }} (12-mo LTS avg)
         - **Years to ROI**: {{ states('sensor.battery_140kwh_years_to_roi') }} years
         - **ROI date**: {{ states('sensor.battery_140kwh_roi_date') }}
-    - type: markdown
-      content: '### 📊 All Sizes — SoC Now'
     - type: custom:apexcharts-card
       chart_type: radialBar
       header:
@@ -407,29 +405,16 @@ views:
         color: '#4CAF50'
 
   # ===== §4. Plan Comparison =====
-  # Shows the delta BF - BFPlus. Positive = BFPlus is the cheaper plan (good,
-  # staying put saves money). Negative = BF would be cheaper (bad, consider
-  # switching). Coloured red when negative for instant visual signal.
-  - type: vertical-stack
-    cards:
-    - type: markdown
-      content: |
-        ## 🔄 BFPlus vs Business Flexi
-        *Negative = BF would be cheaper (red).  Positive = BFPlus saving you money.*
-    - type: markdown
-      content: |
-        {% set m = states('sensor.bfplus_advantage_monthly') | float(0) %}
-        {% set y = states('sensor.bfplus_advantage_yearly') | float(0) %}
-        ### This Month
-        <span style="color: {% if m < 0 %}#e74c3c{% else %}#2ecc71{% endif %}; font-size: 1.6em; font-weight: bold;">
-        {% if m < 0 %}-${{ (m | abs) | round(2) }} (BF cheaper){% else %}+${{ m | round(2) }} (BFPlus winning){% endif %}
-        </span>
-
-        BFPlus: ${{ states('sensor.monthly_net_cost') | float(0) | round(2) }} • BF: ${{ states('sensor.business_flexi_monthly_cost') | float(0) | round(2) }}
-
-        ### This Year (YTD)
-        <span style="color: {% if y < 0 %}#e74c3c{% else %}#2ecc71{% endif %}; font-size: 1.6em; font-weight: bold;">
-        {% if y < 0 %}-${{ (y | abs) | round(2) }} (BF cheaper){% else %}+${{ y | round(2) }} (BFPlus winning){% endif %}
-        </span>
-
-        BFPlus: ${{ states('sensor.yearly_net_cost') | float(0) | round(2) }} • BF: ${{ states('sensor.yearly_business_flexi_cost') | float(0) | round(2) }}
+  # Single delta table — BF cost minus BFPlus cost.
+  # Negative = BF would be cheaper (you're losing on BFPlus this period).
+  # Positive = BFPlus is winning.
+  - type: entities
+    title: BFPlus vs BF (negative = BF cheaper)
+    show_header_toggle: false
+    entities:
+    - entity: sensor.bfplus_advantage_monthly
+      name: Monthly
+      icon: mdi:scale-balance
+    - entity: sensor.bfplus_advantage_yearly
+      name: Yearly
+      icon: mdi:scale-balance
