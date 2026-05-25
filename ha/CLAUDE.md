@@ -115,8 +115,8 @@ ssh abl030@192.168.1.20 'sudo ha core check'
 
 - **Never edit `/config/*.yaml` on HAOS directly.** Always edit in this repo, commit, then deploy via SSH.
 - Drift check before any edit: `md5sum` the repo file and `ssh abl030@192.168.1.20 sudo md5sum /config/<file>` — they must match.
-- `ha core check` returns "unauthorized: missing or invalid API token" until `ha auth` is configured — TODO, see issue tracker.
-- Wiki entry with full deploy procedure: `docs/wiki/services/home-assistant-deploy.md` (TODO).
+- `ha core check` returns "unauthorized: missing or invalid API token" until `ha auth` is configured — workaround is the MCP `ha_call_service(homeassistant.check_config)`.
+- **Full wiki entry**: `docs/wiki/services/home-assistant-deploy.md` — covers SSH setup, tar-over-ssh (scp's SFTP is disabled), reload vs restart matrix, and the gotchas worth keeping for next session.
 
 ## Dashboard Management
 

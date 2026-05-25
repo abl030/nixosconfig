@@ -1,26 +1,80 @@
 # =====================================================================
-# Bedtime Line Sensors (Daily) — NEW PACKAGE
-# Creates numeric, once-per-day sensors for clean line charts.
-# Depends on your existing:
-#   input_datetime.last_brush_time_andy
-#   input_datetime.last_brush_time_meg
-# Nothing else in your config is modified.
+# Bedtime Hour — Daily snapshot + 30-day rolling avg + All-time avg
+#
+# Depends on input_datetime.last_brush_time_{andy,meg}, populated on
+# every brush by automation.oral_b_log_brushing_session_and_event
+# (defined in oral_b_package.yaml).
+#
+# Sensors exposed on the Dental Hub dashboard:
+#   sensor.{andy,meg}_bedtime_hour_daily         — last night's bedtime hour
+#   sensor.{andy,meg}_bedtime_hour_avg_30d       — rolling 30-day mean
+#   sensor.{andy,meg}_bedtime_hour_avg_alltime   — all-time mean
+#
+# All-time uses input_number accumulators (not the statistics platform)
+# so it survives HA restarts even when recorder retention is shorter than
+# our history. Updated nightly by automation.bedtime_accumulate_alltime.
 # =====================================================================
 
+input_number:
+  andy_bedtime_sum_alltime:
+    name: "Andy Bedtime Sum (All-Time)"
+    min: 0
+    max: 9999999
+    step: 0.01
+    unit_of_measurement: "hr"
+    icon: mdi:sigma
+  andy_bedtime_count_alltime:
+    name: "Andy Bedtime Count (All-Time)"
+    min: 0
+    max: 99999
+    step: 1
+    unit_of_measurement: "days"
+    icon: mdi:counter
+  meg_bedtime_sum_alltime:
+    name: "Meg Bedtime Sum (All-Time)"
+    min: 0
+    max: 9999999
+    step: 0.01
+    unit_of_measurement: "hr"
+    icon: mdi:sigma
+  meg_bedtime_count_alltime:
+    name: "Meg Bedtime Count (All-Time)"
+    min: 0
+    max: 99999
+    step: 1
+    unit_of_measurement: "days"
+    icon: mdi:counter
+
+input_datetime:
+  andy_bedtime_last_accumulated:
+    name: "Andy Bedtime Last Accumulated Date"
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-check
+    # Sentinel "never accumulated" so the first nightly run picks up the
+    # snapshot. HA otherwise defaults the value to today, which makes the
+    # `last < yesterday` accumulator condition skip the first night.
+    initial: "1970-01-01"
+  meg_bedtime_last_accumulated:
+    name: "Meg Bedtime Last Accumulated Date"
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-check
+    initial: "1970-01-01"
+
 template:
-  # Run once daily (near midnight) to take a daily snapshot.
-  # You can change the time if you prefer — it’s independent of your other package.
+  # Daily bedtime snapshot at 23:59:50 — decimal hour for line-graph use.
+  # state_class: measurement enables long-term statistics in the recorder
+  # so we can slice historical patterns by month/year via the LTS DB.
   - trigger:
       - platform: time
         at: "23:59:50"
     sensor:
-      # ANDY
       - name: "Andy Bedtime Hour (Daily)"
         unique_id: andy_bedtime_hour_daily
+        state_class: measurement
         icon: mdi:bed-clock
         unit_of_measurement: "hr"
-        # Single numeric value suitable for a line graph (e.g., 21.75 = 9:45 PM).
-        # If there was no brushing today, set to 'unknown' so the graph leaves a gap.
         state: >
           {% set dt = states('input_datetime.last_brush_time_andy') | as_datetime(default=none) %}
           {% if dt and dt.date() == now().date() %}
@@ -29,12 +83,10 @@ template:
             unknown
           {% endif %}
         attributes:
-          # Helpful for tooltips/inspection
           source_datetime: "{{ states('input_datetime.last_brush_time_andy') }}"
-
-      # MEG
       - name: "Meg Bedtime Hour (Daily)"
         unique_id: meg_bedtime_hour_daily
+        state_class: measurement
         icon: mdi:bed-clock
         unit_of_measurement: "hr"
         state: >
@@ -46,3 +98,106 @@ template:
           {% endif %}
         attributes:
           source_datetime: "{{ states('input_datetime.last_brush_time_meg') }}"
+
+  # All-time average — derived from accumulator helpers
+  - sensor:
+      - name: "Andy Bedtime Hour Avg (All-Time)"
+        unique_id: andy_bedtime_hour_avg_alltime
+        icon: mdi:chart-line
+        unit_of_measurement: "hr"
+        availability: "{{ states('input_number.andy_bedtime_count_alltime') | float(0) > 0 }}"
+        state: >
+          {% set s = states('input_number.andy_bedtime_sum_alltime') | float(0) %}
+          {% set c = states('input_number.andy_bedtime_count_alltime') | float(0) %}
+          {{ (s / c) | round(2) }}
+        attributes:
+          sample_count: "{{ states('input_number.andy_bedtime_count_alltime') | int(0) }}"
+      - name: "Meg Bedtime Hour Avg (All-Time)"
+        unique_id: meg_bedtime_hour_avg_alltime
+        icon: mdi:chart-line
+        unit_of_measurement: "hr"
+        availability: "{{ states('input_number.meg_bedtime_count_alltime') | float(0) > 0 }}"
+        state: >
+          {% set s = states('input_number.meg_bedtime_sum_alltime') | float(0) %}
+          {% set c = states('input_number.meg_bedtime_count_alltime') | float(0) %}
+          {{ (s / c) | round(2) }}
+        attributes:
+          sample_count: "{{ states('input_number.meg_bedtime_count_alltime') | int(0) }}"
+
+# 30-day rolling mean via the statistics platform. Ignores unknown/unavailable
+# automatically. Recorder retention (~10d locally) is enough that sample
+# rebuild on restart loses at most ~20 of the 30-day samples — they re-fill
+# within a month.
+sensor:
+  - platform: statistics
+    name: "Andy Bedtime Hour Avg (30d)"
+    unique_id: andy_bedtime_hour_avg_30d
+    entity_id: sensor.andy_bedtime_hour_daily
+    state_characteristic: mean
+    max_age:
+      days: 30
+  - platform: statistics
+    name: "Meg Bedtime Hour Avg (30d)"
+    unique_id: meg_bedtime_hour_avg_30d
+    entity_id: sensor.meg_bedtime_hour_daily
+    state_characteristic: mean
+    max_age:
+      days: 30
+
+automation:
+  # Nightly accumulator for the all-time mean. Fires 40s after the daily
+  # snapshot trigger — at 00:00:30 it adds yesterday's snapshot (which is
+  # what the daily sensor still holds) and stamps the last-accumulated
+  # date so HA restarts can't double-count.
+  - alias: "Bedtime Accumulate All-Time"
+    id: bedtime_accumulate_alltime
+    description: "Append yesterday's bedtime hour to the all-time mean accumulators. Idempotent — last-accumulated-date stamp prevents re-runs after restart."
+    mode: single
+    trigger:
+      - platform: time
+        at: "00:00:30"
+    action:
+      - if:
+          - condition: template
+            value_template: >
+              {% set v = states('sensor.andy_bedtime_hour_daily') %}
+              {% set last = states('input_datetime.andy_bedtime_last_accumulated') %}
+              {% set yesterday = (now() - timedelta(days=1)).strftime('%Y-%m-%d') %}
+              {{ v not in ['unknown', 'unavailable', 'none', '']
+                 and (last in ['unknown', 'unavailable'] or last[:10] < yesterday) }}
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.andy_bedtime_sum_alltime
+            data:
+              value: "{{ (states('input_number.andy_bedtime_sum_alltime') | float(0)) + (states('sensor.andy_bedtime_hour_daily') | float(0)) }}"
+          - service: input_number.increment
+            target:
+              entity_id: input_number.andy_bedtime_count_alltime
+          - service: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.andy_bedtime_last_accumulated
+            data:
+              date: "{{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}"
+      - if:
+          - condition: template
+            value_template: >
+              {% set v = states('sensor.meg_bedtime_hour_daily') %}
+              {% set last = states('input_datetime.meg_bedtime_last_accumulated') %}
+              {% set yesterday = (now() - timedelta(days=1)).strftime('%Y-%m-%d') %}
+              {{ v not in ['unknown', 'unavailable', 'none', '']
+                 and (last in ['unknown', 'unavailable'] or last[:10] < yesterday) }}
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.meg_bedtime_sum_alltime
+            data:
+              value: "{{ (states('input_number.meg_bedtime_sum_alltime') | float(0)) + (states('sensor.meg_bedtime_hour_daily') | float(0)) }}"
+          - service: input_number.increment
+            target:
+              entity_id: input_number.meg_bedtime_count_alltime
+          - service: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.meg_bedtime_last_accumulated
+            data:
+              date: "{{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}"

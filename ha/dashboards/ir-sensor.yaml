@@ -128,11 +128,15 @@ views:
           name: Avg Daily Time (Long Term)
           icon: mdi:chart-line
       - type: entities
-        title: Bedtime (Daily)
+        title: Bedtime
         show_header_toggle: false
         entities:
         - entity: sensor.andy_bedtime_hour_daily
-          name: Bedtime Hour (last night)
+          name: Last Night
+        - entity: sensor.andy_bedtime_hour_avg_30d
+          name: 30-Day Avg
+        - entity: sensor.andy_bedtime_hour_avg_all_time
+          name: All-Time Avg
     - type: vertical-stack
       cards:
       - type: markdown
@@ -191,11 +195,15 @@ views:
           name: Avg Daily Time (Long Term)
           icon: mdi:chart-line
       - type: entities
-        title: Bedtime (Daily)
+        title: Bedtime
         show_header_toggle: false
         entities:
         - entity: sensor.meg_bedtime_hour_daily
-          name: Bedtime Hour (last night)
+          name: Last Night
+        - entity: sensor.meg_bedtime_hour_avg_30d
+          name: 30-Day Avg
+        - entity: sensor.meg_bedtime_hour_avg_all_time
+          name: All-Time Avg
 - title: Overview
   path: overview
   icon: mdi:home-lightning-bolt
