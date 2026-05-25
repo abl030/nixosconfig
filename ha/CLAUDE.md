@@ -72,6 +72,52 @@ When you research something non-trivial (API quirks, integration gotchas, archit
 | Template binary sensor with threshold | `threshold` helper |
 | Renaming entity IDs without impact analysis | `references/safe-refactoring.md` workflow |
 
+## Package & Config Files (mirror of `/config/` on HAOS)
+
+YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files in `/config/` on the Home Assistant Operating System host (`192.168.1.20`). The repo is the **source of truth** — live HA config must never drift from these files.
+
+### File inventory
+
+| Repo path | Live path on HAOS | Loaded as |
+|---|---|---|
+| `ha/configuration.yaml` | `/config/configuration.yaml` | top-level config |
+| `ha/automations.yaml` | `/config/automations.yaml` | `automation: !include` |
+| `ha/scripts.yaml` | `/config/scripts.yaml` | `script: !include` (currently empty) |
+| `ha/scenes.yaml` | `/config/scenes.yaml` | `scene: !include` (currently empty) |
+| `ha/oral_b_package.yaml` | `/config/oral_b_package.yaml` | package |
+| `ha/bedtime.yaml` | `/config/bedtime.yaml` | package — defines `sensor.{andy,meg}_bedtime_hour_daily` |
+| `ha/energy/solar_analytics.yaml` | `/config/solar_analytics.yaml` | package |
+| `ha/energy/energy_tariffs.yaml` | `/config/energy_tariffs.yaml` | package |
+| `ha/energy/energy_tarrif_2.yaml` | `/config/energy_tarrif_2.yaml` | package |
+| `ha/energy/energy_tarrif1_battery.yaml` | `/config/energy_tarrif1_battery.yaml` | package |
+| `ha/energy/energy_tarrif_2_battery.yaml` | `/config/energy_tarrif_2_battery.yaml` | package |
+| `ha/energy/infinite_battery.yaml` | `/config/infinite_battery.yaml` | package |
+
+`/config/secrets.yaml` is intentionally NOT mirrored — it stays only on HAOS.
+
+### Deploying (repo → HA)
+
+HAOS exposes the **Advanced SSH & Web Terminal** community add-on on port 22 of `192.168.1.20`. User `abl030` has passwordless sudo. The master fleet identity SSH key is authorized.
+
+```bash
+# Deploy a single package file
+scp ha/oral_b_package.yaml abl030@192.168.1.20:/tmp/
+ssh abl030@192.168.1.20 'sudo install -m 644 -o root -g root /tmp/oral_b_package.yaml /config/oral_b_package.yaml && rm /tmp/oral_b_package.yaml'
+
+# Validate before reload (requires ha auth tokens to be set up)
+ssh abl030@192.168.1.20 'sudo ha core check'
+
+# Reload (most packages: reload via service call from MCP; full restart only when adding new domains)
+# Via MCP: ha_call_service(domain="homeassistant", service="reload_all")
+```
+
+### Rules
+
+- **Never edit `/config/*.yaml` on HAOS directly.** Always edit in this repo, commit, then deploy via SSH.
+- Drift check before any edit: `md5sum` the repo file and `ssh abl030@192.168.1.20 sudo md5sum /config/<file>` — they must match.
+- `ha core check` returns "unauthorized: missing or invalid API token" until `ha auth` is configured — TODO, see issue tracker.
+- Wiki entry with full deploy procedure: `docs/wiki/services/home-assistant-deploy.md` (TODO).
+
 ## Dashboard Management
 
 YAML files in `dashboards/` are the **source of truth** for all HA dashboards. They must stay 1:1 with live HA config.

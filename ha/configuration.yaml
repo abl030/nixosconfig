@@ -1,0 +1,42 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+# NEW homeassistant block to contain the packages configuration
+homeassistant:
+  packages:
+    pack_1: !include solar_analytics.yaml
+    oral_b_package: !include oral_b_package.yaml
+    energy_tariffs: !include energy_tariffs.yaml
+    energy_tariff2s: !include energy_tarrif_2.yaml
+    energy_tariff1_battery: !include energy_tarrif1_battery.yaml
+    energy_tarrif_2_battery: !include energy_tarrif_2_battery.yaml
+    infinite_battery: !include infinite_battery.yaml
+    bedtime: !include bedtime.yaml
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 192.168.1.6
+
+# In configuration.yaml, replace your old sensor/template/utility_meter blocks with this:
+
+# Gotify notifications for battery alerts
+notify:
+  - name: gotify_battery
+    platform: rest
+    resource: https://gotify.ablz.au/message
+    method: POST_JSON
+    headers:
+      X-Gotify-Key: !secret gotify_ha_token
+    message_param_name: message
+    title_param_name: title
+    data:
+      priority: 5

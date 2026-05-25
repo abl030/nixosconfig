@@ -1,0 +1,362 @@
+- id: '1722839354487'
+  alias: Amp_Casting_On
+  description: Turn amp on via IR blaster when kitchen cast group or andys cast starts
+    playing
+  triggers:
+  - platform: state
+    entity_id:
+    - media_player.kitchen
+    - media_player.andys_cast
+    to: playing
+  conditions: []
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "A4YDGwPAAwMAB4YD4AEBA0cRhgNAAYAVgAXgCwFAGQ///4YDhgOGA4YDhgOGAxsD"}'
+  mode: restart
+- id: '1722840136733'
+  alias: Amp_Casting_IdleOFF
+  description: Turn amp off via IR blaster when kitchen cast group or andys cast goes
+    idle for 3s
+  triggers:
+  - platform: state
+    entity_id:
+    - media_player.kitchen
+    - media_player.andys_cast
+    to: idle
+    for:
+      seconds: 3
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: media_player.kitchen
+      state: playing
+    - condition: state
+      entity_id: media_player.andys_cast
+      state: playing
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "BYADgAP9BkABAYAD4AEBA0sRgANAAYAVgAXgBwEL/Qb9Bv//gAOAA/0GQAEBgAPgAQHgXD8CBv0G"}'
+  mode: restart
+- id: '1722840909529'
+  alias: Aircon_Off_11pm
+  description: ''
+  triggers:
+  - platform: time
+    at: '23:00:00'
+  conditions: []
+  actions:
+  - action: climate.turn_off
+    target:
+      entity_id: climate.living_room_aircon
+  mode: single
+- id: '1722841776503'
+  alias: Aircon_22degrees_6am
+  description: ''
+  triggers:
+  - at: 06:00:00
+    trigger: time
+  conditions: []
+  actions:
+  - data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "A84BlQHgCQMLU2LIDawGzgH8BM4BQAHAI0APQAtAAUAHQAPAE0AHQAPAE0AL4AMDQBdAA0ATQAfgGwPAK8AHwDNAD0ADwA/AB+ALE8Ab4AsHQC/AA8AfwA9ABwE3i+EBB8AfQAdAG0AH4AMDwBNAB0ADQBtAB+AHA0AXQANAF0AH4AMDAs4BlSABQAXgCQNAL0ABwBtAAeAHE8Ab4BUHAZUBQDcBlQHgCQPgAxdAC0ADQCfhCwdAAUAfQAFAI8ADwBNAB0ADQBdAB+AHA0AXQANAF0AH4DsD4ANL4A8LQGdAG0ADwAtAB+AXAwLOAZUgAUAF4AEDQENAAwLOAZUgAUAF4BEDQAHAH0AB4AELAJUgAUAFAM5gAUBPQANADwCVYAFAB+ARA0ArQAPgEyPgHxvAR8AHwDdAD0ADQA8BzgHgBQUBlQHgBxEAziABBZUB/ASVAUAHAM4gAeADBYAXAc4B4AMHB/wEzgH8BM4B"}'
+    action: mqtt.publish
+  mode: single
+- id: '1722855691871'
+  alias: Amp_Casting_TurnOFF
+  description: Turn amp off via IR blaster when kitchen cast group or andys cast turns
+    off for 3s
+  triggers:
+  - platform: state
+    entity_id:
+    - media_player.kitchen
+    - media_player.andys_cast
+    to: 'off'
+    for:
+      seconds: 3
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: media_player.kitchen
+      state: playing
+    - condition: state
+      entity_id: media_player.andys_cast
+      state: playing
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "BYADgAP9BkABAYAD4AEBA0sRgANAAYAVgAXgBwEL/Qb9Bv//gAOAA/0GQAEBgAPgAQHgXD8CBv0G"}'
+  mode: restart
+- id: '1722855738152'
+  alias: Amp_Casting_PauseOff
+  description: Turn amp off via IR blaster when kitchen cast group or andys cast is
+    paused for 3s
+  triggers:
+  - platform: state
+    entity_id:
+    - media_player.kitchen
+    - media_player.andys_cast
+    to: paused
+    for:
+      seconds: 3
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: media_player.kitchen
+      state: playing
+    - condition: state
+      entity_id: media_player.andys_cast
+      state: playing
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "BYADgAP9BkABAYAD4AEBA0sRgANAAYAVgAXgBwEL/Qb9Bv//gAOAA/0GQAEBgAPgAQHgXD8CBv0G"}'
+  mode: restart
+- id: '1725193227788'
+  alias: Amp_Casting_TurnedOn
+  description: Turn amp on via IR blaster when kitchen cast group or andys cast turns
+    on
+  triggers:
+  - platform: state
+    entity_id:
+    - media_player.kitchen
+    - media_player.andys_cast
+    to: 'on'
+  conditions: []
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: '0'
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send": "A4YDGwPAAwMAB4YD4AEBA0cRhgNAAYAVgAXgCwFAGQ///4YDhgOGA4YDhgOGAxsD"}'
+  mode: restart
+- id: '1727945339356'
+  alias: Outside Lights All
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: a9155fbf5ff2cbae96767784a8538e64
+    type: action
+    subtype: single
+  condition: []
+  action:
+  - type: turn_on
+    device_id: 7f089f7165ec4f3d14016f8c1f4af44e
+    entity_id: 2d44b3bd63f4389fc7e90d3e7257c0f0
+    domain: switch
+  - type: turn_on
+    device_id: 7353256ca557c94d8f47a300a0a04738
+    entity_id: 710fa92ac99ca051436da5d4a9e9d78d
+    domain: switch
+  - type: turn_on
+    device_id: fc0eda9c135848893b0438cae5c90df0
+    entity_id: 526e1c789e88f4b940bc2ffed93eb3e6
+    domain: switch
+  mode: single
+- id: '1727945423866'
+  alias: Outside lights off
+  description: ''
+  trigger:
+  - platform: device
+    domain: mqtt
+    device_id: a9155fbf5ff2cbae96767784a8538e64
+    type: action
+    subtype: double
+  condition: []
+  action:
+  - type: turn_off
+    device_id: 7f089f7165ec4f3d14016f8c1f4af44e
+    entity_id: 2d44b3bd63f4389fc7e90d3e7257c0f0
+    domain: switch
+  - type: turn_off
+    device_id: 7353256ca557c94d8f47a300a0a04738
+    entity_id: 710fa92ac99ca051436da5d4a9e9d78d
+    domain: switch
+  - type: turn_off
+    device_id: fc0eda9c135848893b0438cae5c90df0
+    entity_id: 526e1c789e88f4b940bc2ffed93eb3e6
+    domain: switch
+  mode: single
+- id: start_vm_101_with_epi_on_switch
+  alias: Start VM 101 with Epi On Switch
+  description: ''
+  triggers:
+  - entity_id: sensor.epi_on_switch_action
+    to: single
+    trigger: state
+  conditions: []
+  actions:
+  - data:
+      node: epi
+      vmid: 101
+    action: proxmoxve.start_vm
+  mode: single
+- id: start_vm_101_with_epi_on_switch
+  alias: Start VM 101 with Epi On Switch
+  description: ''
+  triggers:
+  - entity_id: sensor.epi_on_switch_action
+    to: single
+    trigger: state
+  conditions: []
+  actions:
+  - data:
+      node: epi
+      vmid: 101
+    action: proxmoxve.start_vm
+  mode: single
+- id: start_vm_101_with_epi_on_switch
+  alias: Start VM 101 with Epi On Switch
+  description: ''
+  triggers:
+  - entity_id: sensor.epi_on_switch_action
+    to: single
+    trigger: state
+  actions:
+  - data:
+      node: epi
+      vmid: 101
+    action: proxmoxve.start_vm
+  mode: single
+- id: start_vm_101_with_epi_on_switch
+  alias: Start VM 101 with Epi On Switch
+  description: ''
+  triggers:
+  - entity_id: sensor.epi_on_switch_action
+    to: single
+    trigger: state
+  actions:
+  - data:
+      node: epi
+      vmid: 101
+    action: proxmoxve.start_vm
+  mode: single
+- id: '1751634890648'
+  alias: Epi_On
+  description: ''
+  triggers:
+  - domain: mqtt
+    device_id: a67af6d95bb28cd57061e5aab617bab8
+    type: action
+    subtype: single
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: d356ea1d91f063528a13f30e8dde2d86
+    domain: button
+    entity_id: 325d30ad5ae8af0e297029a4c1d23a09
+    type: press
+  mode: single
+- id: '1751635478314'
+  alias: Epi_Off
+  description: ''
+  triggers:
+  - domain: mqtt
+    device_id: a67af6d95bb28cd57061e5aab617bab8
+    type: action
+    subtype: double
+    trigger: device
+  conditions: []
+  actions:
+  - device_id: d356ea1d91f063528a13f30e8dde2d86
+    domain: button
+    entity_id: b153c16488df8befd1ca3fd8705267b1
+    type: press
+  mode: single
+- id: '1770341381298'
+  alias: Daily Low Battery Digest
+  description: Send a daily Gotify notification listing all devices with batteries
+    below 15%
+  triggers:
+  - platform: time
+    at: '17:00:00'
+  conditions: []
+  actions:
+  - variables:
+      low_batteries: '{% set ns = namespace(items=[]) %}{% for entity in states.sensor
+        | selectattr(''attributes.device_class'', ''defined'') | selectattr(''attributes.device_class'',
+        ''eq'', ''battery'') %}{% if entity.state not in [''unknown'', ''unavailable'']
+        and entity.state | float(100) < 15 %}{% set ns.items = ns.items + [entity.name]
+        %}{% endif %}{% endfor %}{{ ns.items }}'
+  - condition: template
+    value_template: '{{ low_batteries | length > 0 }}'
+  - data:
+      title: "\U0001F50B Low Battery Alert"
+      message: 'The following devices need battery replacement:
+
+
+        {% for battery in low_batteries %}• {{ battery }}
+
+        {% endfor %}'
+    action: notify.gotify_battery
+  mode: single
+- id: '1770342766452'
+  alias: Wine Fridge Temperature Alert
+  description: Alert via Gotify when any wine fridge (except broken north) exceeds
+    20°C
+  triggers:
+  - platform: numeric_state
+    entity_id: sensor.sensor_wine_fridge_south_temperature
+    above: 20
+  - platform: numeric_state
+    entity_id: sensor.sensor_wine_fridge_centre_temperature
+    above: 20
+  - platform: numeric_state
+    entity_id: sensor.sensor_wine_fridge_garage_west_temperature
+    above: 20
+  - platform: numeric_state
+    entity_id: sensor.sensor_wine_fridge_garage_east_temperature
+    above: 20
+  actions:
+  - data:
+      title: "\U0001F377 Wine Fridge Too Warm!"
+      message: '{{ trigger.to_state.name }} is at {{ trigger.to_state.state }}°C -
+        above 20°C threshold!'
+    action: notify.gotify_battery
+  mode: parallel
+  max: 4
+- id: '1772186549605'
+  alias: Garage Door State Change Alert
+  description: Notify via Gotify when the garage door opens or closes, at most once
+    per 10 minutes
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.garage_door_tilt_contact
+    not_from:
+    - unavailable
+    - unknown
+    not_to:
+    - unavailable
+    - unknown
+  conditions:
+  - condition: template
+    value_template: '{{ this.attributes.last_triggered is none or (now() - this.attributes.last_triggered).total_seconds()
+      > 600 }}'
+  actions:
+  - action: notify.gotify_battery
+    data:
+      title: "\U0001F697 Garage Door"
+      message: Garage door is now {{ 'open' if trigger.to_state.state == 'on' else
+        'closed' }}
+  mode: single
