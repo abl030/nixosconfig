@@ -92,6 +92,7 @@ YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files i
 | `ha/energy/energy_tarrif1_battery.yaml` | `/config/energy_tarrif1_battery.yaml` | package |
 | `ha/energy/energy_tarrif_2_battery.yaml` | `/config/energy_tarrif_2_battery.yaml` | package |
 | `ha/energy/infinite_battery.yaml` | `/config/infinite_battery.yaml` | package |
+| `ha/energy/savings_and_roi.yaml` | `/config/savings_and_roi.yaml` | package — tariff-weighted solar savings, ROI vs $91k install (2024-03-03), auto-stamped achieved date |
 
 `/config/secrets.yaml` is intentionally NOT mirrored — it stays only on HAOS.
 

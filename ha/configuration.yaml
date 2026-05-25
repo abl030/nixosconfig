@@ -16,6 +16,7 @@ homeassistant:
     energy_tarrif_2_battery: !include energy_tarrif_2_battery.yaml
     infinite_battery: !include infinite_battery.yaml
     bedtime: !include bedtime.yaml
+    savings_and_roi: !include savings_and_roi.yaml
 
 automation: !include automations.yaml
 script: !include scripts.yaml

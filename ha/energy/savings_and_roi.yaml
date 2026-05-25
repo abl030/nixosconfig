@@ -1,0 +1,428 @@
+# ==============================================================================
+# Solar Savings & ROI Tracking
+#
+# Tracks tariff-weighted savings from the solar PV system and projects ROI
+# against the $91k install cost (2024-03-03).
+#
+# Savings = avoided cost (self-consumed solar × per-tariff import rate +
+#           NP surcharge avoided) + export credit.
+#
+# Cumulative savings on the dashboard is split honestly into:
+#   - measured:   sum of daily_solar_savings since deploy
+#   - estimated:  pre-deploy estimate covering 2024-03-03 → deploy_date.
+#                 Auto-seeded as `avg_daily_savings × pre_deploy_days` after
+#                 7 days of measured data accumulate. Seed runs once.
+#
+# Going forward, the measured portion grows daily, the estimated portion is
+# fixed — so the ROI number gets less assumption-dependent over time.
+#
+# All existing energy sensors (the 16 battery sizes, business flexi calcs,
+# etc) are UNTOUCHED — this package only adds new sensors.
+# ==============================================================================
+
+input_number:
+  # Tracking constants
+  solar_install_cost_aud:
+    name: Solar Install Cost
+    initial: 91000
+    min: 0
+    max: 999999
+    step: 1
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:cash-100
+
+  # Pre-deploy estimate — seeded once by automation after 7 days of measured
+  # data. Manually editable if assumption changes.
+  solar_savings_pre_deploy_estimate:
+    name: Solar Savings Pre-Deploy Estimate
+    initial: 0
+    min: 0
+    max: 999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:cash-clock
+
+  # Measured cumulative — accumulated nightly by automation
+  solar_cumulative_savings_actual:
+    name: Solar Cumulative Savings (Measured)
+    initial: 0
+    min: 0
+    max: 999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:cash-multiple
+
+  solar_savings_count_days:
+    name: Solar Savings Days Counted
+    initial: 0
+    min: 0
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: days
+    icon: mdi:counter
+
+input_datetime:
+  solar_install_date:
+    name: Solar Install Date
+    has_date: true
+    has_time: false
+    initial: "2024-03-03"
+    icon: mdi:solar-power
+  solar_savings_last_accumulated:
+    name: Solar Savings Last Accumulated
+    has_date: true
+    has_time: false
+    initial: "1970-01-01"
+    icon: mdi:calendar-check
+  solar_roi_achieved_date:
+    # 1970-01-01 = sentinel "not yet achieved". Auto-stamped by automation.
+    name: Solar ROI Achieved Date
+    has_date: true
+    has_time: false
+    initial: "1970-01-01"
+    icon: mdi:flag-checkered
+
+input_boolean:
+  solar_estimate_seeded:
+    name: Solar Pre-Deploy Estimate Seeded
+    initial: false
+    icon: mdi:check-decagram
+
+# Per-tariff consumption meter — needed to compute self-consumption per tariff
+# bucket so we apply the correct avoided rate. Mirrors the existing
+# daily_energy meter (which tracks imports per tariff).
+utility_meter:
+  daily_energy_consumed:
+    source: sensor.sa_todays_energy_consumed_total
+    cycle: daily
+    tariffs:
+      - on_peak
+      - midday_saver
+      - off_peak
+
+template:
+  # --- Self-consumption per tariff (Wh) ---
+  # consumed - imported = solar (or other on-site source) self-consumed
+  - sensor:
+      - name: Self Consumed Solar On Peak
+        unique_id: self_consumed_solar_on_peak
+        unit_of_measurement: Wh
+        state_class: total
+        state: >
+          {% set c = states('sensor.daily_energy_consumed_on_peak') | float(0) %}
+          {% set i = states('sensor.daily_energy_on_peak') | float(0) %}
+          {{ [c - i, 0] | max | round(0) }}
+      - name: Self Consumed Solar Midday Saver
+        unique_id: self_consumed_solar_midday_saver
+        unit_of_measurement: Wh
+        state_class: total
+        state: >
+          {% set c = states('sensor.daily_energy_consumed_midday_saver') | float(0) %}
+          {% set i = states('sensor.daily_energy_midday_saver') | float(0) %}
+          {{ [c - i, 0] | max | round(0) }}
+      - name: Self Consumed Solar Off Peak
+        unique_id: self_consumed_solar_off_peak
+        unit_of_measurement: Wh
+        state_class: total
+        state: >
+          {% set c = states('sensor.daily_energy_consumed_off_peak') | float(0) %}
+          {% set i = states('sensor.daily_energy_off_peak') | float(0) %}
+          {{ [c - i, 0] | max | round(0) }}
+
+      # --- Daily savings ---
+      # Tariff rates duplicated from energy_tariffs.yaml — keep in sync.
+      # on_peak = 0.6762, midday_saver = 0.1818, off_peak = 0.2451
+      - name: Daily Solar Savings
+        unique_id: daily_solar_savings
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:cash-plus
+        state: >
+          {% set sc_on = states('sensor.self_consumed_solar_on_peak') | float(0) %}
+          {% set sc_md = states('sensor.self_consumed_solar_midday_saver') | float(0) %}
+          {% set sc_off = states('sensor.self_consumed_solar_off_peak') | float(0) %}
+          {% set credit = states('sensor.total_daily_energy_credit') | float(0) %}
+          {% set np_rate = states('input_number.natural_power_surcharge_per_kwh') | float(0.051929) %}
+          {% set energy_avoided =
+               (sc_on / 1000 * 0.6762)
+             + (sc_md / 1000 * 0.1818)
+             + (sc_off / 1000 * 0.2451) %}
+          {% set total_sc_kwh = (sc_on + sc_md + sc_off) / 1000 %}
+          {% set np_avoided = total_sc_kwh * np_rate %}
+          {{ (energy_avoided + np_avoided + credit) | round(2) }}
+        attributes:
+          energy_avoided: >
+            {% set sc_on = states('sensor.self_consumed_solar_on_peak') | float(0) %}
+            {% set sc_md = states('sensor.self_consumed_solar_midday_saver') | float(0) %}
+            {% set sc_off = states('sensor.self_consumed_solar_off_peak') | float(0) %}
+            {{ ((sc_on / 1000 * 0.6762) + (sc_md / 1000 * 0.1818) + (sc_off / 1000 * 0.2451)) | round(2) }}
+          np_surcharge_avoided: >
+            {% set sc_total = (states('sensor.self_consumed_solar_on_peak') | float(0)) + (states('sensor.self_consumed_solar_midday_saver') | float(0)) + (states('sensor.self_consumed_solar_off_peak') | float(0)) %}
+            {% set np_rate = states('input_number.natural_power_surcharge_per_kwh') | float(0.051929) %}
+            {{ (sc_total / 1000 * np_rate) | round(2) }}
+          export_credit: "{{ states('sensor.total_daily_energy_credit') | float(0) | round(2) }}"
+
+  # --- Monthly / Yearly accumulators (trigger pattern, matches monthly_net_cost) ---
+  - trigger:
+      - platform: time
+        at: "23:59:51"
+    sensor:
+      - name: Monthly Solar Savings
+        unique_id: monthly_solar_savings
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:calendar-cash
+        state: >
+          {% set d = states('sensor.daily_solar_savings') | float(0) %}
+          {{ d if now().day == 1 else (this.state | float(0)) + d }}
+
+  - trigger:
+      - platform: time
+        at: "23:59:52"
+    sensor:
+      - name: Yearly Solar Savings
+        unique_id: yearly_solar_savings
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:calendar-star
+        state: >
+          {% set d = states('sensor.daily_solar_savings') | float(0) %}
+          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
+
+  - trigger:
+      - platform: time
+        at: "23:59:53"
+    sensor:
+      - name: Yearly Net Cost
+        unique_id: yearly_net_cost
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:cash-multiple
+        state: >
+          {% set d = states('sensor.total_daily_energy_net_cost') | float(0) %}
+          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
+
+  - trigger:
+      - platform: time
+        at: "23:59:55"
+    sensor:
+      - name: Yearly Business Flexi Cost
+        unique_id: yearly_business_flexi_cost
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:file-compare
+        state: >
+          {% set d = states('sensor.business_flexi_total_daily_cost') | float(0) %}
+          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
+
+  # --- ROI sensors (state-based, recompute live) ---
+  - sensor:
+      - name: Days Since Solar Install
+        unique_id: days_since_solar_install
+        unit_of_measurement: days
+        icon: mdi:calendar-clock
+        state: >
+          {% set install = states('input_datetime.solar_install_date') | as_datetime(default=none) %}
+          {{ (now().date() - install.date()).days if install else 0 }}
+
+      - name: Solar Cumulative Savings
+        unique_id: solar_cumulative_savings
+        device_class: monetary
+        unit_of_measurement: AUD
+        state_class: total
+        icon: mdi:cash-multiple
+        state: >
+          {% set est = states('input_number.solar_savings_pre_deploy_estimate') | float(0) %}
+          {% set act = states('input_number.solar_cumulative_savings_actual') | float(0) %}
+          {{ (est + act) | round(2) }}
+        attributes:
+          measured: "{{ states('input_number.solar_cumulative_savings_actual') | float(0) | round(2) }}"
+          estimated_pre_deploy: "{{ states('input_number.solar_savings_pre_deploy_estimate') | float(0) | round(2) }}"
+          measured_days: "{{ states('input_number.solar_savings_count_days') | int(0) }}"
+          estimate_seeded: "{{ is_state('input_boolean.solar_estimate_seeded', 'on') }}"
+
+      - name: Solar ROI Progress
+        unique_id: solar_roi_progress
+        unit_of_measurement: "%"
+        icon: mdi:progress-check
+        state: >
+          {% set cum = states('sensor.solar_cumulative_savings') | float(0) %}
+          {% set cost = states('input_number.solar_install_cost_aud') | float(91000) %}
+          {{ (cum / cost * 100) | round(1) if cost > 0 else 0 }}
+
+      - name: Solar ROI Status
+        unique_id: solar_roi_status
+        icon: mdi:flag-checkered
+        state: >
+          {% set roi = states('input_datetime.solar_roi_achieved_date') %}
+          {% if roi != '1970-01-01' and roi not in ['unknown', 'unavailable'] %}achieved{% else %}projecting{% endif %}
+
+      # Lifetime daily rate: measured cumulative / days counted.
+      # Used to project the estimated ROI date.
+      - name: Solar Avg Daily Savings Lifetime
+        unique_id: solar_avg_daily_savings_lifetime
+        device_class: monetary
+        unit_of_measurement: AUD
+        icon: mdi:chart-bell-curve
+        availability: "{{ states('input_number.solar_savings_count_days') | int(0) > 0 }}"
+        state: >
+          {% set act = states('input_number.solar_cumulative_savings_actual') | float(0) %}
+          {% set d = states('input_number.solar_savings_count_days') | int(0) %}
+          {{ (act / d) | round(2) if d > 0 else 0 }}
+
+      - name: Solar Estimated ROI Date
+        unique_id: solar_estimated_roi_date
+        icon: mdi:calendar-end
+        availability: >
+          {% set roi = states('input_datetime.solar_roi_achieved_date') %}
+          {% set avg = states('sensor.solar_avg_daily_savings_lifetime') | float(0) %}
+          {{ (roi == '1970-01-01' or roi in ['unknown', 'unavailable']) and avg > 0 }}
+        state: >
+          {% set cum = states('sensor.solar_cumulative_savings') | float(0) %}
+          {% set cost = states('input_number.solar_install_cost_aud') | float(91000) %}
+          {% set remaining = cost - cum %}
+          {% set avg = states('sensor.solar_avg_daily_savings_lifetime') | float(0) %}
+          {% if remaining <= 0 %}achieved
+          {% elif avg > 0 %}{{ (now() + timedelta(days=(remaining / avg) | int)).strftime('%Y-%m-%d') }}
+          {% else %}unknown{% endif %}
+
+      - name: Solar Actual Savings Since ROI
+        unique_id: solar_actual_savings_since_roi
+        device_class: monetary
+        unit_of_measurement: AUD
+        icon: mdi:cash-plus
+        availability: >
+          {% set roi = states('input_datetime.solar_roi_achieved_date') %}
+          {{ roi != '1970-01-01' and roi not in ['unknown', 'unavailable'] }}
+        state: >
+          {% set cum = states('sensor.solar_cumulative_savings') | float(0) %}
+          {% set cost = states('input_number.solar_install_cost_aud') | float(91000) %}
+          {{ [cum - cost, 0] | max | round(2) }}
+
+automation:
+  # Sync the new consumed-energy utility meter to the current tariff.
+  # Parallel to the existing "Set Energy Tariff" automation in energy_tariffs.yaml
+  # so we don't have to redeploy that file.
+  - alias: Set Energy Consumed Tariff
+    id: set_energy_consumed_tariff
+    trigger:
+      - platform: state
+        entity_id: sensor.current_electricity_tariff
+        not_to:
+          - unavailable
+          - unknown
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.daily_energy_consumed
+        data:
+          option: "{{ states('sensor.current_electricity_tariff') }}"
+
+  # Nightly accumulator — same idempotent pattern as bedtime.yaml
+  - alias: Solar Savings Accumulate
+    id: solar_savings_accumulate
+    description: "Append yesterday's solar savings to the measured cumulative. Last-accumulated-date stamp prevents double-count on restart."
+    mode: single
+    trigger:
+      - platform: time
+        at: "00:00:45"
+    action:
+      - if:
+          - condition: template
+            value_template: >
+              {% set v = states('sensor.daily_solar_savings') %}
+              {% set last = states('input_datetime.solar_savings_last_accumulated') %}
+              {% set yesterday = (now() - timedelta(days=1)).strftime('%Y-%m-%d') %}
+              {{ v not in ['unknown', 'unavailable', 'none', '']
+                 and v | float(0) > 0
+                 and (last in ['unknown', 'unavailable'] or last[:10] < yesterday) }}
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.solar_cumulative_savings_actual
+            data:
+              value: "{{ (states('input_number.solar_cumulative_savings_actual') | float(0)) + (states('sensor.daily_solar_savings') | float(0)) }}"
+          - service: input_number.increment
+            target:
+              entity_id: input_number.solar_savings_count_days
+          - service: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.solar_savings_last_accumulated
+            data:
+              date: "{{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}"
+
+  # One-time seed of the pre-deploy estimate after 7 days of measured data.
+  # Triggers when count crosses 7 AND boolean hasn't been set yet.
+  - alias: Solar Seed Pre-Deploy Estimate
+    id: solar_seed_pre_deploy_estimate
+    description: "After 7 days of measured savings, project the rate backward to 2024-03-03 and lock as the pre-deploy estimate. Runs exactly once."
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: input_number.solar_savings_count_days
+        above: 6.9
+    condition:
+      - condition: state
+        entity_id: input_boolean.solar_estimate_seeded
+        state: "off"
+    action:
+      - variables:
+          avg_daily: "{{ (states('input_number.solar_cumulative_savings_actual') | float(0)) / (states('input_number.solar_savings_count_days') | int(1)) }}"
+          install_date: "{{ states('input_datetime.solar_install_date') | as_datetime }}"
+          # Pre-deploy = install_date → (today - measured_days).  Today's measured period
+          # is excluded from the estimate so we don't double count.
+          pre_deploy_days: "{{ (now().date() - install_date.date()).days - (states('input_number.solar_savings_count_days') | int(0)) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.solar_savings_pre_deploy_estimate
+        data:
+          value: "{{ (avg_daily | float(0) * pre_deploy_days | int(0)) | round(2) }}"
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.solar_estimate_seeded
+      - service: persistent_notification.create
+        data:
+          title: "Solar ROI Estimate Seeded"
+          message: >
+            7 days of solar savings averaged ${{ avg_daily | float(0) | round(2) }}/day.
+            Projected backward over {{ pre_deploy_days }} pre-deploy days
+            = ${{ (avg_daily | float(0) * pre_deploy_days | int(0)) | round(2) }} estimated savings before 2026-05-25.
+            Total cumulative now includes this estimate. Edit input_number.solar_savings_pre_deploy_estimate to refine.
+          notification_id: solar_estimate_seeded
+
+  # Auto-stamp ROI achieved date when we cross 100%
+  - alias: Solar ROI Auto-Stamp
+    id: solar_roi_auto_stamp
+    description: "Stamps the ROI date when cumulative savings cross install cost. Fires once."
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.solar_roi_progress
+        above: 100
+    condition:
+      - condition: template
+        value_template: >
+          {% set roi = states('input_datetime.solar_roi_achieved_date') %}
+          {{ roi == '1970-01-01' or roi in ['unknown', 'unavailable'] }}
+    action:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.solar_roi_achieved_date
+        data:
+          date: "{{ now().strftime('%Y-%m-%d') }}"
+      - service: persistent_notification.create
+        data:
+          title: "Solar ROI Achieved!"
+          message: "Your solar system has paid for itself. Today is {{ now().strftime('%Y-%m-%d') }}. From here, every dollar is profit."
+          notification_id: solar_roi_achieved

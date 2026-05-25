@@ -209,404 +209,217 @@ views:
   icon: mdi:home-lightning-bolt
   panel: false
   cards:
+  # ===== §1. Current Plan — This Month / Year =====
   - type: vertical-stack
     cards:
     - type: markdown
-      content: '## Business Flexi Plus with Synergy Sellback
-
-        '
-    - type: gauge
-      entity: sensor.total_daily_energy_net_cost
-      name: Total Net Cost Today
-      unit: AUD
-      severity:
-        green: -5
-        yellow: 0
-        red: 5
-    - type: entities
-      title: Cost & Credit Breakdown
-      show_header_toggle: false
-      entities:
-      - entity: sensor.total_daily_energy_net_cost
-        name: Net Cost (Usage + Supply - Credit)
-        icon: mdi:scale-balance
-      - entity: input_number.daily_supply_charge
-        name: Daily Supply Charge
-        icon: mdi:cash-marker
-      - entity: sensor.total_daily_energy_credit
-        name: Total Credit Earned (Exported)
+      content: '## ⚡ Business Flexi Plus + Synergy Sellback'
+    - type: horizontal-stack
+      cards:
+      - type: entity
+        entity: sensor.monthly_net_cost
+        name: Cost This Month
+        icon: mdi:calendar-cash
+      - type: entity
+        entity: sensor.yearly_net_cost
+        name: Cost This Year
+        icon: mdi:calendar-cash
+    - type: horizontal-stack
+      cards:
+      - type: entity
+        entity: sensor.monthly_solar_savings
+        name: Solar Saved (Month)
         icon: mdi:cash-plus
-      - entity: sensor.monthly_net_cost
-        name: Monthly Cost
+      - type: entity
+        entity: sensor.yearly_solar_savings
+        name: Solar Saved (Year)
         icon: mdi:cash-plus
     - type: entities
       title: Natural Power Surcharge
       show_header_toggle: false
       entities:
-      - entity: sensor.daily_natural_power_surcharge
-        name: Today
-        icon: mdi:leaf
       - entity: sensor.monthly_natural_power_surcharge
-        name: Month to Date
-        icon: mdi:calendar-leaf
+        name: This Month
+        icon: mdi:leaf
       - entity: sensor.yearly_natural_power_surcharge
-        name: Year to Date
+        name: This Year
+        icon: mdi:calendar-leaf
+
+  # ===== §2. Solar ROI =====
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## ☀️ Solar ROI — $91k installed 2024-03-03'
+    - type: gauge
+      entity: sensor.solar_roi_progress
+      name: ROI Progress
+      unit: '%'
+      min: 0
+      max: 100
+      severity:
+        red: 0
+        yellow: 50
+        green: 100
+    - type: entities
+      title: Cumulative Savings
+      show_header_toggle: false
+      entities:
+      - entity: sensor.solar_cumulative_savings
+        name: Total to Date
+        icon: mdi:cash-multiple
+      - type: attribute
+        entity: sensor.solar_cumulative_savings
+        attribute: measured
+        name: ↳ Measured
+        icon: mdi:check-circle
+      - type: attribute
+        entity: sensor.solar_cumulative_savings
+        attribute: estimated_pre_deploy
+        name: ↳ Estimated (pre-deploy)
+        icon: mdi:approximately-equal
+      - entity: sensor.days_since_solar_install
+        name: Days Since Install
+        icon: mdi:calendar-clock
+      - entity: sensor.solar_avg_daily_savings_lifetime
+        name: Avg Daily Savings (Measured)
+        icon: mdi:chart-bell-curve
+    - type: conditional
+      conditions:
+      - entity: sensor.solar_roi_status
+        state: projecting
+      card:
+        type: entities
+        title: Projection
+        show_header_toggle: false
+        entities:
+        - entity: sensor.solar_estimated_roi_date
+          name: Estimated ROI Date
+          icon: mdi:calendar-end
+    - type: conditional
+      conditions:
+      - entity: sensor.solar_roi_status
+        state: achieved
+      card:
+        type: entities
+        title: Profit Era
+        show_header_toggle: false
+        entities:
+        - entity: input_datetime.solar_roi_achieved_date
+          name: 🎉 ROI Achieved
+          icon: mdi:flag-checkered
+        - entity: sensor.solar_actual_savings_since_roi
+          name: Actual Profit Since ROI
+          icon: mdi:cash-plus
+
+  # ===== §3. 140kWh Battery Sweet Spot + Apex chart (all sizes) =====
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## 🔋 140kWh Battery — Sweet Spot'
+    - type: horizontal-stack
+      cards:
+      - type: entity
+        entity: sensor.potential_monthly_savings_140kwh
+        name: Would Save (Month)
+        icon: mdi:calendar-cash
+      - type: entity
+        entity: sensor.potential_yearly_savings_140kwh
+        name: Would Save (Year)
         icon: mdi:calendar-star
-  - type: history-graph
-    title: Daily Cost & Credit Accumulation
-    entities:
-    - sensor.daily_energy_cost_on_peak
-    - sensor.daily_energy_cost_midday_saver
-    - sensor.daily_energy_cost_off_peak
-    - sensor.total_daily_energy_credit
-    hours_to_show: 24
-    refresh_interval: 60
-  - type: horizontal-stack
-    cards:
-    - type: vertical-stack
-      cards:
-      - type: markdown
-        content: '### Grid Import Details
-
-          '
-      - type: entities
-        title: Usage Costs
-        show_header_toggle: false
-        entities:
-        - sensor.daily_energy_cost_on_peak
-        - sensor.daily_energy_cost_midday_saver
-        - sensor.daily_energy_cost_off_peak
-      - type: entities
-        title: Energy Usage
-        show_header_toggle: false
-        entities:
-        - sensor.daily_energy_on_peak
-        - sensor.daily_energy_midday_saver
-        - sensor.daily_energy_off_peak
-    - type: vertical-stack
-      cards:
-      - type: markdown
-        content: '### Solar Export Details
-
-          '
-      - type: entities
-        title: Credits Earned
-        show_header_toggle: false
-        entities:
-        - sensor.daily_energy_credit_on_peak
-        - sensor.daily_energy_credit_off_peak
-      - type: entities
-        title: Energy Exported
-        show_header_toggle: false
-        entities:
-        - sensor.daily_energy_exported_export_on_peak
-        - sensor.daily_energy_exported_export_off_peak
-  - type: entities
-    title: Live Status & Rates
-    show_header_toggle: false
-    entities:
-    - entity: sensor.current_electricity_tariff
-      name: Current Import Tariff
-    - entity: sensor.current_export_tariff
-      name: Current Export Tariff
-    - type: divider
-    - entity: input_number.daily_supply_charge
-      name: Supply Rate (Editable)
-    - entity: input_number.export_rate_on_peak
-      name: Peak Export Rate (Editable)
-    - entity: input_number.export_rate_off_peak
-      name: Off-Peak Export Rate (Editable)
-  - type: vertical-stack
-    cards:
     - type: markdown
-      content: '## 🔋 Virtual Battery Savings Simulation
-
-        '
-    - type: horizontal-stack
-      cards:
-      - type: gauge
-        name: 50kWh SoC
-        entity: sensor.virtual_battery_soc_50kwh_display
-        unit: Wh
-        min: 0
-        max: 50000
-      - type: gauge
-        name: 60kWh SoC
-        entity: sensor.virtual_battery_soc_60kwh_display
-        unit: Wh
-        min: 0
-        max: 60000
-      - type: gauge
-        name: 70kWh SoC
-        entity: sensor.virtual_battery_soc_70kwh_display
-        unit: Wh
-        min: 0
-        max: 70000
-    - type: horizontal-stack
-      cards:
-      - type: gauge
-        name: 80kWh SoC
-        entity: sensor.virtual_battery_soc_80kwh_display
-        unit: Wh
-        min: 0
-        max: 80000
-      - type: gauge
-        name: 90kWh SoC
-        entity: sensor.virtual_battery_soc_90kwh_display
-        unit: Wh
-        min: 0
-        max: 90000
-      - type: gauge
-        name: 100kWh SoC
-        entity: sensor.virtual_battery_soc_100kwh_display
-        unit: Wh
-        min: 0
-        max: 100000
-  - type: entities
-    title: Potential Savings Breakdown
-    show_header_toggle: false
-    entities:
-    - type: section
-      label: Potential Daily Savings (AUD)
-    - entity: sensor.potential_daily_savings_50kwh
-    - entity: sensor.potential_daily_savings_60kwh
-    - entity: sensor.potential_daily_savings_70kwh
-    - entity: sensor.potential_daily_savings_80kwh
-    - entity: sensor.potential_daily_savings_90kwh
-    - entity: sensor.potential_daily_savings_100kwh
-    - type: section
-      label: Potential Monthly Savings (AUD)
-    - entity: sensor.potential_monthly_savings_50kwh
-    - entity: sensor.potential_monthly_savings_60kwh
-    - entity: sensor.potential_monthly_savings_70kwh
-    - entity: sensor.potential_monthly_savings_80kwh
-    - entity: sensor.potential_monthly_savings_90kwh
-    - entity: sensor.potential_monthly_savings_100kwh
-    - type: section
-      label: Potential Yearly Savings (AUD)
-    - entity: sensor.potential_yearly_savings_50kwh
-    - entity: sensor.potential_yearly_savings_60kwh
-    - entity: sensor.potential_yearly_savings_70kwh
-    - entity: sensor.potential_yearly_savings_80kwh
-    - entity: sensor.potential_yearly_savings_90kwh
-    - entity: sensor.potential_yearly_savings_100kwh
-  # --- ApexCharts Alternative Visualization (requires HACS apexcharts-card) ---
-  - type: vertical-stack
-    cards:
-    - type: markdown
-      content: '## 📊 Battery Comparison (ApexCharts)'
+      content: '### 📊 All Sizes — SoC Now'
     - type: custom:apexcharts-card
       chart_type: radialBar
       header:
         title: Battery SoC (% Full)
         show: true
       series:
-        - entity: sensor.virtual_battery_soc_200kwh_display
-          name: 200kWh
-          max: 200000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_190kwh_display
-          name: 190kWh
-          max: 190000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_180kwh_display
-          name: 180kWh
-          max: 180000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_170kwh_display
-          name: 170kWh
-          max: 170000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_160kwh_display
-          name: 160kWh
-          max: 160000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_150kwh_display
-          name: 150kWh
-          max: 150000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_140kwh_display
-          name: 140kWh
-          max: 140000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_130kwh_display
-          name: 130kWh
-          max: 130000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_120kwh_display
-          name: 120kWh
-          max: 120000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_110kwh_display
-          name: 110kWh
-          max: 110000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_100kwh_display
-          name: 100kWh
-          max: 100000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_90kwh_display
-          name: 90kWh
-          max: 90000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_80kwh_display
-          name: 80kWh
-          max: 80000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_70kwh_display
-          name: 70kWh
-          max: 70000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_60kwh_display
-          name: 60kWh
-          max: 60000
-          color: '#4CAF50'
-        - entity: sensor.virtual_battery_soc_50kwh_display
-          name: 50kWh
-          max: 50000
-          color: '#4CAF50'
-- title: Business Flexi Comparison
-  path: business-flexi-comparison
-  icon: mdi:file-compare
-  panel: false
-  cards:
-  - type: vertical-stack
-    cards:
-    - type: markdown
-      content: '## Business Flexi - Financial Summary This is a calculated, parallel view of what your costs would be on this
-        plan. It has no solar export credit.
-
-        '
-    - type: gauge
-      entity: sensor.business_flexi_total_daily_cost
-      name: Business Flexi Cost Today
-      unit: AUD
-      severity:
-        green: 0
-        yellow: 5
-        red: 10
-    - type: entities
-      title: Cost Breakdown
-      show_header_toggle: false
-      entities:
-      - entity: sensor.business_flexi_total_daily_cost
-        name: Total Cost (Usage + Supply)
-        icon: mdi:cash-lock
-      - entity: sensor.business_flexi_daily_cost_on_peak
-        name: On Peak Usage Cost
-      - entity: sensor.business_flexi_daily_cost_off_peak
-        name: Off Peak Usage Cost
-      - entity: input_number.business_flexi_supply_charge
-        name: Daily Supply Charge
-        icon: mdi:cash-marker
-      - entity: sensor.business_flexi_monthly_cost
-        name: Monthly Cost
-        icon: mdi:cash-marker
-  - type: history-graph
-    title: Daily Cost Accumulation (Business Flexi)
-    entities:
-    - sensor.business_flexi_daily_cost_on_peak
-    - sensor.business_flexi_daily_cost_off_peak
-    hours_to_show: 24
-    refresh_interval: 60
-  - type: vertical-stack
-    cards:
-    - type: markdown
-      content: '### Grid Import Details
-
-        '
-    - type: entities
-      title: Energy Usage (Wh) by Tariff
-      show_header_toggle: false
-      entities:
-      - entity: sensor.business_flexi_daily_energy_business_on_peak
-        name: On Peak Usage
-      - entity: sensor.business_flexi_daily_energy_business_off_peak
-        name: Off Peak Usage
-  - type: entities
-    title: Live Status & Rates (Business Flexi)
-    show_header_toggle: false
-    entities:
-    - entity: sensor.business_flexi_current_tariff
-      name: Current Tariff
-    - type: divider
-    - entity: input_number.business_flexi_supply_charge
-      name: Supply Rate (Editable)
-    - entity: input_number.business_flexi_rate_on_peak
-      name: On Peak Rate (Editable)
-    - entity: input_number.business_flexi_rate_off_peak
-      name: Off Peak Rate (Editable)
-  - type: vertical-stack
-    cards:
-    - type: markdown
-      content: '## 🔋 Virtual Battery Savings Simulation (Business Flexi)
-
-        '
-    - type: horizontal-stack
-      cards:
-      - type: gauge
-        name: 50kWh SoC
-        entity: sensor.virtual_battery_soc_bf_50kwh_display
-        unit: Wh
-        min: 0
-        max: 50000
-      - type: gauge
-        name: 60kWh SoC
-        entity: sensor.virtual_battery_soc_bf_60kwh_display
-        unit: Wh
-        min: 0
-        max: 60000
-      - type: gauge
-        name: 70kWh SoC
-        entity: sensor.virtual_battery_soc_bf_70kwh_display
-        unit: Wh
-        min: 0
-        max: 70000
-    - type: horizontal-stack
-      cards:
-      - type: gauge
-        name: 80kWh SoC
-        entity: sensor.virtual_battery_soc_bf_80kwh_display
-        unit: Wh
-        min: 0
-        max: 80000
-      - type: gauge
-        name: 90kWh SoC
-        entity: sensor.virtual_battery_soc_bf_90kwh_display
-        unit: Wh
-        min: 0
-        max: 90000
-      - type: gauge
-        name: 100kWh SoC
-        entity: sensor.virtual_battery_soc_bf_100kwh_display
-        unit: Wh
-        min: 0
+      - entity: sensor.virtual_battery_soc_200kwh_display
+        name: 200kWh
+        max: 200000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_190kwh_display
+        name: 190kWh
+        max: 190000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_180kwh_display
+        name: 180kWh
+        max: 180000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_170kwh_display
+        name: 170kWh
+        max: 170000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_160kwh_display
+        name: 160kWh
+        max: 160000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_150kwh_display
+        name: 150kWh
+        max: 150000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_140kwh_display
+        name: 140kWh
+        max: 140000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_130kwh_display
+        name: 130kWh
+        max: 130000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_120kwh_display
+        name: 120kWh
+        max: 120000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_110kwh_display
+        name: 110kWh
+        max: 110000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_100kwh_display
+        name: 100kWh
         max: 100000
-  - type: entities
-    title: Potential Savings Breakdown (Business Flexi)
-    show_header_toggle: false
-    entities:
-    - type: section
-      label: Potential Daily Savings (AUD)
-    - entity: sensor.potential_daily_savings_bf_50kwh
-    - entity: sensor.potential_daily_savings_bf_60kwh
-    - entity: sensor.potential_daily_savings_bf_70kwh
-    - entity: sensor.potential_daily_savings_bf_80kwh
-    - entity: sensor.potential_daily_savings_bf_90kwh
-    - entity: sensor.potential_daily_savings_bf_100kwh
-    - type: section
-      label: Potential Monthly Savings (AUD)
-    - entity: sensor.potential_monthly_savings_bf_50kwh
-    - entity: sensor.potential_monthly_savings_bf_60kwh
-    - entity: sensor.potential_monthly_savings_bf_70kwh
-    - entity: sensor.potential_monthly_savings_bf_80kwh
-    - entity: sensor.potential_monthly_savings_bf_90kwh
-    - entity: sensor.potential_monthly_savings_bf_100kwh
-    - type: section
-      label: Potential Yearly Savings (AUD)
-    - entity: sensor.potential_yearly_savings_bf_50kwh
-    - entity: sensor.potential_yearly_savings_bf_60kwh
-    - entity: sensor.potential_yearly_savings_bf_70kwh
-    - entity: sensor.potential_yearly_savings_bf_80kwh
-    - entity: sensor.potential_yearly_savings_bf_90kwh
-    - entity: sensor.potential_yearly_savings_bf_100kwh
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_90kwh_display
+        name: 90kWh
+        max: 90000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_80kwh_display
+        name: 80kWh
+        max: 80000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_70kwh_display
+        name: 70kWh
+        max: 70000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_60kwh_display
+        name: 60kWh
+        max: 60000
+        color: '#4CAF50'
+      - entity: sensor.virtual_battery_soc_50kwh_display
+        name: 50kWh
+        max: 50000
+        color: '#4CAF50'
+
+  # ===== §4. Plan Comparison (sanity check) =====
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## 🔄 Plan Comparison'
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - type: section
+        label: Business Flexi Plus + Sellback (current)
+      - entity: sensor.monthly_net_cost
+        name: Monthly
+        icon: mdi:calendar-cash
+      - entity: sensor.yearly_net_cost
+        name: Yearly
+        icon: mdi:calendar-cash
+      - type: section
+        label: Business Flexi (no sellback — for sanity check)
+      - entity: sensor.business_flexi_monthly_cost
+        name: Monthly
+        icon: mdi:file-compare
+      - entity: sensor.yearly_business_flexi_cost
+        name: Yearly
+        icon: mdi:file-compare
