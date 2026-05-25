@@ -32,45 +32,37 @@ input_number:
     unit_of_measurement: AUD
     icon: mdi:cash-100
 
-  # Pre-deploy estimate — seeded once by automation after 7 days of measured
-  # data. Manually editable if assumption changes.
+  # NOTE: accumulator-type input_numbers below intentionally OMIT `initial:`.
+  # YAML input_helpers with `initial:` set RESET to that value on every HA
+  # restart, overriding recorder restoration. We want these to persist, so
+  # they're omitted — HA's recorder restores them on restart.
+
   solar_savings_pre_deploy_estimate:
     name: Solar Savings Pre-Deploy Estimate
-    initial: 0
     min: 0
     max: 999999
     step: 0.01
     mode: box
     unit_of_measurement: AUD
     icon: mdi:cash-clock
-
-  # Measured cumulative — accumulated nightly by automation
   solar_cumulative_savings_actual:
     name: Solar Cumulative Savings (Measured)
-    initial: 0
     min: 0
     max: 999999
     step: 0.01
     mode: box
     unit_of_measurement: AUD
     icon: mdi:cash-multiple
-
   solar_savings_count_days:
     name: Solar Savings Days Counted
-    initial: 0
     min: 0
     max: 99999
     step: 1
     mode: box
     unit_of_measurement: days
     icon: mdi:counter
-
-  # MTD / YTD accumulators (replaced the original trigger-based sensors so
-  # state survives across HA restarts and can be backfilled from LTS).
-  # Reset to 0 on month/year rollover by the reset automations below.
   monthly_solar_savings_total:
     name: Monthly Solar Savings Total
-    initial: 0
     min: 0
     max: 999999
     step: 0.01
@@ -79,7 +71,6 @@ input_number:
     icon: mdi:calendar-cash
   yearly_solar_savings_total:
     name: Yearly Solar Savings Total
-    initial: 0
     min: 0
     max: 9999999
     step: 0.01
@@ -88,7 +79,6 @@ input_number:
     icon: mdi:calendar-star
   yearly_net_cost_total:
     name: Yearly Net Cost Total
-    initial: 0
     min: 0
     max: 9999999
     step: 0.01
@@ -97,7 +87,6 @@ input_number:
     icon: mdi:cash-multiple
   yearly_business_flexi_cost_total:
     name: Yearly Business Flexi Cost Total
-    initial: 0
     min: 0
     max: 9999999
     step: 0.01
@@ -105,38 +94,62 @@ input_number:
     unit_of_measurement: AUD
     icon: mdi:file-compare
 
+  # User-editable constants — initial: kept since these are defaults that
+  # rarely change. If user edits them, restart restores to default — but
+  # that's acceptable for rarely-touched config knobs.
+  battery_140kwh_install_cost:
+    name: 140kWh Battery Install Cost
+    initial: 140000
+    min: 0
+    max: 999999
+    step: 1
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:battery-charging-100
+  # Set once by backfill from LTS (last 12 months of potential_daily_savings_140kwh).
+  # No initial so persists across restarts after seeded.
+  battery_140kwh_projected_annual_savings:
+    name: 140kWh Battery Projected Annual Savings
+    min: 0
+    max: 999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:chart-line
+
 input_datetime:
+  # User-editable constant — initial: kept (the install date doesn't change).
   solar_install_date:
     name: Solar Install Date
     has_date: true
     has_time: false
     initial: "2024-03-03"
     icon: mdi:solar-power
+
+  # Accumulator markers — initial: omitted so recorder restores across restarts.
+  # First-creation state will be `unknown`, which the accumulator template
+  # conditions treat as "never set" (proceed to accumulate).
   solar_savings_last_accumulated:
     name: Solar Savings Last Accumulated
     has_date: true
     has_time: false
-    initial: "1970-01-01"
     icon: mdi:calendar-check
   solar_roi_achieved_date:
-    # 1970-01-01 = sentinel "not yet achieved". Auto-stamped by automation.
+    # Stamped by automation when ROI crossed.
+    # Template sensor `solar_roi_status` treats 1970-01-01 OR unknown as "not yet".
     name: Solar ROI Achieved Date
     has_date: true
     has_time: false
-    initial: "1970-01-01"
     icon: mdi:flag-checkered
   daily_cost_savings_last_accumulated:
     name: Daily Cost & Savings Last Accumulated
     has_date: true
     has_time: false
-    initial: "1970-01-01"
     icon: mdi:calendar-check
 
-input_boolean:
-  solar_estimate_seeded:
-    name: Solar Pre-Deploy Estimate Seeded
-    initial: false
-    icon: mdi:check-decagram
+# input_boolean.solar_estimate_seeded was removed — its persistence was unreliable
+# (same `initial:` reset issue). The seed automation now gates on
+# `pre_deploy_estimate > 0` instead, which is a naturally persistent check.
 
 # Per-tariff consumption meter — needed to compute self-consumption per tariff
 # bucket so we apply the correct avoided rate. Mirrors the existing
@@ -246,6 +259,51 @@ template:
         icon: mdi:file-compare
         state: "{{ states('input_number.yearly_business_flexi_cost_total') | float(0) | round(2) }}"
 
+      # Plan comparison delta: BF - BFPlus.
+      # POSITIVE = BFPlus is cheaper (good — staying put saves money).
+      # NEGATIVE = BF would be cheaper (bad — switching would save).
+      - name: BFPlus Advantage Monthly
+        unique_id: bfplus_advantage_monthly
+        device_class: monetary
+        unit_of_measurement: AUD
+        icon: mdi:scale-balance
+        state: >
+          {{ ((states('sensor.business_flexi_monthly_cost') | float(0))
+            - (states('sensor.monthly_net_cost') | float(0))) | round(2) }}
+      - name: BFPlus Advantage Yearly
+        unique_id: bfplus_advantage_yearly
+        device_class: monetary
+        unit_of_measurement: AUD
+        icon: mdi:scale-balance
+        state: >
+          {{ ((states('input_number.yearly_business_flexi_cost_total') | float(0))
+            - (states('input_number.yearly_net_cost_total') | float(0))) | round(2) }}
+
+      # 140kWh battery ROI projection.
+      # projected_annual is backfilled from 12 months of LTS data.
+      # If install cost = $140k and annual savings = $16k, ROI = 140/16 = 8.75 years.
+      - name: Battery 140kWh Years To ROI
+        unique_id: battery_140kwh_years_to_roi
+        unit_of_measurement: years
+        icon: mdi:calendar-clock
+        availability: "{{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) > 0 }}"
+        state: >
+          {% set cost = states('input_number.battery_140kwh_install_cost') | float(0) %}
+          {% set savings = states('input_number.battery_140kwh_projected_annual_savings') | float(0) %}
+          {{ (cost / savings) | round(1) if savings > 0 else 0 }}
+      - name: Battery 140kWh ROI Date
+        unique_id: battery_140kwh_roi_date
+        icon: mdi:calendar-end
+        availability: "{{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) > 0 }}"
+        state: >
+          {% set cost = states('input_number.battery_140kwh_install_cost') | float(0) %}
+          {% set savings = states('input_number.battery_140kwh_projected_annual_savings') | float(0) %}
+          {% if savings > 0 %}
+            {{ (now() + timedelta(days=((cost / savings) * 365.25) | int)).strftime('%Y-%m-%d') }}
+          {% else %}
+            unknown
+          {% endif %}
+
   # --- ROI sensors (state-based, recompute live) ---
   - sensor:
       - name: Days Since Solar Install
@@ -270,7 +328,7 @@ template:
           measured: "{{ states('input_number.solar_cumulative_savings_actual') | float(0) | round(2) }}"
           estimated_pre_deploy: "{{ states('input_number.solar_savings_pre_deploy_estimate') | float(0) | round(2) }}"
           measured_days: "{{ states('input_number.solar_savings_count_days') | int(0) }}"
-          estimate_seeded: "{{ is_state('input_boolean.solar_estimate_seeded', 'on') }}"
+          estimate_seeded: "{{ (states('input_number.solar_savings_pre_deploy_estimate') | float(0)) > 0 }}"
 
       - name: Solar ROI Progress
         unique_id: solar_roi_progress
@@ -385,7 +443,8 @@ automation:
               date: "{{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}"
 
   # One-time seed of the pre-deploy estimate after 7 days of measured data.
-  # Triggers when count crosses 7 AND boolean hasn't been set yet.
+  # Gated on pre_deploy_estimate being 0 (not yet seeded) — this is naturally
+  # persistent across restarts because pre_deploy_estimate has no `initial:`.
   - alias: Solar Seed Pre-Deploy Estimate
     id: solar_seed_pre_deploy_estimate
     description: "After 7 days of measured savings, project the rate backward to 2024-03-03 and lock as the pre-deploy estimate. Runs exactly once."
@@ -395,24 +454,18 @@ automation:
         entity_id: input_number.solar_savings_count_days
         above: 6.9
     condition:
-      - condition: state
-        entity_id: input_boolean.solar_estimate_seeded
-        state: "off"
+      - condition: template
+        value_template: "{{ (states('input_number.solar_savings_pre_deploy_estimate') | float(0)) == 0 }}"
     action:
       - variables:
           avg_daily: "{{ (states('input_number.solar_cumulative_savings_actual') | float(0)) / (states('input_number.solar_savings_count_days') | int(1)) }}"
           install_date: "{{ states('input_datetime.solar_install_date') | as_datetime }}"
-          # Pre-deploy = install_date → (today - measured_days).  Today's measured period
-          # is excluded from the estimate so we don't double count.
           pre_deploy_days: "{{ (now().date() - install_date.date()).days - (states('input_number.solar_savings_count_days') | int(0)) }}"
       - service: input_number.set_value
         target:
           entity_id: input_number.solar_savings_pre_deploy_estimate
         data:
           value: "{{ (avg_daily | float(0) * pre_deploy_days | int(0)) | round(2) }}"
-      - service: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.solar_estimate_seeded
       - service: persistent_notification.create
         data:
           title: "Solar ROI Estimate Seeded"
