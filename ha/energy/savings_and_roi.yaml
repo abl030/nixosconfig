@@ -65,6 +65,46 @@ input_number:
     unit_of_measurement: days
     icon: mdi:counter
 
+  # MTD / YTD accumulators (replaced the original trigger-based sensors so
+  # state survives across HA restarts and can be backfilled from LTS).
+  # Reset to 0 on month/year rollover by the reset automations below.
+  monthly_solar_savings_total:
+    name: Monthly Solar Savings Total
+    initial: 0
+    min: 0
+    max: 999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:calendar-cash
+  yearly_solar_savings_total:
+    name: Yearly Solar Savings Total
+    initial: 0
+    min: 0
+    max: 9999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:calendar-star
+  yearly_net_cost_total:
+    name: Yearly Net Cost Total
+    initial: 0
+    min: 0
+    max: 9999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:cash-multiple
+  yearly_business_flexi_cost_total:
+    name: Yearly Business Flexi Cost Total
+    initial: 0
+    min: 0
+    max: 9999999
+    step: 0.01
+    mode: box
+    unit_of_measurement: AUD
+    icon: mdi:file-compare
+
 input_datetime:
   solar_install_date:
     name: Solar Install Date
@@ -85,6 +125,12 @@ input_datetime:
     has_time: false
     initial: "1970-01-01"
     icon: mdi:flag-checkered
+  daily_cost_savings_last_accumulated:
+    name: Daily Cost & Savings Last Accumulated
+    has_date: true
+    has_time: false
+    initial: "1970-01-01"
+    icon: mdi:calendar-check
 
 input_boolean:
   solar_estimate_seeded:
@@ -167,62 +213,38 @@ template:
             {{ (sc_total / 1000 * np_rate) | round(2) }}
           export_credit: "{{ states('sensor.total_daily_energy_credit') | float(0) | round(2) }}"
 
-  # --- Monthly / Yearly accumulators (trigger pattern, matches monthly_net_cost) ---
-  - trigger:
-      - platform: time
-        at: "23:59:51"
-    sensor:
+      # --- MTD / YTD totals — state-based, read from input_number accumulators
+      #     so they're backfillable from LTS and survive HA restarts.
+      #     Updated daily by automation.accumulate_daily_cost_savings_totals,
+      #     reset on month/year rollover by the reset automations below. ---
       - name: Monthly Solar Savings
         unique_id: monthly_solar_savings
         device_class: monetary
         unit_of_measurement: AUD
         state_class: total
         icon: mdi:calendar-cash
-        state: >
-          {% set d = states('sensor.daily_solar_savings') | float(0) %}
-          {{ d if now().day == 1 else (this.state | float(0)) + d }}
-
-  - trigger:
-      - platform: time
-        at: "23:59:52"
-    sensor:
+        state: "{{ states('input_number.monthly_solar_savings_total') | float(0) | round(2) }}"
       - name: Yearly Solar Savings
         unique_id: yearly_solar_savings
         device_class: monetary
         unit_of_measurement: AUD
         state_class: total
         icon: mdi:calendar-star
-        state: >
-          {% set d = states('sensor.daily_solar_savings') | float(0) %}
-          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
-
-  - trigger:
-      - platform: time
-        at: "23:59:53"
-    sensor:
+        state: "{{ states('input_number.yearly_solar_savings_total') | float(0) | round(2) }}"
       - name: Yearly Net Cost
         unique_id: yearly_net_cost
         device_class: monetary
         unit_of_measurement: AUD
         state_class: total
         icon: mdi:cash-multiple
-        state: >
-          {% set d = states('sensor.total_daily_energy_net_cost') | float(0) %}
-          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
-
-  - trigger:
-      - platform: time
-        at: "23:59:55"
-    sensor:
+        state: "{{ states('input_number.yearly_net_cost_total') | float(0) | round(2) }}"
       - name: Yearly Business Flexi Cost
         unique_id: yearly_business_flexi_cost
         device_class: monetary
         unit_of_measurement: AUD
         state_class: total
         icon: mdi:file-compare
-        state: >
-          {% set d = states('sensor.business_flexi_total_daily_cost') | float(0) %}
-          {{ d if (now().day == 1 and now().month == 1) else (this.state | float(0)) + d }}
+        state: "{{ states('input_number.yearly_business_flexi_cost_total') | float(0) | round(2) }}"
 
   # --- ROI sensors (state-based, recompute live) ---
   - sensor:
@@ -426,3 +448,93 @@ automation:
           title: "Solar ROI Achieved!"
           message: "Your solar system has paid for itself. Today is {{ now().strftime('%Y-%m-%d') }}. From here, every dollar is profit."
           notification_id: solar_roi_achieved
+
+  # Daily MTD/YTD accumulator — adds yesterday's daily values to the four
+  # input_number totals. Idempotent via last-accumulated stamp.
+  - alias: Accumulate Daily Cost Savings Totals
+    id: accumulate_daily_cost_savings_totals
+    description: "Append yesterday's solar savings + costs to MTD/YTD accumulators."
+    mode: single
+    trigger:
+      - platform: time
+        at: "00:00:50"
+    action:
+      - if:
+          - condition: template
+            value_template: >
+              {% set last = states('input_datetime.daily_cost_savings_last_accumulated') %}
+              {% set yesterday = (now() - timedelta(days=1)).strftime('%Y-%m-%d') %}
+              {{ last in ['unknown', 'unavailable'] or last[:10] < yesterday }}
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.monthly_solar_savings_total
+            data:
+              value: "{{ (states('input_number.monthly_solar_savings_total') | float(0)) + (states('sensor.daily_solar_savings') | float(0)) }}"
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.yearly_solar_savings_total
+            data:
+              value: "{{ (states('input_number.yearly_solar_savings_total') | float(0)) + (states('sensor.daily_solar_savings') | float(0)) }}"
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.yearly_net_cost_total
+            data:
+              value: "{{ (states('input_number.yearly_net_cost_total') | float(0)) + (states('sensor.total_daily_energy_net_cost') | float(0)) }}"
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.yearly_business_flexi_cost_total
+            data:
+              value: "{{ (states('input_number.yearly_business_flexi_cost_total') | float(0)) + (states('sensor.business_flexi_total_daily_cost') | float(0)) }}"
+          - service: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.daily_cost_savings_last_accumulated
+            data:
+              date: "{{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}"
+
+  # Monthly reset — fires on the 1st of each month at 23:59:50.
+  # Resets monthly_solar_savings_total to 0 so it starts fresh from Day 2's
+  # accumulator. Matches the old trigger sensor's reset timing — old month
+  # total visible all of Day 1, then reset just before midnight.
+  - alias: Reset Monthly Solar Savings
+    id: reset_monthly_solar_savings
+    mode: single
+    trigger:
+      - platform: time
+        at: "23:59:50"
+    condition:
+      - condition: template
+        value_template: "{{ now().day == 1 }}"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.monthly_solar_savings_total
+        data:
+          value: 0
+
+  # Yearly reset — Jan 1 at 23:59:50. Same logic for all three YTD totals.
+  - alias: Reset Yearly Cost and Savings Totals
+    id: reset_yearly_cost_savings_totals
+    mode: single
+    trigger:
+      - platform: time
+        at: "23:59:50"
+    condition:
+      - condition: template
+        value_template: "{{ now().day == 1 and now().month == 1 }}"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.yearly_solar_savings_total
+        data:
+          value: 0
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.yearly_net_cost_total
+        data:
+          value: 0
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.yearly_business_flexi_cost_total
+        data:
+          value: 0
