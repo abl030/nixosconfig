@@ -1,7 +1,8 @@
 # pfSense backup architecture
 
 **Date built:** 2026-05-23
-**Status:** Live. First scheduled syncoid run: 2026-05-24 03:00 AWST.
+**Major rearchitect:** 2026-05-26 (moved off prom virtiofs/NFS to native ZFS on doc2)
+**Status:** Live. Daily syncoid pull from pfSense → doc2 at 03:00 AWST.
 **Related:** [pfsense-dns-resolver](pfsense-dns-resolver.md), [dns-saturation-incident-2026-05-22](dns-saturation-incident-2026-05-22.md).
 
 ## TL;DR
@@ -9,10 +10,10 @@
 Three-layer defence in depth for the bare-metal pfSense firewall (Protectli FW4C, ZFS-on-root, 30 GB SSD):
 
 1. **AutoConfigBackup (ACB)** — Netgate's hosted config-only service. Encrypted client-side, off-site, triggers on every config save. ~32 days history. Password lives in Bitwarden.
-2. **ZFS replication to prom** — syncoid daily pulls the full pool (minus ntopng's telemetry) to `nvmeprom/backup/pfsense`. ~1.5 GB initial, KB-MB-scale incrementals. Sanoid retention 30 daily / 8 weekly / 6 monthly.
-3. **Kopia off-site replication** — doc2 mounts the replicated dataset RO via virtiofs and ships it to **both** mum's Synology (over Tailscale) and Wasabi (Object Lock) as belt-and-braces.
+2. **ZFS replication to doc2** — syncoid runs *on doc2*, pulls the full pool (minus ntopng's telemetry) into a local ZFS pool `pfsensebackup`. ~1.5 GB initial, KB-MB-scale incrementals. Sanoid retention 30 daily / 8 weekly / 6 monthly.
+3. **Kopia off-site replication** — doc2's kopia-mum instance walks `/mnt/backup/pfsense` and ships to mum's Synology over Tailscale.
 
-A doc2-side watchdog reads the JSON status file syncoid writes on every run and routes failures through `homelab.monitoring.errorPatterns` → alert-bridge → Gotify.
+A watchdog on doc2 reads the JSON status file syncoid writes on every run, AND verifies the canary file (`/mnt/backup/pfsense/ROOT/default/cf/conf/config.xml` ≥ 50 KB) — catches both "syncoid failed" AND "syncoid claims success but child datasets are unreachable." Routes failures through `homelab.monitoring.errorPatterns` → alert-bridge → Gotify.
 
 ## Architecture
 
@@ -21,52 +22,75 @@ A doc2-side watchdog reads the JSON status file syncoid writes on every run and 
    │  pfSense (Protectli FW4C, bare metal, ZFS-on-root pool       │
    │   named "pfSense")                                            │
    │                                                                │
-   │   ntopng's bulk telemetry isolated to its own dataset        │
-   │   so syncoid can exclude it cleanly.                          │
-   │                                                                │
    │   SSH access for syncoid is restricted via authorized_keys    │
    │   forced-command wrapper at /root/.ssh/syncoid-wrapper.sh     │
-   │   (only zfs ops + echo probe).                                │
+   │   (only zfs ops + echo probe). Single authorized key from     │
+   │   doc2 (prom's key was retired 2026-05-26).                   │
    └────────────────────────┬─────────────────────────────────────┘
                             │  syncoid (pull, daily 03:00 AWST)
                             │  ed25519 key + forced-command
                             ▼
    ┌──────────────────────────────────────────────────────────────┐
-   │  prom (Proxmox 8.x, ZFS host 192.168.1.12)                    │
-   │                                                                │
-   │   nvmeprom/backup/pfsense  ← syncoid -R -- --exclude=ntopng   │
-   │     ├─ ROOT/default        (OS + config, ~1.4 GB)             │
-   │     ├─ ROOT/default/cf     (config.xml, ~2 MB)                │
-   │     ├─ var/db              (kea, tailscale, pfblockerng)      │
-   │     └─ ...                                                     │
-   │   .syncoid-status.json     ← wrapper writes per run            │
-   │                                                                │
-   │   Sanoid: autoprune-only (autosnap=no). 30d / 8w / 6m.        │
-   │   Sanoid runs every 15min via systemd timer.                  │
-   │                                                                │
-   │   virtiofs share dirid=pfsense-backup, mapped to               │
-   │   /nvmeprom/backup/pfsense on prom.                            │
-   └────────────────────────┬─────────────────────────────────────┘
-                            │  virtiofs (ro from doc2 perspective)
-                            ▼
-   ┌──────────────────────────────────────────────────────────────┐
    │  doc2 (NixOS VM 114 on prom)                                  │
    │                                                                │
-   │   /mnt/pfsense-backup  ← virtiofs RO                          │
-   │     └─ .syncoid-status.json                                   │
+   │   Hardware: virtio1 = nvmeprom:vm-114-pfsense-backup (10 GB   │
+   │     zvol passthrough from prom).                              │
+   │   ZFS pool: pfsensebackup, mountpoint /mnt/backup/pfsense.    │
+   │   13 child datasets auto-mount as kernel ZFS submounts:       │
+   │     ├─ ROOT/default         (OS + config, ~1.34 GB)           │
+   │     │   └─ cf/conf/config.xml (the canary — 175 KB)           │
+   │     ├─ var/db               (kea, tailscale, pfblockerng)     │
+   │     └─ ... (12 more — see `zfs list -r pfsensebackup`)        │
+   │   /mnt/backup/pfsense/.syncoid-status.json (written each run) │
    │                                                                │
-   │   pfsense-backup-watchdog.timer (hourly): reads status,       │
-   │     emits "PFSENSE-BACKUP FAIL ..." on stale/red.             │
+   │   Native NixOS modules (declarative, this repo):              │
+   │     - modules/nixos/services/syncoid-pfsense.nix              │
+   │     - modules/nixos/services/pfsense-backup-watchdog.nix      │
+   │   services.sanoid prunes received snapshots (30d/8w/6m).      │
    │                                                                │
-   │   Kopia sources include /mnt/pfsense-backup in BOTH:          │
-   │     - kopia-photos (Wasabi Object Lock)                       │
-   │     - kopia-mum (mum's Synology over Tailscale)               │
+   │   homelab.services.kopia.instances.mum.sources includes       │
+   │     /mnt/backup/pfsense — daily snapshot to mum's Synology.   │
    └────────────────────────┬─────────────────────────────────────┘
                             │
                             ▼
-                    Wasabi  +  Synology
-                  (two independent off-site copies)
+                    Synology (off-site, Tailscale)
 ```
+
+## Why this shape (and not the older virtiofs/NFS attempts)
+
+The chain *used to* run on prom (Debian/Proxmox host), with syncoid pulling into `nvmeprom/backup/pfsense` and exposing it to doc2 via virtiofs, then via NFS. Both failed on the same root cause: **kernel-level file-system traversal of ZFS child datasets is broken on Proxmox's Linux kernel.**
+
+### virtiofs attempt (original design)
+
+- virtiofsd was launched with `--announce-submounts`, which the kernel docs say will auto-traverse mounts within the shared directory.
+- In practice only **one** child mount (`reservation/`) propagated to doc2. The other 12 child datasets were invisible. Kopia ended up backing up only the wrapping dataset (`.syncoid-status.json` — 298 bytes) every day.
+- **The watchdog passed.** The status JSON file lived in the wrapping dataset and *did* propagate. The watchdog confirmed "syncoid ran, status file is fresh and ok=true" — but there was no actual data to back up. Silent failure for ~2 days.
+
+### NFS attempt (cutover 1)
+
+- Replaced virtiofs with NFS, hoping `crossmnt` would traverse the children.
+- Required removing `fsid=0` from the Music export (the existing NFSv4 pseudo-root) to make room for a second NFSv4 export. nfs-utils auto-generates a pseudo-root at `/` once `fsid=0` is gone. Music clients (epi/fra/wsl) updated to use full path; tower already used `vers=3` so was unaffected.
+- The Linux kernel NFS server's `crossmnt` does **not** propagate `fsid=` to child filesystems. ZFS-on-Linux's auto-generated UUIDs end with two zero halves and don't survive the kernel's filehandle round-trip.
+- Even with explicit `fsid=$(uuidgen -r)` set per-child (15 export lines, all UUIDs unique), the kernel returned `mount(2): Input/output error` on every child traversal. Direct mounts of child paths failed with mount.nfs error 32.
+- Per kernel.org/filesystems/nfs/reexport.html, the fix is either to give every child filesystem an explicit fsid AND a separate export line — already done — OR run a userspace NFS server (nfs-ganesha) which auto-discovers submounts. TrueNAS does the latter; nfs-ganesha was the way forward for this approach.
+
+### Why we chose native ZFS instead of nfs-ganesha (cutover 2)
+
+Going to nfs-ganesha would have:
+- Replaced the production kernel NFS server on prom (used by tower/plex, epi, fra, wsl).
+- Added a new userspace service to maintain on the imperative-managed Proxmox host.
+- Kept the imperative prom-side scripts (`/usr/local/sbin/syncoid-pfsense.sh`, systemd units, `/etc/sanoid/sanoid.conf`, firewall rules, NFS export, virtiofs share, qm config, mapping config) that we'd been accumulating on prom.
+
+Putting ZFS *on the client* (doc2) instead:
+- Eliminates the entire "expose ZFS to another host via NFS-or-similar" problem class. Kernel ZFS on doc2 handles child datasets natively — they're real mounts, no fsid bridging needed.
+- Brings the syncoid setup into **declarative NixOS** (modules/nixos/services/syncoid-pfsense.nix) instead of imperative-on-prom.
+- prom drops out of the backup chain entirely. The only prom-side touch is a 10 GB zvol passthrough — which is just storage, not logic.
+- Disaster recovery is preserved: doc2 can `zfs send` back to bare-metal pfSense the same way prom could have.
+
+### Costs accepted
+
+- doc2 must have ZFS-on-Linux compiled in. NixOS handles this — needs `boot.supportedFilesystems = ["zfs"];` plus a stable `networking.hostId`.
+- It's a zfs-on-zfs layering (inner ZFS on doc2 sits on a zvol backed by prom's nvmeprom pool). Acceptable: prom's outer ZFS handles redundancy on the 3-NVMe pool; doc2's inner ZFS provides the *features* we need (snapshots, child datasets, ARC, native traversal). Tuned with `compression=off`, `primarycache=metadata`, `sync=disabled` on the outer zvol so the inner layer owns those decisions.
 
 ## What's covered (and what's not)
 
@@ -74,9 +98,7 @@ A doc2-side watchdog reads the JSON status file syncoid writes on every run and 
 |---|---|---|
 | ACB | `config.xml` (every rule, NAT, VPN, CA, DHCP, DNS settings) | Package binaries, RRD data, lease databases, certificates not in config.xml |
 | ZFS replication | Everything in `pfSense/ROOT/*`, `pfSense/var/db`, `pfSense/var/log`, etc. — including installed packages, kea leases, Tailscale identity, pfBlockerNG state | `pfSense/var/db/ntopng` (intentionally excluded — disposable telemetry) |
-| Kopia | Whatever the ZFS replication carried, off-site | Same exclusions |
-
-The ZFS path captures the **identical** package versions and binary state, which is what makes the SSD-restore path so fast: no pfSense reinstall, no `pkg install pfBlockerNG-devel`, no `kea2unbound` reload storm. Restore is byte-for-byte the firewall you had.
+| Kopia | Whatever the ZFS replication carried, off-site to mum's Synology | Same exclusions |
 
 ## Recovery procedures
 
@@ -88,7 +110,7 @@ You broke a firewall rule and want to undo. Don't restore from this stack — AC
 
 ### Scenario 2: SSD failure, identical Protectli still working
 
-The mSATA died but the box is fine. You have the ZFS replica on prom.
+The mSATA died but the box is fine. You have the ZFS replica on doc2.
 
 **Procedure:**
 
@@ -103,14 +125,10 @@ The mSATA died but the box is fine. You have the ZFS replica on prom.
    gpart add -t freebsd-zfs ada0
    zpool create -f -o ashift=12 -O compression=lz4 -O atime=off -m none pfSense ada0p4
    ```
-4. From a network-accessible shell on the new pfSense (or via temporary network on the installer), receive the latest snapshot from prom:
+4. From a network-accessible shell on the new pfSense, receive the latest snapshot from doc2:
    ```sh
-   # Find latest syncoid snap on prom:
-   ssh root@192.168.1.12 'zfs list -H -t snapshot -o name -s creation -r nvmeprom/backup/pfsense | tail -1'
-   # Then on the new pfSense (over SSH from prom is easier — pull via ssh):
-   ssh root@192.168.1.12 \
-     'zfs send -R nvmeprom/backup/pfsense@<latest>' \
-     | zfs receive -F pfSense
+   # On doc2:
+   sudo zfs send -R pfsensebackup@<latest-snapname> | ssh root@<new-pfsense> 'zfs receive -F pfSense'
    ```
 5. Set bootfs: `zpool set bootfs=pfSense/ROOT/default pfSense`
 6. Install the FreeBSD bootloader to ada0:
@@ -123,25 +141,21 @@ RTO: ~20-30 min.
 
 ### Scenario 3: full Protectli failure, no spare
 
-You need a working firewall and the hardware is gone. Use prom as a temporary firewall.
+You need a working firewall and the hardware is gone. Spin pfSense as a VM temporarily.
 
-**Procedure (the "VM on prom" play, design-documented for this exact case):**
+**Procedure:**
 
-1. Create a new VM on prom with the Protectli's profile:
-   - UEFI boot
-   - Add a second NIC passed through for WAN
-   - 4 GB RAM, 2 cores
-2. **Clone the backup dataset to a VM disk:**
+1. Create a new VM on any hypervisor (prom is fine) with the Protectli's profile: UEFI, 4 GB RAM, 2 cores, two NICs (one passed through for WAN).
+2. **Receive the backup to a new zvol:**
    ```sh
-   zfs clone nvmeprom/backup/pfsense@<latest> nvmeprom/vm-NNN-pfsense
+   # On doc2:
+   sudo zfs send -R pfsensebackup@<latest> | ssh root@prom 'zfs receive -F nvmeprom/vm-NNN-pfsense-restore'
    ```
-   ...then attach as the VM's root disk.
+   ...then attach as the VM's root disk on prom.
 3. Boot. The pfSense console will prompt to reassign interfaces — the NIC names changed (igc0 → vtnet0). Walk through the prompt.
 4. Adjust WAN/LAN assignments in the GUI as needed.
 
-RTO: ~20-30 min once you've got the second NIC passed through.
-
-This is a temporary fix until new Protectli hardware arrives — pfSense Plus has hardware-NDI licensing concerns that don't apply to CE (which is what we run), but running production WAN through a hypervisor permanently is not the goal.
+RTO: ~20-30 min once you've got the second NIC passed through. Temporary fix until new Protectli hardware arrives.
 
 ### Scenario 4: full house loss
 
@@ -150,7 +164,7 @@ Everything on-prem is gone. Recovery from cloud:
 1. New hardware (Protectli or any UEFI-capable mini-PC).
 2. Fresh pfSense install from ISO.
 3. Restore config from **ACB** via the installer's "Recover config from backup" option (you'll need the encryption password from Bitwarden).
-4. If pfBlockerNG fails to re-initialise cleanly (it sometimes does — known Redmine bugs), pull `/var/db/pfblockerng/` and `/usr/local/etc/pfblockerng/` from Kopia and drop them in.
+4. If pfBlockerNG fails to re-initialise cleanly (it sometimes does — known Redmine bugs), pull `/var/db/pfblockerng/` and `/usr/local/etc/pfblockerng/` from Kopia (mum's Synology) and drop them in.
 5. Tailscale re-auth is required regardless (identity isn't preserved across an ACB-only restore).
 
 RTO: ~1-2 hours assuming hardware on hand. Days if shipping.
@@ -160,95 +174,50 @@ RTO: ~1-2 hours assuming hardware on hand. Days if shipping.
 ### On pfSense (FreeBSD; persistent across reboots via pfSense config.xml reconciliation)
 
 - `/root/.ssh/syncoid-wrapper.sh` — forced-command wrapper restricting the syncoid key to `zfs ` and `echo ` commands. This file is **not** managed by pfSense config.xml — it's a raw file that survives reboots independently.
-- `/root/.ssh/authorized_keys` — managed via the pfSense user API (config.xml `<authorizedkeys>` field). Contains the syncoid-from-prom ed25519 public key with `command="/root/.ssh/syncoid-wrapper.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc` options.
-
-### On prom (Debian 12 / Proxmox VE 8.x — NOT in this repo, configured manually)
-
-- `/usr/local/sbin/syncoid-pfsense.sh` — wrapper that runs syncoid, writes JSON status file.
-- `/etc/systemd/system/syncoid-pfsense.service` — oneshot.
-- `/etc/systemd/system/syncoid-pfsense.timer` — daily 03:00 AWST.
-- `/etc/sanoid/sanoid.conf` — retention policy for the receiver.
-- `/etc/pve/mapping/directory.cfg` — directory mapping `pfsense-backup` → `/nvmeprom/backup/pfsense`.
-- `/etc/pve/qemu-server/114.conf` — doc2 VM config with `virtiofs2: dirid=pfsense-backup,cache=auto`.
-- `/root/.ssh/id_ed25519_syncoid_pfsense{,.pub}` — dedicated keypair for the syncoid pull.
-
-If prom is rebuilt from scratch, all of the above needs reconstructing. See the "Rebuild prom side" section below for the full set.
+- `/root/.ssh/authorized_keys` — managed via the pfSense user API (config.xml `<authorizedkeys>` field). Contains the single doc2 ed25519 public key with `command="/root/.ssh/syncoid-wrapper.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc` options.
 
 ### On doc2 (NixOS — declarative, in this repo)
 
-- `hosts/doc2/configuration.nix` — `fileSystems."/mnt/pfsense-backup"` virtiofs RO mount + `homelab.services.pfsenseBackupWatchdog.enable = true` + adds `/mnt/pfsense-backup` to both kopia instances' `sources`.
-- `modules/nixos/services/pfsense-backup-watchdog.nix` — the watchdog module + auto-wired errorPatterns alert.
+- `hosts/doc2/configuration.nix` — `boot.supportedFilesystems = ["zfs"]`, `networking.hostId`, `boot.zfs.extraPools = ["pfsensebackup"]`, `homelab.services.syncoidPfsense.enable = true`, `homelab.services.pfsenseBackupWatchdog.enable = true`, `homelab.services.kopia.instances.mum.sources` includes `/mnt/backup/pfsense`.
+- `modules/nixos/services/syncoid-pfsense.nix` — the systemd unit + timer + sanoid wiring + status JSON writer + benign-refusal masker.
+- `modules/nixos/services/pfsense-backup-watchdog.nix` — hourly check of status JSON freshness + content canary (config.xml ≥ 50 KB).
+- `secrets/hosts/doc2/syncoid-pfsense-key` — sops-encrypted ed25519 private key (doc2-only recipient in `.sops.yaml`).
+- `secrets/hosts/doc2/syncoid-pfsense-key.pub` — public key (plain), registered with pfSense admin user.
 
-## Rebuild prom side from scratch
+### On prom (Debian 12 / Proxmox VE 8.x — NOT in this repo)
 
-Should prom ever be reinstalled or moved, redo this sequence:
+- `nvmeprom/vm-114-pfsense-backup` — 10 GB zvol attached as VM 114 virtio1. Created with:
+  ```sh
+  pvesm alloc nvmeprom 114 vm-114-pfsense-backup 10G
+  zfs set compression=off primarycache=metadata sync=disabled \
+    nvmeprom/vm-114-pfsense-backup
+  qm set 114 --virtio1 nvmeprom:vm-114-pfsense-backup,size=10G,cache=none,discard=on
+  ```
+
+That's it. **All the imperative prom-side stuff** (syncoid wrapper, systemd units, sanoid.conf entry, NFS export, firewall rules, virtiofs share, pve directory mapping) **was retired on 2026-05-26**.
+
+## Bootstrapping a fresh doc2 (one-off)
+
+After the NixOS config has ZFS support deployed and the zvol is attached as virtio1:
 
 ```sh
-# 1. Install sanoid + syncoid
-apt install -y sanoid
+# 1. Find the new disk's stable path (avoid /dev/vdb — not stable across boots)
+ls -la /dev/disk/by-path/
 
-# 2. Create destination dataset PARENT only — do NOT pre-create
-#    nvmeprom/backup/pfsense itself. Let syncoid create the wrapper
-#    as part of the recursive replication. Pre-creating it causes
-#    syncoid to refuse forever ("Cowardly refusing to destroy your
-#    existing target") because the hand-created wrapper has no
-#    snapshot matching the source pool. See "Known footguns" →
-#    "Initial `zfs create` of the target was suboptimal" for the
-#    2026-05-24 incident this caused.
-zfs create -o compression=lz4 -o atime=off nvmeprom/backup
+# 2. Create the pool. The mountpoint MUST be /mnt/backup/pfsense so the
+#    watchdog and kopia source paths resolve correctly.
+sudo zpool create -o ashift=12 -O compression=lz4 -O atime=off \
+  -O mountpoint=/mnt/backup/pfsense \
+  pfsensebackup /dev/disk/by-path/virtio-pci-0000:00:0b.0
 
-# 3. Generate keypair (ed25519, no passphrase)
-ssh-keygen -t ed25519 -N "" \
-  -f /root/.ssh/id_ed25519_syncoid_pfsense \
-  -C "syncoid-from-prom-to-pfsense"
+# 3. Trigger the first syncoid run (TOFU-accepts pfSense's host key).
+sudo systemctl start syncoid-pfsense.service
+journalctl -u syncoid-pfsense.service -f
 
-# 4. Install the public key on pfSense via the GUI (System → User Manager → admin →
-#    Authorized SSH Keys) — paste the contents of id_ed25519_syncoid_pfsense.pub
-#    PREPENDED with: command="/root/.ssh/syncoid-wrapper.sh",no-port-forwarding,
-#    no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc
-#    Then SSH into pfSense and create /root/.ssh/syncoid-wrapper.sh with the
-#    content documented above.
-
-# 5. Write /etc/sanoid/sanoid.conf:
-cat > /etc/sanoid/sanoid.conf <<'EOF'
-[nvmeprom/backup/pfsense]
-    use_template = pfsense_backup
-    recursive = yes
-    process_children_only = no
-
-[template_pfsense_backup]
-    hourly = 0
-    daily = 30
-    weekly = 8
-    monthly = 6
-    yearly = 0
-    autosnap = no
-    autoprune = yes
-EOF
-
-# 6. Write the syncoid wrapper script. See the actual file on prom for the
-#    canonical content — paraphrased: runs syncoid with --exclude=ntopng,
-#    captures stdout+exit-code, writes JSON status file to
-#    /nvmeprom/backup/pfsense/.syncoid-status.json.
-
-# 7. Write the systemd unit + timer. Daily at 03:00.
-
-# 8. Add the virtiofs directory mapping to /etc/pve/mapping/directory.cfg:
-cat >> /etc/pve/mapping/directory.cfg <<'EOF'
-
-pfsense-backup
-	map node=prom,path=/nvmeprom/backup/pfsense
-	description pfSense ZFS-replicated backup target (RO consumer mount)
-EOF
-
-# 9. Attach the share to doc2 (VM 114) — requires VM stop/start to take effect:
-qm set 114 -virtiofs2 dirid=pfsense-backup,cache=auto
-
-# 10. Test the initial pull:
-syncoid --recursive \
-  --exclude="pfSense/var/db/ntopng" \
-  --sshkey=/root/.ssh/id_ed25519_syncoid_pfsense \
-  root@192.168.1.1:pfSense nvmeprom/backup/pfsense
+# Expected: ~80 sec initial pull of ~1.5 GB; subsequent runs are seconds.
+# Status file: cat /mnt/backup/pfsense/.syncoid-status.json
+# Watchdog: sudo systemctl start pfsense-backup-watchdog.service
+#   Expected: "PFSENSE-BACKUP OK ... canary_bytes=~175000"
 ```
 
 ## Operations
@@ -256,82 +225,63 @@ syncoid --recursive \
 ### Run syncoid manually
 
 ```sh
-ssh root@192.168.1.12 'systemctl start syncoid-pfsense.service && journalctl -u syncoid-pfsense.service -f'
+ssh doc2 'sudo systemctl start syncoid-pfsense.service && journalctl -u syncoid-pfsense.service -f'
 ```
 
-### Check the watchdog from doc2
+### Check the watchdog
 
 ```sh
 ssh doc2 'sudo systemctl start pfsense-backup-watchdog.service && journalctl -u pfsense-backup-watchdog.service -n 5'
 ```
 
+A healthy run logs: `PFSENSE-BACKUP OK finished_at=... duration_seconds=... canary_bytes=<size>`
+
 ### Browse the backed-up files
 
-From doc2 (read-only):
 ```sh
-ls /mnt/pfsense-backup/ROOT/default/cf/config.xml  # The latest config.xml
+ssh doc2 'ls /mnt/backup/pfsense/ROOT/default/cf/conf/config.xml'
 ```
 
-From prom (read-write — be careful, don't edit):
+### Inspect a specific historical snapshot
+
+Sanoid auto-pruned snapshots are named `syncoid_doc2_<date>-GMT<offset>`. To browse one:
+
 ```sh
-ls /nvmeprom/backup/pfsense/ROOT/default/cf/
+ssh doc2 'zfs list -t snapshot -r pfsensebackup'
+# Then clone:
+ssh doc2 'sudo zfs clone pfsensebackup/ROOT/default@<snapname> pfsensebackup/scratch-inspect'
 ```
 
 ### Force a fresh full pull (discard target state)
 
-If snapshot chains get out of sync (rare), nuke and start over.
-
-**Critical:** `zfs destroy -r` on the wrapper will fail while doc2's
-virtiofs share is open (`pool or dataset is busy`). And worse — the
-destroy is partially atomic: it destroys all CHILD SNAPSHOTS first,
-then errors on the busy mount. You're left with empty target datasets
-and no common ancestor — every subsequent run fails with "no snapshots
-matching." Always shut doc2 down first.
-
-After destroy, do NOT pre-create `nvmeprom/backup/pfsense` — let
-syncoid build the wrapper itself so it gets a proper snapshot base.
+If snapshot chains get out of sync. Destroy + repull. doc2 doesn't need any virtiofs shenanigans this time around — just nuke the pool data and let syncoid recreate it.
 
 ```sh
-# 1. Stop doc2 to release virtiofsd handles on the share.
-ssh root@192.168.1.12 'qm shutdown 114 --timeout 60 && qm status 114'
-
-# 2. Destroy + re-pull from source. (Note: NO `zfs create` after destroy.)
-ssh root@192.168.1.12 '
-  zfs destroy -r nvmeprom/backup/pfsense
-  systemctl start syncoid-pfsense.service
-  cat /nvmeprom/backup/pfsense/.syncoid-status.json
-'
-
-# 3. Bring doc2 back; virtiofs reattaches at VM start.
-ssh root@192.168.1.12 'qm start 114'
-```
-
-Expect ~1-2 min downtime on doc2 and ~30-90s for the ~1.5GB pull on
-LAN. The status file should show `ok: true, exit_code: 0` afterwards;
-the doc2 watchdog reports `PFSENSE-BACKUP OK` on its next tick.
-
-### Inspect a specific historical snapshot
-
-Sanoid's auto-pruned snapshots are named `syncoid_prom_<date>-GMT<offset>`. To browse one:
-
-```sh
-ssh root@192.168.1.12 '
-  zfs list -t snapshot -o name nvmeprom/backup/pfsense/ROOT/default
-  # Then clone it to a temporary read-only spot:
-  zfs clone nvmeprom/backup/pfsense/ROOT/default@<snapname> tank/scratch/inspect
+ssh doc2 '
+  sudo systemctl stop syncoid-pfsense.timer
+  sudo zfs destroy -r pfsensebackup
+  sudo zpool destroy pfsensebackup
+  # Recreate the pool exactly as in the bootstrap section above
+  sudo zpool create -o ashift=12 -O compression=lz4 -O atime=off \
+    -O mountpoint=/mnt/backup/pfsense \
+    pfsensebackup /dev/disk/by-path/virtio-pci-0000:00:0b.0
+  sudo systemctl start syncoid-pfsense.timer
+  sudo systemctl start syncoid-pfsense.service
 '
 ```
+
+Expect ~80s for the ~1.5 GB full pull on LAN. Status file should show `ok: true, exit_code: 0` after; the watchdog reports `PFSENSE-BACKUP OK` on its next tick.
 
 ## Monitoring
 
 The watchdog on doc2 fires hourly. It checks:
-- Status file exists at `/mnt/pfsense-backup/.syncoid-status.json`.
+
+- Status file exists at `/mnt/backup/pfsense/.syncoid-status.json`.
 - File mtime is within `maxAgeHours` (default 26h, so any miss of the daily 03:00 run pages by morning).
-- The JSON's `exit_code` is 0 and `ok` is true.
+- JSON `exit_code` is 0 and `ok` is true.
+- **Canary file** `/mnt/backup/pfsense/ROOT/default/cf/conf/config.xml` exists and is ≥ 50 KB. This catches the 2026-05-26 incident class: syncoid claims success and the status JSON looks fine, but the actual data tree is inaccessible (the failure mode that virtiofs+NFS gave us for 2 days).
 
 On failure: emits `PFSENSE-BACKUP FAIL reason=<reason> ...` to journald → Loki → matched by `homelab.monitoring.errorPatterns` → alert-bridge re-shapes through claude → Gotify push.
-
-The watchdog also recognises the "placeholder" state (the JSON file written before the first scheduled syncoid run) and treats it as informational, not failure.
 
 **Loki queries:**
 
@@ -341,55 +291,54 @@ The watchdog also recognises the "placeholder" state (the JSON file written befo
 
 # Just failures (would match the alert too)
 {host="doc2", unit="pfsense-backup-watchdog.service"} |~ "PFSENSE-BACKUP FAIL"
+
+# syncoid runs (success or failure)
+{host="doc2", unit="syncoid-pfsense.service"}
 ```
 
 **Failure modes the watchdog catches:**
 
 | reason= | What's likely broken |
 |---|---|
-| `status-file-missing` | virtiofs share isn't mounted, or prom hasn't written one yet. Check `mount \| grep pfsense-backup` on doc2 and check prom's syncoid timer ran. |
-| `status-file-stale` | prom's syncoid timer hasn't run in >26h. Check `systemctl status syncoid-pfsense.timer` on prom — host down? Timer failed? |
-| `last-run-failed` | syncoid ran but exited non-zero. `journalctl -u syncoid-pfsense.service` on prom for details. Could be: network blip to pfSense, ZFS send/recv stream error, SSH key reject, sanoid pruning conflict. |
+| `status-file-missing` | The pool isn't mounted, or syncoid hasn't run yet. Check `zfs list pfsensebackup` and `systemctl status syncoid-pfsense.service`. |
+| `status-file-stale` | syncoid timer hasn't run in >26h. `systemctl status syncoid-pfsense.timer`. Doc2 down? Timer failed? |
+| `last-run-failed` | syncoid ran but exited non-zero AND the wrapper masker didn't catch it as benign. `journalctl -u syncoid-pfsense.service` for details. Likely: network blip to pfSense, ZFS send/recv stream error, SSH key reject, sanoid pruning conflict. |
+| `canary-missing` | The cf/conf dataset isn't mounted OR config.xml was destroyed. Almost impossible with native ZFS — `zfs list -r pfsensebackup` should show all children. |
+| `canary-too-small` | config.xml exists but is empty/truncated. Investigate manually — possibly a partial replication. |
 
 ## Known footguns
 
-### `nvmeprom/backup/pfsense` is the WRAPPING dataset, not the data
+### Initial syncoid pull always returns rc=2 — masked
 
-The actual replicated data lives in *children* (`nvmeprom/backup/pfsense/ROOT/default`, etc.). The parent `nvmeprom/backup/pfsense` exists only to host the status file and the share point. **Do not `zfs destroy nvmeprom/backup/pfsense` without `-r`** — and if you `-r`, you've thrown the whole backup away. Sanoid's prune only ever removes individual snapshots, never datasets.
+syncoid prints `CRITICAL ERROR: Target pfsensebackup exists but has no snapshots matching with pfSense! Replication to target would require destroying existing.` on the **wrapping** dataset. Every CHILD dataset still replicates cleanly. The wrapper in `modules/nixos/services/syncoid-pfsense.nix` detects this exact phrase and masks `rc=2 → 0`. Same logic as the retired prom script. Don't remove the masker without verifying that the underlying syncoid behaviour has changed — historically every fleet rebuild has hit this.
 
-### Initial `zfs create` of the target was a BUG, not a warning — fixed 2026-05-24
+### writeShellApplication implicit `set -euo pipefail`
 
-**Original framing:** the first run from a hand-created target dataset prints `Cowardly refusing to destroy your existing target`. Believed harmless — syncoid proceeds with each child dataset replicating into its own newly-created child target. The wrapping dataset stays empty (just hosts the status file).
+The module's wrapper script explicitly disables `errexit` and `pipefail` around the syncoid invocation. Without that, syncoid's rc=2 would kill the script before the masker could run — the status JSON wouldn't be written and the watchdog would correctly fail. Don't simplify this without thinking it through.
 
-**Reality (discovered 2026-05-24):** syncoid exits with `rc=2` on every single run because the wrapper refuses. The doc2 watchdog reads `exit_code != 0` from the status JSON and pages every hour. Result: continuous alert flapping starting the very first scheduled run. The `homelab.monitoring.errorPatterns` route doesn't suppress it — `pfsense-backup-watchdog` is wired with `threshold = 0` (single-shot terminal) precisely because each watchdog tick logs the failure exactly once before exiting.
+### JSON status file uses `jq -n` for escaping
 
-**Two-part fix in place:**
+The `last_error` field carries syncoid's CRITICAL output verbatim, which contains literal tabs and newlines. A hand-written heredoc produces invalid JSON. The wrapper uses `jq -n --arg` for every field to handle escaping. Hit on 2026-05-26 first deploy.
 
-1. **Rebuild recipe** (above, step 2) no longer pre-creates `nvmeprom/backup/pfsense`. Only `nvmeprom/backup` is created. syncoid creates the wrapper itself during the first recursive replication and gets a proper snapshot base.
+### `boot.zfs.extraPools` triggers a per-pool import unit
 
-2. **Safety net in the syncoid wrapper script** (`/usr/local/sbin/syncoid-pfsense.sh` on prom): if syncoid exits 2 AND the LAST critical-level line in its output matches `Cowardly refusing to destroy your existing target`, the wrapper masks `rc` to 0 and prefixes `last_error` with `(masked benign wrapper refusal)`. This catches any future drift back into the pre-create state without re-triggering the alert storm.
+`zfs-import-pfsensebackup.service` runs at every boot and fails if the pool is missing. That's a single-unit failure, not a boot blocker, but it WILL light up systemd as "degraded." On first deploy before bootstrap, it fails. After bootstrap it succeeds forever. To rebuild from scratch (pool wiped), the first boot after `zpool destroy` will show the failure again until you recreate the pool.
 
-**Incident detail (2026-05-24 morning):** the original watchdog noise was a sequence of warnings escalating to my own destructive intervention that made it worse. I ran `zfs destroy -r nvmeprom/backup/pfsense` while doc2's virtiofs share was holding the mounts open. The destroy is **partially atomic** — it destroyed every snapshot in the tree FIRST, then errored on the busy mounts. That left every child dataset with data but zero snapshots, breaking the incremental chain completely. Recovery required `qm shutdown 114` → destroy (now successful) → fresh full pull (NOT pre-creating) → `qm start 114`. ~2 min doc2 downtime, ~80s for the ~1.5GB initial pull on LAN. Total backup downtime: ~5 min.
+### prom firewall expects NFS clients, NOT a tower-style "give me ZFS via NFS" trap
 
-**Lesson:** always shut doc2 down before any destructive operation on `nvmeprom/backup/pfsense` or its children. virtiofsd holds the shared-dir open as its root inode and won't release on `umount -f` — only VM shutdown drops the handle.
+`/etc/pve/local/host.fw` on prom contains explicit accept rules for the NFS Music export clients (tower/epi/fra/wsl). Doc2's 192.168.1.35 was added briefly during the failed NFS-cutover and removed on 2026-05-26. If you ever want NFS again from prom → some new client, you need to re-add the rule set.
 
-### virtiofs share changes require VM restart (qm stop + qm start, not `reboot`)
+### Tower (Unraid) uses NFSv3 for the Music share — different fsid semantics
 
-Adding/removing virtiofs entries on a running VM via `qm set` updates `/etc/pve/qemu-server/NNN.conf` but the running qemu process doesn't see the change. Doc2 needs `qm shutdown 114 && qm start 114` from prom (or equivalent) to attach a new share.
-
-### Read-only is enforced at the doc2 mount layer, not at virtiofs
-
-Proxmox's virtiofs config doesn't expose a `readonly` flag for the share itself. The RO contract is enforced via the `ro` mount option in doc2's `fileSystems` entry. A compromised doc2 with sufficient privilege could remount rw — but at that point you've lost. For accidental-write protection (the realistic threat), the mount-side `ro` is enough.
-
-### Kopia source for `/mnt/pfsense-backup` requires the mount to exist before the kopia source-sync runs
-
-If the virtiofs share is missing on first deploy, the kopia source-sync will register `/mnt/pfsense-backup` as a source but kopia itself will error when it tries to walk a non-existent path. The order matters: bring the virtiofs share in (VM restart) → deploy doc2 → kopia source-sync runs against a valid mount.
-
-The mount carries `nofail` so a missing share won't block boot — but the watchdog AND kopia will both spit errors until the share is back.
+The Music export's `fsid=0` was removed on 2026-05-26 to let nfs-utils auto-generate the pseudo-root at `/`. Tower mounts Music with `vers=3` which doesn't use the NFSv4 pseudo-root at all, so the removal is invisible to tower. The NixOS clients (`modules/nixos/services/mounts/nfs-music.nix`) now mount the full path `192.168.1.12:/nvmeprom/containers/Music` (was `192.168.1.12:/`). If you ever re-add `fsid=0` to *anything* on prom, audit every NFSv4 client mount string first.
 
 ## When to revisit
 
 - If syncoid runtime ever exceeds 5 minutes on the daily timer, investigate. Initial pulls aside, daily incrementals should be MB-scale and complete in <30s.
-- If pool fragmentation on `pfSense` (the source pool) climbs over 75%, consider a scheduled offline `zpool scrub` and `zpool replace` to a fresh SSD — Protectli's mSATA isn't infinite-write-endurance.
-- If we ever add a third kopia instance (e.g. for some new mission-critical data), do NOT add `/mnt/pfsense-backup` to it — two off-site copies are enough. The marginal value of a third copy is below the cost of the kopia config bloat.
-- If we replace the Protectli with a Netgate appliance (Plus license), the SSD-restore path (Scenario 2) becomes complicated because Plus binds to NIC NDI. Re-read [pfsense-dns-resolver](pfsense-dns-resolver.md) and the research-agent's notes from the 2026-05-23 backup-design session.
+- If pool fragmentation on `pfSense` (the source pool on the firewall) climbs over 75%, consider a scheduled offline `zpool scrub` and `zpool replace` to a fresh SSD — Protectli's mSATA isn't infinite-write-endurance.
+- If the zvol fills (currently 1.7 GB used of 10 GB, syncoid retention keeps snapshots), grow it:
+  ```sh
+  ssh root@192.168.1.12 'zfs set volsize=20G nvmeprom/vm-114-pfsense-backup'
+  ssh doc2 'sudo zpool online -e pfsensebackup /dev/disk/by-path/virtio-pci-0000:00:0b.0'
+  ```
+- We deliberately do NOT have a second kopia destination for pfsense backup. Earlier the chain shipped to both kopia-photos (Wasabi) and kopia-mum (Synology); on 2026-05-26 we dropped the Wasabi copy — appliance backups don't fit the photos bucket's economics. If a dedicated Wasabi bucket gets stood up for fleet-state backups, the kopia source list can include `/mnt/backup/pfsense` there too. Until then: single off-site copy via mum.
