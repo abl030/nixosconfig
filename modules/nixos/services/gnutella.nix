@@ -9,36 +9,59 @@
   # POC notes, shell commands, and headless-search caveat:
   # docs/wiki/services/gtk-gnutella-poc.md
   configFile = "${cfg.dataDir}/config_gnet";
+  guiConfigFile = "${cfg.dataDir}/config_gui";
+  guiGeometry = "${toString cfg.guiWidth}x${toString cfg.guiHeight}+0+0";
+  guiResolution = "${toString cfg.guiWidth}x${toString cfg.guiHeight}";
 
   configureScript = pkgs.writeShellScript "gtk-gnutella-configure" ''
     set -eu
 
     umask 0077
     touch ${lib.escapeShellArg configFile}
+    touch ${lib.escapeShellArg guiConfigFile}
 
     upsert() {
-      key="$1"
-      value="$2"
+      file="$1"
+      key="$2"
+      value="$3"
 
-      if grep -Eq "^[[:space:]]*#?[[:space:]]*''${key}[[:space:]]*=" ${lib.escapeShellArg configFile}; then
-        sed -i -E "s|^[[:space:]]*#?[[:space:]]*''${key}[[:space:]]*=.*|''${key} = ''${value}|" ${lib.escapeShellArg configFile}
+      if grep -Eq "^[[:space:]]*#?[[:space:]]*''${key}[[:space:]]*=" "$file"; then
+        sed -i -E "s|^[[:space:]]*#?[[:space:]]*''${key}[[:space:]]*=.*|''${key} = ''${value}|" "$file"
       else
-        printf '%s = %s\n' "$key" "$value" >> ${lib.escapeShellArg configFile}
+        printf '%s = %s\n' "$key" "$value" >> "$file"
       fi
     }
 
-    upsert listen_port ${toString cfg.listenPort}
-    upsert network_protocol 4
-    upsert configured_peermode 0
-    upsert enable_g2 TRUE
-    upsert enable_upnp FALSE
-    upsert enable_natpmp FALSE
-    upsert store_downloading_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/incomplete\""}
-    upsert move_downloading_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/complete\""}
-    upsert move_corrupted_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/corrupt\""}
-    upsert shared_dirs ${lib.escapeShellArg "\"\""}
+    upsert ${lib.escapeShellArg configFile} listen_port ${toString cfg.listenPort}
+    upsert ${lib.escapeShellArg configFile} network_protocol 4
+    upsert ${lib.escapeShellArg configFile} configured_peermode 0
+    upsert ${lib.escapeShellArg configFile} enable_g2 TRUE
+    upsert ${lib.escapeShellArg configFile} enable_upnp FALSE
+    upsert ${lib.escapeShellArg configFile} enable_natpmp FALSE
+    upsert ${lib.escapeShellArg configFile} store_downloading_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/incomplete\""}
+    upsert ${lib.escapeShellArg configFile} move_downloading_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/complete\""}
+    upsert ${lib.escapeShellArg configFile} move_corrupted_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/corrupt\""}
+    upsert ${lib.escapeShellArg configFile} shared_dirs ${lib.escapeShellArg "\"\""}
 
-    chmod 0600 ${lib.escapeShellArg configFile}
+    # gtk-gnutella persists the browser-resized Xpra window dimensions. Keep
+    # the POC UI large enough to click and type into reliably.
+    upsert ${lib.escapeShellArg guiConfigFile} window_coords "0,0,${toString cfg.guiWidth},${toString cfg.guiHeight}"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_nodes "130,50,120,20,30,30,80,600"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_file_info "240,80,80,80,80,80,80,80,80,300"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_sources "120,120,120,120,120,400"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_search_results "240,60,80,80,50,140,360,40,40,40,40,40,40,40,40,40,40,0,0"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_search_stats "200,80,700"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_ul_stats "200,80,80,80,80,80,500"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_uploads "200,120,40,80,80,80,500,0"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_msg "120,60,60,60,60,60,60,650"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_fc "120,60,60,60,60,60,60,60,60,500"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_horizon "60,80,80,700"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_drop_reasons "240,700"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_recv "120,60,60,60,60,60,60,60,60,500"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_hcache "120,80,80,700"
+    upsert ${lib.escapeShellArg guiConfigFile} widths_gnet_stats_general "240,700"
+
+    chmod 0600 ${lib.escapeShellArg configFile} ${lib.escapeShellArg guiConfigFile}
   '';
 
   startScript = pkgs.writeShellScript "gtk-gnutella-xpra" ''
@@ -56,6 +79,11 @@
       --bind-tcp=127.0.0.1:${toString cfg.webPort} \
       --html=${pkgs.xpra-html5}/share/xpra/www \
       --http=yes \
+      --readonly=no \
+      --keyboard-sync=yes \
+      --keyboard-layout=us \
+      --resize-display=${guiResolution} \
+      --dpi=96 \
       --mdns=no \
       --dbus=no \
       --control=no \
@@ -75,7 +103,7 @@
       --tray=no \
       --terminate-children=yes \
       --exit-with-children=yes \
-      --start-child="${pkgs.gtkgnutella}/bin/gtk-gnutella --no-dbus --no-supervise"
+      --start-child="${pkgs.gtkgnutella}/bin/gtk-gnutella --geometry ${guiGeometry} --no-dbus --no-supervise"
   '';
 
   shutdownScript = pkgs.writeShellScript "gtk-gnutella-shutdown" ''
@@ -118,6 +146,18 @@ in {
       type = lib.types.int;
       default = 46;
       description = "Xpra display number for the gtk-gnutella GUI session.";
+    };
+
+    guiWidth = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 1280;
+      description = "Default gtk-gnutella GUI window width in the browser session.";
+    };
+
+    guiHeight = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 900;
+      description = "Default gtk-gnutella GUI window height in the browser session.";
     };
 
     tailscaleOnly = lib.mkOption {
@@ -216,7 +256,7 @@ in {
         pkgs.coreutils
         pkgs.gnugrep
         pkgs.gnused
-        pkgs.xorg.xauth
+        pkgs.xauth
       ];
 
       preStart = "${configureScript}";
