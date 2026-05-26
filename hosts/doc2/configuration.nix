@@ -136,6 +136,10 @@
         downloadDir = "/mnt/virtio/music/slskd";
         musicDir = "/mnt/virtio/Music/Beets";
       };
+      gnutella = {
+        enable = true;
+        dataDir = "/mnt/virtio/gtk-gnutella";
+      };
       cratedigger = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
