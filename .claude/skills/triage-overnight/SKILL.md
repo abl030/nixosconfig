@@ -1,10 +1,27 @@
 ---
 name: triage-overnight
 description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki AND audit recent Gotify pings on doc2, then summarise. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
-version: 1.1.0
+version: 1.3.0
 ---
 
 # Triage Overnight Failures
+
+## Framing — read before triaging
+
+The user is **drowning in alerts and has alert fatigue**. The observability stack (alert-bridge, watchdogs, Kuma, Gotify, the nightly diagnose pipeline) is **new and being actively tweaked** — false positives, stale alert routing, duplicate pings across channels, and noisy thresholds are all expected and being iterated on. Many "overnight failures" turn out to be the alerting itself being wrong, not the underlying service.
+
+Two consequences for how you triage:
+
+1. **Cluster aggressively, don't restate.** Multiple pings about the same underlying cause = one finding, not five. The Gotify ping titles are alert-bridge's pattern-match guesses; they often misframe the real issue. **Always trace to the journal/unit log on the source host before reporting.**
+2. **Flag self-inflicted / mis-tuned alerts explicitly.** If a ping fires from stale config, a recent migration the watchdog wasn't updated for, or a threshold that's wrong — say so. That's a meta-finding worth more than another "investigate X" recommendation, because fixing the alert wiring reduces tomorrow's noise.
+
+## Reporting pattern
+
+After investigating, **deliver a single summary message** with the punch list (one bullet per cluster, not per ping). End the summary with a question like *"Want to walk through them one by one?"* — and let the user reply in plain chat with `yes` / `no` / a specific item. **Do not use AskUserQuestion or any structured-question UI** — the user dislikes it. Keep it conversational.
+
+When they say `yes`, take **one** issue, dig in, propose a fix, wait for approval before moving on. Don't batch.
+
+## What to check
 
 Three things to check every morning:
 
@@ -14,14 +31,18 @@ Three things to check every morning:
 
 The nightly-job diagnoses land in journal as plain text and ship to Loki. Gotify pings are stored on doc2 in sqlite. Your job in the morning is to pull them all out, summarise, and propose fixes.
 
-## Step 1: Query Loki for failures, last 24h, all hosts
+## Step 1: Query Loki for failures, last 12h, all hosts
 
-Run all three queries in parallel. Time format: RFC3339, anchor ~24h before now.
+Run all three queries in parallel. Time format: RFC3339, anchor 12h before now.
+
+The 12h window covers the rolling-flake-update at 22:15 AWST and every host's nixos-upgrade run between 01:00–02:00 local with a little slack on either side, without bleeding into the *previous* night's run (a 24h window run in the morning will overlap both nights and you cannot tell them apart from log content alone). If you're triaging late in the day, widen the window deliberately.
 
 **Critical:** the diagnose unit only fires if the *currently-active* system generation has it. A host whose rebuild has failed since the diagnose feature landed will never activate it — its failures show up under `nixos-upgrade.service` only, and the Gotify ping comes from the inline `notify_failure` fallback. Always query both unit names.
 
+**Always include the Loki timestamp** (`[\((.[0]|tonumber)/1e9|todate)]`) in every jq pipeline. The diagnose unit's output is multiline markdown with no embedded times — without the Loki timestamp prefix, an entry from 9h ago and one from 30h ago look identical.
+
 ```bash
-START=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
+START=$(date -u -d '12 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
 END=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 # A. nixos-upgrade-diagnose: claude triage (when the diagnose unit fires)
@@ -29,7 +50,7 @@ curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
   --data-urlencode "query={unit=\"nixos-upgrade-diagnose.service\"}" \
   --data-urlencode "start=$START" --data-urlencode "end=$END" \
   --data-urlencode 'limit=2000' --data-urlencode 'direction=forward' \
-  | jq -r '.data.result[] | "=== \(.stream.host // "?") ===", (.values[] | .[1])'
+  | jq -r '.data.result[] | "=== \(.stream.host // "?") ===", (.values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])")'
 
 # B. nixos-upgrade FAILURES — catches hosts that haven't activated the diagnose unit yet
 curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
@@ -43,7 +64,7 @@ curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
   --data-urlencode "query={unit=\"rolling-flake-update.service\", host=\"proxmox-vm\"}" \
   --data-urlencode "start=$START" --data-urlencode "end=$END" \
   --data-urlencode 'limit=2000' --data-urlencode 'direction=forward' \
-  | jq -r '.values[] | .[1]'
+  | jq -r '.data.result[].values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])"'
 ```
 
 For any host that shows up in query B but not A, fetch the full unit log for context:
@@ -123,9 +144,11 @@ For each Gotify ping (Step 1b) that you didn't skip-list:
 - **Your traced root cause** — not just the ping title. Cross-reference the unit log in the ±5min window, check whether a recent commit changed the relevant module, and state the real cause. If the alert title is misleading (e.g. "NFS watchdog tripped" when the actual cause was a config error), say so explicitly.
 - **Current state** — did it self-recover, is the service active now, was it the watchdog's job to recover it.
 
-If nothing fired in the last 24h and Gotify is just HA/Kuma noise: report "no overnight failures, both jobs green, Gotify clean" and stop.
+If nothing fired in the 12h window and Gotify is just HA/Kuma noise: report "no overnight failures, both jobs green, Gotify clean" and stop.
 
 ## Step 3: Offer to fix
+
+After the summary, ask in plain chat: *"Want to walk through them one by one?"* When the user says `yes`, take the first item, dig into it, propose a fix, **wait for explicit approval**, then move to the next. One issue per turn. Do **not** use structured-question UIs.
 
 For each `actionable` entry, present the diff that would implement claude's suggested fix and ask the user to approve. Do **not** auto-apply — the overnight diagnosis is advisory, the morning fix is intentional.
 
