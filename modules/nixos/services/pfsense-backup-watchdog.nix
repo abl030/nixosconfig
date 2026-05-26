@@ -1,14 +1,22 @@
 # pfSense backup watchdog
 #
-# Watches the syncoid status JSON written by prom's syncoid-pfsense.service.
+# Watches the syncoid status JSON written by prom's syncoid-pfsense.service,
+# AND a content canary inside the backup tree itself.
 # Full architecture + restore procedures + prom-side rebuild steps:
 #   docs/wiki/infrastructure/pfsense-backup.md
 #
-# Runs hourly, reads the status file via the read-only virtiofs mount, and
-# emits a distinctive log line on:
+# Runs hourly, reads the status file via the read-only NFS mount from prom,
+# and emits a distinctive log line on:
 #   - missing status file
 #   - status file older than maxAgeHours
 #   - exit_code != 0 from the last syncoid run
+#   - missing/empty canary file (the actual pfSense config.xml) — catches
+#     the 2026-05-26 failure mode where the share was mounted but child
+#     ZFS datasets weren't traversed, so the JSON file looked fine but
+#     1.83 GB of real data was invisible. NFS with crossmnt fixes the
+#     underlying issue, but the canary remains as defence-in-depth.
+#   - total tree size below canaryMinBytes — catches a partial replication
+#     that drops content but keeps the canary path intact.
 #
 # Loki picks up the journal output; `homelab.monitoring.errorPatterns` below
 # routes the "PFSENSE-BACKUP FAIL" pattern through the alert-bridge → Gotify.
@@ -19,12 +27,12 @@
 # 2026-05-24 "stale alloy connection" incident in lgtm-stack.md, where
 # prom's alloy was silently dropping every batch to a dead vhost IP),
 # the status-file approach is structurally stronger:
-#   1. Verifies the doc2 virtiofs share is mounted and readable
+#   1. Verifies the doc2 NFS share is mounted and readable
 #      (catches a class of failure the journal alone can't see).
 #   2. Independent of alloy/Loki health — if alloy goes silent again,
 #      this watchdog still pages.
-#   3. Reads the actual JSON the kopia source consumes, so an alert
-#      means "the bytes kopia would back up are broken", not just
+#   3. Reads the actual bytes kopia would back up, so an alert
+#      means "the data kopia is shipping is broken", not just
 #      "syncoid logged something".
 # A prom-side journal alert via errorPatterns would be a useful
 # *additional* signal but is not the primary defence.
@@ -42,6 +50,8 @@
     text = ''
       set -u
       STATUS="${cfg.statusFile}"
+      CANARY="${cfg.canaryFile}"
+      CANARY_MIN_BYTES=${toString cfg.canaryMinBytes}
       MAX_AGE_SEC=$(( ${toString cfg.maxAgeHours} * 3600 ))
 
       if [ ! -f "$STATUS" ]; then
@@ -73,7 +83,21 @@
         exit 1
       fi
 
-      echo "PFSENSE-BACKUP OK finished_at=$FINISHED duration_seconds=$DURATION"
+      # Content canary — verifies the actual backed-up tree is intact, not
+      # just the status JSON. Catches the "mount is up, status is OK, but
+      # the data is invisible" failure mode (2026-05-26 virtiofs incident).
+      if [ ! -s "$CANARY" ]; then
+        echo "PFSENSE-BACKUP FAIL reason=canary-missing path=$CANARY"
+        exit 1
+      fi
+
+      CANARY_SIZE=$(stat -c %s "$CANARY")
+      if [ "$CANARY_SIZE" -lt "$CANARY_MIN_BYTES" ]; then
+        echo "PFSENSE-BACKUP FAIL reason=canary-too-small bytes=$CANARY_SIZE min=$CANARY_MIN_BYTES path=$CANARY"
+        exit 1
+      fi
+
+      echo "PFSENSE-BACKUP OK finished_at=$FINISHED duration_seconds=$DURATION canary_bytes=$CANARY_SIZE"
     '';
   };
 in {
@@ -82,8 +106,29 @@ in {
 
     statusFile = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/pfsense-backup/.syncoid-status.json";
+      default = "/mnt/backup/pfsense/.syncoid-status.json";
       description = "Path to the JSON status file written by prom's syncoid wrapper.";
+    };
+
+    canaryFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/mnt/backup/pfsense/ROOT/default/cf/config.xml";
+      description = ''
+        A canary file inside the replicated tree that proves the share is
+        traversing into child datasets. Defaults to the live pfSense
+        config.xml — the single most semantically meaningful file in the
+        backup; if this is missing the backup is useless regardless of
+        what other content survived.
+      '';
+    };
+
+    canaryMinBytes = lib.mkOption {
+      type = lib.types.int;
+      # pfSense config.xml on this fleet is ~750 KB. 100 KB is a generous
+      # "non-empty + non-truncated" floor — would catch the 298-byte
+      # incident class without false-positiving on a real config slim-down.
+      default = 102400;
+      description = "Minimum size in bytes for the canary file before alerting.";
     };
 
     maxAgeHours = lib.mkOption {
@@ -92,7 +137,7 @@ in {
       description = ''
         Maximum permitted age of the status file in hours. prom's syncoid timer
         runs daily (24h cadence) — anything older than this means the timer
-        failed to run, prom is unreachable, or virtiofs is broken.
+        failed to run, prom is unreachable, or the NFS mount is broken.
       '';
     };
 

@@ -95,10 +95,15 @@
       # Grafana alerting → Gotify (#201). Default rule: alert on
       # unexpected reboots of prom (the canonical case from 2026-02-22).
       alerting.enable = true;
-      # Watchdog over the prom-replicated pfSense ZFS backup status file
-      # (mounted RO at /mnt/pfsense-backup via virtiofs). Logs a
-      # "PFSENSE-BACKUP FAIL" line when the syncoid run is stale or red,
-      # which routes through homelab.monitoring.errorPatterns → Gotify.
+      # pfSense ZFS backup chain — doc2 hosts the receiver natively on its
+      # own local ZFS pool (pfsensebackup, backed by a zvol passthrough from
+      # prom's nvmeprom). syncoid pulls directly from pfSense; sanoid prunes;
+      # kopia-mum walks the local mount tree.
+      # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
+      syncoidPfsense.enable = true;
+      # Watchdog over the syncoid status file in /mnt/backup/pfsense/.
+      # Logs "PFSENSE-BACKUP FAIL" on stale/failed/missing-canary;
+      # routes through homelab.monitoring.errorPatterns → Gotify.
       pfsenseBackupWatchdog.enable = true;
       # claude-p summary bridge in front of Gotify. When enabled,
       # alerting.nix automatically points Grafana's webhook at the
@@ -201,11 +206,12 @@
             configDir = "/mnt/virtio/kopia/photos";
             sources = [
               "/mnt/data/Life/Photos/library"
-              # pfSense ZFS backup (read-only via virtiofs from prom).
-              # Belt-and-braces: both kopia repos carry a copy so the firewall
-              # config survives loss of either off-site target.
-              # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
-              "/mnt/pfsense-backup"
+              # pfSense backup is intentionally NOT in kopia-photos: those
+              # snapshots will live in a dedicated Wasabi bucket better
+              # suited to small high-churn appliance backups. Existing
+              # 298-byte snapshots in this repo will be `kopia snapshot
+              # delete`d and age out under the 90-day Object Lock window.
+              # See docs/wiki/infrastructure/pfsense-backup.md.
             ];
             proxyHost = "kopiaphotos.ablz.au";
             # Match container identity so existing snapshot policies/schedules work
@@ -226,10 +232,13 @@
               "/mnt/data/Life"
               "/mnt/data/Media/Books"
               "/mnt/data/Media/Music"
-              # pfSense ZFS backup (read-only via virtiofs from prom).
-              # Belt-and-braces alongside the photos repo.
+              # pfSense ZFS backup, read-only NFS mount from prom. (Replaces
+              # the earlier virtiofs share at /mnt/pfsense-backup — virtiofs
+              # does not cross ZFS-submount boundaries reliably, so the
+              # 12 child datasets that hold the actual 1.83 GB of data were
+              # invisible to kopia and snapshots came in at 298 bytes.)
               # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
-              "/mnt/pfsense-backup"
+              "/mnt/backup/pfsense"
             ];
             repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
@@ -296,18 +305,28 @@
     options = ["rw" "relatime"];
   };
 
-  # pfSense backup virtiofs mount — READ-ONLY consumer view of the ZFS-replicated
-  # pfSense backup on prom (nvmeprom/backup/pfsense). prom pulls via syncoid
-  # nightly; this VM exposes the result to Kopia for off-site replication and
-  # runs a watchdog that alerts if the syncoid status file is stale or red.
-  # Full architecture + restore procedures:
-  #   docs/wiki/infrastructure/pfsense-backup.md
-  # Watchdog source: modules/nixos/services/pfsense-backup-watchdog.nix
-  fileSystems."/mnt/pfsense-backup" = {
-    device = "pfsense-backup";
-    fsType = "virtiofs";
-    options = ["ro" "relatime" "nofail" "x-systemd.device-timeout=10s"];
-  };
+  # pfSense ZFS backup — native ZFS on this host.
+  #
+  # 2026-05-26 cutover: prom previously hosted the replica and exposed it
+  # to doc2 via virtiofs and then NFS. Both layers failed to traverse the
+  # 12 child ZFS datasets reliably (virtiofsd's --announce-submounts only
+  # propagated one child; Linux kernel NFS server can't crossmnt ZFS-on-Linux
+  # child datasets with valid file handles even with per-child explicit fsids,
+  # see docs.kernel.org/filesystems/nfs/reexport.html). The native answer is
+  # to put ZFS on doc2 directly — pool `pfsensebackup` lives on virtio1, a
+  # zvol passthrough from prom's nvmeprom. syncoid pulls directly here; the
+  # 12 child datasets are real ZFS submounts (kernel ZFS, native traversal).
+  #
+  # Pool bootstrap (one-off):
+  #   sudo zpool create -o ashift=12 -O compression=lz4 -O atime=off \
+  #     -O mountpoint=/mnt/backup/pfsense pfsensebackup /dev/disk/by-id/...
+  # Then auto-imports on subsequent boots via the cachefile (NixOS default).
+  #
+  # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
+  boot.supportedFilesystems = ["zfs"];
+  # 8-char hex required for ZFS. Stable across rebuilds.
+  networking.hostId = "deadbe14";
+  boot.zfs.extraPools = ["pfsensebackup"];
 
   # No tmpfiles rules for virtiofs directories — they already exist on
   # persistent ZFS storage (nvmeprom/containers) shared between VMs.

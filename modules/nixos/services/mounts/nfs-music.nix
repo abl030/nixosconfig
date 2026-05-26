@@ -23,8 +23,13 @@ in {
   config = mkIf cfg.enable {
     environment.systemPackages = lib.mkOrder 1600 (with pkgs; [nfs-utils]);
 
+    # Server-side path is explicit (not `/`) because prom serves multiple
+    # NFSv4 exports from different ZFS hierarchies and we cannot pin the
+    # pseudo-root via `fsid=0` to any one of them — the kernel auto-generates
+    # a synthesised root at `/` instead. See docs/wiki/infrastructure/pfsense-backup.md
+    # for the 2026-05-26 cutover that motivated dropping fsid=0.
     fileSystems."/mnt/Music" = {
-      device = "${cfg.server}:/";
+      device = "${cfg.server}:/nvmeprom/containers/Music";
       fsType = "nfs";
       options = [
         "x-systemd.automount"

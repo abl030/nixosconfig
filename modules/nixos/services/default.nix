@@ -51,6 +51,7 @@
     ./forgejo.nix
     ./nfs-watchdog.nix
     ./pfsense-backup-watchdog.nix
+    ./syncoid-pfsense.nix
     ./tailscale-share.nix
     ./rtrfm-nowplaying
     ./claude-voice.nix
