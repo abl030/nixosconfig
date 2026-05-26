@@ -112,22 +112,24 @@ in {
 
     canaryFile = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/backup/pfsense/ROOT/default/cf/config.xml";
+      default = "/mnt/backup/pfsense/ROOT/default/cf/conf/config.xml";
       description = ''
-        A canary file inside the replicated tree that proves the share is
-        traversing into child datasets. Defaults to the live pfSense
-        config.xml — the single most semantically meaningful file in the
-        backup; if this is missing the backup is useless regardless of
-        what other content survived.
+        A canary file inside the replicated tree that proves child datasets
+        are mounted and traversable. Defaults to the live pfSense
+        config.xml at its actual path (cf/conf/config.xml — the `cf`
+        dataset is mounted at /mnt/backup/pfsense/ROOT/default/cf and
+        contains a `conf/` directory with config.xml inside). The single
+        most semantically meaningful file in the backup; if this is missing
+        the backup is useless regardless of what other content survived.
       '';
     };
 
     canaryMinBytes = lib.mkOption {
       type = lib.types.int;
-      # pfSense config.xml on this fleet is ~750 KB. 100 KB is a generous
+      # pfSense config.xml on this fleet is ~175 KB. 50 KB is a comfortable
       # "non-empty + non-truncated" floor — would catch the 298-byte
       # incident class without false-positiving on a real config slim-down.
-      default = 102400;
+      default = 51200;
       description = "Minimum size in bytes for the canary file before alerting.";
     };
 
