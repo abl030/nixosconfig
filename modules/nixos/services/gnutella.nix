@@ -287,6 +287,7 @@ in {
         pkgs.coreutils
         pkgs.gnugrep
         pkgs.gnused
+        pkgs.procps
         pkgs.xset
         pkgs.xsetroot
       ];
