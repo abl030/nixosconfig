@@ -10,14 +10,18 @@
     ./hardware-configuration.nix
   ];
 
-  # Match template 9003 bootloader (seabios + GRUB)
-  boot.loader = {
-    systemd-boot.enable = false;
-    efi.canTouchEfiVariables = false;
-    grub = {
-      enable = true;
-      devices = ["nodev"];
+  boot = {
+    # Match template 9003 bootloader (seabios + GRUB)
+    loader = {
+      systemd-boot.enable = false;
+      efi.canTouchEfiVariables = false;
+      grub = {
+        enable = true;
+        devices = ["nodev"];
+      };
     };
+    supportedFilesystems = ["zfs"];
+    zfs.extraPools = ["pfsensebackup"];
   };
 
   homelab = {
@@ -135,10 +139,6 @@
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
         musicDir = "/mnt/virtio/Music/Beets";
-      };
-      gnutella = {
-        enable = true;
-        dataDir = "/mnt/virtio/gtk-gnutella";
       };
       cratedigger = {
         enable = true;
@@ -327,10 +327,8 @@
   # Then auto-imports on subsequent boots via the cachefile (NixOS default).
   #
   # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
-  boot.supportedFilesystems = ["zfs"];
   # 8-char hex required for ZFS. Stable across rebuilds.
   networking.hostId = "deadbe14";
-  boot.zfs.extraPools = ["pfsensebackup"];
 
   # No tmpfiles rules for virtiofs directories — they already exist on
   # persistent ZFS storage (nvmeprom/containers) shared between VMs.

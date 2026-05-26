@@ -30,7 +30,6 @@
     ./atuin.nix
     ./beancount.nix
     ./slskd.nix
-    ./gnutella.nix
     ./cratedigger.nix
     ./discogs.nix
     ./paperless.nix

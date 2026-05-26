@@ -161,7 +161,6 @@ in {
     authorizedKeys = masterKeys;
     sudoPasswordless = true; # temporary — lock down once appliance is stable
     localIp = "192.168.1.35";
-    tailscaleIp = "100.87.177.120";
     gotifyServer = true;
   };
 
