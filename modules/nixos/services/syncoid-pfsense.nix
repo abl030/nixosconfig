@@ -30,9 +30,12 @@
   syncoidScript = pkgs.writeShellApplication {
     name = "syncoid-pfsense";
     runtimeInputs = with pkgs; [sanoid openssh coreutils gnugrep util-linux mbuffer];
+    # writeShellApplication wraps with `set -euo pipefail` by default. That
+    # turns syncoid's expected rc=2 (the documented benign wrapper-refusal)
+    # into an immediate script exit before we can mask it and write the
+    # status JSON. Disable errexit ONLY around the syncoid call, then turn
+    # it back on for the rest.
     text = ''
-      set -uo pipefail
-
       KEY="${sshKey}"
       SOURCE="${cfg.source}"
       TARGET="${cfg.target}"
@@ -48,13 +51,13 @@
       TMPOUT=$(mktemp)
       trap 'rm -f "$TMPOUT"' EXIT
 
-      # ssh-options: known_hosts pinning is omitted intentionally — we trust
-      # pfSense's host key on first contact (TOFU) because the SSH server is
-      # pinned to LAN-only and the syncoid wrapper on the far end restricts
-      # the key to zfs/echo commands.
       EXCLUDE_ARGS=()
       ${lib.concatMapStringsSep "\n" (ds: ''EXCLUDE_ARGS+=(--exclude=${lib.escapeShellArg ds})'') cfg.excludeDatasets}
 
+      # Disable errexit/pipefail around syncoid so we can capture rc=2
+      # cleanly and mask the benign wrapper-refusal case below.
+      set +e
+      set +o pipefail
       syncoid --recursive \
         "''${EXCLUDE_ARGS[@]}" \
         --sshkey="$KEY" \
@@ -62,14 +65,20 @@
         --sshoption=UserKnownHostsFile=/var/lib/syncoid-pfsense/known_hosts \
         "$SOURCE" "$TARGET" 2>&1 | tee "$TMPOUT" | logger -t syncoid-pfsense
       RC=''${PIPESTATUS[0]}
+      set -e
+      set -o pipefail
 
       END_EPOCH=$(date -u +%s)
       END_ISO=$(date -u -Iseconds)
       DURATION=$((END_EPOCH - START_EPOCH))
 
-      LAST_ERR=$(grep -iE "CRITICAL|ERROR|FATAL" "$TMPOUT" | tail -1 | tr -d '"' | head -c 500)
+      # syncoid prints "CRITICAL ERROR:" then the actual error on the next
+      # line. grep the whole file (not just the matching line) for the
+      # benign-refusal phrase. Capture the LAST critical-marker block for
+      # the status JSON so operators see context, not just "rc=2".
+      LAST_ERR=$(grep -iE -A2 "CRITICAL|ERROR|FATAL" "$TMPOUT" | tail -3 | tr -d '"' | head -c 500)
 
-      if [ "$RC" -eq 2 ] && printf '%s' "$LAST_ERR" | grep -qE "$WRAPPER_BENIGN_RE"; then
+      if [ "$RC" -eq 2 ] && grep -qE "$WRAPPER_BENIGN_RE" "$TMPOUT"; then
         logger -t syncoid-pfsense "wrapper-dataset refusal is benign (children replicated) — overriding rc=2 -> 0"
         LAST_ERR="(masked benign wrapper refusal) $LAST_ERR"
         RC=0
