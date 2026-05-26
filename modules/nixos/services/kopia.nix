@@ -516,11 +516,18 @@ in {
         ];
 
         monitors =
-          # HTTPS availability monitors (accept 401)
+          # HTTPS availability monitors (accept 401).
+          # Same `timeout = 180` and `maxretries = 25` rationale as the
+          # Backup probe below: kopia's HTTP listener stalls under the
+          # repository lock during full maintenance, so the default 48s
+          # Kuma timeout would trip on every maintenance window.
           (lib.mapAttrsToList (name: inst: {
               name = "Kopia ${name}";
               url = "https://${inst.proxyHost}/";
               acceptedStatusCodes = ["200-299" "300-399" "401"];
+              interval = 300;
+              timeout = 180;
+              maxretries = 25;
             })
             cfg.instances)
           ++
@@ -612,6 +619,9 @@ in {
             command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
             interval = "1h";
             intervalSecs = 3600;
+            # Bumped from default 60s so the probe's curl (now 250s)
+            # has headroom to wait out kopia's full-maintenance lock.
+            timeout = "300s";
             serviceConfig = {
               Environment = [
                 "KOPIA_BASE_URL=http://localhost:${toString inst.port}"

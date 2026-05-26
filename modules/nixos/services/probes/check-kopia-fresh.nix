@@ -46,14 +46,12 @@ pkgs.writeShellApplication {
       exit 2
     fi
 
-    # Fetch source list. --max-time 55s sits comfortably under the unit's
-    # default TimeoutStartSec=60s while tolerating kopia's HTTP server
-    # blocking during full GC passes — empirically observed 2026-05-21
-    # when a 15s timeout fired during a 1.5TB / 1,083,953-content GC run
-    # and cost a Kuma heartbeat (single failed hourly probe ⇒ DOWN within
-    # `interval + maxretries * retryInterval` ≈ 62 min for the default
-    # push monitor settings).
-    resp=$(curl -sS --max-time 55 --connect-timeout 5 -u "$user:$pass" "$base/api/v1/sources")
+    # Fetch source list. --max-time 250s sits under the deepProbe's
+    # TimeoutStartSec=300s (set in kopia.nix) and absorbs kopia's full
+    # maintenance lock (empirically 10–15 min on a 1.5 TB / 1M-content
+    # repo: 2026-05-26 fired ping 3009 with curl exit 28 at 55s during a
+    # full GC pass). 55s was the previous value; insufficient.
+    resp=$(curl -sS --max-time 250 --connect-timeout 5 -u "$user:$pass" "$base/api/v1/sources")
     rc=$?
     if [ "$rc" -ne 0 ]; then
       echo "[probe] curl exit $rc fetching $base/api/v1/sources" >&2
