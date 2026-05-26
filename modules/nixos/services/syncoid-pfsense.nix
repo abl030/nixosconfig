@@ -46,7 +46,7 @@
       logger -t syncoid-pfsense "begin pull from $SOURCE to $TARGET"
 
       TMPOUT=$(mktemp)
-      trap "rm -f $TMPOUT" EXIT
+      trap 'rm -f "$TMPOUT"' EXIT
 
       # ssh-options: known_hosts pinning is omitted intentionally — we trust
       # pfSense's host key on first contact (TOFU) because the SSH server is
