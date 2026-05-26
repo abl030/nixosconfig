@@ -1,7 +1,7 @@
 # gtk-gnutella POC on doc2
 
 Date researched: 2026-05-26
-Status: deployed as a doc2 POC service, pending live network verification
+Status: working as a doc2 headless connectivity POC; GUI needed for real search/result browsing
 
 ## Choice
 
@@ -79,3 +79,16 @@ shutdown
 Upstream shell documentation says `search add <query>` does not fully work in Topless mode because large parts of search and result handling live in the GUI. Use the headless service for connectivity/status checks. For actual search/result browsing, stop the service and run the GTK client over an attached X session or X forwarding under the same `gnutella` user and state directory.
 
 Use harmless test searches only, for example `ubuntu`, `debian`, `linux`, `creative commons`, and `public domain`. Do not download copyrighted material during network activity checks.
+
+## Verification
+
+Verified on 2026-05-26 after deploying commit `9a403d34`.
+
+- `gtk-gnutella.service` started and stayed active.
+- The process listened on TCP and UDP `56346`.
+- The `gnutella` UID had an `ip rule` into table 100.
+- `ip route get 1.1.1.1 uid <gnutella-uid>` selected table 100 via `ens19` with source `192.168.1.36`.
+- Public IPv4 differed between normal doc2 traffic and `sudo -u gnutella curl`: normal traffic used `61.245.133.220`; gnutella-UID traffic used `203.209.219.82`.
+- gtk-gnutella bootstrapped to 4 ultrapeers and 2 G2 hubs within about 2 minutes.
+- `horizon` showed live HSEP data, including about 671 nodes / 1.45M files at 2 hops and larger projected horizons beyond that.
+- `search add ubuntu` through the Topless shell returned `400 The search could not be created`, matching the upstream note that search creation/result handling is GUI-side.
