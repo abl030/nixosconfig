@@ -1,7 +1,7 @@
 # gtk-gnutella POC on doc2
 
 Date researched: 2026-05-26
-Status: working as a doc2 headless connectivity POC; GUI needed for real search/result browsing
+Status: browser GUI in progress via Xpra at `gnutella.ablz.au`
 
 ## Choice
 
@@ -24,6 +24,10 @@ The service runs as a dedicated `gnutella` system user with:
 - `GTK_GNUTELLA_DIR=/mnt/virtio/gtk-gnutella`
 - no shared directories by default (`shared_dirs = ""`)
 - listen port `56346`
+- browser GUI on loopback port `14546`, proxied as `https://gnutella.ablz.au/`
+- Xpra HTML5 transport, because Xpra can run a single X11 app and serve it to a browser
+- tailnet-only localProxy exposure; the GUI has no separate app auth
+- IPv4 only, because the VPN policy route is IPv4 on `ens19`
 - leaf peer mode
 - G2 enabled
 - UPnP and NAT-PMP disabled
@@ -41,7 +45,11 @@ pfSense policy-routes `192.168.1.36` through the AirVPN WireGuard tunnel via the
 
 The module adds an `ip rule` for the `gnutella` UID into routing table 100. That table routes via `ens19`, matching the existing slskd pattern. The service does not force gtk-gnutella's advertised IP to `192.168.1.36`; advertising a private RFC1918 address would break incoming peer reachability. Let gtk-gnutella infer the external address from the network, especially if a VPN provider port forward is added later.
 
+gtk-gnutella is configured IPv4-only. On first boot before this was set, it discovered doc2's Tailscale IPv6 address and attempted IPv6 bootstrap paths that are not covered by the AirVPN IPv4 policy route. IPv4-only keeps the POC aligned with the known VPN route.
+
 Firewall exposure is limited to TCP/UDP `56346` on `ens19`.
+
+The GUI is exposed through `homelab.localProxy` with websocket support. The vhost is `tailscaleOnly = true`, so nginx binds it only on doc2's Tailscale address and the Cloudflare A record points at that tailnet IP.
 
 ## Port Forwarding
 
@@ -76,7 +84,7 @@ stats
 shutdown
 ```
 
-Upstream shell documentation says `search add <query>` does not fully work in Topless mode because large parts of search and result handling live in the GUI. Use the headless service for connectivity/status checks. For actual search/result browsing, stop the service and run the GTK client over an attached X session or X forwarding under the same `gnutella` user and state directory.
+Upstream shell documentation says `search add <query>` does not fully work in Topless mode because large parts of search and result handling live in the GUI. The service now runs the GTK client under Xpra instead of Topless so real search/result browsing happens in the browser.
 
 Use harmless test searches only, for example `ubuntu`, `debian`, `linux`, `creative commons`, and `public domain`. Do not download copyrighted material during network activity checks.
 

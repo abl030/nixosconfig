@@ -28,6 +28,7 @@
     }
 
     upsert listen_port ${toString cfg.listenPort}
+    upsert network_protocol 4
     upsert configured_peermode 0
     upsert enable_g2 TRUE
     upsert enable_upnp FALSE
@@ -38,6 +39,44 @@
     upsert shared_dirs ${lib.escapeShellArg "\"\""}
 
     chmod 0600 ${lib.escapeShellArg configFile}
+  '';
+
+  startScript = pkgs.writeShellScript "gtk-gnutella-xpra" ''
+    set -eu
+
+    export GTK_GNUTELLA_DIR=${lib.escapeShellArg cfg.dataDir}
+    export HOME=${lib.escapeShellArg cfg.dataDir}
+    export XDG_RUNTIME_DIR=/run/gtk-gnutella
+    export NO_AT_BRIDGE=1
+
+    exec ${pkgs.xpra}/bin/xpra start :${toString cfg.display} \
+      --daemon=no \
+      --systemd-run=no \
+      --use-display=no \
+      --bind-tcp=127.0.0.1:${toString cfg.webPort} \
+      --html=${pkgs.xpra-html5}/share/xpra/www \
+      --http=yes \
+      --mdns=no \
+      --dbus=no \
+      --commands=no \
+      --control=no \
+      --shell=no \
+      --start-new-commands=no \
+      --file-transfer=no \
+      --open-files=no \
+      --open-url=no \
+      --printing=no \
+      --clipboard=no \
+      --notifications=no \
+      --audio=no \
+      --pulseaudio=no \
+      --speaker=off \
+      --microphone=off \
+      --webcam=no \
+      --tray=no \
+      --terminate-children=yes \
+      --exit-with-children=yes \
+      --start-child="${pkgs.gtkgnutella}/bin/gtk-gnutella --no-dbus --no-supervise"
   '';
 
   shutdownScript = pkgs.writeShellScript "gtk-gnutella-shutdown" ''
@@ -64,6 +103,30 @@ in {
       description = "TCP/UDP Gnutella listen port exposed only on the VPN-routed interface.";
     };
 
+    webPort = lib.mkOption {
+      type = lib.types.port;
+      default = 14546;
+      description = "Loopback Xpra web port exposed via homelab.localProxy.";
+    };
+
+    fqdn = lib.mkOption {
+      type = lib.types.str;
+      default = "gnutella.ablz.au";
+      description = "Browser FQDN for the gtk-gnutella GUI.";
+    };
+
+    display = lib.mkOption {
+      type = lib.types.int;
+      default = 46;
+      description = "Xpra display number for the gtk-gnutella GUI session.";
+    };
+
+    tailscaleOnly = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Expose the browser GUI only on the host's Tailscale address.";
+    };
+
     vpnAddress = lib.mkOption {
       type = lib.types.str;
       default = "192.168.1.36";
@@ -84,7 +147,11 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = [pkgs.gtkgnutella];
+    environment.systemPackages = [
+      pkgs.gtkgnutella
+      pkgs.xpra
+      pkgs.xpra-html5
+    ];
 
     users = {
       groups.gnutella = {};
@@ -159,10 +226,12 @@ in {
         User = "gnutella";
         Group = "gnutella";
         WorkingDirectory = cfg.dataDir;
-        ExecStart = "${pkgs.gtkgnutella}/bin/gtk-gnutella --topless --no-dbus --no-supervise";
-        ExecStop = shutdownScript;
-        Restart = "on-failure";
+        ExecStart = "${startScript}";
+        ExecStop = "${shutdownScript}";
+        Restart = "always";
         RestartSec = "10s";
+        RuntimeDirectory = "gtk-gnutella";
+        RuntimeDirectoryMode = "0700";
 
         CapabilityBoundingSet = "";
         LockPersonality = true;
@@ -184,14 +253,32 @@ in {
       };
     };
 
-    homelab.monitoring.errorPatterns = [
-      {
-        name = "gtk-gnutella-listener";
-        unit = "gtk-gnutella.service";
-        pattern = "(?i)(address already in use|cannot bind|failed to bind|fatal|segmentation fault)";
-        severity = "warning";
-        summary = "gtk-gnutella POC listener is failing on doc2";
-      }
-    ];
+    homelab = {
+      localProxy.hosts = [
+        {
+          host = cfg.fqdn;
+          port = cfg.webPort;
+          websocket = true;
+          inherit (cfg) tailscaleOnly;
+        }
+      ];
+
+      monitoring.monitors = [
+        {
+          name = "gtk-gnutella GUI";
+          url = "https://${cfg.fqdn}/";
+        }
+      ];
+
+      monitoring.errorPatterns = [
+        {
+          name = "gtk-gnutella-gui";
+          unit = "gtk-gnutella.service";
+          pattern = "(?i)(address already in use|cannot bind|failed to bind|fatal|segmentation fault|failed to start child)";
+          severity = "warning";
+          summary = "gtk-gnutella GUI/Xpra wrapper is failing on doc2";
+        }
+      ];
+    };
   };
 }
