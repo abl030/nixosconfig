@@ -29,7 +29,7 @@
   # Every CHILD dataset still replicates fine. Mask that exact line to rc=0.
   syncoidScript = pkgs.writeShellApplication {
     name = "syncoid-pfsense";
-    runtimeInputs = with pkgs; [sanoid openssh coreutils gnugrep util-linux mbuffer];
+    runtimeInputs = with pkgs; [sanoid openssh coreutils gnugrep util-linux mbuffer jq];
     # writeShellApplication wraps with `set -euo pipefail` by default. That
     # turns syncoid's expected rc=2 (the documented benign wrapper-refusal)
     # into an immediate script exit before we can mask it and write the
@@ -86,20 +86,27 @@
 
       # Write status JSON for the watchdog. Must be at the path the watchdog
       # expects (homelab.services.pfsenseBackupWatchdog.statusFile).
-      cat > "$STATUS_FILE" <<JSON
-      {
-        "host": "${config.networking.hostName}",
-        "unit": "syncoid-pfsense",
-        "source": "$SOURCE",
-        "target": "$TARGET",
-        "started_at": "$START_ISO",
-        "finished_at": "$END_ISO",
-        "duration_seconds": $DURATION,
-        "exit_code": $RC,
-        "ok": $([ "$RC" -eq 0 ] && echo true || echo false),
-        "last_error": "$LAST_ERR"
-      }
-      JSON
+      # Use jq to build the JSON so embedded control characters (tabs/newlines
+      # in syncoid's CRITICAL output) get properly escaped — a hand-written
+      # heredoc here was producing invalid JSON that crashed the watchdog's
+      # parser.
+      OK_BOOL=false
+      [ "$RC" -eq 0 ] && OK_BOOL=true
+      jq -n \
+        --arg host "${config.networking.hostName}" \
+        --arg unit "syncoid-pfsense" \
+        --arg source "$SOURCE" \
+        --arg target "$TARGET" \
+        --arg started_at "$START_ISO" \
+        --arg finished_at "$END_ISO" \
+        --argjson duration_seconds "$DURATION" \
+        --argjson exit_code "$RC" \
+        --argjson ok "$OK_BOOL" \
+        --arg last_error "$LAST_ERR" \
+        '{host: $host, unit: $unit, source: $source, target: $target,
+          started_at: $started_at, finished_at: $finished_at,
+          duration_seconds: $duration_seconds, exit_code: $exit_code,
+          ok: $ok, last_error: $last_error}' > "$STATUS_FILE"
       chmod 644 "$STATUS_FILE"
 
       logger -t syncoid-pfsense "end pull rc=$RC duration=''${DURATION}s"
