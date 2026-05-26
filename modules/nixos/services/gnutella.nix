@@ -326,7 +326,11 @@ in {
       };
     };
 
-    services.nginx.virtualHosts.${cfg.fqdn}.locations."= /".return = "302 ${noVncPath}";
+    services.nginx.virtualHosts.${cfg.fqdn}.locations = {
+      "= /".return = "302 ${noVncPath}";
+      "= /connect.html".return = "302 ${noVncPath}";
+      "= /index.html".return = "302 ${noVncPath}";
+    };
 
     homelab = {
       localProxy.hosts = [
