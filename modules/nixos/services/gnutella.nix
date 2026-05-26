@@ -58,7 +58,6 @@
       --http=yes \
       --mdns=no \
       --dbus=no \
-      --commands=no \
       --control=no \
       --shell=no \
       --start-new-commands=no \
@@ -217,6 +216,7 @@ in {
         pkgs.coreutils
         pkgs.gnugrep
         pkgs.gnused
+        pkgs.xorg.xauth
       ];
 
       preStart = "${configureScript}";
