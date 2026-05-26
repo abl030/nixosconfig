@@ -12,6 +12,7 @@
   guiConfigFile = "${cfg.dataDir}/config_gui";
   guiGeometry = "${toString cfg.guiWidth}x${toString cfg.guiHeight}+0+0";
   guiResolution = "${toString cfg.guiWidth}x${toString cfg.guiHeight}";
+  noVncPath = "/vnc.html?autoconnect=1&resize=scale&shared=1&path=websockify";
 
   configureScript = pkgs.writeShellScript "gtk-gnutella-configure" ''
     set -eu
@@ -43,8 +44,8 @@
     upsert ${lib.escapeShellArg configFile} move_corrupted_files_to ${lib.escapeShellArg "\"${cfg.dataDir}/corrupt\""}
     upsert ${lib.escapeShellArg configFile} shared_dirs ${lib.escapeShellArg "\"\""}
 
-    # gtk-gnutella persists the browser-resized Xpra window dimensions. Keep
-    # the POC UI large enough to click and type into reliably.
+    # gtk-gnutella persists remote-display window dimensions. Keep the POC UI
+    # large enough to click and type into reliably.
     upsert ${lib.escapeShellArg guiConfigFile} window_coords "0,0,${toString cfg.guiWidth},${toString cfg.guiHeight}"
     upsert ${lib.escapeShellArg guiConfigFile} widths_nodes "130,50,120,20,30,30,80,600"
     upsert ${lib.escapeShellArg guiConfigFile} widths_file_info "240,80,80,80,80,80,80,80,80,300"
@@ -64,46 +65,69 @@
     chmod 0600 ${lib.escapeShellArg configFile} ${lib.escapeShellArg guiConfigFile}
   '';
 
-  startScript = pkgs.writeShellScript "gtk-gnutella-xpra" ''
+  startScript = pkgs.writeShellScript "gtk-gnutella-novnc" ''
     set -eu
 
     export GTK_GNUTELLA_DIR=${lib.escapeShellArg cfg.dataDir}
     export HOME=${lib.escapeShellArg cfg.dataDir}
     export XDG_RUNTIME_DIR=/run/gtk-gnutella
+    export DISPLAY=:${toString cfg.display}
     export NO_AT_BRIDGE=1
 
-    exec ${pkgs.xpra}/bin/xpra start :${toString cfg.display} \
-      --daemon=no \
-      --systemd-run=no \
-      --use-display=no \
-      --bind-tcp=127.0.0.1:${toString cfg.webPort} \
-      --html=${pkgs.xpra-html5}/share/xpra/www \
-      --http=yes \
-      --readonly=no \
-      --keyboard-sync=yes \
-      --keyboard-layout=us \
-      --resize-display=${guiResolution} \
-      --dpi=96 \
-      --mdns=no \
-      --dbus=no \
-      --control=no \
-      --shell=no \
-      --start-new-commands=no \
-      --file-transfer=no \
-      --open-files=no \
-      --open-url=no \
-      --printing=no \
-      --clipboard=no \
-      --notifications=no \
-      --audio=no \
-      --pulseaudio=no \
-      --speaker=off \
-      --microphone=off \
-      --webcam=no \
-      --tray=no \
-      --terminate-children=yes \
-      --exit-with-children=yes \
-      --start-child="${pkgs.gtkgnutella}/bin/gtk-gnutella --geometry ${guiGeometry} --no-dbus --no-supervise"
+    cleanup() {
+      for pid in "''${gtk_pid:-}" "''${openbox_pid:-}" "''${novnc_pid:-}" "''${xvnc_pid:-}"; do
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+          kill "$pid" 2>/dev/null || true
+        fi
+      done
+      wait 2>/dev/null || true
+    }
+    trap cleanup EXIT INT TERM
+
+    ${pkgs.tigervnc}/bin/Xvnc :${toString cfg.display} \
+      -geometry ${guiResolution} \
+      -depth 24 \
+      -dpi 96 \
+      -localhost yes \
+      -interface 127.0.0.1 \
+      -rfbport ${toString cfg.vncPort} \
+      -SecurityTypes None \
+      -AlwaysShared=1 \
+      -DisconnectClients=0 \
+      -AcceptSetDesktopSize=0 \
+      -AcceptKeyEvents=1 \
+      -AcceptPointerEvents=1 \
+      -noclipboard \
+      -desktop gtk-gnutella \
+      -Log '*:stderr:30' &
+    xvnc_pid=$!
+
+    for _ in $(seq 1 100); do
+      if ${pkgs.xset}/bin/xset q >/dev/null 2>&1; then
+        break
+      fi
+      if ! kill -0 "$xvnc_pid" 2>/dev/null; then
+        wait "$xvnc_pid"
+      fi
+      sleep 0.1
+    done
+
+    ${pkgs.xsetroot}/bin/xsetroot -solid '#202833' || true
+    ${pkgs.openbox}/bin/openbox &
+    openbox_pid=$!
+
+    ${pkgs.gtkgnutella}/bin/gtk-gnutella --geometry ${guiGeometry} --no-dbus --no-supervise &
+    gtk_pid=$!
+
+    ${pkgs.novnc}/bin/novnc \
+      --listen 127.0.0.1:${toString cfg.webPort} \
+      --vnc 127.0.0.1:${toString cfg.vncPort} \
+      --web ${pkgs.novnc}/share/webapps/novnc \
+      --file-only \
+      --heartbeat 30 &
+    novnc_pid=$!
+
+    wait -n "$xvnc_pid" "$openbox_pid" "$gtk_pid" "$novnc_pid"
   '';
 
   shutdownScript = pkgs.writeShellScript "gtk-gnutella-shutdown" ''
@@ -133,7 +157,13 @@ in {
     webPort = lib.mkOption {
       type = lib.types.port;
       default = 14546;
-      description = "Loopback Xpra web port exposed via homelab.localProxy.";
+      description = "Loopback noVNC web port exposed via homelab.localProxy.";
+    };
+
+    vncPort = lib.mkOption {
+      type = lib.types.port;
+      default = 59046;
+      description = "Loopback TigerVNC RFB port proxied by noVNC.";
     };
 
     fqdn = lib.mkOption {
@@ -145,7 +175,7 @@ in {
     display = lib.mkOption {
       type = lib.types.int;
       default = 46;
-      description = "Xpra display number for the gtk-gnutella GUI session.";
+      description = "X11 display number for the gtk-gnutella GUI session.";
     };
 
     guiWidth = lib.mkOption {
@@ -188,8 +218,9 @@ in {
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [
       pkgs.gtkgnutella
-      pkgs.xpra
-      pkgs.xpra-html5
+      pkgs.novnc
+      pkgs.openbox
+      pkgs.tigervnc
     ];
 
     users = {
@@ -256,7 +287,8 @@ in {
         pkgs.coreutils
         pkgs.gnugrep
         pkgs.gnused
-        pkgs.xauth
+        pkgs.xset
+        pkgs.xsetroot
       ];
 
       preStart = "${configureScript}";
@@ -293,6 +325,8 @@ in {
       };
     };
 
+    services.nginx.virtualHosts.${cfg.fqdn}.locations."= /".return = "302 ${noVncPath}";
+
     homelab = {
       localProxy.hosts = [
         {
@@ -306,7 +340,7 @@ in {
       monitoring.monitors = [
         {
           name = "gtk-gnutella GUI";
-          url = "https://${cfg.fqdn}/";
+          url = "https://${cfg.fqdn}${noVncPath}";
         }
       ];
 
@@ -314,9 +348,9 @@ in {
         {
           name = "gtk-gnutella-gui";
           unit = "gtk-gnutella.service";
-          pattern = "(?i)(address already in use|cannot bind|failed to bind|fatal|segmentation fault|failed to start child)";
+          pattern = "(?i)(address already in use|cannot bind|failed to bind|fatal|segmentation fault|Xvnc|noVNC|websockify)";
           severity = "warning";
-          summary = "gtk-gnutella GUI/Xpra wrapper is failing on doc2";
+          summary = "gtk-gnutella GUI/noVNC wrapper is failing on doc2";
         }
       ];
     };

@@ -1,7 +1,7 @@
 # gtk-gnutella POC on doc2
 
 Date researched: 2026-05-26
-Status: browser GUI deployed via Xpra at `gnutella.ablz.au`
+Status: browser GUI deployed via noVNC at `gnutella.ablz.au`
 
 ## Choice
 
@@ -25,8 +25,8 @@ The service runs as a dedicated `gnutella` system user with:
 - no shared directories by default (`shared_dirs = ""`)
 - listen port `56346`
 - browser GUI on loopback port `14546`, proxied as `https://gnutella.ablz.au/`
-- Xpra HTML5 transport, because Xpra can run a single X11 app and serve it to a browser
-- fixed 1280x900 GTK/Xpra geometry; gtk-gnutella otherwise persisted a 4K-wide window from the browser-resized Xpra display, making the search field too tiny to focus reliably
+- TigerVNC X server plus noVNC browser transport
+- fixed 1280x900 GTK/VNC geometry; gtk-gnutella otherwise persisted oversized browser-resized display dimensions, making the search field too tiny to focus reliably
 - tailnet-only localProxy exposure; the GUI has no separate app auth
 - IPv4 only, because the VPN policy route is IPv4 on `ens19`
 - leaf peer mode
@@ -101,4 +101,4 @@ Verified on 2026-05-26 after deploying commit `9a403d34`, then updated for the X
 - gtk-gnutella bootstrapped to 4 ultrapeers and 2 G2 hubs within about 2 minutes.
 - `horizon` showed live HSEP data, including about 671 nodes / 1.45M files at 2 hops and larger projected horizons beyond that.
 - `search add ubuntu` through the Topless shell returned `400 The search could not be created`, matching the upstream note that search creation/result handling is GUI-side.
-- Browser GUI verification: `https://gnutella.ablz.au/` returned HTTP 200 through the tailnet-only nginx vhost, Xpra served the GTK window, and server-side X11 typing into the search field worked. The module now resets `config_gui` window/column widths at service start to keep the browser UI usable.
+- Browser GUI verification: `https://gnutella.ablz.au/` returned HTTP 200 through the tailnet-only nginx vhost, and server-side X11 typing into the search field worked. Xpra HTML5 was tried first but could render only the blue root background in the browser while GTK tooltips still appeared, so the module now uses TigerVNC plus noVNC instead.
