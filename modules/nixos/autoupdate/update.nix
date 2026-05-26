@@ -87,30 +87,18 @@ in {
     refreshAccessTokens = import ../lib/refresh-access-tokens.nix {inherit pkgs;};
 
     diagnoseSystemPrompt = ''
-      You are triaging a NixOS nixos-rebuild switch failure.
-      You receive several context blocks delimited by === BLOCK NAME === headers:
-      - RECENT GIT LOG (last 7 days) and HEAD DIFF
-      - PRIOR OUTCOMES (last 10 days of this unit's UPDATE FAILED/SUCCESS lines)
-      - FAILED SYSTEM UNITS + FAILED USER UNITS (current state)
-      - COREDUMPS (last 15 minutes)
-      - USER JOURNAL TAIL (warning+, last 5 min)
-      - REBUILD LOG (head + grep-context around errors + tail)
+      Diagnose tonight's nixos-rebuild failure on this host. Focus on what just broke; don't go hunting historical patterns.
 
-      Output ONLY this format, nothing else:
+      You have WebFetch. Loki (read-only, no auth) at https://loki.ablz.au:
+        /loki/api/v1/query_range?query=<LogQL>&start=<RFC3339>&end=<RFC3339>&limit=<n>
+      Labels: host, unit, container, app. Common hosts: doc2, epimetheus, framework, igpu, pfsense, prom, proxmox-vm, tower, wsl.
+
+      Reply with exactly these four lines, starting with **Classification**, no preamble:
 
       **Classification**: upstream | actionable | transient
-      **Summary**: 1-2 sentences describing what failed and why.
-      **Fix**: If actionable, name the file and option to change (e.g. `modules/nixos/services/foo.nix:42` add `RemainAfterExit = true`). If upstream, say "wait for nixpkgs" and mention the package/module. If transient (network blip, GitHub timeout, cache miss), say "retry on next run".
-
-      Rules:
-      - If PRIOR OUTCOMES shows N consecutive identical failures, this is a known/persistent issue — classify upstream or actionable accordingly, do NOT call it transient.
-      - Cross-reference FAILED UNITS and COREDUMPS with the REBUILD LOG to identify root cause vs. cascade. A coredump in the window often IS the root cause, with the rebuild log showing only its downstream effects.
-      - User-session failures (gnome-shell, dbus services) usually appear in USER JOURNAL TAIL, not the rebuild log.
-      - Lean on the diff: if the failure traces to a unit/module changed in the last 7 days, the fix is almost always in that change.
-      - "transient" is for non-deterministic infra failures (timeout, DNS, 5xx from a cache) AND only when PRIOR OUTCOMES does not show a repeating pattern.
-      - "actionable" needs a concrete file+line+change suggestion.
-      - "upstream" is for genuine nixpkgs bugs.
-      - Keep total output under 800 characters. No preamble, no sign-off, no markdown headers other than the three labels above.
+      **Summary**: what failed and why (1-2 sentences).
+      **Fix**: concrete next step. If a workaround exists, give the Nix snippet (e.g. `systemd.services.<name>.serviceConfig.ExecStartPre = ["..."];`).
+      **Evidence**: strongest signal you found.
     '';
 
     diagnoseScript = pkgs.writeShellScript "nixos-upgrade-diagnose" ''
@@ -132,53 +120,32 @@ in {
         rebuild_log_block="(failure log present but unreadable as $(id -un); fix perms in smartUpgrade)"
         log_source="perm-error"
       else
-        # Smart slice: first 50 lines (eval warnings, config errors usually
-        # surface here) + 5 lines of context around every error/failure marker
-        # + last 50 lines (final activation/exit). Errors scattered through a
-        # long log are otherwise lost when we just tail.
-        head_slice="$(${pkgs.coreutils}/bin/head -n 50 "$log_file")"
-        error_slice="$(${pkgs.gnugrep}/bin/grep -n -B 2 -A 5 -E 'error:|^Failed|exit-code|warning: the following|core-dump|SIGSEGV|SIGABRT' "$log_file" 2>/dev/null | ${pkgs.coreutils}/bin/head -n 300 || true)"
-        tail_slice="$(${pkgs.coreutils}/bin/tail -n 50 "$log_file")"
-        rebuild_log_block="--- head (first 50) ---
-      $head_slice
-      --- error context (grep -B2 -A5, capped 300 lines) ---
-      $error_slice
-      --- tail (last 50) ---
-      $tail_slice"
+        # Plain tail. Wider/historical context is now fetched on demand by
+        # claude via WebFetch → Loki, so we don't need to be clever here.
+        rebuild_log_block="$(${pkgs.coreutils}/bin/tail -n 200 "$log_file")"
         log_source="$log_file"
       fi
 
-      # Wider git context: HEAD diff for the most recent commit, plus a
-      # 7-day summary so claude can spot changes 2-3 days back that the
-      # nightly only just exercised. The diff is the high-signal block.
-      git_log_block="(no local checkout — git history unavailable on this host)"
+      # HEAD diff: highest-signal "what just changed" pointer. Wider git
+      # history is left to claude (it can query Loki for the
+      # rolling-flake-update commit summary, or webfetch GitHub directly).
       diff_block="(no local checkout — diff unavailable on this host)"
       for repo in ${diagnoseHome}/nixosconfig /home/abl030/nixosconfig; do
         if [ -d "$repo/.git" ]; then
           cd "$repo"
-          git_log_block="$(${pkgs.git}/bin/git log --since='7 days ago' --oneline 2>/dev/null | ${pkgs.coreutils}/bin/head -n 60 || true)"
           diff_block="$(${pkgs.git}/bin/git log -1 --stat 2>/dev/null || true)
       $(${pkgs.git}/bin/git diff HEAD~1 HEAD 2>/dev/null | ${pkgs.coreutils}/bin/head -n 200 || true)"
           break
         fi
       done
 
-      # Prior outcomes: lets claude see "12 consecutive identical failures"
-      # vs "first-time, dig deeper". Filters to just the UPDATE result lines
-      # and the immediate failure detail (`warning: the following units
-      # failed`, exit-code lines) so we don't blow the budget.
-      prior_outcomes_block="$(${pkgs.systemd}/bin/journalctl -u nixos-upgrade.service --since '10 days ago' --no-pager 2>&1 \
-        | ${pkgs.gnugrep}/bin/grep -E 'UPDATE (FAILED|SUCCESS)|warning: the following|Failed with result' \
-        | ${pkgs.coreutils}/bin/tail -n 60 \
-        || echo '(no prior outcomes in journal)')"
-
-      # Failed system units right now. Trivial to query, immediately surfaces
-      # the failing unit (avahi-daemon, etc.) without grepping the log.
+      # Failed system units: local, trivial, often dispositive.
       failed_system_block="$(${pkgs.systemd}/bin/systemctl list-units --failed --plain --no-pager --no-legend 2>&1 || echo '(systemctl list-units unavailable)')"
 
-      # Failed user units. Needs XDG_RUNTIME_DIR pointing at the user's
-      # runtime dir to find their systemd --user instance. If the user is not
-      # logged in (no /run/user/$UID), gracefully skip.
+      # Failed user units: local-only — alloy doesn't ship the user journal
+      # to Loki, so claude can't pull this on demand. Needs XDG_RUNTIME_DIR
+      # to find the user's systemd --user instance. If no live session
+      # (/run/user/$UID missing), gracefully skip.
       uid="$(id -u)"
       if [ -d "/run/user/$uid" ]; then
         failed_user_block="$(XDG_RUNTIME_DIR="/run/user/$uid" ${pkgs.systemd}/bin/systemctl --user list-units --failed --plain --no-pager --no-legend 2>&1 || echo '(user bus query failed)')"
@@ -186,26 +153,17 @@ in {
         failed_user_block="(no user session active — /run/user/$uid missing)"
       fi
 
-      # Coredumps in the last 15 minutes. coredumpctl reads via journal; the
-      # systemd-journal supplementary group gives us access.
+      # Coredumps in the last 15 minutes: local-only. coredumpctl reads via
+      # journal; the systemd-journal supplementary group gives us access.
       coredumps_block="$(${pkgs.systemd}/bin/coredumpctl list --since '15 min ago' --no-pager 2>&1 | ${pkgs.coreutils}/bin/tail -n 30 || echo '(coredumpctl unavailable)')"
 
-      # User journal slice: warning+ from any user unit in the last 5
-      # minutes. Catches gnome-shell crashes, dbus failures, app-process
-      # exits — none of which appear in the rebuild log.
-      user_journal_block="$(${pkgs.systemd}/bin/journalctl --user --since '5 min ago' --priority warning --no-pager 2>&1 | ${pkgs.coreutils}/bin/tail -n 80 || echo '(user journal unavailable)')"
+      prompt="=== HOST ===
 
-      prompt="=== RECENT GIT LOG (last 7 days, oneline) ===
-
-      $git_log_block
+      ${config.networking.hostName}
 
       === HEAD DIFF (most likely root cause if classification=actionable) ===
 
       $diff_block
-
-      === PRIOR OUTCOMES (last 10 days of nixos-upgrade.service) ===
-
-      $prior_outcomes_block
 
       === FAILED SYSTEM UNITS (now) ===
 
@@ -219,19 +177,15 @@ in {
 
       $coredumps_block
 
-      === USER JOURNAL TAIL (warning+, last 5 min) ===
-
-      $user_journal_block
-
-      === REBUILD LOG (smart-sliced from $log_source) ===
+      === REBUILD LOG (last 200 lines from $log_source) ===
 
       $rebuild_log_block"
 
       summary="$(printf '%s' "$prompt" | ${pkgs.coreutils}/bin/timeout 600 ${pkgs.claude-code}/bin/claude -p \
         --system-prompt ${lib.escapeShellArg diagnoseSystemPrompt} \
-        --model haiku \
-        --allowedTools "" \
-        "Triage this NixOS rebuild failure. Diff first, log second." \
+        --model opus \
+        --allowedTools WebFetch \
+        "Diagnose tonight's failure." \
         2>&1)"
       claude_status=$?
 
