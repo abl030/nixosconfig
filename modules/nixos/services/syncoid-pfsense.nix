@@ -230,11 +230,17 @@ in {
     # pfsense-backup-watchdog (which reads the status JSON we write above)
     # is the primary signal; this is a journald-level safety net for the
     # case where the unit fails BEFORE writing the status file.
+    #
+    # Match only systemd's own unit-failure log lines — NOT syncoid's
+    # per-dataset CRITICAL/FATAL chatter, which appears even when the
+    # overall job exits 0 (observed 2026-05-28: noisy CRITICAL line
+    # during partial-dataset hiccup, unit exited 0/SUCCESS, watchdog
+    # had a clean status JSON, but this alert fired anyway).
     homelab.monitoring.errorPatterns = [
       {
         name = "syncoid-pfsense failed";
         unit = "syncoid-pfsense.service";
-        pattern = "(?i)CRITICAL|FATAL|connection refused|permission denied";
+        pattern = "Failed with result|Main process exited, code=exited, status=";
         severity = "warning";
         summary = "syncoid pull of pfSense ZFS pool failed";
         threshold = 0;

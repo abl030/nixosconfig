@@ -1167,6 +1167,12 @@ in {
               description = "Deep write-path probe: ${probe.name}";
               after = ["network-online.target" "homelab-monitoring-sync.service"];
               wants = ["network-online.target"];
+              # Heartbeats — don't run during switch-to-configuration.
+              # The timer keeps them fresh; activation-time restarts only
+              # race with dependent service restarts (e.g. veth bring-up)
+              # and produce spurious failures that exit s-t-c with rc=4.
+              restartIfChanged = false;
+              stopIfChanged = false;
               serviceConfig =
                 {
                   Type = "oneshot";

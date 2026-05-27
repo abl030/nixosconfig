@@ -239,8 +239,8 @@ in {
         {
           name = "Immich sync write-path";
           command = "${pkgs.callPackage ./probes/check-immich-sync.nix {}}/bin/check-immich-sync";
-          interval = "5m";
-          intervalSecs = 300;
+          interval = "15m";
+          intervalSecs = 900;
           serviceConfig = {
             Environment = [
               "IMMICH_PG_PASSWORD_FILE=${config.sops.secrets."immich-pgpass".path}"
