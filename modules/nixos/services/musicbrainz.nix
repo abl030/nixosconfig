@@ -529,15 +529,16 @@ in {
         {
           name = "MusicBrainz Solr proxy failure";
           unit = "podman-musicbrainz-search-1.service";
-          # Solr emits "Error trying to proxy request" routinely for
-          # ~30s after container restart while the replica peer
-          # reconnects (caught a false positive 2026-05-20 immediately
-          # after a deploy). Require sustained errors (>3 in 5m) to
-          # distinguish the transient startup cascade from a genuine
-          # partial-outage. Single transient 500s are now silent.
-          pattern = "(?i)SolrException.*Error trying to proxy request|Connection pool shut down";
+          # "Error trying to proxy request" is restart noise — Solr emits
+          # ~3-6 of them in ~30s after every container restart while the
+          # replica peer reconnects (false positives 2026-05-20 and
+          # 2026-05-27, both immediately after nightly podman autoupdate).
+          # Bumping the threshold was guesswork; instead alert only on
+          # `Connection pool shut down`, which indicates real pool
+          # exhaustion (not restart-cascade transients).
+          pattern = "(?i)Connection pool shut down";
           severity = "warning";
-          summary = "Solr search container is failing to proxy (sustained)";
+          summary = "Solr search container pool shutdown (sustained)";
           threshold = 3;
         }
       ];

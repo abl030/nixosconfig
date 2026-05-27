@@ -19,7 +19,13 @@ Two consequences for how you triage:
 
 After investigating, **deliver a single summary message** with the punch list (one bullet per cluster, not per ping). End the summary with a question like *"Want to walk through them one by one?"* — and let the user reply in plain chat with `yes` / `no` / a specific item. **Do not use AskUserQuestion or any structured-question UI** — the user dislikes it. Keep it conversational.
 
-When they say `yes`, take **one** issue, dig in, propose a fix, wait for approval before moving on. Don't batch.
+When they say `yes`, the flow is **decide-all-then-edit-all**:
+
+1. Take **one** issue at a time. Describe what's happening and the options in plain chat. Get a decision. **Do not write code or edit files yet** — just capture the decision.
+2. Move to the next issue. Repeat.
+3. Once all decisions are made, do the edits in one batch, then commit + push once.
+
+This keeps the chat conversational while the user is deciding (often while driving / on voice mode), and bundles the mechanical work at the end. Don't ask "want me to commit?" after each item — only after the last decision.
 
 ## What to check
 

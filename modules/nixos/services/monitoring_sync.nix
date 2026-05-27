@@ -1151,7 +1151,11 @@ in {
               fi
 
               push_url=$(${pkgs.coreutils}/bin/head -n1 "$url_file")
+              # --retry tolerates the fleet's recurring brief pfSense unbound
+              # hiccups (CLAUDE.md DNS section). Without it a single 10s DNS
+              # blip during heartbeat push flips Kuma DOWN and pages.
               ${pkgs.curl}/bin/curl -fsS --max-time 10 \
+                --retry 2 --retry-all-errors --retry-delay 2 \
                 --data-urlencode "status=up" \
                 --data-urlencode "msg=OK rc=0" \
                 --data-urlencode "ping=$ms" \

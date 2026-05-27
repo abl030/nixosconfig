@@ -48,7 +48,7 @@
         };
       };
       opsSync.enable = true;
-      nfsMusic.enable = true;
+      nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
   };
