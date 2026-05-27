@@ -115,6 +115,9 @@ The MCP `ha_call_service(homeassistant.restart)` works but doesn't return until 
 ### 5. `ha core check` fails without API token
 The `ha` CLI on HAOS needs `ha auth` configured before `ha core check` will work. Workaround above (use the MCP `check_config` service call instead).
 
+### 6. Daily utility-meter values must be sampled before midnight
+Solar/cost accumulators that read `sensor.daily_*` values must run just before midnight, not just after. The daily utility meters can reset around midnight; a `00:00:xx` automation may append a reset-time partial value or nothing at all. Use a `23:59:xx` trigger and stamp `today`, with an idempotent `last_accumulated < today` guard.
+
 ## Cross-references
 
 - Source of truth: `ha/CLAUDE.md` (file inventory + deploy summary)
