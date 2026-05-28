@@ -537,6 +537,10 @@ in {
             serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
           };
 
+          cratedigger-youtube-ingest = {
+            serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+          };
+
           cratedigger-metadata-gate-watchdog = {
             description = "Stop cratedigger API-producing units when local metadata APIs are unhealthy";
             serviceConfig = {
