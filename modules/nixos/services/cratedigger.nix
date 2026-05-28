@@ -700,6 +700,16 @@ in {
         trackingFile = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
       };
 
+      youtubeIngest = {
+        enable = true;
+        # Bind yt-dlp egress to the VPN-routed second NIC (ens19,
+        # 192.168.1.36). The host's source-IP policy-routing rule (installed
+        # by the slskd module) sends sockets bound to this address out
+        # pfSense WireGuard — the same path slskd uses. Only yt-dlp binds to
+        # it, so the worker's PostgreSQL/control traffic stays on the main NIC.
+        sourceAddress = "192.168.1.36";
+      };
+
       web = {
         enable = true;
         beetsDb = "/mnt/virtio/Music/beets-library.db";
