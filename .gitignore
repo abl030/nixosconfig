@@ -15,6 +15,9 @@ tfplan
 result
 result-*
 .cache/
+tools/agent-voice-trigger-android/.debug.keystore
+tools/agent-voice-trigger-android/.release.keystore
+tools/agent-voice-trigger-android/build/
 ha/esphome/secrets.yaml
 ha/esphome/.esphome/
 

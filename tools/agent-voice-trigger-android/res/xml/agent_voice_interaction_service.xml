@@ -1,0 +1,6 @@
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="au.ablz.agentvoice.AgentVoiceInteractionSessionService"
+    android:settingsActivity="au.ablz.agentvoice.TriggerActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true"
+    android:supportsLocalInteraction="true" />
