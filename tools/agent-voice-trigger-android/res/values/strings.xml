@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Agent Voice Trigger</string>
+    <string name="accessibility_description">Intercept headset media buttons for Agent Voice Trigger.</string>
+</resources>

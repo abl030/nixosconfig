@@ -5,13 +5,18 @@ description: Wire this Claude Code session into the voice.ablz.au SSE bridge so 
 
 # Talk to me — voice mode
 
-Registers this session's transcript with the `claude-voice` service on doc1 so a phone-side TTS subscriber speaks your replies through the user's car Bluetooth.
+Registers this session's transcript with the `claude-voice` service on doc1 so a phone-side TTS subscriber speaks your replies through the user's car Bluetooth. When the current agent is running inside tmux, it also installs a phone-side Termux push-to-talk input script that records audio, transcribes via `whisper.ablz.au`, and pastes the transcript back into this exact tmux pane.
 
 ## What this does
 
 1. Computes the project's transcript directory: `~/.claude/projects/<encoded-cwd>/` where `<encoded-cwd>` is the absolute current working directory with every `/` replaced by `-`.
 2. POSTs that path to `https://voice.ablz.au/register` — a tailnet-only endpoint on doc1.
 3. After registration, the service tails the latest `.jsonl` in that directory and emits every assistant text block as an SSE event. The user's phone (subscribed to `/stream`) speaks each event aloud.
+4. If the agent is running in tmux, installs/refreshes handsfree input config on the phone:
+   - detects the current tmux target
+   - installs `~/.local/bin/agent-voice-inject` on doc1
+   - installs `~/.local/share/agent-voice-input/agent-voice-input-termux.sh` on the phone
+   - writes phone config pointing at the current tmux target and `https://whisper.ablz.au/v1/audio/transcriptions`
 
 ## Critical: how you must talk after this
 
@@ -26,7 +31,7 @@ The user is driving. They can't read a screen, they can only hear you. From the 
 
 ## Register
 
-The user expects this to "just work" — they will not touch the phone. Run **both** of the commands below. The first brings the phone subscriber up cleanly and clears any stale orphans; the second registers this Claude session with the server.
+The user expects this to "just work" — they will not touch the phone. Run **all three** commands below. The first brings the phone subscriber up cleanly and clears any stale orphans; the second registers this Claude session with the server; the third installs the optional handsfree input path when tmux is available.
 
 If the first command fails, stop and surface the error — registering on the server while the phone is silent is worse than failing loudly. Once both succeed, your **next assistant message** is the user's first handshake — make it one short sentence confirming voice mode is live (e.g. *"Voice mode is on, you should hear me through the car now."*).
 
@@ -56,6 +61,28 @@ curl -fsS -X POST https://voice.ablz.au/register \
   -H 'Content-Type: application/json' \
   -d "{\"project\":\"$project\"}"
 ```
+
+```bash
+.claude/skills/talk-to-me/scripts/agent-voice-setup-input.sh || true
+```
+
+If the third command warns about missing tmux or microphone permission, do **not** treat that as output voice-mode failure. Briefly say whether voice input is live or what one-time setup is missing. If it prints a target like `input target: 3:0.0`, input is configured for that pane.
+
+## Handsfree input
+
+After input setup succeeds, the phone-side command is:
+
+```bash
+~/.local/share/agent-voice-input/agent-voice-input-termux.sh
+```
+
+Bind that command from Tasker, AutoVoice, MacroDroid, Automate, Termux:Widget, or any Android automation that can run a Termux command. The script is a toggle:
+
+1. First run starts a bounded microphone recording.
+2. Second run stops recording, POSTs the audio to `whisper.ablz.au`, and SSHes the transcript to doc1.
+3. doc1 pastes the transcript into the tmux target detected during registration and presses Enter.
+
+For bench testing, run the script manually from Termux before wiring steering-wheel or earbud buttons. Termux:API must have Android microphone permission or `termux-microphone-record` will fail with a `RECORD_AUDIO` permission message.
 
 ## Unregister
 
