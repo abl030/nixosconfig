@@ -6,7 +6,10 @@
 
 ## Symptom
 
-`rolling-flake-update.service` on doc1 (proxmox-vm) failed nightly with:
+`rolling-flake-update.service` on doc1 (proxmox-vm) had been **green nightly through
+2026-05-27**. It failed for the **first time on 2026-05-28**, when the nightly bumped
+the `netwatch` input to a new upstream version that pulls a new crate set (`landlock`,
+`aya`, …):
 
 ```
 error: cannot download crate-landlock-0.4.5.tar.gz from any mirror
@@ -14,8 +17,12 @@ error: cannot download crate-landlock-0.4.5.tar.gz from any mirror
 curl: (22) The requested URL returned error: 403
 ```
 
-This silently froze the whole fleet's nixpkgs at `4bd9165a` (2026-04-14) — every
-nightly bump-and-build died, so `flake.lock` never advanced.
+NOTE (correcting an earlier draft of this doc): the fleet's **top-level nixpkgs was
+never frozen** — it tracks `nixpkgs-unstable` and was current (May 26), advancing
+nightly. The `4bd9165a` (2026-04-14) node in the lock is **only** `cratedigger-src`'s
+own bundled nixpkgs (it doesn't `follows` root); the other 16 follower inputs correctly
+track current nixpkgs. There was no multi-week deadlock — just a single new-crate-set
+fetch that hit crates.io's UA block on May 28.
 
 ## Root cause
 
@@ -69,9 +76,11 @@ carry either fix — channels lag master by the Hydra cycle.
 ## What we did
 
 Pinned the netwatch input to `fcbe0526` (v0.22.0, already cache-warm) in `flake.nix`.
-This freezes its Cargo.lock so its crate FODs stay cached, letting the nightly resume
-bumping nixpkgs. netwatch builds in its own flake eval, so an overlay in *our* flake
-would not reach it — pinning is the clean lever.
+This freezes its Cargo.lock so its crate FODs stay cached, so the nightly stops trying
+to build a newer netwatch whose new crates 403. netwatch builds in its own flake eval
+(it `follows` our current nixpkgs, whose `fetchCrate` still uses the blocked api URL
+until the channel carries the fix), so an overlay in *our* flake would not reach it —
+pinning is the clean lever.
 
 musicbrainz/discogs were left alone: their src inputs are stable (lrclib 2026-02-25,
 discogs 2026-05-18) and their crate FODs are cached, so a nixpkgs recompile won't 403.
