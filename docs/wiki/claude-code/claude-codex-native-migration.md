@@ -75,12 +75,26 @@ Subagent-only MCPs (unifi/pfsense/playwright/HA) stay out of `programs.mcp.serve
 — they remain scoped to `.claude/agents/`. Vinsight is installed but registered
 per-repo via that repo's `.mcp.json`.
 
-## Known blocker: mcp-nixos on Codex
+## mcp-nixos on Codex (append, don't own)
 
-Wiring mcp-nixos into Codex needs `enableMcpIntegration = true`, which writes
-`mcp_servers` into `config.toml` — i.e. seizes the mutable file (see above). So
-mcp-nixos stays **Claude-side only**. mcp-nixos matters most for Claude anyway
-(the model that hallucinates nixpkgs). Documented inline in `common.nix`.
+The native `enableMcpIntegration = true` path can't be used — it writes
+`mcp_servers` into `config.toml` and so would seize the mutable file (see
+above). Instead the `codexConfig` activation in `common.nix` idempotently
+**appends** the table when its header is missing — the same append-if-absent
+trick as the `[analytics]` opt-out:
+
+```toml
+[mcp_servers.mcp-nixos]
+command = "uvx"
+args = ["mcp-nixos"]
+```
+
+codex keeps it like any other runtime key; the rest of `config.toml` is
+untouched. Verified with `codex mcp list` → `mcp-nixos … enabled`. Re-running
+activation does not duplicate the block (grep-guarded on the header).
+
+This is deliberately less "pure" than a module flag, but it's the only way to
+declare codex MCP without owning the file codex constantly rewrites.
 
 ## Manual step: compound-engineering on Codex
 
@@ -106,4 +120,4 @@ untouched.
 
 - `claude plugin list` → `pyright-lsp ✔ enabled`; `claude-code-home-manager`, `home-assistant-skills`, `compound-engineering` all `@inline ✔ loaded`; zero cache-miss.
 - `~/.claude/settings.json` — `effortLevel`, `skipDangerousModePermissionPrompt`, `pyright-lsp` preserved; `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` removed; 4 privacy keys present.
-- `~/.codex/config.toml` — untouched (trust levels / plugin enables / migrations intact); talk-to-me skill symlinked into `~/.codex/skills/`.
+- `~/.codex/config.toml` — runtime state intact (trust levels / plugin enables / migrations); `[analytics]` + `[mcp_servers.mcp-nixos]` appended; talk-to-me skill symlinked into `~/.codex/skills/`. `codex mcp list` → `mcp-nixos … enabled`.

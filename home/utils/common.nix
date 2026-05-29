@@ -15,9 +15,12 @@
   # NOT own it. With `settings` empty and no MCP integration the module never
   # writes config.toml.
   #
-  # BLOCKER (mcp-nixos on Codex): wiring programs.mcp.servers into Codex needs
-  # `enableMcpIntegration = true`, which writes mcp_servers INTO config.toml —
-  # i.e. would seize the mutable file. So mcp-nixos stays Claude-side only.
+  # mcp-nixos on Codex: the native `enableMcpIntegration = true` path can't be
+  # used — it writes mcp_servers INTO config.toml and so would seize the mutable
+  # file. Instead the codexConfig activation below idempotently APPENDS the
+  # [mcp_servers.mcp-nixos] table (same trick as the [analytics] opt-out),
+  # leaving everything codex writes intact. Mirrors the shared
+  # programs.mcp.servers.mcp-nixos used by Claude.
   #
   # MANUAL STEP (compound-engineering on Codex): Codex's module has no plugin
   # option and the install is interactive — register the marketplace, install
@@ -33,21 +36,26 @@
     skills.talk-to-me = ../../.claude/skills/talk-to-me;
   };
 
-  # Codex CLI privacy: opt out of client-side analytics.
-  # config.toml is mutable (codex writes project trust levels, plugin enables,
-  # mcp_servers etc), so we can't have home-manager own the whole file. This
-  # activation script idempotently appends `[analytics] enabled = false` if
-  # the section is missing. Pair this with the ChatGPT Data Controls toggle
-  # and privacy.openai.com opt-out — true ZDR isn't a Pro/consumer feature.
-  home.activation.codexPrivacy = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  # Codex config: idempotent, APPEND-ONLY edits to the runtime-mutable
+  # ~/.codex/config.toml. That file is owned by codex (trust levels, plugin
+  # enables, model migrations), so home-manager must NOT take it over — we only
+  # ensure two top-level tables exist, appending each if its header is missing
+  # and leaving everything else codex writes untouched:
+  #   * [analytics] enabled = false  — opt out of client-side analytics. Pair
+  #     with the ChatGPT Data Controls toggle + privacy.openai.com opt-out;
+  #     true ZDR isn't a Pro/consumer feature.
+  #   * [mcp_servers.mcp-nixos]      — the same shared mcp-nixos Claude gets, so
+  #     codex also has live nixpkgs/option lookups (avoids the native
+  #     enableMcpIntegration path, which would seize the whole file).
+  home.activation.codexConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
     CODEX_CONFIG="${config.home.homeDirectory}/.codex/config.toml"
-    if [ -f "$CODEX_CONFIG" ]; then
-      if ! ${pkgs.gnugrep}/bin/grep -q '^\[analytics\]' "$CODEX_CONFIG"; then
-        run sh -c "printf '\n[analytics]\nenabled = false\n' >> '$CODEX_CONFIG'"
-      fi
-    else
-      run mkdir -p "$(dirname "$CODEX_CONFIG")"
-      run sh -c "printf '[analytics]\nenabled = false\n' > '$CODEX_CONFIG'"
+    run mkdir -p "$(dirname "$CODEX_CONFIG")"
+    [ -f "$CODEX_CONFIG" ] || run ${pkgs.coreutils}/bin/touch "$CODEX_CONFIG"
+    if ! ${pkgs.gnugrep}/bin/grep -q '^\[analytics\]' "$CODEX_CONFIG"; then
+      run sh -c "printf '\n[analytics]\nenabled = false\n' >> '$CODEX_CONFIG'"
+    fi
+    if ! ${pkgs.gnugrep}/bin/grep -q '^\[mcp_servers\.mcp-nixos\]' "$CODEX_CONFIG"; then
+      run sh -c "printf '\n[mcp_servers.mcp-nixos]\ncommand = \"uvx\"\nargs = [\"mcp-nixos\"]\n' >> '$CODEX_CONFIG'"
     fi
   '';
 
