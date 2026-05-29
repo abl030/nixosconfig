@@ -34,15 +34,7 @@
     pname = "discogs-api";
     version = "0.1.0";
     src = inputs.discogs-src;
-    cargoLock = {
-      lockFile = "${inputs.discogs-src}/Cargo.lock";
-      # crates.io 403s nix's `curl/` User-Agent (API data-access policy), breaking
-      # from-source crate fetches whenever this rebuilds (e.g. a nixpkgs bump). Fetch
-      # from the static.crates.io CDN instead — byte-identical output, caches stay
-      # valid. See docs/wiki/infrastructure/cratesio-403-ua.md, issues #259/#260.
-      # Remove once our pinned nixpkgs-unstable carries upstream's static.crates.io fix.
-      extraRegistries."https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
-    };
+    cargoLock.lockFile = "${inputs.discogs-src}/Cargo.lock";
     nativeBuildInputs = [pkgs.pkg-config];
     buildInputs = [pkgs.openssl];
   };
