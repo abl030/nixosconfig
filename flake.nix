@@ -188,8 +188,16 @@
     };
 
     # netwatch - real-time network diagnostics TUI (Rust)
+    # PINNED to fcbe0526 (v0.22.0, already in cache) to break the rolling-flake-update
+    # deadlock: crates.io now 403s nix's `curl/` User-Agent, so bumping netwatch to a
+    # newer rev forces fresh crate fetches that fail. Upstream nixpkgs fixed this by
+    # switching crate downloads to static.crates.io (fetchCrate #525067, importCargoLock
+    # #524985), but those merges haven't reached the nixpkgs-unstable channel yet.
+    # Pinning freezes netwatch's Cargo.lock so its crate FODs stay cache-warm and the
+    # nightly can resume bumping nixpkgs. UNPIN once nixpkgs-unstable carries the fix.
+    # See issue #259 + docs/wiki/infrastructure/cratesio-403-ua.md
     netwatch = {
-      url = "github:matthart1983/netwatch";
+      url = "github:matthart1983/netwatch?rev=fcbe052622156ddd2e1aa73329f7ed2e38b50180";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
