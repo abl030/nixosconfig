@@ -16,7 +16,9 @@
 #   4. Pipes to `claude -p --model haiku` with a tight system prompt
 #   5. POSTs the summary to Gotify with severity-aware priority
 #
-# Resolved alerts are skipped (no "things are better" notifications).
+# Grafana/Prometheus "resolved" alerts are skipped, but Kuma DOWN→UP
+# recoveries DO send a plain "[recovered] … is UP" Gotify ping (no Claude) —
+# the "you can stop worrying" signal.
 # Alerts without loki_query (e.g. the Prometheus reboot rule) still work —
 # claude just gets metadata-only context.
 #
@@ -208,9 +210,25 @@
         ping = heartbeat.get("ping")
         hb_time = heartbeat.get("time", "")
 
-        # Skip UP/recovery for now — only push state-degradation events.
-        # If this changes, also adjust the title/priority/system-prompt
-        # to differentiate recovery from new failure.
+        # Recovery (UP, status 1): send a plain "back online" ping directly —
+        # NO Claude summarisation (that would be silly for a recovery), just a
+        # templated Gotify push so the user gets the "you can stop worrying,
+        # it's resolved" signal. Lower priority than the critical DOWN page.
+        # Kuma only fires UP on a real DOWN→UP transition, so this won't spam.
+        if status_code == 1:
+            print(f"[bridge] kuma recovery: {mon_name} UP",
+                  file=sys.stderr, flush=True)
+            body = "✅ back online"
+            if ping is not None:
+                body += f" · ping {ping}ms"
+            if hb_time:
+                body += f"\nat {hb_time}"
+            if heartbeat_msg:
+                body += f"\n{heartbeat_msg[:300]}"
+            gotify_push(f"[recovered] {mon_name} is UP", body, priority=5)
+            return
+
+        # Anything else that isn't DOWN (PENDING / MAINTENANCE / unknown) → ignore.
         if status_code != 0:
             print(f"[bridge] kuma alert ignored ({status_str}): {mon_name}",
                   file=sys.stderr, flush=True)
