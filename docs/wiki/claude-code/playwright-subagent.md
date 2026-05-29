@@ -4,7 +4,7 @@
 **Status:** working
 **Agent definition:** `.claude/agents/playwright.md`
 **Wrappers:** `scripts/mcp-playwright.sh`, `scripts/playwright-chromium.sh`
-**Package:** `pkgs.playwright-mcp` — already in `modules/home-manager/services/claude-code.nix`, so the `mcp-server-playwright` binary is on `PATH` on every Claude Code host.
+**Package:** `pkgs.playwright-mcp` — already in `modules/home-manager/profiles/base.nix`, so the `mcp-server-playwright` binary is on `PATH` on every Claude Code host.
 
 ## Why a subagent, not a project-level MCP
 
@@ -106,4 +106,4 @@ Playwright earns its keep when the thing being tested IS the rendered UI: Grafan
 - `.claude/agents/playwright.md` — agent definition + embedded prompt (Grafana / logs.ablz.au workflow notes live here)
 - `scripts/mcp-playwright.sh` — two-mode wrapper
 - `scripts/playwright-chromium.sh` — persistent Chrome launcher
-- `modules/home-manager/services/claude-code.nix` — packages `playwright-mcp` for all Claude Code hosts
+- `modules/home-manager/profiles/base.nix` — packages `playwright-mcp` for all Claude Code hosts

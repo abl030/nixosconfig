@@ -4,6 +4,35 @@
   pkgs,
   ...
 }: {
+  # ---------------------------------------------------------
+  # CODEX CLI  (native programs.codex — see issue #261)
+  # ---------------------------------------------------------
+  # We adopt the upstream module for the package + the shared talk-to-me skill
+  # ONLY. `settings` is left UNSET on purpose: codex actively rewrites
+  # ~/.codex/config.toml at runtime (per-project trust_levels, plugin enables,
+  # model-migration notices, model/effort prefs). The native module would
+  # symlink config.toml read-only and reset all of that, so home-manager must
+  # NOT own it. With `settings` empty and no MCP integration the module never
+  # writes config.toml.
+  #
+  # BLOCKER (mcp-nixos on Codex): wiring programs.mcp.servers into Codex needs
+  # `enableMcpIntegration = true`, which writes mcp_servers INTO config.toml —
+  # i.e. would seize the mutable file. So mcp-nixos stays Claude-side only.
+  #
+  # MANUAL STEP (compound-engineering on Codex): Codex's module has no plugin
+  # option and the install is interactive — register the marketplace, install
+  # via `/plugins`, then `bunx @every-env/compound-plugin` to add the agents
+  # (Codex's plugin spec doesn't install custom agents yet, per upstream).
+  # Keep aligned with the Claude CE plugin version (currently 3.9.0).
+  # Sources: EveryInc/compound-engineering-plugin README; OpenAI Codex plugins docs.
+  programs.codex = {
+    enable = true;
+    # Sadjow's fast-updating community flake (via overlay).
+    package = pkgs.codex;
+    # Shared one-and-only skill source (also used by programs.claude-code).
+    skills.talk-to-me = ../../.claude/skills/talk-to-me;
+  };
+
   # Codex CLI privacy: opt out of client-side analytics.
   # config.toml is mutable (codex writes project trust levels, plugin enables,
   # mcp_servers etc), so we can't have home-manager own the whole file. This
@@ -48,7 +77,7 @@
     pkgs.statix
     pkgs.deadnix
     pkgs.alejandra
-    pkgs.codex
+    # pkgs.codex now provided by programs.codex.package (see above)
     pkgs.exiftool
 
     # Rust Utils

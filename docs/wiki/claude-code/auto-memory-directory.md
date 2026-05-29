@@ -1,6 +1,11 @@
 # autoMemoryDirectory — Shared Memory via Git
 
 **Date researched:** 2026-03-13
+**Updated:** 2026-05-29 — implementing code moved from the retired
+`homelab.claudeCode` module to the `claudePrivacy` activation in
+`modules/home-manager/profiles/base.nix` (native-module migration, issue #261).
+The mechanism is unchanged (still a project-level `.claude/settings.local.json`
+write); only the file that performs it moved.
 **Status:** Working
 **Claude Code version:** Latest (March 2026 release)
 
@@ -10,7 +15,10 @@
 
 ## How We Use It
 
-Memory lives at `.claude/memory/` in the nixosconfig repo. The HM module (`modules/home-manager/services/claude-code.nix`) writes the setting into the **project-level** `.claude/settings.local.json` during activation, so:
+Memory lives at `.claude/memory/` in the nixosconfig repo. The
+`home.activation.claudePrivacy` block in `modules/home-manager/profiles/base.nix`
+writes the setting into the **project-level** `.claude/settings.local.json`
+during activation, so:
 
 - Only affects this project (not other repos)
 - Each machine gets its own `settings.local.json` (gitignored) but all point to the same repo-relative path
@@ -18,19 +26,18 @@ Memory lives at `.claude/memory/` in the nixosconfig repo. The HM module (`modul
 
 ### Configuration
 
-```nix
-# modules/home-manager/profiles/base.nix
-homelab.claudeCode = {
-  repoMemoryDirectory = ".claude/memory";  # repo-relative path
-  # repoPath defaults to ~/nixosconfig
-};
-```
+There is no longer a dedicated option — the repo path is hardcoded to
+`~/nixosconfig/.claude/memory` inside the `claudePrivacy` activation (the same
+script that manages the privacy env flags). See
+[claude-codex-native-migration.md](claude-codex-native-migration.md) for why we
+hand-merge into the mutable settings file rather than letting the native
+`programs.claude-code.settings` own it.
 
 ### What the activation script does
 
-1. Builds `{"autoMemoryDirectory": "/home/<user>/nixosconfig/.claude/memory"}`
-2. Deep-merges it into `<repoPath>/.claude/settings.local.json` (creates if missing)
-3. Idempotent — same key with same value = no change on repeated rebuilds
+1. Sets `.autoMemoryDirectory = "<home>/nixosconfig/.claude/memory"` via `jq`
+2. Writes it into `<home>/nixosconfig/.claude/settings.local.json` (creates `{}` if missing), only when `<home>/nixosconfig/.claude` exists
+3. Idempotent — same key with same value = no change on repeated rebuilds; other local keys (e.g. permission allow-lists) are preserved
 
 ## Key Behaviours
 
@@ -47,8 +54,7 @@ See: deleted `docs/todo/claude-memory-symlink.md`
 
 ## Files Involved
 
-- `modules/home-manager/services/claude-code.nix` — options and activation logic
-- `modules/home-manager/profiles/base.nix` — sets `repoMemoryDirectory`
+- `modules/home-manager/profiles/base.nix` — `home.activation.claudePrivacy` performs the settings.local.json write (and the privacy/agentTeams/plugin-cleanup merges)
 - `.claude/memory/MEMORY.md` — the shared memory index
 - `.claude/settings.local.json` — gitignored, machine-local, written by activation
 - `.gitignore` — ignores `.claude/settings.local.json`

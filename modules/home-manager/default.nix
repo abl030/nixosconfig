@@ -13,7 +13,6 @@
     ./display/remote-desktop.nix
     ./services/ssh.nix
     ./services/pdf.nix
-    ./services/claude-code.nix
     ./services/beets.nix
   ];
 }
