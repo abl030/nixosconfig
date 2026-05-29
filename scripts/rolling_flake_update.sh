@@ -42,15 +42,17 @@ declare -a SUMMARY_LINES=()
 ANY_FAIL=0
 ANY_COMMIT=0
 
-# Triage a failed group's build log via headless Claude (haiku, no API cost).
-# Falls back to a sanitised log tail. Echoes a one-line-ish summary.
+# Triage a failed group's build log via headless Claude. Uses opus: this is one
+# of the two diagnosis paths (with nixos-upgrade) where an accurate, actionable
+# verdict on a nightly build failure is worth the cost — everything else on the
+# fleet defaults to haiku. Falls back to a sanitised log tail. Echoes a summary.
 triage() {
     local logf="$1"
     local out=""
     if [ -n "$TRIAGE_PROMPT_FILE" ] && [ -r "$TRIAGE_PROMPT_FILE" ] && command -v claude >/dev/null 2>&1; then
         out="$(tail -n 200 "$logf" | timeout 600 claude -p \
             --system-prompt "$(cat "$TRIAGE_PROMPT_FILE")" \
-            --model haiku \
+            --model opus \
             --no-session-persistence \
             --tools "" \
             "Triage this NixOS build failure log from stdin." 2>/dev/null || true)"

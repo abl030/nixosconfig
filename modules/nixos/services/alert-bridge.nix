@@ -111,7 +111,7 @@
                 lines.append(line)
         return lines[:limit]
 
-    CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "opus")
+    CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "haiku")
     CLAUDE_TIMEOUT = int(os.environ.get("CLAUDE_TIMEOUT_SECS", "300"))
 
     def claude_summarise(context):
@@ -371,13 +371,15 @@ in {
 
     model = lib.mkOption {
       type = lib.types.str;
-      default = "opus";
+      default = "haiku";
       description = ''
-        claude model to invoke. Defaults to opus because these alerts
-        carry context (LogQL, log lines, schema state) that wants real
-        reasoning to classify drift vs operator activity — haiku tends
-        to over-pattern-match. Override per-host if cost or latency
-        matters more than classification accuracy.
+        claude model to invoke. Fleet policy (2026-05-29): default to haiku
+        for cost/latency — Opus is reserved for the two diagnosis paths where
+        an accurate, actionable verdict actually drives a fix (rolling-flake-update
+        triage and the nixos-upgrade diagnose). These alert summaries are
+        lower-stakes (Kuma DOWN context, Grafana classification), so haiku is
+        an acceptable trade. Override to "opus" per-host if you find haiku
+        over-pattern-matches and the classification accuracy is worth the cost.
       '';
     };
 
