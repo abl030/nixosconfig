@@ -11,7 +11,7 @@
 # Every fleet host runs `rolling-flake-update.service` nightly — it bumps
 # `flake.lock` to tip AND deploys against `github:abl030/nixosconfig`. So
 # every host's currently-running closure is pinned to "tip of master at
-# 22:15 AWST last night" with a HOT binary cache for those store paths.
+# 23:00 AWST last night" with a HOT binary cache for those store paths.
 #
 # If you rebuild from a local checkout that is behind origin/master, you
 # will:
@@ -273,7 +273,7 @@ Usage notes:
 - Default query range is 1 hour; compute a start timestamp for longer windows.
 - Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `cache`, `dev`, `tower` (Unraid), `pfsense` (via syslog), `prom` (alloy on the Proxmox hypervisor; deployed via `ansible/common/monitoring.yml`).
 - Container logs use the `container` label (e.g. `{host="proxmox-vm", container="immich-server"}`).
-- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 22:15 AWST (14:15 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 14:15 UTC of the relevant day.
+- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 23:00 AWST (15:00 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 15:00 UTC of the relevant day.
 - The former `loki-mcp` server was removed in April 2026 — query Loki directly via HTTP or Grafana.
 
 ### Home Assistant, pfSense, UniFi

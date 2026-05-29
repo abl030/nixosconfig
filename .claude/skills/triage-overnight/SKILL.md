@@ -31,7 +31,7 @@ This keeps the chat conversational while the user is deciding (often while drivi
 
 Three things to check every morning:
 
-1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 22:15 AWST (14:15 UTC). Updates flake inputs, builds, pushes if green. On failure → claude triage → Gotify.
+1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → claude triage → Gotify.
 2. **`nixos-upgrade.service`** on every NixOS host between 01:00 and 02:00 local. Pulls the latest flake and rebuilds. On failure → `nixos-upgrade-diagnose.service` runs claude -p → Gotify.
 3. **Gotify pings** on doc2. Picks up the long tail — watchdogs, alert-bridge, Grafana alerts, Domain-Monitor, Kuma — that isn't a nightly job but did wake the phone overnight.
 
@@ -41,7 +41,7 @@ The nightly-job diagnoses land in journal as plain text and ship to Loki. Gotify
 
 Run all three queries in parallel. Time format: RFC3339, anchor 12h before now.
 
-The 12h window covers the rolling-flake-update at 22:15 AWST and every host's nixos-upgrade run between 01:00–02:00 local with a little slack on either side, without bleeding into the *previous* night's run (a 24h window run in the morning will overlap both nights and you cannot tell them apart from log content alone). If you're triaging late in the day, widen the window deliberately.
+The 12h window covers the rolling-flake-update at 23:00 AWST and every host's nixos-upgrade run between 01:00–02:00 local with a little slack on either side, without bleeding into the *previous* night's run (a 24h window run in the morning will overlap both nights and you cannot tell them apart from log content alone). If you're triaging late in the day, widen the window deliberately.
 
 **Critical:** the diagnose unit only fires if the *currently-active* system generation has it. A host whose rebuild has failed since the diagnose feature landed will never activate it — its failures show up under `nixos-upgrade.service` only, and the Gotify ping comes from the inline `notify_failure` fallback. Always query both unit names.
 

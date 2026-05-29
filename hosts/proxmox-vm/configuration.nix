@@ -42,6 +42,7 @@
     ci.rollingFlakeUpdate = {
       enable = true;
       repoDir = "/home/abl030/nixosconfig";
+      onCalendar = "23:00"; # AWST (15:00 UTC) — out of the way of interactive coding
     };
     services = {
       # Immich moved to doc2 (2026-02-25)

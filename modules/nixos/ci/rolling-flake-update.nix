@@ -8,6 +8,9 @@
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
 
+  # Per-group failure triage prompt. The script (scripts/rolling_flake_update.sh)
+  # runs this against each FAILED group's build log and bundles the summaries into
+  # one Gotify notification. Kept as a file so the multi-line prompt survives env.
   triageSystemPrompt = ''
     You are triaging a NixOS rolling flake update build failure.
     You receive the last 200 lines of build log via stdin.
@@ -21,52 +24,16 @@
     Rules:
     - "upstream" means the failure is in nixpkgs itself (e.g. broken package, upstream deprecation with no config-side fix yet). We just wait.
     - "actionable" means we need to change our flake config (e.g. removed option we still set, renamed module, missing input).
-    - Keep total output under 500 characters.
+    - Keep total output under 400 characters.
     - Do not include markdown headers, preamble, or sign-off.
   '';
+  triagePromptFile = pkgs.writeText "rolling-flake-update-triage-prompt" triageSystemPrompt;
 
+  # Thin wrapper: just hand off to the repo script (which owns groups, build,
+  # commit/push, and the single bundled notification). Env is supplied by the unit.
   wrapperScript = pkgs.writeShellScript "rolling-flake-update-wrapper" ''
-    set -euo pipefail
-    if [ -n "''${GH_TOKEN_FILE-}" ]; then
-      export GH_TOKEN="$(cat "''${GH_TOKEN_FILE}")"
-    fi
-    log_file="$(/run/current-system/sw/bin/mktemp)"
-    set +e
-    ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh 2>&1 | /run/current-system/sw/bin/tee "$log_file"
-    status=''${PIPESTATUS[0]}
-    set -e
-    /run/current-system/sw/bin/cat "$log_file"
-    if [ "$status" -ne 0 ]; then
-      set +e
-      token_file="''${GOTIFY_TOKEN_FILE:-${toString gotifyTokenFile}}"
-      if [ -n "$token_file" ] && [ -r "$token_file" ]; then
-        token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
-        if [ -n "$token" ]; then
-          # Triage the failure with Claude Code (headless, no API cost)
-          summary="$(/run/current-system/sw/bin/tail -n 200 "$log_file" | \
-            /run/current-system/sw/bin/timeout 600 claude -p \
-            --system-prompt ${lib.escapeShellArg triageSystemPrompt} \
-            --model haiku \
-            --no-session-persistence \
-            --tools "" \
-            "Triage this NixOS build failure log from stdin." \
-            2>/dev/null)"
-
-          # Fall back to raw log tail if claude triage failed
-          if [ -z "$summary" ]; then
-            summary="(claude triage unavailable, raw log tail follows)"$'\n\n'"$(/run/current-system/sw/bin/tail -n 120 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-          fi
-
-          /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-            -F "title=rolling flake update failed on ${config.networking.hostName}" \
-            -F "message=$summary" \
-            -F "priority=8" >/dev/null || true
-        fi
-      fi
-      set -e
-    fi
-    /run/current-system/sw/bin/rm -f "$log_file"
-    exit "$status"
+    set -uo pipefail
+    exec ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh
   '';
 in {
   options.homelab.ci.rollingFlakeUpdate = {
@@ -86,7 +53,32 @@ in {
 
     onCalendar = lib.mkOption {
       type = lib.types.str;
-      default = "22:15"; # AWST
+      default = "23:00"; # AWST — late enough that interactive coding/pushes are done
+    };
+
+    groups = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      default = {
+        # nixpkgs + home-manager move together (HM is version-coupled to nixpkgs).
+        # Run first so the llm/rest groups build on the cached new world.
+        core = ["nixpkgs" "home-manager"];
+        # LLM tooling ships ~daily and is near-self-contained — always gets through
+        # even when core/rest are red, so we keep the latest models.
+        llm = [
+          "claude-code-nix"
+          "codex-cli-nix"
+          "claude-plugin-compound-engineering"
+          "claude-plugin-ha-skills"
+        ];
+        # "rest" is implicit and COMPUTED in the script (all inputs - core - llm),
+        # so newly-added flake inputs fall into it automatically.
+      };
+      description = ''
+        Named input groups for the rolling update. Each group is updated and
+        build-tested independently; a failing group is reverted while the others
+        still commit. The "rest" group is computed (all inputs minus these), so it
+        is intentionally not listed here. See GitHub issue #260.
+      '';
     };
   };
 
@@ -97,7 +89,9 @@ in {
       after = ["network-online.target"];
 
       # Keep git's configured credential helper available inside the service.
-      path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code];
+      # curl/gawk/gnused/gnugrep are used by scripts/rolling_flake_update.sh for
+      # triage + the bundled Gotify notification.
+      path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep];
 
       serviceConfig = {
         Type = "oneshot";
@@ -109,6 +103,13 @@ in {
           [
             "REPO_DIR=${cfg.repoDir}"
             "BASE_BRANCH=master"
+            "RFU_HOSTNAME=${config.networking.hostName}"
+            "RFU_TRIAGE_PROMPT_FILE=${triagePromptFile}"
+            "RFU_GROUP_CORE=${lib.concatStringsSep " " (cfg.groups.core or [])}"
+            "RFU_GROUP_LLM=${lib.concatStringsSep " " (cfg.groups.llm or [])}"
+          ]
+          ++ lib.optionals (gotifyUrl != null) [
+            "GOTIFY_URL=${gotifyUrl}"
           ]
           ++ lib.optionals (cfg.tokenFile != null) [
             "GH_TOKEN_FILE=${cfg.tokenFile}"
