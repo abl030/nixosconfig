@@ -1151,15 +1151,28 @@ in {
               fi
 
               push_url=$(${pkgs.coreutils}/bin/head -n1 "$url_file")
-              # --retry tolerates the fleet's recurring brief pfSense unbound
-              # hiccups (CLAUDE.md DNS section). Without it a single 10s DNS
-              # blip during heartbeat push flips Kuma DOWN and pages.
-              ${pkgs.curl}/bin/curl -fsS --max-time 10 \
-                --retry 2 --retry-all-errors --retry-delay 2 \
+              # The Kuma heartbeat push is best-effort TELEMETRY, not the probe's
+              # verdict — the probe command above already returned rc=0, proving
+              # the real write-path is healthy. A transient non-2xx on the push
+              # (brief nginx reload / proxy or DNS blip on the status.ablz.au
+              # vhost — CLAUDE.md DNS section) must NOT be reported as the service
+              # being DOWN and page; that conflates "couldn't tell Kuma" with
+              # "the thing is broken" and is pure alert fatigue (2026-05-29: an
+              # Immich heartbeat push 404'd transiently and paged "Immich
+              # write-path DOWN" while Immich was perfectly healthy).
+              # --retry rides out the blip; if it still fails we log loudly and
+              # exit 0. A *sustained* delivery failure is still caught — Kuma
+              # flips the monitor DOWN after its own no-heartbeat retry window
+              # and pages through that path instead.
+              if ! ${pkgs.curl}/bin/curl -fsS --max-time 10 \
+                --retry 5 --retry-all-errors --retry-delay 3 \
                 --data-urlencode "status=up" \
                 --data-urlencode "msg=OK rc=0" \
                 --data-urlencode "ping=$ms" \
-                -G "$push_url" >/dev/null
+                -G "$push_url" >/dev/null; then
+                echo "[deep-probe] ${probe.name}: Kuma heartbeat push failed after retries (probe check itself PASSED rc=0) — NOT failing the unit; Kuma's no-heartbeat window will catch a sustained outage" >&2
+              fi
+              exit 0
             '';
           in {
             name = "deep-probe-${slug}";
