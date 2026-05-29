@@ -92,6 +92,13 @@ Putting ZFS *on the client* (doc2) instead:
 - doc2 must have ZFS-on-Linux compiled in. NixOS handles this — needs `boot.supportedFilesystems = ["zfs"];` plus a stable `networking.hostId`.
 - It's a zfs-on-zfs layering (inner ZFS on doc2 sits on a zvol backed by prom's nvmeprom pool). Acceptable: prom's outer ZFS handles redundancy on the 3-NVMe pool; doc2's inner ZFS provides the *features* we need (snapshots, child datasets, ARC, native traversal). Tuned with `compression=off`, `primarycache=metadata`, `sync=disabled` on the outer zvol so the inner layer owns those decisions.
 
+### Boot-race gotcha (observed 2026-05-29)
+
+The `pfsensebackup` pool's device (`vdb`) is a zvol **passed through from prom**, and that virtio disk can attach a few seconds *after* doc2 starts booting. ZFS's import service only waits ~15s, so on an unlucky reboot `zfs-import-pfsensebackup.service` fails with `Pool pfsensebackup in state MISSING ... no such pool available`. It's a `oneshot` with no retry, so the pool never imports — `/mnt/backup/pfsense` stays empty and the watchdog correctly pages `status-file-missing`. The backup *data* is fine; only the mount is absent.
+
+- **Manual recovery:** `ssh doc2 sudo zpool import pfsensebackup` (the pool is healthy and importable, just not imported), then `sudo systemctl reset-failed zfs-import-pfsensebackup.service`.
+- **Permanent guard:** `hosts/doc2/configuration.nix` adds an `ExecStartPre` on `zfs-import-pfsensebackup.service` that polls `zpool import` for the pool to appear (up to ~120s) before the real import runs, so a late passthrough disk no longer loses the race.
+
 ## What's covered (and what's not)
 
 | Layer | Captures | Doesn't capture |

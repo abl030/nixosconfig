@@ -324,11 +324,22 @@
   # Pool bootstrap (one-off):
   #   sudo zpool create -o ashift=12 -O compression=lz4 -O atime=off \
   #     -O mountpoint=/mnt/backup/pfsense pfsensebackup /dev/disk/by-id/...
-  # Then auto-imports on subsequent boots via the cachefile (NixOS default).
+  # Then auto-imports on subsequent boots via boot.zfs.extraPools above.
   #
   # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
   # 8-char hex required for ZFS. Stable across rebuilds.
   networking.hostId = "deadbe14";
+
+  # Boot-race guard: pfsensebackup lives on `vdb`, a zvol passed through from
+  # prom's nvmeprom. That virtio disk can attach a few seconds after doc2 boots,
+  # losing ZFS's ~15s import wait — zfs-import-pfsensebackup.service then fails
+  # ("Pool ... in state MISSING ... no such pool available"), and because it's a
+  # oneshot with no retry the pool never gets imported, leaving /mnt/backup/pfsense
+  # empty (the pfSense-backup watchdog correctly pages). Observed 2026-05-29.
+  # Poll for the pool to become importable (up to ~120s) before the real import.
+  # See docs/wiki/infrastructure/pfsense-backup.md.
+  systemd.services.zfs-import-pfsensebackup.serviceConfig.ExecStartPre =
+    "${pkgs.bash}/bin/bash -c 'for _ in $(seq 1 60); do ${pkgs.zfs}/bin/zpool import 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q pfsensebackup && exit 0; sleep 2; done; exit 0'";
 
   # No tmpfiles rules for virtiofs directories — they already exist on
   # persistent ZFS storage (nvmeprom/containers) shared between VMs.
