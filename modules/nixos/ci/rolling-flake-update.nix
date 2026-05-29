@@ -99,27 +99,30 @@ in {
         WorkingDirectory = cfg.repoDir;
         TimeoutStartSec = "4h";
 
-        Environment =
-          [
-            "REPO_DIR=${cfg.repoDir}"
-            "BASE_BRANCH=master"
-            "RFU_HOSTNAME=${config.networking.hostName}"
-            "RFU_TRIAGE_PROMPT_FILE=${triagePromptFile}"
-            "RFU_GROUP_CORE=${lib.concatStringsSep " " (cfg.groups.core or [])}"
-            "RFU_GROUP_LLM=${lib.concatStringsSep " " (cfg.groups.llm or [])}"
-          ]
-          ++ lib.optionals (gotifyUrl != null) [
-            "GOTIFY_URL=${gotifyUrl}"
-          ]
-          ++ lib.optionals (cfg.tokenFile != null) [
-            "GH_TOKEN_FILE=${cfg.tokenFile}"
-          ]
-          ++ lib.optionals (gotifyTokenFile != null) [
-            "GOTIFY_TOKEN_FILE=${gotifyTokenFile}"
-          ];
-
         ExecStart = wrapperScript;
       };
+
+      # Use the `environment` attrset (NOT serviceConfig.Environment) so values
+      # containing spaces — the space-separated group lists — are quoted correctly.
+      # systemd's Environment= splits on whitespace and would mangle them.
+      environment =
+        {
+          REPO_DIR = cfg.repoDir;
+          BASE_BRANCH = "master";
+          RFU_HOSTNAME = config.networking.hostName;
+          RFU_TRIAGE_PROMPT_FILE = "${triagePromptFile}";
+          RFU_GROUP_CORE = lib.concatStringsSep " " (cfg.groups.core or []);
+          RFU_GROUP_LLM = lib.concatStringsSep " " (cfg.groups.llm or []);
+        }
+        // lib.optionalAttrs (gotifyUrl != null) {
+          GOTIFY_URL = gotifyUrl;
+        }
+        // lib.optionalAttrs (cfg.tokenFile != null) {
+          GH_TOKEN_FILE = "${cfg.tokenFile}";
+        }
+        // lib.optionalAttrs (gotifyTokenFile != null) {
+          GOTIFY_TOKEN_FILE = "${gotifyTokenFile}";
+        };
     };
 
     systemd.timers.rolling-flake-update = {
