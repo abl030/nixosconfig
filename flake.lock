@@ -24,11 +24,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780023606,
-        "narHash": "sha256-kLRVx7T+9ETF26prUsMA9Nm0LidSFN08oPLkXK5V2CA=",
+        "lastModified": 1780109992,
+        "narHash": "sha256-qzmk1JsVr3Umi4k9cx5KCLxPSWQpd6NeKCXXSr4bYoY=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "879750a6fc504c9eafbab781798cb85e1b39242f",
+        "rev": "66c8b1714f2d45ce71de002baa89f8652483f245",
         "type": "github"
       },
       "original": {
@@ -56,11 +56,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1779441946,
-        "narHash": "sha256-RXEGyX5Wy3wX+tBJywRFWW+HiRA2EcfMYSzWzn/zPoY=",
+        "lastModified": 1780151368,
+        "narHash": "sha256-KGht7wfXZfCLZvv6b0iMunThW1Hct4RG3gw47S2MiWE=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "c1abc300f5249685e8b98cdc560ebf4bcdb17161",
+        "rev": "a695a02e18ad8e2fc45f71f6796252d32fa1dc30",
         "type": "github"
       },
       "original": {
