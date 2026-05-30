@@ -295,11 +295,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1780005070,
-        "narHash": "sha256-xAQSY/gTz1JDpQXQ5BjNAw6wrLneGp57Y7MyRCdIb/M=",
+        "lastModified": 1780154129,
+        "narHash": "sha256-tWv3F1vY4E8ItCiCg8NJyTtQQRmZ0qEcYBLGY2hjdM4=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "8eff1f42b5ea30b3eacc1cb5fe1276b4918647ef",
+        "rev": "cd0c24043ad1ced73447c5d42a33c7b683041275",
         "type": "gitlab"
       },
       "original": {
