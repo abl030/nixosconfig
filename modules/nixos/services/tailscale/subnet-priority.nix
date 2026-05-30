@@ -39,8 +39,9 @@ in {
       path = [pkgs.iproute2 pkgs.util-linux pkgs.gawk];
 
       serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
+        Type = "simple";
+        Restart = "on-failure";
+        RestartSec = "5s";
 
         ExecStart = "${pkgs.writeScript "tailscale-lan-priority-start" ''
           #!${pkgs.bash}/bin/bash
@@ -63,8 +64,6 @@ in {
             if ! ip rule show | grep -q "to $cidr lookup main"; then
               ip rule add to "$cidr" priority "$priority" lookup main
               log_msg "Added priority rule for $label"
-            else
-              log_msg "Priority rule for $label already exists"
             fi
           }
 
@@ -76,8 +75,6 @@ in {
             if ip rule show | grep -q "to $cidr lookup main"; then
               ip rule del to "$cidr" priority "$priority" lookup main
               log_msg "Removed priority rule for $label"
-            else
-              log_msg "No priority rule for $label to remove"
             fi
           }
 
@@ -94,7 +91,19 @@ in {
             fi
           }
 
-          ${ruleScript}
+          apply_rules() {
+            ${ruleScript}
+          }
+
+          apply_rules
+          log_msg "Initial rules applied; watching for address changes"
+
+          # Re-evaluate on every interface address change so roaming laptops
+          # (e.g. framework leaving home WiFi) don't leave stale rules that
+          # shadow tailnet subnet routes. Re-apply is idempotent.
+          ip monitor address | while read -r _; do
+            apply_rules
+          done
         ''}";
 
         ExecStop = "${pkgs.writeScript "tailscale-lan-priority-stop" ''
