@@ -1,1 +1,1 @@
-/nix/store/vmwn950a6sj66xvc5q5lkj9x83l4f2bi-nixos-system-dev-26.11.20260529.e9a7635
+/nix/store/hjx93f7d674vqfv5n0wa19q6z492vh7v-nixos-system-dev-26.11.20260601.4df1b88
