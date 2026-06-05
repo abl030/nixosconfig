@@ -1,1 +1,1 @@
-/nix/store/zmk0d9av2vhzpwp6y0rn28r0lykzr2zl-nixos-system-doc2-26.11.20260602.ffa10e2
+/nix/store/lv4cpyg5p7h0xphh7k9iyhlj79pxsa2g-nixos-system-doc2-26.11.20260602.ffa10e2
