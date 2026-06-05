@@ -1,11 +1,11 @@
 # pfSense backup watchdog
 #
-# Watches the syncoid status JSON written by prom's syncoid-pfsense.service,
+# Watches the syncoid status JSON written by doc2's syncoid-pfsense.service,
 # AND a content canary inside the backup tree itself.
-# Full architecture + restore procedures + prom-side rebuild steps:
+# Full architecture + restore procedures + 2026-05-26 cutover history:
 #   docs/wiki/infrastructure/pfsense-backup.md
 #
-# Runs hourly, reads the status file via the read-only NFS mount from prom,
+# Runs hourly, reads the status file from the local `pfsensebackup` ZFS pool,
 # and emits a distinctive log line on:
 #   - missing status file
 #   - status file older than maxAgeHours
@@ -21,21 +21,25 @@
 # Loki picks up the journal output; `homelab.monitoring.errorPatterns` below
 # routes the "PFSENSE-BACKUP FAIL" pattern through the alert-bridge → Gotify.
 #
-# Why a watchdog on doc2 rather than alerting on prom's syncoid-pfsense
-# journal directly: even though prom DOES ship to Loki via the
-# ansible-deployed alloy (we'd missed this for months — see the
-# 2026-05-24 "stale alloy connection" incident in lgtm-stack.md, where
-# prom's alloy was silently dropping every batch to a dead vhost IP),
-# the status-file approach is structurally stronger:
-#   1. Verifies the doc2 NFS share is mounted and readable
-#      (catches a class of failure the journal alone can't see).
-#   2. Independent of alloy/Loki health — if alloy goes silent again,
-#      this watchdog still pages.
-#   3. Reads the actual bytes kopia would back up, so an alert
+# Since the 2026-05-26 cutover, syncoid-pfsense AND this watchdog both run on
+# doc2: syncoid pulls pfSense's pool into doc2's local `pfsensebackup` ZFS pool
+# (a zvol passthrough from prom), and the watchdog reads the status JSON + canary
+# straight off that local mount. prom is no longer in the backup chain.
+#
+# Why the status-file + canary approach rather than just an errorPattern on
+# syncoid-pfsense's own journal:
+#   1. Verifies the `pfsensebackup` pool is imported and /mnt/backup/pfsense is
+#      readable — catches the boot-race import failure (see B' in
+#      hosts/doc2/configuration.nix) that a journal alert can't see, because a
+#      missing pool means syncoid never even runs.
+#   2. Independent of alloy/Loki health — if log shipping goes silent (cf. the
+#      2026-05-24 "stale alloy connection" incident in lgtm-stack.md), this
+#      watchdog still pages off the local filesystem.
+#   3. Reads the actual bytes kopia would back up (the canary), so an alert
 #      means "the data kopia is shipping is broken", not just
 #      "syncoid logged something".
-# A prom-side journal alert via errorPatterns would be a useful
-# *additional* signal but is not the primary defence.
+# An errorPattern on syncoid-pfsense's journal is a useful *additional* signal
+# (wired up in syncoid-pfsense.nix) but is not the primary defence.
 {
   config,
   lib,
@@ -107,7 +111,7 @@ in {
     statusFile = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/backup/pfsense/.syncoid-status.json";
-      description = "Path to the JSON status file written by prom's syncoid wrapper.";
+      description = "Path to the JSON status file written by doc2's syncoid-pfsense wrapper.";
     };
 
     canaryFile = lib.mkOption {
@@ -137,9 +141,9 @@ in {
       type = lib.types.int;
       default = 26;
       description = ''
-        Maximum permitted age of the status file in hours. prom's syncoid timer
-        runs daily (24h cadence) — anything older than this means the timer
-        failed to run, prom is unreachable, or the NFS mount is broken.
+        Maximum permitted age of the status file in hours. doc2's syncoid-pfsense
+        timer runs daily (24h cadence) — anything older than this means the timer
+        failed to run, or the `pfsensebackup` pool isn't imported (boot race).
       '';
     };
 
@@ -185,11 +189,14 @@ in {
         threshold = 0;
         description = ''
           The doc2-side watchdog can't see a healthy ${cfg.statusFile}.
-          Most likely causes: prom's syncoid-pfsense.timer failed to run,
-          prom is down, the virtiofs share is broken, or the syncoid pull
-          itself exited non-zero. Inspect the matched line for the failure
-          reason; on prom run `journalctl -u syncoid-pfsense.service -n 100`
-          and `systemctl status syncoid-pfsense.timer`.
+          syncoid-pfsense.service/.timer run on doc2 (NOT prom — the backup
+          moved to doc2-native ZFS in the 2026-05-26 cutover). The single most
+          common cause is the `pfsensebackup` pool failing to import after a
+          reboot (late/flickering virtio passthrough disk); recover with:
+            zpool list pfsensebackup || sudo zpool import pfsensebackup
+          Otherwise inspect the matched line for the failure reason and, ON DOC2,
+          run `journalctl -u syncoid-pfsense.service -n 100` and
+          `systemctl status syncoid-pfsense.timer zfs-import-pfsensebackup.service`.
         '';
       }
     ];

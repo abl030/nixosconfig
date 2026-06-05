@@ -327,9 +327,15 @@ The module's wrapper script explicitly disables `errexit` and `pipefail` around 
 
 The `last_error` field carries syncoid's CRITICAL output verbatim, which contains literal tabs and newlines. A hand-written heredoc produces invalid JSON. The wrapper uses `jq -n --arg` for every field to handle escaping. Hit on 2026-05-26 first deploy.
 
-### `boot.zfs.extraPools` triggers a per-pool import unit
+### `boot.zfs.extraPools` import races the late virtio passthrough disk (B')
 
-`zfs-import-pfsensebackup.service` runs at every boot and fails if the pool is missing. That's a single-unit failure, not a boot blocker, but it WILL light up systemd as "degraded." On first deploy before bootstrap, it fails. After bootstrap it succeeds forever. To rebuild from scratch (pool wiped), the first boot after `zpool destroy` will show the failure again until you recreate the pool.
+`zfs-import-pfsensebackup.service` runs at every boot and imports the pool. The pool lives on `vdb`, a zvol passed through from prom — and that virtio disk **attaches late and can flicker** during early boot. The stock oneshot only waits ~20s for the pool and can't retry (`Type=oneshot` forbids `Restart=`), so a slow/flickering attach makes it give up (`Pool ... in state MISSING ... no such pool available`). The pool then never imports, `/mnt/backup/pfsense` stays empty, and the watchdog pages hourly until a manual import.
+
+This is **not** a one-time "before bootstrap" failure — it recurs on **any** reboot when the disk is slow to settle, and the nightly auto-update reboot retriggers it. Seen 2026-05-29 (first guard added) and again 2026-06-05: that night doc2 rebooted at 05:03, the device was visible to `zpool import` at T+46s then went MISSING for ~20s while the stock import ran, which gave up — pool absent for the whole boot, watchdog paged ~hourly. The original guard only waited for the pool to become *visible* then handed off to the stock 20s import, so it lost the flicker race.
+
+**Fix (B', `hosts/doc2/configuration.nix`):** override the unit's `ExecStartPre` to import the pool *itself*, retrying `zpool import pfsensebackup` every 3s for up to ~3 min, and raise `TimeoutStartSec` to 210s so systemd doesn't kill it mid-loop. The stock `ExecStart` then sees the pool already imported and is a no-op. A genuinely absent device still fails the unit after the cap (a real signal — the pool isn't boot-critical, `/` is on `vda`). On first deploy before bootstrap, or after `zpool destroy`, it still fails until you (re)create the pool — that part is expected.
+
+**Recovery if it ever pages:** `ssh doc2 'sudo zpool import pfsensebackup'`. The pool and data are intact; this only replays the missed import. The status JSON (last good run) and canary come straight back, and the watchdog clears on its next run.
 
 ### prom firewall expects NFS clients, NOT a tower-style "give me ZFS via NFS" trap
 
