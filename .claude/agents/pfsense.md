@@ -29,7 +29,7 @@ Used to temporarily reset the user's apparent public IP. Typical cycle: enable �
 
 **Enable (epi → SG)** — alias first, then enable rules in order (pass before kill switch), then apply:
 ```
-mcp__pfsense__pfsense_update_firewall_alias  id=15  address=["192.168.1.5"]  detail=["epimetheus"]  confirm=true
+mcp__pfsense__pfsense_update_firewall_alias  id=14  address=["192.168.1.5"]  detail=["epimetheus"]  confirm=true
 mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=false  confirm=true
 mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=false  confirm=true
 mcp__pfsense__pfsense_firewall_apply  confirm=true
@@ -39,7 +39,7 @@ mcp__pfsense__pfsense_firewall_apply  confirm=true
 ```
 mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=true  confirm=true
 mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=true  confirm=true
-mcp__pfsense__pfsense_update_firewall_alias   id=15  address=[]  detail=[]  confirm=true
+mcp__pfsense__pfsense_update_firewall_alias   id=14  address=[]  detail=[]  confirm=true
 mcp__pfsense__pfsense_firewall_apply  confirm=true
 ```
 
@@ -51,10 +51,13 @@ If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: [...]`,
 
 | id | object | use |
 |----|--------|-----|
-| 8  | alias `MV_VPN_IPS` | NZ VPN list (Nix-mirrored — see sync contract below) |
-| 15 | alias `MV_VPN_SG_IPS` | SG VPN list (epi toggle, no Nix mirror) |
+| 9  | alias `MV_VPN_IPS` | NZ VPN list (Nix-mirrored — see sync contract below) |
+| 14 | alias `MV_VPN_SG_IPS` | SG VPN list (epi toggle, no Nix mirror) |
+| 15 | alias `DHCP_Dynamic` | Untrusted DHCP range (.100-.254) |
 | 21 | LAN rule | pass `MV_VPN_SG_IPS` → AirVPN_SG gateway |
 | 22 | LAN rule | block `MV_VPN_SG_IPS` (SG kill switch) |
+
+Note: alias IDs shifted on 2026-06-05 when pfB_DoH_v4 was added and DoH_Providers retired. The MV_VPN_SG_IPS fast-path update_alias call now uses id=14 (was 15). Always verify IDs before operations.
 
 If a fast-path operation fails because an ID has shifted, fall back to discovery — then update this table.
 
@@ -180,7 +183,7 @@ Traffic is routed through AirVPN based on source IP using aliases:
 1. Pass Cloudflare IPs (172.64.32.0/24, 173.245.58.0/24)
 2. MV_VPN_IPS → pass via AirVPN, then block (kill switch)
 3. Block baby monitors (VTechCameras) on WAN and AirVPN gateways
-4. Block DoT (port 853) and DoH (to DoH_Providers:443) for DHCP_Dynamic and LG TV
+4. Block DoT (port 853) and DoH (to pfB_DoH_v4:443) for DHCP_Dynamic and LG TV (192.168.1.42)
 5. Default allow LAN to any
 
 ### IOT_OF_DEATH Rules
@@ -232,8 +235,8 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | MV_VPN_IPS | host | Various LAN IPs | Devices routed via AirVPN |
 | VTechCameras | host | .7, .8 | Baby monitors (internet blocked) |
 | DockerVlan | network | 192.168.11.0/24 | Docker VLAN reference |
-| DHCP_Dynamic | host | .100-.254 | Untrusted DHCP range |
-| DoH_Providers | host | 250+ IPs/hostnames | Known DoH/DoT providers |
+| DHCP_Dynamic | host | .100-.254 | Untrusted DHCP range (id=15 as of 2026-06-05) |
+| pfB_DoH_v4 | urltable | 1664 IPs (auto-updated) | DoH provider IPs — pfBlockerNG Alias_Native feed from dibdot/DoH-IP-blocklists; replaces retired DoH_Providers host alias (2026-06-05) |
 | CullenWinesPubIP | host | Cullen public IPs | Remote access allowlist |
 | AirVPN_IPs | host | (empty) | Placeholder |
 

@@ -156,6 +156,18 @@ cp /cf/conf/config.xml /tmp/config-backup-$(date +%Y%m%d%H%M%S).xml
 
 Restore by copying back and triggering a config reload (or rebooting). Package binaries are NOT rolled back by config restore — for package issues, reinstall via the GUI.
 
+## DoH/DoT bypass blocking (forced DNS) — automated 2026-06-05
+
+To keep untrusted clients on pfSense's resolver (above) we block known **DoH** (443) and **DoT** (853) endpoints for three source populations: the `DHCP_Dynamic` range (`.100–.254`), the LG TV (`192.168.1.42`), and the `IOT_of_Death` interface. DoT is blocked broadly (`any → any:853`); DoH is blocked against a list of resolver IPs.
+
+**The old way (retired):** a hand-curated `host`-type firewall alias `DoH_Providers` (~250 entries, pasted from the [Hagezi DoH list](https://github.com/hagezi/dns-blocklists) — no provenance was recorded in config; the giveaway was Hagezi's own NS hostnames in the entries). Two problems: (1) it rotted — public DoH endpoints get decommissioned, leaving dead NXDOMAIN entries; (2) **`filterdns` re-resolves every hostname in every `host`-type alias every ~5 min**, so each dead entry logged `failed to resolve host … will retry later again` forever, flooding `{host="pfsense", app="filterdns"}` in Loki.
+
+**The new way:** a pfBlockerNG IPv4 feed `pfB_DoH_v4` (a `urltable` alias) sourced from [`dibdot/DoH-IP-blocklists`](https://github.com/dibdot/DoH-IP-blocklists) `doh-ipv4.txt`, action **Alias Native** (maintains the alias only, no auto-rules), riding the existing pfBlockerNG update cron. ~1664 IPs, auto-refreshed. The three block rules (LAN DHCP_Dynamic, LG TV, IOT) point their destination at `pfB_DoH_v4`. Because it's an IP `urltable`, **`filterdns` never touches it** — retiring `DoH_Providers` killed the resolution flood entirely as a side effect, not just the four dead entries.
+
+**Lesson:** for blocklists of *named* endpoints that change over time, use a maintained IP feed via pfBlockerNG (`urltable`), never a hand-curated `host` alias — the latter rots AND filterdns floods the log re-resolving it. The DoT side (`any:853`) needs no list and is unaffected.
+
+Also fixed in the same pass: the LG TV's DoH (rule 27) and DoT (rule 28) rules hardcoded `192.168.1.36`, but the TV had moved to `.42` (`.36` is doc2-vpn). Both rules now target `.42`, confirmed against the `lgwebostv` DHCP static mapping. Hardcoded device IPs in rules are a standing footgun — prefer a static-mapping-backed alias if this recurs.
+
 ## When to revisit
 
 - If listen-queue overflows reappear in `system.log` despite the tunes: check unbound RSS (leak), check pfBlockerNG mode, check if a new noisy DHCP client is causing kea2unbound churn.
