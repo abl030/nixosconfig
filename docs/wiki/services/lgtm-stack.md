@@ -456,7 +456,7 @@ See `modules/nixos/services/tailscale-share.nix:255-285` for the canonical examp
 
 ## Kuma push-monitor boundary race — why `maxretries = 2` lied
 
-**Researched:** 2026-05-22. **Status:** fixed (default bumped to `10` in `modules/nixos/services/monitoring_sync.nix` deepProbe schema).
+**Researched:** 2026-05-22. **Status:** re-opened 2026-06-05 — the `maxretries=10` bump below was a partial mitigation, NOT a fix. The real fix is `intervalSecs` headroom over the probe cadence; see the [2026-06-05 update](#2026-06-05-update--maxretries10-was-not-enough-the-real-fix-is-interval-headroom) at the end of this section.
 
 ### What broke
 
@@ -494,6 +494,35 @@ Default bumped to `maxretries = 10`. Time-to-DOWN now `300 + 10*60 = 900 s = 15 
 ### General lesson
 
 Push-monitor `maxretries` is **not** "tolerance for repeated probe failures" the way active-monitor `maxretries` is. It's "how many `retryInterval` cycles past the original `interval` deadline you'll tolerate before pulling the alarm." If your probe runs on a timer that aligns within tens of seconds of the Kuma interval (any systemd timer does, by default), you must budget for boundary jitter — `maxretries = 2` will flap.
+
+### 2026-06-05 update — `maxretries=10` was not enough; the real fix is interval headroom
+
+The `maxretries=10` bump only **widened the pending window** (`300 + 10*60 = 15 min` before DOWN). It did not remove the boundary race — it just needed a worse alignment to trip. On 2026-06-05 both `Immich sync write-path` (mon 59) and `MusicBrainz replication freshness` (mon 62) flapped DOWN→UP overnight; MusicBrainz did it twice. **Every probe run was exit 0 with a successful push** — confirmed from the probe units' journals.
+
+kuma.db heartbeat history showed the smoking gun: registered UP beats spaced **exactly `interval + 1 second`** apart, then a PENDING beat one second after a good UP:
+
+```
+# MusicBrainz, interval=3600, maxretries=10
+02:05:47  UP      (ping 27)           ← push registered fine
+02:05:48  PENDING "No heartbeat..."   ← 1s later, cascade starts anyway
+02:06:48 … 02:14:48  PENDING ×10      (retryInterval=60)
+02:15:48  DOWN → pages
+03:05:47  UP                          ← next hourly push clears it
+```
+
+**Root cause:** the Kuma monitor `interval` was set **equal** to the probe cadence (`intervalSecs == interval`: 3600==3600 for MB/kopia, 900==900 for Immich). `OnUnitActiveSec` counts from probe *completion*, so each push lands `cadence + runtime + jitter` after the previous one — i.e. always a second or two past Kuma's deadline. Usually Kuma re-registers UP; intermittently its tick fires in that 1–2 s gap and starts the pending cascade. Because the next push is a **full cadence away** (the late push already consumed this cycle), `maxretries=10`'s 10-min window can't bridge the gap to a 15-min/1-h next push, so it escalates to DOWN and self-heals on the next push.
+
+**The actual fix:** make `intervalSecs` comfortably **larger** than the probe cadence so an on-time push always lands inside the window with margin. The maxretries grace is irrelevant when the push lands before the deadline.
+
+| Probe | cadence | intervalSecs before | after |
+|---|---|---|---|
+| Immich sync write-path | 15m | 900 (==) | 1200 |
+| MusicBrainz replication freshness | 1h | 3600 (==) | 4500 |
+| Kopia mum / photos freshness | 1h | 3600 (==) | 4500 |
+
+Also: deepProbe schema default `intervalSecs` 300→450 (pairs with the 5m default cadence), and timer `AccuracySec` 10s→1s (punctuality, defence-in-depth). `maxretries=10` stays as the genuine-sustained-outage catch. The `intervalSecs` option docstring in `monitoring_sync.nix` now spells out the headroom rule.
+
+**Corrected lesson:** for push monitors the load-bearing knob is **`intervalSecs > cadence` (headroom)**, not `maxretries`. `maxretries` only sets how long a *sustained* outage takes to page; it cannot fix a heartbeat that chronically lands a second past the deadline. Never set `intervalSecs == interval`.
 
 ## Alert query self-reference loop — anchor on `msg="<text>`, not free-floating substrings
 

@@ -708,7 +708,7 @@ in {
           };
           intervalSecs = lib.mkOption {
             type = lib.types.int;
-            default = 300;
+            default = 450;
             description = ''
               Kuma push monitor's `interval` field (seconds). Kuma
               expects a heartbeat at most this often; if it goes
@@ -718,7 +718,18 @@ in {
               monitor 60 (kopia-mum freshness): with interval=3600,
               maxretries=2, retryInterval=60 the gap from last UP to
               status=DOWN was 3721s, matching the formula above.
-              Match this to `interval` (default 5m = 300s).
+
+              Set this comfortably LARGER than the probe `interval`
+              cadence — do NOT match them. systemd OnUnitActiveSec counts
+              from probe *completion*, so each heartbeat lands
+              cadence+runtime+jitter after the previous one, i.e. a few
+              seconds past Kuma's deadline when the two are equal. That
+              chronically races Kuma's scheduler and the monitor
+              false-flaps DOWN→UP even though every probe ran and pushed
+              successfully (2026-06-05 RCA in lgtm-stack.md; bumping
+              maxretries alone did NOT fix it). Give ~25-50% headroom —
+              e.g. 15m cadence → 1200s, 1h cadence → 4500s. The 450s
+              default pairs with the 5m (300s) default cadence.
             '';
           };
           timeout = lib.mkOption {
@@ -1208,10 +1219,12 @@ in {
           timerConfig = {
             OnBootSec = "2m";
             OnUnitActiveSec = probe.interval;
-            # AccuracySec keeps the timer tightly on-schedule; the
-            # alert latency math (intervalSecs * maxretries) assumes
-            # we don't drift more than a few seconds.
-            AccuracySec = "10s";
+            # Keep the timer punctual: OnUnitActiveSec already counts from probe
+            # completion (so each push lands runtime+jitter past Kuma's deadline);
+            # 1s accuracy minimises the extra jitter on top. The real guard against
+            # boundary-race flaps is intervalSecs headroom over the cadence — see
+            # the intervalSecs option doc below and the 2026-06-05 RCA in lgtm-stack.md.
+            AccuracySec = "1s";
             Unit = "deep-probe-${slug}.service";
           };
         };

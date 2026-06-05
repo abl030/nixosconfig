@@ -553,7 +553,10 @@ in {
           name = "MusicBrainz replication freshness";
           command = "${pkgs.callPackage ./probes/check-musicbrainz-replication.nix {}}/bin/check-musicbrainz-replication";
           interval = "1h";
-          intervalSecs = 3600;
+          # Headroom over the 1h cadence so on-time pushes never race Kuma's
+          # deadline and false-flap DOWN (2026-06-05 RCA, lgtm-stack.md).
+          # 4500s = 1h + 15m slack. See intervalSecs option doc in monitoring_sync.nix.
+          intervalSecs = 4500;
           serviceConfig = {
             Environment = [
               "MB_PG_HOST=${pgc.dbHost}"

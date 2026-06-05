@@ -240,7 +240,11 @@ in {
           name = "Immich sync write-path";
           command = "${pkgs.callPackage ./probes/check-immich-sync.nix {}}/bin/check-immich-sync";
           interval = "15m";
-          intervalSecs = 900;
+          # Kuma monitor interval MUST exceed the 15m probe cadence: OnUnitActiveSec
+          # counts from probe completion, so each push lands interval+runtime+jitter
+          # later. Equal values made on-time pushes chronically race Kuma's deadline
+          # and false-flap DOWN (2026-06-05 RCA, lgtm-stack.md). 1200s = 15m + 5m slack.
+          intervalSecs = 1200;
           serviceConfig = {
             Environment = [
               "IMMICH_PG_PASSWORD_FILE=${config.sops.secrets."immich-pgpass".path}"

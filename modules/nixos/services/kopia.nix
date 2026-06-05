@@ -618,7 +618,10 @@ in {
             name = "Kopia ${name} freshness";
             command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
             interval = "1h";
-            intervalSecs = 3600;
+            # Headroom over the 1h cadence so on-time pushes don't race Kuma's
+            # deadline and false-flap DOWN — same boundary-race bug fixed for the
+            # immich/musicbrainz probes (2026-06-05 RCA, lgtm-stack.md). 4500s = 1h + 15m.
+            intervalSecs = 4500;
             # Bumped from default 60s so the probe's curl (now 250s)
             # has headroom to wait out kopia's full-maintenance lock.
             timeout = "300s";
