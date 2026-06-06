@@ -15,6 +15,12 @@
   mountPoint = "$HOME/cullen";
   remote = "wsl:/mnt/z"; # uses the `wsl` ssh alias from hosts.nix
 
+  # Unmounting a FUSE mount needs the *setuid* fusermount3. writeShellApplication
+  # prepends runtimeInputs to PATH, so a bare `fusermount3` resolves to the
+  # non-setuid copy in pkgs.fuse3 and fails with "Operation not permitted".
+  # Always call the NixOS setuid wrapper by absolute path.
+  fusermount3 = "/run/wrappers/bin/fusermount3";
+
   cullen-mount = pkgs.writeShellApplication {
     name = "cullen-mount";
     runtimeInputs = with pkgs; [sshfs fuse3 coreutils util-linux];
@@ -29,7 +35,7 @@
       # A dropped connection leaves a dead FUSE endpoint: the dir exists but any
       # stat fails with "Transport endpoint is not connected". Clear it first.
       if [ -d "$target" ] && ! ls "$target" >/dev/null 2>&1; then
-        fusermount3 -u "$target" 2>/dev/null || true
+        ${fusermount3} -u "$target" 2>/dev/null || true
       fi
 
       mkdir -p "$target"
@@ -60,7 +66,7 @@
 
       # Let fusermount3's real error through (e.g. "Device or resource busy")
       # instead of swallowing it and misreporting a live mount as unmounted.
-      if fusermount3 -u "$target"; then
+      if ${fusermount3} -u "$target"; then
         echo "Unmounted $target"
       else
         echo "Failed to unmount $target — close anything using it (cd ~ out of the mount) and retry." >&2
