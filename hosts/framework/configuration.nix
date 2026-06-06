@@ -103,6 +103,12 @@
   hardware.graphics.enable = true;
 
   networking.networkmanager.enable = true;
+  # Route resolution through systemd-resolved so Tailscale can publish
+  # MagicDNS (100.100.100.100 + ts.net search domain). Without this,
+  # NetworkManager owns /etc/resolv.conf directly and tailscale's CorpDNS
+  # has nowhere to land, breaking name resolution for tailnet peers.
+  services.resolved.enable = true;
+  networking.networkmanager.dns = "systemd-resolved";
 
   systemd = {
     services = {
