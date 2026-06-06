@@ -461,6 +461,13 @@ in {
             pattern = "(?i)Connection terminated due to connection timeout|FATAL";
             severity = "warning";
             summary = "jellystat lost its DB connection pool";
+            # 2026-06-06: false-fired on a 3-line, ~10s self-healing pool
+            # blip (default threshold=2 → count>2 paged instantly). A dead
+            # jellystat-db keeps erroring for minutes, so require the
+            # condition to persist past the 5m window before paging. Real
+            # outage now pages ~10m later — fine for warning-severity
+            # analytics. See rules-doc "forDuration — transient bursts".
+            forDuration = "10m";
           }
         ];
       };

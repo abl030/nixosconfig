@@ -482,6 +482,26 @@ Decide per pattern:
 
 **Don't blindly add `threshold = 0`.** If the failure mode is "repeats while broken" (DB connection failures, push-batch drops, podman aardvark-dns retrying), keep the default — it's the buffer that lets a reboot pass silently. If you're tempted to override, ask: "would this log line appear during a 5-min planned reboot?" If yes, default. If it only appears when something is *actually* broken, `threshold = 0`.
 
+**`forDuration` — transient bursts that self-heal (the persistence dimension):**
+
+`threshold` filters by **volume in a window**; `forDuration` filters by **duration**. They are orthogonal knobs and the difference matters when a service emits a *short burst* of matching lines that exceeds `threshold` but then recovers on its own.
+
+Added 2026-06-06 (default `forDuration = "0s"` — page on the first positive eval, i.e. unchanged for every existing pattern). The motivating case: Jellystat logged exactly 3 `Connection terminated due to connection timeout` lines in a ~10s span as its DB pool briefly stalled, then recovered. With the default `threshold = 2` that's `3 > 2` → instant page, even though nothing was actually broken 20 seconds later.
+
+Raising `threshold` is the wrong tool here — a fast enough burst still clears any volume bar, and you can't pick a count that separates "3 lines in 10s, self-healed" from "3 lines in 5m, dying" because they have the same count. The distinguishing signal is **how long the condition persists**:
+
+- A one-off burst keeps the `count_over_time` value elevated for ~`window` (the burst sits in the trailing window) then decays to 0. So the alert condition is true for at most ~`window`.
+- A genuinely broken service keeps erroring every few seconds, so the condition stays true indefinitely.
+
+Set `forDuration` **safely above `window`** and the burst can never satisfy the pending period, while the sustained failure sails past it. The rule group evaluates every 1m, so `forDuration = "10m"` means "true for 10 consecutive evals." Example — Jellystat: `window = 5m` (default), `forDuration = "10m"`. A burst holds the condition true for ~5m then drops (never reaches 10m → no page); a dead `jellystat-db` keeps erroring and pages ~10m after onset.
+
+| Pattern shape | `forDuration` | Why |
+|---|---|---|
+| Terminal / single-shot (`panic`, `FATAL`, backup give-up, migration failed) | `"0s"` (default) | Must page on first occurrence; pairs with `threshold = 0`. |
+| Sustained-failure with a brief self-healing failure mode (DB pool blips, connection-pool exhaustion that retries clear) | `> window` (e.g. `"10m"` for a 5m window) | Suppresses the self-healing burst; still pages a real sustained outage, just later. |
+
+**Tradeoff:** a real outage pages `forDuration` later (~10m vs ~1m). Only acceptable for **warning/degraded** patterns where a few minutes' latency is fine. Never put a long `forDuration` on a `critical` user-visible-breakage pattern. And don't reach for it when `threshold` already does the job — `forDuration` is specifically for "burst exceeds threshold but self-heals," not for general noise reduction.
+
 **Severity tiering:**
 
 | Severity | When to use | Bridge priority |

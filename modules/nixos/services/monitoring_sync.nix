@@ -985,6 +985,29 @@ in {
               "Per-service errorPatterns" for the decision table.
             '';
           };
+          forDuration = lib.mkOption {
+            type = lib.types.str;
+            default = "0s";
+            description = ''
+              Grafana pending period — the `count > threshold` condition
+              must stay true continuously for this long (evaluated every
+              1m) before the alert fires. Default "0s" = page on the first
+              positive eval.
+
+              Set this ABOVE the `window` to suppress self-healing
+              transient bursts. `threshold` filters by volume-in-a-window;
+              `forDuration` filters by duration. A one-off burst keeps the
+              count_over_time count elevated for ~`window` then decays, so
+              a forDuration safely larger than `window` never fires on it,
+              while a sustained failure keeps erroring and trips it.
+
+              Tradeoff: a real outage pages forDuration later. Use only for
+              degraded/warning patterns where a few minutes' extra latency
+              is acceptable (e.g. jellystat DB pool blips: window=5m +
+              forDuration=10m). Leave "0s" for terminal/single-shot
+              patterns (paired with threshold=0) that must page instantly.
+            '';
+          };
         };
       });
       default = [];

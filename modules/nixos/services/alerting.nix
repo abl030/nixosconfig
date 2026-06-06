@@ -183,12 +183,24 @@
     # — e.g. Solr proxy 500s while replica peers reconnect. A bigger
     # number turns the alert into "sustained failure" not "any blip".
     threshold ? 0,
+    # Grafana pending period: the threshold condition must hold true for
+    # this long (across consecutive 1m evals) before the alert fires.
+    # Default "0s" = page on the first positive eval (the historic
+    # behaviour). Set this to require *persistence* and so suppress
+    # self-healing transient bursts: with a 5m count_over_time window a
+    # one-off burst keeps the count elevated for ~5m then decays, so a
+    # forDuration safely above the window (e.g. "10m") never fires on it,
+    # while a sustained failure keeps erroring and trips it. Threshold
+    # filters by *volume in a window*; forDuration filters by *duration*.
+    forDuration ? "0s",
   }: {
     inherit uid title;
     condition = "C";
-    # `for: 0s`: fire on first positive evaluation. The query already uses
-    # a 5m count_over_time window so flapping is absorbed inside the query.
-    "for" = "0s";
+    # See the forDuration arg above. Default "0s" fires on first positive
+    # eval; the 5m count_over_time window already absorbs sub-window
+    # flapping. Patterns that need to ignore self-healing multi-minute
+    # bursts opt into a pending period > the count_over_time window.
+    "for" = forDuration;
     # Loki transient unreachability shouldn't page; treat as no event.
     noDataState = "OK";
     execErrState = "OK";
@@ -400,6 +412,7 @@
       logql = ''sum(count_over_time(${selector} |~ "${pattern}" [${ep.window}]))'';
       lokiLines = ''${selector} |~ "${pattern}"'';
       inherit (ep) threshold;
+      inherit (ep) forDuration;
     })
   config.homelab.monitoring.errorPatterns;
 
