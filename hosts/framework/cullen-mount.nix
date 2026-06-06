@@ -53,10 +53,18 @@
     text = ''
       target="${mountPoint}"
 
-      if fusermount3 -u "$target" 2>/dev/null; then
+      if ! mountpoint -q "$target"; then
+        echo "Nothing mounted at $target"
+        exit 0
+      fi
+
+      # Let fusermount3's real error through (e.g. "Device or resource busy")
+      # instead of swallowing it and misreporting a live mount as unmounted.
+      if fusermount3 -u "$target"; then
         echo "Unmounted $target"
       else
-        echo "Nothing mounted at $target"
+        echo "Failed to unmount $target — close anything using it (cd ~ out of the mount) and retry." >&2
+        exit 1
       fi
     '';
   };
