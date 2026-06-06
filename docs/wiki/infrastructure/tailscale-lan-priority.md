@@ -60,10 +60,15 @@ Two cooperating units, both calling the same idempotent apply pass (flock-serial
 - **gen-3** (2026-06-06): the week-of-2026-06-06 incident. While travelling, the
   `192.168.1.0/24 → main` rule kept getting **stranded off-LAN**, blackholing the
   nix cache (`nixcache.ablz.au` = doc1 = 192.168.1.29) out the hotel WiFi and
-  making rebuilds fall back to `cache.nixos.org` (slow). Root cause was the rule
-  shadowing Tower's subnet route; the unexplained startup `on_lan=TRUE` was a
-  transient/loose-match. Fix: gateway-MAC `on_lan`, monitor-independent 30s
-  reconcile, `StartLimitIntervalSec=0`.
+  making rebuilds fall back to `cache.nixos.org` (slow). **Actual root cause
+  (latent since gen-1):** `manage_rule` was passed `"${toString rule.onlyOnLan}"`,
+  but `toString true` is `"1"` in Nix — not `"true"` — while the bash guard
+  checks `[ "$only_on_lan" = "true" ]`. So the remove branch was *never* taken;
+  the home rule was only ever cleared by `ExecStop` (service stop), never by the
+  running watcher/reconcile. Fixed with `lib.boolToString`. Hardened alongside:
+  gateway-MAC `on_lan`, monitor-independent 30s reconcile timer,
+  `StartLimitIntervalSec=0`. (The `toString`/`boolToString` trap is the lesson —
+  the prior two "fixes" never touched the actually-broken line.)
 
 ## Gotchas that cost time
 
