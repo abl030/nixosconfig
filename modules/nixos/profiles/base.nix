@@ -310,12 +310,29 @@
 
     # Passwordless tailscale for post-provision automation.
     # Allows `sudo tailscale up --authkey ...` without password prompt.
+    #
+    # NOTE: the rule MUST name the path the user actually invokes —
+    # `/run/current-system/sw/bin/tailscale` — NOT the `${pkgs.tailscale}` store
+    # path. Verified empirically: sudo matches the literal command path resolved
+    # via secure_path and does NOT canonicalise the `tailscale -> tailscaled`
+    # symlink, so a rule naming the store-path binary never matches `sudo
+    # tailscale ...` and silently falls through to a password prompt. The
+    # `dmesg` rule below uses the same `/run/current-system/sw/bin` form.
+    #
+    # BLAST RADIUS (least-privilege audit, issue #232): this grants
+    # `${hostConfig.user}` passwordless root to the FULL tailscale CLI surface,
+    # not just `tailscale up` — e.g. `tailscale up --ssh`, `tailscale set`,
+    # `tailscale debug`, `tailscale file`. Accepted deliberately: the user is
+    # already in `wheel`, sudoers argument matching is bypassable (so scoping to
+    # `tailscale up *` would be false comfort), and the diagnostic `sudo
+    # tailscale ...` calls this unblocks are used constantly. The trust boundary
+    # is the tailnet ACL, not local sudo.
     extraRules = [
       {
         users = [hostConfig.user];
         commands = [
           {
-            command = "${pkgs.tailscale}/bin/tailscale";
+            command = "/run/current-system/sw/bin/tailscale";
             options = ["NOPASSWD"];
           }
           # Diagnostic tools that require root
