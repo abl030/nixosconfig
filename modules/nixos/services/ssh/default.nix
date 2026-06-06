@@ -122,9 +122,13 @@ in {
         lib.mapAttrs' (
           name: host:
             lib.nameValuePair "homelab-${name}" {
-              # Trust the hostname and the sshAlias.
+              # Trust the hostname and the sshAlias, plus any sshHostName override
+              # (e.g. wsl, reached via the Windows host's Tailscale port-forward —
+              # the key presented there is still the VM's own host key).
               # Note: IP addresses are not currently in hosts.nix, so they are not added here.
-              hostNames = [host.hostname host.sshAlias];
+              hostNames =
+                lib.unique ([host.hostname host.sshAlias]
+                  ++ lib.optional (host ? sshHostName) host.sshHostName);
               inherit (host) publicKey;
             }
         )

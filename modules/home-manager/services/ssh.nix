@@ -44,7 +44,11 @@ in {
           lib.mapAttrs' (_: hostConfig: {
             name = hostConfig.sshAlias;
             value = {
-              inherit (hostConfig) hostname user;
+              # A host reachable at a name other than its system hostname (e.g.
+              # wsl, fronted by the Windows host's Tailscale port-forward) sets
+              # `sshHostName`; everyone else just uses their hostname.
+              hostname = hostConfig.sshHostName or hostConfig.hostname;
+              inherit (hostConfig) user;
             };
           })
           actualHosts;

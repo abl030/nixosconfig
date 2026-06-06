@@ -69,6 +69,12 @@ in {
     homeDirectory = "/home/nixos";
     hostname = "wsl"; # Added to match ssh.nix
     sshAlias = "wsl"; # Added to match ssh.nix
+    # The WSL VM has no Tailscale identity of its own; it's reached over the
+    # tailnet at the WINDOWS host, which port-forwards its Tailscale-IP:22 into
+    # the VM's sshd. `ssh wsl` therefore targets the Windows MagicDNS name, not
+    # "wsl". The host key presented there is still this VM's (root@wsl), so the
+    # publicKey below stays correct. See docs/wiki/infrastructure/wsl-tailscale-ssh.md
+    sshHostName = "laptop-btibh4ie"; # Windows host MagicDNS name (Tailscale IP 100.75.246.114)
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
     authorizedKeys = masterKeys;
