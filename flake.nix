@@ -321,8 +321,49 @@
             echo "All service modules with localProxy.hosts declare errorPatterns."
             touch $out
           '';
+
+          # Pin the home-LAN detection (`on_lan`) in subnet-priority.nix. That
+          # function decides whether the roaming-laptop rule `to 192.168.1.0/24
+          # lookup main` is installed; it regressed twice (address-presence
+          # matching a foreign/container 192.168.1.x), so this locks the current
+          # gateway-MAC behaviour: home iff `ip neigh show 192.168.1.1` resolves
+          # to pfSense's LAN MAC. The MAC and pattern below MUST stay in sync
+          # with homeGatewayMac in modules/nixos/services/tailscale/subnet-priority.nix.
+          onLanMatcherCheck = pkgs.runCommand "on-lan-matcher" {} ''
+            mac="64:62:66:21:dd:cc"
+            matches() { printf '%s\n' "$1" | ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac"; }
+            fail=0
+            # Should be ON-LAN (home gateway resolves to pfSense MAC):
+            for good in \
+              "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:dd:cc REACHABLE" \
+              "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:DD:CC STALE" ; do
+              if ! matches "$good"; then echo "FAIL: expected on_lan match: $good"; fail=1; fi
+            done
+            # Should be OFF-LAN. Fixtures are plausible `ip neigh show
+            # 192.168.1.1` outputs (the IP is already scoped by that command):
+            # a foreign gateway with a different MAC, or an unresolved entry.
+            while IFS= read -r bad; do
+              if matches "$bad"; then echo "FAIL: expected on_lan NON-match: $bad"; fail=1; fi
+            done <<'EOF'
+192.168.1.1 dev wlp1s0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+192.168.1.1 dev wlp1s0 FAILED
+EOF
+            # (empty neighbour table — nothing piped — must also be non-match)
+            if ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac" </dev/null; then
+              echo "FAIL: empty neigh table matched"; fail=1
+            fi
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "on_lan gateway-MAC detection regressed. Keep this check in"
+              echo "sync with homeGatewayMac in subnet-priority.nix. See"
+              echo "docs/wiki/infrastructure/tailscale-lan-priority.md."
+              exit 1
+            fi
+            echo "on_lan gateway-MAC matcher behaves as specified."
+            touch $out
+          '';
         in
-          {inherit errorPatternsCheck;}
+          {inherit errorPatternsCheck onLanMatcherCheck;}
           // (
             if !fullCheck
             then {}
