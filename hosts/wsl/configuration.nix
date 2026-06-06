@@ -33,6 +33,10 @@
       trim = false; # Redundant with service disable, but good for clarity
     };
     ssh.enable = true;
+    # Tailscale runs on the WINDOWS host, not in WSL (a second tailscaled fought
+    # the host's and broke connectivity). SSH-from-tailnet is bridged via a
+    # Windows-side netsh portproxy + scheduled task — see
+    # docs/wiki/infrastructure/wsl-tailscale-ssh.md
     tailscale.enable = false;
     mounts = {
       nfs = {
