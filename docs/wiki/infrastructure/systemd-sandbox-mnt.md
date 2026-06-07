@@ -85,6 +85,27 @@ Use the `TemporaryFileSystem=/mnt` + `BindPaths` pattern when **all** of the fol
 
 Skip the pattern if the service genuinely needs broad `/mnt` access (e.g. `kopia`, `tdarr-node`) or if it doesn't bind-mount NFS paths at all (most virtio-only services already have tight scope by accident).
 
-## Open audit items (2026-05-20)
+## Audit findings + progress (#257)
 
-The audit of which other services on doc2 share paperless's broad-`/mnt` scope or its `ReadWritePaths`-through-symlink fragility is tracked separately. Add findings here when they land.
+The full audit (every doc2 service classified A–E by current sandbox state) lives in [issue #257](https://github.com/abl030/nixosconfig/issues/257). Progress:
+
+### Batch 1 — Class A + forgejo (landed 2026-06-07, PR #263)
+
+Applied the `TemporaryFileSystem=/mnt` pattern to the first batch. All verified on doc2 via `/proc/<pid>/mountinfo` showing only the bound paths:
+
+| Service | Shape | Bound back |
+|---|---|---|
+| atuin, stirling-pdf, gatus, gotenberg, tika, rtrfm-nowplaying | blank `/mnt`, no bind | (nothing — state in DB container / `/var/lib`) |
+| uptime-kuma, seerr | blank `/mnt` + 1 virtiofs dir | `/mnt/virtio/{uptime-kuma,overseerr}` (was `ReadWritePaths` → fail-loud `BindPaths`) |
+| forgejo, forgejo-dump | blank `/mnt` + 2 binds | `/mnt/virtio/forgejo` (stateDir) + `/mnt/data/.../forgejo-dumps` (NFS) |
+
+**Two learnings folded into [the rules doc](../nixos-service-modules.md) (Sandbox patterns):**
+
+1. **Order the unit after its bind sources** — `unitConfig.RequiresMountsFor = [ <each bound /mnt path> ]`. `BindPaths` is fail-loud, so a unit that starts before its virtiofs/NFS mount dies with `226/NAMESPACE` at boot. (Old `ReadWritePaths` masked this by silently skipping the unmounted source.)
+2. **Upstream `ReadWritePaths` under a blank `/mnt` can break the namespace.** forgejo's upstream module lists `${stateDir}/data/lfs` in `ReadWritePaths`; with LFS disabled that dir doesn't exist. In the host namespace `ReadWritePaths` skip-if-missing handles it, but under `TemporaryFileSystem=/mnt` the self-bind can't be skipped → `226/NAMESPACE`. Fix: once `BindPaths` covers the parent dir rw, clear the redundant upstream list with `ReadWritePaths = lib.mkForce [];`. **Check any service whose upstream module sets `ReadWritePaths` under `/mnt` before converting it.**
+
+### Remaining (follow-up batches)
+
+- **Class C** — add `ProtectSystem=strict` + sandbox where upstream omits it: audiobookshelf, cratedigger (×3 units), discogs-api, fava, mealie, tautulli, webdav. Higher breakage risk (may rely on visibility we don't realise) → one at a time with verification.
+- **Class D / immich** — `immich-server` (shares mount namespace with ML subprocess + asset-edit machinery), `immich-machine-learning`, plus free wins on nginx/grafana (`PrivateMounts=yes` + blank `/mnt`).
+- **Class E** (kopia-mum/photos, nspawn `*-db` containers) — legitimately broad / already tight, leave alone.
