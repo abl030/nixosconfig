@@ -51,6 +51,71 @@ let
       fi
     done
   '';
+
+  # ---- Pull-through failover origins ----------------------------------------
+  # Ordered upstreams the mirror falls through on connection error / timeout /
+  # 5xx. cache.nixos.org (Fastly) is primary; the configured fallbacks (Chinese
+  # university mirrors) cover the case where our ISP can't route to Fastly's
+  # 151.101.0.0/16 prefix — see docs/wiki/infrastructure/nix-mirror-failover.md
+  # (2026-06-07 incident). Every origin serves cache.nixos.org-signed content
+  # and nix verifies the signature client-side, so an untrusted-but-verified
+  # fallback cannot inject bad paths.
+  fetchOrigins =
+    [
+      {
+        host = "cache.nixos.org";
+        prefix = "";
+      }
+    ]
+    ++ cfg.mirrorFallbacks;
+  nOrigins = builtins.length fetchOrigins;
+
+  # Generate the @fetch_<name>_<i> named-location failover chain for one store
+  # area. proxy_pass carries $uri so nginx resolves the host at request time via
+  # `resolver` (no stale pinned IPs — the second-order failure on 2026-06-07);
+  # ipv6=off keeps it on A records. proxy_store writes to root+$uri, i.e. the
+  # canonical on-disk layout regardless of which origin actually served it.
+  mkFetchChain = {
+    name,
+    rootDir,
+    tempDir,
+    store ? true,
+    noCache ? false,
+  }:
+    lib.concatStrings (lib.imap0 (idx: origin: let
+        isLast = idx == nOrigins - 1;
+      in ''
+        location @fetch_${name}_${toString idx} {
+          internal;
+          root               ${rootDir};
+          proxy_set_header   Host "${origin.host}";
+          proxy_ssl_name     ${origin.host};
+          proxy_ssl_server_name on;
+          proxy_pass         https://${origin.host}${origin.prefix}$request_uri;
+        ${lib.optionalString store ''
+          proxy_store        on;
+          proxy_store_access user:rw group:rw all:r;
+        ''}${lib.optionalString noCache ''
+          proxy_no_cache     1;
+          proxy_cache_bypass 1;
+        ''}  proxy_temp_path    ${tempDir};
+          # Fail fast to the next origin when an upstream is unreachable: cap the
+          # number of (resolver-returned) IPs tried so we don't burn
+          # connect_timeout x N-IPs before failover (cache.nixos.org has 4 A
+          # records — that was the 20s stall in early testing). read_timeout is
+          # generous for large NARs over the slow China fallback link.
+          proxy_connect_timeout ${
+          if idx == 0
+          then "3s"
+          else "10s"
+        };
+          proxy_read_timeout 300s;
+          proxy_next_upstream_tries 2;
+          proxy_intercept_errors on;
+        ${lib.optionalString (!isLast) "  error_page 502 503 504 = @fetch_${name}_${toString (idx + 1)};"}
+        }
+      '')
+      fetchOrigins);
 in {
   options.homelab.cache = {
     enable = lib.mkEnableOption "Enable the unified Nix cache server";
@@ -74,6 +139,50 @@ in {
       type = lib.types.int;
       default = 45;
       description = "Delete mirror files not accessed (or modified if noatime) in N days. Set 0 to disable.";
+    };
+
+    mirrorFallbacks = lib.mkOption {
+      type = lib.types.listOf (lib.types.submodule {
+        options = {
+          host = lib.mkOption {
+            type = lib.types.str;
+            description = "Fallback mirror hostname (e.g. mirror.sjtu.edu.cn).";
+          };
+          prefix = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            description = "Path prefix on the fallback before the cache root (e.g. /nix-channels/store).";
+          };
+        };
+      });
+      default = [
+        {
+          host = "mirror.sjtu.edu.cn";
+          prefix = "/nix-channels/store";
+        }
+        {
+          host = "mirror.tuna.tsinghua.edu.cn";
+          prefix = "/nix-channels/store";
+        }
+      ];
+      description = ''
+        Ordered fallback origins the pull-through mirror uses when
+        cache.nixos.org is unreachable (connection error / timeout / 5xx).
+        They serve cache.nixos.org-signed content and nix verifies signatures
+        client-side, so an untrusted-but-verified fallback cannot inject bad
+        paths. Channel mirrors lag tip-of-unstable by a few days, so very fresh
+        paths may 404 and build from source. See
+        docs/wiki/infrastructure/nix-mirror-failover.md.
+      '';
+    };
+
+    mirrorResolver = lib.mkOption {
+      type = lib.types.str;
+      default = "100.100.100.100";
+      description = ''
+        DNS resolver nginx uses to re-resolve mirror upstreams at request time.
+        Default is Tailscale MagicDNS. ipv6=off is applied at the use site.
+      '';
     };
 
     localHost = lib.mkOption {
@@ -150,58 +259,51 @@ in {
               useACMEHost = cfg.mirrorHost;
               forceSSL = true;
 
-              # Narinfo metadata (requested first by Nix); cache it too
-              # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_narinfo.
+              # Serve from disk first; on a cold miss, fall through the failover
+              # chain (cache.nixos.org -> fallbacks) which fetches + stores.
               locations = {
                 "~ \.narinfo$".extraConfig = ''
                   root        ${cfg.mirrorCacheRoot}/narinfo/store;
-                  try_files   $uri @fetch_narinfo;
+                  try_files   $uri @fetch_narinfo_0;
                 '';
 
-                # nix-cache-info
-                # CHANGED: Always fetch from upstream (don't store). Guarantees upstream Priority and avoids divergence.
+                # nix-cache-info: always fetched fresh (never stored), through the
+                # same failover chain so the mirror stays usable when Fastly is
+                # unreachable. try_files jumps unconditionally into the chain.
                 "= /nix-cache-info".extraConfig = ''
-                  proxy_set_header   Host "cache.nixos.org";
-                  proxy_pass         https://cache.nixos.org;
-                  proxy_no_cache     1;
-                  proxy_cache_bypass 1;
+                  root        ${cfg.mirrorCacheRoot};
+                  try_files   /nonexistent @fetch_nixcacheinfo_0;
                 '';
 
-                # NAR payloads
-                # CHANGED: Serve from disk first; if missing, fetch+store via @fetch_nar.
                 "~ ^/nar/.+$".extraConfig = ''
                   root        ${cfg.mirrorCacheRoot}/nar/store;
-                  try_files   $uri @fetch_nar;
+                  try_files   $uri @fetch_nar_0;
                 '';
               };
 
-              # NEW: Named fetch locations that do the one-time upstream proxy + write-through store.
+              # Re-resolve upstreams per request (A records only — IPv6 is off on
+              # this host and AAAA-only resolution is what broke 2026-06-07), then
+              # the generated failover chains.
               extraConfig = ''
-                # --- Named fetch for .narinfo (cold path only) ---
-                location @fetch_narinfo {
-                  # FIX: Explicitly set root so proxy_store knows where to write
-                  root               ${cfg.mirrorCacheRoot}/narinfo/store;
+                resolver ${cfg.mirrorResolver} valid=300s ipv6=off;
 
-                  proxy_set_header   Host "cache.nixos.org";
-                  proxy_pass         https://cache.nixos.org;
-                  proxy_store        on;
-                  proxy_store_access user:rw group:rw all:r;
-                  proxy_temp_path    ${cfg.mirrorCacheRoot}/narinfo/temp;
-                  # Store path derives from "root + $uri" as set in the calling location.
-                }
-
-                # --- Named fetch for /nar/... payloads (cold path only) ---
-                location @fetch_nar {
-                  # FIX: Explicitly set root so proxy_store knows where to write
-                  root               ${cfg.mirrorCacheRoot}/nar/store;
-
-                  proxy_set_header   Host "cache.nixos.org";
-                  proxy_pass         https://cache.nixos.org;
-                  proxy_store        on;
-                  proxy_store_access user:rw group:rw all:r;
-                  proxy_temp_path    ${cfg.mirrorCacheRoot}/nar/temp;
-                  # Store path derives from "root + $uri" as set in the calling location.
-                }
+                ${mkFetchChain {
+                  name = "narinfo";
+                  rootDir = "${cfg.mirrorCacheRoot}/narinfo/store";
+                  tempDir = "${cfg.mirrorCacheRoot}/narinfo/temp";
+                }}
+                ${mkFetchChain {
+                  name = "nar";
+                  rootDir = "${cfg.mirrorCacheRoot}/nar/store";
+                  tempDir = "${cfg.mirrorCacheRoot}/nar/temp";
+                }}
+                ${mkFetchChain {
+                  name = "nixcacheinfo";
+                  rootDir = cfg.mirrorCacheRoot;
+                  tempDir = "${cfg.mirrorCacheRoot}/nix-cache-info/temp";
+                  store = false;
+                  noCache = true;
+                }}
               '';
             };
           })
