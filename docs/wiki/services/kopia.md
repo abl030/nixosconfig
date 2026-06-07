@@ -1,19 +1,21 @@
 # Kopia Backup Architecture
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-06-07
 **Status:** Operational
 **Source module:** `modules/nixos/services/kopia.nix`
 **Host:** doc2
-**Related:** [issue #236](https://github.com/abl030/nixosconfig/issues/236) (security hardening / closeout), brainstorm [`docs/brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md`](../../brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md)
+**Related:** [#236](https://github.com/abl030/nixosconfig/issues/236) (security hardening), [#237](https://github.com/abl030/nixosconfig/issues/237) (forgejo dumps → kopia), brainstorms [`2026-05-13-kopia-harden-backup-integrity`](../../brainstorms/2026-05-13-kopia-harden-backup-integrity-requirements.md) + [`2026-06-07-backup-coverage-widening`](../../brainstorms/2026-06-07-backup-coverage-widening-requirements.md)
 
 ## Topology
 
 Two kopia server instances run on doc2, each backing up to a different destination:
 
-| Instance | Source | Destination | Purpose |
+| Instance | Sources | Destination | Purpose |
 |---|---|---|---|
-| **photos** | `/mnt/data/Life/Photos/library` | Wasabi S3 (`kopiaphotos` bucket, ap-southeast-2) | Geographic + jurisdictional offsite for irreplaceable photo originals |
-| **mum** | `/mnt/data` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything |
+| **photos** | `/mnt/data/Life/Photos/library` + `/mnt/data/Life` (excluding the `Photos/*` derivatives, the already-covered library, and `Tech/Backups/UnraidUSB`) | Wasabi S3 (`kopiaphotos` bucket, ap-southeast-2) | Immutable, jurisdictional offsite for irreplaceable personal data — photo originals + the rest of `/Life` (incl. immich DB dumps in `Photos/backups`) |
+| **mum** | `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`, `/mnt/virtio/Music` (the beets library), `/mnt/backup/pfsense` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything irreplaceable + the curated music library |
+
+`/mnt/data/Life` is deliberately backed up to **both** repos — Synology (mum) for the full family-grade copy, Wasabi (photos) for the immutable, jurisdictionally-separate copy. The photos copy excludes the regenerable immich derivatives and dedupes the photo library against its own source, so nothing re-uploads. See the [2026-06-07 brainstorm](../../brainstorms/2026-06-07-backup-coverage-widening-requirements.md) and [#237](https://github.com/abl030/nixosconfig/issues/237).
 
 Both run as systemd services under `kopia` user (with `runAsRoot = true` on both currently, because the upstream NFS share has restrictive perms — this is suboptimal and worth revisiting).
 
@@ -114,25 +116,43 @@ No `s3:ListAllMyBuckets` — leaked keys can't enumerate the rest of the Wasabi 
 
 ## Snapshot policy (photos)
 
-Set on the source `root@kopia:/mnt/data/Life/Photos/library`:
+The photos repo carries **two** sources (both `root@kopia`, daily at 06:00 — after the nixos-upgrade window and kopia-verify):
+
+**1. `/mnt/data/Life/Photos/library`** — the original positive-scope source for immich's user-uploaded photo originals:
 
 | Setting | Value | Rationale |
 |---|---|---|
-| **Source path** | `/mnt/data/Life/Photos/library` | Positive scope — narrow to immich's user-uploaded originals. Avoids needing complex ignore patterns for the regenerable subdirs (`thumbs/`, `encoded-video/`, `upload/`, `backups/`, etc.) |
-| **Schedule** | Daily at 06:00 local | After doc2's nixos-upgrade window (04:00–05:00) and after kopia-verify (05:30). Leaves the full day to retry if something goes wrong. |
+| **Source path** | `/mnt/data/Life/Photos/library` | Positive scope — immich's user-uploaded originals; avoids ignore patterns for the regenerable subdirs (`thumbs/`, `encoded-video/`, `upload/`, etc.) |
 | **Retention** | Kopia defaults: 3 annual / 24 monthly / 4 weekly / 7 daily / 48 hourly / 10 latest | Photos are static, dedup makes additional snapshots near-free |
-| **Compression** | Off | JPGs/HEICs are already compressed — kopia compression costs CPU for ~0% size reduction |
-| **Actions / hooks** | None | No pre/post-snapshot scripts needed |
+| **Compression** | Off | JPGs/HEICs are already compressed |
+
+**2. `/mnt/data/Life`** (added 2026-06-07) — everything else under `/Life`, into the **same repo** so it dedupes against the photo blobs already present (the 314 GiB library never re-uploads). Carries a `files.ignore` policy set from the module's `sourceExcludes`:
+
+| Excluded (relative to `/mnt/data/Life`) | Why |
+|---|---|
+| `/Photos/library` | Already its own source (above) |
+| `/Photos/thumbs`, `/Photos/encoded-video`, `/Photos/upload` | immich-regenerable |
+| `/Tech/Backups/UnraidUSB` | 4 GiB monthly full-rewrite, re-creatable |
+
+`Photos/backups` (the daily immich Postgres dumps) and `Photos/profile` are **not** excluded, so the immich DB rides this source into immutable Wasabi.
 
 ## Snapshot policy (mum)
 
-Mum's repo backs up specific subdirectories under `/mnt/data` (`Life`, `Media/Books`, `Media/Music` — NOT all of `/mnt/data`, which would include video media we deliberately don't ship offsite). Each subdirectory is its own kopia source with its own policy. Verify runs at 2% sample (vs photos at 5%) because the data volume is larger and full verify would take too long.
+Mum's repo backs up a deliberately-chosen set, NOT all of `/mnt/data` (which would include video media we don't ship offsite):
 
-**Schedules:** all three mum sources are on `06:00 daily, runMissed: true`, configured via the kopia API (not declaratively in nix — see #255). Drift on these schedules is what the freshness deep probe (#254) detects.
+- `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`
+- `/mnt/virtio/Music` — the curated ~505 GiB beets library (its own ZFS dataset on prom, a virtiofs submount). Synology-only (re-downloadable → not worth per-GB Wasabi). Added 2026-06-07; walks ~100k files, which is why the [virtiofsd fd fix (#267)](../infrastructure/virtiofsd-fd-exhaustion.md) is a prerequisite.
+- `/mnt/backup/pfsense` — the pfSense ZFS replica (see [pfsense-backup.md](../infrastructure/pfsense-backup.md)).
+
+Each is its own kopia source with its own policy. Verify runs at 2% sample (vs photos at 5%) because the data volume is larger.
+
+**Schedules:** all mum sources are on `06:00 daily, runMissed: true`, set via the kopia API by the reconciler. Drift on these schedules is what the freshness deep probe (#254) detects.
 
 ## Declarative source registration — `kopia-<name>-source-sync` (added 2026-05-20, #255)
 
 After the #254 freshness probe caught 12 weeks of silent backup loss, we made `inst.sources` the source of truth via `kopia-<name>-source-sync.service` (per-instance systemd oneshot).
+
+**Per-source excludes (`sourceExcludes`, added 2026-06-07):** a per-instance `sourceExcludes` option (attrset of source-path → gitignore-style rules) lets the reconciler write a source's `files.ignore` policy alongside its schedule, keeping exclusions declarative in nix rather than as a `.kopiaignore` file in the backed-up tree. Used for the photos `/mnt/data/Life` source (see Snapshot policy above). Note kopia also auto-reads `.kopiaignore` files (the global `files.ignoreDotFiles` default) — we deliberately don't use that, to keep the source tree clean and the config in one place.
 
 **What it does on every rebuild:**
 

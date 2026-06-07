@@ -1,7 +1,7 @@
 ---
 title: "feat: widen kopia backup coverage — /Life and beets music sources"
 type: feat
-status: active
+status: completed
 date: 2026-06-07
 origin: docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md
 ---
