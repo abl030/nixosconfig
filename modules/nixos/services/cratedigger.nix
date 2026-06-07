@@ -48,6 +48,26 @@
 
   metadataGateStateDir = "/run/cratedigger-metadata-gate";
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
+
+  # #257: the cratedigger app units run as ROOT and inherited the host's
+  # entire /mnt tree RW — including /mnt/backup/pfsense (the pfSense ZFS
+  # backups), /mnt/appdata, /mnt/mum, /mnt/mirrors. The pipeline's real scope
+  # is three paths: its virtiofs state/backups dir, the shared music tree
+  # (beets library + Incoming + Re-download), and the slskd download staging
+  # on NFS. Blank /mnt and bind back exactly those. This is the single
+  # biggest blast-radius reduction in the #257 audit (root + everything → a
+  # root process confined to its own music pipeline). NOT applied to the
+  # gate/secrets/db-migrate/temp-clean oneshots — they touch only /run, /tmp,
+  # or the DB container over TCP. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+  musicBinds = [cfg.dataDir "/mnt/virtio/Music" cfg.downloadDir];
+  musicSandboxUnits = [
+    "cratedigger"
+    "cratedigger-web"
+    "cratedigger-importer"
+    "cratedigger-import-preview-worker"
+    "cratedigger-unfindable"
+    "cratedigger-youtube-ingest"
+  ];
   metadataGateGuardedUnits = [
     "cratedigger.timer"
     "cratedigger.service"
@@ -588,6 +608,16 @@ in {
           after = ["cratedigger-musicbrainz-maintenance-hold.service"];
           requires = ["cratedigger-musicbrainz-maintenance-hold.service"];
         }))
+        # #257 /mnt sandbox — merged into each app unit's serviceConfig
+        # (systemd's submodule merge composes this with the ExecCondition /
+        # EnvironmentFile / UMask blocks above). See musicBinds comment.
+        (lib.genAttrs musicSandboxUnits (_: {
+          unitConfig.RequiresMountsFor = musicBinds;
+          serviceConfig = {
+            TemporaryFileSystem = "/mnt";
+            BindPaths = musicBinds;
+          };
+        }))
       ];
 
       timers = {
@@ -647,10 +677,30 @@ in {
         # Per-thread "crashed" alone is too low-bar (ffmpeg per-file
         # failures). "exiting after N crash(es)" is when the worker
         # actually gives up and the preview pipeline stops.
-        pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash";
+        pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash|Failed at step NAMESPACE";
         severity = "critical";
         summary = "preview worker hit the crash limit and exited";
         # Single-shot: worker logs the give-up line once and exits.
+        threshold = 0;
+      }
+      # #257: NAMESPACE start-failures on the music-touching app units (a
+      # bound /mnt source — virtiofs Music/cratedigger or the slskd NFS
+      # staging — went missing). Distinct from the noisy operational logs
+      # that get web/importer skipped above; the unit won't even start.
+      {
+        name = "Cratedigger web namespace failure";
+        unit = "cratedigger-web.service";
+        pattern = "(?i)Failed at step NAMESPACE";
+        severity = "critical";
+        summary = "cratedigger-web cannot bind its music/state dirs — UI is down";
+        threshold = 0;
+      }
+      {
+        name = "Cratedigger importer namespace failure";
+        unit = "cratedigger-importer.service";
+        pattern = "(?i)Failed at step NAMESPACE";
+        severity = "critical";
+        summary = "cratedigger-importer cannot bind its music/state dirs — imports stopped";
         threshold = 0;
       }
       {
