@@ -505,6 +505,10 @@ in {
             };
           };
 
+          # #257: cratedigger's redis (job queue) stores in /var/lib — nothing
+          # under /mnt. Blank it.
+          redis-cratedigger.serviceConfig.TemporaryFileSystem = "/mnt";
+
           cratedigger-db-migrate = {
             after = ["container@cratedigger-db.service"];
             requires = ["container@cratedigger-db.service"];

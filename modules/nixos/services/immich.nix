@@ -143,6 +143,11 @@ in {
     systemd.services = {
       postgresql-setup = lib.mkForce {};
 
+      # #257: redis (immich's cache/queue) stores in /var/lib and needs
+      # nothing under /mnt, but inherited the full /mnt/* tree. Blank it —
+      # localhost-bound cache, but a free blast-radius cut.
+      redis-immich.serviceConfig.TemporaryFileSystem = "/mnt";
+
       # Immich must wait for its database container.
       # restartTriggers: switch-to-configuration only restarts services whose unit
       # files changed.  When the container is restarted (its config changed),

@@ -123,7 +123,24 @@ in {
     # Slskd downloads are handed to root-run cratedigger, then Beets/operator
     # tooling needs group access after import. Keep that boundary on the
     # dedicated music-import group instead of world-writable files.
-    systemd.services.slskd.serviceConfig.UMask = "0002";
+    #
+    # #257: slskd is an internet-facing P2P daemon — a large attack surface —
+    # yet it ran with the host's whole /mnt/* tree visible (incl.
+    # /mnt/backup/pfsense, /mnt/appdata, /mnt/mum). Blank /mnt and bind only
+    # its two legit paths: the download dir (rw) and the shared music library
+    # (read-only — slskd serves it to peers, never writes it). A compromised
+    # slskd can now reach nothing else on /mnt. RequiresMountsFor orders the
+    # fail-loud binds after their mounts.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.slskd = {
+      unitConfig.RequiresMountsFor = [cfg.downloadDir cfg.musicDir];
+      serviceConfig = {
+        UMask = "0002";
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.downloadDir];
+        BindReadOnlyPaths = [cfg.musicDir];
+      };
+    };
 
     users = {
       groups.music-import = {};
@@ -152,10 +169,21 @@ in {
         }
       ];
 
-      # See #253 audit. Skipped — Soulseek client where peer/network
-      # errors are normal operation, not an actionable failure
-      # fingerprint. Outages surface via the Kuma HTTP monitor above.
-      monitoring.errorPatterns = [];
+      # See #253 audit. Soulseek client where peer/network errors are normal
+      # operation, not an actionable fingerprint (outages surface via the
+      # Kuma HTTP monitor above) — the only entry is the #257 fail-loud bind
+      # of its music paths.
+      monitoring.errorPatterns = [
+        {
+          name = "slskd namespace failure";
+          unit = "slskd.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "warning";
+          summary = "slskd cannot bind its download/music dirs";
+          description = "A BindPaths source (downloadDir or musicDir) is missing or stale — check the backing mount on doc2.";
+          threshold = 0;
+        }
+      ];
     };
   };
 }

@@ -12,6 +12,13 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # #257: smokeping + its fcgiwrap serve/store entirely under
+    # ${smokepingHome} (/var/lib/smokeping) — nothing on /mnt. Blank the
+    # tree both units needlessly inherited. /var/lib-only, so safe on any
+    # host that enables smokeping (currently doc2).
+    systemd.services.smokeping.serviceConfig.TemporaryFileSystem = "/mnt";
+    systemd.services.fcgiwrap-smokeping.serviceConfig.TemporaryFileSystem = "/mnt";
+
     services = {
       smokeping = {
         enable = true;

@@ -210,22 +210,43 @@ in {
           };
         };
 
-        tempo.serviceConfig = {
-          DynamicUser = lib.mkForce false;
-          User = "tempo";
-          Group = "tempo";
-          WorkingDirectory = lib.mkForce "${cfg.dataDir}/tempo";
-          StateDirectory = lib.mkForce "";
-          ReadWritePaths = ["${cfg.dataDir}/tempo"];
+        # #257: tempo/mimir/loki had the same broad-/mnt shape as grafana
+        # (virtiofs WorkingDirectory, whole /mnt/* tree visible). Blank /mnt
+        # and bind only each one's own state subdir. BindPaths replaces the
+        # old ReadWritePaths (rw by default, fail-loud). RequiresMountsFor
+        # orders each after mnt-virtio.mount.
+        tempo = {
+          unitConfig.RequiresMountsFor = ["${cfg.dataDir}/tempo"];
+          serviceConfig = {
+            DynamicUser = lib.mkForce false;
+            User = "tempo";
+            Group = "tempo";
+            WorkingDirectory = lib.mkForce "${cfg.dataDir}/tempo";
+            StateDirectory = lib.mkForce "";
+            TemporaryFileSystem = "/mnt";
+            BindPaths = ["${cfg.dataDir}/tempo"];
+          };
         };
 
-        mimir.serviceConfig = {
-          DynamicUser = lib.mkForce false;
-          User = "mimir";
-          Group = "mimir";
-          WorkingDirectory = lib.mkForce "${cfg.dataDir}/mimir";
-          StateDirectory = lib.mkForce "";
-          ReadWritePaths = ["${cfg.dataDir}/mimir"];
+        mimir = {
+          unitConfig.RequiresMountsFor = ["${cfg.dataDir}/mimir"];
+          serviceConfig = {
+            DynamicUser = lib.mkForce false;
+            User = "mimir";
+            Group = "mimir";
+            WorkingDirectory = lib.mkForce "${cfg.dataDir}/mimir";
+            StateDirectory = lib.mkForce "";
+            TemporaryFileSystem = "/mnt";
+            BindPaths = ["${cfg.dataDir}/mimir"];
+          };
+        };
+
+        loki = {
+          unitConfig.RequiresMountsFor = ["${cfg.dataDir}/loki"];
+          serviceConfig = {
+            TemporaryFileSystem = "/mnt";
+            BindPaths = ["${cfg.dataDir}/loki"];
+          };
         };
       };
     };

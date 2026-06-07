@@ -460,6 +460,10 @@ in {
         # internet. Minimal hardening only.
         NoNewPrivileges = true;
         PrivateTmp = true;
+        # #257: the bridge only queries Loki over HTTP + runs claude (reads
+        # ~/.claude, which is NOT under /mnt). It needs nothing on /mnt, so
+        # blank the tree it was needlessly inheriting.
+        TemporaryFileSystem = "/mnt";
       };
     };
   };
