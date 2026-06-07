@@ -76,6 +76,13 @@ in {
       mode = "0444";
     };
 
+    # Blank /mnt (#257). Gatus probes over the network and reads config from
+    # /etc — it needs nothing under /mnt, so mask the whole tree.
+    # TemporaryFileSystem forces a private mount namespace (upstream leaves
+    # PrivateMounts=no). No bind source → no NAMESPACE errorPattern.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.gatus.serviceConfig.TemporaryFileSystem = "/mnt";
+
     homelab = {
       localProxy.hosts = [
         {

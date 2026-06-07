@@ -94,6 +94,12 @@ in {
         # Hardening
         DynamicUser = true;
         NoNewPrivileges = true;
+        # Blank /mnt (#257). State lives in StateDirectory (/var/lib), not
+        # under /mnt, so nothing is bound back — TemporaryFileSystem masks
+        # the host's /mnt/* tree. A bind/namespace failure here already pages
+        # via the OnFailure=rtrfm-nowplaying-notify unit above, so no separate
+        # NAMESPACE errorPattern. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        TemporaryFileSystem = "/mnt";
         ProtectSystem = "strict";
         ProtectHome = true;
         PrivateTmp = true;

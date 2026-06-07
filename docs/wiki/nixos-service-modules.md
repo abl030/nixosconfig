@@ -807,9 +807,44 @@ value. In Nix, the indented-string form `''/path/with\ space''` writes the
 right bytes directly. `\x20` does **not** work — the BindPaths parser takes
 it literally.
 
+#### Default for new doc2 services (#257)
+
+As of the #257 audit, **`TemporaryFileSystem=/mnt` is the default for every new
+doc2 service**, not an opt-in. doc2 has six-plus NFS/virtiofs exports under
+`/mnt`; the default-hardened (or unhardened) unit sees all of them. Pick the
+right shape:
+
+- **No `/mnt` state at all** (HTTP-only helpers, services whose state is in a
+  DB container or `/var/lib`): `serviceConfig.TemporaryFileSystem = "/mnt";`
+  with **no** `BindPaths`. Blank tmpfs, nothing bound back. `TemporaryFileSystem`
+  forces a private mount namespace on its own, so this works even when upstream
+  leaves `PrivateMounts=no`.
+- **Needs one or more `/mnt/*` subdirs**: add `BindPaths = [ ... ]` for exactly
+  those (src==dst when no rename needed; `src:dst` to rename a space-bearing
+  source to a space-free mountpoint).
+
+Two rules that bit us during the audit:
+
+1. **Order the unit after its bind sources.** `BindPaths` is fail-loud, so if a
+   virtiofs/NFS source isn't mounted yet at unit start the unit dies with
+   `226/NAMESPACE` during early boot. Add
+   `unitConfig.RequiresMountsFor = [ <each bound /mnt path> ];` — it resolves to
+   the backing `*.mount` unit and both orders-after and pulls-in. (Old
+   `ReadWritePaths=` hid this by silently skipping the unmounted source; the
+   fail-loud bind exposes it.)
+2. **errorPattern policy.** Add a `Failed at step NAMESPACE` `errorPatterns`
+   entry **only when the unit binds a real `/mnt/*` source** that can disappear
+   (NFS stale, dataset unmounted). A blank-`/mnt`-no-bind unit has nothing to
+   fail on — a tmpfs-only namespace effectively never fails to set up — so skip
+   the pattern there and rely on the HTTP/Kuma monitor (note this in a comment).
+   For units that already have an errorPattern for their main service, append
+   `|Failed at step NAMESPACE` to the existing alternation rather than adding a
+   second entry.
+
 See `docs/wiki/infrastructure/systemd-sandbox-mnt.md` for the failure-mode
-narrative this rule grew out of, and `modules/nixos/services/paperless.nix`
-for the canonical implementation.
+narrative this rule grew out of and the per-service audit findings, and
+`modules/nixos/services/paperless.nix` for the canonical implementation
+(`forgejo.nix` for the two-bind / NFS-dump variant).
 
 ## Checklist
 
@@ -846,8 +881,15 @@ Before submitting a new service module:
 - [ ] No `fileSystems` mountpoint contains literal spaces; use space-free
       service-facing paths via `TemporaryFileSystem=/mnt`+`BindPaths=`
       instead (see Sandbox patterns section)
+- [ ] **doc2 services: `TemporaryFileSystem=/mnt` on every unit** (default, not
+      opt-in — see "Default for new doc2 services"). Blank tmpfs + `BindPaths=`
+      for exactly the `/mnt/*` paths the unit needs (often none)
+- [ ] Every bound `/mnt/*` source has a matching
+      `unitConfig.RequiresMountsFor` entry so the fail-loud bind can't race the
+      mount at boot
 - [ ] For NFS-backed writable paths: use `BindPaths=` not `ReadWritePaths=`
-      (fail-loud vs silent-skip), and add `Failed at step NAMESPACE` to
-      every unit's `errorPatterns` entry
+      (fail-loud vs silent-skip), and add `Failed at step NAMESPACE` to the
+      `errorPatterns` of any unit that binds a real `/mnt/*` source (skip it for
+      blank-`/mnt`-no-bind units — nothing to fail on)
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds

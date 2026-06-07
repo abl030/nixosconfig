@@ -101,7 +101,15 @@ in {
         config.systemd.units."atuin-db-uri.service".unit
         config.sops.secrets."atuin-pgpass".path
       ];
-      serviceConfig.EnvironmentFile = ["/run/atuin-db-uri/db-env"];
+      serviceConfig = {
+        EnvironmentFile = ["/run/atuin-db-uri/db-env"];
+        # Blank /mnt (#257). The atuin server is stateless — all persistent
+        # state lives in the atuin-db nspawn container, not under /mnt — so it
+        # needs nothing bound back. TemporaryFileSystem masks the host's whole
+        # /mnt/* tree (previously ro-visible: every NFS export on doc2).
+        # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        TemporaryFileSystem = "/mnt";
+      };
     };
 
     homelab = {
@@ -125,7 +133,7 @@ in {
         {
           name = "Atuin DB connection failure";
           unit = "atuin.service";
-          pattern = "(?i)password authentication failed for user \"atuin\"|failed to connect to db";
+          pattern = "(?i)password authentication failed for user \"atuin\"|failed to connect to db|Failed at step NAMESPACE";
           severity = "critical";
           summary = "Atuin server cannot reach its DB";
         }

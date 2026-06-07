@@ -71,10 +71,40 @@ in {
       "d ${dumpDir} 0750 forgejo forgejo - -"
     ];
 
+    # Sandbox /mnt for both forgejo units (#257). Upstream forgejo.service is
+    # hardened but reaches its NFS dump dir via ReadWritePaths, which
+    # silently skips a missing/contested source (the paperless EROFS class).
+    # forgejo-dump.service is wholly unhardened (ProtectSystem=no) and sees
+    # every /mnt/* export RW. Replace both with a blank /mnt + fail-loud
+    # BindPaths binding only the two paths forgejo needs: its virtiofs
+    # stateDir (repos, app.ini, .secrets/) and its NFS dump dir.
+    # RequiresMountsFor orders each unit after the backing mounts so the
+    # fail-loud binds can't race them at boot.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.forgejo = {
+      unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+      serviceConfig = {
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir dumpDir];
+        # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
+        # dump dir — all under our two BindPaths, already rw). Under the
+        # blank /mnt tmpfs those become self-binds, and the `data/lfs` entry
+        # (LFS is disabled, dir absent) can't be skip-if-missing the way it
+        # is in the host namespace → 226/NAMESPACE. BindPaths makes the whole
+        # stateDir + dump dir rw, so this list is pure redundancy now.
+        ReadWritePaths = lib.mkForce [];
+      };
+    };
+
     # Dump only fires when NFS is up — stale handle would crash it otherwise.
     systemd.services.forgejo-dump = {
       after = ["mnt-data.mount"];
       requires = ["mnt-data.mount"];
+      unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+      serviceConfig = {
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir dumpDir];
+      };
     };
 
     # Forgejo's built-in Go SSH server on :2222 (separate from sshd on :22).
@@ -96,10 +126,29 @@ in {
         }
       ];
 
-      # See #253 audit. Skipped — important git server but no observed
-      # failure fingerprints in casual operation; outages surface via
-      # the Kuma HTTP monitor above (/api/healthz).
-      monitoring.errorPatterns = [];
+      # See #253 audit. The git server itself has no actionable failure
+      # fingerprint in casual operation (outages surface via the Kuma
+      # /api/healthz monitor above), but #257 added fail-loud BindPaths for
+      # the virtiofs stateDir and NFS dump dir — page if either bind fails.
+      monitoring.errorPatterns = [
+        {
+          name = "Forgejo NFS/namespace failure";
+          unit = "forgejo.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "critical";
+          summary = "forgejo cannot bind its state/dump dirs — git server is down";
+          description = "A BindPaths source (/mnt/virtio/forgejo or the NFS dump dir) is missing or stale — check mnt-virtio.mount / mnt-data.mount on doc2.";
+          threshold = 0;
+        }
+        {
+          name = "Forgejo dump namespace failure";
+          unit = "forgejo-dump.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "warning";
+          summary = "forgejo nightly dump cannot bind its dirs — backups are not running";
+          threshold = 0;
+        }
+      ];
     };
   };
 }
