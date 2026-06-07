@@ -151,7 +151,27 @@ Done for `podcast.nix` (`/mnt/data/Media/Podcasts` on doc1). Audited every fleet
 - **Read the actual `WorkingDirectory`/env, not assumptions.** grafana looked like a "needs nothing under `/mnt`" free win, but its data dir is `cfg.dataDir/grafana` on virtiofs → a no-bind blank `/mnt` failed `200/CHDIR`. Same lesson as cratedigger's `downloadDir`: confirm against the running unit.
 - **Put the bind where the path is defined.** grafana's sandbox went in `loki-server.nix` (owns `services.grafana.dataDir`), not `alerting.nix` (only adds restartTriggers). Keeps the `/mnt` hole next to the path it needs.
 
+### Batch 4 — fleet sweep (landed 2026-06-07)
+
+After Class A–D, ran an empirical sweep on doc2 — for every running service, counted `/mnt` mounts in `/proc/<pid>/mountinfo` and checked for `TemporaryFileSystem`. Anything broad + unsandboxed got triaged:
+
+| Service | Action |
+|---|---|
+| tempo, mimir, loki | blank `/mnt` + bind each one's virtiofs state subdir (same as grafana) |
+| **slskd** | **a missed Class B item** — internet-facing P2P daemon seeing all of `/mnt` incl. `/mnt/backup/pfsense`. Blank + bind `downloadDir` (rw) and the shared library (read-only) |
+| redis-immich/-paperless/-cratedigger | blank `/mnt`, no bind (state in `/var/lib`) |
+| alert-bridge, smokeping (+fcgiwrap) | blank `/mnt`, no bind |
+
+**Deliberately left broad (verified out of scope):**
+
+- **OS daemons** — `sshd`, `systemd-*`, `nix-daemon`, `dbus-broker`, `NetworkManager`, `qemu-guest-agent`, etc. Root system services that need broad access. **`prometheus-node-exporter` specifically MUST see all mounts** — per-mount disk metrics are its job.
+- **OCI `podman-*`** — the 22-mount count is the podman *runtime's* host namespace; the container's own `/mnt` view is set by `--volume` flags, not systemd sandboxing.
+- **nspawn `container@*-db`** and **`kopia-mum`/`kopia-photos`** — Class E (DB scope tight via nspawn; kopia legitimately broad by design).
+- **`alloy-loki`** — log-collection agent; left for now (reads journal/targets, sandboxing risks breaking collection).
+
+**slskd switch-to-configuration race (important deploy gotcha).** On the deploy that added slskd's sandbox, slskd was *actively downloading*; `switch-to-configuration`'s live restart left it in a private mount namespace that still held the **old** (full-`/mnt`) mount table — `systemctl show` reported the new `TemporaryFileSystem=/mnt` + binds, but `/proc/<pid>/mountinfo` showed all 23 host mounts. A clean `systemctl restart slskd` applied it correctly (down to 4 mounts). So: **for a heavily-loaded service, verify the namespace actually narrowed after a deploy — don't trust `systemctl show`; read `mountinfo`.** A clean boot (e.g. the nightly rolling-update reboot) applies it correctly, so it self-heals; the live-restart-during-deploy is the only window where it can lag.
+
 ### Remaining
 
-- **LGTM siblings** (tempo, mimir, loki) have the same virtiofs-`WorkingDirectory` shape as grafana and could get the same treatment — not in the original audit's class list, follow-up if desired.
 - **Class E** (kopia-mum/photos, nspawn `*-db` containers) — legitimately broad / already tight, leave alone.
+- **`alloy-loki`** — optional; sandbox only after confirming its read targets.

@@ -179,6 +179,10 @@ in {
       # NAMESPACE errorPattern (#257).
       gotenberg.serviceConfig.TemporaryFileSystem = "/mnt";
       tika.serviceConfig.TemporaryFileSystem = "/mnt";
+
+      # paperless's redis (task broker) stores in /var/lib — nothing under
+      # /mnt. Blank it (#257).
+      redis-paperless.serviceConfig.TemporaryFileSystem = "/mnt";
     };
 
     # Paperless user needs NFS access
