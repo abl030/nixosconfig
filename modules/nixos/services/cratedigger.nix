@@ -54,7 +54,9 @@
   # backups), /mnt/appdata, /mnt/mum, /mnt/mirrors. The pipeline's real scope
   # is three paths: its virtiofs state/backups dir, the shared music tree
   # (beets library + Incoming + Re-download), and the slskd download staging
-  # on NFS. Blank /mnt and bind back exactly those. This is the single
+  # (cfg.downloadDir — on doc2 /mnt/virtio/music/slskd, lowercase, distinct
+  # from the capital-M /mnt/virtio/Music beets tree). Blank /mnt and bind
+  # back exactly those. This is the single
   # biggest blast-radius reduction in the #257 audit (root + everything → a
   # root process confined to its own music pipeline). NOT applied to the
   # gate/secrets/db-migrate/temp-clean oneshots — they touch only /run, /tmp,
