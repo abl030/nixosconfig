@@ -410,17 +410,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1779876910,
-        "narHash": "sha256-SG1EJ5NNV4/vbTgmWFUiO8FzL6MOCLTUgXBEsEJ78Ww=",
+        "lastModified": 1780711455,
+        "narHash": "sha256-rbQ9lTQJgy93Z2WojaTkU5z1fkJX4mUjsx2Or7FNrJc=",
         "owner": "matthart1983",
         "repo": "netwatch",
-        "rev": "fcbe052622156ddd2e1aa73329f7ed2e38b50180",
+        "rev": "9ba04e2e6531198d6f389081588346ca3938a6d1",
         "type": "github"
       },
       "original": {
         "owner": "matthart1983",
         "repo": "netwatch",
-        "rev": "fcbe052622156ddd2e1aa73329f7ed2e38b50180",
         "type": "github"
       }
     },

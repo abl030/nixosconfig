@@ -1,7 +1,7 @@
 # crates.io 403 — nix's `curl/` User-Agent is blocked
 
 **Date researched:** 2026-05-29
-**Status:** worked around (netwatch pinned); waiting for nixpkgs-unstable to carry the upstream fix
+**Status:** RESOLVED 2026-06-07 — nixpkgs-unstable now carries the `static.crates.io` fix (fetchCrate #525067); netwatch unpinned and verified building. Doc kept for history.
 **Issue:** [#259](https://github.com/abl030/nixosconfig/issues/259)
 
 ## Symptom

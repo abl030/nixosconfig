@@ -188,16 +188,12 @@
     };
 
     # netwatch - real-time network diagnostics TUI (Rust)
-    # PINNED to fcbe0526 (v0.22.0, already in cache) to break the rolling-flake-update
-    # deadlock: crates.io now 403s nix's `curl/` User-Agent, so bumping netwatch to a
-    # newer rev forces fresh crate fetches that fail. Upstream nixpkgs fixed this by
-    # switching crate downloads to static.crates.io (fetchCrate #525067, importCargoLock
-    # #524985), but those merges haven't reached the nixpkgs-unstable channel yet.
-    # Pinning freezes netwatch's Cargo.lock so its crate FODs stay cache-warm and the
-    # nightly can resume bumping nixpkgs. UNPIN once nixpkgs-unstable carries the fix.
-    # See issue #259 + docs/wiki/infrastructure/cratesio-403-ua.md
+    # UNPINNED 2026-06-07 (#259): nixpkgs-unstable now carries the static.crates.io
+    # fix (fetchCrate #525067), so nix crate fetches no longer hit crates.io's
+    # `curl/` User-Agent 403. netwatch follows our nixpkgs, so its crate FODs now
+    # download from static.crates.io. History/rationale: docs/wiki/infrastructure/cratesio-403-ua.md
     netwatch = {
-      url = "github:matthart1983/netwatch?rev=fcbe052622156ddd2e1aa73329f7ed2e38b50180";
+      url = "github:matthart1983/netwatch";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";
@@ -330,37 +326,37 @@
           # to pfSense's LAN MAC. The MAC and pattern below MUST stay in sync
           # with homeGatewayMac in modules/nixos/services/tailscale/subnet-priority.nix.
           onLanMatcherCheck = pkgs.runCommand "on-lan-matcher" {} ''
-            mac="64:62:66:21:dd:cc"
-            matches() { printf '%s\n' "$1" | ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac"; }
-            fail=0
-            # Should be ON-LAN (home gateway resolves to pfSense MAC):
-            for good in \
-              "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:dd:cc REACHABLE" \
-              "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:DD:CC STALE" ; do
-              if ! matches "$good"; then echo "FAIL: expected on_lan match: $good"; fail=1; fi
-            done
-            # Should be OFF-LAN. Fixtures are plausible `ip neigh show
-            # 192.168.1.1` outputs (the IP is already scoped by that command):
-            # a foreign gateway with a different MAC, or an unresolved entry.
-            while IFS= read -r bad; do
-              if matches "$bad"; then echo "FAIL: expected on_lan NON-match: $bad"; fail=1; fi
-            done <<'EOF'
-192.168.1.1 dev wlp1s0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
-192.168.1.1 dev wlp1s0 FAILED
-EOF
-            # (empty neighbour table — nothing piped — must also be non-match)
-            if ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac" </dev/null; then
-              echo "FAIL: empty neigh table matched"; fail=1
-            fi
-            if [ $fail -ne 0 ]; then
-              echo ""
-              echo "on_lan gateway-MAC detection regressed. Keep this check in"
-              echo "sync with homeGatewayMac in subnet-priority.nix. See"
-              echo "docs/wiki/infrastructure/tailscale-lan-priority.md."
-              exit 1
-            fi
-            echo "on_lan gateway-MAC matcher behaves as specified."
-            touch $out
+                        mac="64:62:66:21:dd:cc"
+                        matches() { printf '%s\n' "$1" | ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac"; }
+                        fail=0
+                        # Should be ON-LAN (home gateway resolves to pfSense MAC):
+                        for good in \
+                          "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:dd:cc REACHABLE" \
+                          "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:DD:CC STALE" ; do
+                          if ! matches "$good"; then echo "FAIL: expected on_lan match: $good"; fail=1; fi
+                        done
+                        # Should be OFF-LAN. Fixtures are plausible `ip neigh show
+                        # 192.168.1.1` outputs (the IP is already scoped by that command):
+                        # a foreign gateway with a different MAC, or an unresolved entry.
+                        while IFS= read -r bad; do
+                          if matches "$bad"; then echo "FAIL: expected on_lan NON-match: $bad"; fail=1; fi
+                        done <<'EOF'
+            192.168.1.1 dev wlp1s0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+            192.168.1.1 dev wlp1s0 FAILED
+            EOF
+                        # (empty neighbour table — nothing piped — must also be non-match)
+                        if ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac" </dev/null; then
+                          echo "FAIL: empty neigh table matched"; fail=1
+                        fi
+                        if [ $fail -ne 0 ]; then
+                          echo ""
+                          echo "on_lan gateway-MAC detection regressed. Keep this check in"
+                          echo "sync with homeGatewayMac in subnet-priority.nix. See"
+                          echo "docs/wiki/infrastructure/tailscale-lan-priority.md."
+                          exit 1
+                        fi
+                        echo "on_lan gateway-MAC matcher behaves as specified."
+                        touch $out
           '';
         in
           {inherit errorPatternsCheck onLanMatcherCheck;}
