@@ -68,6 +68,13 @@ in {
         config.systemd.units."container@mealie-db.service".unit
         config.sops.secrets."mealie-pgpass".path
       ];
+      # #257: blank /mnt. Mealie's state is already bound from its virtiofs
+      # dataDir onto /var/lib/mealie (below) — which is NOT under /mnt — so
+      # nothing else needs binding back; TemporaryFileSystem just masks the
+      # host's /mnt/* tree the unit was needlessly inheriting. The DB lives in
+      # the mealie-db nspawn container, reached over TCP. RequiresMountsFor
+      # keeps the fail-loud dataDir bind ordered after mnt-virtio.mount.
+      unitConfig.RequiresMountsFor = lib.mkIf (cfg.dataDir != "/var/lib/mealie") [cfg.dataDir];
       serviceConfig =
         {
           DynamicUser = lib.mkForce false;
@@ -76,6 +83,7 @@ in {
           # list is [mealie/env, mealie-pgpass] without duplicates.
           # systemd merges multiple EnvironmentFile= entries; later wins.
           EnvironmentFile = lib.mkAfter [config.sops.secrets."mealie-pgpass".path];
+          TemporaryFileSystem = "/mnt";
         }
         // lib.optionalAttrs (cfg.dataDir != "/var/lib/mealie") {
           BindPaths = ["${cfg.dataDir}:/var/lib/mealie"];
@@ -116,7 +124,7 @@ in {
           name = "Mealie DB connection failure";
           unit = "mealie.service";
           # Worker SIGTERM is graceful reload — excluded.
-          pattern = "(?i)password authentication failed for user \"mealie\"|Error connecting to database";
+          pattern = "(?i)password authentication failed for user \"mealie\"|Error connecting to database|Failed at step NAMESPACE";
           severity = "critical";
           summary = "Mealie cannot reach its DB";
           description = "Matches the #232 trust→scram regression class.";

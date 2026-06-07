@@ -12,6 +12,14 @@
     [git.ablz.au]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDD0eMvDPHW7Zqd1HKUhTRwAadPk6Brg98/SDPeAGRF8ptuuOh+1tlQB0f7tmA2mYcMEk557yhZIUT4WEQCRlW09r4CyZYccRgQU6gxvbfehf+/kdcrVt4JocgrZ78t2XD5H81A8ufC4qoJK3LAwmhvDnxPV4mcO2Y7Fn92pdcuhMnFoPLOYPUoznhjy5QAqjOh1fxa0e0SGVoSXUYEr4zXPZsX68bC7k9T84p3aRvY/afdVKupHLcMRNOYTSUuUVLxEHG5aCh3CodQkHUiXIWpFMtALCQL3u7b/kXaM/IV7OtK9bQ8TRafMasK4MHMc2q1x+s49OCQSrAT49u9jji/2rRiHP+yDZxT6WYwqn5tUdOxmBjYfbPnb1pdCqM+iHpndJM/s2LukXBs7Va5EQNCn5LwXTsDwgWN+4k8d0Dbmq8k45l1ACTTqe8XhVwfWR8NckTPMLmxsa/ba7HasL0ll8XarcuKtOgwd3U+XyPamSQtWEr8/thnmvnZLBmwM/kx8uuDTEdqWDdyC9is/NtKt+BhvvX6z76/MvbwwcFAvYIpRg0q2UMnul9R0AlZ13Krm5rmCxCgHJmlIf1yjp8V9ZlKto5bRPvclVV7UCjRltcFwipKSsbOw/mxiAZ7lyimEsD2FMbsCzoUwym+LZQqj6IvHBn+9wt7YeQLjqYYiw==
   '';
   gitSshCommand = "${pkgs.openssh}/bin/ssh -i ${sshKey} -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes";
+
+  # #257: all three beancount units (clone, pull, fava) touch only the
+  # virtiofs dataDir (books repo clone + fava cache). Blank /mnt and bind
+  # back just that one path; was full /mnt/* RW-visible and unhardened.
+  mntSandbox = {
+    TemporaryFileSystem = "/mnt";
+    BindPaths = [cfg.dataDir];
+  };
 in {
   options.homelab.services.beancount = {
     enable = lib.mkEnableOption "Beancount + Fava (household accounting journal viewer)";
@@ -66,13 +74,16 @@ in {
 
           path = [pkgs.git pkgs.openssh];
 
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            User = "fava";
-            Group = "fava";
-            WorkingDirectory = cfg.dataDir;
-          };
+          unitConfig.RequiresMountsFor = [cfg.dataDir];
+          serviceConfig =
+            {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              User = "fava";
+              Group = "fava";
+              WorkingDirectory = cfg.dataDir;
+            }
+            // mntSandbox;
 
           script = ''
             export GIT_SSH_COMMAND='${gitSshCommand}'
@@ -92,12 +103,15 @@ in {
 
           path = [pkgs.git pkgs.openssh];
 
-          serviceConfig = {
-            Type = "oneshot";
-            User = "fava";
-            Group = "fava";
-            WorkingDirectory = cloneDir;
-          };
+          unitConfig.RequiresMountsFor = [cfg.dataDir];
+          serviceConfig =
+            {
+              Type = "oneshot";
+              User = "fava";
+              Group = "fava";
+              WorkingDirectory = cloneDir;
+            }
+            // mntSandbox;
 
           script = ''
             export GIT_SSH_COMMAND='${gitSshCommand}'
@@ -113,15 +127,21 @@ in {
           after = ["beancount-clone.service"];
           requires = ["beancount-clone.service"];
 
-          serviceConfig = {
-            ExecStart = "${pkgs.fava}/bin/fava --host 127.0.0.1 --port ${toString cfg.port} ${cloneDir}/${cfg.journalFile}";
-            User = "fava";
-            Group = "fava";
-            WorkingDirectory = cfg.dataDir;
-            Restart = "on-failure";
-            RestartSec = "10s";
-            ReadWritePaths = [cfg.dataDir];
-          };
+          unitConfig.RequiresMountsFor = [cfg.dataDir];
+          serviceConfig =
+            {
+              ExecStart = "${pkgs.fava}/bin/fava --host 127.0.0.1 --port ${toString cfg.port} ${cloneDir}/${cfg.journalFile}";
+              User = "fava";
+              Group = "fava";
+              WorkingDirectory = cfg.dataDir;
+              Restart = "on-failure";
+              RestartSec = "10s";
+              # #257: read-mostly ledger UI — harden it. ProtectSystem=strict
+              # + blank /mnt bound to the dataDir (replaces the old
+              # ReadWritePaths=[dataDir], which silently-skips a missing source).
+              ProtectSystem = "strict";
+            }
+            // mntSandbox;
         };
       };
 
@@ -152,10 +172,19 @@ in {
         }
       ];
 
-      # See #253 audit. Skipped — Fava is a read-only ledger UI with no
-      # actionable failure log fingerprint; outages surface via the Kuma
-      # HTTP monitor above.
-      monitoring.errorPatterns = [];
+      # See #253 audit. Fava is a read-only ledger UI with no actionable
+      # failure log fingerprint (outages surface via the Kuma HTTP monitor
+      # above) — the only entry is the #257 fail-loud bind of its dataDir.
+      monitoring.errorPatterns = [
+        {
+          name = "Fava namespace failure";
+          unit = "fava.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "warning";
+          summary = "fava cannot bind its virtiofs dataDir — ledger UI is down";
+          threshold = 0;
+        }
+      ];
     };
   };
 }

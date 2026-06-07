@@ -92,6 +92,8 @@ in {
           unitConfig = {
             StartLimitIntervalSec = "4h";
             StartLimitBurst = 4;
+            # #257: fail-loud mirror bind ordered after mnt-mirrors.mount.
+            RequiresMountsFor = [cfg.mirrorDir];
           };
           serviceConfig = {
             Type = "oneshot";
@@ -99,6 +101,10 @@ in {
             Restart = "on-failure";
             RestartSec = "15min";
             EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+            # #257: blank /mnt, bind back only the mirror dir this importer
+            # downloads dumps into. Was: full /mnt/* RW as root.
+            TemporaryFileSystem = "/mnt";
+            BindPaths = [cfg.mirrorDir];
             # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
             # out of /nix/store, which the bare DSN string would otherwise leak.
             ExecStart = pkgs.writeShellScript "discogs-import-start" ''
@@ -134,6 +140,12 @@ in {
             '';
             Restart = "on-failure";
             RestartSec = 5;
+            # #257: this API server is stateless (talks to the discogs-db
+            # nspawn container over TCP) and ran as root with the full /mnt/*
+            # tree RW. Harden it: ProtectSystem=strict + blank /mnt, nothing
+            # bound back. No NAMESPACE errorPattern — no bind source to fail.
+            ProtectSystem = "strict";
+            TemporaryFileSystem = "/mnt";
           };
         };
       };

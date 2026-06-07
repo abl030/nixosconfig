@@ -27,10 +27,23 @@ in {
       };
     };
 
-    # WebDAV needs NFS mount for Zotero library
+    # WebDAV needs NFS mount for Zotero library — and ONLY that one dir.
+    # #257: was unhardened with the full /mnt/* tree RW-visible. The server
+    # serves exactly `directory` above, so blank /mnt and bind back only the
+    # Zotero Library subdir (rw — permissions=CRUD). The source path has a
+    # literal space, escaped `\ ` per systemd.exec(5); bound to the same
+    # space-bearing path so the `directory` setting needs no change.
+    # ProtectSystem=strict on top (simple Go file server, writes only there).
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
     systemd.services.webdav = {
       after = ["mnt-data.mount"];
       requires = ["mnt-data.mount"];
+      unitConfig.RequiresMountsFor = ["/mnt/data/Life/Andy/Education/Zotero Library"];
+      serviceConfig = {
+        ProtectSystem = "strict";
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [''/mnt/data/Life/Andy/Education/Zotero\ Library''];
+      };
     };
 
     sops.secrets."webdav/env" = {
@@ -58,10 +71,20 @@ in {
         }
       ];
 
-      # See #253 audit. Skipped — simple file server with no actionable
-      # failure log fingerprint; NFS-backed outages already covered by
-      # the nfsWatchdog above and the Kuma HTTP monitor.
-      monitoring.errorPatterns = [];
+      # See #253 audit. Simple file server; NFS-backed outages already
+      # covered by the nfsWatchdog above + Kuma HTTP monitor — the only
+      # entry is the #257 fail-loud bind of the Zotero Library NFS dir.
+      monitoring.errorPatterns = [
+        {
+          name = "WebDAV namespace failure";
+          unit = "webdav.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "warning";
+          summary = "webdav cannot bind the Zotero Library NFS dir";
+          description = "BindPaths source on /mnt/data is missing or stale — check mnt-data.mount on doc2.";
+          threshold = 0;
+        }
+      ];
     };
   };
 }
