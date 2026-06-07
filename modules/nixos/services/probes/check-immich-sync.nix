@@ -35,7 +35,7 @@ pkgs.writeShellApplication {
   text = ''
     set -uo pipefail
 
-    host="''${IMMICH_PG_HOST:-192.168.100.5}"
+    host="''${IMMICH_PG_HOST:-10.20.0.5}"
     port="''${IMMICH_PG_PORT:-5432}"
     user="''${IMMICH_PG_USER:-immich}"
     db="''${IMMICH_PG_DB:-immich}"

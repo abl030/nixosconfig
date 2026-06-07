@@ -9,8 +9,10 @@
 #   hostAddress     — host-side veth IP
 #   localAddress    — container-side veth IP
 #
-# IP addressing: hostNum N → host 192.168.100.(N*2), container 192.168.100.(N*2+1)
+# IP addressing: hostNum N → host 10.20.0.(N*2), container 10.20.0.(N*2+1)
 # Each service gets a unique hostNum to avoid collisions.
+# (Renumbered from 192.168.100.0/24 on 2026-06-07 — that /24 collided with the
+#  Cullen site LAN reached over a tailnet route. See issue #239 / the ACL plan.)
 #
 # AUTH MODEL (since 2026-05-10):
 # Authentication is `scram-sha-256` over TCP from the host-side veth — `trust`
@@ -68,8 +70,8 @@
   # failure. See issue #250 for the asset_edit_audit incident that drove this.
   ownershipAllowList ? [],
 }: let
-  hostAddress = "192.168.100.${toString (hostNum * 2)}";
-  localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
+  hostAddress = "10.20.0.${toString (hostNum * 2)}";
+  localAddress = "10.20.0.${toString (hostNum * 2 + 1)}";
 
   # Path inside the container where the bindmounted password file appears.
   pgpassPath = "/run/secrets/pgpass.env";

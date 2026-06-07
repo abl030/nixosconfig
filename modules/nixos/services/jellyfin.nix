@@ -34,9 +34,9 @@
 # Jellystat/watchstate topology on doc2:
 #   - OCI containers (rootful podman) with `--user=1000:100` so files on the
 #     virtiofs volume end up owned by abl030:users (inspect without sudo).
-#   - Jellystat talks to an nspawn PostgreSQL at 192.168.100.15:5432 — see
+#   - Jellystat talks to an nspawn PostgreSQL at 10.20.0.15:5432 — see
 #     mk-pg-container.nix. Trust auth relies on podman MASQUERADE rewriting
-#     the source IP to 192.168.100.14 (host-side veth), which matches
+#     the source IP to 10.20.0.14 (host-side veth), which matches
 #     pg_hba's trust rule. Verified working 2026-04-16.
 #
 # See docs/wiki/infrastructure/media-filesystem.md for the mergerfs/virtiofs
@@ -51,7 +51,7 @@
   cfg = config.homelab.services.jellyfin;
 
   # Nspawn PostgreSQL for jellystat. hostNum=7 (next slot after discogs=6).
-  # Connections from 192.168.100.14 (host side of veth) are scram-sha-256
+  # Connections from 10.20.0.14 (host side of veth) are scram-sha-256
   # authed since #232 — trust auth was retired after we found any OCI
   # container on podman0 could pivot to superuser fleet-wide. PG password
   # lives in the sops-managed jellystat-pgpass.env (alongside the existing

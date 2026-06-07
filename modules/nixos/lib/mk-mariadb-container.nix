@@ -7,8 +7,9 @@
 #   hostAddress     — host-side veth IP
 #   localAddress    — container-side veth IP
 #
-# IP addressing matches mk-pg-container: hostNum N → host 192.168.100.(N*2),
-# container 192.168.100.(N*2+1). Each service gets a unique hostNum.
+# IP addressing matches mk-pg-container: hostNum N → host 10.20.0.(N*2),
+# container 10.20.0.(N*2+1). Each service gets a unique hostNum.
+# (Renumbered from 192.168.100.0/24 on 2026-06-07 — see mk-pg-container.nix / #239.)
 #
 # AUTH MODEL:
 # TCP access is for the service user only and only from the host-side veth
@@ -33,8 +34,8 @@
   mysqlSettings ? {},
   postStartSQL ? null,
 }: let
-  hostAddress = "192.168.100.${toString (hostNum * 2)}";
-  localAddress = "192.168.100.${toString (hostNum * 2 + 1)}";
+  hostAddress = "10.20.0.${toString (hostNum * 2)}";
+  localAddress = "10.20.0.${toString (hostNum * 2 + 1)}";
 
   dbpassPath = "/run/secrets/mariadb.env";
   dbpassRuntimePath = "/run/mariadb-${name}-dbpass.env";

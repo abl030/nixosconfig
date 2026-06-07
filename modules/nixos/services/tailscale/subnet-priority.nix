@@ -5,7 +5,7 @@
   ...
 }:
 # Manage `ip rule` priorities so a host reaches the home LAN (192.168.1.0/24)
-# and the local nspawn service network (192.168.100.0/24) via the *main* table
+# and the local nspawn service network (10.20.0.0/24) via the *main* table
 # instead of Tailscale's table 52, but ONLY when it makes sense to.
 #
 # The 192.168.1.0/24 rule is `onlyOnLan`: a roaming laptop must drop it when
@@ -41,7 +41,7 @@ let
       onlyOnLan = true;
     }
     {
-      cidr = "192.168.100.0/24";
+      cidr = "10.20.0.0/24";
       priority = "2490";
       label = "local nspawn service network";
       onlyOnLan = false;
