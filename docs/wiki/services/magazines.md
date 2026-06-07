@@ -1,7 +1,7 @@
 # Magazine archive system (overview)
 
-**Date written:** 2026-05-23
-**Status:** ✅ working end-to-end. EPUB conversion batch grinding the back catalogue.
+**Date written:** 2026-05-23 · **Updated:** 2026-06-07
+**Status:** ✅ fully automated end-to-end — download → convert → metadata → serve.
 
 This is the breadcrumb hub for the whole wine-magazine archive pipeline. Each
 component has its own deep-dive page — start here, follow the links.
@@ -29,20 +29,23 @@ TOC instead of horrible multi-column raster scroll.
 | **Komga library** | doc2, magazines.ablz.au | Web UI + OPDS + reader for the PDF/EPUB tree | [komga.md](./komga.md) |
 | **Komga metadata sync** | doc2 daily oneshot | PATCHes Komga book/series metadata from the JSON sidecars via REST | [komga-sync.md](./komga-sync.md) |
 | **KOReader cross-device sync** | client-side (phone/Boox) | Read-position sync via Komga's `/koreader` endpoint, auto-pull on open, auto-push on close | [koreader-sync.md](./koreader-sync.md) |
-| **PDF → EPUB pipeline** | epi background batch | Marker + post-processor + batch orchestrator. Produces per-issue EPUBs from the magazine PDFs | [magazine-epub-pipeline.md](./magazine-epub-pipeline.md) |
+| **PDF → EPUB conversion** | epi `marker-convert.service` | Marker + post-processor; WOL+SSH-triggered by doc2 after a download, weekly RTC-wake safety net, holds a sleep inhibitor, rescans Komga when done | [magazine-epub-pipeline.md](./magazine-epub-pipeline.md) |
 
 ## Daily flow (no human action needed)
 
 1. **Sun 03:30 AWST** — `gwm-archiver.service` wakes on doc2, walks winetitles,
-   downloads any new GAW issue as PDF + sidecar. Gotify pings if new.
-2. **Komga DAILY auto-scan** (next fire within 24 h) — indexes the new PDF as
-   a book entry under the appropriate year-series.
-3. **Mon–Sat 04:29 AWST** — `komga-sync.service` walks the JSON sidecars,
-   PATCHes the new book's metadata via REST (title, summary as markdown TOC,
-   tags, links). Idempotent on subsequent days.
-4. **(Once `marker-batch` finishes the back-catalogue and is wired as a
-   permanent timer)** — new PDFs get an EPUB next to them too. Komga indexes
-   it as a second book entry; same metadata gets PATCHed onto it.
+   downloads any new GAW issue as PDF + sidecar. Gotify pings if new. On a new
+   download its OnSuccess hook **WOLs epi + triggers `marker-convert`** (see 4).
+2. **epi `marker-convert.service`** (woken by the trigger; holds its own sleep
+   inhibitor so it can't suspend mid-run) — converts the new PDF to EPUB
+   (~20 min), drops it beside the PDF, then `POST`s a Komga rescan. Weekly
+   RTC-wake timer is the safety net if the WOL is missed.
+3. **Komga scan** (immediate from step 2's POST, plus a DAILY auto-scan) —
+   indexes the new PDF *and* EPUB as book entries under the year-series. The
+   EPUB carries native OPF metadata (title/series/tags) from the post-processor.
+4. **Mon–Sat 04:29 AWST** — `komga-sync.service` walks the JSON sidecars,
+   PATCHes the PDF book's metadata via REST (title, summary as markdown TOC,
+   tags, links). Idempotent; the EPUB needs no PATCH (OPF is native).
 
 ## Where stuff lives
 

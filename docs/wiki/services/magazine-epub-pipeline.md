@@ -1,11 +1,41 @@
 # Magazine PDF → EPUB pipeline
 
-**Date written:** 2026-05-23
-**Status:** ⏳ batch grinding through the back catalogue (~30 hour ETA on epi)
+**Date written:** 2026-05-23 · **Last-mile automated:** 2026-06-07
+**Status:** ✅ back catalogue done; new issues auto-convert via `marker-convert` on epi
+**Module:** `modules/nixos/services/marker-convert.nix` (epi)
 **Scripts:**
   - `scripts/marker-batch.py` — orchestrator (parallel workers, resume-safe)
   - `scripts/marker-to-epub.py` — Marker markdown → clean EPUB post-processor
-**No NixOS module yet** — see "Future" below
+
+## The last mile — `marker-convert` (epi)
+
+The back catalogue was a hand-run batch; new monthly issues are now converted
+automatically. `modules/nixos/services/marker-convert.nix` on **epi** (the only
+fleet box with the RAM for Marker's ML models):
+
+- **oneshot** `marker-convert.service`: walks the archive for PDFs lacking an
+  EPUB sibling, converts each via a pinned uv venv (`marker-pdf==1.10.2`) +
+  `marker-to-epub.py`, then `POST`s a Komga rescan of both libraries so the new
+  EPUB shows immediately.
+- **nix-ld** env (`NIX_LD` + `NIX_LD_LIBRARY_PATH`) so the manylinux torch
+  wheels load; `HOME` under the stateDir so the ~3 GB Surya model cache
+  persists across runs. Runs as `abl030` (NFS write), `Nice=19` + IO idle.
+- **sleep inhibitor**: ExecStartPre + ExecStart are wrapped in
+  `systemd-inhibit --what=sleep:idle --mode=block`. Without this epi
+  idle-suspends mid-conversion (the automated trigger SSH returns immediately
+  via `--no-block`, so nothing else holds epi awake). A scoped polkit rule
+  grants `abl030` the `inhibit-block-sleep`/`-idle` actions non-interactively,
+  plus permission to `start` this one unit without sudo.
+- **trigger**: doc2's `gwm-archiver` `triggerConvert` (after a new download)
+  WOLs epi (LAN broadcast) then `ssh abl030@epimetheus systemctl start
+  --no-block marker-convert.service` (Tailscale MagicDNS). Best-effort.
+- **safety net**: weekly RTC self-wake timer (`WakeSystem=true`, the
+  `nixos-upgrade` pattern) catches anything a missed WOL left unconverted.
+
+E2E validated 2026-06-07: June 2026 converted through the unit (polkit start →
+venv → nix-ld torch → marker 19.8 min → post-processor 12/13 TOC → EPUB →
+Komga rescan → indexed as "Grapegrower & Winemaker June 2026 (#749)"); the
+doc2→epi cross-host trigger + polkit start confirmed separately.
 
 ## Why an EPUB pipeline
 
@@ -216,29 +246,36 @@ The batch is resume-safe — re-running picks up where it left off via
   over the years; it's mostly populated for the older synthetic-merge
   range (2017-2018) and patchy for the FULL-ISSUE range (2018+).
 
-## Future — automate new-issue conversion
+## New-issue automation — DONE (2026-06-07)
 
-Currently the marker batch is a manual one-shot. New GAW issues (1/month)
-need EPUB conversion too. Plan once the back-catalogue grind finishes:
+Resolved by `modules/nixos/services/marker-convert.nix` on epi (see "The
+last mile" section above). doc2's `gwm-archiver.triggerConvert` WOLs + SSHes
+epi after a new download; a weekly RTC-wake timer is the safety net. We chose
+the dedicated-service approach over folding conversion into `gwm-archiver.py`
+(keeps the heavy ML on epi, off the doc2 services VM).
 
-* `modules/nixos/services/marker-converter.nix` — wraps `marker-batch.py`
-  in a oneshot timer that fires every 30-60 min, processes ONE PDF per
-  fire (`LIMIT=1`), then exits. Self-paced, low-priority, automatically
-  picks up new issues from gwm-archiver.
-* OR fold the conversion directly into `gwm-archiver.py` as a step after
-  download. Simpler but couples two responsibilities.
+## Bumping the marker version
 
-Decision pending until we see how the batch performs and how often the
-user actually wants a new-issue EPUB to land (next-day vs same-week).
+The pin is `homelab.services.marker-convert.markerVersion` (currently
+`1.10.2`). Marker's output shape drifts across releases and the
+post-processor's fuzzy matcher is tuned to it, so bump deliberately:
+
+1. Change the option, deploy epi.
+2. `rm -rf /var/lib/marker-convert/venv` so ExecStartPre reinstalls.
+3. Re-run on one issue and eyeball the H2 match rate (`journalctl -u
+   marker-convert | grep "H2 boundaries"`) — expect ~12-16/16.
 
 ## Tooling notes
 
-* Marker is `marker-pdf` from PyPI, installed in `/tmp/marker-test/.venv/`.
-  Reinstall with `uv pip install --upgrade marker-pdf` if needed.
-* `rapidfuzz` for fuzzy matching, `pandoc` for the EPUB assembly (via
-  `nix-shell -p pandoc` from marker-to-epub.py).
-* Model weights download to `~/.cache/datalab` on first use, ~3 GB total.
-  Don't blow away that cache mid-batch or every marker_single re-downloads.
+* Production: marker runs from the pinned uv venv at
+  `/var/lib/marker-convert/venv` (managed by the module's ExecStartPre).
+  The old `/tmp/marker-test/.venv` from the back-catalogue batch is gone.
+* `rapidfuzz` for fuzzy matching; `pandoc` for EPUB assembly. The unit
+  supplies `pandoc` on PATH (+ `PANDOC_BIN`); `marker-to-epub.py` falls back
+  to `nix-shell -p pandoc` only for bare-checkout interactive use.
+* Surya model weights (~3 GB) cache under `HOME` = the stateDir
+  (`/var/lib/marker-convert`), persisted across runs. Don't wipe it or the
+  next run re-downloads.
 
 ## See also
 
