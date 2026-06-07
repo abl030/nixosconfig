@@ -79,7 +79,7 @@
       })
 
       # Current registered paths (for orphan detection).
-      current_json=$(${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" "$base/api/v1/sources")
+      current_json=$(${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" "$base/api/v1/sources")
       current_paths=$(printf '%s' "$current_json" | ${pkgs.jq}/bin/jq -r '.sources[].source.path')
 
       # NOTE: use `printf '%s'`, NOT `<<<` — bash here-strings add a
@@ -113,7 +113,7 @@
           body="$body,\"files\":{\"ignore\":''${ignore_json[$path]}}"
         fi
         body="$body}"
-        ${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" \
+        ${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" \
           -X PUT \
           -H 'content-type: application/json' \
           --data "$body" \
@@ -128,7 +128,7 @@
         local path="$1"
         local encp
         encp=$(url_encode "$path")
-        ${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" \
+        ${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" \
           -X POST \
           "$base/api/v1/sources/upload?host=$override_host&userName=$override_user&path=$encp" \
           >/dev/null
@@ -510,6 +510,11 @@ in {
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
+              # Backstop: per-curl --max-time bounds the reconcile, but never
+              # let a busy daemon (mid-upload, API stalled) hang a deploy
+              # forever — fail the oneshot so switch-to-configuration proceeds.
+              # The source registration that matters already happened.
+              TimeoutStartSec = 600;
               User =
                 if inst.runAsRoot
                 then "root"
