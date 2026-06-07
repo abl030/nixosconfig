@@ -172,6 +172,13 @@ in {
       paperless-task-queue = base;
       paperless-consumer = base;
       paperless-web = base;
+
+      # configureTika spins up standalone gotenberg.service + tika.service
+      # (stateless HTTP helpers for Office/email OCR). They inherit doc2's
+      # full /mnt/* tree for no reason — blank it. No bind source → no
+      # NAMESPACE errorPattern (#257).
+      gotenberg.serviceConfig.TemporaryFileSystem = "/mnt";
+      tika.serviceConfig.TemporaryFileSystem = "/mnt";
     };
 
     # Paperless user needs NFS access

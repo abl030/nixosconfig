@@ -18,6 +18,14 @@ in {
       };
     };
 
+    # Blank /mnt (#257). Stateless PDF toolkit — no /mnt access needed, so
+    # mask the host's /mnt/* tree entirely. TemporaryFileSystem forces a
+    # private mount namespace on its own (upstream leaves PrivateMounts=no).
+    # No bind source, so no NAMESPACE errorPattern: a tmpfs-only namespace
+    # has nothing to fail on, and liveness is covered by the Kuma monitor.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.stirling-pdf.serviceConfig.TemporaryFileSystem = "/mnt";
+
     homelab = {
       localProxy.hosts = [
         {

@@ -33,14 +33,26 @@ in {
     };
     users.groups.uptime-kuma = {};
 
-    # Override upstream service to use static user and custom data dir
-    systemd.services.uptime-kuma.serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "uptime-kuma";
-      Group = "uptime-kuma";
-      WorkingDirectory = lib.mkForce cfg.dataDir;
-      StateDirectory = lib.mkForce "";
-      ReadWritePaths = [cfg.dataDir];
+    # Override upstream service to use static user and custom data dir.
+    systemd.services.uptime-kuma = {
+      # RequiresMountsFor orders the unit after the virtiofs mount and pulls
+      # it in — without it the fail-loud BindPaths below would race the mount
+      # at boot. Resolves to mnt-virtio.mount for a /mnt/virtio/* dataDir.
+      unitConfig.RequiresMountsFor = [cfg.dataDir];
+      serviceConfig = {
+        DynamicUser = lib.mkForce false;
+        User = "uptime-kuma";
+        Group = "uptime-kuma";
+        WorkingDirectory = lib.mkForce cfg.dataDir;
+        StateDirectory = lib.mkForce "";
+        # Blank /mnt + bind only our virtiofs state dir (#257). Previously the
+        # unit saw all of /mnt/* ro and got dataDir rw via ReadWritePaths,
+        # which silently skips a missing/contested source. BindPaths is
+        # fail-loud (status=226/NAMESPACE) — paired with the NAMESPACE
+        # errorPattern below. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir];
+      };
     };
 
     homelab = {
@@ -66,7 +78,7 @@ in {
         {
           name = "Uptime Kuma server failure";
           unit = "uptime-kuma.service";
-          pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked";
+          pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked|Failed at step NAMESPACE";
           severity = "critical";
           summary = "Uptime Kuma is failing — HTTP monitors will silently stop";
           # Single-shot: a FATAL / UnhandledPromiseRejection takes the

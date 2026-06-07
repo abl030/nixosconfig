@@ -38,15 +38,23 @@ in {
     };
     users.groups.seerr = {};
 
-    # Override DynamicUser: assign the static seerr user and grant write access
-    # to the virtiofs path. ProtectSystem=strict (upstream) blocks writes by
-    # default; ReadWritePaths= exempts our dataDir.
-    systemd.services.seerr.serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "seerr";
-      Group = "seerr";
-      StateDirectory = lib.mkForce "";
-      ReadWritePaths = [cfg.dataDir];
+    # Override DynamicUser: assign the static seerr user.
+    systemd.services.seerr = {
+      # Order after the virtiofs mount and pull it in, so the fail-loud
+      # BindPaths below can't race the mount at boot.
+      unitConfig.RequiresMountsFor = [cfg.dataDir];
+      serviceConfig = {
+        DynamicUser = lib.mkForce false;
+        User = "seerr";
+        Group = "seerr";
+        StateDirectory = lib.mkForce "";
+        # Blank /mnt + bind only our virtiofs config dir (#257). Was: broad ro
+        # view of all /mnt/* plus dataDir rw via ReadWritePaths (silent-skip).
+        # BindPaths is fail-loud, paired with the NAMESPACE errorPattern below.
+        # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir];
+      };
     };
 
     # Create data directory on first boot, owned by the static seerr user.
@@ -75,7 +83,20 @@ in {
       # error logs in the 30-day window; real outages flow through
       # the Kuma HTTP monitor above and through the tailscale-share
       # sidecar pattern in tailscale-share.nix.
-      monitoring.errorPatterns = [];
+      #
+      # NAMESPACE entry added for #257: the unit now binds its virtiofs
+      # config dir fail-loud, so a missing/stale source surfaces here.
+      monitoring.errorPatterns = [
+        {
+          name = "Seerr NFS/namespace failure";
+          unit = "seerr.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "critical";
+          summary = "seerr cannot bind its virtiofs config dir — request manager is down";
+          description = "BindPaths source /mnt/virtio/overseerr is missing or stale — check mnt-virtio.mount on doc2.";
+          threshold = 0;
+        }
+      ];
     };
   };
 }
