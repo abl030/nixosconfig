@@ -86,6 +86,13 @@ in {
       serviceConfig = {
         TemporaryFileSystem = "/mnt";
         BindPaths = [cfg.dataDir dumpDir];
+        # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
+        # dump dir — all under our two BindPaths, already rw). Under the
+        # blank /mnt tmpfs those become self-binds, and the `data/lfs` entry
+        # (LFS is disabled, dir absent) can't be skip-if-missing the way it
+        # is in the host namespace → 226/NAMESPACE. BindPaths makes the whole
+        # stateDir + dump dir rw, so this list is pure redundancy now.
+        ReadWritePaths = lib.mkForce [];
       };
     };
 
