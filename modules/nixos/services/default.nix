@@ -60,5 +60,6 @@
     ./gwm-archiver.nix
     ./komga.nix
     ./komga-sync.nix
+    ./marker-convert.nix
   ];
 }

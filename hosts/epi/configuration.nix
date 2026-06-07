@@ -50,6 +50,11 @@
       collectGarbage = false;
       trim = true;
     };
+
+    # Magazine PDF->EPUB conversion "last mile". Triggered by doc2's
+    # gwm-archiver after a new download (WOL + SSH), weekly RTC-wake safety
+    # net. See docs/wiki/services/magazine-epub-pipeline.md.
+    services.marker-convert.enable = true;
   };
 
   boot = {

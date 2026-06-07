@@ -195,7 +195,12 @@
       domain-monitor.enable = true;
       forgejo.enable = true;
       rtrfm-nowplaying.enable = true;
-      gwm-archiver.enable = true;
+      gwm-archiver = {
+        enable = true;
+        # After a new download, WOL epi + trigger its marker-convert unit so
+        # the EPUB lands without waiting for the weekly RTC-wake safety net.
+        triggerConvert.enable = true;
+      };
       komga = {
         enable = true;
         dataDir = "/mnt/virtio/komga";

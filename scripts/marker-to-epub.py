@@ -533,28 +533,31 @@ def write_metadata_yaml(meta: dict, path: Path) -> None:
 
 
 def run_pandoc(md_path: Path, yaml_path: Path, epub_path: Path) -> None:
-    """Invoke pandoc via nix-shell. Combines yaml metadata file + body md."""
-    cmd = [
-        "nix-shell",
-        "-p",
-        "pandoc",
-        "--run",
-        " ".join(
-            [
-                "pandoc",
-                "--from=markdown+smart",
-                "--to=epub3",
-                "--standalone",
-                "--metadata-file=" + str(yaml_path),
-                "--toc",
-                "--toc-depth=2",
-                "--split-level=2",
-                "-o",
-                str(epub_path),
-                str(md_path),
-            ]
-        ),
+    """Render the EPUB with pandoc.
+
+    Prefers a `pandoc` on PATH (or $PANDOC_BIN) — that's what the
+    marker-convert systemd unit supplies via pkgs.pandoc, and it's faster
+    for interactive use too. Falls back to `nix-shell -p pandoc` so the
+    script still works from a bare checkout with no pandoc installed.
+    """
+    pandoc_args = [
+        "--from=markdown+smart",
+        "--to=epub3",
+        "--standalone",
+        "--metadata-file=" + str(yaml_path),
+        "--toc",
+        "--toc-depth=2",
+        "--split-level=2",
+        "-o",
+        str(epub_path),
+        str(md_path),
     ]
+    pandoc_bin = os.environ.get("PANDOC_BIN") or shutil.which("pandoc")
+    if pandoc_bin:
+        cmd = [pandoc_bin, *pandoc_args]
+    else:
+        cmd = ["nix-shell", "-p", "pandoc", "--run",
+               " ".join(["pandoc", *pandoc_args])]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         sys.stderr.write("pandoc failed:\n")

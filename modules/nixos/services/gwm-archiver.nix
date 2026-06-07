@@ -52,9 +52,42 @@
       -F "priority=7" >/dev/null || true
   '';
 
+  tc = cfg.triggerConvert;
+
+  # When a new issue lands, wake the conversion host (WOL, LAN broadcast) and
+  # kick its marker-convert unit over SSH. The unit runs as root, so SSH uses
+  # /root/.ssh (master key → abl030@<host> works). Polkit on the convert host
+  # lets abl030 start that one unit without sudo. Fire-and-forget: --no-block
+  # returns immediately, the convert host owns the rest (convert + Komga
+  # rescan). Best-effort throughout — a failed wake never fails the unit; the
+  # convert host's weekly RTC-wake timer is the safety net.
+  triggerConvertSnippet = lib.optionalString tc.enable ''
+    echo "waking + triggering convert host (${tc.sshTarget})"
+    ${pkgs.wakeonlan}/bin/wakeonlan -i ${tc.broadcast} ${tc.mac} >/dev/null 2>&1 || true
+    # epi resumes from suspend-to-RAM + tailscale reconnect takes a few s.
+    up=0
+    for _ in $(seq 1 30); do
+      if ${pkgs.openssh}/bin/ssh -o BatchMode=yes -o ConnectTimeout=5 \
+           -o StrictHostKeyChecking=accept-new ${tc.sshTarget} true 2>/dev/null; then
+        up=1; break
+      fi
+      sleep 5
+    done
+    if [ "$up" = 1 ]; then
+      ${pkgs.openssh}/bin/ssh -o BatchMode=yes -o ConnectTimeout=10 \
+        -o StrictHostKeyChecking=accept-new ${tc.sshTarget} \
+        'systemctl start --no-block marker-convert.service' \
+        && echo "marker-convert triggered" \
+        || echo "WARN: marker-convert trigger failed (weekly RTC timer will catch up)" >&2
+    else
+      echo "WARN: convert host unreachable after WOL; weekly RTC timer will catch up" >&2
+    fi
+  '';
+
   # OnSuccess=: scan the run's journal for "NEW_ISSUE:" lines emitted by the
   # script when a fresh PDF was downloaded or synthesised. If any, push a
-  # single low-priority Gotify with the summary. Silent on no-op weeks.
+  # single low-priority Gotify with the summary AND wake+trigger the EPUB
+  # conversion host. Silent / no-op on weeks with nothing new.
   notifySuccess = pkgs.writeShellScript "gwm-archiver-notify-success" ''
     ${readGotifyToken}
     # Window matches the unit's TimeoutStartSec ceiling so we don't drag in
@@ -72,10 +105,40 @@
       -F "title=GWM archiver picked up $count new issue(s) on ${config.networking.hostName}" \
       -F "message=$new_lines" \
       -F "priority=4" >/dev/null || true
+    ${triggerConvertSnippet}
   '';
 in {
   options.homelab.services.gwm-archiver = {
     enable = lib.mkEnableOption "Grapegrower & Winemaker PDF archiver (winetitles.com.au)";
+
+    triggerConvert = {
+      enable = lib.mkEnableOption ''
+        waking + triggering the marker-convert EPUB conversion host after a new
+        download. Off by default; enable on the host that runs gwm-archiver
+        when a separate box (epi) does the heavy PDF->EPUB conversion'';
+
+      mac = lib.mkOption {
+        type = lib.types.str;
+        default = "18:c0:4d:65:86:e8";
+        description = "WOL target MAC of the conversion host (epi).";
+      };
+
+      broadcast = lib.mkOption {
+        type = lib.types.str;
+        default = "192.168.1.255";
+        description = "LAN subnet broadcast address for the WOL magic packet.";
+      };
+
+      sshTarget = lib.mkOption {
+        type = lib.types.str;
+        default = "abl030@epimetheus";
+        description = ''
+          SSH target for the trigger, over Tailscale MagicDNS (stable, unlike
+          epi's DHCP LAN IP). The conversion host's polkit lets this user start
+          marker-convert.service without sudo.
+        '';
+      };
+    };
 
     outDir = lib.mkOption {
       type = lib.types.str;
