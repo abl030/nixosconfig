@@ -1,0 +1,159 @@
+// tailscale/acl.hujson — least-privilege tailnet policy (issue #239)
+//
+// Source of truth for the tailnet ACL. Applied self-hosted from doc2 via
+// `gitops-pusher` (see modules/nixos/services/tailscale/acl-apply.nix, U4),
+// NOT a GitHub Action. Uses the `grants` syntax (recommended 2026; classic
+// `acls` are frozen).
+//
+// THIS IS THE FINAL default-deny policy: there is NO `*:*` allow-all grant.
+// An empty grants list would deny everything; every allowed flow below is
+// explicit. The cutover (U7) tags all devices FIRST (connectivity is
+// preserved because no custom policy is applied yet), validates this file
+// statically (`gitops-pusher test` runs the tests{} block — catches grant
+// typos before apply), then applies it from the HOME LAN with break-glass
+// ready (pfSense/SSH are LAN-only as of 2026-06-07), then re-verifies the
+// live route paths that tests{} cannot see.
+//
+// Tag assignments are made at tagging time (admin console first, then
+// re-auth — Tailscale #13572), not in this file. For reference:
+//   tag:server : proxmox-vm(doc1), doc2, igpu, caddy, downloader, pfsense, tower
+//   tag:client : framework, epimetheus, s-a55, laptop-btibh4ie
+//   tag:share  : overseer, jellyfin-1, audiobookshelf
+//   tag:edge   : homeassistant, raspberrypi (dad's), kerrynas (mum's)
+//
+// REVIEW FLAGS (resolve before the U7 flip — grep "FLAG:"):
+//   - Cullen inverter port (HA -> .139/.133): assumed tcp:443 (EnnexOS HTTPS).
+//   - kerrynas backup transport port: assumed tcp:22.
+//   - client -> homeassistant UI: included; remove if HA is only reached via
+//     Nabu Casa / public domain (not the tailnet).
+{
+  // ---- Tag owners --------------------------------------------------------
+  // Empty owner list => only Owners/Admins/Network-admins may apply the tag.
+  "tagOwners": {
+    "tag:server": ["autogroup:admin"],
+    "tag:client": ["autogroup:admin"],
+    "tag:share":  ["autogroup:admin"],
+    "tag:edge":   ["autogroup:admin"],
+  },
+
+  // ---- Host aliases (stable tailnet IPs) ---------------------------------
+  // Used to scope grants/tests to a single device instead of a whole tag.
+  // If a device is wiped + re-joins it gets a new tailnet IP — re-pin here
+  // (fails closed: the grant simply stops matching).
+  "hosts": {
+    "pfsense":     "100.123.61.111", // fleet DNS resolver (:53)
+    "framework":   "100.78.17.73",   // the ONLY device allowed to SSH wsl
+    "wsl-router":  "100.75.246.114",  // laptop-btibh4ie: Cullen subnet router + wsl SSH jump
+    "homeassistant": "100.106.165.120",
+    "kerrynas":    "100.100.237.21",  // mum's NAS, kopia backup target
+    "dad-pihole":  "100.88.30.54",    // raspberrypi at dad's
+  },
+
+  // ---- Grants (deny-by-default; only these flows are allowed) -------------
+  "grants": [
+    // Intra-fleet mesh: servers fully trust servers (NFS, DNS, monitoring,
+    // syncoid, nix-cache, backups). A popped *container* is contained by the
+    // podman/nspawn hardening in #232, not by the ACL — see plan KTD.
+    { "src": ["tag:server"], "dst": ["tag:server"], "ip": ["*"] },
+
+    // Personal clients reach servers on a short allowlist only.
+    // SSH (OpenSSH :22) + HTTPS (localProxy/caddy :443). Tailscale SSH is the
+    // ssh{} block below.
+    { "src": ["tag:client"], "dst": ["tag:server"], "ip": ["tcp:22", "tcp:443"] },
+
+    // Fleet DNS: clients forward to pfSense over the tailnet. TCP/53 is
+    // load-bearing here (tailscaled forwards over TCP in this environment) —
+    // both protos. Servers get :53 via the mesh grant above.
+    { "src": ["tag:client"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
+
+    // Roaming clients reach the home LAN (nix cache 192.168.1.29, NFS
+    // 192.168.1.2, ...) via tower's advertised 192.168.0.0/23 subnet route.
+    { "src": ["tag:client"], "dst": ["192.168.0.0/23"], "ip": ["*"] },
+
+    // Clients use tower as a Tailscale exit node (general internet egress).
+    { "src": ["tag:client"], "dst": ["autogroup:internet"], "ip": ["*"] },
+
+    // wsl access is framework-only. laptop-btibh4ie's Windows portproxy
+    // forwards :22 to the WSL VM (OpenSSH). No other client reaches wsl.
+    { "src": ["framework"], "dst": ["wsl-router"], "ip": ["tcp:22"] },
+
+    // Manage dad's Pi-hole (the pi NODE only — NOT dad's 192.168.2.0/24 LAN,
+    // which stays unreachable per the inbound-only / lockdown posture).
+    { "src": ["tag:client"], "dst": ["dad-pihole"], "ip": ["tcp:22", "tcp:80", "tcp:443"] },
+
+    // FLAG: HA UI from clients. Remove if HA is only reached via Nabu Casa /
+    // a public domain rather than the tailnet.
+    { "src": ["tag:client"], "dst": ["homeassistant"], "ip": ["tcp:443", "tcp:8123"] },
+
+    // EDGE EGRESS EXCEPTION — the one place an edge node initiates outward.
+    // HA polls the two STATIC Cullen solar inverters, pinned to /32 (the
+    // 192.168.100.0/24 route is advertised by laptop-btibh4ie, but access is
+    // gated to exactly these two IPs). Adding a new Cullen device the fleet
+    // must reach requires adding its /32 here — the route alone is NOT enough.
+    // FLAG: tcp:443 assumed (EnnexOS HTTPS); confirm before the flip, or widen
+    // temporarily then narrow once the real port is observed.
+    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+
+    // Off-site backup: servers push to mum's NAS; kerrynas never initiates in.
+    // FLAG: tcp:22 assumed (SFTP/rsync transport); confirm the kopia transport
+    // port to kerrynas before the flip.
+    { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:22"] },
+
+    // NOTE: tag:share has NO outbound grant — share sidecars reach their
+    // upstream over the local podman bridge, not the tailnet, and must never
+    // reach a fleet node. 443-only inbound for shared-in users is enforced
+    // sidecar-side (Caddy binds :443, --accept-routes=false); the other
+    // tailnet's policy governs who may reach the shared node. This tailnet's
+    // ACL cannot name shared-in users.
+  ],
+
+  // ---- Tailscale SSH -----------------------------------------------------
+  // A curated policy with no ssh{} rule DISABLES Tailscale SSH. Preserve it
+  // for fleet admin. (OpenSSH :22 is governed by the grants above.)
+  "ssh": [
+    {
+      "action": "accept",
+      "src":    ["tag:client", "tag:server"],
+      "dst":    ["tag:server"],
+      "users":  ["autogroup:nonroot"],
+    },
+  ],
+
+  // ---- Auto-approvers (apply only at advertise time; re-advertise after ----
+  //      re-auth in U7 or routes stay pending). Tag-based so they survive
+  //      re-auth/user changes.
+  "autoApprovers": {
+    "routes": {
+      "192.168.0.0/23":   ["tag:server"], // tower -> home LAN
+      "192.168.100.0/24": ["tag:client"], // laptop-btibh4ie -> Cullen (for HA's /32s)
+    },
+    // Only tower advertises an exit node today. FLAG: tag:server-wide — if
+    // another server ever advertises exit it is auto-approved; revisit with a
+    // dedicated tag:exit if more exit nodes appear.
+    "exitNode": ["tag:server"],
+  },
+
+  // ---- Tests (static accept/deny assertions; run on every apply) ---------
+  // PRECISE on purpose: exact IPs/ports + adjacent-IP denies so a grant typo
+  // fails validation BEFORE apply (the live routes still need post-apply
+  // probes — tests{} can't see on-wire reachability).
+  "tests": [
+    // DNS preserved
+    { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
+    // Client allowlist + a non-allowlisted server port denied
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443"], "deny": ["tag:server:5432"] },
+    // Cullen pin: HA reaches the two inverters, NOT an adjacent Cullen IP, NOT a fleet node
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "homeassistant", "proto": "tcp", "deny": ["tag:server:443"] },
+    // Shares cannot reach the fleet
+    { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443", "tag:server:22"] },
+    // wsl SSH is framework-only
+    { "src": "framework", "proto": "tcp", "accept": ["wsl-router:22"] },
+    { "src": "tag:share", "proto": "tcp", "deny": ["wsl-router:22"] },
+  ],
+
+  // ---- Tailscale SSH tests ----------------------------------------------
+  "sshTests": [
+    { "src": "tag:client", "dst": ["tag:server"], "accept": ["abl030"] },
+  ],
+}
