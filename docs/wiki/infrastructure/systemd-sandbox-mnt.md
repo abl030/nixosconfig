@@ -125,7 +125,33 @@ The unhardened set (`ProtectSystem=no`, full `/mnt` **RW**-visible). Done in thr
 - **Verify against the resolved value, not the module default.** cratedigger's `downloadDir` default is `/mnt/data/Media/Temp/slskd`, but doc2 overrides it to `/mnt/virtio/music/slskd` (lowercase, ≠ the capital-M `/mnt/virtio/Music` beets tree). Always read the actual `systemctl show -p BindPaths` and the host override, not the option default, when sanity-checking a namespace.
 - **Audit guesses need confirming.** The audit listed audiobookshelf's library as `/mnt/data/Media/Audiobooks`; the real path (from the ABS sqlite DB) is `/mnt/data/Media/Books/Audiobooks`. Pulled it from `libraryFolders` rather than trusting the issue.
 
-### Remaining (follow-up batches)
+### Batch 3 — Class D / immich + nginx (landed 2026-06-07)
 
-- **Class D / immich** — `immich-server` (shares mount namespace with ML subprocess + asset-edit machinery), `immich-machine-learning`, plus free wins on nginx/grafana (`PrivateMounts=yes` + blank `/mnt`).
+| Service | Shape | Notes |
+|---|---|---|
+| immich-server | blank `/mnt` + bind `mediaLocation` | only the photo library; DB over TCP so private namespace is safe (the old "loses nspawn nspath" worry was moot — it already ran `PrivateMounts=yes`) |
+| immich-machine-learning | blank `/mnt` + bind `MACHINE_LEARNING_CACHE_FOLDER` when under `/mnt` | virtiofs model cache |
+| grafana | blank `/mnt` + bind `cfg.dataDir/grafana` | data dir is on virtiofs (= WorkingDirectory); sandbox lives in `loki-server.nix` which owns the path |
+| nginx | **secure-by-default**: blank `/mnt` in the shared `homelab.nginx` module | see below |
+
+**The nginx secure-by-default pattern (the important one).** Rather than enumerate which hosts' nginx is "just a proxy," `homelab.nginx` now sets `TemporaryFileSystem=/mnt` unconditionally — so every host, and every future VM, starts with nginx blind to `/mnt`. Any module that defines an nginx vhost serving static files from `/mnt` **opens that one hole itself**, co-located with the vhost:
+
+```nix
+# in the module that sets `services.nginx.virtualHosts.<x>.root = <path under /mnt>`
+systemd.services.nginx = {
+  unitConfig.RequiresMountsFor = [ <root> ];
+  serviceConfig.BindPaths = [ <root> ];   # list-merges across modules
+};
+```
+
+Done for `podcast.nix` (`/mnt/data/Media/Podcasts` on doc1). Audited every fleet `services.nginx...root`: only podcast is under `/mnt` (smokeping → `/var/lib`, nix cache → `/var/cache`, meelo default → `/var/lib` and disabled). This means a future static-from-`/mnt` vhost that forgets the bind fails **loud** (nginx `226/NAMESPACE`) instead of silently widening the blast radius — the failure mode points you straight at the missing `BindPaths`.
+
+**Class D learnings:**
+
+- **Read the actual `WorkingDirectory`/env, not assumptions.** grafana looked like a "needs nothing under `/mnt`" free win, but its data dir is `cfg.dataDir/grafana` on virtiofs → a no-bind blank `/mnt` failed `200/CHDIR`. Same lesson as cratedigger's `downloadDir`: confirm against the running unit.
+- **Put the bind where the path is defined.** grafana's sandbox went in `loki-server.nix` (owns `services.grafana.dataDir`), not `alerting.nix` (only adds restartTriggers). Keeps the `/mnt` hole next to the path it needs.
+
+### Remaining
+
+- **LGTM siblings** (tempo, mimir, loki) have the same virtiofs-`WorkingDirectory` shape as grafana and could get the same treatment — not in the original audit's class list, follow-up if desired.
 - **Class E** (kopia-mum/photos, nspawn `*-db` containers) — legitimately broad / already tight, leave alone.

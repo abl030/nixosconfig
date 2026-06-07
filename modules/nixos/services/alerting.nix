@@ -1072,6 +1072,8 @@ in {
           restartTriggers = [
             config.systemd.units."grafana-alerting-prestart.service".unit
           ];
+          # #257 /mnt sandbox for grafana lives in loki-server.nix (which owns
+          # services.grafana.dataDir) so the bind path stays co-located.
         };
       };
     };

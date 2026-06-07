@@ -195,8 +195,20 @@ in {
 
       services = {
         # Grafana admin creds injected via env so they never hit the Nix store.
-        grafana.serviceConfig.EnvironmentFile =
-          config.sops.secrets."loki/grafana.env".path;
+        # #257: grafana inherited doc2's whole /mnt/* tree (incl.
+        # /mnt/backup/pfsense, /mnt/appdata, /mnt/mum). Its only legit /mnt
+        # path is its own data dir on virtiofs (= cfg.dataDir/grafana, also
+        # its WorkingDirectory). Blank /mnt and bind only that. Done here
+        # rather than in alerting.nix because this module owns the dataDir.
+        # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        grafana = {
+          unitConfig.RequiresMountsFor = ["${cfg.dataDir}/grafana"];
+          serviceConfig = {
+            EnvironmentFile = config.sops.secrets."loki/grafana.env".path;
+            TemporaryFileSystem = "/mnt";
+            BindPaths = ["${cfg.dataDir}/grafana"];
+          };
+        };
 
         tempo.serviceConfig = {
           DynamicUser = lib.mkForce false;

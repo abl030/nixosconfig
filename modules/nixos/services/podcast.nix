@@ -263,6 +263,16 @@ in {
   # 6. SOPS Secret
   # REMOVED: Managed centrally by homelab.nginx
 
+  # #257: homelab.nginx blanks /mnt by default (secure-by-default). This
+  # vhost serves static files from podcastDir on NFS, so bind that one path
+  # back into nginx's sandbox and order nginx after the mount. Without this
+  # the fail-loud bind / blanked tmpfs would 404 every podcast request (or
+  # fail nginx start). Co-located here so the hole travels with the vhost.
+  systemd.services.nginx = {
+    unitConfig.RequiresMountsFor = [podcastDir];
+    serviceConfig.BindPaths = [podcastDir];
+  };
+
   # 7. Nginx Configuration
   services.nginx = {
     virtualHosts."${domain}" = {
