@@ -29,7 +29,13 @@
       enable = true;
       secure = true;
     };
-    tailscale.enable = true;
+    tailscale = {
+      enable = true;
+      # doc2 is the tailnet ACL apply host (#239): it holds the doc2-scoped
+      # policy_file OAuth secret and applies tailscale/acl.hujson via a manual
+      # oneshot. See modules/nixos/services/tailscale/acl-apply.nix.
+      aclApply.enable = true;
+    };
 
     # LGTM observability stack — migrated from igpu per #208.
     # Also receive syslog (pfSense, tower) on 1514/udp+tcp.
