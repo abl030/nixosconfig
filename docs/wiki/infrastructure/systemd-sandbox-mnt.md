@@ -104,8 +104,28 @@ Applied the `TemporaryFileSystem=/mnt` pattern to the first batch. All verified 
 1. **Order the unit after its bind sources** — `unitConfig.RequiresMountsFor = [ <each bound /mnt path> ]`. `BindPaths` is fail-loud, so a unit that starts before its virtiofs/NFS mount dies with `226/NAMESPACE` at boot. (Old `ReadWritePaths` masked this by silently skipping the unmounted source.)
 2. **Upstream `ReadWritePaths` under a blank `/mnt` can break the namespace.** forgejo's upstream module lists `${stateDir}/data/lfs` in `ReadWritePaths`; with LFS disabled that dir doesn't exist. In the host namespace `ReadWritePaths` skip-if-missing handles it, but under `TemporaryFileSystem=/mnt` the self-bind can't be skipped → `226/NAMESPACE`. Fix: once `BindPaths` covers the parent dir rw, clear the redundant upstream list with `ReadWritePaths = lib.mkForce [];`. **Check any service whose upstream module sets `ReadWritePaths` under `/mnt` before converting it.**
 
+### Batch 2 — Class C (landed 2026-06-07)
+
+The unhardened set (`ProtectSystem=no`, full `/mnt` **RW**-visible). Done in three sub-batches, each deployed + verified on doc2:
+
+| Service | Shape | Notes |
+|---|---|---|
+| tautulli, gotify-server | `ProtectSystem=strict` + bind 1 virtiofs dataDir | sole path each writes |
+| discogs-api | `ProtectSystem=strict` + blank `/mnt`, no bind | stateless root API (DB over TCP) |
+| discogs-import | blank `/mnt` + bind mirror dir | monthly root oneshot |
+| mealie | blank `/mnt` only | state already binds virtiofs→`/var/lib/mealie` |
+| fava (+ clone/pull) | `ProtectSystem=strict` (fava) + bind virtiofs dataDir | replaced fava's `ReadWritePaths` |
+| webdav | `ProtectSystem=strict` + bind **only** the Zotero Library NFS dir | space-bearing path, escaped |
+| audiobookshelf (+ cache-cleanup) | blank `/mnt` + bind state + declared library dirs | new `libraryDirs` option; real path is `/mnt/data/Media/Books/Audiobooks` |
+| cratedigger ×6 app units | blank `/mnt` + bind state + `/mnt/virtio/Music` + `cfg.downloadDir` | **biggest win** — ran as root seeing `/mnt/backup/pfsense`, `/mnt/appdata`, `/mnt/mum`; validated live (pipeline imported music inside the sandbox with zero errors) |
+
+**Class C learnings:**
+
+- **`ProtectSystem=strict` added only where the writable-path set is known** (single-user services writing one dataDir, or stateless). Skipped for audiobookshelf and the cratedigger app units (large Node/Python apps with unpinned write paths) — there the `/mnt` narrowing alone is the blast-radius win #257 targets.
+- **Verify against the resolved value, not the module default.** cratedigger's `downloadDir` default is `/mnt/data/Media/Temp/slskd`, but doc2 overrides it to `/mnt/virtio/music/slskd` (lowercase, ≠ the capital-M `/mnt/virtio/Music` beets tree). Always read the actual `systemctl show -p BindPaths` and the host override, not the option default, when sanity-checking a namespace.
+- **Audit guesses need confirming.** The audit listed audiobookshelf's library as `/mnt/data/Media/Audiobooks`; the real path (from the ABS sqlite DB) is `/mnt/data/Media/Books/Audiobooks`. Pulled it from `libraryFolders` rather than trusting the issue.
+
 ### Remaining (follow-up batches)
 
-- **Class C** — add `ProtectSystem=strict` + sandbox where upstream omits it: audiobookshelf, cratedigger (×3 units), discogs-api, fava, mealie, tautulli, webdav. Higher breakage risk (may rely on visibility we don't realise) → one at a time with verification.
 - **Class D / immich** — `immich-server` (shares mount namespace with ML subprocess + asset-edit machinery), `immich-machine-learning`, plus free wins on nginx/grafana (`PrivateMounts=yes` + blank `/mnt`).
 - **Class E** (kopia-mum/photos, nspawn `*-db` containers) — legitimately broad / already tight, leave alone.
