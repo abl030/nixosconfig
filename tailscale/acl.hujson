@@ -22,7 +22,7 @@
 //   tag:edge   : homeassistant, raspberrypi (dad's), kerrynas (mum's)
 //
 // Review flags RESOLVED 2026-06-08:
-//   - Cullen inverters listen on tcp:444 (EnnexOS), not 443.
+//   - Cullen inverters listen on tcp:443 (EnnexOS HTTPS).
 //   - kerrynas backup is NFSv4 over TCP (tcp:2049) — confirmed from the live
 //     /mnt/mum mount on doc2 (vers=4.0, proto=tcp).
 //   - HA is reached via the caddy VM over the LAN (local traffic), so it gets
@@ -90,7 +90,7 @@
     // 192.168.100.0/24 route is advertised by laptop-btibh4ie, but access is
     // gated to exactly these two IPs). Adding a new Cullen device the fleet
     // must reach requires adding its /32 here — the route alone is NOT enough.
-    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:444"] },
+    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
 
     // Off-site backup: servers mount mum's NAS over NFSv4 (tcp:2049) and kopia
     // writes there; kerrynas never initiates back into the fleet.
@@ -140,7 +140,7 @@
     // Client allowlist + a non-allowlisted server port denied
     { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443"], "deny": ["tag:server:5432"] },
     // Cullen pin: HA reaches the two inverters, NOT an adjacent Cullen IP, NOT a fleet node
-    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:444", "192.168.100.133:444"], "deny": ["192.168.100.140:444"] },
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
     { "src": "homeassistant", "proto": "tcp", "deny": ["tag:server:443"] },
     // Off-site backup path preserved
     { "src": "tag:server", "proto": "tcp", "accept": ["kerrynas:2049"] },
