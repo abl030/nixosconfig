@@ -1072,6 +1072,12 @@ in {
           restartTriggers = [
             config.systemd.units."grafana-alerting-prestart.service".unit
           ];
+          # #257: grafana needs nothing under /mnt but inherited doc2's whole
+          # /mnt/* tree (incl. /mnt/backup/pfsense, /mnt/appdata, /mnt/mum).
+          # Blank it — TemporaryFileSystem forces a private mount namespace
+          # (upstream leaves PrivateMounts=no). No bind source → no NAMESPACE
+          # errorPattern. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+          serviceConfig.TemporaryFileSystem = "/mnt";
         };
       };
     };

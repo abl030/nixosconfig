@@ -72,5 +72,21 @@ in {
     };
 
     users.users.nginx.extraGroups = ["acme"];
+
+    # #257: secure-by-default — blank nginx's /mnt in the shared module so
+    # every host (and every future VM) starts with nginx unable to see the
+    # /mnt/* tree it almost never needs. nginx already runs
+    # ProtectSystem=strict + PrivateMounts=yes, but those leave the
+    # user-managed /mnt mounts visible; TemporaryFileSystem masks them.
+    #
+    # A reverse-proxy nginx (e.g. doc2) needs nothing bound back. Any host
+    # that ALSO serves static files from /mnt opens that hole explicitly in
+    # the module that defines the vhost, by adding the path to
+    # `systemd.services.nginx.serviceConfig.BindPaths` + a matching
+    # `RequiresMountsFor` (see podcast.nix for the pattern). This keeps the
+    # /mnt hole co-located with the config that needs it, so it can't be
+    # forgotten when a service moves hosts.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.nginx.serviceConfig.TemporaryFileSystem = "/mnt";
   };
 }

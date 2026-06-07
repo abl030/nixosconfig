@@ -6,6 +6,11 @@
 }: let
   cfg = config.homelab.services.immich;
 
+  # #257 sandbox paths (see immich-server / immich-machine-learning below).
+  mediaLocation = config.services.immich.mediaLocation;
+  mlCache = config.services.immich.machine-learning.environment.MACHINE_LEARNING_CACHE_FOLDER or "/var/cache/immich";
+  mlCacheUnderMnt = lib.hasPrefix "/mnt" mlCache;
+
   # Extension-creation SQL — replicated from upstream's unguarded ExecStartPost
   # (nixpkgs #388806). We run this inside the container instead.
   immichExtensionSQL = ''
@@ -158,10 +163,33 @@ in {
         after = ["container@immich-db.service"];
         requires = ["container@immich-db.service"];
         restartTriggers = [config.systemd.units."container@immich-db.service".unit];
-        # Inject pgpass into immich-server's EnvironmentFile after immich/env
-        # (which `secretsFile` populates). Later entries win in systemd.
-        serviceConfig.EnvironmentFile =
-          lib.mkAfter [config.sops.secrets."immich-pgpass".path];
+        # #257: immich-server inherited doc2's whole /mnt tree (incl.
+        # /mnt/backup/pfsense, /mnt/appdata, /mnt/mum). Its only legit /mnt
+        # path is the photo library (mediaLocation); the DB is reached over
+        # TCP via the immich-db nspawn container, so a private /mnt namespace
+        # doesn't affect it. Blank /mnt, bind only the library. NOT adding
+        # ProtectSystem here (immich-server's full writable-path set is
+        # unpinned) — the /mnt narrowing is the #257 win.
+        # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        unitConfig.RequiresMountsFor = [mediaLocation];
+        serviceConfig = {
+          # Inject pgpass into immich-server's EnvironmentFile after immich/env
+          # (which `secretsFile` populates). Later entries win in systemd.
+          EnvironmentFile = lib.mkAfter [config.sops.secrets."immich-pgpass".path];
+          TemporaryFileSystem = "/mnt";
+          BindPaths = [mediaLocation];
+        };
+      };
+
+      # #257: machine-learning downloads/caches models to a virtiofs dir on
+      # doc2 (MACHINE_LEARNING_CACHE_FOLDER). Blank /mnt and bind only that
+      # cache when it lives under /mnt (on a host using the /var/cache default
+      # there's nothing to bind — the blank tmpfs alone is the win).
+      immich-machine-learning = {
+        unitConfig = lib.mkIf mlCacheUnderMnt {RequiresMountsFor = [mlCache];};
+        serviceConfig =
+          {TemporaryFileSystem = "/mnt";}
+          // lib.optionalAttrs mlCacheUnderMnt {BindPaths = [mlCache];};
       };
     };
 
@@ -211,7 +239,7 @@ in {
           # for table) plus any pg_dump backup failure. Skips noisy
           # ERR_HTTP_HEADERS_SENT and "Failed to fetch latest release"
           # — those are warns, not service-broken.
-          pattern = "(?i)permission denied for table|pg_dump non-zero exit code|Database Backup Failure";
+          pattern = "(?i)permission denied for table|pg_dump non-zero exit code|Database Backup Failure|Failed at step NAMESPACE";
           severity = "critical";
           summary = "Immich app is throwing DB errors — uploads likely broken";
           description = ''
