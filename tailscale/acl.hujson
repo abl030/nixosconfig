@@ -21,11 +21,12 @@
 //   tag:share  : overseer, jellyfin-1, audiobookshelf
 //   tag:edge   : homeassistant, raspberrypi (dad's), kerrynas (mum's)
 //
-// REVIEW FLAGS (resolve before the U7 flip — grep "FLAG:"):
-//   - Cullen inverter port (HA -> .139/.133): assumed tcp:443 (EnnexOS HTTPS).
-//   - kerrynas backup transport port: assumed tcp:22.
-//   - client -> homeassistant UI: included; remove if HA is only reached via
-//     Nabu Casa / public domain (not the tailnet).
+// Review flags RESOLVED 2026-06-08:
+//   - Cullen inverters listen on tcp:444 (EnnexOS), not 443.
+//   - kerrynas backup is NFSv4 over TCP (tcp:2049) — confirmed from the live
+//     /mnt/mum mount on doc2 (vers=4.0, proto=tcp).
+//   - HA is reached via the caddy VM over the LAN (local traffic), so it gets
+//     NO tailnet inbound grant; HA's only tailnet flow is its Cullen egress.
 {
   // ---- Tag owners --------------------------------------------------------
   // Empty owner list => only Owners/Admins/Network-admins may apply the tag.
@@ -81,23 +82,19 @@
     // which stays unreachable per the inbound-only / lockdown posture).
     { "src": ["tag:client"], "dst": ["dad-pihole"], "ip": ["tcp:22", "tcp:80", "tcp:443"] },
 
-    // FLAG: HA UI from clients. Remove if HA is only reached via Nabu Casa /
-    // a public domain rather than the tailnet.
-    { "src": ["tag:client"], "dst": ["homeassistant"], "ip": ["tcp:443", "tcp:8123"] },
+    // (No HA inbound grant: HA is reached through the caddy VM over the LAN,
+    // not the tailnet. HA's only tailnet flow is its Cullen egress below.)
 
     // EDGE EGRESS EXCEPTION — the one place an edge node initiates outward.
     // HA polls the two STATIC Cullen solar inverters, pinned to /32 (the
     // 192.168.100.0/24 route is advertised by laptop-btibh4ie, but access is
     // gated to exactly these two IPs). Adding a new Cullen device the fleet
     // must reach requires adding its /32 here — the route alone is NOT enough.
-    // FLAG: tcp:443 assumed (EnnexOS HTTPS); confirm before the flip, or widen
-    // temporarily then narrow once the real port is observed.
-    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:444"] },
 
-    // Off-site backup: servers push to mum's NAS; kerrynas never initiates in.
-    // FLAG: tcp:22 assumed (SFTP/rsync transport); confirm the kopia transport
-    // port to kerrynas before the flip.
-    { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:22"] },
+    // Off-site backup: servers mount mum's NAS over NFSv4 (tcp:2049) and kopia
+    // writes there; kerrynas never initiates back into the fleet.
+    { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:2049"] },
 
     // NOTE: tag:share has NO outbound grant — share sidecars reach their
     // upstream over the local podman bridge, not the tailnet, and must never
@@ -127,9 +124,9 @@
       "192.168.0.0/23":   ["tag:server"], // tower -> home LAN
       "192.168.100.0/24": ["tag:client"], // laptop-btibh4ie -> Cullen (for HA's /32s)
     },
-    // Only tower advertises an exit node today. FLAG: tag:server-wide — if
-    // another server ever advertises exit it is auto-approved; revisit with a
-    // dedicated tag:exit if more exit nodes appear.
+    // Only tower advertises an exit node today. NOTE (residual): tag:server-wide
+    // — if another server ever advertises exit it is auto-approved; revisit with
+    // a dedicated tag:exit if more exit nodes appear.
     "exitNode": ["tag:server"],
   },
 
@@ -143,8 +140,10 @@
     // Client allowlist + a non-allowlisted server port denied
     { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443"], "deny": ["tag:server:5432"] },
     // Cullen pin: HA reaches the two inverters, NOT an adjacent Cullen IP, NOT a fleet node
-    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:444", "192.168.100.133:444"], "deny": ["192.168.100.140:444"] },
     { "src": "homeassistant", "proto": "tcp", "deny": ["tag:server:443"] },
+    // Off-site backup path preserved
+    { "src": "tag:server", "proto": "tcp", "accept": ["kerrynas:2049"] },
     // Shares cannot reach the fleet
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443", "tag:server:22"] },
     // wsl SSH is framework-only
