@@ -112,6 +112,26 @@ grep dnsbl /var/unbound/unbound.conf | head
 # "module-config: \"python validator iterator\"" → correct
 ```
 
+### pfBlockerNG IP feeds can false-positive CDN anycast IPs
+
+Distinct from DNSBL (domains): pfBlockerNG's **IP** reputation feeds (e.g.
+Project Honeypot `HoneyPot_*`) populate `pfB_*` pf deny tables. They periodically
+flag individual IPs inside shared CDN anycast ranges (Fastly/Cloudflare/Akamai),
+which silently breaks legit destinations sharing that IP. On 2026-06-07 this
+blocked **cache.nixos.org** (`151.101.0.0/16`, Fastly) fleet-wide and was
+misdiagnosed as an ISP fault for hours. Full RCA + the diagnostic lesson
+("test reachability from pfSense itself to tell our-end from the ISP") and the
+suppression-list how-to:
+[pfblockerng-fastly-block-incident-2026-06-07](pfblockerng-fastly-block-incident-2026-06-07.md).
+
+```sh
+# Is an IP in a deny table, and which feed put it there?
+pfctl -t pfB_PRI4_v4 -T test <ip>
+grep -rl <ip> /var/db/pfblockerng/deny/
+# Fix: suppress the owning CIDR/ASN (config.xml installedpackages/pfblockerngipsettings,
+# base64) + Force Reload. Never flush states.
+```
+
 ### ntopng's `--dns-mode=1` PTR firehose
 
 Initiates reverse-DNS lookups on every IP it observes. On a busy LAN, this generates a sustained stream of loopback PTR queries that saturate unbound's TCP slots during bursts. **Current setting: `--dns-mode=2`** (passive decode only, no initiated lookups). Stored in `config.xml` under `<installedpackages><ntopng><dns_mode>` and generated into `/usr/local/etc/ntopng.conf`. Modes:

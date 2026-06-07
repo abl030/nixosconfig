@@ -1,42 +1,45 @@
 # nix pull-through mirror: failover to backup origins
 
 **Date:** 2026-06-07
-**Status:** WORKING — deployed on doc1 (proxmox-vm), verified live during the
-2026-06-07 Fastly outage.
+**Status:** WORKING — deployed on doc1 (proxmox-vm), verified live on 2026-06-07
+while cache.nixos.org was unreachable from the fleet.
 **Module:** `modules/nixos/nix_caches/nix_cache.nix` (`homelab.cache`)
-**Related:** [cratesio-403-ua.md](cratesio-403-ua.md) (the #259 work that surfaced this)
+**Related:** [pfblockerng-fastly-block-incident-2026-06-07](pfblockerng-fastly-block-incident-2026-06-07.md)
+(the outage this was built/verified against — read it for the *actual* root
+cause), [cratesio-403-ua.md](cratesio-403-ua.md) (the #259 work that surfaced this).
 
-## The incident (2026-06-07)
+## Why this exists
 
-`nix-mirror.ablz.au` (the pull-through cache on doc1) started returning **502 Bad
-Gateway** for every cold path. Root cause was **upstream, not us**:
+On 2026-06-07 `cache.nixos.org` became unreachable from every fleet host —
+`nix-mirror.ablz.au` returned `502 Bad Gateway` for every cold path, and the
+fleet could not fetch any new store path. The mirror is a *cache, not an
+independent copy*: its only cold-path origin was cache.nixos.org, so when that
+was unreachable the mirror was exactly as down as the upstream. **Mirror-up and
+mirror-down were identical failures for new paths.** That single-origin fragility
+is what this change fixes.
 
-- `cache.nixos.org` resolves to Fastly's `151.101.{1,65,129,193}.91`
-  (`151.101.0.0/16`). From our home WAN **and** from the commercial VPN exit,
-  TCP/443 to those IPs **timed out**. Another Fastly range (`199.232.x`),
-  github, and `1.1.1.1` were all reachable.
-- check-host.net reached `151.101.1.91:443` in 2–42 ms from CA/NL/RU/SG/US, and
-  the user's laptop on a **Brisbane** link (different AU ISP) pulled HTTP 200
-  from the same IPs. So Fastly was up worldwide — **our ISP's path to that one
-  Fastly prefix was broken.** Nothing on our side (no pfSense block: filterlog
-  had no drops; WAN showed retried SYNs with no SYN-ACK).
+> **Important — what the outage actually was:** it was *not* an ISP/Fastly fault,
+> even though it was confidently diagnosed as one for hours. The real cause was a
+> **pfBlockerNG false-positive** blocking Fastly's `151.101.0.0/16` at our own
+> firewall. Full story + the diagnostic lesson:
+> [pfblockerng-fastly-block-incident-2026-06-07](pfblockerng-fastly-block-incident-2026-06-07.md).
+> The failover below is origin-cause-agnostic: it protects against *any* reason
+> the primary origin is unreachable (feed false-positive, real ISP fault, Fastly
+> regional issue, …), which is exactly why it's worth keeping regardless of the
+> mis-call.
 
-Two second-order problems made it worse:
+A confounding factor seen early (independently worth fixing): nginx's
+`proxy_pass https://cache.nixos.org;` resolves the name **once at startup** and
+never re-resolves, and it had latched onto Fastly's **IPv6** addresses (AAAA
+returned, but IPv6 is half-configured on the fleet — no v6 default route) →
+`no live upstreams`. The resolver/`ipv6=off` change below fixes that for good.
 
-1. **nginx pinned the upstream IPs at startup.** `proxy_pass https://cache.nixos.org;`
-   resolves once at config load and never re-resolves. It had latched onto
-   Fastly's (unreachable) **IPv6** addresses — IPv6 is half-configured on the
-   fleet (AAAA records returned, no v6 default route), so nginx picked dead
-   AAAA upstreams → `no live upstreams`.
-2. **No fallback origin.** The mirror's only cold-path source was the dead
-   Fastly prefix, so the mirror was exactly as down as cache.nixos.org. The
-   mirror is a cache, not an independent copy — mirror-up and mirror-down were
-   identical failures for new paths.
-
-Dead ends we ruled out: S3 origin (`nix-cache` bucket is now **Requester
-Pays** — anonymous 403); pinning cache.nixos.org to a reachable Fastly edge
-(`199.232.x` resets TLS for the cache SNI); routing via the VPN (its upstream
-can't reach `151.101` either).
+Dead ends ruled out while chasing the (wrong) upstream theory, kept for
+posterity: S3 origin (`nix-cache` bucket is now **Requester Pays** — anonymous
+403); pinning cache.nixos.org to a reachable Fastly edge (`199.232.x` resets TLS
+for the cache SNI); routing via the commercial VPN (couldn't reach `151.101`
+either — because the *same* pfBlockerNG rule blocks LAN→those-IPs regardless of
+egress path).
 
 ## What we found works
 

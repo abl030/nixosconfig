@@ -22,6 +22,9 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [pfsense-dns-resolver](infrastructure/pfsense-dns-resolver.md) — pfSense as the fleet DNS resolver: tunables, restart commands, ntopng/pfBlockerNG/kea2unbound footguns
 - [pfsense-backup](infrastructure/pfsense-backup.md) — ACB + ZFS-pull-to-prom + dual-Kopia off-site architecture, restore procedures incl. VM-on-prom emergency play
 - [dns-saturation-incident-2026-05-22](infrastructure/dns-saturation-incident-2026-05-22.md) — RCA: chronic unbound TCP/53 saturation surfaced via `rolling-flake-update`; subagent → research debugging-loop pattern
+- [pfblockerng-fastly-block-incident-2026-06-07](infrastructure/pfblockerng-fastly-block-incident-2026-06-07.md) — pfBlockerNG feed false-positive blocked cache.nixos.org's Fastly /16; misdiagnosed as ISP for hours; lesson: test from the firewall itself
+- [nix-mirror-failover](infrastructure/nix-mirror-failover.md) — `nix-mirror.ablz.au` fails over cache.nixos.org → SJTU → TUNA; per-request re-resolution + `ipv6=off`; disk-caches the fallback once for the fleet
+- [cratesio-403-ua](infrastructure/cratesio-403-ua.md) — crates.io 403s nix's `curl/` UA; resolved by nixpkgs static.crates.io fix (#259)
 - [systemd-mount-ordering-cycles](infrastructure/systemd-mount-ordering-cycles.md) — why bind mounts on NFS need `_netdev`; cycle topology and latency-bomb properties
 
 ### Services
