@@ -11,6 +11,15 @@ pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical
 
 If pfSense's unbound stops answering, **the whole fleet loses non-MagicDNS resolution within seconds** — including build sandboxes, package fetches, and any service that hits public hostnames.
 
+## Management plane: LAN-only (2026-06-07)
+
+pfSense's admin surfaces are reachable **only from the LAN** (`192.168.1.0/24`) — not over Tailscale, the IoT/Docker VLANs, or WAN. Tightened on 2026-06-07 as part of the least-privilege work in [#239](https://github.com/abl030/nixosconfig/issues/239): pfSense is a non-NixOS member of the open tailnet mesh with no container-hardening fallback, so locking its admin plane is the compensating control.
+
+- **Web GUI (`:443`) and SSH (`:22`):** floating `quick` block rules (IDs 39–46, direction=any) drop traffic to "This Firewall" on those ports arriving on the Tailscale, Docker-VLAN (OPT3), IoT-VLAN (OPT4), and WAN interfaces. The LAN anti-lockout rule is untouched, so admin from `192.168.1.0/24` is preserved.
+- **DNS (`:53`) is deliberately exempt.** The whole fleet forwards DNS to pfSense over *both* the LAN and the Tailscale interface (see "Role" above — tailscaled holds persistent TCP/53 to `100.123.61.111`). The block rules are scoped to the admin ports only. A blanket "block tailnet → This Firewall" would take DNS down fleet-wide — **never** add a to-firewall block on the Tailscale interface without carving out `:53`.
+
+Verify from a fleet host with both paths: GUI/SSH on `192.168.1.1` succeed, the same ports on `100.123.61.111` time out, and `dig @100.123.61.111 <name>` still resolves. Rules live on the appliance only (not in this repo); roll back by deleting the floating block rules in the GUI. Never flush states.
+
 ## Non-obvious facts that have bitten us
 
 1. **`100.123.61.111` and `192.168.1.1` are the same box.** Tailscale interface and LAN interface of pfSense. Logs that mention both addresses are not describing two failures — they're describing one resolver being asked twice via two paths.
