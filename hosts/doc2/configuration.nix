@@ -301,6 +301,10 @@
   # Virtiofs mount — ALL service state lives here
   # This is the whole point: storage decoupled from compute.
   # VM is disposable, data survives on ZFS on the Proxmox host.
+  # prom-side virtiofsd fd-exhaustion fix (--inode-file-handles=prefer via a
+  # dpkg-divert wrapper) — large tree walks here (e.g. kopia) would otherwise
+  # drive virtiofsd to its 1M fd ceiling and ENFILE every service on this mount.
+  # See docs/wiki/infrastructure/virtiofsd-fd-exhaustion.md (#267).
   fileSystems."/mnt/virtio" = {
     device = "containers";
     fsType = "virtiofs";
