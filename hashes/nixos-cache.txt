@@ -1,1 +1,1 @@
-/nix/store/zq8m1c8w6vg62q3j2k9k6xbf0z53x89a-nixos-system-cache-26.11.20260602.ffa10e2
+/nix/store/65z1p46x8gig52wx373wcg41ajzk0ad9-nixos-system-cache-26.11.20260606.cbb5cf3
