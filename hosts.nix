@@ -117,44 +117,6 @@ in {
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
   };
 
-  dev = {
-    configurationFile = ./hosts/dev/configuration.nix;
-    homeFile = ./hosts/dev/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "dev";
-    sshAlias = "dev";
-    sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
-    authorizedKeys = masterKeys;
-    syncthingDeviceId = "SDQORDI-5A2PG3X-PUXSXH6-EKSB3XD-H3S23CP-OX3PMSK-BBPYEGU-XGZWBQJ";
-  };
-
-  # =============================================================
-  # SANDBOX VM - Isolated development environment for Claude Code
-  # =============================================================
-  # Security Model:
-  # - Fleet machines CAN SSH in (via masterKeys in authorizedKeys)
-  # - NO fleet identity key deployed (cannot SSH to other fleet hosts)
-  # - Firewall blocks local network (192.168.x.x, 10.x.x.x, 172.16.x.x)
-  # - Internet access allowed (for Claude Code, packages, etc.)
-  # - Tailscale enabled for fleet access
-  # - Firewall changes require sudo (root)
-  # =============================================================
-  sandbox = {
-    configurationFile = ./hosts/sandbox/configuration.nix;
-    homeFile = ./hosts/sandbox/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "sandbox";
-    sshAlias = "sbx";
-    # NOTE: sshKeyName intentionally omitted - no fleet identity deployed
-    # The homelab.ssh.deployIdentity = false in configuration.nix handles this
-    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHg+0cl2eSRJP0uMoScnKY9J6ZvYERwjc843qO2BNqfB";
-    authorizedKeys = masterKeys; # Fleet CAN access this VM
-  };
-
   doc2 = {
     configurationFile = ./hosts/doc2/configuration.nix;
     homeFile = ./hosts/doc2/home.nix;
