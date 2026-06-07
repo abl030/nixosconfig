@@ -197,8 +197,21 @@ in {
         StateDirectoryMode = "0750";
         WorkingDirectory = cfg.stateDir;
 
-        ExecStartPre = ensureVenv;
-        ExecStart = convert;
+        # Wrap both phases in a sleep+idle inhibitor so epi can't idle-suspend
+        # mid-conversion. CRITICAL for the automated path: doc2's trigger SSH
+        # returns immediately (--no-block), so nothing else holds epi awake —
+        # without this the 3am run suspends itself partway and the EPUB stalls
+        # for days until the next wake. The polkit rule below lets ${cfg.user}
+        # take block inhibitors non-interactively. Same lock type
+        # (block/sleep) that homelab.ssh uses to keep epi up during SSH.
+        ExecStartPre =
+          "${config.systemd.package}/bin/systemd-inhibit "
+          + "--what=sleep:idle --mode=block --why='marker venv setup' "
+          + "${ensureVenv}";
+        ExecStart =
+          "${config.systemd.package}/bin/systemd-inhibit "
+          + "--what=sleep:idle --mode=block --why='converting magazines to EPUB' "
+          + "${convert}";
 
         # Be a polite guest on the workstation: lowest CPU + idle IO so an
         # in-progress conversion never fights the user if they're at the desk.
@@ -240,6 +253,18 @@ in {
         if (action.id == "org.freedesktop.systemd1.manage-units" &&
             action.lookup("unit") == "marker-convert.service" &&
             action.lookup("verb") == "start" &&
+            subject.user == "${cfg.user}") {
+          return polkit.Result.YES;
+        }
+      });
+
+      // marker-convert: allow ${cfg.user} to take block sleep/idle inhibitors
+      // non-interactively, so the service's systemd-inhibit wrapper can keep
+      // epi awake for the duration of a conversion. Benign capability on a
+      // personal workstation (lets the user prevent auto-suspend).
+      polkit.addRule(function(action, subject) {
+        if ((action.id == "org.freedesktop.login1.inhibit-block-sleep" ||
+             action.id == "org.freedesktop.login1.inhibit-block-idle") &&
             subject.user == "${cfg.user}") {
           return polkit.Result.YES;
         }
