@@ -215,6 +215,14 @@
             configDir = "/mnt/virtio/kopia/photos";
             sources = [
               "/mnt/data/Life/Photos/library"
+              # /mnt/data/Life joins the photos repo as a second source so it
+              # dedupes against the photo blobs already here — the 314 GiB
+              # library is never re-uploaded and incurs no fresh 90-day lock.
+              # The regenerable/duplicate Photos subdirs and the high-churn
+              # Unraid USB backup are dropped via sourceExcludes below;
+              # Photos/backups (immich DB dumps) rides along into Wasabi.
+              # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
+              "/mnt/data/Life"
               # pfSense backup is intentionally NOT in kopia-photos: those
               # snapshots will live in a dedicated Wasabi bucket better
               # suited to small high-churn appliance backups. Existing
@@ -222,6 +230,19 @@
               # delete`d and age out under the 90-day Object Lock window.
               # See docs/wiki/infrastructure/pfsense-backup.md.
             ];
+            # Anchored to the /mnt/data/Life source root. library is its own
+            # source above; thumbs/encoded-video/upload are immich-regenerable;
+            # UnraidUSB is a 4 GiB monthly full-rewrite that's re-creatable.
+            # Photos/backups (immich DB) and Photos/profile are NOT excluded.
+            sourceExcludes = {
+              "/mnt/data/Life" = [
+                "/Photos/library"
+                "/Photos/thumbs"
+                "/Photos/encoded-video"
+                "/Photos/upload"
+                "/Tech/Backups/UnraidUSB"
+              ];
+            };
             proxyHost = "kopiaphotos.ablz.au";
             # Match container identity so existing snapshot policies/schedules work
             overrideHostname = "kopia";
@@ -241,6 +262,12 @@
               "/mnt/data/Life"
               "/mnt/data/Media/Books"
               "/mnt/data/Media/Music"
+              # Curated beets music library — its own ZFS dataset on prom
+              # (nvmeprom/containers/Music), a virtiofs submount under /mnt/virtio.
+              # Synology-only (re-downloadable; not worth per-GB Wasabi). Walks
+              # ~100k files — relies on the #267 virtiofsd fd fix to avoid ENFILE.
+              # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
+              "/mnt/virtio/Music"
               # pfSense ZFS backup, read-only NFS mount from prom. (Replaces
               # the earlier virtiofs share at /mnt/pfsense-backup — virtiofs
               # does not cross ZFS-submount boundaries reliably, so the

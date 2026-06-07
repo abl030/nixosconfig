@@ -90,16 +90,33 @@
         printf '%s' "$1" | ${pkgs.jq}/bin/jq -sRr @uri
       }
 
-      # PUT policy with the configured schedule (idempotent; works for
-      # both new and existing sources).
+      # Per-source ignore rules (kopia policy files.ignore), keyed by source
+      # path. Generated from inst.sourceExcludes so exclusions stay declarative
+      # in nix, not as a .kopiaignore file inside the backed-up tree.
+      declare -A ignore_json=(
+        ${
+        lib.concatStringsSep "\n        "
+        (lib.mapAttrsToList
+          (p: rules: "[${lib.escapeShellArg p}]=${lib.escapeShellArg (builtins.toJSON rules)}")
+          inst.sourceExcludes)
+      }
+      )
+
+      # PUT policy with the configured schedule plus any per-source ignore
+      # rules (idempotent; works for both new and existing sources).
       set_policy() {
         local path="$1"
-        local encp
+        local encp body
         encp=$(url_encode "$path")
+        body="{\"scheduling\":{\"timeOfDay\":[{\"hour\":$hour,\"min\":$min}],\"runMissed\":true}"
+        if [ -n "''${ignore_json[$path]:-}" ]; then
+          body="$body,\"files\":{\"ignore\":''${ignore_json[$path]}}"
+        fi
+        body="$body}"
         ${pkgs.curl}/bin/curl -fsS -u "$auth_user:$auth_pass" \
           -X PUT \
           -H 'content-type: application/json' \
-          --data "{\"scheduling\":{\"timeOfDay\":[{\"hour\":$hour,\"min\":$min}],\"runMissed\":true}}" \
+          --data "$body" \
           "$base/api/v1/policy?host=$override_host&userName=$override_user&path=$encp" \
           >/dev/null
       }
@@ -229,9 +246,11 @@
     allPaths = inst.sources ++ inst.repositoryMounts;
     hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
     hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
+    hasMntVirtio = lib.any (s: lib.hasPrefix "/mnt/virtio" s) allPaths;
   in
     lib.optional hasMntData "mnt-data.mount"
-    ++ lib.optional hasMntMum "mnt-mum.automount";
+    ++ lib.optional hasMntMum "mnt-mum.automount"
+    ++ lib.optional hasMntVirtio "mnt-virtio.mount";
 
   instanceModule = lib.types.submodule {
     options = {
@@ -261,6 +280,21 @@
           Read-only source paths kopia walks and snapshots. Mounts referenced
           here are added as systemd dependencies so kopia waits for them at
           startup. Use `repositoryMounts` for the destination side.
+        '';
+      };
+
+      sourceExcludes = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = {};
+        example = {"/mnt/data/Life" = ["/Photos/library" "/Tech/Backups/UnraidUSB"];};
+        description = ''
+          Per-source kopia ignore rules, keyed by source path (which must also
+          appear in `sources`). Each rule is a gitignore-style pattern resolved
+          against that source's root — a leading `/` anchors to the source dir.
+          The reconciler writes these into the source's kopia policy
+          (`files.ignore`) on every rebuild, keeping exclusions declarative here
+          rather than as a `.kopiaignore` file in the backed-up tree. Sources not
+          listed here get no ignore rules.
         '';
       };
 
@@ -470,7 +504,7 @@ in {
             # unrelated rebuilds is cheap (one PUT per source = ~50 ms each).
             restartTriggers = [
               (builtins.toJSON {
-                inherit (inst) sources snapshotScheduleHour snapshotScheduleMinute;
+                inherit (inst) sources sourceExcludes snapshotScheduleHour snapshotScheduleMinute;
               })
             ];
             serviceConfig = {
