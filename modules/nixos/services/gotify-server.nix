@@ -31,13 +31,23 @@ in {
     };
     users.groups.gotify = {};
 
-    # Override upstream service to use static user and custom data dir
-    systemd.services.gotify-server.serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "gotify";
-      Group = "gotify";
-      WorkingDirectory = lib.mkForce cfg.dataDir;
-      StateDirectory = lib.mkForce "";
+    # Override upstream service to use static user and custom data dir.
+    # #257: upstream gotify ships no sandboxing — full /mnt/* RW-visible.
+    # Gotify writes only its dataDir (db, uploads, plugins), so add
+    # ProtectSystem=strict + blank /mnt bound to that one virtiofs dir.
+    # RequiresMountsFor orders the fail-loud bind after mnt-virtio.mount.
+    systemd.services.gotify-server = {
+      unitConfig.RequiresMountsFor = [cfg.dataDir];
+      serviceConfig = {
+        DynamicUser = lib.mkForce false;
+        User = "gotify";
+        Group = "gotify";
+        WorkingDirectory = lib.mkForce cfg.dataDir;
+        StateDirectory = lib.mkForce "";
+        ProtectSystem = "strict";
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir];
+      };
     };
 
     networking.firewall.allowedTCPPorts = [8050];
@@ -64,7 +74,7 @@ in {
         {
           name = "Gotify server failure";
           unit = "gotify-server.service";
-          pattern = "(?i)panic|fatal|listen tcp.*bind";
+          pattern = "(?i)panic|fatal|listen tcp.*bind|Failed at step NAMESPACE";
           severity = "critical";
           summary = "Gotify server crashed — push notifications offline";
           # Single-shot: panic/fatal lines emit once before the process

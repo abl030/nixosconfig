@@ -23,6 +23,21 @@ in {
       configFile = "${cfg.dataDir}/config.ini";
     };
 
+    # #257: upstream tautulli ships no sandboxing — it ran with the host's
+    # full /mnt/* tree RW-visible. Tautulli writes only to its virtiofs
+    # dataDir (config, db, logs, cache, backups), so add ProtectSystem=strict
+    # and blank /mnt to just that one bound dir. RequiresMountsFor orders the
+    # fail-loud bind after mnt-virtio.mount.
+    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+    systemd.services.tautulli = {
+      unitConfig.RequiresMountsFor = [cfg.dataDir];
+      serviceConfig = {
+        ProtectSystem = "strict";
+        TemporaryFileSystem = "/mnt";
+        BindPaths = [cfg.dataDir];
+      };
+    };
+
     homelab = {
       localProxy.hosts = [
         {
@@ -38,10 +53,19 @@ in {
         }
       ];
 
-      # See #253 audit. Skipped — Plex stats viewer with no actionable
-      # failure log fingerprint; outages surface via the Kuma HTTP
-      # monitor above.
-      monitoring.errorPatterns = [];
+      # See #253 audit. Plex stats viewer with no actionable failure log
+      # fingerprint (outages surface via the Kuma HTTP monitor above) — the
+      # only entry is the #257 fail-loud bind of its virtiofs dataDir.
+      monitoring.errorPatterns = [
+        {
+          name = "Tautulli namespace failure";
+          unit = "tautulli.service";
+          pattern = "(?i)Failed at step NAMESPACE";
+          severity = "warning";
+          summary = "tautulli cannot bind its virtiofs dataDir";
+          threshold = 0;
+        }
+      ];
     };
   };
 }
