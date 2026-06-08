@@ -143,6 +143,10 @@ in {
       # GitHub's documented SSH host keys — see
       # https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
       # Update if GitHub rotates (rare; last rotation 2023-03-24 for RSA).
+      # Pinned UNCONDITIONALLY (#270): it was formerly gated behind deployIdentity
+      # because only the git+ssh-fetching root needed it, but that fetch moved to
+      # HTTPS+PAT. Keyless siblings still benefit — interactive `git push` over
+      # SSH to github.com stays pinned (no TOFU) instead of silently un-pinned.
       githubKnownHosts = {
         "github.com-ed25519" = {
           hostNames = ["github.com"];
@@ -150,6 +154,6 @@ in {
         };
       };
     in
-      fleetKnownHosts // (lib.optionalAttrs cfg.deployIdentity githubKnownHosts);
+      fleetKnownHosts // githubKnownHosts;
   };
 }
