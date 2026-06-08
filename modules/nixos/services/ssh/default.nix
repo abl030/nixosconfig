@@ -44,6 +44,13 @@ in {
       # Be careful here. You can lock yourself out of a host if tailscale is down.
       openFirewall = true;
 
+      # Authorization is 100% declarative from hosts.nix (#270). sshd reads ONLY
+      # /etc/ssh/authorized_keys.d/%u (rendered from authorizedKeys), NEVER the
+      # hand-editable ~/.ssh/authorized_keys — which on several hosts (incl. the
+      # doc1 bastion) held stray personal/legacy/unknown keys that bypassed the
+      # whole key model. Closing that surface is what actually locks the door.
+      authorizedKeysInHomedir = false;
+
       # We bind to 0.0.0.0 as it is only used for proxyjump and we are fine to bind to all IPS.
       listenAddresses = [
         {
