@@ -15,10 +15,10 @@
       mumNfs.enable = true;
       fuse.enable = true;
     };
-    # Base.nix enables ssh=true/secure=true.
-    # We override secure to false here matching your previous config.
-    # (Step 4 of #270 flips this to true — bastion front door is key-only.)
-    ssh.secure = false;
+    # Bastion front door is key-only (#270 step 4): no password auth, no root
+    # login. Entry is via the from=-pinned bastionKeys only. Break-glass if ever
+    # locked out: Proxmox console on prom (console login is unaffected by this).
+    ssh.secure = true;
 
     # doc1 is the bastion: the ONLY host that holds the fleet identity private
     # key (deployIdentity defaults to false everywhere else now). This is what
