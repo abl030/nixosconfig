@@ -648,7 +648,9 @@ in {
       '';
     in {
       sops.secrets."pfsense-exporter/env" = {
-        sopsFile = config.homelab.secrets.sopsFile "pfsense-mcp.env";
+        # #234: dedicated read-only key (user metrics-exporter-ro), NOT the
+        # full-control pfsense-mcp.env (doc1-only). doc2-scoped.
+        sopsFile = config.homelab.secrets.sopsFile "pfsense-exporter.env";
         format = "dotenv";
         mode = "0400";
       };

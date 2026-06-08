@@ -143,15 +143,19 @@
       enable = lib.mkDefault false;
     };
 
+    # MCP control creds → doc1-only (#234). Default OFF fleet-wide; doc1 opts in
+    # (the sole host the pfsense/unifi/HA/etc. agents run from). Previously these
+    # decrypted to /run/secrets/mcp on every host — three infra-control tokens
+    # fleet-wide (#232 Tier-1).
     mcp = {
-      enable = lib.mkDefault true;
-      pfsense.enable = lib.mkDefault true;
-      unifi.enable = lib.mkDefault true;
-      homeassistant.enable = lib.mkDefault true;
-      slskd.enable = lib.mkDefault true;
-      vinsight.enable = lib.mkDefault true;
-      audiobookshelf.enable = lib.mkDefault true;
-      paperless.enable = lib.mkDefault true;
+      enable = lib.mkDefault false;
+      pfsense.enable = lib.mkDefault false;
+      unifi.enable = lib.mkDefault false;
+      homeassistant.enable = lib.mkDefault false;
+      slskd.enable = lib.mkDefault false;
+      vinsight.enable = lib.mkDefault false;
+      audiobookshelf.enable = lib.mkDefault false;
+      paperless.enable = lib.mkDefault false;
     };
   };
 
