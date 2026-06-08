@@ -22,8 +22,11 @@ in {
     };
     deployIdentity = lib.mkOption {
       type = lib.types.bool;
-      default = true;
-      description = "If true, deploy the fleet identity key from SOPS secrets. Set false for isolated/sandbox VMs.";
+      # Keyless by default (#270): the fleet identity private key lives ONLY on
+      # the doc1 bastion, which sets this true. Every other host stays false so
+      # a popped sibling holds no fleet-trusted key and can't move laterally.
+      default = false;
+      description = "If true, deploy the fleet identity key from SOPS secrets. ONLY the doc1 bastion should set this; siblings stay keyless (see issue #270).";
     };
     identitySecretName = lib.mkOption {
       type = lib.types.str;
@@ -75,6 +78,14 @@ in {
       path = "${homeDirectory}/.ssh/id_ed25519"; # Dynamically set path to the correct home
       mode = "0600";
     };
+
+    # On keyless (non-bastion) hosts, assert the fleet key is GONE from root's
+    # ~/.ssh. The old rootFleetIdentity mirror (removed in #270 step 2a) may have
+    # left a real copy behind; sops-nix only cleans the user-key symlink it
+    # manages, not this. Idempotent `r` — no-op where already absent. See #270.
+    systemd.tmpfiles.rules = lib.mkIf (!cfg.deployIdentity) [
+      "r /root/.ssh/id_ed25519 - - - -"
+    ];
 
     # (Former 3b/3c removed in #270.) root no longer needs the fleet key
     # mirrored into /root/.ssh, and no longer routes github.com through it:

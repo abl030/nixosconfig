@@ -17,7 +17,13 @@
     };
     # Base.nix enables ssh=true/secure=true.
     # We override secure to false here matching your previous config.
+    # (Step 4 of #270 flips this to true — bastion front door is key-only.)
     ssh.secure = false;
+
+    # doc1 is the bastion: the ONLY host that holds the fleet identity private
+    # key (deployIdentity defaults to false everywhere else now). This is what
+    # lets doc1 reach the keyless siblings. See issue #270.
+    ssh.deployIdentity = true;
 
     # Base.nix enables tailscale=true.
 
