@@ -1,3 +1,6 @@
+# homelab.ssh — fleet SSH server + trust. The doc1 bastion model (keyless
+# siblings, declarative auth, deployIdentity) is documented in
+# docs/wiki/infrastructure/ssh-bastion-model.md. See issue #270.
 {
   lib,
   config,

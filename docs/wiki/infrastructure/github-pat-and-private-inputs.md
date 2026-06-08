@@ -1,7 +1,24 @@
 # GitHub PAT rotation & private flake inputs
 
-**Status**: working (Phase 1 shipped 2026-04-17, Phase 2 pending).
-**Issue**: [#210](https://github.com/abl030/nixosconfig/issues/210) — the incident that motivated this.
+**Status**: Phase 1 shipped 2026-04-17. **Phase 2 (git+ssh) was CANCELLED —
+superseded by the #270 bastion model (2026-06-08).**
+**Issue**: [#210](https://github.com/abl030/nixosconfig/issues/210) — the incident that motivated this. [#270](https://github.com/abl030/nixosconfig/issues/270) — the bastion that superseded Phase 2.
+
+> ### ⚠️ Superseded direction (read first)
+> Phase 2 proposed moving `vinsight-mcp` to `git+ssh://` so PAT rotation
+> couldn't break private-input fetches. **#270 went the opposite way:** it
+> made every host except the doc1 bastion *keyless*, so an SSH key on every
+> host is exactly the skeleton-key blast radius #270 removes. Instead,
+> `vinsight-mcp` + `cellar-manager` fetch via `github:` + the read-only
+> `nix-netrc` PAT on every host, and the `rootFleetIdentity` mirror + the
+> github `Match` block were deleted.
+>
+> **New trade-off:** a dead/expired PAT now fails eval of the two *private*
+> inputs fleet-wide (public inputs still resolve via the empty-token degrade
+> below). Mitigation: a **no-expiry**, Contents:read, 2-repo fine-grained PAT
+> — scope is the protection, not the clock. The keyless model is documented in
+> [ssh-bastion-model.md](./ssh-bastion-model.md). The Phase 1 pieces below
+> (`refresh-access-tokens.nix`) are still live and still the resilience layer.
 
 ## Problem we're solving
 
