@@ -1,6 +1,7 @@
 {
   lib,
   config,
+  pkgs,
   allHosts,
   hostname,
   ...
@@ -79,13 +80,23 @@ in {
       mode = "0600";
     };
 
-    # On keyless (non-bastion) hosts, assert the fleet key is GONE from root's
-    # ~/.ssh. The old rootFleetIdentity mirror (removed in #270 step 2a) may have
-    # left a real copy behind; sops-nix only cleans the user-key symlink it
-    # manages, not this. Idempotent `r` — no-op where already absent. See #270.
-    systemd.tmpfiles.rules = lib.mkIf (!cfg.deployIdentity) [
-      "r /root/.ssh/id_ed25519 - - - -"
-    ];
+    # On keyless (non-bastion) hosts, assert NO fleet identity lingers anywhere.
+    # Two distinct remnants from the keyed era (#270):
+    #   1. /root/.ssh/id_ed25519 — a REAL copy the old rootFleetIdentity mirror
+    #      (removed in step 2a) installed. rm -f unconditionally; root never
+    #      holds a legitimate id_ed25519 on a keyless host.
+    #   2. ${homeDirectory}/.ssh/id_ed25519 — a sops symlink whose TARGET sops
+    #      removes when deployIdentity flips off, but it leaves the dangling
+    #      link behind. Drop it ONLY if it is a broken symlink, so we never
+    #      delete a real personal key a user might place there later.
+    system.activationScripts.purgeFleetKeyOnKeylessHost = lib.mkIf (!cfg.deployIdentity) {
+      deps = ["setupSecrets" "users"];
+      text = ''
+        ${pkgs.coreutils}/bin/rm -f /root/.ssh/id_ed25519
+        u="${homeDirectory}/.ssh/id_ed25519"
+        if [ -L "$u" ] && [ ! -e "$u" ]; then ${pkgs.coreutils}/bin/rm -f "$u"; fi
+      '';
+    };
 
     # (Former 3b/3c removed in #270.) root no longer needs the fleet key
     # mirrored into /root/.ssh, and no longer routes github.com through it:
