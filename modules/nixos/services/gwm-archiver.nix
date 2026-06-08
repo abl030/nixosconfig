@@ -55,30 +55,30 @@
   tc = cfg.triggerConvert;
 
   # When a new issue lands, wake the conversion host (WOL, LAN broadcast) and
-  # kick its marker-convert unit over SSH. The unit runs as root, so SSH uses
-  # /root/.ssh (master key → abl030@<host> works). Polkit on the convert host
-  # lets abl030 start that one unit without sudo. Fire-and-forget: --no-block
-  # returns immediately, the convert host owns the rest (convert + Komga
-  # rescan). Best-effort throughout — a failed wake never fails the unit; the
-  # convert host's weekly RTC-wake timer is the safety net.
+  # kick its marker-convert unit over SSH. The unit runs as root, so SSH uses a
+  # DEDICATED key (#270): doc2 is keyless and no longer carries the fleet
+  # identity. epi's authorized_keys (marker-convert.nix) forces this key to ONLY
+  # `systemctl start --no-block marker-convert.service` and nothing else, so a
+  # *successful connection IS the trigger* — probe and fire collapse into one
+  # (running it twice is harmless: starting an active oneshot is a no-op). Polkit
+  # on the convert host grants abl030 that one start. Best-effort throughout — a
+  # failed wake never fails the unit; the weekly RTC-wake timer is the safety net.
   triggerConvertSnippet = lib.optionalString tc.enable ''
     echo "waking + triggering convert host (${tc.sshTarget})"
     ${pkgs.wakeonlan}/bin/wakeonlan -i ${tc.broadcast} ${tc.mac} >/dev/null 2>&1 || true
-    # epi resumes from suspend-to-RAM + tailscale reconnect takes a few s.
-    up=0
+    # epi resumes from suspend-to-RAM + tailscale reconnect takes a few s; retry
+    # the forced-command SSH until it lands (each success fires marker-convert).
+    triggered=0
     for _ in $(seq 1 30); do
-      if ${pkgs.openssh}/bin/ssh -o BatchMode=yes -o ConnectTimeout=5 \
-           -o StrictHostKeyChecking=accept-new ${tc.sshTarget} true 2>/dev/null; then
-        up=1; break
+      if ${pkgs.openssh}/bin/ssh -i ${config.sops.secrets."gwm-trigger/key".path} \
+           -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=5 \
+           -o StrictHostKeyChecking=accept-new ${tc.sshTarget} 2>/dev/null; then
+        triggered=1; break
       fi
       sleep 5
     done
-    if [ "$up" = 1 ]; then
-      ${pkgs.openssh}/bin/ssh -o BatchMode=yes -o ConnectTimeout=10 \
-        -o StrictHostKeyChecking=accept-new ${tc.sshTarget} \
-        'systemctl start --no-block marker-convert.service' \
-        && echo "marker-convert triggered" \
-        || echo "WARN: marker-convert trigger failed (weekly RTC timer will catch up)" >&2
+    if [ "$triggered" = 1 ]; then
+      echo "marker-convert triggered"
     else
       echo "WARN: convert host unreachable after WOL; weekly RTC timer will catch up" >&2
     fi
@@ -198,6 +198,19 @@ in {
       format = "dotenv";
       mode = "0400";
       owner = cfg.user;
+    };
+
+    # Dedicated convert-trigger SSH key (#270), only where the trigger runs.
+    # doc2 is keyless, so the marker-convert trigger to epi can't ride the fleet
+    # identity any more. Root-owned because the notify-success unit (which fires
+    # the trigger) runs as root. The matching public half is forced-command-
+    # locked on epi in marker-convert.nix; private half is doc2-only sops.
+    sops.secrets."gwm-trigger/key" = lib.mkIf tc.enable {
+      sopsFile = config.homelab.secrets.sopsFile "gwm-trigger-key";
+      format = "binary";
+      owner = "root";
+      group = "root";
+      mode = "0400";
     };
 
     # Notification units run as root (no User=) so they can read the

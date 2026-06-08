@@ -16,14 +16,35 @@
 #      $ cat /etc/ssh/ssh_host_ed25519_key.pub
 #
 let
-  masterKeys = [
-    # Master Fleet Identity
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity"
-    # Manual Keys
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJnFw/zW4X+1pV2yWXQwaFtZ23K5qquglAEmbbqvLe5g root@pihole"
-    # Termux on Galaxy A55 — separate identity, revocable if phone is lost
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55"
+  # The single fleet identity. Its PRIVATE half lives ONLY on the doc1 bastion
+  # (deployIdentity = true there, false everywhere else — see modules/nixos/
+  # services/ssh/default.nix). Every non-bastion host trusts it so doc1 can
+  # reach them; no sibling holds it, so a popped sibling can't move laterally.
+  fleetIdentity = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity";
+
+  # What every non-bastion (sibling) host trusts: the bastion's resident key
+  # only. Phone + pihole keys deliberately excluded here — reach siblings via
+  # the doc1 stepping-stone. See issue #270.
+  fleetKeys = [fleetIdentity];
+
+  # Phone (Termux on Galaxy A55) — separate identity, revocable if lost. Reaches
+  # the doc1 bastion only; never a sibling. (Old root@pihole key dropped in #270.)
+  phoneKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55";
+
+  # doc1 bastion entry keys — per-device, passphrase-protected, also on GitHub.
+  # Authorized on doc1 ONLY (the bastion's front door); siblings never trust these.
+  bastionDeviceKeys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBl/6XgvT5NLe1R0Yu0Lduy/4nYnyDgAufGFppUJfUom abl030@epimetheus-bastion"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPyOTF8UNEwGkxNpzcdetGGShyX6aAG3BBk/8jLeCg11 abl030@framework-bastion"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEmXjAlxENRxMQ1qmw/K5nsLiHLFByywTqQdotRAye79 abl030@wsl-bastion"
   ];
+
+  # doc1's front door trusts ONLY these: the per-device entry keys + the phone,
+  # each pinned with from= so a key only works from inside the tailnet or home
+  # LAN — never the open internet. No fleet key / pihole inbound. The passphrase
+  # on each key is the real gate; from= bounds where it can be presented. #270.
+  bastionFrom = ''from="100.64.0.0/10,192.168.1.0/24"'';
+  bastionKeys = map (k: "${bastionFrom} ${k}") (bastionDeviceKeys ++ [phoneKey]);
 in {
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
@@ -34,7 +55,7 @@ in {
     sshAlias = "epi";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGuTUS6W9BBOpoDWU7f1jUtlA3B1niCfEtuutfIKPYdr";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     syncthingDeviceId = "ZUEV7QP-JVG3ZE3-UIVJBSW-RMJ55TN-ZJRBGBX-5442PJS-3A2SMMI-RU7NAAX";
   };
 
@@ -46,7 +67,7 @@ in {
     sshAlias = "cad";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGfVo+vSFpz+oRQqC+ZbGgDzJMRlmydMidZISurihzTZ";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
   };
 
   framework = {
@@ -58,7 +79,7 @@ in {
     sshAlias = "fra";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0atvH47232nLwq1b4P7583cj+WGJYHU4vx/4lgtNgl";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     syncthingDeviceId = "Z4IPNF4-564WG7C-IYNIPPN-WSQHH74-RCBMJV3-KIJ3PJT-KS4HBF3-JVDPWAY";
   };
 
@@ -77,7 +98,7 @@ in {
     sshHostName = "laptop-btibh4ie"; # Windows host MagicDNS name (Tailscale IP 100.75.246.114)
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     sudoPasswordless = true;
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
@@ -95,7 +116,10 @@ in {
     sshAlias = "doc1";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
-    authorizedKeys = masterKeys;
+    # Step 4 (#270): doc1's front door = bastion keys ONLY (per-device entry keys
+    # + phone, each from=-pinned to tailnet/LAN). No fleet/pihole inbound; the
+    # fleet key it HOLDS (deployIdentity) is for reaching siblings, not entering.
+    authorizedKeys = bastionKeys;
     sudoPasswordless = true;
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
@@ -113,7 +137,7 @@ in {
     sshAlias = "igp";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
   };
 
@@ -126,7 +150,7 @@ in {
     sshAlias = "dev";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAmI3odA5l/E+hAN0W9CyIrXupYGOevMdqSyladVqsX";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     syncthingDeviceId = "SDQORDI-5A2PG3X-PUXSXH6-EKSB3XD-H3S23CP-OX3PMSK-BBPYEGU-XGZWBQJ";
   };
 
@@ -134,7 +158,7 @@ in {
   # SANDBOX VM - Isolated development environment for Claude Code
   # =============================================================
   # Security Model:
-  # - Fleet machines CAN SSH in (via masterKeys in authorizedKeys)
+  # - Fleet machines CAN SSH in (via fleetKeys in authorizedKeys)
   # - NO fleet identity key deployed (cannot SSH to other fleet hosts)
   # - Firewall blocks local network (192.168.x.x, 10.x.x.x, 172.16.x.x)
   # - Internet access allowed (for Claude Code, packages, etc.)
@@ -152,7 +176,7 @@ in {
     # The homelab.ssh.deployIdentity = false in configuration.nix handles this
     initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHg+0cl2eSRJP0uMoScnKY9J6ZvYERwjc843qO2BNqfB";
-    authorizedKeys = masterKeys; # Fleet CAN access this VM
+    authorizedKeys = fleetKeys; # Fleet CAN access this VM
   };
 
   doc2 = {
@@ -164,7 +188,7 @@ in {
     sshAlias = "doc2";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     sudoPasswordless = true; # temporary — lock down once appliance is stable
     localIp = "192.168.1.35";
     gotifyServer = true;
@@ -180,7 +204,7 @@ in {
     sshKeyName = "ssh_key_abl030";
     initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHYh5BYMlU8u7RGjChPe7QON+adENp+SUtg2+HYAV9FD";
-    authorizedKeys = masterKeys;
+    authorizedKeys = fleetKeys;
     syncthingDeviceId = "VFUAMOE-ID4MCL2-KQZX22M-BUCYDOM-KSHMW2Y-XYYBJI4-2FD77RH-RPGOOAJ";
   };
 }

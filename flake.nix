@@ -169,19 +169,29 @@
     };
 
     # Vinsight MCP - MCP server for Vinsight winery API.
-    # Private repo: fetched over SSH with the fleet identity deploy key
-    # (hosts.nix:masterKeys) so the rest of the flake stays resilient when
-    # the GitHub PAT rotates. See issue #210 and
-    # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
+    # Private repo: fetched via github: using the read-only GitHub PAT in
+    # nix-netrc (access-tokens), NOT git+ssh. Moved off SSH in #270 so that no
+    # fleet host except the doc1 bastion needs an SSH key — siblings are keyless
+    # and a popped sibling holds nothing fleet-trusted.
+    # Trade-off (supersedes the #210 git+ssh rationale): a broken/expired PAT
+    # breaks eval of this input fleet-wide (vinsight is enabled by default in
+    # base.nix → in every host's closure). Keep the fine-grained token
+    # (vinsight-mcp + cellar-manager, Contents:read) on a long expiry and rotate
+    # before it lapses. On a rejected PAT, refresh-access-tokens.nix blanks the
+    # token so PUBLIC inputs still resolve — but this input and cellar-manager
+    # are PRIVATE, so they fail eval until the PAT is rotated. Prefer a no-expiry
+    # fine-grained token (scope is the protection, not the clock) to avoid a
+    # silent fleet-wide eval break. Old broad PAT must be revoked post-cutover.
     vinsight-mcp = {
-      url = "git+ssh://git@github.com/abl030/vinsight-mcp";
+      url = "github:abl030/vinsight-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # cellar-manager - source tree for vinsight-local (FastAPI + sync tool)
-    # served on wsl at cullen.ablz.au. Public repo; consumed as plain source
-    # because the repo has no flake of its own — overlay.nix builds the
-    # vinsight-local Python package from this tree.
+    # served on wsl at cullen.ablz.au. Private repo (fetched via the same
+    # nix-netrc PAT as vinsight-mcp); consumed as plain source because the repo
+    # has no flake of its own — overlay.nix builds the vinsight-local Python
+    # package from this tree.
     cellar-manager = {
       url = "github:abl030/cellar-manager";
       flake = false;
@@ -358,8 +368,30 @@
                         echo "on_lan gateway-MAC matcher behaves as specified."
                         touch $out
           '';
+
+          # Bastion invariant (#270): EXACTLY ONE host may hold the fleet identity
+          # private key — i.e. exactly one `deployIdentity = true` in the tree (the
+          # doc1 bastion; the module default is false). A future copy-paste that
+          # re-sets it true on a second host would silently re-spread the fleet
+          # skeleton key and undo the whole keyless-siblings model; 0 holders means
+          # nothing can reach the siblings. Either way, fail the build first.
+          bastionInvariantCheck = pkgs.runCommand "bastion-deployIdentity-invariant" {} ''
+            matches=$(${pkgs.gnugrep}/bin/grep -rnE "deployIdentity = true" ${./hosts} ${./modules} || true)
+            count=$(printf '%s' "$matches" | ${pkgs.gnugrep}/bin/grep -c . || true)
+            if [ "$count" != "1" ]; then
+              echo "BASTION INVARIANT VIOLATED (#270): expected exactly ONE host with"
+              echo "deployIdentity = true (the doc1 bastion), found $count:"
+              printf '%s\n' "$matches"
+              echo ""
+              echo "Only the doc1 bastion may hold the fleet identity private key."
+              echo "See issue #270 and modules/nixos/services/ssh/default.nix."
+              exit 1
+            fi
+            echo "Bastion invariant OK: exactly one deployIdentity=true (the doc1 bastion)."
+            touch $out
+          '';
         in
-          {inherit errorPatternsCheck onLanMatcherCheck;}
+          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck;}
           // (
             if !fullCheck
             then {}
