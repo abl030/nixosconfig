@@ -24,6 +24,15 @@ let
     # Termux on Galaxy A55 — separate identity, revocable if phone is lost
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHmUU7BKMmjF53n0uCOg1w6uRe1erG13nembAiIE8ybN phone-fleet@s-a55"
   ];
+
+  # doc1 bastion entry keys — per-device, passphrase-protected, also on GitHub.
+  # Authorized on doc1 ONLY (the bastion's front door); siblings never trust these.
+  # The `from=` tailnet+LAN belt + doc1 narrowing land in Step 4. See issue #270.
+  bastionDeviceKeys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBl/6XgvT5NLe1R0Yu0Lduy/4nYnyDgAufGFppUJfUom abl030@epimetheus-bastion"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPyOTF8UNEwGkxNpzcdetGGShyX6aAG3BBk/8jLeCg11 abl030@framework-bastion"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEmXjAlxENRxMQ1qmw/K5nsLiHLFByywTqQdotRAye79 abl030@wsl-bastion"
+  ];
 in {
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
@@ -95,7 +104,9 @@ in {
     sshAlias = "doc1";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJrhodI7gb1zaitbZayGHtpc+CO3MfFHK1+DG4Y6IZw root@nixos";
-    authorizedKeys = masterKeys;
+    # Step 1 (issue #270): additively trust the per-device bastion keys alongside
+    # today's fleet trust. Narrowing to bastionDeviceKeys-only happens in Step 4.
+    authorizedKeys = masterKeys ++ bastionDeviceKeys;
     sudoPasswordless = true;
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
