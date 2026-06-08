@@ -99,9 +99,14 @@ shared service becomes its own tailnet node — no broad network exposure.
 declares:
 
 - Identity (hostname, ssh alias, user, home dir)
-- Trust (SSH host key, authorized keys, master fleet identity)
+- Trust (SSH host key, authorized keys, the doc1-only fleet SSH key)
 - Syncthing device ID
 - Tailscale IP and LAN IP
+
+Trust is least-privilege on both layers: the fleet SSH key lives on doc1 only
+(the [SSH bastion](docs/wiki/infrastructure/ssh-bastion-model.md)), and sops
+secrets are scoped per-host with cold break-glass / warm editor keys (the
+[secret layer](docs/wiki/infrastructure/sops-break-glass-recovery.md)).
 
 A factory in [`nix/lib.nix`](nix/lib.nix) reads it and produces NixOS
 systems or standalone Home Manager configs. Add a host entry, drop in a
@@ -158,7 +163,6 @@ but it's nice that they all just work.
 - **doc2** — service appliance VM (immich, paperless, mealie,
   cratedigger, slskd, musicbrainz, kopia, uptime-kuma, the LGTM stack…)
 - **igpu** — media transcoding VM with AMD iGPU passthrough
-- **dev** — sandbox dev VM
 - **cache** — pull-through nix cache
 - **caddy** — a small server, Home Manager only
 

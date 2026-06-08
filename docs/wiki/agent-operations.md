@@ -120,6 +120,10 @@ All secrets are sops-encrypted under `secrets/`. The repo uses a fallback resolv
 
 Implementation: `modules/nixos/common/secrets.nix`.
 
+**Secrets are per-host scoped (#234, 2026-06-08).** Layout *is* scope: a file under `secrets/hosts/<H>/` decrypts only on host `<H>` — never fleet-wide. Each secret is encrypted to its consuming host key(s) plus two universal keys: a cold **break-glass** key (recovery only, on no host) and a warm **editor** key (doc1-only, used to edit/re-key from the bastion). The `.sops.yaml` rules are enforced by `sopsRecipientScopeCheck` in `flake.nix`, with a fail-closed `.*` fallback so a new, unscoped secret deploys nowhere until given a rule. The old "every host decrypts every secret" / "master key" model is retired — see [`docs/wiki/infrastructure/sops-break-glass-recovery.md`](infrastructure/sops-break-glass-recovery.md) for the full recipient model and recovery procedures.
+
+**MCP control creds are doc1-only.** Credentials for pfsense / unifi / homeassistant / slskd / vinsight / audiobookshelf / paperless control APIs decrypt only on doc1 (`homelab.mcp` defaults off; doc1 opts in). doc2's metrics exporter uses a dedicated **read-only** pfSense key (user `metrics-exporter-ro`); the full-control pfSense key is doc1-only.
+
 ### Service -> secret map
 
 | Service | sops entry | File on disk (encrypted) | Decrypted to |
@@ -134,7 +138,7 @@ Implementation: `modules/nixos/common/secrets.nix`.
 - **Safe to print:** the *names* of secrets, sopsFile paths in this repo, the encrypted blobs themselves.
 - The `.sops.yaml` Age public keys at `secrets/.sops.yaml` are public by design.
 
-To edit a secret: use the `sops-decrypt` skill (it handles the keyring + sops binary). Direct `sops` invocations also work if the agent's host is in `.sops.yaml`.
+To edit a secret: use the `sops-decrypt` skill (it handles the keyring + sops binary). Direct `sops` invocations work where a usable age key is present — in practice the **editor** key lives only on doc1 (`~/.config/sops/age/keys.txt`), so routine `sops edit`/`sops updatekeys` happens from the bastion. A given host can also decrypt secrets scoped to its own key.
 
 ---
 

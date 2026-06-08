@@ -3,6 +3,12 @@
 **Status:** live (shipped via [#270](https://github.com/abl030/nixosconfig/issues/270), 2026-06-08). No-infra interim ahead of the full CA architecture in [#241](https://github.com/abl030/nixosconfig/issues/241).
 **Researched/written:** 2026-06-08 (during the #270 work + its ce-code-review pass).
 
+> **Scope:** this doc covers **host access** — who can SSH where. The
+> complementary **secret layer** — who can `sops -d` what — is least-privilege
+> as of [#234](https://github.com/abl030/nixosconfig/issues/234) (per-host
+> recipient scoping + cold break-glass / warm editor keys); see
+> [sops-break-glass-recovery.md](./sops-break-glass-recovery.md).
+
 ## The problem it solves
 
 Before #270, every host deployed the **same** fleet SSH private key
@@ -55,8 +61,11 @@ a **no-expiry**, Contents:read, 2-repo fine-grained token.
 
 ## Gotchas / operational notes
 
-- **Break-glass:** Proxmox console on prom (console login is unaffected by
-  `secure=true`). If you lose all `bastionKeys`, that's the only way back in.
+- **Break-glass (host access):** Proxmox console on prom (console login is
+  unaffected by `secure=true`). If you lose all `bastionKeys`, that's the only
+  way back in. This is distinct from the **secret** break-glass key (the cold
+  age key in [#234](https://github.com/abl030/nixosconfig/issues/234) that
+  recovers `sops`-encrypted secrets) — different layer, different key.
 - **Lateral service hops need a dedicated key.** A keyless host can't SSH to a
   sibling with the fleet key any more. `gwm-archiver` on doc2 (which triggers
   `marker-convert` on epi) hit this — fixed with a dedicated, **forced-command**

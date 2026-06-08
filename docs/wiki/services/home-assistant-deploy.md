@@ -14,7 +14,7 @@
 - Port 22 on `192.168.1.20` is exposed by the **Advanced SSH & Web Terminal** community add-on. Port 22222 (official Terminal & SSH add-on) is NOT installed.
 - User: `abl030`, UID 1000, in `wheel`. **Passwordless sudo.**
 - **Authorized keys** are configured via the SSH add-on's `authorized_keys:` option in the HA UI (Settings → Add-ons → Advanced SSH & Web Terminal → Configuration). On first auth they get installed into `/home/abl030/.ssh/authorized_keys`.
-- The master fleet identity (`~/.ssh/id_ed25519` from doc1/proxmox-vm, fingerprint `master-fleet-identity`) is authorized as of 2026-05-25.
+- The doc1 bastion's fleet SSH key (`~/.ssh/id_ed25519` on doc1/proxmox-vm, comment `master-fleet-identity`) is authorized as of 2026-05-25. This is the single doc1-only fleet key (see [ssh-bastion-model.md](../infrastructure/ssh-bastion-model.md)), not a fleet-wide or separate "master" key — siblings are keyless and reach HA via doc1.
 
 ### Quick connectivity test
 

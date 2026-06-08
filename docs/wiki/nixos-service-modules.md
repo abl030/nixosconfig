@@ -546,6 +546,8 @@ sops.secrets."<service>/env" = {
 
 The `sopsFile` helper searches: `secrets/hosts/<hostname>/` -> `secrets/users/<user>/` -> `secrets/`.
 
+**Layout is scope (#234, 2026-06-08).** A secret under `secrets/hosts/<host>/` is encrypted to *that host's* key only (plus the universal editor + break-glass keys) — it does not decrypt fleet-wide. Put a service's secret under its host's directory unless it is genuinely consumed on multiple hosts, in which case add an explicit multi-host rule in `secrets/.sops.yaml`. The recipient scoping is enforced by `sopsRecipientScopeCheck` in `flake.nix`, with a fail-closed `.*` fallback (editor + break-glass only) so a new, unscoped secret deploys to no host until given a rule. Full recipient model + recovery: [`docs/wiki/infrastructure/sops-break-glass-recovery.md`](infrastructure/sops-break-glass-recovery.md).
+
 ## Host Assignment
 
 Services are enabled in host configs (`hosts/<host>/configuration.nix`):
