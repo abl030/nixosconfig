@@ -28,7 +28,6 @@
     # --- Git / Flake ---
     lzg = "lazygit";
     lzd = "lazydocker";
-    pull_sandbox = "rsync -a sandbox:/home/abl030/nixosconfig/ /home/abl030/nixosconfig/";
 
     # --- Editors ---
     v = "nvim";
