@@ -123,96 +123,106 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    # Decrypt MCP env files during activation using sops directly
-    # This handles dotenv format properly, outputting clean KEY=VALUE pairs
-    system.activationScripts.mcp-secrets = let
-      sops = "${pkgs.sops}/bin/sops";
-      sshToAge = "${pkgs.ssh-to-age}/bin/ssh-to-age";
-      inherit (cfg) user;
-      pfsenseFile = cfg.pfsense.sopsFile;
-      unifiFile = cfg.unifi.sopsFile;
-      homeassistantFile = cfg.homeassistant.sopsFile;
-      slskdFile = cfg.slskd.sopsFile;
-      vinsightFile = cfg.vinsight.sopsFile;
-      audiobookshelfFile = cfg.audiobookshelf.sopsFile;
-      paperlessFile = cfg.paperless.sopsFile;
-    in
-      lib.stringAfter ["setupSecrets"] ''
-        echo "Decrypting MCP secrets..."
-        mkdir -p ${secretsDir}
-        chmod 755 ${secretsDir}
+  config = lib.mkMerge [
+    (lib.mkIf cfg.enable {
+      # Decrypt MCP env files during activation using sops directly
+      # This handles dotenv format properly, outputting clean KEY=VALUE pairs
+      system.activationScripts.mcp-secrets = let
+        sops = "${pkgs.sops}/bin/sops";
+        sshToAge = "${pkgs.ssh-to-age}/bin/ssh-to-age";
+        inherit (cfg) user;
+        pfsenseFile = cfg.pfsense.sopsFile;
+        unifiFile = cfg.unifi.sopsFile;
+        homeassistantFile = cfg.homeassistant.sopsFile;
+        slskdFile = cfg.slskd.sopsFile;
+        vinsightFile = cfg.vinsight.sopsFile;
+        audiobookshelfFile = cfg.audiobookshelf.sopsFile;
+        paperlessFile = cfg.paperless.sopsFile;
+      in
+        lib.stringAfter ["setupSecrets"] ''
+          echo "Decrypting MCP secrets..."
+          mkdir -p ${secretsDir}
+          chmod 755 ${secretsDir}
 
-        # Get age key from host SSH key (same method as sops-nix)
-        SOPS_AGE_KEY=$(${sshToAge} -private-key -i /etc/ssh/ssh_host_ed25519_key)
-        export SOPS_AGE_KEY
+          # Get age key from host SSH key (same method as sops-nix)
+          SOPS_AGE_KEY=$(${sshToAge} -private-key -i /etc/ssh/ssh_host_ed25519_key)
+          export SOPS_AGE_KEY
 
-        ${lib.optionalString cfg.pfsense.enable ''
-          ${sops} -d --output-type dotenv ${pfsenseFile} | grep -v '^#' > ${cfg.pfsense.path}
-          chmod 400 ${cfg.pfsense.path}
-          chown ${user}:users ${cfg.pfsense.path}
-        ''}
+          ${lib.optionalString cfg.pfsense.enable ''
+            ${sops} -d --output-type dotenv ${pfsenseFile} | grep -v '^#' > ${cfg.pfsense.path}
+            chmod 400 ${cfg.pfsense.path}
+            chown ${user}:users ${cfg.pfsense.path}
+          ''}
 
-        ${lib.optionalString cfg.unifi.enable ''
-          ${sops} -d --output-type dotenv ${unifiFile} | grep -v '^#' > ${cfg.unifi.path}
-          chmod 400 ${cfg.unifi.path}
-          chown ${user}:users ${cfg.unifi.path}
-        ''}
+          ${lib.optionalString cfg.unifi.enable ''
+            ${sops} -d --output-type dotenv ${unifiFile} | grep -v '^#' > ${cfg.unifi.path}
+            chmod 400 ${cfg.unifi.path}
+            chown ${user}:users ${cfg.unifi.path}
+          ''}
 
-        ${lib.optionalString cfg.homeassistant.enable ''
-          ${sops} -d --output-type dotenv ${homeassistantFile} | grep -v '^#' > ${cfg.homeassistant.path}
-          chmod 400 ${cfg.homeassistant.path}
-          chown ${user}:users ${cfg.homeassistant.path}
-        ''}
+          ${lib.optionalString cfg.homeassistant.enable ''
+            ${sops} -d --output-type dotenv ${homeassistantFile} | grep -v '^#' > ${cfg.homeassistant.path}
+            chmod 400 ${cfg.homeassistant.path}
+            chown ${user}:users ${cfg.homeassistant.path}
+          ''}
 
-        ${lib.optionalString cfg.slskd.enable ''
-          ${sops} -d --output-type dotenv ${slskdFile} | grep -v '^#' > ${cfg.slskd.path}
-          chmod 400 ${cfg.slskd.path}
-          chown ${user}:users ${cfg.slskd.path}
-        ''}
+          ${lib.optionalString cfg.slskd.enable ''
+            ${sops} -d --output-type dotenv ${slskdFile} | grep -v '^#' > ${cfg.slskd.path}
+            chmod 400 ${cfg.slskd.path}
+            chown ${user}:users ${cfg.slskd.path}
+          ''}
 
-        ${lib.optionalString cfg.vinsight.enable ''
-          ${sops} -d --output-type dotenv ${vinsightFile} | grep -v '^#' > ${cfg.vinsight.path}
-          chmod 400 ${cfg.vinsight.path}
-          chown ${user}:users ${cfg.vinsight.path}
-        ''}
+          ${lib.optionalString cfg.vinsight.enable ''
+            ${sops} -d --output-type dotenv ${vinsightFile} | grep -v '^#' > ${cfg.vinsight.path}
+            chmod 400 ${cfg.vinsight.path}
+            chown ${user}:users ${cfg.vinsight.path}
+          ''}
 
-        ${lib.optionalString cfg.audiobookshelf.enable ''
-          ${sops} -d --output-type dotenv ${audiobookshelfFile} | grep -v '^#' > ${cfg.audiobookshelf.path}
-          chmod 400 ${cfg.audiobookshelf.path}
-          chown ${user}:users ${cfg.audiobookshelf.path}
-        ''}
+          ${lib.optionalString cfg.audiobookshelf.enable ''
+            ${sops} -d --output-type dotenv ${audiobookshelfFile} | grep -v '^#' > ${cfg.audiobookshelf.path}
+            chmod 400 ${cfg.audiobookshelf.path}
+            chown ${user}:users ${cfg.audiobookshelf.path}
+          ''}
 
-        ${lib.optionalString cfg.paperless.enable ''
-          ${sops} -d --output-type dotenv ${paperlessFile} | grep -v '^#' > ${cfg.paperless.path}
-          chmod 400 ${cfg.paperless.path}
-          chown ${user}:users ${cfg.paperless.path}
-        ''}
-      '';
+          ${lib.optionalString cfg.paperless.enable ''
+            ${sops} -d --output-type dotenv ${paperlessFile} | grep -v '^#' > ${cfg.paperless.path}
+            chmod 400 ${cfg.paperless.path}
+            chown ${user}:users ${cfg.paperless.path}
+          ''}
+        '';
 
-    # Export paths as environment variables for convenience
-    environment.sessionVariables = lib.mkMerge [
-      (lib.mkIf cfg.pfsense.enable {
-        PFSENSE_MCP_ENV_FILE = cfg.pfsense.path;
-      })
-      (lib.mkIf cfg.unifi.enable {
-        UNIFI_MCP_ENV_FILE = cfg.unifi.path;
-      })
-      (lib.mkIf cfg.homeassistant.enable {
-        HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
-      })
-      (lib.mkIf cfg.slskd.enable {
-        SLSKD_MCP_ENV_FILE = cfg.slskd.path;
-      })
-      (lib.mkIf cfg.vinsight.enable {
-        VINSIGHT_MCP_ENV_FILE = cfg.vinsight.path;
-      })
-      (lib.mkIf cfg.audiobookshelf.enable {
-        AUDIOBOOKSHELF_MCP_ENV_FILE = cfg.audiobookshelf.path;
-      })
-      (lib.mkIf cfg.paperless.enable {
-        PAPERLESS_MCP_ENV_FILE = cfg.paperless.path;
-      })
-    ];
-  };
+      # Export paths as environment variables for convenience
+      environment.sessionVariables = lib.mkMerge [
+        (lib.mkIf cfg.pfsense.enable {
+          PFSENSE_MCP_ENV_FILE = cfg.pfsense.path;
+        })
+        (lib.mkIf cfg.unifi.enable {
+          UNIFI_MCP_ENV_FILE = cfg.unifi.path;
+        })
+        (lib.mkIf cfg.homeassistant.enable {
+          HOMEASSISTANT_MCP_ENV_FILE = cfg.homeassistant.path;
+        })
+        (lib.mkIf cfg.slskd.enable {
+          SLSKD_MCP_ENV_FILE = cfg.slskd.path;
+        })
+        (lib.mkIf cfg.vinsight.enable {
+          VINSIGHT_MCP_ENV_FILE = cfg.vinsight.path;
+        })
+        (lib.mkIf cfg.audiobookshelf.enable {
+          AUDIOBOOKSHELF_MCP_ENV_FILE = cfg.audiobookshelf.path;
+        })
+        (lib.mkIf cfg.paperless.enable {
+          PAPERLESS_MCP_ENV_FILE = cfg.paperless.path;
+        })
+      ];
+    })
+    # On hosts where MCP is disabled, remove any stale plaintext creds left in
+    # /run/secrets/mcp. Unconditional (#234): harmless on tmpfs /run (already
+    # cleared on reboot), required on persistent /run so a disabled sibling
+    # never keeps decrypted infra-control tokens on disk.
+    (lib.mkIf (!cfg.enable) {
+      system.activationScripts.mcp-purge =
+        lib.stringAfter ["setupSecrets"] "rm -rf /run/secrets/mcp";
+    })
+  ];
 }

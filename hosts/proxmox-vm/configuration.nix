@@ -25,6 +25,20 @@
     # lets doc1 reach the keyless siblings. See issue #270.
     ssh.deployIdentity = true;
 
+    # MCP agent creds live ONLY here (#234): doc1 is the sole host the
+    # pfsense/unifi/HA/slskd/vinsight/abs/paperless control agents run from.
+    # Base default is now false everywhere.
+    mcp = {
+      enable = true;
+      pfsense.enable = true;
+      unifi.enable = true;
+      homeassistant.enable = true;
+      slskd.enable = true;
+      vinsight.enable = true;
+      audiobookshelf.enable = true;
+      paperless.enable = true;
+    };
+
     # Base.nix enables tailscale=true.
 
     # Base.nix enables update=true.
