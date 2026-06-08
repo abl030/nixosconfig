@@ -26,14 +26,13 @@ ssh <host> 'sudo -u <user> --login claude'
 
 Replace `<user>` with the host's `hostConfig.user` (usually `abl030`; `nixos` on wsl). Walk through the OAuth prompts in a browser, then exit. The token persists across reboots and through token refreshes. If it ever expires, the diagnose unit silently falls back to raw-log Gotify and you'll see `(claude triage unavailable, raw log tail follows)` at the top of the Gotify message — re-run the bootstrap to fix.
 
-Hosts to bootstrap (everything with `homelab.update.enable = true`, which is the base default — i.e. everything except `sandbox`):
+Hosts to bootstrap (everything with `homelab.update.enable = true`, which is the base default — i.e. the whole fleet):
 
 - proxmox-vm (doc1)
 - doc2
 - igpu
 - epimetheus
 - framework
-- dev
 - cache
 - wsl (user is `nixos`, not `abl030`)
 

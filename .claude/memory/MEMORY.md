@@ -15,6 +15,11 @@
   `bastionInvariantCheck` enforces exactly one `deployIdentity=true`.
 - Full model: `docs/wiki/infrastructure/ssh-bastion-model.md`.
 
+## Secrets model (#234, 2026-06-08)
+- Per-host sops scoping + cold break-glass (Bitwarden+paper) + warm doc1 editor key;
+  "master" recipient retired (it was the fleet SSH key in age form). Re-key with
+  `sops updatekeys` from **inside `secrets/`**. See [sops-recipient-model.md](sops-recipient-model.md).
+
 ## Key Decisions
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)

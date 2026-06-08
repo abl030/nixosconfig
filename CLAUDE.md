@@ -178,7 +178,7 @@ The presence of `configurationFile` determines whether a host is a full NixOS sy
 
 ## Secrets Management
 
-Uses Sops-nix with Age encryption. Config: `secrets/.sops.yaml`.
+Sops-nix + Age. Config: `secrets/.sops.yaml`. **Per-host scoped (#234):** a secret under `secrets/hosts/<H>/` is decryptable only by host `<H>` plus two universal keys — a cold **break-glass** key (recovery only; Bitwarden + printed paper, on no host) and a warm **editor** key (doc1 `~/.config/sops/age/keys.txt`, used to edit/re-key from the bastion). Shared secrets get explicit multi-host/fleet-wide rules; a **fail-closed** `.*` fallback means an unscoped secret deploys nowhere until given a rule. `sopsRecipientScopeCheck` (a flake check) enforces the per-host invariant. Re-key with `sops updatekeys` run from **inside `secrets/`** (config discovery uses CWD). There is no "master" recipient — the old fleet-key-as-master was retired. Full model, recovery, and rollback: [docs/wiki/infrastructure/sops-break-glass-recovery.md](docs/wiki/infrastructure/sops-break-glass-recovery.md).
 
 ## Troubleshooting
 
@@ -283,6 +283,8 @@ These MCPs are **subagent-only** — defined in `.claude/agents/` to avoid conte
 - `pfsense` — Firewall rules, NAT, VPN, DHCP, DNS
 - `unifi` — Network devices, clients, WLANs, port profiles
 
+These agents run on **doc1**, where their credentials live. As of #234 the MCP control creds deploy to `/run/secrets/mcp/` on **doc1 only** (`homelab.mcp` defaults off fleet-wide; doc1 opts in) — they used to land on every host. doc2's metrics exporter uses a separate **read-only** pfSense key (`metrics-exporter-ro`), not the full-control token.
+
 Full HA usage guide incl. Music Assistant playback and volume quirks lives in `docs/wiki/services/` (search for `home-assistant`).
 
 ### mcp-nixos
@@ -303,11 +305,12 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 - **proxmox-vm** (doc1): Main services VM on Proxmox prom
 - **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
 - **igpu**: Media transcoding VM on Proxmox prom with AMD iGPU passthrough
-- **dev**: Development VM on Proxmox prom
+
+*(The `dev` and `sandbox` VMs were decommissioned in #234 — removed from `hosts.nix`. Live fleet = the 7 hosts above.)*
 
 ### Hypervisors
 
-- **prom** (192.168.1.12, AMD 9950X): Proxmox host running most VMs (doc1, doc2, igpu, dev, …). Manage via the Proxmox web UI; no in-repo automation.
+- **prom** (192.168.1.12, AMD 9950X): Proxmox host running most VMs (doc1, doc2, igpu, …). Manage via the Proxmox web UI; no in-repo automation.
 - **tower** (192.168.1.2): Unraid host running NAS + some VMs + docker stacks. `ssh root@tower` works but is gated — ask the user to unlock first.
 
 ### Network & DNS Topology (non-obvious — read before debugging)

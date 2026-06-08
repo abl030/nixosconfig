@@ -1,7 +1,7 @@
 ---
 title: "refactor(secrets): least-privilege sops recipient scoping (#234)"
 type: refactor
-status: active
+status: completed
 date: 2026-06-08
 origin: docs/brainstorms/2026-06-08-sops-recipient-scoping-requirements.md
 ---
