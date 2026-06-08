@@ -270,5 +270,16 @@ in {
         }
       });
     '';
+
+    # Authorize doc2's gwm-archiver convert-trigger key (#270). doc2 is keyless
+    # and can no longer reach here with the fleet identity, so the trigger uses a
+    # dedicated key — forced-command-locked to ONLY start this one unit, source-
+    # pinned to the tailnet/home-LAN, and `restrict` strips pty/forwarding/etc.
+    # The polkit rule above grants ${cfg.user} the actual start. A leak of this
+    # key buys an attacker nothing but "start an EPUB conversion". Private half:
+    # secrets/hosts/doc2/gwm-trigger-key. See modules/nixos/services/gwm-archiver.nix.
+    users.users.${cfg.user}.openssh.authorizedKeys.keys = [
+      ''command="${config.systemd.package}/bin/systemctl start --no-block marker-convert.service",restrict,from="100.64.0.0/10,192.168.1.0/24" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIHHE8jIJh0ZV4ROWQRYHCmcLuBUQPSDM0kKzDAt6c/2 gwm-convert-trigger@doc2''
+    ];
   };
 }
