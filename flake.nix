@@ -390,8 +390,64 @@
             echo "Bastion invariant OK: exactly one deployIdentity=true (the doc1 bastion)."
             touch $out
           '';
+
+          # Least-privilege sops invariant (#234): every secret under
+          # secrets/hosts/<H>/ must be encrypted to EXACTLY {that host's age key,
+          # editor, break-glass} — never a sibling host key. Grep over the
+          # plaintext age-recipient stanzas (works for dotenv/yaml/binary alike;
+          # no decryption needed). Catches a re-key that strands a host (missing
+          # own key) or leaks a host-dir secret to a sibling. The recipient↔host
+          # map below mirrors secrets/.sops.yaml.
+          sopsRecipientScopeCheck = pkgs.runCommand "sops-recipient-scope" {} ''
+            grep=${pkgs.gnugrep}/bin/grep
+            ed=age17uw7vxe8x3nmg0lu5j33qlh8pxr538jlqhhjngmexdc0macccg8sc8rw63
+            bg=age1y6nasu9gplutapjne4yv0uhzrwee6ayf2mygwhphf3nty6x5xddqy4zl4h
+            doc1=age1y4sdqs8dnlrma395hjna6dmzcctaeqpr8rh0wx6ap626uv0mremqsgdn30
+            doc2=age1w09y86s3rtp8f06rfrwx865p9nrxsklhlsf03qsqmrlpcudleplq26xujh
+            igpu=age17pejn8m9tz063y3waahgyyn365n22hzgg5hr64ey7wk79ee8ccmsh8z294
+            epi=age1gr4papzzdqfxd34ushr88303f2ypdwvgx9cw2xqs87yn4zf8lpxqc0rur5
+            fw=age1ysfdznu87vwwqtpudchkyx0wlhuhteqljrqkt6963pcmhwprlgcqasg0gv
+            wsl=age10hqxw3uxvg9nkc56rm495ty0rge0yhkcqp95gx00tgsv8ptg93mqwywlja
+            cache=age1cd4wnte9ffe65ysqzvtkwu5uzvvxn9xeln7n5ctkjsk4c589fc5qkt397e
+            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $cache"
+            fail=0
+            for d in ${./secrets/hosts}/*/; do
+              h=$(basename "$d")
+              case "$h" in
+                proxmox-vm) own=$doc1 ;;
+                doc2) own=$doc2 ;;
+                igpu) own=$igpu ;;
+                epimetheus) own=$epi ;;
+                framework) own=$fw ;;
+                wsl) own=$wsl ;;
+                cache) own=$cache ;;
+                *) echo "unknown host dir: $h"; fail=1; continue ;;
+              esac
+              for f in "$d"*; do
+                [ -f "$f" ] || continue
+                case "$f" in *.pub) continue ;; esac
+                for k in $allhosts; do
+                  [ "$k" = "$own" ] && continue
+                  if $grep -q "$k" "$f"; then echo "LEAK: hosts/$h/$(basename "$f") is encrypted to a sibling host key"; fail=1; fi
+                done
+                $grep -q "$own" "$f" || { echo "MISSING own-host key: hosts/$h/$(basename "$f")"; fail=1; }
+                $grep -q "$ed" "$f" || { echo "MISSING editor key: hosts/$h/$(basename "$f")"; fail=1; }
+                $grep -q "$bg" "$f" || { echo "MISSING break-glass key: hosts/$h/$(basename "$f")"; fail=1; }
+              done
+            done
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "sops recipient scope violated (#234): every secrets/hosts/<H>/ secret"
+              echo "must be encrypted to EXACTLY {that host key, editor, break-glass}."
+              echo "Re-key with 'sops updatekeys' after fixing secrets/.sops.yaml. See"
+              echo "docs/wiki/infrastructure/sops-break-glass-recovery.md."
+              exit 1
+            fi
+            echo "sops recipient scope OK: every hosts/<H>/ secret is host-scoped."
+            touch $out
+          '';
         in
-          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck;}
+          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck;}
           // (
             if !fullCheck
             then {}

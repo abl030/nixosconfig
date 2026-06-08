@@ -2,6 +2,15 @@
 
 This directory manages encrypted secrets using **Sops** and **Age**.
 
+> **⚠️ Recipient model changed in [#234](https://github.com/abl030/nixosconfig/issues/234) (2026-06-08).**
+> Secrets are now **per-host scoped** — a file under `hosts/<H>/` decrypts only on
+> host `<H>` — behind a dedicated **editor** key (warm, doc1) + **break-glass** key
+> (cold, Bitwarden + printed). The old "every secret encrypted to all host keys +
+> a Master User Key" model described below is **superseded**: the
+> fleet-key-as-master recipient was retired. Current model, recovery, and re-key
+> procedures: [`docs/wiki/infrastructure/sops-break-glass-recovery.md`](../docs/wiki/infrastructure/sops-break-glass-recovery.md).
+> The new-host bootstrap steps below remain valid for blessing a host's key.
+
 We use a "Bootstrap Paradox" workflow:
 1.  Secrets are encrypted against **Host Keys** (machine identity) AND the **Master User Key** (user identity).
 2.  On boot, the Host Key decrypts the Master User Key (`id_ed25519`).
