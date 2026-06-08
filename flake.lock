@@ -888,15 +888,15 @@
       "locked": {
         "lastModified": 1771901753,
         "narHash": "sha256-F4wQ293vjwh2usqelMWBmVXIV2nuzK5rw0nUKyETiLM=",
-        "ref": "refs/heads/master",
+        "owner": "abl030",
+        "repo": "vinsight-mcp",
         "rev": "f3d1132db90b4da4be406c177cf2741f29a6c414",
-        "revCount": 70,
-        "type": "git",
-        "url": "ssh://git@github.com/abl030/vinsight-mcp"
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "ssh://git@github.com/abl030/vinsight-mcp"
+        "owner": "abl030",
+        "repo": "vinsight-mcp",
+        "type": "github"
       }
     },
     "yt-dlp-src": {

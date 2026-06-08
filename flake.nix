@@ -169,19 +169,26 @@
     };
 
     # Vinsight MCP - MCP server for Vinsight winery API.
-    # Private repo: fetched over SSH with the fleet identity deploy key
-    # (hosts.nix:masterKeys) so the rest of the flake stays resilient when
-    # the GitHub PAT rotates. See issue #210 and
-    # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
+    # Private repo: fetched via github: using the read-only GitHub PAT in
+    # nix-netrc (access-tokens), NOT git+ssh. Moved off SSH in #270 so that no
+    # fleet host except the doc1 bastion needs an SSH key — siblings are keyless
+    # and a popped sibling holds nothing fleet-trusted.
+    # Trade-off (supersedes the #210 git+ssh rationale): a broken/expired PAT
+    # breaks eval of this input fleet-wide (vinsight is enabled by default in
+    # base.nix → in every host's closure). Keep the fine-grained token
+    # (vinsight-mcp + cellar-manager, Contents:read) on a long expiry and rotate
+    # before it lapses. refresh-access-tokens.nix degrades to empty-tokens on a
+    # rejected PAT, so public fetches still survive a lapse.
     vinsight-mcp = {
-      url = "git+ssh://git@github.com/abl030/vinsight-mcp";
+      url = "github:abl030/vinsight-mcp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # cellar-manager - source tree for vinsight-local (FastAPI + sync tool)
-    # served on wsl at cullen.ablz.au. Public repo; consumed as plain source
-    # because the repo has no flake of its own — overlay.nix builds the
-    # vinsight-local Python package from this tree.
+    # served on wsl at cullen.ablz.au. Private repo (fetched via the same
+    # nix-netrc PAT as vinsight-mcp); consumed as plain source because the repo
+    # has no flake of its own — overlay.nix builds the vinsight-local Python
+    # package from this tree.
     cellar-manager = {
       url = "github:abl030/cellar-manager";
       flake = false;
