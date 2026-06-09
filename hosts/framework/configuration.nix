@@ -184,18 +184,35 @@
 
         serviceConfig = {
           Type = "oneshot";
+
+          # RemainAfterExit is REQUIRED for the resume path to work. A bare
+          # oneshot goes inactive the instant ExecStart finishes, so on resume
+          # there is no active unit left for systemd to "stop" — and ExecStop
+          # (which restarts the automounts) would never fire. With this set the
+          # unit stays "active (exited)" across the sleep, so stopping
+          # suspend.target on resume runs ExecStop. (#mnt-data-suspend)
+          RemainAfterExit = true;
+
           TimeoutSec = "30s"; # Increased from 5s - NFS unmount can be slow
 
-          # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted)
-          # 1. Stop the automount triggers so nothing can re-mount during suspend
+          # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted).
+          #
+          # ORDER MATTERS: tear down the NFS mounts BEFORE stopping the automount
+          # triggers. Stopping an automount that still has a live (and possibly
+          # stale, over-Tailscale) NFS mount underneath it blocks until the stop
+          # times out — that is exactly what stranded /mnt/data on resume. Lazy
+          # (-l) + force (-f) unmounting first breaks the stale handles so the
+          # subsequent automount stop is instant.
           ExecStart = [
-            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount mnt-Music.automount"
-
-            # 2. The Hammer: Lazy (-l) and Force (-f) unmount all NFS shares immediately
+            # 1. The Hammer: lazy + force unmount all NFS shares immediately.
             "-${pkgs.util-linux}/bin/umount -l -f -a -t nfs,nfs4"
+
+            # 2. Stop the now-detached automount triggers so nothing re-mounts
+            #    during suspend.
+            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount mnt-Music.automount"
           ];
 
-          # Restart the automounts on resume so they work again
+          # Restart the automounts on resume so they work again.
           ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount mnt-Music.automount";
         };
       };
