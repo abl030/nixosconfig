@@ -550,54 +550,28 @@ in {
 
     homelab = {
       monitoring = {
-        secretEnvFiles = [
-          config.sops.secrets.${kopiaMonitoringSecret}.path
-        ];
-
+        # HTTPS availability monitors (accept 401).
+        # `timeout = 180` and `maxretries = 25`: kopia's HTTP listener stalls
+        # under the repository lock during full maintenance, so Kuma's default
+        # 48s timeout would trip on every maintenance window.
+        #
+        # Per-snapshot backup health (errorCount > 0) is handled by the
+        # "Kopia <name> Backup" DEEP PROBE below (check-kopia-backup-errors),
+        # which requires TWO consecutive bad snapshots before paging — not the
+        # old single-snapshot json-query monitor that paged on one transient
+        # incomplete snapshot and stayed down ~24h (2026-06-09 triage). Repo-
+        # broken / verify failures are caught by the errorPatterns alerts below
+        # (journald) rather than poking the busy API.
         monitors =
-          # HTTPS availability monitors (accept 401).
-          # Same `timeout = 180` and `maxretries = 25` rationale as the
-          # Backup probe below: kopia's HTTP listener stalls under the
-          # repository lock during full maintenance, so the default 48s
-          # Kuma timeout would trip on every maintenance window.
-          (lib.mapAttrsToList (name: inst: {
-              name = "Kopia ${name}";
-              url = "https://${inst.proxyHost}/";
-              acceptedStatusCodes = ["200-299" "300-399" "401"];
-              interval = 300;
-              timeout = 180;
-              maxretries = 25;
-            })
-            cfg.instances)
-          ++
-          # JSON-query backup health monitors.
-          #
-          # `timeout = 180` and `maxretries = 25` exist to absorb kopia's
-          # daily full-maintenance window. Full maintenance (GC + epoch
-          # compaction + content sweep) holds the repository lock for
-          # 10-15 min on a 1.5 TB repo; /api/v1/sources blocks behind
-          # that lock and Kuma's default 48s timeout trips. With 180s
-          # per-probe timeout each individual probe survives most lock
-          # waits; 25 retries × 60s = 25 min of continuous failure
-          # before paging, comfortably above observed 12-min maintenance
-          # but below "service genuinely broken" thresholds.
-          #
-          # Real backup failures are caught by the errorPatterns alerts
-          # below (Kopia <name> repository broken / verify failed) which
-          # read journald instead of poking the busy API.
-          (lib.mapAttrsToList (name: inst: {
-              name = "Kopia ${name} Backup";
-              type = "json-query";
-              url = "http://localhost:${toString inst.port}/api/v1/sources";
-              basicAuthUserEnv = "KOPIA_SERVER_USER";
-              basicAuthPassEnv = "KOPIA_SERVER_PASSWORD";
-              jsonPath = "$count(sources[lastSnapshot.stats.errorCount > 0])";
-              expectedValue = "0";
-              interval = 300;
-              timeout = 180;
-              maxretries = 25;
-            })
-            cfg.instances);
+          lib.mapAttrsToList (name: inst: {
+            name = "Kopia ${name}";
+            url = "https://${inst.proxyHost}/";
+            acceptedStatusCodes = ["200-299" "300-399" "401"];
+            interval = 300;
+            timeout = 180;
+            maxretries = 25;
+          })
+          cfg.instances;
 
         # See #253 audit + rules-doc "Per-service errorPatterns".
         # Excludes the chronic `broken pipe` / `error encoding response`
@@ -647,32 +621,43 @@ in {
           }
         ];
 
-        # Stale-snapshot deep probe per kopia instance — see #254.
-        # Catches the "backups stopped silently" class: kopia is up, the
-        # repository is reachable, but no new snapshot has landed within
-        # `KOPIA_MAX_AGE_HOURS`. Default 36h covers the daily 06:00
-        # schedule with 12h slack for slow runs / weekend skips.
-        deepProbes =
-          lib.mapAttrsToList (name: inst: {
-            name = "Kopia ${name} freshness";
-            command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
-            interval = "1h";
-            # Headroom over the 1h cadence so on-time pushes don't race Kuma's
-            # deadline and false-flap DOWN — same boundary-race bug fixed for the
-            # immich/musicbrainz probes (2026-06-05 RCA, lgtm-stack.md). 4500s = 1h + 15m.
-            intervalSecs = 4500;
-            # Bumped from default 60s so the probe's curl (now 250s)
-            # has headroom to wait out kopia's full-maintenance lock.
-            timeout = "300s";
-            serviceConfig = {
-              Environment = [
-                "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
-                "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
-                "KOPIA_MAX_AGE_HOURS=36"
-              ];
-            };
-          })
-          cfg.instances;
+        # Deep probes per kopia instance — see #254.
+        #   freshness : "backups stopped silently" — kopia is up and the repo
+        #               reachable, but no new snapshot landed within
+        #               KOPIA_MAX_AGE_HOURS (36h = daily 06:00 schedule + slack).
+        #   Backup    : snapshots ARE landing but the last TWO both errored
+        #               (errorCount > 0) — a sustained partial-backup problem,
+        #               not a one-off slow-link hiccup. Replaced the old
+        #               single-snapshot json-query monitor (2026-06-09 triage).
+        #
+        # intervalSecs 4500 (= 1h + 15m): headroom over the 1h cadence so on-time
+        # pushes don't race Kuma's deadline and false-flap DOWN (2026-06-05 RCA,
+        # lgtm-stack.md). timeout 300s: the probe's curl (250s) waits out kopia's
+        # full-maintenance repository lock.
+        deepProbes = lib.concatLists (lib.mapAttrsToList (name: inst: let
+            baseEnv = [
+              "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
+              "KOPIA_AUTH_FILE=${config.sops.secrets.${kopiaMonitoringSecret}.path}"
+            ];
+          in [
+            {
+              name = "Kopia ${name} freshness";
+              command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
+              interval = "1h";
+              intervalSecs = 4500;
+              timeout = "300s";
+              serviceConfig.Environment = baseEnv ++ ["KOPIA_MAX_AGE_HOURS=36"];
+            }
+            {
+              name = "Kopia ${name} Backup";
+              command = "${pkgs.callPackage ./probes/check-kopia-backup-errors.nix {}}/bin/check-kopia-backup-errors";
+              interval = "1h";
+              intervalSecs = 4500;
+              timeout = "300s";
+              serviceConfig.Environment = baseEnv;
+            }
+          ])
+          cfg.instances);
       };
 
       mounts.mumNfs.enable = lib.mkIf needsMumMount true;
