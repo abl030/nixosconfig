@@ -385,7 +385,7 @@ If you change one, change all four. Drift here means silent log loss the next ti
 
 ## Alloy holds stale TCP connections across vhost migrations — silent log loss
 
-**Researched:** 2026-05-24. **Status:** fixed (prom alloy restarted); pattern applies to any future vhost relocation.
+**Researched:** 2026-05-24. **Status:** fixed (prom alloy restarted); pattern applies to any future vhost relocation. **Recurred 2026-06-09** via a different trigger (ungraceful reboot, not a migration) — see [the recurrence note](#2026-06-09-recurrence--ungraceful-reboot-re-triggers-the-coalesce) at the end of this section.
 
 ### What broke
 
@@ -431,6 +431,17 @@ Within seconds, prom appeared in Loki's host label values and kernel logs were f
 A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. **Implemented same day** as `homelab.services.alerting.ingestionSilenceAlert` in `modules/nixos/services/alerting.nix`. Default: per-host LogQL `sum(count_over_time({host="<name>"}[15m]))` rule per always-on host (`doc2 proxmox-vm igpu prom tower pfsense wsl`), threshold `< 1`, `for: 5m`, `noDataState: Alerting`. Time-to-fire ~20 min. Skips workstations (framework, epimetheus), workstation WSL when it's offline (wsl is in the list but you'll get the page if you shut down — that's intended), `dev` (off most of the time), and HM-only hosts that have no journal/alloy to begin with (caddy, cache).
 
 Tune via `homelab.services.alerting.ingestionSilenceAlert.{hosts,window,forDuration}` per host config. Disable per-fleet with `enable = false` (default true, only loads on the Loki host since the rest of the alerting module is gated on `homelab.services.loki.enable`).
+
+### 2026-06-09 recurrence — ungraceful reboot re-triggers the coalesce
+
+Hit again during morning triage. prom's `alloy` was logging continuous `421 Misdirected Request (421): Unknown host` for `loki.write`, no `host="prom"` in Loki for ~3 days, but **metrics were still flowing to Mimir** (`up{host="prom"}=1`). `ss -tnp | grep alloy` again showed two `:443` connections — one to `192.168.1.35` (doc2, correct) and a wedged one to `192.168.1.6` (caddy). `systemctl restart alloy` fixed it instantly (single clean connection to .35, logs flowing).
+
+Two things this recurrence clarified beyond the 2026-05-24 entry:
+
+- **The trigger was NOT a vhost migration this time.** prom rebooted **ungracefully** on 2026-06-07 04:00 (a dying rpool SATA SSD hung I/O — see issue #276). DNS for `loki.ablz.au` was correct (`.35`) the whole time. So the bad connection was established *fresh, post-reboot*, not held across a DNS change. Any unclean reboot can re-arm this.
+- **The enabler is HTTP/2 connection coalescing via caddy's wildcard cert.** caddy (`192.168.1.6`) presents a `*.ablz.au` cert (`CN=*.ablz.au`), which is "valid" for `loki.ablz.au`. Go's HTTP/2 transport will reuse/coalesce a connection to caddy for `loki.ablz.au` pushes; caddy has no `loki.ablz.au` site so it returns 421. Confirmed: `curl --resolve loki.ablz.au:443:192.168.1.6 ... /loki/api/v1/push` → **421**, while the same push to doc2 (`.35`) → 422 (reached Loki). The asymmetry "logs dead, metrics fine" is structural: `loki.write` ships over **HTTP/2** (coalesces), `prometheus.remote_write`→mimir ships over **HTTP/1.1** (cannot coalesce). doc2's own loki/mimir vhosts use *separate single-name* certs, so they are **not** the coalescing culprit — caddy's wildcard is.
+
+**Detection worked, remediation is still manual.** The `ingestionSilenceAlert` fired correctly both nights (the `[warning] prom stopped shipping logs to Loki` Gotify pings, 06-07 20:23 + 06-08 20:25). We **deliberately chose NOT to add an auto-restart watchdog** (2026-06-09 decision): the failure needs an ungraceful reboot to trigger, the alert already catches it, and a self-heal timer adds standing complexity + burns the alloy WAL queue on every false trip. Runbook stays: when you see `prom stopped shipping logs`, `ssh root@192.168.1.12 systemctl restart alloy` and confirm `prom` returns to `loki.ablz.au/loki/api/v1/label/host/values`. Revisit the watchdog only if this recurs without a reboot.
 
 ## Per-service errorPattern alerts — startup-noise trap
 
