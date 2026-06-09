@@ -14,6 +14,12 @@
   homelab = {
     ssh = {
       enable = true;
+      # Run a local ssh-agent that caps id_doc1 at a 1h lifetime
+      # (ssh-agent -t 3600). Replaces the untimed agent that currently caches
+      # the key for the whole WSL2 VM lifetime (so it never re-prompts). The
+      # upstream module's shell hook overrides the inherited SSH_AUTH_SOCK in a
+      # local WSL terminal (no $SSH_CONNECTION). See modules/home-manager/services/ssh.nix.
+      localAgent.enable = true;
     };
     # claudePlugins enabled fleet-wide via modules/home-manager/profiles/base.nix
   };

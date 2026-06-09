@@ -1,4 +1,10 @@
 {pkgs, ...}: {
+  # GNOME ships gcr-ssh-agent as the SSH agent, which caches an unlocked key
+  # for the whole login session (no TTL). Replace it with our plain 1h-TTL
+  # ssh-agent. Pairs with `services.gnome.gcr-ssh-agent.enable = false` in each
+  # GNOME host's system config so the plain agent is the only SSH agent.
+  homelab.ssh.localAgent.enable = true;
+
   home.packages = [
     pkgs.gnome-tweaks
     pkgs.gnomeExtensions.dash-to-panel

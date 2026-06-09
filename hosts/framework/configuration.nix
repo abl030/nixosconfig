@@ -84,6 +84,11 @@
     displayManager.gdm.enable = true;
     desktopManager.gnome.enable = true;
 
+    # Use our plain 1h-TTL ssh-agent (homelab.ssh.localAgent) instead of
+    # GNOME's session-long gcr-ssh-agent. Only the SSH agent component is
+    # disabled — gnome-keyring's secret service is unaffected.
+    gnome.gcr-ssh-agent.enable = false;
+
     # Audio
     pulseaudio.enable = false;
     pipewire = {
