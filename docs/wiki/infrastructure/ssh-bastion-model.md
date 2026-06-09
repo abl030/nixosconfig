@@ -59,6 +59,56 @@ read-only `nix-netrc` PAT (with `cellar-manager`). See
 **Trade-off:** a dead PAT fails eval of the two private inputs fleet-wide — use
 a **no-expiry**, Contents:read, 2-repo fine-grained token.
 
+## Passphrase caching — the 1h agent layer (2026-06-09)
+
+The device passphrase is "the real gate" (above), but a gate that's only ever
+shut once is weak. Before this change the unlocked `id_doc1` was cached for the
+**whole login session** (GNOME's `gcr-ssh-agent`, no TTL) or — on wsl — for the
+**entire WSL2 VM lifetime** (an untimed plain `ssh-agent`), so in practice it
+*never* re-prompted (observed: 8h+, next day). The passphrase had become a
+one-time enrolment step, not a recurring auth.
+
+**Model now:** a plain `ssh-agent` run with `-t 3600` (a hard 1h cap on every
+identity) + `AddKeysToAgent 1h` in the `Host *` block, so a passphrase key is
+re-prompted **at most hourly**. Wired via `homelab.ssh.localAgent.enable`
+(opt-in, default off) in `modules/home-manager/services/ssh.nix`:
+
+- **epi, framework** (GNOME): `localAgent.enable = true` **and**
+  `services.gnome.gcr-ssh-agent.enable = false` in system config (the latter is
+  required — otherwise gcr stays the SSH agent). gnome-keyring's *secret*
+  service is untouched; only its SSH-agent component is disabled.
+- **wsl**: `localAgent.enable = true`. No gcr there; the upstream module's
+  `.zshenv` hook (`set SSH_AUTH_SOCK` unless `$SSH_CONNECTION` is set) overrides
+  the inherited socket in a local WSL terminal, so the new agent wins.
+- **servers**: opt out. They only get the harmless `AddKeysToAgent 1h` policy
+  line (no-op with no agent running).
+
+### ⚠️ The IdentityFile trap (this WILL lock you out if missed)
+
+`id_doc1` is **non-default-named**, and the ssh config carries **no
+`IdentityFile`** for it. `ssh doc1` only ever worked because **gcr auto-loaded**
+`~/.ssh/id_*` keys and offered them. A plain `ssh-agent` does **not** auto-load
+anything. So the moment you disable gcr without telling ssh where the key is,
+ssh offers *nothing* → `Permission denied` → the host can't reach doc1 (and on a
+keyless sibling you can't even hop back in except via doc1→that host).
+
+Fix, baked into `localAgent`: when enabled, the `Host *` block gains
+`IdentityFile ~/.ssh/id_doc1` so ssh loads it from disk, prompts once, and
+`AddKeysToAgent` caches it for the hour. **If a future device names its key
+something other than `id_doc1`, that path is wrong and the device is locked out
+of doc1** — make `identityFile` per-host before enabling `localAgent` there.
+
+### wsl was NOT a Windows agent bridge
+
+Worth recording because it's counter-intuitive (and a research subagent guessed
+wrong): wsl's never-reprompt was **not** the Windows OpenSSH agent / 1Password /
+npiperelay. That service is `Stopped`+`Disabled` with no keys. It was a plain
+**Linux** `ssh-agent` (socket `~/.ssh/agent/s.*`, started by the Windows-Terminal
+launch — not Nix, not systemd, not any readable rc) holding the key with no
+`-t`. The fix is the same Linux-side `-t 3600`; the old launcher's socket is
+simply shadowed by the HM agent. If wsl ever stops re-prompting again, that
+launcher has won — hunt it via the live shell's `/proc/<pid>/environ`.
+
 ## Gotchas / operational notes
 
 - **Break-glass (host access):** Proxmox console on prom (console login is

@@ -1,3 +1,6 @@
+# SSH client config + the per-host 1h-TTL ssh-agent (homelab.ssh.localAgent).
+# Model, the IdentityFile lock-out trap, and the wsl finding:
+# docs/wiki/infrastructure/ssh-bastion-model.md ("Passphrase caching" section).
 {
   config,
   lib,
