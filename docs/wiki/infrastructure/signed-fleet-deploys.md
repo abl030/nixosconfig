@@ -50,6 +50,31 @@ Not yet landed:
   `homelab.update.verify.freshness.enable`.
 - Forgejo write-root cutover.
 
+## Walk-through verification (2026-06-10)
+
+The recovery runbooks were exercised live on igpu (the canary) after it was
+brought to current tip. Verified: `fleet-update --probe-origins`, `--dry-run`,
+the no-op path, the authenticated freshness watchdog (`FLEET-FRESHNESS OK`),
+`--accept-new-root`, a real verified deploy through the local clone, and the
+break-glass timer stop/start. The walk-through caught and fixed three bugs that
+only bit the real (non-no-op) deploy and recovery paths — every earlier test was
+a no-op because the host was already on tip:
+
+- `--accept-new-root` set its force-deploy flag inside a `$(read_anchor)`
+  command-substitution subshell, so the assignment was lost and the run
+  classified as no-op. Bootstrap and history-rewrite recovery silently did not
+  switch. Now gated on the parent-global `ACCEPT_NEW_ROOT`.
+- `metadata_preflight` passed the `#<host>` flake fragment to `nix flake
+  metadata`, which rejects it, so every real deploy failed at preflight. The
+  fragment is now stripped for the metadata probe (nixos-rebuild keeps it).
+- The break-glass runbooks used `systemctl disable --now`, which fails on
+  NixOS's read-only `/etc/systemd/system`; corrected to `systemctl stop`/`start`
+  with the rationale documented in **Break-Glass Host Deploy**.
+
+igpu also moved into the passwordless-sudo server tier (doc1/doc2/wsl) so the
+verified interactive `sudo fleet-update` deploy works over SSH, the same reason
+its old passwordless-`nixos-rebuild` rule existed.
+
 ## Trust Model
 
 `hosts.nix` is the trust root for commit-signing principals. The rendered
