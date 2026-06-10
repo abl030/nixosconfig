@@ -72,12 +72,15 @@ in {
     };
   };
 
-  home.activation.gitSigningWarnings = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    legacy_gitconfig="${config.home.homeDirectory}/.gitconfig"
-    if [ -e "$legacy_gitconfig" ]; then
-      echo "warning: $legacy_gitconfig exists and can override Home Manager's git config; remove it after checking credential helpers are present in ~/.config/git/config"
-    fi
+  # Git reads ~/.gitconfig instead of the XDG config when the legacy file exists.
+  # Own the legacy path too so existing hand-written credential helpers do not
+  # mask the declarative signing configuration.
+  home.file.".gitconfig" = {
+    source = config.xdg.configFile."git/config".source;
+    force = true;
+  };
 
+  home.activation.gitSigningWarnings = lib.hm.dag.entryAfter ["writeBoundary"] ''
     ${lib.optionalString (primarySigningKey != null) ''
       signing_key="${signingKeyPath}"
       if [ ! -r "$signing_key" ]; then
