@@ -209,10 +209,12 @@ host that is not yet using the verified path.
 
 ### Step 1 — trust-root ceremony (once, before the first enforcing host)
 
-1. Freeze writes to `master`. Stop the rolling bot so it cannot push mid-ceremony:
+1. Freeze writes to `master`. Stop the rolling bot so it cannot push
+   mid-ceremony (`stop`, not `disable` — see the read-only `/etc` note in
+   **Break-Glass Host Deploy**):
 
    ```sh
-   sudo systemctl disable --now rolling-flake-update.timer   # on doc1
+   sudo systemctl stop rolling-flake-update.timer   # on doc1
    ```
 
 2. Pick the exact rev that becomes the enforcement root and record it
@@ -261,11 +263,11 @@ host that is not yet using the verified path.
 
    From here, canary deploys use the verified path: `ssh igpu "sudo fleet-update"`.
 
-3. Re-enable the rolling bot and let at least one full nightly cycle run with the
+3. Re-arm the rolling bot and let at least one full nightly cycle run with the
    canary enforcing:
 
    ```sh
-   sudo systemctl enable --now rolling-flake-update.timer    # on doc1
+   sudo systemctl start rolling-flake-update.timer    # on doc1
    ```
 
 4. Confirm the enforcing nightly was green and freshness stayed quiet:
@@ -376,10 +378,15 @@ Use this only when the signed update path is blocked and a host must be fixed
 manually. Reach siblings (igpu, doc2, ...) through doc1, the SSH bastion — they
 hold no fleet key. Run these steps in a shell on the affected host itself.
 
-1. Stop the timer first:
+1. Stop the timer first. Use `stop`, not `disable` — NixOS renders
+   `/etc/systemd/system` as a read-only symlink tree, so `disable`/`enable`
+   cannot remove/add the `timers.target.wants` symlink and fail with
+   `Read-only file system`. `stop`/`start` are the runtime controls; the unit
+   stays Nix-enabled and re-arms on the next reboot or `nixos-rebuild`, which is
+   why step 6 re-arms it explicitly:
 
    ```sh
-   sudo systemctl disable --now nixos-upgrade.timer
+   sudo systemctl stop nixos-upgrade.timer
    ```
 
 2. Fix from a local checkout on the affected host. Follow the repo rebuild
@@ -409,10 +416,10 @@ hold no fleet key. Run these steps in a shell on the affected host itself.
    ```
 
    Redeploy from `master` as soon as the fix is merged and signed.
-6. Re-enable the timer:
+6. Re-arm the timer:
 
    ```sh
-   sudo systemctl enable --now nixos-upgrade.timer
+   sudo systemctl start nixos-upgrade.timer
    ```
 
 Stopping the timer is load-bearing. Otherwise the next nightly update can
@@ -423,10 +430,11 @@ revert the local dirty deployment.
 This is for failures in `rolling-flake-update.service` on doc1, not a host
 `nixos-upgrade` failure.
 
-1. Stop the bot timer first:
+1. Stop the bot timer first (`stop`, not `disable` — see the read-only `/etc`
+   note in **Break-Glass Host Deploy**):
 
    ```sh
-   sudo systemctl disable --now rolling-flake-update.timer
+   sudo systemctl stop rolling-flake-update.timer
    ```
 
 2. Inspect the run:
@@ -453,10 +461,10 @@ This is for failures in `rolling-flake-update.service` on doc1, not a host
    values from `systemctl cat rolling-flake-update.service`, add
    `NO_COMMIT=1 ONLY_GROUP=none`, and invoke the ExecStart wrapper shown there
    from `WorkingDirectory=/home/abl030/nixosconfig`.
-6. Re-enable the timer:
+6. Re-arm the timer:
 
    ```sh
-   sudo systemctl enable --now rolling-flake-update.timer
+   sudo systemctl start rolling-flake-update.timer
    ```
 
 ## Key Add And Remove

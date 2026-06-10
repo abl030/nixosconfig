@@ -37,7 +37,6 @@ REQUESTED_REV=""
 ACCEPT_NEW_ROOT=""
 ALLOW_NON_MASTER=0
 PROBE_ORIGINS=0
-ANCHOR_FROM_ACCEPT=0
 
 declare -a ORIGIN_NAMES=()
 declare -a ORIGIN_URLS=()
@@ -502,7 +501,6 @@ read_anchor() {
     if [ -n "$ACCEPT_NEW_ROOT" ]; then
         git -C "$REPO_DIR" cat-file -e "$ACCEPT_NEW_ROOT^{commit}" 2>/dev/null || tamper "accepted root is not present after fetch: $ACCEPT_NEW_ROOT"
         verify_commit "$ACCEPT_NEW_ROOT" || tamper "accepted root is not signed by an allowed key"
-        ANCHOR_FROM_ACCEPT=1
         printf '%s\n' "$ACCEPT_NEW_ROOT"
         return 0
     fi
@@ -532,11 +530,17 @@ classify_target() {
 
     verify_commit "$anchor" || tamper "deployment anchor is not signed by an allowed key: $anchor"
 
-    if [ "$target" = "$anchor" ] && [ "$ANCHOR_FROM_ACCEPT" -eq 0 ]; then
+    # When --accept-new-root is in play the anchor is the operator-confirmed root
+    # itself, so target==anchor and target-ancestor-of-anchor must NOT short to
+    # noop/skip — we want to force the deploy path and actually switch onto the
+    # accepted root. Gate on ACCEPT_NEW_ROOT (a parent global, correctly
+    # inherited here) rather than a flag set inside the read_anchor command
+    # substitution, whose assignment would be lost in that subshell.
+    if [ "$target" = "$anchor" ] && [ -z "$ACCEPT_NEW_ROOT" ]; then
         verify_commit "$target" || tamper "current target is not signed by an allowed key: $target"
         log "already on verified target $target"
         printf 'noop\n'
-    elif git -C "$REPO_DIR" merge-base --is-ancestor "$target" "$anchor" && [ "$ANCHOR_FROM_ACCEPT" -eq 0 ]; then
+    elif git -C "$REPO_DIR" merge-base --is-ancestor "$target" "$anchor" && [ -z "$ACCEPT_NEW_ROOT" ]; then
         verify_commit "$target" || tamper "stale target is not signed by an allowed key: $target"
         log "target $target is older than current anchor $anchor; skipping"
         printf 'skip\n'
