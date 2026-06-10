@@ -1,14 +1,16 @@
 # Signed Fleet Deploys
 
 **Date researched:** 2026-06-10
-**Status:** Phase C implementation complete and soaking. Signing (U2–U4), the
-verified `fleet-update` path (U5), the staleness watchdog (U6), and these
-runbooks (U7) have all landed on `master`. Nightly enforcement is still OFF
-fleet-wide: both `homelab.update.verify.enforce` and
-`homelab.update.verify.freshness.enable` default `false`. Flipping them on is a
-deliberate ceremony — see **Enabling Enforcement (Trust-Root Ceremony)** — and
-runs on a canary host before the fleet. The Forgejo write-root cutover (Phase D)
-has not started.
+**Status:** Phase C enforcement is **live on the igpu canary** (2026-06-10) and
+soaking. Signing (U2–U4), the verified `fleet-update` path (U5), the staleness
+watchdog (U6), and these runbooks (U7) have all landed on `master`. igpu sets
+`homelab.update.verify.enforce` + `freshness.enable` true; its nightly
+`nixos-upgrade` now runs the verified path and the freshness watchdog (manual
+enforced run verified green). The fleet default for both flags is still `false`.
+After one clean enforcing nightly cycle on igpu, both move to
+`modules/nixos/profiles/base.nix` and the igpu override is removed — see
+**Enabling Enforcement (Trust-Root Ceremony)**. The Forgejo write-root cutover
+(Phase D) has not started.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -42,13 +44,13 @@ Landed (U2–U7, all on `master`):
   `fleet/freshness.json` and writes local freshness markers under
   `/var/lib/fleet-update/`.
 
-Not yet landed:
+In progress / not yet landed:
 
-- Full-fleet nightly enforcement via `homelab.update.verify.enforce = true`.
-- Enabling the freshness watchdog timer fleet-wide. The unit and alert rule
-  exist, but the timer is still gated by
-  `homelab.update.verify.freshness.enable`.
-- Forgejo write-root cutover.
+- **Canary live:** igpu enforces (`enforce` + `freshness.enable`) as of
+  2026-06-10, soaking before fleet-wide promotion.
+- Full-fleet nightly enforcement (move both flags to `base.nix`, drop the igpu
+  override) — gated on one clean enforcing nightly cycle on igpu.
+- Forgejo write-root cutover (Phase D).
 
 ## Walk-through verification (2026-06-10)
 
