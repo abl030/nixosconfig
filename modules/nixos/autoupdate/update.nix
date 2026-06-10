@@ -6,6 +6,8 @@
   ...
 }: let
   cfg = config.homelab.update;
+  verifyCfg = config.homelab.update.verify;
+  useVerifiedUpdate = verifyCfg.enable && verifyCfg.enforce;
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
   diagnoseUser = hostConfig.user;
@@ -300,14 +302,22 @@ in {
       fi
 
       log "--- GATES PASSED. EXECUTING NIXOS REBUILD ---"
-      log "Target Flake: ${config.system.autoUpgrade.flake}"
+      if ${lib.boolToString useVerifiedUpdate}; then
+        log "Target: verified fleet-update (${verifyCfg.writeRoot}/${verifyCfg.branch})"
+      else
+        log "Target Flake: ${config.system.autoUpgrade.flake}"
+      fi
 
       log_file="$(/run/current-system/sw/bin/mktemp)"
       set +e
-      ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
-        --flake ${config.system.autoUpgrade.flake} \
-        ${lib.concatStringsSep " " config.system.autoUpgrade.flags} \
-        >"$log_file" 2>&1
+      if ${lib.boolToString useVerifiedUpdate}; then
+        ${lib.getExe config.system.build.fleetUpdate} >"$log_file" 2>&1
+      else
+        ${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch \
+          --flake ${config.system.autoUpgrade.flake} \
+          ${lib.concatStringsSep " " config.system.autoUpgrade.flags} \
+          >"$log_file" 2>&1
+      fi
       UPDATE_EXIT_CODE=$?
       set -e
       /run/current-system/sw/bin/cat "$log_file"
@@ -415,9 +425,12 @@ in {
 
       path = with pkgs; [
         coreutils
+        git
         gnugrep
         networkmanager
         gawk
+        jq
+        openssh
         systemd
       ];
 
@@ -426,6 +439,7 @@ in {
         # Timeout for the entire update operation (DNS check + rebuild + activation)
         # Prevents indefinite hangs from stuck activations (e.g., systemd generator bugs)
         TimeoutStartSec = cfg.timeout;
+        ExecCondition = lib.optional useVerifiedUpdate "${lib.getExe config.system.build.fleetUpdate} --probe-origins";
         ExecStartPre = [
           (pkgs.writeShellScript "nixos-upgrade-net-ready" ''
             set -euo pipefail

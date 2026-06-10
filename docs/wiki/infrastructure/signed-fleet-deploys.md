@@ -1,9 +1,10 @@
 # Signed Fleet Deploys
 
 **Date researched:** 2026-06-10
-**Status:** Phase B implementation in progress. Host deploy verification is not
-enabled yet; doc1 bot base verification is enabled by this slice and requires a
-seeded bot anchor before the first scheduled run.
+**Status:** Phase C implementation in progress. The rolling bot signs and
+verifies its base, and `fleet-update` now exists for verified host deploys.
+Nightly host enforcement is intentionally still gated behind
+`homelab.update.verify.enforce = true` until the runbook/freshness slice lands.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -28,10 +29,15 @@ Landed in the first implementation slice:
   fetched base and every commit since its durable bot anchor, and commits
   `fleet/freshness.json` as a signed heartbeat with green/partial-failure
   status on every run.
+- `fleet-update` is installed from the NixOS autoupdate verifier module. It
+  keeps a root-owned full checkout at `/var/lib/fleet-update/repo`, verifies
+  configured origin tips and the full deployment range against
+  `/etc/fleet-update/allowed_signers`, then switches from an exact
+  `git+file://...?rev=<sha>#<host>` flake reference.
 
 Not yet landed:
 
-- `fleet-update` verify-then-switch for host deployments.
+- Full-fleet nightly enforcement via `homelab.update.verify.enforce = true`.
 - Freshness alerting from signed heartbeat semantics.
 - Forgejo write-root cutover.
 
@@ -88,10 +94,44 @@ git log --format='%G? %GS' -1
 
 Expected status is `G` and the matching principal.
 
-If `~/.gitconfig` still exists, Home Manager warns because Git reads it before
-`~/.config/git/config` and it can override the declarative signing config.
-Check that GitHub credential helpers made it into `~/.config/git/config`, then
-remove the legacy file on that machine.
+Home Manager owns legacy `~/.gitconfig` as a forced symlink to the generated
+XDG Git config. This prevents an old per-user file from masking the declarative
+SSH signing setup.
+
+## Verified Host Deploy
+
+After the host has deployed the U5 slice, use:
+
+```sh
+sudo fleet-update
+```
+
+That command fetches the configured `homelab.update.verify.origins`, refuses
+unsigned or divergent history, verifies every commit from the running
+`system.configurationRevision` (or `/var/lib/fleet-update/last-verified-rev`
+fallback) to the selected target, then runs `nixos-rebuild switch` from the
+local verified clone pinned to the exact SHA.
+
+Useful manual modes:
+
+```sh
+sudo fleet-update --dry-run
+sudo fleet-update --rev <40-char-master-sha>
+sudo fleet-update --probe-origins
+```
+
+`--rev` must still be contained in protected `master` of the configured
+`writeRoot`; arbitrary side-branch deploys are refused by default.
+
+If a host has no usable anchor, bootstrap or re-anchor only after checking the
+expected SHA out-of-band:
+
+```sh
+sudo fleet-update --accept-new-root <expected-40-char-sha>
+```
+
+Do not use this as trust-on-first-use. It is for explicit history rewrite or
+bootstrap ceremonies.
 
 ## Bot Signing
 
@@ -195,7 +235,11 @@ manually.
 3. Deploy the local fix.
 4. Push the signed fix to the normal write root.
 5. Re-run the signed fleet update path or, after U5 lands, re-anchor with the
-   explicit expected SHA.
+   explicit expected SHA:
+
+   ```sh
+   sudo fleet-update --accept-new-root <expected-sha>
+   ```
 6. Re-enable the timer:
 
    ```sh

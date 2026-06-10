@@ -493,6 +493,215 @@
               touch $out
             '';
 
+          fleetUpdateCheck =
+            pkgs.runCommand "fleet-update-verifier" {
+              nativeBuildInputs = [
+                pkgs.bash
+                pkgs.coreutils
+                pkgs.git
+                pkgs.gnugrep
+                pkgs.gnused
+                pkgs.jq
+                pkgs.openssh
+              ];
+            } ''
+              set -euo pipefail
+
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME" "$TMPDIR/bin"
+              git config --global init.defaultBranch master
+
+              cat > "$TMPDIR/bin/nixos-rebuild" <<EOF
+              #!${pkgs.bash}/bin/bash
+              set -euo pipefail
+              printf '%s\n' "\$*" >> "$TMPDIR/rebuilds"
+              exit 0
+              EOF
+              chmod +x "$TMPDIR/bin/nixos-rebuild"
+
+              make_key() {
+                local name="$1"
+                ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMPDIR/$name"
+              }
+
+              signed_commit() {
+                local repo="$1"
+                local key="$2"
+                local message="$3"
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$key" \
+                  commit -q -S -m "$message"
+              }
+
+              unsigned_commit() {
+                local repo="$1"
+                local message="$2"
+                git -C "$repo" \
+                  -c user.name="fixture attacker" \
+                  -c user.email="attacker@example.invalid" \
+                  commit -q -m "$message"
+              }
+
+              make_linear_remote() {
+                local name="$1"
+                local key="$2"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local base target
+
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                printf 'base\n' > "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                signed_commit "$repo" "$key" "fixture signed base"
+                base="$(git -C "$repo" rev-parse HEAD)"
+
+                printf 'target\n' >> "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                signed_commit "$repo" "$key" "fixture signed target"
+                target="$(git -C "$repo" rev-parse HEAD)"
+
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s %s\n' "$remote" "$base" "$target"
+              }
+
+              make_unsigned_tip_remote() {
+                local name="$1"
+                local key="$2"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local base target
+
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                printf 'base\n' > "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                signed_commit "$repo" "$key" "fixture signed base"
+                base="$(git -C "$repo" rev-parse HEAD)"
+
+                printf 'unsigned\n' >> "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                unsigned_commit "$repo" "fixture unsigned target"
+                target="$(git -C "$repo" rev-parse HEAD)"
+
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s %s\n' "$remote" "$base" "$target"
+              }
+
+              make_signed_merge_unsigned_parent_remote() {
+                local name="$1"
+                local key="$2"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local base target
+
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                printf 'base\n' > "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                signed_commit "$repo" "$key" "fixture signed base"
+                base="$(git -C "$repo" rev-parse HEAD)"
+
+                git -C "$repo" checkout -q -b unsigned-side
+                printf 'side\n' > "$repo/side.txt"
+                git -C "$repo" add side.txt
+                unsigned_commit "$repo" "fixture unsigned side"
+                git -C "$repo" checkout -q master
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$key" \
+                  merge -q --no-ff -S unsigned-side -m "fixture signed merge"
+                target="$(git -C "$repo" rev-parse HEAD)"
+
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s %s\n' "$remote" "$base" "$target"
+              }
+
+              run_fleet() {
+                local name="$1"
+                local remote="$2"
+                local current="$3"
+                shift 3
+                FLEET_UPDATE_STATE_DIR="$TMPDIR/state-$name" \
+                FLEET_UPDATE_REPO_DIR="$TMPDIR/state-$name/repo" \
+                FLEET_UPDATE_ALLOWED_SIGNERS_FILE="$TMPDIR/allowed" \
+                FLEET_UPDATE_LAST_VERIFIED_REV_FILE="$TMPDIR/$name-anchor" \
+                FLEET_UPDATE_ORIGINS="github=file://$remote" \
+                FLEET_UPDATE_WRITE_ROOT=github \
+                FLEET_UPDATE_CURRENT_REV="$current" \
+                FLEET_UPDATE_HOSTNAME=fixture-host \
+                FLEET_UPDATE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild" \
+                FLEET_UPDATE_REBUILD_FLAGS="--no-write-lock-file -L" \
+                FLEET_UPDATE_SKIP_PREFLIGHT=1 \
+                FLEET_UPDATE_SUCCESS_TIMESTAMP_FILE="$TMPDIR/$name-success" \
+                FLEET_UPDATE_FAILURE_LOG="$TMPDIR/$name-failure.log" \
+                ${pkgs.bash}/bin/bash ${./scripts/fleet_update.sh} "$@"
+              }
+
+              run_probe() {
+                local remote="$1"
+                FLEET_UPDATE_ORIGINS="github=file://$remote" \
+                ${pkgs.bash}/bin/bash ${./scripts/fleet_update.sh} --probe-origins
+              }
+
+              make_key human
+              printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")" > "$TMPDIR/allowed"
+
+              read -r linear_remote linear_base linear_target < <(make_linear_remote linear "$TMPDIR/human")
+              : > "$TMPDIR/rebuilds"
+              run_fleet linear "$linear_remote" "$linear_base"
+              test "$(cat "$TMPDIR/linear-anchor")" = "$linear_target"
+              grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+
+              : > "$TMPDIR/rebuilds"
+              run_fleet noop "$linear_remote" "$linear_target"
+              test ! -s "$TMPDIR/rebuilds"
+
+              : > "$TMPDIR/rebuilds"
+              run_fleet stale "$linear_remote" "$linear_target" --rev "$linear_base"
+              test ! -s "$TMPDIR/rebuilds"
+
+              read -r unsigned_remote unsigned_base _unsigned_target < <(make_unsigned_tip_remote unsigned "$TMPDIR/human")
+              if run_fleet unsigned "$unsigned_remote" "$unsigned_base"; then
+                echo "unsigned target was accepted" >&2
+                exit 1
+              fi
+
+              read -r merge_remote merge_base _merge_target < <(make_signed_merge_unsigned_parent_remote signed-merge "$TMPDIR/human")
+              if run_fleet signed-merge "$merge_remote" "$merge_base"; then
+                echo "signed merge with unsigned parent was accepted" >&2
+                exit 1
+              fi
+
+              if run_fleet no-anchor "$linear_remote" "not-a-sha"; then
+                echo "missing anchor was accepted without --accept-new-root" >&2
+                exit 1
+              fi
+
+              : > "$TMPDIR/rebuilds"
+              run_fleet accept-root "$linear_remote" "not-a-sha" --accept-new-root "$linear_base"
+              test "$(cat "$TMPDIR/accept-root-anchor")" = "$linear_target"
+              grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+
+              if run_fleet bad-branch "$linear_remote" "$linear_base" --branch test-branch; then
+                echo "non-master branch was accepted without override" >&2
+                exit 1
+              fi
+
+              run_probe "$linear_remote"
+              if run_probe "$TMPDIR/missing.git"; then
+                echo "missing origin probe succeeded" >&2
+                exit 1
+              fi
+
+              touch $out
+            '';
+
           rollingFlakeUpdateSigningCheck =
             pkgs.runCommand "rolling-flake-update-signing" {
               nativeBuildInputs = [
@@ -700,7 +909,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}
