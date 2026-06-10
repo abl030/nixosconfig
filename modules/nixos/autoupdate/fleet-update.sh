@@ -7,10 +7,16 @@ STATE_DIR="${FLEET_UPDATE_STATE_DIR:-/var/lib/fleet-update}"
 REPO_DIR="${FLEET_UPDATE_REPO_DIR:-$STATE_DIR/repo}"
 ALLOWED_SIGNERS_FILE="${FLEET_UPDATE_ALLOWED_SIGNERS_FILE:-/etc/fleet-update/allowed_signers}"
 LAST_VERIFIED_REV_FILE="${FLEET_UPDATE_LAST_VERIFIED_REV_FILE:-$STATE_DIR/last-verified-rev}"
+LAST_SOURCE_CONTACT_FILE="${FLEET_UPDATE_LAST_SOURCE_CONTACT_FILE:-$STATE_DIR/last-source-contact}"
+LAST_VERIFIED_FRESHNESS_FILE="${FLEET_UPDATE_LAST_VERIFIED_FRESHNESS_FILE:-$STATE_DIR/last-verified-freshness}"
+HIGHEST_SEEN_HEARTBEAT_FILE="${FLEET_UPDATE_HIGHEST_SEEN_HEARTBEAT_FILE:-$STATE_DIR/highest-seen-heartbeat}"
 ORIGINS_RAW="${FLEET_UPDATE_ORIGINS:-github=https://github.com/abl030/nixosconfig.git}"
 WRITE_ROOT="${FLEET_UPDATE_WRITE_ROOT:-github}"
 BRANCH="${FLEET_UPDATE_BRANCH:-master}"
 FLEET_HOSTNAME="${FLEET_UPDATE_HOSTNAME:-$(cat /proc/sys/kernel/hostname 2>/dev/null || echo unknown)}"
+HEARTBEAT_FILE="${FLEET_UPDATE_HEARTBEAT_FILE:-fleet/freshness.json}"
+BOT_PRINCIPAL="${FLEET_UPDATE_BOT_PRINCIPAL:-nix bot <acme@ablz.au>}"
+FRESHNESS_MAX_AGE_SECONDS="${FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS:-108000}"
 REBUILD_BIN="${FLEET_UPDATE_REBUILD_BIN:-nixos-rebuild}"
 REBUILD_FLAGS="${FLEET_UPDATE_REBUILD_FLAGS:---no-write-lock-file -L --option accept-flake-config true}"
 NIX_BIN="${FLEET_UPDATE_NIX_BIN:-nix}"
@@ -20,6 +26,7 @@ SUCCESS_TIMESTAMP_FILE="${FLEET_UPDATE_SUCCESS_TIMESTAMP_FILE:-/var/lib/nixos-up
 SKIP_PREFLIGHT="${FLEET_UPDATE_SKIP_PREFLIGHT:-0}"
 NO_SWITCH="${FLEET_UPDATE_NO_SWITCH:-0}"
 CURRENT_REV_OVERRIDE="${FLEET_UPDATE_CURRENT_REV:-}"
+NOW_OVERRIDE="${FLEET_UPDATE_NOW:-}"
 
 REQUESTED_REV=""
 ACCEPT_NEW_ROOT=""
@@ -75,6 +82,18 @@ is_truthy() {
 
 is_sha() {
     [[ "$1" =~ ^[0-9a-fA-F]{40}$ ]]
+}
+
+now_epoch() {
+    if [ -n "$NOW_OVERRIDE" ]; then
+        printf '%s\n' "$NOW_OVERRIDE"
+    else
+        date -u +%s
+    fi
+}
+
+epoch_iso() {
+    date -u -d "@$1" '+%Y-%m-%dT%H:%M:%SZ'
 }
 
 parse_args() {
@@ -257,6 +276,143 @@ verify_candidate_tips() {
     for i in "${!CANDIDATE_SHAS[@]}"; do
         verify_commit "${CANDIDATE_SHAS[$i]}" || tamper "${CANDIDATE_NAMES[$i]}/$BRANCH tip is not signed by an allowed key"
     done
+}
+
+write_json_marker() {
+    local path="$1"
+    local tmp
+
+    mkdir -p "$(dirname "$path")"
+    tmp="$path.tmp"
+    cat >"$tmp"
+    mv "$tmp" "$path"
+}
+
+write_source_contact() {
+    local now
+    now="$(now_epoch)"
+    jq -n \
+        --argjson epoch "$now" \
+        --arg timestamp "$(epoch_iso "$now")" \
+        --arg host "$FLEET_HOSTNAME" \
+        --arg branch "$BRANCH" \
+        --argjson origins "${#CANDIDATE_SHAS[@]}" \
+        '{epoch: $epoch, timestamp: $timestamp, host: $host, branch: $branch, verified_origins: $origins}' \
+        | write_json_marker "$LAST_SOURCE_CONTACT_FILE"
+}
+
+commit_signature_status() {
+    local rev="$1"
+    git -C "$REPO_DIR" \
+        -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" \
+        log -1 --format='%G?%n%GS' "$rev"
+}
+
+verify_commit_principal() {
+    local rev="$1"
+    local expected="$2"
+    local record status signer
+
+    verify_commit "$rev" || return 1
+    record="$(commit_signature_status "$rev")"
+    status="$(printf '%s\n' "$record" | sed -n '1p')"
+    signer="$(printf '%s\n' "$record" | sed -n '2p')"
+    if [ "$status" != "G" ] || [ "$signer" != "$expected" ]; then
+        log "commit $rev was signed by '$signer' (status=$status), expected '$expected'"
+        return 1
+    fi
+}
+
+read_highest_seen_heartbeat() {
+    local value=0
+    if [ -s "$HIGHEST_SEEN_HEARTBEAT_FILE" ]; then
+        value="$(tr -d '[:space:]' <"$HIGHEST_SEEN_HEARTBEAT_FILE")"
+    fi
+    case "$value" in
+        ''|*[!0-9]*) value=0 ;;
+    esac
+    printf '%s\n' "$value"
+}
+
+write_highest_seen_heartbeat() {
+    local epoch="$1"
+    local tmp
+
+    mkdir -p "$(dirname "$HIGHEST_SEEN_HEARTBEAT_FILE")"
+    tmp="$HIGHEST_SEEN_HEARTBEAT_FILE.tmp"
+    printf '%s\n' "$epoch" >"$tmp"
+    mv "$tmp" "$HIGHEST_SEEN_HEARTBEAT_FILE"
+}
+
+freshness_fail() {
+    log "FLEET-FRESHNESS FAIL $*"
+}
+
+record_verified_freshness() {
+    local target="$1"
+    local heartbeat_commit heartbeat_json heartbeat_epoch heartbeat_timestamp heartbeat_status heartbeat_actor
+    local highest_seen now age
+
+    if ! git -C "$REPO_DIR" cat-file -e "$target:$HEARTBEAT_FILE" 2>/dev/null; then
+        freshness_fail "missing $HEARTBEAT_FILE at target=$target"
+        return 0
+    fi
+
+    heartbeat_commit="$(git -C "$REPO_DIR" rev-list -1 "$target" -- "$HEARTBEAT_FILE" || true)"
+    if [ -z "$heartbeat_commit" ]; then
+        freshness_fail "no commit found for $HEARTBEAT_FILE at target=$target"
+        return 0
+    fi
+
+    if ! verify_commit_principal "$heartbeat_commit" "$BOT_PRINCIPAL"; then
+        freshness_fail "$HEARTBEAT_FILE last changed by untrusted commit=$heartbeat_commit target=$target"
+        return 0
+    fi
+
+    heartbeat_json="$(git -C "$REPO_DIR" show "$target:$HEARTBEAT_FILE" 2>/dev/null || true)"
+    if ! heartbeat_epoch="$(printf '%s\n' "$heartbeat_json" | jq -er '.epoch | numbers | floor' 2>/dev/null)"; then
+        freshness_fail "malformed heartbeat epoch in $HEARTBEAT_FILE target=$target"
+        return 0
+    fi
+    heartbeat_timestamp="$(printf '%s\n' "$heartbeat_json" | jq -r '.timestamp // ""' 2>/dev/null || true)"
+    heartbeat_status="$(printf '%s\n' "$heartbeat_json" | jq -r '.status // ""' 2>/dev/null || true)"
+    heartbeat_actor="$(printf '%s\n' "$heartbeat_json" | jq -r '.actor // ""' 2>/dev/null || true)"
+
+    if [ "$heartbeat_status" != "green" ]; then
+        freshness_fail "heartbeat status is '$heartbeat_status', not green, target=$target heartbeat_commit=$heartbeat_commit"
+        return 0
+    fi
+
+    highest_seen="$(read_highest_seen_heartbeat)"
+    if [ "$heartbeat_epoch" -lt "$highest_seen" ]; then
+        freshness_fail "heartbeat moved backward target=$target heartbeat_epoch=$heartbeat_epoch highest_seen=$highest_seen"
+        return 0
+    fi
+
+    now="$(now_epoch)"
+    age=$((now - heartbeat_epoch))
+    if [ "$age" -gt "$FRESHNESS_MAX_AGE_SECONDS" ]; then
+        freshness_fail "heartbeat stale target=$target heartbeat_epoch=$heartbeat_epoch age_seconds=$age max_age_seconds=$FRESHNESS_MAX_AGE_SECONDS"
+        return 0
+    fi
+
+    if [ "$heartbeat_epoch" -gt "$highest_seen" ]; then
+        write_highest_seen_heartbeat "$heartbeat_epoch"
+    fi
+
+    jq -n \
+        --argjson observed_epoch "$now" \
+        --arg observed_timestamp "$(epoch_iso "$now")" \
+        --arg host "$FLEET_HOSTNAME" \
+        --arg target "$target" \
+        --arg heartbeat_commit "$heartbeat_commit" \
+        --argjson heartbeat_epoch "$heartbeat_epoch" \
+        --arg heartbeat_timestamp "$heartbeat_timestamp" \
+        --arg heartbeat_actor "$heartbeat_actor" \
+        --arg heartbeat_status "$heartbeat_status" \
+        '{observed_epoch: $observed_epoch, observed_timestamp: $observed_timestamp, host: $host, target: $target, heartbeat_commit: $heartbeat_commit, heartbeat_epoch: $heartbeat_epoch, heartbeat_timestamp: $heartbeat_timestamp, heartbeat_actor: $heartbeat_actor, heartbeat_status: $heartbeat_status}' \
+        | write_json_marker "$LAST_VERIFIED_FRESHNESS_FILE"
+    log "freshness heartbeat verified at epoch=$heartbeat_epoch target=$target"
 }
 
 verify_commit_range() {
@@ -500,6 +656,7 @@ main() {
     configure_remotes
     fetch_origins
     verify_candidate_tips
+    write_source_contact
 
     target="$(select_candidate_target)"
     confirm_write_root_contains_target "$target"
@@ -507,8 +664,15 @@ main() {
     anchor="$(read_anchor)"
     action="$(classify_target "$anchor" "$target")"
     case "$action" in
-        deploy) run_switch "$target" ;;
-        noop|skip) exit 0 ;;
+        deploy)
+            record_verified_freshness "$target"
+            run_switch "$target"
+            ;;
+        noop)
+            record_verified_freshness "$target"
+            exit 0
+            ;;
+        skip) exit 0 ;;
         *) fail "internal classification error: $action" ;;
     esac
 }

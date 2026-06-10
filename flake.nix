@@ -545,9 +545,30 @@
                   commit -q -m "$message"
               }
 
+              write_heartbeat() {
+                local repo="$1"
+                local key="$2"
+                local epoch="$3"
+                local status="$4"
+                mkdir -p "$repo/fleet"
+                jq -n \
+                  --argjson epoch "$epoch" \
+                  --arg timestamp "$(date -u -d "@$epoch" '+%Y-%m-%dT%H:%M:%SZ')" \
+                  --arg actor "nix bot <acme@ablz.au>" \
+                  --arg host "fixture-host" \
+                  --arg status "$status" \
+                  '{epoch: $epoch, timestamp: $timestamp, actor: $actor, host: $host, status: $status, failed_groups: 0, summary_lines: 1}' \
+                  > "$repo/fleet/freshness.json"
+                git -C "$repo" add fleet/freshness.json
+                signed_commit "$repo" "$key" "fixture freshness heartbeat"
+              }
+
               make_linear_remote() {
                 local name="$1"
-                local key="$2"
+                local human_key="$2"
+                local bot_key="$3"
+                local heartbeat_epoch="$4"
+                local heartbeat_status="$5"
                 local repo="$TMPDIR/$name-src"
                 local remote="$TMPDIR/$name.git"
                 local base target
@@ -556,12 +577,13 @@
                 git -C "$repo" init -q -b master
                 printf 'base\n' > "$repo/flake.nix"
                 git -C "$repo" add flake.nix
-                signed_commit "$repo" "$key" "fixture signed base"
+                signed_commit "$repo" "$human_key" "fixture signed base"
                 base="$(git -C "$repo" rev-parse HEAD)"
 
                 printf 'target\n' >> "$repo/flake.nix"
                 git -C "$repo" add flake.nix
-                signed_commit "$repo" "$key" "fixture signed target"
+                signed_commit "$repo" "$human_key" "fixture signed target"
+                write_heartbeat "$repo" "$bot_key" "$heartbeat_epoch" "$heartbeat_status"
                 target="$(git -C "$repo" rev-parse HEAD)"
 
                 git clone -q --bare "$repo" "$remote"
@@ -635,6 +657,8 @@
                 FLEET_UPDATE_WRITE_ROOT=github \
                 FLEET_UPDATE_CURRENT_REV="$current" \
                 FLEET_UPDATE_HOSTNAME=fixture-host \
+                FLEET_UPDATE_NOW=2000000100 \
+                FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS=1000 \
                 FLEET_UPDATE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild" \
                 FLEET_UPDATE_REBUILD_FLAGS="--no-write-lock-file -L" \
                 FLEET_UPDATE_SKIP_PREFLIGHT=1 \
@@ -650,21 +674,64 @@
               }
 
               make_key human
-              printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")" > "$TMPDIR/allowed"
+              make_key bot
+              {
+                printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
+                printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+              } > "$TMPDIR/allowed"
 
-              read -r linear_remote linear_base linear_target < <(make_linear_remote linear "$TMPDIR/human")
+              read -r linear_remote linear_base linear_target < <(make_linear_remote linear "$TMPDIR/human" "$TMPDIR/bot" 2000000000 green)
               : > "$TMPDIR/rebuilds"
               run_fleet linear "$linear_remote" "$linear_base"
               test "$(cat "$TMPDIR/linear-anchor")" = "$linear_target"
               grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+              test "$(jq -r '.heartbeat_epoch' "$TMPDIR/state-linear/last-verified-freshness")" = "2000000000"
+              test "$(cat "$TMPDIR/state-linear/highest-seen-heartbeat")" = "2000000000"
+              test -s "$TMPDIR/state-linear/last-source-contact"
 
               : > "$TMPDIR/rebuilds"
               run_fleet noop "$linear_remote" "$linear_target"
               test ! -s "$TMPDIR/rebuilds"
+              test "$(jq -r '.heartbeat_epoch' "$TMPDIR/state-noop/last-verified-freshness")" = "2000000000"
 
               : > "$TMPDIR/rebuilds"
               run_fleet stale "$linear_remote" "$linear_target" --rev "$linear_base"
               test ! -s "$TMPDIR/rebuilds"
+              test ! -e "$TMPDIR/state-stale/last-verified-freshness"
+
+              read -r stale_heartbeat_remote stale_heartbeat_base _stale_heartbeat_target < <(make_linear_remote stale-heartbeat "$TMPDIR/human" "$TMPDIR/bot" 1999998000 green)
+              if ! run_fleet stale-heartbeat "$stale_heartbeat_remote" "$stale_heartbeat_base" 2>"$TMPDIR/stale-heartbeat.log"; then
+                cat "$TMPDIR/stale-heartbeat.log" >&2
+                exit 1
+              fi
+              grep -q "FLEET-FRESHNESS FAIL heartbeat stale" "$TMPDIR/stale-heartbeat.log"
+              test ! -e "$TMPDIR/state-stale-heartbeat/last-verified-freshness"
+
+              mkdir -p "$TMPDIR/state-replay"
+              printf '2000000100\n' > "$TMPDIR/state-replay/highest-seen-heartbeat"
+              if ! run_fleet replay "$linear_remote" "$linear_base" 2>"$TMPDIR/replay.log"; then
+                cat "$TMPDIR/replay.log" >&2
+                exit 1
+              fi
+              grep -q "FLEET-FRESHNESS FAIL heartbeat moved backward" "$TMPDIR/replay.log"
+              test "$(cat "$TMPDIR/state-replay/highest-seen-heartbeat")" = "2000000100"
+              test ! -e "$TMPDIR/state-replay/last-verified-freshness"
+
+              read -r human_heartbeat_remote human_heartbeat_base _human_heartbeat_target < <(make_linear_remote human-heartbeat "$TMPDIR/human" "$TMPDIR/human" 2000000000 green)
+              if ! run_fleet human-heartbeat "$human_heartbeat_remote" "$human_heartbeat_base" 2>"$TMPDIR/human-heartbeat.log"; then
+                cat "$TMPDIR/human-heartbeat.log" >&2
+                exit 1
+              fi
+              grep -q "FLEET-FRESHNESS FAIL fleet/freshness.json last changed by untrusted" "$TMPDIR/human-heartbeat.log"
+              test ! -e "$TMPDIR/state-human-heartbeat/last-verified-freshness"
+
+              read -r partial_remote partial_base _partial_target < <(make_linear_remote partial "$TMPDIR/human" "$TMPDIR/bot" 2000000000 partial_failure)
+              if ! run_fleet partial "$partial_remote" "$partial_base" 2>"$TMPDIR/partial.log"; then
+                cat "$TMPDIR/partial.log" >&2
+                exit 1
+              fi
+              grep -q "FLEET-FRESHNESS FAIL heartbeat status is 'partial_failure'" "$TMPDIR/partial.log"
+              test ! -e "$TMPDIR/state-partial/last-verified-freshness"
 
               read -r unsigned_remote unsigned_base _unsigned_target < <(make_unsigned_tip_remote unsigned "$TMPDIR/human")
               if run_fleet unsigned "$unsigned_remote" "$unsigned_base"; then

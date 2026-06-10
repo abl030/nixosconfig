@@ -34,11 +34,16 @@ Landed in the first implementation slice:
   configured origin tips and the full deployment range against
   `/etc/fleet-update/allowed_signers`, then switches from an exact
   `git+file://...?rev=<sha>#<host>` flake reference.
+- `fleet-update` authenticates the rolling bot heartbeat in
+  `fleet/freshness.json` and writes local freshness markers under
+  `/var/lib/fleet-update/`.
 
 Not yet landed:
 
 - Full-fleet nightly enforcement via `homelab.update.verify.enforce = true`.
-- Freshness alerting from signed heartbeat semantics.
+- Enabling the freshness watchdog timer fleet-wide. The unit and alert rule
+  exist, but the timer is still gated by
+  `homelab.update.verify.freshness.enable`.
 - Forgejo write-root cutover.
 
 ## Trust Model
@@ -110,7 +115,10 @@ That command fetches the configured `homelab.update.verify.origins`, refuses
 unsigned or divergent history, verifies every commit from the running
 `system.configurationRevision` (or `/var/lib/fleet-update/last-verified-rev`
 fallback) to the selected target, then runs `nixos-rebuild switch` from the
-local verified clone pinned to the exact SHA.
+local verified clone pinned to the exact SHA. It also authenticates
+`fleet/freshness.json`: the commit that last touched the file must verify
+against `/etc/fleet-update/allowed_signers` and must be signed by
+`nix bot <acme@ablz.au>`.
 
 Useful manual modes:
 
@@ -132,6 +140,41 @@ sudo fleet-update --accept-new-root <expected-40-char-sha>
 
 Do not use this as trust-on-first-use. It is for explicit history rewrite or
 bootstrap ceremonies.
+
+## Freshness Markers
+
+`fleet-update` maintains these local files:
+
+```text
+/var/lib/fleet-update/last-source-contact
+/var/lib/fleet-update/last-verified-freshness
+/var/lib/fleet-update/highest-seen-heartbeat
+```
+
+`last-source-contact` means at least one configured origin was reachable and
+its branch tip verified with the running allowed-signers file. It is diagnostic
+only; it is not enough to prove the fleet is not frozen.
+
+`last-verified-freshness` records the authenticated heartbeat epoch, heartbeat
+commit, target commit, and observation time. The watchdog checks the heartbeat
+epoch age, not the marker file mtime, so replaying the same old signed
+heartbeat cannot quiet the alert.
+
+`highest-seen-heartbeat` is the monotonic anti-replay guard. A lower heartbeat
+epoch never refreshes freshness, even if every commit is otherwise signed.
+
+Freshness failures log lines beginning with:
+
+```text
+FLEET-FRESHNESS FAIL
+```
+
+Those are routed through `homelab.monitoring.errorPatterns` for
+`nixos-upgrade.service` and `fleet-update-freshness.service`. The watchdog unit
+is present on hosts with the verifier module, but its timer is intentionally
+off until `homelab.update.verify.freshness.enable = true`; flip that alongside
+the verified nightly enforcement gate, not before every host is using
+`fleet-update`.
 
 ## Bot Signing
 
