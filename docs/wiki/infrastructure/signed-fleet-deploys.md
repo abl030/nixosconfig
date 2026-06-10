@@ -11,8 +11,17 @@ deployed via the verified path, freshness advanced, watchdog green) — all thre
 deployed via `fleet-update`, enforcing, markers seeded, `FLEET-FRESHNESS OK`.
 Intermittently-on workstations (epimetheus, framework, wsl) onboard on their next
 nightly: `enforce` applies then, and the freshness watchdog reports non-paging
-`PENDING` until their first verified deploy seeds the marker. The Forgejo
-write-root cutover (Phase D) has not started.
+`PENDING` until their first verified deploy seeds the marker.
+
+**Forgejo cutover is LIVE (Phase D, U8–U10, 2026-06-10).** Forgejo
+(`git.ablz.au/abl030/nixosconfig`) is the write+fetch root: the rolling bot and
+doc1's dev remote push to Forgejo (nixbot / doc1-writer tokens), and hosts fetch
+`origins = {forgejo, github}` with `writeRoot = forgejo`. Validated end-to-end
+(bot push → Forgejo → igpu enforced deploy from Forgejo). **GitHub is FROZEN at
+the cutover commit** as a linear, ancestor-only fallback — no push mirror yet, so
+it never advances and never diverges. The GitHub push-mirror, mirror poller, and
+GitHub `master` ruleset remain deferred (blocked on the operator GitHub mirror
+PAT); when added, GitHub becomes a hot fallback again.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -52,14 +61,14 @@ Landed and live:
   `base.nix`. Always-on servers (doc1, doc2, igpu) enforcing as of 2026-06-10;
   workstations onboard on their next nightly.
 
-In progress:
+Landed (Phase D, 2026-06-10):
 
-- **Phase D U8 — Forgejo side built (2026-06-10):** `abl030/nixosconfig` exists
-  on git.ablz.au (public, full history), anonymous read verified; restricted
-  write accounts (`nixbot` + per-machine writers) as collaborators; `master`
-  branch protection (force-push/delete blocked); `nixbot` repo-scoped token in
-  `secrets/hosts/proxmox-vm/forgejo-nixbot-token`. Details:
-  [services/forgejo.md](../services/forgejo.md).
+- **U8** — `abl030/nixosconfig` on git.ablz.au (public, full history, anon read);
+  restricted write accounts (`nixbot` + per-machine writers); `master` branch
+  protection (force-push/delete blocked). [services/forgejo.md](../services/forgejo.md).
+- **U9** — rolling bot pushes to Forgejo (nixbot token, header auth);
+  doc1 dev remote repointed; `doc1-writer` token issued.
+- **U10** — hosts fetch `{forgejo, github}`, `writeRoot = forgejo`.
 
 Not yet landed:
 
@@ -67,8 +76,11 @@ Not yet landed:
   mirror-health poller. **Blocked on the operator-created GitHub machine-user
   (`abl030-forgejo-mirror`) + fine-grained PAT** (GitHub does not mint PATs via
   API).
-- U9/U10/U11 — repoint the bot/dev/host fetch path to Forgejo, then docs cutover
-  (gated on the mirror soak).
+- Per-machine dev-push credential helper (declarative, in the HM git module) +
+  epimetheus/framework/wsl writer tokens + remote repoints — doc1 done; the
+  other pushers onboard when next at the machine.
+- U11 docs sweep — the full grep of `github:abl030/nixosconfig` across wiki /
+  readme / skills (CLAUDE.md + service-deploy already updated).
 
 ## Walk-through verification (2026-06-10)
 

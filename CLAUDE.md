@@ -6,33 +6,28 @@
 # Getting this wrong rebuilds the WRONG system config onto the current machine.
 #
 
-# !! CRITICAL: NEVER REBUILD FROM A STALE LOCAL CHECKOUT !!
+# !! CRITICAL: SOURCE OF TRUTH IS FORGEJO; DEPLOY VIA fleet-update !!
 #
-# Every fleet host runs `rolling-flake-update.service` nightly — it bumps
-# `flake.lock` to tip AND deploys against `github:abl030/nixosconfig`. So
-# every host's currently-running closure is pinned to "tip of master at
-# 23:00 AWST last night" with a HOT binary cache for those store paths.
+# As of the signed-fleet-deploys cutover (#235), the write+fetch root is FORGEJO
+# (git.ablz.au/abl030/nixosconfig), and signed-deploy enforcement is ON. Every
+# fleet host runs the verified `fleet-update` path nightly: it fetches Forgejo,
+# verifies every commit in range is SSH-signed by a key in hosts.nix, then builds
+# pinned to that verified rev. Running closures track "tip of Forgejo master last
+# night" with a HOT binary cache.
 #
-# If you rebuild from a local checkout that is behind origin/master, you
-# will:
-#   1. Resolve an OLDER flake.lock → downgrade the entire world (kernel,
-#      systemd, every package).
-#   2. Miss the warm cache — every downgraded store path is re-downloaded
-#      from upstream, not our mirror.
-#   3. Potentially destabilise things that depend on newer upstream fixes.
+# GitHub is a FROZEN, ancestor-only fallback (no push mirror yet). Do NOT deploy
+# from `github:abl030/nixosconfig` — it is stale, missing every commit since the
+# cutover. Pushing dev commits goes to FORGEJO (origin = git.ablz.au).
 #
-# Before ANY `nixos-rebuild switch` on a fleet host, check:
-#   git fetch && git status -sb
-# If the local branch is behind origin/master, do ONE of:
-#   a) Rebase/fast-forward to tip, re-apply your in-progress changes:
-#        git stash && git pull --rebase && git stash pop
-#   b) Build from the GitHub flake directly (skip the local tree entirely):
-#        sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<host> --refresh
-#      Use this when you have NO local changes to apply.
+# To deploy current verified config to a host, use the verified path — it uses
+# its own root-owned clone, so a stale local checkout is irrelevant:
+#   ssh <host> "sudo fleet-update"
 #
-# NEVER `nixos-rebuild switch --flake .#<host>` while the working tree is
-# behind origin. The 5–10 minute "fast" rebuild you expected becomes a
-# multi-gigabyte re-fetch of a downgraded world.
+# Only `nixos-rebuild switch --flake .#<host>` from a local tree for break-glass,
+# and first `git fetch && git status -sb` + fast-forward to Forgejo tip — a
+# behind checkout downgrades the world (older flake.lock) and misses the warm
+# cache. NEVER rebuild from a checkout behind origin, and NEVER deploy from the
+# frozen `github:` flake.
 #
 
 # !! INTERACTION STYLE !!
@@ -46,21 +41,21 @@
 # they are very small or tightly linked.
 #
 
-# !! CRITICAL: NEVER DEPLOY REMOTELY WITH --target-host !!
+# !! CRITICAL: DEPLOY REMOTELY VIA fleet-update, NOT --target-host !!
 #
-# To deploy to a remote host (doc1/doc2/igpu/etc.):
-#   1. `git push` first — the host pulls from GitHub.
-#   2. `ssh <host> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<hostname> --refresh"`
+# To deploy current verified config to a remote host (doc1/doc2/igpu/etc.):
+#   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
+#   2. `ssh <host> "sudo fleet-update"`
 #
-# --refresh forces Nix to re-resolve the flake ref so the latest push is picked up.
-# The remote host builds locally from the GitHub checkout — nothing transits
-# your laptop or the SSH connection. This is the ONLY pattern that works
-# reliably over Tailscale / VPN / slow links.
+# fleet-update fetches Forgejo, verifies every commit in range is signed and
+# descends from the running rev, then builds locally from its own verified clone
+# — nothing transits your laptop or the SSH link. This is the ONLY pattern
+# post-cutover (#235), and it works reliably over Tailscale / VPN / slow links.
 #
-# NEVER use `nixos-rebuild switch --flake .#<host> --target-host <host>`. That
-# mode builds the closure on THIS machine and pushes it over SSH — slow, burns
-# bandwidth, breaks on flaky links, and leaves uncommitted local work in the
-# built closure. The service-deploy skill has a full runbook; always follow it.
+# Do NOT deploy `--flake github:abl030/nixosconfig#<host>` — GitHub is the FROZEN
+# fallback (stale). Do NOT use `--target-host` (builds here, pushes over SSH —
+# slow, leaks uncommitted local work into the closure). The service-deploy skill
+# has the full runbook; always follow it.
 #
 
 # !! CRITICAL: NEVER `nix build` ON WSL !!
