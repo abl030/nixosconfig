@@ -36,3 +36,4 @@ ha/esphome/.esphome/
 # `cratedigger-src` input — nothing here depends on the local copy.
 # Untracked so its own git activity doesn't drift this repo's index.
 /cratedigger/
+.worktrees

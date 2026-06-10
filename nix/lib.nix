@@ -31,7 +31,10 @@ in {
 
       modules = [
         # NEW: Set the host platform via module option
-        {nixpkgs.hostPlatform = system;}
+        {
+          nixpkgs.hostPlatform = system;
+          system.configurationRevision = flake-root.rev or null;
+        }
 
         # 1. The Host Specific Config
         cfg.configurationFile

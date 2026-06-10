@@ -2,5 +2,6 @@
 {...}: {
   imports = [
     ./update.nix
+    ./verify.nix
   ];
 }

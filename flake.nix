@@ -251,6 +251,7 @@
         };
 
         hosts = import ./hosts.nix;
+        signing = import ./nix/fleet-signing.nix {inherit lib;};
 
         # Import the Configuration Factory Library
         # Pass self as flake-root to match what nix/lib.nix expects
@@ -446,8 +447,260 @@
             echo "sops recipient scope OK: every hosts/<H>/ secret is host-scoped."
             touch $out
           '';
+
+          # Signed fleet deploy trust anchor (#235): hosts.nix is the single
+          # source of truth for commit-signing principals, and every closure
+          # renders it to /etc/fleet-update/allowed_signers. Keep this in the
+          # always-run tier so WSL and ordinary evals catch drift before
+          # verification enforcement depends on it.
+          allowedSignersCheck = let
+            validationFile = pkgs.writeText "allowed-signers-validation-errors" (lib.concatStringsSep "\n" (signing.validationErrors hosts));
+            allowedSignersFile = pkgs.writeText "fleet-update-allowed_signers" (signing.allowedSignersText hosts);
+          in
+            pkgs.runCommand "fleet-update-allowed-signers" {} ''
+              fail=0
+
+              if [ -s ${validationFile} ]; then
+                echo "fleet signing hosts.nix validation failed:"
+                cat ${validationFile}
+                fail=1
+              fi
+
+              if ! ${pkgs.gnugrep}/bin/grep -q '^"nix bot <acme@ablz.au>" namespaces="git" ssh-ed25519 ' ${allowedSignersFile}; then
+                echo "missing correctly quoted nix bot signing principal"
+                fail=1
+              fi
+
+              tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
+              trap '${pkgs.coreutils}/bin/rm -rf "$tmp"' EXIT
+              printf 'fixture' > "$tmp/msg"
+              ${pkgs.openssh}/bin/ssh-keygen -q -t ed25519 -N "" -C fixture -f "$tmp/key"
+              ${pkgs.openssh}/bin/ssh-keygen -Y sign -f "$tmp/key" -n git "$tmp/msg" >/dev/null
+              printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(${pkgs.coreutils}/bin/cat "$tmp/key.pub")" > "$tmp/allowed"
+              if ! ${pkgs.openssh}/bin/ssh-keygen -Y verify -f "$tmp/allowed" -I 'nix bot <acme@ablz.au>' -n git -s "$tmp/msg.sig" < "$tmp/msg" >/dev/null; then
+                echo "OpenSSH rejected whitespace principal allowed_signers quoting"
+                fail=1
+              fi
+
+              if [ $fail -ne 0 ]; then
+                echo ""
+                echo "Fix hosts.nix signingKeys / _signingPrincipals or the allowed_signers renderer."
+                exit 1
+              fi
+
+              echo "fleet-update allowed_signers OK:"
+              cat ${allowedSignersFile}
+              touch $out
+            '';
+
+          rollingFlakeUpdateSigningCheck =
+            pkgs.runCommand "rolling-flake-update-signing" {
+              nativeBuildInputs = [
+                pkgs.bash
+                pkgs.coreutils
+                pkgs.git
+                pkgs.gnugrep
+                pkgs.gnused
+                pkgs.jq
+                pkgs.openssh
+              ];
+            } ''
+              set -euo pipefail
+
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              git config --global init.defaultBranch master
+              mkdir "$TMPDIR/local-source"
+              git -C "$TMPDIR/local-source" init -q -b master
+
+              mkdir -p "$TMPDIR/bin"
+              cat > "$TMPDIR/bin/nix" <<'EOF'
+              #!${pkgs.bash}/bin/bash
+              set -euo pipefail
+              if [ "$#" -eq 3 ] && [ "$1" = "flake" ] && [ "$2" = "metadata" ] && [ "$3" = "--json" ]; then
+                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{}}}}}\n'
+                exit 0
+              fi
+              echo "unexpected nix invocation in signing fixture: $*" >&2
+              exit 99
+              EOF
+              chmod +x "$TMPDIR/bin/nix"
+              export PATH="$TMPDIR/bin:$PATH"
+
+              make_key() {
+                local name="$1"
+                ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMPDIR/$name"
+              }
+
+              make_signed_remote() {
+                local name="$1"
+                local signer_key="$2"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local anchor
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                cat > "$repo/flake.nix" <<'EOF'
+              {
+                description = "rolling flake update signing fixture";
+                outputs = { self }: {};
+              }
+              EOF
+                git -C "$repo" add flake.nix
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$signer_key" \
+                  commit -q -S -m "fixture signed base"
+                git clone -q --bare "$repo" "$remote"
+                printf '%s\n' "$remote"
+              }
+
+              make_unsigned_remote() {
+                local name="$1"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                cat > "$repo/flake.nix" <<'EOF'
+              {
+                description = "rolling flake update signing fixture";
+                outputs = { self }: {};
+              }
+              EOF
+                git -C "$repo" add flake.nix
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  commit -q -m "fixture unsigned base"
+                git clone -q --bare "$repo" "$remote"
+                printf '%s\n' "$remote"
+              }
+
+              make_signed_merge_unsigned_parent_remote() {
+                local name="$1"
+                local signer_key="$2"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                cat > "$repo/flake.nix" <<'EOF'
+              {
+                description = "rolling flake update signing fixture";
+                outputs = { self }: {};
+              }
+              EOF
+                git -C "$repo" add flake.nix
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$signer_key" \
+                  commit -q -S -m "fixture signed anchor"
+                anchor="$(git -C "$repo" rev-parse HEAD)"
+                git -C "$repo" checkout -q -b unsigned-side
+                printf 'unsigned side\n' > "$repo/unsigned.txt"
+                git -C "$repo" add unsigned.txt
+                git -C "$repo" \
+                  -c user.name="fixture attacker" \
+                  -c user.email="attacker@example.invalid" \
+                  commit -q -m "fixture unsigned side"
+                git -C "$repo" checkout -q master
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$signer_key" \
+                  merge -q --no-ff -S unsigned-side -m "fixture signed merge"
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s\n' "$remote" "$anchor"
+              }
+
+              run_update() {
+                local remote="$1"
+                local allowed="$2"
+                local anchor_file="$3"
+                REPO_DIR="$TMPDIR/local-source" \
+                RFU_REMOTE_URL="file://$remote" \
+                RFU_REQUIRE_SIGNED_BASE=1 \
+                RFU_GIT_SIGNING_KEY="$TMPDIR/bot" \
+                RFU_ALLOWED_SIGNERS_FILE="$allowed" \
+                RFU_BASE_ANCHOR_FILE="$anchor_file" \
+                RFU_FAILURE_DIR="$TMPDIR/failures" \
+                ONLY_GROUP=none \
+                ${pkgs.bash}/bin/bash ${./scripts/rolling_flake_update.sh}
+              }
+
+              make_key human
+              make_key bot
+              make_key other
+
+              allowed_all="$TMPDIR/allowed-all"
+              {
+                printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
+                printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+              } > "$allowed_all"
+
+              allowed_human_only="$TMPDIR/allowed-human-only"
+              printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")" > "$allowed_human_only"
+
+              valid_remote="$(make_signed_remote valid "$TMPDIR/human")"
+              valid_anchor="$TMPDIR/valid-anchor"
+              valid_before="$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+              printf '%s\n' "$valid_before" > "$valid_anchor"
+              run_update "$valid_remote" "$allowed_all" "$valid_anchor"
+              git clone -q "$valid_remote" "$TMPDIR/valid-inspect"
+              git -C "$TMPDIR/valid-inspect" -c "gpg.ssh.allowedSignersFile=$allowed_all" verify-commit HEAD
+              test "$(git -C "$TMPDIR/valid-inspect" log --format=%s -1)" = "rolling: freshness heartbeat ($(date +%F))"
+              test "$(cat "$valid_anchor")" = "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+
+              git --git-dir="$valid_remote" update-ref refs/heads/master "$valid_before"
+              if run_update "$valid_remote" "$allowed_all" "$valid_anchor"; then
+                echo "signed replay base was accepted" >&2
+                exit 1
+              fi
+              test "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)" = "$valid_before"
+
+              unsigned_remote="$(make_unsigned_remote unsigned)"
+              unsigned_before="$(git --git-dir="$unsigned_remote" rev-parse refs/heads/master)"
+              printf '%s\n' "$unsigned_before" > "$TMPDIR/unsigned-anchor"
+              if run_update "$unsigned_remote" "$allowed_all" "$TMPDIR/unsigned-anchor"; then
+                echo "unsigned base was accepted" >&2
+                exit 1
+              fi
+              test "$(git --git-dir="$unsigned_remote" rev-parse refs/heads/master)" = "$unsigned_before"
+
+              read -r merge_remote merge_anchor < <(make_signed_merge_unsigned_parent_remote signed-merge "$TMPDIR/human")
+              printf '%s\n' "$merge_anchor" > "$TMPDIR/merge-anchor"
+              merge_before="$(git --git-dir="$merge_remote" rev-parse refs/heads/master)"
+              if run_update "$merge_remote" "$allowed_all" "$TMPDIR/merge-anchor"; then
+                echo "signed merge with unsigned parent was accepted" >&2
+                exit 1
+              fi
+              test "$(git --git-dir="$merge_remote" rev-parse refs/heads/master)" = "$merge_before"
+
+              wrong_bot_remote="$(make_signed_remote wrong-bot "$TMPDIR/human")"
+              wrong_bot_before="$(git --git-dir="$wrong_bot_remote" rev-parse refs/heads/master)"
+              printf '%s\n' "$wrong_bot_before" > "$TMPDIR/wrong-bot-anchor"
+              if run_update "$wrong_bot_remote" "$allowed_human_only" "$TMPDIR/wrong-bot-anchor"; then
+                echo "bot commit verified against an allowed_signers file without the bot key" >&2
+                exit 1
+              fi
+              test "$(git --git-dir="$wrong_bot_remote" rev-parse refs/heads/master)" = "$wrong_bot_before"
+
+              missing_allowed_remote="$(make_signed_remote missing-allowed "$TMPDIR/human")"
+              missing_allowed_before="$(git --git-dir="$missing_allowed_remote" rev-parse refs/heads/master)"
+              printf '%s\n' "$missing_allowed_before" > "$TMPDIR/missing-allowed-anchor"
+              if run_update "$missing_allowed_remote" "$TMPDIR/does-not-exist" "$TMPDIR/missing-allowed-anchor"; then
+                echo "missing allowed_signers file was accepted" >&2
+                exit 1
+              fi
+
+              touch $out
+            '';
         in
-          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck;}
+          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}

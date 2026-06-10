@@ -37,9 +37,9 @@ in {
           HTTP_ADDR = "127.0.0.1";
           HTTP_PORT = 3023;
           # SSH re-enabled 2026-04-30 after v0 hit the friction the brainstorm
-          # warned about — using the built-in Go SSH server on :2222 (sshd
-          # already owns 22 on doc2). Existing master-fleet-identity key is
-          # uploaded to the user's Forgejo profile post-deploy.
+          # warned about: use the built-in Go SSH server on :2222 (sshd already
+          # owns 22 on doc2). Operational notes and the cutover key cleanup gate
+          # live in docs/wiki/services/forgejo.md.
           DISABLE_SSH = false;
           START_SSH_SERVER = true;
           SSH_PORT = 2222;
@@ -63,47 +63,51 @@ in {
       };
     };
 
-    # virtiofs path needs explicit creation; upstream module's StateDirectory
-    # only manages /var/lib paths cleanly. Create dump dir on NFS too —
-    # /mnt/data is mode 1777 so this works without an export-side fix.
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0750 forgejo forgejo - -"
-      "d ${dumpDir} 0750 forgejo forgejo - -"
-    ];
+    systemd = {
+      # virtiofs path needs explicit creation; upstream module's StateDirectory
+      # only manages /var/lib paths cleanly. Create dump dir on NFS too —
+      # /mnt/data is mode 1777 so this works without an export-side fix.
+      tmpfiles.rules = [
+        "d ${cfg.dataDir} 0750 forgejo forgejo - -"
+        "d ${dumpDir} 0750 forgejo forgejo - -"
+      ];
 
-    # Sandbox /mnt for both forgejo units (#257). Upstream forgejo.service is
-    # hardened but reaches its NFS dump dir via ReadWritePaths, which
-    # silently skips a missing/contested source (the paperless EROFS class).
-    # forgejo-dump.service is wholly unhardened (ProtectSystem=no) and sees
-    # every /mnt/* export RW. Replace both with a blank /mnt + fail-loud
-    # BindPaths binding only the two paths forgejo needs: its virtiofs
-    # stateDir (repos, app.ini, .secrets/) and its NFS dump dir.
-    # RequiresMountsFor orders each unit after the backing mounts so the
-    # fail-loud binds can't race them at boot.
-    # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
-    systemd.services.forgejo = {
-      unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
-      serviceConfig = {
-        TemporaryFileSystem = "/mnt";
-        BindPaths = [cfg.dataDir dumpDir];
-        # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
-        # dump dir — all under our two BindPaths, already rw). Under the
-        # blank /mnt tmpfs those become self-binds, and the `data/lfs` entry
-        # (LFS is disabled, dir absent) can't be skip-if-missing the way it
-        # is in the host namespace → 226/NAMESPACE. BindPaths makes the whole
-        # stateDir + dump dir rw, so this list is pure redundancy now.
-        ReadWritePaths = lib.mkForce [];
-      };
-    };
+      services = {
+        # Sandbox /mnt for both forgejo units (#257). Upstream forgejo.service is
+        # hardened but reaches its NFS dump dir via ReadWritePaths, which
+        # silently skips a missing/contested source (the paperless EROFS class).
+        # forgejo-dump.service is wholly unhardened (ProtectSystem=no) and sees
+        # every /mnt/* export RW. Replace both with a blank /mnt + fail-loud
+        # BindPaths binding only the two paths forgejo needs: its virtiofs
+        # stateDir (repos, app.ini, .secrets/) and its NFS dump dir.
+        # RequiresMountsFor orders each unit after the backing mounts so the
+        # fail-loud binds can't race them at boot.
+        # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+        forgejo = {
+          unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+          serviceConfig = {
+            TemporaryFileSystem = "/mnt";
+            BindPaths = [cfg.dataDir dumpDir];
+            # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
+            # dump dir — all under our two BindPaths, already rw). Under the
+            # blank /mnt tmpfs those become self-binds, and the `data/lfs` entry
+            # (LFS is disabled, dir absent) can't be skip-if-missing the way it
+            # is in the host namespace → 226/NAMESPACE. BindPaths makes the whole
+            # stateDir + dump dir rw, so this list is pure redundancy now.
+            ReadWritePaths = lib.mkForce [];
+          };
+        };
 
-    # Dump only fires when NFS is up — stale handle would crash it otherwise.
-    systemd.services.forgejo-dump = {
-      after = ["mnt-data.mount"];
-      requires = ["mnt-data.mount"];
-      unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
-      serviceConfig = {
-        TemporaryFileSystem = "/mnt";
-        BindPaths = [cfg.dataDir dumpDir];
+        # Dump only fires when NFS is up — stale handle would crash it otherwise.
+        forgejo-dump = {
+          after = ["mnt-data.mount"];
+          requires = ["mnt-data.mount"];
+          unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+          serviceConfig = {
+            TemporaryFileSystem = "/mnt";
+            BindPaths = [cfg.dataDir dumpDir];
+          };
+        };
       };
     };
 

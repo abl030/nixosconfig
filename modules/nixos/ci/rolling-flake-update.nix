@@ -28,12 +28,19 @@
     - Do not include markdown headers, preamble, or sign-off.
   '';
   triagePromptFile = pkgs.writeText "rolling-flake-update-triage-prompt" triageSystemPrompt;
+  updaterScript = pkgs.writeTextFile {
+    name = "rolling-flake-update.sh";
+    executable = true;
+    text = builtins.readFile ../../../scripts/rolling_flake_update.sh;
+  };
 
-  # Thin wrapper: just hand off to the repo script (which owns groups, build,
-  # commit/push, and the single bundled notification). Env is supplied by the unit.
+  # Thin wrapper: execute the updater script from the evaluated closure, not from
+  # the mutable checkout. The checkout remains the source for clone context only.
+  # Signing and freshness-heartbeat runbook:
+  # docs/wiki/infrastructure/signed-fleet-deploys.md
   wrapperScript = pkgs.writeShellScript "rolling-flake-update-wrapper" ''
     set -uo pipefail
-    exec ${pkgs.bash}/bin/bash ./scripts/rolling_flake_update.sh
+    exec ${pkgs.bash}/bin/bash ${updaterScript}
   '';
 in {
   options.homelab.ci.rollingFlakeUpdate = {
@@ -45,10 +52,58 @@ in {
       description = "Local path to the repo.";
     };
 
+    remoteUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "https://github.com/abl030/nixosconfig.git";
+      description = "Pinned clone and push URL for the rolling update bot.";
+    };
+
     tokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
       description = "File containing a GitHub PAT (needed for HTTPS push).";
+    };
+
+    signingKeyFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.stateDir}/bot_signing_key";
+      description = "Signing-only SSH private key used by the rolling update bot.";
+    };
+
+    allowedSignersFile = lib.mkOption {
+      type = lib.types.str;
+      default = config.homelab.update.verify.allowedSignersPath;
+      description = "OpenSSH allowed_signers file used to verify the fetched base and bot commits.";
+    };
+
+    baseAnchorFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.stateDir}/last-verified-base";
+      description = "Durable last verified bot base. The updater refuses signed replays that do not descend from this commit.";
+    };
+
+    failureDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.stateDir}/failures";
+      description = "Directory where failed update group logs and recovery artifacts are copied.";
+    };
+
+    requireSignedBase = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Refuse to commit on top of an unsigned or untrusted fetched base commit.";
+    };
+
+    heartbeatFile = lib.mkOption {
+      type = lib.types.str;
+      default = "fleet/freshness.json";
+      description = "Repo-relative freshness heartbeat file committed by the bot at least once per run.";
+    };
+
+    stateDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/rolling-flake-update";
+      description = "Local state directory for the bot signing key and future bot state.";
     };
 
     onCalendar = lib.mkOption {
@@ -83,56 +138,73 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.services.rolling-flake-update = {
-      description = "Rolling flake update";
-      wants = ["network-online.target"];
-      after = ["network-online.target"];
+    systemd = {
+      services.rolling-flake-update = {
+        description = "Rolling flake update";
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
 
-      # Keep git's configured credential helper available inside the service.
-      # curl/gawk/gnused/gnugrep are used by scripts/rolling_flake_update.sh for
-      # triage + the bundled Gotify notification.
-      path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep];
+        # Keep git's configured credential helper available inside the service.
+        # curl/gawk/gnused/gnugrep are used by scripts/rolling_flake_update.sh for
+        # triage + the bundled Gotify notification.
+        path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep];
 
-      serviceConfig = {
-        Type = "oneshot";
-        User = "abl030";
-        WorkingDirectory = cfg.repoDir;
-        TimeoutStartSec = "4h";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "abl030";
+          WorkingDirectory = cfg.repoDir;
+          TimeoutStartSec = "4h";
 
-        ExecStart = wrapperScript;
-      };
-
-      # Use the `environment` attrset (NOT serviceConfig.Environment) so values
-      # containing spaces — the space-separated group lists — are quoted correctly.
-      # systemd's Environment= splits on whitespace and would mangle them.
-      environment =
-        {
-          REPO_DIR = cfg.repoDir;
-          BASE_BRANCH = "master";
-          RFU_HOSTNAME = config.networking.hostName;
-          RFU_TRIAGE_PROMPT_FILE = "${triagePromptFile}";
-          RFU_GROUP_CORE = lib.concatStringsSep " " (cfg.groups.core or []);
-          RFU_GROUP_LLM = lib.concatStringsSep " " (cfg.groups.llm or []);
-        }
-        // lib.optionalAttrs (gotifyUrl != null) {
-          GOTIFY_URL = gotifyUrl;
-        }
-        // lib.optionalAttrs (cfg.tokenFile != null) {
-          GH_TOKEN_FILE = "${cfg.tokenFile}";
-        }
-        // lib.optionalAttrs (gotifyTokenFile != null) {
-          GOTIFY_TOKEN_FILE = "${gotifyTokenFile}";
+          ExecStart = wrapperScript;
         };
-    };
 
-    systemd.timers.rolling-flake-update = {
-      description = "Daily rolling flake update";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnCalendar = cfg.onCalendar;
-        Persistent = true;
-        AccuracySec = "5m";
+        # Use the `environment` attrset (NOT serviceConfig.Environment) so values
+        # containing spaces — the space-separated group lists — are quoted correctly.
+        # systemd's Environment= splits on whitespace and would mangle them.
+        environment =
+          {
+            REPO_DIR = cfg.repoDir;
+            BASE_BRANCH = "master";
+            RFU_REMOTE_URL = cfg.remoteUrl;
+            RFU_GIT_SIGNING_KEY = cfg.signingKeyFile;
+            RFU_ALLOWED_SIGNERS_FILE = cfg.allowedSignersFile;
+            RFU_BASE_ANCHOR_FILE = cfg.baseAnchorFile;
+            RFU_FAILURE_DIR = cfg.failureDir;
+            RFU_STATE_DIR = cfg.stateDir;
+            RFU_REQUIRE_SIGNED_BASE =
+              if cfg.requireSignedBase
+              then "1"
+              else "0";
+            RFU_HEARTBEAT_FILE = cfg.heartbeatFile;
+            RFU_HOSTNAME = config.networking.hostName;
+            RFU_TRIAGE_PROMPT_FILE = "${triagePromptFile}";
+            RFU_GROUP_CORE = lib.concatStringsSep " " (cfg.groups.core or []);
+            RFU_GROUP_LLM = lib.concatStringsSep " " (cfg.groups.llm or []);
+          }
+          // lib.optionalAttrs (gotifyUrl != null) {
+            GOTIFY_URL = gotifyUrl;
+          }
+          // lib.optionalAttrs (cfg.tokenFile != null) {
+            GH_TOKEN_FILE = "${cfg.tokenFile}";
+          }
+          // lib.optionalAttrs (gotifyTokenFile != null) {
+            GOTIFY_TOKEN_FILE = "${gotifyTokenFile}";
+          };
       };
+
+      timers.rolling-flake-update = {
+        description = "Daily rolling flake update";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = cfg.onCalendar;
+          Persistent = true;
+          AccuracySec = "5m";
+        };
+      };
+
+      tmpfiles.rules = [
+        "d ${cfg.stateDir} 0700 abl030 users - -"
+      ];
     };
   };
 }

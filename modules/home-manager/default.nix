@@ -12,6 +12,7 @@
     ./services/yazi.nix
     ./display/remote-desktop.nix
     ./services/ssh.nix
+    ./services/git.nix
     ./services/pdf.nix
     ./services/beets.nix
   ];

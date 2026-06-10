@@ -11,6 +11,12 @@
 #    Each host entry must have a 'publicKey' attribute containing its
 #    /etc/ssh/ssh_host_ed25519_key.pub.
 #
+# 3. Git Signing Trust
+#    Hosts that can author fleet-valid commits declare signingKeys. The private
+#    half is a local signing-only key on that machine; never authorize it for
+#    SSH login and never copy it to another host. Non-host service principals
+#    live in the reserved _signingPrincipals attr.
+#
 #    MANUAL KEY RETRIEVAL:
 #    If the script fails, run this on the target host to get the string:
 #      $ cat /etc/ssh/ssh_host_ed25519_key.pub
@@ -45,7 +51,22 @@ let
   # on each key is the real gate; from= bounds where it can be presented. #270.
   bastionFrom = ''from="100.64.0.0/10,192.168.1.0/24"'';
   bastionKeys = map (k: "${bastionFrom} ${k}") (bastionDeviceKeys ++ [phoneKey]);
+
+  gitSigningKeys = {
+    epimetheus = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJbk76ibG3QuI4hpHytjt+fcib3DwS56/ZcRSL3+Rktq git-signing:epimetheus";
+    framework = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIArtfNPWfiwfos9DXYYUE5nSNj2M0ALCz2TwU5NsxBjm git-signing:framework";
+    wsl = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII5iTwmDvCAemE2p9vm0aOOj9oFnCwQZC9JQQAQnSnTE git-signing:wsl";
+    proxmox-vm = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIp/G54mPRjf5aZIZIrqFC065w1SHAz4oJethLkep0mO git-signing:proxmox-vm";
+    nixBot = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOzUflpYoSH5vtyQiEYy4vI/KiCQqkpDKV9EtZMUvpZV git-signing:nix-bot";
+  };
 in {
+  _signingPrincipals = [
+    {
+      principal = "nix bot <acme@ablz.au>";
+      key = gitSigningKeys.nixBot;
+    }
+  ];
+
   epimetheus = {
     configurationFile = ./hosts/epi/configuration.nix;
     homeFile = ./hosts/epi/home.nix;
@@ -56,6 +77,12 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGuTUS6W9BBOpoDWU7f1jUtlA3B1niCfEtuutfIKPYdr";
     authorizedKeys = fleetKeys;
+    signingKeys = [
+      {
+        principal = "abl030@epimetheus";
+        key = gitSigningKeys.epimetheus;
+      }
+    ];
     syncthingDeviceId = "ZUEV7QP-JVG3ZE3-UIVJBSW-RMJ55TN-ZJRBGBX-5442PJS-3A2SMMI-RU7NAAX";
   };
 
@@ -80,6 +107,12 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0atvH47232nLwq1b4P7583cj+WGJYHU4vx/4lgtNgl";
     authorizedKeys = fleetKeys;
+    signingKeys = [
+      {
+        principal = "abl030@framework";
+        key = gitSigningKeys.framework;
+      }
+    ];
     syncthingDeviceId = "Z4IPNF4-564WG7C-IYNIPPN-WSQHH74-RCBMJV3-KIJ3PJT-KS4HBF3-JVDPWAY";
   };
 
@@ -99,6 +132,12 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJFKj3zCDzBVEYSUTyCN4QIDU5S8uUP/NdPi0T8wk0HF root@wsl"; # <--- PASTE HERE
     authorizedKeys = fleetKeys;
+    signingKeys = [
+      {
+        principal = "abl030@wsl";
+        key = gitSigningKeys.wsl;
+      }
+    ];
     sudoPasswordless = true;
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
@@ -121,6 +160,18 @@ in {
     # fleet key it HOLDS (deployIdentity) is for reaching siblings, not entering.
     authorizedKeys = bastionKeys;
     sudoPasswordless = true;
+    signingKeys = [
+      {
+        principal = "abl030@proxmox-vm";
+        key = gitSigningKeys.proxmox-vm;
+      }
+    ];
+    # Narrow Git ownership exemption for a single music-tagging workspace on the
+    # shared media mount. This only suppresses Git's ownership guard for abl030's
+    # doc1 Git CLI; it grants no filesystem access. Do not replace with a
+    # wildcard: shared /mnt/data paths remain untrusted unless named here with a
+    # path-specific rationale.
+    gitSafeDirectories = ["/mnt/data/Media/Music/tagging-workspace"];
     syncthingDeviceId = "YQV3LUJ-MDJZYGB-7S7G3EM-DG6JFRV-SMBEGXH-OM2YYHE-63YVDT7-EE5YMAI";
     localIp = "192.168.1.29";
     tailscaleIp = "100.89.160.60";

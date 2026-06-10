@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 # Rolling flake update — grouped, fail-isolated.
 #
@@ -17,8 +17,17 @@ set -euo pipefail
 # --- Configuration ---------------------------------------------------------
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
 BRANCH="${BASE_BRANCH:-master}"
+REMOTE_URL_OVERRIDE="${RFU_REMOTE_URL:-}"
 GIT_USER_NAME="${GIT_USER_NAME:-nix bot}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-acme@ablz.au}"
+GIT_SIGNING_KEY="${RFU_GIT_SIGNING_KEY:-}"
+ALLOWED_SIGNERS_FILE="${RFU_ALLOWED_SIGNERS_FILE:-/etc/fleet-update/allowed_signers}"
+REQUIRE_SIGNED_BASE="${RFU_REQUIRE_SIGNED_BASE:-0}"
+HEARTBEAT_FILE="${RFU_HEARTBEAT_FILE:-fleet/freshness.json}"
+SKIP_HEARTBEAT="${RFU_SKIP_HEARTBEAT:-0}"
+STATE_DIR="${RFU_STATE_DIR:-}"
+BASE_ANCHOR_FILE="${RFU_BASE_ANCHOR_FILE:-${STATE_DIR:+$STATE_DIR/last-verified-base}}"
+FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
 # Group membership (space-separated input names). Overridable from the nix module.
@@ -36,6 +45,186 @@ ONLY_GROUP="${ONLY_GROUP:-}"
 
 # --- Helpers ---------------------------------------------------------------
 log() { echo "[$TAG] $1"; }
+
+signed_base_required() {
+    [ "$REQUIRE_SIGNED_BASE" = "1" ] || [ "$REQUIRE_SIGNED_BASE" = "true" ]
+}
+
+verify_commit() {
+    local rev="$1"
+
+    if [ ! -r "$ALLOWED_SIGNERS_FILE" ]; then
+        log "❌ signed-base gate requires readable allowed_signers: $ALLOWED_SIGNERS_FILE"
+        return 1
+    fi
+
+    if ! git -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" verify-commit "$rev" >/dev/null 2>&1; then
+        log "❌ commit $rev does not verify against $ALLOWED_SIGNERS_FILE"
+        git -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" verify-commit "$rev" || true
+        return 1
+    fi
+}
+
+verify_commit_range() {
+    local base="$1"
+    local target="$2"
+    local rev
+
+    while IFS= read -r rev; do
+        [ -n "$rev" ] || continue
+        verify_commit "$rev"
+    done < <(git rev-list "$base..$target")
+}
+
+verify_base_anchor() {
+    if ! signed_base_required || [ -z "$BASE_ANCHOR_FILE" ]; then
+        return 0
+    fi
+
+    if [ ! -s "$BASE_ANCHOR_FILE" ]; then
+        log "❌ missing bot base anchor: $BASE_ANCHOR_FILE"
+        log "   Seed it with the expected signed master SHA before enabling RFU_REQUIRE_SIGNED_BASE."
+        return 1
+    fi
+
+    local anchor
+    anchor="$(tr -d '[:space:]' <"$BASE_ANCHOR_FILE")"
+    if [[ ! "$anchor" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        log "❌ bot base anchor is not a commit SHA: $BASE_ANCHOR_FILE"
+        return 1
+    fi
+    if ! git cat-file -e "$anchor^{commit}" 2>/dev/null; then
+        log "❌ bot base anchor $anchor is not present in fetched history."
+        return 1
+    fi
+    if ! git merge-base --is-ancestor "$anchor" HEAD; then
+        log "❌ fetched base $(git rev-parse HEAD) does not descend from bot anchor $anchor"
+        return 1
+    fi
+    verify_commit_range "$anchor" HEAD
+}
+
+write_base_anchor() {
+    if ! signed_base_required || [ -z "$BASE_ANCHOR_FILE" ]; then
+        return 0
+    fi
+
+    local tmp
+    mkdir -p "$(dirname "$BASE_ANCHOR_FILE")"
+    tmp="$BASE_ANCHOR_FILE.tmp"
+    git rev-parse HEAD >"$tmp"
+    mv "$tmp" "$BASE_ANCHOR_FILE"
+}
+
+configure_git_signing() {
+    if [ -z "$GIT_SIGNING_KEY" ]; then
+        if signed_base_required; then
+            log "❌ RFU_REQUIRE_SIGNED_BASE is set but RFU_GIT_SIGNING_KEY is empty."
+            return 1
+        fi
+        log "⚠️  No RFU_GIT_SIGNING_KEY configured; generated commits use ambient git config."
+        return 0
+    fi
+
+    if [ ! -r "$GIT_SIGNING_KEY" ]; then
+        log "❌ Git signing key missing or unreadable: $GIT_SIGNING_KEY"
+        return 1
+    fi
+
+    git config gpg.format ssh
+    git config user.signingkey "$GIT_SIGNING_KEY"
+    git config commit.gpgsign true
+    git config tag.gpgsign true
+    git config gpg.ssh.allowedSignersFile "$ALLOWED_SIGNERS_FILE"
+}
+
+verify_new_commits() {
+    if ! signed_base_required; then
+        return 0
+    fi
+
+    local rev
+    while IFS= read -r rev; do
+        [ -n "$rev" ] || continue
+        verify_commit "$rev"
+    done < <(git rev-list "origin/$BRANCH..HEAD")
+}
+
+write_heartbeat() {
+    local previous_epoch=0
+    local now_epoch heartbeat_epoch timestamp tmp status failed_count summary_count
+
+    if [ -f "$HEARTBEAT_FILE" ]; then
+        previous_epoch="$(jq -r '.epoch // 0' "$HEARTBEAT_FILE" 2>/dev/null || echo 0)"
+        case "$previous_epoch" in
+            ''|*[!0-9]*) previous_epoch=0 ;;
+        esac
+    fi
+
+    now_epoch="$(date -u +%s)"
+    heartbeat_epoch="$now_epoch"
+    if [ "$heartbeat_epoch" -le "$previous_epoch" ]; then
+        heartbeat_epoch=$((previous_epoch + 1))
+    fi
+    timestamp="$(date -u -d "@$heartbeat_epoch" '+%Y-%m-%dT%H:%M:%SZ')"
+    if [ "$ANY_FAIL" -eq 0 ]; then
+        status="green"
+    else
+        status="partial_failure"
+    fi
+    summary_count=${#SUMMARY_LINES[@]}
+    failed_count=$(printf '%s\n' "${SUMMARY_LINES[@]:-}" | grep -c '^❌' || true)
+
+    mkdir -p "$(dirname "$HEARTBEAT_FILE")"
+    tmp="$HEARTBEAT_FILE.tmp"
+    jq -n \
+        --argjson epoch "$heartbeat_epoch" \
+        --arg timestamp "$timestamp" \
+        --arg actor "$GIT_USER_NAME <$GIT_USER_EMAIL>" \
+        --arg host "$RFU_HOSTNAME" \
+        --arg status "$status" \
+        --argjson failed_groups "$failed_count" \
+        --argjson summary_lines "$summary_count" \
+        '{epoch: $epoch, timestamp: $timestamp, actor: $actor, host: $host, status: $status, failed_groups: $failed_groups, summary_lines: $summary_lines}' >"$tmp"
+    mv "$tmp" "$HEARTBEAT_FILE"
+}
+
+persist_group_failure() {
+    local name="$1"
+    local logf="$2"
+    local dir
+
+    if [ -z "$FAILURE_DIR" ]; then
+        return 0
+    fi
+
+    dir="$FAILURE_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$name"
+    mkdir -p "$dir"
+    chmod 700 "$dir"
+    cp "$logf" "$dir/build.log"
+    git rev-parse HEAD >"$dir/head-rev.txt" 2>/dev/null || true
+    git status --short >"$dir/git-status.txt" 2>/dev/null || true
+    printf '%s\n' "$dir"
+}
+
+# shellcheck disable=SC2329  # Invoked indirectly from cleanup_work_dir through the EXIT trap.
+redacted_remote_url() {
+    printf '%s\n' "$1" | sed -E 's#^(https?://)[^/@]+@#\1redacted@#'
+}
+
+push_with_retries() {
+    local attempt
+    for attempt in 1 2 3; do
+        if git push origin "$BRANCH"; then
+            return 0
+        fi
+        log "⚠️  push attempt $attempt failed."
+        if [ "$attempt" -lt 3 ]; then
+            sleep $((attempt * 10))
+        fi
+    done
+    return 1
+}
 
 # Result accumulators.
 declare -a SUMMARY_LINES=()
@@ -82,7 +271,12 @@ try_group() {
     if ! nix flake update $inputs >"$glog" 2>&1; then
         log "❌ [$name] 'nix flake update' failed; reverting."
         ANY_FAIL=1
-        SUMMARY_LINES+=("❌ $name — flake update failed: $(triage "$glog")")
+        local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+        if [ -n "$artifact" ]; then
+            SUMMARY_LINES+=("❌ $name — flake update failed: $(triage "$glog") (artifact: $artifact)")
+        else
+            SUMMARY_LINES+=("❌ $name — flake update failed: $(triage "$glog")")
+        fi
         git checkout -- flake.lock 2>/dev/null || true
         return 1
     fi
@@ -113,9 +307,14 @@ try_group() {
         log "❌ [$name] build failed; reverting group."
         ANY_FAIL=1
         local t; t="$(triage "$glog")"
+        local artifact; artifact="$(persist_group_failure "$name" "$glog")"
         git checkout -- flake.lock 2>/dev/null || true
         git checkout -- nix/overlay.nix 2>/dev/null || true
-        SUMMARY_LINES+=("❌ $name — $t")
+        if [ -n "$artifact" ]; then
+            SUMMARY_LINES+=("❌ $name — $t (artifact: $artifact)")
+        else
+            SUMMARY_LINES+=("❌ $name — $t")
+        fi
         return 1
     fi
 }
@@ -139,23 +338,62 @@ send_summary_notification() {
         -F "priority=8" >/dev/null || true
 }
 
+# shellcheck disable=SC2329  # Invoked by the EXIT trap.
+cleanup_work_dir() {
+    if [ -z "${WORK_DIR:-}" ] || [ ! -d "$WORK_DIR" ]; then
+        return 0
+    fi
+
+    if [ "${PRESERVE_WORK_DIR:-0}" = "1" ]; then
+        if [ -d "$WORK_DIR/repo/.git" ] && [ -n "${REMOTE_URL:-}" ]; then
+            git -C "$WORK_DIR/repo" remote set-url origin "$(redacted_remote_url "$REMOTE_URL")" 2>/dev/null || true
+        fi
+        log "🧰 Preserving failed workdir for recovery: $WORK_DIR"
+        return 0
+    fi
+
+    rm -rf "$WORK_DIR"
+}
+
+# shellcheck disable=SC2329  # Invoked by the ERR trap.
+fatal_error() {
+    # shellcheck disable=SC2155  # Must capture the failing status before any other command.
+    local code=$?
+    local line="${BASH_LINENO[0]:-unknown}"
+
+    trap - ERR
+    PRESERVE_WORK_DIR=1
+    ANY_FAIL=1
+    SUMMARY_LINES+=("❌ fatal — updater aborted near line $line (exit $code); workdir preserved at ${WORK_DIR:-unknown}")
+    log "❌ Fatal updater failure near line $line (exit $code)."
+    send_summary_notification || true
+    exit "$code"
+}
+
 # --- Setup -----------------------------------------------------------------
+PRESERVE_WORK_DIR=0
 WORK_DIR=$(mktemp -d)
 log "📂 Working in temp dir: $WORK_DIR"
-trap 'rm -rf "$WORK_DIR"' EXIT
+trap cleanup_work_dir EXIT
+trap fatal_error ERR
 
 if [ ! -d "$LOCAL_REPO_DIR/.git" ]; then
     log "❌ Could not find local repo at $LOCAL_REPO_DIR to determine remote."
-    exit 1
+    false
 fi
 
-REMOTE_URL=$(git -C "$LOCAL_REPO_DIR" remote get-url origin)
+if [ -n "$REMOTE_URL_OVERRIDE" ]; then
+    REMOTE_URL="$REMOTE_URL_OVERRIDE"
+else
+    REMOTE_URL=$(git -C "$LOCAL_REPO_DIR" remote get-url origin)
+fi
 log "⬇️  Cloning from: $REMOTE_URL"
-git clone --depth 1 --branch "$BRANCH" "$REMOTE_URL" "$WORK_DIR/repo"
+git clone --single-branch --branch "$BRANCH" "$REMOTE_URL" "$WORK_DIR/repo"
 cd "$WORK_DIR/repo"
 
 git config user.name "$GIT_USER_NAME"
 git config user.email "$GIT_USER_EMAIL"
+configure_git_signing
 
 # Inject GitHub token for HTTPS push (read from file if not already in env).
 if [ -z "${GH_TOKEN:-}" ] && [ -n "${GH_TOKEN_FILE:-}" ] && [ -r "${GH_TOKEN_FILE}" ]; then
@@ -166,11 +404,17 @@ if [ -n "${GH_TOKEN:-}" ]; then
     git remote set-url origin "https://oauth2:${GH_TOKEN}@${CLEAN_URL}"
 fi
 
+if signed_base_required; then
+    log "🔏 Verifying fetched base commit before updating..."
+    verify_commit HEAD
+    verify_base_anchor
+fi
+
 DATE=$(date +%F)
 
 # Compute the "rest" group = all top-level inputs minus core minus llm.
 log "🧮 Computing input groups..."
-ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | $l.nodes[$l.root].inputs | keys[]')
+ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
 NAMED=" $GROUP_CORE $GROUP_LLM "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
@@ -201,15 +445,34 @@ if [ "$ANY_COMMIT" -eq 1 ]; then
             git commit -q -m "rolling: hash baselines ($DATE)"
         fi
     fi
+fi
+
+if [ "$SKIP_HEARTBEAT" != "1" ]; then
+    log "💓 Writing signed freshness heartbeat..."
+    write_heartbeat
+    git add "$HEARTBEAT_FILE"
+    if ! git diff --cached --quiet -- "$HEARTBEAT_FILE"; then
+        git commit -q -m "rolling: freshness heartbeat ($DATE)"
+        ANY_COMMIT=1
+        SUMMARY_LINES+=("✅ heartbeat — $HEARTBEAT_FILE")
+    else
+        log "➖ heartbeat unchanged."
+    fi
+fi
+
+if [ "$ANY_COMMIT" -eq 1 ]; then
+    verify_new_commits
 
     if [ -n "${NO_COMMIT:-}" ]; then
         log "⏭️  NO_COMMIT set; not pushing ($(git rev-list --count origin/"$BRANCH"..HEAD) commit(s) held locally)."
     else
         log "🚀 Pushing $(git rev-list --count origin/"$BRANCH"..HEAD) commit(s) to origin/$BRANCH..."
-        git push origin "$BRANCH"
+        push_with_retries
+        write_base_anchor
     fi
 else
     log "✅ No group produced a committable change."
+    write_base_anchor
 fi
 
 # Bundled notification only if something failed.
