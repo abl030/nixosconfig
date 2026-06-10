@@ -29,8 +29,15 @@
         echo "FLEET-FRESHNESS FAIL $*"
       }
 
+      # A missing marker is "baseline not yet established", NOT a freeze: the
+      # marker is seeded by the first verified deploy (noop/deploy path). Emit a
+      # non-paging PENDING notice so a freshly-enabled host (e.g. a workstation
+      # onboarding before its first enforced nightly) does not page. A host that
+      # never establishes a baseline is caught by nixos-upgrade/Loki monitoring,
+      # not here. Once a marker exists, a STALE one pages normally (the real
+      # freeze/replay signal). See docs/wiki/infrastructure/signed-fleet-deploys.md.
       if [ ! -s "$marker" ]; then
-        fail "missing verified freshness marker: $marker"
+        echo "FLEET-FRESHNESS PENDING no verified freshness marker yet (seeds on first verified deploy): $marker"
         exit 0
       fi
 

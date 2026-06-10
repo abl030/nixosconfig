@@ -114,6 +114,17 @@
       # `sudo -u <user> --login claude` then complete the OAuth flow. Until
       # bootstrapped, falls back to raw-log Gotify (same as pre-diagnose).
       diagnose.enable = lib.mkDefault true;
+      # Signed-fleet-deploys enforcement (Phase C, fleet-wide after igpu canary).
+      # Every auto-updating host runs the verified fleet-update path nightly plus
+      # the signed-heartbeat freshness watchdog. enforce changes only the nightly
+      # path — manual `nixos-rebuild` is unaffected. A missing freshness marker is
+      # non-paging until the first verified deploy seeds it; host-classed staleness
+      # thresholds come from checkAcPower (laptop 72h, else 30h).
+      # See docs/wiki/infrastructure/signed-fleet-deploys.md.
+      verify = {
+        enforce = lib.mkDefault true;
+        freshness.enable = lib.mkDefault true;
+      };
     };
 
     # 3. Caching
