@@ -1,16 +1,18 @@
 # Signed Fleet Deploys
 
 **Date researched:** 2026-06-10
-**Status:** Phase C enforcement is **live on the igpu canary** (2026-06-10) and
-soaking. Signing (U2–U4), the verified `fleet-update` path (U5), the staleness
-watchdog (U6), and these runbooks (U7) have all landed on `master`. igpu sets
-`homelab.update.verify.enforce` + `freshness.enable` true; its nightly
-`nixos-upgrade` now runs the verified path and the freshness watchdog (manual
-enforced run verified green). The fleet default for both flags is still `false`.
-After one clean enforcing nightly cycle on igpu, both move to
-`modules/nixos/profiles/base.nix` and the igpu override is removed — see
-**Enabling Enforcement (Trust-Root Ceremony)**. The Forgejo write-root cutover
-(Phase D) has not started.
+**Status:** Phase C enforcement is **live fleet-wide** (2026-06-10). Signing
+(U2–U4), the verified `fleet-update` path (U5), the staleness watchdog (U6), and
+the runbooks (U7) have all landed. `homelab.update.verify.enforce` +
+`freshness.enable` are now `mkDefault true` in `base.nix`. The always-on servers
+(doc1, doc2, igpu) were promoted in one step after the igpu canary's full
+enforced nightly cycle was reproduced and verified end-to-end (real nixpkgs bump
+deployed via the verified path, freshness advanced, watchdog green) — all three
+deployed via `fleet-update`, enforcing, markers seeded, `FLEET-FRESHNESS OK`.
+Intermittently-on workstations (epimetheus, framework, wsl) onboard on their next
+nightly: `enforce` applies then, and the freshness watchdog reports non-paging
+`PENDING` until their first verified deploy seeds the marker. The Forgejo
+write-root cutover (Phase D) has not started.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -44,13 +46,16 @@ Landed (U2–U7, all on `master`):
   `fleet/freshness.json` and writes local freshness markers under
   `/var/lib/fleet-update/`.
 
-In progress / not yet landed:
+Landed and live:
 
-- **Canary live:** igpu enforces (`enforce` + `freshness.enable`) as of
-  2026-06-10, soaking before fleet-wide promotion.
-- Full-fleet nightly enforcement (move both flags to `base.nix`, drop the igpu
-  override) — gated on one clean enforcing nightly cycle on igpu.
-- Forgejo write-root cutover (Phase D).
+- **Fleet-wide enforcement:** `enforce` + `freshness.enable` default true in
+  `base.nix`. Always-on servers (doc1, doc2, igpu) enforcing as of 2026-06-10;
+  workstations onboard on their next nightly.
+
+Not yet landed:
+
+- Forgejo write-root cutover (Phase D, U8–U11) — gated on enforcement (now met);
+  needs Forgejo account/token + GitHub mirror setup, which is operator/UI work.
 
 ## Walk-through verification (2026-06-10)
 
