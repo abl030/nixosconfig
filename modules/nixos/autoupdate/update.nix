@@ -7,6 +7,9 @@
 }: let
   cfg = config.homelab.update;
   verifyCfg = config.homelab.update.verify;
+  # Signed-deploy enforcement gate. Trust model, the enforcement ceremony, and
+  # the break-glass / key-rotation / compromise / history-rewrite runbooks:
+  # docs/wiki/infrastructure/signed-fleet-deploys.md
   useVerifiedUpdate = verifyCfg.enable && verifyCfg.enforce;
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;

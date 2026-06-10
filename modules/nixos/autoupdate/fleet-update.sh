@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Verify-then-switch deploy path for the signed-fleet-deploys design.
+# Trust model, failure semantics, and recovery runbooks (break-glass, key
+# rotation, active key compromise, history rewrite, enforcement ceremony):
+# docs/wiki/infrastructure/signed-fleet-deploys.md
+
 TAG="fleet-update"
 
 STATE_DIR="${FLEET_UPDATE_STATE_DIR:-/var/lib/fleet-update}"

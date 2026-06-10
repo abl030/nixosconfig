@@ -1,10 +1,14 @@
 # Signed Fleet Deploys
 
 **Date researched:** 2026-06-10
-**Status:** Phase C implementation in progress. The rolling bot signs and
-verifies its base, and `fleet-update` now exists for verified host deploys.
-Nightly host enforcement is intentionally still gated behind
-`homelab.update.verify.enforce = true` until the runbook/freshness slice lands.
+**Status:** Phase C implementation complete and soaking. Signing (U2–U4), the
+verified `fleet-update` path (U5), the staleness watchdog (U6), and these
+runbooks (U7) have all landed on `master`. Nightly enforcement is still OFF
+fleet-wide: both `homelab.update.verify.enforce` and
+`homelab.update.verify.freshness.enable` default `false`. Flipping them on is a
+deliberate ceremony — see **Enabling Enforcement (Trust-Root Ceremony)** — and
+runs on a canary host before the fleet. The Forgejo write-root cutover (Phase D)
+has not started.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -14,7 +18,7 @@ history, not GitHub or Forgejo.
 
 ## Current State
 
-Landed in the first implementation slice:
+Landed (U2–U7, all on `master`):
 
 - `hosts.nix` has `signingKeys` for the human pushing machines:
   `epimetheus`, `framework`, `wsl`, and `proxmox-vm`.
@@ -105,7 +109,7 @@ SSH signing setup.
 
 ## Verified Host Deploy
 
-After the host has deployed the U5 slice, use:
+On any host running the verifier module, the verified interactive deploy is:
 
 ```sh
 sudo fleet-update
@@ -129,7 +133,10 @@ sudo fleet-update --probe-origins
 ```
 
 `--rev` must still be contained in protected `master` of the configured
-`writeRoot`; arbitrary side-branch deploys are refused by default.
+`writeRoot`; arbitrary side-branch deploys are refused by default. A commit not
+reachable from protected `master` (a side branch, a scratch fix) requires the
+explicit `--allow-non-master` break-glass flag, which is for the Break-Glass
+runbook only and is never used by the nightly path.
 
 If a host has no usable anchor, bootstrap or re-anchor only after checking the
 expected SHA out-of-band:
@@ -175,6 +182,108 @@ is present on hosts with the verifier module, but its timer is intentionally
 off until `homelab.update.verify.freshness.enable = true`; flip that alongside
 the verified nightly enforcement gate, not before every host is using
 `fleet-update`.
+
+The accepted heartbeat age is host-classed automatically: laptops
+(`homelab.update.checkAcPower = true`) get a 72h AC/offline grace, always-on
+servers page after 30h (one missed nightly window). A laptop offline past 72h
+pages by design — that is the intended signal, not a false positive.
+
+## Enabling Enforcement (Trust-Root Ceremony)
+
+Turning enforcement on is the moment a single unsigned commit anywhere in a
+host's deployment range starts failing that host's nightly update loudly. It is
+fail-closed by design (noisy, not dangerous), but do it deliberately: canary
+host first, never fleet-wide in one commit.
+
+Two independent flags gate enforcement, both default `false`:
+
+- `homelab.update.verify.enforce` — `nixos-upgrade.service` runs the verified
+  `fleet-update` path (and uses it as the `ExecCondition` reachability probe)
+  instead of the raw GitHub flake switch.
+- `homelab.update.verify.freshness.enable` — the local signed-heartbeat
+  watchdog timer that pages on a frozen fleet.
+
+Flip both together on a given host. Enforcement without the watchdog can be
+frozen on a vulnerable rev silently; the watchdog without enforcement pages a
+host that is not yet using the verified path.
+
+### Step 1 — trust-root ceremony (once, before the first enforcing host)
+
+1. Freeze writes to `master`. Stop the rolling bot so it cannot push mid-ceremony:
+
+   ```sh
+   sudo systemctl disable --now rolling-flake-update.timer   # on doc1
+   ```
+
+2. Pick the exact rev that becomes the enforcement root and record it
+   out-of-band (it is the expected anchor for every host's first enforcing run):
+
+   ```sh
+   git fetch origin
+   root_sha="$(git rev-parse origin/master)"; echo "$root_sha"
+   ```
+
+3. Render the allowed-signers file that this rev will bake, then independently
+   confirm every principal in it. Collect each public key's fingerprint
+   out-of-band from the machine that generated it — read it on that machine, do
+   not trust the value in the repo — and confirm the root rev itself verifies:
+
+   ```sh
+   tmp_allowed="$(mktemp)"
+   nix eval --impure --raw \
+     ".#nixosConfigurations.igpu.config.environment.etc.\"fleet-update/allowed_signers\".text" \
+     > "$tmp_allowed"
+   cat "$tmp_allowed"   # one principal per line — verify each fingerprint by hand
+   git -c gpg.ssh.allowedSignersFile="$tmp_allowed" verify-commit "$root_sha"
+   rm -f "$tmp_allowed"
+   ```
+
+   An unexpected or unrecognised principal, or a `verify-commit` failure, is
+   tamper. Stop and investigate — do not enable enforcement from this rev.
+
+### Step 2 — canary host (igpu)
+
+1. Set both flags on the canary only:
+
+   ```nix
+   # hosts/igpu/configuration.nix
+   homelab.update.verify.enforce = true;
+   homelab.update.verify.freshness.enable = true;
+   ```
+
+2. Commit signed, push, and deploy the canary the standard way (this is a config
+   change, so it still goes out via the GitHub-flake switch; after it lands the
+   host carries `fleet-update` and enforces from the next deploy on):
+
+   ```sh
+   ssh igpu "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#igpu --refresh"
+   ```
+
+   From here, canary deploys use the verified path: `ssh igpu "sudo fleet-update"`.
+
+3. Re-enable the rolling bot and let at least one full nightly cycle run with the
+   canary enforcing:
+
+   ```sh
+   sudo systemctl enable --now rolling-flake-update.timer    # on doc1
+   ```
+
+4. Confirm the enforcing nightly was green and freshness stayed quiet:
+
+   ```sh
+   ssh igpu 'systemctl status nixos-upgrade.service --no-pager | head -5
+   journalctl -u nixos-upgrade.service -n 80 --no-pager
+   cat /var/lib/fleet-update/last-verified-freshness'
+   ```
+
+### Step 3 — fleet-wide
+
+Only after the canary soaks one clean enforcing cycle, move both flags to the
+fleet default in `modules/nixos/profiles/base.nix` and delete the igpu override.
+doc2's update window must stay latest in the fleet so its own fix is always
+reachable by the rest. Watch the first fleet-wide enforcing night: an unsigned
+commit in any host's deployment range fails that host loudly and is recovered
+via **Break-Glass Host Deploy**.
 
 ## Bot Signing
 
@@ -264,7 +373,8 @@ workdirs as sensitive until inspected.
 ## Break-Glass Host Deploy
 
 Use this only when the signed update path is blocked and a host must be fixed
-manually.
+manually. Reach siblings (igpu, doc2, ...) through doc1, the SSH bastion — they
+hold no fleet key. Run these steps in a shell on the affected host itself.
 
 1. Stop the timer first:
 
@@ -277,12 +387,28 @@ manually.
    before any `nixos-rebuild switch`.
 3. Deploy the local fix.
 4. Push the signed fix to the normal write root.
-5. Re-run the signed fleet update path or, after U5 lands, re-anchor with the
-   explicit expected SHA:
+5. Return the host to the verified path. If the signed fix is now the `master`
+   tip, just re-run the verified update so the host re-anchors onto it:
+
+   ```sh
+   sudo fleet-update
+   ```
+
+   If history was rewritten or the host has no usable anchor, re-anchor to the
+   explicit, out-of-band-confirmed SHA:
 
    ```sh
    sudo fleet-update --accept-new-root <expected-sha>
    ```
+
+   To deploy a signed commit that is not yet on `master` (an emergency scratch
+   fix), add the break-glass flag — it stops timers and pages the bypass:
+
+   ```sh
+   sudo fleet-update --rev <scratch-sha> --allow-non-master
+   ```
+
+   Redeploy from `master` as soon as the fix is merged and signed.
 6. Re-enable the timer:
 
    ```sh
@@ -339,9 +465,20 @@ Add:
 
 1. Generate the private key on the machine that will use it.
 2. Commit the public key to `hosts.nix`, signed by an already trusted key once
-   enforcement is live.
-3. Wait until every NixOS host has deployed a closure containing the new
-   allowed-signers file.
+   enforcement is live (a key-introduction commit must itself verify).
+3. Wait until every NixOS host has deployed a closure that carries the new
+   allowed-signers file. A lagging host is acceptable only if it has an explicit
+   manual re-anchor plan (deploy it onto a closure carrying the key before it is
+   ever asked to deploy a commit signed by that key). Confirm propagation:
+
+   ```sh
+   for h in proxmox-vm igpu doc2 epimetheus framework; do
+     printf '%s: ' "$h"
+     ssh "$h" "grep -Fq '<new-pubkey-or-principal>' /etc/fleet-update/allowed_signers \
+       && echo present || echo MISSING"
+   done
+   ```
+
 4. Only then use the new key for fleet-valid commits.
 
 Remove:
@@ -360,12 +497,22 @@ day has passed.
 
 If a signing key is suspected compromised:
 
-1. Freeze writes to the repo.
+1. Freeze writes to the repo (stop the rolling bot timer on doc1).
 2. Revoke that identity's push credentials on Forgejo and GitHub.
-3. Land an exact key-removal commit signed by a different trusted key.
-4. Deploy that commit fleet-wide.
+3. Land an exact key-removal commit signed by a different trusted key. Record
+   its SHA out-of-band.
+4. Deploy that commit fleet-wide by its exact rev, reaching siblings through
+   doc1:
+
+   ```sh
+   for h in proxmox-vm igpu doc2 epimetheus framework; do
+     ssh "$h" "sudo fleet-update --rev <removal-sha>"
+   done
+   ```
+
 5. Verify the stolen public key is absent from every host's
-   `/etc/fleet-update/allowed_signers`.
+   `/etc/fleet-update/allowed_signers` (reuse the propagation check from
+   **Key Add And Remove**, expecting `MISSING`).
 6. Unfreeze writes.
 
 If the whole trusted key set is suspect, use the break-glass local deploy path
@@ -373,16 +520,26 @@ instead of relying on the old signers list.
 
 ## History Rewrite Or New Root
 
-Do not silently trust a new signed root. After U5 lands, bootstrap and history
-rewrite recovery must use an explicit expected SHA:
+Do not silently trust a new signed root. Bootstrap and history-rewrite recovery
+must pin an explicit, independently confirmed expected SHA — never
+trust-on-first-verify:
 
 ```sh
-fleet-update --accept-new-root <expected-sha>
+sudo fleet-update --accept-new-root <expected-sha>
 ```
 
-Use this only after independently confirming the rewritten history. A signed
-old replay or unrelated signed side branch must not become the new anchor by
-accident.
+After confirming the rewritten history once out-of-band, re-anchor every host to
+the same SHA, reaching siblings through doc1:
+
+```sh
+for h in proxmox-vm igpu doc2 epimetheus framework; do
+  ssh "$h" "sudo fleet-update --accept-new-root <expected-sha>"
+done
+```
+
+A signed old replay or an unrelated signed side branch must not become the new
+anchor by accident — which is exactly why the SHA is supplied explicitly rather
+than inferred from whatever the origin currently advertises.
 
 ## Accepted Residual Risk
 
