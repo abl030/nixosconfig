@@ -9,7 +9,7 @@
   cfg = config.homelab.update.verify;
   etcPath = lib.removePrefix "/etc/" cfg.allowedSignersPath;
   fleetUpdateSource = builtins.path {
-    path = ../../../scripts/fleet_update.sh;
+    path = ./fleet-update.sh;
     name = "fleet-update.sh";
   };
   originsString = lib.concatStringsSep " " (lib.mapAttrsToList (name: url: "${name}=${url}") cfg.origins);

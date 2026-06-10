@@ -640,13 +640,13 @@
                 FLEET_UPDATE_SKIP_PREFLIGHT=1 \
                 FLEET_UPDATE_SUCCESS_TIMESTAMP_FILE="$TMPDIR/$name-success" \
                 FLEET_UPDATE_FAILURE_LOG="$TMPDIR/$name-failure.log" \
-                ${pkgs.bash}/bin/bash ${./scripts/fleet_update.sh} "$@"
+                ${pkgs.bash}/bin/bash ${./modules/nixos/autoupdate/fleet-update.sh} "$@"
               }
 
               run_probe() {
                 local remote="$1"
                 FLEET_UPDATE_ORIGINS="github=file://$remote" \
-                ${pkgs.bash}/bin/bash ${./scripts/fleet_update.sh} --probe-origins
+                ${pkgs.bash}/bin/bash ${./modules/nixos/autoupdate/fleet-update.sh} --probe-origins
               }
 
               make_key human
