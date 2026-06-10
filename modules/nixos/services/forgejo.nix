@@ -50,7 +50,11 @@ in {
         };
         service = {
           DISABLE_REGISTRATION = true;
-          REQUIRE_SIGNIN_VIEW = true;
+          # Anonymous read for PUBLIC repos only (the nixosconfig flake becomes
+          # the public Forgejo write root, #235). Other repos (agents, books)
+          # stay private — DEFAULT_PRIVATE below keeps new repos private, so
+          # this flip exposes nothing until a repo is explicitly made public.
+          REQUIRE_SIGNIN_VIEW = false;
           DEFAULT_KEEP_EMAIL_PRIVATE = true;
         };
         repository = {
@@ -120,6 +124,11 @@ in {
           host = "git.ablz.au";
           port = 3023;
           websocket = true;
+          # git-over-HTTP push packs (full-history seed, large rebases) exceed
+          # nginx's 1m default → HTTP 413. The dev/bot HTTPS push path (signed
+          # fleet deploys, #235) needs generous bodies. Unlimited at the proxy;
+          # Forgejo enforces its own limits.
+          maxBodySize = "0";
         }
       ];
 
