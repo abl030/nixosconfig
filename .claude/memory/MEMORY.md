@@ -7,6 +7,11 @@
 ## Critical "Never Do" Rules
 - NEVER run `npm install` manually in a Nix-managed Claude Code installation (breaks the store irreparably)
 - NEVER flush pfSense firewall states after rule changes — see [feedback_pfsense_no_state_flush.md](feedback_pfsense_no_state_flush.md)
+- NEVER push an UNSIGNED commit to master — signed deploys are ENFORCED fleet-wide
+  (#235, 2026-06-10). An unsigned/unverifiable commit in a host's deploy range
+  loud-fails its nightly `nixos-upgrade`. Commits must be SSH-signed by a key in
+  `hosts.nix`; dev machines sign by default. Verified interactive deploy is
+  `sudo fleet-update`. Full model: `docs/wiki/infrastructure/signed-fleet-deploys.md`.
 
 ## Fleet SSH topology (#270, 2026-06-08)
 - doc1 is the SSH **bastion** — ONLY host holding the fleet key; all siblings keyless.
