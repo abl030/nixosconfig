@@ -54,14 +54,29 @@ in {
 
     remoteUrl = lib.mkOption {
       type = lib.types.str;
-      default = "https://github.com/abl030/nixosconfig.git";
-      description = "Pinned clone and push URL for the rolling update bot.";
+      default = "https://git.ablz.au/abl030/nixosconfig.git";
+      description = ''
+        Pinned clone and push URL for the rolling update bot. Forgejo write root
+        (#235); the repo is public so clone is anonymous and only push needs a
+        token (pushTokenFile). GitHub is no longer the bot's push target.
+      '';
     };
 
     tokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
-      description = "File containing a GitHub PAT (needed for HTTPS push).";
+      description = "Deprecated GitHub-push PAT (token-in-URL). Unused since the Forgejo cutover; use pushTokenFile.";
+    };
+
+    pushTokenFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        File containing the Forgejo push token (nixbot). Sent as an
+        `Authorization: token` header on push only — never embedded in the
+        remote URL, so it cannot leak into logs, the saved remote, or failure
+        artifacts. Clone stays anonymous (public repo).
+      '';
     };
 
     signingKeyFile = lib.mkOption {
@@ -186,6 +201,9 @@ in {
           }
           // lib.optionalAttrs (cfg.tokenFile != null) {
             GH_TOKEN_FILE = "${cfg.tokenFile}";
+          }
+          // lib.optionalAttrs (cfg.pushTokenFile != null) {
+            RFU_PUSH_TOKEN_FILE = "${cfg.pushTokenFile}";
           }
           // lib.optionalAttrs (gotifyTokenFile != null) {
             GOTIFY_TOKEN_FILE = "${gotifyTokenFile}";

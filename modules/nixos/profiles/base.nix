@@ -124,6 +124,19 @@
       verify = {
         enforce = lib.mkDefault true;
         freshness.enable = lib.mkDefault true;
+        # Forgejo is the write root (#235). Fetch Forgejo first; GitHub stays a
+        # configured fallback origin but, with no push-mirror yet, it is FROZEN
+        # at the cutover commit — a linear ancestor of Forgejo's tip, so it never
+        # wins candidate selection and never diverges (no tamper). writeRoot =
+        # forgejo means a target must be contained in Forgejo's master: if
+        # Forgejo is unreachable the host cleanly skips ("refusing to deploy from
+        # fallback alone") rather than deploying the stale GitHub tip. When the
+        # mirror lands later, GitHub silently becomes a hot fallback again.
+        origins = lib.mkDefault {
+          forgejo = "https://git.ablz.au/abl030/nixosconfig.git";
+          github = "https://github.com/abl030/nixosconfig.git";
+        };
+        writeRoot = lib.mkDefault "forgejo";
       };
     };
 

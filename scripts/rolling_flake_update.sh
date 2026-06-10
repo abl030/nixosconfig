@@ -18,6 +18,10 @@ set -Eeuo pipefail
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
 BRANCH="${BASE_BRANCH:-master}"
 REMOTE_URL_OVERRIDE="${RFU_REMOTE_URL:-}"
+# Forgejo push token (nixbot). Sent as an Authorization header on push only, not
+# embedded in the remote URL. Falls back to the legacy GH_TOKEN_FILE name.
+PUSH_TOKEN_FILE="${RFU_PUSH_TOKEN_FILE:-${GH_TOKEN_FILE:-}}"
+PUSH_TOKEN=""
 GIT_USER_NAME="${GIT_USER_NAME:-nix bot}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-acme@ablz.au}"
 GIT_SIGNING_KEY="${RFU_GIT_SIGNING_KEY:-}"
@@ -214,8 +218,15 @@ redacted_remote_url() {
 
 push_with_retries() {
     local attempt
+    local -a auth=()
+    # Apply the push token as a header, scoped to this invocation only. Empty
+    # token (e.g. dry-run, or anonymous) falls through to an unauthenticated
+    # push, which fails loudly rather than leaking anything.
+    if [ -n "${PUSH_TOKEN:-}" ]; then
+        auth=(-c "http.extraHeader=Authorization: token ${PUSH_TOKEN}")
+    fi
     for attempt in 1 2 3; do
-        if git push origin "$BRANCH"; then
+        if git "${auth[@]}" push origin "$BRANCH"; then
             return 0
         fi
         log "⚠️  push attempt $attempt failed."
@@ -395,13 +406,11 @@ git config user.name "$GIT_USER_NAME"
 git config user.email "$GIT_USER_EMAIL"
 configure_git_signing
 
-# Inject GitHub token for HTTPS push (read from file if not already in env).
-if [ -z "${GH_TOKEN:-}" ] && [ -n "${GH_TOKEN_FILE:-}" ] && [ -r "${GH_TOKEN_FILE}" ]; then
-    GH_TOKEN="$(cat "${GH_TOKEN_FILE}")"
-fi
-if [ -n "${GH_TOKEN:-}" ]; then
-    CLEAN_URL="${REMOTE_URL#https://}"
-    git remote set-url origin "https://oauth2:${GH_TOKEN}@${CLEAN_URL}"
+# Read the Forgejo push token (clone was anonymous — public repo). The token is
+# applied per-push via http.extraHeader, NOT written into the remote URL, so it
+# never appears in `git remote -v`, logs, or preserved failure workdirs.
+if [ -n "${PUSH_TOKEN_FILE:-}" ] && [ -r "${PUSH_TOKEN_FILE}" ]; then
+    PUSH_TOKEN="$(tr -d '\r\n' <"${PUSH_TOKEN_FILE}")"
 fi
 
 if signed_base_required; then

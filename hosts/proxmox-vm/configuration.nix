@@ -1,12 +1,24 @@
 {
   lib,
   pkgs,
+  config,
   ...
 }: {
   imports = [
     ./hardware-configuration.nix
     ../../modules/nixos/services/podcast.nix
   ];
+
+  # Forgejo push token for the rolling-flake-update bot (nixbot). Decryptable by
+  # doc1 only (per-host sops scope, #234); read by the bot service (User=abl030)
+  # and sent as an Authorization header on push. See
+  # docs/wiki/infrastructure/signed-fleet-deploys.md.
+  sops.secrets."forgejo/nixbot-token" = {
+    sopsFile = config.homelab.secrets.sopsFile "forgejo-nixbot-token";
+    format = "binary";
+    owner = "abl030";
+    mode = "0400";
+  };
 
   homelab = {
     mounts = {
@@ -63,6 +75,9 @@
       enable = true;
       repoDir = "/home/abl030/nixosconfig";
       onCalendar = "23:00"; # AWST (15:00 UTC) — out of the way of interactive coding
+      # Push to Forgejo (write root, #235). remoteUrl defaults to git.ablz.au;
+      # clone is anonymous (public repo), push uses this token via a header.
+      pushTokenFile = config.sops.secrets."forgejo/nixbot-token".path;
     };
     services = {
       # Immich moved to doc2 (2026-02-25)
