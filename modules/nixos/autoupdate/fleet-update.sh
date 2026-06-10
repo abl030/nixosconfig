@@ -565,11 +565,17 @@ is_plumbing_failure_log() {
 metadata_preflight() {
     local ref="$1"
     local log_file
+    local meta_ref
 
     is_truthy "$SKIP_PREFLIGHT" && return 0
 
+    # `nix flake metadata` operates on the flake, not an output, and rejects an
+    # attribute fragment ("unexpected fragment 'igpu'"). The deploy ref carries
+    # `#<host>` for nixos-rebuild, so strip it for the metadata probe.
+    meta_ref="${ref%%#*}"
+
     log_file="$(mktemp)"
-    if "$NIX_BIN" flake metadata "$ref" --no-write-lock-file --option accept-flake-config true >"$log_file" 2>&1; then
+    if "$NIX_BIN" flake metadata "$meta_ref" --no-write-lock-file --option accept-flake-config true >"$log_file" 2>&1; then
         rm -f "$log_file"
         return 0
     fi
@@ -579,7 +585,7 @@ metadata_preflight() {
         if [ -n "$NIX_FETCH_CACHE_DIR" ] && [ -d "$NIX_FETCH_CACHE_DIR" ]; then
             rm -rf "$NIX_FETCH_CACHE_DIR"
         fi
-        if "$NIX_BIN" flake metadata "$ref" --no-write-lock-file --option accept-flake-config true >"$log_file" 2>&1; then
+        if "$NIX_BIN" flake metadata "$meta_ref" --no-write-lock-file --option accept-flake-config true >"$log_file" 2>&1; then
             rm -f "$log_file"
             return 0
         fi
