@@ -82,17 +82,11 @@
     extraGroups = ["video" "render"];
   };
 
-  security.sudo.extraRules = lib.mkAfter [
-    {
-      users = ["abl030"];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
+  # Passwordless `nixos-rebuild` used to live here for remote agent deploys.
+  # Retired: igpu is now `sudoPasswordless = true` in hosts.nix (it is an
+  # always-on server VM in the doc1/doc2 tier, and a passwordless rebuild is
+  # already passwordless root). Full passwordless sudo supersedes the rule and
+  # also unblocks `sudo fleet-update` for verified deploys.
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils

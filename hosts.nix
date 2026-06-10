@@ -189,6 +189,13 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = fleetKeys;
+    # Always-on headless server VM, same tier as doc1/doc2. It already granted
+    # the agent passwordless `nixos-rebuild` for remote deploys — which IS
+    # passwordless root (rebuild to a config with a setuid shell) — so gating
+    # `fleet-update` and friends behind a sudo password was security theatre.
+    # Full passwordless sudo here; the per-command rule in configuration.nix is
+    # retired. See docs/wiki/infrastructure/signed-fleet-deploys.md.
+    sudoPasswordless = true;
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
   };
 
