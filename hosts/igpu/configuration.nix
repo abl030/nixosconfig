@@ -88,6 +88,18 @@
   # already passwordless root). Full passwordless sudo supersedes the rule and
   # also unblocks `sudo fleet-update` for verified deploys.
 
+  # Signed-fleet-deploys CANARY (Phase C). igpu enforces the verified
+  # fleet-update path and runs the freshness watchdog ahead of the rest of the
+  # fleet. After one clean enforcing nightly cycle here, both flags move to the
+  # fleet default in modules/nixos/profiles/base.nix and this override is
+  # removed. See docs/wiki/infrastructure/signed-fleet-deploys.md
+  # ("Enabling Enforcement"). The verified path was walked through end-to-end on
+  # this host on 2026-06-10 (real deploy, freshness, break-glass, accept-new-root).
+  homelab.update.verify = {
+    enforce = true;
+    freshness.enable = true;
+  };
+
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils
     radeontop
