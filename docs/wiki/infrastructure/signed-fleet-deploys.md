@@ -52,10 +52,23 @@ Landed and live:
   `base.nix`. Always-on servers (doc1, doc2, igpu) enforcing as of 2026-06-10;
   workstations onboard on their next nightly.
 
+In progress:
+
+- **Phase D U8 — Forgejo side built (2026-06-10):** `abl030/nixosconfig` exists
+  on git.ablz.au (public, full history), anonymous read verified; restricted
+  write accounts (`nixbot` + per-machine writers) as collaborators; `master`
+  branch protection (force-push/delete blocked); `nixbot` repo-scoped token in
+  `secrets/hosts/proxmox-vm/forgejo-nixbot-token`. Details:
+  [services/forgejo.md](../services/forgejo.md).
+
 Not yet landed:
 
-- Forgejo write-root cutover (Phase D, U8–U11) — gated on enforcement (now met);
-  needs Forgejo account/token + GitHub mirror setup, which is operator/UI work.
+- Phase D mirror leg — Forgejo→GitHub push-mirror, GitHub `master` ruleset, the
+  mirror-health poller. **Blocked on the operator-created GitHub machine-user
+  (`abl030-forgejo-mirror`) + fine-grained PAT** (GitHub does not mint PATs via
+  API).
+- U9/U10/U11 — repoint the bot/dev/host fetch path to Forgejo, then docs cutover
+  (gated on the mirror soak).
 
 ## Walk-through verification (2026-06-10)
 

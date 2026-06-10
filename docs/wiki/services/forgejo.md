@@ -1,14 +1,17 @@
 # Forgejo
 
 **Date researched:** 2026-06-10
-**Status:** active, post-v15 migration verified
+**Status:** active, post-v15 migration verified; Phase D U8 write-root setup landed
 **Host:** doc2
 **Source module:** `modules/nixos/services/forgejo.nix`
 **Related:** #223, #235, #270
 
-Forgejo runs at https://git.ablz.au on doc2. It is currently a private forge
-for `abl030/books` and `abl030/agents`; `nixosconfig` cutover is tracked in
-the signed fleet deploys plan.
+Forgejo runs at https://git.ablz.au on doc2. It hosts the private repos
+`abl030/books` (beancount ledger) and `abl030/agents`, and — as of 2026-06-10 —
+the **public** `abl030/nixosconfig`, which is becoming the signed-fleet-deploys
+write root (mirrored to GitHub). See
+[signed-fleet-deploys.md](../infrastructure/signed-fleet-deploys.md) and the
+**Phase D (U8) Write-Root Setup** section below.
 
 ## Runtime
 
@@ -20,21 +23,24 @@ the signed fleet deploys plan.
 - SSH Git: built-in Forgejo SSH server on `git.ablz.au:2222`
 - Dumps: `/mnt/data/Life/Andy/Code/forgejo-dumps`
 
-The module deliberately keeps Forgejo private for now:
+Instance settings (as of the Phase D U8 setup):
 
 ```ini
 [service]
 DISABLE_REGISTRATION = true
-REQUIRE_SIGNIN_VIEW = true
+REQUIRE_SIGNIN_VIEW = false   # anonymous read for PUBLIC repos only
 
 [repository]
 DEFAULT_PRIVATE = private
 DEFAULT_PUSH_CREATE_PRIVATE = true
 ```
 
-`REQUIRE_SIGNIN_VIEW` flips to `false` only during the `nixosconfig` cutover,
-when that repository is made public for anonymous host fetches. Private repos
-must stay private per repository.
+`REQUIRE_SIGNIN_VIEW = false` lets anonymous clients fetch **public** repos
+(only `nixosconfig`); `books`/`agents` stay private and 404 anonymously, and
+`DEFAULT_PRIVATE = private` keeps every new repo private. The git.ablz.au
+localProxy also sets `maxBodySize = "0"` so git-over-HTTP push packs (the
+full-history seed, large rebases, the dev/bot HTTPS push path) don't hit
+nginx's 1m default and HTTP 413.
 
 ## Health Checks
 
@@ -99,6 +105,66 @@ Sources:
 - https://forgejo.org/2026-01-release-v14-0/
 - https://forgejo.org/2026-04-release-v15-0/
 - https://forgejo.org/docs/latest/admin/upgrade/
+
+## Phase D (U8) Write-Root Setup
+
+Landed 2026-06-10. **These objects are Forgejo runtime/DB state, not Nix config**
+— only the instance settings (sign-in view, body size) live in
+`forgejo.nix`. The repo, accounts, collaborators, branch protection, and tokens
+below are reproduced from the Forgejo dump/DB, not the flake. Recreate via the
+admin CLI + API if restoring to a fresh instance.
+
+**Repo:** `abl030/nixosconfig`, public, default branch `master`, seeded with the
+full history pushed from doc1 (HTTPS, after the `maxBodySize` fix).
+
+**Write-path accounts** (all `--restricted` — they see only repos they are added
+to; throwaway random passwords, they auth via token, not password):
+
+| Account | Purpose | Token |
+|---|---|---|
+| `nixbot` | nightly rolling-flake-update bot push | `nixbot-push` (`write:repository`) → `secrets/hosts/proxmox-vm/forgejo-nixbot-token` |
+| `doc1-writer` | interactive dev push from doc1 | per-machine, issued in U9 |
+| `epimetheus-writer` | dev push from epimetheus | per-machine, issued in U9 |
+| `framework-writer` | dev push from framework | per-machine, issued in U9 |
+| `wsl-writer` | dev push from wsl | per-machine, issued in U9 |
+
+All five are **write collaborators** on `nixosconfig`. Personal `abl030` is the
+owner but is not used for ordinary pushes.
+
+**Branch protection on `master`:** push restricted to the five writer accounts
+(`enable_push_whitelist`); force-push and deletion blocked for everyone (verified:
+a nixbot force-push to master is rejected with "branch master is protected from
+force push"); `require_signed_commits = false` — signing keys are deliberately
+NOT uploaded to Forgejo (auth/signing conflation, forgejo#4268), so host-side
+signature verification is the trust control, not Forgejo's "Verified" badge.
+
+Create/manage accounts and tokens with the admin CLI on doc2 (works against the
+live SQLite DB):
+
+```sh
+fj=/run/current-system/sw/bin/forgejo
+run() { sudo -u forgejo env FORGEJO_WORK_DIR=/mnt/virtio/forgejo FORGEJO_CUSTOM=/mnt/virtio/forgejo/custom "$fj" --work-path /mnt/virtio/forgejo "$@"; }
+run admin user create --username <name> --email <name>@ablz.au --restricted --random-password --must-change-password=false
+run admin user generate-access-token -u <name> -t <token-name> --scopes write:repository --raw   # pipe to sops, never echo
+```
+
+Repo/collaborator/branch-protection operations use the API with an admin token.
+Mint an ephemeral admin token via `run admin user generate-access-token -u abl030
+... --scopes all`, and **revoke it when done** — token-auth cannot delete tokens
+(HTTP 401), so revoke by stopping forgejo and deleting the row:
+`sqlite3 /mnt/virtio/forgejo/data/forgejo.db "DELETE FROM access_token WHERE id=<n>;"`.
+
+### Deferred (blocked on the GitHub mirror PAT)
+
+These U8 items need the operator-created GitHub machine-user (`abl030-forgejo-mirror`)
+and its fine-grained PAT (GitHub does not mint PATs via API):
+
+- Forgejo → GitHub push-mirror (`sync_on_commit`) with the mirror PAT.
+- Mirror-health poller on doc2 + its dedicated read-only Forgejo token
+  (`secrets/hosts/doc2/forgejo-mirror-poller-token`) — defined once a mirror
+  exists to poll.
+- GitHub `master` ruleset allowing only `abl030-forgejo-mirror` to update.
+- Synthetic propagation test (signed commit → Forgejo → GitHub).
 
 ## SSH Keys
 
