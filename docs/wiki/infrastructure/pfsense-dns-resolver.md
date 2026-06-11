@@ -152,6 +152,34 @@ Initiates reverse-DNS lookups on every IP it observes. On a busy LAN, this gener
 | 2 | Decode PTRs that flow through naturally, never initiate (**our setting**) |
 | 3 | Local-only PTR (LAN IPs) |
 
+### ntopng table caps (memory diet, 2026-06-11)
+
+The FW4C has only **4 GB RAM + 1 GB swap**, and swap had been pegged at 100 %
+since at least 2026-05-23 (start of Loki ingestion), with unbound OOM-killed
+near-daily — see
+[alloy-loki-wildcard-dns-incident-2026-06-10](alloy-loki-wildcard-dns-incident-2026-06-10.md)
+for the fleet-visible fallout. The two userspace hogs: unbound at ~950 MB RES
+(~850 MB of that is the pfBlockerNG python DNSBL holding **4.6 M domains**
+in-process — kept by choice) and ntopng at ~680 MB and growing (6 interfaces,
+default 131072-entry host/flow tables each).
+
+Fix applied 2026-06-11: per-interface table caps via the ntopng package's
+`custom_config` field (`config.xml` →
+`installedpackages/ntopng/config/0/custom_config`, base64). It is appended to
+the generated `/usr/local/etc/ntopng.conf` and **survives GUI saves and
+package upgrades** (handled in `/usr/local/pkg/ntopng.inc`):
+
+```
+--max-num-hosts=16384
+--max-num-flows=32768
+```
+
+Result: ntopng RES ~680 MB → ~300 MB at restart, swap 100 % → 72 %.
+If RES creeps back over ~400 MB, tighten the flow cap. Restart **only** via
+`/usr/local/etc/rc.d/ntopng.sh restart` (see the restart gotcha above).
+Do not grow swap instead — it's ZFS-on-root on the appliance SSD; sustained
+thrash is a disk-wear problem, not a fix.
+
 ### serve-expired's two modes
 
 `serve-expired: yes` alone is a footgun (stale-immediately + sync refresh = upstream pile-up). Pair it with `serve-expired-client-timeout: <ms>` for RFC 8767 behaviour. Unbound docs: [serve-stale](https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/serve-stale.html).
