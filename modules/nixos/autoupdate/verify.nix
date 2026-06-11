@@ -13,7 +13,27 @@
     name = "fleet-update.sh";
   };
   originsString = lib.concatStringsSep " " (lib.mapAttrsToList (name: url: "${name}=${url}") cfg.origins);
-  rebuildFlags = lib.concatStringsSep " " config.system.autoUpgrade.flags;
+  # system.autoUpgrade.flags is NOT just what update.nix sets: the upstream
+  # nixpkgs auto-upgrade module appends `--refresh --flake <cfg.flake>` (the
+  # frozen GitHub ref) to the merged option value. fleet-update.sh passes
+  # REBUILD_FLAGS *after* its own `--flake <verified local clone>`, and the
+  # last --flake wins in nixos-rebuild — so passing the merged flags through
+  # made every enforced deploy verify Forgejo and then silently rebuild the
+  # frozen GitHub rev (caught 2026-06-11: doc2 pinned to the cutover closure
+  # while fleet-update reported success and advanced the anchor). Strip any
+  # `--flake <ref>` pair; the verified clone ref from fleet-update.sh is the
+  # only flake selector allowed on the enforced path.
+  # Upstream appends the ref as a single element ("--flake github:...");
+  # handle the two-element form too in case that ever changes.
+  stripFlakeFlag = flags:
+    if flags == []
+    then []
+    else if lib.head flags == "--flake"
+    then stripFlakeFlag (lib.drop 2 flags)
+    else if lib.hasPrefix "--flake " (lib.head flags)
+    then stripFlakeFlag (lib.tail flags)
+    else [(lib.head flags)] ++ stripFlakeFlag (lib.tail flags);
+  rebuildFlags = lib.concatStringsSep " " (stripFlakeFlag config.system.autoUpgrade.flags);
   freshnessCheck = pkgs.writeShellApplication {
     name = "fleet-update-freshness-check";
     runtimeInputs = with pkgs; [
