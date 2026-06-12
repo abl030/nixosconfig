@@ -217,7 +217,7 @@ redacted_remote_url() {
 }
 
 push_with_retries() {
-    local attempt
+    local attempt rc
     local -a auth=()
     # Apply the push token as a header, scoped to this invocation only. Empty
     # token (e.g. dry-run, or anonymous) falls through to an unauthenticated
@@ -231,10 +231,66 @@ push_with_retries() {
         fi
         log "⚠️  push attempt $attempt failed."
         if [ "$attempt" -lt 3 ]; then
-            sleep $((attempt * 10))
+            # A rejected push is usually a commit race: an interactive push
+            # landed on master during the multi-hour build window (the run
+            # clones at 23:00, evening pushes overlap). If the remote moved,
+            # rebase onto the new tip and retry immediately; otherwise back
+            # off and retry (transient network / Forgejo blip).
+            rc=0
+            rebase_onto_moved_remote || rc=$?
+            case "$rc" in
+                0) ;;          # rebased; retry the push immediately
+                2) break ;;    # unrecoverable (conflict / untrusted commits)
+                *) sleep $((attempt * 10)) ;;
+            esac
         fi
     done
+    SUMMARY_LINES+=("❌ push — gave up; our commits are preserved in the workdir")
     return 1
+}
+
+# Condition-safe range verification. verify_commit_range relies on `set -e` to
+# abort on a bad commit, which is suspended when called inside a condition —
+# this variant explicitly fails if ANY commit in base..target fails to verify.
+verify_range_strict() {
+    local rev ok=0
+    while IFS= read -r rev; do
+        [ -n "$rev" ] || continue
+        verify_commit "$rev" || ok=1
+    done < <(git rev-list "$1..$2")
+    return "$ok"
+}
+
+# Handle the commit race: master gained commits while we were building. Fetch,
+# verify the new commits against allowed_signers, and rebase our bot commits on
+# top — commit.gpgsign re-signs them with the bot key during the rewrite.
+# Returns 0 if a rebase happened (caller retries the push at once), 1 if the
+# remote never moved (not a race — plain retry), 2 if unrecoverable.
+rebase_onto_moved_remote() {
+    local new_tip nnew
+    git fetch origin "$BRANCH" || return 1
+    new_tip="$(git rev-parse "origin/$BRANCH")" || return 1
+    if git merge-base --is-ancestor "$new_tip" HEAD; then
+        return 1 # remote did not move; rejection was not a commit race
+    fi
+    nnew="$(git rev-list --count "HEAD..$new_tip" 2>/dev/null || echo '?')"
+    log "🔀 Commit race: master gained $nnew commit(s) mid-run; verifying and rebasing onto ${new_tip:0:12}..."
+    if signed_base_required && ! verify_range_strict HEAD "$new_tip"; then
+        SUMMARY_LINES+=("❌ push — commit race: new master tip ${new_tip:0:12} contains unverified commits; refusing to rebase")
+        return 2
+    fi
+    if ! git rebase "$new_tip"; then
+        git rebase --abort 2>/dev/null || true
+        SUMMARY_LINES+=("❌ push — commit race: rebase onto ${new_tip:0:12} conflicted; manual merge needed from preserved workdir")
+        return 2
+    fi
+    if signed_base_required && ! verify_range_strict "origin/$BRANCH" HEAD; then
+        SUMMARY_LINES+=("❌ push — commit race: rebased commits failed signature re-verification")
+        return 2
+    fi
+    log "🔀 Rebase complete; retrying push."
+    SUMMARY_LINES+=("🔀 push — commit race: $nnew commit(s) landed on master mid-run; rebased ours on top")
+    return 0
 }
 
 # Result accumulators.
