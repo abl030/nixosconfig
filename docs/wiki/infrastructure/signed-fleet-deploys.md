@@ -1,17 +1,28 @@
 # Signed Fleet Deploys
 
-**Date researched:** 2026-06-10
+**Date researched:** 2026-06-10 (watchdog retirement: 2026-06-13)
 **Status:** Phase C enforcement is **live fleet-wide** (2026-06-10). Signing
 (U2–U4), the verified `fleet-update` path (U5), the staleness watchdog (U6), and
-the runbooks (U7) have all landed. `homelab.update.verify.enforce` +
-`freshness.enable` are now `mkDefault true` in `base.nix`. The always-on servers
+the runbooks (U7) have all landed. `homelab.update.verify.enforce` is now
+`mkDefault true` in `base.nix`. The always-on servers
 (doc1, doc2, igpu) were promoted in one step after the igpu canary's full
 enforced nightly cycle was reproduced and verified end-to-end (real nixpkgs bump
 deployed via the verified path, freshness advanced, watchdog green) — all three
 deployed via `fleet-update`, enforcing, markers seeded, `FLEET-FRESHNESS OK`.
 Intermittently-on workstations (epimetheus, framework, wsl) onboard on their next
-nightly: `enforce` applies then, and the freshness watchdog reports non-paging
-`PENDING` until their first verified deploy seeds the marker.
+nightly.
+
+**2026-06-13: the hourly freshness watchdog timer (U6) and its paging
+errorPattern were RETIRED.** One missed bot push (a commit race on 2026-06-12)
+made every host warn hourly on top of the rolling-flake-update failure alert —
+duplicate noise during the alert-fatigue cleanup. `freshness.enable` /
+`checkInterval` options no longer exist; do not set them. What remains: the
+in-deploy freshness verification in `fleet-update.sh` (fail-open,
+`FLEET-FRESHNESS FAIL` journal/Loki lines, no paging), the local markers, the
+monotonic anti-replay guard, and `freshness.maxAgeSeconds`. The bot's own
+failure notification (rolling-flake-update → Gotify) is the single alert for a
+stalled update pipeline; the updater now also auto-rebases on commit races, so
+the 2026-06-12 failure class self-heals.
 
 **Forgejo cutover is LIVE (Phase D, U8–U10, 2026-06-10).** Forgejo
 (`git.ablz.au/abl030/nixosconfig`) is the write+fetch root: the rolling bot and
@@ -57,9 +68,10 @@ Landed (U2–U7, all on `master`):
 
 Landed and live:
 
-- **Fleet-wide enforcement:** `enforce` + `freshness.enable` default true in
-  `base.nix`. Always-on servers (doc1, doc2, igpu) enforcing as of 2026-06-10;
-  workstations onboard on their next nightly.
+- **Fleet-wide enforcement:** `enforce` defaults true in `base.nix`. Always-on
+  servers (doc1, doc2, igpu) enforcing as of 2026-06-10; workstations onboard
+  on their next nightly. (`freshness.enable` existed here until 2026-06-13 —
+  see the retirement note at the top.)
 
 Landed (Phase D, 2026-06-10):
 
@@ -220,9 +232,9 @@ its branch tip verified with the running allowed-signers file. It is diagnostic
 only; it is not enough to prove the fleet is not frozen.
 
 `last-verified-freshness` records the authenticated heartbeat epoch, heartbeat
-commit, target commit, and observation time. The watchdog checks the heartbeat
-epoch age, not the marker file mtime, so replaying the same old signed
-heartbeat cannot quiet the alert.
+commit, target commit, and observation time. The age check uses the heartbeat
+epoch, not the marker file mtime, so replaying the same old signed heartbeat
+cannot refresh it.
 
 `highest-seen-heartbeat` is the monotonic anti-replay guard. A lower heartbeat
 epoch never refreshes freshness, even if every commit is otherwise signed.
@@ -233,17 +245,17 @@ Freshness failures log lines beginning with:
 FLEET-FRESHNESS FAIL
 ```
 
-Those are routed through `homelab.monitoring.errorPatterns` for
-`nixos-upgrade.service` and `fleet-update-freshness.service`. The watchdog unit
-is present on hosts with the verifier module, but its timer is intentionally
-off until `homelab.update.verify.freshness.enable = true`; flip that alongside
-the verified nightly enforcement gate, not before every host is using
-`fleet-update`.
+These appear in `nixos-upgrade.service` journal (shipped to Loki) when the
+in-deploy check in `fleet-update.sh` cannot authenticate a fresh green
+heartbeat. **They do not page** — the hourly `fleet-update-freshness` watchdog
+timer and its `errorPatterns` Gotify rule were removed 2026-06-13 (duplicate
+alert noise; the rolling bot's own failure notification is the alert). To
+inspect freshness manually: `cat /var/lib/fleet-update/last-verified-freshness`
+or query Loki for `FLEET-FRESHNESS`.
 
-The accepted heartbeat age is host-classed automatically: laptops
-(`homelab.update.checkAcPower = true`) get a 72h AC/offline grace, always-on
-servers page after 30h (one missed nightly window). A laptop offline past 72h
-pages by design — that is the intended signal, not a false positive.
+The accepted heartbeat age (`freshness.maxAgeSeconds`) is host-classed
+automatically: laptops (`homelab.update.checkAcPower = true`) get a 72h
+AC/offline grace, always-on servers 30h (one missed nightly window).
 
 ## Enabling Enforcement (Trust-Root Ceremony)
 
@@ -252,17 +264,16 @@ host's deployment range starts failing that host's nightly update loudly. It is
 fail-closed by design (noisy, not dangerous), but do it deliberately: canary
 host first, never fleet-wide in one commit.
 
-Two independent flags gate enforcement, both default `false`:
+One flag gates enforcement (now `mkDefault true` fleet-wide):
 
 - `homelab.update.verify.enforce` — `nixos-upgrade.service` runs the verified
   `fleet-update` path (and uses it as the `ExecCondition` reachability probe)
   instead of the raw GitHub flake switch.
-- `homelab.update.verify.freshness.enable` — the local signed-heartbeat
-  watchdog timer that pages on a frozen fleet.
 
-Flip both together on a given host. Enforcement without the watchdog can be
-frozen on a vulnerable rev silently; the watchdog without enforcement pages a
-host that is not yet using the verified path.
+(A second flag, `freshness.enable`, used to arm a paging staleness watchdog
+alongside enforcement. It was removed 2026-06-13 — see the retirement note at
+the top. The known tradeoff: a frozen forge that still satisfies every nightly
+no longer pages anything; detection is now manual/Loki-side.)
 
 ### Step 1 — trust-root ceremony (once, before the first enforcing host)
 
@@ -307,7 +318,7 @@ host that is not yet using the verified path.
    ```nix
    # hosts/igpu/configuration.nix
    homelab.update.verify.enforce = true;
-   homelab.update.verify.freshness.enable = true;
+   # (freshness.enable was also set here historically; option removed 2026-06-13)
    ```
 
 2. Commit signed, push, and deploy the canary the standard way (this is a config

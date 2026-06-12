@@ -34,49 +34,6 @@
     then stripFlakeFlag (lib.tail flags)
     else [(lib.head flags)] ++ stripFlakeFlag (lib.tail flags);
   rebuildFlags = lib.concatStringsSep " " (stripFlakeFlag config.system.autoUpgrade.flags);
-  freshnessCheck = pkgs.writeShellApplication {
-    name = "fleet-update-freshness-check";
-    runtimeInputs = with pkgs; [
-      coreutils
-      jq
-    ];
-    text = ''
-      marker=${lib.escapeShellArg cfg.lastVerifiedFreshnessFile}
-      max_age=${toString cfg.freshness.maxAgeSeconds}
-      now="$(date -u +%s)"
-
-      fail() {
-        echo "FLEET-FRESHNESS FAIL $*"
-      }
-
-      # A missing marker is "baseline not yet established", NOT a freeze: the
-      # marker is seeded by the first verified deploy (noop/deploy path). Emit a
-      # non-paging PENDING notice so a freshly-enabled host (e.g. a workstation
-      # onboarding before its first enforced nightly) does not page. A host that
-      # never establishes a baseline is caught by nixos-upgrade/Loki monitoring,
-      # not here. Once a marker exists, a STALE one pages normally (the real
-      # freeze/replay signal). See docs/wiki/infrastructure/signed-fleet-deploys.md.
-      if [ ! -s "$marker" ]; then
-        echo "FLEET-FRESHNESS PENDING no verified freshness marker yet (seeds on first verified deploy): $marker"
-        exit 0
-      fi
-
-      if ! heartbeat_epoch="$(jq -er '.heartbeat_epoch | numbers | floor' "$marker" 2>/dev/null)"; then
-        fail "malformed verified freshness marker: $marker"
-        exit 0
-      fi
-
-      target="$(jq -r '.target // "unknown"' "$marker" 2>/dev/null || echo unknown)"
-      heartbeat_commit="$(jq -r '.heartbeat_commit // "unknown"' "$marker" 2>/dev/null || echo unknown)"
-      age=$((now - heartbeat_epoch))
-      if [ "$age" -gt "$max_age" ]; then
-        fail "stale signed heartbeat age_seconds=$age max_age_seconds=$max_age target=$target heartbeat_commit=$heartbeat_commit"
-        exit 0
-      fi
-
-      echo "FLEET-FRESHNESS OK age_seconds=$age max_age_seconds=$max_age target=$target heartbeat_commit=$heartbeat_commit"
-    '';
-  };
   fleetUpdate = pkgs.writeShellApplication {
     name = "fleet-update";
     runtimeInputs = with pkgs; [
@@ -196,13 +153,12 @@ in {
       description = "Branch verified by fleet-update for normal deployments.";
     };
 
+    # The hourly fleet-update-freshness watchdog timer + its paging errorPattern
+    # were removed 2026-06-13: a missed bot push made every host warn hourly on
+    # top of the rolling-flake-update failure alert (duplicate noise). The
+    # in-deploy freshness verification in fleet-update.sh remains — fail-open,
+    # journal/Loki-only ("FLEET-FRESHNESS FAIL"), no paging.
     freshness = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Enable the local signed-heartbeat staleness watchdog timer.";
-      };
-
       maxAgeSeconds = lib.mkOption {
         type = lib.types.int;
         default =
@@ -210,12 +166,6 @@ in {
           then 72 * 60 * 60
           else 30 * 60 * 60;
         description = "Maximum accepted age for the signed rolling bot heartbeat.";
-      };
-
-      checkInterval = lib.mkOption {
-        type = lib.types.str;
-        default = "hourly";
-        description = "OnCalendar expression for the local signed-heartbeat freshness watchdog.";
       };
     };
   };
@@ -245,55 +195,12 @@ in {
       mode = "0644";
     };
 
-    environment.systemPackages = [fleetUpdate freshnessCheck];
+    environment.systemPackages = [fleetUpdate];
 
     system.build.fleetUpdate = fleetUpdate;
-    system.build.fleetUpdateFreshnessCheck = freshnessCheck;
 
-    systemd = {
-      services.fleet-update-freshness = {
-        description = "Check signed fleet update heartbeat freshness";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = lib.getExe freshnessCheck;
-          StandardOutput = "journal";
-          StandardError = "journal";
-        };
-      };
-
-      timers.fleet-update-freshness = lib.mkIf cfg.freshness.enable {
-        description = "Periodic signed fleet update heartbeat freshness check";
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = cfg.freshness.checkInterval;
-          Persistent = true;
-          RandomizedDelaySec = "10m";
-        };
-      };
-
-      tmpfiles.rules = [
-        "d ${cfg.stateDir} 0700 root root -"
-      ];
-    };
-
-    homelab.monitoring.errorPatterns = [
-      {
-        name = "Fleet update freshness stale";
-        unit = "(nixos-upgrade|fleet-update-freshness)\\.service";
-        unitIsRegex = true;
-        pattern = "FLEET-FRESHNESS FAIL";
-        severity = "warning";
-        summary = "signed fleet update heartbeat is missing, stale, replayed, or not bot-signed";
-        threshold = 0;
-        description = ''
-          fleet-update could not authenticate a fresh green
-          ${cfg.heartbeatFile} heartbeat signed by ${cfg.botPrincipal}, or
-          the local freshness watchdog found the accepted heartbeat older
-          than ${toString cfg.freshness.maxAgeSeconds}s. This is the
-          anti-freeze backstop for stale origin replay and quiet-skip
-          scenarios; inspect /var/lib/fleet-update/* and the matched log line.
-        '';
-      }
+    systemd.tmpfiles.rules = [
+      "d ${cfg.stateDir} 0700 root root -"
     ];
   };
 }

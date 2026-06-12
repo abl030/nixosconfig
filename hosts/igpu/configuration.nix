@@ -89,10 +89,11 @@
   # also unblocks `sudo fleet-update` for verified deploys.
 
   # igpu was the signed-fleet-deploys enforcement canary (Phase C, 2026-06-10):
-  # verified deploy, freshness watchdog, break-glass, and accept-new-root were
-  # all walked through end-to-end here. enforce + freshness.enable are now the
-  # fleet default in modules/nixos/profiles/base.nix, so the per-host override
-  # has been removed. See docs/wiki/infrastructure/signed-fleet-deploys.md.
+  # verified deploy, break-glass, and accept-new-root were all walked through
+  # end-to-end here. enforce is now the fleet default in
+  # modules/nixos/profiles/base.nix, so the per-host override has been removed.
+  # (The freshness watchdog timer validated here was retired 2026-06-13.)
+  # See docs/wiki/infrastructure/signed-fleet-deploys.md.
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     libva-utils
