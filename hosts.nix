@@ -214,6 +214,23 @@ in {
     gotifyServer = true;
   };
 
+  hermes = {
+    configurationFile = ./hosts/hermes/configuration.nix;
+    homeFile = ./hosts/hermes/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "hermes";
+    sshAlias = "hermes";
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMMJJaMvEpjESv/B83CpDuzeOlz/ur+Mw7WP3KaL2+cd root@hermes";
+    # Keyless re: the fleet — trusts ONLY the doc1 bastion's resident key, so a
+    # compromised agent VM cannot reach siblings. Reach hermes via doc1. #270.
+    authorizedKeys = fleetKeys;
+    sudoPasswordless = true; # remote deploy via fleet-update / nixos-rebuild
+    localIp = "192.168.1.162";
+    tailscaleIp = "100.78.254.6";
+  };
+
   cache = {
     configurationFile = ./hosts/cache/configuration.nix;
     homeFile = ./hosts/cache/home.nix;

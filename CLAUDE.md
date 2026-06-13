@@ -300,8 +300,9 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 - **proxmox-vm** (doc1): Main services VM on Proxmox prom
 - **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
 - **igpu**: Media transcoding VM on Proxmox prom with AMD iGPU passthrough
+- **hermes**: Dedicated, locked-down VM on prom running the Hermes Agent (Nous Research) OCI container — reached via Telegram, keyless re: the fleet. See `docs/wiki/services/hermes-agent.md`.
 
-*(The `dev` and `sandbox` VMs were decommissioned in #234 — removed from `hosts.nix`. Live fleet = the 7 hosts above.)*
+*(The `dev` and `sandbox` VMs were decommissioned in #234 — removed from `hosts.nix`. Live fleet = the 8 hosts above.)*
 
 ### Hypervisors
 
