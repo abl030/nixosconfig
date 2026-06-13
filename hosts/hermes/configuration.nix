@@ -8,6 +8,7 @@
 # SSH in and a compromised agent cannot move laterally. The VM is the blast-radius
 # boundary for an agent that executes LLM-generated code.
 {
+  config,
   lib,
   pkgs,
   ...
@@ -54,8 +55,44 @@
     # management + observability of the agent.)
     syncthing.enable = false;
 
-    # The Hermes Agent itself.
-    services.hermes-agent.enable = true;
+    # The Hermes Agent itself, with the web dashboard exposed tailnet-only.
+    services.hermes-agent = {
+      enable = true;
+      dashboard = {
+        enable = true;
+        publicUrl = "https://hermes.ablz.au";
+        user = "abl030";
+      };
+    };
+
+    # Dashboard served ONLY on the tailnet at hermes.ablz.au (no LAN, no public),
+    # gated by HTTP Basic Auth. Dedicated tailnet node "hermes-ui" — the host
+    # itself is already "hermes". authKeySecret = null → the ts sidecar logs an
+    # interactive login URL on first run (approve once, like the host did).
+    tailscaleShare.hermes-dashboard = {
+      enable = true;
+      fqdn = "hermes.ablz.au";
+      upstream = "http://host.docker.internal:9119";
+      dataDir = "/var/lib/tailscale-share/hermes-dashboard";
+      hostname = "hermes-ui";
+      firewallPorts = [9119];
+      authKeySecret = null;
+      # No Uptime Kuma monitor: keep this locked-down VM free of the Kuma API
+      # credential (it can edit/delete ALL monitors). The agent self-alerts via
+      # gotify/Telegram; add an external monitor from a monitor-running host if
+      # ever wanted.
+      monitorEnable = false;
+    };
+  };
+
+  # Cloudflare DNS-01 token for the tailscaleShare ACME cert + A-record sync
+  # (hermes.ablz.au). Mirrors nginx.nix; hermes runs no nginx so it declares its
+  # own. Whole-file dotenv (CLOUDFLARE_DNS_API_TOKEN=...) for the environmentFile.
+  sops.secrets."acme/cloudflare" = {
+    sopsFile = config.homelab.secrets.sopsFile "acme-cloudflare.env";
+    format = "dotenv";
+    key = "";
+    mode = "0400";
   };
 
   # QEMU guest agent — IP reporting + clean shutdown from Proxmox.

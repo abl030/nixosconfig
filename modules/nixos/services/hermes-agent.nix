@@ -17,12 +17,12 @@
 #     terminal.backend local`.)
 #   * NOT --privileged. The container gets podman's default (restricted) cap set
 #     only.
-#   * Zero inbound exposure by default: Telegram is outbound-only and the web
-#     dashboard is OFF (dashboard.enable = false). Hermes itself refuses to bind
-#     a non-loopback dashboard without an auth provider; rather than weaken that,
-#     we don't expose it at all — admin is via `podman exec -it hermes hermes …`
-#     over the doc1 bastion. If a dashboard is later wanted, flip dashboard.enable
-#     (publishes host-loopback only; reach via `ssh -L`) and add an auth provider.
+#   * Minimal inbound exposure: Telegram is outbound-only. The web dashboard is
+#     opt-in (dashboard.enable). When on, it is served ONLY on the tailnet via a
+#     homelab.tailscaleShare pinhole (https://hermes.ablz.au — no LAN, no public),
+#     and gated by HTTP Basic Auth (the bundled DashboardAuthProvider, which also
+#     satisfies Hermes' own non-loopback bind gate, so no --insecure). The
+#     published 9119 is firewalled to podman0 (the caddy sidecar) by the share.
 #   * Controlled updates: image pinned by DIGEST and intentionally NOT registered
 #     in homelab.podman.containers, so the nightly pull-restart timer ignores it.
 #     Bump the digest deliberately after reading release notes — an arbitrary-
@@ -66,13 +66,25 @@ in {
     };
 
     dashboard = {
-      enable = lib.mkEnableOption "the Hermes web dashboard. OFF by default (zero inbound). Hermes refuses an unauthenticated non-loopback bind, so enabling also needs a DashboardAuthProvider or --insecure; published host-loopback only, reached via `ssh -L`";
+      enable = lib.mkEnableOption "the Hermes web dashboard. OFF by default. When on, expose it tailnet-only via homelab.tailscaleShare and provide HERMES_DASHBOARD_BASIC_AUTH_PASSWORD + _SECRET in the env secret (Basic Auth gate)";
+
+      publicUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "External HTTPS URL the dashboard is served at (e.g. https://hermes.ablz.au), used for absolute links/CORS. Set when fronted by tailscaleShare.";
+      };
+
+      user = lib.mkOption {
+        type = lib.types.str;
+        default = "admin";
+        description = "HTTP Basic Auth username for the dashboard. The password + signing secret come from the env secret (HERMES_DASHBOARD_BASIC_AUTH_PASSWORD / _SECRET).";
+      };
     };
 
     dashboardPort = lib.mkOption {
       type = lib.types.port;
       default = 9119;
-      description = "Host loopback port for the dashboard when dashboard.enable is set. Reach via `ssh -L`, never LAN/public.";
+      description = "Dashboard port, published on the host for the tailscaleShare caddy sidecar (firewalled to podman0 by the share).";
     };
 
     memory = lib.mkOption {
@@ -110,15 +122,23 @@ in {
         {
           TZ = "Australia/Perth";
         }
-        // lib.optionalAttrs cfg.dashboard.enable {
-          HERMES_DASHBOARD = "1";
-        };
+        // lib.optionalAttrs cfg.dashboard.enable ({
+            HERMES_DASHBOARD = "1";
+            HERMES_DASHBOARD_HOST = "0.0.0.0"; # behind the tailscaleShare caddy + Basic Auth + podman0 firewall
+            HERMES_DASHBOARD_PORT = toString cfg.dashboardPort;
+            HERMES_DASHBOARD_BASIC_AUTH_USERNAME = cfg.dashboard.user;
+            # PASSWORD + SECRET come from the env secret (hermes.env).
+          }
+          // lib.optionalAttrs (cfg.dashboard.publicUrl != "") {
+            HERMES_DASHBOARD_PUBLIC_URL = cfg.dashboard.publicUrl;
+          });
       environmentFiles = [config.sops.secrets."hermes-env".path];
       volumes = ["${cfg.dataDir}:/opt/data"];
-      # No published ports unless the dashboard is enabled; then loopback-only
-      # (reach via `ssh -L`), never LAN/tailnet. Outbound (Telegram + LLM) is
-      # unaffected either way.
-      ports = lib.optionals cfg.dashboard.enable ["127.0.0.1:${toString cfg.dashboardPort}:9119"];
+      # Published only when the dashboard is on. Bound on the host so the
+      # tailscaleShare caddy sidecar can reach it via host.docker.internal;
+      # firewalled to podman0 by the share (LAN/public stay closed) and gated by
+      # Basic Auth. Outbound (Telegram + LLM) is unaffected either way.
+      ports = lib.optionals cfg.dashboard.enable ["${toString cfg.dashboardPort}:${toString cfg.dashboardPort}"];
       extraOptions = [
         "--memory=${cfg.memory}"
         "--cpus=${cfg.cpus}"
@@ -126,9 +146,12 @@ in {
       ];
     };
 
-    # Rotate the secret → restart the container to pick up new creds.
+    # Rotate the secret → restart the container to pick up new creds. Trigger on
+    # the ENCRYPTED source (content-addressed store path), NOT the runtime path
+    # (/run/secrets/hermes-env is constant) — keying on the runtime path means a
+    # content change never restarts the container, so it keeps stale env.
     systemd.services.podman-hermes.restartTriggers = [
-      config.sops.secrets."hermes-env".path
+      config.sops.secrets."hermes-env".sopsFile
     ];
 
     systemd.tmpfiles.rules = [

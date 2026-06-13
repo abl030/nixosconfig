@@ -81,6 +81,37 @@ tmux send-keys -t pick Enter                   # ↑↓ navigate, ENTER selects
 - **Telegram allowlist:** `TELEGRAM_ALLOWED_USERS` in `hermes.env` (numeric user IDs);
   without it the gateway denies everyone.
 
+## Web dashboard — https://hermes.ablz.au (tailnet-only)
+
+Enabled via `homelab.services.hermes-agent.dashboard` + a `homelab.tailscaleShare`
+pinhole (dedicated tailnet node `hermes-ui`, separate from the `hermes` host).
+Tailnet-only — no LAN, no public. Gated by HTTP Basic Auth (`abl030` + the
+password/secret in `hermes.env`); the login is a form at `/login`, backed by the
+`HERMES_DASHBOARD_BASIC_AUTH_*` env. The Basic Auth plugin is a real
+DashboardAuthProvider, so it satisfies Hermes' own non-loopback bind gate (no
+`--insecure`). Deliberately **no Uptime Kuma monitor** (`monitorEnable = false`)
+so the locked-down VM holds no Kuma API credential.
+
+Gotchas hit while wiring this (all fixed in-tree):
+- **ts sidecar auth.** The `tailscale/tailscale` image kills `tailscale up` after
+  ~60s without an auth key and restarts (regenerating the node key), so the
+  interactive login URL churns and is hard to catch. It CAN land if you approve
+  fast (state then persists and it stays up), but a pre-generated reusable
+  **auth key** (admin console → `authKeySecret`) is the reliable path for next time.
+- **ACME DNS-01 from inside the netns.** caddy's own propagation *precheck* can't
+  see the public `_acme-challenge` TXT (it resolves via the podman/tailnet path),
+  so issuance hung on "timed out waiting for record to propagate". Fix in the
+  shared `tailscale-share.nix` Caddyfile: `resolvers 1.1.1.1 1.0.0.1` +
+  `propagation_delay 30s` + `propagation_timeout -1` (disable the blocking
+  precheck; Let's Encrypt validates against Cloudflare's authoritative NS, which
+  is clean). Also: failed attempts leave stale `_acme-challenge` TXT records —
+  if dozens pile up, purge them via the Cloudflare API before retrying.
+- **Secret rotation restart.** `podman-hermes` restartTriggers key on the secret's
+  ENCRYPTED source (content-addressed), not `/run/secrets/...` (constant) — else
+  changing a credential's *content* never restarts the container and it keeps
+  stale env (symptom: dashboard refuses to bind because the Basic Auth vars
+  "aren't set" even though they're in `/run/secrets/hermes-env`).
+
 ## Fresh-host quirks (already handled, noted for the next VM)
 
 - **Tailscale:** a brand-new host needs a one-time `tailscale up` approval to join the

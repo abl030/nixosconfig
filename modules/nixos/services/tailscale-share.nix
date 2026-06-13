@@ -95,10 +95,22 @@
       text = ''
         {
           admin off
-          acme_dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
         }
 
         ${cfg.fqdn} {
+          tls {
+            dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+            # DNS-01 from inside the ts sidecar's netns: caddy's OWN propagation
+            # precheck can't reliably see the public _acme-challenge TXT (the
+            # netns resolves via the podman/tailnet path). Let's Encrypt itself
+            # queries Cloudflare's authoritative NS directly and validates fine,
+            # so we point the (best-effort) precheck at public resolvers, add a
+            # fixed settle delay, and DISABLE the blocking precheck so issuance
+            # proceeds to LE validation. See docs/wiki/services/hermes-agent.md.
+            resolvers 1.1.1.1 1.0.0.1
+            propagation_delay 30s
+            propagation_timeout -1
+          }
           reverse_proxy ${cfg.upstream}
         }
       '';
@@ -192,6 +204,17 @@ in {
           default = ["200-299" "300-399"];
           description = "Accepted HTTP status code ranges for the automatic Uptime Kuma monitor.";
         };
+
+        monitorEnable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Register an Uptime Kuma monitor for the shared URL. Set false on a
+            host that must NOT hold the Uptime Kuma API credential (it can
+            edit/delete all monitors) — e.g. a locked-down single-purpose VM.
+            With no monitors the host pulls in no uptime-kuma secret at all.
+          '';
+        };
       };
     }));
     default = {};
@@ -248,7 +271,8 @@ in {
       # Every inter-tailnet pinhole gets an external-health monitor. This keeps
       # monitoring attached to the shared URL itself rather than relying on the
       # separate LAN/localProxy path.
-      monitoring.monitors = lib.mapAttrsToList mkMonitor instances;
+      monitoring.monitors =
+        lib.mapAttrsToList mkMonitor (lib.filterAttrs (_: cfg: cfg.monitorEnable) instances);
 
       # See #253 audit + rules-doc "Per-service errorPatterns".
       # Each ts-* container gets a real-auth-failure pattern. We match
