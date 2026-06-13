@@ -1,0 +1,1 @@
+/nix/store/gmfvr8l76sbj5l9d5v49k3c758anjcgn-nixos-system-hermes-26.11.20260612.49a4bd0

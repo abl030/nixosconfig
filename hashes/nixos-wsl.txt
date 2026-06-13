@@ -1,1 +1,1 @@
-/nix/store/14xalxrr4q2dz8pgvgjpcylcfi0jq3di-nixos-system-wsl-26.11.20260608.8c3cede
+/nix/store/30iv7magdvbbabh86359q3bw3jbgx02c-nixos-system-wsl-26.11.20260612.49a4bd0
