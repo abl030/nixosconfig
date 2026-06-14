@@ -163,12 +163,46 @@ making it useless. The model is **capability follows exposure**, enforced by
   with SSH agent forwarding so the *session* borrows your agent — which holds
   your signing key + the fleet/deploy key — letting it sign commits as you, push
   to Forgejo, and `ssh doc2 sudo fleet-update`, with **no standing key on the
-  hermes box**. Close the session → capability evaporates. `socat` is NOT in the
-  image, so bridging the forwarded `SSH_AUTH_SOCK` into the running container
-  needs a tiny Python forwarder (or add socat via a thin image layer) + a fixed
-  bind-mount declared at container creation. The cratedigger ship/verify loop
-  (bump `cratedigger-src` input → sign+push Forgejo → `fleet-update` doc2 → check
-  `{host="doc2", unit=~"cratedigger.*"}` in Loki) is the target workflow.
+  hermes box**. Close the session → capability evaporates. The cratedigger
+  ship/verify loop (bump `cratedigger-src` input → sign+push Forgejo →
+  `fleet-update` doc2 → check `{host="doc2", unit=~"cratedigger.*"}` in Loki) is
+  the target workflow.
+
+### Agent-forwarding mechanism (validated 2026-06-14)
+
+No container/image change is needed: `/opt/data` is already a writable bind
+mount (= `/var/lib/hermes`), so the forwarded agent socket lands at
+`/var/lib/hermes/.ops/agent.sock` → `/opt/data/.ops/agent.sock`. The host has
+`python3` (no `socat`), so the bridge is `hosts/hermes/operator/agent-bridge.py`
+(runs as root on the hermes host; listens on a uid-10000-owned socket, proxies
+to the operator's forwarded `$SSH_AUTH_SOCK`; socket removed on exit). Then
+`podman exec -e SSH_AUTH_SOCK=/opt/data/.ops/agent.sock -it hermes hermes`.
+
+**⚠️ CRITICAL — isolate the agent or you leak the fleet key.** Reaching hermes
+authenticates with `~/.ssh/id_ed25519` (the fleet key →
+`/run/secrets/ssh_key_abl030`). A naïve `ssh -A hermes` plus the default
+`AddKeysToAgent yes` **injects the fleet key into the very agent you forward** —
+verified: the container then saw both `hermes-deploy` *and* `master-fleet-identity`,
+i.e. a prompt-injectable code-executor got the keys to the whole fleet. The
+launcher MUST connect with the fleet key from file only and never add it to the
+agent:
+`ssh -A -o AddKeysToAgent=no -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 hermes …`
+With that, the forwarded agent carries ONLY the scoped operator keys (verified:
+container sees just `hermes-deploy`). Build the scoped agent fresh per launch
+(`ssh-agent` + `ssh-add` exactly the operator keys) — never forward your
+personal/login agent.
+
+**Residual risk (accepted for watched sessions):** the bridged socket is
+reachable by any uid-10000 process in the container — including the always-on
+gateway — for the *life of the session*. A separate-uid/container split would
+close it; for now the mitigation is "only launch while you're driving it."
+
+**The new key:** `hermes-deploy` (`SHA256:YKwpC2fG7X5/yEjDKFMFclaFi04O87/owaEIrRcTiYI`,
+comment `hermes-deploy@operator`). Private half on doc1 only (→ sops
+`secrets/hosts/proxmox-vm/`, pending); public half → a forced-command grant on
+doc2 (`command="…fleet-update",restrict,from="100.64.0.0/10,192.168.1.0/24"`,
+mirroring the `marker-convert` / `gwm-archiver` trigger-key pattern), pending
+least-privilege sign-off.
 
 ### `homelab-triage` skill (read-only Loki triage)
 
