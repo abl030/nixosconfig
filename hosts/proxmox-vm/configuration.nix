@@ -96,6 +96,9 @@
         enable = true;
         user = "abl030";
       };
+      # doc1 is the launch point for the Hermes full-operator TUI (only host that
+      # can reach hermes + decrypt the operator keys). Installs `hermes-operator`.
+      hermesOperatorLauncher.enable = true;
     };
   };
 

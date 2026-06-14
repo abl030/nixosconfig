@@ -208,9 +208,12 @@ end-to-end: the hermes container, via ONLY the forwarded key, ran `fleet-update
 
 ### Launch & status
 
-Launcher: `hosts/hermes/operator/hermes-operator.sh` (run from doc1). Builds the
-scoped agent, forwards it with fleet-key isolation, execs the TUI. Inside the
-session, deploy doc2 with `ssh abl030@192.168.1.35 deploy` (check with `dry-run`).
+Launcher: the **`hermes-operator`** command on doc1 (installed by
+`homelab.services.hermesOperatorLauncher`; source `hosts/hermes/operator/`).
+Builds the scoped agent from the sops-deployed keys, forwards it with fleet-key
+isolation, execs the TUI. Inside the session: deploy doc2 with
+`ssh abl030@192.168.1.35 deploy` (check with `dry-run`); `git push` signs as you
+and pushes over `ssh://git@git.ablz.au:2222`.
 
 - **Working (tested):** deploy doc2 (forced-command key); **sign** commits as
   abl030 (forwarded `git-signing` key — the container signed a commit OK); verify
@@ -232,10 +235,13 @@ session, deploy doc2 with `ssh abl030@192.168.1.35 deploy` (check with `dry-run`
   rolling-flake-update, (b) a future doc1-side forced-command bump trigger
   (reuses the signed-bump machinery; bastion-touching, needs its own sign-off),
   or (c) a manual bump.
-- **Hardening pending:** sops-store the hermes-deploy + hermes-forgejo private
-  keys (currently plaintext on doc1) and install the launcher / bridge / git
-  identity declaratively (doc1 pkg + hermes config) instead of the repo script +
-  per-launch scp + imperative config.
+- **Hardening (done):** the operator keys are sops-scoped to doc1
+  (`secrets/hosts/proxmox-vm/hermes-{deploy,forgejo}-key`, decryptable only by
+  doc1 + editor + break-glass) and deployed via
+  `homelab.services.hermesOperatorLauncher`, which also installs the
+  `hermes-operator` command; the agent-bridge is baked into the hermes host at
+  `/etc/hermes/agent-bridge.py`. Remaining imperative bit: the container git
+  identity (commands documented above for rebuild recovery).
 
 ### `homelab-triage` skill (read-only Loki triage)
 

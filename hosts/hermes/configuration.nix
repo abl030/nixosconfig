@@ -104,6 +104,12 @@
   # QEMU guest agent — IP reporting + clean shutdown from Proxmox.
   services.qemuGuest.enable = true;
 
+  # Agent-socket bridge for the hermes-operator full-operator TUI (launched from
+  # doc1). Proxies a forwarded ssh-agent into the container so a human-present
+  # session can deploy/push/sign as the operator. See hosts/hermes/operator/ and
+  # docs/wiki/services/hermes-agent.md.
+  environment.etc."hermes/agent-bridge.py".source = ./operator/agent-bridge.py;
+
   # Fresh-host fix: sops-nix materialises the base atuin secret under
   # ~/.local/share/atuin/ during activation and creates the intermediate dirs
   # as ROOT, which then blocks home-manager from creating
