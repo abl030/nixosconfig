@@ -35,6 +35,40 @@ version-controlled. A from-scratch VM rebuild loses it → re-run the bootstrap
 (Codex login + model pick). The only repo-managed secret is
 `secrets/hosts/hermes/hermes.env` (Telegram bot token + allowlisted user IDs).
 
+## ⚠️ The data-dir ownership gotcha (locked the agent out of /opt/data)
+
+**Symptom (2026-06-14):** `sudo podman exec -it hermes hermes` (the interactive
+TUI) crashed at startup with
+`PermissionError: [Errno 13] Permission denied: '/opt/data/.env'` in
+`load_hermes_dotenv`. Telegram still worked, so the gateway looked healthy.
+
+**Cause:** the s6 image runs the supervised agent as the unprivileged `hermes`
+user (**UID 10000**), and `/opt/hermes/bin/hermes` is a privilege-drop shim — a
+`podman exec ... hermes` invoked as root drops to UID 10000 before exec'ing the
+real binary. Our module's tmpfiles rule originally forced the bind-mount source
+`/var/lib/hermes` (→ `/opt/data`) to **`root:root 0700`**. The container's init
+chowns `/opt/data` to 10000 *at container start*, so it worked at first — but a
+mid-run nixos activation (overnight `fleet-update`) re-ran `systemd-tmpfiles`,
+which **stomped the dir back to `root:root 0700` while the container kept
+running**. The gateway held the dir open and kept working; any *new* UID-10000
+process (the interactive CLI, sandbox skill execution) could no longer even
+traverse `/opt/data` → EACCES.
+
+**Diagnostic tell:** as root (`podman exec`'s default) you can `ls /opt/data`
+fine, but `su hermes -c 'ls /opt/data'` says permission denied — the failing
+process isn't root, it's UID 10000, and the *parent dir* is root-owned 0700.
+
+**Fix (in-tree):** the tmpfiles rule now owns the dir as the runtime uid —
+`d /var/lib/hermes 0700 10000 10000` — so tmpfiles and the container agree and a
+deploy can't re-lock it. Live unblock without a redeploy/restart:
+`ssh hermes 'sudo chown 10000:10000 /var/lib/hermes'`. Do **not** "re-lock" it to
+`root:root` thinking it hardens the box — 0700 owned by 10000 is already
+owner-only (uid 10000 + host root); root ownership only re-breaks the agent.
+
+Escape hatch for a deliberate root CLI session (writes root-owned files under
+`$HERMES_HOME`, so use sparingly): the shim honours `HERMES_DOCKER_EXEC_AS_ROOT=1`
+— `sudo podman exec -it -e HERMES_DOCKER_EXEC_AS_ROOT=1 hermes hermes`.
+
 ## ⚠️ The model-selection gotcha (cost real debugging time)
 
 The user runs on a **ChatGPT Pro subscription via Codex OAuth**, not an API key.

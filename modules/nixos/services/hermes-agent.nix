@@ -154,8 +154,19 @@ in {
       config.sops.secrets."hermes-env".sopsFile
     ];
 
+    # Own the state dir as the container's RUNTIME uid, NOT root:root. The s6
+    # image runs the supervised agent as the unprivileged `hermes` user (UID
+    # 10000), and /opt/hermes/bin/hermes is a privilege-drop shim — a
+    # `podman exec ... hermes` invoked as root drops to UID 10000 before running.
+    # The container's init chowns /opt/data to 10000 at *start*, so root:root
+    # appeared to work; but a mid-run nixos activation re-runs systemd-tmpfiles
+    # and would stomp it back to root:root 0700, locking the running agent (and
+    # any interactive `hermes` CLI) out of its own data dir with EACCES. Owning
+    # it 10000:10000 here keeps tmpfiles and the container in agreement. 0700 =
+    # owner-only (uid 10000 + host root). Numeric: no host passwd entry for 10000.
+    # See docs/wiki/services/hermes-agent.md.
     systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0700 root root - -"
+      "d ${cfg.dataDir} 0700 10000 10000 - -"
     ];
   };
 }
