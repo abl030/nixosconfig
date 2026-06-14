@@ -426,11 +426,23 @@ in {
             grpc.endpoint = "0.0.0.0:${toString cfg.tempoOtlpGrpcPort}";
             http.endpoint = "0.0.0.0:${toString cfg.tempoOtlpHttpPort}";
           };
-          ingester.max_block_duration = "5m";
+          # Tempo 3.0 removed the `ingester` module entirely (rearchitected to
+          # live-store + block-builder + backend-scheduler). The old
+          # `ingester.max_block_duration` is gone; block cadence now defaults
+          # under the block-builder. The new components each default their WAL /
+          # work / shutdown-marker paths to /var/tempo, which the hardened unit
+          # (User=tempo, BindPaths=[dataDir/tempo]) can't write — so pin them all
+          # back under dataDir. See docs/wiki/services/lgtm-stack.md (tempo 3.0).
           storage.trace = {
             backend = "local";
             local.path = "${cfg.dataDir}/tempo";
             wal.path = "${cfg.dataDir}/tempo/wal";
+          };
+          backend_scheduler.local_work_path = "${cfg.dataDir}/tempo/backend-scheduler";
+          block_builder.wal.path = "${cfg.dataDir}/tempo/block-builder/traces";
+          live_store = {
+            shutdown_marker_dir = "${cfg.dataDir}/tempo/live-store/shutdown-marker";
+            wal.path = "${cfg.dataDir}/tempo/live-store/traces";
           };
           usage_report.reporting_enabled = false;
         };

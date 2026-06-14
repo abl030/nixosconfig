@@ -77,6 +77,20 @@ pfSense's `syslog.remoteserver` field does not resolve hostnames — it's an IP+
 
 No apps in our fleet push OTEL traces. Most homelab apps only expose Prometheus metrics. Tempo infrastructure + OTLP receivers are ready for when something lands.
 
+### Tempo 3.0 config migration (2026-06-14)
+
+The nightly nixpkgs bump (rolling-flake-update `cc124173`) took **Tempo 2.10.5 → 3.0.1**, which broke doc2's rebuild: `field ingester not found in type app.Config`. Tempo 3.0 is a **rearchitecture** — the monolithic `ingester` module was removed and replaced by **live-store + block-builder + backend-scheduler**. `target=all` (single-binary, local backend) still works **without Kafka** — verified empirically with `tempo -config.verify` and a live `/ready` smoke test on throwaway ports.
+
+What changed in `services.tempo.settings` (`loki-server.nix`):
+- **Dropped** `ingester.max_block_duration` (the whole `ingester` key is gone; block cadence now defaults under block-builder).
+- **Added** four paths that otherwise default to the unwritable `/var/tempo` (our hardened unit is `User=tempo`, `BindPaths=[dataDir/tempo]`):
+  - `backend_scheduler.local_work_path`
+  - `block_builder.wal.path`
+  - `live_store.shutdown_marker_dir`
+  - `live_store.wal.path`
+
+All four now live under `${dataDir}/tempo/…`; tempo mkdir's the subdirs at runtime inside the bound path. To discover new `/var/tempo` defaults after a future bump: `tempo -help | grep /var/tempo`. Old 2.x WAL/blocks under `${dataDir}/tempo` are read fine; the legacy `storage.trace.wal.path` is now orphaned but harmless.
+
 ## pfSense Prometheus exporter
 
 **Added:** 2026-04-16 (Phase 4 of #208)
