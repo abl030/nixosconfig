@@ -201,8 +201,25 @@ close it; for now the mitigation is "only launch while you're driving it."
 comment `hermes-deploy@operator`). Private half on doc1 only (→ sops
 `secrets/hosts/proxmox-vm/`, pending); public half → a forced-command grant on
 doc2 (`command="…fleet-update",restrict,from="100.64.0.0/10,192.168.1.0/24"`,
-mirroring the `marker-convert` / `gwm-archiver` trigger-key pattern), pending
-least-privilege sign-off.
+mirroring the `marker-convert` / `gwm-archiver` trigger-key pattern). **Live on
+doc2** (`homelab.services.hermesOperatorDeploy`, commit `16ae3dd4`) and verified
+end-to-end: the hermes container, via ONLY the forwarded key, ran `fleet-update
+--dry-run` on doc2; an arbitrary command (`cat /etc/shadow`) was refused.
+
+### Launch & status
+
+Launcher: `hosts/hermes/operator/hermes-operator.sh` (run from doc1). Builds the
+scoped agent, forwards it with fleet-key isolation, execs the TUI. Inside the
+session, deploy doc2 with `ssh abl030@192.168.1.35 deploy` (check with `dry-run`).
+
+- **Working:** deploy doc2 (forced-command key) + verify (read-only Loki) +
+  Telegram read-only triage.
+- **Pending:** the session's *push/sign* identity (Forgejo-push + commit-signing
+  keys added to the scoped agent) so it can author & ship new code, not just
+  redeploy already-pushed master — this completes the cratedigger loop. Then:
+  sops-store the hermes-deploy private key (currently plaintext on doc1) and
+  install the launcher/bridge declaratively (doc1 pkg + hermes config) instead of
+  the repo script + per-launch scp.
 
 ### `homelab-triage` skill (read-only Loki triage)
 
