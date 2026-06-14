@@ -48,6 +48,12 @@
       rebootOnKernelUpdate = true;
       updateDates = "04:00";
       gcDates = "04:30";
+      # Locked-down, keyless box — deliberately NOT bootstrapped for `claude`
+      # (no OAuth token / ~/.claude.json here, by design). The claude triage
+      # path therefore exits 132 ("unavailable") on any rebuild failure and
+      # falls back to a raw-log-tail Gotify ping anyway, so the claude attempt
+      # is pure noise. Disable it: failures notify via the inline fallback.
+      diagnose.enable = false;
     };
 
     # Single-purpose box — shed everything not needed. (Base still gives us
