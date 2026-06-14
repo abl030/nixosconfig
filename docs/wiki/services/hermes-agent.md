@@ -212,14 +212,30 @@ Launcher: `hosts/hermes/operator/hermes-operator.sh` (run from doc1). Builds the
 scoped agent, forwards it with fleet-key isolation, execs the TUI. Inside the
 session, deploy doc2 with `ssh abl030@192.168.1.35 deploy` (check with `dry-run`).
 
-- **Working:** deploy doc2 (forced-command key) + verify (read-only Loki) +
-  Telegram read-only triage.
-- **Pending:** the session's *push/sign* identity (Forgejo-push + commit-signing
-  keys added to the scoped agent) so it can author & ship new code, not just
-  redeploy already-pushed master — this completes the cratedigger loop. Then:
-  sops-store the hermes-deploy private key (currently plaintext on doc1) and
-  install the launcher/bridge declaratively (doc1 pkg + hermes config) instead of
-  the repo script + per-launch scp.
+- **Working (tested):** deploy doc2 (forced-command key); **sign** commits as
+  abl030 (forwarded `git-signing` key — the container signed a commit OK); verify
+  via read-only Loki; Telegram read-only triage. The launcher forwards 3 scoped
+  keys: `hermes-deploy`, `hermes-forgejo`, `id_ed25519_git_sign`.
+- **Session git identity** (set imperatively in `/opt/data`, uid 10000 — recreate
+  after a VM rebuild): `user.email=abl030@gmail.com`, `gpg.format=ssh`,
+  `user.signingkey=key::<git-signing pub>`, `commit.gpgsign=true`, and
+  `url."ssh://git@git.ablz.au:2222/".insteadOf "https://git.ablz.au/"` (Forgejo's
+  SSH server is on :2222, separate from host sshd on :22).
+- **Pending — Forgejo push-key registration (manual, your account):** add the
+  `hermes-forgejo` public key to Forgejo — simplest as an account SSH key, or as
+  per-repo *write* deploy keys on nixosconfig + cratedigger for tighter scope.
+  Until then the session signs but can't push.
+- **The nix gap (honest):** the Debian container has no nix, so it CANNOT run
+  `nix flake update cratedigger-src` — the step that re-points doc2 at new
+  cratedigger code. The full **nixosconfig** edit→sign→push→deploy→verify loop
+  works; shipping *new cratedigger code* needs that flake bump, via (a) the nightly
+  rolling-flake-update, (b) a future doc1-side forced-command bump trigger
+  (reuses the signed-bump machinery; bastion-touching, needs its own sign-off),
+  or (c) a manual bump.
+- **Hardening pending:** sops-store the hermes-deploy + hermes-forgejo private
+  keys (currently plaintext on doc1) and install the launcher / bridge / git
+  identity declaratively (doc1 pkg + hermes config) instead of the repo script +
+  per-launch scp + imperative config.
 
 ### `homelab-triage` skill (read-only Loki triage)
 

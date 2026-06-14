@@ -18,21 +18,23 @@
 #                       (check):   ssh abl030@192.168.1.35 dry-run
 set -euo pipefail
 
-DEPLOY_KEY="${HERMES_DEPLOY_KEY:-$HOME/.ssh/hermes-deploy}"
-FLEET_KEY="${HERMES_FLEET_KEY:-$HOME/.ssh/id_ed25519}"
+DEPLOY_KEY="${HERMES_DEPLOY_KEY:-$HOME/.ssh/hermes-deploy}"          # doc2 fleet-update (forced-command)
+FORGEJO_KEY="${HERMES_FORGEJO_KEY:-$HOME/.ssh/hermes-forgejo}"       # Forgejo push (ssh://git@git.ablz.au:2222)
+SIGN_KEY="${HERMES_SIGN_KEY:-$HOME/.ssh/id_ed25519_git_sign}"        # commit signing (trusted by fleet-update)
+FLEET_KEY="${HERMES_FLEET_KEY:-$HOME/.ssh/id_ed25519}"              # reach hermes (NEVER enters the forwarded agent)
 BRIDGE_SRC="${HERMES_BRIDGE:-$(cd "$(dirname "$0")" && pwd)/agent-bridge.py}"
 
-[ -r "$DEPLOY_KEY" ] || { echo "hermes-operator: missing deploy key: $DEPLOY_KEY" >&2; exit 1; }
-[ -r "$FLEET_KEY" ]  || { echo "hermes-operator: missing fleet key: $FLEET_KEY" >&2; exit 1; }
-[ -r "$BRIDGE_SRC" ] || { echo "hermes-operator: missing bridge: $BRIDGE_SRC" >&2; exit 1; }
+for k in "$DEPLOY_KEY" "$FORGEJO_KEY" "$SIGN_KEY" "$FLEET_KEY" "$BRIDGE_SRC"; do
+  [ -r "$k" ] || { echo "hermes-operator: missing/unreadable: $k" >&2; exit 1; }
+done
 
 # 1. Scoped ephemeral agent — ONLY the operator keys, nothing inherited.
 unset SSH_AUTH_SOCK SSH_AGENT_PID
 eval "$(ssh-agent -s)" >/dev/null
 trap 'ssh-agent -k >/dev/null 2>&1 || true' EXIT
-ssh-add -q "$DEPLOY_KEY"
-# Signing / Forgejo-push keys get added here once the push identity is wired:
-#   ssh-add -q "$HOME/.ssh/<forgejo-push-key>"
+ssh-add -q "$DEPLOY_KEY"   # deploy doc2
+ssh-add -q "$FORGEJO_KEY"  # push to Forgejo
+ssh-add -q "$SIGN_KEY"     # sign commits as you
 echo "hermes-operator: forwarding $(ssh-add -l | wc -l) scoped key(s) into hermes; launching TUI…"
 
 # 2. Ship the bridge, forward the scoped agent (fleet key from FILE only), bridge
