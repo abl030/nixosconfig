@@ -30,6 +30,7 @@
   `sops updatekeys` from **inside `secrets/`**. See [sops-recipient-model.md](sops-recipient-model.md).
 
 ## Key Decisions
+- Hermes agent → **full-operator** build (TUI=full prod creds via ssh-agent fwd, Telegram=read-only by construction). See [hermes-full-operator-posture.md](hermes-full-operator-posture.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat

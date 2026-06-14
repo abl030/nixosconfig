@@ -146,6 +146,52 @@ Gotchas hit while wiring this (all fixed in-tree):
   stale env (symptom: dashboard refuses to bind because the Basic Auth vars
   "aren't set" even though they're in `/run/secrets/hermes-env`).
 
+## Capability tiers: Telegram = read-only, TUI = full operator (in progress)
+
+Direction (2026-06-14): make Hermes a real homelab operator without the cage
+making it useless. The model is **capability follows exposure**, enforced by
+*credential availability*, not by asking the LLM to behave:
+
+- **Telegram gateway = read-only by construction.** The always-on gateway env
+  holds only `TELEGRAM_BOT_TOKEN` + the dashboard Basic-Auth secret — no Forgejo
+  token, no deploy key, no SSH identity, not even an LLM API key (it uses Codex
+  OAuth via `auth.json`). So a prompt-injected Telegram message *physically*
+  cannot deploy, push, or SSH the fleet. **Never add a prod credential to this
+  env.** Loki (`https://loki.ablz.au`) is unauthenticated and reachable from the
+  container, so read-only triage needs zero creds.
+- **TUI from the doc1 bastion = full operator.** (Planned next.) Launch the TUI
+  with SSH agent forwarding so the *session* borrows your agent — which holds
+  your signing key + the fleet/deploy key — letting it sign commits as you, push
+  to Forgejo, and `ssh doc2 sudo fleet-update`, with **no standing key on the
+  hermes box**. Close the session → capability evaporates. `socat` is NOT in the
+  image, so bridging the forwarded `SSH_AUTH_SOCK` into the running container
+  needs a tiny Python forwarder (or add socat via a thin image layer) + a fixed
+  bind-mount declared at container creation. The cratedigger ship/verify loop
+  (bump `cratedigger-src` input → sign+push Forgejo → `fleet-update` doc2 → check
+  `{host="doc2", unit=~"cratedigger.*"}` in Loki) is the target workflow.
+
+### `homelab-triage` skill (read-only Loki triage)
+
+The Telegram read-only win: `hosts/hermes/skills/homelab-triage/SKILL.md` (repo
+source) installed at `/opt/data/skills/devops/homelab-triage/`. Encodes the Loki
+query recipes (fleet host map, AWST time handling, `curl -G --data-urlencode`,
+`python3` parsing since `jq` is absent) so "triage overnight / why is X down"
+works from the phone, read-only.
+
+**Adding/maintaining a hand-authored Hermes skill (gotchas learned):**
+- Drop `SKILL.md` into `/opt/data/skills/<category>/<name>/`, owned `10000:10000`.
+  Agent-created skills are enumerated by **directory scan at session start** — a
+  live `hermes -z "…"` session rebuilds `.skills_prompt_snapshot.json` and
+  surfaces it. A gateway *restart alone does NOT* rebuild the snapshot.
+- `hermes skills install` is **registry/HTTP-only** (no `file://` / local path) —
+  you cannot install a local skill that way; just place the dir.
+- **Pin it:** `hermes curator pin <name>`. The curator auto-archives unpinned
+  agent-created skills after 90d unused; pinning exempts it. `.bundled_manifest`
+  only tracks *bundled* skills (hash-based update detection), not agent-created
+  ones — absence there is expected and harmless.
+- Keep the canonical copy in the repo (`hosts/hermes/skills/`); `/opt/data` is not
+  version-controlled and a VM rebuild wipes it.
+
 ## Fresh-host quirks (already handled, noted for the next VM)
 
 - **Tailscale:** a brand-new host needs a one-time `tailscale up` approval to join the
