@@ -194,6 +194,10 @@
       };
       domain-monitor.enable = true;
       forgejo.enable = true;
+      # Authorize the hermes-deploy operator key to trigger fleet-update HERE
+      # (doc2 only — the cratedigger host). Forced-command + tailnet/LAN-pinned;
+      # see modules/nixos/services/hermes-operator-deploy.nix.
+      hermesOperatorDeploy.enable = true;
       rtrfm-nowplaying.enable = true;
       gwm-archiver = {
         enable = true;

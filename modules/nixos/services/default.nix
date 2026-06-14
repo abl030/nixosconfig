@@ -62,5 +62,6 @@
     ./komga-sync.nix
     ./marker-convert.nix
     ./hermes-agent.nix
+    ./hermes-operator-deploy.nix
   ];
 }
