@@ -228,13 +228,19 @@ and pushes over `ssh://git@git.ablz.au:2222`.
   `hermes-forgejo` public key to Forgejo — simplest as an account SSH key, or as
   per-repo *write* deploy keys on nixosconfig + cratedigger for tighter scope.
   Until then the session signs but can't push.
-- **The nix gap (honest):** the Debian container has no nix, so it CANNOT run
-  `nix flake update cratedigger-src` — the step that re-points doc2 at new
-  cratedigger code. The full **nixosconfig** edit→sign→push→deploy→verify loop
-  works; shipping *new cratedigger code* needs that flake bump, via (a) the nightly
-  rolling-flake-update, (b) a future doc1-side forced-command bump trigger
-  (reuses the signed-bump machinery; bastion-touching, needs its own sign-off),
-  or (c) a manual bump.
+- **The nix gap — closed.** The container still has no nix, but
+  `ssh abl030@192.168.1.29 bump-cratedigger` (a forced-command on doc1, the
+  `hermes-deploy` key again) re-pins `cratedigger-src` to its latest upstream and
+  pushes the lockfile bump to Forgejo master, **signed by the rolling bot key**
+  (`nix bot <acme@ablz.au>` — the caller never holds it, only triggers the
+  re-pin; verify-before-push gate). The session then `ssh abl030@192.168.1.35
+  deploy`s doc2. So the cratedigger ship loop (for code already on
+  `github:abl030/cratedigger`) is closed **without** needing the Forgejo push
+  key. cratedigger-bump source: `hosts/hermes/operator/cratedigger-bump.sh`.
+- **Hermes knows its powers** via the `homelab-operator` skill
+  (`hosts/hermes/skills/homelab-operator/`): the exact deploy/bump/push commands,
+  the two loops, and guardrails (only works in an operator TUI; verify after
+  deploy; deploy doc2 + bump cratedigger only). Pairs with `homelab-triage`.
 - **Hardening (done):** the operator keys are sops-scoped to doc1
   (`secrets/hosts/proxmox-vm/hermes-{deploy,forgejo}-key`, decryptable only by
   doc1 + editor + break-glass) and deployed via
