@@ -592,6 +592,15 @@ in {
             severity = "critical";
             summary = "kopia-mum backup is unable to write";
             threshold = 0;
+            # On a doc2 reboot, kopia logs a single transient "unable to
+            # write diagnostics blob ... despite N retries: host is down"
+            # as the /mnt/mum NFS dest tears down — threshold=0 paged on it
+            # instantly (2026-06-15 triage). forDuration > window (5m) makes
+            # the decaying shutdown burst self-clear before the pending
+            # period elapses; a genuinely unreachable repo keeps erroring and
+            # still trips it, and the hourly kopia deep-probe (freshness +
+            # last-2-errored) is the real backstop for sustained breakage.
+            forDuration = "10m";
           }
           {
             name = "Kopia photos repository broken";
@@ -602,6 +611,11 @@ in {
             severity = "critical";
             summary = "kopia-photos backup cannot reach repository";
             threshold = 0;
+            # Same reboot-teardown class as kopia-mum above: a transient
+            # post-backoff line at shutdown shouldn't page. forDuration > the
+            # 5m window suppresses the decaying burst; deep-probe backstops
+            # sustained failure. See the kopia-mum comment.
+            forDuration = "10m";
           }
           {
             name = "Kopia mum verify failed";

@@ -540,6 +540,13 @@ in {
           severity = "warning";
           summary = "Solr search container pool shutdown (sustained)";
           threshold = 3;
+          # threshold=3 wasn't enough: a doc2 reboot emits exactly 4×
+          # "Connection pool shut down" within ~1s at container shutdown,
+          # which just trips >3 and paged (2026-06-15 triage). forDuration >
+          # the 5m window makes that 1-second burst self-clear before the
+          # pending period elapses; genuine steady-state pool exhaustion
+          # keeps erroring for >10m and still pages.
+          forDuration = "10m";
         }
       ];
 
