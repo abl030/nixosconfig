@@ -551,9 +551,22 @@ in {
     homelab = {
       monitoring = {
         # HTTPS availability monitors (accept 401).
-        # `timeout = 180` and `maxretries = 25`: kopia's HTTP listener stalls
-        # under the repository lock during full maintenance, so Kuma's default
-        # 48s timeout would trip on every maintenance window.
+        # `timeout = 180`: kopia's HTTP listener stalls under the repository
+        # lock during maintenance, so Kuma's default 48s timeout would trip
+        # on every maintenance window.
+        #
+        # `maxretries = 90` (× retryInterval 60s ≈ 90 min to DOWN): kopia
+        # blocks its OWN HTTP API for the duration of a maintenance run — the
+        # process stays up and the port stays bound, but every request 504s.
+        # On 2026-06-16 a quick-maintenance epoch-compaction step stalled the
+        # API for 26 min (08:46→09:12, the /mnt/mum NFS-over-Tailscale dest
+        # briefly wedged it); the old `maxretries=25` (25 min) tripped at 09:08
+        # with ~1 min to spare and paged a critical that self-cleared minutes
+        # later. Full maintenance ran 60 min the same morning. 90 min rides
+        # out the worst observed maintenance lock and only pages on sustained
+        # unreachability — genuine repo-broken is still caught fast by the
+        # errorPatterns journald alerts below, and silent-failure by the deep
+        # probes. (2026-06-16 triage.)
         #
         # Per-snapshot backup health (errorCount > 0) is handled by the
         # "Kopia <name> Backup" DEEP PROBE below (check-kopia-backup-errors),
@@ -569,7 +582,8 @@ in {
             acceptedStatusCodes = ["200-299" "300-399" "401"];
             interval = 300;
             timeout = 180;
-            maxretries = 25;
+            retryInterval = 60;
+            maxretries = 90;
           })
           cfg.instances;
 
@@ -648,6 +662,20 @@ in {
         # pushes don't race Kuma's deadline and false-flap DOWN (2026-06-05 RCA,
         # lgtm-stack.md). timeout 300s: the probe's curl (250s) waits out kopia's
         # full-maintenance repository lock.
+        #
+        # maxretries 55 (× retryInterval 60s) → time-to-DOWN = 4500 + 55×60 =
+        # 7800s ≈ 130 min, i.e. the monitor rides out TWO consecutive failed
+        # hourly probes before paging. The old default (maxretries=10 → 85 min)
+        # paged on a SINGLE failed probe: when one hourly probe times out it
+        # pushes nothing, and the next push isn't due for ~2h, which always
+        # blows past an 85-min deadline. On 2026-06-16 kopia's API wedged for
+        # 26 min during quick-maintenance (NFS-over-Tailscale stall), one probe
+        # timed out (curl exit 28, no push), and all three kopia monitors paged
+        # criticals that self-cleared minutes later. 130 min means a lone
+        # maintenance stall self-clears on the next good push, while a genuine
+        # silent-failure (no snapshot in 36h, repo unreachable) still pages
+        # after the 2nd consecutive miss — and repo-broken is caught far sooner
+        # by the errorPatterns journald alerts above. (2026-06-16 triage.)
         deepProbes = lib.concatLists (lib.mapAttrsToList (name: inst: let
             baseEnv = [
               "KOPIA_BASE_URL=http://localhost:${toString inst.port}"
@@ -660,6 +688,8 @@ in {
               interval = "1h";
               intervalSecs = 4500;
               timeout = "300s";
+              retryInterval = 60;
+              maxretries = 55;
               serviceConfig.Environment = baseEnv ++ ["KOPIA_MAX_AGE_HOURS=36"];
             }
             {
@@ -668,6 +698,8 @@ in {
               interval = "1h";
               intervalSecs = 4500;
               timeout = "300s";
+              retryInterval = 60;
+              maxretries = 55;
               serviceConfig.Environment = baseEnv;
             }
           ])
