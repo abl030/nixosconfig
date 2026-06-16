@@ -1,1 +1,1 @@
-/nix/store/rm5qynzb793b9ma7g1mr3064dc6g5hr5-nixos-system-wsl-26.11.20260613.9f11f82
+/nix/store/k9kdz41s32vjhycy4pk90w7c00ny1qzm-nixos-system-wsl-26.11.20260614.9eac87a
