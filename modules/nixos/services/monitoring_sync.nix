@@ -418,6 +418,44 @@
                     write_push_url(api, monitor_id, name, kuma_url)
 
             # ---------------------------------------------------------------
+            # Prune orphans (2026-06-18 triage). Delete monitors this sync
+            # created on a PRIOR run but no longer declares. Safe by
+            # construction: it only ever deletes monitorIds recorded in OUR
+            # own records cache, so manually-created monitors (never cached)
+            # are never touched. When a service is removed from config (e.g.
+            # meelo) it drops out of `updated`; its stale cache entry's
+            # monitorId is then deleted so the orphaned monitor can't sit at
+            # status=pending, flap DOWN, and page. Forward-looking only:
+            # orphans whose cache record was already overwritten before this
+            # landed need a one-off manual delete.
+            # ---------------------------------------------------------------
+            managed_now = {
+                rec.get("monitorId")
+                for rec in updated.values()
+                if rec.get("monitorId") is not None
+            }
+            existing_ids = {m.get("id") for m in monitors}
+            for old_key, old_rec in cache.items():
+                old_id = old_rec.get("monitorId")
+                if old_id is None or old_id in managed_now:
+                    continue
+                if old_id not in existing_ids:
+                    continue  # already gone from Kuma
+                try:
+                    api.delete_monitor(old_id)
+                    print(
+                        f"[prune] deleted orphaned monitor id={old_id} "
+                        f"name={old_rec.get('name')!r} (no longer declared)",
+                        flush=True,
+                    )
+                except UptimeKumaException as exc:
+                    print(
+                        f"[prune] FAILED to delete id={old_id} "
+                        f"name={old_rec.get('name')!r}: {exc}",
+                        flush=True,
+                    )
+
+            # ---------------------------------------------------------------
             # Maintenance windows
             # ---------------------------------------------------------------
             if desired_maintenances:
