@@ -137,20 +137,43 @@ reaches ~120 Mbit only by stacking ~50 of them. The tunnel itself has headroom
   tunnels — pfSense shows them "online" without probing, so the kill switches
   never auto-trigger and there's no live RTT/loss data.
 
-### Higher-impact levers (not yet done — needs an explicit decision)
+### Exit-location experiment — NL swap FAILED (MTU blackhole), reverted
 
-The exit location, not NZBGet, is the lever. In rough order of impact/effort:
+The exit location, not NZBGet, is the throughput lever — so on 2026-06-18 we
+repurposed the spare `AirVPN_SG` tunnel (`tun_wg0`) to an AirVPN **Netherlands**
+server (`nl3.vpn.airdns.org`, MTU 1320) and pointed the Usenet policy route
+(rule 27) at it. **It backfired:** NZBGet collapsed to a flat **8.5 Mbit/s**.
 
-1. **Re-point Usenet to the existing Singapore tunnel** (`AirVPN_SG`). SG→NL RTT
-   (~155 ms) is roughly half of NZ→NL (~280 ms) → roughly double per-connection
-   throughput, **zero new infrastructure** (just change the gateway on the
-   policy-route rule). Reversible. Changes the exit jurisdiction/IP — a
-   privacy/jurisdiction decision, not purely performance.
-2. **Add an AirVPN European exit** (`eu-nl` / `eu-de`). ~10–20 ms to Eweka →
-   near-line-rate per connection; 50 connections could then saturate the
-   tunnel. More setup (new tunnel + interface + gateway + policy route).
-3. **Re-enable gateway monitoring** so the kill switch actually works and tunnel
-   RTT/loss is visible.
+Diagnosis (from the VPN-routed doc2 NIC `ens19` + the NZBGet API):
+
+- Tiny HTTPS (ipinfo, ~1 packet) succeeded; sustained bulk transfers returned
+  ~0. The NZBGet log showed **zero** connection errors — clean handshakes, just
+  throttled to a trickle (~0.17 Mbit/connection across 50 conns). That is the
+  classic **MTU / PMTU-blackhole** signature: TCP establishes but full-size data
+  packets are silently dropped, so every connection crawls.
+- The `nl3` exit also geolocated oddly (exit IP `146.70.67.74`, M247,
+  "Singapore") and CDN test targets (Cachefly, Linode) served 25-byte block
+  stubs to it. **Lesson: CDN speedtests are useless on AirVPN exits — measure
+  with NZBGet's own `status` download rate instead.**
+
+**Revert procedure used:** rule 27 gateway back to `AirVPN` (NZ); `tun_wg0`
+endpoint back to `sg3`; then **reload NZBGet** to drop the NL-pinned
+connections. pfSense does NOT flush states (deliberate house rule), so existing
+connections keep their old gateway until they reconnect — bouncing NZBGet is
+required to actually move them onto the reverted path. Rate recovered to
+**~130–155 Mbit/s** on NZ.
+
+**How to pursue a closer exit properly (if revisited):** a closer exit (NL/DE)
+is still the biggest lever, but a naive endpoint swap at MTU 1320 blackholes on
+that path. Bring any closer exit up with **MTU lowered (try 1280) + MSS clamping
+on the pfSense WireGuard interface**, validate with NZBGet's actual `status`
+rate, and try a *different* AirVPN NL/DE server (nl3 specifically may be bad).
+
+### Other open items
+
+- **Re-enable VPN gateway monitoring** (`monitor_disable=true` on both tunnels):
+  the kill switch can't auto-trigger and there's no RTT/loss visibility until
+  it's on.
 
 ### Unrelated finding: doc2 `192.168.1.35` (ens18) has no internet egress
 
