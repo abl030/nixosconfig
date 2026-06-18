@@ -213,10 +213,10 @@
       # Two accounts: personal Gmail and work O365 (cullenwines.com.au).
       # Bootstrap procedure (per-account refresh tokens, sops env files):
       #   docs/wiki/services/mailarchive.md
-      # After both secrets/hosts/doc2/mailarchive-{work,gmail}.env exist,
-      # flip `enable = true;` and redeploy.
+      # Both secrets/hosts/doc2/mailarchive-{work,gmail}.env exist (seeded
+      # 2026-06-18), so the fetchers are live.
       mailarchive = {
-        enable = false;
+        enable = true;
         accounts = {
           work = {
             provider = "o365";
