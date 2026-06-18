@@ -27,6 +27,15 @@ loki.write "loki" {
     // a batch on 2026-05-21. Bump so the in-memory queue rides
     // normal maintenance windows; WAL covers anything longer.
     max_backoff_period = "10m"
+    // Force HTTP/1.1. Non-rebooting pushers (prom, tower) hold ONE
+    // long-lived connection; over HTTP/2 it gets coalesced across the
+    // shared nginx vhost on doc2, and when doc2 reloads/reboots nginx
+    // the aged connection starts returning 421 Misdirected Request
+    // forever — alloy never redials, so log shipping silently stops
+    // until a manual restart (2026-06-18 triage). HTTP/1.1 can't
+    // coalesce, so the 421 class can't occur. NixOS hosts dodged it
+    // only because they reboot nightly (fresh connection each day).
+    enable_http2 = false
   }
 
   // Persist queued batches to /var/lib/alloy/data so we do not lose
@@ -55,6 +64,9 @@ prometheus.scrape "node" {
 prometheus.remote_write "mimir" {
   endpoint {
     url = "{{ mimir_push_url }}"
+    // Same 421/HTTP-2-coalescing fix as loki.write above — metrics take
+    // the same shared nginx vhost on doc2. See the loki.write comment.
+    enable_http2 = false
   }
   external_labels = {
     host = "{{ monitoring_hostname }}",
