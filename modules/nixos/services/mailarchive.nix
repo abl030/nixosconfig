@@ -22,11 +22,11 @@
   oauth2Helper = import ../../../nix/pkgs/oauth2-helper.nix {inherit pkgs;};
 
   # Heartbeat HTTP server. Reads /var/lib/mailarchive/<account>.heartbeat
-  # mtimes and serves a server-side boolean `healthy` flag. The
-  # server-side boolean is required because monitoring_sync.nix hardcodes
-  # the json-query operator to `==` — a client-side `<600` comparator would
-  # silently fail. See plan §"Heartbeat via pull/json-query with server-side
-  # boolean".
+  # mtimes and computes freshness server-side, returning HTTP 200 when fresh
+  # and 503 when stale. Uptime Kuma polls it with a plain status-code HTTP
+  # monitor. (We deliberately avoid json-query: the pinned uptime-kuma-api
+  # 1.2.1 cannot send Kuma 2.x's required jsonPathOperator and crashes the
+  # whole monitor-sync. See docs/wiki/services/mailarchive.md.)
   healthServer =
     pkgs.writers.writePython3Bin "mailarchive-health" {
       flakeIgnore = ["E501"];
@@ -40,7 +40,7 @@
       from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
       HOST = os.environ.get("BIND_HOST", "127.0.0.1")
-      PORT = int(os.environ.get("BIND_PORT", "9876"))
+      PORT = int(os.environ.get("BIND_PORT", "9877"))
       HEARTBEAT_DIR = os.environ.get("HEARTBEAT_DIR", "/var/lib/mailarchive")
       THRESHOLD = int(os.environ.get("STALE_THRESHOLD_SEC", "600"))
       ACCOUNTS = set(filter(None, os.environ.get("ACCOUNTS", "").split(",")))
@@ -75,8 +75,14 @@
                       self.end_headers()
                       self.wfile.write(json.dumps({"error": "unknown account"}).encode())
                       return
-                  body = json.dumps(health_for(account)).encode()
-                  self.send_response(200)
+                  status = health_for(account)
+                  body = json.dumps(status).encode()
+                  # 200 when the fetcher is fresh, 503 when stale — so a plain
+                  # status-code Kuma HTTP monitor goes DOWN on staleness. We do
+                  # NOT use json-query: the pinned uptime-kuma-api 1.2.1 cannot
+                  # send Kuma 2.x's required jsonPathOperator (it crashes the
+                  # whole monitor-sync). See docs/wiki/services/mailarchive.md.
+                  self.send_response(200 if status["healthy"] else 503)
                   self.send_header("Content-Type", "application/json")
                   self.send_header("Content-Length", str(len(body)))
                   self.end_headers()
@@ -137,6 +143,7 @@
 
     MaildirStore ${name}-local
     Path ${cfg.dataDir}/${name}/
+    Inbox ${cfg.dataDir}/${name}/INBOX
     SubFolders Verbatim
 
     Channel ${name}
@@ -218,7 +225,8 @@ in {
 
     healthPort = lib.mkOption {
       type = lib.types.port;
-      default = 9876;
+      # 9877: 9876 is taken by alert-bridge on doc2 (homelab.services.alertBridge).
+      default = 9877;
       description = "Localhost port for the mailarchive-health server.";
     };
 
@@ -390,17 +398,17 @@ in {
     };
 
     homelab = {
-      # Per-account Uptime Kuma monitors. Monitor JSON shape is
-      # {"healthy": true|false, ...}; with the server-side threshold, a stale
-      # fetcher flips healthy→false in ~10 min, then Kuma's
-      # interval=60s × maxretries=10 adds another ~10 min before paging Gotify.
+      # Per-account Uptime Kuma monitors. Plain HTTP status-code monitors: the
+      # health endpoint returns 200 when fresh and 503 when stale (the
+      # server-side threshold flips it in ~10 min, then Kuma's interval=60s ×
+      # maxretries=10 adds ~10 min before paging Gotify). We avoid json-query
+      # on purpose — see the healthServer comment and issue #278: Kuma 2.4.0
+      # needs jsonPathOperator but the pinned uptime-kuma-api 1.2.1 cannot send
+      # it, which crashes the whole monitor-sync.
       monitoring.monitors =
         lib.mapAttrsToList (name: _: {
           name = "Mailarchive: ${name}";
-          type = "json-query";
           url = "http://localhost:${toString cfg.healthPort}/health/${name}";
-          jsonPath = "$.healthy";
-          expectedValue = "true";
         })
         cfg.accounts;
 
