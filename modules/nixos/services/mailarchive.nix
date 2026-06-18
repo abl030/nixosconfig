@@ -308,6 +308,25 @@ in {
                   # therefore reflects last successful sync.
                   ExecStartPost = "${pkgs.coreutils}/bin/touch /var/lib/mailarchive/${name}.heartbeat";
                   Nice = 10;
+
+                  # Least-privilege sandbox. Mirrors gwm-archiver's block,
+                  # which is proven against /mnt/data NFS writes. The fetcher
+                  # holds OAuth refresh tokens (via EnvironmentFile) and writes
+                  # ONLY its own Maildir tree + heartbeat — everything else is
+                  # read-only. AddressFamilies left unrestricted: mbsync needs
+                  # IMAPS + DNS. See docs/wiki/nixos-service-modules.md.
+                  NoNewPrivileges = true;
+                  ProtectSystem = "strict";
+                  ReadWritePaths = ["${cfg.dataDir}/${name}" "/var/lib/mailarchive"];
+                  ProtectHome = true;
+                  PrivateTmp = true;
+                  PrivateDevices = true;
+                  ProtectKernelTunables = true;
+                  ProtectControlGroups = true;
+                  RestrictSUIDSGID = true;
+                  RestrictNamespaces = true;
+                  LockPersonality = true;
+                  SystemCallArchitectures = "native";
                 };
               }
           )
@@ -333,6 +352,22 @@ in {
               ExecStart = "${healthServer}/bin/mailarchive-health";
               Restart = "on-failure";
               RestartSec = 5;
+
+              # Read-only sentinel: only reads heartbeat mtimes, binds
+              # 127.0.0.1. No ReadWritePaths needed (ProtectSystem=strict
+              # blocks writes, not reads). IPv4 loopback only.
+              NoNewPrivileges = true;
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectKernelTunables = true;
+              ProtectControlGroups = true;
+              RestrictSUIDSGID = true;
+              RestrictNamespaces = true;
+              LockPersonality = true;
+              SystemCallArchitectures = "native";
+              RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
             };
           };
         };
