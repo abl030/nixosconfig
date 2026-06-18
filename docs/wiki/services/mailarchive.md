@@ -33,9 +33,29 @@ or earlier if a Conditional Access policy changes).
 
 ### Personal Gmail
 
+> **Two Google footguns — verified 2026-06-18, both confirmed against
+> Google's live docs.** The Gmail path was never end-to-end probed during the
+> original build (only the O365 side was), and the first attempt hit both:
+>
+> 1. **Client type MUST be "TVs and Limited Input devices".** The helper uses
+>    the OAuth *device-code* flow (`oauth2.googleapis.com/device/code`), which
+>    Google permits ONLY for that client type. A "Desktop app" client returns
+>    `HTTP 401 invalid_client: "Invalid client type."`.
+> 2. **App publishing status MUST be "Production", not "Testing".** For an
+>    *External + Testing* app requesting a restricted scope (Gmail uses
+>    `https://mail.google.com/`), Google **expires the refresh token after 7
+>    days** — a backup-of-record would die weekly with `invalid_grant`.
+>    Publishing to Production gives a long-lived token. As the sole user you
+>    click through the "Google hasn't verified this app" warning; the formal
+>    CASA security review is NOT required for personal single-user use.
+
 1. **Register an OAuth client** in your own Google Cloud project:
    <https://console.cloud.google.com/apis/credentials>. Type:
-   "Desktop application". Record the `client_id` and `client_secret`.
+   **"TVs and Limited Input devices"** (NOT "Desktop application" — see
+   footgun 1). Record the `client_id` and `client_secret`.
+1. **Publish the app to Production.** Google Auth Platform → *Audience* →
+   **Publish app** (see footgun 2). If prompted under *Data Access*, add the
+   `https://mail.google.com/` scope.
 2. **Run the bootstrap helper, writing the token straight to the secret
    file.** The dotenv block goes to stdout; the sign-in URL + code go to
    stderr, so the redirect keeps the refresh token out of your terminal
@@ -196,6 +216,22 @@ turns red after ~10-20 minutes.
 
 Fix: re-run the bootstrap procedure for the affected account, re-encrypt
 the secret, redeploy. No code changes.
+
+### Gmail refresh-token revoked (`invalid_grant`)
+
+Symptoms: `mailarchive-gmail.service` fails; journal shows `oauth2-helper`
+reporting `HTTP 400 ... invalid_grant` from the token endpoint. Gmail
+refresh tokens are revoked when any of these happen:
+
+- **The OAuth app is in "Testing", not "Production"** → token expires after
+  7 days (the original setup bug; see the Gmail bootstrap footguns above).
+  Permanent fix: publish the app to Production, then re-bootstrap.
+- **The Google account password was changed** — Google revokes all
+  Gmail-scope refresh tokens on password change. Re-bootstrap.
+- **6 months without use** (won't happen while the timer runs), or the user
+  manually revoked access at <https://myaccount.google.com/permissions>.
+
+Fix: re-run the Gmail bootstrap, re-encrypt, redeploy. No code changes.
 
 ### Microsoft revokes the Thunderbird client_id
 
