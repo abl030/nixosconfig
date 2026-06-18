@@ -55,6 +55,15 @@
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
+    # cullen-dashboard syncs Vinsight via /run/secrets/mcp/vinsight.env. Base
+    # default is OFF fleet-wide (#234 scoped MCP creds to doc1). WSL is the host
+    # that actually runs the dashboard, so it opts in to vinsight ONLY — none of
+    # the infra-control tokens (pfsense/unifi/HA). Secret lives at
+    # secrets/hosts/wsl/vinsight-mcp.env (WSL host key + editor + break-glass).
+    mcp = {
+      enable = true;
+      vinsight.enable = true;
+    };
   };
 
   # Suppress duplicate filesystem metric warnings for /run/user tmpfs
