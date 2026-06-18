@@ -1,1 +1,1 @@
-/nix/store/8vjmb6ibqf19pcmz2hriza48qrm36qnw-home-manager-generation
+/nix/store/c4v64rdwrl1rsvan450pljsaml89mccw-home-manager-generation
