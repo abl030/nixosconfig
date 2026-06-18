@@ -36,24 +36,36 @@ or earlier if a Conditional Access policy changes).
 1. **Register an OAuth client** in your own Google Cloud project:
    <https://console.cloud.google.com/apis/credentials>. Type:
    "Desktop application". Record the `client_id` and `client_secret`.
-2. **Run the bootstrap helper:**
+2. **Run the bootstrap helper, writing the token straight to the secret
+   file.** The dotenv block goes to stdout; the sign-in URL + code go to
+   stderr, so the redirect keeps the refresh token out of your terminal
+   scrollback:
 
    ```bash
    nix run .#oauth2-helper -- bootstrap \
      --provider=gmail --user=<your.gmail@gmail.com> \
-     --client-id=<gcp-client-id> --client-secret=<gcp-client-secret>
+     --client-id=<gcp-client-id> --client-secret=<gcp-client-secret> \
+     > secrets/hosts/doc2/mailarchive-gmail.env
    ```
 
-3. The helper prints a URL + code on stderr. Sign in via that URL.
-4. On success it prints a paste-ready dotenv block on stdout. Save it:
+3. The helper prints a URL + code on **stderr**. Sign in via that URL; on
+   success the dotenv block lands in the file above.
+4. **Encrypt in place, then commit.** sops discovers `.sops.yaml` from the
+   *current directory*, and `path_regex` is relative to `secrets/`, so you
+   MUST run it from inside `secrets/` with a repo-relative path (this is the
+   #1 footgun — see CLAUDE.md "Re-key … from inside `secrets/`"):
 
    ```bash
-   sops -e -i secrets/hosts/doc2/mailarchive-gmail.env
-   # (file opens in $EDITOR; paste the printed block; :wq)
+   test -s secrets/hosts/doc2/mailarchive-gmail.env || echo "EMPTY — bootstrap failed, retry"
+   ( cd secrets && sops -e -i hosts/doc2/mailarchive-gmail.env )
    git add secrets/hosts/doc2/mailarchive-gmail.env
    git commit -m "feat(mailarchive): seed gmail refresh token"
    git push
    ```
+
+   Note: `sops -e -i` encrypts an **existing plaintext** file in place — it
+   does not open an editor. (To hand-edit an already-encrypted file later,
+   use `sops secrets/hosts/doc2/mailarchive-gmail.env`.)
 
 ### Work O365 (cullenwines.com.au)
 
@@ -66,19 +78,24 @@ ruled out DavMail for that reason.
 
 ```bash
 nix run .#oauth2-helper -- bootstrap \
-  --provider=o365 --user=andy@cullenwines.com.au
+  --provider=o365 --user=andy@cullenwines.com.au \
+  > secrets/hosts/doc2/mailarchive-work.env
 ```
 
-Sign in at <https://login.microsoft.com/device> with the printed code.
-Tenant defaults to `common` — Microsoft routes by `login_hint`. Override
-with `--tenant=<id>` only if `common` refuses to route (rare; would
-surface as a clear AADSTS error).
+Sign in at <https://login.microsoft.com/device> with the code printed on
+**stderr**. Tenant defaults to `common` — Microsoft routes by `login_hint`.
+Override with `--tenant=<id>` only if `common` refuses to route (rare;
+would surface as a clear AADSTS error). The dotenv block lands in the file.
 
-Save the printed block to `secrets/hosts/doc2/mailarchive-work.env`:
+Encrypt in place (from inside `secrets/` — see the Gmail note above) and
+commit:
 
 ```bash
-sops -e -i secrets/hosts/doc2/mailarchive-work.env
-git commit && git push
+test -s secrets/hosts/doc2/mailarchive-work.env || echo "EMPTY — bootstrap failed, retry"
+( cd secrets && sops -e -i hosts/doc2/mailarchive-work.env )
+git add secrets/hosts/doc2/mailarchive-work.env
+git commit -m "feat(mailarchive): seed work o365 refresh token"
+git push
 ```
 
 ## Enable on doc2
