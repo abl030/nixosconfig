@@ -135,3 +135,9 @@ service hierarchy prefers a native NixOS module over an OCI container over
 this repo; if you truly need compose, you'd need to bring the
 `stacks/lib/podman-compose.nix` helper + `modules/nixos/homelab/containers/`
 tree back from git history first.
+
+## Later service decommissions (not part of the compose retirement)
+
+These are native modules removed *after* the compose retirement — listed here only as breadcrumbs so a future session that greps for the name knows it was an intentional removal, not bitrot.
+
+- **Meelo** (self-hosted music server, was on doc1) — removed **2026-06-18**. Unused, and upstream's `releases/latest` (v3.11.1) stopped shipping the `meelo.apk` asset, so the `meelo-apk-mirror` unit hard-failed and took doc1's nightly `nixos-upgrade` down with it. Ripped out wholesale rather than patched: `modules/nixos/services/meelo.nix` + its import, the doc1 enablement + `/mnt/virtio/meelo` (6.3G wiped), the cratedigger `notifiers.meelo` block and the now-dead `MEELO_*` creds in `secrets/hosts/doc2/soularr.env`, the sops `meelo.env`/`meelo-pgpass.env`, the module-owned `meelo.ablz.au` proxy + DNS + Kuma monitor (id=43, deleted by hand), and `docs/wiki/services/meelo.md`. Recover from git before the removal commit (`feat(meelo): remove Meelo entirely`) if ever needed — Meelo used an nspawn Postgres (`mk-pg-container`) + podman OCI containers, so the module is the reference for that combined shape.

@@ -399,7 +399,7 @@ If you change one, change all four. Drift here means silent log loss the next ti
 
 ## Alloy holds stale TCP connections across vhost migrations — silent log loss
 
-**Researched:** 2026-05-24. **Status:** fixed (prom alloy restarted); pattern applies to any future vhost relocation. **Recurred 2026-06-09** via a different trigger (ungraceful reboot, not a migration) — see [the recurrence note](#2026-06-09-recurrence--ungraceful-reboot-re-triggers-the-coalesce) at the end of this section.
+**Researched:** 2026-05-24. **Status:** **durably fixed for the non-rebooting pushers 2026-06-18** (`enable_http2 = false` on prom/tower alloy — see [the 2026-06-18 entry](#2026-06-18--the-durable-fix-force-http11-on-the-non-rebooting-pushers)); the NixOS fleet still relies on nightly reboots + the silence alert. **Recurred 2026-06-09** (ungraceful reboot, not a migration — see [that note](#2026-06-09-recurrence--ungraceful-reboot-re-triggers-the-coalesce)) and again **2026-06-18** (prom dark after doc2's nightly reload; tower found to share the exposure).
 
 ### What broke
 
@@ -457,6 +457,21 @@ Two things this recurrence clarified beyond the 2026-05-24 entry:
 
 **Detection worked, remediation is still manual.** The `ingestionSilenceAlert` fired correctly both nights (the `[warning] prom stopped shipping logs to Loki` Gotify pings, 06-07 20:23 + 06-08 20:25). We **deliberately chose NOT to add an auto-restart watchdog** (2026-06-09 decision): the failure needs an ungraceful reboot to trigger, the alert already catches it, and a self-heal timer adds standing complexity + burns the alloy WAL queue on every false trip. Runbook stays: when you see `prom stopped shipping logs`, `ssh root@192.168.1.12 systemctl restart alloy` and confirm `prom` returns to `loki.ablz.au/loki/api/v1/label/host/values`. Revisit the watchdog only if this recurs without a reboot.
 
+### 2026-06-18 — the durable fix: force HTTP/1.1 on the non-rebooting pushers
+
+Third occurrence — and we finally **removed the enabler** instead of restarting. Morning triage: `[warning] prom stopped shipping logs to Loki` fired ~04:57; prom's `alloy` (up 3 days) was logging continuous `421 Misdirected Request (421): Unknown host` for `loki.write`, dropping every Loki batch, while metrics still flowed to Mimir. The trigger this time was doc2's **nightly nginx reload/reboot ~04:52** dropping prom's good connection to `.35`; alloy re-dialed and the new HTTP/2 connection coalesced back onto **caddy's `*.ablz.au` wildcard** (`.6`) — the same enabler as 2026-06-09 (caddy is still up; a fresh `curl https://loki.ablz.au/ready` → 200, only the aged connection 421s).
+
+The fix: **`enable_http2 = false`** on the `loki.write` *and* `prometheus.remote_write` endpoints. Over HTTP/1.1 Go cannot coalesce, so the connection can only ever reach whatever `loki.ablz.au` actually resolves to — the 421 class becomes structurally impossible. This is precisely why Mimir was always immune (it ships HTTP/1.1). Verified the knob against the binary before committing: `alloy validate` accepts `enable_http2 = false` in both endpoint blocks on alloy v1.16.0 (a bogus attr fails, so the check is real).
+
+Applied to the two pushers that **don't reboot nightly** (and so accumulate long-lived connections):
+
+- **prom + any Proxmox/Debian host** — `ansible/common/templates/alloy-config.alloy.j2`. Deploy: `cd ansible/common && ansible-playbook -i ../prom_prox/inventory.ini monitoring.yml --limit pve-new-01 -e monitoring_hostname=prom`.
+- **tower (Unraid)** — `docker/unraid-alloy/config.alloy`. Deploy: `docker/unraid-alloy/deploy.sh` (scp + `docker compose up -d`). Same latent exposure, surfaced during this triage.
+
+The **NixOS fleet's `loki.write`** (`modules/nixos/services/loki.nix`) was **left on HTTP/2**: every NixOS host reboots nightly, so its connection never lives long enough to coalesce-and-wedge, and the `ingestionSilenceAlert` backstops it. Revisit if a NixOS host ever stops rebooting nightly.
+
+**Footgun observed while deploying the tower fix:** recreating the alloy container made `loki.source.docker` replay each container's *full* log history, so Loki `400`-rejected pre-7-day entries (`timestamp too old`) and `429`-throttled the flood. Benign — current logs ship fine and it self-clears as alloy catches up to recent entries. Any alloy restart on a docker-log host does this; don't mistake the `400`/`429` burst for the `421` regression (grep `status=` to tell them apart — there should be **zero** `status=421`).
+
 ## Per-service errorPattern alerts — startup-noise trap
 
 **Researched:** 2026-05-22.
@@ -478,6 +493,20 @@ Loki errorPattern alerts ([`homelab.monitoring.errorPatterns`](../../../modules/
 As of 2026-05-23 (issue #281) the **default `threshold` is `2`** — i.e. `count > 2`, needs 3+ matches in `window` (default 5m) before paging. That alone glides past most planned-reboot transients without needing per-pattern overrides. Bump `window` to `10m` for noisier patterns that emit slowly (e.g. tailscale auth polls). Set `threshold = 0` for single-shot terminal errors (process crashes, backup hook failures) that must page on first occurrence. See the decision table in [nixos-service-modules.md `Per-service errorPatterns`](../nixos-service-modules.md#per-service-errorpatterns-log-line-alert-rules).
 
 See `modules/nixos/services/tailscale-share.nix:255-285` for the canonical example (relies on the new default + a widened `window`).
+
+**Shutdown/teardown noise is the mirror image, and `forDuration` can't save you across a reboot (2026-06-18, kopia).** The `Kopia mum repository broken` rule matched `unable to (write|read) … despite \d+ retries`, which is exactly what kopia logs as the `/mnt/mum` NFS dest tears down during doc2's nightly reboot: `unable to write diagnostics blob … despite 2 retries: host is down`. A prior triage tried to ride it out with `forDuration = "10m"` (pending period > the 5m window, so a decaying one-shot burst self-clears before firing). **That fails when the transient is emitted by the host's own reboot:** doc2 reboots, Grafana + alert-bridge restart with it, the pending-period clock **resets**, and the alert fires ~10 min *after* the reboot instead of self-clearing (observed 2026-06-18, paged a false critical at 05:06 for a 04:53 teardown line). Lesson: **`forDuration` only suppresses transients on a host that stays up; it cannot suppress one emitted during that host's own reboot.** The fix was to narrow the pattern to genuine terminal signatures the teardown never emits — `cannot open storage|backup failed` (and `cannot open storage` for kopia-photos) — with `threshold = 0` for instant paging and the hourly deep-probe as the backstop for the rarer "dest vanished while idle" case. See `modules/nixos/services/kopia.nix` errorPatterns + [kopia.md](kopia.md).
+
+## Orphaned Kuma monitors — `monitoring_sync` now prunes (2026-06-18)
+
+`monitoring_sync.nix` was **add/update-only** — it created/edited Kuma monitors from each host's declared set but never deleted. Removing a service left its monitor orphaned: with the backing URL gone it sat at `status=pending` and would eventually flap DOWN and **page**. Meelo's monitor (id=43) did exactly this after the service was ripped out 2026-06-18.
+
+Fixed with a **cache-based prune** inside `sync_once`: after the monitor loop, any `monitorId` recorded in the host's own records cache (`/var/lib/homelab/monitoring/records.json`) that isn't in this run's managed set is `delete_monitor`'d. Safe by construction:
+
+- It only ever deletes ids the sync itself recorded on a prior run, so **manually-created monitors (never cached) are never touched**.
+- It runs *inside* `sync_once` after the loop, so it only fires once the full desired set synced cleanly — a still-wanted monitor is always in `managed_now` and can't be caught (a partial failure throws before the prune and retries).
+- Per-host caches scope it naturally (doc1's prune only touches doc1's monitors).
+
+**Forward-looking only:** an orphan whose cache record was already overwritten *before* this landed won't be caught (it's no longer in the cache) and needs a one-off manual delete — e.g. `UptimeKumaApi(...).login(...); api.delete_monitor(<id>)` with the creds from `uptime-kuma/env` (that's how Meelo's id=43 was cleared during the triage).
 
 ## Kuma push-monitor boundary race — why `maxretries = 2` lied
 

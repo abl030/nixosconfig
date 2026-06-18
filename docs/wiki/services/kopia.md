@@ -223,7 +223,17 @@ The probe (`modules/nixos/services/probes/check-kopia-fresh.nix`) queries `/api/
 | `NEVER <paths>` | Source registered but never snapshotted | Run `kopia snapshot create <path>` once via API/CLI. |
 | `STALE <paths> (<n>h)` | Source has snapshotted before but not within window | Check the source's schedule / repository connectivity. |
 
-## Bootstrap verification
+## Repository-broken alerts — `errorPatterns` (and the reboot-teardown trap)
+
+Beyond the hourly freshness/backup deep-probes, `kopia.nix` declares fast journald **`errorPatterns`** (`homelab.monitoring.errorPatterns`) that page on a single terminal line — repo unreachable / backup failed — without poking the busy kopia API. Per instance:
+
+| Rule | unit | pattern (as of 2026-06-18) | severity |
+|---|---|---|---|
+| Kopia mum repository broken | `kopia-mum.service` | `(?i)cannot open storage\|backup failed` | critical |
+| Kopia photos repository broken | `kopia-photos.service` | `(?i)cannot open storage` | critical |
+| Kopia {mum,photos} verify failed | `kopia-verify-*.service` | `unable to open repository\|verification failed\|Temporary failure in name resolution` | warning |
+
+**Why the repo-broken patterns are this narrow (the 2026-06-18 fix).** They originally also matched `unable to (write\|read) … despite N retries` — which is exactly what kopia logs as `/mnt/mum` (NFS) tears down on doc2's **nightly reboot**: `unable to write diagnostics blob … despite 2 retries: host is down`. That paged a false `critical` on every reboot. A `forDuration = "10m"` guard did **not** help — the reboot restarts Grafana/alert-bridge and resets the pending-period clock, so the alert fired ~10 min *after* the reboot instead of self-clearing (full lesson: [lgtm-stack.md](lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap)). Dropping that arm leaves only signatures the shutdown teardown never emits; the rarer "NFS dest vanished while kopia is idle" case is then caught within ~1–2h by the deep-probe instead of instantly. `threshold = 0` keeps them single-shot (page on first occurrence).
 
 ## Bootstrap verification
 

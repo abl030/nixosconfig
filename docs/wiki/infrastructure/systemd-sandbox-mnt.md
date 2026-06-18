@@ -144,7 +144,9 @@ systemd.services.nginx = {
 };
 ```
 
-Done for `podcast.nix` (`/mnt/data/Media/Podcasts` on doc1). Audited every fleet `services.nginx...root`: only podcast is under `/mnt` (smokeping → `/var/lib`, nix cache → `/var/cache`, meelo default → `/var/lib` and disabled). This means a future static-from-`/mnt` vhost that forgets the bind fails **loud** (nginx `226/NAMESPACE`) instead of silently widening the blast radius — the failure mode points you straight at the missing `BindPaths`.
+Done for `podcast.nix` (`/mnt/data/Media/Podcasts` on doc1). Audited every fleet `services.nginx...root`: only podcast is under `/mnt` (smokeping → `/var/lib`, nix cache → `/var/cache`). This means a future static-from-`/mnt` vhost that forgets the bind fails **loud** (nginx `226/NAMESPACE`) instead of silently widening the blast radius — the failure mode points you straight at the missing `BindPaths`.
+
+**The flip side (2026-06-18): a *correct* bind still fails if the backing mount is stale.** `/mnt/data/Media/Podcasts` is NFS from tower (`192.168.1.2:/mnt/user/data`). The `BindPaths` entry makes systemd set up that bind inside nginx's private namespace on **every (re)start — including the reload `nixos-rebuild switch` performs**. If tower throws a transient `Stale file handle` at that instant, nginx fails `Failed at step NAMESPACE … Stale file handle`, which fails `nginx-config-reload.service`, which makes `switch-to-configuration` return exit 4 and **fails the whole rebuild**. Observed on doc1 during a `fleet-update`: the already-running nginx kept serving on its old config (so it was a *deploy* failure, not an outage), and re-running once tower's NFS recovered succeeded. Net consequence: the podcast static-serve couples **every doc1 nginx reload — including the nightly auto-upgrade — to tower NFS health**. Not yet hardened (the bind would need to tolerate a stale handle, or podcasts move off NFS); documented so a future `nginx … Stale file handle` rebuild failure is recognised as this, not a config error.
 
 **Class D learnings:**
 

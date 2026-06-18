@@ -27,14 +27,17 @@ loki.write "loki" {
     // a batch on 2026-05-21. Bump so the in-memory queue rides
     // normal maintenance windows; WAL covers anything longer.
     max_backoff_period = "10m"
-    // Force HTTP/1.1. Non-rebooting pushers (prom, tower) hold ONE
-    // long-lived connection; over HTTP/2 it gets coalesced across the
-    // shared nginx vhost on doc2, and when doc2 reloads/reboots nginx
-    // the aged connection starts returning 421 Misdirected Request
-    // forever — alloy never redials, so log shipping silently stops
-    // until a manual restart (2026-06-18 triage). HTTP/1.1 can't
-    // coalesce, so the 421 class can't occur. NixOS hosts dodged it
-    // only because they reboot nightly (fresh connection each day).
+    // Force HTTP/1.1. Non-rebooting pushers (prom, tower) accumulate a
+    // long-lived connection. Over HTTP/2, Go coalesces the loki.ablz.au
+    // push onto a connection to caddy (192.168.1.6), whose *.ablz.au
+    // wildcard cert is "valid" for loki.ablz.au but which has no loki
+    // vhost -> 421 Misdirected Request forever, dropping every batch
+    // (alloy never redials). A connection drop (doc2 nginx reload, or any
+    // reboot) is the trigger; caddy's wildcard is the enabler. HTTP/1.1
+    // can't coalesce, so it's structurally impossible -- exactly why
+    // mimir (HTTP/1.1) was always immune. NixOS hosts dodge it via
+    // nightly reboots. Full analysis: docs/wiki/services/lgtm-stack.md
+    // "Alloy holds stale TCP connections" (2026-06-18 triage, 3rd occ).
     enable_http2 = false
   }
 
