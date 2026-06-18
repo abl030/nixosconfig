@@ -64,24 +64,31 @@ or earlier if a Conditional Access policy changes).
    `client_secret`.
 1. **Publish the app to Production.** Google Auth Platform → *Audience* →
    **Publish app** (see footgun 2).
-1. **Run the bootstrap from a machine with a browser** (the loopback redirect
-   hits `127.0.0.1` on whichever host runs the helper). On a workstation this
-   just works. If you run it on a remote/headless host over SSH, forward the
-   port first: `ssh -L 8087:127.0.0.1:8087 <host>` and run it inside that
-   session. The dotenv block goes to **stdout** (redirect it into the secret
-   file); the consent URL + listener status go to **stderr**:
+1. **Run the bootstrap.** Two modes — the dotenv block always goes to
+   **stdout** (redirect into the secret file); the consent URL + prompts go to
+   **stderr**.
+
+   **`--manual` (recommended — works everywhere, incl. SSH / WSL / headless):**
+   the helper prints the consent URL and reads the auth code back by paste, so
+   the browser never has to reach the helper's `127.0.0.1` listener.
 
    ```bash
-   nix run .#oauth2-helper -- bootstrap \
+   nix run .#oauth2-helper -- bootstrap --manual \
      --provider=gmail --user=<your.gmail@gmail.com> \
      --client-id=<desktop-client-id> --client-secret=<desktop-client-secret> \
      > secrets/hosts/doc2/mailarchive-gmail.env
    ```
 
    Open the printed URL, click through the unverified-app warning
-   (*Advanced → Go to … (unsafe)*), and grant access. The helper catches the
-   redirect and writes the dotenv block to the file. (Override the listener
-   port with `--port` if 8087 is taken.)
+   (*Advanced → Go to … (unsafe)*), Allow. The browser then tries to load a
+   `http://127.0.0.1:8087/...` page and **fails to connect — that is
+   expected**; copy the whole address-bar URL (or just the `code=` value) and
+   paste it at the prompt. The token lands in the file.
+
+   **Listener mode (drop `--manual`):** nicer when the browser and helper are
+   the *same* machine (a local workstation), or behind
+   `ssh -L 8087:127.0.0.1:8087 <host>`. The helper runs a local listener and
+   catches the redirect automatically. (Override the port with `--port`.)
 1. **Encrypt in place, then commit.** sops discovers `.sops.yaml` from the
    *current directory*, and `path_regex` is relative to `secrets/`, so you
    MUST run it from inside `secrets/` with a repo-relative path (this is the

@@ -196,36 +196,16 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       die("device code expired before sign-in completed")
 
 
-  def bootstrap_gmail(args):
-      # Loopback authorization-code flow. Gmail's restricted scope is rejected by
-      # the device-code flow, so we run a local listener, send the user to
-      # Google's consent page, and catch the redirect carrying the auth code.
-      user = args.user
-      if not args.client_id or not args.client_secret:
-          die("gmail bootstrap requires --client-id and --client-secret (a Desktop-app OAuth client)")
-      client_id = args.client_id
-      client_secret = args.client_secret
-      port = args.port
-      redirect_uri = f"http://127.0.0.1:{port}"
+  def extract_auth_code(pasted):
+      """Pull the auth code from a pasted bare code or a full redirect URL."""
+      pasted = pasted.strip()
+      if "code=" in pasted:
+          return urllib.parse.unquote(pasted.split("code=", 1)[1].split("&", 1)[0])
+      return pasted
 
-      # PKCE (S256): verifier is unreserved-charset, 43-128 chars.
-      verifier = base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("ascii")
-      challenge = base64.urlsafe_b64encode(
-          hashlib.sha256(verifier.encode("ascii")).digest()
-      ).rstrip(b"=").decode("ascii")
 
-      auth_url = GMAIL_AUTH_URL + "?" + urllib.parse.urlencode({
-          "client_id": client_id,
-          "redirect_uri": redirect_uri,
-          "response_type": "code",
-          "scope": GMAIL_SCOPE,
-          "access_type": "offline",
-          "prompt": "consent",
-          "login_hint": user,
-          "code_challenge": challenge,
-          "code_challenge_method": "S256",
-      })
-
+  def gmail_listen_for_code(auth_url, user, redirect_uri, port):
+      """Run a local HTTP listener and catch the redirect carrying the code."""
       holder = {}
 
       class Handler(http.server.BaseHTTPRequestHandler):
@@ -252,7 +232,7 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       try:
           srv = http.server.HTTPServer(("127.0.0.1", port), Handler)
       except OSError as e:
-          die(f"cannot bind {redirect_uri}: {e} (try a different --port)")
+          die(f"cannot bind {redirect_uri}: {e} (try --port, or use --manual)")
 
       sys.stderr.write(
           f"\n  Open this URL in a browser ON THIS MACHINE\n"
@@ -269,10 +249,68 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
 
       if "error" in holder:
           die(f"authorization failed: {holder['error']}")
+      return holder["code"]
+
+
+  def gmail_manual_code(auth_url, user):
+      """Print the URL; read the auth code back by paste (headless/SSH/WSL)."""
+      sys.stderr.write(
+          f"\n  Open this URL in ANY browser:\n\n    {auth_url}\n\n"
+          f"  Account: {user}\n"
+          f"  Click through the unverified-app screen (Advanced -> Go to ... (unsafe)), then Allow.\n"
+          f"  Your browser will then try to load a http://127.0.0.1:... page and FAIL to connect -\n"
+          f"  that is expected. Copy the whole address-bar URL (or just the code= value) and paste\n"
+          f"  it below.\n\n"
+          f"  Paste redirect URL or code, then Enter:\n  > "
+      )
+      sys.stderr.flush()
+      pasted = sys.stdin.readline()
+      code = extract_auth_code(pasted)
+      if not code:
+          die("no auth code parsed from input (run --manual on a terminal, not a pipe)")
+      return code
+
+
+  def bootstrap_gmail(args):
+      # Gmail's restricted scope is rejected by the device-code flow, so this is
+      # the installed-app authorization-code flow over a loopback redirect.
+      # Default: a local listener catches the redirect. --manual: print the URL
+      # and read the code back by paste — works headless / over SSH / on WSL,
+      # where the browser cannot reach the helper's 127.0.0.1 listener.
+      user = args.user
+      if not args.client_id or not args.client_secret:
+          die("gmail bootstrap requires --client-id and --client-secret (a Desktop-app OAuth client)")
+      client_id = args.client_id
+      client_secret = args.client_secret
+      port = args.port
+      redirect_uri = f"http://127.0.0.1:{port}"
+
+      # PKCE (S256): verifier is unreserved-charset, 43-128 chars.
+      verifier = base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("ascii")
+      challenge = base64.urlsafe_b64encode(
+          hashlib.sha256(verifier.encode("ascii")).digest()
+      ).rstrip(b"=").decode("ascii")
+
+      auth_url = GMAIL_AUTH_URL + "?" + urllib.parse.urlencode({
+          "client_id": client_id,
+          "redirect_uri": redirect_uri,
+          "response_type": "code",
+          "scope": GMAIL_SCOPE,
+          "access_type": "offline",
+          "prompt": "consent",
+          "login_hint": user,
+          "code_challenge": challenge,
+          "code_challenge_method": "S256",
+      })
+
+      if args.manual:
+          code = gmail_manual_code(auth_url, user)
+      else:
+          code = gmail_listen_for_code(auth_url, user, redirect_uri, port)
 
       try:
           r = http_post(GMAIL_TOKEN_URL, {
-              "code": holder["code"],
+              "code": code,
               "client_id": client_id,
               "client_secret": client_secret,
               "redirect_uri": redirect_uri,
@@ -311,6 +349,8 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       pb.add_argument("--tenant", default=None, help="O365 tenant (default: common)")
       pb.add_argument("--port", type=int, default=8087,
                       help="Loopback port for the gmail authorization-code redirect")
+      pb.add_argument("--manual", action="store_true",
+                      help="Gmail: print the URL and paste the code back (no listener; for headless/SSH/WSL)")
 
       args = p.parse_args()
       if args.cmd == "refresh":
