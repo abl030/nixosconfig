@@ -1,5 +1,16 @@
 # OAuth2 helper for mbsync — refresh tokens at sync time, plus a one-time
-# device-code bootstrap subcommand.
+# interactive bootstrap subcommand.
+#
+# Bootstrap flows differ by provider (each uses the one its IMAP scope allows):
+#   - o365  → device-code flow (Microsoft permits the IMAP scope there).
+#   - gmail → installed-app AUTHORIZATION-CODE flow over a localhost loopback.
+#     Gmail's restricted scope https://mail.google.com/ is NOT on Google's
+#     device-flow allowlist ("Invalid device flow scope"), so the device flow
+#     cannot be used for Gmail. Requires a Desktop-app OAuth client + a local
+#     listener for the redirect. See docs/wiki/services/mailarchive.md.
+#
+# The `refresh` path (used by mbsync PassCmd) is a plain refresh_token grant
+# and is identical regardless of how the refresh token was first obtained.
 #
 # Used by:
 # - modules/nixos/services/mailarchive.nix  (mbsync PassCmd → `oauth2-helper refresh`)
@@ -13,6 +24,9 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
   """OAuth2 helper for mbsync — refresh + bootstrap for Gmail and O365."""
 
   import argparse
+  import base64
+  import hashlib
+  import http.server
   import json
   import os
   import sys
@@ -24,16 +38,13 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
   THUNDERBIRD_O365_CLIENT_ID = "9e5f94bc-e8a4-4e73-b8be-63364c29d753"
   O365_SCOPE = "offline_access https://outlook.office.com/IMAP.AccessAsUser.All"
   GMAIL_SCOPE = "https://mail.google.com/"
+  GMAIL_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+  GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
   def o365_endpoints(tenant):
       base = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0"
       return base + "/devicecode", base + "/token"
-
-
-  def gmail_endpoints():
-      return ("https://oauth2.googleapis.com/device/code",
-              "https://oauth2.googleapis.com/token")
 
 
   def http_post(url, params, timeout=30):
@@ -47,6 +58,21 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
   def die(msg, code=1):
       sys.stderr.write(f"oauth2-helper: {msg}\n")
       raise SystemExit(code)
+
+
+  def emit_dotenv(provider, client_id, client_secret, tenant, refresh):
+      """Print a paste-ready dotenv block on stdout (token goes here)."""
+      print(f"OAUTH_PROVIDER={provider}")
+      print(f"OAUTH_CLIENT_ID={client_id}")
+      if client_secret:
+          print(f"OAUTH_CLIENT_SECRET={client_secret}")
+      if tenant and tenant != "common":
+          print(f"OAUTH_TENANT={tenant}")
+      print(f"OAUTH_REFRESH_TOKEN={refresh}")
+      sys.stderr.write(
+          "\nDone. Redirect the stdout block into the secret file, then encrypt:\n"
+          "  ( cd secrets && sops -e -i hosts/<host>/mailarchive-<account>.env )\n"
+      )
 
 
   def cmd_refresh(args):
@@ -76,7 +102,7 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       else:  # gmail
           if not client_secret:
               die("OAUTH_CLIENT_SECRET not set (required for gmail)")
-          _, token_url = gmail_endpoints()
+          token_url = GMAIL_TOKEN_URL
           params = {
               "client_id": client_id,
               "client_secret": client_secret,
@@ -99,52 +125,41 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
 
 
   def cmd_bootstrap(args):
-      provider = args.provider
+      if args.provider == "o365":
+          bootstrap_o365(args)
+      else:
+          bootstrap_gmail(args)
+
+
+  def bootstrap_o365(args):
       user = args.user
-
-      if provider == "o365":
-          client_id = args.client_id or THUNDERBIRD_O365_CLIENT_ID
-          client_secret = None
-          tenant = args.tenant or "common"
-          device_url, token_url = o365_endpoints(tenant)
-          scope = O365_SCOPE
-      else:  # gmail
-          if not args.client_id or not args.client_secret:
-              die("gmail bootstrap requires --client-id and --client-secret")
-          client_id = args.client_id
-          client_secret = args.client_secret
-          tenant = None
-          device_url, token_url = gmail_endpoints()
-          scope = GMAIL_SCOPE
-
-      dc_params = {"client_id": client_id, "scope": scope}
-      if provider == "o365":
-          dc_params["login_hint"] = user
+      client_id = args.client_id or THUNDERBIRD_O365_CLIENT_ID
+      client_secret = args.client_secret
+      tenant = args.tenant or "common"
+      device_url, token_url = o365_endpoints(tenant)
 
       try:
-          dc = http_post(device_url, dc_params)
+          dc = http_post(device_url, {"client_id": client_id, "scope": O365_SCOPE, "login_hint": user})
       except urllib.error.HTTPError as e:
           body = e.read().decode("utf-8", errors="replace")
           die(f"device-code request failed: HTTP {e.code}: {body}")
       except Exception as e:
           die(f"device-code request failed: {e}")
 
-      user_code = dc.get("user_code")
       verify_uri = dc.get("verification_uri") or dc.get("verification_url")
-      device_code = dc.get("device_code")
       interval = int(dc.get("interval", 5))
       expires_in = int(dc.get("expires_in", 900))
 
       sys.stderr.write(
           f"\n  Sign in at: {verify_uri}\n"
-          f"  Code:       {user_code}\n"
+          f"  Code:       {dc.get('user_code')}\n"
           f"  Account:    {user}\n\n"
           f"Polling every {interval}s; code expires in {expires_in}s.\n"
       )
 
       poll_params = {
           "client_id": client_id,
-          "device_code": device_code,
+          "device_code": dc.get("device_code"),
           "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
       }
       if client_secret:
@@ -175,23 +190,106 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
           refresh = r.get("refresh_token")
           if not refresh:
               die("token endpoint returned no refresh_token (offline_access scope missing?)")
-
-          # paste-ready dotenv block on stdout
-          print(f"OAUTH_PROVIDER={provider}")
-          print(f"OAUTH_CLIENT_ID={client_id}")
-          if client_secret:
-              print(f"OAUTH_CLIENT_SECRET={client_secret}")
-          if tenant and tenant != "common":
-              print(f"OAUTH_TENANT={tenant}")
-          print(f"OAUTH_REFRESH_TOKEN={refresh}")
-          sys.stderr.write(
-              "\nDone. Paste the block above into:\n"
-              "  secrets/hosts/<host>/mailarchive-<account>.env\n"
-              "and re-encrypt with `sops -e -i <path>`.\n"
-          )
+          emit_dotenv("o365", client_id, client_secret, tenant, refresh)
           return
 
       die("device code expired before sign-in completed")
+
+
+  def bootstrap_gmail(args):
+      # Loopback authorization-code flow. Gmail's restricted scope is rejected by
+      # the device-code flow, so we run a local listener, send the user to
+      # Google's consent page, and catch the redirect carrying the auth code.
+      user = args.user
+      if not args.client_id or not args.client_secret:
+          die("gmail bootstrap requires --client-id and --client-secret (a Desktop-app OAuth client)")
+      client_id = args.client_id
+      client_secret = args.client_secret
+      port = args.port
+      redirect_uri = f"http://127.0.0.1:{port}"
+
+      # PKCE (S256): verifier is unreserved-charset, 43-128 chars.
+      verifier = base64.urlsafe_b64encode(os.urandom(64)).rstrip(b"=").decode("ascii")
+      challenge = base64.urlsafe_b64encode(
+          hashlib.sha256(verifier.encode("ascii")).digest()
+      ).rstrip(b"=").decode("ascii")
+
+      auth_url = GMAIL_AUTH_URL + "?" + urllib.parse.urlencode({
+          "client_id": client_id,
+          "redirect_uri": redirect_uri,
+          "response_type": "code",
+          "scope": GMAIL_SCOPE,
+          "access_type": "offline",
+          "prompt": "consent",
+          "login_hint": user,
+          "code_challenge": challenge,
+          "code_challenge_method": "S256",
+      })
+
+      holder = {}
+
+      class Handler(http.server.BaseHTTPRequestHandler):
+          def log_message(self, *_a):
+              return
+
+          def do_GET(self):
+              params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+              if "code" in params:
+                  holder["code"] = params["code"][0]
+                  msg = "Authorization received - you can close this tab and return to the terminal."
+              elif "error" in params:
+                  holder["error"] = params["error"][0]
+                  msg = "Authorization failed - check the terminal."
+              else:
+                  msg = "Waiting for the authorization redirect..."
+              body = ("<html><body><h2>" + msg + "</h2></body></html>").encode("utf-8")
+              self.send_response(200)
+              self.send_header("Content-Type", "text/html; charset=utf-8")
+              self.send_header("Content-Length", str(len(body)))
+              self.end_headers()
+              self.wfile.write(body)
+
+      try:
+          srv = http.server.HTTPServer(("127.0.0.1", port), Handler)
+      except OSError as e:
+          die(f"cannot bind {redirect_uri}: {e} (try a different --port)")
+
+      sys.stderr.write(
+          f"\n  Open this URL in a browser ON THIS MACHINE\n"
+          f"  (or SSH-forward the port first: ssh -L {port}:127.0.0.1:{port} <thishost>):\n\n"
+          f"    {auth_url}\n\n"
+          f"  Account: {user}\n"
+          f"  Click through the unverified-app screen: Advanced -> Go to ... (unsafe).\n"
+          f"  Listening on {redirect_uri} for the redirect (Ctrl-C to abort)...\n"
+      )
+
+      while "code" not in holder and "error" not in holder:
+          srv.handle_request()
+      srv.server_close()
+
+      if "error" in holder:
+          die(f"authorization failed: {holder['error']}")
+
+      try:
+          r = http_post(GMAIL_TOKEN_URL, {
+              "code": holder["code"],
+              "client_id": client_id,
+              "client_secret": client_secret,
+              "redirect_uri": redirect_uri,
+              "grant_type": "authorization_code",
+              "code_verifier": verifier,
+          })
+      except urllib.error.HTTPError as e:
+          body = e.read().decode("utf-8", errors="replace")
+          die(f"token exchange failed: HTTP {e.code}: {body}")
+      except Exception as e:
+          die(f"token exchange failed: {e}")
+
+      refresh = r.get("refresh_token")
+      if not refresh:
+          die("no refresh_token returned - ensure the app is PUBLISHED to Production "
+              "and you completed consent (access_type=offline + prompt=consent were sent)")
+      emit_dotenv("gmail", client_id, client_secret, None, refresh)
 
 
   def main():
@@ -202,15 +300,17 @@ pkgs.writers.writePython3Bin "oauth2-helper" {
       pr.add_argument("--provider", choices=["gmail", "o365"],
                       help="Provider (defaults to OAUTH_PROVIDER env)")
 
-      pb = sub.add_parser("bootstrap", help="One-time interactive device-code flow")
+      pb = sub.add_parser("bootstrap",
+                          help="One-time bootstrap (o365=device-code, gmail=loopback auth-code)")
       pb.add_argument("--provider", choices=["gmail", "o365"], required=True)
-      pb.add_argument("--user", required=True, help="Email address (login_hint for o365)")
+      pb.add_argument("--user", required=True, help="Email address (login_hint)")
       pb.add_argument("--client-id", default=None,
                       help="OAuth client ID (defaults to Thunderbird's id for o365)")
       pb.add_argument("--client-secret", default=None,
-                      help="OAuth client secret (required for gmail)")
-      pb.add_argument("--tenant", default=None,
-                      help="O365 tenant (default: common)")
+                      help="OAuth client secret (required for the gmail Desktop-app client)")
+      pb.add_argument("--tenant", default=None, help="O365 tenant (default: common)")
+      pb.add_argument("--port", type=int, default=8087,
+                      help="Loopback port for the gmail authorization-code redirect")
 
       args = p.parse_args()
       if args.cmd == "refresh":

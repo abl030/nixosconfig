@@ -33,44 +33,56 @@ or earlier if a Conditional Access policy changes).
 
 ### Personal Gmail
 
-> **Two Google footguns — verified 2026-06-18, both confirmed against
-> Google's live docs.** The Gmail path was never end-to-end probed during the
-> original build (only the O365 side was), and the first attempt hit both:
+> **Gmail uses a DIFFERENT OAuth flow than O365 — verified end-to-end
+> 2026-06-18 against Google's live API.** The Gmail path was never probed
+> during the original build (only O365 was), and the device-code flow the
+> helper first used for both is **fundamentally unusable for Gmail**:
 >
-> 1. **Client type MUST be "TVs and Limited Input devices".** The helper uses
->    the OAuth *device-code* flow (`oauth2.googleapis.com/device/code`), which
->    Google permits ONLY for that client type. A "Desktop app" client returns
->    `HTTP 401 invalid_client: "Invalid client type."`.
+> 1. **Gmail needs the loopback authorization-code flow, NOT device-code.**
+>    Gmail's restricted scope `https://mail.google.com/` is not on Google's
+>    device-flow allowlist — the device endpoint rejects it with
+>    `HTTP 400 invalid_scope: "Invalid device flow scope"`. (A "TVs and
+>    Limited Input devices" client gets *past* the `Invalid client type`
+>    error only to hit this one.) Google's documented path for a CLI/headless
+>    tool needing a restricted scope is the **installed-app authorization-code
+>    flow over a localhost loopback redirect**, which requires a
+>    **"Desktop app"** OAuth client. The helper's `bootstrap --provider=gmail`
+>    runs exactly this: it starts a local listener, prints a consent URL, and
+>    catches the redirect (PKCE S256, `access_type=offline`, `prompt=consent`).
 > 2. **App publishing status MUST be "Production", not "Testing".** For an
->    *External + Testing* app requesting a restricted scope (Gmail uses
->    `https://mail.google.com/`), Google **expires the refresh token after 7
->    days** — a backup-of-record would die weekly with `invalid_grant`.
->    Publishing to Production gives a long-lived token. As the sole user you
->    click through the "Google hasn't verified this app" warning; the formal
->    CASA security review is NOT required for personal single-user use.
+>    *External + Testing* app requesting a restricted scope, Google **expires
+>    the refresh token after 7 days** — a backup-of-record would die weekly
+>    with `invalid_grant`. Publishing to Production gives a long-lived token.
+>    As the sole user you click through the "Google hasn't verified this app"
+>    warning; the formal CASA security review is NOT required for personal
+>    single-user use.
 
 1. **Register an OAuth client** in your own Google Cloud project:
    <https://console.cloud.google.com/apis/credentials>. Type:
-   **"TVs and Limited Input devices"** (NOT "Desktop application" — see
-   footgun 1). Record the `client_id` and `client_secret`.
+   **"Desktop app"** (the loopback flow requires it; "TVs and Limited Input
+   devices" will NOT work — see footgun 1). Record the `client_id` and
+   `client_secret`.
 1. **Publish the app to Production.** Google Auth Platform → *Audience* →
-   **Publish app** (see footgun 2). If prompted under *Data Access*, add the
-   `https://mail.google.com/` scope.
-2. **Run the bootstrap helper, writing the token straight to the secret
-   file.** The dotenv block goes to stdout; the sign-in URL + code go to
-   stderr, so the redirect keeps the refresh token out of your terminal
-   scrollback:
+   **Publish app** (see footgun 2).
+1. **Run the bootstrap from a machine with a browser** (the loopback redirect
+   hits `127.0.0.1` on whichever host runs the helper). On a workstation this
+   just works. If you run it on a remote/headless host over SSH, forward the
+   port first: `ssh -L 8087:127.0.0.1:8087 <host>` and run it inside that
+   session. The dotenv block goes to **stdout** (redirect it into the secret
+   file); the consent URL + listener status go to **stderr**:
 
    ```bash
    nix run .#oauth2-helper -- bootstrap \
      --provider=gmail --user=<your.gmail@gmail.com> \
-     --client-id=<gcp-client-id> --client-secret=<gcp-client-secret> \
+     --client-id=<desktop-client-id> --client-secret=<desktop-client-secret> \
      > secrets/hosts/doc2/mailarchive-gmail.env
    ```
 
-3. The helper prints a URL + code on **stderr**. Sign in via that URL; on
-   success the dotenv block lands in the file above.
-4. **Encrypt in place, then commit.** sops discovers `.sops.yaml` from the
+   Open the printed URL, click through the unverified-app warning
+   (*Advanced → Go to … (unsafe)*), and grant access. The helper catches the
+   redirect and writes the dotenv block to the file. (Override the listener
+   port with `--port` if 8087 is taken.)
+1. **Encrypt in place, then commit.** sops discovers `.sops.yaml` from the
    *current directory*, and `path_regex` is relative to `secrets/`, so you
    MUST run it from inside `secrets/` with a repo-relative path (this is the
    #1 footgun — see CLAUDE.md "Re-key … from inside `secrets/`"):
