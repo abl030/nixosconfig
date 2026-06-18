@@ -1,7 +1,7 @@
 # Mail archival (mailarchive)
 
 **Last researched:** 2026-05-04 (deploy paths refreshed 2026-06-18 for the signed-fleet-deploys cutover #235)
-**Status:** module landed on master, ships `enable = false`; pending OAuth bootstrap + first sync on doc2
+**Status:** **LIVE on doc2 (2026-06-18)** — both accounts enabled, authenticated, and pulling. Initial syncs running; Kuma monitors go green after each first full sync. Remaining: MailStore VM 102 retirement (see "MailStore migration" below and issue #227).
 **Host:** `doc2`
 **Module:** `modules/nixos/services/mailarchive.nix`
 **Plan:** `docs/plans/2026-05-04-001-feat-mailarchive-mailstore-retirement-plan.md`
@@ -190,18 +190,32 @@ operation (refresh-only auths) this never recurs.
 ssh doc2 systemctl status mailarchive-work.service mailarchive-gmail.service
 ssh doc2 'journalctl -u mailarchive-work.service -n 50'
 
-# Health endpoint (server-side boolean)
-ssh doc2 'curl -s http://127.0.0.1:9876/health/work | jq'
-ssh doc2 'curl -s http://127.0.0.1:9876/health/gmail | jq'
-# → {"healthy": true, "stale_seconds": <small>, "last_sync": "..."}
+# Health endpoint — HTTP 200 when fresh, 503 when stale (per account).
+# Port 9877 (9876 is taken by alert-bridge on doc2).
+ssh doc2 'curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9877/health/work'
+ssh doc2 'curl -s http://127.0.0.1:9877/health/work | jq'
+# → 200  {"healthy": true, "stale_seconds": <small>, "last_sync": "..."}
 
-# Maildir populated
+# Maildir populated (note: work mail lands under work/INBOX — the rc sets
+# an explicit `Inbox` directive; without it mbsync dumps INBOX in ~/Maildir)
 ssh doc2 'find /mnt/data/Life/Andy/Email/work/INBOX/cur -type f | head'
 ssh doc2 'find /mnt/data/Life/Andy/Email/gmail -type d -name cur | head'
 ```
 
-Uptime Kuma should show two new monitors green within ~2 minutes of the
-`homelab-monitoring-sync` job picking them up.
+The two Kuma monitors (`Mailarchive: work/gmail`) are **plain HTTP
+status-code** monitors (NOT json-query — see issue #278). They stay RED
+until each account's **first full sync completes** and writes a heartbeat
+(the health endpoint returns 503 until then), then flip green. The initial
+Gmail All-Mail pull is large, so expect red for a while on first deploy.
+
+Watch progress: Grafana Explore (logs.ablz.au) →
+`{host="doc2", unit=~"mailarchive-.*"}`.
+
+> **First-deploy gotcha (2026-06-18).** A long-running initial mbsync is a
+> oneshot that systemd will NOT restart mid-flight on a `fleet-update`. If you
+> change the rc (e.g. the `Inbox` fix) while an initial sync is in progress,
+> `systemctl stop mailarchive-<acct>.service` and start it again so it picks up
+> the new rc; otherwise the old invocation keeps using the old config.
 
 ## Folder selection
 
@@ -277,6 +291,40 @@ fetcher service. mbsync's incremental sync semantics tolerate the gap.
 
 If the mount is stuck for longer than that, check tower (`192.168.1.2`)
 NFS export status and the `mnt-data.mount` unit on doc2.
+
+## MailStore migration (VM 102 retirement)
+
+Scope decided 2026-06-18 (supersedes the original "migrate the whole 11 GB
+archive" plan — see issue #227):
+
+- **Skip Gmail entirely.** The live `[Gmail]/All Mail` pull is a complete
+  superset of MailStore's Gmail content; importing it would just duplicate
+  everything.
+- **Migrate WORK only.** The user deletes work mail regularly, so MailStore
+  holds cullenwines O365 mail that exists nowhere else (deleted off the live
+  server before the deletion-resistant pull existed). That historical mail is
+  the *only* thing worth recovering.
+- **Dedup against the live tree.** Extend `tools/mailarchive-migrate/eml-to-maildir.py`
+  with a `--dedupe-against <maildir>` flag (repeatable): seed the seen
+  Message-ID set from the live `work/` Maildir *first*, then convert the
+  MailStore export skipping anything already live. Result: `legacy.archive/`
+  holds ONLY the deleted history, not a duplicate of filed mail. ~20 lines —
+  the tool is already Message-ID based.
+
+Sequence (do NOT start until the live work sync has gone green — the dedup set
+must be complete, or live-but-not-yet-synced mail gets duplicated into legacy):
+
+1. Build + test `--dedupe-against` against synthetic Maildirs.
+2. U7a — in MailStore Home on VM 102, export the **work** folders → *File
+   system / EML / retain folder structure* to a path doc2 can read (e.g.
+   `/mnt/data/Life/Andy/Email/_mailstore-export-staging/`).
+3. U7b — `eml-to-maildir.py --src <staging> --dst …/legacy.archive
+   --dedupe-against /mnt/data/Life/Andy/Email/work` (dry-run first). Survivor
+   count ≈ your deleted work history; spot-check a few.
+4. Stop VM 102 via the Proxmox **web UI** (or `ssh root@prom 'qm stop 102'`).
+   `vms/proxmox-ops.sh` was removed in `fa246070`.
+5. Safety window (~3-5 days), then destroy VM 102 via the web UI; wipe the
+   staging dir. Flip the plan frontmatter to `status: completed` and close #227.
 
 ## Architecture references
 

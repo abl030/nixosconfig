@@ -68,16 +68,34 @@ trees and break any future merge.
 
 Messages land in `cur/` with the `:2,S` (Seen) flag.
 
-## U7c — Optional dedup against live trees (deferred)
+## U7c — Dedup against the live tree (CHOSEN, 2026-06-18)
 
-**Default recommendation: leave `legacy.archive/` separate from the
-live `o365/` and `gmail/` trees forever.** No risk of merge corruption.
+Scope changed during the live rollout (see issue #227 and the runbook's
+"MailStore migration" section): **migrate work only** (Gmail's live pull is a
+complete superset), and **dedup the work export against the live `work/`
+tree** so `legacy.archive/` keeps ONLY the mail not on the live server — the
+user's deleted history — instead of a giant duplicate of still-filed mail.
 
-If you ever want a unified tree, write a small inline Python script
-(~30 lines) that walks both trees, builds a `Message-ID → filepath`
-map, and on collision deletes the older file (typically the legacy
-copy). Run **after** the live trees have populated and stabilised. The
-plan deliberately defers this — see U7c in the plan doc.
+This is implemented as a `--dedupe-against <maildir>` flag (repeatable) on
+`eml-to-maildir.py`: it walks the given live Maildir(s) and seeds the
+`seen_ids` Message-ID set **before** converting the export, so any message
+already present live is skipped. Reuses the tool's existing Message-ID dedup.
+
+```bash
+python3 eml-to-maildir.py \
+  --src /mnt/data/Life/Andy/Email/_mailstore-export-staging \
+  --dst /mnt/data/Life/Andy/Email/legacy.archive \
+  --dedupe-against /mnt/data/Life/Andy/Email/work \
+  --dry-run -v
+```
+
+**Run only after the live work sync has gone green** (Kuma `Mailarchive: work`
+green = first full pull done) — otherwise live-but-not-yet-synced mail would be
+duplicated into `legacy.archive/`. The survivor count ≈ your deleted work
+history.
+
+(`--dedupe-against` is not yet implemented as of this checkpoint — building it
+is the first task of the migration finish-up; see #227.)
 
 ## Verification
 
