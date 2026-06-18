@@ -1,7 +1,7 @@
 # Mail archival (mailarchive)
 
-**Last researched:** 2026-05-04
-**Status:** built and merged; pending bootstrap + first sync on doc2
+**Last researched:** 2026-05-04 (deploy paths refreshed 2026-06-18 for the signed-fleet-deploys cutover #235)
+**Status:** module landed on master, ships `enable = false`; pending OAuth bootstrap + first sync on doc2
 **Host:** `doc2`
 **Module:** `modules/nixos/services/mailarchive.nix`
 **Plan:** `docs/plans/2026-05-04-001-feat-mailarchive-mailstore-retirement-plan.md`
@@ -25,6 +25,12 @@ Run from any machine with this flake checked out and a browser
 again whenever Microsoft revokes the refresh token (~90 days inactive,
 or earlier if a Conditional Access policy changes).
 
+> **Run from a local Forgejo clone, not `github:`.** Since the
+> signed-fleet-deploys cutover (#235) GitHub is a frozen, ancestor-only
+> fallback and does not carry this module's `oauth2-helper` flake app.
+> `cd` into an up-to-date checkout (origin = `git.ablz.au`) and invoke
+> the app with `nix run .#oauth2-helper -- ...` as shown below.
+
 ### Personal Gmail
 
 1. **Register an OAuth client** in your own Google Cloud project:
@@ -33,7 +39,7 @@ or earlier if a Conditional Access policy changes).
 2. **Run the bootstrap helper:**
 
    ```bash
-   nix run github:abl030/nixosconfig#oauth2-helper -- bootstrap \
+   nix run .#oauth2-helper -- bootstrap \
      --provider=gmail --user=<your.gmail@gmail.com> \
      --client-id=<gcp-client-id> --client-secret=<gcp-client-secret>
    ```
@@ -59,7 +65,7 @@ the probe (`docs/brainstorms/2026-05-04-mailstore-vm-probe-result.md`)
 ruled out DavMail for that reason.
 
 ```bash
-nix run github:abl030/nixosconfig#oauth2-helper -- bootstrap \
+nix run .#oauth2-helper -- bootstrap \
   --provider=o365 --user=andy@cullenwines.com.au
 ```
 
@@ -96,16 +102,18 @@ Commit and push.
 
 ## Deploy
 
-Per `CLAUDE.md`: never use `--target-host` for remote rebuilds. The host
-pulls from GitHub:
+Post-cutover (#235) the verified deploy path is `fleet-update`: it fetches
+Forgejo (`git.ablz.au`), verifies every commit in range is SSH-signed by a
+key in `hosts.nix`, then builds from its own root-owned clone. Push your
+signed commit to Forgejo first, then:
 
 ```bash
-ssh doc2 "sudo nixos-rebuild switch \
-  --flake github:abl030/nixosconfig#doc2 --refresh"
+ssh doc2 "sudo fleet-update"
 ```
 
-`--refresh` forces nix to re-resolve the flake ref so the latest push is
-picked up.
+Do **not** deploy `--flake github:abl030/nixosconfig#doc2` (GitHub is the
+frozen, stale fallback) and do **not** use `--target-host`. See
+`CLAUDE.md` and `docs/wiki/infrastructure/signed-fleet-deploys.md`.
 
 ## First-run quirk: Microsoft eventual consistency
 

@@ -14,6 +14,22 @@ Build a NixOS service module (`homelab.services.mailarchive`) on doc2 that uses 
 
 ---
 
+> **⚠️ Execution-command note (refreshed 2026-06-18).** This plan predates the
+> signed-fleet-deploys cutover (#235) and the removal of the in-repo VM
+> automation (commit `fa246070`). The U6/U8 command lines below are
+> superseded — the **canonical operational guide is the runbook**,
+> `docs/wiki/services/mailarchive.md`. Use these instead:
+> - **Bootstrap:** `nix run .#oauth2-helper -- bootstrap ...` from a local
+>   Forgejo clone (NOT `nix run github:...` — GitHub is frozen).
+> - **Deploy:** push the signed commit to Forgejo, then `ssh doc2 "sudo
+>   fleet-update"` (NOT `nixos-rebuild --flake github:...#doc2`, never
+>   `--target-host`).
+> - **Stop/destroy VM 102:** the `vms/proxmox-ops.sh` wrapper was ripped in
+>   `fa246070`. Manage prom via the Proxmox **web UI** (or `ssh root@prom 'qm
+>   stop 102'` / `qm destroy 102` if prom SSH is unlocked).
+
+---
+
 ## Problem Frame
 
 The Windows 10 VM (VMID 102 on prom) exists solely to run Thunderbird + MailStore Home for email archiving. Win10 is out of support, the VM is the last Windows box in the fleet, and the historical MailStore proprietary `.dat`/`.rr` format prevents any non-MailStore tooling from reading the archive. The brainstorm + research + probe trio (see Sources & References) settled architecture, verified OAuth and IMAP end-to-end against the live cullenwines.com.au tenant, and confirmed Thunderbird is already tenant-consented — making `mbsync` direct with Thunderbird's published client_id viable without IT involvement.
