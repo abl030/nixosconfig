@@ -46,7 +46,6 @@
     ./youtarr.nix
     ./musicbrainz.nix
     ./kopia.nix
-    ./meelo.nix
     ./domain-monitor.nix
     ./forgejo.nix
     ./nfs-watchdog.nix

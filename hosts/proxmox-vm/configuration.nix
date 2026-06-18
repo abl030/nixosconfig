@@ -83,12 +83,6 @@
       # Immich moved to doc2 (2026-02-25)
       immich.enable = false;
 
-      meelo = {
-        enable = true;
-        dataDir = "/mnt/virtio/meelo";
-        mediaDir = "/mnt/virtio/Music";
-        port = 5001;
-      };
       # SSE bridge that streams this host's Claude transcripts to the phone.
       # Tailnet-only via homelab.localProxy.tailscaleOnly; bound to
       # voice.ablz.au which Cloudflare resolves to the Tailscale IP.
@@ -182,7 +176,6 @@
 
   systemd.tmpfiles.rules = [
     "d /mnt/virtio 0755 root root - -"
-    "d /mnt/virtio/meelo 0755 root root - -"
   ];
 
   system.stateVersion = "24.05";

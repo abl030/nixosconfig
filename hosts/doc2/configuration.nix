@@ -180,7 +180,6 @@
         enable = true;
         mirrorDir = "/mnt/mirrors/discogs";
       };
-      meelo.enable = false;
       overseerr = {
         enable = true;
         dataDir = "/mnt/virtio/overseerr";

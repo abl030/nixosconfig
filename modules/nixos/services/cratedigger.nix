@@ -488,12 +488,12 @@ in {
                 # Dir is 0750 root:cratedigger-ops + files are 0440 root:cratedigger-ops
                 # so the operator can read the raw secrets when running
                 # `pipeline-cli force-import` from a non-root shell.
-                # Without this, post-import Meelo/Plex/Jellyfin notifier scans from
+                # Without this, post-import Plex/Jellyfin notifier scans from
                 # CLI invocations silently no-op — the upstream module doesn't copy
                 # plaintext into config.ini anymore (issue #117), so the operator
                 # has to read the source files directly.
                 ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g cratedigger-ops "$out_dir"
-                for key in SOULARR_SLSKD_API_KEY MEELO_USERNAME MEELO_PASSWORD PLEX_TOKEN JELLYFIN_TOKEN; do
+                for key in SOULARR_SLSKD_API_KEY PLEX_TOKEN JELLYFIN_TOKEN; do
                   ${pkgs.gnugrep}/bin/grep -m1 "^$key=" "$env_file" \
                     | ${pkgs.coreutils}/bin/cut -d= -f2- \
                     | ${pkgs.coreutils}/bin/tr -d '\n' \
@@ -777,12 +777,6 @@ in {
       };
 
       notifiers = {
-        meelo = {
-          enable = true;
-          url = "https://meelo.ablz.au";
-          usernameFile = "/run/cratedigger-secrets/MEELO_USERNAME";
-          passwordFile = "/run/cratedigger-secrets/MEELO_PASSWORD";
-        };
         plex = {
           enable = true;
           url = "https://plex.ablz.au";
