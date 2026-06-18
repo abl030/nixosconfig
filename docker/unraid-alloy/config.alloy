@@ -57,6 +57,13 @@ loki.write "default" {
     // a batch on 2026-05-21. Bump so the in-memory queue rides
     // normal maintenance windows; WAL covers anything longer.
     max_backoff_period = "10m"
+    // Force HTTP/1.1. tower (Unraid) never reboots, so it holds ONE
+    // long-lived connection; over HTTP/2 it coalesces on doc2's shared
+    // nginx vhost and starts returning 421 Misdirected Request forever
+    // once doc2 reloads/reboots nginx — alloy never redials, silently
+    // halting shipping until a container restart (2026-06-18 triage,
+    // same class that took prom dark). HTTP/1.1 can't coalesce.
+    enable_http2 = false
   }
 
   // Persist queued batches to /var/lib/alloy/data (alloy-data volume)
@@ -85,6 +92,9 @@ prometheus.scrape "node" {
 prometheus.remote_write "mimir" {
   endpoint {
     url = "https://mimir.ablz.au/api/v1/push"
+    // Same 421/HTTP-2-coalescing fix as loki.write above — metrics take
+    // the same shared nginx vhost on doc2. See the loki.write comment.
+    enable_http2 = false
   }
   external_labels = {
     host = "tower",
