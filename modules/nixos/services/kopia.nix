@@ -600,36 +600,37 @@ in {
           {
             name = "Kopia mum repository broken";
             unit = "kopia-mum.service";
-            # `despite N retries` is the post-backoff signature when
-            # the NFS dest is gone or the repo is unreachable.
-            pattern = "(?i)unable to (?:write|read).*despite \\d+ retries|cannot open storage|backup failed";
+            # Match ONLY the genuine terminal repo-broken signatures.
+            # The broad `unable to (write|read) ... despite N retries` arm was
+            # DROPPED (2026-06-18 triage): on every doc2 nightly reboot kopia
+            # logs a transient "unable to write diagnostics blob ... despite N
+            # retries: host is down" as the /mnt/mum NFS dest tears down, which
+            # matched that arm and paged a false critical. forDuration=10m did
+            # NOT suppress it — the reboot restarts Grafana/alert-bridge, so the
+            # pending-period clock resets and it fired ~10m AFTER the reboot
+            # instead of self-clearing. `cannot open storage` / `backup failed`
+            # are single-shot terminal lines the shutdown teardown never emits.
+            # The hourly kopia deep-probe (freshness + last-2-errored) is the
+            # backstop for the rarer "NFS dest vanished while idle" case.
+            pattern = "(?i)cannot open storage|backup failed";
             severity = "critical";
             summary = "kopia-mum backup is unable to write";
             threshold = 0;
-            # On a doc2 reboot, kopia logs a single transient "unable to
-            # write diagnostics blob ... despite N retries: host is down"
-            # as the /mnt/mum NFS dest tears down — threshold=0 paged on it
-            # instantly (2026-06-15 triage). forDuration > window (5m) makes
-            # the decaying shutdown burst self-clear before the pending
-            # period elapses; a genuinely unreachable repo keeps erroring and
-            # still trips it, and the hourly kopia deep-probe (freshness +
-            # last-2-errored) is the real backstop for sustained breakage.
-            forDuration = "10m";
           }
           {
             name = "Kopia photos repository broken";
             unit = "kopia-photos.service";
-            # Wasabi/DNS outage class. `refresh error ... despite N
-            # retries` is the post-backoff signature.
-            pattern = "(?i)refresh error.*despite \\d+ retries|cannot open storage";
+            # Wasabi/DNS outage class. Same 2026-06-18 narrowing as kopia-mum:
+            # dropped the `refresh error ... despite N retries` arm, which a
+            # transient post-backoff line at doc2 shutdown matched (forDuration
+            # is unreliable across the very reboot that causes it — see the
+            # kopia-mum comment). `cannot open storage` is the single-shot
+            # terminal signature; the hourly deep-probe backstops sustained
+            # breakage.
+            pattern = "(?i)cannot open storage";
             severity = "critical";
             summary = "kopia-photos backup cannot reach repository";
             threshold = 0;
-            # Same reboot-teardown class as kopia-mum above: a transient
-            # post-backoff line at shutdown shouldn't page. forDuration > the
-            # 5m window suppresses the decaying burst; deep-probe backstops
-            # sustained failure. See the kopia-mum comment.
-            forDuration = "10m";
           }
           {
             name = "Kopia mum verify failed";
