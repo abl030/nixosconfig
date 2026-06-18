@@ -11,6 +11,8 @@
   there (origin repointed on doc1). GitHub is a FROZEN ancestor-only fallback —
   NEVER deploy from `github:abl030/nixosconfig` (stale) and never `git push` to it.
   Push from doc1 needs the nixbot token header: [forgejo-push-from-doc1.md](forgejo-push-from-doc1.md).
+- File/edit Forgejo ISSUES from doc1 via a scoped nixbot `write:issue` token,
+  sops-encrypted doc1-only: [forgejo-issue-token-doc1.md](forgejo-issue-token-doc1.md).
 - NEVER push an UNSIGNED commit to master — signed deploys are ENFORCED fleet-wide
   (#235, 2026-06-10). An unsigned/unverifiable commit in a host's deploy range
   loud-fails its nightly `nixos-upgrade`. Commits must be SSH-signed by a key in
