@@ -3,7 +3,7 @@
 **Researched / written:** 2026-06-06
 **Status:** working (gen-3 design)
 **Module:** `modules/nixos/services/tailscale/subnet-priority.nix`
-**Related:** [nfs-over-tailscale.md](nfs-over-tailscale.md) § LAN-vs-Tailscale routing; issue #232 (least-privilege)
+**Related:** [nfs-over-tailscale.md](nfs-over-tailscale.md) § LAN-vs-Tailscale routing; [systemd-resolved-fleet.md](systemd-resolved-fleet.md) (DNS, not routing); issue #232 (least-privilege)
 
 ## What it does
 

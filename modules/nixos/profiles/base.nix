@@ -82,6 +82,8 @@
   # promoted here (GitHub #262). mkDefault so hosts can opt out:
   #   - WSL: NM disabled, manages its own resolv.conf → resolved.enable = false.
   #   - mk-pg/mk-mariadb containers already run resolved in their own netns.
+  # See docs/wiki/infrastructure/systemd-resolved-fleet.md (incl. the pfSense
+  # :53 lockdown+redirect and the dig-vs-getent diagnosis gotcha).
   services.resolved.enable = lib.mkDefault true;
   networking.networkmanager.dns = lib.mkDefault "systemd-resolved";
 

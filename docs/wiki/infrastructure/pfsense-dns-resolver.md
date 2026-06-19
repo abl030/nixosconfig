@@ -4,10 +4,11 @@
 **Status:** Tuned (2026-05-23). Was chronically saturated under stock defaults.
 **Related incident:** [dns-saturation-incident-2026-05-22](dns-saturation-incident-2026-05-22.md).
 **Backup architecture:** [pfsense-backup](pfsense-backup.md) (ZFS-pull-to-prom + dual-Kopia off-site).
+**Client resolver:** [systemd-resolved-fleet](systemd-resolved-fleet.md) (#262 — the fleet-wide stub that forwards here).
 
 ## Role
 
-pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical box, two interfaces**) is the **single recursive DNS resolver for the entire fleet**. It runs on **bare metal** — a dedicated small appliance, not a VM on `prom`. No ZFS, no PBS, no vzdump available; backup options are pfSense-native (config.xml + ACB). Every NixOS host's `tailscaled` runs as the local stub resolver and forwards upstream queries to pfSense. pfSense's unbound then forwards out to Cloudflare DoT (`1.1.1.2:853`, `1.0.0.2:853`).
+pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical box, two interfaces**) is the **single recursive DNS resolver for the entire fleet**. It runs on **bare metal** — a dedicated small appliance, not a VM on `prom`. No ZFS, no PBS, no vzdump available; backup options are pfSense-native (config.xml + ACB). Every NixOS host runs `systemd-resolved` as the local stub (`127.0.0.53`) with tailscale's `100.100.100.100` as the `~.` catch-all link (#262); MagicDNS then forwards upstream queries to pfSense. pfSense's unbound then forwards out to Cloudflare DoT (`1.1.1.2:853`, `1.0.0.2:853`).
 
 If pfSense's unbound stops answering, **the whole fleet loses non-MagicDNS resolution within seconds** — including build sandboxes, package fetches, and any service that hits public hostnames.
 
