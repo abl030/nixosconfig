@@ -50,17 +50,17 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    # ALWAYS verify hostname before rebuilding — wrong hostname = wrong config silently applied
    ssh <dest> "hostname"     # must match #<dest-hostname>
 
-   # HOW to deploy depends on whether the host is LOCKED (forgejo#2):
-   #  * doc2, igpu (LOCKED, no passwordless sudo) — `sudo fleet-update` FAILS.
-   #    From doc1:   fleet-deploy <dest>     # forced-command → nixos-upgrade, polkit
-   #    It's async (--no-block): no live build stream → VERIFY after (rev/freshness/Loki).
-   #  * doc1 / not-yet-locked hosts (wsl/hermes/workstations):
-   #    ssh <dest> "sudo fleet-update"
-   fleet-deploy <dest>                 # destination FIRST (locked sibling) ...
-   # ... or:  ssh <dest> "sudo fleet-update"   (unlocked host)
-
+   # EVERY host is LOCKED except doc1 (forgejo#2 — homelab.fleetDeploy.role
+   # defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
+   # but doc1, so `ssh <h> "sudo fleet-update"` FAILS on all siblings.
+   #  * doc2, igpu, hermes, wsl, cache (LOCKED siblings) — deploy FROM doc1:
+   #      fleet-deploy <dest>     # forced-command → nixos-upgrade, polkit
+   #    async (--no-block): no live build stream → VERIFY after (rev/freshness/Loki).
+   #    (wsl resolves to nixos@<windows-portproxy>; epi/framework: owner/nightly.)
+   #  * doc1 itself: sudo fleet-update   (local; the only passwordless host)
+   fleet-deploy <dest>                 # destination FIRST (locked sibling)
    ssh <source> "hostname"   # must match #<source-hostname>
-   fleet-deploy <source>     # source second (or ssh <source> "sudo fleet-update")
+   fleet-deploy <source>     # source second
    ```
    `fleet-update`/`fleet-deploy` fetch Forgejo, verify every commit in range is
    signed and descends from the running rev, then build locally from a root-owned
@@ -70,13 +70,14 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    `nixos-rebuild switch --flake .#<host>` from a tree fast-forwarded to Forgejo
    tip. Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
-   > **LOCKED SIBLINGS (doc2, igpu) — sudo is restricted.** Only these `sudo`
-   > work there: read-only `podman ps/inspect/logs/top/...`, `systemctl stop
-   > nixos-rebuild-switch-to-configuration.service`, `systemctl restart podman-*`.
-   > `sudo journalctl/cat/rm/ss/systemctl-status` and arbitrary `sudo` will
-   > PROMPT FOR A PASSWORD AND FAIL (doc2 has none). For the `ssh <host> "sudo
-   > ..."` verification/DNS examples below: read logs via **Loki** (logs.ablz.au),
-   > and any root mutation goes via `fleet-deploy` (signed) or the Proxmox console.
+   > **LOCKED SIBLINGS (doc2, igpu, hermes, wsl, cache) — sudo is restricted.**
+   > Only these `sudo` work there: read-only `podman ps/inspect/logs/top/...`,
+   > `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
+   > restart podman-*`. `sudo journalctl/cat/rm/ss/systemctl-status` and arbitrary
+   > `sudo` will PROMPT FOR A PASSWORD AND FAIL (doc2/hermes/wsl have none). For
+   > the `ssh <host> "sudo ..."` verification/DNS examples below: read logs via
+   > **Loki** (logs.ablz.au), and any root mutation goes via `fleet-deploy`
+   > (signed) or the host console.
 
 4. **DNS record ownership (the #202 race is fixed in code, but verify anyway).**
    Each Cloudflare A record now carries `comment = "managed-by:<host>"`, and

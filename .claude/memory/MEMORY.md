@@ -26,12 +26,20 @@
 ## Fleet SSH topology (#270, 2026-06-08) + sibling lockdown (forgejo#2, 2026-06-19)
 - doc1 is the SSH **bastion** — ONLY host holding the fleet key; all siblings keyless.
 - sibling→sibling SSH is DENIED by design; reach siblings via doc1 (stepping-stone).
-- **doc2 + igpu are LOCKED: NO passwordless sudo.** Deploy them from doc1 with
-  `fleet-deploy <host>` (forced-command → nixos-upgrade, polkit). `ssh <host>
-  "sudo fleet-update"` now FAILS on them. doc1 still uses local `sudo fleet-update`;
-  still-passwordless hosts (wsl/hermes) use `ssh <host> sudo fleet-update`. epi +
-  framework are LOCKED workstations — the agent can't deploy them (no passwordless
-  sudo, not fleet-deploy targets); the owner deploys interactively / via nightly.
+- **ONE knob: `homelab.fleetDeploy.role` ("locked"|"bastion", default "locked").**
+  doc1 = the only "bastion" (passwordless + deploy key + `fleet-deploy` wrapper +
+  diag tools). EVERY other host = "locked": NO passwordless sudo, GTFOBins gated
+  off, accepts the deploy trigger. The old sudoPasswordless / acceptTrigger /
+  siblingLockdown / bastion knobs are GONE (folded in). `fleetBastionRoleCheck`
+  asserts exactly one "bastion". (refactor 2026-06-19, commits d8c182b3+f3116d05.)
+- **Deploy LOCKED siblings (doc2, igpu, hermes, wsl, cache) from doc1 with
+  `fleet-deploy <host>`** (forced-command → nixos-upgrade, polkit). `ssh <host>
+  "sudo fleet-update"` FAILS on ALL of them now — nothing is passwordless except
+  doc1 (which uses local `sudo fleet-update`). wsl is a fleet-deploy target too
+  (reached at the Windows port-forward; needed a widened triggerFrom for the WSL
+  bridge `172.16/12`); break-glass `wsl -u root`. hermes break-glass = prom console.
+  epi + framework are LOCKED workstations — the agent does NOT deploy them (roam/
+  off); owner deploys interactively / via nightly.
 - On doc2/igpu only these sudo work: read-only `podman` (ps/inspect/logs/top/…),
   `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
   restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use

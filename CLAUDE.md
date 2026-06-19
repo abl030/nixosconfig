@@ -19,22 +19,25 @@
 # from `github:abl030/nixosconfig` — it is stale, missing every commit since the
 # cutover. Pushing dev commits goes to FORGEJO (origin = git.ablz.au).
 #
-# To deploy current verified config to a host (verified path, root-owned clone —
-# a stale local checkout is irrelevant). HOW depends on whether the host is
-# LOCKED (forgejo#2 — no passwordless sudo):
-#   * doc2, igpu (LOCKED) — `sudo fleet-update` FAILS (no passwordless sudo).
-#     Deploy from doc1 with:   fleet-deploy <host>
+# EVERY host is LOCKED except doc1 (forgejo#2 — `homelab.fleetDeploy.role`
+# defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
+# but doc1. HOW to deploy:
+#   * doc2, igpu, hermes, cache (LOCKED siblings) — `ssh <h> "sudo fleet-update"`
+#     FAILS (no passwordless sudo). Deploy from doc1 with:   fleet-deploy <host>
 #     (forced-command key → nixos-upgrade, polkit, no sibling sudo). It's async
 #     (--no-block): NO live build stream, so VERIFY after (rev / freshness /
 #     service health). A stuck doc2 switch: `sudo systemctl stop
 #     nixos-rebuild-switch-to-configuration.service` (it IS in the locked allowlist).
-#   * doc1 (the bastion, still passwordless) — `sudo fleet-update` locally.
-#   * epi, framework (LOCKED workstations) — the AGENT cannot deploy these: no
-#     passwordless sudo and not fleet-deploy targets. Their OWNER deploys
-#     interactively (`sudo nixos-rebuild`/`fleet-update`, types the password) or
-#     they ride the nightly auto-update. Do NOT `ssh epi "sudo ..."` — it hangs
-#     on a password prompt.
-#   * still-passwordless hosts (wsl, hermes) — `ssh <host> "sudo fleet-update"`.
+#   * doc1 (the bastion — the ONLY passwordless host) — `sudo fleet-update` locally.
+#   * wsl (LOCKED) — also a `fleet-deploy wsl` target (reached at the Windows
+#     port-forward; needs the widened triggerFrom that lands on its next nightly).
+#     Otherwise nightly auto-update or `wsl -u root fleet-update`. Break-glass:
+#     `wsl -u root` from Windows. Do NOT `ssh wsl "sudo ..."` — no passwordless sudo.
+#   * epi, framework (LOCKED workstations) — the AGENT does not deploy these (they
+#     roam / are usually off; they DO accept the trigger but aren't reliable
+#     targets). Their OWNER deploys interactively (`sudo nixos-rebuild`/`fleet-update`,
+#     types the password) or they ride the nightly auto-update. Do NOT
+#     `ssh epi "sudo ..."` — it hangs on a password prompt.
 # Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md
 #
 # Only `nixos-rebuild switch --flake .#<host>` from a local tree for break-glass,
@@ -59,10 +62,12 @@
 #
 # To deploy current verified config to a remote host:
 #   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
-#   2. LOCKED siblings (doc2, igpu): from doc1 run `fleet-deploy <host>`.
-#      Still-passwordless hosts (wsl, hermes): `ssh <host> "sudo fleet-update"`.
-#      doc1 itself: `sudo fleet-update` locally. Locked workstations (epi,
-#      framework): the AGENT can't deploy — owner deploys interactively / nightly.
+#   2. LOCKED siblings (doc2, igpu, hermes, wsl, cache): from doc1 run
+#      `fleet-deploy <host>` (wsl reached at the Windows port-forward). doc1
+#      itself: `sudo fleet-update` locally. Locked workstations (epi, framework):
+#      the AGENT can't deploy — owner deploys interactively / nightly. Nothing is
+#      passwordless except doc1, so `ssh <host> "sudo fleet-update"` FAILS on all
+#      siblings now.
 #
 # Both fetch Forgejo, verify every commit in range is signed and descends from the
 # running rev, then build locally from a root-owned verified clone — nothing

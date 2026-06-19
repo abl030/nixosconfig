@@ -1,11 +1,26 @@
 # Fleet deploy trigger + sibling sudo lockdown
 
-**Status:** live (2026-06-19). doc2 and igpu are both locked; the
-`fleet-deploy` trigger is proven end-to-end on both.
-**Researched/written:** 2026-06-19, during the forgejo#2 Phase 2–4 work.
+**Status:** live (2026-06-19). **EVERY host except doc1 is locked** — doc2,
+igpu, hermes, wsl (and cache by default) all run with no passwordless sudo and
+accept the `fleet-deploy` trigger; epi/framework are locked workstations. The
+trigger is proven end-to-end on doc2, igpu, and hermes.
+**Researched/written:** 2026-06-19, during the forgejo#2 Phase 2–4 work +
+the "default-secure" role refactor (commits `d8c182b3`, `f3116d05`).
 **Tracking:** [forgejo#2](https://git.ablz.au/abl030/nixosconfig/issues/2)
 (least-privilege sudo lockdown of always-on siblings), parent
 [GitHub #232](https://github.com/abl030/nixosconfig/issues/232).
+
+> **ONE KNOB (refactor 2026-06-19):** posture is now a single option
+> `homelab.fleetDeploy.role`, enum `"locked" | "bastion"`, **default `"locked"`**.
+> *Every host is locked; doc1 is the one bastion.* A new host is secure by
+> default — you must explicitly write `role = "bastion"` to unlock. This replaced
+> four scattered knobs (`sudoPasswordless` + `fleetDeploy.acceptTrigger` +
+> `fleetDeploy.siblingLockdown` + `fleetDeploy.bastion`), all now derived from
+> `role`. The `fleetBastionRoleCheck` flake check asserts exactly one
+> `role = "bastion"` in the tree (mirrors `bastionInvariantCheck`). Where the
+> sections below say "`acceptTrigger`"/"`siblingLockdown`"/"`sudoPasswordless =
+> false`", read "`role = \"locked\"`"; "`fleetDeploy.bastion`" → "`role =
+> \"bastion\"`".
 
 > **Scope:** this doc covers **local privilege** on the always-on siblings —
 > what `abl030` can do as root once you have a shell there, and how doc1 still
@@ -29,13 +44,14 @@ three such VMs that's three full-root blast radii.
 The new posture concentrates high-value root on **one** host and strips it from
 the rest:
 
-- **doc1 (proxmox-vm) is the single high-value bastion** — it keeps passwordless
-  root (it holds the fleet SSH key, the deploy-trigger key, the bot signing key,
-  every MCP control cred; it is *already* the crown jewel, so locking its sudo
-  buys nothing while breaking the autonomous deploy path).
-- **Every other always-on host (doc2, igpu) is locked** so a popped
+- **doc1 (proxmox-vm) is the single high-value bastion** (`role = "bastion"`) —
+  it keeps passwordless root (it holds the fleet SSH key, the deploy-trigger key,
+  the bot signing key, every MCP control cred; it is *already* the crown jewel,
+  so locking its sudo buys nothing while breaking the autonomous deploy path).
+- **Every other host is locked** (`role = "locked"`, the default) so a popped
   service-or-`abl030` cannot pivot to root. They keep only a narrow read-only +
-  deploy-hygiene NOPASSWD allowlist.
+  deploy-hygiene NOPASSWD allowlist. This now includes the always-on siblings
+  (doc2, igpu, hermes, cache) **and** wsl and the epi/framework workstations.
 
 The hard part is keeping doc1 able to *deploy* a locked sibling — a rebuild is a
 root action — without giving the sibling back standing root. That is what the
@@ -54,10 +70,10 @@ signed by a `hosts.nix` key → build at the verified SHA → `switch`). That is
 *same* path the nightly timer uses. The trigger just lets doc1 kick that one
 unit, on demand, without sudo on the sibling:
 
-| Side | Option | What it adds |
+| Side | `role` | What it adds |
 |---|---|---|
-| sibling | `fleetDeploy.acceptTrigger = true` | (a) a **polkit rule** letting `triggerUser` (= `abl030`) start *only* `nixos-upgrade.service` with no password; (b) a **forced-command authorized key** on that user, locked to exactly `systemctl start --no-block nixos-upgrade.service`, `restrict`ed (no pty/forwarding/etc.) and `from=`-pinned to the tailnet + home LAN (`100.64.0.0/10,192.168.1.0/24`). |
-| doc1 | `fleetDeploy.bastion = true` | holds the **private** half (sops, `secrets/hosts/proxmox-vm/deploy-trigger-key`, `0400 abl030`) and installs the `fleet-deploy <host>` wrapper that SSHes to the sibling with that key. |
+| sibling | `"locked"` (default) | (a) a **polkit rule** letting `triggerUser` (= the host user) start *only* `nixos-upgrade.service` with no password; (b) a **forced-command authorized key** on that user, locked to exactly `systemctl start --no-block nixos-upgrade.service`, `restrict`ed (no pty/forwarding/etc.) and `from=`-pinned to the tailnet + home LAN (`100.64.0.0/10,192.168.1.0/24`) — plus the narrow NOPASSWD allowlist of §3. |
+| doc1 | `"bastion"` | holds the **private** half (sops, `secrets/hosts/proxmox-vm/deploy-trigger-key`, `0400 abl030`) and installs the `fleet-deploy <host>` wrapper that SSHes to the sibling with that key. The wrapper resolves each target's login user + ssh address from `hosts.nix` (so wsl's `nixos@laptop-btibh4ie` works, not just `abl030@<host>`). |
 
 The connection **is** the trigger — there is no command to inject. A successful
 SSH with the deploy key does exactly one thing: start the verified rebuild. So a
@@ -71,19 +87,17 @@ The trust chain stacks cleanly: **leaked key → can only start a unit →
 that unit only builds signed history.** Two independent gates, neither of which
 is sudo.
 
-## 3. The sibling lockdown (`sudoPasswordless = false` + `siblingLockdown`)
+## 3. The sibling lockdown (`role = "locked"`)
 
-Two coordinated changes lock a sibling:
+`role = "locked"` (the default — nothing to set per host) does both halves at once:
 
-1. `hosts.nix`: `sudoPasswordless = false`. This flips
-   `security.sudo.wheelNeedsPassword` to `true` in `base.nix` (§7) — `abl030` no
-   longer has standing passwordless root, and the base diag-tools NOPASSWD block
-   (see §4) goes empty.
-2. `fleetDeploy.siblingLockdown = true` (in the host's `configuration.nix`):
-   restores a **narrow** passwordless allowlist so you keep observability and
-   bounded recovery without standing root.
+1. `base.nix` (§7) derives `security.sudo.wheelNeedsPassword = true` from
+   `role != "bastion"` — `abl030` no longer has standing passwordless root, and
+   the base diag-tools NOPASSWD block (see §4) goes empty.
+2. The module restores a **narrow** passwordless allowlist so you keep
+   observability and bounded recovery without standing root.
 
-The allowlist (`modules/nixos/services/fleet-deploy.nix`, `siblingLockdown`
+The allowlist (`modules/nixos/services/fleet-deploy.nix`, the `role == "locked"`
 branch) is exactly:
 
 - **Read-only podman**: `ps`, `inspect`, `logs`, `top`, `port`, `stats`,
@@ -118,17 +132,17 @@ when `abl030` has zero usable sudo on the sibling.
 
 If those stayed NOPASSWD on a *locked* sibling they would be a one-line bypass of
 the entire lockdown. So the whole `extraRules` block is now **gated on
-`hostConfig.sudoPasswordless`**:
+`role == "bastion"`**:
 
 ```nix
-extraRules = lib.optionals (hostConfig.sudoPasswordless or false) [ … ];
+extraRules = lib.optionals (config.homelab.fleetDeploy.role == "bastion") [ … ];
 ```
 
-- On a host where `abl030` already has passwordless root (doc1; igpu *before*
-  the lock) the GTFOBins change nothing — root is root.
-- On a **locked** sibling the block is empty, so `sudo strace …` etc. **prompt
+- On the bastion (doc1) where `abl030` already has passwordless root the GTFOBins
+  change nothing — root is root.
+- On any **locked** host the block is empty, so `sudo strace …` etc. **prompt
   for a password** → not a bypass. Diagnose via the read-only allowlist (§3) +
-  Loki, or escalate to the Proxmox console (§5).
+  Loki, or escalate to the host console (§5).
 
 This is the load-bearing subtlety: the lockdown isn't just "drop passwordless
 sudo", it's "drop passwordless sudo **and** make sure no remaining NOPASSWD rule
@@ -154,22 +168,16 @@ deploy path; only the local fallback differs.
 
 ## 6. Per-host posture table
 
-| Host | `sudoPasswordless` | Posture | Local break-glass |
+| Host | `role` | Posture | Local break-glass |
 |---|---|---|---|
-| **doc1** (proxmox-vm) | `true` | **Bastion** — keep passwordless root (already the crown jewel; holds fleet/deploy/bot/MCP creds). `fleetDeploy.bastion`. | n/a (it *is* root) |
-| **doc2** | `false` | **Locked.** No password (`!`). `acceptTrigger` + `siblingLockdown`. | Proxmox console only |
-| **igpu** | `false` | **Locked.** `acceptTrigger` + `siblingLockdown`. | Interactive sudo (has a password) → Proxmox console |
-| **epimetheus** | unset → password-required | Workstation, interactive sudo. | (at the keyboard) |
-| **framework** | unset → password-required | Workstation. **Open item:** still carries a passwordless `nixos-rebuild` grant in its own config — a partial standing-root surface not yet folded into this model. | (at the keyboard) |
-| **wsl** | `true` | Special: dev box, ephemeral WSL2 VM, no fleet key. Passwordless sudo retained (low-value, behind the Windows host). | Windows-side |
-| **hermes** | `true` | Special: locked-down agent VM, keyless re: the fleet, reached via Telegram. Passwordless sudo for its own `fleet-update`/`nixos-rebuild` deploy. See [hermes-agent](../services/hermes-agent.md). | Proxmox console |
-
-**Open item (framework):** `sudoPasswordless` is unset (so sudo *is*
-password-gated), but `hosts/framework/configuration.nix` still grants a
-passwordless `nixos-rebuild`, which is passwordless root by another name. Folding
-framework into the `fleet-deploy` trigger model (or at least removing that grant)
-is the remaining lockdown gap. It is a workstation, not an always-on sibling, so
-it ranks below doc2/igpu — but it is the next item, not a "won't do".
+| **doc1** (proxmox-vm) | `"bastion"` | **Bastion** — passwordless root (already the crown jewel; holds fleet/deploy/bot/MCP creds). The ONLY `"bastion"`. | n/a (it *is* root) |
+| **doc2** | `"locked"` | **Locked.** No password (`!`). | Proxmox console only |
+| **igpu** | `"locked"` | **Locked.** | Interactive sudo (has a password) → Proxmox console |
+| **hermes** | `"locked"` | **Locked.** Keyless agent VM, reached via Telegram. Deploy via `fleet-deploy hermes`; agent container unaffected (containers don't use `abl030` sudo). See [hermes-agent](../services/hermes-agent.md). | prom console |
+| **wsl** | `"locked"` | **Locked** via `lib.mkForce true` (beats NixOS-WSL's `mkDefault false`). `nixos` removed from the `docker` group (docker-group = root-equivalent, else the lock is theatre). `fleet-deploy wsl` target via a widened `triggerFrom` (Windows portproxy — see §7). | `wsl -u root` from Windows |
+| **epimetheus** | `"locked"` | Workstation. Passwordless `nixos-rebuild` grant removed. Owner deploys interactively / nightly. | interactive sudo (has a password) |
+| **framework** | `"locked"` | Workstation. Passwordless `nixos-rebuild` grant removed. Owner deploys interactively / nightly. | interactive sudo (has a password) |
+| **cache** | `"locked"` | Default-locked; converges when online. | interactive sudo (`initialHashedPassword`) |
 
 ## 7. How to deploy now
 
@@ -177,11 +185,23 @@ From **doc1** (the only host with the trigger key):
 
 ```sh
 fleet-deploy doc2     # kick doc2's verified rebuild
-fleet-deploy igpu     # kick igpu's verified rebuild
+fleet-deploy igpu     #   "  igpu
+fleet-deploy hermes   #   "  hermes
+fleet-deploy wsl      #   "  wsl (resolves nixos@laptop-btibh4ie; see below)
+fleet-deploy cache    #   "  cache (when online)
 ```
 
 No `sudo` runs on the target; the SSH connection *is* the success. The wrapper
-uses the doc1-scoped sops deploy key with `IdentitiesOnly` / `BatchMode`.
+uses the doc1-scoped sops deploy key with `IdentitiesOnly` / `BatchMode`, and
+maps `<host>` → login user + ssh address from `hosts.nix`.
+
+**wsl is reached through a Windows netsh portproxy**, so wsl's sshd sees every
+connection from the WSL vEthernet gateway (`172.26.224.1`, in `172.16.0.0/12`),
+**not** doc1's tailnet IP. The default trigger `from=` pin would reject the key
+(publickey denial), so wsl sets `homelab.fleetDeploy.triggerFrom` to add
+`172.16.0.0/12` (the WSL bridge is wsl's only ingress, so this is equivalent to
+LAN-pinning a normal host; the key stays doc1-only + forced-command). wsl can
+also deploy via the nightly timer or `wsl -u root fleet-update`.
 
 **It is async.** The forced command is `systemctl start --no-block …`, so
 `fleet-deploy` returns as soon as the unit is *started*, not when the build
@@ -211,11 +231,12 @@ unit — not general `systemctl` access.
 
 ## When to revisit
 
-- When framework's passwordless `nixos-rebuild` grant is removed or folded into
-  the trigger model (the §6 open item).
+- **Phase 5** (forgejo#2, comment #2): strip doc1 to SSH-only — relocate every
+  listening service off the bastion. Not started; sequenced after this lockdown.
 - When [#241](https://github.com/abl030/nixosconfig/issues/241) (step-ca /
   short-lived certs) lands — the deploy trigger may move under a CA-signed
   ephemeral-cert model rather than a static forced-command key.
 - If a future locked sibling needs a diag tool that isn't a GTFOBin and isn't in
-  the §3 allowlist, add it to the `siblingLockdown` allowlist (read-only,
-  no-shell-escape only) — never re-enable the §4 GTFOBin block on a locked host.
+  the §3 allowlist, add it to the `role == "locked"` allowlist in
+  `fleet-deploy.nix` (read-only, no-shell-escape only) — never re-enable the §4
+  GTFOBin block on a locked host.
