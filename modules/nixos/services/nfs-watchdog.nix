@@ -50,11 +50,22 @@ in {
               echo "${name}: NFS path ${entry.path} is stale, restarting" >&2
               systemctl reset-failed "$svc" 2>/dev/null || true
               systemctl restart "$svc"
-            elif ! systemctl is-active --quiet "$svc"; then
-              # Path is healthy but the service is dead — typical after an NFS
-              # outage that outlasted the service's restart burst. Bring it
-              # back; the watchdog is the single source of recovery here.
-              echo "${name}: NFS path ${entry.path} healthy but service is down, recovering" >&2
+            elif systemctl is-failed --quiet "$svc"; then
+              # Path is healthy but the service is in the FAILED state —
+              # typical after an NFS outage that outlasted the service's
+              # restart burst (start-limit-hit → failed). Bring it back; the
+              # watchdog is the single source of recovery here.
+              #
+              # NB: test `is-failed`, NOT `! is-active`. A Type=oneshot/timer
+              # service (e.g. mailarchive-{work,gmail}) sits at inactive(dead)
+              # between runs — that is its NORMAL resting state, not "down".
+              # `! is-active` treated every idle tick as a failure and
+              # "recovered" the service every 5 min (156×/13h on the healthy
+              # mailarchive-work, NRestarts=0 — 2026-06-19 triage), firing the
+              # NFS-watchdog alert nonstop and kicking a needless extra sync
+              # each tick. is-failed fires only on a genuinely failed unit,
+              # which is exactly the documented intent above.
+              echo "${name}: NFS path ${entry.path} healthy but service is failed, recovering" >&2
               systemctl reset-failed "$svc" 2>/dev/null || true
               systemctl start "$svc"
             fi
@@ -83,7 +94,7 @@ in {
         name = "NFS watchdog tripped";
         unit = ".+-nfs-watchdog\\.service";
         unitIsRegex = true;
-        pattern = "(?i)NFS path .* (is stale, restarting|healthy but service is down, recovering)";
+        pattern = "(?i)NFS path .* (is stale, restarting|healthy but service is (down|failed), recovering)";
         severity = "warning";
         summary = "an NFS-dependent service was restarted by its watchdog";
         # Single-shot per watchdog tick (5min interval). One tripped
