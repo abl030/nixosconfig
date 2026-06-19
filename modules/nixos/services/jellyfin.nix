@@ -71,10 +71,14 @@
   };
 
   # Container runs as host abl030 (1000:100) so virtiofs files land
-  # abl030-owned — matches the "no root-owned state" rule from #208.
-  # We pin to uid/gid numbers because containers can't resolve host usernames.
-  containerUid = "1000";
-  containerGid = "100";
+  # Dedicated per-service UIDs (forgejo#2 / #232). jellystat + watchstate must NOT
+  # run as host UID 1000 (abl030): that user has passwordless sudo on doc2, so a
+  # popped + escaped container would inherit it (the lateral-pivot vector). Give
+  # each its own UID like youtarr(2009)/tdarr(2010). GID stays 100 (users) so
+  # volume writes remain group-users-readable. Pinned numeric because containers
+  # can't resolve host usernames.
+  jellystatUid = 2014;
+  watchstateUid = 2015;
 in {
   options.homelab.services.jellyfin = {
     enable = lib.mkEnableOption "Jellyfin media server";
@@ -381,11 +385,24 @@ in {
       # nspawn PostgreSQL. See mk-pg-container header for cascade-stop gotcha.
       containers.jellystat-db = jellystatPgc.containerConfig;
 
+      # Dedicated UID for the analytics container (see header). isSystemUser so
+      # it can't log in; group=users keeps volume writes group-readable.
+      users.users.jellystat = {
+        isSystemUser = true;
+        uid = jellystatUid;
+        group = "users";
+        description = "jellystat analytics container runtime user";
+      };
+
       systemd.tmpfiles.rules = [
         "d ${cfg.jellystat.dataDir} 0755 ${hostConfig.user} users -"
-        "d ${cfg.jellystat.dataDir}/backup-data 0755 ${hostConfig.user} users -"
+        # backup-data is the only path the container writes; own it as jellystat
+        # and recursively re-own existing backups (migration off abl030/1000).
+        "d ${cfg.jellystat.dataDir}/backup-data 0750 jellystat users -"
+        "Z ${cfg.jellystat.dataDir}/backup-data - jellystat users -"
         # mk-pg-container bindmounts ${dataDir}/postgres into the nspawn.
         # 0700 root:root matches the pattern used by cratedigger/immich/etc.
+        # NOTE: never recursively chown the parent dataDir — it would hit this.
         "d ${cfg.jellystat.dataDir}/postgres 0700 root root -"
       ];
 
@@ -416,9 +433,9 @@ in {
         extraOptions =
           config.homelab.podman.hardenOptions
           ++ [
-            # Run the container process as abl030:users so volume writes land
-            # non-root on the host. See header `containerUid`/`containerGid`.
-            "--user=${containerUid}:${containerGid}"
+            # Dedicated non-abl030 UID (see header) so a popped container can't be
+            # the passwordless-sudo user; :100 keeps writes group-users-readable.
+            "--user=${toString jellystatUid}:100"
           ];
       };
 
@@ -481,8 +498,20 @@ in {
     # watchstate (doc2) — Plex <-> Jellyfin sync, no DB
     # ============================================================
     (lib.mkIf cfg.watchstate.enable {
+      # Dedicated UID for the watchstate container (see header) — keeps it off
+      # host UID 1000 (abl030). isSystemUser; group=users for group-read.
+      users.users.watchstate = {
+        isSystemUser = true;
+        uid = watchstateUid;
+        group = "users";
+        description = "watchstate sync container runtime user";
+      };
+
       systemd.tmpfiles.rules = [
-        "d ${cfg.watchstate.dataDir} 0755 ${hostConfig.user} users -"
+        # /config is the container's only volume; own it as watchstate and
+        # recursively re-own existing state (migration off abl030/1000).
+        "d ${cfg.watchstate.dataDir} 0750 watchstate users -"
+        "Z ${cfg.watchstate.dataDir} - watchstate users -"
       ];
 
       virtualisation.oci-containers.containers.watchstate = {
@@ -491,8 +520,9 @@ in {
         pull = "newer";
         environment = {
           # Upstream reads these at entrypoint to chown /config and drop privs.
-          WS_UID = containerUid;
-          WS_GID = containerGid;
+          # Dedicated non-abl030 UID (see header); GID 100 (users).
+          WS_UID = toString watchstateUid;
+          WS_GID = "100";
           TZ = "Australia/Perth";
         };
         ports = ["${toString cfg.watchstate.port}:8080"];
