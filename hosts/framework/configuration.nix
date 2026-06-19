@@ -22,7 +22,12 @@
       secure = false;
       inhibitors.enable = true;
     };
-    tailscale.enable = true;
+    tailscale = {
+      enable = true;
+      # Roaming workstation, not a service host: let tailscaled manage netfilter
+      # (blanket-accept the tailnet). Servers default to "off" (nixos-fw gates).
+      netfilterMode = "on";
+    };
     nixCaches = {
       enable = true;
       profile = "internal";

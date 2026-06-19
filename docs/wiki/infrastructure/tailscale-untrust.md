@@ -1,72 +1,109 @@
-# Untrusting the tailscale0 interface (fleet-wide)
+# Gating the tailnet with nixos-fw (netfilter-mode=off) + per-service bind
 
-**Date:** 2026-06-19
-**Status:** done — `trustedInterfaces` no longer lists `tailscale0` on any host
+**Date:** 2026-06-19/20
+**Status:** done — servers run `tailscale --netfilter-mode=off` so nixos-fw gates
+the tailnet; epi/framework stay tailscale-managed. ABS bound to the podman bridge.
 **Trigger:** Audiobookshelf tailnet share (`audiobooks.ablz.au`) 502'd after the
-#232 Tier-3 commit flipped ABS from `0.0.0.0` to `127.0.0.1`. Root cause chase
-showed the *real* problem was that `tailscale0` was a blanket-trusted firewall
-interface, so any `0.0.0.0`-bound service was reachable, unauthenticated, on every
-host's own tailnet IP — the exact hazard the Tier-3 bind audit exists to stop.
+#232 Tier-3 commit flipped ABS `0.0.0.0` → `127.0.0.1`. Chasing it uncovered how
+tailnet exposure on this fleet is *actually* controlled.
 
-## What changed
+## The key discovery — `trustedInterfaces` was a red herring
 
-`modules/nixos/services/tailscale/default.nix` no longer sets
-`networking.firewall.trustedInterfaces = ["tailscale0"]`. The tailnet is now
-treated like any other routable network: default-drop, and each service that must
-be reachable over the tailnet declares an explicit pinhole
-(`networking.firewall.interfaces.tailscale0.allowed{TCP,UDP}Ports`) or rides nginx
-on 443 (the `homelab.localProxy` FQDNs).
+We first assumed `networking.firewall.trustedInterfaces = ["tailscale0"]` was what
+exposed every `0.0.0.0`-bound service to the tailnet, and removed it fleet-wide.
+**That did nothing**, because of how the live `INPUT` chain is ordered:
 
-## Why it's safe — the pre-flip inventory
+```
+-A INPUT -j ts-input        # tailscaled's chain runs FIRST
+-A INPUT -j nixos-fw
+# inside ts-input (netfilter-mode=on, tailscale's default):
+-A ts-input -i tailscale0 -j ACCEPT      # blanket-accepts the ENTIRE tailnet
+```
 
-Before flipping, every host was inventoried with `ss -tlnH` / `ss -ulnH` and
-cross-referenced against the *evaluated* `allowedTCPPorts` and `localProxy.hosts`.
-Findings:
+`tailscaled` installs `ts-input`, jumped from `INPUT` **before** `nixos-fw`, with a
+blanket `-i tailscale0 -j ACCEPT`. So tailnet→host traffic is accepted by
+tailscale's own rules and **nixos-fw never sees it**. Proof: with the NixOS trust
+removed, doc1's bare `rpcbind` port 111 was *still* reachable over tailscale even
+though nixos-fw had no tailscale0 accept and no 111 rule. `trustedInterfaces` was
+redundant all along — `ts-input` is the real gate.
 
-- **SSH (22)** is in the GLOBAL `allowedTCPPorts` on every host
-  (`services.openssh.openFirewall = true`). Untrust **cannot** lock anyone out.
-- **All web UIs / dashboards** reach via nginx on **443** (the `*.ablz.au`
-  localProxy vhosts). 443/80 are global. Closing their bare backend ports on the
-  tailnet is the *win*, not a regression.
-- **LGTM HTTP** (Loki 3100, Mimir 9009, Tempo 3200, Grafana, gRPC 9095-9097,
-  gossip 7946) is "reached exclusively through nginx on 443" (loki-server.nix) —
-  the fleet pushes to `https://loki.ablz.au` / `https://mimir.ablz.au`. Bare ports
-  close safely. **OTLP 4317/4318** *are* global (direct trace push) and survive.
-- **pfSense syslog → doc2:1514** is NOT trust-dependent: loki.nix adds a
-  **source-scoped** `iptables` accept (`-s 192.168.1.1`, the pfSense LAN IP).
-  Survives untrust untouched.
-- **Prometheus exporters** (pfSense 9945, ntopng 9946 on doc2) are scraped via
-  `http://localhost` — never needed the tailnet.
-- **nix binary cache**: `nix-serve` is `127.0.0.1:5000` behind nginx; the fleet
-  substituter is `https://nixcache.ablz.au` (443). Survives.
-- **node_exporter 9100, syncthing 22000** are global; **syncthing GUI 8384** was
-  already correctly pinholed on tailscale0 (the pattern we followed).
+## The fix — two complementary layers
 
-### The only blanket-trust dependencies in the whole repo
+### B. `netfilter-mode=off` on servers (the real lever)
 
-A `grep -rn 'openFirewall = false'` across `modules/` + `hosts/` found exactly two
-services that relied on the interface trust, both on **epi**:
+`homelab.tailscale.netfilterMode` (default `"off"`) runs
+`tailscale set --netfilter-mode=off` via `tailscaled-set.service`. tailscaled then
+stops installing the `ts-input` blanket accept, so **nixos-fw becomes the real
+gate**: bare ports on the tailnet are dropped; services reach the tailnet via an
+explicit `interfaces.tailscale0.allowed{TCP,UDP}Ports` pinhole (syncthing 8384,
+sunshine, vnc) or via nginx:443 (the `localProxy` FQDNs).
 
-- **Sunshine** game streaming (`modules/nixos/services/display/sunshine.nix`) —
-  `openFirewall = false` and the manual tailscale0 port block was *commented out*.
-- **wayvnc** (`modules/nixos/services/display/wayvnc.nix`, `homelab.vnc`,
-  `openFirewall = false`) — port 5900 never opened.
+Why it's safe (verified pre-flip):
+- **SSH 22** is in the GLOBAL `allowedTCPPorts` (`openssh.openFirewall`) → no host
+  can be locked out.
+- nixos-fw accepts `RELATED,ESTABLISHED` early → all outbound tailnet connections
+  stay two-way without any tailscale-added rule.
+- The tailscale listen UDP port (55500) is globally open.
+- **No NixOS host advertises subnet routes or is an exit node** (checked
+  `tailscale debug prefs` on doc1/doc2/igpu: `AdvertiseRoutes:null`). The only
+  subnet router is **Tower** (Unraid, not NixOS-managed), so turning off
+  tailscale's netfilter management breaks no forwarding. A host that DID advertise
+  routes / serve as exit node would need its FORWARD + masquerade rules added by
+  hand before using `off`.
 
-Both now declare explicit `tailscale0` pinholes (Sunshine: 47984/47989/47990/48010
-TCP + 47998/47999/48000/48002/48010 UDP; wayvnc: 5900 TCP). Without these the flip
-would have *silently* broken Moonlight + VNC to epi on its next nightly — and epi
-was offline during the work, so it could not have been live-verified. This is why
-the flip was driven from a source-level audit, not just runtime `ss`.
+**Workstations stay `on`.** `epi` and `framework` set `netfilterMode = "on"`
+(`hosts/{epi,framework}/configuration.nix`): they roam, reach sunshine/vnc over the
+tailnet, and aren't service hosts, so letting tailscaled blanket-accept is simpler
+and lower-risk than maintaining per-port pinholes there. (wsl is a non-standard /
+roaming dev box — revisit whether it should also be `"on"`.)
 
-## Adding a tailnet-only service after this change
+### C. Per-service bind off tailscale0 (defence-in-depth)
 
-Do NOT re-trust the interface. Either:
-- put it behind nginx via `homelab.localProxy.hosts` (preferred for HTTP), or
-- add `networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ <port> ];`
-  inside the service module (see syncthing/sunshine/vnc for the pattern).
+Even with B, a service can avoid listening on any routable interface. ABS is bound
+to the **podman bridge gateway** `10.88.0.1` (`services.audiobookshelf.host`), not
+loopback and not `0.0.0.0`:
+- the share's caddy sidecar reaches it via `host.docker.internal` (= 10.88.0.1);
+- nginx reaches it via `homelab.localProxy.hosts[].upstreamHost = "10.88.0.1"`
+  (host-local loopback routing);
+- it listens on NO tailnet/LAN IP, so the bare port simply doesn't exist there —
+  independent of firewall correctness.
+- `boot.kernel.sysctl."net.ipv4.ip_nonlocal_bind" = 1` lets ABS bind 10.88.0.1
+  before podman0 is up at boot.
+
+`localProxy.upstreamHost` (default `127.0.0.1`) is the reusable knob for any
+bridge-bound service.
+
+## Why both, and what `trustedInterfaces` removal still does
+
+`trustedInterfaces` no longer lists tailscale0 (kept that way): with B making
+nixos-fw the gate, re-adding the nixos-fw blanket accept would defeat the point.
+B is the systematic control; C removes ABS from routable interfaces entirely.
+
+## Gotcha — firewall reload vs the live ruleset
+
+A `nixos-rebuild switch` *reloads* (not restarts) `firewall.service`. During the
+ABS work, the reload on a fleet-deploy'd host did not always reconcile a removed
+rule in the live ruleset (doc1, via local `fleet-update`, did; doc2 via the
+async trigger left a stale rule until the change settled / a reboot). If the live
+firewall looks stale after a deploy, a `systemctl restart firewall.service`
+(or the host's nightly reboot) reconciles it. Locked siblings can't restart
+firewall via sudo, so they reconcile on the nightly reboot.
+
+## Tailscale ACLs (separate, in progress)
+
+Tailnet-level ACLs (admin console / policy file) are the coordination-layer
+control over which peers may reach which ports — complementary to B/C and being
+set up separately. Not managed in this repo yet.
+
+## Adding a tailnet-reachable service after this change
+
+Server (netfilterMode=off): either put it behind nginx via
+`homelab.localProxy.hosts`, or add
+`networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ <port> ];` in the
+module (see syncthing/sunshine/vnc). Do NOT re-add `trustedInterfaces`.
 
 ## Rollback
 
-Re-add `trustedInterfaces = ["tailscale0"];` to
-`modules/nixos/services/tailscale/default.nix` and redeploy. SSH stays up either
-way, so a bad rollout is fixable forward per-host (`fleet-deploy <host>`).
+Per-host: set `homelab.tailscale.netfilterMode = "on";` and redeploy (restores
+tailscale's blanket accept). SSH stays up either way, so a bad rollout is fixable
+forward with `fleet-deploy <host>`.

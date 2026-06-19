@@ -28,18 +28,26 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # ABS binds the podman bridge gateway (10.88.0.1, see host below), which may
+    # not be up when the unit starts at boot. Allow binding a not-yet-present
+    # local address; once podman0 appears, traffic flows.
+    boot.kernel.sysctl."net.ipv4.ip_nonlocal_bind" = lib.mkDefault 1;
+
     services.audiobookshelf = {
       enable = true;
       port = 13378;
-      # BIND-ALL-INTERFACES-OK: the tailnet-share caddy sidecar runs in the ts
-      # netns and reaches ABS via host.docker.internal (the podman bridge) — it
-      # CANNOT use 127.0.0.1 (that's the container's own loopback), so a
-      # loopback-only bind silently 502s the share. 0.0.0.0 is safe because
-      # tailscale0 is no longer a trusted firewall interface (see
-      # services/tailscale/default.nix): the bare port is firewalled off the
-      # tailnet, so the only ways in are nginx:443 (audiobook.ablz.au) and the
-      # dedicated audiobooks share node. ABS also enforces its own login.
-      host = "0.0.0.0";
+      # Bind ONLY the podman bridge gateway (host.docker.internal = 10.88.0.1),
+      # not loopback and not 0.0.0.0. The tailnet-share caddy sidecar runs in the
+      # ts netns and reaches ABS via host.docker.internal — it CANNOT use
+      # 127.0.0.1 (that's the container's own loopback), so a loopback-only bind
+      # silently 502s the share. Binding the bridge gateway means ABS listens on
+      # NO routable interface (not tailscale0, not the LAN) — the only ways in
+      # are nginx (audiobook.ablz.au, dialed at 10.88.0.1 via localProxy
+      # upstreamHost below) and the dedicated audiobooks share node. This is the
+      # per-service complement to netfilterMode=off: defence-in-depth, the bare
+      # port simply does not exist on any routable IP. ip_nonlocal_bind (below)
+      # lets ABS bind 10.88.0.1 even before podman0 is up at boot.
+      host = "10.88.0.1";
     };
 
     # Add audiobookshelf user to users group for NFS media access
@@ -98,6 +106,8 @@ in {
         {
           host = "audiobook.ablz.au";
           port = 13378;
+          # ABS binds the podman bridge gateway, not loopback (see host above).
+          upstreamHost = "10.88.0.1";
           websocket = true;
         }
       ];

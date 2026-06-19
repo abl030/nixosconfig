@@ -18,6 +18,32 @@ in {
       default = false;
       description = "Set TS_NO_TPM=true. Required for machines that swap between Bare Metal and VM (prevents state key lockouts).";
     };
+
+    netfilterMode = lib.mkOption {
+      type = lib.types.enum ["off" "nodivert" "on"];
+      default = "off";
+      description = ''
+        Tailscale's netfilter integration (`tailscale set --netfilter-mode`).
+
+        DEFAULT "off": tailscaled does NOT install its `ts-input` chain with the
+        blanket `-i tailscale0 -j ACCEPT` rule. That rule is jumped from INPUT
+        *before* nixos-fw, so with the default "on" it silently accepts the
+        ENTIRE tailnet to every listening port regardless of NixOS firewall
+        config (the trap that made `trustedInterfaces=["tailscale0"]` look load-
+        bearing when it was redundant). With "off", nixos-fw becomes the real
+        gate: services reach the tailnet via an explicit
+        interfaces.tailscale0 pinhole or nginx:443, and bare ports are dropped.
+        Safe on leaf nodes — SSH(22) is global, the tailscale UDP port is open,
+        and nixos-fw accepts RELATED,ESTABLISHED so outbound stays two-way.
+
+        Set "on" for roaming workstations (epi/framework) that reach
+        sunshine/vnc/etc. over the tailnet and are NOT service hosts. Hosts that
+        ADVERTISE subnet routes / act as an exit node must NOT use "off" without
+        adding their FORWARD/masquerade rules by hand (no fleet host does today;
+        Tower is the only subnet router and it is not NixOS-managed).
+        See docs/wiki/infrastructure/tailscale-untrust.md.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -26,6 +52,9 @@ in {
       enable = true;
       port = 55500;
       useRoutingFeatures = "both";
+      # Make nixos-fw the real gate for the tailnet (default off; see option).
+      # Applied via tailscaled-set.service -> `tailscale set --netfilter-mode`.
+      extraSetFlags = ["--netfilter-mode=${cfg.netfilterMode}"];
     };
 
     # 2. Firewall Configuration
@@ -33,15 +62,13 @@ in {
       # Allow the specific Tailscale UDP port
       allowedUDPPorts = lib.mkBefore [config.services.tailscale.port];
 
-      # tailscale0 is deliberately NOT trusted. The tailnet is a routable
-      # network like any other; blanket-trusting the interface silently exposed
-      # every 0.0.0.0-bound service to the whole tailnet, unauthenticated — the
-      # exact hazard the #232 host-bind audit chases. Services that must be
-      # reachable over the tailnet now declare an explicit pinhole via
-      # networking.firewall.interfaces.tailscale0.allowed{TCP,UDP}Ports (see
-      # syncthing, sunshine, vnc) or ride nginx on 443 (the localProxy FQDNs).
-      # SSH (22) lives in the GLOBAL allowedTCPPorts (openssh.openFirewall), so
-      # dropping the trust never locks anyone out of any host.
+      # tailscale0 is deliberately NOT trusted in nixos-fw. With
+      # netfilterMode="off" (our default) tailscaled no longer blanket-accepts
+      # the interface either, so nixos-fw is the real gate: services reach the
+      # tailnet via an explicit interfaces.tailscale0 pinhole (see syncthing,
+      # sunshine, vnc) or ride nginx on 443 (the localProxy FQDNs). SSH (22)
+      # lives in the GLOBAL allowedTCPPorts (openssh.openFirewall), so neither
+      # the untrust nor netfilterMode=off can lock anyone out of any host.
       # Inventory + rationale: docs/wiki/infrastructure/tailscale-untrust.md
     };
 

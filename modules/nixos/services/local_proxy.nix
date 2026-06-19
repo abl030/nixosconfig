@@ -256,7 +256,7 @@
           useACMEHost = entry.host;
           onlySSL = true;
           locations."/" = {
-            proxyPass = "http://127.0.0.1:${toString entry.port}";
+            proxyPass = "http://${entry.upstreamHost}:${toString entry.port}";
             extraConfig = ''
               ${maxBodySizeConfig}
               ${websocketConfig}
@@ -310,6 +310,18 @@ in {
           port = lib.mkOption {
             type = lib.types.port;
             description = "Local service port to proxy (e.g., 2283).";
+          };
+          upstreamHost = lib.mkOption {
+            type = lib.types.str;
+            default = "127.0.0.1";
+            description = ''
+              Address nginx dials for this vhost's backend. Defaults to
+              127.0.0.1 (the service listens on loopback). Set to the podman
+              bridge gateway (10.88.0.1) for a service deliberately bound to the
+              bridge instead of loopback so a tailscale-share sidecar can reach
+              it — e.g. audiobookshelf. nginx reaches 10.88.0.1 over the host's
+              own loopback routing, so this stays a host-local dial.
+            '';
           };
           websocket = lib.mkOption {
             type = lib.types.bool;

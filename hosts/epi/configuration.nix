@@ -40,6 +40,10 @@
     tailscale = {
       enable = true;
       tpmOverride = true;
+      # Roaming workstation, not a service host: let tailscaled manage netfilter
+      # (blanket-accept the tailnet) so sunshine/vnc/etc. stay reachable without
+      # per-port pinholes. Servers default to "off" (nixos-fw gates the tailnet).
+      netfilterMode = "on";
     };
     nixCaches = {
       enable = true;
