@@ -107,7 +107,8 @@ in {
 
     # The :U chown of the ~2GB /assets volume on (re)start can take a while;
     # give the unit ample room so podman doesn't kill it mid-migration.
-    systemd.services.podman-netboot.serviceConfig.TimeoutStartSec = "600";
+    # mkForce: the oci-containers wrapper already sets a TimeoutStartSec.
+    systemd.services.podman-netboot.serviceConfig.TimeoutStartSec = lib.mkForce "600";
 
     # TFTP + assets ports must be reachable by PXE clients on the LAN
     networking.firewall.allowedTCPPorts = [cfg.assetsPort];
