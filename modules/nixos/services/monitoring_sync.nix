@@ -347,6 +347,11 @@
                     common_kwargs["basic_auth_pass"] = basic_auth_pass
                 if mon_type == "json-query":
                     common_kwargs["method"] = method
+                    # Kuma 2.x requires jsonPathOperator (else "Invalid condition
+                    # null"). Stays in common_kwargs for the EDIT path —
+                    # edit_monitor() merges kwargs onto get_monitor()'s dict and
+                    # tolerates the extra key. The ADD path strips it before
+                    # _build_monitor_data() (which can't, see #278) and re-injects.
                     common_kwargs["jsonPathOperator"] = "=="
                     if json_path:
                         common_kwargs["jsonPath"] = json_path
@@ -405,10 +410,17 @@
                 # uptime-kuma-api 1.2.1 doesn't support it, so inject
                 # into the built data and call the socket directly.
                 from uptime_kuma_api.api import _convert_monitor_input, _check_arguments_monitor, Event
-                data = api._build_monitor_data(**common_kwargs)
+                # json-query's jsonPathOperator has the same problem (#278): lib
+                # 1.2.1's _build_monitor_data() predates it and raises TypeError on
+                # the keyword, crashing the whole sync on any json-query ADD. Strip
+                # it from the build call and inject post-build alongside conditions.
+                build_kwargs = {k: v for k, v in common_kwargs.items() if k != "jsonPathOperator"}
+                data = api._build_monitor_data(**build_kwargs)
                 _convert_monitor_input(data)
                 _check_arguments_monitor(data)
                 data["conditions"] = ""
+                if mon_type == "json-query":
+                    data["jsonPathOperator"] = common_kwargs["jsonPathOperator"]
                 with api.wait_for_event(Event.MONITOR_LIST):
                     resp = api._call('add', data)
                 monitor_id = resp.get("monitorID") or resp.get("monitorId")
