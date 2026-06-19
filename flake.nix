@@ -329,6 +329,44 @@
             touch $out
           '';
 
+          # All-interface bind audit (#232 Tier-3). A service that binds 0.0.0.0
+          # is reachable, unauthenticated, by the WHOLE TAILNET — tailscale0 is a
+          # trusted firewall interface (modules/nixos/services/tailscale), so an
+          # all-interfaces bind sails past the localProxy nginx that's supposed to
+          # front it (auth, rate-limit, ACL) and past any LAN-scoped firewalling.
+          # Empirically verified 2026-06-19: doc2:8888/2283/3001 answered over the
+          # tailnet IP. Default is 127.0.0.1 + homelab.localProxy.hosts. A
+          # genuinely off-host endpoint (ingest, scrape target, fleet write root)
+          # must carry a `BIND-ALL-INTERFACES-OK` marker comment saying why and how
+          # exposure is otherwise scoped. The detector ignores comment lines (so a
+          # comment that merely mentions 0.0.0.0 is fine) and CIDRs (…/0).
+          hostBindAuditCheck = pkgs.runCommand "host-bind-audit" {} ''
+            fail=0
+            for f in $(${pkgs.findutils}/bin/find ${./modules/nixos/services} -name '*.nix' | sort); do
+              if ${pkgs.gnugrep}/bin/grep -vE '^[[:space:]]*#' "$f" \
+                   | ${pkgs.gnugrep}/bin/grep -oE '0\.0\.0\.0[^/]' >/dev/null 2>&1; then
+                if ! ${pkgs.gnugrep}/bin/grep -q 'BIND-ALL-INTERFACES-OK' "$f"; then
+                  echo "UNJUSTIFIED all-interface bind: $(basename "$f")"
+                  fail=1
+                fi
+              fi
+            done
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "A service module binds 0.0.0.0 (all interfaces). Because tailscale0"
+              echo "is a trusted firewall interface, that exposes the service to the"
+              echo "whole tailnet, unauthenticated, bypassing the localProxy nginx."
+              echo "Fix: bind 127.0.0.1 and surface via homelab.localProxy.hosts."
+              echo "If it genuinely must be reached off-host (ingest/scrape target,"
+              echo "fleet write root), add a 'BIND-ALL-INTERFACES-OK' marker comment"
+              echo "stating why and how exposure is scoped (firewall/auth)."
+              echo "See docs/wiki/nixos-service-modules.md \"Host binding\" section."
+              exit 1
+            fi
+            echo "All service-module 0.0.0.0 binds are justified (BIND-ALL-INTERFACES-OK)."
+            touch $out
+          '';
+
           # Pin the home-LAN detection (`on_lan`) in subnet-priority.nix. That
           # function decides whether the roaming-laptop rule `to 192.168.1.0/24
           # lookup main` is installed; it regressed twice (address-presence
@@ -978,7 +1016,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}

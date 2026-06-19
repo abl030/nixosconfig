@@ -14,7 +14,10 @@ in {
       enable = true;
       environmentFile = config.sops.secrets."webdav/env".path;
       settings = {
-        address = "0.0.0.0";
+        # Localhost-only: reached via the localProxy vhost (webdav.ablz.au) and
+        # Zotero syncs to that FQDN. 0.0.0.0 would expose it unauthenticated to
+        # the whole tailnet (tailscale0 is a trusted firewall interface).
+        address = "127.0.0.1";
         port = 9090;
         directory = "/mnt/data/Life/Andy/Education/Zotero Library";
         permissions = "CRUD";

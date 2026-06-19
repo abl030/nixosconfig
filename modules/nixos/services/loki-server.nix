@@ -149,6 +149,10 @@ in {
       description = "Grafana HTTP port. Bound to 127.0.0.1 — reached via logs.ablz.au through nginx.";
     };
 
+    # BIND-ALL-INTERFACES-OK (whole module): the LGTM stack (Loki/Mimir/Tempo
+    # http+grpc, OTLP) binds 0.0.0.0 so off-host exporters/agents (tower/Unraid,
+    # the fleet) can push and remote_write. These are ingest endpoints that MUST
+    # be reachable off-host; the firewall opens exactly these ports on purpose.
     lokiPort = lib.mkOption {
       type = lib.types.port;
       default = 3100;

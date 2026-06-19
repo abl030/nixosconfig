@@ -12,6 +12,9 @@ in {
   config = lib.mkIf cfg.enable {
     services.prometheus.exporters.node = {
       enable = true;
+      # BIND-ALL-INTERFACES-OK: node_exporter is a metrics scrape target pulled
+      # off-host (9100 is opened in the firewall on purpose). Low-sensitivity
+      # host metrics; must be reachable by the scraper, so not localhost-only.
       listenAddress = "0.0.0.0";
       port = 9100;
       enabledCollectors = [

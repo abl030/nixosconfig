@@ -122,7 +122,10 @@ in {
     services.paperless = {
       enable = true;
       port = 28981;
-      address = "0.0.0.0";
+      # Localhost-only: reached via the localProxy vhost (paperless.ablz.au) and
+      # the paperless agents hit that FQDN. 0.0.0.0 would expose it
+      # unauthenticated to the whole tailnet (tailscale0 is a trusted fw iface).
+      address = "127.0.0.1";
       inherit (cfg) dataDir;
 
       inherit mediaDir;

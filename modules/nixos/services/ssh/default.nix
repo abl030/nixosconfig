@@ -54,7 +54,9 @@ in {
       # whole key model. Closing that surface is what actually locks the door.
       authorizedKeysInHomedir = false;
 
-      # We bind to 0.0.0.0 as it is only used for proxyjump and we are fine to bind to all IPS.
+      # BIND-ALL-INTERFACES-OK: sshd is the bastion/proxyjump door — key-only
+      # (secure mode) and `from=`-pinned to tailnet/LAN. Binding all interfaces
+      # is intentional; the auth + source pinning are the controls, not the bind.
       listenAddresses = [
         {
           addr = "0.0.0.0";

@@ -110,7 +110,12 @@ in {
     services.immich = {
       enable = true;
       port = 2283;
-      host = "0.0.0.0";
+      # Localhost-only: reached via the localProxy vhost (photos.ablz.au); the
+      # mobile app and web UI use that FQDN (Cloudflare→nginx→127.0.0.1:2283),
+      # and immich's own microservices talk over localhost. 0.0.0.0 would expose
+      # the API unauthenticated to the whole tailnet (tailscale0 is a trusted
+      # firewall interface). Verified no non-localhost clients before flipping.
+      host = "127.0.0.1";
       mediaLocation = "/mnt/data/Life/Photos";
 
       database = {

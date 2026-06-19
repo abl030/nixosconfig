@@ -37,6 +37,11 @@ in {
     };
     guiAddress = lib.mkOption {
       type = lib.types.str;
+      # BIND-ALL-INTERFACES-OK: the GUI is scoped to the tailnet by the
+      # interface-specific firewall rule below (tailscale0 allowedTCPPorts only,
+      # NOT the LAN); the bind is 0.0.0.0 because the tailscale IP is per-host
+      # dynamic. This is the "broad bind, narrow firewall" pattern, not an
+      # unscoped exposure.
       default = "0.0.0.0:8384";
       description = "Address and port for the Syncthing GUI.";
     };

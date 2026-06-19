@@ -38,7 +38,10 @@ in {
     services.mealie = {
       enable = true;
       port = 9925;
-      listenAddress = "0.0.0.0";
+      # Localhost-only: reached via the localProxy vhost (cooking.ablz.au).
+      # 0.0.0.0 would expose it unauthenticated to the whole tailnet
+      # (tailscale0 is a trusted firewall interface).
+      listenAddress = "127.0.0.1";
       credentialsFile = config.sops.secrets."mealie/env".path;
       database.createLocally = false;
       settings = {

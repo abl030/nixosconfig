@@ -771,14 +771,52 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
 
 ### Network exposure
 
-- **`listen 0.0.0.0` when only LAN access is wanted.** Every consumer should
-  bind `127.0.0.1` and surface via `homelab.localProxy.hosts`. Binding to all
-  interfaces gives any LAN segment direct unauthenticated access — no nginx
-  rate-limit, no ACL, nothing.
+- **`listen 0.0.0.0` / `host = "0.0.0.0"` when the service is fronted by a
+  localProxy vhost.** This is enforced by the `hostBindAuditCheck` flake check —
+  see the dedicated **"Host binding"** section below for the rule, the teeth
+  (`tailscale0` is a *trusted* firewall interface, so all-interfaces = whole
+  tailnet, not just LAN), and the `BIND-ALL-INTERFACES-OK` escape hatch.
 - **Services on the default `podman` bridge that don't need to talk to each
   other.** Default-network membership lets every container L3-reach every
   other on `10.88.0.0/16`. Per-service podman networks are cheap and bound the
   pivot surface.
+
+#### Host binding (enforced: `hostBindAuditCheck`)
+
+**Default: bind `127.0.0.1` and surface via `homelab.localProxy.hosts`.** Do not
+bind `0.0.0.0` / `host = "0.0.0.0"` / `listenAddress = "0.0.0.0"` for a service
+that's reached through its localProxy FQDN.
+
+**Why it's not just a LAN concern:** `modules/nixos/services/tailscale/default.nix`
+sets `trustedInterfaces = ["tailscale0"]`, so the host firewall *accepts
+everything* arriving on the tailnet interface. A `0.0.0.0` bind is therefore
+reachable, **unauthenticated, by every node on the tailnet** — including any
+externally-shared node — completely bypassing the nginx auth/rate-limit/ACL the
+localProxy puts in front. (Verified 2026-06-19: with the old binds, `doc2`'s
+atuin:8888, immich:2283 and uptime-kuma:3001 all answered on the tailscale IP.
+The per-port `allowedTCPPorts` firewall does *not* save you — `tailscale0` is
+trusted wholesale.) #232 Tier-3.
+
+**The check** (`nix flake check` → `hostBindAuditCheck`) fails the build if any
+`modules/nixos/services/**.nix` has a `0.0.0.0` bind on a non-comment line
+without a `BIND-ALL-INTERFACES-OK` marker. It ignores comment lines and CIDRs
+(`…/0`).
+
+**Escape hatch — only for genuinely off-host endpoints** (ingest target, scrape
+target, fleet git write root, a sidecar-fronted container). Add a comment marker
+on/near the bind:
+
+```nix
+# BIND-ALL-INTERFACES-OK: <why it must be reached off-host> + <how exposure is
+# scoped — interface-specific firewall, its own auth, etc.>
+listenAddress = "0.0.0.0";
+```
+
+Good escape-hatch examples in-tree: `forgejo.nix` (fleet SSH write root,
+key-auth), `loki-server.nix` (LGTM ingest endpoints), `prometheus.nix`
+(node_exporter scrape target), `syncthing/default.nix` (broad bind but firewall
+scopes the GUI to `tailscale0` only — the "broad bind, narrow firewall"
+pattern), `ssh/default.nix` (bastion door, key-only + `from=`-pinned).
 
 ### Image trust
 
@@ -939,7 +977,10 @@ Before submitting a new service module:
 - [ ] OCI containers prepend `config.homelab.podman.hardenOptions` to
       `extraOptions` and `--cap-add` back only the minimal set (see Container
       runtime hardening). Do NOT pin image tags — auto-pull stays on (policy)
-- [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts`
+- [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts` — NOT
+      `0.0.0.0` (enforced by `hostBindAuditCheck`; `tailscale0` is trusted, so
+      all-interfaces = whole tailnet). Off-host endpoints need a
+      `BIND-ALL-INTERFACES-OK` marker — see "Host binding"
 - [ ] `homelab.localProxy.hosts` entry for DNS/SSL/nginx
 - [ ] If MOVING a `localProxy` service between hosts: deploy the destination
       (new) host first, then the source — and both in one maintenance window.

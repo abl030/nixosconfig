@@ -43,6 +43,9 @@ in {
           DISABLE_SSH = false;
           START_SSH_SERVER = true;
           SSH_PORT = 2222;
+          # BIND-ALL-INTERFACES-OK: Forgejo is the fleet git write root — every
+          # host pushes here over SSH (2222 is opened in the firewall on
+          # purpose). Auth is SSH-key based, so all-interfaces is intentional.
           SSH_LISTEN_HOST = "0.0.0.0";
           SSH_LISTEN_PORT = 2222;
           SSH_DOMAIN = "git.ablz.au";

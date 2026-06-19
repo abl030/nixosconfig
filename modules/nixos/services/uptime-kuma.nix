@@ -20,7 +20,11 @@ in {
       enable = true;
       settings = {
         PORT = "3001";
-        HOST = "0.0.0.0";
+        # Localhost-only: dashboard/API reached via the localProxy vhost
+        # (status.ablz.au); Kuma's monitor probes are outbound regardless.
+        # 0.0.0.0 would expose it unauthenticated to the whole tailnet
+        # (tailscale0 is a trusted firewall interface).
+        HOST = "127.0.0.1";
         DATA_DIR = lib.mkForce cfg.dataDir;
       };
     };

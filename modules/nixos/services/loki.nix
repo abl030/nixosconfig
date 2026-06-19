@@ -294,6 +294,9 @@ in {
       };
       listenAddress = lib.mkOption {
         type = lib.types.str;
+        # BIND-ALL-INTERFACES-OK: the alloy syslog receiver ingests from
+        # off-host senders (e.g. pfSense → 1514); the firewall scopes who may
+        # reach it (1514 allowed only from 192.168.1.1). Must not be localhost.
         default = "0.0.0.0";
         description = "Address to bind syslog listener.";
       };

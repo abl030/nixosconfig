@@ -39,7 +39,10 @@ in {
     services.atuin = {
       enable = true;
       port = 8888;
-      host = "0.0.0.0";
+      # Localhost-only: reached via the localProxy vhost (atuin.ablz.au) and
+      # clients sync to that FQDN. 0.0.0.0 would expose the sync server,
+      # unauthenticated, to the whole tailnet (tailscale0 is a trusted fw iface).
+      host = "127.0.0.1";
       openRegistration = true;
       database = {
         createLocally = false;

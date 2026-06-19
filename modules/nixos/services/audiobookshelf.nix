@@ -31,7 +31,10 @@ in {
     services.audiobookshelf = {
       enable = true;
       port = 13378;
-      host = "0.0.0.0";
+      # Localhost-only: reached via the localProxy vhost (audiobook.ablz.au).
+      # 0.0.0.0 would expose it unauthenticated to the whole tailnet
+      # (tailscale0 is a trusted firewall interface).
+      host = "127.0.0.1";
     };
 
     # Add audiobookshelf user to users group for NFS media access

@@ -124,7 +124,10 @@ in {
         }
         // lib.optionalAttrs cfg.dashboard.enable ({
             HERMES_DASHBOARD = "1";
-            HERMES_DASHBOARD_HOST = "0.0.0.0"; # behind the tailscaleShare caddy + Basic Auth + podman0 firewall
+            # BIND-ALL-INTERFACES-OK: dashboard sits behind the tailscaleShare
+            # caddy sidecar + Basic Auth + the podman0 firewall; the container
+            # bind must be reachable by the sidecar, not localhost.
+            HERMES_DASHBOARD_HOST = "0.0.0.0";
             HERMES_DASHBOARD_PORT = toString cfg.dashboardPort;
             HERMES_DASHBOARD_BASIC_AUTH_USERNAME = cfg.dashboard.user;
             # PASSWORD + SECRET come from the env secret (hermes.env).
