@@ -22,6 +22,10 @@
       nfsLocal.enable = true;
       fuse.enable = true;
     };
+    # forgejo#2 Phase 4: accept the doc1 bastion's forced-command deploy trigger
+    # (proven on doc2). Step 4a — enable + prove `fleet-deploy igpu` before the
+    # sudo lockdown in 4b.
+    fleetDeploy.acceptTrigger = true;
     services.tdarrNode.enable = true;
     services.jellyfin = {
       enable = true;
