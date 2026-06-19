@@ -31,7 +31,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
-- [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, image pinning
+- [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime
 - [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
 - [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
