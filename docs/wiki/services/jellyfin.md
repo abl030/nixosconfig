@@ -1,6 +1,6 @@
 # Jellyfin (native, on igpu)
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-06-19 (jellystat→UID 2014, watchstate→userns host 201000; forgejo#2 Phase 1)
 **Status:** working
 **Host:** `igpu` (VM 109)
 **Owner:** `modules/nixos/services/jellyfin.nix` under `homelab.services.jellyfin`
@@ -126,10 +126,10 @@ OCI container `cyfershepard/jellystat:latest` + nspawn PostgreSQL (mk-pg-contain
 | FQDN | `jellystat.ablz.au` |
 | Host port | 3010 (container 3000) |
 | DB | nspawn `jellystat-db`, user=jellystat, database=jfstat (upstream default, via `extraDatabases`) |
-| Data | `/mnt/virtio/jellystat/{backup-data,postgres}` (abl030:users except pg internal) |
+| Data | `/mnt/virtio/jellystat/backup-data` (`jellystat:users`, UID 2014); `postgres/` is pg-internal (`0700 root`) |
 | Kuma monitor | `https://jellystat.ablz.au/` |
 
-Container runs as `--user=1000:100` so host-side files land abl030-owned. Connects to nspawn PG via podman MASQUERADE (source IP rewritten to 192.168.100.14, matching pg_hba trust rule).
+Container runs as `--user=2014:100` — a **dedicated `jellystat` service UID (2014)**, never host UID 1000 (`abl030`). UID 1000 has passwordless sudo, so a popped container running as it would inherit root; jellystat honours `--user` directly so it gets a clean dedicated UID like youtarr(2009)/tdarr(2010). See forgejo#2 / #232 and the "No container ever runs as host UID 1000" rule in `nixos-service-modules.md`. Connects to nspawn PG at `10.20.0.15:5432` via podman MASQUERADE (source IP rewritten to host-side veth `10.20.0.14`, authenticated with **scram-sha-256** — `trust` over TCP was retired in #232).
 
 First-run setup: visit `https://jellystat.ablz.au/`, add Jellyfin API key + URL (`https://jelly.ablz.au`), trigger initial sync.
 
@@ -145,8 +145,19 @@ OCI container `ghcr.io/arabcoders/watchstate:latest`, no DB.
 |---|---|
 | FQDN | `watchstate.ablz.au` |
 | Host port | 8099 (container 8080) |
-| Data | `/mnt/virtio/watchstate` mounted as `/config` (abl030:users) |
+| Data | `/mnt/virtio/watchstate` mounted as `/config:U` (owned by host UID **201000** after the userns remap) |
 | Kuma monitor | `https://watchstate.ablz.au/` |
+
+**UID handling — userns remap, NOT `--user`.** watchstate's image hardcodes a
+UID-1000 `user`, which under rootful podman *is* host `abl030` (passwordless
+sudo). Its `WS_UID` switch can't relocate that user under `cap-drop=all` — it
+crash-loops. So the whole container is userns-remapped
+(`--uidmap=0:200000:65536` / `--gidmap=0:200000:65536`): container UID 1000 →
+host **201000**, never `abl030`. `WS_UID` stays `1000` (the image's happy
+default; no in-container switch). The `:U` flag on the `/config` volume migrated
+the existing abl030-owned data into the mapped range on first start. See
+forgejo#2 Phase 1b and the "No container ever runs as host UID 1000" rule in
+`nixos-service-modules.md`.
 
 Backends configured via WebUI (not env vars). Migrated state from igpu compose era:
 - **Plex** (tower): `http://192.168.1.2:32400` — no FQDN available (tower/Unraid doesn't have a localProxy-managed record)

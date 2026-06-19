@@ -677,6 +677,67 @@ Notes:
 - **File-capability binaries need their cap in the bounding set even on an unprivileged port.** jlesage GUI images ship `/opt/base/sbin/nginx` with a `cap_net_bind_service` file-cap; under `cap-drop=all`, `execve()` returns EPERM ("Operation not permitted") for any binary whose *permitted file-caps exceed the bounding set* — the container stays "running" (supervisor) but the web UI is dead. Fix: `--cap-add=NET_BIND_SERVICE` even though the runtime port is >1024 (jdownloader2 hit exactly this). General rule: **"unit active" ≠ "app serving" — always HTTP-probe after hardening**, don't trust `systemctl is-active`.
 - Exception of record: `hermes` (its own locked VM) is deliberately left at podman *runtime-hardening* defaults (no cap-drop yet) until its tool requirements are profiled — see the header in `modules/nixos/services/hermes-agent.nix`. (It IS registered for nightly auto-updates as of 2026-06-19, `isolate=false`; only the cap hardening is deferred, with the VM isolation holding the line.) Any new container has no such excuse.
 
+### No container ever runs as host UID 1000 / `abl030` (REQUIRED)
+
+`abl030` (host UID 1000) is the fleet's `wheel`/admin user with **passwordless
+sudo**. A container that runs as host UID 1000 means a popped-and-escaped
+container *is* `abl030` — instant passwordless root on the host, plus the
+bastion's fleet SSH key on doc1. So **no OCI container may run as host UID 1000**,
+full stop. This is the lateral-pivot vector tracked in forgejo issue #2 / GitHub
+#232 (bastion/pivot hardening); the cheap `--user=1000:100` "files land
+abl030-owned, inspectable without sudo" convenience is not worth that blast
+radius. There are two distinct fixes, picked by whether the *image* cooperates:
+
+**1. App honours `--user` (most Node/Go/static apps).** jellystat, youtarr,
+tdarr all run their workload at whatever UID podman is told. Give each a
+**dedicated non-1000 host UID** (youtarr=2009, tdarr=2010, jellystat=2014) via
+`--user=<uid>:<gid>` (or the image's PUID/PGID where that's the only knob), back
+it with a `users.users.<svc>` (`isSystemUser = true`, `group = "users"` so writes
+stay group-readable), and `systemd.tmpfiles` `Z`/`d` rules that re-own the
+service's data dirs to that UID before start (migrates existing abl030-owned
+state). Clean and simple; this is the default path. See jellystat in
+`jellyfin.nix` for the canonical shape.
+
+**2. Image hardcodes an internal UID-1000 user that won't relocate under
+`cap-drop=all`.** Some images bake a UID-1000 app user (watchstate's built-in
+`user`, netboot's `nbxyz`) and expose a `WS_UID`/`PUID` switch that silently
+*fails* under `cap-drop=all` — the entrypoint can't chown/setuid to the new id,
+so it crash-loops. `--user` can't fix this either (the in-image user is wired
+through scripts). For these, **userns-remap the whole container** so its internal
+UID 1000 lands on a high host UID, never `abl030`:
+
+```nix
+extraOptions = config.homelab.podman.hardenOptions ++ [
+  "--uidmap=0:<base>:65536"   # container UID 0..65535 → host <base>..<base>+65535
+  "--gidmap=0:<base>:65536"   # so the image's UID 1000 → host <base>+1000
+  # ... the s6/entrypoint caps it still needs (CHOWN SETUID SETGID DAC_OVERRIDE
+  #     FOWNER KILL, plus NET_BIND_SERVICE for a privileged in-container port) ...
+];
+```
+
+Rules for this path:
+
+- **Use a distinct `<base>` per container so the ranges don't overlap** — netboot
+  uses `100000` (its UID 1000 → host 101000), watchstate uses `200000` (→ host
+  201000). Each container is then isolated from the others' mapped files too.
+- **Add `:U` to every bind-mounted volume** (`"${dataDir}:/config:U"`) — podman
+  chowns the existing content into the mapped range on start, migrating
+  abl030-owned data so the remapped container can still read/write it.
+- **For a large volume the `:U` chown is slow** (netboot's `/assets` is ~2GB);
+  bump the unit's `TimeoutStartSec` or podman kills it mid-migration. The
+  oci-containers wrapper already sets a default, so override with
+  `lib.mkForce`: `systemd.services.podman-<name>.serviceConfig.TimeoutStartSec = lib.mkForce "600";`.
+- **No `containers` subuid/subgid entry is needed.** Rootful podman accepts an
+  explicit `--uidmap`/`--gidmap` directly; you do not have to allocate a subuid
+  range in `/etc/subuid`.
+- **Verify the remap on a throwaway container first.** The naive "just flip the
+  env var" approach crash-looped watchstate before we reached for userns — prove
+  the mechanism before committing the real change.
+
+**Verify either fix:** `sudo podman top <ctr> huser` must show **no** process
+owned by `abl030`. (Class 1 shows the dedicated UID; class 2 shows the high
+mapped host UID for the in-container UID-1000 user.)
+
 ## External Sharing (tailscaleShare)
 
 Use `homelab.tailscaleShare` when a service needs to be accessible from **outside your tailnet** — e.g. sharing with someone on a different tailscale account. This is distinct from `localProxy` (LAN-only) and from the main doc2 tailscale node (which shares the whole VM).
@@ -1007,6 +1068,12 @@ Before submitting a new service module:
       declared in `ownershipAllowList`; deploy fails loudly otherwise (see
       Schema-ownership invariant section)
 - [ ] OCI containers run with `--user=<non-root-uid>:<gid>` in `extraOptions`
+- [ ] **No OCI container runs as host UID 1000 (`abl030`)** — that user has
+      passwordless sudo, so a popped container would inherit it. Cooperative
+      images get a dedicated non-1000 UID via `--user`; images with a baked-in
+      UID-1000 user get a userns remap (`--uidmap`/`--gidmap` + `:U` volumes).
+      Verify with `sudo podman top <ctr> huser` (no `abl030`). See "No container
+      ever runs as host UID 1000 / `abl030`"
 - [ ] OCI containers prepend `config.homelab.podman.hardenOptions` to
       `extraOptions` and `--cap-add` back only the minimal set (see Container
       runtime hardening). Do NOT pin image tags — auto-pull stays on (policy)
