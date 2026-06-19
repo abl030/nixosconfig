@@ -32,8 +32,17 @@ in {
     networking.firewall = {
       # Allow the specific Tailscale UDP port
       allowedUDPPorts = lib.mkBefore [config.services.tailscale.port];
-      # Trust the interface
-      trustedInterfaces = ["tailscale0"];
+
+      # tailscale0 is deliberately NOT trusted. The tailnet is a routable
+      # network like any other; blanket-trusting the interface silently exposed
+      # every 0.0.0.0-bound service to the whole tailnet, unauthenticated — the
+      # exact hazard the #232 host-bind audit chases. Services that must be
+      # reachable over the tailnet now declare an explicit pinhole via
+      # networking.firewall.interfaces.tailscale0.allowed{TCP,UDP}Ports (see
+      # syncthing, sunshine, vnc) or ride nginx on 443 (the localProxy FQDNs).
+      # SSH (22) lives in the GLOBAL allowedTCPPorts (openssh.openFirewall), so
+      # dropping the trust never locks anyone out of any host.
+      # Inventory + rationale: docs/wiki/infrastructure/tailscale-untrust.md
     };
 
     # 3. The Conditional TPM Override

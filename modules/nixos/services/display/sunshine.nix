@@ -30,11 +30,14 @@ in {
       vpl-gpu-rt
     ];
 
-    # # 3. Firewall - Allow Sunshine only on Tailscale interface (tailscale0)
-    # networking.firewall.interfaces."tailscale0" = {
-    #   allowedTCPPorts = [47984 47989 47990 48010];
-    #   allowedUDPPorts = [47998 47999 48000 48002 48010];
-    # };
+    # 3. Firewall — Sunshine reachable over the tailnet only (tailscale0).
+    # openFirewall=false above keeps these off the LAN. tailscale0 is no longer
+    # blanket-trusted (see services/tailscale/default.nix), so Sunshine needs an
+    # explicit tailnet pinhole — previously it rode the interface trust.
+    networking.firewall.interfaces."tailscale0" = {
+      allowedTCPPorts = [47984 47989 47990 48010];
+      allowedUDPPorts = [47998 47999 48000 48002 48010];
+    };
 
     # 4. Avahi/DNS-SD (Optional: helps Moonlight find the host)
     services.avahi.publish.userServices = true;

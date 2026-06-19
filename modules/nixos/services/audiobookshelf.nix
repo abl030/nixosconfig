@@ -31,10 +31,15 @@ in {
     services.audiobookshelf = {
       enable = true;
       port = 13378;
-      # Localhost-only: reached via the localProxy vhost (audiobook.ablz.au).
-      # 0.0.0.0 would expose it unauthenticated to the whole tailnet
-      # (tailscale0 is a trusted firewall interface).
-      host = "127.0.0.1";
+      # BIND-ALL-INTERFACES-OK: the tailnet-share caddy sidecar runs in the ts
+      # netns and reaches ABS via host.docker.internal (the podman bridge) — it
+      # CANNOT use 127.0.0.1 (that's the container's own loopback), so a
+      # loopback-only bind silently 502s the share. 0.0.0.0 is safe because
+      # tailscale0 is no longer a trusted firewall interface (see
+      # services/tailscale/default.nix): the bare port is firewalled off the
+      # tailnet, so the only ways in are nginx:443 (audiobook.ablz.au) and the
+      # dedicated audiobooks share node. ABS also enforces its own login.
+      host = "0.0.0.0";
     };
 
     # Add audiobookshelf user to users group for NFS media access

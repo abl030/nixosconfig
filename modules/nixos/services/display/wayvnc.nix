@@ -14,8 +14,14 @@ in {
 
   config = mkIf cfg.enable {
     # 1. Firewall
-    networking.firewall = mkIf cfg.openFirewall {
-      allowedTCPPorts = [5900];
+    # openFirewall opens 5900 on ALL interfaces (LAN included) — default off.
+    # Regardless, expose 5900 on the tailnet: wayvnc is a tailnet remote-desktop
+    # tool, and tailscale0 is no longer blanket-trusted (see
+    # services/tailscale/default.nix), so it needs an explicit pinhole there —
+    # previously it rode the interface trust.
+    networking.firewall = {
+      allowedTCPPorts = mkIf cfg.openFirewall [5900];
+      interfaces.tailscale0.allowedTCPPorts = [5900];
     };
 
     # 2. Authentication (PAM)
