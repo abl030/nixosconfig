@@ -23,10 +23,9 @@
 #     and gated by HTTP Basic Auth (the bundled DashboardAuthProvider, which also
 #     satisfies Hermes' own non-loopback bind gate, so no --insecure). The
 #     published 9119 is firewalled to podman0 (the caddy sidecar) by the share.
-#   * Controlled updates: image pinned by DIGEST and intentionally NOT registered
-#     in homelab.podman.containers, so the nightly pull-restart timer ignores it.
-#     Bump the digest deliberately after reading release notes — an arbitrary-
-#     code executor must not silently self-update from upstream.
+#   * Auto-updates: runs :latest and IS registered in homelab.podman.containers
+#     (isolate=false — sole container on its own VM), so the nightly pull-restart
+#     timer keeps it current like the rest of the fleet. Unpinned 2026-06-19.
 #
 # Outstanding hardening (needs runtime profiling of the agent's tool use — the
 # Playwright/Chromium capability needs are unknown until observed):
@@ -52,9 +51,11 @@
 }: let
   cfg = config.homelab.services.hermes-agent;
 
-  # Pinned to release v2026.6.5 (2026-06-06). Controlled updates ONLY — bump this
-  # digest deliberately. Do NOT switch to :latest / :main (rebuilt daily).
-  image = "docker.io/nousresearch/hermes-agent@sha256:9ad3b04ec916ea2c2da22358fd43b024c788d74073210695af88bfc2e63869b4";
+  # :latest + auto-pull, like the rest of the fleet (no image pinning — policy).
+  # Unpinned 2026-06-19: the old "arbitrary-code executor must not self-update"
+  # rationale was inconsistent — the nightly Claude/agent tooling has the same
+  # profile and auto-updates too — and hermes is currently idle/over-engineered.
+  image = "docker.io/nousresearch/hermes-agent:latest";
 in {
   options.homelab.services.hermes-agent = {
     enable = lib.mkEnableOption "Hermes Agent (Nous Research) — locked-down OCI container";
@@ -101,9 +102,20 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # Rootful podman backend. NOTE: hermes is deliberately NOT added to
-    # homelab.podman.containers — no nightly auto-pull (see header).
+    # Rootful podman backend. hermes is registered below for nightly auto-pull.
     homelab.podman.enable = true;
+
+    # Track the hermes container in the nightly pull-restart timer. isolate=false:
+    # it's the sole standalone container on its own VM, so a dedicated bridge buys
+    # nothing, and keeping it on the default bridge avoids any change to the
+    # dashboard sidecar's host.docker.internal upstream path.
+    homelab.podman.containers = [
+      {
+        unit = "podman-hermes.service";
+        inherit image;
+        isolate = false;
+      }
+    ];
 
     # Per-host secret: LLM provider API key + Telegram bot token + allowlist.
     # dotenv → injected as container env. Lives only on hermes (hosts/hermes/).
@@ -113,15 +125,15 @@ in {
       mode = "0400";
     };
 
-    # CONTAINER-NETWORK-OK: hermes is the ONLY container on its own locked-down
-    # VM — there are no sibling containers to pivot to, so the default podman
-    # bridge is not a lateral-movement surface here. It is intentionally NOT in
-    # the homelab.podman.containers registry (no nightly auto-pull, see header),
-    # hence no auto-isolation; that's fine for a single-tenant host.
+    # Registered above (isolate=false), so the network-audit check is satisfied
+    # without a marker. isolate=false because hermes is the only standalone
+    # container on its own locked-down VM — a dedicated bridge buys no isolation
+    # (no siblings to pivot to) and keeping it on the default bridge preserves the
+    # dashboard sidecar's host.docker.internal upstream path.
     virtualisation.oci-containers.containers.hermes = {
       inherit image;
       autoStart = true;
-      pull = "missing"; # digest-pinned; never silently fetches a different image
+      pull = "newer"; # :latest, auto-pull newer like the rest of the fleet
       cmd = ["gateway" "run"];
       environment =
         {

@@ -23,9 +23,11 @@ See the full threat model in the module header. In short:
   container is **not** `--privileged`.
 - **Zero inbound exposure.** Telegram is outbound-only; the dashboard is OFF
   (`dashboard.enable = false`). Admin is via `podman exec` over the bastion.
-- **Controlled updates.** Image pinned by digest and intentionally NOT in
-  `homelab.podman.containers`, so the nightly pull-restart timer ignores it. Bump
-  the digest deliberately.
+- **Auto-updates.** Runs `:latest` and IS registered in `homelab.podman.containers`
+  (`isolate = false` — sole container on its own VM), so the nightly pull-restart
+  timer keeps it current like the rest of the fleet (unpinned 2026-06-19). The old
+  digest-pin / "arbitrary-code executor must not self-update" stance was dropped
+  as inconsistent — the nightly agent tooling has the same profile and updates too.
 
 ## State (NOT in the repo)
 
@@ -111,7 +113,7 @@ tmux send-keys -t pick Enter                   # ↑↓ navigate, ENTER selects
   # "no final response" == failure → check /opt/data/logs/{agent,errors}.log for the real 400
   ```
 - **Change model:** the tmux picker above.
-- **Update the image:** bump the pinned digest in `hermes-agent.nix` (NOT auto-updated).
+- **Update the image:** automatic — `:latest` is pulled+restarted by the nightly `homelab.podman` timer. To force now: `sudo systemctl start podman-update-containers` (or `podman pull` + `systemctl restart podman-hermes`).
 - **Telegram allowlist:** `TELEGRAM_ALLOWED_USERS` in `hermes.env` (numeric user IDs);
   without it the gateway denies everyone.
 
