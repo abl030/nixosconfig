@@ -16,7 +16,7 @@
   # isn't in the registry at all. `podman-<name>.service` → `<name>`.
   isolatedNames =
     map (e: lib.removeSuffix ".service" (lib.removePrefix "podman-" e.unit))
-    (lib.filter (e: e.image != null && lib.hasPrefix "podman-" e.unit) cfg.containers);
+    (lib.filter (e: e.isolate && e.image != null && lib.hasPrefix "podman-" e.unit) cfg.containers);
 
   containerType = lib.types.submodule {
     options = {
@@ -28,6 +28,17 @@
         type = lib.types.nullOr lib.types.str;
         default = null;
         description = "OCI image reference. When set, only restart if a newer image was pulled. When null, always restart (for compose stacks).";
+      };
+      isolate = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Give this container its own dedicated `isolated-<name>` bridge (#232).
+          Set false for containers that manage their own networking and would
+          break if an extra `--network` were injected — e.g. a sidecar that uses
+          `--network=container:<other>` to share another container's netns
+          (tailscale-share's caddy), or the tailscale node it pairs with.
+        '';
       };
     };
   };

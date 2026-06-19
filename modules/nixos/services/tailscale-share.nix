@@ -254,15 +254,21 @@ in {
       podman = {
         enable = lib.mkDefault true;
 
-        # Register containers for auto-update tracking
+        # Register containers for auto-update tracking. isolate=false: these
+        # manage their own networking (caddy shares the ts netns via
+        # --network=container:ts-<name>; the ts node stays on the default bridge
+        # to reach host.docker.internal). Auto-injecting --network=isolated-* here
+        # conflicts with --network=container: and kills the caddy sidecar (#232).
         containers = lib.concatLists (lib.mapAttrsToList (name: _: [
             {
               unit = "podman-ts-${name}.service";
               image = "docker.io/tailscale/tailscale:latest";
+              isolate = false;
             }
             {
               unit = "podman-caddy-${name}.service";
               image = "ghcr.io/caddybuilds/caddy-cloudflare:latest";
+              isolate = false;
             }
           ])
           instances);
