@@ -71,14 +71,15 @@
   };
 
   # Container runs as host abl030 (1000:100) so virtiofs files land
-  # Dedicated per-service UIDs (forgejo#2 / #232). jellystat + watchstate must NOT
-  # run as host UID 1000 (abl030): that user has passwordless sudo on doc2, so a
-  # popped + escaped container would inherit it (the lateral-pivot vector). Give
-  # each its own UID like youtarr(2009)/tdarr(2010). GID stays 100 (users) so
-  # volume writes remain group-users-readable. Pinned numeric because containers
-  # can't resolve host usernames.
+  # Dedicated per-service UID (forgejo#2 / #232). Containers must NOT run as host
+  # UID 1000 (abl030): that user has passwordless sudo on doc2, so a popped +
+  # escaped container would inherit it (the lateral-pivot vector). jellystat is a
+  # Node app that honours `--user` directly, so it gets a clean dedicated UID
+  # like youtarr(2009)/tdarr(2010). GID stays 100 (users) for group-readable
+  # writes; numeric because containers can't resolve host usernames.
+  # (watchstate + netboot run an image-internal UID-1000 user that doesn't
+  # relocate under cap-drop — those need userns remapping, forgejo#2 Phase 1b.)
   jellystatUid = 2014;
-  watchstateUid = 2015;
 in {
   options.homelab.services.jellyfin = {
     enable = lib.mkEnableOption "Jellyfin media server";
@@ -498,20 +499,17 @@ in {
     # watchstate (doc2) — Plex <-> Jellyfin sync, no DB
     # ============================================================
     (lib.mkIf cfg.watchstate.enable {
-      # Dedicated UID for the watchstate container (see header) — keeps it off
-      # host UID 1000 (abl030). isSystemUser; group=users for group-read.
-      users.users.watchstate = {
-        isSystemUser = true;
-        uid = watchstateUid;
-        group = "users";
-        description = "watchstate sync container runtime user";
-      };
-
+      # NOTE (forgejo#2 Phase 1b): watchstate runs the image's built-in UID-1000
+      # "user" (= host abl030). Its WS_UID switch usermods that account, but under
+      # cap-drop=all the switch silently fails, so forcing WS_UID≠1000 leaves the
+      # app on 1000 while /config is owned by the new UID → it can't write and
+      # crash-loops. This image-internal-UID-1000 class (also netboot) needs
+      # userns remapping, NOT a WS_UID/--user flag — tracked separately. Reverted
+      # to 1000 here to keep the service up; the Z re-owns /config back off any
+      # half-migrated state.
       systemd.tmpfiles.rules = [
-        # /config is the container's only volume; own it as watchstate and
-        # recursively re-own existing state (migration off abl030/1000).
-        "d ${cfg.watchstate.dataDir} 0750 watchstate users -"
-        "Z ${cfg.watchstate.dataDir} - watchstate users -"
+        "d ${cfg.watchstate.dataDir} 0755 ${hostConfig.user} users -"
+        "Z ${cfg.watchstate.dataDir} - ${hostConfig.user} users -"
       ];
 
       virtualisation.oci-containers.containers.watchstate = {
@@ -520,8 +518,9 @@ in {
         pull = "newer";
         environment = {
           # Upstream reads these at entrypoint to chown /config and drop privs.
-          # Dedicated non-abl030 UID (see header); GID 100 (users).
-          WS_UID = toString watchstateUid;
+          # Stays 1000 (the image's built-in user) — see the Phase-1b NOTE above;
+          # switching it off 1000 needs userns, not this env, under cap-drop.
+          WS_UID = "1000";
           WS_GID = "100";
           TZ = "Australia/Perth";
         };
