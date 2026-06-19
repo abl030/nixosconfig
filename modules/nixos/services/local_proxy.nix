@@ -33,6 +33,13 @@
     zone_name="ablz.au"
     ttl=60
 
+    # Ownership tag stamped into each managed record's Cloudflare comment.
+    # Cleanup only deletes records that are unclaimed or owned by THIS host, so
+    # one host can never delete a record another host has claimed during a
+    # service migration. See issue #202 and
+    # docs/wiki/services/local-proxy-dns-sync.md.
+    owner_tag="managed-by:${config.networking.hostName}"
+
     cache_dir="/var/lib/homelab/dns"
     zone_cache="$cache_dir/zone-id"
     records_cache="$cache_dir/records.json"
@@ -104,10 +111,22 @@
 
     while read -r cached_host; do
       if ! printf '%s\n' "$desired_hosts" | ${pkgs.gnugrep}/bin/grep -qx "$cached_host"; then
-        record_id=$(${pkgs.jq}/bin/jq -r --arg host "$cached_host" '.[$host].recordId // ""' "$records_cache")
-        if [[ -n "$record_id" ]]; then
-          cf_request DELETE "$api/zones/$zone_id/dns_records/$record_id" >/dev/null
-          echo "homelab-dns-sync: removed $cached_host"
+        # A host dropped from our desired list. Do NOT trust the cached record
+        # ID — another host may have claimed this name since we last synced
+        # (issue #202). Look up the LIVE record and only delete it when it is
+        # unclaimed (empty comment) or still owned by us. If another host's
+        # owner tag is on it, leave Cloudflare untouched and just forget our
+        # stale cache entry.
+        resp=$(cf_request GET "$api/zones/$zone_id/dns_records?type=A&name=$cached_host")
+        live_id=$(printf '%s' "$resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""')
+        live_owner=$(printf '%s' "$resp" | ${pkgs.jq}/bin/jq -r '.result[0].comment // ""')
+        if [[ -n "$live_id" ]]; then
+          if [[ -n "$live_owner" && "$live_owner" != "$owner_tag" ]]; then
+            echo "homelab-dns-sync: $cached_host now $live_owner — leaving Cloudflare record intact"
+          else
+            cf_request DELETE "$api/zones/$zone_id/dns_records/$live_id" >/dev/null
+            echo "homelab-dns-sync: removed $cached_host"
+          fi
         fi
         ${pkgs.jq}/bin/jq --arg host "$cached_host" 'del(.[$host])' "$tmp_cache" > "$tmp_cache.next"
         mv "$tmp_cache.next" "$tmp_cache"
@@ -140,7 +159,9 @@
         record_id=$(printf '%s' "$resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""')
       fi
 
-      payload=$(printf '{"type":"A","name":"%s","content":"%s","ttl":%s,"proxied":false}' "$host" "$entry_ip" "$ttl")
+      # Stamp our ownership tag so the cleanup path on other hosts won't delete
+      # a record we manage. A PUT/POST claims (or re-claims) the record for us.
+      payload=$(printf '{"type":"A","name":"%s","content":"%s","ttl":%s,"proxied":false,"comment":"%s"}' "$host" "$entry_ip" "$ttl" "$owner_tag")
 
       if [[ -n "$record_id" ]]; then
         cf_request PUT "$api/zones/$zone_id/dns_records/$record_id" "$payload" >/dev/null

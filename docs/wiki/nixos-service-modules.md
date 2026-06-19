@@ -352,6 +352,30 @@ homelab.localProxy.hosts = [{
 
 This automatically creates nginx virtualHosts with ACME certs and syncs DNS to Cloudflare.
 
+#### Moving a `localProxy` service between hosts — deploy NEW host first
+
+Each host runs its own `homelab-dns-sync` over the union of its enabled
+services' `localProxy.hosts`. When a service migrates, both hosts briefly claim
+the same FQDN. Cloudflare A records carry an ownership tag
+(`comment = "managed-by:<hostname>"`); cleanup only deletes records that are
+unclaimed or owned by the running host, so one host can never delete a record
+another has claimed (this is the fix for the #202 race — see
+[`services/local-proxy-dns-sync.md`](services/local-proxy-dns-sync.md)).
+
+Operational rules when moving a service:
+
+1. **Deploy the destination (new) host first, then the source (old) host.** The
+   new host's `PUT` takes over the record in place (zero downtime) and stamps
+   its tag; the old host's cleanup then sees the new owner and leaves it alone.
+   Old-host-first works too but deletes-then-recreates → a brief wildcard 502
+   window.
+2. **Deploy both hosts in the same maintenance window.** Until the old host is
+   redeployed its running closure still lists the FQDN, and its nightly
+   `homelab-dns-validate` (02:00) can re-claim the record. Don't leave a fleet
+   half-migrated overnight.
+3. **Never commit the same FQDN on two hosts permanently** — that flip-flops the
+   A record every deploy. A service lives on exactly one host at a time.
+
 ### Monitoring (Uptime Kuma)
 
 ```nix
@@ -864,6 +888,10 @@ Before submitting a new service module:
 - [ ] Image refs pinned to digests for any non-nixpkgs upstream
 - [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts`
 - [ ] `homelab.localProxy.hosts` entry for DNS/SSL/nginx
+- [ ] If MOVING a `localProxy` service between hosts: deploy the destination
+      (new) host first, then the source — and both in one maintenance window.
+      Never commit the same FQDN on two hosts (see "Moving a `localProxy`
+      service between hosts" above and `services/local-proxy-dns-sync.md`)
 - [ ] `homelab.monitoring.monitors` entry for health checking
 - [ ] Stateful services: `homelab.monitoring.deepProbes` entry with
       service-specific probe script under `modules/nixos/services/probes/`,

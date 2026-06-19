@@ -38,27 +38,45 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    };
    ```
 
-3. **Deploy each host** — push first, then SSH in and rebuild from GitHub:
+3. **Deploy DESTINATION first, then source — both in one maintenance window.**
+   Deploying the new host first lets its `homelab-dns-sync` take over the A
+   record *in place* (zero downtime); the old host's cleanup then sees the new
+   owner and leaves it alone (see DNS ownership note below). Push the signed
+   commit to Forgejo, then have each host fetch + verify + build via
+   `fleet-update`:
    ```bash
-   git push
+   git push   # → Forgejo (origin = git.ablz.au); GitHub is the frozen fallback
 
    # ALWAYS verify hostname before rebuilding — wrong hostname = wrong config silently applied
-   ssh <source> "hostname"   # must match #<source-hostname> below
-   ssh <source> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<source-hostname> --refresh"
+   ssh <dest> "hostname"     # must match #<dest-hostname>
+   ssh <dest> "sudo fleet-update"      # destination FIRST
 
-   ssh <dest> "hostname"     # must match #<dest-hostname> below
-   ssh <dest> "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#<dest-hostname> --refresh"
+   ssh <source> "hostname"   # must match #<source-hostname>
+   ssh <source> "sudo fleet-update"    # source second
    ```
-   The remote host fetches from GitHub and builds locally — nothing is transferred over your SSH connection. This is the only pattern that works remotely (VPN, tailscale, etc.). Do NOT use `--target-host`: it builds locally and pushes the closure over the wire, requiring direct SSH reachability from your machine.
+   `fleet-update` fetches Forgejo, verifies every commit in range is signed and
+   descends from the running rev, then builds locally from its own verified
+   clone — nothing transits your laptop or the SSH link. This is the post-#235
+   deploy pattern. Do NOT use `--target-host`, and do NOT deploy from
+   `github:abl030/nixosconfig` (stale/frozen). Break-glass only: a local
+   `nixos-rebuild switch --flake .#<host>` from a tree fast-forwarded to Forgejo
+   tip.
 
-4. **DNS race condition** — when both hosts run `homelab-dns-sync` simultaneously, the source's deletion can race with the destination's creation and win. After parallel deploy, always verify DNS:
+4. **DNS record ownership (the #202 race is fixed in code, but verify anyway).**
+   Each Cloudflare A record now carries `comment = "managed-by:<host>"`, and
+   cleanup only deletes records it owns — so the source host can no longer
+   delete a record the destination just claimed. The old failure mode (both
+   hosts run `homelab-dns-sync`, source's delete races and wins → no A record →
+   wildcard 502) should no longer happen with destination-first deploys. Full
+   model: `docs/wiki/services/local-proxy-dns-sync.md`. After deploy, still
+   verify DNS:
    ```bash
    # Check Cloudflare has the record (authoritative)
    TOKEN=$(ssh <dest> "sudo grep -oP 'CLOUDFLARE_DNS_API_TOKEN=\K.*' /run/secrets/acme/cloudflare | tr -d '\r\n'")
    ZONE=$(ssh <dest> "sudo cat /var/lib/homelab/dns/zone-id")
    curl -fsS -H "Authorization: Bearer $TOKEN" \
      "https://api.cloudflare.com/client/v4/zones/$ZONE/dns_records?type=A&name=<hostname>" \
-     | jq '.result[] | {id, name, content}'
+     | jq '.result[] | {id, name, content, comment}'   # comment = managed-by:<owner>
 
    # If empty: clear the stale cache entry and re-run sync
    ssh <dest> "sudo jq 'del(.\"<hostname>\")' /var/lib/homelab/dns/records.json \
