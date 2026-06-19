@@ -641,6 +641,7 @@ Then `--cap-add` back only the minimal set the container actually needs:
 Notes:
 - cap-drop=all does **not** affect `--device` GPU access (device perms/cgroup, not a capability) nor reading bind-mounts as the runtime UID.
 - If an s6-style container fails to start after hardening, check its logs — some s6-overlay versions also want `SETPCAP` to drop the bounding set. Add it explicitly, don't widen back to default caps.
+- **File-capability binaries need their cap in the bounding set even on an unprivileged port.** jlesage GUI images ship `/opt/base/sbin/nginx` with a `cap_net_bind_service` file-cap; under `cap-drop=all`, `execve()` returns EPERM ("Operation not permitted") for any binary whose *permitted file-caps exceed the bounding set* — the container stays "running" (supervisor) but the web UI is dead. Fix: `--cap-add=NET_BIND_SERVICE` even though the runtime port is >1024 (jdownloader2 hit exactly this). General rule: **"unit active" ≠ "app serving" — always HTTP-probe after hardening**, don't trust `systemctl is-active`.
 - Exception of record: `hermes` (its own locked VM) is deliberately left at podman defaults until its tool requirements are mapped — see the header in `modules/nixos/services/hermes-agent.nix`. Any new container has no such excuse.
 
 ## External Sharing (tailscaleShare)

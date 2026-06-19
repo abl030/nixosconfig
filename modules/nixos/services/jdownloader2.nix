@@ -76,8 +76,13 @@ in {
         UMASK = "0002";
       };
       # jlesage init runs as root, chowns /config and the volumes, then runs
-      # the GUI app. Keep the file-ownership + setuid/setgid drop caps; the
-      # unprivileged :5800 VNC port needs none. cap-drop=all removes the rest.
+      # the GUI app. Keep the file-ownership + setuid/setgid drop caps.
+      # NET_BIND_SERVICE is required even though the web UI port (:5800) is
+      # unprivileged: the image's bundled `/opt/base/sbin/nginx` binary carries
+      # a `cap_net_bind_service` file capability, and execve() refuses a binary
+      # whose permitted file-caps exceed the process bounding set under
+      # cap-drop=all (EPERM → "Operation not permitted", dead UI). cap-drop=all
+      # removes everything else.
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
@@ -87,6 +92,7 @@ in {
           "--cap-add=DAC_OVERRIDE"
           "--cap-add=FOWNER"
           "--cap-add=KILL"
+          "--cap-add=NET_BIND_SERVICE"
         ];
     };
 
