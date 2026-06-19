@@ -129,6 +129,15 @@
     butane
   ]);
 
+  # NOTE: doc1 runs `sudoPasswordless = true` (hosts.nix) → `wheelNeedsPassword =
+  # false`, so abl030 already has GLOBAL passwordless sudo and this allowlist is
+  # currently redundant. It's kept as the *explicit deploy/debug allowlist* — the
+  # set we'd keep NOPASSWD if doc1 were ever flipped to password-required. The
+  # unbounded `cat` and `rm` primitives were removed 2026-06-19 (#232): they let
+  # any abl030-context process read the fleet key / delete audit logs with no
+  # auth, and `cat`/`rm` are NOT something the deploy/debug path needs as a
+  # blanket grant. (doc1 staying globally passwordless is the accepted
+  # bastion/automation-host posture — same risk profile as the nightly agent.)
   security.sudo.extraRules = lib.mkAfter [
     {
       users = ["abl030"];
@@ -143,14 +152,6 @@
         }
         {
           command = "/run/current-system/sw/bin/journalctl";
-          options = ["NOPASSWD"];
-        }
-        {
-          command = "/run/current-system/sw/bin/cat";
-          options = ["NOPASSWD"];
-        }
-        {
-          command = "/run/current-system/sw/bin/rm";
           options = ["NOPASSWD"];
         }
       ];
