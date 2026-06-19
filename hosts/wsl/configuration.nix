@@ -32,8 +32,9 @@
   # passwordless sudo) — two mkDefaults of differing values collide, so force it.
   # nixos has no usable password here, so interactive sudo won't work until one
   # is set; break-glass is ALWAYS `wsl -u root` from Windows (root, no password).
-  # To restore interactive sudo: `wsl -u root passwd nixos`. Deploy via
-  # `fleet-deploy wsl` from doc1 or the nightly nixos-upgrade timer.
+  # To restore interactive sudo: `wsl -u root passwd nixos`. Deploy via the
+  # nightly nixos-upgrade timer, `wsl -u root fleet-update`, or `fleet-deploy
+  # wsl` from doc1 (needs the triggerFrom widening below).
   security.sudo.wheelNeedsPassword = lib.mkForce true;
 
   homelab = {
@@ -52,6 +53,17 @@
     # Windows-side netsh portproxy + scheduled task — see
     # docs/wiki/infrastructure/wsl-tailscale-ssh.md
     tailscale.enable = false;
+
+    # forgejo#2: widen the deploy-trigger key's source pin so `fleet-deploy wsl`
+    # works. Because of the portproxy above, wsl's sshd sees EVERY connection
+    # from the WSL vEthernet gateway (172.26.224.1, in 172.16.0.0/12) — NOT
+    # doc1's tailnet IP — so the default from="100.64.0.0/10,192.168.1.0/24"
+    # rejects the trigger key (publickey denial). The WSL bridge is wsl's ONLY
+    # ingress, so pinning to 172.16/12 is equivalent to LAN-pinning a normal
+    # host; the key is still doc1-only + forced-command (systemctl start
+    # nixos-upgrade, nothing else). 172.16/12 (not the exact gateway IP) tolerates
+    # WSL reassigning the bridge subnet across restarts.
+    fleetDeploy.triggerFrom = "100.64.0.0/10,192.168.1.0/24,172.16.0.0/12";
     mounts = {
       nfs = {
         enable = true;

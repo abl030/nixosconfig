@@ -150,8 +150,11 @@ in {
     # usable password here, so interactive sudo won't work until one is set —
     # but `wsl -u root` from Windows is always root with no password (the WSL
     # "console" break-glass), so this is NOT a hard lockout. To enable
-    # interactive sudo: `wsl -u root passwd nixos`. Deploy via `fleet-deploy wsl`
-    # from doc1 (accepts the trigger now) or the nightly nixos-upgrade timer.
+    # interactive sudo: `wsl -u root passwd nixos`. Deploy via the nightly
+    # nixos-upgrade timer or `wsl -u root fleet-update`; `fleet-deploy wsl` also
+    # works once the widened triggerFrom (configuration.nix — the Windows
+    # portproxy makes wsl's sshd see connections from the WSL bridge, not the
+    # tailnet) has landed.
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
     # services exposed via homelab.localProxy point here; Windows then
