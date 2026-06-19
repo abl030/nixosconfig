@@ -469,6 +469,32 @@
             touch $out
           '';
 
+          # Fleet role invariant (forgejo#2): EXACTLY ONE host may be the bastion
+          # — i.e. exactly one `role = "bastion"` in the tree (doc1). Every other
+          # host defaults to role = "locked" (no passwordless sudo, GTFOBins
+          # gated off, accepts the deploy trigger). A copy-paste that sets a
+          # second "bastion" would silently re-spread passwordless root; 0 means
+          # nothing has the deploy key + wrapper. Either way, fail the build.
+          # Mirrors bastionInvariantCheck (deployIdentity); the two move together.
+          fleetBastionRoleCheck = pkgs.runCommand "fleet-deploy-role-invariant" {} ''
+            # Match the ASSIGNMENT only — `... role = "bastion";` — and never a
+            # comment line (the model is described in comments all over the tree).
+            # `[^#]*` can't cross a `#`, so any `# … role = "bastion"` is skipped.
+            matches=$(${pkgs.gnugrep}/bin/grep -rnE '^[[:space:]]*[^#]*role = "bastion";' ${./hosts} ${./modules} || true)
+            count=$(printf '%s' "$matches" | ${pkgs.gnugrep}/bin/grep -c . || true)
+            if [ "$count" != "1" ]; then
+              echo "FLEET BASTION ROLE INVARIANT VIOLATED (forgejo#2): expected exactly"
+              echo "ONE host with homelab.fleetDeploy.role = \"bastion\" (doc1), found $count:"
+              printf '%s\n' "$matches"
+              echo ""
+              echo "Only the doc1 bastion may be unlocked; every other host defaults to"
+              echo "role = \"locked\". See modules/nixos/services/fleet-deploy.nix."
+              exit 1
+            fi
+            echo "Fleet role invariant OK: exactly one role=\"bastion\" (the doc1 bastion)."
+            touch $out
+          '';
+
           # Least-privilege sops invariant (#234): every secret under
           # secrets/hosts/<H>/ must be encrypted to EXACTLY {that host's age key,
           # editor, break-glass} — never a sibling host key. Grep over the
@@ -1055,7 +1081,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}

@@ -37,10 +37,13 @@
     # lets doc1 reach the keyless siblings. See issue #270.
     ssh.deployIdentity = true;
 
-    # forgejo#2 Phase 2: doc1 also holds the deploy-trigger private key + the
-    # `fleet-deploy <host>` wrapper, so it can kick a sibling's verified rebuild
-    # over a forced-command key (no sudo on the sibling).
-    fleetDeploy.bastion = true;
+    # forgejo#2: doc1 is the ONE bastion. role = "bastion" gives it passwordless
+    # sudo (base.nix), the passwordless diagnostic tools, the deploy-trigger
+    # private key, and the `fleet-deploy <host>` wrapper to kick a sibling's
+    # verified rebuild over a forced-command key (no sudo on the sibling). Every
+    # other host defaults to role = "locked"; fleetBastionRoleCheck asserts this
+    # is the only host that sets "bastion".
+    fleetDeploy.role = "bastion";
 
     # MCP agent creds live ONLY here (#234): doc1 is the sole host the
     # pfsense/unifi/HA/slskd/vinsight/abs/paperless control agents run from.
@@ -134,10 +137,11 @@
     butane
   ]);
 
-  # NOTE: doc1 runs `sudoPasswordless = true` (hosts.nix) → `wheelNeedsPassword =
-  # false`, so abl030 already has GLOBAL passwordless sudo and this allowlist is
-  # currently redundant. It's kept as the *explicit deploy/debug allowlist* — the
-  # set we'd keep NOPASSWD if doc1 were ever flipped to password-required. The
+  # NOTE: doc1 is the bastion (homelab.fleetDeploy.role = "bastion") →
+  # `wheelNeedsPassword = false`, so abl030 already has GLOBAL passwordless sudo
+  # and this allowlist is currently redundant. It's kept as the *explicit
+  # deploy/debug allowlist* — the set we'd keep NOPASSWD if doc1 were ever
+  # flipped to password-required (role = "locked"). The
   # unbounded `cat` and `rm` primitives were removed 2026-06-19 (#232): they let
   # any abl030-context process read the fleet key / delete audit logs with no
   # auth, and `cat`/`rm` are NOT something the deploy/debug path needs as a

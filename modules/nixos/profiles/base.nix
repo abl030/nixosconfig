@@ -346,9 +346,15 @@
   # 7. SUDO POLICY
   # ---------------------------------------------------------
   # Allow per-host control for automation/test VMs via hosts.nix.
+  # forgejo#2 — one knob drives the whole posture: only the bastion (doc1,
+  # homelab.fleetDeploy.role = "bastion") gets passwordless sudo + the
+  # passwordless diagnostic tools below. Every other host defaults to
+  # role = "locked" → wheelNeedsPassword = true, GTFOBins gated off. Reading the
+  # module option here is safe: role has a plain default and never depends on
+  # security.sudo.*, so there's no eval cycle.
   security.sudo = {
     enable = lib.mkDefault true;
-    wheelNeedsPassword = lib.mkDefault (!(hostConfig.sudoPasswordless or false));
+    wheelNeedsPassword = lib.mkDefault (config.homelab.fleetDeploy.role != "bastion");
 
     # Passwordless tailscale for post-provision automation.
     # Allows `sudo tailscale up --authkey ...` without password prompt.
@@ -370,15 +376,14 @@
     # tailscale ...` calls this unblocks are used constantly. The trust boundary
     # is the tailnet ACL, not local sudo.
     #
-    # GATED ON sudoPasswordless (forgejo#2 Phase 3): these are NOPASSWD ONLY on
-    # hosts where ${hostConfig.user} already has passwordless root anyway (the
-    # bastion doc1, and igpu until it's locked). On a LOCKED sibling
-    # (sudoPasswordless = false) this block is empty — several entries are
-    # GTFOBins (`sudo strace sh`, `sudo tcpdump -z <script>`, `sudo nmap`
-    # --interactive → root shell/exec) and would otherwise be a one-line bypass
-    # of the whole lockdown. Locked siblings diagnose via the read-only allowlist
-    # (homelab.fleetDeploy.siblingLockdown) + Loki, or the Proxmox console.
-    extraRules = lib.optionals (hostConfig.sudoPasswordless or false) [
+    # GATED ON role == "bastion" (forgejo#2): these are NOPASSWD ONLY on the
+    # bastion (doc1), where ${hostConfig.user} already has passwordless root
+    # anyway. On a LOCKED host this block is empty — several entries are GTFOBins
+    # (`sudo strace sh`, `sudo tcpdump -z <script>`, `sudo nmap` --interactive →
+    # root shell/exec) and would otherwise be a one-line bypass of the whole
+    # lockdown. Locked hosts diagnose via the read-only allowlist
+    # (homelab.fleetDeploy role = "locked") + Loki, or the host console.
+    extraRules = lib.optionals (config.homelab.fleetDeploy.role == "bastion") [
       {
         users = [hostConfig.user];
         commands = [

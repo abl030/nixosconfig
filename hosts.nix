@@ -77,10 +77,10 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGuTUS6W9BBOpoDWU7f1jUtlA3B1niCfEtuutfIKPYdr";
     authorizedKeys = fleetKeys;
-    # forgejo#2 Phase 4: explicit (was unset=same). Locked — no passwordless sudo
-    # (and the passwordless nixos-rebuild grant in configuration.nix is removed).
-    # Interactive workstation: abl030 has a password = break-glass + deploy path.
-    sudoPasswordless = false;
+    # forgejo#2: LOCKED by default (homelab.fleetDeploy.role defaults to
+    # "locked" → no passwordless sudo; the passwordless nixos-rebuild grant in
+    # configuration.nix is removed). Interactive workstation: abl030 has a
+    # password = break-glass + interactive deploy path.
     signingKeys = [
       {
         principal = "abl030@epimetheus";
@@ -111,10 +111,10 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0atvH47232nLwq1b4P7583cj+WGJYHU4vx/4lgtNgl";
     authorizedKeys = fleetKeys;
-    # forgejo#2 Phase 4: explicit (was unset=same). Locked — no passwordless sudo
-    # (passwordless nixos-rebuild grant in configuration.nix removed). Laptop:
-    # abl030 has a password = break-glass + interactive deploy path.
-    sudoPasswordless = false;
+    # forgejo#2: LOCKED by default (homelab.fleetDeploy.role defaults to
+    # "locked" → no passwordless sudo; the passwordless nixos-rebuild grant in
+    # configuration.nix removed). Laptop: abl030 has a password = break-glass +
+    # interactive deploy path.
     signingKeys = [
       {
         principal = "abl030@framework";
@@ -146,7 +146,12 @@ in {
         key = gitSigningKeys.wsl;
       }
     ];
-    sudoPasswordless = true;
+    # forgejo#2: LOCKED by default (role defaults to "locked"). nixos has no
+    # usable password here, so interactive sudo won't work until one is set —
+    # but `wsl -u root` from Windows is always root with no password (the WSL
+    # "console" break-glass), so this is NOT a hard lockout. To enable
+    # interactive sudo: `wsl -u root passwd nixos`. Deploy via `fleet-deploy wsl`
+    # from doc1 (accepts the trigger now) or the nightly nixos-upgrade timer.
     syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
     # services exposed via homelab.localProxy point here; Windows then
@@ -167,7 +172,10 @@ in {
     # + phone, each from=-pinned to tailnet/LAN). No fleet/pihole inbound; the
     # fleet key it HOLDS (deployIdentity) is for reaching siblings, not entering.
     authorizedKeys = bastionKeys;
-    sudoPasswordless = true;
+    # forgejo#2: the ONE bastion — passwordless sudo + the deploy-trigger key +
+    # the `fleet-deploy` wrapper come from homelab.fleetDeploy.role = "bastion"
+    # set in hosts/proxmox-vm/configuration.nix (the only host that may set it;
+    # fleetBastionRoleCheck enforces exactly one).
     signingKeys = [
       {
         principal = "abl030@proxmox-vm";
@@ -197,15 +205,11 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = fleetKeys;
-    # forgejo#2 Phase 4: LOCKED DOWN. The old "passwordless sudo isn't worse than
-    # passwordless nixos-rebuild" logic no longer holds — deploys now come from
+    # forgejo#2: LOCKED by default (role defaults to "locked"). Deploys come from
     # doc1 via `fleet-deploy igpu` (forced-command key → nixos-upgrade, polkit, no
-    # sudo; proven 2026-06-19), so the sibling needs NO passwordless sudo at all.
-    # abl030 keeps only the homelab.fleetDeploy.siblingLockdown allowlist (read-
-    # only podman + deploy-switch-stop + podman-* restart). abl030 has a password
-    # here (unlike doc2) so interactive sudo is the break-glass; Proxmox console
-    # otherwise. A popped service/abl030 can no longer pivot to root.
-    sudoPasswordless = false;
+    # sudo). abl030 keeps only the role=locked read-only/deploy-hygiene allowlist.
+    # abl030 has a password here (unlike doc2) so interactive sudo is the
+    # break-glass; Proxmox console otherwise. No service/abl030 root pivot.
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
   };
 
@@ -219,14 +223,13 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
     authorizedKeys = fleetKeys;
-    # forgejo#2 Phase 3: LOCKED DOWN. No passwordless sudo — abl030 has no
-    # password here either (`!`), so the only root abl030 keeps is the narrow
-    # NOPASSWD allowlist from homelab.fleetDeploy.siblingLockdown (read-only
-    # podman/journalctl + deploy-switch-stop + podman-* restart). Deploys come
-    # from doc1 via `fleet-deploy doc2` (forced-command key → nixos-upgrade,
-    # polkit-authorized, no sudo). Break-glass for anything else: the Proxmox
+    # forgejo#2: LOCKED by default (role defaults to "locked"). No passwordless
+    # sudo — abl030 has no password here either (`!`), so the only root abl030
+    # keeps is the narrow read-only/deploy-hygiene allowlist (read-only podman +
+    # deploy-switch-stop + podman-* restart; NOT journalctl — logs via Loki).
+    # Deploys come from doc1 via `fleet-deploy doc2` (forced-command key →
+    # nixos-upgrade, polkit, no sudo). Break-glass for anything else: the Proxmox
     # console on prom. A popped service/abl030 here can no longer pivot to root.
-    sudoPasswordless = false;
     localIp = "192.168.1.35";
     gotifyServer = true;
   };
@@ -243,7 +246,10 @@ in {
     # Keyless re: the fleet — trusts ONLY the doc1 bastion's resident key, so a
     # compromised agent VM cannot reach siblings. Reach hermes via doc1. #270.
     authorizedKeys = fleetKeys;
-    sudoPasswordless = true; # remote deploy via fleet-update / nixos-rebuild
+    # forgejo#2: LOCKED by default (role defaults to "locked"). Keyless,
+    # Telegram-only agent VM on prom — abl030 has no password, prom console is
+    # break-glass (like doc2). The agent container is unaffected (containers
+    # don't use abl030 sudo). Deploy via `fleet-deploy hermes` from doc1.
     localIp = "192.168.1.162";
     tailscaleIp = "100.78.254.6";
   };

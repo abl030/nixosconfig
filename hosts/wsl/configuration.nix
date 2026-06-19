@@ -26,6 +26,16 @@
   # fstrim is handled by the host OS / WSL engine usually
   services.fstrim.enable = false;
 
+  # forgejo#2: LOCK wsl like every other non-bastion host. base.nix derives
+  # wheelNeedsPassword = true from homelab.fleetDeploy.role = "locked" (the
+  # default), but NixOS-WSL's wsl-distro.nix sets it `mkDefault false` (WSL wants
+  # passwordless sudo) — two mkDefaults of differing values collide, so force it.
+  # nixos has no usable password here, so interactive sudo won't work until one
+  # is set; break-glass is ALWAYS `wsl -u root` from Windows (root, no password).
+  # To restore interactive sudo: `wsl -u root passwd nixos`. Deploy via
+  # `fleet-deploy wsl` from doc1 or the nightly nixos-upgrade timer.
+  security.sudo.wheelNeedsPassword = lib.mkForce true;
+
   homelab = {
     nixCaches = {
       enable = true;
@@ -75,9 +85,15 @@
     "--collector.filesystem.mount-points-exclude=^/run/user"
   ];
 
-  # Docker for container-based development/testing
+  # Docker for container-based development/testing. forgejo#2: nixos is NO LONGER
+  # in the `docker` group — docker-group membership is root-equivalent
+  # (`docker run -v /:/host …`), which would have made the sudo lock above
+  # pure theatre. The daemon stays enabled but is now root-only: use it via
+  # `wsl -u root docker …` (or `sudo docker …` once a password is set). If you
+  # want frictionless docker as nixos again WITHOUT the root door, switch to
+  # rootless (`virtualisation.docker.rootless.enable`) — userns-isolated, no
+  # root-equivalence — rather than re-adding the group.
   virtualisation.docker.enable = true;
-  users.users.${hostConfig.user}.extraGroups = ["docker"];
 
   # 3. Standard WSL Configuration
   wsl.enable = true;

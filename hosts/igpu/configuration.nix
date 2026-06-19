@@ -22,11 +22,10 @@
       nfsLocal.enable = true;
       fuse.enable = true;
     };
-    # forgejo#2 Phase 4: accept the doc1 bastion's forced-command deploy trigger
-    # (proven on doc2 + igpu). 4b — sudo locked down (sudoPasswordless=false in
-    # hosts.nix); siblingLockdown keeps the read-only/deploy-hygiene allowlist.
-    fleetDeploy.acceptTrigger = true;
-    fleetDeploy.siblingLockdown = true;
+    # forgejo#2: LOCKED by default (homelab.fleetDeploy.role defaults to
+    # "locked") — accepts the doc1 bastion's deploy trigger + keeps the narrow
+    # read-only/deploy-hygiene allowlist, no passwordless sudo. Default = doc2
+    # model; nothing to set here.
     services.tdarrNode.enable = true;
     services.jellyfin = {
       enable = true;
@@ -88,11 +87,11 @@
   };
 
   # Passwordless `nixos-rebuild` used to live here for remote agent deploys.
-  # Retired, then re-locked: igpu is now `sudoPasswordless = false` (forgejo#2
-  # Phase 4) — a passwordless rebuild IS passwordless root, so the deploy path
-  # moved to the doc1 bastion via `fleet-deploy igpu` (forced-command key →
-  # nixos-upgrade, polkit, no sibling sudo). abl030 keeps only the
-  # homelab.fleetDeploy.siblingLockdown allowlist. See
+  # Retired, then re-locked: igpu is LOCKED (forgejo#2 — homelab.fleetDeploy.role
+  # defaults to "locked") — a passwordless rebuild IS passwordless root, so the
+  # deploy path moved to the doc1 bastion via `fleet-deploy igpu` (forced-command
+  # key → nixos-upgrade, polkit, no sibling sudo). abl030 keeps only the
+  # role=locked read-only/deploy-hygiene allowlist. See
   # docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
   # igpu was the signed-fleet-deploys enforcement canary (Phase C, 2026-06-10):
