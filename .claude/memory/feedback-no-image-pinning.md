@@ -22,3 +22,17 @@ running `:latest` with auto-pull is **runtime hardening** (cap-drop=all +
 no-new-privileges + minimal cap-add per container, via
 [[`homelab.podman.hardenOptions`]]), NOT pinning. Harden the blast radius of a
 compromised auto-pulled image instead of trying to prevent the pull.
+
+**State as of 2026-06-19 (all registry pins lifted):** youtarr, hermes, and
+musicbrainz valkey were the only digest-pinned registry images — all unpinned to
+`:latest` + auto-pull this session. hermes specifically: the "arbitrary-code
+executor must not self-update" pin was dropped as inconsistent (the nightly
+agent tooling has the same profile and auto-updates); it's now registered in
+`homelab.podman.containers` (`isolate=false`). **No registry tag-pins remain.**
+
+**The ONE distinction that is NOT a violation:** images **built locally via
+`dockerTools`/`podman build` from a `flake = false` input** are NOT registry
+pins — e.g. musicbrainz's `mb-solr` (search), `musicbrainz`, `indexer`, `mq`,
+`lrclib`. They ride the flake input and are updated by bumping that input
+(reviewed). mb-solr is also **schema-coupled** to the MB server, so it MUST stay
+input-tracked, not chased to a mutable tag. Don't "fix" these — they're correct.

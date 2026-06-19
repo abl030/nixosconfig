@@ -219,7 +219,15 @@ sudo podman exec \
 - The remaining MusicBrainz env secret contains only the replication token.
 - The replication token is mounted as a read-only file; it is not passed through
   the web container environment.
-- Valkey is pinned by digest, not a mutable tag.
+- Valkey runs `:latest` with auto-pull (unpinned 2026-06-19, fleet policy). It's
+  a stateless cache, so a version bump only costs a cold cache, no data risk.
+- Solr (`mb-solr`) is **not** a registry tag-pin and is deliberately not
+  auto-pulled: it's built locally from the `musicbrainz-docker` flake input via
+  `--build-arg MB_SOLR_VERSION`, and that version is **schema-coupled** to the
+  MusicBrainz server (also built from the same input). `4.1.0` is the current
+  latest stable mb-solr AND the upstream default. Update it by bumping the
+  `musicbrainz-docker` flake input (which moves server + solr together, reviewed)
+  — the "flake-input pinning is fine" exception — not by chasing a mutable tag.
 - The Nix-built LRCLIB image runs as numeric UID/GID `65532:65532` and owns only
   its SQLite state directory.
 - Upstream MusicBrainz, indexer, RabbitMQ, and Solr images retain their entrypoint

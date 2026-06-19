@@ -61,7 +61,9 @@
   indexerImage = "docker.io/library/musicbrainz-indexer:latest";
   mqImage = "docker.io/library/musicbrainz-mq:latest";
   searchImage = "docker.io/library/musicbrainz-docker_search:4.1.0";
-  valkeyImage = "docker.io/valkey/valkey@sha256:aba3ce55601d0cf7e121fc3c5d9e23bea99bd0df5466500df46c157313226d2e";
+  # :latest + auto-pull (no pinning — fleet policy). Valkey is a stateless cache;
+  # a version bump just means a cold cache, no data risk. Unpinned 2026-06-19.
+  valkeyImage = "docker.io/valkey/valkey:latest";
   lrclibImageName = "lrclib-nix:latest";
 
   upstreamImageInputs = [
