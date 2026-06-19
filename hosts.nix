@@ -77,6 +77,10 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGuTUS6W9BBOpoDWU7f1jUtlA3B1niCfEtuutfIKPYdr";
     authorizedKeys = fleetKeys;
+    # forgejo#2 Phase 4: explicit (was unset=same). Locked — no passwordless sudo
+    # (and the passwordless nixos-rebuild grant in configuration.nix is removed).
+    # Interactive workstation: abl030 has a password = break-glass + deploy path.
+    sudoPasswordless = false;
     signingKeys = [
       {
         principal = "abl030@epimetheus";
@@ -107,6 +111,10 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0atvH47232nLwq1b4P7583cj+WGJYHU4vx/4lgtNgl";
     authorizedKeys = fleetKeys;
+    # forgejo#2 Phase 4: explicit (was unset=same). Locked — no passwordless sudo
+    # (passwordless nixos-rebuild grant in configuration.nix removed). Laptop:
+    # abl030 has a password = break-glass + interactive deploy path.
+    sudoPasswordless = false;
     signingKeys = [
       {
         principal = "abl030@framework";

@@ -152,20 +152,13 @@
     extraGroups = ["libvirtd" "vboxusers" "dialout"];
   };
 
-  # Passwordless nixos-rebuild for the admin user on this workstation.
-  # Lets Claude iterate on rebuilds without prompting; scoped to nixos-rebuild
-  # only. Other sudo invocations still require a password.
-  security.sudo.extraRules = [
-    {
-      users = ["abl030"];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
+  # forgejo#2 Phase 4: passwordless `nixos-rebuild` REMOVED. It was a passwordless
+  # root pivot (rebuild → a config with a setuid shell), the same class we closed
+  # on doc2/igpu. This is an interactive workstation — abl030 has a password, so
+  # deploy/admin is interactive `sudo` (you're at the keyboard), and fleet-wide
+  # changes also converge via the nightly nixos-upgrade timer (runs as root, no
+  # sudo). A popped abl030/service can no longer rebuild-to-root without the
+  # password. See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     gnome-remote-desktop

@@ -238,18 +238,12 @@
 
   programs.firefox.enable = true;
 
-  # Passwordless nixos-rebuild for Claude Code agent
-  security.sudo.extraRules = [
-    {
-      users = ["abl030"];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
+  # forgejo#2 Phase 4: passwordless `nixos-rebuild` REMOVED — it was a passwordless
+  # root pivot (rebuild → setuid-shell config), same class closed on doc2/igpu.
+  # This laptop has an interactive password, so deploy/admin is interactive `sudo`
+  # when you're using it; fleet-wide changes also converge via the nightly
+  # nixos-upgrade timer (root, no sudo). A popped abl030 can no longer
+  # rebuild-to-root. See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
   system.stateVersion = "24.05";
 
