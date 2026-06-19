@@ -21,6 +21,7 @@
     ./prometheus.nix
     ./mcp.nix
     ./mdns-reflector.nix
+    ./fleet-deploy.nix
     ./framework
     ./syncthing
     ./immich.nix

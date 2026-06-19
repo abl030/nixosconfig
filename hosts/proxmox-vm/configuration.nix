@@ -37,6 +37,11 @@
     # lets doc1 reach the keyless siblings. See issue #270.
     ssh.deployIdentity = true;
 
+    # forgejo#2 Phase 2: doc1 also holds the deploy-trigger private key + the
+    # `fleet-deploy <host>` wrapper, so it can kick a sibling's verified rebuild
+    # over a forced-command key (no sudo on the sibling).
+    fleetDeploy.bastion = true;
+
     # MCP agent creds live ONLY here (#234): doc1 is the sole host the
     # pfsense/unifi/HA/slskd/vinsight/abs/paperless control agents run from.
     # Base default is now false everywhere.
