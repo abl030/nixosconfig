@@ -41,6 +41,27 @@ Current hardening:
 - Tailscale auth/state and Caddy Cloudflare/cert state remain separate mounts/env
 - share state should live under a root-owned parent, not inside a service-owned app data directory
 
+### Network model vs. per-service isolation (#232, 2026-06-19)
+
+The fleet now auto-isolates every registered OCI container onto its own
+`isolated-<name>` bridge (see `docs/wiki/nixos-service-modules.md` →
+*Container network isolation*). The tailscale-share sidecars are a **deliberate
+`CONTAINER-NETWORK-OK` exception**, registered with `isolate = false`:
+
+- the **caddy** sidecar must share the **ts** sidecar's netns
+  (`--network=container:ts-<name>`) — that pairing is the whole point;
+- the **ts** sidecar stays on the **default `podman` bridge** because it reaches
+  the local upstream via `host.docker.internal` (host-gateway) over a
+  `podman0`-scoped firewall rule; moving it to an isolated bridge breaks that
+  host-upstream path.
+
+Consequence: after isolation, the **only** containers left on the default
+`podman` bridge are these ts sidecars. They can reach each other but **not** the
+now-isolated production services (immich, paperless, jellystat, …). Auto-injecting
+`--network=isolated-*` here is a footgun — it conflicts with `--network=container:`
+and kills the caddy sidecar (it briefly took down overseer/audiobookshelf/jellyfinn
+on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = false`.
+
 ## Active instances
 
 | Service | Host | FQDN | Data path |
