@@ -499,17 +499,15 @@ in {
     # watchstate (doc2) — Plex <-> Jellyfin sync, no DB
     # ============================================================
     (lib.mkIf cfg.watchstate.enable {
-      # NOTE (forgejo#2 Phase 1b): watchstate runs the image's built-in UID-1000
-      # "user" (= host abl030). Its WS_UID switch usermods that account, but under
-      # cap-drop=all the switch silently fails, so forcing WS_UID≠1000 leaves the
-      # app on 1000 while /config is owned by the new UID → it can't write and
-      # crash-loops. This image-internal-UID-1000 class (also netboot) needs
-      # userns remapping, NOT a WS_UID/--user flag — tracked separately. Reverted
-      # to 1000 here to keep the service up; the Z re-owns /config back off any
-      # half-migrated state.
+      # forgejo#2 Phase 1b: watchstate's image hardcodes a UID-1000 "user" which,
+      # under rootful podman, IS host abl030 — and its WS_UID switch can't
+      # relocate it under cap-drop=all (it crash-loops, see git history). So we
+      # userns-remap the whole container instead (--uidmap/--gidmap below):
+      # container UID 1000 → host 201000, never abl030. WS_UID stays 1000 (the
+      # image's happy default — no in-container switch needed). The `:U` volume
+      # flag migrates the existing abl030-owned /config into the mapped range.
       systemd.tmpfiles.rules = [
-        "d ${cfg.watchstate.dataDir} 0755 ${hostConfig.user} users -"
-        "Z ${cfg.watchstate.dataDir} - ${hostConfig.user} users -"
+        "d ${cfg.watchstate.dataDir} 0755 root root -"
       ];
 
       virtualisation.oci-containers.containers.watchstate = {
@@ -526,14 +524,19 @@ in {
         };
         ports = ["${toString cfg.watchstate.port}:8080"];
         volumes = [
-          "${cfg.watchstate.dataDir}:/config"
+          # :U chowns /config into the userns range on start (migrates off abl030).
+          "${cfg.watchstate.dataDir}:/config:U"
         ];
         # Upstream entrypoint runs as root, chowns /config, then drops to
-        # WS_UID/WS_GID — needs the file-ownership + setuid/setgid drop caps;
-        # the unprivileged :8080 bind needs none. cap-drop=all removes the rest.
+        # WS_UID/WS_GID — needs the file-ownership + setuid/setgid drop caps
+        # (which apply within the userns); the unprivileged :8080 bind needs none.
         extraOptions =
           config.homelab.podman.hardenOptions
           ++ [
+            # userns remap (forgejo#2): container UID 1000 → host 201000, off
+            # abl030. Specifying uid/gid maps implies a private user namespace.
+            "--uidmap=0:200000:65536"
+            "--gidmap=0:200000:65536"
             "--cap-add=CHOWN"
             "--cap-add=SETUID"
             "--cap-add=SETGID"
