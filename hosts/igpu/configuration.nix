@@ -88,10 +88,12 @@
   };
 
   # Passwordless `nixos-rebuild` used to live here for remote agent deploys.
-  # Retired: igpu is now `sudoPasswordless = true` in hosts.nix (it is an
-  # always-on server VM in the doc1/doc2 tier, and a passwordless rebuild is
-  # already passwordless root). Full passwordless sudo supersedes the rule and
-  # also unblocks `sudo fleet-update` for verified deploys.
+  # Retired, then re-locked: igpu is now `sudoPasswordless = false` (forgejo#2
+  # Phase 4) — a passwordless rebuild IS passwordless root, so the deploy path
+  # moved to the doc1 bastion via `fleet-deploy igpu` (forced-command key →
+  # nixos-upgrade, polkit, no sibling sudo). abl030 keeps only the
+  # homelab.fleetDeploy.siblingLockdown allowlist. See
+  # docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
   # igpu was the signed-fleet-deploys enforcement canary (Phase C, 2026-06-10):
   # verified deploy, break-glass, and accept-new-root were all walked through

@@ -16,6 +16,9 @@ Internal knowledge base for research findings, architectural decisions, and oper
 
 ### Infrastructure
 
+- [fleet-deploy-and-sibling-lockdown](infrastructure/fleet-deploy-and-sibling-lockdown.md) — doc1-bastion deploy trigger (`fleet-deploy`, forced-command + polkit, no sibling sudo) + sibling sudo lockdown (`sudoPasswordless = false`, narrow allowlist, GTFOBin gate); per-host posture table (forgejo#2)
+- [ssh-bastion-model](infrastructure/ssh-bastion-model.md) — doc1 as the sole fleet-key holder; keyless siblings, stepping-stone access, device-key entry (#270)
+- [signed-fleet-deploys](infrastructure/signed-fleet-deploys.md) — every deployed commit must be SSH-signed by a `hosts.nix` key; verified `fleet-update` path, Forgejo write root (#235)
 - [igpu-passthrough](infrastructure/igpu-passthrough.md) — AMD iGPU → `igpu` VM, `/dev/dri` health, kernel-reboot footgun
 - [media-filesystem](infrastructure/media-filesystem.md) — mergerfs + virtiofs + tower NFS layout, where each library's media/metadata lives
 - [nfs-over-tailscale](infrastructure/nfs-over-tailscale.md) — Tailscale readiness gap, `tailscale-wait.service`, LAN-vs-tailnet routing for tower NFS

@@ -122,7 +122,10 @@ launcher has won — hunt it via the live shell's `/proc/<pid>/environ`.
   key (`secrets/hosts/doc2/gwm-trigger-key`, locked to `systemctl start
   marker-convert.service` in `marker-convert.nix`). Copy this pattern for any
   future keyless-host → sibling automation. `syncoid-pfsense` is the other
-  example.
+  example. The **`fleet-deploy` trigger** (doc1 → doc2/igpu) is the same pattern
+  applied to deploys: a forced-command key that kicks the verified rebuild over
+  polkit, so the locked sibling can drop passwordless sudo — see
+  [fleet-deploy-and-sibling-lockdown.md](./fleet-deploy-and-sibling-lockdown.md).
 - **`purgeFleetKeyOnKeylessHost`** removes `/root/.ssh/id_ed25519` (real copy
   from the old mirror) + the dangling `~/.ssh/id_ed25519` sops symlink husk on
   every keyless switch. Only removes a *broken* user symlink, never a real key.

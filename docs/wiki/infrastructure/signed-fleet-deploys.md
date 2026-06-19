@@ -115,9 +115,18 @@ a no-op because the host was already on tip:
   NixOS's read-only `/etc/systemd/system`; corrected to `systemctl stop`/`start`
   with the rationale documented in **Break-Glass Host Deploy**.
 
-igpu also moved into the passwordless-sudo server tier (doc1/doc2/wsl) so the
-verified interactive `sudo fleet-update` deploy works over SSH, the same reason
-its old passwordless-`nixos-rebuild` rule existed.
+igpu also moved into the passwordless-sudo server tier so the verified
+interactive `sudo fleet-update` deploy worked over SSH, the same reason its old
+passwordless-`nixos-rebuild` rule existed.
+
+**Superseded 2026-06-19 (forgejo#2):** the always-on siblings doc2 and igpu have
+since *dropped* passwordless sudo (`sudoPasswordless = false`) and are locked
+down. They are now deployed from the doc1 bastion via `fleet-deploy <host>` — a
+forced-command key that kicks this same verified `nixos-upgrade`/`fleet-update`
+path over polkit, **with no sudo on the sibling**. Only doc1 (and the special
+cases wsl/hermes) still carry passwordless sudo. So "interactive `sudo
+fleet-update` over SSH" is no longer how doc2/igpu are deployed — see
+[fleet-deploy-and-sibling-lockdown.md](./fleet-deploy-and-sibling-lockdown.md).
 
 ## Trust Model
 
