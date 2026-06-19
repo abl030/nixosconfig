@@ -79,6 +79,25 @@ bridge-bound service.
 nixos-fw the gate, re-adding the nixos-fw blanket accept would defeat the point.
 B is the systematic control; C removes ABS from routable interfaces entirely.
 
+## Gotcha — netfilterMode flips on REBOOT, not on a plain switch
+
+`tailscale set --netfilter-mode=…` runs from upstream's `tailscaled-set.service`,
+a transient (`RemainAfterExit=no`) oneshot. `switch-to-configuration` does NOT
+start/re-run that kind of oneshot when it's newly wanted, so a plain
+`nixos-rebuild switch` / `fleet-deploy` leaves the live netfilter mode at its
+**boot-time** value — netfilterMode only actually takes effect on the host's next
+**reboot** (observed: doc2 stayed `NetfilterMode=2` right after deploy; doc1
+happened to run it during a messier, partially-failed switch). Verify with
+`tailscale debug prefs | jq .NetfilterMode` (0 = off, 2 = on).
+
+We deliberately did NOT add `RemainAfterExit=true` + `restartTriggers` to force
+it to apply on every switch (considered and rejected — keep the unit upstream-
+stock). Consequence: after deploying this change, **B (bare-port closure) goes
+live per host on that host's next reboot.** Servers auto-reboot on their nightly
+update; locked siblings can't `tailscale set` or restart the unit by hand (no
+sudo), so reboot is the path. C (the ABS bridge bind) applies immediately on
+switch and is independent of netfilterMode.
+
 ## Gotcha — firewall reload vs the live ruleset
 
 A `nixos-rebuild switch` *reloads* (not restarts) `firewall.service`. During the
