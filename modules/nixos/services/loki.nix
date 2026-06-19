@@ -257,22 +257,31 @@ in {
 
     lokiPushUrl = lib.mkOption {
       type = lib.types.str;
-      default = "https://loki.ablz.au/loki/api/v1/push";
+      default = "https://loki.ablz.au./loki/api/v1/push";
       description = ''
         Full URL for Loki's push endpoint. Default uses the Cloudflare FQDN
         which resolves to whichever host currently runs
         `homelab.services.loki` (the localProxy module owns the A record).
         Ignored when `homelab.services.loki.enable = true` on this host —
         that case short-circuits to localhost.
+
+        NOTE the trailing dot ("loki.ablz.au.") — it is LOAD-BEARING, not a
+        typo. It roots the name so a host with `search ablz.au` can never
+        search-suffix a failed `loki.ablz.au` lookup into
+        `loki.ablz.au.ablz.au` → the `*.ablz.au` wildcard → caddy, which
+        421s every push and wedges alloy forever. The NixOS fleet only
+        dodged this by rebooting nightly; the dot makes it structural.
+        Full RCA: docs/wiki/services/lgtm-stack.md (2026-06-19).
       '';
     };
 
     mimirPushUrl = lib.mkOption {
       type = lib.types.str;
-      default = "https://mimir.ablz.au/api/v1/push";
+      default = "https://mimir.ablz.au./api/v1/push";
       description = ''
         Full URL for Mimir's remote_write endpoint. Default uses the
-        Cloudflare FQDN — see lokiPushUrl for rationale.
+        Cloudflare FQDN — see lokiPushUrl for rationale (incl. the
+        load-bearing trailing dot).
       '';
     };
 

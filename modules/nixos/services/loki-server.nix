@@ -544,6 +544,15 @@ in {
         }
       ];
 
+      # NOTE: these Kuma probe URLs deliberately stay BARE (no trailing dot).
+      # They share the same `*.ablz.au` search-suffix exposure as the alloy
+      # push URLs, but (a) Kuma re-resolves every poll so it can't get the
+      # permanent wrong-host pin alloy suffers, and (b) Uptime-Kuma is a
+      # Node app and Node has historically mishandled trailing-dot SNI
+      # (cert mismatch → false DOWN) — unverified here, and adding risk to
+      # the alerting path for a self-healing case is the wrong trade.
+      # Revisit only if a doc2-reboot DNS hiccup is observed to false-DOWN
+      # these. See docs/wiki/services/lgtm-stack.md (2026-06-19).
       monitoring.monitors = [
         {
           name = "Grafana";

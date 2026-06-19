@@ -21,24 +21,20 @@ loki.source.journal "read" {
 
 loki.write "loki" {
   endpoint {
+    // The url carries a trailing dot (rooted FQDN) — see loki_push_url in
+    // ansible/common/monitoring.yml. THAT DOT is the real fix for the
+    // recurring "prom dark / 421 Unknown host" stall: it stops Go from
+    // search-suffixing `loki.ablz.au` → `loki.ablz.au.ablz.au` → caddy's
+    // `*.ablz.au` wildcard (192.168.1.6), which 421s every push. The old
+    // `enable_http2 = false` here was a misdiagnosis (blamed HTTP/2
+    // coalescing — but it was deployed and prom STILL 421'd) and was
+    // removed 2026-06-19. Full RCA: docs/wiki/services/lgtm-stack.md.
     url = "{{ loki_push_url }}"
     // doc2 (Loki host) auto-reboots nightly for ~10-15 min. Default
     // max_backoff_period=5m exhausted retries at ~9 min and dropped
     // a batch on 2026-05-21. Bump so the in-memory queue rides
     // normal maintenance windows; WAL covers anything longer.
     max_backoff_period = "10m"
-    // Force HTTP/1.1. Non-rebooting pushers (prom, tower) accumulate a
-    // long-lived connection. Over HTTP/2, Go coalesces the loki.ablz.au
-    // push onto a connection to caddy (192.168.1.6), whose *.ablz.au
-    // wildcard cert is "valid" for loki.ablz.au but which has no loki
-    // vhost -> 421 Misdirected Request forever, dropping every batch
-    // (alloy never redials). A connection drop (doc2 nginx reload, or any
-    // reboot) is the trigger; caddy's wildcard is the enabler. HTTP/1.1
-    // can't coalesce, so it's structurally impossible -- exactly why
-    // mimir (HTTP/1.1) was always immune. NixOS hosts dodge it via
-    // nightly reboots. Full analysis: docs/wiki/services/lgtm-stack.md
-    // "Alloy holds stale TCP connections" (2026-06-18 triage, 3rd occ).
-    enable_http2 = false
   }
 
   // Persist queued batches to /var/lib/alloy/data so we do not lose
@@ -66,10 +62,11 @@ prometheus.scrape "node" {
 // Push metrics to Mimir
 prometheus.remote_write "mimir" {
   endpoint {
+    // Rooted FQDN (trailing dot) — same fix as loki.write above; see
+    // mimir_push_url in ansible/common/monitoring.yml. (Mimir never hit
+    // the 421 in practice because it re-dialed cleanly, but it carries the
+    // identical search-suffix exposure, so it gets the identical fix.)
     url = "{{ mimir_push_url }}"
-    // Same 421/HTTP-2-coalescing fix as loki.write above — metrics take
-    // the same shared nginx vhost on doc2. See the loki.write comment.
-    enable_http2 = false
   }
   external_labels = {
     host = "{{ monitoring_hostname }}",

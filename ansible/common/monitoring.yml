@@ -17,8 +17,21 @@
     # homelab.services.loki (doc2 today). Moving the LGTM stack is a
     # one-deploy change on the Nix side — no playbook rerun needed.
     # See .claude/rules/nixos-service-modules.md "DNS-First Networking".
-    loki_push_url: "https://loki.ablz.au/loki/api/v1/push"
-    mimir_push_url: "https://mimir.ablz.au/api/v1/push"
+    #
+    # ⚠ The trailing dot ("loki.ablz.au.") is LOAD-BEARING — do NOT remove it.
+    # prom/tower carry `search ablz.au` in resolv.conf. Without the rooted
+    # FQDN, a transient failure of the bare `loki.ablz.au` lookup (e.g. during
+    # doc2's nightly reboot, exactly when alloy is forced to re-dial) makes Go
+    # append the search domain → `loki.ablz.au.ablz.au` → the `*.ablz.au`
+    # wildcard → caddy (192.168.1.6), which has no loki vhost and answers
+    # 421 "Unknown host". Go pins that 421 connection forever (a 421 is a
+    # valid HTTP response, so it never re-resolves DNS) → logs silently
+    # dropped until a manual `systemctl restart alloy`. The trailing dot
+    # disables search-suffixing, so the caddy path is structurally
+    # unreachable. Full RCA (and ~3 prior misdiagnoses as "HTTP/2
+    # coalescing"): docs/wiki/services/lgtm-stack.md (2026-06-19).
+    loki_push_url: "https://loki.ablz.au./loki/api/v1/push"
+    mimir_push_url: "https://mimir.ablz.au./api/v1/push"
     alloy_version: "1.*"
 
   tasks:

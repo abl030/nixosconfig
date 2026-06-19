@@ -399,7 +399,7 @@ If you change one, change all four. Drift here means silent log loss the next ti
 
 ## Alloy holds stale TCP connections across vhost migrations — silent log loss
 
-**Researched:** 2026-05-24. **Status:** **durably fixed for the non-rebooting pushers 2026-06-18** (`enable_http2 = false` on prom/tower alloy — see [the 2026-06-18 entry](#2026-06-18--the-durable-fix-force-http11-on-the-non-rebooting-pushers)); the NixOS fleet still relies on nightly reboots + the silence alert. **Recurred 2026-06-09** (ungraceful reboot, not a migration — see [that note](#2026-06-09-recurrence--ungraceful-reboot-re-triggers-the-coalesce)) and again **2026-06-18** (prom dark after doc2's nightly reload; tower found to share the exposure).
+**Researched:** 2026-05-24. **Status:** **ROOT CAUSE FOUND & durably fixed 2026-06-19 — it was a DNS search-suffix, NOT HTTP/2 coalescing.** The real fix is a **rooted FQDN (trailing dot)** in every alloy push URL — prom, tower, *and* the NixOS fleet. See [the 2026-06-19 entry](#2026-06-19--root-cause-the-trailing-dot-not-http2-coalescing). Everything below from the 2026-05-24 "Why" through the 2026-06-18 `enable_http2 = false` "durable fix" **misdiagnosed the mechanism** (coalescing / stale-connection-across-migration) and is retained only as a record of the dead ends: the `enable_http2` knob was deployed on prom and **prom still went dark the next night**, which is precisely what disproved the coalescing theory. **Occurrences:** 2026-05-24, 2026-06-09 (ungraceful reboot), 2026-06-18 + 2026-06-19 (doc2's nightly reboot).
 
 ### What broke
 
@@ -457,7 +457,9 @@ Two things this recurrence clarified beyond the 2026-05-24 entry:
 
 **Detection worked, remediation is still manual.** The `ingestionSilenceAlert` fired correctly both nights (the `[warning] prom stopped shipping logs to Loki` Gotify pings, 06-07 20:23 + 06-08 20:25). We **deliberately chose NOT to add an auto-restart watchdog** (2026-06-09 decision): the failure needs an ungraceful reboot to trigger, the alert already catches it, and a self-heal timer adds standing complexity + burns the alloy WAL queue on every false trip. Runbook stays: when you see `prom stopped shipping logs`, `ssh root@192.168.1.12 systemctl restart alloy` and confirm `prom` returns to `loki.ablz.au/loki/api/v1/label/host/values`. Revisit the watchdog only if this recurs without a reboot.
 
-### 2026-06-18 — the durable fix: force HTTP/1.1 on the non-rebooting pushers
+### 2026-06-18 — the "durable fix" that wasn't: force HTTP/1.1 (SUPERSEDED — wrong root cause)
+
+> **⚠ SUPERSEDED 2026-06-19.** This `enable_http2 = false` change misdiagnosed the bug as HTTP/2 connection coalescing — a mechanism that **cannot occur here**: loki and caddy present *separate single-name* certs, so Go can never coalesce a `loki.ablz.au` request onto a caddy connection. The knob was deployed to prom and **prom went dark again the very next night** (it had been on HTTP/1.1 for 23h and still 421'd). The actual cause (a DNS search-suffix onto caddy's `*.ablz.au` wildcard) and the actual fix (rooted FQDN / trailing dot) are in [the 2026-06-19 entry](#2026-06-19--root-cause-the-trailing-dot-not-http2-coalescing). Kept verbatim below for the record.
 
 Third occurrence — and we finally **removed the enabler** instead of restarting. Morning triage: `[warning] prom stopped shipping logs to Loki` fired ~04:57; prom's `alloy` (up 3 days) was logging continuous `421 Misdirected Request (421): Unknown host` for `loki.write`, dropping every Loki batch, while metrics still flowed to Mimir. The trigger this time was doc2's **nightly nginx reload/reboot ~04:52** dropping prom's good connection to `.35`; alloy re-dialed and the new HTTP/2 connection coalesced back onto **caddy's `*.ablz.au` wildcard** (`.6`) — the same enabler as 2026-06-09 (caddy is still up; a fresh `curl https://loki.ablz.au/ready` → 200, only the aged connection 421s).
 
@@ -471,6 +473,46 @@ Applied to the two pushers that **don't reboot nightly** (and so accumulate long
 The **NixOS fleet's `loki.write`** (`modules/nixos/services/loki.nix`) was **left on HTTP/2**: every NixOS host reboots nightly, so its connection never lives long enough to coalesce-and-wedge, and the `ingestionSilenceAlert` backstops it. Revisit if a NixOS host ever stops rebooting nightly.
 
 **Footgun observed while deploying the tower fix:** recreating the alloy container made `loki.source.docker` replay each container's *full* log history, so Loki `400`-rejected pre-7-day entries (`timestamp too old`) and `429`-throttled the flood. Benign — current logs ship fine and it self-clears as alloy catches up to recent entries. Any alloy restart on a docker-log host does this; don't mistake the `400`/`429` burst for the `421` regression (grep `status=` to tell them apart — there should be **zero** `status=421`).
+
+### 2026-06-19 — root cause: the trailing dot (NOT HTTP/2 coalescing)
+
+Fourth recurrence, and the one that cracked it. The `enable_http2 = false` "durable fix" from the day before **was deployed and alloy had restarted with it 23h earlier — and prom went dark anyway** after doc2's nightly reboot. That single fact killed the coalescing theory: it was already on HTTP/1.1, HTTP/1.1 "can't coalesce," and it still 421'd — so coalescing was never the mechanism.
+
+**What actually happens — a DNS search-suffix landing on caddy's wildcard.** prom's `/etc/resolv.conf` is `search ablz.au` (ndots:1). Normally `loki.ablz.au` (2 dots ≥ ndots) resolves as an absolute FQDN → the explicit record → `192.168.1.35` (doc2). But when doc2 reboots, alloy's connection drops and it must re-dial *at the exact moment the absolute `loki.ablz.au` lookup is transiently failing*. On that failure Go falls back to the search list and queries **`loki.ablz.au.ablz.au`**, which has no explicit record and so matches the **`*.ablz.au` wildcard → caddy (`192.168.1.6`)**. caddy serves no `loki.ablz.au` site and answers `421 Misdirected Request: Unknown host`. **Go keeps a 421-returning keep-alive connection in its pool forever** (a 421 is a valid HTTP response, not a socket error), so it never re-resolves DNS and never re-dials — prom is wedged talking to the wrong box until `systemctl restart alloy`.
+
+This explains every observation the coalescing theory had to hand-wave:
+- **"logs dead, metrics fine":** `loki.write` got caught in a bad re-dial window; `prometheus.remote_write`→mimir re-dialed cleanly to `.35`. Nothing to do with HTTP/1.1-vs-2.
+- **"a fresh `curl https://loki.ablz.au/ready` → 200, only the aged connection 421s":** curl does one absolute lookup → `.35`, never search-suffixes. alloy only reached caddy because it suffixed during a *failed* lookup.
+- **the `.6` connection in `ss`:** a *fresh dial to caddy's IP* (DNS pointed there via the suffix), not a reuse/coalesce of a doc2 connection.
+
+**Proof it's the suffix and nothing else** (from prom, or `dig @192.168.1.1`):
+
+```
+loki.ablz.au         → 192.168.1.35   explicit record (wins over the wildcard)
+zzz-nope.ablz.au     → 192.168.1.6    pure *.ablz.au wildcard → caddy
+loki.ablz.au.ablz.au → 192.168.1.6    search-suffixed → wildcard → caddy
+loki.ablz.au.        → 192.168.1.35   ROOTED FQDN — never suffixed
+```
+
+Because the explicit `loki.ablz.au → .35` record always wins for the bare name, the **only** name reachable from `loki.ablz.au` + `search ablz.au` that resolves to caddy is the suffixed `loki.ablz.au.ablz.au`. So alloy dialing `.6` *proves* it search-suffixed; a rooted FQDN can't generate that candidate. (This also rules out the "wildcard answers the bare name when the explicit record is removed during reboot" variant — a trailing dot would NOT fix that — because the explicit `.35` record is present and wins; verified above.)
+
+**The fix — rooted FQDN (trailing dot) in every alloy push URL:**
+
+```
+https://loki.ablz.au./loki/api/v1/push     # note the dot after .au
+https://mimir.ablz.au./api/v1/push
+```
+
+A trailing-dot host is absolute: the resolver never appends `search ablz.au`, so the caddy path is structurally unreachable — regardless of HTTP version, reboots, or transient absolute-lookup failures (worst case on a failed *rooted* lookup is a brief retry, never a wrong-host pin). Verified end-to-end from prom: `curl https://loki.ablz.au./loki/api/v1/push` → **422 via 192.168.1.35**, `SSL certificate verify ok` (Go and curl strip the trailing dot for SNI/cert matching). The `enable_http2 = false` lines were removed as the red herring they were.
+
+Applied everywhere a long-lived alloy connection exists — this time **including the NixOS fleet** (nightly reboots only ever *hid* the exposure):
+- **prom + Proxmox/Debian** — `ansible/common/monitoring.yml` (`loki_push_url`/`mimir_push_url`) + `ansible/common/templates/alloy-config.alloy.j2`. Deploy: `cd ansible/common && ansible-playbook -i ../prom_prox/inventory.ini monitoring.yml --limit pve-new-01 -e monitoring_hostname=prom`.
+- **tower (Unraid)** — `docker/unraid-alloy/config.alloy`. Deploy: `docker/unraid-alloy/deploy.sh` (scp + `docker compose up -d`).
+- **NixOS fleet** — `modules/nixos/services/loki.nix` (`lokiPushUrl`/`mimirPushUrl` defaults). Ships via `fleet-update`.
+
+**General rule:** on any host that carries a `search` domain, internal service URLs should use **rooted FQDNs (trailing dot)** whenever a `*.<search-domain>` wildcard exists that resolves somewhere harmful. The `*.ablz.au` → caddy wildcard is a fleet-wide tripwire: any bare-name lookup that transiently fails gets silently rerouted to a box that 421s, and Go pins the result. (Deliberately left bare: the Kuma probe URLs in `loki-server.nix` — Node's trailing-dot SNI handling is unverified and those monitors self-heal; see the comment there.)
+
+The remaining secondary question — *why* the absolute `loki.ablz.au` lookup fails at re-dial time at all (likely a brief pfSense/upstream hiccup for that name during doc2's reboot window) — is made moot by the trailing dot and isn't worth chasing unless it bites a different name.
 
 ## Per-service errorPattern alerts — startup-noise trap
 
