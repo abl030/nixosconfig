@@ -49,6 +49,9 @@ in {
 
     # ---- doc1 bastion side ----
     bastion = lib.mkEnableOption "hold the deploy-trigger private key + fleet-deploy wrapper";
+
+    # ---- locked-sibling side (Phase 3) ----
+    siblingLockdown = lib.mkEnableOption "narrow NOPASSWD allowlist for a sudo-locked sibling (read-only debug + deploy hygiene)";
   };
 
   config = lib.mkMerge [
@@ -98,5 +101,51 @@ in {
         '')
       ];
     })
+
+    (lib.mkIf cfg.siblingLockdown (let
+      bin = "/run/current-system/sw/bin";
+    in {
+      # When this sibling drops passwordless sudo (sudoPasswordless = false in
+      # hosts.nix) ${hostConfig.user} keeps ONLY this narrow allowlist passwordless.
+      # Everything else needs the Proxmox console (break-glass) or a signed deploy
+      # via `fleet-deploy`. A popped ${hostConfig.user} here can observe, restart a
+      # container, and trigger a SIGNED rebuild — nothing that escalates to root,
+      # no cat/rm, no exec, no secret-file read.
+      #   * read-only podman: rootful, so even reading needs root. (`inspect` can
+      #     reveal a container's env — a minor residual; the win is no root pivot.)
+      #     These have no pager/shell escape; `journalctl` is deliberately NOT
+      #     here (its pager `!sh` is a root escape) — read logs via Loki instead.
+      #   * `systemctl stop nixos-rebuild-switch-to-configuration.service`: lets me
+      #     clear a stale deploy-switch so the next fleet-deploy isn't blocked.
+      #   * `systemctl restart podman-*`: bounded container recovery (container
+      #     units only — can't touch sshd/system units).
+      # The recovery net if this allowlist is ever wrong: `fleet-deploy <host>`
+      # uses polkit, not sudo, so a corrected config can always be deployed.
+      security.sudo.extraRules = lib.mkAfter [
+        {
+          users = [hostConfig.user];
+          commands =
+            map (command: {
+              inherit command;
+              options = ["NOPASSWD"];
+            }) [
+              "${bin}/podman ps"
+              "${bin}/podman ps *"
+              "${bin}/podman inspect *"
+              "${bin}/podman logs *"
+              "${bin}/podman top *"
+              "${bin}/podman port *"
+              "${bin}/podman stats"
+              "${bin}/podman stats *"
+              "${bin}/podman images"
+              "${bin}/podman images *"
+              "${bin}/podman network ls"
+              "${bin}/podman network inspect *"
+              "${bin}/systemctl stop nixos-rebuild-switch-to-configuration.service"
+              "${bin}/systemctl restart podman-*"
+            ];
+        }
+      ];
+    }))
   ];
 }

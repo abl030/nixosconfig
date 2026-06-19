@@ -209,7 +209,14 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp";
     authorizedKeys = fleetKeys;
-    sudoPasswordless = true; # temporary — lock down once appliance is stable
+    # forgejo#2 Phase 3: LOCKED DOWN. No passwordless sudo — abl030 has no
+    # password here either (`!`), so the only root abl030 keeps is the narrow
+    # NOPASSWD allowlist from homelab.fleetDeploy.siblingLockdown (read-only
+    # podman/journalctl + deploy-switch-stop + podman-* restart). Deploys come
+    # from doc1 via `fleet-deploy doc2` (forced-command key → nixos-upgrade,
+    # polkit-authorized, no sudo). Break-glass for anything else: the Proxmox
+    # console on prom. A popped service/abl030 here can no longer pivot to root.
+    sudoPasswordless = false;
     localIp = "192.168.1.35";
     gotifyServer = true;
   };

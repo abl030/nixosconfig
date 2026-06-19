@@ -30,9 +30,13 @@
       secure = true;
     };
     # forgejo#2 Phase 2: accept the doc1 bastion's forced-command deploy trigger
-    # (polkit-scoped to start ONLY nixos-upgrade.service). Lets doc2 eventually
-    # drop passwordless sudo (Phase 3) while doc1 can still deploy it.
+    # (polkit-scoped to start ONLY nixos-upgrade.service). Lets doc2 drop
+    # passwordless sudo (Phase 3) while doc1 can still deploy it.
     fleetDeploy.acceptTrigger = true;
+    # forgejo#2 Phase 3: sudo is now password-required (sudoPasswordless=false in
+    # hosts.nix) — this keeps the narrow read-only/deploy-hygiene NOPASSWD
+    # allowlist so I retain observability without standing root.
+    fleetDeploy.siblingLockdown = true;
     tailscale.enable = true;
 
     # LGTM observability stack — migrated from igpu per #208.

@@ -369,7 +369,16 @@
     # `tailscale up *` would be false comfort), and the diagnostic `sudo
     # tailscale ...` calls this unblocks are used constantly. The trust boundary
     # is the tailnet ACL, not local sudo.
-    extraRules = [
+    #
+    # GATED ON sudoPasswordless (forgejo#2 Phase 3): these are NOPASSWD ONLY on
+    # hosts where ${hostConfig.user} already has passwordless root anyway (the
+    # bastion doc1, and igpu until it's locked). On a LOCKED sibling
+    # (sudoPasswordless = false) this block is empty — several entries are
+    # GTFOBins (`sudo strace sh`, `sudo tcpdump -z <script>`, `sudo nmap`
+    # --interactive → root shell/exec) and would otherwise be a one-line bypass
+    # of the whole lockdown. Locked siblings diagnose via the read-only allowlist
+    # (homelab.fleetDeploy.siblingLockdown) + Loki, or the Proxmox console.
+    extraRules = lib.optionals (hostConfig.sudoPasswordless or false) [
       {
         users = [hostConfig.user];
         commands = [
