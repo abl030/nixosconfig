@@ -608,8 +608,40 @@ virtualisation.oci-containers.containers.<name> = {
   ports = ["<host-port>:<container-port>"];
   volumes = ["<dataDir>:/data"];
   environmentFiles = [config.sops.secrets."<name>/env".path];
+  # REQUIRED: runtime hardening baseline (see below).
+  extraOptions = config.homelab.podman.hardenOptions ++ [ /* --user / --cap-add / --device */ ];
 };
 ```
+
+### Container runtime hardening (REQUIRED on every OCI container)
+
+We never pin images — `:latest` + auto-pull stays on fleet-wide by explicit
+policy (issue #232 TIER-4 is **WONTFIX**; do not propose a `:latest`/`:master`
+CI gate or digest pinning, see `.claude/memory/feedback-no-image-pinning.md`).
+The compensating control for a compromised auto-pulled image is to shrink its
+runtime authority. So **every** `virtualisation.oci-containers.containers.<name>`
+must prepend `config.homelab.podman.hardenOptions` to its `extraOptions`:
+
+```nix
+extraOptions = config.homelab.podman.hardenOptions ++ [ ... ];
+```
+
+`hardenOptions` is `["--security-opt=no-new-privileges" "--cap-drop=all"]`
+(readOnly — a module can't weaken it; exceptions are **additive** via cap-add).
+Then `--cap-add` back only the minimal set the container actually needs:
+
+| Container shape | cap-add needed |
+|---|---|
+| Plain app run as `--user=<uid>:<gid>` on an unprivileged port (Node/Go/etc.) | *none* — `hardenOptions` alone |
+| Static exporter / single binary as root, unprivileged port | *none* |
+| s6 / LSIO / jlesage init that starts root, chowns state, drops to PUID/PGID | `CHOWN SETUID SETGID DAC_OVERRIDE FOWNER KILL` |
+| Binds a privileged (<1024) port | add `NET_BIND_SERVICE` |
+| GPU transcode | add `--device=/dev/dri/renderD128:...` (a device map, **not** a cap) |
+
+Notes:
+- cap-drop=all does **not** affect `--device` GPU access (device perms/cgroup, not a capability) nor reading bind-mounts as the runtime UID.
+- If an s6-style container fails to start after hardening, check its logs — some s6-overlay versions also want `SETPCAP` to drop the bounding set. Add it explicitly, don't widen back to default caps.
+- Exception of record: `hermes` (its own locked VM) is deliberately left at podman defaults until its tool requirements are mapped — see the header in `modules/nixos/services/hermes-agent.nix`. Any new container has no such excuse.
 
 ## External Sharing (tailscaleShare)
 
@@ -719,10 +751,17 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
   (`/mnt/data/Media`, `/mnt/mirrors`). A compromised container can encrypt or
   delete adjacent services' data. Pin a non-root UID via `--user=<uid>:<gid>`
   in `extraOptions` (see jellystat for the pattern).
-- **`pull = "newer"` on `:latest`/`:master` tags.** Nightly auto-update can
-  silently swap the image — including supply-chain compromises in upstream's
-  Docker Hub or GitHub. Pin to digests (`@sha256:...`) for any service whose
-  upstream isn't ours.
+- **OCI container without `config.homelab.podman.hardenOptions`** in its
+  `extraOptions`. Default podman caps (CHOWN, SETUID, DAC_OVERRIDE, NET_RAW, …)
+  are a fat runtime for a compromised image. Every container must start from
+  `hardenOptions` (cap-drop=all + no-new-privileges) and cap-add back only what
+  it needs. See "Container runtime hardening" above.
+- **`pull = "newer"` on `:latest`/`:master` tags is FINE and intended** — by
+  explicit policy we keep auto-pull on for everything and do **not** pin images
+  (issue #232 TIER-4 is WONTFIX; see
+  `.claude/memory/feedback-no-image-pinning.md`). The supply-chain mitigation is
+  *runtime hardening* (`hardenOptions`, above), **not** pinning. Do not add a
+  `:latest`/`:master` CI gate or digest pin.
 - **Shared network namespace without shared-loopback audit.** Capabilities are
   per-container, so caddy does not inherit tailscale's `NET_ADMIN`; the real
   failure mode is control-plane exposure over shared `127.0.0.1` plus a broad
@@ -742,14 +781,25 @@ Concrete failure modes we've hit. Add to this list when you find a new one.
 
 ### Image trust
 
-- **Personal Dockerhub repos** (`docker.io/<personal-handle>/...`) without
-  digest pinning. Single-author trust chain, no signing. Always pin to
-  `@sha256:...`. If the project is unmaintained, vendor the image into
-  `pkgs.dockerTools` instead.
+> **Policy:** we do **not** pin container image tags — `:latest` + auto-pull is
+> on fleet-wide and that is a hard line (issue #232 TIER-4 = WONTFIX; see
+> `.claude/memory/feedback-no-image-pinning.md`). The trade is accepted
+> knowingly; the mitigation is runtime hardening (`hardenOptions`), not pinning.
+> The items below are therefore about *containing* an untrusted image, not
+> freezing it.
+
+- **Personal Dockerhub repos** (`docker.io/<personal-handle>/...`) — single
+  author, no signing. We run them anyway (auto-pull stays on), so the runtime
+  hardening baseline matters most here: cap-drop=all, non-root `--user` where
+  possible, narrow bind mounts. If a project is unmaintained *and* its behaviour
+  is simple, prefer vendoring into `pkgs.dockerTools` (reproducible, no external
+  pull) — that is the only acceptable "freeze," and it's about build provenance,
+  not tag pinning.
 - **Tracking upstream `master` of a `flake = false` input that builds an
   image we run** (`musicbrainz-docker` learned this on 2026-05-10 when the
-  PG16→PG18 bump broke our cluster — #228, #229). Pin those inputs explicitly
-  and bump them by hand.
+  PG16→PG18 bump broke our cluster — #228, #229). This is a *flake input*, not a
+  container tag — those we do review on bump, because a broken build wedges the
+  whole host. Distinct from the no-pinning policy for pulled images.
 
 ### Mount ordering
 
@@ -885,7 +935,9 @@ Before submitting a new service module:
       declared in `ownershipAllowList`; deploy fails loudly otherwise (see
       Schema-ownership invariant section)
 - [ ] OCI containers run with `--user=<non-root-uid>:<gid>` in `extraOptions`
-- [ ] Image refs pinned to digests for any non-nixpkgs upstream
+- [ ] OCI containers prepend `config.homelab.podman.hardenOptions` to
+      `extraOptions` and `--cap-add` back only the minimal set (see Container
+      runtime hardening). Do NOT pin image tags — auto-pull stays on (policy)
 - [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts`
 - [ ] `homelab.localProxy.hosts` entry for DNS/SSL/nginx
 - [ ] If MOVING a `localProxy` service between hosts: deploy the destination

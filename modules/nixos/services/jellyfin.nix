@@ -411,11 +411,15 @@ in {
         volumes = [
           "${cfg.jellystat.dataDir}/backup-data:/app/backend/backup-data"
         ];
-        extraOptions = [
-          # Run the container process as abl030:users so volume writes land
-          # non-root on the host. See header `containerUid`/`containerGid`.
-          "--user=${containerUid}:${containerGid}"
-        ];
+        # Node analytics app, runs as --user on an unprivileged port — needs no
+        # Linux capabilities. cap-drop=all + no-new-privileges via hardenOptions.
+        extraOptions =
+          config.homelab.podman.hardenOptions
+          ++ [
+            # Run the container process as abl030:users so volume writes land
+            # non-root on the host. See header `containerUid`/`containerGid`.
+            "--user=${containerUid}:${containerGid}"
+          ];
       };
 
       # Requires= on the pg container drives systemd cascade-stop semantics;
@@ -495,6 +499,19 @@ in {
         volumes = [
           "${cfg.watchstate.dataDir}:/config"
         ];
+        # Upstream entrypoint runs as root, chowns /config, then drops to
+        # WS_UID/WS_GID — needs the file-ownership + setuid/setgid drop caps;
+        # the unprivileged :8080 bind needs none. cap-drop=all removes the rest.
+        extraOptions =
+          config.homelab.podman.hardenOptions
+          ++ [
+            "--cap-add=CHOWN"
+            "--cap-add=SETUID"
+            "--cap-add=SETGID"
+            "--cap-add=DAC_OVERRIDE"
+            "--cap-add=FOWNER"
+            "--cap-add=KILL"
+          ];
       };
 
       homelab = {

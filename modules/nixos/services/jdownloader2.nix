@@ -75,6 +75,19 @@ in {
         GROUP_ID = "0";
         UMASK = "0002";
       };
+      # jlesage init runs as root, chowns /config and the volumes, then runs
+      # the GUI app. Keep the file-ownership + setuid/setgid drop caps; the
+      # unprivileged :5800 VNC port needs none. cap-drop=all removes the rest.
+      extraOptions =
+        config.homelab.podman.hardenOptions
+        ++ [
+          "--cap-add=CHOWN"
+          "--cap-add=SETUID"
+          "--cap-add=SETGID"
+          "--cap-add=DAC_OVERRIDE"
+          "--cap-add=FOWNER"
+          "--cap-add=KILL"
+        ];
     };
 
     systemd.tmpfiles.rules = [

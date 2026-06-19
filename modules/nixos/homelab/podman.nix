@@ -80,6 +80,28 @@ in {
   options.homelab.podman = {
     enable = lib.mkEnableOption "Rootful podman OCI container infrastructure";
 
+    # Runtime-hardening baseline prepended to every homelab OCI container's
+    # extraOptions. We never pin images — `:latest` + auto-pull stays on
+    # fleet-wide by explicit policy (#232 TIER-4 is WONTFIX). So the
+    # compensating control for a compromised auto-pulled image is to shrink
+    # its runtime authority: drop ALL Linux capabilities and forbid privilege
+    # escalation via setuid. Each container --cap-add=<CAP> back only the
+    # minimal set it needs (s6/LSIO inits that chown then drop to PUID need
+    # CHOWN,SETUID,SETGID,DAC_OVERRIDE,FOWNER,KILL; privileged-port binders
+    # need NET_BIND_SERVICE). readOnly so a module can't silently weaken the
+    # baseline — exceptions are additive via cap-add, never by dropping this.
+    # See docs/wiki/nixos-service-modules.md "Container runtime hardening".
+    hardenOptions = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      internal = true;
+      default = [
+        "--security-opt=no-new-privileges"
+        "--cap-drop=all"
+      ];
+      description = "Baseline cap-drop + no-new-privileges flags for OCI containers; prepend to extraOptions, cap-add minimal caps back per container.";
+    };
+
     updateSchedule = lib.mkOption {
       type = lib.types.str;
       default = "*-*-* 06:00:00";

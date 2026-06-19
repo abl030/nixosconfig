@@ -80,6 +80,20 @@ in {
         NGINX_PORT = "80";
         WEB_APP_PORT = "3000";
       };
+      # s6 init runs as root, chowns /config + /assets, then serves nginx/tftp
+      # on privileged ports (:80, :69). cap-drop=all + the file-ownership drop
+      # caps + NET_BIND_SERVICE for the <1024 binds; everything else removed.
+      extraOptions =
+        config.homelab.podman.hardenOptions
+        ++ [
+          "--cap-add=CHOWN"
+          "--cap-add=SETUID"
+          "--cap-add=SETGID"
+          "--cap-add=DAC_OVERRIDE"
+          "--cap-add=FOWNER"
+          "--cap-add=KILL"
+          "--cap-add=NET_BIND_SERVICE"
+        ];
     };
 
     # TFTP + assets ports must be reachable by PXE clients on the LAN

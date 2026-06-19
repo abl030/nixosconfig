@@ -101,7 +101,20 @@ in {
         "${cfg.mediaRoot}/TV Shows:/mnt/media/TV Shows:ro"
         "${cfg.transcodeTemp}:/temp:rw"
       ];
-      extraOptions = ["--device=/dev/dri/renderD128:/dev/dri/renderD128"];
+      # Upstream s6 init starts as root, chowns state, then drops to PUID/PGID,
+      # so it needs the file-ownership + setuid/setgid drop caps; cap-drop=all
+      # removes everything else. GPU access is device-perm based, not a cap.
+      extraOptions =
+        config.homelab.podman.hardenOptions
+        ++ [
+          "--cap-add=CHOWN"
+          "--cap-add=SETUID"
+          "--cap-add=SETGID"
+          "--cap-add=DAC_OVERRIDE"
+          "--cap-add=FOWNER"
+          "--cap-add=KILL"
+          "--device=/dev/dri/renderD128:/dev/dri/renderD128"
+        ];
     };
 
     systemd.tmpfiles.rules = [

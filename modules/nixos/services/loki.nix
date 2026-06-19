@@ -676,6 +676,9 @@ in {
         volumes = [
           "/var/lib/pfsense-exporter/config.yml:/pfsense_exporter/config.yml:ro"
         ];
+        # Static Go exporter: binds one unprivileged port, scrapes pfSense over
+        # HTTP. Needs no Linux capabilities — cap-drop=all + no-new-privileges.
+        extraOptions = config.homelab.podman.hardenOptions;
       };
 
       systemd.services.podman-pfsense-exporter.serviceConfig.ExecStartPre =
@@ -782,6 +785,9 @@ in {
         volumes = [
           "/var/lib/ntopng-exporter:/config:ro"
         ];
+        # Static Go exporter: binds one unprivileged port, scrapes ntopng over
+        # HTTP. Needs no Linux capabilities — cap-drop=all + no-new-privileges.
+        extraOptions = config.homelab.podman.hardenOptions;
       };
 
       systemd.services.podman-ntopng-exporter.serviceConfig.ExecStartPre =

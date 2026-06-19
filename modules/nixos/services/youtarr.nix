@@ -168,9 +168,13 @@ in {
         "${cfg.dataDir}/images:/app/server/images:rw"
         "${cfg.dataDir}/jobs:/app/jobs:rw"
       ];
-      extraOptions = [
-        "--user=${toString youtarrUid}:100"
-      ];
+      # Plain Node.js app, runs as --user on an unprivileged port — needs no
+      # Linux capabilities. cap-drop=all + no-new-privileges via hardenOptions.
+      extraOptions =
+        config.homelab.podman.hardenOptions
+        ++ [
+          "--user=${toString youtarrUid}:100"
+        ];
     };
   };
 }
