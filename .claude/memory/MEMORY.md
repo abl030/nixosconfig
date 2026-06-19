@@ -36,4 +36,6 @@
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat
-- Task tracking lives in GitHub issues (beads removed 2026-04-14 — see `docs/beads-archive.md`)
+- Task tracking: NEW issues → Forgejo (`git.ablz.au`, REST API; doc1 agent has a scoped
+  write:issue token — see [forgejo-issue-token-doc1.md](forgejo-issue-token-doc1.md)). Legacy
+  issues still on GitHub (`gh`), NOT migrated. (beads removed 2026-04-14 — see `docs/beads-archive.md`)

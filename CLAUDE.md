@@ -181,7 +181,8 @@ Sops-nix + Age. Config: `secrets/.sops.yaml`. **Per-host scoped (#234):** a secr
 
 ## Issue and TODO Tracking
 
-- Larger work items are tracked in **GitHub issues** on this repo. Use `gh issue list`, `gh issue view <n>`, and `gh issue create` for everything agent-facing.
+- Larger work items are tracked in issues on this repo. **Forgejo issues are now live** (`git.ablz.au/abl030/nixosconfig`) and are the home for **new** items as we migrate off GitHub. **Existing GitHub issues (e.g. #232, #277) stay on GitHub for now — they are NOT migrated**, so still use `gh issue list/view/create` for that older work.
+  - File/edit Forgejo issues via the **REST API** (`https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues`); `gh` does NOT work against Forgejo. The doc1 agent has a scoped `nixbot` `write:issue` token (sops-encrypted, doc1-only) for this — see `.claude/memory/forgejo-issue-token-doc1.md`.
 - Lightweight in-repo TODOs live in `docs/todo/*.md`. Check there before starting new work.
 - Historical issues from the retired `bd` (beads) tracker are archived in `docs/beads-archive.md` — read-only reference, do not try to resurrect the `.beads/` directory.
 
@@ -242,7 +243,7 @@ Monitor URL conventions and defaults are documented inline in `modules/nixos/ser
 
 MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
 
-- Use **GitHub issues** for decisions, rationale, workflow preferences, research findings, and feature progress.
+- Use **issues** for decisions, rationale, workflow preferences, research findings, and feature progress — **Forgejo** (`git.ablz.au`) for new ones, legacy **GitHub** issues stay put (see "Issue and TODO Tracking").
 - Use **MEMORY.md** for shell/env quirks needed every session, "never do X" safety rules, and one-line pointers to relevant GitHub issues.
 - The `docs/wiki/` tree is the long-form knowledge base for research and architectural context.
 
@@ -340,4 +341,4 @@ When work is committed, push it. `git pull --rebase && git push` is pre-authoris
 
 ## Issue Tracking
 
-GitHub issues (`gh`) cover both real bugs/features and long-running session work that spans multiple conversations. Historical beads issues are read-only in `docs/beads-archive.md`.
+Issues cover both real bugs/features and long-running session work that spans multiple conversations. **New issues now go to Forgejo** (`git.ablz.au`, via the REST API + the doc1 agent's scoped token — see "Issue and TODO Tracking"); **existing GitHub issues (`gh`) are not yet migrated** and remain authoritative for that older work. Historical beads issues are read-only in `docs/beads-archive.md`.
