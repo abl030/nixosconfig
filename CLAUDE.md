@@ -29,8 +29,12 @@
 #     service health). A stuck doc2 switch: `sudo systemctl stop
 #     nixos-rebuild-switch-to-configuration.service` (it IS in the locked allowlist).
 #   * doc1 (the bastion, still passwordless) — `sudo fleet-update` locally.
-#   * not-yet-locked hosts (wsl, hermes, workstations) — `ssh <host> "sudo
-#     fleet-update"` still works until they lock down too.
+#   * epi, framework (LOCKED workstations) — the AGENT cannot deploy these: no
+#     passwordless sudo and not fleet-deploy targets. Their OWNER deploys
+#     interactively (`sudo nixos-rebuild`/`fleet-update`, types the password) or
+#     they ride the nightly auto-update. Do NOT `ssh epi "sudo ..."` — it hangs
+#     on a password prompt.
+#   * still-passwordless hosts (wsl, hermes) — `ssh <host> "sudo fleet-update"`.
 # Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md
 #
 # Only `nixos-rebuild switch --flake .#<host>` from a local tree for break-glass,
@@ -56,8 +60,9 @@
 # To deploy current verified config to a remote host:
 #   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
 #   2. LOCKED siblings (doc2, igpu): from doc1 run `fleet-deploy <host>`.
-#      Not-yet-locked hosts (wsl, hermes, workstations): `ssh <host> "sudo
-#      fleet-update"`. doc1 itself: `sudo fleet-update` locally.
+#      Still-passwordless hosts (wsl, hermes): `ssh <host> "sudo fleet-update"`.
+#      doc1 itself: `sudo fleet-update` locally. Locked workstations (epi,
+#      framework): the AGENT can't deploy — owner deploys interactively / nightly.
 #
 # Both fetch Forgejo, verify every commit in range is signed and descends from the
 # running rev, then build locally from a root-owned verified clone — nothing

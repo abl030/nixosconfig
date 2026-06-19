@@ -29,7 +29,9 @@
 - **doc2 + igpu are LOCKED: NO passwordless sudo.** Deploy them from doc1 with
   `fleet-deploy <host>` (forced-command → nixos-upgrade, polkit). `ssh <host>
   "sudo fleet-update"` now FAILS on them. doc1 still uses local `sudo fleet-update`;
-  unlocked hosts (wsl/hermes/workstations) still use `ssh <host> sudo fleet-update`.
+  still-passwordless hosts (wsl/hermes) use `ssh <host> sudo fleet-update`. epi +
+  framework are LOCKED workstations — the agent can't deploy them (no passwordless
+  sudo, not fleet-deploy targets); the owner deploys interactively / via nightly.
 - On doc2/igpu only these sudo work: read-only `podman` (ps/inspect/logs/top/…),
   `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
   restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use
