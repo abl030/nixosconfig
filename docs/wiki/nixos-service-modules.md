@@ -591,13 +591,15 @@ See `slskd.nix` for the dual-NIC policy routing pattern. Services needing VPN us
 
 ## Podman/OCI Services
 
-For services that must use containers:
+For services that must use containers, **register them in `homelab.podman.containers`** —
+that's not just for the auto-update timer, it's what grants two security properties
+for free: per-container **network isolation** and the runtime-hardening baseline.
 
 ```nix
 homelab.podman = {
   enable = true;
   containers = [{
-    unit = "podman-<name>.service";
+    unit = "podman-<name>.service";   # unit name MUST be podman-<name>.service
     image = "<registry>/<image>:<tag>";
   }];
 };
@@ -612,6 +614,37 @@ virtualisation.oci-containers.containers.<name> = {
   extraOptions = config.homelab.podman.hardenOptions ++ [ /* --user / --cap-add / --device */ ];
 };
 ```
+
+### Container network isolation (automatic via the registry; enforced)
+
+By default every podman container shares the `podman` bridge (`10.88.0.0/16`),
+where any container can L3-reach **and DNS-resolve by name** every other — a free
+lateral-movement path for a compromised image. So `homelab.podman` gives each
+**registered** container (`homelab.podman.containers` with a `podman-<name>.service`
+unit + concrete image) its **own** `isolated-<name>` bridge automatically — it
+injects `--network=isolated-<name>` and creates the network in an `ExecStartPre`.
+You do **not** add `--network` yourself; just register.
+
+External DNS, outbound NAT, published ports, and reaching an nspawn DB (the source
+is still rewritten to the DB's `hostAddress`, so `pg_hba`/scram still matches) all
+keep working on an isolated bridge — verified live 2026-06-19 incl. a real psql
+auth from an isolated net.
+
+**Enforced by `containerNetworkAuditCheck`:** any module defining a
+`virtualisation.oci-containers.containers` must either register it (→ isolation) or
+carry a `CONTAINER-NETWORK-OK` marker documenting a deliberate bespoke model.
+Current marked exceptions:
+- **`musicbrainz`** — its containers share one `musicbrainz` network on purpose (they
+  talk to each other); that's still off the default bridge.
+- **`tailscale-share`** — each caddy sidecar shares its ts sidecar's netns
+  (`--network=container:ts-<name>`); the ts sidecar stays on the default bridge to
+  reach `host.docker.internal` over a podman0-scoped firewall rule. Post-isolation
+  the only things left on the default bridge are these ts sidecars — they can reach
+  each other but not the isolated services.
+- **`hermes`** — sole container on its own single-tenant VM; no siblings to isolate from.
+
+If you truly need two containers to talk, don't drop them on the default bridge —
+create a dedicated shared network (musicbrainz is the in-tree example).
 
 ### Container runtime hardening (REQUIRED on every OCI container)
 
@@ -977,6 +1010,9 @@ Before submitting a new service module:
 - [ ] OCI containers prepend `config.homelab.podman.hardenOptions` to
       `extraOptions` and `--cap-add` back only the minimal set (see Container
       runtime hardening). Do NOT pin image tags — auto-pull stays on (policy)
+- [ ] OCI container registered in `homelab.podman.containers` (gives auto network
+      isolation + auto-update; enforced by `containerNetworkAuditCheck`). Do NOT
+      add `--network` yourself; bespoke models need a `CONTAINER-NETWORK-OK` marker
 - [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts` — NOT
       `0.0.0.0` (enforced by `hostBindAuditCheck`; `tailscale0` is trusted, so
       all-interfaces = whole tailnet). Off-host endpoints need a

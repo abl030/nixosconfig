@@ -367,6 +367,45 @@
             touch $out
           '';
 
+          # Per-service container network isolation (#232). Standalone OCI
+          # containers must NOT share the default podman bridge (where every
+          # container can L3-reach + DNS-resolve every other on 10.88.0.0/16, a
+          # lateral-movement surface). The cure is structural: register the
+          # container in `homelab.podman.containers`, which auto-assigns it a
+          # dedicated `isolated-<name>` bridge (see modules/nixos/homelab/podman.nix)
+          # AND gives it auto-update + autoheal. So every module that defines a
+          # `virtualisation.oci-containers.containers` must either register it, or
+          # carry a `CONTAINER-NETWORK-OK` marker documenting a deliberate bespoke
+          # model (e.g. tailscale-share's shared-netns sidecars, hermes' single-
+          # tenant VM). Catches a new container silently landing on the default bridge.
+          containerNetworkAuditCheck = pkgs.runCommand "container-network-audit" {} ''
+            fail=0
+            for f in $(${pkgs.findutils}/bin/find ${./modules/nixos/services} -name '*.nix' | sort); do
+              if ${pkgs.gnugrep}/bin/grep -q 'oci-containers\.containers' "$f"; then
+                if ! ${pkgs.gnugrep}/bin/grep -qE 'podman\.containers = \[' "$f" \
+                   && ! ${pkgs.gnugrep}/bin/grep -q 'CONTAINER-NETWORK-OK' "$f"; then
+                  echo "OCI container not isolated: $(basename "$f")"
+                  fail=1
+                fi
+              fi
+            done
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "A module defines an OCI container that neither registers in"
+              echo "homelab.podman.containers (which auto-assigns a dedicated"
+              echo "isolated-<name> bridge + auto-update + autoheal) nor declares a"
+              echo "bespoke network model. On the shared default podman bridge a"
+              echo "compromised container can L3-pivot to every sibling. Fix: add the"
+              echo "container to homelab.podman.containers. If it genuinely needs a"
+              echo "custom network model, add a 'CONTAINER-NETWORK-OK' marker comment"
+              echo "explaining it. See docs/wiki/nixos-service-modules.md \"Host binding\""
+              echo "/ Podman section."
+              exit 1
+            fi
+            echo "All OCI-container modules are registered (auto-isolated) or marked."
+            touch $out
+          '';
+
           # Pin the home-LAN detection (`on_lan`) in subnet-priority.nix. That
           # function decides whether the roaming-laptop rule `to 192.168.1.0/24
           # lookup main` is installed; it regressed twice (address-presence
@@ -1016,7 +1055,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck onLanMatcherCheck bastionInvariantCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}

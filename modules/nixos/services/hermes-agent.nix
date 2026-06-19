@@ -113,6 +113,11 @@ in {
       mode = "0400";
     };
 
+    # CONTAINER-NETWORK-OK: hermes is the ONLY container on its own locked-down
+    # VM — there are no sibling containers to pivot to, so the default podman
+    # bridge is not a lateral-movement surface here. It is intentionally NOT in
+    # the homelab.podman.containers registry (no nightly auto-pull, see header),
+    # hence no auto-isolation; that's fine for a single-tenant host.
     virtualisation.oci-containers.containers.hermes = {
       inherit image;
       autoStart = true;

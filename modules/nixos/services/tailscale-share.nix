@@ -325,6 +325,15 @@ in {
       ])
       instances);
 
+    # CONTAINER-NETWORK-OK: bespoke network model, not the registry/auto-isolation
+    # path. Each caddy sidecar shares its ts sidecar's netns (--network=container:
+    # ts-<name>) — that pairing is the whole point and must NOT be separated. The
+    # ts sidecar sits on the default podman bridge because it reaches its backend
+    # via host.docker.internal (host-gateway) over a podman0-scoped firewall rule;
+    # moving it to an isolated bridge would break that host-upstream path. After
+    # #232's per-service isolation, the only things left on the default bridge are
+    # these ts sidecars — they can reach each other but NOT the isolated services,
+    # and they already carry the TIER-2 sidecar hardening (admin off, cap-drop).
     # OCI containers — tailscale + caddy per instance
     virtualisation.oci-containers.containers = lib.mkMerge (lib.mapAttrsToList (name: cfg: {
         # Tailscale sidecar: joins tailnet with a dedicated identity

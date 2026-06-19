@@ -6,6 +6,18 @@
 }: let
   cfg = config.homelab.podman;
 
+  podmanBin = "${config.virtualisation.podman.package}/bin/podman";
+
+  # OCI container attr-names that get a dedicated, isolated network (#232). We
+  # derive them from the registry: only entries that are real per-container
+  # `virtualisation.oci-containers` units — unit `podman-<name>.service` with a
+  # concrete image. Compose-style stacks (e.g. musicbrainz.service, which has a
+  # non-podman- unit name) manage their own networking and are excluded; hermes
+  # isn't in the registry at all. `podman-<name>.service` → `<name>`.
+  isolatedNames =
+    map (e: lib.removeSuffix ".service" (lib.removePrefix "podman-" e.unit))
+    (lib.filter (e: e.image != null && lib.hasPrefix "podman-" e.unit) cfg.containers);
+
   containerType = lib.types.submodule {
     options = {
       unit = lib.mkOption {
@@ -135,17 +147,45 @@ in {
 
     virtualisation.oci-containers.backend = "podman";
 
-    # Allow DNS from containers on the podman network
+    # Per-container network isolation (#232). Each registered standalone OCI
+    # container gets its OWN bridge (`isolated-<name>`) instead of sharing the
+    # default `podman` bridge, where every container can L3-reach — and DNS-
+    # resolve by name — every other on 10.88.0.0/16. A compromised container can
+    # then no longer pivot to its siblings. `--network=<name>` REPLACES the
+    # default attachment, so the container is ONLY on its own bridge. External
+    # DNS, outbound NAT, published ports, and nspawn-DB auth (src is still
+    # rewritten to the DB's hostAddress) all keep working — verified live on
+    # doc2 2026-06-19 (incl. a real psql auth from an isolated net). The list is
+    # merged (concatenated) with each module's own extraOptions.
+    virtualisation.oci-containers.containers = lib.genAttrs isolatedNames (name: {
+      extraOptions = ["--network=isolated-${name}"];
+    });
+
+    # Allow DNS from containers on the default podman bridge. Isolated bridges
+    # do NOT need an equivalent rule — netavark/aardvark answers external DNS on
+    # them without a host firewall opening (verified).
     networking.firewall.interfaces.podman0.allowedUDPPorts = [53];
 
     systemd = {
-      services.podman-update-containers = lib.mkIf (cfg.containers != []) {
-        description = "Pull and restart OCI containers";
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = restartScript;
-        };
-      };
+      services =
+        {
+          podman-update-containers = lib.mkIf (cfg.containers != []) {
+            description = "Pull and restart OCI containers";
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = restartScript;
+            };
+          };
+        }
+        # Create each isolated network just before its container starts.
+        # `--ignore` makes it idempotent (no-op if it already exists); mkBefore
+        # sequences it ahead of the unit's podman-rm/pull/run ExecStartPres.
+        // lib.listToAttrs (map (name: {
+            name = "podman-${name}";
+            value.serviceConfig.ExecStartPre =
+              lib.mkBefore ["${podmanBin} network create isolated-${name} --ignore"];
+          })
+          isolatedNames);
 
       timers.podman-update-containers = lib.mkIf (cfg.containers != []) {
         description = "Daily OCI container update timer";
