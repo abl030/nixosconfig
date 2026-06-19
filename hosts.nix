@@ -189,13 +189,15 @@ in {
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
     authorizedKeys = fleetKeys;
-    # Always-on headless server VM, same tier as doc1/doc2. It already granted
-    # the agent passwordless `nixos-rebuild` for remote deploys — which IS
-    # passwordless root (rebuild to a config with a setuid shell) — so gating
-    # `fleet-update` and friends behind a sudo password was security theatre.
-    # Full passwordless sudo here; the per-command rule in configuration.nix is
-    # retired. See docs/wiki/infrastructure/signed-fleet-deploys.md.
-    sudoPasswordless = true;
+    # forgejo#2 Phase 4: LOCKED DOWN. The old "passwordless sudo isn't worse than
+    # passwordless nixos-rebuild" logic no longer holds — deploys now come from
+    # doc1 via `fleet-deploy igpu` (forced-command key → nixos-upgrade, polkit, no
+    # sudo; proven 2026-06-19), so the sibling needs NO passwordless sudo at all.
+    # abl030 keeps only the homelab.fleetDeploy.siblingLockdown allowlist (read-
+    # only podman + deploy-switch-stop + podman-* restart). abl030 has a password
+    # here (unlike doc2) so interactive sudo is the break-glass; Proxmox console
+    # otherwise. A popped service/abl030 can no longer pivot to root.
+    sudoPasswordless = false;
     syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
   };
 
