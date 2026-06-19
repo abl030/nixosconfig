@@ -9,9 +9,11 @@
   youtarrUid = 2009;
   youtarrGid = 2009;
 
-  # Pinned 2026-05-14 while extracting MariaDB from upstream's EOL
-  # mariadb:10.3 compose default. See docs/wiki/services/youtarr.md.
-  youtarrImage = "docker.io/dialmaster/youtarr@sha256:8c891a4f96e7b7c37d9915e7b78b919fe03f0aacd87eab76d751f761003e5ee1";
+  # :latest + auto-pull, like the rest of the fleet (no image pinning — policy).
+  # Was digest-pinned 2026-05-14 during the MariaDB-extraction migration off
+  # upstream's EOL mariadb:10.3; that migration is long done, so the pin was
+  # lifted 2026-06-19. See docs/wiki/services/youtarr.md.
+  youtarrImage = "docker.io/dialmaster/youtarr:latest";
 
   mdbc = import ../lib/mk-mariadb-container.nix {
     inherit pkgs;
@@ -147,6 +149,7 @@ in {
     virtualisation.oci-containers.containers.youtarr = {
       image = youtarrImage;
       autoStart = true;
+      pull = "newer"; # auto-pull newer :latest (registry timer also tracks it)
       ports = ["${toString cfg.port}:3011"];
       environmentFiles = [dbSecret];
       environment = {

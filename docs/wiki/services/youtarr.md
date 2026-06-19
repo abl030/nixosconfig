@@ -32,7 +32,7 @@ The Youtarr app workload runs as the dedicated host identity `youtarr`
 the shared `users` group because the YouTube output directory lives on the
 existing shared media filesystem.
 
-The pinned Youtarr image exposes `YOUTARR_UID` and `YOUTARR_GID`, but inspection
+The Youtarr image exposes `YOUTARR_UID` and `YOUTARR_GID`, but inspection
 on 2026-05-14 showed those values are only used for config diagnostics in this
 image. The actual privilege boundary is Podman's `--user=2009:100`, which starts
 the Node.js process with the dedicated UID and the shared media GID needed for
@@ -81,22 +81,19 @@ The module derives non-secret database settings from Nix:
 
 Do not put database passwords back into `modules/nixos/services/youtarr.nix`.
 
-## Image Pinning
+## Image: `:latest` + auto-pull (unpinned 2026-06-19)
 
-The Youtarr app image was pinned on 2026-05-14 while extracting the database:
+The Youtarr app runs `docker.io/dialmaster/youtarr:latest` with `pull = "newer"`
+and is tracked by the `homelab.podman` nightly pull-restart timer — it
+auto-updates like the rest of the fleet. **No image pinning** (fleet policy; the
+compensating control is runtime hardening, not pinning — see
+`.claude/memory/feedback-no-image-pinning.md`).
 
-```text
-docker.io/dialmaster/youtarr@sha256:8c891a4f96e7b7c37d9915e7b78b919fe03f0aacd87eab76d751f761003e5ee1
-```
-
-This is intentionally service-local hardening, not a fleet-wide OCI image
-policy. To update later:
-
-1. Inspect the upstream Youtarr image or release you intend to run.
-2. Replace the digest in `modules/nixos/services/youtarr.nix`.
-3. Rebuild/deploy doc2.
-4. Verify `https://youtarr.ablz.au/` and `podman-youtarr.service`.
-5. Record the new digest and reason here.
+It *was* digest-pinned 2026-05-14 purely as a transitional measure while the
+database was extracted off upstream's bundled EOL `mariadb:10.3` into the nspawn
+MariaDB. That migration completed long ago, so the pin was lifted 2026-06-19. To
+see the running version, `podman inspect youtarr` on doc2; updates are automatic
+and unreviewed.
 
 ## Migration Runbook
 
@@ -142,8 +139,7 @@ Post-cutover verification on 2026-05-14:
 - `https://youtarr.ablz.au/`: HTTP 200
 - Startup logs: database connection successful, schema validation valid with
   zero errors, server listening on port 3011, 101 video files found on disk
-- App image running by digest:
-  `docker.io/dialmaster/youtarr@sha256:8c891a4f96e7b7c37d9915e7b78b919fe03f0aacd87eab76d751f761003e5ee1`
+- App image: `docker.io/dialmaster/youtarr:latest` (auto-pull; unpinned 2026-06-19)
 
 The app unit has an `ExecCondition` migration gate: if the old
 `/mnt/virtio/youtarr/database/mysql` directory exists and the import marker is
@@ -173,7 +169,7 @@ After migration:
 - `/mnt/virtio/youtarr/mariadb-nspawn/imported-from-oci` exists.
 - `https://youtarr.ablz.au/` returns normally.
 - Youtarr logs show successful database connectivity.
-- The app image is digest-pinned.
+- The app image runs `:latest` with auto-pull (no pinning — fleet policy).
 - No plaintext database password appears in the module.
 - The long-running app process is UID 2009, not UID 0.
 - Writes through the container succeed only in app state and YouTube output.
