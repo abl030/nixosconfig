@@ -8,6 +8,21 @@ version: 1.0.0
 
 Systematic service debugging workflow that handles both local and remote services.
 
+> **⚠️ LOCKED SIBLINGS (doc2, igpu) — sudo is restricted (forgejo#2, 2026-06-19).**
+> These hosts have **no passwordless sudo**. When debugging a service on doc2/igpu:
+> - **Logs: use Loki** (logs.ablz.au / `https://loki.ablz.au/...`), NOT `ssh <h>
+>   "sudo journalctl ..."` — that's blocked. Plain `journalctl` over SSH only sees
+>   limited (non-root) logs. `{host="doc2", unit="..."}` or `{container="..."}`.
+> - **Container state works:** `ssh <h> "sudo podman ps/inspect/logs/top ..."` (the
+>   read-only allowlist). `ssh <h> "sudo podman logs <ctr>"` is your container-log path.
+> - **`systemctl status`** works WITHOUT sudo (read-only); `sudo systemctl status`
+>   PROMPTS and fails. Use plain `ssh <h> "systemctl status <unit> --no-pager"`.
+> - **Mutations are NOT possible via sudo:** `sudo systemctl restart <non-podman>`,
+>   `sudo cat`, `sudo ss`, `sudo runuser` all fail. Restart a container with
+>   `sudo systemctl restart podman-<svc>` (allowed). Other fixes go via a signed
+>   `fleet-deploy <h>` (service-deploy skill) or the Proxmox console.
+> See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
+
 ## Step 1: Identify the service and its host
 
 Parse the user's request to determine the service name. Then find which host runs it:

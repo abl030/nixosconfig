@@ -20,15 +20,21 @@
 - NEVER push an UNSIGNED commit to master — signed deploys are ENFORCED fleet-wide
   (#235, 2026-06-10). An unsigned/unverifiable commit in a host's deploy range
   loud-fails its nightly `nixos-upgrade`. Commits must be SSH-signed by a key in
-  `hosts.nix`; dev machines sign by default. Verified deploy is `ssh <host> "sudo
-  fleet-update"`. Full model: `docs/wiki/infrastructure/signed-fleet-deploys.md`.
+  `hosts.nix`; dev machines sign by default. Full model:
+  `docs/wiki/infrastructure/signed-fleet-deploys.md`.
 
-## Fleet SSH topology (#270, 2026-06-08)
+## Fleet SSH topology (#270, 2026-06-08) + sibling lockdown (forgejo#2, 2026-06-19)
 - doc1 is the SSH **bastion** — ONLY host holding the fleet key; all siblings keyless.
 - sibling→sibling SSH is DENIED by design; reach siblings via doc1 (stepping-stone).
-- Claude runs on doc1 → its deploys to siblings work unchanged. `nix flake check`'s
-  `bastionInvariantCheck` enforces exactly one `deployIdentity=true`.
-- Full model: `docs/wiki/infrastructure/ssh-bastion-model.md`.
+- **doc2 + igpu are LOCKED: NO passwordless sudo.** Deploy them from doc1 with
+  `fleet-deploy <host>` (forced-command → nixos-upgrade, polkit). `ssh <host>
+  "sudo fleet-update"` now FAILS on them. doc1 still uses local `sudo fleet-update`;
+  unlocked hosts (wsl/hermes/workstations) still use `ssh <host> sudo fleet-update`.
+- On doc2/igpu only these sudo work: read-only `podman` (ps/inspect/logs/top/…),
+  `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
+  restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use
+  **Loki** for logs. doc2 abl030 has NO password (console = break-glass).
+- Full models: `ssh-bastion-model.md` + `fleet-deploy-and-sibling-lockdown.md`.
 
 ## Secrets model (#234, 2026-06-08)
 - Per-host sops scoping + cold break-glass (Bitwarden+paper) + warm doc1 editor key;

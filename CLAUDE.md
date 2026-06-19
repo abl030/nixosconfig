@@ -19,9 +19,19 @@
 # from `github:abl030/nixosconfig` — it is stale, missing every commit since the
 # cutover. Pushing dev commits goes to FORGEJO (origin = git.ablz.au).
 #
-# To deploy current verified config to a host, use the verified path — it uses
-# its own root-owned clone, so a stale local checkout is irrelevant:
-#   ssh <host> "sudo fleet-update"
+# To deploy current verified config to a host (verified path, root-owned clone —
+# a stale local checkout is irrelevant). HOW depends on whether the host is
+# LOCKED (forgejo#2 — no passwordless sudo):
+#   * doc2, igpu (LOCKED) — `sudo fleet-update` FAILS (no passwordless sudo).
+#     Deploy from doc1 with:   fleet-deploy <host>
+#     (forced-command key → nixos-upgrade, polkit, no sibling sudo). It's async
+#     (--no-block): NO live build stream, so VERIFY after (rev / freshness /
+#     service health). A stuck doc2 switch: `sudo systemctl stop
+#     nixos-rebuild-switch-to-configuration.service` (it IS in the locked allowlist).
+#   * doc1 (the bastion, still passwordless) — `sudo fleet-update` locally.
+#   * not-yet-locked hosts (wsl, hermes, workstations) — `ssh <host> "sudo
+#     fleet-update"` still works until they lock down too.
+# Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md
 #
 # Only `nixos-rebuild switch --flake .#<host>` from a local tree for break-glass,
 # and first `git fetch && git status -sb` + fast-forward to Forgejo tip — a
@@ -41,16 +51,19 @@
 # they are very small or tightly linked.
 #
 
-# !! CRITICAL: DEPLOY REMOTELY VIA fleet-update, NOT --target-host !!
+# !! CRITICAL: DEPLOY REMOTELY VIA fleet-deploy / fleet-update, NOT --target-host !!
 #
-# To deploy current verified config to a remote host (doc1/doc2/igpu/etc.):
+# To deploy current verified config to a remote host:
 #   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
-#   2. `ssh <host> "sudo fleet-update"`
+#   2. LOCKED siblings (doc2, igpu): from doc1 run `fleet-deploy <host>`.
+#      Not-yet-locked hosts (wsl, hermes, workstations): `ssh <host> "sudo
+#      fleet-update"`. doc1 itself: `sudo fleet-update` locally.
 #
-# fleet-update fetches Forgejo, verifies every commit in range is signed and
-# descends from the running rev, then builds locally from its own verified clone
-# — nothing transits your laptop or the SSH link. This is the ONLY pattern
-# post-cutover (#235), and it works reliably over Tailscale / VPN / slow links.
+# Both fetch Forgejo, verify every commit in range is signed and descends from the
+# running rev, then build locally from a root-owned verified clone — nothing
+# transits your laptop or the SSH link. `fleet-deploy <host>` is a forced-command
+# SSH trigger (polkit, no sibling sudo) — async, so confirm the result afterward
+# (rev/freshness/Loki), there's no live build stream. Works over Tailscale / VPN.
 #
 # Do NOT deploy `--flake github:abl030/nixosconfig#<host>` — GitHub is the FROZEN
 # fallback (stale). Do NOT use `--target-host` (builds here, pushes over SSH —

@@ -49,18 +49,34 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
 
    # ALWAYS verify hostname before rebuilding — wrong hostname = wrong config silently applied
    ssh <dest> "hostname"     # must match #<dest-hostname>
-   ssh <dest> "sudo fleet-update"      # destination FIRST
+
+   # HOW to deploy depends on whether the host is LOCKED (forgejo#2):
+   #  * doc2, igpu (LOCKED, no passwordless sudo) — `sudo fleet-update` FAILS.
+   #    From doc1:   fleet-deploy <dest>     # forced-command → nixos-upgrade, polkit
+   #    It's async (--no-block): no live build stream → VERIFY after (rev/freshness/Loki).
+   #  * doc1 / not-yet-locked hosts (wsl/hermes/workstations):
+   #    ssh <dest> "sudo fleet-update"
+   fleet-deploy <dest>                 # destination FIRST (locked sibling) ...
+   # ... or:  ssh <dest> "sudo fleet-update"   (unlocked host)
 
    ssh <source> "hostname"   # must match #<source-hostname>
-   ssh <source> "sudo fleet-update"    # source second
+   fleet-deploy <source>     # source second (or ssh <source> "sudo fleet-update")
    ```
-   `fleet-update` fetches Forgejo, verifies every commit in range is signed and
-   descends from the running rev, then builds locally from its own verified
-   clone — nothing transits your laptop or the SSH link. This is the post-#235
-   deploy pattern. Do NOT use `--target-host`, and do NOT deploy from
+   `fleet-update`/`fleet-deploy` fetch Forgejo, verify every commit in range is
+   signed and descends from the running rev, then build locally from a root-owned
+   verified clone — nothing transits your laptop or the SSH link. Post-#235 +
+   forgejo#2. Do NOT use `--target-host`, and do NOT deploy from
    `github:abl030/nixosconfig` (stale/frozen). Break-glass only: a local
    `nixos-rebuild switch --flake .#<host>` from a tree fast-forwarded to Forgejo
-   tip.
+   tip. Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
+
+   > **LOCKED SIBLINGS (doc2, igpu) — sudo is restricted.** Only these `sudo`
+   > work there: read-only `podman ps/inspect/logs/top/...`, `systemctl stop
+   > nixos-rebuild-switch-to-configuration.service`, `systemctl restart podman-*`.
+   > `sudo journalctl/cat/rm/ss/systemctl-status` and arbitrary `sudo` will
+   > PROMPT FOR A PASSWORD AND FAIL (doc2 has none). For the `ssh <host> "sudo
+   > ..."` verification/DNS examples below: read logs via **Loki** (logs.ablz.au),
+   > and any root mutation goes via `fleet-deploy` (signed) or the Proxmox console.
 
 4. **DNS record ownership (the #202 race is fixed in code, but verify anyway).**
    Each Cloudflare A record now carries `comment = "managed-by:<host>"`, and
