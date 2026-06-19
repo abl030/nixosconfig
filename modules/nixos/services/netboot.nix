@@ -73,8 +73,10 @@ in {
         "${toString cfg.tftpPort}:69/udp"
       ];
       volumes = [
-        "${cfg.dataDir}/config:/config"
-        "${cfg.dataDir}/assets:/assets"
+        # :U migrates existing abl030-owned content into the userns range on
+        # start. /assets is ~2GB so this chown is slow — see TimeoutStartSec.
+        "${cfg.dataDir}/config:/config:U"
+        "${cfg.dataDir}/assets:/assets:U"
       ];
       environment = {
         NGINX_PORT = "80";
@@ -83,9 +85,16 @@ in {
       # s6 init runs as root, chowns /config + /assets, then serves nginx/tftp
       # on privileged ports (:80, :69). cap-drop=all + the file-ownership drop
       # caps + NET_BIND_SERVICE for the <1024 binds; everything else removed.
+      # userns remap (forgejo#2 Phase 1b): the image's nbxyz app user is UID 1000
+      # = host abl030. Remap the whole container so container UID 1000 → host
+      # 101000, never abl030. The s6 caps + NET_BIND_SERVICE apply within the
+      # userns (privileged-port bind happens in the container's own netns; the
+      # host -p publish is done by podman as real root).
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
+          "--uidmap=0:100000:65536"
+          "--gidmap=0:100000:65536"
           "--cap-add=CHOWN"
           "--cap-add=SETUID"
           "--cap-add=SETGID"
@@ -95,6 +104,10 @@ in {
           "--cap-add=NET_BIND_SERVICE"
         ];
     };
+
+    # The :U chown of the ~2GB /assets volume on (re)start can take a while;
+    # give the unit ample room so podman doesn't kill it mid-migration.
+    systemd.services.podman-netboot.serviceConfig.TimeoutStartSec = "600";
 
     # TFTP + assets ports must be reachable by PXE clients on the LAN
     networking.firewall.allowedTCPPorts = [cfg.assetsPort];
