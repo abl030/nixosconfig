@@ -19,6 +19,10 @@
   # nixos-wsl sets environment.etc."resolv.conf".enable = false, which trips
   # the upstream resolvconf assertion (checks for attr presence, not enable).
   networking.resolvconf.enable = false;
+  # Opt out of base.nix's systemd-resolved default (#262). With NM disabled and
+  # DNS bridged from the Windows host, resolved would fight WSL's own resolv.conf
+  # management. (networking.networkmanager.dns from base is inert here — NM off.)
+  services.resolved.enable = false;
   # fstrim is handled by the host OS / WSL engine usually
   services.fstrim.enable = false;
 

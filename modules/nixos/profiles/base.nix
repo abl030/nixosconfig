@@ -73,6 +73,18 @@
   # Standard Networking
   networking.networkmanager.enable = lib.mkDefault true;
 
+  # Route resolution through systemd-resolved so Tailscale can publish MagicDNS
+  # (100.100.100.100 + ts.net search domain) into a real local resolver. Without
+  # resolved, NetworkManager owns /etc/resolv.conf directly and tailscale's
+  # CorpDNS has nowhere to land — so tailscaled clobbers resolv.conf to point at
+  # 100.100.100.100 and falls back to its own (flaky, often upstream-less) DNS,
+  # which SERVFAILs/times out while roaming. Staged in via epimetheus then
+  # promoted here (GitHub #262). mkDefault so hosts can opt out:
+  #   - WSL: NM disabled, manages its own resolv.conf → resolved.enable = false.
+  #   - mk-pg/mk-mariadb containers already run resolved in their own netns.
+  services.resolved.enable = lib.mkDefault true;
+  networking.networkmanager.dns = lib.mkDefault "systemd-resolved";
+
   # ---------------------------------------------------------
   # 3b. COREDUMP LIMITS
   # ---------------------------------------------------------
