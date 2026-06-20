@@ -353,6 +353,30 @@
   # the upstream module from the cratedigger flake (inputs.cratedigger-src).
   services.cratedigger.beetsValidation.verifiedLosslessTarget = "opus 128";
 
+  # ─── BREAK-GLASS (TEMPORARY — REMOVE + REDEPLOY AFTER USE) ──────────────────
+  # 2026-06-20 (#232): the NoNewPrivileges sweep changed the derivation of
+  # `cratedigger-musicbrainz-maintenance-hold`, which is requiredBy/before the MB
+  # maintenance units — so the deploy switch restarted it and triggered the
+  # cratedigger↔musicbrainz gate cascade: `musicbrainz.service` stopped (its
+  # ExecStop set a `musicbrainz-maintenance` hold) and cratedigger's app units
+  # are blocked by their ExecCondition gate-check. The hold only clears via
+  # `musicbrainz.service`'s ExecStartPost. Recovery needs root on this LOCKED
+  # host, so grant the doc1 agent ONE scoped NOPASSWD command to start it.
+  # Procedure + rationale: docs/wiki/infrastructure/locked-host-breakglass-sudo.md
+  # DELETE this block and redeploy the moment cratedigger is back up.
+  security.sudo.extraRules = [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl start musicbrainz.service";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+  # ───────────────────────────────────────────────────────────────────────────
+
   # Virtiofs mount — ALL service state lives here
   # This is the whole point: storage decoupled from compute.
   # VM is disposable, data survives on ZFS on the Proxmox host.
