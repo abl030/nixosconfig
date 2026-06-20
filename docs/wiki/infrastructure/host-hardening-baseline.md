@@ -103,6 +103,26 @@ services.logind.settings.Login.StopIdleSessionSec = "55min";
   the *connection* but a detached tmux/mosh session persists; reconnect and
   reattach.
 
+### ⚠️ Gotcha: the switch does NOT activate logind.conf by itself
+
+`nixos-rebuild switch` deliberately never restarts `systemd-logind` (it would
+kill every session), and nixpkgs wires **no reload trigger** for `logind.conf`.
+So a config-only change (like `StopIdleSessionSec`) lands on disk but stays
+**inactive** until a reboot — `busctl … StopIdleSessionUSec` reads
+`18446744073709551615` (UINT64_MAX = unset) even though `/etc/systemd/logind.conf`
+shows the value. A SIGHUP **reload** (`systemctl reload systemd-logind`) is
+session-safe and *does* pick it up. We make this automatic with:
+
+```nix
+systemd.services.systemd-logind.reloadTriggers = [
+  config.environment.etc."systemd/logind.conf".source
+];
+```
+
+so the switch reloads logind whenever the rendered config changes. If you ever
+tune the idle timeout and it doesn't take, check `StopIdleSessionUSec` over
+busctl, not just the on-disk file.
+
 ## What we deliberately left out (NOT `hardened.nix`)
 
 We did **not** import `nixpkgs/nixos/modules/profiles/hardened.nix`. Its

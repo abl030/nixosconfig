@@ -146,6 +146,16 @@
   # tmux/mosh/nohup survive the disconnect. #232 host-hardening.
   services.logind.settings.Login.StopIdleSessionSec = "55min";
 
+  # `nixos-rebuild switch` does NOT restart systemd-logind (that would kill every
+  # session) and nixpkgs wires no reload trigger for logind.conf — so the idle
+  # setting above would sit on disk INACTIVE until a reboot. A SIGHUP reload is
+  # session-safe and DOES pick up StopIdleSessionSec/KillUserProcesses (verified
+  # live: StopIdleSessionUSec went 0xFFFF…→3300000000µs on reload). Reload logind
+  # whenever its rendered config changes so the switch activates it everywhere.
+  systemd.services.systemd-logind.reloadTriggers = [
+    config.environment.etc."systemd/logind.conf".source
+  ];
+
   # ---------------------------------------------------------
   # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
   # ---------------------------------------------------------
