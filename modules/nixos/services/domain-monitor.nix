@@ -72,8 +72,12 @@ in {
     sops.secrets."gatus/env" = {
       sopsFile = config.homelab.secrets.sopsFile "gotify.env";
       format = "dotenv";
+      # Loaded via services.gatus.environmentFile → systemd reads it as root
+      # before launching gatus, so it needs zero broad perms. Was 0444
+      # (world-readable: every user/process on the host could read the Gotify
+      # token) — a gratuitous leak with no functional need. (#232 secrets audit)
       owner = "root";
-      mode = "0444";
+      mode = "0400";
     };
 
     # Blank /mnt (#257). Gatus probes over the network and reads config from

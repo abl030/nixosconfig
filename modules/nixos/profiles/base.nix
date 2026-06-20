@@ -284,6 +284,29 @@
     };
   };
 
+  # Least-privilege secrets (#232): NO sops secret may carry world (other) access.
+  # sops-nix defaults to 0400 (root-only), so a leak only happens via an explicit
+  # world bit in `mode` (e.g. the old gatus/env 0444). This build-time assertion
+  # inspects the RESOLVED mode of every secret on every host — secure-by-default,
+  # catches a future `mode = "0xx[1-7]"` before it ships. Group-readable (0440)
+  # with a scoped group is allowed; world is not.
+  assertions = let
+    worldAccessible =
+      lib.filterAttrs (
+        _: s: let
+          m = s.mode or "0400";
+          last = lib.substring (lib.stringLength m - 1) 1 m;
+        in
+          last != "0"
+      )
+      config.sops.secrets;
+  in [
+    {
+      assertion = worldAccessible == {};
+      message = "World-accessible sops secret(s) (least-privilege #232): ${lib.concatStringsSep ", " (builtins.attrNames worldAccessible)}. Set mode to 0400 (or 0440 with a scoped group if a non-owner group must read it).";
+    }
+  ];
+
   # Derive access-tokens from netrc so flake metadata resolution works
   # for public GitHub repos without hitting anonymous rate limits. If the
   # token is definitively 401/403 (rotated/revoked) we fall back to an

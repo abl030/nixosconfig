@@ -42,7 +42,9 @@ in {
         };
         "wayvnc_cert" = {
           owner = "abl030";
-          mode = "0444";
+          # wayvnc runs as abl030 and reads this directly, so 0400 owner=abl030
+          # is enough — was 0444 (world-readable, matching wayvnc_key's 0400). (#232)
+          mode = "0400";
         };
       };
     };
