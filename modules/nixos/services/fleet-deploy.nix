@@ -91,6 +91,14 @@ in {
   config = lib.mkMerge [
     # ---------------- LOCKED (default): accept trigger + narrow allowlist ----
     (lib.mkIf (cfg.role == "locked") {
+      # The polkit RULE below is inert unless polkitd actually runs. Most hosts
+      # pull polkit in transitively (NetworkManager etc.), but wsl disables NM
+      # (base.nix) so polkit.enable stayed false there — making `fleet-deploy
+      # wsl` fail with `systemctl start nixos-upgrade.service: Access denied`
+      # (verified 2026-06-20: polkit.enable=false on wsl, true on every other
+      # sibling). Enable it explicitly so the trigger works on every locked host.
+      security.polkit.enable = true;
+
       # Let triggerUser start ONLY nixos-upgrade.service, no password — this is
       # what survives once passwordless sudo is removed.
       security.polkit.extraConfig = ''
