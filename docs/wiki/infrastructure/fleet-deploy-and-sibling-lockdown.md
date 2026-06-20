@@ -1,9 +1,9 @@
 # Fleet deploy trigger + sibling sudo lockdown
 
 **Status:** live (2026-06-19). **EVERY host except doc1 is locked** — doc2,
-igpu, hermes, wsl (and cache by default) all run with no passwordless sudo and
-accept the `fleet-deploy` trigger; epi/framework are locked workstations. The
-trigger is proven end-to-end on doc2, igpu, and hermes.
+igpu, hermes, wsl all run with no passwordless sudo and accept the
+`fleet-deploy` trigger; epi/framework are locked workstations. The trigger is
+proven end-to-end on doc2, igpu, and hermes.
 **Researched/written:** 2026-06-19, during the forgejo#2 Phase 2–4 work +
 the "default-secure" role refactor (commits `d8c182b3`, `f3116d05`).
 **Tracking:** [forgejo#2](https://git.ablz.au/abl030/nixosconfig/issues/2)
@@ -51,7 +51,7 @@ the rest:
 - **Every other host is locked** (`role = "locked"`, the default) so a popped
   service-or-`abl030` cannot pivot to root. They keep only a narrow read-only +
   deploy-hygiene NOPASSWD allowlist. This now includes the always-on siblings
-  (doc2, igpu, hermes, cache) **and** wsl and the epi/framework workstations.
+  (doc2, igpu, hermes) **and** wsl and the epi/framework workstations.
 
 The hard part is keeping doc1 able to *deploy* a locked sibling — a rebuild is a
 root action — without giving the sibling back standing root. That is what the
@@ -177,7 +177,6 @@ deploy path; only the local fallback differs.
 | **wsl** | `"locked"` | **Locked** via `lib.mkForce true` (beats NixOS-WSL's `mkDefault false`). `nixos` removed from the `docker` group (docker-group = root-equivalent, else the lock is theatre). `fleet-deploy wsl` target via a widened `triggerFrom` (Windows portproxy — see §7). | `wsl -u root` from Windows |
 | **epimetheus** | `"locked"` | Workstation. Passwordless `nixos-rebuild` grant removed. Owner deploys interactively / nightly. | interactive sudo (has a password) |
 | **framework** | `"locked"` | Workstation. Passwordless `nixos-rebuild` grant removed. Owner deploys interactively / nightly. | interactive sudo (has a password) |
-| **cache** | `"locked"` | Default-locked; converges when online. | interactive sudo (`initialHashedPassword`) |
 
 ## 7. How to deploy now
 
@@ -188,7 +187,6 @@ fleet-deploy doc2     # kick doc2's verified rebuild
 fleet-deploy igpu     #   "  igpu
 fleet-deploy hermes   #   "  hermes
 fleet-deploy wsl      #   "  wsl (resolves nixos@laptop-btibh4ie; see below)
-fleet-deploy cache    #   "  cache (when online)
 ```
 
 No `sudo` runs on the target; the SSH connection *is* the success. The wrapper
