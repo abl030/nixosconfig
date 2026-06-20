@@ -18,6 +18,15 @@
       enable = true;
       mouse = true;
       historyLimit = 50000;
+      # Default HM terminal is "screen" -> TERM=screen, a stripped-down terminfo
+      # whose cursor/scroll math is just wrong enough that Claude Code's
+      # repainting TUI drops a line or two into tmux scrollback on scroll.
+      # tmux-256color is tmux's own recommended terminfo. Re-eval new sessions
+      # only: `tmux kill-server` after deploy for existing panes to pick it up.
+      terminal = "tmux-256color";
+      extraConfig = ''
+        set -ga terminal-overrides ",*256col*:Tc"   # truecolor passthrough
+      '';
     };
   };
 
