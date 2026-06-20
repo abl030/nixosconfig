@@ -167,7 +167,19 @@
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     gnome-remote-desktop
     kdiskmark
+    # Morrowind via OpenMW (open-source engine reimplementation) + portmod, a
+    # CLI mod manager (used to install Tamriel Rebuilt, the mainland expansion).
+    # OpenMW ships NO copyrighted assets — the game DATA files come from the
+    # Steam copy enabled below. Runtime setup (wizard + TR) is a one-time at-the-
+    # keyboard step; see the OpenMW/Tamriel-Rebuilt runbook handed off in chat.
+    openmw # engine + openmw-launcher + openmw-wizard + openmw-navmeshtool
+    portmod # `portmod openmw merge tamriel-rebuilt` (+ Tamriel_Data) on first run
   ]);
+
+  # Steam — only needed to DOWNLOAD Morrowind's data files (buy the GOTY edition;
+  # it bundles Tribunal + Bloodmoon). OpenMW then plays them natively, no Proton
+  # at runtime. Unfree is already allowed fleet-wide via profiles/base.nix.
+  programs.steam.enable = true;
 
   programs.firefox.enable = true;
 
