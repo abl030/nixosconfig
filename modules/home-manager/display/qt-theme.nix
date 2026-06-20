@@ -148,6 +148,13 @@ in {
         # KDE Platform Integration (The mechanism that makes this work)
         kdePackages.plasma-integration
         kdePackages.qqc2-desktop-style
+
+        # KIO + its file worker. Without this, the KDE file dialog (used by Qt
+        # apps once QT_QPA_PLATFORMTHEME=KDE) can't browse local paths and comes
+        # up empty with: kf.kio.core couldn't create worker "Unknown protocol
+        # 'file'". Bites openmw-launcher/wizard, Picard, Gittyup, etc. The
+        # workers land in the profile's lib/qt-6/plugins, already on QT_PLUGIN_PATH.
+        kdePackages.kio
       ];
 
       sessionVariables = {
