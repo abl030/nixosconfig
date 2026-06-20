@@ -52,6 +52,9 @@ in {
         "d /mnt/fuse/Media/Music_RW 0755 root root -"
       ];
 
+      # NNP-OK: these are mergerfs/FUSE mount units. Mounting a FUSE filesystem
+      # can route through the setuid `fusermount` helper, which NoNewPrivileges
+      # would block — so these units legitimately must NOT set it. (#232)
       services = {
         "fuse-mergerfs-movies" = {
           description = "mergerfs union for Movies (Metadata=RW, Media=RO)";

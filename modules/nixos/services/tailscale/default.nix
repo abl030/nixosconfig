@@ -102,6 +102,10 @@ in {
       wantedBy = ["multi-user.target"];
       serviceConfig = {
         Type = "oneshot";
+        # NNP-OK: tailscaled itself is a privileged net daemon (upstream unit,
+        # not hardened here). This sibling `tailscale-wait` oneshot just polls the
+        # CLI and safely takes NoNewPrivileges. (#232)
+        NoNewPrivileges = true;
         RemainAfterExit = true;
         # systemd backstop above the CLI's own --timeout. Oneshots default
         # TimeoutStartSec to infinity, so a hung tailscale binary (deadlock,

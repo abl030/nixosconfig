@@ -413,6 +413,7 @@ in {
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
+            NoNewPrivileges = true; # curl-only Cloudflare DNS upsert; no setuid (#232)
             ExecStart = mkDnsSyncScript name cfg;
           };
         };

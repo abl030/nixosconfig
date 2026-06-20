@@ -97,6 +97,7 @@ in {
           };
           serviceConfig = {
             Type = "oneshot";
+            NoNewPrivileges = true; # discogs-import binary; no setuid exec (#232)
             TimeoutStartSec = "3h";
             Restart = "on-failure";
             RestartSec = "15min";
@@ -131,6 +132,7 @@ in {
           ];
           serviceConfig = {
             Type = "simple";
+            NoNewPrivileges = true; # discogs axum API binary; no setuid exec (#232)
             EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
             ExecStart = pkgs.writeShellScript "discogs-api-start" ''
               set -eu

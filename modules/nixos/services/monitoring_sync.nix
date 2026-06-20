@@ -1197,6 +1197,7 @@ in {
             # switch-to-configuration treats it as live and honours
             # restartIfChanged (default true) on derivation changes.
             RemainAfterExit = true;
+            NoNewPrivileges = true; # python Kuma-API sync; no setuid exec (#232)
             ExecStart = monitoringScript;
           };
         };
@@ -1273,6 +1274,9 @@ in {
               serviceConfig =
                 {
                   Type = "oneshot";
+                  # Default-on; a probe needing privilege can override via
+                  # probe.serviceConfig (the // merge below wins). (#232)
+                  NoNewPrivileges = true;
                   ExecStart = probeRunner;
                   TimeoutStartSec = probe.timeout;
                 }

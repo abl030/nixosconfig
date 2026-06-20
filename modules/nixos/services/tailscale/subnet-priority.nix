@@ -167,6 +167,7 @@ in {
 
       serviceConfig = {
         Type = "simple";
+        NoNewPrivileges = true; # `ip route/rule` as root; no setuid exec (#232)
         Restart = "on-failure";
         RestartSec = "10s";
         ExecStart = lib.getExe watchScript;
@@ -183,6 +184,7 @@ in {
       after = ["network.target" "tailscaled.service"];
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true; # `ip route/rule` as root; no setuid exec (#232)
         ExecStart = lib.getExe applyScript;
       };
     };

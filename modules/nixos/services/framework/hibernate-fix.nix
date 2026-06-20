@@ -42,6 +42,7 @@ in {
         before = ["systemd-hibernate.service" "systemd-suspend-then-hibernate.service"];
         unitConfig.DefaultDependencies = "no";
         serviceConfig.Type = "oneshot";
+        serviceConfig.NoNewPrivileges = true; # sync + drop_caches as root; no setuid (#232)
         script = ''
           # Sync filesystems
           ${pkgs.coreutils}/bin/sync
@@ -77,6 +78,9 @@ in {
 
         serviceConfig = {
           Type = "oneshot";
+          # NNP-OK reasoning: modprobe runs as root via CAP_SYS_MODULE (held), not
+          # a setuid exec, so NoNewPrivileges doesn't block module (un)loading. (#232)
+          NoNewPrivileges = true;
           RemainAfterExit = true;
           TimeoutSec = "15s";
 

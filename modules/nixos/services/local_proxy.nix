@@ -379,6 +379,7 @@ in {
         after = ["network-online.target"];
         serviceConfig = {
           Type = "oneshot";
+          NoNewPrivileges = true; # curl-only DNS sync; no setuid exec (#232)
           ExecStart = dnsSyncScript;
           StateDirectory = "homelab/dns";
           StateDirectoryMode = "0750";
@@ -392,6 +393,7 @@ in {
         after = ["network-online.target"];
         serviceConfig = {
           Type = "oneshot";
+          NoNewPrivileges = true; # curl-only DNS validate; no setuid exec (#232)
           ExecStart = dnsValidateScript;
           ExecStartPost = "${pkgs.systemd}/bin/systemctl start homelab-dns-sync.service";
           ReadWritePaths = ["/var/lib/homelab/dns"];

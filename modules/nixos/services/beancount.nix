@@ -82,6 +82,7 @@ in {
               User = "fava";
               Group = "fava";
               WorkingDirectory = cfg.dataDir;
+              NoNewPrivileges = true; # git clone as fava; no setuid exec (#232)
             }
             // mntSandbox;
 
@@ -110,6 +111,7 @@ in {
               User = "fava";
               Group = "fava";
               WorkingDirectory = cloneDir;
+              NoNewPrivileges = true; # git fetch/reset as fava; no setuid exec (#232)
             }
             // mntSandbox;
 
@@ -133,6 +135,7 @@ in {
               ExecStart = "${pkgs.fava}/bin/fava --host 127.0.0.1 --port ${toString cfg.port} ${cloneDir}/${cfg.journalFile}";
               User = "fava";
               Group = "fava";
+              NoNewPrivileges = true; # fava (python) web UI as fava; no setuid exec (#232)
               WorkingDirectory = cfg.dataDir;
               Restart = "on-failure";
               RestartSec = "10s";

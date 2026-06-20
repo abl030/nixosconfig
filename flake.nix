@@ -367,6 +367,52 @@
             touch $out
           '';
 
+          # Per-unit NoNewPrivileges baseline (#232 host-hardening). NNP is a
+          # PER-UNIT serviceConfig flag, so — unlike the centralized sysctl/sshd
+          # baseline in base.nix — a brand-new service module silently skips it
+          # unless something forces the decision. This check is that forcing
+          # function: any module under modules/nixos/services/ that AUTHORS a unit
+          # (an `ExecStart`/`script`/`preStart =` it owns) must either set
+          # `NoNewPrivileges` (= true on every unit it can) or carry a
+          # `# NNP-OK:` marker explaining why a unit legitimately needs to gain
+          # privileges (e.g. tailscaled = privileged net daemon; OCI containers
+          # already get no-new-privileges via homelab.podman hardenOptions; a unit
+          # that activates the system / execs a setuid helper). File-level (like
+          # the bind/network checks): catches the new unit that ships with no NNP
+          # decision at all. lib/ + autoupdate/ infra units are out of scope (not
+          # a growth surface); they carry markers for documentation only.
+          unitHardeningAuditCheck = pkgs.runCommand "unit-hardening-audit" {} ''
+            fail=0
+            for f in $(${pkgs.findutils}/bin/find ${./modules/nixos/services} -name '*.nix' | sort); do
+              # Only units we AUTHOR (`ExecStart =`/`script =`). A bare
+              # ExecStartPre/preStart usually just augments an UPSTREAM unit whose
+              # serviceConfig (incl. NNP) we don't own — don't force a decision there.
+              if ${pkgs.gnugrep}/bin/grep -vE '^[[:space:]]*#' "$f" \
+                   | ${pkgs.gnugrep}/bin/grep -qE '(ExecStart[[:space:]]*=|^[[:space:]]*script[[:space:]]*=)' ; then
+                if ! ${pkgs.gnugrep}/bin/grep -q 'NoNewPrivileges' "$f" \
+                   && ! ${pkgs.gnugrep}/bin/grep -q 'NNP-OK' "$f"; then
+                  echo "unit without NoNewPrivileges decision: $(basename "$f")"
+                  fail=1
+                fi
+              fi
+            done
+            if [ $fail -ne 0 ]; then
+              echo ""
+              echo "A service module authors a systemd unit but makes no"
+              echo "NoNewPrivileges decision. NNP is per-unit, so new units silently"
+              echo "skip it as the fleet grows. Fix: set"
+              echo "  serviceConfig.NoNewPrivileges = true;"
+              echo "on every unit that doesn't legitimately need to gain privileges."
+              echo "If a unit MUST (privileged daemon, system activation, setuid"
+              echo "helper, or an OCI container hardened at the podman layer), add a"
+              echo "'# NNP-OK: <reason>' marker comment. See"
+              echo "docs/wiki/nixos-service-modules.md \"NoNewPrivileges\" section."
+              exit 1
+            fi
+            echo "All unit-authoring service modules set NoNewPrivileges or are marked."
+            touch $out
+          '';
+
           # Per-service container network isolation (#232). Standalone OCI
           # containers must NOT share the default podman bridge (where every
           # container can L3-reach + DNS-resolve every other on 10.88.0.0/16, a
@@ -1079,7 +1125,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
           // (
             if !fullCheck
             then {}

@@ -33,6 +33,7 @@ in {
 
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true; # rsync/zfs/ssh as root; no setuid exec (#232)
         ExecStart = pkgs.writeScript "ops-sync" ''
           #!${pkgs.bash}/bin/bash
           set -euo pipefail

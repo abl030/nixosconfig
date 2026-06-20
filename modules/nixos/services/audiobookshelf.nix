@@ -82,6 +82,7 @@ in {
           unitConfig.RequiresMountsFor = [cfg.dataDir];
           serviceConfig = {
             Type = "oneshot";
+            NoNewPrivileges = true; # non-root rm of cache dir; no setuid exec (#232)
             ExecStart = "${lib.getExe' config.systemd.package "rm"} -rf ${cfg.dataDir}/metadata/cache/items";
             User = "audiobookshelf";
             TemporaryFileSystem = "/mnt";

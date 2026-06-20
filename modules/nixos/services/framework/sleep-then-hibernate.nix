@@ -31,6 +31,7 @@ in {
       description = "Clear stale RTC alarms on boot";
       wantedBy = ["multi-user.target"];
       serviceConfig.Type = "oneshot";
+      serviceConfig.NoNewPrivileges = true; # echo to sysfs as root; no setuid (#232)
       script = ''
         echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
       '';

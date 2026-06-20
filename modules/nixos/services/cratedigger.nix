@@ -481,6 +481,7 @@ in {
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
+              NoNewPrivileges = true; # install/grep/chmod as root; no setuid exec (#232)
               ExecStart = pkgs.writeShellScript "cratedigger-secrets-split" ''
                 set -euo pipefail
                 env_file="${config.sops.secrets."soularr/env".path}"
@@ -571,6 +572,7 @@ in {
             description = "Stop cratedigger API-producing units when local metadata APIs are unhealthy";
             serviceConfig = {
               Type = "oneshot";
+              NoNewPrivileges = true; # gate CLI → systemctl as root; no setuid exec (#232)
               ExecStart = "${metadataGateCommand} watchdog";
             };
           };
@@ -579,6 +581,7 @@ in {
             description = "Remove stale cratedigger scratch directories from /tmp";
             serviceConfig = {
               Type = "oneshot";
+              NoNewPrivileges = true; # find/rm scratch dirs; no setuid exec (#232)
               ExecStart = pkgs.writeShellScript "cratedigger-temp-clean" ''
                 set -euo pipefail
                 ${pkgs.findutils}/bin/find /tmp -maxdepth 1 -type d \
@@ -595,6 +598,7 @@ in {
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
+              NoNewPrivileges = true; # gate CLI → systemctl as root; no setuid exec (#232)
               ExecStart = "${metadataGateCommand} hold musicbrainz-maintenance";
             };
           };

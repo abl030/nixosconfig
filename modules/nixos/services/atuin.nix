@@ -75,6 +75,7 @@ in {
       restartTriggers = [config.sops.secrets."atuin-pgpass".path];
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true; # printf a db-env file; no setuid exec (#232)
         RemainAfterExit = true;
         RuntimeDirectory = "atuin-db-uri";
         RuntimeDirectoryMode = "0700";

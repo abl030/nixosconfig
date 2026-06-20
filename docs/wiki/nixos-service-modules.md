@@ -677,6 +677,54 @@ Notes:
 - **File-capability binaries need their cap in the bounding set even on an unprivileged port.** jlesage GUI images ship `/opt/base/sbin/nginx` with a `cap_net_bind_service` file-cap; under `cap-drop=all`, `execve()` returns EPERM ("Operation not permitted") for any binary whose *permitted file-caps exceed the bounding set* — the container stays "running" (supervisor) but the web UI is dead. Fix: `--cap-add=NET_BIND_SERVICE` even though the runtime port is >1024 (jdownloader2 hit exactly this). General rule: **"unit active" ≠ "app serving" — always HTTP-probe after hardening**, don't trust `systemctl is-active`.
 - Exception of record: `hermes` (its own locked VM) is deliberately left at podman *runtime-hardening* defaults (no cap-drop yet) until its tool requirements are profiled — see the header in `modules/nixos/services/hermes-agent.nix`. (It IS registered for nightly auto-updates as of 2026-06-19, `isolate=false`; only the cap hardening is deferred, with the VM isolation holding the line.) Any new container has no such excuse.
 
+### NoNewPrivileges on units you author (enforced: `unitHardeningAuditCheck`)
+
+`NoNewPrivileges=true` stops a process from gaining privileges via a setuid/
+setcap `execve` — the cheap, high-value hardening for our own one-shots and
+service units. Unlike the kernel/sshd baseline (centralized in `base.nix`, so
+every host gets it for free — see
+`docs/wiki/infrastructure/host-hardening-baseline.md`), NNP is **per-unit**, so a
+new module silently skips it as the fleet grows. `unitHardeningAuditCheck`
+(flake check) is the forcing function: any module under
+`modules/nixos/services/` that **authors** a unit (an `ExecStart =` / `script =`
+it owns) must set `NoNewPrivileges` on a unit, or carry a `# NNP-OK:` marker.
+
+```nix
+serviceConfig = {
+  Type = "oneshot";
+  NoNewPrivileges = true;   # <short why: e.g. curl-only; no setuid exec
+  ExecStart = ...;
+};
+```
+
+Rules of thumb:
+- **Set it `true`** on anything that runs a script/binary and doesn't need to
+  gain privileges — i.e. nearly every one-shot we write (curl/rsync/git/`ip
+  route`/`systemctl`/python helpers). Especially valuable on **non-root**
+  (`User=`/`DynamicUser`) units. Running *as root* with NNP=true is fine — NNP
+  blocks setuid escalation, not the root caps the unit already holds.
+- **Use a `# NNP-OK: <reason>` marker** (don't set true) when the unit
+  legitimately must gain privilege:
+  - execs a **setuid helper** — `sudo`, `mount`/`umount`, `fusermount`, `su`,
+    `ping`, PAM's `unix_chkpwd`. (e.g. `mounts/fuse.nix` mergerfs;
+    `pfsense-backup-watchdog.nix` runs `sudo zpool import`.)
+  - **OCI containers** — NNP is enforced at the podman layer via
+    `homelab.podman.hardenOptions` (`--security-opt=no-new-privileges`), not the
+    `podman-<name>` systemd wrapper. (Bespoke compose stacks not in the registry,
+    e.g. `musicbrainz.nix`, mark the orchestration one-shots and note the
+    residual.)
+  - a **privileged daemon** managed upstream (e.g. `tailscaled`) — harden the
+    sibling helper one-shots you own instead.
+- **Don't add NNP to upstream-augmented units.** If you only set
+  `systemd.services.<upstream>.serviceConfig.X` (an `ExecStartPre`, `EnvironmentFile`,
+  etc.) on a unit the upstream module owns, leave NNP to upstream — a plain
+  `NoNewPrivileges = true` can *conflict* with upstream's own setting. The check
+  keys on `ExecStart =`/`script =` precisely to skip these.
+- The check is **file-level** (like `hostBindAuditCheck`): one NNP/marker in the
+  file satisfies it. For real coverage, set NNP on **every** safe unit the file
+  authors, not just one. `lib/` + `autoupdate/` infra units are out of scope
+  (not a growth surface; `nixos-upgrade` must stay unprivileged-false anyway).
+
 ### No container ever runs as host UID 1000 / `abl030` (REQUIRED)
 
 `abl030` (host UID 1000) is the fleet's `wheel`/admin user with **passwordless
@@ -1080,6 +1128,10 @@ Before submitting a new service module:
 - [ ] OCI container registered in `homelab.podman.containers` (gives auto network
       isolation + auto-update; enforced by `containerNetworkAuditCheck`). Do NOT
       add `--network` yourself; bespoke models need a `CONTAINER-NETWORK-OK` marker
+- [ ] Units you author (`ExecStart`/`script`) set `serviceConfig.NoNewPrivileges
+      = true` (enforced by `unitHardeningAuditCheck`). Units that legitimately
+      need privilege (setuid helper, OCI container, upstream-privileged daemon)
+      carry a `# NNP-OK: <reason>` marker — see "NoNewPrivileges on units you author"
 - [ ] App listens on `127.0.0.1`, exposed via `homelab.localProxy.hosts` — NOT
       `0.0.0.0` (enforced by `hostBindAuditCheck`; `tailscale0` is trusted, so
       all-interfaces = whole tailnet). Off-host endpoints need a

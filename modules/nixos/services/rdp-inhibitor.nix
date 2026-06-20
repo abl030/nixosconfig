@@ -83,6 +83,7 @@ in {
 
       serviceConfig = {
         Type = "simple";
+        NoNewPrivileges = true; # systemd-inhibit monitor loop; no setuid exec (#232)
         ExecStart = "${rdp_monitor_script}";
         Restart = "always";
         RestartSec = "10";

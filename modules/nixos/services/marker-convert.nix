@@ -190,6 +190,7 @@ in {
       serviceConfig = {
         Type = "oneshot";
         User = cfg.user;
+        NoNewPrivileges = true; # non-root uv/python convert; no setuid exec (#232)
         # HOME under the state dir so uv + HF/torch/surya caches persist there
         # and survive across runs (the 3 GB model download happens once).
         Environment = ["HOME=${cfg.stateDir}"];

@@ -1039,6 +1039,7 @@ in {
             RemainAfterExit = true;
             User = "grafana";
             Group = "grafana";
+            NoNewPrivileges = true; # cat/sed token render; no setuid exec (#232)
           };
           script = ''
             set -euo pipefail

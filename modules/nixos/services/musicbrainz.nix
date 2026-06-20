@@ -695,6 +695,13 @@ in {
             after = ["podman.service"];
             requires = ["podman.service"];
             unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+            # NNP-OK: MusicBrainz runs a bespoke multi-container compose-style
+            # stack (CONTAINER-NETWORK-OK, own network). These root oneshots
+            # orchestrate rootful podman (compose retire/build, replication,
+            # podman exec). NNP is left off the orchestration units to avoid
+            # destabilizing the fragile MB stack; the containers themselves are
+            # the real surface. Residual: harden the MB units individually later
+            # (tracked under #232). (#232)
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;

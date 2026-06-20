@@ -39,6 +39,7 @@ in {
         description = "NFS watchdog for ${name}";
         serviceConfig = {
           Type = "oneshot";
+          NoNewPrivileges = true; # stat + systemctl only; no setuid exec (#232)
           ExecStart = pkgs.writeShellScript "${name}-nfs-watchdog" ''
             svc=${lib.escapeShellArg "${name}.service"}
             if ! timeout 10 stat ${lib.escapeShellArg entry.path} >/dev/null 2>&1; then

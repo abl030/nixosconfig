@@ -157,6 +157,8 @@ in {
   config = lib.mkIf cfg.enable {
     systemd.services.pfsense-backup-watchdog = {
       description = "Check pfSense backup syncoid status file";
+      # NNP-OK: checkScript execs `sudo zpool import` (sudo is setuid), which
+      # NoNewPrivileges would block — this unit legitimately must not set it. (#232)
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${checkScript}/bin/pfsense-backup-check";
