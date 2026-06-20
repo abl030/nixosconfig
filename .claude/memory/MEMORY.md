@@ -32,7 +32,7 @@
   off, accepts the deploy trigger. The old sudoPasswordless / acceptTrigger /
   siblingLockdown / bastion knobs are GONE (folded in). `fleetBastionRoleCheck`
   asserts exactly one "bastion". (refactor 2026-06-19, commits d8c182b3+f3116d05.)
-- **Deploy LOCKED siblings (doc2, igpu, hermes, wsl, cache) from doc1 with
+- **Deploy LOCKED siblings (doc2, igpu, hermes, wsl) from doc1 with
   `fleet-deploy <host>`** (forced-command → nixos-upgrade, polkit). `ssh <host>
   "sudo fleet-update"` FAILS on ALL of them now — nothing is passwordless except
   doc1 (which uses local `sudo fleet-update`). wsl is a fleet-deploy target too

@@ -22,7 +22,7 @@
 # EVERY host is LOCKED except doc1 (forgejo#2 — `homelab.fleetDeploy.role`
 # defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
 # but doc1. HOW to deploy:
-#   * doc2, igpu, hermes, cache (LOCKED siblings) — `ssh <h> "sudo fleet-update"`
+#   * doc2, igpu, hermes (LOCKED siblings) — `ssh <h> "sudo fleet-update"`
 #     FAILS (no passwordless sudo). Deploy from doc1 with:   fleet-deploy <host>
 #     (forced-command key → nixos-upgrade, polkit, no sibling sudo). It's async
 #     (--no-block): NO live build stream, so VERIFY after (rev / freshness /
@@ -62,7 +62,7 @@
 #
 # To deploy current verified config to a remote host:
 #   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
-#   2. LOCKED siblings (doc2, igpu, hermes, wsl, cache): from doc1 run
+#   2. LOCKED siblings (doc2, igpu, hermes, wsl): from doc1 run
 #      `fleet-deploy <host>` (wsl reached at the Windows port-forward). doc1
 #      itself: `sudo fleet-update` locally. Locked workstations (epi, framework):
 #      the AGENT can't deploy — owner deploys interactively / nightly. Nothing is
@@ -290,7 +290,7 @@ Agent-facing query paths:
 Usage notes:
 - **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) in queries. Loki also accepts nanosecond epochs.
 - Default query range is 1 hour; compute a start timestamp for longer windows.
-- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `cache`, `dev`, `tower` (Unraid), `pfsense` (via syslog), `prom` (alloy on the Proxmox hypervisor; deployed via `ansible/common/monitoring.yml`).
+- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `tower` (Unraid), `pfsense` (via syslog), `prom` (alloy on the Proxmox hypervisor; deployed via `ansible/common/monitoring.yml`).
 - Container logs use the `container` label (e.g. `{host="proxmox-vm", container="immich-server"}`).
 - **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 23:00 AWST (15:00 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 15:00 UTC of the relevant day.
 - The former `loki-mcp` server was removed in April 2026 — query Loki directly via HTTP or Grafana.

@@ -256,18 +256,4 @@ in {
     localIp = "192.168.1.162";
     tailscaleIp = "100.78.254.6";
   };
-
-  cache = {
-    configurationFile = ./hosts/cache/configuration.nix;
-    homeFile = ./hosts/cache/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "cache";
-    sshAlias = "cache";
-    sshKeyName = "ssh_key_abl030";
-    initialHashedPassword = "$6$58mDYkJdHY9JTiTU$whCjz4eG3T9jPajUIlhqqBJ9qzqZM7xY91ylSy.WC2MkR.ckExn0aNRMM0XNX1LKxIXL/VJe/3.oizq2S6cvA0"; # temp123
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHYh5BYMlU8u7RGjChPe7QON+adENp+SUtg2+HYAV9FD";
-    authorizedKeys = fleetKeys;
-    syncthingDeviceId = "VFUAMOE-ID4MCL2-KQZX22M-BUCYDOM-KSHMW2Y-XYYBJI4-2FD77RH-RPGOOAJ";
-  };
 }
