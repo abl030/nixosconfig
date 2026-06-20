@@ -30,6 +30,18 @@ executor must not self-update" pin was dropped as inconsistent (the nightly
 agent tooling has the same profile and auto-updates); it's now registered in
 `homelab.podman.containers` (`isolate=false`). **No registry tag-pins remain.**
 
+**Same call for FLAKE INPUTS (2026-06-20):** ~27 of ~30 flake inputs track a
+moving branch (`home-manager/master`, `nixos-hardware/master`, `NixOS-WSL/main`,
++ ~24 with no `ref` = default branch). "Pin flake inputs off master" (#232 CI
+block) is **WONTFIX** for the same reason — rolling-flake-update bumps them
+nightly by design; that IS the policy. (`home-manager/master` is also *correct*
+for `nixpkgs-unstable` — a release branch would mismatch.) The whole #232 **CI
+block is WONTFIX/resolved**: GC retention stays `--delete-older-than 3d`
+(`autoupdate/update.nix`; user kept it 2026-06-20); `GH_TOKEN`-in-env is already
+moot (deprecated at the Forgejo cutover — token *values* are never in unit env,
+only `*_FILE` paths). Same compensating control as images: runtime hardening +
+signed fleet deploys, not pinning. Don't reopen.
+
 **The ONE distinction that is NOT a violation:** images **built locally via
 `dockerTools`/`podman build` from a `flake = false` input** are NOT registry
 pins — e.g. musicbrainz's `mb-solr` (search), `musicbrainz`, `indexer`, `mq`,
