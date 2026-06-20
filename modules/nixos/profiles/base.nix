@@ -97,6 +97,56 @@
   };
 
   # ---------------------------------------------------------
+  # 3c. KERNEL & NETWORK HARDENING (least-privilege baseline, #232)
+  # ---------------------------------------------------------
+  # Fleet-wide sysctl baseline. Threat model: a popped unprivileged process /
+  # container trying to defeat KASLR or spoof/redirect traffic on the LAN or
+  # tailnet. Deliberately NOT the full nixpkgs hardened profile — its bpf/userns
+  # knobs (unprivileged_bpf_disabled, user.max_user_namespaces=0) would break
+  # rootless containers and the nix build sandbox. Full rationale + the rp_filter
+  # footgun: docs/wiki/infrastructure/host-hardening-baseline.md.
+  boot.kernel.sysctl = {
+    # Hide kernel pointers from EVERYONE (defeats /proc/kallsyms KASLR leaks).
+    # Safe here: our diagnostic set (tcpdump/strace/iotop/dmesg/...) never reads
+    # kallsyms. Drop to 1 only if we ever run perf/bcc/eBPF tracing.
+    "kernel.kptr_restrict" = 2;
+    # dmesg → CAP_SYSLOG only. `sudo dmesg` on the bastion still works (root).
+    "kernel.dmesg_restrict" = 1;
+
+    # SYN-flood mitigation (usually already on by default; explicit = harmless).
+    "net.ipv4.tcp_syncookies" = 1;
+
+    # Reverse-path filtering in LOOSE mode (2), NOT strict (1): strict would drop
+    # doc2's dual-NIC-same-subnet traffic (ens18 .35 / ens19 .36 = asymmetric
+    # routing) and break tailscale subnet routing. Loose still rejects packets
+    # whose source has no route via ANY interface — anti-spoof without breakage.
+    "net.ipv4.conf.all.rp_filter" = 2;
+    "net.ipv4.conf.default.rp_filter" = 2;
+
+    # Ignore ICMP redirects (MITM / route-injection vector); we're leaf hosts so
+    # we never send them either. Tailscale uses its own routing, unaffected.
+    "net.ipv4.conf.all.accept_redirects" = 0;
+    "net.ipv4.conf.default.accept_redirects" = 0;
+    "net.ipv4.conf.all.send_redirects" = 0;
+    "net.ipv4.conf.default.send_redirects" = 0;
+    "net.ipv6.conf.all.accept_redirects" = 0;
+    "net.ipv6.conf.default.accept_redirects" = 0;
+
+    # Reject source-routed packets (can bypass routing/firewall assumptions).
+    "net.ipv4.conf.all.accept_source_route" = 0;
+    "net.ipv4.conf.default.accept_source_route" = 0;
+    "net.ipv6.conf.all.accept_source_route" = 0;
+    "net.ipv6.conf.default.accept_source_route" = 0;
+  };
+
+  # Drop idle authenticated login sessions after 55 min (set just under the
+  # user's ssh-agent passphrase re-ask). "Idle" = no PTY activity, so an actively
+  # streaming session (build/agent output) is NOT killed; one left at a bare
+  # prompt is. KillUserProcesses stays false (nixpkgs default) so detached
+  # tmux/mosh/nohup survive the disconnect. #232 host-hardening.
+  services.logind.settings.Login.StopIdleSessionSec = "55min";
+
+  # ---------------------------------------------------------
   # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
   # ---------------------------------------------------------
   # By using mkDefault, we ensure every new machine is manageable

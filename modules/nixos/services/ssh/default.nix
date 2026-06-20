@@ -74,6 +74,40 @@ in {
 
         # Basically as we are all in on tailscale SSH the only reason we need this is for X11 forwarding.
         X11Forwarding = true;
+
+        # --- Hardening (#232; docs/wiki/infrastructure/host-hardening-baseline.md)
+        # Bound the UNAUTHENTICATED login window (default 120s) so slow-loris /
+        # half-open connections can't squat a listener slot. 30s is ample for
+        # key auth. (The matching idle-AUTHENTICATED-session reap lives in
+        # base.nix via logind StopIdleSessionSec.)
+        LoginGraceTime = 30;
+
+        # Cipher / KEX / MAC pin — ssh-audit "hardened" set, every entry verified
+        # present in `ssh -Q` on the fleet's OpenSSH 10.3 (one flake.lock ⇒ no
+        # cross-host version skew, so sshd can't fail to start on an unknown
+        # algo). Inbound-only: client and Tailscale-SSH paths are unaffected, and
+        # every fleet host + workstation client runs this same OpenSSH.
+        # MaxAuthTries is deliberately left at the default 6: with password auth
+        # off the brute-force win is marginal, and a lower cap breaks multi-key
+        # ssh-agents (each offered key counts as one attempt).
+        KexAlgorithms = [
+          "mlkem768x25519-sha256"
+          "sntrup761x25519-sha512@openssh.com"
+          "curve25519-sha256"
+          "curve25519-sha256@libssh.org"
+          "diffie-hellman-group16-sha512"
+          "diffie-hellman-group18-sha512"
+        ];
+        Ciphers = [
+          "chacha20-poly1305@openssh.com"
+          "aes256-gcm@openssh.com"
+          "aes128-gcm@openssh.com"
+        ];
+        Macs = [
+          "hmac-sha2-512-etm@openssh.com"
+          "hmac-sha2-256-etm@openssh.com"
+          "umac-128-etm@openssh.com"
+        ];
       };
     };
 
