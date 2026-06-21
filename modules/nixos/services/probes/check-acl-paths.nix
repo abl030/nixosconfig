@@ -29,7 +29,9 @@ pkgs.writeShellApplication {
     set -uo pipefail
 
     pfsense_ts="''${ACL_PROBE_PFSENSE_TS:-100.123.61.111}"
-    dns_name="''${ACL_PROBE_DNS_NAME:-one.one.one.one}"
+    # NB: NOT one.one.one.one — pfBlockerNG/anycast handling returns it empty here
+    # (verified 2026-06-21). google.com exercises the full pfSense->upstream path.
+    dns_name="''${ACL_PROBE_DNS_NAME:-google.com}"
     ssh_target="''${ACL_PROBE_SSH_TARGET:-100.89.160.60:22}"   # default: doc1
     kerrynas="''${ACL_PROBE_KERRYNAS:-100.100.237.21:2049}"
 
