@@ -55,6 +55,10 @@
   `sops updatekeys` from **inside `secrets/`**. See [sops-recipient-model.md](sops-recipient-model.md).
 
 ## Key Decisions
+- ⚠️ Dad's raspberrypi (Pi Zero W, dad's house, tailnet-only access) is **MID
+  bullseye→bookworm upgrade & currently OFF the tailnet** (2026-06-21, likely OOM'd
+  tailscaled). Resume steps + access/breakglass model:
+  [raspberrypi-dad-pizero.md](../../docs/wiki/infrastructure/raspberrypi-dad-pizero.md).
 - Tailscale ACL (#239): **FLIPPED to default-deny 2026-06-21** — 5-tag `grants` policy live
   (server/client/share/edge/cullen), all nodes tagged, allow-all removed. Apply/revert via
   gitops-pusher on doc1. See [tailscale-acl-state.md](tailscale-acl-state.md).
