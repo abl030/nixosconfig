@@ -64,13 +64,6 @@
     # runs gitops-pusher (timer + manual). The credential can rewrite the whole
     # tailnet, so it lives ONLY here (same rationale as the MCP control creds).
     tailscale.aclApply.enable = true;
-    # ACL preserve-or-die path probe (#239 U5): CLI + Kuma deep probe from the
-    # bastion vantage. Target doc2 for the SSH-reachability check (default targets
-    # doc1 self); pfSense DNS + kerrynas NFS defaults are correct for doc1.
-    tailscale.aclPathProbe = {
-      enable = true;
-      environment.ACL_PROBE_SSH_TARGET = "100.87.177.120:22"; # doc2
-    };
 
     # Base.nix enables update=true.
     # We just add specific timing/dates here.
