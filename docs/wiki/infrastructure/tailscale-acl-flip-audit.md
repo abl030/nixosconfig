@@ -118,13 +118,18 @@ LAN reachable only at the two inverter `/32`s, Cullen laptop only via `doc1/fram
 4. **From the home LAN** (break-glass = doc1-local revert via the policy_file cred, which
    reaches `api.tailscale.com` over the internet, NOT the tailnet — so revert survives a
    darked tailnet): `gitops-pusher apply`.
-5. Post-flip verify: preserve-or-die probe green; then **live-test the device-to-device +
-   share paths** (Sunshine/RDP/syncthing from a phone/laptop; overseer from a roaming
-   device; ping ali to confirm overseer) — these can't be asserted from doc1.
+5. Post-flip verify: from doc1, hand-check the server-side preserve-or-die paths (fleet DNS
+   via pfSense `:53`, doc1→doc2 `:22`, kerrynas NFS `:2049` — e.g. `dig @100.123.61.111
+   google.com`, `nc -z`); then **live-test the device-to-device + share paths**
+   (Sunshine/RDP/syncthing from a phone/laptop; overseer from a roaming device; ping ali to
+   confirm overseer) — these can't be asserted from doc1.
 6. Revert trigger: re-add allow-all via `gitops-pusher apply` from doc1 if anything breaks.
 
-## Probe note
-The doc1 ACL-path deep-probe is currently **stopped** (I stopped its timer after the canary
-bug — `one.one.one.one` doesn't resolve via pfSense; fixed to `google.com` in the working
-tree). It restores on the next doc1 deploy. doc2's probe isn't deployed yet (deferred to the
-flip deploy).
+## Probe note (RETIRED 2026-06-21)
+The ACL-path deep-probe (`check-acl-paths` CLI + Kuma push monitor on doc1/doc2) was
+**removed** the day after the flip — commit `0234a5f4`. It shipped with a packaging bug
+(`bash` missing from `runtimeInputs`, so its `/dev/tcp` SSH/NFS checks exited 127 and the
+Kuma monitor sat falsely DOWN, paging Gotify) while the paths were actually healthy. Its only
+real value — the one-time pre/post-flip cutover gate — was spent, and the preserve-or-die
+paths it watched are covered by other alerting if they break. Verify those paths by hand from
+doc1 per step 5 above; there is no longer a continuous probe.
