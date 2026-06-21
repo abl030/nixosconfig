@@ -3,6 +3,9 @@
 ## Shell Environment Quirk
 - zoxide hook (`__zoxide_z`) causes `cd` commands to fail with exit 127 in Bash tool
 - Workaround: use `git -C /path/to/repo` instead of `cd /path && git`
+- Tree often has pre-staged WIP; bare `git commit` sweeps the whole index. Commit
+  by pathspec (`git commit <file>`) + verify `git show --stat HEAD` before push:
+  [feedback-commit-pathspec-staged-wip.md](feedback-commit-pathspec-staged-wip.md)
 
 ## Critical "Never Do" Rules
 - NEVER run `npm install` manually in a Nix-managed Claude Code installation (breaks the store irreparably)
@@ -52,6 +55,12 @@
   `sops updatekeys` from **inside `secrets/`**. See [sops-recipient-model.md](sops-recipient-model.md).
 
 ## Key Decisions
+- Tailscale ACL (#239): **FLIPPED to default-deny 2026-06-21** — 5-tag `grants` policy live
+  (server/client/share/edge/cullen), all nodes tagged, allow-all removed. Apply/revert via
+  gitops-pusher on doc1. See [tailscale-acl-state.md](tailscale-acl-state.md).
+- SendMessage (resume a spawned subagent w/ context) WORKS in claude-code 2.1.x;
+  gated by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, which `base.nix:82` deliberately
+  strips. Verified 2026-06-21: [claude-code-sendmessage-agent-teams.md](claude-code-sendmessage-agent-teams.md)
 - Hermes agent → **full-operator** build (TUI=full prod creds via ssh-agent fwd, Telegram=read-only by construction). See [hermes-full-operator-posture.md](hermes-full-operator-posture.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)

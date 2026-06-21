@@ -1,9 +1,14 @@
 # Tailscale ACL — pre-flip path audit (#239)
 
 - **Date:** 2026-06-21
-- **Status:** Audit complete; **default-deny flip NOT yet done**. The tailnet is on the
-  STAGED policy (allow-all present → nothing restricted), all 20 nodes tagged, 6 stale
-  nodes culled. This doc is the complete grant set the flip needs.
+- **Status:** ✅ **DEFAULT-DENY FLIPPED + verified 2026-06-21.** Allow-all removed; the
+  5-tag policy is live (20 nodes tagged, 6 stale culled). The wsl/cullen NFS grant was
+  added (`cullen→192.168.1.2:2049`, tower NFSv4.2). Verified from doc1: server paths
+  (doc2:22, kerrynas:2049, pfSense:53), DNS, `doc1→cullen:22` deploy, and `ssh wsl`
+  showing wsl DNS + git:443 + tower-NFS all OK; static accept+deny gate passes; no Loki
+  connectivity errors post-flip. **Owner still to live-verify** the device-to-device paths
+  (Sunshine/RDP, Syncthing), `overseer.ablz.au` from a roaming device, and ali@'s overseer
+  share. REVERT if needed: re-add the allow-all grant + `gitops-pusher apply` from doc1.
 - **Why this exists:** the 2026-06-07 plan's grants were drafted from the requirements,
   not a live path audit. Three things would have broken on a blind flip (shares,
   wsl-deploy, client↔client). This audit enumerates EVERY tailnet-traversing path on the

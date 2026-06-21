@@ -16,13 +16,12 @@
 // Audit (flip-readiness, complete grant set): docs/wiki/infrastructure/tailscale-acl-flip-audit.md
 // Wiki: docs/wiki/infrastructure/tailscale-acl.md (U8)
 //
-// ============================ STAGING (READ ME) =============================
-// This file is in its STAGED form: it carries a `*:*` allow-all grant (clearly
-// marked below) so applying it is NON-DESTRUCTIVE — nothing is restricted yet.
-// The `tests` block therefore holds ACCEPT-only assertions (allow-all makes every
-// DENY assertion false). The DENY assertions that prove real grant correctness are
-// parked, commented, below the tests block. THE FLIP is a single edit: delete the
-// allow-all grant AND swap in the deny tests, then re-apply from the home LAN.
+// ============================ DEFAULT-DENY LIVE =============================
+// Flipped 2026-06-21: the allow-all grant is removed — the tailnet is default-deny.
+// Only the grants below are permitted; the tests block asserts both the load-bearing
+// accepts AND the isolation denies. To REVERT in an emergency, re-add the allow-all
+// grant (see the marker in the grants list) and `gitops-pusher apply` from doc1
+// (which reaches api.tailscale.com over the internet, not the tailnet).
 // ===========================================================================
 {
   // ----------------------------------------------------------------- tagOwners
@@ -46,6 +45,7 @@
     "homeassistant": "100.106.165.120", // the ONLY node allowed to reach the Cullen inverters
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "hermes":        "100.78.254.6",   // locked-down agent VM (keyless re: the fleet, see grants)
+    "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
   },
 
   // -------------------------------------------------------------------- grants
@@ -118,6 +118,9 @@
     { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
     { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
     { "src": ["tag:cullen"], "dst": ["192.168.1.0/24"], "ip": ["tcp:443", "tcp:8050"] },
+    // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
+    // tower's 192.168.0.0/23 route. Syncthing is the intended future transport (#4).
+    { "src": ["tag:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
 
     // === tag:edge — remote / isolated nodes ================================
     // homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes.
@@ -142,10 +145,12 @@
     { "src": ["tag:server"], "dst": ["hermes"], "ip": ["tcp:22"] },
     { "src": ["hermes"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
 
-    // ====================== STAGED ALLOW-ALL — REMOVE AT FLIP ===============
-    // Makes this policy non-destructive. DELETE this single grant (and swap in the
-    // deny tests below) to flip the tailnet to default-deny.
-    { "src": ["*"], "dst": ["*"], "ip": ["*"] },
+    // ===================== DEFAULT-DENY LIVE (flipped 2026-06-21) ===========
+    // The allow-all grant was removed here — the tailnet is now default-deny; only
+    // the grants above are permitted. REVERT = re-add
+    //   { "src": ["*"], "dst": ["*"], "ip": ["*"] },
+    // and `gitops-pusher apply` from doc1 (reaches api.tailscale.com over the
+    // internet, NOT the tailnet, so it survives even a fully darked tailnet).
     // ========================================================================
   ],
 
@@ -179,36 +184,31 @@
   },
 
   // --------------------------------------------------------------------- tests
-  // Static accept assertions (allow-all present → accept-only; denies parked below).
+  // Default-deny is LIVE — these are the grant-correctness gate: accepts prove the
+  // load-bearing paths survive, denies prove the isolation holds. Static only;
+  // on-wire reachability is verified live post-flip.
   "tests": [
     // DNS preserved (the #1 lockout risk), both protocols.
     { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
     { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
-    // client → server allowlist; client↔client; client → share.
-    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443"] },
+    // client → server allowlist + client↔client + client → share; non-allowlisted denied.
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443"], "deny": ["tag:server:8080"] },
     // server mesh sanity.
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53"] },
-    // cullen: deploy/dev SSH in; DNS + management + syncthing out.
+    // cullen: deploy/dev SSH in (doc1+framework only); out = DNS, mgmt(443), tower
+    // NFS(2049), syncthing(22000); cullen CANNOT reach fleet tailnet IPs.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["pfsense:53", "tag:server:22000"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["pfsense:53", "192.168.1.35:443", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53"] },
-    // hermes → pfSense DNS; server → hermes:22.
-    { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"] },
-    // HA → inverter reachable.
-    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443"] },
+    // a non-deployer client cannot SSH/reach cullen (syncthing 22000 aside).
+    { "src": "s-a55", "proto": "tcp", "deny": ["cullen:22", "cullen:443"] },
+    // hermes → pfSense DNS only; no fleet mesh.
+    { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"], "deny": ["tag:server:443"] },
+    // edge / share isolation: no path into the fleet.
+    { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
+    { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
+    // HA → inverter only; adjacent Cullen IP denied.
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443"], "deny": ["192.168.100.140:443"] },
   ],
-
-  // ===================== FLIP DENY TESTS — SWAP IN AT FLIP ==================
-  // When you delete the allow-all grant, REPLACE the accept-only `tests` above
-  // with one that also contains these denies (the real grant-correctness gate):
-  //
-  //   { "src": "tag:client", "proto": "tcp", "deny": ["tag:server:8080"] },        // client → non-allowlisted server port
-  //   { "src": "tag:edge",   "proto": "tcp", "deny": ["tag:server:443"] },         // edge → fleet
-  //   { "src": "homeassistant", "proto": "tcp", "deny": ["192.168.100.140:443"] }, // HA → adjacent (non-inverter) Cullen IP
-  //   { "src": "tag:share",  "proto": "tcp", "deny": ["tag:server:443"] },         // share → fleet
-  //   { "src": "hermes",     "proto": "tcp", "deny": ["tag:server:443"] },         // hermes → fleet mesh
-  //   { "src": "s-a55",      "proto": "tcp", "deny": ["cullen:22", "cullen:443"] },// non-deployer client → cullen
-  //   { "src": "cullen",     "proto": "tcp", "deny": ["tag:server:443", "tag:client:443"] }, // cullen → fleet (only mgmt/syncthing allowed)
-  // ========================================================================
 }
