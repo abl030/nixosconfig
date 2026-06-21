@@ -35,6 +35,11 @@
     # read-only/deploy-hygiene NOPASSWD allowlist, with no passwordless sudo.
     # Nothing to set here; the default IS the doc2 model.
     tailscale.enable = true;
+    # ACL preserve-or-die path probe (#239 U5): continuous Kuma deep probe +
+    # CLI, run from a server vantage. Defaults target doc1 SSH + pfSense DNS +
+    # kerrynas NFS — all paths doc2 genuinely depends on. ACL apply lives on
+    # doc1 (the bastion); this is monitoring-only.
+    tailscale.aclPathProbe.enable = true;
 
     # LGTM observability stack — migrated from igpu per #208.
     # Also receive syslog (pfSense, tower) on 1514/udp+tcp.

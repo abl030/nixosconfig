@@ -8,6 +8,8 @@
 in {
   imports = [
     ./subnet-priority.nix
+    ./acl-apply.nix
+    ./acl-path-probe.nix
   ];
 
   options.homelab.tailscale = {

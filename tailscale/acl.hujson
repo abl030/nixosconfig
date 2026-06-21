@@ -1,0 +1,203 @@
+// Tailscale ACL — repo-authoritative tailnet policy (issue #239).
+//
+// Model: four role tags on a default-DENY tailnet, authored in the modern
+// `grants` syntax (classic `acls` are frozen upstream). Applied self-hosted from
+// doc2 via gitops-pusher (see modules/nixos/services/tailscale/acl-apply.nix, U4)
+// using a `policy_file`-scoped OAuth client held in sops on doc2 only.
+//
+//   tag:server  full mesh; the fleet's service VMs + pfSense + tower + legacy VMs
+//   tag:client  personal devices; a SHORT allowlist into servers, DNS, routes, exit
+//   tag:share   inbound-443 sidecars for shared-in (other-tailnet) users; NO fleet path
+//   tag:edge    remote/isolated nodes; no implicit fleet access, enumerated egress only
+//
+// Plan: docs/plans/2026-06-07-002-feat-tailscale-acl-least-privilege-plan.md
+// Wiki: docs/wiki/infrastructure/tailscale-acl.md (U8)
+//
+// ============================ STAGING (READ ME) =============================
+// This file is currently in its STAGED form: it carries a `*:*` allow-all grant
+// (clearly marked below) so applying it is NON-DESTRUCTIVE — it proves the apply
+// mechanism without changing reachability. The `tests` block therefore contains
+// ACCEPT-only assertions (allow-all makes every DENY assertion false, so deny
+// tests cannot coexist with allow-all). The DENY assertions that prove real
+// grant correctness are written below the tests block, COMMENTED OUT, labelled
+// "U7". The cutover (U7) is a SINGLE edit: delete the allow-all grant AND
+// uncomment the deny tests, then re-apply from the home LAN.
+// ===========================================================================
+{
+  // ----------------------------------------------------------------- tagOwners
+  // Who may apply each tag. autogroup:admin = the tailnet admins (abl030).
+  "tagOwners": {
+    "tag:server": ["autogroup:admin"],
+    "tag:client": ["autogroup:admin"],
+    "tag:share":  ["autogroup:admin"],
+    "tag:edge":   ["autogroup:admin"],
+  },
+
+  // --------------------------------------------------------------------- hosts
+  // Named IPs for precise per-node grants/tests. Tailnet IPs are stable per node;
+  // re-pin only if a node is deleted + re-created (fails closed if stale).
+  "hosts": {
+    "pfsense":       "100.123.61.111", // recursive DNS resolver for the whole fleet
+    "framework":     "100.78.17.73",   // the ONLY fleet node allowed to reach wsl-router
+    "wsl-router":    "100.75.246.114",  // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
+    "homeassistant": "100.106.165.120", // the ONLY node allowed to reach the Cullen inverters
+    "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
+    "hermes":        "100.78.254.6",   // locked-down agent VM (keyless re: the fleet, see grants)
+  },
+
+  // -------------------------------------------------------------------- grants
+  "grants": [
+    // === tag:server — full mesh ============================================
+    // doc1, doc2, igpu, caddy, downloader, pfsense, tower. Server↔server is open
+    // (intra-fleet microsegmentation is #232's job, at container granularity).
+    // This also covers server→pfsense:53 (DNS) since pfSense is tag:server.
+    { "src": ["tag:server"], "dst": ["tag:server"], "ip": ["*"] },
+
+    // server → kerrynas: offsite backup only (doc2 kopia-mum NFS mount, by node
+    // IP via MagicDNS). NFS: tcp:2049 (v4) + 111 (rpcbind, if v3 negotiated).
+    // TODO(U5/U7): confirm whether the mount lands on v4-only and narrow to
+    // ["tcp:2049"]. kerrynas is tag:edge, so this is its only inbound fleet path.
+    { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:2049", "tcp:111", "udp:111"] },
+
+    // === tag:client — personal devices ====================================
+    // framework, epimetheus, s-a55 (phone), laptop-btibh4ie.
+    // Short allowlist into servers (SSH for admin, 443 for every web service
+    // behind nginx/caddy). Add a port here ONLY if a real direct-port gap shows
+    // up during U7 (a service not fronted by :443).
+    { "src": ["tag:client"], "dst": ["tag:server"], "ip": ["tcp:22", "tcp:443"] },
+
+    // DNS — the #1 lockout risk. tailscaled forwards to pfSense over the tailnet
+    // and TCP/53 is load-bearing in this environment (not UDP-only). Both protos.
+    { "src": ["tag:client"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
+
+    // Roaming clients reach the home LAN via tower's 192.168.0.0/23 route
+    // (nix cache 192.168.1.29, NFS 192.168.1.2, etc.).
+    { "src": ["tag:client"], "dst": ["192.168.0.0/23"], "ip": ["*"] },
+
+    // Clients reach dad's LAN via the raspberrypi 192.168.2.0/24 route.
+    { "src": ["tag:client"], "dst": ["192.168.2.0/24"], "ip": ["*"] },
+
+    // Clients may use an approved exit node (tower) for full internet egress.
+    { "src": ["tag:client"], "dst": ["autogroup:internet"], "ip": ["*"] },
+
+    // === framework → wsl-router (the ONLY fleet → Cullen-node path) =========
+    // wsl runs OpenSSH on :22 behind the Windows portproxy; restricting WHO may
+    // reach it is an ACL src restriction (independent of SSH key auth). This is
+    // the dev/deploy path for wsl + the handler for Cullen-side resources.
+    { "src": ["framework"], "dst": ["wsl-router"], "ip": ["tcp:22"] },
+
+    // === tag:edge — remote / isolated nodes ================================
+    // homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes.
+    // No implicit fleet access. Egress is enumerated per-node below; inbound is
+    // only what is explicitly granted (e.g. server→kerrynas NFS above).
+    //
+    // HA → the two Cullen inverters ONLY (solar). The 192.168.100.0/24 route is
+    // advertised (so the /32s are routable) but access is pinned to these /32s.
+    // Port CONFIRMED tcp:443 (2026-06-21): the `pysmaplus` integration runs in
+    // ennexOS mode, talking HTTPS to https://<ip>/api/v1/... — verified by source
+    // (pysma/device_ennexos.py) AND a live probe of both IPs. NOT Speedwire
+    // (udp:9522) / Modbus (tcp:502). .139 = Bank A + Bank B cluster gateway;
+    // .133 = Warehouse. (Bank B is a SD2P cluster sub-device behind .139, no own IP.)
+    { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+
+    // === hermes — locked-down agent VM (added post-plan) ===================
+    // hermes is keyless re: the fleet (no fleet SSH key) and is the blast-radius
+    // boundary for LLM-generated code. It is tag:edge so it does NOT get the
+    // server mesh; it gets exactly two tailnet paths:
+    //   1. inbound :22 from servers — doc1 bastion `fleet-deploy hermes`.
+    //   2. outbound DNS to pfSense — tailscaled forwards resolution there.
+    // Its web dashboard is exposed via the SEPARATE hermes-ui share sidecar
+    // (tag:share), not via this node. Its observability (loki/prometheus/gotify
+    // with doc2) runs over the prom LAN (192.168.1.x), NOT the tailnet, so it
+    // needs no grant here — VERIFY this during the staged rollout (U7); if any
+    // hermes↔doc2 observability path is actually tailnet, add it narrowly.
+    { "src": ["tag:server"], "dst": ["hermes"], "ip": ["tcp:22"] },
+    { "src": ["hermes"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
+
+    // === tag:share — inbound-443 sidecars ==================================
+    // overseer, jellyfin-1, audiobookshelf, hermes-ui. These serve 443 to
+    // shared-in users on OTHER tailnets (node-sharing, which the ACL cannot name
+    // and does not gate). They get NO grant into the fleet — that is the whole
+    // point. 443-only is enforced by the caddy sidecar, not by this file.
+    // NOTE(U7): if a share sidecar relies on tailnet MagicDNS→pfSense for
+    // resolution, add `{src:["tag:share"], dst:["pfsense"], ip:["tcp:53","udp:53"]}`
+    // — verify during staged rollout; omitted here to honour "no share→fleet".
+
+    // ====================== STAGED ALLOW-ALL — REMOVE IN U7 =================
+    // Makes this policy non-destructive so U4's apply mechanism can be proven
+    // without changing reachability. DELETE this single grant (and uncomment the
+    // U7 deny tests below) to flip the tailnet to default-deny.
+    { "src": ["*"], "dst": ["*"], "ip": ["*"] },
+    // ========================================================================
+  ],
+
+  // ----------------------------------------------------------------------- ssh
+  // Tailscale SSH — PRESERVE the default: members reach their OWN devices in
+  // check mode. This governs `tailscale ssh`, which IS used for user-owned,
+  // non-fleet nodes that aren't reached via OpenSSH/the fleet key (e.g. tower).
+  // It is SEPARATE from OpenSSH:22 (the NixOS fleet's SSH, ridden on the tcp:22
+  // grants above). IMPORTANT: action "check" requires USERS/groups in `src` —
+  // tags are INVALID here, so Tailscale SSH cannot be device-tag-restricted the
+  // way grants are; `autogroup:self` already scopes each member to only their
+  // own devices. (Do not "tighten" this to tags — it fails validation and
+  // disables `tailscale ssh` fleet-wide.)
+  "ssh": [
+    {
+      "action": "check",
+      "src":    ["autogroup:member"],
+      "dst":    ["autogroup:self"],
+      "users":  ["autogroup:nonroot", "root"],
+    },
+  ],
+
+  // -------------------------------------------------------------- autoApprovers
+  // Pre-approve advertised subnet routes + exit nodes by tag (NOT retroactive —
+  // re-advertise after this lands and confirm "approved" before the flip, U7).
+  "autoApprovers": {
+    "routes": {
+      "192.168.0.0/23":   ["tag:server"], // tower → home LAN
+      "192.168.100.0/24": ["tag:client"], // laptop-btibh4ie → Cullen site
+      "192.168.2.0/24":   ["tag:edge"],   // raspberrypi → dad's LAN
+      "192.168.4.0/23":   ["tag:edge"],   // kerrynas → mum's LAN
+    },
+    // Tag-server-wide: only tower advertises exit today. If another SERVER ever
+    // advertises exit it is auto-approved — revisit with a dedicated tag:exit if
+    // more exit nodes appear. (raspberrypi also offers exit but is tag:edge, so
+    // it is NOT auto-approved here — intentional; the fleet uses tower.)
+    "exitNode": ["tag:server"],
+  },
+
+  // --------------------------------------------------------------------- tests
+  // Static accept/deny assertions — they catch grant typos at validate time, but
+  // do NOT prove on-wire reachability (that is U5's live probes). While the
+  // allow-all grant is present, ONLY accept assertions can pass; the deny
+  // assertions are staged below for U7.
+  "tests": [
+    // DNS preserved (the #1 lockout risk), both protocols.
+    { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
+    { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
+    // client → server allowlist reachable.
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443"] },
+    // server mesh sanity.
+    { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53"] },
+    // framework → wsl-router:22 reachable.
+    { "src": "framework", "proto": "tcp", "accept": ["wsl-router:22"] },
+    // hermes → pfSense DNS reachable; server → hermes:22 reachable.
+    { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"] },
+    // HA → inverter reachable (port set narrows in U7).
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443"] },
+  ],
+
+  // ===================== U7 DENY TESTS — UNCOMMENT AT FLIP ==================
+  // When you delete the allow-all grant, replace the `tests` block above with
+  // one that ALSO contains these deny assertions (the real grant-correctness
+  // gate against the final, locked-down policy):
+  //
+  //   { "src": "tag:client", "proto": "tcp", "deny": ["tag:server:8080"] },        // client → non-allowlisted server port
+  //   { "src": "tag:edge",   "proto": "tcp", "deny": ["tag:server:443"] },         // edge → fleet
+  //   { "src": "homeassistant", "proto": "tcp", "deny": ["192.168.100.140:443"] }, // HA → adjacent (non-inverter) Cullen IP
+  //   { "src": "tag:share",  "proto": "tcp", "deny": ["tag:server:443"] },         // share → fleet
+  //   { "src": "s-a55",      "proto": "tcp", "deny": ["wsl-router:22"] },          // non-framework client → wsl
+  //   { "src": "hermes",     "proto": "tcp", "deny": ["tag:server:443"] },         // hermes → fleet mesh
+  // ========================================================================
+}
