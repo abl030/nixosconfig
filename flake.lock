@@ -725,11 +725,11 @@
         "systems": "systems_6"
       },
       "locked": {
-        "lastModified": 1781425310,
-        "narHash": "sha256-GTBka4Df/ZOacmisI/DI2LICyNChEqn/giah83LucdM=",
+        "lastModified": 1782031037,
+        "narHash": "sha256-a7oWSyS7SN81UOqVt481yIEMDsMpaJ7GNdV6Eaz5Yqg=",
         "owner": "Gerg-L",
         "repo": "spicetify-nix",
-        "rev": "aeaf7c81a45d3761da61cb05bfc370ac6d1b0441",
+        "rev": "9cb27462cfd20edac174353f1e95bc03aa888863",
         "type": "github"
       },
       "original": {
@@ -902,11 +902,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1781820308,
-        "narHash": "sha256-16En82SXv3D+lsG1pNA1y6ODozuWbme0byuO0jiO4a4=",
+        "lastModified": 1781997104,
+        "narHash": "sha256-SLc8GkhRDILnONTSIPPDcd0wI2wqlm8UTA+VAeal2Oo=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "9ae7df9a22b29e2f81825230c9bba7d444190de0",
+        "rev": "da99b21b2d6e32690d1871afc9e9779701dd7f8c",
         "type": "github"
       },
       "original": {
