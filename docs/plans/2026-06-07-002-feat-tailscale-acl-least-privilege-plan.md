@@ -1,11 +1,20 @@
 ---
 title: "feat: Tailscale least-privilege ACL + nspawn renumber"
 type: feat
-status: active
+status: done
 date: 2026-06-07
 origin: docs/brainstorms/2026-06-07-tailscale-acl-least-privilege-requirements.md
 issue: 239
 ---
+
+> **DONE 2026-06-21.** All units landed: Phase 0 nspawn renumber, the 5-tag default-deny
+> ACL (a `tag:cullen` was added beyond the planned 4 — see below), self-hosted apply on
+> **doc1** (not doc2 as drafted here — blast-radius rationale), the path probe, stale-node
+> cull, and the live flip + verification. The complete, as-built grant set and the path
+> audit that drove it live in [`docs/wiki/infrastructure/tailscale-acl.md`](../wiki/infrastructure/tailscale-acl.md)
+> and [`tailscale-acl-flip-audit.md`](../wiki/infrastructure/tailscale-acl-flip-audit.md) —
+> those supersede the unit details below where they differ. Residuals: forgejo#4 (Cullen
+> NFS→Syncthing), forgejo#3 (stale-handle deploy noise).
 
 # feat: Tailscale least-privilege ACL + nspawn renumber
 

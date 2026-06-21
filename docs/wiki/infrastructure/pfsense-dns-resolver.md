@@ -5,6 +5,7 @@
 **Related incident:** [dns-saturation-incident-2026-05-22](dns-saturation-incident-2026-05-22.md).
 **Backup architecture:** [pfsense-backup](pfsense-backup.md) (ZFS-pull-to-prom + dual-Kopia off-site).
 **Client resolver:** [systemd-resolved-fleet](systemd-resolved-fleet.md) (#262 — the fleet-wide stub that forwards here).
+**Tailnet ACL:** [tailscale-acl](tailscale-acl.md) — since the 2026-06-21 default-deny flip, reaching pfSense `:53` over the tailnet is **grant-gated**: `tag:client → pfsense:{tcp,udp}53` is the **#1 lockout-risk grant** (servers reach it via the mesh; hermes + cullen have explicit `:53` grants; edge nodes use their own DNS). If fleet-wide non-MagicDNS resolution dies after an ACL change, that grant is the first suspect.
 
 ## Role
 
