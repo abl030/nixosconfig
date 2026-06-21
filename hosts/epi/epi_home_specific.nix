@@ -1,5 +1,26 @@
-{pkgs, ...}: {
+{pkgs, ...}: let
+  # `fix-displays`: re-apply the golden GNOME monitor layout via gdctl.
+  #
+  # WHY: exclusive-fullscreen games (OpenMW) force a mode switch; on exit
+  # mutter drops to a side-by-side fallback and does NOT re-apply the saved
+  # ~/.config/monitors.xml. This pushes the layout back over the live
+  # org.gnome.Mutter.DisplayConfig D-Bus API. -P also rewrites monitors.xml
+  # so a later logout/login restores the same thing.
+  #
+  # Layout mirrors hosts/epi/monitors.xml:
+  #   DP-3    2560x1440  primary, centre   (x 1080, y 187)
+  #   HDMI-2  1920x1080  portrait (rot right = transform 270), left (x 0, y 0)
+  #   HDMI-3  1920x1080  right             (x 3640, y 351)
+  # gdctl ships with mutter; pkgs.mutter matches the running GNOME session.
+  fix-displays = pkgs.writeShellScriptBin "fix-displays" ''
+    exec ${pkgs.mutter}/bin/gdctl set -P \
+      -L -x 1080 -y 187 -p    -M DP-3   -m 2560x1440@59.951 \
+      -L -x 0    -y 0   -t 270 -M HDMI-2 -m 1920x1080@74.973 \
+      -L -x 3640 -y 351       -M HDMI-3 -m 1920x1080@60.000
+  '';
+in {
   home.packages = [
+    fix-displays
     pkgs.kdePackages.dolphin
     # These are our thumbnailers. QT5 because we using LXQT.
     # Use the KDE ones is you are using KDE elsewhere
