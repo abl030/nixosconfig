@@ -148,10 +148,10 @@
     { "src": ["tag:server"], "dst": ["hermes"], "ip": ["tcp:22"] },
     { "src": ["hermes"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
 
-    // doc1 (bastion) → dad's raspberrypi: diagnostic path (a login issue is being
-    // chased 2026-06-21). Scoped to doc1 only, full ports for poke-around. Narrow
-    // to tcp:22 or remove once the login problem is resolved.
-    { "src": ["doc1"], "dst": ["rpi"], "ip": ["*"] },
+    // doc1 (bastion) → dad's raspberrypi: SSH admin only. doc1 logs into the pi
+    // (key-only) for management; dad's-LAN access otherwise rides the tag:client
+    // subnet route (192.168.2.0/24), so doc1 needs just :22 to the rpi node.
+    { "src": ["doc1"], "dst": ["rpi"], "ip": ["tcp:22"] },
 
     // ===================== DEFAULT-DENY LIVE (flipped 2026-06-21) ===========
     // The allow-all grant was removed here — the tailnet is now default-deny; only
