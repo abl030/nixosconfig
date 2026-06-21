@@ -47,6 +47,32 @@
 # frozen `github:` flake.
 #
 
+# !! CRITICAL: DEV BOXES CANNOT PUSH — RELAY THROUGH doc1 (relay-push skill) !!
+#
+# By design, dev boxes (epi, framework) hold NO Forgejo push token. doc1 is the
+# SOLE writer to master. Reason: the fleet auto-deploys Forgejo master nightly and
+# dev boxes sign by default with a hosts.nix key — so a push token on a dev box
+# turns one popped box into a signed, auto-deployed FLEET TAKEOVER. Signing does
+# NOT defend this (the key is on the same box). So the gate is a HUMAN reviewing
+# the diff on doc1 before the push.
+#
+# Do NOT "fix" a dev box that "can't push" by installing a token on it. To land a
+# dev box's commits: on doc1, run the `relay-push` skill — it SSH-fetches the
+# box's commits, verifies signatures, rebases onto current master, security-
+# reviews each diff against least-privilege, and pushes ONLY after you say "go".
+# An AUTO-relay buys zero security; the human-reads-the-diff step IS the security.
+#
+# Gotchas the skill encodes: inspect each commit individually (the range diff vs
+# master is a staleness MIRAGE when the box is behind — looked like 1062 deletions
+# for a 1-file change); non-fast-forward is normal (rebase, never force); dev-box
+# SSH may need the LAN IP (alias/tailscale can time out). wsl keeps its own token
+# (USB FIDO can't enter WSL); doc1's bot is the one unattended writer.
+#
+# Endgame (planned, no hardware yet): a carried FIDO key makes push require a
+# physical TOUCH (sk-ssh over SSH:2222; fetch stays HTTPS), retiring the relay.
+# Full model + rationale: docs/wiki/infrastructure/dev-box-gated-push.md
+#
+
 # !! INTERACTION STYLE !!
 #
 # DO NOT use AskUserQuestion / the structured question UI. The user dislikes

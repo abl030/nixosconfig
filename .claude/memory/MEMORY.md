@@ -14,8 +14,15 @@
   there (origin repointed on doc1). GitHub is a FROZEN ancestor-only fallback —
   NEVER deploy from `github:abl030/nixosconfig` (stale) and never `git push` to it.
   Push from doc1 needs the nixbot token header: [forgejo-push-from-doc1.md](forgejo-push-from-doc1.md).
-  Dev boxes (wsl) push DIRECTLY via a persistent repo-scoped extraHeader — OK to
-  hold a plaintext Forgejo write cred there, don't over-engineer: [feedback-devbox-forgejo-creds.md](feedback-devbox-forgejo-creds.md).
+- DEV BOXES (epi, framework) HOLD NO PUSH TOKEN by design — doc1 is the sole
+  writer. A token on a dev box = one popped box → signed, auto-deployed FLEET
+  takeover (signing is on the same box, so it's no defence). To land a dev box's
+  commits: on doc1 run the **relay-push** skill (SSH-fetch → verify sigs → rebase →
+  security-review → push only on "go"). Do NOT install a token on a "can't push"
+  dev box. wsl is a grandfathered token exception (USB FIDO can't enter WSL).
+  Endgame = carried FIDO key, touch-per-push. Full model:
+  `docs/wiki/infrastructure/dev-box-gated-push.md`. (wsl's old extraHeader stance:
+  [feedback-devbox-forgejo-creds.md](feedback-devbox-forgejo-creds.md).)
 - File/edit Forgejo ISSUES from doc1 via a scoped nixbot `write:issue` token,
   sops-encrypted doc1-only: [forgejo-issue-token-doc1.md](forgejo-issue-token-doc1.md).
 - NEVER pin container images / never add a `:latest` CI gate — auto-updates on

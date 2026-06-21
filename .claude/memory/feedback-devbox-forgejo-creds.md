@@ -7,6 +7,14 @@ metadata:
   originSessionId: 5c118cb7-6847-4dd0-88e8-5ac2c8d9571b
 ---
 
+**SUPERSEDED IN DIRECTION (2026-06-21).** This applied to wsl only. We did NOT
+extend it to epi/framework — the opposite: dev boxes now hold NO push token and
+relay through doc1 (a token on a dev box = one popped box → signed auto-deployed
+fleet takeover). wsl keeps its token as a grandfathered exception (USB FIDO can't
+enter WSL). See `docs/wiki/infrastructure/dev-box-gated-push.md` and the
+relay-push skill. Endgame: carried FIDO key, touch-per-push. Keep this note for
+the wsl history below; do NOT use it to justify a new dev-box token.
+
 Dev workstations/VMs (wsl, and by extension framework/epimetheus) are allowed to
 hold a **persistent plaintext Forgejo write credential** so the human can `git
 push` directly. Treat it like "logged into GitHub as abl030" — that is exactly
