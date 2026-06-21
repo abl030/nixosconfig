@@ -90,7 +90,9 @@
     // (FQDN→100.x) by BOTH the owner's own devices AND external users via
     // inter-tailnet node-sharing (e.g. overseer shared to ali@). They get NO
     // egress into the fleet (share→fleet stays denied — see the deny tests).
-    { "src": ["tag:client"], "dst": ["tag:share"], "ip": ["tcp:443"] },
+    // tag:server included so Uptime Kuma (on doc2) can health-check the share
+    // services over the tailnet (overseer.ablz.au → the share node's 100.x:443).
+    { "src": ["tag:client", "tag:server"], "dst": ["tag:share"], "ip": ["tcp:443"] },
     // External shared-in users (accounts we've shared nodes with) reach whatever
     // is shared to them on 443. The node-share mechanism limits WHO sees WHICH
     // node (ali only sees overseer); this grant just lets the 443 through. New
@@ -193,8 +195,8 @@
     { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
     // client → server allowlist + client↔client + client → share; non-allowlisted denied.
     { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443"], "deny": ["tag:server:8080"] },
-    // server mesh sanity.
-    { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53"] },
+    // server mesh sanity + server → share (Kuma health-checks).
+    { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = DNS, mgmt(443), tower
     // NFS(2049), syncthing(22000); cullen CANNOT reach fleet tailnet IPs.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
