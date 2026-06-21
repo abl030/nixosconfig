@@ -44,6 +44,7 @@
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
     "homeassistant": "100.106.165.120", // the ONLY node allowed to reach the Cullen inverters
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
+    "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
     "hermes":        "100.78.254.6",   // locked-down agent VM (keyless re: the fleet, see grants)
     "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
   },
@@ -147,6 +148,11 @@
     { "src": ["tag:server"], "dst": ["hermes"], "ip": ["tcp:22"] },
     { "src": ["hermes"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
 
+    // doc1 (bastion) → dad's raspberrypi: diagnostic path (a login issue is being
+    // chased 2026-06-21). Scoped to doc1 only, full ports for poke-around. Narrow
+    // to tcp:22 or remove once the login problem is resolved.
+    { "src": ["doc1"], "dst": ["rpi"], "ip": ["*"] },
+
     // ===================== DEFAULT-DENY LIVE (flipped 2026-06-21) ===========
     // The allow-all grant was removed here — the tailnet is now default-deny; only
     // the grants above are permitted. REVERT = re-add
@@ -207,6 +213,8 @@
     { "src": "s-a55", "proto": "tcp", "deny": ["cullen:22", "cullen:443"] },
     // hermes → pfSense DNS only; no fleet mesh.
     { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"], "deny": ["tag:server:443"] },
+    // doc1 → rpi diagnostic path.
+    { "src": "doc1", "proto": "tcp", "accept": ["rpi:22"] },
     // edge / share isolation: no path into the fleet.
     { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
