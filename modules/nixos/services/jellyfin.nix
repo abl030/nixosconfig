@@ -507,7 +507,18 @@ in {
       # image's happy default — no in-container switch needed). The `:U` volume
       # flag migrates the existing abl030-owned /config into the mapped range.
       systemd.tmpfiles.rules = [
-        "d ${cfg.watchstate.dataDir} 0755 root root -"
+        # Own the dataDir as the container's HOST-MAPPED run user (userns base
+        # 200000 + WS_UID 1000 = 201000), NOT root:root. The `:U` volume flag
+        # only corrects ownership on container START — but systemd-tmpfiles
+        # re-runs on every boot/switch and, with a `root root` rule, resets this
+        # dir to host-root UNDER the already-running container. Inside the userns
+        # host-0 is the unmapped `nobody`, so the app abruptly loses write to
+        # /config and 503s until the next container restart re-runs `:U`. That is
+        # exactly the 2026-06-23 outage (an unclean prom reboot left it reset).
+        # Owning the dir as the mapped UID makes every tmpfiles re-run a no-op
+        # and survives reboots. Keep 201000 in sync with the --uidmap base
+        # (200000) + WS_UID (1000) below.
+        "d ${cfg.watchstate.dataDir} 0755 201000 201000 -"
       ];
 
       virtualisation.oci-containers.containers.watchstate = {
