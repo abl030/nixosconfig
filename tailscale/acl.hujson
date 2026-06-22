@@ -174,6 +174,24 @@
       "dst":    ["autogroup:self"],
       "users":  ["autogroup:nonroot", "root"],
     },
+    // downloader2 (Unraid KVM, 100.120.54.133) runs `tailscale up --ssh`, so its
+    // port-22-over-tailnet is Tailscale SSH, gated HERE (not by the tcp:22 grants).
+    // The 2026-06-21 tagging tagged every node, so autogroup:self now matches
+    // nothing and the rule above no longer reaches downloader — restore doc1's
+    // access. downloader is tag:server, and a Tailscale-SSH src/dst can only name
+    // a tag (never a single host/IP — verified against the policy-file syntax ref),
+    // so tag:server -> tag:server is the tightest expressible scope; nonroot only
+    // (no direct root login), and `accept` because a tagged src cannot use `check`.
+    // Inert for the rest of the fleet: no other tag:server node runs Tailscale SSH
+    // (homelab.tailscale never sets --ssh; they use OpenSSH on the firewall port),
+    // and the server tag already shares an open OpenSSH mesh, so this widens
+    // nothing. doc1 (the bastion) is the only server that initiates SSH here.
+    {
+      "action": "accept",
+      "src":    ["tag:server"],
+      "dst":    ["tag:server"],
+      "users":  ["autogroup:nonroot"],
+    },
   ],
 
   // -------------------------------------------------------------- autoApprovers
