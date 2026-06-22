@@ -20,6 +20,7 @@
 # (its 2nd vNIC, bridged to tower br0.20).
 {
   lib,
+  pkgs,
   inputs,
   ...
 }: let
@@ -27,6 +28,23 @@
   # (2026-06-22): the LAN NIC is enp1s0, the VLAN-20 NIC is enp2s0 (predictable PCI
   # naming from the libvirt q35 topology; stable across NixOS versions).
   dmzUplink = "enp2s0";
+
+  # virtiofsd over the Unraid NFS-backed scratch: that backend supports NEITHER POSIX
+  # ACLs NOR user xattrs (both return EOPNOTSUPP / "Operation not supported"), but
+  # microvm.nix HARDCODES `--posix-acl --xattr` on virtiofsd. So libtorrent's file ops
+  # in the qbt guest failed with "Operation not supported" and downloads never wrote.
+  # Wrap virtiofsd to strip those two flags (harmless for the RO /nix/store share too).
+  # This keeps the cage intact — no NFS pinhole, no architecture change. See Forgejo #1.
+  virtiofsdNoXattr = pkgs.writeShellScriptBin "virtiofsd" ''
+    args=()
+    for a in "$@"; do
+      case "$a" in
+        --posix-acl | --xattr) ;;
+        *) args+=("$a") ;;
+      esac
+    done
+    exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
+  '';
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -83,6 +101,8 @@ in {
       vcpu = 2;
       mem = 768;
       vsock.cid = 20; # systemd-notify over vsock → servarr knows when qbt is up
+      # NFS-backed /downloads share rejects ACLs/xattrs → strip --posix-acl/--xattr.
+      virtiofsd.package = virtiofsdNoXattr;
       shares = [
         {
           # RO /nix/store from the host — no per-VM store duplication (tiny RAM).
