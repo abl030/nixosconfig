@@ -42,7 +42,7 @@
     "pfsense":       "100.123.61.111", // recursive DNS resolver for the whole fleet
     "framework":     "100.78.17.73",   // dev workstation; reaches cullen for Cullen-side work
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
-    "homeassistant": "100.106.165.120", // the ONLY node allowed to reach the Cullen inverters
+    "homeassistant": "100.106.165.120", // edge node allowed to reach the Cullen inverters
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
     "hermes":        "100.78.254.6",   // locked-down agent VM (keyless re: the fleet, see grants)
@@ -65,11 +65,12 @@
     // === tag:client — trusted personal/admin devices =======================
     // framework, epimetheus, epimetheus-vm, s-a55 (phone). These are trusted
     // operator devices, so they get full tailnet access and approved non-Cullen
-    // subnet-route access. The Cullen work subnet is deliberately not included:
-    // open a narrow grant later only when a concrete break-glass need exists.
+    // subnet-route access. The Cullen work subnet is deliberately not broadly
+    // included: only the dashboard host and inverter /32s below are open.
     // (laptop-btibh4ie is deliberately tag:cullen, not tag:client.)
     { "src": ["tag:client"], "dst": ["tag:server", "tag:client", "tag:share", "tag:edge", "tag:cullen"], "ip": ["*"] },
     { "src": ["tag:client"], "dst": ["192.168.0.0/23", "192.168.2.0/24", "192.168.4.0/23"], "ip": ["*"] },
+    { "src": ["tag:client"], "dst": ["192.168.100.128/32", "192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
 
     // Clients may use an approved exit node (tower) for full internet egress.
     { "src": ["tag:client"], "dst": ["autogroup:internet"], "ip": ["*"] },
@@ -110,7 +111,8 @@
     //        tower's route, but NOT the whole home LAN.
     //   + Syncthing (mesh grant above). NOT client↔client, NOT the broad fleet,
     //     NOT the exit node, NO broad NFS (transport is moving to Syncthing, #4).
-    // The Cullen LAN route stays inverters-only for the fleet (HA grant below).
+    // The Cullen LAN route stays exact-/32 only: client dashboard+inverters,
+    // HA inverters, no broad work-subnet access.
     { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
     // cullen → doc1 SSH: remote wsl admin reaches the bastion ONLY (NOT
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
@@ -196,8 +198,8 @@
     // DNS preserved (the #1 lockout risk), both protocols.
     { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
     { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
-    // client: trusted personal/admin devices get full tailnet + non-Cullen route access.
-    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443"], "deny": ["192.168.100.139:443"] },
+    // client: trusted personal/admin devices get full tailnet + selected route access.
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),

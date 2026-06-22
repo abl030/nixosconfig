@@ -106,8 +106,9 @@ can't roam the Cullen LAN. Supersedes treating it as `tag:client`.
 
 Net effect vs goals: popped Cullen box → can reach DNS + exact doc1/doc2/igpu/192.168.1.6
 HTTPS paths, Gotify, tower NFS, and Syncthing only (not arbitrary services). Trusted client
-devices can reach the Cullen laptop; popped non-client fleet nodes reach Cullen only through
-explicit grants. Cullen LAN remains reachable only at the two inverter `/32`s.
+devices can reach the Cullen laptop, the WSL dashboard host, and the two inverter `/32`s;
+popped non-client fleet nodes reach Cullen only through explicit grants. Cullen LAN remains
+closed except for those exact `/32` grants.
 
 ## To confirm before the flip
 - **Forgejo git-SSH `:2222`** (doc2): the fleet pushes via `https://git.ablz.au` (:443,

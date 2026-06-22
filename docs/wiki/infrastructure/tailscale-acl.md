@@ -39,10 +39,12 @@ also defeat "LAN-only" admin hardening, because the packet exits tower's subnet 
 the home LAN and may be seen as LAN-side.
 
 Policy distinction: `tag:client` is intentionally trusted for tailnet nodes and non-Cullen
-routes, but does **not** get the Cullen work subnet (`192.168.100.0/24`) by default. Less-
-trusted roles (`tag:cullen`, `tag:edge`, `tag:share`, `autogroup:shared`) must use exact
-destination IP + port route grants into fleet LANs. Route approval (`autoApprovers`) is only
-reachability plumbing; it is not an access decision.
+routes, but does **not** get the whole Cullen work subnet (`192.168.100.0/24`) by default.
+Clients get only the dashboard host (`192.168.100.128:443`) and the two inverter `/32`s
+(`192.168.100.139:443`, `192.168.100.133:443`). Less-trusted roles (`tag:cullen`,
+`tag:edge`, `tag:share`, `autogroup:shared`) must use exact destination IP + port route
+grants into fleet LANs. Route approval (`autoApprovers`) is only reachability plumbing; it is
+not an access decision.
 
 ## The five tags
 
@@ -59,7 +61,7 @@ reachability plumbing; it is not an access decision.
 | src → | gets |
 |---|---|
 | `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:443` (Kuma health-checks); `hermes:22` (deploy) |
-| `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress. No Cullen `192.168.100.0/24` route grant by default |
+| `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress; Cullen dashboard + inverter `/32`s only |
 | `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
 | `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` only. hermes → `pfsense:53` only (and inbound `:22` from servers) |
 | `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), `192.168.1.35:8050` (Gotify), `192.168.1.2:2049` (tower NFS), Syncthing mesh. Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
@@ -72,12 +74,14 @@ that, not this table, when changing policy.
 ## `tag:cullen` — the Cullen-site isolation
 
 > [!WARNING]
-> **The Cullen LAN footgun.** The fleet reaches the Cullen site (`192.168.100.0/24`,
-> advertised by `laptop-btibh4ie`) at **exactly two destinations**: `HA → 192.168.100.139/32`
-> + `192.168.100.133/32` on `:443` (the solar inverters), and `doc1/framework → laptop:22`.
-> **The route existing is NOT access.** A future project that assumes "the fleet can reach the
-> Cullen LAN" will be silently denied — it needs its own `/32` (or host) added to a grant.
-> `laptop-btibh4ie`/wsl is the intended handler for Cullen-side resources.
+> **The Cullen LAN footgun.** The Cullen subnet route (`192.168.100.0/24`, advertised by
+> `laptop-btibh4ie`) is not a broad work-network grant. Current permitted subnet
+> destinations are the solar inverters (`192.168.100.139/32` + `192.168.100.133/32` on
+> `:443`) and the WSL dashboard host (`192.168.100.128/32` on `:443` for
+> `cullen.ablz.au`). **The route existing is NOT access.** A future project that assumes
+> "the fleet can reach the Cullen LAN" will be silently denied — it needs its own `/32`
+> (or host) added to a grant. `laptop-btibh4ie`/wsl is the intended handler for
+> Cullen-side resources.
 
 `laptop-btibh4ie` is a Windows laptop at the Cullen winery running the `wsl` NixOS instance;
 WSL's tailnet traffic egresses *through* the Windows host, so `tag:cullen` governs both. It is
@@ -88,7 +92,8 @@ plane (DNS + exact HTTPS/Gotify endpoints + tower NFS) — "deny everything" wou
 auto-updates.
 NFS is the current data transport; **Syncthing-only is the planned end state (forgejo#4)**, at
 which point the `cullen→192.168.1.2:2049` grant is dropped. Trusted `tag:client` devices can
-still reach the Cullen laptop; the isolation boundary is about Cullen's outbound movement.
+still reach the Cullen laptop and the dashboard/inverter `/32`s; they do not get the broader
+Cullen work subnet.
 
 ## How policy is applied — `gitops-pusher` on doc1
 
@@ -158,8 +163,9 @@ Lessons from the 2026-06-21 migration:
 `tag:server` (tower→home), `192.168.100.0/24`→`tag:cullen`, `192.168.2.0/24`+`192.168.4.0/23`→
 `tag:edge` (dad's pi / mum's kerrynas). Approval only lets clients learn the routes; grants
 still decide access. `tag:client` is trusted for full tailnet node access and non-Cullen
-routes, but Cullen's `192.168.100.0/24` work subnet stays closed until a deliberate grant is
-added. Untrusted roles use exact `/32` + port grants. `exitNode`→`tag:server` is
+routes, plus the dashboard/inverter `/32`s in Cullen. The rest of Cullen's
+`192.168.100.0/24` work subnet stays closed until a deliberate grant is added. Untrusted roles
+use exact `/32` + port grants. `exitNode`→`tag:server` is
 **tag-server-wide**: only tower advertises exit today; if another server ever does, it's
 auto-approved — revisit with a dedicated `tag:exit` if more appear. (raspberrypi also offers
 exit but is `tag:edge`, so it is NOT auto-approved — intentional.)
