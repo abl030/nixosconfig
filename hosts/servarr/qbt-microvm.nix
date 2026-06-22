@@ -54,6 +54,16 @@ in {
     linkConfig.RequiredForOnline = false;
   };
 
+  # The base profile uses NetworkManager, which owns the LAN NIC (DHCP → servarr's
+  # .4). Keep NM OFF the DMZ interfaces — systemd-networkd owns br-dmz + the VLAN-20
+  # uplink + the qbt tap. Without this NM would also DHCP the VLAN-20 vNIC (pulling a
+  # 192.168.20.x onto servarr, which must stay a pure L2 conduit) and fight the bridge.
+  networking.networkmanager.unmanaged = [
+    "interface-name:${dmzUplink}"
+    "interface-name:br-dmz"
+    "interface-name:vm-qbt"
+  ];
+
   microvm.vms.qbt.config = {
     imports = [inputs.microvm.nixosModules.microvm];
 
