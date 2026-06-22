@@ -29,6 +29,10 @@ in {
     networking.firewall.allowedTCPPorts = [80 443];
 
     # 2. Decrypt Cloudflare Credentials
+    # Single 1-zone (ablz.au) DNS:Edit token, id d90a01e8; shared by ACME, the
+    # localProxy + tailscale-share dns-sync scripts, and the caddy sidecars. Scope
+    # audit, token inventory, the no-split decision, and the rotation runbook live
+    # in docs/wiki/infrastructure/cloudflare-api-tokens.md (#240).
     sops.secrets."acme/cloudflare" = {
       sopsFile = cfg.cloudflareSopsFile;
       format = "dotenv";
