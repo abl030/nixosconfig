@@ -357,7 +357,7 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 ### Hypervisors
 
 - **prom** (192.168.1.12, AMD 9950X): Proxmox host running most VMs (doc1, doc2, igpu, …). Manage via the Proxmox web UI; no in-repo automation.
-- **tower** (192.168.1.2): Unraid host running NAS + some VMs + docker stacks. `ssh root@tower` works but is gated — ask the user to unlock first.
+- **tower** (192.168.1.2): Unraid host (7.3.0) — NAS + some KVM VMs + docker stacks, incl. **Plex** (its music library is an NFSv3 mount from prom: `192.168.1.12:/nvmeprom/containers/Music` → `/mnt/remotes/192.168.1.12_Music`, a `hard` mount, so it **hangs if prom is down** — a stalled music mount usually means prom, not tower). As of 2026-06-22 tower is a **standard fleet SSH member**: `ssh root@tower` from doc1 with the fleet key (native OpenSSH, key-only root; Tailscale plugin `--ssh` is disabled). Manage it via the **`tower` subagent** (`.claude/agents/tower.md`). Full SSH/flash model + reboot recovery: `docs/wiki/infrastructure/tower-unraid-fleet-ssh.md`.
 
 ### Network & DNS Topology (non-obvious — read before debugging)
 
