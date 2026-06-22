@@ -23,9 +23,10 @@
   inputs,
   ...
 }: let
-  # servarr's 2nd vNIC — attached on tower to br0.20 (VLAN 20). Real name depends
-  # on the libvirt NIC order; typically the 2nd virtio NIC. Confirm at install.
-  dmzUplink = "ens4"; # TODO(install): confirm servarr's VLAN-20 vNIC name
+  # servarr's 2nd vNIC — attached on tower to br0.20 (VLAN 20). Confirmed at install
+  # (2026-06-22): the LAN NIC is enp1s0, the VLAN-20 NIC is enp2s0 (predictable PCI
+  # naming from the libvirt q35 topology; stable across NixOS versions).
+  dmzUplink = "enp2s0";
 in {
   imports = [inputs.microvm.nixosModules.host];
 
