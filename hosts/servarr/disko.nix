@@ -5,6 +5,10 @@
   disko.devices.disk.main = {
     type = "disk";
     device = "/dev/vda";
+    # Size of the generated image for the diskoImages build (the bootable image we
+    # copy onto the tower VM disk). nixos-anywhere installs ignore this and use the
+    # real disk; only the image builder needs a fixed size.
+    imageSize = "64G";
     content = {
       type = "gpt";
       partitions = {
