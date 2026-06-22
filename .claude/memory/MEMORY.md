@@ -55,6 +55,10 @@
   restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use
   **Loki** for logs. doc2 abl030 has NO password (console = break-glass).
 - Full models: `ssh-bastion-model.md` + `fleet-deploy-and-sibling-lockdown.md`.
+- **tower (Unraid) joined the fleet SSH model 2026-06-22**: native OpenSSH, key-only root,
+  fleet key from doc1 (`ssh root@tower`); Tailscale plugin `--ssh` DISABLED. The old
+  "tower = Tailscale SSH / gated" assumption is STALE. Config lives on the Unraid flash (not
+  Nix). [tower-unraid-fleet-ssh.md](tower-unraid-fleet-ssh.md).
 
 ## Secrets model (#234, 2026-06-08)
 - Per-host sops scoping + cold break-glass (Bitwarden+paper) + warm doc1 editor key;
