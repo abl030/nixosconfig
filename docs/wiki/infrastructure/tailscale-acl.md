@@ -2,7 +2,8 @@
 
 - **Date:** 2026-06-21
 - **Status:** ✅ **Default-deny LIVE** (flipped 2026-06-21). 5-tag `grants` policy; all
-  20 nodes tagged; 6 stale nodes culled.
+  20 nodes tagged; 6 stale nodes culled. Route-grant hardening landed 2026-06-22:
+  broad home-LAN route access was replaced with exact `/32` + port grants.
 - **Source of truth:** [`tailscale/acl.hujson`](../../../tailscale/acl.hujson) (repo-authoritative).
 - **Issue:** GitHub #239. **Plan:** [`docs/plans/2026-06-07-002-feat-tailscale-acl-least-privilege-plan.md`](../../plans/2026-06-07-002-feat-tailscale-acl-least-privilege-plan.md).
 - **Pre-flip path audit + complete grant rationale:** [tailscale-acl-flip-audit.md](tailscale-acl-flip-audit.md).
@@ -29,6 +30,20 @@ can't break. There is a **second, independent** enforcement layer — each NixOS
 `nixos-fw` with `homelab.tailscale.netfilterMode` (see [tailscale-untrust](tailscale-untrust.md))
 — which only filters *inbound* tailnet packets at the host. This doc is about the central ACL.
 
+## Subnet-route footgun
+
+Tailscale route injection and grants are independent: route acceptance puts an advertised
+subnet in a client's routing table, while grants decide whether packets through that route
+are permitted. That means a broad grant like `tag:client -> 192.168.0.0/23:*` is not just
+"LAN access" — it re-opens doc1/doc2/pfSense by their LAN IPs and bypasses the cleaner
+`tag:client -> tag:server:{22,443}` story. It can also defeat "LAN-only" admin hardening,
+because the packet exits tower's subnet router onto the home LAN and may be seen as LAN-side.
+
+Permanent rule: route grants into fleet LANs must be **exact destination IPs and ports**.
+Do not add a whole home-LAN CIDR grant for `tag:client`, `tag:cullen`, `tag:edge`, or
+`autogroup:shared`. Route approval (`autoApprovers`) is only reachability plumbing; it is
+not an access decision.
+
 ## The five tags
 
 | tag | what | members (2026-06-21) |
@@ -44,10 +59,10 @@ can't break. There is a **second, independent** enforcement layer — each NixOS
 | src → | gets |
 |---|---|
 | `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:443` (Kuma health-checks); `hermes:22` (deploy) |
-| `tag:client` | `server:{22,443}`; `pfsense:{53}`; `tag:client:*` (own devices); `tag:share:443`; home LAN (`192.168.0.0/23` via tower) + dad's LAN (`192.168.2.0/24` via rpi); exit node (`autogroup:internet`); Syncthing mesh |
+| `tag:client` | `server:{22,443}`; `pfsense:{53}`; `tag:client:*` (own devices); `tag:share:443`; exact home-LAN services via tower (`192.168.1.29:443`, `192.168.1.35:{443,8050}`, `192.168.1.2:2049`, `192.168.1.21:631`); dad's LAN (`192.168.2.0/24` via rpi); exit node (`autogroup:internet`); Syncthing mesh |
 | `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
 | `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` only. hermes → `pfsense:53` only (and inbound `:22` from servers) |
-| `tag:cullen` | `pfsense:53` (DNS); `192.168.1.0/24:{443,8050}` (Forgejo/nix-cache/Loki/Gotify via tower's route); `192.168.1.2:2049` (tower NFS); Syncthing mesh. Inbound: `doc1`+`framework` → `:22` only |
+| `tag:cullen` | `pfsense:53` (DNS); exact doc1/doc2 management endpoints via tower (`192.168.1.29:443`, `192.168.1.35:{443,8050}`); `192.168.1.2:2049` (tower NFS); Syncthing mesh. Inbound: `doc1`+`framework` → `:22` only |
 | `framework` | `tag:cullen:22` (Cullen dev path, in addition to `doc1`) |
 | `autogroup:shared` | `tag:share:443` (inter-tailnet shares, e.g. overseer shared to ali@) |
 
@@ -69,7 +84,8 @@ WSL's tailnet traffic egresses *through* the Windows host, so `tag:cullen` gover
 the least-trusted node, so it is **deliberately excluded** from the `client↔client` blanket.
 Design goals: a Cullen compromise can't pivot into the fleet; the fleet can't roam the Cullen
 LAN. But `wsl` is still a **managed NixOS host**, so it gets a *minimal* outbound management
-plane (DNS + doc1/doc2 web/Gotify + tower NFS) — "deny everything" would brick auto-updates.
+plane (DNS + exact doc1/doc2 web/Gotify endpoints + tower NFS) — "deny everything" would
+brick auto-updates.
 NFS is the current data transport; **Syncthing-only is the planned end state (forgejo#4)**, at
 which point the `cullen→192.168.1.2:2049` grant is dropped.
 
@@ -139,10 +155,12 @@ Lessons from the 2026-06-21 migration:
 
 `autoApprovers` pre-approve advertised routes **by tag** (not retroactive): `192.168.0.0/23`→
 `tag:server` (tower→home), `192.168.100.0/24`→`tag:cullen`, `192.168.2.0/24`+`192.168.4.0/23`→
-`tag:edge` (dad's pi / mum's kerrynas). `exitNode`→`tag:server` is **tag-server-wide**: only
-tower advertises exit today; if another server ever does, it's auto-approved — revisit with a
-dedicated `tag:exit` if more appear. (raspberrypi also offers exit but is `tag:edge`, so it is
-NOT auto-approved — intentional.)
+`tag:edge` (dad's pi / mum's kerrynas). Approval only lets clients learn the routes; grants
+still decide access. Home-LAN access is therefore exact `/32` + port grants, not the whole
+`192.168.0.0/23`. `exitNode`→`tag:server` is **tag-server-wide**: only tower advertises exit
+today; if another server ever does, it's auto-approved — revisit with a dedicated `tag:exit`
+if more appear. (raspberrypi also offers exit but is `tag:edge`, so it is NOT auto-approved —
+intentional.)
 
 ## Break-glass / revert
 

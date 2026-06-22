@@ -92,9 +92,11 @@ can't roam the Cullen LAN. Supersedes treating it as `tag:client`.
   (deploy + dev SSH to WSL) + NFS — **scope pending #4**.
 - **Outbound (minimal management plane — wsl is a managed NixOS host, so NOT zero):**
   - `{src:["tag:cullen"], dst:["pfsense"], ip:["tcp:53","udp:53"]}` (DNS)
-  - `{src:["tag:cullen"], dst:["192.168.1.0/24"], ip:["tcp:443","tcp:8050"]}` (Forgejo /
-    nix-cache / Loki on doc1+doc2 via tower's route; Gotify 8050) — NOT the broad fleet,
-    NOT client↔client, NOT exit.
+  - 2026-06-22 correction: do **not** use the original `192.168.1.0/24:{443,8050}`
+    shape. It bypasses the tag:server allowlist by LAN IP and can expose "LAN-only"
+    admin surfaces through tower's subnet router. Use exact destinations instead:
+    `192.168.1.29:443` (nix cache), `192.168.1.35:{443,8050}` (Forgejo/Loki/Mimir/
+    Gotify), and `192.168.1.2:2049` (temporary tower NFS).
 - **NOT** in `tag:client→tag:client`. **NOT** `client→server`. **NOT** exit node.
 - **Syncthing on wsl:** recommend DROP wsl from the syncthing mesh (cleaner isolation);
   else add a scoped grant. Tracked in #4.

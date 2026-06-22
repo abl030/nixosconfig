@@ -72,8 +72,15 @@
     // TCP/53 is load-bearing in this environment (not UDP-only). Both protos.
     { "src": ["tag:client"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
 
-    // Roaming clients reach the home LAN (via tower) and dad's LAN (via rpi).
-    { "src": ["tag:client"], "dst": ["192.168.0.0/23"], "ip": ["*"] },
+    // Roaming clients reach only named home-LAN services via tower's route.
+    // Do NOT grant the whole 192.168.0.0/23: doc1/doc2/pfSense also live on
+    // those LAN IPs, so a broad route grant bypasses the neat tag:server port
+    // allowlist and any "LAN-only" admin surface that sees tower's SNAT.
+    { "src": ["tag:client"], "dst": ["192.168.1.29/32", "192.168.1.35/32"], "ip": ["tcp:443"] }, // nix cache + doc2 web services
+    { "src": ["tag:client"], "dst": ["192.168.1.35/32"], "ip": ["tcp:8050"] }, // Gotify direct endpoint
+    { "src": ["tag:client"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] }, // tower NFSv4.2
+    { "src": ["tag:client"], "dst": ["192.168.1.21/32"], "ip": ["tcp:631"] }, // home printer IPP
+    // Roaming clients still reach dad's LAN via rpi; this is not a fleet subnet.
     { "src": ["tag:client"], "dst": ["192.168.2.0/24"], "ip": ["*"] },
 
     // Clients may use an approved exit node (tower) for full internet egress.
@@ -105,7 +112,8 @@
     // mesh; either peer may initiate. One symmetric grant on the syncthing ports
     // (tcp/udp 22000 data, udp 21027 discovery). Non-participants (doc2, caddy,
     // phone, …) don't listen on these, so the tag-broad dst is harmless. This is
-    // cullen's ONLY data path into the fleet (NFS deliberately omitted — see #4).
+    // cullen's only peer-to-peer mesh path into the fleet; the temporary tower
+    // NFS path below is a separate, exact /32 subnet-route grant.
     { "src": ["tag:client", "tag:server", "tag:cullen"], "dst": ["tag:client", "tag:server", "tag:cullen"], "ip": ["tcp:22000", "udp:22000", "udp:21027"] },
 
     // === tag:cullen — the Cullen-site laptop (laptop-btibh4ie / wsl) ========
@@ -115,8 +123,9 @@
     //   IN : deploy + dev SSH from doc1 (bastion) and framework only.
     //   OUT: interactive SSH to doc1 ONLY (the bastion — hop to siblings from
     //        there; restored 2026-06-22, the flip had dropped wsl's old shell path);
-    //        DNS to pfSense; doc1/doc2 web ports for fleet-update (Forgejo +
-    //        nix-cache), Loki/Mimir push, and Gotify (8050) — via tower's route.
+    //        DNS to pfSense; exact doc1/doc2 web ports for fleet-update
+    //        (Forgejo + nix-cache), Loki/Mimir push, and Gotify (8050) — via
+    //        tower's route, but NOT the whole home LAN.
     //   + Syncthing (mesh grant above). NOT client↔client, NOT the broad fleet,
     //     NOT the exit node, NO broad NFS (transport is moving to Syncthing, #4).
     // The Cullen LAN route stays inverters-only for the fleet (HA grant below).
@@ -125,7 +134,8 @@
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
     { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
     { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
-    { "src": ["tag:cullen"], "dst": ["192.168.1.0/24"], "ip": ["tcp:443", "tcp:8050"] },
+    { "src": ["tag:cullen"], "dst": ["192.168.1.29/32", "192.168.1.35/32"], "ip": ["tcp:443"] },
+    { "src": ["tag:cullen"], "dst": ["192.168.1.35/32"], "ip": ["tcp:8050"] },
     // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
     // tower's 192.168.0.0/23 route. Syncthing is the intended future transport (#4).
     { "src": ["tag:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
@@ -205,15 +215,18 @@
     { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
     { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
     // client → server allowlist + client↔client + client → share; non-allowlisted denied.
-    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443"], "deny": ["tag:server:8080"] },
+    // The route-denies catch the old bypass: home LAN IPs must be exact services,
+    // not a wildcard that opens pfSense/doc2/doc1 by their LAN addresses.
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.21:631"], "deny": ["tag:server:8080", "192.168.1.1:443", "192.168.1.35:3000"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
-    // DNS, mgmt(443), tower NFS(2049), syncthing(22000). doc1:22 is cullen's SOLE
-    // tailnet :22 path — it still reaches NO other fleet tailnet IP.
+    // DNS, exact mgmt endpoints, tower NFS(2049), syncthing(22000). doc1:22 is
+    // cullen's SOLE tailnet :22 path — it still reaches NO other fleet tailnet IP
+    // and no broad home-LAN route.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.35:443", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.35:8050", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443", "192.168.1.1:443", "192.168.1.34:443"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53"] },
     // a non-deployer client cannot SSH/reach cullen (syncthing 22000 aside).
     { "src": "s-a55", "proto": "tcp", "deny": ["cullen:22", "cullen:443"] },
