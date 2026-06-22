@@ -42,31 +42,17 @@
     options = ["rw" "noatime" "vers=4.2" "hard" "_netdev" "x-systemd.automount" "x-systemd.mount-timeout=30"];
   };
 
-  # Shared group so the *arr services (and abl030) can read/write the library.
-  users.groups.media = {};
-  users.users.abl030.extraGroups = ["media"];
-
-  # --- The *arr stack (native upstream modules; state in /var/lib/<app>) --------
-  # Migration = drop each app's config.xml + *.db into /var/lib/<app> at install
-  # (issue #1 step 5). Download clients carried over: this VM's qbt microVM
-  # (localhost-bridged) + the existing remote NZBGet @ 192.168.1.17:6789. Prowlarr
-  # keeps syncing to Readarr @ tower 192.168.1.2:8787.
-  services.radarr = {
-    enable = true;
-    group = "media";
-    openFirewall = true; # 7878 — reached by Overseerr/Plex on the LAN
-  };
-  services.sonarr = {
-    enable = true;
-    group = "media";
-    openFirewall = true; # 8989
-  };
-  services.prowlarr = {
-    enable = true;
-    openFirewall = true; # 9696 — indexer manager; needs no media access
-  };
+  # The media group + the *arr stack (Radarr/Sonarr/Prowlarr) + the qbt reverse-proxy
+  # all live in homelab.services.servarr (modules/nixos/services/servarr.nix): bound to
+  # loopback behind nginx/localProxy, reached LAN-wide ONLY via *.ablz.au, never by IP.
+  # Migration drops each app's config.xml + *.db into /var/lib/<app> at install (issue
+  # #1 step 5) — set BindAddress=127.0.0.1 in each config.xml (tailscale0 is a trusted
+  # firewall interface, so a 0.0.0.0 bind would be tailnet-reachable). Download clients
+  # carried over: the qbt microVM (qbt.ablz.au) + the remote NZBGet @ 192.168.1.17:6789.
+  # Prowlarr keeps syncing to Readarr @ tower 192.168.1.2:8787.
 
   homelab = {
+    services.servarr.enable = true;
     ssh.enable = true; # fleet member: key-only, trusts the doc1 bastion key
     tailscale.enable = true;
     nixCaches = {

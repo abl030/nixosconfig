@@ -42,6 +42,7 @@
     ./jdownloader2.nix
     ./tdarr-node.nix
     ./jellyfin.nix
+    ./servarr.nix
     ./netboot.nix
     ./overseerr.nix
     ./youtarr.nix
