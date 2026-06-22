@@ -144,9 +144,22 @@ systemd.services.nginx = {
 };
 ```
 
-Done for `podcast.nix` (`/mnt/data/Media/Podcasts` on doc1). Audited every fleet `services.nginx...root`: only podcast is under `/mnt` (smokeping → `/var/lib`, nix cache → `/var/cache`). This means a future static-from-`/mnt` vhost that forgets the bind fails **loud** (nginx `226/NAMESPACE`) instead of silently widening the blast radius — the failure mode points you straight at the missing `BindPaths`.
+Audited every fleet `services.nginx...root`: only podcast is under `/mnt` (smokeping → `/var/lib`, nix cache → `/var/cache`). This means a future static-from-`/mnt` vhost that forgets the bind fails **loud** (nginx `226/NAMESPACE`) instead of silently widening the blast radius — the failure mode points you straight at the missing bind.
 
-**The flip side (2026-06-18): a *correct* bind still fails if the backing mount is stale.** `/mnt/data/Media/Podcasts` is NFS from tower (`192.168.1.2:/mnt/user/data`). The `BindPaths` entry makes systemd set up that bind inside nginx's private namespace on **every (re)start — including the reload `nixos-rebuild switch` performs**. If tower throws a transient `Stale file handle` at that instant, nginx fails `Failed at step NAMESPACE … Stale file handle`, which fails `nginx-config-reload.service`, which makes `switch-to-configuration` return exit 4 and **fails the whole rebuild**. Observed on doc1 during a `fleet-update`: the already-running nginx kept serving on its old config (so it was a *deploy* failure, not an outage), and re-running once tower's NFS recovered succeeded. Net consequence: the podcast static-serve couples **every doc1 nginx reload — including the nightly auto-upgrade — to tower NFS health**. Not yet hardened (the bind would need to tolerate a stale handle, or podcasts move off NFS); documented so a future `nginx … Stale file handle` rebuild failure is recognised as this, not a config error.
+**The flip side (2026-06-18): a *correct* bind still fails if the backing mount is stale — bind the mount ROOT, not the leaf (fixed forgejo#3, 2026-06-22).** `/mnt/data/Media/Podcasts` is NFS from tower (`192.168.1.2:/mnt/user/data`, Unraid). The original `BindPaths=[podcastDir]` made systemd resolve that **leaf** path inside nginx's private namespace on **every (re)start — including the reload `nixos-rebuild switch` performs**. Unraid's `/mnt/user` is an shfs FUSE union that reassigns a directory's inode whenever it's written — and the podcast downloader drops new mp3s straight into `Podcasts/` (plus the array mover) — so that subdir's NFS filehandle **flaps stale**. Whenever it was stale at reload time, nginx died `Failed at step NAMESPACE … Stale file handle` → `switch-to-configuration` exit 4 → the *whole rebuild* failed (the running nginx kept serving its old config, so it was a *deploy* failure, not an outage). It fired on essentially **every** deploy.
+
+**Fix:** bind the **mount root** `/mnt/data` instead of the churning leaf, read-only:
+
+```nix
+systemd.services.nginx = {
+  unitConfig.RequiresMountsFor = ["/mnt/data"];
+  serviceConfig.BindReadOnlyPaths = ["/mnt/data"];
+};
+```
+
+The mount-root handle is established at mount time and stays valid (only an actual umount invalidates it); nginx resolves the `Media/Podcasts` subdir **lazily at request time**, which already self-heals on ESTALE (a fresh lookup revalidates). So namespace setup never touches the flapping leaf and the deploy stops failing — no watchdog/oneshot/remount machinery needed. Read-only because the webserver only reads; the downloader (`webhook.service`) writes in its own, separately-sandboxed namespace, so widening leaf→root doesn't grant nginx write to the share.
+
+**General rule:** when an nginx `/mnt` hole points at a **write-churned NFS leaf** (shfs/Unraid especially), bind a stable ancestor (ideally the mount root) **read-only** and let nginx walk to the leaf at request time. Binding the leaf directly couples every reload to that leaf's handle staying valid. For non-churning virtiofs dirs the plain `BindPaths=[<root>]` leaf pattern above is still fine. The candidate fixes that *don't* work here, for the record: `x-systemd.automount`+idle-timeout never fires on doc1 (≈15 services pin `/mnt/data` continuously, so it never idles to remount); `hard`/`soft`/`timeo`/`retrans` tuning can't help ESTALE (a definitive server response, not a timeout); a remount-watchdog is a heavy hammer on a 15-service shared mount. The permanent root-cause fix is server-side on Unraid (export the disk/cache path directly for stable XFS inodes, or shfs `fuse_remember=-1`).
 
 **Class D learnings:**
 

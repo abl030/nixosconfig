@@ -253,24 +253,41 @@ in {
     };
   };
 
-  # Ensure Webhook doesn't start until NFS is ready
-  systemd.services.webhook.serviceConfig = {
-    User = lib.mkForce "nginx";
-    Group = lib.mkForce "nginx";
-    RequiresMountsFor = "/mnt/data";
+  # Ensure Webhook doesn't start until NFS is ready.
+  # NB: RequiresMountsFor is a [Unit] key. Placed in serviceConfig ([Service])
+  # systemd silently IGNORES it ("Unknown key 'RequiresMountsFor' in section
+  # [Service], ignoring") — it must live in unitConfig (forgejo#3).
+  systemd.services.webhook = {
+    serviceConfig = {
+      User = lib.mkForce "nginx";
+      Group = lib.mkForce "nginx";
+    };
+    unitConfig.RequiresMountsFor = "/mnt/data";
   };
 
   # 6. SOPS Secret
   # REMOVED: Managed centrally by homelab.nginx
 
-  # #257: homelab.nginx blanks /mnt by default (secure-by-default). This
-  # vhost serves static files from podcastDir on NFS, so bind that one path
-  # back into nginx's sandbox and order nginx after the mount. Without this
-  # the fail-loud bind / blanked tmpfs would 404 every podcast request (or
-  # fail nginx start). Co-located here so the hole travels with the vhost.
+  # #257: homelab.nginx blanks /mnt by default (secure-by-default). This vhost
+  # serves static files from podcastDir on NFS, so bind the data share back
+  # into nginx's sandbox and order nginx after the mount.
+  #
+  # forgejo#3: bind the stable NFS *mount root* (/mnt/data) read-only, NOT the
+  # podcastDir leaf. Unraid's /mnt/user shfs reassigns the Podcasts directory
+  # inode on every write (yt-dlp drops straight into it, plus the mover), so
+  # that subdir's NFS filehandle flaps stale. Binding the leaf directly made
+  # systemd resolve a stale handle during mount-namespace setup on every nginx
+  # (re)start — status=226/NAMESPACE — so switch-to-configuration exited
+  # non-zero and EVERY deploy reported failure (the running nginx was fine; only
+  # restart was blocked). The mount-root handle is fixed at mount time and stays
+  # valid; nginx resolves the podcast subdir lazily at request time, which
+  # already self-heals. Read-only because the webserver only reads — the
+  # downloader (webhook.service) writes in its own namespace — so widening
+  # leaf→root doesn't hand nginx write access to the whole share.
+  # Co-located here so the hole travels with the vhost.
   systemd.services.nginx = {
-    unitConfig.RequiresMountsFor = [podcastDir];
-    serviceConfig.BindPaths = [podcastDir];
+    unitConfig.RequiresMountsFor = ["/mnt/data"];
+    serviceConfig.BindReadOnlyPaths = ["/mnt/data"];
   };
 
   # 7. Nginx Configuration
