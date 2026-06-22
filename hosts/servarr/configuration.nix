@@ -16,6 +16,8 @@
   ...
 }: {
   imports = [
+    inputs.disko.nixosModules.disko
+    ./disko.nix
     ./hardware-configuration.nix
     ./qbt-microvm.nix
   ];
