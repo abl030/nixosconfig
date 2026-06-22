@@ -1,9 +1,48 @@
 {
   config,
   lib,
+  pkgs,
+  hostConfig,
   ...
 }: let
   cfg = config.homelab.services.gotify;
+
+  dbPath = "${cfg.dataDir}/data/gotify.db";
+
+  # Read-only triage reader for the Gotify message DB. The DB is owned by the
+  # `gotify` system user and the host is locked (forgejo#2 — no passwordless
+  # sudo), so the morning triage-overnight skill cannot read it. This wrapper is
+  # the ONLY sudo-granted path to it: it runs FIXED read-only queries with
+  # integer-validated arguments, opens the DB with `-readonly`, and never
+  # evaluates user-supplied SQL or sqlite dot-commands. That last point is the
+  # whole reason a wrapper exists instead of granting `sudo sqlite3`: sqlite3's
+  # `.shell`/`.system`/`.import`/`.output` dot-commands execute arbitrary
+  # commands and write files, so a NOPASSWD `sudo sqlite3 <db>` is really a root
+  # shell. This grant exposes exactly "list recent messages" + "show messages by
+  # id" — nothing more. See docs/wiki/services/gotify.md + the triage skill.
+  gotifyTriage = pkgs.writeShellApplication {
+    name = "gotify-triage";
+    runtimeInputs = [pkgs.sqlite];
+    text = ''
+      db=${lib.escapeShellArg dbPath}
+      case "''${1:-recent}" in
+        recent)
+          hours="''${2:-30}"
+          [[ "$hours" =~ ^[0-9]+$ ]] || { echo "hours must be an integer" >&2; exit 2; }
+          sqlite3 -readonly -batch "$db" \
+            "SELECT id, application_id, datetime(date) AS d, priority, substr(title,1,80) FROM messages WHERE date >= datetime('now','-''${hours} hours') ORDER BY date DESC;"
+          ;;
+        msg)
+          ids="''${2:-}"
+          [[ "$ids" =~ ^[0-9]+(,[0-9]+)*$ ]] || { echo "usage: gotify-triage msg <id[,id...]>" >&2; exit 2; }
+          sqlite3 -readonly -batch -line "$db" \
+            "SELECT id, title, message FROM messages WHERE id IN (''${ids});"
+          ;;
+        *)
+          echo "usage: gotify-triage recent [hours] | msg <id[,id...]>" >&2; exit 2 ;;
+      esac
+    '';
+  };
 in {
   options.homelab.services.gotify = {
     enable = lib.mkEnableOption "Gotify push notification server (native NixOS module)";
@@ -51,6 +90,28 @@ in {
     };
 
     networking.firewall.allowedTCPPorts = [8050];
+
+    # Make `sudo gotify-triage ...` resolve on PATH for the triage skill.
+    environment.systemPackages = [gotifyTriage];
+
+    # Scoped read-only DB access for the triage user. The locked host strips
+    # passwordless sudo, so this is the single NOPASSWD carve-out — and it points
+    # at the fixed-query wrapper above, NOT at `sqlite3`, so it cannot run
+    # arbitrary SQL or shell. Merges with the locked-role podman allowlist
+    # (fleet-deploy.nix) via the list option.
+    security.sudo.extraRules = lib.mkAfter [
+      {
+        users = [hostConfig.user];
+        commands =
+          map (command: {
+            inherit command;
+            options = ["NOPASSWD"];
+          }) [
+            "${gotifyTriage}/bin/gotify-triage"
+            "${gotifyTriage}/bin/gotify-triage *"
+          ];
+      }
+    ];
 
     homelab = {
       localProxy.hosts = [

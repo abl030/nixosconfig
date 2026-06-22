@@ -97,45 +97,15 @@ Both diagnoses follow the same three-label format produced by the system prompt:
 
 Run **in parallel** with Step 1. The two channels (Loki nightly diagnoses + Gotify pings) overlap but don't fully duplicate.
 
-> **⚠️ Lockdown (forgejo#2, 2026-06-19): the direct `sudo sqlite3` read below NO LONGER WORKS.**
-> doc2 has no passwordless sudo, and `abl030` cannot read the gotify db (root-owned
-> StateDirectory). `ssh doc2 "sudo sqlite3 ..."` now dies on a password prompt.
-> **Trace overnight alerts via Loki instead — it is the source of truth and needs no
-> sudo.** Most infra pings are reconstructable from Loki ( `$START`/`$END` are set in Step 1):
->
-> ```bash
-> # Service / NFS watchdog trips (the "NFS watchdog tripped" pages):
-> curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
->   --data-urlencode 'query={unit=~".+-nfs-watchdog\\.service"} |~ "(?i)stale|recover|restart|fail"' \
->   --data-urlencode "start=$START" --data-urlencode "end=$END" \
->   --data-urlencode 'limit=500' --data-urlencode 'direction=forward' \
->   | jq -r '.data.result[] | "=== \(.stream.host)/\(.stream.unit) ===", (.values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])")'
-> # A watchdog "recovering" line names the failed service — then query THAT unit in the
-> # ±5min window for the real cause (e.g. mailarchive failing on transient Gmail IMAP, not NFS).
-> #
-> # alert-bridge (app 7 = claude) rules fire off Loki errorPatterns; the Grafana
-> # alert rules that page live in grafana.service logs:
-> #   {host="doc2", unit="grafana.service"} |~ "fromAlert=true"
-> ```
->
-> **What Loki does NOT have** (Gotify-only — a blind spot until a read path is restored):
-> Kuma flaps (check `https://kuma.ablz.au`), Domain-Monitor (app 3 — `dig` / `openssl
-> s_client` the domain), Proxmox (app 1), Tower (app 2), KopiaMum (app 5). For these,
-> lean on the service's own UI/host.
->
-> **To restore direct Gotify reads** (pick one, then delete this notice):
-> 1. Add a read-only `sqlite3 /mnt/virtio/gotify/data/gotify.db` entry to doc2's sudo
->    allowlist (the `security.sudo` read-only pattern in
->    `modules/nixos/services/fleet-deploy.nix`); the commands below then work again.
-> 2. Provision a gotify **client** token (the existing `gotify/token` sops secret is an
->    *app/send* token, not a read token) and use the HTTP API.
-
-The original direct-read commands (work again once option 1 above is deployed):
+Read the Gotify pings via the **`gotify-triage`** wrapper on doc2. The locked host
+(forgejo#2) has no passwordless sudo, so this scoped, fixed-query read-only wrapper
+is the single sudo carve-out — it cannot run arbitrary SQL or shell (that's why it
+exists instead of a `sudo sqlite3` grant, which the sqlite `.shell`/`.system`
+dot-commands would turn into a root shell). Defined in
+`modules/nixos/services/gotify-server.nix`.
 
 ```bash
-ssh doc2 "sudo sqlite3 /mnt/virtio/gotify/data/gotify.db \
-  \"SELECT id, application_id, datetime(date) AS d, priority, substr(title,1,80) \
-    FROM messages WHERE date >= datetime('now', '-30 hours') ORDER BY date DESC;\""
+ssh doc2 "sudo gotify-triage recent 30"
 ```
 
 App ids (cache locally if you want; they're stable):
@@ -145,12 +115,34 @@ App ids (cache locally if you want; they're stable):
 6=Youtube Playlist  7=claude  8=HA
 ```
 
-For each ping with `priority >= 5` (warning+), pull the full message:
+For each ping with `priority >= 5` (warning+), pull the full message body:
 
 ```bash
-ssh doc2 "sudo sqlite3 -line /mnt/virtio/gotify/data/gotify.db \
-  \"SELECT id, title, message FROM messages WHERE id IN (X, Y, Z);\""
+ssh doc2 "sudo gotify-triage msg 123,124,125"
 ```
+
+**Cross-check with Loki** — it's the source of truth for anything that logs there,
+and lets you trace a ping's *real* cause rather than its (often misleading) title
+(`$START`/`$END` are set in Step 1):
+
+```bash
+# Service / NFS watchdog trips (the "NFS watchdog tripped" pages):
+curl -sG 'https://loki.ablz.au/loki/api/v1/query_range' \
+  --data-urlencode 'query={unit=~".+-nfs-watchdog\\.service"} |~ "(?i)stale|recover|restart|fail"' \
+  --data-urlencode "start=$START" --data-urlencode "end=$END" \
+  --data-urlencode 'limit=500' --data-urlencode 'direction=forward' \
+  | jq -r '.data.result[] | "=== \(.stream.host)/\(.stream.unit) ===", (.values[] | "[\((.[0]|tonumber)/1e9|todate)] \(.[1])")'
+# A watchdog "recovering" line names the failed service — query THAT unit in the
+# ±5min window for the real cause (e.g. mailarchive failing on transient Gmail IMAP, not NFS).
+#
+# alert-bridge (app 7 = claude) rules fire off Loki errorPatterns; the Grafana
+# alert rules that page live in grafana.service logs:
+#   {host="doc2", unit="grafana.service"} |~ "fromAlert=true"
+```
+
+Pings with no Loki trail (Kuma flaps → `https://kuma.ablz.au`; Domain-Monitor app 3
+→ `dig` / `openssl s_client`; Proxmox app 1; Tower app 2; KopiaMum app 5) are exactly
+what `gotify-triage` is for — Loki won't have them.
 
 **Skip-list (low signal, don't bother diagnosing):**
 - App 8 (HA) — garage door, doorbell, presence pings. Not infra.
