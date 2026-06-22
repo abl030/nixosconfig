@@ -135,10 +135,29 @@ in {
       enable = true;
       webuiPort = 8080;
       torrentingPort = 45726;
-      openFirewall = false; # exposure governed by pfSense, not the guest firewall
+      # Open 8080 (WebUI) + 45726 (torrent) on the GUEST firewall. pfSense is still the
+      # real boundary (default-deny egress → AirVPN only; single inbound servarr→8080; the
+      # AirVPN forward → 45726). The guest firewall just must not DROP those allowed flows —
+      # with openFirewall=false it silently blocked the WebUI (HTTP 000) and inbound peers.
+      openFirewall = true;
+      serverConfig = {
+        Preferences.WebUI = {
+          # Bind all guest interfaces; reached via pfSense from servarr (and qbt.ablz.au via
+          # servarr's nginx). No password: pfSense permits ONLY servarr→8080, so bypass auth
+          # for the LAN source IP qbt sees (pfSense ROUTES LAN→VLAN20, no NAT, so it sees the
+          # real .101). Adds the *arr-friendly no-creds path; humans reach it LAN-only.
+          Address = "*";
+          AuthSubnetWhitelistEnabled = true;
+          AuthSubnetWhitelist = "192.168.1.0/24";
+        };
+        # qbt writes ONLY into the virtiofs scratch (= servarr's /media/data/Media/Temp); the
+        # *arr hardlink completed files out of there into the library (same fs). Never /data.
+        BitTorrent.Session.DefaultSavePath = "/downloads/";
+      };
     };
 
     # No fleet trust, no tailscale, nothing else. This box is disposable.
     networking.firewall.enable = lib.mkDefault true;
+    networking.firewall.allowedUDPPorts = [45726]; # uTP/DHT inbound (TCP opened by openFirewall)
   };
 }
