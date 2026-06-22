@@ -169,8 +169,9 @@ in {
             lib.nameValuePair "homelab-${name}" {
               # Trust the hostname and the sshAlias, plus any sshHostName override
               # (e.g. wsl, reached via the Windows host's Tailscale port-forward —
-              # the key presented there is still the VM's own host key).
-              # Note: IP addresses are not currently in hosts.nix, so they are not added here.
+              # the key presented there is still the VM's own host key; or epi,
+              # whose sshHostName is its LAN IP so the key stays pinned when we
+              # bypass the ACL-blocked tailnet path). sshHostName may be a bare IP.
               hostNames =
                 lib.unique ([host.hostname host.sshAlias]
                   ++ lib.optional (host ? sshHostName) host.sshHostName);

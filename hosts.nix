@@ -74,6 +74,12 @@ in {
     homeDirectory = "/home/abl030";
     hostname = "epimetheus";
     sshAlias = "epi";
+    # Reach epi over its LAN IP, not the tailnet. The Tailscale ACL went
+    # default-deny (#239, 2026-06-21) and doc1→epi tcp:22 isn't granted, so the
+    # bare `epimetheus` MagicDNS name resolves to the (blocked) tailnet IP and
+    # `ssh epi` hangs. The LAN path is fine; pin the matchBlock + known_hosts to
+    # the IP. (Same sshHostName override the wsl entry uses for its forward.)
+    sshHostName = "192.168.1.5";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGuTUS6W9BBOpoDWU7f1jUtlA3B1niCfEtuutfIKPYdr";
     authorizedKeys = fleetKeys;
