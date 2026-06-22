@@ -6,7 +6,7 @@
 // using a `policy_file`-scoped OAuth client held in sops on doc1 only.
 //
 //   tag:server  full mesh; the fleet's service VMs + pfSense + tower + legacy VMs
-//   tag:client  trusted personal/admin devices; full tailnet + approved route access
+//   tag:client  trusted personal/admin devices; full tailnet + non-Cullen routes
 //   tag:share   inbound-443 share sidecars (own devices + inter-tailnet shares)
 //   tag:edge    remote/isolated nodes; no implicit fleet access, enumerated egress only
 //   tag:cullen  the Cullen-site laptop (laptop-btibh4ie/wsl) — strictest: a minimal
@@ -64,10 +64,12 @@
 
     // === tag:client — trusted personal/admin devices =======================
     // framework, epimetheus, epimetheus-vm, s-a55 (phone). These are trusted
-    // operator devices, so they get full tailnet + approved subnet-route access.
-    // The route-grant footgun is for less-trusted roles such as tag:cullen.
+    // operator devices, so they get full tailnet access and approved non-Cullen
+    // subnet-route access. The Cullen work subnet is deliberately not included:
+    // open a narrow grant later only when a concrete break-glass need exists.
     // (laptop-btibh4ie is deliberately tag:cullen, not tag:client.)
-    { "src": ["tag:client"], "dst": ["*"], "ip": ["*"] },
+    { "src": ["tag:client"], "dst": ["tag:server", "tag:client", "tag:share", "tag:edge", "tag:cullen"], "ip": ["*"] },
+    { "src": ["tag:client"], "dst": ["192.168.0.0/23", "192.168.2.0/24", "192.168.4.0/23"], "ip": ["*"] },
 
     // Clients may use an approved exit node (tower) for full internet egress.
     { "src": ["tag:client"], "dst": ["autogroup:internet"], "ip": ["*"] },
@@ -194,8 +196,8 @@
     // DNS preserved (the #1 lockout risk), both protocols.
     { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
     { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
-    // client: trusted personal/admin devices get full tailnet + approved route access.
-    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443"] },
+    // client: trusted personal/admin devices get full tailnet + non-Cullen route access.
+    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443"], "deny": ["192.168.100.139:443"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),

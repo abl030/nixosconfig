@@ -38,17 +38,18 @@ are permitted. A broad route grant is therefore real LAN access, not just "routi
 also defeat "LAN-only" admin hardening, because the packet exits tower's subnet router onto
 the home LAN and may be seen as LAN-side.
 
-Policy distinction: `tag:client` is intentionally trusted and gets full access. Less-trusted
-roles (`tag:cullen`, `tag:edge`, `tag:share`, `autogroup:shared`) must use exact destination
-IP + port route grants into fleet LANs. Route approval (`autoApprovers`) is only reachability
-plumbing; it is not an access decision.
+Policy distinction: `tag:client` is intentionally trusted for tailnet nodes and non-Cullen
+routes, but does **not** get the Cullen work subnet (`192.168.100.0/24`) by default. Less-
+trusted roles (`tag:cullen`, `tag:edge`, `tag:share`, `autogroup:shared`) must use exact
+destination IP + port route grants into fleet LANs. Route approval (`autoApprovers`) is only
+reachability plumbing; it is not an access decision.
 
 ## The five tags
 
 | tag | what | members (2026-06-21) |
 |---|---|---|
 | `tag:server` | fleet service VMs + infra; full mesh | proxmox-vm (doc1), doc2, igpu, caddy, downloader, pfsense, tower |
-| `tag:client` | trusted personal/admin devices; full tailnet + approved subnet-route access | framework, epimetheus, epimetheus-vm, s-a55 (phone) |
+| `tag:client` | trusted personal/admin devices; full tailnet + approved non-Cullen subnet-route access | framework, epimetheus, epimetheus-vm, s-a55 (phone) |
 | `tag:share` | inbound-443 share sidecars (own devices + inter-tailnet shares) | overseer, jellyfin-1, audiobookshelf, hermes-ui |
 | `tag:edge` | remote/isolated nodes; no implicit fleet access | homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes |
 | `tag:cullen` | the Cullen-site laptop (laptop-btibh4ie/wsl); **strictest** | laptop-btibh4ie |
@@ -58,7 +59,7 @@ plumbing; it is not an access decision.
 | src → | gets |
 |---|---|
 | `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:443` (Kuma health-checks); `hermes:22` (deploy) |
-| `tag:client` | full tailnet + approved subnet-route access (`*`), plus exit-node egress |
+| `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress. No Cullen `192.168.100.0/24` route grant by default |
 | `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
 | `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` only. hermes → `pfsense:53` only (and inbound `:22` from servers) |
 | `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), `192.168.1.35:8050` (Gotify), `192.168.1.2:2049` (tower NFS), Syncthing mesh. Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
@@ -156,11 +157,12 @@ Lessons from the 2026-06-21 migration:
 `autoApprovers` pre-approve advertised routes **by tag** (not retroactive): `192.168.0.0/23`→
 `tag:server` (tower→home), `192.168.100.0/24`→`tag:cullen`, `192.168.2.0/24`+`192.168.4.0/23`→
 `tag:edge` (dad's pi / mum's kerrynas). Approval only lets clients learn the routes; grants
-still decide access. `tag:client` is intentionally trusted for full route access; untrusted
-roles use exact `/32` + port grants. `exitNode`→`tag:server` is **tag-server-wide**: only
-tower advertises exit today; if another server ever does, it's auto-approved — revisit with a
-dedicated `tag:exit` if more appear. (raspberrypi also offers exit but is `tag:edge`, so it is
-NOT auto-approved — intentional.)
+still decide access. `tag:client` is trusted for full tailnet node access and non-Cullen
+routes, but Cullen's `192.168.100.0/24` work subnet stays closed until a deliberate grant is
+added. Untrusted roles use exact `/32` + port grants. `exitNode`→`tag:server` is
+**tag-server-wide**: only tower advertises exit today; if another server ever does, it's
+auto-approved — revisit with a dedicated `tag:exit` if more appear. (raspberrypi also offers
+exit but is `tag:edge`, so it is NOT auto-approved — intentional.)
 
 ## Break-glass / revert
 
