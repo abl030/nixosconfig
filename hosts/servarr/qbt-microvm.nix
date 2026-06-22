@@ -180,6 +180,12 @@ in {
       };
     };
 
+    # Downloads land on the NFS scratch, where the backend squashes qbt's uid to 99
+    # (nobody); qbt re-opens its OWN files for writing via gid 100 (group), so they
+    # must be GROUP-WRITABLE. Default umask 022 → 0664... → 0644 (group read-only) →
+    # EACCES on file_open. umask 002 → 0664 → qbt writes; *arr read/hardlink via group.
+    systemd.services.qbittorrent.serviceConfig.UMask = "0002";
+
     # No fleet trust, no tailscale, nothing else. This box is disposable.
     networking.firewall.enable = lib.mkDefault true;
     networking.firewall.allowedUDPPorts = [45726]; # uTP/DHT inbound (TCP opened by openFirewall)

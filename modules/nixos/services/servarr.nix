@@ -53,6 +53,14 @@ in {
     # Host admin joins the media group so they can inspect the library without sudo.
     users.users.${hostConfig.user}.extraGroups = [cfg.mediaGroup];
 
+    # The *arr hardlink completed downloads into the library. qbt + NZBGet write those
+    # to the NFS scratch (/media/data/Media/Temp) as gid 100 (`users`, the dir's group,
+    # mode 2775/setgid). The *arr run as `media` (gid 998), so give them `users` as a
+    # supplementary group → group-write on the gid-100 downloads → hardlink import works
+    # (fs.protected_hardlinks otherwise blocks linking a file you can't write). Forgejo #1.
+    users.users.radarr.extraGroups = ["users"];
+    users.users.sonarr.extraGroups = ["users"];
+
     # The *arr trio (upstream modules; state in /var/lib/<app>). NOT openFirewall —
     # reached ONLY via the localProxy nginx below, never by IP. The migrated config.xml
     # must set BindAddress=127.0.0.1: tailscale0 is a trusted firewall interface, so a
