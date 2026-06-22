@@ -4,7 +4,8 @@
 {...}: {
   disko.devices.disk.main = {
     type = "disk";
-    device = "/dev/vda";
+    # SATA disk on the tower KVM (q35) — confirmed /dev/sda at install (cdrom = sr0).
+    device = "/dev/sda";
     # Size of the generated image for the diskoImages build (the bootable image we
     # copy onto the tower VM disk). nixos-anywhere installs ignore this and use the
     # real disk; only the image builder needs a fixed size.
