@@ -1,4 +1,6 @@
 # qbt — the isolated qBittorrent microVM (Forgejo #1).
+# Architecture + the virtiofs-over-NFS storage gotcha chain + cage details:
+#   docs/wiki/services/servarr-and-qbt-cage.md
 #
 # This is the ONE genuinely-hostile-input box: internet-facing libtorrent with an
 # inbound VPN port. So it gets VM-grade isolation via microvm.nix / cloud-

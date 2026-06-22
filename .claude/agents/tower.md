@@ -40,6 +40,7 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
    `/boot/config/go`, `/boot/config/plugins/`, `/boot/config/ssh/`. A live `/etc` edit will NOT
    survive a reboot — change the flash source. Treat `/boot` as fragile: a bad edit can break boot.
 4. Unraid is **root-only** for management (no useful non-root shell). That's expected.
+5. **tower RAM is TIGHT — do not over-allocate VMs (2026-06-22).** 30 GiB total, routinely ~20 GiB used (array/shfs + ZFS ARC + Plex + containers + VMs). A Linux guest **fills its whole RAM allocation with page cache under I/O**, so the qemu RSS on the host grows to the allocation — a 6 GiB VM under load = ~6 GiB host RSS. The `servarr` VM was allocated **6 GiB**, hit heavy NFS I/O, and the host **OOM-killer shot the qemu process** (`avahi-daemon invoked oom-killer … Killed process … qemu-system-x86`), which also starved Plex. Its real working set is **~1.3 GiB**, so it was **capped to 4 GiB** (`virsh setmaxmem servarr 4194304 --config; virsh setmem …`). **Size VMs to working-set + a little, not generously**, and `free -h` before starting one. No swap on tower → OOM is instant death, not slowdown.
 
 ## Command vocabulary
 
@@ -73,6 +74,38 @@ Lessons from provisioning `servarr` (a NixOS VM). Read before driving any VM con
 - **`nixos-anywhere` needs a target whose `nix` supports `nix config`.** The on-tower 23.11 minimal ISO is too old → `error: 'config' is not a recognised command`, install never partitions. Use a current installer, or build the image on doc1 once it has KVM (forgejo #6).
 - **`tee` masks exit codes** — `nixos-anywhere … | tee log` reports tee's `0` even on failure. Read the log tail, not `$?`.
 - Paths: VM disks `/mnt/cache/domains/<vm>/vdisk1.img`; OVMF `/usr/share/qemu/ovmf-x64/OVMF_{CODE,VARS}-pure-efi.fd` (copy VARS → `/etc/libvirt/qemu/nvram/<uuid>_VARS-pure-efi.fd` per VM); ISOs `/mnt/user/isos/`. CPU `host-passthrough` gives nested virt (tower i7-7700K, `nested=Y`).
+
+## Running root commands inside the `servarr` NixOS VM (the break-glass path, 2026-06-22)
+
+`servarr` (NixOS VM on tower, dom name `servarr`) replaced the old `Downloader2`/genericvm and
+hosts the *arr stack (radarr/sonarr/prowlarr) **and** the nested `qbt` qBittorrent microVM. It's a
+**locked** fleet host: `abl030` has **no passwordless sudo** and **root SSH is off**. So the *only*
+root path from tower is the **qemu guest agent** (`services.qemuGuest.enable = true` is on):
+
+```sh
+# one-shot, capture output:
+virsh qemu-agent-command servarr '{"execute":"guest-exec","arguments":{"path":"/run/current-system/sw/bin/systemctl","arg":["restart","microvm@qbt.service"],"capture-output":true}}'
+# then poll the returned pid: ...guest-exec-status... {"pid":N}
+
+# long job (build/switch/etc.) — run DETACHED so guest-exec doesn't block, tee to a readable log,
+# then poll the log over SSH as abl030 (chmod 644):
+virsh qemu-agent-command servarr '{"execute":"guest-exec","arguments":{"path":"/run/current-system/sw/bin/systemd-run","arg":["--unit=oneoff","--collect","--no-block","/run/current-system/sw/bin/bash","/tmp/script.sh"],"capture-output":true}}'
+```
+
+Gotchas, hard-won:
+- **systemd-run transient units get a minimal PATH** — coreutils/`tar`/`curl` are NOT found. Put
+  `export PATH=/run/current-system/sw/bin:/run/wrappers/bin:$PATH` at the top of any script.
+- **`microvm.nix` does NOT restart the qbt microVM on `nixos-rebuild switch`.** After deploying a
+  qbt config change, the running VM keeps the old config until you **`systemctl restart microvm@qbt.service`**
+  (via the agent above). `current`/`booted` symlinks under `/var/lib/microvms/qbt/` confirm which runner is live.
+- **guest- exec confirms the guest agent is alive:** `virsh qemu-agent-command servarr '{"execute":"guest-ping"}'`.
+- Migration/file access to the legacy box also went through this agent. `Downloader2`/genericvm
+  (the old *arr+Deluge VM at .4) is now **decommissioned** — services `disable --now`'d and the VM
+  **shut down** (kept as a stale rollback). Don't restart it without reason; it conflicts with servarr.
+- A **tower container's internet egress can break at pfSense, not on tower** — NZBHydra2 (`.18`) and
+  other `MV_VPN_IPS` hosts egress via an AirVPN tunnel; if that policy-route points at a dead gateway,
+  the container has DNS but 0 IPv4 egress (curl times out) while *tower itself* is fine. Test egress
+  from inside the container (`docker exec … curl -4 …`) and suspect pfSense. See Forgejo #1, #9.
 
 ## Safety rules
 

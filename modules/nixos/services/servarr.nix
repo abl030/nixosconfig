@@ -8,6 +8,7 @@
 # service — never by IP.
 #
 # Rules: docs/wiki/nixos-service-modules.md. Design + build: Forgejo issue #1.
+# Full architecture, migration, cutover + gotchas: docs/wiki/services/servarr-and-qbt-cage.md
 {
   config,
   lib,
