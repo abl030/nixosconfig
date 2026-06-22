@@ -271,7 +271,7 @@ in {
     sshAlias = "servarr";
     sshKeyName = "ssh_key_abl030";
     localIp = "192.168.1.4"; # target at cutover; build/test on a temp IP first
-    publicKey = ""; # TBD: paste /etc/ssh/ssh_host_ed25519_key.pub after first boot
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0GmBqKYliqhnLSAfQ6HMBT3M8lfg5yXtPd59bxIGnh root@servarr";
     authorizedKeys = fleetKeys; # fleet member: trusts ONLY the doc1 bastion key
   };
 }
