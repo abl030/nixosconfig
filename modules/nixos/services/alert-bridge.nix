@@ -1,30 +1,32 @@
-# Grafana + Kuma → claude -p → Gotify webhook bridge.
+# Grafana + Kuma → Gotify webhook bridge (raw passthrough).
 # See docs/wiki/services/lgtm-stack.md "alert-bridge" for the why,
 # the per-alert flow, the payload-shape detection logic (Grafana vs
 # Kuma), and the auth/group gotchas (#251 + #256).
 #
-# Inserts itself between Grafana's alerting and Gotify so each fired alert
-# can be summarised by claude (haiku) before pushing. The raw Grafana
-# webhook payload is verbose (30+ lines per alert, mostly LogQL + DAG
-# metadata); claude collapses it to a 2-3 line phone-readable note.
+# Inserts itself between Grafana/Kuma alerting and Gotify to translate the
+# verbose webhook payloads into a phone-readable push. It re-queries Loki for
+# the actual matching log lines and (for Kuma push monitors) fetches the
+# failing probe's journal, then POSTs that context block to Gotify verbatim.
+#
+# History: this used to pipe the context through `claude -p --model haiku` to
+# collapse it to a 2-3 line summary. Removed 2026-06-22 — the summaries were
+# rarely read, and the claude OAuth token on the run-host expired silently and
+# rotted the enrichment for a week (the bridge fell back to raw anyway). Raw
+# text is the contract now: no LLM in the alert path.
 #
 # Flow per alert (status=firing):
 #   1. Bridge receives Grafana webhook JSON on 127.0.0.1:<port>/alert
 #   2. If labels.loki_query is set, bridge re-queries Loki for the actual
 #      matching lines (last 10 over a 10m window)
 #   3. Composes a context block: alert metadata + log lines
-#   4. Pipes to `claude -p --model haiku` with a tight system prompt
-#   5. POSTs the summary to Gotify with severity-aware priority
+#   4. POSTs that context (truncated) to Gotify with severity-aware priority
 #
 # Grafana/Prometheus "resolved" alerts are skipped, but Kuma DOWN→UP
-# recoveries DO send a plain "[recovered] … is UP" Gotify ping (no Claude) —
+# recoveries DO send a plain "[recovered] … is UP" Gotify ping —
 # the "you can stop worrying" signal.
-# Alerts without loki_query (e.g. the Prometheus reboot rule) still work —
-# claude just gets metadata-only context.
 #
-# Runs as the abl030 user because claude-code auth lives in that user's
-# ~/.claude after the one-time interactive `sudo -u abl030 --login claude`
-# setup. Same requirement as nixos-upgrade-diagnose in autoupdate/update.nix.
+# Runs as the abl030 user (historical; it has systemd-journal access and the
+# decrypted Gotify token). No longer needs ~/.claude.
 {
   config,
   lib,
@@ -32,35 +34,6 @@
   ...
 }: let
   cfg = config.homelab.services.alertBridge;
-
-  systemPrompt = ''
-    You are summarising a homelab alert for an operator reading it on a
-    phone push notification. Be terse. Output plain text only, no markdown.
-
-    Input is one of:
-    - Grafana alert: "## Alert metadata" + optional "## Matching log lines"
-    - Kuma DOWN: "## Kuma monitor DOWN" with monitor + heartbeat fields,
-      and (for push-type monitors) "## Recent journal for <unit>" with
-      the failing probe's stdout/stderr.
-
-    Output format — exactly 2 or 3 lines, total under 300 characters:
-    Line 1 (required): <emoji> <one-line: who/what/where>
-    Line 2 (required): <classification>: <one-line reasoning>
-    Line 3 (optional): Next: <one-line action>, or omit if no action needed.
-
-    Emoji rule: critical=🔴, warning=🟡, info=ℹ️
-    Classifications:
-    - DB DDL alerts: EXPECTED (operator session), DRIFT (matches incident
-      patterns), or UNKNOWN.
-    - Kuma DOWN: read the journal lines if present; classify the
-      underlying failure (e.g. "permission denied for table" = drift
-      regression, network/DNS issues = upstream, "command exited N" =
-      probe internal).
-    - Other alerts: pick the natural classification.
-
-    Do not output anything else. No prefatory text, no closing remarks,
-    no "I'll analyse...", no bullet points, no JSON.
-  '';
 
   bridgeScript = pkgs.writers.writePython3 "alert-bridge" {flakeIgnore = ["E501" "W293" "E302" "E305" "E402" "E741" "W391" "E401" "E231"];} ''
     import http.server
@@ -75,9 +48,8 @@
     GOTIFY_URL = os.environ["GOTIFY_URL"]
     GOTIFY_TOKEN_FILE = os.environ["GOTIFY_TOKEN_FILE"]
     LOKI_URL = os.environ.get("LOKI_URL", "http://127.0.0.1:3100")
-    CLAUDE_BIN = os.environ["CLAUDE_BIN"]
     LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "9876"))
-    SYSTEM_PROMPT = os.environ["SYSTEM_PROMPT"]
+    MAX_MSG_CHARS = int(os.environ.get("MAX_MSG_CHARS", "1400"))
 
     def read_token():
         try:
@@ -111,30 +83,17 @@
                 lines.append(line)
         return lines[:limit]
 
-    CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "haiku")
-    CLAUDE_TIMEOUT = int(os.environ.get("CLAUDE_TIMEOUT_SECS", "300"))
-
-    def claude_summarise(context):
-        try:
-            result = subprocess.run(
-                [CLAUDE_BIN, "-p",
-                 "--system-prompt", SYSTEM_PROMPT,
-                 "--model", CLAUDE_MODEL,
-                 "--allowedTools", "",
-                 "Summarise this alert."],
-                input=context,
-                capture_output=True,
-                text=True,
-                timeout=CLAUDE_TIMEOUT,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
-            print(f"[bridge] claude rc={result.returncode} stderr={result.stderr[:500]}",
-                  file=sys.stderr)
-        except Exception as e:
-            print(f"[bridge] claude exception: {e}", file=sys.stderr)
-        # Fallback: send raw context, truncated
-        return f"(claude unavailable — raw context below)\n\n{context[:800]}"
+    def format_message(context):
+        # Raw passthrough: the composed context block IS the message. Strip the
+        # "## " markdown headers for phone readability and cap the length so the
+        # push stays scannable. No LLM in the path (removed 2026-06-22).
+        text = "\n".join(
+            line[3:] if line.startswith("## ") else line
+            for line in context.strip().splitlines()
+        )
+        if len(text) > MAX_MSG_CHARS:
+            text = text[:MAX_MSG_CHARS].rstrip() + "\n…(truncated)"
+        return text
 
     def gotify_push(title, message, priority=5):
         token = read_token()
@@ -210,8 +169,7 @@
         ping = heartbeat.get("ping")
         hb_time = heartbeat.get("time", "")
 
-        # Recovery (UP, status 1): send a plain "back online" ping directly —
-        # NO Claude summarisation (that would be silly for a recovery), just a
+        # Recovery (UP, status 1): send a plain "back online" ping — a
         # templated Gotify push so the user gets the "you can stop worrying,
         # it's resolved" signal. Lower priority than the critical DOWN page.
         # Kuma only fires UP on a real DOWN→UP transition, so this won't spam.
@@ -266,7 +224,7 @@
             else:
                 ctx += f"\n## (no journal lines found for {unit})\n"
 
-        summary = claude_summarise(ctx)
+        summary = format_message(ctx)
         title = f"[critical] {mon_name} DOWN"
         gotify_push(title, summary, priority=8)
 
@@ -300,7 +258,7 @@
                 for line in lines:
                     ctx += f"{line[:400]}\n"
 
-        summary = claude_summarise(ctx)
+        summary = format_message(ctx)
         title = f"[{severity}] {alertname}"
         priority = 8 if severity == "critical" else 5
         gotify_push(title, summary, priority=priority)
@@ -350,7 +308,7 @@
   '';
 in {
   options.homelab.services.alertBridge = {
-    enable = lib.mkEnableOption "claude-p summary bridge between Grafana alerts and Gotify";
+    enable = lib.mkEnableOption "Grafana/Kuma → Gotify webhook bridge (raw passthrough)";
 
     listenPort = lib.mkOption {
       type = lib.types.port;
@@ -362,35 +320,9 @@ in {
       type = lib.types.str;
       default = "abl030";
       description = ''
-        User to run the bridge as. Must have a working claude-code auth
-        in ~/.claude — establish once interactively via
-        `sudo -u <user> --login claude` per host. Same requirement as
-        nixos-upgrade-diagnose.
-      '';
-    };
-
-    model = lib.mkOption {
-      type = lib.types.str;
-      default = "haiku";
-      description = ''
-        claude model to invoke. Fleet policy (2026-05-29): default to haiku
-        for cost/latency — Opus is reserved for the two diagnosis paths where
-        an accurate, actionable verdict actually drives a fix (rolling-flake-update
-        triage and the nixos-upgrade diagnose). These alert summaries are
-        lower-stakes (Kuma DOWN context, Grafana classification), so haiku is
-        an acceptable trade. Override to "opus" per-host if you find haiku
-        over-pattern-matches and the classification accuracy is worth the cost.
-      '';
-    };
-
-    claudeTimeoutSecs = lib.mkOption {
-      type = lib.types.int;
-      default = 300;
-      description = ''
-        Hard timeout for the claude subprocess. Opus is slower than
-        haiku (5-30s typical, 60s+ for cold model load) so we allow
-        plenty of headroom. The bridge falls through to a raw-context
-        Gotify push if the timeout fires.
+        User to run the bridge as. Needs systemd-journal group membership
+        (Kuma push-monitor journal context) and read access to the decrypted
+        Gotify token. No claude/~/.claude requirement (removed 2026-06-22).
       '';
     };
 
@@ -427,7 +359,7 @@ in {
     };
 
     systemd.services.alert-bridge = {
-      description = "Grafana → claude -p → Gotify alert-summary bridge";
+      description = "Grafana/Kuma → Gotify alert bridge (raw passthrough)";
       after = ["network-online.target" "sops-install-secrets.service"];
       wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
@@ -436,11 +368,7 @@ in {
         GOTIFY_URL = cfg.gotifyUrl;
         GOTIFY_TOKEN_FILE = config.sops.secrets."alert-bridge/gotify-token".path;
         LOKI_URL = cfg.lokiUrl;
-        CLAUDE_BIN = "${pkgs.claude-code}/bin/claude";
-        CLAUDE_MODEL = cfg.model;
-        CLAUDE_TIMEOUT_SECS = toString cfg.claudeTimeoutSecs;
         LISTEN_PORT = toString cfg.listenPort;
-        SYSTEM_PROMPT = systemPrompt;
       };
 
       serviceConfig = {
@@ -456,13 +384,12 @@ in {
         ExecStart = bridgeScript;
         Restart = "on-failure";
         RestartSec = "5s";
-        # Don't sandbox heavily — claude needs to read ~/.claude and the
-        # internet. Minimal hardening only.
+        # Light hardening. The bridge only queries Loki over HTTP, runs
+        # journalctl, and POSTs to Gotify — no home/secrets beyond the token.
         NoNewPrivileges = true;
         PrivateTmp = true;
-        # #257: the bridge only queries Loki over HTTP + runs claude (reads
-        # ~/.claude, which is NOT under /mnt). It needs nothing on /mnt, so
-        # blank the tree it was needlessly inheriting.
+        # #257: the bridge needs nothing on /mnt, so blank the tree it was
+        # needlessly inheriting.
         TemporaryFileSystem = "/mnt";
       };
     };

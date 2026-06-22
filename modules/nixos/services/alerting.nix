@@ -26,8 +26,8 @@
   # top level, so no body-template override is needed — the payload's extra
   # alertmanager-style metadata is silently discarded by Gotify.
   # When alertBridge is enabled, Grafana posts to the bridge instead of
-  # straight to Gotify — the bridge re-queries Loki for matching lines,
-  # pipes context to claude -p, and forwards a summary to Gotify itself.
+  # straight to Gotify — the bridge re-queries Loki for matching lines and
+  # forwards the raw context to Gotify itself (no LLM; removed 2026-06-22).
   # The URL has no `?token=` because the bridge holds the token.
   # See docs/wiki/services/lgtm-stack.md "alert-bridge" section.
   bridgeEnabled = config.homelab.services.alertBridge.enable or false;
