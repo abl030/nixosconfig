@@ -412,17 +412,19 @@ in {
         })
         cfg.accounts;
 
-      # NFS watchdog — restart the per-account fetcher if its data path
-      # under /mnt/data goes stale. The watchdog stat-checks every 5 min;
-      # mbsync's incremental sync semantics tolerate the gap.
-      nfsWatchdog =
-        lib.mapAttrs' (
-          name: _:
-            lib.nameValuePair "mailarchive-${name}" {
-              path = "${cfg.dataDir}/${name}";
-            }
-        )
-        cfg.accounts;
+      # NOTE: deliberately NOT wired to homelab.nfsWatchdog. The watchdog is
+      # built for long-running daemons (immich, paperless, *arr): if the NFS
+      # mount goes stale it restarts them. mailarchive is a Type=oneshot timer
+      # sync, so the watchdog only ever reached its `is-failed` recovery branch
+      # — and it cannot distinguish "failed because NFS died" from "failed
+      # because Gmail/O365 IMAP timed out" (the common case: transient socket
+      # timeouts, unexpected BYE, brief DNS blips). The result was a stream of
+      # false "NFS watchdog tripped" pages manufactured from ordinary IMAP
+      # flakiness, plus a needless extra sync each tick. A failed run already
+      # self-heals on the next timer tick, and genuine stalls are caught by the
+      # mailarchive-health heartbeat + Uptime Kuma monitors above — a better
+      # signal than per-tick watchdog noise. See triage 2026-06-23. Do NOT
+      # re-add the watchdog here.
     };
   };
 }
