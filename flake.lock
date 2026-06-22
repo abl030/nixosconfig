@@ -3,11 +3,11 @@
     "cellar-manager": {
       "flake": false,
       "locked": {
-        "lastModified": 1781827081,
-        "narHash": "sha256-IHThJVCr4kiio23/fZVH1nITVfUJphrBPlNfW2Kzl6M=",
+        "lastModified": 1782106362,
+        "narHash": "sha256-5bXOwqlfeWNLdun0crlAp1+KqnBlvKA34iqiYZrKLjs=",
         "owner": "abl030",
         "repo": "cellar-manager",
-        "rev": "1d3fff227b4e007e59dd343a65dca8f594a0679d",
+        "rev": "fe495704f5564d9b52352ea0967bcedf36f2d2d7",
         "type": "github"
       },
       "original": {
@@ -940,11 +940,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1781997104,
-        "narHash": "sha256-SLc8GkhRDILnONTSIPPDcd0wI2wqlm8UTA+VAeal2Oo=",
+        "lastModified": 1782082175,
+        "narHash": "sha256-2BxGAVe8u7pEajIHQnMhjxAXXgC7Yfv6QxRpEcI9uuM=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "da99b21b2d6e32690d1871afc9e9779701dd7f8c",
+        "rev": "d6c411bcd0a0519a0db3b330df2530c8213eb9f0",
         "type": "github"
       },
       "original": {
