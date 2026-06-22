@@ -186,11 +186,23 @@
     // (homelab.tailscale never sets --ssh; they use OpenSSH on the firewall port),
     // and the server tag already shares an open OpenSSH mesh, so this widens
     // nothing. doc1 (the bastion) is the only server that initiates SSH here.
+    //
+    // ROOT (2026-06-22): `root` added to `users` so the Unraid-management agent on
+    // doc1 can `ssh root@tower`. Unraid is root-centric — nonroot users have no
+    // useful management shell (no docker/mdcmd/virsh), so control REQUIRES root.
+    // tower's native sshd is firewalled off the LAN here (port 22 times out from
+    // doc1; only the webui answers), so Tailscale SSH is the intended AND only door.
+    // Scope is as tight as the policy-file syntax allows: src/dst must be TAGS (a
+    // single host/IP is invalid here), so this stays tag:server->tag:server — but
+    // the only nodes that actually run `--ssh` as a DESTINATION are tower +
+    // downloader2 (both Unraid appliances), so in practice this grants root
+    // Tailscale-SSH to exactly those two boxes. `accept` (not `check`) because a
+    // tagged src cannot use check-mode.
     {
       "action": "accept",
       "src":    ["tag:server"],
       "dst":    ["tag:server"],
-      "users":  ["autogroup:nonroot"],
+      "users":  ["autogroup:nonroot", "root"],
     },
   ],
 
