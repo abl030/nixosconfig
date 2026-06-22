@@ -88,23 +88,26 @@ can't roam the Cullen LAN. Supersedes treating it as `tag:client`.
 - **tagOwners:** add `tag:cullen → autogroup:admin`.
 - **Re-tag** `laptop-btibh4ie`: `tag:client → tag:cullen` (live API + acl.hujson).
 - **autoApprovers:** `192.168.100.0/24 → tag:cullen` (was `tag:client`).
-- **Inbound to cullen:** `{src:["doc1","framework"], dst:["tag:cullen"], ip:["tcp:22"]}`
-  (deploy + dev SSH to WSL) + NFS — **scope pending #4**.
+- **Inbound to cullen:** trusted `tag:client` devices can reach it by the full-client rule.
+  `{src:["doc1","framework"], dst:["tag:cullen"], ip:["tcp:22"]}` keeps the doc1 deploy path
+  explicit (framework is redundant with tag:client).
 - **Outbound (minimal management plane — wsl is a managed NixOS host, so NOT zero):**
   - `{src:["tag:cullen"], dst:["pfsense"], ip:["tcp:53","udp:53"]}` (DNS)
   - 2026-06-22 correction: do **not** use the original `192.168.1.0/24:{443,8050}`
     shape. It bypasses the tag:server allowlist by LAN IP and can expose "LAN-only"
     admin surfaces through tower's subnet router. Use exact destinations instead:
     `192.168.1.29:443` (nix cache), `192.168.1.35:{443,8050}` (Forgejo/Loki/Mimir/
-    Gotify), and `192.168.1.2:2049` (temporary tower NFS).
+    Gotify), `192.168.1.33:443` (igpu nginx), `192.168.1.6:443`, and
+    `192.168.1.2:2049` (temporary tower NFS).
 - **NOT** in `tag:client→tag:client`. **NOT** `client→server`. **NOT** exit node.
 - **Syncthing on wsl:** recommend DROP wsl from the syncthing mesh (cleaner isolation);
   else add a scoped grant. Tracked in #4.
 - This means the syncthing client↔server grant (gap #4) excludes wsl.
 
-Net effect vs goals: popped Cullen box → can reach DNS + doc1/doc2 web ports only (not
-personal devices, not igpu/caddy/tower, not arbitrary services); popped fleet node → Cullen
-LAN reachable only at the two inverter `/32`s, Cullen laptop only via `doc1/framework→:22`.
+Net effect vs goals: popped Cullen box → can reach DNS + exact doc1/doc2/igpu/192.168.1.6
+HTTPS paths, Gotify, tower NFS, and Syncthing only (not arbitrary services). Trusted client
+devices can reach the Cullen laptop; popped non-client fleet nodes reach Cullen only through
+explicit grants. Cullen LAN remains reachable only at the two inverter `/32`s.
 
 ## To confirm before the flip
 - **Forgejo git-SSH `:2222`** (doc2): the fleet pushes via `https://git.ablz.au` (:443,
