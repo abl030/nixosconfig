@@ -13,8 +13,17 @@ Messages land in `cur/` with the `:2,S` (Seen) flag — historical mail is
 treated as already-read so a future merge with live trees doesn't rewrite
 flags upstream (mbsync runs Pull-only anyway, but this is defensive).
 
+`--dedupe-against <maildir>` (repeatable) seeds the seen Message-ID set
+from one or more *live* Maildir trees BEFORE walking the export, so any
+message already present in the live archive is skipped. This is how the
+MailStore work-only migration keeps `legacy.archive/` to just the deleted
+history instead of a giant duplicate of still-filed mail (see issue #227
+and the "MailStore migration" section of docs/wiki/services/mailarchive.md).
+
 Usage:
     python3 eml-to-maildir.py --src <export-dir> --dst <maildir-root>
+    python3 eml-to-maildir.py --src <export-dir> --dst <maildir-root> \
+        --dedupe-against <live-maildir> [--dedupe-against <live-maildir> ...]
 
 See: tools/mailarchive-migrate/README.md
      docs/wiki/services/mailarchive.md
@@ -72,6 +81,66 @@ def deliver(folder: Path, eml_bytes: bytes) -> Path:
     return cur_path
 
 
+def read_header(path: Path, cap: int = 256 * 1024) -> bytes:
+    """Read just the RFC822 header block (up to the first blank line).
+
+    Used when seeding the seen-set from a live Maildir: we only need the
+    Message-ID, so there is no point pulling multi-MB attachment bodies over
+    the wire for tens of thousands of messages. Returns whatever was read
+    (capped) if no blank-line separator is found.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    with open(path, "rb") as f:
+        while size < cap:
+            chunk = f.read(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+            blob = b"".join(chunks)
+            idx = blob.find(b"\r\n\r\n")
+            if idx == -1:
+                idx = blob.find(b"\n\n")
+            if idx != -1:
+                return blob[: idx + 1]
+    return b"".join(chunks)
+
+
+def iter_maildir_messages(root: Path):
+    """Yield every message file under cur/ and new/ Maildir subdirs of root.
+
+    Walks nested Maildirs (SubFolders Verbatim layout) — any directory named
+    `cur` or `new`, at any depth, contributes its files. `tmp/` is skipped
+    (in-flight delivery only).
+    """
+    for dirpath, _, files in os.walk(root):
+        if Path(dirpath).name in ("cur", "new"):
+            for f in files:
+                yield Path(dirpath) / f
+
+
+def seed_from_maildir(root: Path, into: set[str]) -> int:
+    """Add every Message-ID found under live Maildir `root` to `into`.
+
+    Returns the number of NEW ids added (ignores ids already present).
+    """
+    added = 0
+    for msg_path in iter_maildir_messages(root):
+        try:
+            mid = message_id_for(read_header(msg_path))
+        except OSError as e:
+            log.warning("dedupe read failed: %s (%s)", msg_path, e)
+            continue
+        except Exception as e:
+            log.warning("dedupe parse failed: %s (%s)", msg_path, e)
+            continue
+        if mid not in into:
+            into.add(mid)
+            added += 1
+    return added
+
+
 def walk_eml(src: Path):
     """Yield (eml_path, relative_folder_parts) for every .eml under src."""
     for dirpath, _, files in os.walk(src):
@@ -82,14 +151,28 @@ def walk_eml(src: Path):
                 yield Path(dirpath) / f, rel_parts
 
 
-def run(src: Path, dst: Path, dry_run: bool) -> int:
+def run(src: Path, dst: Path, dry_run: bool,
+        dedupe_against: list[Path] | None = None) -> int:
     if not src.is_dir():
         log.error("source %s does not exist or is not a directory", src)
         return 2
-    seen_ids: set[str] = set()
+
+    # Seed the seen-set from live Maildir(s) FIRST so anything already present
+    # in the live archive is skipped from the export. live_ids is kept separate
+    # so we can report already-live skips distinctly from intra-export dups.
+    live_ids: set[str] = set()
+    for d in dedupe_against or []:
+        if not d.is_dir():
+            log.error("dedupe-against %s does not exist or is not a directory", d)
+            return 2
+        n = seed_from_maildir(d, live_ids)
+        log.info("dedupe: seeded %d Message-IDs from live %s", n, d)
+
+    seen_ids: set[str] = set(live_ids)
     folders_seen: set[Path] = set()
     written = 0
     skipped_dup = 0
+    skipped_live = 0
     skipped_corrupt = 0
 
     for eml_path, parts in walk_eml(src):
@@ -107,6 +190,10 @@ def run(src: Path, dst: Path, dry_run: bool) -> int:
             skipped_corrupt += 1
             continue
 
+        if mid in live_ids:
+            log.debug("already-live: %s (mid=%s)", eml_path, mid)
+            skipped_live += 1
+            continue
         if mid in seen_ids:
             log.debug("dup: %s (mid=%s)", eml_path, mid)
             skipped_dup += 1
@@ -129,8 +216,10 @@ def run(src: Path, dst: Path, dry_run: bool) -> int:
         written += 1
 
     log.info(
-        "done: %d written, %d duplicates skipped, %d corrupt/failed, %d folders touched",
+        "done: %d written, %d already-live skipped, %d intra-export dups, "
+        "%d corrupt/failed, %d folders touched",
         written,
+        skipped_live,
         skipped_dup,
         skipped_corrupt,
         len(folders_seen),
@@ -144,12 +233,18 @@ def main() -> int:
                    help="Root of MailStore EML export tree")
     p.add_argument("--dst", required=True, type=Path,
                    help="Maildir root (e.g. /mnt/data/Life/Andy/Email/legacy.archive)")
+    p.add_argument("--dedupe-against", action="append", type=Path, default=None,
+                   metavar="MAILDIR",
+                   help="Seed the seen-Message-ID set from this live Maildir "
+                        "before converting, skipping any export message already "
+                        "present there. Repeatable.")
     p.add_argument("--dry-run", action="store_true",
                    help="Walk the tree and report stats; do not write")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()
     setup_logging(args.verbose)
-    return run(args.src.resolve(), args.dst.resolve(), args.dry_run)
+    dedupe = [d.resolve() for d in (args.dedupe_against or [])]
+    return run(args.src.resolve(), args.dst.resolve(), args.dry_run, dedupe)
 
 
 if __name__ == "__main__":

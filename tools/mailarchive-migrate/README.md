@@ -80,6 +80,8 @@ This is implemented as a `--dedupe-against <maildir>` flag (repeatable) on
 `eml-to-maildir.py`: it walks the given live Maildir(s) and seeds the
 `seen_ids` Message-ID set **before** converting the export, so any message
 already present live is skipped. Reuses the tool's existing Message-ID dedup.
+When seeding it reads only each live message's header block (not multi-MB
+attachment bodies), so it scales to tens of thousands of messages over NFS.
 
 ```bash
 python3 eml-to-maildir.py \
@@ -94,8 +96,11 @@ green = first full pull done) — otherwise live-but-not-yet-synced mail would b
 duplicated into `legacy.archive/`. The survivor count ≈ your deleted work
 history.
 
-(`--dedupe-against` is not yet implemented as of this checkpoint — building it
-is the first task of the migration finish-up; see #227.)
+`--dedupe-against` is implemented and tested (2026-06-22, #227). Verified
+against the live `work/` tree on doc2: 27,310 files → 25,563 unique
+Message-IDs seeded (cross-folder duplicates collapse), ~4 min over NFS.
+Synthetic-Maildir tests live in `test_eml_to_maildir.py`
+(`python3 tools/mailarchive-migrate/test_eml_to_maildir.py`).
 
 ## Verification
 
@@ -109,11 +114,15 @@ find /mnt/data/Life/Andy/Email/legacy.archive -type d -name cur | wc -l
 mutt -f /mnt/data/Life/Andy/Email/legacy.archive/Cullen\ Work/INBOX
 ```
 
-A clean run reports:
+A clean run reports (with `--dedupe-against`, the seed line first):
 
 ```
-INFO done: <N> written, <M> duplicates skipped, <K> corrupt/failed, <F> folders touched
+INFO dedupe: seeded <S> Message-IDs from live <maildir>
+INFO done: <N> written, <L> already-live skipped, <M> intra-export dups, <K> corrupt/failed, <F> folders touched
 ```
+
+`<N> written` is the survivor count — your deleted work history. `<L>
+already-live skipped` is the mail that's still filed on the live server.
 
 Spot-check 5 representative messages (plain text, HTML,
 with-attachment, multi-recipient, calendar invite) before declaring
