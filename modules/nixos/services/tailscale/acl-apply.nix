@@ -12,13 +12,22 @@
 #   credential there would make "doc2 popped" also mean "tailnet policy rewritten."
 #   Concentrate fleet-control creds on the one hardened, audited host (#234 pattern).
 #
-# TRIGGER MODEL (deliberate deviation from the plan's "invoke on deploy"):
-#   A daily idempotent timer + manual `systemctl start tailscale-acl-apply.service`
-#   for the rollout/flip. It is NOT wantedBy multi-user.target, so a transient
-#   Tailscale-API failure can never fail doc1's nightly fleet-update (we refuse to
-#   couple the bastion's deploy health to api.tailscale.com). Apply is idempotent
-#   (gitops-pusher no-ops when control's checksum already matches), so re-running
-#   daily is free. OnFailure pings Gotify (a 401 = expired/revoked credential).
+# TRIGGER MODEL:
+#   Applied three ways, all idempotent (gitops-pusher no-ops when control's
+#   checksum already matches, so the extra fires cost one cheap API probe):
+#     1. ON EVERY `nixos-rebuild switch` — a non-blocking activation hook (see
+#        system.activationScripts.tailscaleAclApply below) runs
+#        `systemctl start --no-block tailscale-acl-apply.service`. So editing
+#        tailscale/acl.hujson and deploying doc1 APPLIES it — no manual step.
+#     2. A daily drift-correction timer.
+#     3. Manual `systemctl start tailscale-acl-apply.service` (rollout/flip).
+#   It is NOT wantedBy multi-user.target AND the switch hook is `--no-block`, so a
+#   transient/hung Tailscale-API call can NEVER fail or delay doc1's fleet-update
+#   (we refuse to couple the bastion's deploy health to api.tailscale.com); the
+#   apply just runs async after activation, ordered after tailscaled by its own
+#   After=. OnFailure pings Gotify (a 401 = expired/revoked credential).
+#   NB: `restartTriggers` alone does NOT re-run this inactive oneshot on switch —
+#   the activation hook is what makes "apply on deploy" actually happen.
 #
 # CREDENTIAL LIFECYCLE:
 #   Create a `policy_file`-scoped OAuth client in the Tailscale admin console
@@ -196,6 +205,17 @@ in {
         SyslogIdentifier = "tailscale-acl-apply";
       };
     };
+
+    # Apply on every switch — the plan's original "invoke on deploy", made safe.
+    # `--no-block` queues the oneshot and returns immediately, so a slow or
+    # unreachable api.tailscale.com NEVER delays or fails the switch (the unit's
+    # own After=tailscaled + network-online ordering still applies). Idempotent,
+    # so unrelated rebuilds just cost one checksum probe; a real acl.hujson change
+    # gets pushed to control without a manual `systemctl start`. `|| true` so a
+    # systemctl hiccup can't fail activation either.
+    system.activationScripts.tailscaleAclApply.text = ''
+      ${config.systemd.package}/bin/systemctl start --no-block tailscale-acl-apply.service || true
+    '';
 
     systemd.timers.tailscale-acl-apply = {
       description = "Daily Tailscale ACL drift-correction apply";
