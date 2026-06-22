@@ -60,6 +60,20 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
   `/boot/config/plugins/tailscale/tailscale.cfg`. Note `SSH="0"` (Tailscale SSH is intentionally
   off — native OpenSSH replaced it). Don't re-enable `--ssh` without reason.
 
+## Driving a VM console / bootstrapping a fresh VM (hard-won, 2026-06-22)
+
+Lessons from provisioning `servarr` (a NixOS VM). Read before driving any VM console or installing a fresh guest:
+
+- **`virsh console <dom>` needs a PTY** — piping into it fails with `Cannot run interactive console without a controlling TTY`. Force one: `ssh -tt root@tower "virsh console <dom>"`.
+- **The NixOS minimal ISO has NO serial getty** → `virsh console` (serial) is silent; the shell is on the **VGA console**. Drive it with **`virsh send-key <dom> KEY_…`** (one keycode per char; `KEY_LEFTSHIFT` for uppercase/symbols). It works — but **a single dropped keystroke silently corrupts long strings** (e.g. an SSH key). For exact data, type a short command that **`curl`-fetches** the bytes instead of typing them.
+- **Debug a blind console with `virsh screenshot <dom> /tmp/x.ppm`** (convert PPM→PNG to view). This is how you tell a login prompt from a shell, or spot a typo in what `send-key` actually typed.
+- **The NixOS installer auto-logs in as `nixos`, not root** (both empty passwords). Write keys to `/home/nixos/.ssh/authorized_keys` (or `sudo` to `/root`), then SSH in.
+- **Serve files to a guest from tower, not doc1** — tower has no host firewall; doc1's LAN interface is firewalled (only `tailscale0` is trusted). `busybox httpd -p <port> -h <dir>` on tower works.
+- **Disk/NIC naming on the q35 template:** SATA disk = **`/dev/sda`** (cdrom = `sr0`), NOT `/dev/vda`. 1st vNIC (br0) = **`enp1s0`**, 2nd (br0.20) = **`enp2s0`**. Match disko `device` + interface refs to these.
+- **`nixos-anywhere` needs a target whose `nix` supports `nix config`.** The on-tower 23.11 minimal ISO is too old → `error: 'config' is not a recognised command`, install never partitions. Use a current installer, or build the image on doc1 once it has KVM (forgejo #6).
+- **`tee` masks exit codes** — `nixos-anywhere … | tee log` reports tee's `0` even on failure. Read the log tail, not `$?`.
+- Paths: VM disks `/mnt/cache/domains/<vm>/vdisk1.img`; OVMF `/usr/share/qemu/ovmf-x64/OVMF_{CODE,VARS}-pure-efi.fd` (copy VARS → `/etc/libvirt/qemu/nvram/<uuid>_VARS-pure-efi.fd` per VM); ISOs `/mnt/user/isos/`. CPU `host-passthrough` gives nested virt (tower i7-7700K, `nested=Y`).
+
 ## Safety rules
 
 - **Read-only first.** Prefer inspection (`ps`/`inspect`/`logs`/`status`) before any change.
