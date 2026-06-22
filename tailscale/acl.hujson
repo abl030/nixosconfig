@@ -113,12 +113,17 @@
     // fleet must not roam the Cullen LAN. wsl is still a MANAGED NixOS host, so it
     // gets a MINIMAL outbound management plane (not zero, or it can't auto-update).
     //   IN : deploy + dev SSH from doc1 (bastion) and framework only.
-    //   OUT: DNS to pfSense; doc1/doc2 web ports for fleet-update (Forgejo +
+    //   OUT: interactive SSH to doc1 ONLY (the bastion — hop to siblings from
+    //        there; restored 2026-06-22, the flip had dropped wsl's old shell path);
+    //        DNS to pfSense; doc1/doc2 web ports for fleet-update (Forgejo +
     //        nix-cache), Loki/Mimir push, and Gotify (8050) — via tower's route.
     //   + Syncthing (mesh grant above). NOT client↔client, NOT the broad fleet,
     //     NOT the exit node, NO broad NFS (transport is moving to Syncthing, #4).
     // The Cullen LAN route stays inverters-only for the fleet (HA grant below).
     { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
+    // cullen → doc1 SSH: remote wsl admin reaches the bastion ONLY (NOT
+    // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
+    { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
     { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
     { "src": ["tag:cullen"], "dst": ["192.168.1.0/24"], "ip": ["tcp:443", "tcp:8050"] },
     // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
@@ -203,11 +208,12 @@
     { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:client:22000", "tag:share:443"], "deny": ["tag:server:8080"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
-    // cullen: deploy/dev SSH in (doc1+framework only); out = DNS, mgmt(443), tower
-    // NFS(2049), syncthing(22000); cullen CANNOT reach fleet tailnet IPs.
+    // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
+    // DNS, mgmt(443), tower NFS(2049), syncthing(22000). doc1:22 is cullen's SOLE
+    // tailnet :22 path — it still reaches NO other fleet tailnet IP.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["pfsense:53", "192.168.1.35:443", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.35:443", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53"] },
     // a non-deployer client cannot SSH/reach cullen (syncthing 22000 aside).
     { "src": "s-a55", "proto": "tcp", "deny": ["cullen:22", "cullen:443"] },
