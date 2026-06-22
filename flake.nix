@@ -30,6 +30,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # microvm.nix — declarative lightweight VMs (cloud-hypervisor). Hosts the
+    # isolated qBittorrent guest on its own VLAN, nested inside the servarr VM
+    # (Forgejo #1). Follows nixpkgs so it shares the fleet's pin.
+    microvm = {
+      url = "github:astro/microvm.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # --- 3. Hardware & WSL ---
     #nixos-hardware
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";

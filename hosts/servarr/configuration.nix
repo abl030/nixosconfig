@@ -10,12 +10,14 @@
 # (generated for real at install via nixos-anywhere); the host needs its sops scope
 # + fleet-wide secret re-key once it has a host key (issue #1, steps 3–5).
 {
+  inputs,
   lib,
   pkgs,
   ...
 }: {
   imports = [
     ./hardware-configuration.nix
+    ./qbt-microvm.nix
   ];
 
   boot = {
