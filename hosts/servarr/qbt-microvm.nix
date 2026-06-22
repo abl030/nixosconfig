@@ -153,6 +153,10 @@ in {
     # at migration so the *arr download-client config maps 1:1.
     services.qbittorrent = {
       enable = true;
+      # Run as gid 100 (`users`) = the group that owns the NFS scratch dir
+      # (/media/data/Media/Temp is 99:100, mode 2775/setgid). virtiofs passes the
+      # guest's egid through, so this lets qbt actually WRITE downloads (else EACCES).
+      group = "users";
       webuiPort = 8080;
       torrentingPort = 45726;
       # Open 8080 (WebUI) + 45726 (torrent) on the GUEST firewall. pfSense is still the
