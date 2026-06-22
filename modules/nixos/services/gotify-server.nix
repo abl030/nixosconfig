@@ -107,8 +107,15 @@ in {
             inherit command;
             options = ["NOPASSWD"];
           }) [
-            "${gotifyTriage}/bin/gotify-triage"
-            "${gotifyTriage}/bin/gotify-triage *"
+            # Match the /run/current-system/sw/bin symlink the user actually
+            # invokes — sudo compares the PATH-resolved path TEXTUALLY, not the
+            # canonicalized store path, so a raw ${gotifyTriage}/bin/... rule
+            # silently fails to match and falls through to "password required".
+            # Same convention as the podman rules in fleet-deploy.nix (bin =
+            # "/run/current-system/sw/bin"); gotifyTriage is in systemPackages
+            # above, so the symlink exists.
+            "/run/current-system/sw/bin/gotify-triage"
+            "/run/current-system/sw/bin/gotify-triage *"
           ];
       }
     ];
