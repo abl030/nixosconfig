@@ -35,6 +35,13 @@ in {
   # br0.20 → eth0.20 → switch (VLAN 20 tagged) → pfSense. servarr stays on the
   # main LAN (.4) via its primary NIC; this bridge is a pure cage conduit.
   systemd.network.enable = true;
+  # NetworkManager owns servarr's real connectivity (the LAN NIC / .4) and has its
+  # own NetworkManager-wait-online. networkd here manages ONLY the DMZ cage, which is
+  # intentionally IP-less and never reaches "online" — so systemd-networkd-wait-online
+  # would always time out (→ host `degraded`). Per its own docs, disable it when a
+  # different service manages the system's connection. network-online.target is still
+  # satisfied via NetworkManager-wait-online.
+  systemd.network.wait-online.enable = false;
   systemd.network.netdevs."br-dmz".netdevConfig = {
     Name = "br-dmz";
     Kind = "bridge";

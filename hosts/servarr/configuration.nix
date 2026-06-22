@@ -54,7 +54,13 @@
   homelab = {
     services.servarr.enable = true;
     ssh.enable = true; # fleet member: key-only, trusts the doc1 bastion key
-    tailscale.enable = true;
+    # NOT a tailnet node (overrides base's mkDefault). servarr is a VM on tower,
+    # and tower is the sole subnet router advertising the LAN to the tailnet, so
+    # remote access reaches servarr's LAN IP via that route — no node needed.
+    # *.ablz.au is served by nginx on the LAN IP (localProxy hosts aren't
+    # tailscaleOnly) and 80/443 are open on the LAN, so the proxy path is
+    # tailnet-independent. Drops the otherwise-failing tailscale-wait.service.
+    tailscale.enable = false;
     nixCaches = {
       enable = true;
       profile = "internal";
