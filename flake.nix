@@ -567,7 +567,8 @@
             fw=age1ysfdznu87vwwqtpudchkyx0wlhuhteqljrqkt6963pcmhwprlgcqasg0gv
             wsl=age10hqxw3uxvg9nkc56rm495ty0rge0yhkcqp95gx00tgsv8ptg93mqwywlja
             hermes=age1a2gezkcxar2ss9zksys4ej4qlxa4uj32zyctycew364jw2fj5veq00a3v0
-            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $hermes"
+            servarr=age1tdnkggnfqkav7zxw5r3ty4d8r0tavk34p8aclzmkdtzjp69smpusudf2k4
+            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $hermes $servarr"
             fail=0
             for d in ${./secrets/hosts}/*/; do
               h=$(basename "$d")
@@ -579,6 +580,7 @@
                 framework) own=$fw ;;
                 wsl) own=$wsl ;;
                 hermes) own=$hermes ;;
+                servarr) own=$servarr ;;
                 *) echo "unknown host dir: $h"; fail=1; continue ;;
               esac
               for f in "$d"*; do
