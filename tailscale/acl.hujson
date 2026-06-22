@@ -62,6 +62,18 @@
     // TODO: confirm v4-only and narrow to ["tcp:2049"]. kerrynas is tag:edge.
     { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:2049", "tcp:111", "udp:111"] },
 
+    // === doc1 (bastion) — unrestricted tailnet EGRESS ======================
+    // doc1 is the most-privileged node already (fleet SSH key, sole Forgejo
+    // writer, deploy-trigger + ACL-OAuth + sops-editor keys) — a compromise is
+    // a fleet takeover regardless, so unrestricted egress adds no blast radius.
+    // It also makes the stepping-stone model actually work: doc1 must reach
+    // EVERY node (e.g. `ssh epi`, a tag:client node — the server mesh alone does
+    // not permit server→client). INBOUND to doc1 is unchanged: it stays
+    // tag:server (full server mesh + client→server). Egress only; dst ["*"] =
+    // all tailnet nodes, NOT autogroup:internet (doc1 has its own WAN). doc1 is
+    // pinned by IP in `hosts` above, so this is exactly that one node.
+    { "src": ["doc1"], "dst": ["*"], "ip": ["*"] },
+
     // === tag:client — trusted personal/admin devices =======================
     // framework, epimetheus, epimetheus-vm, s-a55 (phone). These are trusted
     // operator devices, so they get full tailnet access and approved non-Cullen
@@ -234,6 +246,10 @@
     { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"], "deny": ["tag:server:443"] },
     // doc1 → rpi diagnostic path.
     { "src": "doc1", "proto": "tcp", "accept": ["rpi:22"] },
+    // doc1 (bastion) unrestricted egress: now reaches tag:client (e.g. framework
+    // — fixes `ssh epi` over the tailnet) and any server/share port, beyond the
+    // old server-mesh + cullen/rpi :22.
+    { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "tag:client:22", "tag:server:443", "tag:share:443", "hermes:22"] },
     // edge / share isolation: no path into the fleet.
     { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
