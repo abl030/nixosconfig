@@ -73,10 +73,11 @@ in
 
 
     def notmuch_json(args):
-        out = subprocess.run(
-            [NOTMUCH, *args], check=True, capture_output=True, text=True
-        ).stdout
-        return json.loads(out) if out.strip() else []
+        # Decode tolerantly — notmuch can emit non-UTF-8 bytes from malformed
+        # headers, which would otherwise crash the tool on a single bad message.
+        out = subprocess.run([NOTMUCH, *args], check=True, capture_output=True).stdout
+        text = out.decode("utf-8", errors="replace")
+        return json.loads(text) if text.strip() else []
 
 
     def find_message(docs):

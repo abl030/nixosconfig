@@ -88,10 +88,11 @@ in
 
 
     def notmuch_json(args):
-        out = subprocess.run(
-            [NOTMUCH, *args], check=True, capture_output=True, text=True
-        ).stdout
-        return json.loads(out) if out.strip() else []
+        # notmuch can emit non-UTF-8 bytes from malformed message headers; decode
+        # tolerantly (errors=replace) so one bad message can't crash the run.
+        out = subprocess.run([NOTMUCH, *args], check=True, capture_output=True).stdout
+        text = out.decode("utf-8", errors="replace")
+        return json.loads(text) if text.strip() else []
 
 
     def all_message_ids():
@@ -145,7 +146,7 @@ in
                 "show", "--format=json", "--entire-thread=false",
                 "--include-html", "--format-version=5", f"id:{mid}",
             ])
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError):
             return None
         node = find_message(docs)
         if not isinstance(node, dict):
