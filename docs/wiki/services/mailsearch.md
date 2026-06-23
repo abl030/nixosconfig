@@ -80,10 +80,19 @@ Indexes are derived artifacts. To rebuild from scratch:
 
 ## Deploy-time checklist (NOT verifiable by `nix flake check`)
 
-- [ ] **Maildir read access.** The live `gmail/`/`work/` Maildirs are mode
-      `0700`. Confirm `mailsearch-index` (in `users`) can actually read them; if
-      not, `chmod -R g+rX` the tree, add a `mailsearch` ACL, or run the index
-      service as `mailarchive`.
+- [ ] **Maildir read access — scoped ACL, NOT `users`/`g+rX`.** The live
+      `gmail/`/`work/` Maildirs are mode `0700`. Grant the `mailsearch` group
+      read+traverse with a POSIX ACL: `setfacl -R -m g:mailsearch:rX <tree>` plus
+      a default ACL `setfacl -R -d -m g:mailsearch:rX <tree>` so new mail
+      inherits it. **Do NOT** `chmod -R g+rX` or add the indexer to the broad
+      `users` group — that exposes the whole corpus to every `users`-group
+      service (paperless, *arr, jellyfin, kopia…).
+- [ ] **MCP sandbox (deferred).** The MCP runs SSH-spawned (forced command), not
+      under systemd, so it lacks the namespace/syscall hardening the indexer has.
+      It is read-only by construction under the minimal `mailsearch-ro` user. A
+      full sandbox (a socket-activated, systemd-hardened per-connection unit
+      reached via `socat` from the forced command) is the proper fix — verify the
+      stdio transport survives it on deploy before relying on it.
 - [ ] **mail-parser-reply hash.** `nix/pkgs/mailsearch-indexer.nix` ships
       `lib.fakeHash`. Run `nix build` of the doc2 closure, paste the real hash
       from the error.

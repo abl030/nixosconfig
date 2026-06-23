@@ -20,9 +20,15 @@
 # Runbook:    docs/wiki/services/mailsearch.md
 #
 # DEPLOY-TIME VERIFY (cannot be checked by `nix flake check`, only on doc2):
-#   * Maildir read access: the live gmail/work Maildirs are mode 0700. The
-#     index user (in `users`, like mailarchive) may need the tree group-readable
-#     (chmod -R g+rX) or an ACL, OR run the index service as `mailarchive`.
+#   * Maildir read access (SCOPED ACL): the live gmail/work Maildirs are mode
+#     0700. Grant the `mailsearch` group read+traverse with a POSIX ACL
+#     (`setfacl -R -m g:mailsearch:rX <tree>` + a default ACL). Do NOT chmod
+#     g+rX or use the broad `users` group — that exposes the corpus to every
+#     users-group service. See docs/wiki/services/mailsearch.md.
+#   * The MCP runs SSH-spawned (not under systemd), so it does NOT get the
+#     systemd hardening below. It is read-only by construction under the minimal
+#     `mailsearch-ro` user; a full namespace sandbox (socket-activated unit)
+#     is a deploy-loop follow-up.
 #   * embedModelSpec: confirm the exact `-hf <repo>:<quant>` string downloads.
 #   * fleetPubKey: confirm it matches hosts.nix `fleetIdentity`.
 #   * nix/pkgs/mailsearch-indexer.nix mail-parser-reply hash (lib.fakeHash now).
@@ -43,6 +49,7 @@
   indexHeartbeat = "${cfg.dataDir}/index.heartbeat";
   embedHeartbeat = "${cfg.dataDir}/embed.heartbeat";
   embedUrl = "http://127.0.0.1:${toString cfg.embedPort}/v1/embeddings";
+  embedReadyUrl = "http://127.0.0.1:${toString cfg.embedPort}/health";
 
   # notmuch config: split DB off the Maildir, never write Maildir flags, ignore
   # the to-be-deleted Mailstore/export-staging trees + mbsync sidecar files.
@@ -179,6 +186,9 @@
     LockPersonality = true;
     SystemCallArchitectures = "native";
     RestrictAddressFamilies = ["AF_INET" "AF_INET6" "AF_UNIX"];
+    # #257: blank the host /mnt namespace so a compromised mail-parser can't read
+    # other services' exports. Each unit binds back ONLY what it needs (below).
+    TemporaryFileSystem = "/mnt";
   };
 in {
   options.homelab.services.mailsearch = {
@@ -279,9 +289,8 @@ in {
     users.users.${cfg.indexUser} = {
       isSystemUser = true;
       group = "mailsearch";
-      # `users` group mirrors mailarchive's NFS read path. See DEPLOY-TIME note
-      # in the header: a 0700 Maildir may still need g+rX or an ACL.
-      extraGroups = ["users"];
+      # Maildir read comes from a SCOPED ACL (g:mailsearch:rX) applied at deploy,
+      # NOT the broad `users` group — see docs/wiki/services/mailsearch.md.
       home = cfg.dataDir;
       createHome = false;
     };
@@ -294,8 +303,8 @@ in {
     users.users.mailsearch-ro = lib.mkIf cfg.agentAccess {
       isSystemUser = true;
       group = "mailsearch";
-      # Read the Maildir (for get_message bodies) via `users`, like the indexer.
-      extraGroups = ["users"];
+      # Maildir read (for get_message bodies) via the same scoped g:mailsearch ACL
+      # as the indexer — NOT the broad `users` group.
       home = cfg.dataDir;
       createHome = false;
       shell = pkgs.bashInteractive;
@@ -334,6 +343,10 @@ in {
             # The first run embeds the whole archive on CPU (hours); without this
             # the default ~90s start timeout SIGTERMs the bootstrap every tick.
             TimeoutStartSec = "6h";
+            # Wait for the embeddings server to actually answer before the
+            # indexer's ExecStartPost calls it (Type=simple "started" != ready;
+            # first boot also downloads the model).
+            ExecStartPre = "${pkgs.curl}/bin/curl -sf --retry 120 --retry-delay 5 --retry-all-errors --max-time 1200 -o /dev/null ${embedReadyUrl}";
             ExecStart = "${pkgs.notmuch}/bin/notmuch new";
             # Both run only on a successful notmuch new. The indexer touches the
             # embed heartbeat itself; we touch the index heartbeat here.
@@ -341,8 +354,11 @@ in {
               "${pkgs.coreutils}/bin/touch ${indexHeartbeat}"
               "${indexer}/bin/mailsearch-indexer"
             ];
-            ReadOnlyPaths = [cfg.maildirRoot];
-            ReadWritePaths = [cfg.dataDir];
+            # #257: BindPaths (not ReadOnly/ReadWritePaths) for NFS/virtiofs — a
+            # raced/stale mount fails LOUD at namespace setup instead of silently
+            # skipping the bind and EROFS-ing later.
+            BindReadOnlyPaths = [cfg.maildirRoot];
+            BindPaths = [cfg.dataDir];
             RuntimeDirectory = "mailsearch-index";
           }
           // hardening;
@@ -381,7 +397,7 @@ in {
             ];
             Restart = "on-failure";
             RestartSec = "15s";
-            ReadWritePaths = [modelsDir];
+            BindPaths = [modelsDir];
             RuntimeDirectory = "mailsearch-embed";
           }
           // hardening;
@@ -409,8 +425,10 @@ in {
             ExecStart = "${healthServer}/bin/mailsearch-health";
             Restart = "on-failure";
             RestartSec = 5;
+            BindReadOnlyPaths = [cfg.dataDir];
           }
           // hardening;
+        unitConfig.RequiresMountsFor = [cfg.dataDir];
       };
     };
 
@@ -434,8 +452,44 @@ in {
         url = "http://localhost:${toString cfg.healthPort}/health";
       }
     ];
-    # Transient embed/IMAP/NFS flakiness is normal; staleness surfaces via the
-    # heartbeat + Kuma monitor above. Mirrors whisper-server / mailarchive.
-    homelab.monitoring.errorPatterns = [];
+
+    # Deep write-path probe: the shallow heartbeat is touched on a successful
+    # indexer run even if the embed leg silently embedded nothing (embed server
+    # down, dimension mismatch) — so it cannot catch a stalled vector store. This
+    # probe checks notmuch has messages, the vector store is non-empty and not
+    # lagging unboundedly, and the embed endpoint answers. (Immich #250 pattern.)
+    homelab.monitoring.deepProbes = [
+      {
+        name = "Mailsearch index write-path";
+        command = "${pkgs.callPackage ./probes/check-mailsearch.nix {}}/bin/check-mailsearch";
+        interval = "30m";
+        intervalSecs = 2400;
+        serviceConfig = {
+          User = cfg.indexUser;
+          Group = "mailsearch";
+          BindReadOnlyPaths = [cfg.dataDir];
+          Environment = [
+            "NOTMUCH_CONFIG=${notmuchConfig}"
+            "MAILSEARCH_VECTOR_DB=${vectorDb}"
+            "MAILSEARCH_EMBED_HEALTH_URL=${embedReadyUrl}"
+          ];
+        };
+      }
+    ];
+
+    # A raced/stale /mnt bind source under TemporaryFileSystem fails loud at
+    # namespace setup — page on it (#257). Other transient embed/IMAP/NFS
+    # flakiness is normal and surfaces via the heartbeat + Kuma monitor above.
+    homelab.monitoring.errorPatterns = [
+      {
+        name = "Mailsearch namespace setup failure";
+        unit = "mailsearch-index.service";
+        pattern = "Failed at step NAMESPACE";
+        severity = "critical";
+        summary = "mailsearch-index could not set up its mount namespace (bind source missing/stale)";
+        description = "A BindPaths/BindReadOnlyPaths source under /mnt was unavailable at unit start. Check mnt-data.mount / mnt-virtio.mount on doc2.";
+        threshold = 0;
+      }
+    ];
   };
 }

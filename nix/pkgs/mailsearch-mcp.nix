@@ -42,6 +42,7 @@ in
       MAILSEARCH_BODY_CAP     get_message body char cap (default 20000)
       MAILSEARCH_DIM          embedding dimension (default 768)
     """
+    import datetime
     import json
     import os
     import subprocess
@@ -180,33 +181,54 @@ in
         return [mid for mid, _ in sorted(scores.items(), key=lambda kv: -kv[1])]
 
 
-    def meta_for(db, mids):
-        if not mids:
-            return {}
-        qmarks = ",".join("?" * len(mids))
-        rows = db.execute(
-            f"SELECT message_id, sender, subject, date, folder "
-            f"FROM messages WHERE message_id IN ({qmarks})", mids,
-        ).fetchall()
-        return {
-            r[0]: {"from": r[1], "subject": r[2], "date": r[3], "folder": r[4]}
-            for r in rows
-        }
+    def folder_of(path):
+        marker = "/Email/"
+        i = path.find(marker)
+        if i < 0:
+            return ""
+        parts = [p for p in path[i + len(marker):].split("/") if p]
+        # drop the trailing cur|new|tmp + filename
+        return "/".join(parts[:-2]) if len(parts) > 2 else (parts[0] if parts else "")
 
 
-    def snippet_for(mid):
+    def to_epoch(s, end=False):
+        # YYYY-MM-DD -> UTC epoch (end=True -> end of that day).
+        try:
+            d = datetime.datetime.strptime(s, "%Y-%m-%d").replace(
+                tzinfo=datetime.timezone.utc)
+        except (ValueError, TypeError):
+            return None
+        if end:
+            d = d + datetime.timedelta(days=1, seconds=-1)
+        return int(d.timestamp())
+
+
+    def notmuch_meta(mid):
+        # Display metadata + snippet straight from notmuch (the keyword DB has
+        # every message) — NOT the vector store's messages table, which would
+        # be blank for keyword hits not yet embedded.
         try:
             docs = notmuch_json([
                 "show", "--format=json", "--entire-thread=false",
                 "--body=true", "--format-version=5", f"id:{mid}",
             ])
         except subprocess.CalledProcessError:
-            return ""
+            return None
         node = find_message(docs)
         if not isinstance(node, dict):
-            return ""
-        text = extract_plain(node.get("body", []))
-        return " ".join(text.split())[:240]
+            return None
+        headers = node.get("headers", {}) or {}
+        path = node.get("filename")
+        if isinstance(path, list):
+            path = path[0] if path else ""
+        snippet = " ".join(extract_plain(node.get("body", [])).split())[:240]
+        return {
+            "from": headers.get("From", ""),
+            "subject": headers.get("Subject", ""),
+            "date": int(node.get("timestamp", 0) or 0),
+            "folder": folder_of(path or ""),
+            "snippet": snippet,
+        }
 
 
     def extract_plain(part):
@@ -217,6 +239,9 @@ in
             if isinstance(p, list):
                 stack.extend(p)
             elif isinstance(p, dict):
+                # An attachment that happens to be text/plain is not body text.
+                if p.get("filename") or (p.get("content-disposition") or "").lower() == "attachment":
+                    continue
                 ctype = (p.get("content-type") or "").lower()
                 content = p.get("content")
                 if ctype == "text/plain" and isinstance(content, str):
@@ -251,18 +276,27 @@ in
                                    date_from, date_to, over)
             except Exception as e:  # noqa: BLE001
                 log(f"semantic leg unavailable, keyword-only: {type(e).__name__}")
-        ranked = rrf(kw, sem)[:k]
-        meta = meta_for(db, ranked)
+        ranked = rrf(kw, sem)
+        ef = to_epoch(date_from) if date_from else None
+        et = to_epoch(date_to, end=True) if date_to else None
         results = []
         for mid in ranked:
-            m = meta.get(mid, {})
+            if len(results) >= k:
+                break
+            m = notmuch_meta(mid)
+            if m is None:
+                continue
+            # Enforce the date bound uniformly: the semantic leg does not filter
+            # by date, so an out-of-range neighbour could otherwise slip through.
+            if (ef is not None and m["date"] < ef) or (et is not None and m["date"] > et):
+                continue
             results.append({
                 "message_id": mid,
-                "from": m.get("from", ""),
-                "subject": m.get("subject", ""),
-                "date": m.get("date"),
-                "folder": m.get("folder", ""),
-                "snippet": snippet_for(mid),
+                "from": m["from"],
+                "subject": m["subject"],
+                "date": m["date"],
+                "folder": m["folder"],
+                "snippet": m["snippet"],
             })
         log(f"search_mail keyword={len(kw)} semantic={len(sem)} returned={len(results)}")
         return {"results": results}

@@ -315,6 +315,11 @@ in
         with db:  # transaction
             for rec, vec in zip(batch, vecs):
                 upsert(db, rec, vec)
+        # Touch the heartbeat per batch so a multi-hour bootstrap run stays
+        # "live" to the health monitor instead of going stale for hours.
+        if HEARTBEAT:
+            with open(HEARTBEAT, "w") as fh:
+                fh.write(str(int(time.time())))
         return len(batch)
 
 
