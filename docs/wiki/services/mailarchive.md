@@ -326,6 +326,33 @@ must be complete, or live-but-not-yet-synced mail gets duplicated into legacy):
 5. Safety window (~3-5 days), then destroy VM 102 via the web UI; wipe the
    staging dir. Flip the plan frontmatter to `status: completed` and close #227.
 
+### Executed 2026-06-23 — U7a/U7b done, archive verified
+
+The work export landed in `/mnt/data/Life/Andy/Email/export-staging/`
+(`Thunderbird andy@cullenwines.com.au (2)/Inbox/`, 10,806 `.eml`). U7b ran
+on doc2 against live `work/`. Final, verified result:
+
+- **4,148 survivors** written to `legacy.archive/` (3,313 with a real
+  Message-ID confirmed absent from live + 835 that genuinely carry no
+  Message-ID, kept conservatively), **6,645 already-live skipped**, 13
+  intra-export dups, 0 corrupt. Re-audit: **0** survivors duplicate live
+  mail, **0** header BOMs in output.
+
+**GOTCHA — Thunderbird/MailStore BOM corruption (fixed in `c8142ca6`).**
+Every exported EML is a Thunderbird message: `X-Mozilla-*` pseudo-headers
+plus a stray UTF-8 BOM (`\xef\xbb\xbf`) injected *before the first real
+header*. Python's `email` parser (and mutt) treat the BOM as end-of-headers,
+so `message_id_for()` never saw the real `Message-ID` and fell back to a
+synthetic SHA id. Synthetic ids never match the clean live Maildir, so the
+first (pre-fix) run let ~2,300 BOM-corrupted messages bypass `--dedupe-against`
+and survive as live duplicates (survivors 6,449 vs the correct 4,148), and
+the stored messages were unreadable (no From/Subject). The fix
+(`strip_header_bom`) drops BOMs from the header block only — applied to both
+the dedup key and the stored bytes, so dedup works and the archive is
+byte-clean. If you ever re-import another Thunderbird-sourced export, this is
+already handled; verify post-run with: count survivors, grep for header BOMs,
+and confirm 0 survivor Message-IDs intersect the live set.
+
 ## Architecture references
 
 - Plan: `docs/plans/2026-05-04-001-feat-mailarchive-mailstore-retirement-plan.md`
