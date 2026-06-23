@@ -1,14 +1,17 @@
 # servarr — dedicated NixOS VM on tower for the *arr stack (Radarr / Sonarr /
-# Prowlarr), replacing the legacy Ubuntu `genericvm` at 192.168.1.4.
+# Prowlarr), which replaced (and reclaimed the 192.168.1.4 LAN IP of) the legacy
+# Ubuntu `genericvm` / `Downloader2`.
 #
 # The torrent client (qBittorrent) is deliberately NOT here: it runs in an
 # isolated `microvm.nix` guest on its own VLAN (Torrent_DMZ / VLAN 20), VPN-only,
 # default-deny to the fleet, with a hardlink/virtiofs scratch handoff. Full design
 # + build/cutover checklist: Forgejo issue #1.
 #
-# STATUS: scaffold. Not yet deployed. `hardware-configuration.nix` is a placeholder
-# (generated for real at install via nixos-anywhere); the host needs its sops scope
-# + fleet-wide secret re-key once it has a host key (issue #1, steps 3–5).
+# LIVE since 2026-06-22; moved to its final 192.168.1.4 on 2026-06-23 (pfSense DHCP
+# static reservation, MAC 52:54:00:5e:a1:04). Unlike the downloader it reclaimed .4
+# from, servarr egresses via the normal WAN — it is deliberately NOT in pfSense's
+# MV_VPN_IPS alias (the VPN boundary is the qbt DMZ guest only). Architecture, the
+# qbt cage, and cutover history: docs/wiki/services/servarr-and-qbt-cage.md (#1).
 {
   inputs,
   lib,
@@ -45,11 +48,11 @@
   # The media group + the *arr stack (Radarr/Sonarr/Prowlarr) + the qbt reverse-proxy
   # all live in homelab.services.servarr (modules/nixos/services/servarr.nix): bound to
   # loopback behind nginx/localProxy, reached LAN-wide ONLY via *.ablz.au, never by IP.
-  # Migration drops each app's config.xml + *.db into /var/lib/<app> at install (issue
-  # #1 step 5) — set BindAddress=127.0.0.1 in each config.xml (tailscale0 is a trusted
-  # firewall interface, so a 0.0.0.0 bind would be tailnet-reachable). Download clients
-  # carried over: the qbt microVM (qbt.ablz.au) + the remote NZBGet @ 192.168.1.17:6789.
-  # Prowlarr keeps syncing to Readarr @ tower 192.168.1.2:8787.
+  # The migrated config.xml + *.db live in /var/lib/<app> (each config.xml binds
+  # 127.0.0.1: tailscale0 is a trusted firewall interface, so a 0.0.0.0 bind would be
+  # tailnet-reachable). Download clients: the qbt microVM (qbt.ablz.au) + the remote
+  # NZBGet @ 192.168.1.17:6789. Prowlarr syncs to Readarr @ tower 192.168.1.2:8787.
+  # Migration mechanics (data-dir paths, DynamicUser quirks) are in the wiki doc above.
 
   homelab = {
     services.servarr.enable = true;

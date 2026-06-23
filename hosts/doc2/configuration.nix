@@ -58,7 +58,8 @@
         # .claude/agents/pfsense.md front-matter and
         # docs/wiki/services/lgtm-stack.md §"VPN-routed IP sync contract".
         vpnClientIPs = [
-          "192.168.1.4" # downloader2 (Unraid KVM — torrent/PiHole)
+          # 192.168.1.4 was the decommissioned downloader2; servarr now holds .4 and
+          # egresses via WAN (NOT MV_VPN_IPS) — removed 2026-06-23 (servarr .4 cutover).
           "192.168.1.15"
           "192.168.1.17" # tower nzbget (ipvlan on br0)
           "192.168.1.18" # tower nzbhydra2 (ipvlan on br0)

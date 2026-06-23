@@ -264,10 +264,10 @@ in {
   };
 
   # servarr — dedicated NixOS VM on tower for the *arr stack (Radarr / Sonarr /
-  # Prowlarr), replacing the legacy Ubuntu `genericvm`. Takes 192.168.1.4 at
-  # cutover. qBittorrent runs SEPARATELY in an isolated microvm.nix guest on
-  # VLAN 20 (Torrent_DMZ) — see Forgejo issue #1. SCAFFOLD: not yet deployed;
-  # publicKey filled after first boot (empty ⇒ excluded from fleet knownHosts).
+  # Prowlarr), which replaced the legacy Ubuntu `genericvm` and reclaimed its
+  # 192.168.1.4. qBittorrent runs SEPARATELY in an isolated microvm.nix guest on
+  # VLAN 20 (Torrent_DMZ) — see Forgejo issue #1. LIVE on 192.168.1.4 (pfSense DHCP
+  # static reservation, MAC 52:54:00:5e:a1:04; egresses via WAN, not MV_VPN_IPS).
   servarr = {
     configurationFile = ./hosts/servarr/configuration.nix;
     homeFile = ./hosts/servarr/home.nix;
@@ -276,7 +276,7 @@ in {
     hostname = "servarr";
     sshAlias = "servarr";
     sshKeyName = "ssh_key_abl030";
-    localIp = "192.168.1.4"; # target at cutover; build/test on a temp IP first
+    localIp = "192.168.1.4"; # LAN IP (pfSense DHCP reservation); drives Cloudflare A + nginx
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0GmBqKYliqhnLSAfQ6HMBT3M8lfg5yXtPd59bxIGnh root@servarr";
     authorizedKeys = fleetKeys; # fleet member: trusts ONLY the doc1 bastion key
   };

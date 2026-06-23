@@ -11,7 +11,7 @@ gotchas, and what to check before touching it. Rules in code live in `hosts/serv
 
 ## What it is
 
-- **`servarr`** — a NixOS VM on **tower** (Unraid), LAN `192.168.1.101` (static via pfSense DHCP
+- **`servarr`** — a NixOS VM on **tower** (Unraid), LAN `192.168.1.4` (static via pfSense DHCP
   reservation), MAC `52:54:00:5e:a1:04`. Runs the **\*arr trio** (radarr/sonarr/prowlarr) as native
   `services.*` behind nginx/localProxy (`{radarr,sonarr,prowlarr,qbt}.ablz.au`, never by IP). Locked
   fleet host (no passwordless sudo, root SSH off, **not** a tailnet node — reachable on LAN + via
@@ -37,7 +37,7 @@ pfSense `opt2` rule chain (egress is VPN-only):
 2. **PASS opt2-net → any via the AirVPN NZ gateway** (`opt5`/`tun_wg2`) · **kill-switch BLOCK** (tunnel
    down = drop, never leak). Plus outbound NAT `.20.0/24 → opt5`, a DNS redirect (`:53 → 127.0.0.1:53`),
    the inbound forward `opt5:45726 → .20.2:45726` (torrent port), and ONE LAN exception
-   `192.168.1.101 → .20.2:8080` (servarr → qbt WebUI) above a `block LAN → .20.0/24` least-privilege rule.
+   `192.168.1.4 → .20.2:8080` (servarr → qbt WebUI) above a `block LAN → .20.0/24` least-privilege rule.
 
 Verified egress is the AirVPN NZ exit IP (qbt's `Detected external IP` = the tunnel; DHT live).
 
@@ -89,9 +89,16 @@ The migration that works (per app; do it with **both** source+dest *arr stopped 
 
 ## Cutover
 
-- pfSense: DHCP-pin `.101`, add **Unbound host overrides** `radarr/sonarr/prowlarr/qbt.ablz.au → .101`
-  (these names had **no** Unbound override before and resolved to `.4` via external DNS), enable the
-  `45726` forward, point the LAN→qbt rule at `.101`.
+- pfSense: **DHCP static reservation `52:54:00:5e:a1:04 → .4`** (reclaimed from the decommissioned
+  downloader2), **Unbound host overrides** `radarr/sonarr/prowlarr/qbt.ablz.au → .4` (these names had
+  **no** Unbound override before and resolved to `.4` via external DNS / Cloudflare — which always
+  pointed at the intended final `.4`), the `45726` torrent-port forward, and the LAN→qbt `:8080`
+  exception pointed at `.4`. **servarr is NOT in `MV_VPN_IPS`** — it egresses via the normal WAN (only
+  the qbt DMZ guest is VPN-routed).
+  - *History: the first cutover landed on a temporary `.101` (2026-06-22); the move to the final `.4`
+    (2026-06-23) repointed the DHCP reservation, the four Unbound host overrides, and the LAN→qbt rule
+    `.101 → .4`, and removed `.4` from `MV_VPN_IPS` (so servarr stops inheriting the old downloader's
+    AirVPN kill-switch). doc2's `vpnClientIPs` mirror dropped `.4` to match.*
 - **ACME:** first deploy left a **minica self-signed** cert (the Cloudflare token wasn't decryptable
   pre-sops-bootstrap, so the `acme-order-renew-*` units failed with "dependency"). After the token
   lands, **restart `acme-order-renew-<name>.service`** to fetch the real LE certs, then `reload nginx`.

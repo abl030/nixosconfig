@@ -534,7 +534,7 @@ in {
       vpnClientIPs = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [];
-        example = ["192.168.1.4" "192.168.1.36"];
+        example = ["192.168.1.18" "192.168.1.36"];
         description = ''
           LAN IPs that pfSense policy-routes through AirVPN (i.e. the
           `MV_VPN_IPS` alias on pfSense). Consumed by the "ntopng —

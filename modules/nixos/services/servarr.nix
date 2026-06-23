@@ -121,12 +121,12 @@ in {
 
       # errorPatterns is REQUIRED (errorPatternsCheck) once localProxy.hosts is set,
       # and left EMPTY deliberately: the rules require patterns be VERIFIED against
-      # ~30 days of Loki history before committing, and this host isn't deployed yet.
-      # Process/WebUI-down is caught by the Kuma monitors above; refine with real *arr
-      # failure fingerprints (DB malformed, migration failure) from Loki post-deploy.
-      # Deep write-path probes are likewise deferred to post-deploy (need the API keys
-      # in sops first); the migrated DBs come over working, so the shallow monitors
-      # cover the initial cutover. See docs/wiki/nixos-service-modules.md.
+      # ~30 days of Loki history before committing, and the host has only been live
+      # since 2026-06-22 — that history is still accruing. Process/WebUI-down is caught
+      # by the Kuma monitors above; refine with real *arr failure fingerprints (DB
+      # malformed, migration failure) from Loki once there's enough history (Forgejo #1).
+      # Deep write-path probes likewise still pending (need the *arr API keys in sops).
+      # See docs/wiki/nixos-service-modules.md.
       monitoring.errorPatterns = [];
 
       # Library is the tower NFS mount; restart the *arr apps if it goes stale.
