@@ -26,9 +26,7 @@
     src = pkgs.fetchPypi {
       pname = "mail_parser_reply";
       inherit version;
-      # DEPLOY-TIME VERIFY: replace with the real sha256 (lib.fakeHash here so the
-      # eval passes; `nix build` will print the correct hash to paste in).
-      hash = pkgs.lib.fakeHash;
+      hash = "sha256-f0UcWDxsWZvJM1Mab3g/5NGiZEfr1AOCZ4QX27kuEA4=";
     };
     build-system = [py.setuptools];
     propagatedBuildInputs = [py.regex];
@@ -80,6 +78,7 @@ in
     BATCH = int(os.environ.get("MAILSEARCH_BATCH", "32"))
     DIM = int(os.environ.get("MAILSEARCH_DIM", "768"))
     MAX_CHARS = int(os.environ.get("MAILSEARCH_MAX_CHARS", "30000"))
+
 
     # NEVER log message bodies or search queries — doc2 ships the journal to Loki,
     # which the agent fleet can read. Only counts / Message-IDs / timings.
