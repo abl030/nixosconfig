@@ -1,8 +1,9 @@
 ---
 title: "feat: NixOS mailarchive module + MailStore VM retirement"
 type: feat
-status: active
+status: completed
 date: 2026-05-04
+completed: 2026-06-23  # module live on doc2; work archive migrated + merged into work/INBOX. Residual owner step: destroy stopped VM 102 + wipe export-staging when ready.
 origin: docs/brainstorms/2026-05-04-mailstore-vm-replacement-requirements.md
 ---
 
