@@ -107,6 +107,36 @@
 # has the full runbook; always follow it.
 #
 
+# !! MECHANICAL RECIPE: author → sign → push → deploy FROM doc1 !!
+#
+# These are settled facts — do NOT re-derive them each session:
+#
+# * PUSH (doc1 has NO https cred for git.ablz.au; the gh helper only covers
+#   github.com). Push with the abl030-owned (0400) nixbot token as a header —
+#   no sudo, token never in argv/remote:
+#     export GIT_CONFIG_COUNT=1 \
+#       GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
+#       GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
+#     git push origin HEAD:master
+#   (Same header auth rolling-flake-update uses. Memory: forgejo-push-from-doc1.)
+#
+# * SIGNING is already configured on doc1 and TRUSTED. user.signingkey =
+#   ~/.ssh/id_ed25519_git_sign (comment git-signing:proxmox-vm), commit.gpgsign
+#   = true, gpg.format = ssh; its pubkey is in hosts.nix, so fleet-update accepts
+#   it. `git commit` signs automatically — VERIFY `git log -1 --format=%G?` → `G`
+#   BEFORE pushing (signed deploys are enforced fleet-wide; an unsigned commit
+#   loud-fails the host's nightly nixos-upgrade).
+#
+# * LOCKED-HOST sudo is role-driven, NOT guarded by a flake check. `wheelNeeds
+#   Password` is set true for role="locked" in base.nix (via homelab.fleetDeploy);
+#   nothing ASSERTS a locked host can't have passwordless sudo. You can't flip a
+#   host to role="bastion" to get it (fleetBastionRoleCheck asserts EXACTLY ONE
+#   bastion = doc1). To grant it on a specific locked box, override directly in
+#   that host's config: `security.sudo.extraRules = lib.mkAfter [{ users=["abl030"];
+#   commands=[{command="ALL"; options=["NOPASSWD"];}]; }];` (mkAfter → renders
+#   last → wins, since sudoers is last-match). Example live on hermes.
+#
+
 # !! CRITICAL: NEVER `nix build` ON WSL !!
 #
 # When `hostname` reports `wsl`, do NOT run `nix build .#nixosConfigurations.<host>...`
