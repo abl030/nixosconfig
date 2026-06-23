@@ -87,15 +87,19 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
 
 - **All indexers are Prowlarr-managed** (the old manual Newznab in radarr/sonarr was removed).
 - Working torrents: BT.etree, LimeTorrents, The Pirate Bay, Torrent9, TorrentProject2, YTS,
-  **Nyaa.si, Internet Archive, Knaben** (added today). Disabled: **1337x, EZTV** (Cloudflare —
-  need a solver), **TorrentDownload** (dead site). Deleted (dead defs): Torlock, TorrentFunk,
-  YourBittorrent.
+  **Nyaa.si, Internet Archive, Knaben**, and **1337x + EZTV** (recovered via Byparr). Disabled:
+  **TorrentDownload** (dead site). Deleted (dead defs): Torlock, TorrentFunk, YourBittorrent.
 - **Usenet** = the single `NZBHydra2 (Prowlarr)` Newznab indexer (→ NZBGeek etc.).
 - **Usenet is the preferred protocol:** delay profile id=1 `preferredProtocol=usenet`,
   `usenetDelay=0`, `torrentDelay=30` (torrents held 30 min so usenet wins). Tune via
   `PUT /api/v3/delayprofile/1` on each app.
-- Cloudflare note: **FlareSolverr is dead in 2026; use Byparr** (drop-in, same `:8191`/API) to
-  recover 1337x / EZTV / TheRARBG. Not deployed yet.
+- **Byparr (Cloudflare solver)** runs on **doc2** at `byparr.ablz.au` (`homelab.services.byparr`;
+  the maintained FlareSolverr replacement — FlareSolverr is dead in 2026). Prowlarr wires it as a
+  **FlareSolverr-type indexer-proxy** ("Byparr") carrying the **`byparr` tag**, applied to 1337x +
+  EZTV. The container needs `seccomp=unconfined` for the headless browser (the one hardening
+  carve-out; otherwise userns-remapped + cap-drop=all + isolated bridge + loopback-bound). It does
+  **one browser solve at a time** — do NOT hammer `testall`, it transiently flaps "indexer
+  unavailable due to failures" (self-heals).
 
 ## Indexers Prowlarr REMOVED — and why NOT to re-add them
 
