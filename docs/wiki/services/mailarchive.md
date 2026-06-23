@@ -332,11 +332,18 @@ The work export landed in `/mnt/data/Life/Andy/Email/export-staging/`
 (`Thunderbird andy@cullenwines.com.au (2)/Inbox/`, 10,806 `.eml`). U7b ran
 on doc2 against live `work/`. Final, verified result:
 
-- **4,148 survivors** written to `legacy.archive/` (3,313 with a real
-  Message-ID confirmed absent from live + 835 that genuinely carry no
-  Message-ID, kept conservatively), **6,645 already-live skipped**, 13
-  intra-export dups, 0 corrupt. Re-audit: **0** survivors duplicate live
-  mail, **0** header BOMs in output.
+- **4,148 survivors** written (3,313 with a real Message-ID confirmed absent
+  from live + 835 that genuinely carry no Message-ID, kept conservatively),
+  **6,645 already-live skipped**, 13 intra-export dups, 0 corrupt. Re-audit:
+  **0** survivors duplicate live mail, **0** header BOMs in output.
+- **Merged into the live mailbox (2026-06-23, user request).** The 4,148 were
+  staged in a separate `legacy.archive/` tree, then moved into
+  `work/INBOX/cur/` (127 → 4,275) and `legacy.archive/` removed — one unified
+  work mailbox instead of two trees. Safe because the work channel is
+  `Sync Pull` + `Remove None` + `Expunge None`: mbsync never pushes local-only
+  messages to the server and never deletes them. The recovered history is
+  identifiable by its `…maildir-migrate.<hex>:2,S` filenames if it ever needs
+  splitting back out.
 
 **GOTCHA — Thunderbird/MailStore BOM corruption (fixed in `c8142ca6`).**
 Every exported EML is a Thunderbird message: `X-Mozilla-*` pseudo-headers
