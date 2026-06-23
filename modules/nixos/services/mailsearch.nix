@@ -328,6 +328,11 @@ in {
       # ── Keyword index + embed delta (oneshot timer) ──────────────────────
       mailsearch-index = {
         description = "Mail search: notmuch index + embedding delta";
+        # This oneshot runs for hours on the first (bootstrap) embed. Do NOT let
+        # `nixos-rebuild switch` restart/wait on it — that wedges the whole
+        # activation. The timer picks up new config on its next tick instead.
+        restartIfChanged = false;
+        stopIfChanged = false;
         after = ["network-online.target" "mnt-data.mount" "mnt-virtio.mount" "mailsearch-embed.service"];
         requires = ["mnt-data.mount" "mnt-virtio.mount"];
         wants = ["network-online.target" "mailsearch-embed.service"];
