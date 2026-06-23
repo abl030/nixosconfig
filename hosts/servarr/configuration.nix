@@ -68,24 +68,24 @@
       enable = true;
       profile = "internal";
     };
-    update = {
-      # NIGHTLY AUTO-UPGRADE IS DISABLED (system.autoUpgrade.enable, below): servarr
-      # is RAM-tight (4 GiB; tower is too full to grant more) and OOM-kills itself
-      # doing a local nixos-rebuild — the eval + closure-copy page-cache blow past
-      # 4 GiB and the kernel shoots the qbt microVM (2026-06-23 incident). Deploys are
-      # instead BUILT ON doc1 and the closure pushed over + activated remotely. This
-      # module stays enabled ONLY for its GC + fstrim (housekeeping doesn't rebuild),
-      # so the 64 GiB disk doesn't fill. Re-enable the auto-upgrade only if servarr
-      # gets materially more RAM.
-      enable = true;
-      collectGarbage = true;
-      trim = true;
-    };
+    # NIGHTLY AUTO-UPGRADE IS OFF (update.enable = false): servarr is RAM-tight (4 GiB;
+    # tower is too full to grant more) and OOM-kills itself doing a local nixos-rebuild
+    # — the eval + closure-copy page-cache blow past 4 GiB and the kernel shoots the qbt
+    # microVM (2026-06-23 incident). Deploys are instead BUILT ON doc1 and the closure
+    # pushed over + activated remotely (break-glass; the locked host activates via the
+    # qemu-guest-agent). Disabling the whole module (rather than just system.autoUpgrade)
+    # avoids an orphan/malformed nixos-upgrade.timer. GC + fstrim are kept directly below
+    # so the 64 GiB disk doesn't fill. Re-enable only if servarr gets materially more RAM.
+    update.enable = false;
   };
 
-  # Kill ONLY the nightly rebuild (the OOM source) — GC + fstrim from homelab.update
-  # above stay on. servarr is deployed by building on doc1 and pushing the closure.
-  system.autoUpgrade.enable = lib.mkForce false;
+  # Housekeeping that homelab.update would have provided (it's off, above) — neither rebuilds.
+  nix.gc = {
+    automatic = true;
+    dates = "02:00";
+    options = "--delete-older-than 3d";
+  };
+  services.fstrim.enable = true;
 
   services.qemuGuest.enable = true;
 
