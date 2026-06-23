@@ -124,8 +124,13 @@ in {
       ];
       volumes = [
         {
-          # Persistent qbt state (config, session, .fastresume).
-          mountPoint = "/var/lib/qbittorrent";
+          # Persistent qbt state (config, session, .fastresume). The mountPoint MUST
+          # match services.qbittorrent.profileDir — nixpkgs default `/var/lib/qBittorrent`
+          # (capital Q + B). A lowercase `/var/lib/qbittorrent` silently mounts the volume
+          # on a path qBittorrent never writes, so its state lands on the EPHEMERAL microVM
+          # root and is wiped on every restart/reboot (the lost-torrents bug; fixed
+          # 2026-06-23 — the volume had been mounted one case off and sat empty).
+          mountPoint = "/var/lib/qBittorrent";
           image = "qbt-state.img"; # lands under /var/lib/microvms/qbt/ on servarr
           size = 1024; # MiB
         }
