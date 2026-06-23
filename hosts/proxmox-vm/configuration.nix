@@ -20,6 +20,17 @@
     mode = "0400";
   };
 
+  # *arr-stack API keys (Radarr/Sonarr/Prowlarr + NZBHydra2) so the doc1 agent can
+  # manage indexers/downloaders from the bastion. Decryptable by doc1 ONLY (per-host
+  # sops scope, #234); deployed as a dotenv to /run/secrets/arr-api-keys, read by the
+  # agent (User=abl030). Read a key: `grep -m1 '^PROWLARR_API_KEY=' /run/secrets/arr-api-keys | cut -d= -f2`.
+  sops.secrets."arr-api-keys" = {
+    sopsFile = config.homelab.secrets.sopsFile "arr-api-keys.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   homelab = {
     mounts = {
       nfsLocal.enable = true;
