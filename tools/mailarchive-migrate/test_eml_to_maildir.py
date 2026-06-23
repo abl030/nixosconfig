@@ -12,6 +12,7 @@ collapse intra-export duplicates, and preserve the nested folder layout.
 
 from __future__ import annotations
 
+import email
 import importlib.util
 import logging
 import sys
@@ -35,6 +36,38 @@ def make_eml(message_id: str | None, subject: str, body: str = "hello") -> bytes
     if message_id is not None:
         headers.append(f"Message-ID: <{message_id}>")
     return ("\r\n".join(headers) + "\r\n\r\n" + body + "\r\n").encode()
+
+
+def make_mozilla_eml(message_id: str, subject: str, body: str = "hello") -> bytes:
+    """Thunderbird/MailStore-style EML: X-Mozilla-* pseudo-headers followed by a
+    stray UTF-8 BOM injected before the first real header — the issue #227
+    corruption that masks the real Message-ID from the email parser."""
+    pseudo = (
+        "\r\n".join(
+            [
+                "X-Account-Key: account5",
+                "X-UIDL: 167249",
+                "X-Mozilla-Keys: " + " " * 20,
+            ]
+        )
+        + "\r\n"
+    )
+    real = (
+        "\r\n".join(
+            [
+                "Received: from mail.example.com",
+                "From: sender@example.com",
+                "To: andy@cullenwines.com.au",
+                f"Subject: {subject}",
+                "Date: Mon, 01 Jun 2026 00:00:00 +0800",
+                f"Message-ID: <{message_id}>",
+            ]
+        )
+        + "\r\n\r\n"
+        + body
+        + "\r\n"
+    )
+    return pseudo.encode() + b"\xef\xbb\xbf" + real.encode()
 
 
 def write_live_message(maildir_folder: Path, eml: bytes, name: str) -> None:
@@ -119,6 +152,35 @@ def main() -> int:
         dst4 = root / "legacy.bad"
         rc = mod.run(export, dst4, dry_run=False, dedupe_against=[root / "nope"])
         assert_eq(rc, 2, "return code for missing dedupe dir")
+
+        # ---- Case 5: Thunderbird BOM-corrupted export (issue #227) ----
+        # Each export EML carries X-Mozilla-* pseudo-headers + a BOM before the
+        # real headers. The fix must (a) still extract the real Message-ID so
+        # dedup works, and (b) store byte-clean, parseable messages.
+        print("case 5: Thunderbird BOM export dedups + stores clean")
+        # (a) Message-ID is recovered despite the BOM (not a synthetic fallback).
+        assert_eq(
+            mod.message_id_for(make_mozilla_eml("mid-E@x", "E")),
+            "mid-E@x",
+            "BOM Message-ID extracted",
+        )
+        live5 = root / "live5"
+        export5 = root / "export5"
+        dst5 = root / "legacy5"
+        # live has mid-E (still filed). export has mid-E (dup) + mid-F (deleted).
+        write_live_message(live5 / "INBOX", make_eml("mid-E@x", "E filed"), "200.E")
+        write_export_eml(export5 / "Work" / "INBOX", make_mozilla_eml("mid-E@x", "E"), "e")
+        write_export_eml(export5 / "Work" / "INBOX", make_mozilla_eml("mid-F@x", "F"), "f")
+        rc = mod.run(export5, dst5, dry_run=False, dedupe_against=[live5])
+        assert_eq(rc, 0, "return code")
+        # mid-E is deduped against live; only mid-F (deleted history) survives.
+        assert_eq(count_messages(dst5), 1, "only deleted mid-F survives BOM dedup")
+        survivor = next(mod.iter_maildir_messages(dst5))
+        data = survivor.read_bytes()
+        assert_eq(b"\xef\xbb\xbf" in data, False, "stored survivor has BOM stripped")
+        parsed = email.message_from_bytes(data)
+        assert_eq(parsed.get("Subject"), "F", "stored survivor Subject parseable")
+        assert_eq(parsed.get("Message-ID"), "<mid-F@x>", "stored Message-ID parseable")
 
     print("\nALL TESTS PASSED")
     return 0

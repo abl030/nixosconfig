@@ -56,8 +56,41 @@ def ensure_maildir(folder: Path) -> None:
         (folder / sub).mkdir(parents=True, exist_ok=True)
 
 
+_BOM = b"\xef\xbb\xbf"
+
+
+def strip_header_bom(eml_bytes: bytes) -> bytes:
+    """Remove stray UTF-8 BOMs from the RFC822 header block.
+
+    Thunderbird/MailStore EML exports inject a UTF-8 BOM partway through the
+    header block (typically right before the first `Received:` line, after the
+    X-Mozilla-* pseudo-headers). A BOM mid-headers makes Python's email parser
+    — and mail readers like mutt — treat the headers as ended, hiding the real
+    From/Subject/Message-ID. That breaks Message-ID-based dedup (every BOM
+    message falls back to a synthetic id and never matches the clean live mail)
+    and leaves an unreadable archive. The BOM is not valid inside mail headers,
+    so stripping it from the header block restores a clean, parseable message.
+    The body is left untouched — a body part may legitimately contain a BOM.
+    See issue #227 and docs/wiki/services/mailarchive.md.
+    """
+    if _BOM not in eml_bytes:
+        return eml_bytes
+    idx = eml_bytes.find(b"\r\n\r\n")
+    if idx == -1:
+        idx = eml_bytes.find(b"\n\n")
+    if idx == -1:
+        # No header/body separator (e.g. a header-only slice): strip all.
+        return eml_bytes.replace(_BOM, b"")
+    return eml_bytes[:idx].replace(_BOM, b"") + eml_bytes[idx:]
+
+
 def message_id_for(eml_bytes: bytes) -> str:
-    """Return Message-ID, falling back to a stable SHA-256 prefix."""
+    """Return Message-ID, falling back to a stable SHA-256 prefix.
+
+    Sanitizes a BOM-corrupted header block first so the real Message-ID is
+    found rather than masked (which would force a synthetic id — see #227).
+    """
+    eml_bytes = strip_header_bom(eml_bytes)
     parser = email.parser.BytesParser()
     msg = parser.parsebytes(eml_bytes, headersonly=True)
     mid = msg.get("Message-ID")
@@ -182,6 +215,10 @@ def run(src: Path, dst: Path, dry_run: bool,
             log.warning("read failed: %s (%s)", eml_path, e)
             skipped_corrupt += 1
             continue
+
+        # Sanitize once: the same clean bytes feed both the Message-ID dedup
+        # key and what we store, so the archive is byte-clean and browsable.
+        eml_bytes = strip_header_bom(eml_bytes)
 
         try:
             mid = message_id_for(eml_bytes)
