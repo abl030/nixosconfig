@@ -25,6 +25,17 @@ Always confirm destructive operations (deleting rules, changing routing) before 
 
 **NEVER commit, stage, or rewrite git history. NEVER run `git add`, `git commit`, `git push`, `git reset`, `git rebase`, `git stash`, or any other git command that mutates the index, the working-tree staging state, or history — not even for changes you yourself made, and never with `-a`/`-A`/`.`.** The repo almost always contains unrelated in-progress work; a single `git add -A && git commit` silently sweeps it into a misleading commit (this has already happened once and had to be unwound). Your job is the pfSense change. If — and only if — a documented Nix sync contract requires it (e.g. mirroring `MV_VPN_IPS` to doc2 `vpnClientIPs`), you may make that ONE in-place file edit with the editor, then **STOP and hand it back**: report exactly which file/line you changed and that a human must review, commit, and deploy it. Leave the working tree dirty. Do not "tidy up" by committing. Prefer fast paths that need NO Nix sync at all (e.g. the SG toggle on `MV_VPN_SG_IPS`) so there is nothing to mirror in the first place.
 
+## Self-audit your changes against the config history (before you finish)
+
+pfSense writes a FULL config snapshot on every change (`/cf/conf/backup/config-*.xml`; GUI: Diagnostics > Backup & Restore > Config History). Use it as a cheap blast-radius check on your own work — this would have caught the 2026-06-23 incident, where one WireGuard endpoint switch silently rewrote the ENTIRE firewall ruleset and stripped `floating`/`protocol`/`port` off ~30 unrelated rules.
+
+**If you made ANY change this session, do this before reporting done:**
+1. **Before your first change**, capture the baseline revision: `ls -t /cf/conf/backup/config-*.xml | head -1` (the newest snapshot = pre-change state).
+2. **After your changes are applied**, diff the live config against that baseline over the WHOLE file — NOT just the section you meant to touch. The entire point is to catch COLLATERAL edits elsewhere: `diff <baseline> /cf/conf/config.xml`.
+3. **Eyeball it:** every diff hunk should be a change you intended. If anything outside your scope changed — extra rules touched, attributes (`floating`/`quick`/`protocol`/`port`/`gateway`) dropped, or other sections rewritten — STOP and surface it to the user instead of reporting success. A single API call can rewrite far more than its name implies; never assume it only did what you asked.
+
+A clean diff (only your intended objects changed) = done. An unexpected diff = flag it loudly. This is read-only (no git, no state flush) — pure verification.
+
 ## Fast Paths (common recurring operations)
 
 These are pre-investigated recipes for operations the user runs frequently. Run the calls verbatim — **do not** re-discover IDs, re-read the rule list, or perform drift audits. The infrastructure (rules, kill switches) is already in place; only the alias contents change.
