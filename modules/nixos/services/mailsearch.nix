@@ -93,9 +93,16 @@
     exec ${mcpServer}/bin/mailsearch-mcp
   '';
 
+  # alot shows nothing for HTML-only emails without a mailcap entry to convert
+  # text/html -> text. w3m + copiousoutput renders the body inline (alot FAQ #1).
+  htmlMailcap = pkgs.writeText "mailsearch.mailcap" ''
+    text/html; ${pkgs.w3m}/bin/w3m -dump -o document_charset=%{charset} '%s'; nametemplate=%s.html; copiousoutput
+  '';
+
   # Human keyword TUI wrapper — alot pointed at the read-only notmuch DB.
   tui = pkgs.writeShellScriptBin "mailsearch-tui" ''
     export NOTMUCH_CONFIG=${notmuchConfig}
+    export MAILCAPS=${htmlMailcap}
     exec ${pkgs.alot}/bin/alot "$@"
   '';
   cli = pkgs.writeShellScriptBin "mailsearch" ''
