@@ -218,7 +218,8 @@ in {
 
     embedPort = lib.mkOption {
       type = lib.types.port;
-      default = 8181;
+      # 18181: 8181 is already taken on doc2 (0.0.0.0). Loopback-only here.
+      default = 18181;
       description = "Localhost-only port for the llama-server embeddings endpoint.";
     };
 
