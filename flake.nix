@@ -96,6 +96,16 @@
       flake = false;
     };
 
+    # Public-tracker list for qBittorrent (servarr/qbt). flake=false → just the repo
+    # source; the qbt module reads trackers_best.txt at build time and bakes it into
+    # qBittorrent's "append to new torrents" pref. The nightly rolling-flake-update
+    # bumps this input, so the list auto-refreshes on the nightly deploy (applied on the
+    # next qbt microVM restart). See hosts/servarr/qbt-microvm.nix.
+    trackerslist = {
+      url = "github:ngosang/trackerslist";
+      flake = false;
+    };
+
     # Claude Code plugins
     claude-plugin-ha-skills = {
       url = "github:homeassistant-ai/skills";

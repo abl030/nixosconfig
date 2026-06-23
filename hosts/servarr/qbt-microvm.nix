@@ -47,6 +47,17 @@
     done
     exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
   '';
+
+  # Public tracker list, baked from the `trackerslist` flake input (auto-refreshed by
+  # the nightly rolling-flake-update — a new list rolls out on the next qbt restart).
+  # ngosang/trackerslist trackers_best.txt is ~20 curated all-UDP trackers — the sweet
+  # spot for peer reach. More is net-negative (dead/duplicate trackers + announce/DNS/TLS
+  # overhead; DHT/PEX cover the rest). Joined into qBittorrent's AdditionalTrackers value
+  # (one URL per line — QSettings serialises the newlines as `\n` in qBittorrent.conf).
+  bestTrackers =
+    lib.filter (l: lib.strings.hasInfix "://" l)
+    (lib.splitString "\n" (builtins.readFile "${inputs.trackerslist}/trackers_best.txt"));
+  additionalTrackers = lib.concatStringsSep "\\n" bestTrackers;
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -184,6 +195,12 @@ in {
         # qbt writes ONLY into the virtiofs scratch (= servarr's /media/data/Media/Temp); the
         # *arr hardlink completed files out of there into the library (same fs). Never /data.
         BitTorrent.Session.DefaultSavePath = "/downloads/";
+        # Auto-append the public tracker list to NEW torrents for max peer reach
+        # (qBittorrent skips private torrents automatically). Existing torrents were
+        # seeded once via the Web API. List + nightly refresh = the `trackerslist`
+        # flake input (see `additionalTrackers` in the let above).
+        BitTorrent.Session.AddTrackersEnabled = true;
+        BitTorrent.Session.AdditionalTrackers = additionalTrackers;
       };
     };
 

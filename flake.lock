@@ -671,6 +671,7 @@
         "sops-nix": "sops-nix",
         "spicetify-nix": "spicetify-nix",
         "systems": "systems_7",
+        "trackerslist": "trackerslist",
         "unifi-mcp": "unifi-mcp",
         "vinsight-mcp": "vinsight-mcp",
         "yt-dlp-src": "yt-dlp-src"
@@ -893,6 +894,22 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "trackerslist": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1782166176,
+        "narHash": "sha256-KosFSqbbSeBFMTDivKFXKSmIQrO8qwmY+aXKvgpmiCs=",
+        "owner": "ngosang",
+        "repo": "trackerslist",
+        "rev": "46a446b43e414d3ef7a814afb959e0fc0f5e1ddc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ngosang",
+        "repo": "trackerslist",
         "type": "github"
       }
     },
