@@ -11,4 +11,6 @@
 #
 # See: modules/nixos/services/mailsearch.nix, .claude/agents/mailsearch.md
 set -euo pipefail
-exec ssh -T -o BatchMode=yes mailsearch-ro@doc2 mailsearch-mcp
+# No command arg: doc2's forced-command on mailsearch-ro runs the MCP binary
+# unconditionally and ignores SSH_ORIGINAL_COMMAND.
+exec ssh -T -o BatchMode=yes mailsearch-ro@doc2

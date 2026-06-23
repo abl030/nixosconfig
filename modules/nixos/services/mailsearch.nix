@@ -73,6 +73,7 @@
     MAILSEARCH_VECTOR_DB = vectorDb;
     MAILSEARCH_EMBED_URL = embedUrl;
     MAILSEARCH_EMBED_MODEL = cfg.embedModel;
+    MAILSEARCH_DIM = toString cfg.embedDim;
   };
 
   # Forced-command target for the doc1 agent's SSH stdio transport. Sets the
@@ -84,6 +85,7 @@
     export MAILSEARCH_VECTOR_DB=${vectorDb}
     export MAILSEARCH_EMBED_URL=${embedUrl}
     export MAILSEARCH_EMBED_MODEL=${cfg.embedModel}
+    export MAILSEARCH_DIM=${toString cfg.embedDim}
     export PATH=${lib.makeBinPath [pkgs.notmuch]}:$PATH
     exec ${mcpServer}/bin/mailsearch-mcp
   '';
@@ -329,6 +331,9 @@ in {
             UMask = "0027";
             Nice = 15;
             IOSchedulingClass = "idle";
+            # The first run embeds the whole archive on CPU (hours); without this
+            # the default ~90s start timeout SIGTERMs the bootstrap every tick.
+            TimeoutStartSec = "6h";
             ExecStart = "${pkgs.notmuch}/bin/notmuch new";
             # Both run only on a successful notmuch new. The indexer touches the
             # embed heartbeat itself; we touch the index heartbeat here.

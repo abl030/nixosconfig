@@ -124,6 +124,22 @@ in
             walk_parts(content, out)
 
 
+    def find_message(docs):
+        # notmuch show returns a forest of [msg, [replies]] pairs; with
+        # --entire-thread=false the non-matched messages are empty {} stubs.
+        # Descend and return the first NON-empty message dict (the matched one) —
+        # blindly taking node[0] lands on the empty thread-root stub for replies.
+        if isinstance(docs, list):
+            for item in docs:
+                found = find_message(item)
+                if found is not None:
+                    return found
+            return None
+        if isinstance(docs, dict):
+            return docs if (docs.get("id") or docs.get("headers")) else None
+        return None
+
+
     def fetch_message(mid):
         try:
             docs = notmuch_json([
@@ -132,10 +148,7 @@ in
             ])
         except subprocess.CalledProcessError:
             return None
-        # show returns [[ [msg, [replies...]] ]]; dig out the first message dict.
-        node = docs
-        while isinstance(node, list) and node:
-            node = node[0]
+        node = find_message(docs)
         if not isinstance(node, dict):
             return None
         headers = node.get("headers", {}) or {}
@@ -208,10 +221,13 @@ in
 
     def open_db():
         db = apsw.Connection(VECTOR_DB)
+        # No WAL: the read-only MCP runs as a different user with only group-read
+        # and cannot create the -shm/-wal sidecars. Default rollback journal +
+        # a busy timeout lets the single writer and the RO reader coexist.
+        db.setbusytimeout(5000)
         db.enableloadextension(True)
         db.loadextension(sqlite_vec.loadable_path())
         db.enableloadextension(False)
-        db.execute("PRAGMA journal_mode=WAL")
         db.execute("""
             CREATE TABLE IF NOT EXISTS messages(
               rowid INTEGER PRIMARY KEY,

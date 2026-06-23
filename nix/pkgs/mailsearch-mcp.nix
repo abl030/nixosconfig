@@ -78,8 +78,23 @@ in
         return json.loads(out) if out.strip() else []
 
 
+    def find_message(docs):
+        # See mailsearch-indexer: descend the notmuch show forest and return the
+        # first non-empty message dict (not the empty thread-root stub).
+        if isinstance(docs, list):
+            for item in docs:
+                found = find_message(item)
+                if found is not None:
+                    return found
+            return None
+        if isinstance(docs, dict):
+            return docs if (docs.get("id") or docs.get("headers")) else None
+        return None
+
+
     def db_ro():
         db = apsw.Connection(VECTOR_DB, flags=apsw.SQLITE_OPEN_READONLY)
+        db.setbusytimeout(5000)
         db.enableloadextension(True)
         db.loadextension(sqlite_vec.loadable_path())
         db.enableloadextension(False)
@@ -103,9 +118,11 @@ in
     def notmuch_query(query, folder, date_from, date_to, sender):
         terms = [query.strip()] if query and query.strip() else []
         if folder:
-            terms.append(f'folder:"{folder}"')
+            # Strip quotes so a crafted value can't break out of the quoted
+            # term and inject notmuch operators (folder scoping must hold).
+            terms.append('folder:"' + folder.replace('"', "") + '"')
         if sender:
-            terms.append(f'from:{sender}')
+            terms.append('from:"' + sender.replace('"', "") + '"')
         if date_from and date_to:
             terms.append(f"date:{date_from}..{date_to}")
         elif date_from:
@@ -122,8 +139,11 @@ in
                 "search", "--output=messages", "--format=json",
                 f"--limit={limit}", "--sort=newest-first", q,
             ])
-        except subprocess.CalledProcessError as e:
-            log(f"notmuch keyword search failed (rc={e.returncode})")
+        except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError) as e:
+            # Catch JSON-decode/value errors too: an unhandled exception would
+            # let FastMCP emit a traceback whose locals leak the query string to
+            # Loki (fleet-readable). Log only the exception type, never the query.
+            log(f"notmuch keyword search failed ({type(e).__name__})")
             return []
         return ids
 
@@ -182,9 +202,7 @@ in
             ])
         except subprocess.CalledProcessError:
             return ""
-        node = docs
-        while isinstance(node, list) and node:
-            node = node[0]
+        node = find_message(docs)
         if not isinstance(node, dict):
             return ""
         text = extract_plain(node.get("body", []))
@@ -262,9 +280,7 @@ in
             ])
         except subprocess.CalledProcessError:
             return {"error": "not found"}
-        node = docs
-        while isinstance(node, list) and node:
-            node = node[0]
+        node = find_message(docs)
         if not isinstance(node, dict):
             return {"error": "not found"}
         headers = node.get("headers", {}) or {}
@@ -309,8 +325,7 @@ in
                 stack.extend(p)
             elif isinstance(p, dict):
                 fname = p.get("filename")
-                disp = (p.get("content-disposition") or "").lower()
-                if fname and (disp == "attachment" or True):
+                if fname:
                     out.append(fname)
                 elif isinstance(p.get("content"), list):
                     stack.extend(p["content"])
