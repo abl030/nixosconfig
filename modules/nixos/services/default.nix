@@ -50,6 +50,7 @@
     ./musicbrainz.nix
     ./kopia.nix
     ./mailarchive.nix
+    ./mailsearch.nix
     ./domain-monitor.nix
     ./forgejo.nix
     ./nfs-watchdog.nix

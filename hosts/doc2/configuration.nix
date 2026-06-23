@@ -238,6 +238,15 @@
         };
       };
 
+      # Hybrid (keyword + semantic) search over the mailarchive Maildir.
+      # notmuch keyword index + nomic/sqlite-vec embeddings, all local on doc2;
+      # index on virtiofs (NOT the NFS Maildir); read-only MCP for the doc1
+      # agents only (forced-command SSH). See docs/wiki/services/mailsearch.md.
+      mailsearch = {
+        enable = true;
+        tuiUser = "abl030";
+      };
+
       kopia = {
         enable = true;
         dataDir = "/mnt/virtio/kopia";
