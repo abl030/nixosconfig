@@ -110,6 +110,33 @@
   # docs/wiki/services/hermes-agent.md.
   environment.etc."hermes/agent-bridge.py".source = ./operator/agent-bridge.py;
 
+  # ── Passwordless sudo for abl030 (re-enables the operator launcher) ──────────
+  # The sibling lockdown (forgejo#2, 2026-06-19) set wheelNeedsPassword = true on
+  # every locked host (base.nix, role-driven), leaving abl030 only the narrow
+  # read-only podman allowlist. That broke `hermes-operator` on doc1: it SSHes in
+  # and runs `sudo install`, `sudo python3 agent-bridge.py`, and `sudo podman exec
+  # -it hermes` here — none on the locked allowlist, and abl030 has no password to
+  # fall back on (console = break-glass). Grant abl030 full passwordless sudo back
+  # on THIS box only. We can't just flip the role to "bastion" (fleetBastionRole
+  # check asserts exactly one), so override the rule directly.
+  #
+  # Least-privilege note: the launcher's own commands (`sudo python3 <script>`,
+  # `sudo podman exec -it hermes`) are already root-equivalent, so a narrower
+  # allowlist would be theatre. Blast radius stays bounded — hermes holds NO fleet
+  # key (keyless re: siblings, hosts.nix), so root-on-hermes cannot pivot to the
+  # fleet. This box is slated to fold onto doc1; treat as transitional.
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "ALL";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   # Fresh-host fix: sops-nix materialises the base atuin secret under
   # ~/.local/share/atuin/ during activation and creates the intermediate dirs
   # as ROOT, which then blocks home-manager from creating
