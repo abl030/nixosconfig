@@ -394,6 +394,11 @@ in {
               "--embeddings"
               "--pooling mean"
               "-c 8192"
+              # Physical batch must cover a whole email in one forward pass, or
+              # llama-server 500s any input over the default 512 ('input too
+              # large to process. increase the physical batch size').
+              "-b 8192"
+              "-ub 8192"
               "--rope-scaling yarn"
               "--rope-freq-scale 0.75"
               "-ngl 0"

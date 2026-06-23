@@ -77,7 +77,7 @@ in
     HEARTBEAT = os.environ.get("MAILSEARCH_HEARTBEAT")
     BATCH = int(os.environ.get("MAILSEARCH_BATCH", "32"))
     DIM = int(os.environ.get("MAILSEARCH_DIM", "768"))
-    MAX_CHARS = int(os.environ.get("MAILSEARCH_MAX_CHARS", "30000"))
+    MAX_CHARS = int(os.environ.get("MAILSEARCH_MAX_CHARS", "24000"))  # keep under the 8192-token ctx
 
 
     # NEVER log message bodies or search queries — doc2 ships the journal to Loki,
@@ -307,19 +307,29 @@ in
 
     def flush(db, batch):
         try:
-            vecs = embed([r["clean"] for r in batch])
+            pairs = list(zip(batch, embed([r["clean"] for r in batch])))
         except Exception as e:  # noqa: BLE001
-            log(f"embed batch failed ({len(batch)} msgs): {e}")
-            raise
+            # One pathological message (e.g. over the model context) would 500
+            # the whole batch and previously crashed the entire run. Fall back
+            # to per-message; skip the individual messages that still fail.
+            log(f"batch embed failed ({type(e).__name__}); retrying per-message")
+            pairs = []
+            for rec in batch:
+                try:
+                    pairs.append((rec, embed([rec["clean"]])[0]))
+                except Exception as e2:  # noqa: BLE001
+                    log(f"skip {rec['message_id'][:50]} (embed failed: {type(e2).__name__})")
+        if not pairs:
+            return 0
         with db:  # transaction
-            for rec, vec in zip(batch, vecs):
+            for rec, vec in pairs:
                 upsert(db, rec, vec)
         # Touch the heartbeat per batch so a multi-hour bootstrap run stays
         # "live" to the health monitor instead of going stale for hours.
         if HEARTBEAT:
             with open(HEARTBEAT, "w") as fh:
                 fh.write(str(int(time.time())))
-        return len(batch)
+        return len(pairs)
 
 
     if __name__ == "__main__":
