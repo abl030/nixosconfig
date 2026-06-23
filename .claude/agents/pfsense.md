@@ -23,9 +23,11 @@ Always confirm destructive operations (deleting rules, changing routing) before 
 
 These are pre-investigated recipes for operations the user runs frequently. Run the calls verbatim — **do not** re-discover IDs, re-read the rule list, or perform drift audits. The infrastructure (rules, kill switches) is already in place; only the alias contents change.
 
-### Toggle epimetheus (192.168.1.5) on/off the Singapore VPN
+### Toggle epimetheus (192.168.1.5) on/off the Europe VPN (tun_wg0/AirVPN_SG gateway)
 
-Used to temporarily reset the user's apparent public IP. Typical cycle: enable → wait ~5 min → disable. **No Nix sync required** — `MV_VPN_SG_IPS` is not mirrored to Nix (only the NZ `MV_VPN_IPS` is). No drift audit needed for SG-only operations.
+Used to temporarily reset the user's apparent public IP. Exit is currently Oslo, Norway (exit IP 146.70.219.2). Typical cycle: enable → wait ~5 min → disable. **No Nix sync required** — `MV_VPN_SG_IPS` is not mirrored to Nix (only the NZ `MV_VPN_IPS` is). No drift audit needed for EU-only operations.
+
+Note: the alias and rules are still named `MV_VPN_SG_IPS` / `AirVPN_SG` internally (renaming would require touching all policy routing rules — deferred). The tunnel is functionally Europe/Norway as of 2026-06-23.
 
 **Rules 21 (pass via SG) and 22 (kill switch) are kept disabled while the alias is empty.** This is a deliberate safety posture: an enabled kill switch with a transient/empty alias can interact badly during apply, and leaving them off when unused means a stray alias entry can never accidentally block traffic. The toggle therefore flips the rule state too, not just the alias contents.
 
@@ -58,6 +60,15 @@ If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: [...]`,
 | 15 | alias `DHCP_Dynamic` | Untrusted DHCP range (.100-.254) |
 | 21 | LAN rule | pass `MV_VPN_SG_IPS` → AirVPN_SG gateway |
 | 22 | LAN rule | block `MV_VPN_SG_IPS` (SG kill switch) |
+| 27 | LAN rule | pass `192.168.1.17` (NZBGet) → AirVPN_SG (Europe), per-host, ABOVE the MV_VPN_IPS rule |
+| 28 | LAN rule | block `192.168.1.17` (NZBGet Europe kill switch) |
+
+NZBGet-on-Europe (2026-06-23): the user wanted the usenet **downloader** (.17) exiting Europe (faster)
+while everything else stays on NZ. Done with the per-host pair above (ids 27/28) placed ABOVE the
+`MV_VPN_IPS → AirVPN (NZ)` pass rule — `.17` first-matches Europe; all other MV_VPN_IPS hosts fall
+through to NZ. `.17` stays in the `MV_VPN_IPS` alias (no alias edit → **no Nix sync**). Verified exit
+146.70.219.2 (Oslo, NO) from inside the nzbget container. To move qbt/slskd later, their inbound
+port-forwards must move from opt5 (NZ) to opt1 (EU) too — not just the egress gateway.
 
 Note: alias IDs shifted on 2026-06-05 when pfB_DoH_v4 was added and DoH_Providers retired. The MV_VPN_SG_IPS fast-path update_alias call now uses id=14 (was 15). Always verify IDs before operations.
 
@@ -134,7 +145,7 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 |-----------|------|--------|----------|---------|
 | WAN | wan | DHCP (public IP) | igc0 | Internet uplink |
 | LAN | lan | 192.168.1.0/24 | igc1 | Main network |
-| OPT1 (AirVPN SG) | opt1 | 10.136.216.104/32 | tun_wg0 | AirVPN WG tunnel (Singapore) |
+| OPT1 (AirVPN EU) | opt1 | 10.136.216.104/32 | tun_wg0 | AirVPN WG tunnel (Europe/Norway) |
 | OPT3 (Docker VLAN) | opt3 | 192.168.11.0/24 | igc1.10 (VLAN 10) | Docker/container network |
 | IOT_OF_DEATH | opt4 | 192.168.101.0/24 | igc1.100 (VLAN 100) | Isolated IoT devices |
 | OPT5 (AirVPN NZ) | opt5 | 10.136.18.126/32 | tun_wg2 | AirVPN WG tunnel (New Zealand) |
@@ -152,16 +163,24 @@ Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, 
 |------|---------|
 | WAN_DHCP | Default internet gateway |
 | AirVPN | AirVPN WireGuard tunnel (NZ, tun_wg2/opt5) |
-| AirVPN_SG | AirVPN WireGuard tunnel (Singapore, tun_wg0/opt1) |
+| AirVPN_SG | AirVPN WireGuard tunnel (Europe/Norway, tun_wg0/opt1) — internal name kept as AirVPN_SG; descr updated to "AirVPN Europe WireGuard gateway" |
 
 ### WireGuard Tunnels
 
 | Tunnel | Port | Interface | Description |
 |--------|------|-----------|-------------|
 | tun_wg2 | 51822 | opt5 (AIRVPN_NZ implied, descr OPT5) | WG_AIRVPN (New Zealand) |
-| tun_wg0 | 51823 | opt1 (AIRVPN_SG) | WG_AIRVPN_SG (Singapore) |
+| tun_wg0 | 51823 | opt1 (AIRVPN_SG) | WG_AIRVPN_EU (Europe/Norway) — revived 2026-06-23 |
 
-Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the same server pubkey (`PyLCXA...`) across regions. The SG peer was injected directly into config.xml via PHP to bypass this API-layer constraint — WireGuard kernel itself supports same peer pubkey on different interfaces. The SG tunnel uses a distinct client private key and client IP (10.136.216.104/32).
+Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the same server pubkey (`PyLCXA...`) across regions. The EU peer was injected directly into config.xml via PHP to bypass this API-layer constraint — WireGuard kernel itself supports same peer pubkey on different interfaces. The EU tunnel uses a distinct client private key and client IP (10.136.216.104/32).
+
+Tunnel details (as of 2026-06-23 revival):
+- Peer endpoint: `europe3.vpn.airdns.org:1637` (resolves to 82.102.27.173)
+- PSK: set (added during revival)
+- Exit IP: 146.70.219.2 (Oslo, Norway — M247 Europe SRL)
+- Gateway monitor: 10.128.0.1 (AirVPN internal DNS, reachable only through tunnel)
+- wg syncconf is used to apply peer changes (bypasses API pubkey uniqueness check)
+- The stale "Singapore" peer (pubkey 3HtGdhEX..., endpoint 138.199.60.28) was deleted during revival
 
 ## VPN Routing Policy
 
@@ -169,7 +188,7 @@ Traffic is routed through AirVPN based on source IP using aliases:
 
 - **MV_VPN_IPS** → AirVPN gateway (NZ): 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC (alias also contains a stray IPv6 placeholder `aaaa:bbbb:cccc::3a` — not a real address, harmless, but present in live pfSense state)
 - Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback)
-- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Singapore): 192.168.1.5 (epimetheus) — rules 21 (pass) + 22 (kill switch) enabled 2026-05-16
+- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Europe/Norway, tunnel relabelled EU 2026-06-23): 192.168.1.5 (epimetheus) — rules 21 (pass) + 22 (kill switch) enabled 2026-05-16
 - Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback on SG tunnel)
 - **OPT3 (Docker VLAN)** → all traffic routes via AirVPN (NZ)
 
