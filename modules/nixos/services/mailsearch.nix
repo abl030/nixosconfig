@@ -19,19 +19,15 @@
 # Plan:       docs/plans/2026-06-23-001-feat-mailarchive-search-plan.md
 # Runbook:    docs/wiki/services/mailsearch.md
 #
-# DEPLOY-TIME VERIFY (cannot be checked by `nix flake check`, only on doc2):
-#   * Maildir read access (SCOPED ACL): the live gmail/work Maildirs are mode
-#     0700. Grant the `mailsearch` group read+traverse with a POSIX ACL
-#     (`setfacl -R -m g:mailsearch:rX <tree>` + a default ACL). Do NOT chmod
-#     g+rX or use the broad `users` group — that exposes the corpus to every
-#     users-group service. See docs/wiki/services/mailsearch.md.
-#   * The MCP runs SSH-spawned (not under systemd), so it does NOT get the
-#     systemd hardening below. It is read-only by construction under the minimal
-#     `mailsearch-ro` user; a full namespace sandbox (socket-activated unit)
-#     is a deploy-loop follow-up.
-#   * embedModelSpec: confirm the exact `-hf <repo>:<quant>` string downloads.
-#   * fleetPubKey: confirm it matches hosts.nix `fleetIdentity`.
-#   * nix/pkgs/mailsearch-indexer.nix mail-parser-reply hash (lib.fakeHash now).
+# STATUS: LIVE on doc2 (2026-06-24). Keyword index ~143k msgs; semantic index
+# bootstraps over hours on first deploy. Deploy lessons (port 8181 clash -> 18181;
+# long oneshot wedging switch -> restartIfChanged=false; embed 500 on >512-token
+# emails -> -b/-ub 8192) are written up in docs/wiki/services/mailsearch.md.
+#
+# Note: the live Maildir reads fine over NFS without any ACL or the `users`
+# group (verified by indexing the full archive). Residual: the SSH-spawned MCP
+# does NOT get the systemd hardening below — read-only by construction under the
+# minimal `mailsearch-ro` user; a socket-activated sandbox is a follow-up.
 {
   config,
   lib,
