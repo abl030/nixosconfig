@@ -83,6 +83,14 @@ in {
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
+          # SECURITY TRADEOFF (user-approved 2026-06-23): the headless Camoufox browser
+          # crash-loops on launch (playwright TargetClosedError) under the default seccomp
+          # profile — it denies the namespace/clone syscalls the browser sandbox needs,
+          # and Byparr's upstream compose ships with NO hardening (expects ~default
+          # privileges). We drop ONLY the seccomp syscall filter; the container stays
+          # userns-remapped (never abl030), cap-drop=all (no caps), on its own isolated
+          # bridge, loopback-bound, with no host volumes — so blast radius stays bounded.
+          "--security-opt=seccomp=unconfined"
           # Byparr bakes `USER 1000` (= host abl030) AND a UID-1000-owned uv cache
           # (/var/cache/uv) its entrypoint must write at startup, so a plain --user
           # override crashes it ("Failed to initialize cache ... Permission denied").
