@@ -97,18 +97,24 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
 - Cloudflare note: **FlareSolverr is dead in 2026; use Byparr** (drop-in, same `:8191`/API) to
   recover 1337x / EZTV / TheRARBG. Not deployed yet.
 
-## Indexers Prowlarr REMOVED (TheRARBG / EXT.to / BitSearch)
+## Indexers Prowlarr REMOVED — and why NOT to re-add them
 
-These were *removed* from Prowlarr's built-in defs (NOT version-gated — 2.4.0 is current), so they
-need **custom Cardigann YAMLs** in `Definitions/Custom/` → on NixOS that's
-`/var/lib/private/prowlarr/Definitions/Custom/` (DynamicUser; abl030 can't write it). The clean fix
-is a **repo change** (hand to the main session — this agent must not edit the repo): vendor the
-YAMLs and add a prowlarr `ExecStartPre` that copies them in as the service user, then `fleet-deploy`.
-Last-known-good sources:
-- TheRARBG (maintained): `Jackett/Jackett@master:src/Jackett.Common/Definitions/therarbg.yml`
-- BitSearch (last v11): `Prowlarr/Indexers@181aa73b…:definitions/v11/bitsearch.yml`
-- EXT.to (`exttorrents`): `Jackett/Jackett@7a3eb6d6…:src/Jackett.Common/Definitions/exttorrents.yml`
-TheRARBG is reliable; BitSearch/EXT.to are revived-from-history (may need selector tweaks / Byparr).
+TheRARBG, EXT.to, BitSearch are absent because Prowlarr **removed them on purpose** (not a version
+lag — 2.4.0 is current). The removal reasons ARE the verdict:
+- **TheRARBG** — removed 2025-10-05 for *"bad releases, dupe releases"* causing Sonarr/Radarr
+  support issues. Re-adding re-imports that exact problem. **Don't.**
+- **BitSearch / EXT.to** — removed (2026-04 / 2026-01) for going flaky; also gone from Jackett.
+  Any re-add is a revived-from-history custom def, unmaintained. Not worth the upkeep.
+
+You *can* re-add via a custom Cardigann YAML in `/var/lib/private/prowlarr/Definitions/Custom/`
+(DynamicUser — needs a repo change: vendored YAMLs + a prowlarr `ExecStartPre` copy, NOT this
+agent), but the standing recommendation is **don't**. The current 9 torrent indexers + the usenet
+path are a solid set on their own.
+
+**The better coverage win:** 1337x + EZTV were disabled for **Cloudflare (access), not quality** —
+they're genuinely good general indexers. Recover them with **Byparr** (the FlareSolverr successor):
+add it as a FlareSolverr-type indexer-proxy in Prowlarr, **tag it onto 1337x/EZTV**, and re-enable
+them. (A proxy only applies to indexers that share its tag — the #1 "shows disabled" gotcha.)
 
 ## Safety rules
 
