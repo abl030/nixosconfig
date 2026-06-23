@@ -30,6 +30,7 @@
     ./audiobookshelf.nix
     ./atuin.nix
     ./beancount.nix
+    ./byparr.nix
     ./slskd.nix
     ./cratedigger.nix
     ./discogs.nix

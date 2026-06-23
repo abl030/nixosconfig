@@ -120,6 +120,9 @@
       # bridge (127.0.0.1:9876) instead of Gotify, and the bridge
       # forwards a summarised push.
       alertBridge.enable = true;
+      # Byparr — Cloudflare-challenge solver Prowlarr uses for its gated indexers
+      # (1337x/EZTV). Stateless OCI container, reached LAN-wide at byparr.ablz.au.
+      byparr.enable = true;
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";
