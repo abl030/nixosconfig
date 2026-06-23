@@ -29,26 +29,14 @@ in {
       description = "Byparr HTTP port (FlareSolverr-compatible; bound to loopback, fronted by nginx).";
     };
 
-    runtimeUid = lib.mkOption {
+    uidBase = lib.mkOption {
       type = lib.types.int;
-      default = 2015;
-      description = "Dedicated host UID the container runs as (must NOT be 1000/abl030).";
+      default = 300000;
+      description = "Host UID/GID base for the userns remap (container 0..65535 -> host base..base+65535). Must not overlap other remapped containers (netboot=100000, watchstate=200000); the image's baked UID 1000 lands on base+1000, never 1000/abl030.";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    # Byparr's image bakes `USER 1000` — under rootful podman that is host UID 1000
-    # (= abl030, passwordless-sudo admin), the forbidden case. It's a plain
-    # `python main.py` entrypoint (no s6/PUID drop), so it honours an explicit
-    # --user override (class-1 per the module rules): pin it to a dedicated UID.
-    # HOME=/tmp (writable) + /app/.venv (read+exec); the solver keeps no host state.
-    users.users.byparr = {
-      isSystemUser = true;
-      group = "users";
-      uid = cfg.runtimeUid;
-      description = "Byparr Cloudflare solver (OCI container runtime UID)";
-    };
-
     homelab = {
       podman.enable = true;
       podman.containers = [
@@ -95,8 +83,14 @@ in {
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
-          # Not host UID 1000: image bakes USER 1000; pin runtime to the dedicated UID.
-          "--user=${toString cfg.runtimeUid}:100"
+          # Byparr bakes `USER 1000` (= host abl030) AND a UID-1000-owned uv cache
+          # (/var/cache/uv) its entrypoint must write at startup, so a plain --user
+          # override crashes it ("Failed to initialize cache ... Permission denied").
+          # Class-2 fix (module rules): userns-remap the whole container — it keeps
+          # its internal UID 1000 (owns /var/cache/uv, HOME=/tmp) but that maps to a
+          # high host UID (uidBase+1000), never abl030. Stateless: no volumes, no :U.
+          "--uidmap=0:${toString cfg.uidBase}:65536"
+          "--gidmap=0:${toString cfg.uidBase}:65536"
           # Reap the headless browser's child processes (compose sets `init: true`).
           "--init"
           # Headless browser needs more than the 64M default /dev/shm or it crashes.
