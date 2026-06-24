@@ -104,6 +104,33 @@ which are running, and which VMIDs are free. Decide from *this*, not from memory
    host `192.168.1.111` (auto-discovers as `Gaming-106`) → **Desktop**. No new
    pairing needed. Only pair (PIN at `apollo.ablz.au`) if it's a brand-new client.
 
+## Add a per-game tile (one-click launch in Moonlight)
+
+Once a game is installed on a clone, give it its own Moonlight tile so the user
+picks the game and lands straight in it (no Desktop → hunt → launch). This is a
+**per-clone, post-install** step — the game lives on that clone's disk, so the
+tile is added to *that VM's* Apollo, not the template.
+
+1. **Find the launcher.** FitGirl/most installers drop a desktop shortcut —
+   resolve its target:
+   ```powershell
+   (New-Object -ComObject WScript.Shell).CreateShortcut("C:\Users\abl030\Desktop\<Game>.lnk").TargetPath
+   ```
+   (or search `C:\Games`). Note the `.exe` and its folder (the working dir).
+2. **Add it to `C:\Program Files\Apollo\config\apps.json`.** Apollo rewrites that
+   file on shutdown, so **Stop-Service ApolloService first**, edit, then start.
+   Edit with `ConvertFrom-Json` → append → `ConvertTo-Json -Depth 12` →
+   `Set-Content -Encoding ascii` (no BOM); de-dup by `name` so re-runs are
+   idempotent. The app object:
+   ```json
+   { "name": "<Game>", "cmd": "<...\\game.exe>", "working-dir": "<...\\folder>",
+     "auto-detach": true, "uuid": "<new GUID>" }
+   ```
+   `auto-detach: true` is the robust default — it copes with games that fork a
+   launcher and exit (otherwise the session would end immediately).
+3. Restart Apollo → the tile appears in Moonlight on refresh; clicking it launches
+   the game and streams it directly.
+
 ## Start / switch / stop / list / destroy
 
 - **list:** Step 0's queries — separate Apollo clones (shared MAC) from other GPU
