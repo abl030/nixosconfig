@@ -195,15 +195,29 @@ committed. Recorded so the next local-inference / NFS-indexing service avoids th
    Despite the recommended `-c 8192 --rope-scaling yarn --rope-freq-scale 0.75`,
    the `already-embedded` watermark climbed to ~49.5k/143k then flatlined (**+6
    over 6h**), with `llama-server` rejecting every longer email: `input (N tokens)
-   is larger than the max context size (2048 tokens). skipping`. RoPE scaling
-   *was* working (`n_ctx_seq=8192`); the real culprit was the startup banner line
-   `n_parallel is set to auto, using n_parallel = 4` — llama-server **divides
-   n_ctx across slots**, so 8192/4 = **2048 per slot**, capping every embed.
-   Confirmed via the per-slot banner `new slot, n_ctx = 2048` (×4). The indexer is
-   a single sequential client, so the fix is **`--parallel 1`** (one slot gets the
-   full 8192) — *no truncation needed*. *Lesson: for an embedding server, pin
-   `--parallel 1` (or set `-c` = 8192 × n_parallel); auto-parallel silently splits
-   the context and there is no error, just skipped inputs.*
+   is larger than the max context size (2048 tokens). skipping`. RoPE scaling *was*
+   working (`n_ctx_seq=8192`) — but **two** independent llama-server quirks each
+   capped the usable per-slot context back to 2048, so any email over ~2048 tokens
+   was skipped (no error to the indexer, just a silent `skip`):
+     1. **Slot division.** Banner: `n_parallel is set to auto, using n_parallel = 4`
+        → llama-server divides `n_ctx` across slots, `8192/4 = 2048` per slot.
+        Pinning `--parallel 1` gives the single slot the full 8192.
+     2. **Trained-context cap.** Even with one slot, the banner then showed
+        `the slot context (8192) exceeds the training context of the model (2048)
+        - capping` → `new slot, n_ctx = 2048`. llama-server caps each slot to the
+        GGUF `n_ctx_train` and **ignores rope/YaRN** — upstream bug
+        [ggml-org/llama.cpp#22140](https://github.com/ggml-org/llama.cpp/issues/22140)
+        (also [#17459](https://github.com/ggml-org/llama.cpp/issues/17459)). Lift it
+        with `--override-kv nomic-bert.context_length=int:8192` (raises the value
+        `n_ctx_train` reads) plus `--yarn-orig-ctx 2048` (keeps YaRN scaling
+        anchored to the real 2048 training context).
+   **Full fix (all three):** `--parallel 1 --override-kv
+   nomic-bert.context_length=int:8192 --yarn-orig-ctx 2048` (atop the existing
+   `-c 8192 -b 8192 -ub 8192 --rope-scaling yarn --rope-freq-scale 0.75`). Verified
+   on doc1 (llama-cpp 9608): slot loads at `n_ctx = 8192`, a 16k-char (~4k-token)
+   email returns a 768-dim vector with HTTP 200. *No truncation needed.* *Lesson:
+   for an embedding server check the load banner for BOTH the slot-division and the
+   trained-context cap — both are silent and either one strands long inputs.*
 
 **Maildir access — no ACL needed.** Contrary to the original plan, the index
 user reads the `0700` Maildir over the NFS mount **without** any extra ACL or the
