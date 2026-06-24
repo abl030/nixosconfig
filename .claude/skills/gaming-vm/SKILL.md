@@ -117,19 +117,37 @@ tile is added to *that VM's* Apollo, not the template.
    (New-Object -ComObject WScript.Shell).CreateShortcut("C:\Users\abl030\Desktop\<Game>.lnk").TargetPath
    ```
    (or search `C:\Games`). Note the `.exe` and its folder (the working dir).
-2. **Add it to `C:\Program Files\Apollo\config\apps.json`.** Apollo rewrites that
-   file on shutdown, so **Stop-Service ApolloService first**, edit, then start.
+2. **Grab cover art (keyless, from Steam).** It makes the tile look right:
+   ```bash
+   curl -s "https://store.steampowered.com/api/storesearch/?term=<game>&cc=us&l=en"   # → items[].id (appid)
+   curl -s "https://store.steampowered.com/api/appdetails?appids=<appid>&cc=us&l=en"  # → .data.header_image
+   ```
+   `header_image` (460×215 key art) always exists. The nicer *vertical* box art is
+   `library_600x900.jpg` under the same hashed asset dir — but it's often missing
+   for unreleased games (404). SteamGridDB has vertical grids for almost anything
+   but needs a free API key. Download the art on doc1, `scp` it to the VM as
+   `abl030` (e.g. `C:/Users/abl030/cover.jpg`), then **as SYSTEM** move it into
+   `C:\Program Files\Apollo\config\covers\` and point `image-path` at it.
+3. **Add the app to `C:\Program Files\Apollo\config\apps.json`.** Apollo rewrites
+   that file on shutdown, so **Stop-Service ApolloService first**, edit, start.
    Edit with `ConvertFrom-Json` → append → `ConvertTo-Json -Depth 12` →
-   `Set-Content -Encoding ascii` (no BOM); de-dup by `name` so re-runs are
-   idempotent. The app object:
+   `Set-Content -Encoding ascii` (no BOM); de-dup by `name`, preserve `uuid` on
+   re-runs. The app object:
    ```json
    { "name": "<Game>", "cmd": "<...\\game.exe>", "working-dir": "<...\\folder>",
-     "auto-detach": true, "uuid": "<new GUID>" }
+     "elevated": true, "auto-detach": true,
+     "image-path": "C:\\Program Files\\Apollo\\config\\covers\\<game>.jpg",
+     "uuid": "<new GUID>" }
    ```
-   `auto-detach: true` is the robust default — it copes with games that fork a
-   launcher and exit (otherwise the session would end immediately).
-3. Restart Apollo → the tile appears in Moonlight on refresh; clicking it launches
-   the game and streams it directly.
+   - ⚠️ **`"elevated": true` is REQUIRED for most games.** Apollo launches apps
+     non-elevated in the user session; a game whose manifest demands admin (most
+     AAA / FitGirl titles) then fails with `Failed to launch process: 740`
+     (`ERROR_ELEVATION_REQUIRED`) and **Moonlight shows "Error 0 / Failed to start
+     the specified application."** If a tile gives **Error 0, this is almost
+     always the cause** — add `elevated: true`.
+   - `auto-detach: true` copes with games that fork a launcher and exit.
+4. Restart Apollo → the tile (with cover) appears in Moonlight on refresh; clicking
+   it launches the game and streams it directly.
 
 ## Start / switch / stop / list / destroy
 
