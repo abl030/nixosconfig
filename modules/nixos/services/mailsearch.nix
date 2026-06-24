@@ -502,7 +502,11 @@ in {
           BIND_HOST = "127.0.0.1";
           BIND_PORT = toString cfg.healthPort;
           STALE_THRESHOLD_SEC = toString cfg.staleThresholdSec;
-          INDEX_HEARTBEAT = indexHeartbeat;
+          # Liveness = the embed heartbeat (touched every batch + every run). The
+          # index heartbeat only refreshes when `notmuch new` re-runs, which it
+          # does NOT during the multi-hour single bootstrap run, so it goes stale
+          # and false-pages "indexer down". The keyword index is covered by the
+          # deep probe (notmuch count) instead.
           EMBED_HEARTBEAT = embedHeartbeat;
         };
         serviceConfig =
