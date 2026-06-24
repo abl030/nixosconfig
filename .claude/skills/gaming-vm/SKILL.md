@@ -149,6 +149,27 @@ tile is added to *that VM's* Apollo, not the template.
 4. Restart Apollo → the tile (with cover) appears in Moonlight on refresh; clicking
    it launches the game and streams it directly.
 
+## Lock the clone off the internet (optional — ASK the user)
+
+Once a game is installed a clone usually has no further need for WAN, and cutting
+it off shrinks the attack surface of a headless, auto-login Windows box running
+cracked binaries. **This is per-game and must NOT be automatic** — online games,
+launchers, and game updates need the internet. So **after install, ASK:** *"Want
+me to cut this VM off the internet now that `<game>`'s installed?"*
+
+If yes, block at the **per-VM** firewall — NOT the shared `apollo_vpn` group, so
+other clones / future game installs keep their WAN:
+```bash
+sed -i 's/^policy_out: ACCEPT/policy_out: DROP/' /etc/pve/firewall/<vmid>.fw
+pve-firewall compile
+```
+The group's explicit allows still fire (DNS-to-gateway, DHCP, LAN streaming), so
+the VM keeps streaming and resolving names — only WAN egress is dropped. Verify
+from the guest: `Invoke-WebRequest https://1.1.1.1 -TimeoutSec 8` times out while
+`Resolve-DnsName cloudflare.com` still works. Reverse anytime with `policy_out:
+ACCEPT`. (Note: clones share IP `.111`, so don't block at pfSense or in the group
+— that'd hit every clone, including the next one mid-install.)
+
 ## Start / switch / stop / list / destroy
 
 - **list:** Step 0's queries — separate Apollo clones (shared MAC) from other GPU
