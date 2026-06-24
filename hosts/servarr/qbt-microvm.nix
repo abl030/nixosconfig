@@ -58,6 +58,65 @@
     lib.filter (l: lib.strings.hasInfix "://" l)
     (lib.splitString "\n" (builtins.readFile "${inputs.trackerslist}/trackers_best.txt"));
   additionalTrackers = lib.concatStringsSep "\\n" bestTrackers;
+
+  # ── qBittorrent.conf: MERGE the Nix-managed keys; do NOT clobber the whole file ──
+  # The upstream services.qbittorrent module installs a freshly-generated qBittorrent.conf
+  # (containing ONLY the serverConfig keys) over the real one on EVERY service start. That
+  # reset every WebUI-set preference to qBittorrent's defaults on each boot/restart — the
+  # "settings don't persist after a reboot" bug. (Torrent state survived because it lives in
+  # a different dir, BT_backup/, that the install never touched.)
+  #
+  # So we DON'T set serverConfig. Instead managedConf below is the single source of truth for
+  # the keys Nix owns, and the merge pre-start (qbtMergeConfig) splices just those keys into
+  # the guest's persisted conf — leaving every other (user/WebUI-set) key intact. Net:
+  #   • user/WebUI settings persist across reboots, and
+  #   • the managed keys (WebUI bind/whitelist, save path, nightly tracker list) are still
+  #     re-applied on every start, so the tracker refresh keeps working (restartTriggers on
+  #     managedConf re-runs the merge whenever a nightly flake bump changes the list).
+  #
+  # Managed keys (was serverConfig — rationale preserved here):
+  #   WebUI\Address=*                       bind all guest ifaces; reached via pfSense from
+  #                                         servarr (and qbt.ablz.au through servarr's nginx).
+  #   WebUI\AuthSubnetWhitelist[Enabled]    no-creds path for the LAN subnet qbt sees (pfSense
+  #                                         ROUTES LAN→VLAN20, no NAT → real .101); pfSense
+  #                                         permits ONLY servarr→8080, so humans are LAN-only.
+  #   Session\DefaultSavePath=/downloads/   qbt writes ONLY into the virtiofs scratch; *arr
+  #                                         hardlink completed files out of there. Never /data.
+  #   Session\Add[itional]Trackers          auto-append the public list to NEW torrents.
+  # Format = qBittorrent's own INI: backslash-nested keys, lowercase bools, AdditionalTrackers
+  # one line with `\n`-escaped URLs (QSettings unescapes them back to newlines on read).
+  managedConf = pkgs.writeText "qBittorrent-managed.conf" ''
+    [BitTorrent]
+    Session\AddTrackersEnabled=true
+    Session\AdditionalTrackers=${additionalTrackers}
+    Session\DefaultSavePath=/downloads/
+
+    [Preferences]
+    WebUI\Address=*
+    WebUI\AuthSubnetWhitelistEnabled=true
+    WebUI\AuthSubnetWhitelist=192.168.1.0/24
+  '';
+
+  # Pre-start, run before qbittorrent-nox as the service user while the conf is quiescent:
+  #   • fresh state volume (no conf) → seed exactly the managed keys;
+  #   • existing conf → crudini-merge the managed keys in, preserving every other key, then
+  #     normalise crudini's `k = v` back to qBittorrent's own `k=v`.
+  # Merge failure is deliberately NON-fatal: fall through and start with the existing conf
+  # (managed keys persist from the previous merge) rather than brick a live torrent box.
+  qbtMergeConfig = pkgs.writeShellScript "qbt-merge-config" ''
+    set -u
+    conf="/var/lib/qBittorrent/qBittorrent/config/qBittorrent.conf"
+    if [ ! -e "$conf" ]; then
+      ${pkgs.coreutils}/bin/install -Dm600 ${managedConf} "$conf"
+      exit 0
+    fi
+    if ${pkgs.crudini}/bin/crudini --merge --inplace "$conf" < ${managedConf}; then
+      ${pkgs.gnused}/bin/sed -i -E 's/^([^=]*[^= ]) = /\1=/' "$conf"
+      ${pkgs.coreutils}/bin/chmod 600 "$conf"
+    else
+      echo "qbt-merge-config: crudini merge failed; starting with existing conf" >&2
+    fi
+  '';
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -182,33 +241,25 @@ in {
       # AirVPN forward → 45726). The guest firewall just must not DROP those allowed flows —
       # with openFirewall=false it silently blocked the WebUI (HTTP 000) and inbound peers.
       openFirewall = true;
-      serverConfig = {
-        Preferences.WebUI = {
-          # Bind all guest interfaces; reached via pfSense from servarr (and qbt.ablz.au via
-          # servarr's nginx). No password: pfSense permits ONLY servarr→8080, so bypass auth
-          # for the LAN source IP qbt sees (pfSense ROUTES LAN→VLAN20, no NAT, so it sees the
-          # real .101). Adds the *arr-friendly no-creds path; humans reach it LAN-only.
-          Address = "*";
-          AuthSubnetWhitelistEnabled = true;
-          AuthSubnetWhitelist = "192.168.1.0/24";
-        };
-        # qbt writes ONLY into the virtiofs scratch (= servarr's /media/data/Media/Temp); the
-        # *arr hardlink completed files out of there into the library (same fs). Never /data.
-        BitTorrent.Session.DefaultSavePath = "/downloads/";
-        # Auto-append the public tracker list to NEW torrents for max peer reach
-        # (qBittorrent skips private torrents automatically). Existing torrents were
-        # seeded once via the Web API. List + nightly refresh = the `trackerslist`
-        # flake input (see `additionalTrackers` in the let above).
-        BitTorrent.Session.AddTrackersEnabled = true;
-        BitTorrent.Session.AdditionalTrackers = additionalTrackers;
-      };
+      # serverConfig is intentionally NOT set: the module would install it over
+      # qBittorrent.conf on every start, wiping all WebUI-set prefs. The managed keys are
+      # MERGED in via the ExecStartPre override below instead — see managedConf in the let.
     };
 
-    # Downloads land on the NFS scratch, where the backend squashes qbt's uid to 99
-    # (nobody); qbt re-opens its OWN files for writing via gid 100 (group), so they
-    # must be GROUP-WRITABLE. Default umask 022 → 0664... → 0644 (group read-only) →
-    # EACCES on file_open. umask 002 → 0664 → qbt writes; *arr read/hardlink via group.
-    systemd.services.qbittorrent.serviceConfig.UMask = "0002";
+    systemd.services.qbittorrent = {
+      # Re-apply ONLY the managed keys via the merge pre-start (managedConf / qbtMergeConfig
+      # in the let above) instead of the module's whole-file clobber, so WebUI settings
+      # persist across reboots. mkForce wins over any module-provided ExecStartPre.
+      # restartTriggers re-runs the merge (→ fresh tracker list) whenever managedConf changes.
+      restartTriggers = [managedConf];
+      serviceConfig.ExecStartPre = lib.mkForce "${qbtMergeConfig}";
+
+      # Downloads land on the NFS scratch, where the backend squashes qbt's uid to 99
+      # (nobody); qbt re-opens its OWN files for writing via gid 100 (group), so they
+      # must be GROUP-WRITABLE. Default umask 022 → 0664... → 0644 (group read-only) →
+      # EACCES on file_open. umask 002 → 0664 → qbt writes; *arr read/hardlink via group.
+      serviceConfig.UMask = "0002";
+    };
 
     # No fleet trust, no tailscale, nothing else. This box is disposable.
     networking.firewall.enable = lib.mkDefault true;
