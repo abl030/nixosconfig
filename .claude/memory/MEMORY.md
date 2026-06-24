@@ -81,6 +81,12 @@
   gated by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, which `base.nix:82` deliberately
   strips. Verified 2026-06-21: [claude-code-sendmessage-agent-teams.md](claude-code-sendmessage-agent-teams.md)
 - Hermes agent → **full-operator** build (TUI=full prod creds via ssh-agent fwd, Telegram=read-only by construction). See [hermes-full-operator-posture.md](hermes-full-operator-posture.md).
+- Operational/infra automation → write a Claude Code SKILL that discovers live
+  state (`qm list`, etc.), NOT a hardcoded script (VMIDs/MACs/PCI drift → stale in
+  a day). [feedback-skill-over-script-ops.md](feedback-skill-over-script-ops.md)
+- Apollo gaming VMs: clone template `WindowsGamingTemplate` (one per game, single
+  GPU = one runs at a time, shared MAC `BC:24:11:5E:E5:00`→.111 carries pfSense
+  VPN/isolation). Skill: `gaming-vm`; doc: `docs/wiki/services/apollo-gaming-vm.md`.
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat
