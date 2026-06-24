@@ -50,7 +50,11 @@
       };
       pfsenseExporter.enable = true;
       ntopngExporter = {
-        enable = true;
+        # Disabled 2026-06-25: ntopng was turned off on pfSense, so the exporter
+        # had nothing to scrape and was crash-looping (status=2/INVALIDARGUMENT,
+        # ~140 restarts, spamming "ntopng Exporter DOWN"). Re-enable when ntopng
+        # is running on pfSense again.
+        enable = false;
         # Must stay in sync with pfSense's MV_VPN_IPS alias — consumed by the
         # custom ntopng client-traffic dashboard to tag VPN-routed LAN hosts.
         # The pfsense subagent is contractually obliged to update this list
