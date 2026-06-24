@@ -470,6 +470,13 @@ in {
               "-hf ${cfg.embedModelSpec}"
               "--embeddings"
               "--pooling mean"
+              # One slot, NOT the auto-picked 4. With `--parallel N`, llama-server
+              # splits n_ctx across N slots (8192/4 = 2048 per slot), so every
+              # embed request was capped at 2048 tokens and any longer email was
+              # skipped — stalling the index at ~35%. The indexer is a single
+              # sequential client, so one slot suffices and gets the FULL 8192-token
+              # context. See docs/wiki/services/mailsearch.md (embed-context stall).
+              "--parallel 1"
               "-c 8192"
               # Physical batch must cover a whole email in one forward pass, or
               # llama-server 500s any input over the default 512 ('input too

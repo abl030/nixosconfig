@@ -168,10 +168,10 @@ ssh doc2 'rm -rf /mnt/virtio/mailsearch/{xapian,vectors.db}'
 
 ---
 
-## Lessons from the first deploy (2026-06-23 → 24)
+## Lessons from the first deploy (2026-06-23 → 25)
 
-Three real bugs surfaced on deploy; all fixed and committed. Recorded so the next
-local-inference / NFS-indexing service avoids them:
+Four bugs surfaced (three on the first deploy, one on 2026-06-25); all fixed and
+committed. Recorded so the next local-inference / NFS-indexing service avoids them:
 
 1. **Port collision.** The embed server's first port (8181) was already bound on
    doc2 → `llama-server` crash-looped on `couldn't bind`. Moved to **18181**.
@@ -191,6 +191,19 @@ local-inference / NFS-indexing service avoids them:
    a per-message fallback in `flush()` so one pathological email skips instead of
    killing the run. A small fraction of very dense/long emails still exceed 8192
    tokens and are skipped (still keyword-searchable).
+4. **Embed context silently capped at 2048 — index stalled at ~35% (2026-06-25).**
+   Despite the recommended `-c 8192 --rope-scaling yarn --rope-freq-scale 0.75`,
+   the `already-embedded` watermark climbed to ~49.5k/143k then flatlined (**+6
+   over 6h**), with `llama-server` rejecting every longer email: `input (N tokens)
+   is larger than the max context size (2048 tokens). skipping`. RoPE scaling
+   *was* working (`n_ctx_seq=8192`); the real culprit was the startup banner line
+   `n_parallel is set to auto, using n_parallel = 4` — llama-server **divides
+   n_ctx across slots**, so 8192/4 = **2048 per slot**, capping every embed.
+   Confirmed via the per-slot banner `new slot, n_ctx = 2048` (×4). The indexer is
+   a single sequential client, so the fix is **`--parallel 1`** (one slot gets the
+   full 8192) — *no truncation needed*. *Lesson: for an embedding server, pin
+   `--parallel 1` (or set `-c` = 8192 × n_parallel); auto-parallel silently splits
+   the context and there is no error, just skipped inputs.*
 
 **Maildir access — no ACL needed.** Contrary to the original plan, the index
 user reads the `0700` Maildir over the NFS mount **without** any extra ACL or the
