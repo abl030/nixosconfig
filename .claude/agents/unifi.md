@@ -43,7 +43,7 @@ This homelab uses a **split-responsibility** network architecture:
 ### Physical Topology
 
 ```
-Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,100)
+Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,30,100)
                 │
                 ├──► MastSwitch (US-8-60W, .53) ──► 3x APs (PoE ports 5-7)
                 │       ports 1,4: VLAN trunks        port 8: Zigbee coordinator
@@ -59,6 +59,8 @@ Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,100)
 |------|------------------|--------|------|-----------------|
 | untagged (LAN) | igc1 | 192.168.1.0/24 | .6-.254 | Allow most traffic; VPN policy routing for select IPs; block DoH/DoT for DHCP_Dynamic range (.100-.254) |
 | 10 (Docker) | igc1.10 (OPT3) | 192.168.11.0/24 | Yes | All traffic routes via AirVPN |
+| 20 (Torrent DMZ) | igc1.20 (OPT2) | 192.168.20.0/24 | static (qbt .20.2) | Default-deny to fleet/VLANs; egress AirVPN NZ + kill-switch; holds the qbt microVM. See services/servarr-and-qbt-cage.md |
+| 30 (Media DMZ) | igc1.30 (OPT6) | 192.168.30.0/24 | static (Plex .30.2) | Default-deny to all RFC1918; WAN egress only; holds Plex. WAN:11338→.30.2:32400 (Oceania). See services/plex-media-dmz.md |
 | 100 (IoT) | igc1.100 (OPT4) | 192.168.101.0/24 | Yes | Isolated: blocked from LAN + Docker VLAN, WAN-only egress, forced DNS |
 
 Key pfSense rules affecting devices you manage:
@@ -106,9 +108,11 @@ Key pfSense rules affecting devices you manage:
 |------|---------|---------|--------|------|-------|
 | Default | corporate | untagged | 192.168.1.0/24 | Yes (.6-.254) | Main LAN, mDNS enabled |
 | DOckerVLan | vlan-only | 10 | L2 only | No | pfSense provides gateway/DHCP (192.168.11.0/24) |
+| Torrent_DMZ | vlan-only | 20 | L2 only | No | pfSense igc1.20 (opt2), 192.168.20.0/24; qbt microVM cage (egress AirVPN NZ). Created 2026-06-22 |
+| MEDIA_DMZ | vlan-only | 30 | L2 only | No | pfSense igc1.30 (opt6), 192.168.30.0/24; Plex cage (egress WAN only). Created 2026-06-24, GitHub #277 |
 | IOT_OF_DEATH | vlan-only | 100 | L2 only | No | pfSense provides gateway/DHCP (192.168.101.0/24) |
 
-**Key point:** VLANs 10 and 100 are L2-only in UniFi. pfSense handles all L3 services for them. If you add a new VLAN here, pfSense also needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
+**Key point:** VLANs 10, 20, 30, and 100 are L2-only in UniFi. pfSense handles all L3 services for them. All trunk ports use `tagged_vlan_mgmt: auto`, so a new vlan-only network is carried on every trunk automatically once created — but pfSense still needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
 
 ## WLANs
 
@@ -141,3 +145,4 @@ All WLANs broadcast on all 3 APs. No VLAN tagging on wireless — all traffic la
 | doc2 (2nd NIC) | 192.168.1.36 | VPN NIC (VPN routed) |
 | SLZB-06P7 | 192.168.1.23 | Zigbee coordinator (MastSwitch port 8) |
 | Chromecast Ultra | 192.168.1.40 | Media (MastSwitch port 4) |
+| Plex | 192.168.30.2 | Plex Media Server — VLAN 30 MEDIA_DMZ (Docker ipvlan on tower br0.30), GitHub #277 |

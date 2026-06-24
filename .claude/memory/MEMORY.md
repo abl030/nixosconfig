@@ -73,6 +73,10 @@
 - Tailscale ACL (#239): **FLIPPED to default-deny 2026-06-21** — 5-tag `grants` policy live
   (server/client/share/edge/cullen), all nodes tagged, allow-all removed. Apply/revert via
   gitops-pusher on doc1. See [tailscale-acl-state.md](tailscale-acl-state.md).
+- Plex CONTAINED 2026-06-24 (#277): moved off tower `--net=host` onto its own **VLAN 30
+  MEDIA_DMZ** (`192.168.30.2`), pfSense default-denies it to all RFC1918, WAN egress only,
+  WAN:11338 Oceania-gated; media RO, hardened, autoupdate intact. Casting preserved. Caddy
+  `plex.ablz.au`→`.30.2`. [plex-media-dmz-containment.md](plex-media-dmz-containment.md).
 - SendMessage (resume a spawned subagent w/ context) WORKS in claude-code 2.1.x;
   gated by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, which `base.nix:82` deliberately
   strips. Verified 2026-06-21: [claude-code-sendmessage-agent-teams.md](claude-code-sendmessage-agent-teams.md)

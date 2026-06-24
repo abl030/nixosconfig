@@ -135,12 +135,12 @@ This homelab uses a **split-responsibility** network architecture:
 | DNS | **pfSense** | Unbound resolver + pfBlockerNG DNSBL, forced for untrusted devices |
 | VPN | **pfSense** | AirVPN WireGuard tunnel with policy routing + Tailscale mesh |
 
-**There is no UniFi gateway.** pfSense is the sole router/firewall. UniFi manages L2 only — VLANs 10 and 100 are defined as "vlan-only" in UniFi (no subnet/DHCP) with pfSense providing all L3 services on those VLANs.
+**There is no UniFi gateway.** pfSense is the sole router/firewall. UniFi manages L2 only — VLANs 10, 20, 30 and 100 are defined as "vlan-only" in UniFi (no subnet/DHCP) with pfSense providing all L3 services on those VLANs.
 
 ### Physical Topology
 
 ```
-Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,100)
+Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,30,100)
                 │
                 ├──► MastSwitch (US-8-60W, .53) ──► 3x APs (PoE ports 5-7)
                 │       ports 1,4: VLAN trunks        port 8: Zigbee coordinator
@@ -166,10 +166,14 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 | OPT3 (Docker VLAN) | opt3 | 192.168.11.0/24 | igc1.10 (VLAN 10) | Docker/container network |
 | IOT_OF_DEATH | opt4 | 192.168.101.0/24 | igc1.100 (VLAN 100) | Isolated IoT devices |
 | OPT5 (AirVPN NZ) | opt5 | 10.136.18.126/32 | tun_wg2 | AirVPN WG tunnel (New Zealand) |
+| OPT2 (TORRENT_DMZ) | opt2 | 192.168.20.0/24 | igc1.20 (VLAN 20) | qbt microVM cage — default-deny, egress AirVPN NZ + kill-switch |
+| OPT6 (MEDIA_DMZ) | opt6 | 192.168.30.0/24 | igc1.30 (VLAN 30) | Plex cage — default-deny to RFC1918, egress WAN only (GitHub #277) |
 
 ### VLANs
 
 - **VLAN 10** (igc1.10) — Docker_Network — 192.168.11.0/24 — UniFi name: "DOckerVLan"
+- **VLAN 20** (igc1.20) — TORRENT_DMZ — 192.168.20.0/24 — UniFi name: "Torrent_DMZ" — qbt microVM cage (egress AirVPN NZ). See docs/wiki/services/servarr-and-qbt-cage.md
+- **VLAN 30** (igc1.30) — MEDIA_DMZ — 192.168.30.0/24 — UniFi name: "MEDIA_DMZ" — Plex cage (egress WAN only, GitHub #277). See docs/wiki/services/plex-media-dmz.md
 - **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24 — UniFi name: "IOT_OF_DEATH"
 
 Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, and firewall rules for each.
@@ -228,7 +232,14 @@ Traffic is routed through AirVPN based on source IP using aliases:
 1. Allow HA (192.168.101.4) → Chromecast Audio (192.168.1.14)
 2. Block DoT and DoH
 3. Block IoT → LAN (192.168.1.0/24) and Docker VLAN (192.168.11.0/24)
-4. Pass IoT → WAN only (via WAN_DHCP gateway)
+4. **Pass opt4 → 192.168.30.2:32400 TCP** (cast devices stream from Plex on MEDIA_DMZ) — must sit ABOVE the WAN egress catch-all, else a gateway-override below it black-holes the stream
+5. Pass IoT → WAN only (via WAN_DHCP gateway)
+
+### TORRENT_DMZ Rules (opt2, VLAN 20 — qbt cage)
+Default-deny template: block DoT/DoH; pass DNS → .20.1; block → LAN/Docker/IoT/intra-VLAN/10.0.0.0/8; pass egress via AirVPN NZ gateway; final kill-switch block. Full detail: docs/wiki/services/servarr-and-qbt-cage.md.
+
+### MEDIA_DMZ Rules (opt6, VLAN 30 — Plex cage, GitHub #277)
+Order: 1) block DoT (:853); 2) block DoH (→ pfB_DoH_v4:443); 3) pass DNS opt6 → .30.1:53; 4) **block opt6 → RFC1918** (the containment rule — no fleet/VLAN reachability); 5) pass opt6 → any (WAN egress, WAN_DHCP). LAN reaches Plex via the LAN catch-all; IoT via the explicit opt4 → .30.2:32400 pass. Full detail: docs/wiki/services/plex-media-dmz.md.
 
 ## DNS
 
@@ -259,12 +270,15 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 
 | Src | Dest Port | Target | Local Port | Description |
 |-----|-----------|--------|------------|-------------|
-| any | 11338 (WAN) | 192.168.1.2 | 32400 | Plex |
+| pfB_Oceania_v4 | 11338 (WAN) | 192.168.30.2 | 32400 | Plex — retargeted to MEDIA_DMZ + source Oceania-gated on the NAT rule (2026-06-24, GitHub #277) |
 | any | 45726 (OPT5/AirVPN NZ) | 192.168.1.4 | 45726 | Torrent |
 | any | 45727 (OPT5/AirVPN NZ) | 192.168.11.3 | 45727 | Torrent (Docker VLAN) |
 | LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |
+| any | 53 (MEDIA_DMZ/opt6) | 127.0.0.1 | 53 | Force DNS (Plex → pfSense Unbound) |
+
+**Outbound NAT: Hybrid mode.** Manual entries exist for the DMZ subnets: `192.168.20.0/24 → opt5/AirVPN NZ` (qbt) and `192.168.30.0/24 → wan:ip` masquerade (Plex/MEDIA_DMZ, added 2026-06-24). In Hybrid mode a new directly-connected subnet does NOT auto-masquerade — add an explicit `<subnet> → wan` entry or it has no internet.
 
 ## Key Aliases
 
@@ -277,6 +291,7 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | pfB_DoH_v4 | urltable | 1664 IPs (auto-updated) | DoH provider IPs — pfBlockerNG Alias_Native feed from dibdot/DoH-IP-blocklists; replaces retired DoH_Providers host alias (2026-06-05) |
 | CullenWinesPubIP | host | Cullen public IPs | Remote access allowlist |
 | AirVPN_IPs | host | (empty) | Placeholder |
+| RFC1918 | network | 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 | Private-network containment — the MEDIA_DMZ block-to-fleet rule (created 2026-06-24) |
 
 ## DHCP Static Mappings (Key Hosts)
 
