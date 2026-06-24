@@ -44,6 +44,12 @@ Full backstory + the multi-hour debug saga that produced this template:
   `apollo_vpn` Proxmox firewall group (in `cluster.fw`). It blocks VM→LAN lateral
   movement, allows the streaming ports + gateway DNS, and the VM's internet
   egress exits via the VPN (lands in NL).
+- **Audio: a VM-level emulated Intel-HDA sink** (`audio0: device=ich9-intel-hda,
+  driver=none`) baked into the template. A headless VM's only real audio is the
+  GPU's HDMI audio, which is `NOTPRESENT` with no display plugged in → no playback
+  endpoint → Apollo logs "no audio". The emulated HDA gives Windows an always-
+  active "Speakers" endpoint (built-in HD Audio driver, no software install, host
+  backend `none`). Clones inherit it from the template — nothing to do per clone.
 
 ## Where this runs
 
@@ -125,6 +131,10 @@ Lightweight health check via the guest agent (expect all green):
 - **VPN exit:** `Invoke-RestMethod https://ipinfo.io/json` → country `NL`.
 - **LAN isolation:** `Test-Connection 192.168.1.29 -Count 1 -Quiet` → `False`
   (apollo_vpn blocks VM→LAN).
+- **Audio endpoint:** an ACTIVE "Speakers" render endpoint exists, and the Apollo
+  log shows `Selected audio sink` + `Opus initialized` (NOT `Couldn't get default
+  audio endpoint` / `no audio`). If missing, confirm `audio0` is in the VM config
+  (a stop+start — not a guest reboot — is needed for QEMU to add the device).
 
 Deep proof (only if asked, or if a client reports a black screen) — packet-count
 what the VM actually emits while a real client streams. framework is a paired
@@ -148,8 +158,8 @@ length-1408 video. Broken (offloads back on / locked session) = ~8 packets, ~14 
   clones exist. To rebuild the template, that's the de-link/full-clone dance in
   the knowledge doc — out of scope for day-to-day cloning.
 - **A clone is only as good as the template.** If you ever rebuild/replace the
-  template, re-verify offloads-off + auto-login + pairings survive a reboot
-  before trusting it.
+  template, re-verify offloads-off + auto-login + pairings + the `audio0` HDA sink
+  all survive a reboot before trusting it.
 - **RAM:** template is 24 GB (`balloon 0`, passthrough pins it). Don't bump a
   clone's RAM without checking prom headroom — overcommitting a pinned VM can OOM
   the hypervisor (it runs the whole fleet). See Forgejo issue #12.

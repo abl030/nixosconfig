@@ -39,6 +39,33 @@ desktop at the client's native res (dynamic resolution works).
 
 ---
 
+## 🔊 THE AUDIO FIX (2026-06-24 — discovered on first real clone, 007 First Light)
+
+**Symptom:** video streams fine but the client has NO audio; Apollo log:
+`Couldn't get default audio endpoint [0x80070490]` → `There will be no audio` →
+`Unable to initialize audio capture`. (`Win32_SoundDevice` shows only the GTX
+1080's `NVIDIA High Definition Audio` — its HDMI render endpoints are all
+`NOTPRESENT` because nothing is plugged into the GPU's outputs on a headless VM,
+so there is no active playback endpoint for Apollo to loopback-capture.)
+
+**Fix — a VM-level emulated Intel-HDA sink** (no Windows software install needed,
+uses the built-in HD Audio driver):
+```
+qm set <vmid> -audio0 device=ich9-intel-hda,driver=none
+```
+Then **stop+start** the VM (a guest reboot is NOT enough — QEMU only adds the
+device on a fresh start). Windows then shows an ACTIVE "Speakers" endpoint and
+Apollo logs: `Selected audio sink: {0.0.0.…}` → `Audio capture format is [F32
+48000 2.0]` → `Opus initialized: 48 kHz, 2 channels, 96 kbps, LOWDELAY`.
+`driver=none` is fine — QEMU's null audiodev keeps the render clock running so
+loopback capture flows; nothing needs to play on the (headless) host.
+
+**Baked into template 119**, so every clone inherits audio. (Alternative fixes
+that also work but need a Windows install: Steam Streaming Speakers — Apollo
+auto-detects it — or VB-CABLE. The VM-level HDA sink is cleaner: config-only.)
+
+---
+
 ## 🟥 NON-ISSUES — DO NOT RE-CHASE THESE (we burned hours here for nothing)
 
 - **The display / SudoVDA / "phantom" / primary**: NOT a problem. A screenshot taken in the
