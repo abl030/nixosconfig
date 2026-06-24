@@ -22,11 +22,26 @@ Deep probe: `modules/nixos/services/probes/check-mailsearch.nix`.
 ### Human — keyword search (over SSH to doc2)
 
 You (`abl030`) are in the `mailsearch` group on doc2, so the read-only index is
-yours to query. Two wrappers are on `PATH` (both point at the shared notmuch
+yours to query. Three wrappers are on `PATH` (all point at the shared notmuch
 config; you never touch the Maildir):
 
-- **Interactive TUI:** `ssh doc2` then `mailsearch-tui` — `alot`, a full notmuch
-  browser (search, thread view, open attachments-by-name). `q` to quit.
+- **Live filter (recommended):** `ssh doc2` then `mailsearch-live` — an `fzf`
+  "search as you type" box. Every keystroke re-runs `notmuch search` (sub-second
+  over Xapian) and replaces the list; words **AND** together so the set narrows
+  as you type. Optionally seed it: `mailsearch-live from:cullenwines.com.au`.
+  Keys: type a notmuch query (`from:`, `subject:`, `attachment:`, `date:a..b`,
+  bare words) → list filters live; **↑/↓** move; right pane previews the focused
+  email (HTML rendered via w3m); **Enter** opens it in the full alot reader and
+  returns here on quit; **Alt-Enter** freezes the current results and switches to
+  fzf's own fuzzy match to narrow *that subset*; **Ctrl-/** toggles the preview;
+  **Esc** quits. This is the free-typing surface — use it first.
+- **alot browser:** `ssh doc2` then `mailsearch-tui` — `alot`, a command-driven
+  notmuch browser (thread view, attachments-by-name). It is **not** type-to-filter:
+  it opens on an empty buffer (this index has no `tag:inbox`), so press `o` (or
+  `\`) to open the search prompt and type a query, `Enter` to open a thread, `|`
+  to refine/narrow the current results, `Tab` to switch result buffers, `?` for
+  keybindings, `q` to quit. You can also launch straight into results:
+  `mailsearch-tui search subject:invoice and attachment:pdf`.
 - **One-off CLI:** `mailsearch <notmuch-subcommand>`, e.g.
   - `mailsearch search subject:invoice and attachment:pdf`
   - `mailsearch search from:cullenwines.com.au date:2026-01-01..`

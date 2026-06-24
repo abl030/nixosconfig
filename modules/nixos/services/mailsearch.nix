@@ -8,7 +8,8 @@
 #   3. mailsearch-mcp    (SSH forced cmd) read-only MCP for the doc1 agents
 #                                         (search_mail + get_message).
 #   + mailsearch-health  (resident)       heartbeat HTTP -> Uptime Kuma.
-#   + alot TUI for human keyword search over SSH.
+#   + alot TUI (mailsearch-tui) + an fzf live-filter TUI (mailsearch-live) for
+#     human keyword search over SSH.
 #
 # Indexes live on /mnt/virtio (local-to-VM, prom ZFS) — NEVER on the hard NFS
 # Maildir mount (Xapian flintlock is unreliable over NFS; a hard mount hangs).
@@ -108,6 +109,79 @@
   cli = pkgs.writeShellScriptBin "mailsearch" ''
     export NOTMUCH_CONFIG=${notmuchConfig}
     exec ${pkgs.notmuch}/bin/notmuch "$@"
+  '';
+
+  # ── mailsearch-live: fzf "search as you type" over notmuch ────────────────
+  # alot is command-driven (type ':search …'); this wrapper is the live-filter
+  # surface the user wanted — every keystroke re-runs `notmuch search` (sub-second
+  # over Xapian) and replaces the list, fzf's interactive-ripgrep pattern
+  # (junegunn.github.io/fzf/tips/ripgrep-integration). Words AND together, so the
+  # result set narrows as you type. Three tiny helpers keep the fzf binds free of
+  # nested-quote escaping.
+
+  # One search per keystroke. {q} arrives as $1 (fzf shell-quotes it). notmuch
+  # errors on an empty query, so an empty box shows the newest mail as a resting
+  # view instead of an error.
+  liveSearch = pkgs.writeShellScript "mailsearch-live-search" ''
+    export NOTMUCH_CONFIG=${notmuchConfig}
+    if [ -z "$1" ]; then
+      exec ${pkgs.notmuch}/bin/notmuch search --sort=newest-first --limit=200 "*"
+    fi
+    exec ${pkgs.notmuch}/bin/notmuch search --sort=newest-first "$1"
+  '';
+
+  # Preview pane: headers + a readable body. Prefer the text/html part rendered
+  # through w3m (clean for newsletters whose text/plain is tracking padding),
+  # fall back to text/plain, then to the raw notmuch dump. $1 is the `thread:ID`
+  # token from column 1 of the search line.
+  livePreview = pkgs.writeShellScript "mailsearch-live-preview" ''
+    export NOTMUCH_CONFIG=${notmuchConfig}
+    nm=${pkgs.notmuch}/bin/notmuch
+    thread="$1"
+    [ -z "$thread" ] && exit 0
+    mid=$("$nm" search --output=messages "$thread" 2>/dev/null | head -1)
+    [ -z "$mid" ] && exit 0
+    "$nm" show --format=text --body=false "$mid" 2>/dev/null \
+      | ${pkgs.gnugrep}/bin/grep -E '^(Subject|From|To|Cc|Date):' || true
+    printf '%s\n' "────────────────────────────────────────────────────────────"
+    json=$("$nm" show --format=json "$mid" 2>/dev/null)
+    hid=$(printf '%s' "$json" | ${pkgs.jq}/bin/jq -r '[..|objects|select(.["content-type"]=="text/html")][0].id // empty' 2>/dev/null)
+    pid=$(printf '%s' "$json" | ${pkgs.jq}/bin/jq -r '[..|objects|select(.["content-type"]=="text/plain")][0].id // empty' 2>/dev/null)
+    if [ -n "$hid" ]; then
+      "$nm" show --part="$hid" "$mid" 2>/dev/null | ${pkgs.w3m}/bin/w3m -dump -T text/html -o display_link_number=false 2>/dev/null
+    elif [ -n "$pid" ]; then
+      "$nm" show --part="$pid" "$mid" 2>/dev/null
+    else
+      "$nm" show --format=text "$mid" 2>/dev/null
+    fi
+  '';
+
+  # Enter opens the chosen thread in the full alot reader (HTML via the w3m
+  # mailcap), then returns to the live list.
+  liveReader = pkgs.writeShellScript "mailsearch-live-reader" ''
+    export NOTMUCH_CONFIG=${notmuchConfig}
+    export MAILCAPS=${htmlMailcap}
+    exec ${pkgs.alot}/bin/alot search "$1"
+  '';
+
+  live = pkgs.writeShellScriptBin "mailsearch-live" ''
+    export NOTMUCH_CONFIG=${notmuchConfig}
+    # --disabled: fzf does no filtering of its own; the typed query ({q}) is fed
+    # to notmuch via change:reload. ALT-ENTER freezes the current results and
+    # re-enables fzf's own fuzzy match to narrow that subset (the user's
+    # "search within the results" ask).
+    exec ${pkgs.fzf}/bin/fzf \
+      --ansi --disabled --no-sort --layout=reverse --info=inline \
+      --query "$*" \
+      --prompt 'mail> ' \
+      --header 'live notmuch search — words AND together · ENTER read in alot · ALT-ENTER freeze + fuzzy-filter subset · CTRL-/ toggle preview' \
+      --preview '${livePreview} {1}' \
+      --preview-window 'right,55%,wrap' \
+      --bind 'start:reload(${liveSearch} {q})' \
+      --bind 'change:reload(sleep 0.1; ${liveSearch} {q})' \
+      --bind 'ctrl-/:toggle-preview' \
+      --bind 'alt-enter:unbind(change)+change-prompt(filter> )+enable-search+clear-query+first' \
+      --bind 'enter:execute(${liveReader} {1})'
   '';
 
   # Heartbeat HTTP server (stdlib only). 200 when BOTH the keyword index and the
@@ -458,7 +532,8 @@ in {
     };
 
     # Human keyword search over SSH (no service; a package + config).
-    environment.systemPackages = [tui cli pkgs.notmuch];
+    # mailsearch-tui = alot (command-driven), mailsearch-live = fzf live filter.
+    environment.systemPackages = [tui cli live pkgs.notmuch];
 
     homelab.monitoring.monitors = [
       {
