@@ -271,8 +271,8 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | Src | Dest Port | Target | Local Port | Description |
 |-----|-----------|--------|------------|-------------|
 | pfB_Oceania_v4 | 11338 (WAN) | 192.168.30.2 | 32400 | Plex — retargeted to MEDIA_DMZ + source Oceania-gated on the NAT rule (2026-06-24, GitHub #277) |
-| any | 45726 (OPT5/AirVPN NZ) | 192.168.1.4 | 45726 | Torrent |
-| any | 45727 (OPT5/AirVPN NZ) | 192.168.11.3 | 45727 | Torrent (Docker VLAN) |
+| any | 45726 (OPT5/AirVPN NZ) | 192.168.20.2 | 45726 | qbt torrent inbound (id=5, **ENABLED**) — lands on the qbt microVM cage in TORRENT_DMZ; retargeted from the old .1.4 during the 2026-06-22 qbt build. See servarr-and-qbt-cage.md |
+| any | 45727 (OPT5/AirVPN NZ) | 192.168.11.3 | 45727 | nicotine-plus soulseek inbound (id=6, **DISABLED**) — still points at the old Docker-VLAN nicotine-plus; leave disabled until nicotine-plus migrates into TORRENT_DMZ (.20.3), then re-enable + retarget. GitHub #277 |
 | LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |
