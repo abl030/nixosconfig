@@ -270,9 +270,16 @@
 
       watchdog() {
         if check; then
-          if has_reason dependency; then
-            resume_if_clear || true
-          fi
+          # Reconcile unconditionally when probes are healthy. resume_if_clear
+          # is idempotent (systemctl start on a running unit is a no-op) and
+          # still honours active holds, so this self-heals the stuck-stopped
+          # state from a boot race: at boot the musicbrainz-maintenance hold is
+          # released by musicbrainz.service ExecStartPost BEFORE MusicBrainz's
+          # /ws/2 API is actually serving, so resume-if-clear bails with no
+          # hold left behind. The old guard (resume only when a `dependency`
+          # hold exists) then never fired, leaving web/importer/preview-worker/
+          # timer dead until the next manual kick. See the 2026-06-25 outage.
+          resume_if_clear || true
         else
           hold_reason dependency
         fi
