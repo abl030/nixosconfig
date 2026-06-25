@@ -510,4 +510,23 @@
     activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
     stateVersion = "25.05";
   };
+
+  # Indexer recovery (2026-06-25): mailsearch-index is a long bootstrap oneshot
+  # (hours). `restartIfChanged = false` means a deploy never touches a running
+  # instance, so if it wedges on a pathological message the bastion otherwise has
+  # no way to clear it short of the 6h start-timeout. Scoped NOPASSWD to restart
+  # EXACTLY this one unit (`--no-block` returns immediately; the indexer runs as a
+  # dedicated low-priv user, tiny blast radius). Pairs with the per-message guard
+  # in nix/pkgs/mailsearch-indexer.nix. doc2-only since mailsearch lives only here.
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl restart --no-block mailsearch-index.service";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 }

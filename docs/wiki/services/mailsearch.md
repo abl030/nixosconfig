@@ -218,6 +218,23 @@ committed. Recorded so the next local-inference / NFS-indexing service avoids th
    email returns a 768-dim vector with HTTP 200. *No truncation needed.* *Lesson:
    for an embedding server check the load banner for BOTH the slot-division and the
    trained-context cap — both are silent and either one strands long inputs.*
+5. **One pathological email wedged the whole run (2026-06-25).** After the embed
+   fix, the bootstrap *still* stalled at ~49.6k: the indexer process sat in state
+   `R` (pure CPU, no embed call, no NFS/notmuch child) — spinning inside the
+   per-message clean step (`html2text` / the reply-parser regex) on a single
+   degenerate body, with **no per-message timeout**. Because `notmuch_json`'s
+   `subprocess.run` and `clean_body` had no bound, one bad message hung the run
+   indefinitely, and it would re-hit the *same* message every run → permanent
+   stall. Fixed in `nix/pkgs/mailsearch-indexer.nix`: `MAX_RAW` (300 KB) caps the
+   raw bytes fed to the parsers (does **not** affect embedded content — still cut
+   to `MAX_CHARS`), a `SIGALRM` `MSG_TIMEOUT` (45 s) backstops pure-Python spins,
+   and `NOTMUCH_TIMEOUT` (120 s) bounds the subprocess; on any of these the
+   message is skipped (`skipped=` in the summary log), not the run. *Lesson: any
+   per-message CPU/IO step in a long batch job needs a hard per-item timeout —
+   SIGALRM for Python, a size cap for C-extension regex, `timeout=` on subprocess.*
+   **Recovery:** a wedged run can't be cleared by a deploy (`restartIfChanged=false`),
+   so doc2 has a scoped NOPASSWD `systemctl restart --no-block mailsearch-index.service`
+   (`hosts/doc2/configuration.nix`) for the bastion to relaunch it.
 
 **Maildir access — no ACL needed.** Contrary to the original plan, the index
 user reads the `0700` Maildir over the NFS mount **without** any extra ACL or the

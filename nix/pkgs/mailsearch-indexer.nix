@@ -60,6 +60,7 @@ in
     """
     import json
     import os
+    import signal
     import subprocess
     import sys
     import time
@@ -78,6 +79,30 @@ in
     BATCH = int(os.environ.get("MAILSEARCH_BATCH", "32"))
     DIM = int(os.environ.get("MAILSEARCH_DIM", "768"))
     MAX_CHARS = int(os.environ.get("MAILSEARCH_MAX_CHARS", "24000"))  # keep under the 8192-token ctx
+    # Wedge guards (2026-06-25). A single pathological message hung a whole run:
+    # html2text / the reply-parser regex can spin for minutes on degenerate or
+    # huge bodies (state R, no I/O), and notmuch can hang on a stale NFS handle.
+    # MAX_RAW bounds the raw bytes fed to the CPU-heavy parsers (NOT what we embed
+    # — the cleaned text is still cut to MAX_CHARS, so a real email loses nothing;
+    # only multi-hundred-KB degenerate bodies are clipped before parsing).
+    # MSG_TIMEOUT is a SIGALRM backstop per message; NOTMUCH_TIMEOUT bounds the
+    # subprocess. On any of these the message is skipped, not the run.
+    MAX_RAW = int(os.environ.get("MAILSEARCH_MAX_RAW", "300000"))
+    MSG_TIMEOUT = int(os.environ.get("MAILSEARCH_MSG_TIMEOUT", "45"))
+    NOTMUCH_TIMEOUT = int(os.environ.get("MAILSEARCH_NOTMUCH_TIMEOUT", "120"))
+
+
+    class MsgTimeout(Exception):
+        pass
+
+
+    def _on_alarm(signum, frame):
+        raise MsgTimeout()
+
+
+    # Main thread only (main() runs here) — SIGALRM interrupts pure-Python spins
+    # (html2text); MAX_RAW covers the regex C-extension case SIGALRM can't break.
+    signal.signal(signal.SIGALRM, _on_alarm)
 
 
     # NEVER log message bodies or search queries — doc2 ships the journal to Loki,
@@ -90,7 +115,9 @@ in
     def notmuch_json(args):
         # notmuch can emit non-UTF-8 bytes from malformed message headers; decode
         # tolerantly (errors=replace) so one bad message can't crash the run.
-        out = subprocess.run([NOTMUCH, *args], check=True, capture_output=True).stdout
+        out = subprocess.run(
+            [NOTMUCH, *args], check=True, capture_output=True, timeout=NOTMUCH_TIMEOUT
+        ).stdout
         text = out.decode("utf-8", errors="replace")
         return json.loads(text) if text.strip() else []
 
@@ -146,7 +173,8 @@ in
                 "show", "--format=json", "--entire-thread=false",
                 "--include-html", "--format-version=5", f"id:{mid}",
             ])
-        except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                json.JSONDecodeError, ValueError):
             return None
         node = find_message(docs)
         if not isinstance(node, dict):
@@ -160,7 +188,7 @@ in
             h = html2text.HTML2Text()
             h.ignore_links = True
             h.ignore_images = True
-            body = "\n".join(h.handle(x) for x in out["html"])
+            body = "\n".join(h.handle(x[:MAX_RAW]) for x in out["html"])
         else:
             body = ""
         path = node.get("filename")
@@ -195,7 +223,7 @@ in
 
     def clean_body(rec):
         parser = EmailReplyParser(languages=["en"])
-        body = parser.parse_reply(text=rec["body"] or "")
+        body = parser.parse_reply(text=(rec["body"] or "")[:MAX_RAW])
         # Fold attachment filenames into the embedded text so semantic search can
         # surface "Barrel Repair Quote.pdf" by name (R2 — filenames only).
         if rec["attachments"]:
@@ -284,12 +312,29 @@ in
         log(f"notmuch messages={len(ids)} already-embedded={len(have)} new={len(todo)}")
         done = 0
         batch = []
+        skipped = 0
         for mid in todo:
-            rec = fetch_message(mid)
-            if rec is None:
+            # Per-message wall-clock guard: a single degenerate body must never
+            # wedge the whole bootstrap run (see MAX_RAW/MSG_TIMEOUT above).
+            try:
+                signal.alarm(MSG_TIMEOUT)
+                rec = fetch_message(mid)
+                if rec is None:
+                    signal.alarm(0)
+                    continue
+                rec["account"], rec["folder"] = folder_account(rec["path"])
+                rec["clean"] = clean_body(rec)
+                signal.alarm(0)
+            except MsgTimeout:
+                signal.alarm(0)
+                skipped += 1
+                log(f"skip {mid[:50]} (fetch/clean timeout >{MSG_TIMEOUT}s)")
                 continue
-            rec["account"], rec["folder"] = folder_account(rec["path"])
-            rec["clean"] = clean_body(rec)
+            except Exception as e:  # noqa: BLE001
+                signal.alarm(0)
+                skipped += 1
+                log(f"skip {mid[:50]} (fetch/clean error: {type(e).__name__})")
+                continue
             if not rec["clean"]:
                 continue
             batch.append(rec)
@@ -298,7 +343,7 @@ in
                 batch = []
         if batch:
             done += flush(db, batch)
-        log(f"embedded={done} elapsed={int(time.time() - t0)}s")
+        log(f"embedded={done} skipped={skipped} elapsed={int(time.time() - t0)}s")
         # Reached only on success — an embed/db failure raises and skips this,
         # so the heartbeat reflects the last fully-successful run.
         if HEARTBEAT:
