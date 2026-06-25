@@ -536,5 +536,26 @@
         }
       ];
     }
+    # Full passwordless sudo for abl030 on doc2 (2026-06-25, user-requested).
+    # Deliberate relaxation of the locked-role posture: the role default is
+    # `wheelNeedsPassword = true`, which forced every bastion-driven op into the
+    # narrow read-only allowlist above and made routine incident response (e.g.
+    # `podman network reload`, restarting arbitrary units) impossible from doc1.
+    # This is the sanctioned per-host override documented in CLAUDE.md
+    # ("LOCKED-HOST sudo is role-driven, NOT guarded by a flake check" — same
+    # `mkAfter` ALL/NOPASSWD pattern already live on hermes). mkAfter renders last
+    # so it wins (sudoers = last match), subsuming the scoped rule above.
+    #
+    # Blast radius: anyone reaching doc2 via the doc1 fleet key now gets root
+    # without the password gate. To revert: delete this rule and `fleet-deploy doc2`.
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "ALL";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
   ];
 }
