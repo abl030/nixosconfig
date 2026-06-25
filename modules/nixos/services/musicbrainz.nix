@@ -85,6 +85,16 @@
   containerUnitNames = map (name: "podman-${name}") containerNames;
   containerServices = map (name: "${name}.service") containerUnitNames;
 
+  # LRCLIB is a standalone Rust+sqlite lyrics server (no dependency on the
+  # MusicBrainz DB/Solr/web/mq plane). It must NOT share lifecycle with the MB
+  # app stack: it is decoupled from musicbrainz.service so a slow/failed MB-web
+  # readiness check can never tear it down (RCA 2026-06-25 — the LRCLIB Kuma
+  # monitor was paging because the whole stack was bouncing on web-readiness
+  # timeout). See docs/wiki/services/musicbrainz.md "Readiness decoupling".
+  lrclibUnit = "podman-musicbrainz-lrclib-1";
+  coupledContainerUnitNames = lib.filter (n: n != lrclibUnit) containerUnitNames;
+  coupledContainerServices = map (name: "${name}.service") coupledContainerUnitNames;
+
   retireComposeScript = pkgs.writeShellScript "musicbrainz-retire-compose" ''
     set -euo pipefail
 
@@ -396,9 +406,15 @@
     fi
   '';
 
+  # Web /ws/2 readiness probe. Runs in its own non-destructive unit
+  # (musicbrainz-ready.service) — a failure pages via errorPattern but never
+  # tears down containers, so it is safe to be patient. The MB web cold start
+  # (webpack bundle + 10-process Plack + Solr core load behind /ws/2/release)
+  # legitimately takes minutes under load; ~10 min budget absorbs that. It
+  # exits early the moment the search path answers.
   apiVerifyScript = pkgs.writeShellScript "musicbrainz-api-verify" ''
     set -euo pipefail
-    for _ in $(${pkgs.coreutils}/bin/seq 1 60); do
+    for _ in $(${pkgs.coreutils}/bin/seq 1 300); do
       response="$(
         ${pkgs.curl}/bin/curl -fsS \
           --connect-timeout 3 \
@@ -482,14 +498,28 @@ in {
         {
           name = "MusicBrainz post-deploy verification failed";
           unit = "musicbrainz.service";
-          # Catches DB-verification + /ws/2 health check refusals from
-          # the orchestration script. Historical compose orchestration
-          # errors won't recur (compose retired 2026-04-16).
-          pattern = "(?i)MusicBrainz (?:DB verification failed|.*did not become healthy)|build images failed";
+          # DB-plane verification (artist/release populated, ownership, amqp
+          # broker, SIR triggers) + image build. The /ws/2 web-readiness check
+          # moved to musicbrainz-ready.service (separate pattern below) so a
+          # slow web start can no longer fail this lifecycle-owning unit.
+          pattern = "(?i)MusicBrainz DB verification failed|build images failed";
           severity = "critical";
           summary = "musicbrainz orchestration's post-deploy verification failed";
           # Single-shot: emitted once per failed deploy run; the
           # service exits after logging. Page on first occurrence.
+          threshold = 0;
+        }
+        {
+          name = "MusicBrainz web readiness failed";
+          unit = "musicbrainz-ready.service";
+          # Non-destructive readiness probe (apiVerifyScript). Firing means the
+          # web /ws/2 search path did not answer within the ~10 min start
+          # window — it does NOT tear down the stack (RCA 2026-06-25). Treat as
+          # "investigate web/Solr warmup", not a stack-down event.
+          pattern = "(?i)/ws/2 representative lookup did not become healthy";
+          severity = "critical";
+          summary = "MusicBrainz web /ws/2 did not become healthy within the start window";
+          # Single-shot: the oneshot exits after logging once.
           threshold = 0;
         }
         {
@@ -711,8 +741,11 @@ in {
 
           musicbrainz-build-images = {
             description = "Build upstream MusicBrainz OCI images";
-            before = containerServices;
-            requiredBy = containerServices;
+            # Only the MB *app* containers are built here; lrclib's image is
+            # Nix-built (imageFile) and must not depend on this oneshot, so it
+            # stays up even if an upstream image build fails (RCA 2026-06-25).
+            before = coupledContainerServices;
+            requiredBy = coupledContainerServices;
             after = ["podman.service" "musicbrainz-retire-compose.service"];
             requires = ["podman.service" "musicbrainz-retire-compose.service"];
             unitConfig.RequiresMountsFor = [cfg.dataDir];
@@ -736,10 +769,20 @@ in {
           };
 
           musicbrainz = {
-            description = "MusicBrainz Mirror + LRCLIB stack readiness";
-            after = ["network-online.target" "container@musicbrainz-db.service"] ++ containerServices;
-            wants = ["network-online.target"];
-            requires = ["container@musicbrainz-db.service"] ++ containerServices;
+            description = "MusicBrainz Mirror DB-plane orchestration + verify";
+            # This unit orchestrates the MB *app* containers (valkey/mq/search/
+            # indexer/web) and verifies the DB plane. It NO LONGER owns their
+            # lifecycle: containers are pulled at boot via `wants` (not
+            # `requires`) and are not `partOf` this unit, so a verification
+            # failure can never tear the stack down. Web /ws/2 readiness moved to
+            # musicbrainz-ready.service. lrclib is fully decoupled (standalone).
+            # RCA 2026-06-25: the old web-readiness check in postStart, combined
+            # with `requires`+`partOf` ownership of every container, bounced the
+            # entire stack — including the unrelated lrclib service — in a
+            # self-perpetuating loop whenever MB-web was slow to warm up.
+            after = ["network-online.target" "container@musicbrainz-db.service"] ++ coupledContainerServices;
+            wants = ["network-online.target"] ++ coupledContainerServices;
+            requires = ["container@musicbrainz-db.service"];
             wantedBy = ["multi-user.target"];
             unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
 
@@ -759,11 +802,9 @@ in {
 
             restartTriggers =
               [
-                lrclibImage
                 dbPreflightVerifyScript
                 dbVerifyScript
                 amqpSetupScript
-                apiVerifyScript
                 pgpassSecret
                 tokenExtractScript
                 retireComposeScript
@@ -771,13 +812,35 @@ in {
                 config.systemd.units."container@musicbrainz-db.service".unit
                 config.systemd.units."musicbrainz-token.service".unit
               ]
-              ++ map (unit: config.systemd.units.${unit}.unit) containerServices;
+              ++ map (unit: config.systemd.units.${unit}.unit) coupledContainerServices;
 
             postStart = ''
               ${amqpSetupScript}
-              ${apiVerifyScript}
               ${dbVerifyScript}
             '';
+          };
+
+          # Non-destructive web readiness probe. Split out of musicbrainz.service
+          # so a slow or failed MB-web warmup pages (via its own errorPattern)
+          # WITHOUT tearing down the container stack. Ordered after the web +
+          # search containers so it observes them once they exist; apiVerifyScript
+          # is patient (~10 min) and exits early on the first healthy /ws/2 reply.
+          musicbrainz-ready = {
+            description = "MusicBrainz web /ws/2 readiness verification";
+            after = [
+              "musicbrainz.service"
+              "podman-musicbrainz-musicbrainz-1.service"
+              "podman-musicbrainz-search-1.service"
+            ];
+            wants = ["musicbrainz.service"];
+            wantedBy = ["multi-user.target"];
+            restartTriggers = [apiVerifyScript];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              TimeoutStartSec = "900s";
+              ExecStart = apiVerifyScript;
+            };
           };
 
           # Daily replication — pulls latest MusicBrainz data.
@@ -815,13 +878,31 @@ in {
             };
           };
         }
-        (lib.genAttrs containerUnitNames (_: {
-          partOf = ["musicbrainz.service"];
+        # MB *app* containers (lrclib excluded — see its own block below). These
+        # boot on their own (wantedBy multi-user.target) and order after the
+        # retire/build oneshots. They are NOT `partOf` musicbrainz.service: the
+        # verify/orchestration unit observes them but must never tear them down
+        # (RCA 2026-06-25). A config change still restarts a changed container
+        # directly via switch-to-configuration, independent of this.
+        (lib.genAttrs coupledContainerUnitNames (_: {
+          wantedBy = ["multi-user.target"];
           after = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
           requires = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
           unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
         }))
         {
+          # LRCLIB: standalone Rust+sqlite lyrics server, fully decoupled from
+          # the MB app stack. Boots independently; needs only the podman network
+          # (created by retire-compose) and its data mount. NOT partOf / required
+          # by musicbrainz.service or musicbrainz-build-images, so MB-web
+          # readiness can never bounce it — this is the service that was paging.
+          podman-musicbrainz-lrclib-1 = {
+            wantedBy = ["multi-user.target"];
+            after = ["musicbrainz-retire-compose.service"];
+            requires = ["musicbrainz-retire-compose.service"];
+            unitConfig.RequiresMountsFor = [cfg.mirrorDir];
+          };
+
           podman-musicbrainz-musicbrainz-1 = {
             after = ["musicbrainz-token.service"];
             requires = ["musicbrainz-token.service"];

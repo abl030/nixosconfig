@@ -49,9 +49,14 @@ Steady-state containers are explicit NixOS OCI units:
 - `podman-musicbrainz-musicbrainz-1.service`
 - `podman-musicbrainz-lrclib-1.service`
 
-`musicbrainz.service` is a readiness aggregate. It requires the PostgreSQL
-nspawn unit and all OCI container units, then runs API, DB, AMQP broker, and SIR
-trigger verification before the service is considered started.
+`musicbrainz.service` is the DB-plane orchestration + verify unit. It requires
+the PostgreSQL nspawn unit and `wants` (NOT `requires`) the five MB *app*
+containers, then runs DB/AMQP-broker/SIR-trigger verification. It does **not**
+own container lifecycle — the containers are `wantedBy multi-user.target` and are
+**not** `partOf` it, so a verification failure can never tear the stack down. Web
+`/ws/2` readiness lives in a separate, non-destructive `musicbrainz-ready.service`
+(see "Readiness decoupling" below). `lrclib` is fully independent of all of the
+above.
 
 `musicbrainz-build-images.service` verifies that the local upstream MusicBrainz
 images exist and only builds missing images from the pinned `inputs.musicbrainz-docker`
@@ -63,10 +68,62 @@ containers/volumes once and creates the shared `musicbrainz` podman network.
 Compose must not be reintroduced as steady-state runtime; translate upstream
 compose changes into explicit OCI entries.
 
+## Readiness decoupling (2026-06-25 RCA)
+
+**Symptom.** The `LRCLIB` Uptime-Kuma monitor paged "lrclib is down" repeatedly.
+On doc2 the whole MusicBrainz stack was caught in a ~3-minute restart loop that
+had not converged 6+ hours after the nightly auto-update reboot (`musicbrainz.service`
++ `multi-user.target` start jobs were still pending from boot).
+
+**Root cause — two layers:**
+
+1. *Proximate trigger.* The MB web container is slow, not broken: cold start does
+   a webpack bundle compile, then a 10-process Plack boot, and `/ws/2/release`
+   (the readiness query) is Solr-backed, so it only answers once Solr cores load.
+   Under added doc2 load (concurrent `mailsearch-index` / `mailarchive-work` jobs)
+   this cold start exceeded `apiVerifyScript`'s budget. The ~3-min loop period ==
+   `apiVerify`'s budget, which proves the DB-plane checks (`dbVerify`/`amqpSetup`)
+   passed and `apiVerify` was the sole failure.
+2. *Architectural fault (the real bug).* `apiVerifyScript` ran inside
+   `musicbrainz.service`'s `postStart`, and that unit **owned the container
+   lifecycle**: every container was `partOf = musicbrainz.service` and the service
+   `requires`-d them all. So when the web-readiness check gave up, `PartOf` tore
+   down **all six containers** — including the web+Solr containers that just
+   needed more time (so it could never converge) and the standalone **lrclib**
+   service (Rust+sqlite, zero MB dependency), which is what paged. The readiness
+   probe was destroying the very thing it was probing.
+
+**Fix (commit on 2026-06-25).** Decouple lifecycle from verification:
+
+- Removed `partOf = musicbrainz.service` from every container; the five MB app
+  containers are now `wantedBy multi-user.target` and boot on their own.
+- `musicbrainz.service` now only `requires` the PostgreSQL nspawn and `wants` the
+  app containers (ordering, not failure-coupling); `postStart` keeps only the
+  fast/deterministic `amqpSetup` + `dbVerify`, so it converges in seconds.
+- Web `/ws/2` readiness moved to a new **`musicbrainz-ready.service`** — a patient
+  (~10 min) oneshot that is `after` the web+search containers, `wantedBy`
+  multi-user.target, and owns **nothing**. If it fails it pages (its own
+  errorPattern, "web readiness failed") without tearing anything down — being
+  patient is now free because it no longer kills what it waits on.
+- **lrclib** is fully decoupled: not `partOf`, not pulled by `musicbrainz.service`,
+  not dependent on `musicbrainz-build-images` (its image is Nix-built). It needs
+  only the podman network (`retire-compose`) and its data mount, so its Kuma
+  monitor now reflects lrclib's actual health.
+
+**Why it didn't bite before:** the design had zero margin between MB-web warmup
+time and the verify budget; the extra steady-state load from the mailsearch
+indexing jobs tipped it over into the loop. Decoupling removes the margin
+dependency entirely.
+
 ## Maintenance Flow
 
 1. `sudo cratedigger-metadata-gate hold musicbrainz-maintenance`
-2. `sudo systemctl restart musicbrainz.service`
+2. Restart the app containers directly (since they are no longer `partOf`
+   `musicbrainz.service`, restarting that unit only re-runs verification):
+   `sudo systemctl restart podman-musicbrainz-{valkey,mq,search,indexer,musicbrainz}-1.service`
+   then `sudo systemctl restart musicbrainz.service musicbrainz-ready.service` to
+   re-verify. (lrclib is independent — restart `podman-musicbrainz-lrclib-1.service`
+   on its own only if lrclib itself needs it.)
 3. Verify `/ws/2` health/search, replication readiness, LRCLIB, Discogs gate,
    and cratedigger resume.
 
