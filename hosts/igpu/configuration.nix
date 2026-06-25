@@ -60,7 +60,11 @@
       embed = {
         enable = true;
         gpu = true;
-        host = "0.0.0.0"; # restricted by allowFrom below
+        # Bind igpu's OWN LAN IP (ens18), not 0.0.0.0 — the socket never listens on
+        # tailscale0, so a firewall-rule misfire can't expose the (unauthenticated)
+        # embeddings endpoint to the tailnet. allowFrom below is the second layer.
+        # doc2 already reaches it at exactly this address (embed.url = .33:18181).
+        host = "192.168.1.33"; # igpu localIp (hosts.nix)
         allowFrom = ["192.168.1.35" "192.168.1.36"]; # doc2's two NICs
         modelsDir = "/var/lib/mailsearch-embed/models";
         # parallel=1 only: this 2-CU iGPU crash-loops on multi-slot (`radv/amdgpu:

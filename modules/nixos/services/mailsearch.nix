@@ -443,18 +443,15 @@ in {
           `/dev` (PrivateDevices). Needs an accessible `/dev/dri` render node.
         '';
       };
-      # BIND-ALL-INTERFACES-OK: the default bind here is loopback (127.0.0.1); the
-      # module is safe out of the box. A dedicated GPU embed box (igpu) overrides
-      # host = "0.0.0.0" so doc2's off-host indexer can reach the llama-server
-      # /v1/embeddings endpoint. That exposure is scoped by `embed.allowFrom`, which
-      # opens embedPort ONLY to the listed indexer IPs via an explicit iptables
-      # allow (see networking.firewall above) — llama-server has no auth of its own,
-      # so the firewall allowlist IS the access control. Nothing reaches the embed
-      # port off-host unless both the 0.0.0.0 override and an allowFrom entry are set.
+      # Default is loopback. To serve an off-host indexer, set this to the embed
+      # box's OWN LAN IP (NOT an all-interface bind) plus `embed.allowFrom` — the
+      # socket then never listens on tailscale0, so the firewall allowlist is a
+      # second layer rather than the only thing standing between the tailnet and an
+      # unauthenticated embeddings endpoint. igpu does exactly this (host = its .33).
       host = lib.mkOption {
         type = lib.types.str;
         default = "127.0.0.1";
-        description = "Bind address for the embeddings server. Use 0.0.0.0 (+ allowFrom) to serve a remote indexer.";
+        description = "Bind address for the embeddings server. Loopback by default; set the embed box's specific LAN IP (+ allowFrom) to serve a remote indexer — avoid all-interface binds.";
       };
       url = lib.mkOption {
         type = lib.types.str;
