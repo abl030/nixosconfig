@@ -63,6 +63,7 @@
         host = "0.0.0.0"; # restricted by allowFrom below
         allowFrom = ["192.168.1.35" "192.168.1.36"]; # doc2's two NICs
         modelsDir = "/var/lib/mailsearch-embed/models";
+        parallel = 4; # 4 GPU slots so doc2's concurrent embeds batch on-device
       };
     };
     ssh = {

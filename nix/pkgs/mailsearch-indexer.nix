@@ -295,20 +295,24 @@ in
         )
 
 
-    def fetch_and_clean(mid):
-        # Worker (pool thread): fetch + clean ONE message → (mid, rec|None, err|None).
-        # Catches everything so the pool never sees an exception, and is bounded by
-        # MAX_RAW + NOTMUCH_TIMEOUT so it can never hang. No DB / embed here — those
-        # stay single-threaded in main().
+    def fetch_clean_embed(mid):
+        # Worker (pool thread): fetch + clean + EMBED one message →
+        # (mid, rec|None, vec|None, err|None). The embed runs HERE so up to WORKERS
+        # requests are in flight at once and the embed server's slots stay saturated
+        # — a serial embed leaves a GPU ~40-50% idle. embed() releases the GIL on the
+        # HTTP wait; bounded by MAX_RAW + NOTMUCH_TIMEOUT. No DB here (main writes).
         try:
             rec = fetch_message(mid)
             if rec is None:
-                return (mid, None, None)
+                return (mid, None, None, None)
             rec["account"], rec["folder"] = folder_account(rec["path"])
             rec["clean"] = clean_body(rec)
-            return (mid, rec if rec["clean"] else None, None)
+            if not rec["clean"]:
+                return (mid, None, None, None)
+            vec = embed([rec["clean"]])[0]
+            return (mid, rec, vec, None)
         except Exception as e:  # noqa: BLE001
-            return (mid, None, type(e).__name__)
+            return (mid, None, None, type(e).__name__)
 
 
     def main():
@@ -320,36 +324,36 @@ in
         log(f"notmuch messages={len(ids)} already-embedded={len(have)} new={len(todo)} workers={WORKERS}")
         done = 0
         skipped = 0
-        batch = []
-        # Fetch+clean run across a thread pool (I/O-bound on NFS); the main thread
-        # alone embeds + writes the DB (single writer, no locking). A sliding window
-        # keeps ~WORKERS*8 messages in flight so the embedder never starves and
-        # memory stays bounded no matter how big the backlog is.
+        pairs = []
+        # Each worker fetches + cleans + EMBEDS one message, so up to WORKERS embeds
+        # are in flight at once (keeps the embed server's slots full); the main thread
+        # only writes the DB (single writer, no locking). The sliding window bounds
+        # memory and keeps the pool fed regardless of backlog size.
         pending = iter(todo)
         with ThreadPoolExecutor(max_workers=WORKERS) as ex:
             inflight = {
-                ex.submit(fetch_and_clean, m)
-                for m in itertools.islice(pending, WORKERS * 8)
+                ex.submit(fetch_clean_embed, m)
+                for m in itertools.islice(pending, WORKERS * 4)
             }
             while inflight:
                 ready, inflight = wait(inflight, return_when=FIRST_COMPLETED)
                 for fut in ready:
-                    mid, rec, err = fut.result()
+                    mid, rec, vec, err = fut.result()
                     nxt = next(pending, None)
                     if nxt is not None:
-                        inflight.add(ex.submit(fetch_and_clean, nxt))
+                        inflight.add(ex.submit(fetch_clean_embed, nxt))
                     if err is not None:
                         skipped += 1
-                        log(f"skip {mid[:50]} (fetch/clean error: {err})")
+                        log(f"skip {mid[:50]} (fetch/embed error: {err})")
                         continue
                     if rec is None:
                         continue
-                    batch.append(rec)
-                    if len(batch) >= BATCH:
-                        done += flush(db, batch)
-                        batch = []
-        if batch:
-            done += flush(db, batch)
+                    pairs.append((rec, vec))
+                    if len(pairs) >= BATCH:
+                        done += commit_vectors(db, pairs)
+                        pairs = []
+        if pairs:
+            done += commit_vectors(db, pairs)
         log(f"embedded={done} skipped={skipped} elapsed={int(time.time() - t0)}s")
         # Reached only on success — an embed/db failure raises and skips this,
         # so the heartbeat reflects the last fully-successful run.
@@ -358,20 +362,9 @@ in
                 fh.write(str(int(time.time())))
 
 
-    def flush(db, batch):
-        try:
-            pairs = list(zip(batch, embed([r["clean"] for r in batch])))
-        except Exception as e:  # noqa: BLE001
-            # One pathological message (e.g. over the model context) would 500
-            # the whole batch and previously crashed the entire run. Fall back
-            # to per-message; skip the individual messages that still fail.
-            log(f"batch embed failed ({type(e).__name__}); retrying per-message")
-            pairs = []
-            for rec in batch:
-                try:
-                    pairs.append((rec, embed([rec["clean"]])[0]))
-                except Exception as e2:  # noqa: BLE001
-                    log(f"skip {rec['message_id'][:50]} (embed failed: {type(e2).__name__})")
+    def commit_vectors(db, pairs):
+        # Embedding already happened in the workers; just persist. Single writer
+        # (main thread only), so a plain transaction with no locking.
         if not pairs:
             return 0
         with db:  # transaction

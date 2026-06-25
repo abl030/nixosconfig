@@ -333,8 +333,11 @@
             "-hf ${cfg.embedModelSpec}"
             "--embeddings"
             "--pooling mean"
-            "--parallel 1"
-            "-c 8192"
+            # N slots so a multi-client indexer keeps the GPU saturated; each slot
+            # still gets a full 8192 ctx (total = 8192 * parallel; override-kv lifts
+            # the per-slot cap). Serial (parallel=1) starves a GPU at ~40-50%.
+            "--parallel ${toString cfg.embed.parallel}"
+            "-c ${toString (8192 * cfg.embed.parallel)}"
             "--override-kv nomic-bert.context_length=int:8192"
             "--yarn-orig-ctx 2048"
             "-b 8192"
@@ -465,6 +468,15 @@ in {
         type = lib.types.str;
         default = "${cfg.dataDir}/models";
         description = "Where the GGUF model is downloaded/cached. Set local on a GPU box that does not share the index dataDir.";
+      };
+      parallel = lib.mkOption {
+        type = lib.types.int;
+        default = 1;
+        description = ''
+          llama-server slots. >1 lets concurrent requests batch on-device — needed
+          to saturate a GPU (a serial indexer leaves it ~40-50% idle). Each slot
+          still gets a full 8192 ctx (-c = 8192 * parallel). Keep 1 for CPU.
+        '';
       };
     };
 
