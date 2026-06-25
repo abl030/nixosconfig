@@ -137,6 +137,13 @@
     // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
     // tower's 192.168.0.0/23 route. Syncthing is the intended future transport (#4).
     { "src": ["tag:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
+    // Apollo gaming VM (.111, "Gaming-106"): Moonlight/Artemis game streaming from
+    // the Cullen laptop over tower's 192.168.0.0/23 route. Sunshine/Apollo protocol:
+    // pairing+launch+control TCP (47984 HTTPS, 47989 HTTP, 48010 RTSP) + web UI 47990,
+    // and the video/audio/control/mic UDP range 47998-48010. Matches the pfSense
+    // tailnet-IN allowlist for .111; mDNS 5353 omitted (multicast doesn't route — add
+    // the host by IP in Moonlight). See docs/wiki/services/apollo-gaming-vm.md.
+    { "src": ["tag:cullen"], "dst": ["192.168.1.111/32"], "ip": ["tcp:47984", "tcp:47989", "tcp:47990", "tcp:48010", "udp:47998-48010"] },
 
     // === tag:edge — remote / isolated nodes ================================
     // homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes.
@@ -240,8 +247,8 @@
     // and no broad home-LAN route.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443", "192.168.1.1:443", "192.168.1.34:443"] },
-    { "src": "cullen", "proto": "udp", "accept": ["pfsense:53"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
     // trusted clients can reach Cullen; Cullen still cannot initiate broadly back.
     { "src": "s-a55", "proto": "tcp", "accept": ["cullen:22", "cullen:443"] },
     // hermes → pfSense DNS only; no fleet mesh.
