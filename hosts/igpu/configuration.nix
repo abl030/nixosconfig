@@ -63,7 +63,11 @@
         host = "0.0.0.0"; # restricted by allowFrom below
         allowFrom = ["192.168.1.35" "192.168.1.36"]; # doc2's two NICs
         modelsDir = "/var/lib/mailsearch-embed/models";
-        parallel = 4; # 4 GPU slots so doc2's concurrent embeds batch on-device
+        # parallel=1 only: this 2-CU iGPU crash-loops on multi-slot (`radv/amdgpu:
+        # context lost`, NRestarts climbing, 20s+ embeds) — tried 4, reverted. The
+        # GPU runs ~40-50% with a serial client but is stable; that is the ceiling
+        # for this iGPU. (embed.parallel stays available for a real GPU later.)
+        parallel = 1;
       };
     };
     ssh = {
