@@ -87,6 +87,9 @@
 - Apollo gaming VMs: clone template `WindowsGamingTemplate` (one per game, single
   GPU = one runs at a time, shared MAC `BC:24:11:5E:E5:00`→.111 carries pfSense
   VPN/isolation). Skill: `gaming-vm`; doc: `docs/wiki/services/apollo-gaming-vm.md`.
+  ⚠️ WIP 2026-06-25: Windows-MCP GUI-automation + VB-CABLE installed on VM 120;
+  audio crackle fix UNCONFIRMED (deploy rtprio + ear-test next); plan to rebuild a
+  fresh template with both baked. Resume: [gaming-vm-mcp-audio-wip.md](gaming-vm-mcp-audio-wip.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat
