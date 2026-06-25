@@ -78,6 +78,15 @@
     "cratedigger-import-preview-worker.service"
   ];
   metadataGateResumeUnits = [
+    # The pipeline service itself, not just its timer. The timer loops via
+    # OnUnitInactiveSec=1s, which only schedules once cratedigger.service has
+    # run and gone inactive; its OnBootSec=5min seed is missed whenever the
+    # gate holds cratedigger past boot+5min (the boot race). Starting only the
+    # timer on resume leaves it armed-but-inert (NextElapse=infinity) until a
+    # manual kick. Starting the service re-seeds the loop. Idempotent: a start
+    # on the already-running (near-continuous) pipeline is a no-op, and holds
+    # are still honoured by resume_if_clear before anything starts.
+    "cratedigger.service"
     "cratedigger.timer"
     "cratedigger-web.service"
     "cratedigger-importer.service"
