@@ -42,11 +42,18 @@
 
   xapianDir = "${cfg.dataDir}/xapian";
   vectorDb = "${cfg.dataDir}/vectors.db";
-  modelsDir = "${cfg.dataDir}/models";
+  modelsDir = cfg.embed.modelsDir;
   indexHeartbeat = "${cfg.dataDir}/index.heartbeat";
   embedHeartbeat = "${cfg.dataDir}/embed.heartbeat";
-  embedUrl = "http://127.0.0.1:${toString cfg.embedPort}/v1/embeddings";
-  embedReadyUrl = "http://127.0.0.1:${toString cfg.embedPort}/health";
+  # Where the indexer/MCP reach the embeddings backend. Local by default; can point
+  # at an off-host GPU embed server (igpu) via homelab.services.mailsearch.embed.url.
+  embedUrl = cfg.embed.url;
+  embedReadyUrl = cfg.embed.readyUrl;
+  # llama.cpp build: CPU by default, Vulkan (iGPU) when embed.gpu is set.
+  embedPkg =
+    if cfg.embed.gpu
+    then pkgs.llama-cpp-vulkan
+    else pkgs.llama-cpp;
 
   # notmuch config: split DB off the Maildir, never write Maildir flags, ignore
   # the to-be-deleted Mailstore/export-staging trees + mbsync sidecar files.
@@ -267,6 +274,93 @@
     # other services' exports. Each unit binds back ONLY what it needs (below).
     TemporaryFileSystem = "/mnt";
   };
+
+  # ── Embeddings backend ────────────────────────────────────────────────────
+  # Split out so it can run on a GPU box (igpu) while the index + MCP stay on
+  # doc2. Gated on cfg.embed.enable INDEPENDENTLY of cfg.enable, so a host can run
+  # ONLY this. Same definition on both hosts; embed.gpu flips CPU↔Vulkan.
+  mailsearchEmbedConfig = {
+    users.users.mailsearch-embed = {
+      isSystemUser = true;
+      group = "mailsearch-embed";
+      home = modelsDir;
+      createHome = false;
+      # GPU render-node access (mirrors services.whisper-server on igpu).
+      extraGroups = lib.optionals cfg.embed.gpu ["video" "render"];
+    };
+    users.groups.mailsearch-embed = {};
+
+    systemd.tmpfiles.rules = [
+      "d ${builtins.dirOf modelsDir} 0750 mailsearch-embed mailsearch-embed - -"
+      "d ${modelsDir} 0750 mailsearch-embed mailsearch-embed - -"
+    ];
+
+    # When serving an off-host indexer, open embedPort ONLY to listed sources.
+    # iptables (the fleet firewall backend) — mirrors loki.nix's syslog pattern.
+    networking.firewall = lib.mkIf (cfg.embed.allowFrom != []) {
+      extraCommands =
+        lib.concatMapStringsSep "\n" (ip: ''
+          iptables -I nixos-fw 1 -p tcp --dport ${toString cfg.embedPort} -s ${ip} -j nixos-fw-accept
+        '')
+        cfg.embed.allowFrom;
+      extraStopCommands =
+        lib.concatMapStringsSep "\n" (ip: ''
+          iptables -D nixos-fw -p tcp --dport ${toString cfg.embedPort} -s ${ip} -j nixos-fw-accept 2>/dev/null || true
+        '')
+        cfg.embed.allowFrom;
+    };
+
+    systemd.services.mailsearch-embed = {
+      description = "Mail search: llama-server embeddings (nomic${lib.optionalString cfg.embed.gpu ", Vulkan iGPU"})";
+      wantedBy = ["multi-user.target"];
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
+      environment = {
+        HF_HOME = modelsDir;
+        LLAMA_CACHE = modelsDir;
+      };
+      serviceConfig =
+        {
+          Type = "simple";
+          User = "mailsearch-embed";
+          Group = "mailsearch-embed";
+          Nice = 10;
+          SupplementaryGroups = lib.optionals cfg.embed.gpu ["video" "render"];
+          # Context-cap fixes (--parallel 1 + --override-kv + --yarn-orig-ctx →
+          # full 8192 ctx). See docs/wiki/services/mailsearch.md.
+          ExecStart = lib.concatStringsSep " " [
+            "${embedPkg}/bin/llama-server"
+            "-hf ${cfg.embedModelSpec}"
+            "--embeddings"
+            "--pooling mean"
+            "--parallel 1"
+            "-c 8192"
+            "--override-kv nomic-bert.context_length=int:8192"
+            "--yarn-orig-ctx 2048"
+            "-b 8192"
+            "-ub 8192"
+            "--rope-scaling yarn"
+            "--rope-freq-scale 0.75"
+            (
+              if cfg.embed.gpu
+              then "-ngl 99"
+              else "-ngl 0"
+            )
+            "-t ${toString cfg.threads}"
+            "--host ${cfg.embed.host}"
+            "--port ${toString cfg.embedPort}"
+          ];
+          Restart = "on-failure";
+          RestartSec = "15s";
+          BindPaths = [modelsDir];
+          RuntimeDirectory = "mailsearch-embed";
+        }
+        // hardening
+        # GPU needs the host /dev render node; hardening blanks it by default.
+        // lib.optionalAttrs cfg.embed.gpu {PrivateDevices = false;};
+      unitConfig.RequiresMountsFor = [modelsDir];
+    };
+  };
 in {
   options.homelab.services.mailsearch = {
     enable = lib.mkEnableOption "Local hybrid (keyword + semantic) mail-archive search";
@@ -327,6 +421,53 @@ in {
       description = "CPU threads for llama-server embedding inference.";
     };
 
+    embed = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = cfg.enable;
+        description = ''
+          Run the llama-server embeddings backend on THIS host. Independent of
+          `enable` so the GPU embed box (igpu) can run only this while the index +
+          MCP run on doc2. Defaults to `enable` (co-located, the original layout).
+        '';
+      };
+      gpu = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Use the Vulkan build (`llama-cpp-vulkan`) and offload all layers
+          (`-ngl 99`) to the iGPU. Adds the `video`/`render` groups and unblanks
+          `/dev` (PrivateDevices). Needs an accessible `/dev/dri` render node.
+        '';
+      };
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = "Bind address for the embeddings server. Use 0.0.0.0 (+ allowFrom) to serve a remote indexer.";
+      };
+      url = lib.mkOption {
+        type = lib.types.str;
+        default = "http://127.0.0.1:${toString cfg.embedPort}/v1/embeddings";
+        description = "Where the indexer/MCP reach the embeddings endpoint (point at the GPU host when off-box).";
+      };
+      readyUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "http://127.0.0.1:${toString cfg.embedPort}/health";
+        description = "Embeddings readiness/health URL.";
+      };
+      allowFrom = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["192.168.1.35" "192.168.1.36"];
+        description = "Source IPs allowed through the firewall to embedPort (for an off-host indexer).";
+      };
+      modelsDir = lib.mkOption {
+        type = lib.types.str;
+        default = "${cfg.dataDir}/models";
+        description = "Where the GGUF model is downloaded/cached. Set local on a GPU box that does not share the index dataDir.";
+      };
+    };
+
     syncIntervalSec = lib.mkOption {
       type = lib.types.int;
       default = 300;
@@ -363,241 +504,182 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    users.users.${cfg.indexUser} = {
-      isSystemUser = true;
-      group = "mailsearch";
-      # Maildir read comes from a SCOPED ACL (g:mailsearch:rX) applied at deploy,
-      # NOT the broad `users` group — see docs/wiki/services/mailsearch.md.
-      home = cfg.dataDir;
-      createHome = false;
-    };
-    users.users.mailsearch-embed = {
-      isSystemUser = true;
-      group = "mailsearch-embed";
-      home = modelsDir;
-      createHome = false;
-    };
-    users.users.mailsearch-ro = lib.mkIf cfg.agentAccess {
-      isSystemUser = true;
-      group = "mailsearch";
-      # Maildir read (for get_message bodies) via the same scoped g:mailsearch ACL
-      # as the indexer — NOT the broad `users` group.
-      home = cfg.dataDir;
-      createHome = false;
-      shell = pkgs.bashInteractive;
-      openssh.authorizedKeys.keys = [
-        ''command="${mcpTrigger}",restrict,from="100.64.0.0/10,192.168.1.0/24" ${fleetPubKey}''
+  config = lib.mkMerge [
+    # Embeddings backend — wherever embed.enable is set (e.g. the igpu GPU box).
+    (lib.mkIf cfg.embed.enable mailsearchEmbedConfig)
+
+    # Index + keyword/semantic search stack (doc2).
+    (lib.mkIf cfg.enable {
+      users.users.${cfg.indexUser} = {
+        isSystemUser = true;
+        group = "mailsearch";
+        # Maildir read comes from a SCOPED ACL (g:mailsearch:rX) applied at deploy,
+        # NOT the broad `users` group — see docs/wiki/services/mailsearch.md.
+        home = cfg.dataDir;
+        createHome = false;
+      };
+      users.users.mailsearch-ro = lib.mkIf cfg.agentAccess {
+        isSystemUser = true;
+        group = "mailsearch";
+        # Maildir read (for get_message bodies) via the same scoped g:mailsearch ACL
+        # as the indexer — NOT the broad `users` group.
+        home = cfg.dataDir;
+        createHome = false;
+        shell = pkgs.bashInteractive;
+        openssh.authorizedKeys.keys = [
+          ''command="${mcpTrigger}",restrict,from="100.64.0.0/10,192.168.1.0/24" ${fleetPubKey}''
+        ];
+      };
+      users.groups.mailsearch = {};
+
+      users.users.${cfg.tuiUser}.extraGroups = lib.mkIf (cfg.tuiUser != null) ["mailsearch"];
+
+      systemd.tmpfiles.rules = [
+        "d ${cfg.dataDir} 0750 ${cfg.indexUser} mailsearch - -"
+        "d ${xapianDir} 0750 ${cfg.indexUser} mailsearch - -"
       ];
-    };
-    users.groups.mailsearch = {};
-    users.groups.mailsearch-embed = {};
 
-    users.users.${cfg.tuiUser}.extraGroups = lib.mkIf (cfg.tuiUser != null) ["mailsearch"];
+      systemd.services = {
+        # ── Keyword index + embed delta (oneshot timer) ──────────────────────
+        mailsearch-index = {
+          description = "Mail search: notmuch index + embedding delta";
+          # This oneshot runs for hours on the first (bootstrap) embed. Do NOT let
+          # `nixos-rebuild switch` restart/wait on it — that wedges the whole
+          # activation. The timer picks up new config on its next tick instead.
+          restartIfChanged = false;
+          stopIfChanged = false;
+          # Only order against the embed unit when it runs locally; off-host (igpu)
+          # readiness is handled by the ExecStartPre curl to embed.readyUrl below.
+          after = ["network-online.target" "mnt-data.mount" "mnt-virtio.mount"] ++ lib.optional cfg.embed.enable "mailsearch-embed.service";
+          requires = ["mnt-data.mount" "mnt-virtio.mount"];
+          wants = ["network-online.target"] ++ lib.optional cfg.embed.enable "mailsearch-embed.service";
+          path = [pkgs.notmuch];
+          environment = commonEnv // {MAILSEARCH_HEARTBEAT = embedHeartbeat;};
+          serviceConfig =
+            {
+              Type = "oneshot";
+              User = cfg.indexUser;
+              Group = "mailsearch";
+              UMask = "0027";
+              Nice = 15;
+              IOSchedulingClass = "idle";
+              # The first run embeds the whole archive on CPU (hours); without this
+              # the default ~90s start timeout SIGTERMs the bootstrap every tick.
+              TimeoutStartSec = "6h";
+              # Wait for the embeddings server to actually answer before the
+              # indexer's ExecStartPost calls it (Type=simple "started" != ready;
+              # first boot also downloads the model).
+              ExecStartPre = "${pkgs.curl}/bin/curl -sf --retry 120 --retry-delay 5 --retry-all-errors --max-time 1200 -o /dev/null ${embedReadyUrl}";
+              ExecStart = "${pkgs.notmuch}/bin/notmuch new";
+              # Both run only on a successful notmuch new. The indexer touches the
+              # embed heartbeat itself; we touch the index heartbeat here.
+              ExecStartPost = [
+                "${pkgs.coreutils}/bin/touch ${indexHeartbeat}"
+                "${indexer}/bin/mailsearch-indexer"
+              ];
+              # #257: BindPaths (not ReadOnly/ReadWritePaths) for NFS/virtiofs — a
+              # raced/stale mount fails LOUD at namespace setup instead of silently
+              # skipping the bind and EROFS-ing later.
+              BindReadOnlyPaths = [cfg.maildirRoot];
+              BindPaths = [cfg.dataDir];
+              RuntimeDirectory = "mailsearch-index";
+            }
+            // hardening;
+          unitConfig.RequiresMountsFor = [cfg.maildirRoot cfg.dataDir];
+        };
 
-    systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0750 ${cfg.indexUser} mailsearch - -"
-      "d ${xapianDir} 0750 ${cfg.indexUser} mailsearch - -"
-      "d ${modelsDir} 0750 mailsearch-embed mailsearch-embed - -"
-    ];
-
-    systemd.services = {
-      # ── Keyword index + embed delta (oneshot timer) ──────────────────────
-      mailsearch-index = {
-        description = "Mail search: notmuch index + embedding delta";
-        # This oneshot runs for hours on the first (bootstrap) embed. Do NOT let
-        # `nixos-rebuild switch` restart/wait on it — that wedges the whole
-        # activation. The timer picks up new config on its next tick instead.
-        restartIfChanged = false;
-        stopIfChanged = false;
-        after = ["network-online.target" "mnt-data.mount" "mnt-virtio.mount" "mailsearch-embed.service"];
-        requires = ["mnt-data.mount" "mnt-virtio.mount"];
-        wants = ["network-online.target" "mailsearch-embed.service"];
-        path = [pkgs.notmuch];
-        environment = commonEnv // {MAILSEARCH_HEARTBEAT = embedHeartbeat;};
-        serviceConfig =
-          {
-            Type = "oneshot";
-            User = cfg.indexUser;
-            Group = "mailsearch";
-            UMask = "0027";
-            Nice = 15;
-            IOSchedulingClass = "idle";
-            # The first run embeds the whole archive on CPU (hours); without this
-            # the default ~90s start timeout SIGTERMs the bootstrap every tick.
-            TimeoutStartSec = "6h";
-            # Wait for the embeddings server to actually answer before the
-            # indexer's ExecStartPost calls it (Type=simple "started" != ready;
-            # first boot also downloads the model).
-            ExecStartPre = "${pkgs.curl}/bin/curl -sf --retry 120 --retry-delay 5 --retry-all-errors --max-time 1200 -o /dev/null ${embedReadyUrl}";
-            ExecStart = "${pkgs.notmuch}/bin/notmuch new";
-            # Both run only on a successful notmuch new. The indexer touches the
-            # embed heartbeat itself; we touch the index heartbeat here.
-            ExecStartPost = [
-              "${pkgs.coreutils}/bin/touch ${indexHeartbeat}"
-              "${indexer}/bin/mailsearch-indexer"
-            ];
-            # #257: BindPaths (not ReadOnly/ReadWritePaths) for NFS/virtiofs — a
-            # raced/stale mount fails LOUD at namespace setup instead of silently
-            # skipping the bind and EROFS-ing later.
-            BindReadOnlyPaths = [cfg.maildirRoot];
-            BindPaths = [cfg.dataDir];
-            RuntimeDirectory = "mailsearch-index";
-          }
-          // hardening;
-        unitConfig.RequiresMountsFor = [cfg.maildirRoot cfg.dataDir];
+        # ── Heartbeat HTTP for Uptime Kuma ───────────────────────────────────
+        mailsearch-health = {
+          description = "Mail search heartbeat HTTP server";
+          wantedBy = ["multi-user.target"];
+          after = ["network-online.target"];
+          wants = ["network-online.target"];
+          environment = {
+            BIND_HOST = "127.0.0.1";
+            BIND_PORT = toString cfg.healthPort;
+            STALE_THRESHOLD_SEC = toString cfg.staleThresholdSec;
+            # Liveness = the embed heartbeat (touched every batch + every run). The
+            # index heartbeat only refreshes when `notmuch new` re-runs, which it
+            # does NOT during the multi-hour single bootstrap run, so it goes stale
+            # and false-pages "indexer down". The keyword index is covered by the
+            # deep probe (notmuch count) instead.
+            EMBED_HEARTBEAT = embedHeartbeat;
+          };
+          serviceConfig =
+            {
+              Type = "simple";
+              User = cfg.indexUser;
+              Group = "mailsearch";
+              ExecStart = "${healthServer}/bin/mailsearch-health";
+              Restart = "on-failure";
+              RestartSec = 5;
+              BindReadOnlyPaths = [cfg.dataDir];
+            }
+            // hardening;
+          unitConfig.RequiresMountsFor = [cfg.dataDir];
+        };
       };
 
-      # ── Resident embeddings server (llama.cpp, CPU, loopback) ────────────
-      mailsearch-embed = {
-        description = "Mail search: llama-server embeddings (nomic, CPU)";
-        wantedBy = ["multi-user.target"];
-        after = ["network-online.target" "mnt-virtio.mount"];
-        requires = ["mnt-virtio.mount"];
-        wants = ["network-online.target"];
-        environment = {
-          HF_HOME = modelsDir;
-          LLAMA_CACHE = modelsDir;
+      systemd.timers.mailsearch-index = {
+        description = "Mail search index refresh timer";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnBootSec = "5min";
+          OnUnitActiveSec = "${toString cfg.syncIntervalSec}s";
+          AccuracySec = "30s";
+          Unit = "mailsearch-index.service";
         };
-        serviceConfig =
-          {
-            Type = "simple";
-            User = "mailsearch-embed";
-            Group = "mailsearch-embed";
-            Nice = 10;
-            ExecStart = lib.concatStringsSep " " [
-              "${pkgs.llama-cpp}/bin/llama-server"
-              "-hf ${cfg.embedModelSpec}"
-              "--embeddings"
-              "--pooling mean"
-              # Embed-context fix (verified on doc1, 2026-06-25). nomic-embed is
-              # trained at 2048 tokens but supports 8192 via YaRN rope scaling. TWO
-              # llama-server quirks each silently cap the usable slot context at
-              # 2048 — skipping every longer email and stalling the index at ~35%:
-              #   1. --parallel auto-picks 4 slots and divides n_ctx across them
-              #      (8192/4 = 2048/slot). Pin --parallel 1 → the one slot keeps 8192.
-              #   2. llama-server caps each slot to the model's trained context
-              #      (n_ctx_train=2048), ignoring rope — upstream bug
-              #      ggml-org/llama.cpp#22140. --override-kv raises n_ctx_train to
-              #      8192 so the slot isn't reduced; --yarn-orig-ctx anchors YaRN to
-              #      the real 2048 so the scaling math stays correct.
-              # See docs/wiki/services/mailsearch.md (embed-context stall).
-              "--parallel 1"
-              "-c 8192"
-              "--override-kv nomic-bert.context_length=int:8192"
-              "--yarn-orig-ctx 2048"
-              # Physical batch must cover a whole email in one forward pass, or
-              # llama-server 500s any input over the default 512 ('input too
-              # large to process. increase the physical batch size').
-              "-b 8192"
-              "-ub 8192"
-              "--rope-scaling yarn"
-              "--rope-freq-scale 0.75"
-              "-ngl 0"
-              "-t ${toString cfg.threads}"
-              "--host 127.0.0.1"
-              "--port ${toString cfg.embedPort}"
-            ];
-            Restart = "on-failure";
-            RestartSec = "15s";
-            BindPaths = [modelsDir];
-            RuntimeDirectory = "mailsearch-embed";
-          }
-          // hardening;
-        unitConfig.RequiresMountsFor = [cfg.dataDir];
       };
 
-      # ── Heartbeat HTTP for Uptime Kuma ───────────────────────────────────
-      mailsearch-health = {
-        description = "Mail search heartbeat HTTP server";
-        wantedBy = ["multi-user.target"];
-        after = ["network-online.target"];
-        wants = ["network-online.target"];
-        environment = {
-          BIND_HOST = "127.0.0.1";
-          BIND_PORT = toString cfg.healthPort;
-          STALE_THRESHOLD_SEC = toString cfg.staleThresholdSec;
-          # Liveness = the embed heartbeat (touched every batch + every run). The
-          # index heartbeat only refreshes when `notmuch new` re-runs, which it
-          # does NOT during the multi-hour single bootstrap run, so it goes stale
-          # and false-pages "indexer down". The keyword index is covered by the
-          # deep probe (notmuch count) instead.
-          EMBED_HEARTBEAT = embedHeartbeat;
-        };
-        serviceConfig =
-          {
-            Type = "simple";
+      # Human keyword search over SSH (no service; a package + config).
+      # mailsearch-tui = alot (command-driven), mailsearch-live = fzf live filter.
+      environment.systemPackages = [tui cli live pkgs.notmuch];
+
+      homelab.monitoring.monitors = [
+        {
+          name = "Mailsearch index";
+          url = "http://localhost:${toString cfg.healthPort}/health";
+        }
+      ];
+
+      # Deep write-path probe: the shallow heartbeat is touched on a successful
+      # indexer run even if the embed leg silently embedded nothing (embed server
+      # down, dimension mismatch) — so it cannot catch a stalled vector store. This
+      # probe checks notmuch has messages, the vector store is non-empty and not
+      # lagging unboundedly, and the embed endpoint answers. (Immich #250 pattern.)
+      homelab.monitoring.deepProbes = [
+        {
+          name = "Mailsearch index write-path";
+          command = "${pkgs.callPackage ./probes/check-mailsearch.nix {}}/bin/check-mailsearch";
+          interval = "30m";
+          intervalSecs = 2400;
+          serviceConfig = {
             User = cfg.indexUser;
             Group = "mailsearch";
-            ExecStart = "${healthServer}/bin/mailsearch-health";
-            Restart = "on-failure";
-            RestartSec = 5;
             BindReadOnlyPaths = [cfg.dataDir];
-          }
-          // hardening;
-        unitConfig.RequiresMountsFor = [cfg.dataDir];
-      };
-    };
+            Environment = [
+              "NOTMUCH_CONFIG=${notmuchConfig}"
+              "MAILSEARCH_VECTOR_DB=${vectorDb}"
+              "MAILSEARCH_EMBED_HEALTH_URL=${embedReadyUrl}"
+            ];
+          };
+        }
+      ];
 
-    systemd.timers.mailsearch-index = {
-      description = "Mail search index refresh timer";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnBootSec = "5min";
-        OnUnitActiveSec = "${toString cfg.syncIntervalSec}s";
-        AccuracySec = "30s";
-        Unit = "mailsearch-index.service";
-      };
-    };
-
-    # Human keyword search over SSH (no service; a package + config).
-    # mailsearch-tui = alot (command-driven), mailsearch-live = fzf live filter.
-    environment.systemPackages = [tui cli live pkgs.notmuch];
-
-    homelab.monitoring.monitors = [
-      {
-        name = "Mailsearch index";
-        url = "http://localhost:${toString cfg.healthPort}/health";
-      }
-    ];
-
-    # Deep write-path probe: the shallow heartbeat is touched on a successful
-    # indexer run even if the embed leg silently embedded nothing (embed server
-    # down, dimension mismatch) — so it cannot catch a stalled vector store. This
-    # probe checks notmuch has messages, the vector store is non-empty and not
-    # lagging unboundedly, and the embed endpoint answers. (Immich #250 pattern.)
-    homelab.monitoring.deepProbes = [
-      {
-        name = "Mailsearch index write-path";
-        command = "${pkgs.callPackage ./probes/check-mailsearch.nix {}}/bin/check-mailsearch";
-        interval = "30m";
-        intervalSecs = 2400;
-        serviceConfig = {
-          User = cfg.indexUser;
-          Group = "mailsearch";
-          BindReadOnlyPaths = [cfg.dataDir];
-          Environment = [
-            "NOTMUCH_CONFIG=${notmuchConfig}"
-            "MAILSEARCH_VECTOR_DB=${vectorDb}"
-            "MAILSEARCH_EMBED_HEALTH_URL=${embedReadyUrl}"
-          ];
-        };
-      }
-    ];
-
-    # A raced/stale /mnt bind source under TemporaryFileSystem fails loud at
-    # namespace setup — page on it (#257). Other transient embed/IMAP/NFS
-    # flakiness is normal and surfaces via the heartbeat + Kuma monitor above.
-    homelab.monitoring.errorPatterns = [
-      {
-        name = "Mailsearch namespace setup failure";
-        unit = "mailsearch-index.service";
-        pattern = "Failed at step NAMESPACE";
-        severity = "critical";
-        summary = "mailsearch-index could not set up its mount namespace (bind source missing/stale)";
-        description = "A BindPaths/BindReadOnlyPaths source under /mnt was unavailable at unit start. Check mnt-data.mount / mnt-virtio.mount on doc2.";
-        threshold = 0;
-      }
-    ];
-  };
+      # A raced/stale /mnt bind source under TemporaryFileSystem fails loud at
+      # namespace setup — page on it (#257). Other transient embed/IMAP/NFS
+      # flakiness is normal and surfaces via the heartbeat + Kuma monitor above.
+      homelab.monitoring.errorPatterns = [
+        {
+          name = "Mailsearch namespace setup failure";
+          unit = "mailsearch-index.service";
+          pattern = "Failed at step NAMESPACE";
+          severity = "critical";
+          summary = "mailsearch-index could not set up its mount namespace (bind source missing/stale)";
+          description = "A BindPaths/BindReadOnlyPaths source under /mnt was unavailable at unit start. Check mnt-data.mount / mnt-virtio.mount on doc2.";
+          threshold = 0;
+        }
+      ];
+    })
+  ];
 }

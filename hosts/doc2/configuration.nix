@@ -243,12 +243,20 @@
       };
 
       # Hybrid (keyword + semantic) search over the mailarchive Maildir.
-      # notmuch keyword index + nomic/sqlite-vec embeddings, all local on doc2;
-      # index on virtiofs (NOT the NFS Maildir); read-only MCP for the doc1
-      # agents only (forced-command SSH). See docs/wiki/services/mailsearch.md.
+      # notmuch keyword index + nomic/sqlite-vec embeddings; index on virtiofs
+      # (NOT the NFS Maildir); read-only MCP for the doc1 agents only
+      # (forced-command SSH). See docs/wiki/services/mailsearch.md.
       mailsearch = {
         enable = true;
         tuiUser = "abl030";
+        # Embeddings moved to the igpu iGPU (Vulkan) — CPU embedding of the large
+        # backlog was the wall (~7-8s/email). Index + MCP stay here and call igpu
+        # over the LAN; the shared vectors.db carries the work over.
+        embed = {
+          enable = false;
+          url = "http://192.168.1.33:18181/v1/embeddings";
+          readyUrl = "http://192.168.1.33:18181/health";
+        };
       };
 
       kopia = {

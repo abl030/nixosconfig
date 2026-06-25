@@ -50,6 +50,21 @@
       };
       defaultModel = "large";
     };
+    # GPU embeddings backend for mailsearch. The index + read-only MCP stay on
+    # doc2, which calls this over the LAN; nomic-embed runs on the iGPU (Vulkan)
+    # because CPU embedding of the large backlog was the wall (~7-8s/email). Local
+    # model dir (own UID) avoids the shared-mount UID clash with doc2's embed user.
+    # See docs/wiki/services/mailsearch.md.
+    services.mailsearch = {
+      enable = false; # embed backend only — no index/MCP here
+      embed = {
+        enable = true;
+        gpu = true;
+        host = "0.0.0.0"; # restricted by allowFrom below
+        allowFrom = ["192.168.1.35" "192.168.1.36"]; # doc2's two NICs
+        modelsDir = "/var/lib/mailsearch-embed/models";
+      };
+    };
     ssh = {
       enable = true;
       secure = false;
