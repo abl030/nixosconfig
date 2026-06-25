@@ -64,6 +64,60 @@ loopback capture flows; nothing needs to play on the (headless) host.
 that also work but need a Windows install: Steam Streaming Speakers — Apollo
 auto-detects it — or VB-CABLE. The VM-level HDA sink is cleaner: config-only.)
 
+> ⚠️ **Caveat (2026-06-25):** `driver=none` keeps a render clock running, but it's
+> QEMU's **software timer** (`timer-period` 10 ms default) — a *jittery* clock. WASAPI
+> loopback is sensitive to clock steadiness, so under host load this is a plausible
+> source of **audio stutter** (host-emit cadence measured mean ~3.5 ms but with
+> mild jitter — gaps >10 ms present). If audio stutter persists after the client
+> fix below, the more robust headless path is a real software-clocked sink
+> (**Steam Streaming Speakers** via `virtual_sink`, or VB-CABLE), or tuning the null
+> backend buffer via `args: -audiodev none,...,out.buffer-length=...`.
+
+---
+
+## 🎛️ STREAMING SMOOTHNESS / "JANK" TUNING — diagnosis 2026-06-25
+
+Full objective diagnosis of "janky video + stuttery audio" (epi client, Arc A310
+decode). **The pipeline has huge headroom — encode/decode/network were never the
+bottleneck.** Measured on VM 120 streaming to epi (moonlight-qt 6.1.0, Wayland):
+
+- **Encode = GTX 1080 NVENC, confirmed** (`Creating encoder [hevc_nvenc]`,
+  `encoder.stats.sessionCount=1`). Only **7–14 % encoder util** even at 1440p — the
+  1080 loafs. Not the jank. SDR streams are **8-bit HEVC**; 10-bit only when the
+  client requests HDR (`dynamicRange:1`).
+- **Decode = Arc A310 via VAAPI (iHD)**, ~**0.4 ms/frame**. Never the jank.
+- **Network = pristine LAN**: 0 % loss, ~1 ms latency, 0 variance.
+- **Root cause of video judder = the SudoVDA virtual display is capped at 60 Hz.**
+  Apollo log: `Display mode requested [2560x1440x144]` → `Display refresh rate
+  [60Hz]`. A browser's `requestAnimationFrame` locked to exactly 60 fps confirmed it.
+  So a >60 fps request still delivers 60 fps, and a high-fps game sampled at 60 Hz
+  judders. **It's an Apollo request-side default, not SudoVDA/the 1080.**
+  - **Fix (only if you want true high-fps):** Apollo Web UI → PIN tab → set the
+    client's **Display Mode Override** to `2560x1440x144` (format `WxHxR`; the
+    override also becomes the encode fps in Apollo ≥4.0). See
+    [Apollo wiki: Display-Mode-Override](https://github.com/ClassicOldSong/Apollo/wiki/Display-Mode-Override),
+    issues [#935](https://github.com/ClassicOldSong/Apollo/issues/935) /
+    [#1453](https://github.com/ClassicOldSong/Apollo/issues/1453).
+  - **Decision (2026-06-25): NOT applied.** Keep the server universal across clients
+    (epi/phone/laptop). Run a coherent **60 everywhere** (60 Hz vdisplay → 60 fps
+    stream → epi's panel already at 60 Hz = clean 1:1 cadence, frame-pacing on). No
+    per-client override that over-fits to epi.
+- **8-bit > 10-bit:** the HDR/10-bit run measured *worse* (render 58.9 vs 60 fps,
+  jitter-drop 1.38 % vs 0.55 %) for no gain on a game stream. Set the client to
+  **8-bit / HDR off** (moonlight per-app `hdr=false`).
+- **Audio stutter = client-side priority.** Host-emit audio cadence is steady;
+  moonlight on epi logged `Unable to set audio thread to high priority:
+  setpriority() failed` (user `rtprio`/`nice` ceilings were 0). Fixed declaratively
+  for the Linux clients in **`hosts/common/realtime-audio.nix`** (imported by epi +
+  framework). The host null-audio-backend jitter (caveat above) is a separate,
+  universal contributor — revisit if stutter persists after deploying the client fix.
+
+Reproducible test harness lived in the job scratch dir: Edge kiosk fullscreen
+canvas (rAF motion, scales to the vdisplay refresh) + a Web Audio tone as the
+load source; `moonlight stream … --fps/--resolution/--video-codec/--hdr`; metrics
+from the moonlight perf summary, `tcpdump` on `tap120i0` (per-port packet cadence),
+guest `nvidia-smi` (encoder util/session), and `intel_gpu_top`/`pw-top` on epi.
+
 ---
 
 ## 🟥 NON-ISSUES — DO NOT RE-CHASE THESE (we burned hours here for nothing)

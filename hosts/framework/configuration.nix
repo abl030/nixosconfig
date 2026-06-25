@@ -7,6 +7,7 @@
   imports = [
     ./hardware-configuration.nix
     ../common/desktop.nix
+    ../common/realtime-audio.nix # Moonlight audio-thread rtprio (anti-stutter)
     inputs.nixos-hardware.nixosModules.framework-13-7040-amd
   ];
 
