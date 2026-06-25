@@ -225,16 +225,29 @@ committed. Recorded so the next local-inference / NFS-indexing service avoids th
    degenerate body, with **no per-message timeout**. Because `notmuch_json`'s
    `subprocess.run` and `clean_body` had no bound, one bad message hung the run
    indefinitely, and it would re-hit the *same* message every run → permanent
-   stall. Fixed in `nix/pkgs/mailsearch-indexer.nix`: `MAX_RAW` (300 KB) caps the
-   raw bytes fed to the parsers (does **not** affect embedded content — still cut
-   to `MAX_CHARS`), a `SIGALRM` `MSG_TIMEOUT` (45 s) backstops pure-Python spins,
-   and `NOTMUCH_TIMEOUT` (120 s) bounds the subprocess; on any of these the
-   message is skipped (`skipped=` in the summary log), not the run. *Lesson: any
-   per-message CPU/IO step in a long batch job needs a hard per-item timeout —
-   SIGALRM for Python, a size cap for C-extension regex, `timeout=` on subprocess.*
+   stall. Fixed in `nix/pkgs/mailsearch-indexer.nix` by making every per-message
+   op **finite**: `MAX_RAW` (300 KB) caps the raw bytes fed to the parsers (does
+   **not** affect embedded content — still cut to `MAX_CHARS`) and `NOTMUCH_TIMEOUT`
+   (120 s) bounds the subprocess, so a bad message just gets `skipped=` (in the
+   summary log), never hangs the run. *(An earlier cut used a `SIGALRM` backstop;
+   it was dropped once fetch+clean moved into worker threads — SIGALRM only fires
+   on the main thread — and the size cap + subprocess timeout already bound every
+   op.)* *Lesson: any per-message CPU/IO step in a long batch job needs a hard
+   per-item bound — a size cap for C-extension regex, `timeout=` on subprocess.*
    **Recovery:** a wedged run can't be cleared by a deploy (`restartIfChanged=false`),
    so doc2 has a scoped NOPASSWD `systemctl restart --no-block mailsearch-index.service`
    (`hosts/doc2/configuration.nix`) for the bastion to relaunch it.
+6. **Backfill was fetch-bound, not embed-bound (2026-06-25).** Once unwedged, the
+   bootstrap crawled at ~720 emails/hr with the embed server **idle most of the
+   time** (`all slots are idle` between bursts) and doc2 at load ~12 — the
+   bottleneck was the single-threaded `notmuch show` per message over the hard NFS
+   mount, not embedding. Fixed by running `fetch_and_clean` across a
+   `ThreadPoolExecutor` (`MAILSEARCH_FETCH_WORKERS`, default 8): `notmuch show`
+   releases the GIL on the subprocess wait, so the workers overlap NFS latency and
+   keep the (still serial, single-writer) embed + DB loop continuously fed. A
+   sliding window of ~`WORKERS*8` in-flight messages bounds memory regardless of
+   backlog size. *Lesson: profile WHERE a slow batch job waits before scaling the
+   wrong stage — the idle embed server said "fetch-bound" out loud.*
 
 **Maildir access — no ACL needed.** Contrary to the original plan, the index
 user reads the `0700` Maildir over the NFS mount **without** any extra ACL or the

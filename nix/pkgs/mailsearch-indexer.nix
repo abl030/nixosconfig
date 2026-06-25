@@ -58,13 +58,14 @@ in
       MAILSEARCH_MAX_CHARS    truncate cleaned body to this many chars (default 30000)
       NOTMUCH_BIN             path to the notmuch binary (default "notmuch")
     """
+    import itertools
     import json
     import os
-    import signal
     import subprocess
     import sys
     import time
     import urllib.request
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
     import apsw
     import html2text
@@ -79,30 +80,21 @@ in
     BATCH = int(os.environ.get("MAILSEARCH_BATCH", "32"))
     DIM = int(os.environ.get("MAILSEARCH_DIM", "768"))
     MAX_CHARS = int(os.environ.get("MAILSEARCH_MAX_CHARS", "24000"))  # keep under the 8192-token ctx
-    # Wedge guards (2026-06-25). A single pathological message hung a whole run:
-    # html2text / the reply-parser regex can spin for minutes on degenerate or
-    # huge bodies (state R, no I/O), and notmuch can hang on a stale NFS handle.
-    # MAX_RAW bounds the raw bytes fed to the CPU-heavy parsers (NOT what we embed
-    # — the cleaned text is still cut to MAX_CHARS, so a real email loses nothing;
-    # only multi-hundred-KB degenerate bodies are clipped before parsing).
-    # MSG_TIMEOUT is a SIGALRM backstop per message; NOTMUCH_TIMEOUT bounds the
-    # subprocess. On any of these the message is skipped, not the run.
+    # Wedge + throughput guards (2026-06-25). A single pathological message hung a
+    # whole run: html2text / the reply-parser regex can spin on degenerate or huge
+    # bodies, and notmuch can hang on a stale NFS handle. MAX_RAW bounds the raw
+    # bytes fed to the CPU-heavy parsers (NOT what we embed — the cleaned text is
+    # still cut to MAX_CHARS, so a real email loses nothing; only multi-hundred-KB
+    # degenerate bodies are clipped before parsing) and NOTMUCH_TIMEOUT bounds the
+    # subprocess. Together they make every per-message op finite, so no message can
+    # hang the run — a worker returns an error string and that one message is skipped.
+    # WORKERS: fetch+clean is I/O-bound (notmuch show over NFS releases the GIL on
+    # the subprocess wait), so a thread pool overlaps that latency and keeps the
+    # serial embedder continuously fed instead of stalling one message at a time —
+    # the embed server was idle ~most of the time waiting on single-threaded fetch.
     MAX_RAW = int(os.environ.get("MAILSEARCH_MAX_RAW", "300000"))
-    MSG_TIMEOUT = int(os.environ.get("MAILSEARCH_MSG_TIMEOUT", "45"))
     NOTMUCH_TIMEOUT = int(os.environ.get("MAILSEARCH_NOTMUCH_TIMEOUT", "120"))
-
-
-    class MsgTimeout(Exception):
-        pass
-
-
-    def _on_alarm(signum, frame):
-        raise MsgTimeout()
-
-
-    # Main thread only (main() runs here) — SIGALRM interrupts pure-Python spins
-    # (html2text); MAX_RAW covers the regex C-extension case SIGALRM can't break.
-    signal.signal(signal.SIGALRM, _on_alarm)
+    WORKERS = int(os.environ.get("MAILSEARCH_FETCH_WORKERS", "8"))
 
 
     # NEVER log message bodies or search queries — doc2 ships the journal to Loki,
@@ -303,44 +295,59 @@ in
         )
 
 
+    def fetch_and_clean(mid):
+        # Worker (pool thread): fetch + clean ONE message → (mid, rec|None, err|None).
+        # Catches everything so the pool never sees an exception, and is bounded by
+        # MAX_RAW + NOTMUCH_TIMEOUT so it can never hang. No DB / embed here — those
+        # stay single-threaded in main().
+        try:
+            rec = fetch_message(mid)
+            if rec is None:
+                return (mid, None, None)
+            rec["account"], rec["folder"] = folder_account(rec["path"])
+            rec["clean"] = clean_body(rec)
+            return (mid, rec if rec["clean"] else None, None)
+        except Exception as e:  # noqa: BLE001
+            return (mid, None, type(e).__name__)
+
+
     def main():
         t0 = time.time()
         db = open_db()
         have = existing_ids(db)
         ids = all_message_ids()
         todo = [m for m in ids if m not in have]
-        log(f"notmuch messages={len(ids)} already-embedded={len(have)} new={len(todo)}")
+        log(f"notmuch messages={len(ids)} already-embedded={len(have)} new={len(todo)} workers={WORKERS}")
         done = 0
-        batch = []
         skipped = 0
-        for mid in todo:
-            # Per-message wall-clock guard: a single degenerate body must never
-            # wedge the whole bootstrap run (see MAX_RAW/MSG_TIMEOUT above).
-            try:
-                signal.alarm(MSG_TIMEOUT)
-                rec = fetch_message(mid)
-                if rec is None:
-                    signal.alarm(0)
-                    continue
-                rec["account"], rec["folder"] = folder_account(rec["path"])
-                rec["clean"] = clean_body(rec)
-                signal.alarm(0)
-            except MsgTimeout:
-                signal.alarm(0)
-                skipped += 1
-                log(f"skip {mid[:50]} (fetch/clean timeout >{MSG_TIMEOUT}s)")
-                continue
-            except Exception as e:  # noqa: BLE001
-                signal.alarm(0)
-                skipped += 1
-                log(f"skip {mid[:50]} (fetch/clean error: {type(e).__name__})")
-                continue
-            if not rec["clean"]:
-                continue
-            batch.append(rec)
-            if len(batch) >= BATCH:
-                done += flush(db, batch)
-                batch = []
+        batch = []
+        # Fetch+clean run across a thread pool (I/O-bound on NFS); the main thread
+        # alone embeds + writes the DB (single writer, no locking). A sliding window
+        # keeps ~WORKERS*8 messages in flight so the embedder never starves and
+        # memory stays bounded no matter how big the backlog is.
+        pending = iter(todo)
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            inflight = {
+                ex.submit(fetch_and_clean, m)
+                for m in itertools.islice(pending, WORKERS * 8)
+            }
+            while inflight:
+                ready, inflight = wait(inflight, return_when=FIRST_COMPLETED)
+                for fut in ready:
+                    mid, rec, err = fut.result()
+                    nxt = next(pending, None)
+                    if nxt is not None:
+                        inflight.add(ex.submit(fetch_and_clean, nxt))
+                    if err is not None:
+                        skipped += 1
+                        log(f"skip {mid[:50]} (fetch/clean error: {err})")
+                        continue
+                    if rec is None:
+                        continue
+                    batch.append(rec)
+                    if len(batch) >= BATCH:
+                        done += flush(db, batch)
+                        batch = []
         if batch:
             done += flush(db, batch)
         log(f"embedded={done} skipped={skipped} elapsed={int(time.time() - t0)}s")
