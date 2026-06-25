@@ -155,4 +155,27 @@
       };
     }
   )
+
+  # netavark / aardvark-dns pin — last-known-good 1.17.x (nixpkgs rev 4a29d733,
+  # 2026-05-21). nixpkgs bumped these to 2.0.0 (~2026-06-23); netavark 2.0.0
+  # removed iptables support (nftables-only) and stopped installing the port-53
+  # DNAT rule that steers container DNS to aardvark. Symptom: aardvark listens on
+  # the bridge gateway with correct records, container-to-container traffic BY IP
+  # works, but name lookups time out (`i/o timeout`). Every rootful-podman
+  # service that resolves a sibling by name (immich/paperless DBs, the MusicBrainz
+  # web stack → cratedigger) breaks on its NEXT reboot. doc2 hit it first
+  # (incident 2026-06-25). Pin both back together (they are version-paired) until
+  # upstream netavark 2.x applies the rules reliably. fetchTarball is sha256-pinned
+  # so the nightly flake update can't drag it forward. Revisit when a verified
+  # netavark >= 2.x lands. See docs/wiki/infrastructure/netavark-2.0-dns-regression.md
+  (
+    _final: prev: let
+      goodPkgs = import (builtins.fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/4a29d733e8a7d5b824c3d8c958a946a9867b3eb2.tar.gz";
+        sha256 = "1xgk8ph3k64719xmh1pwsq04c60rjirrvlk0yy39zkganh4l1qkz";
+      }) {inherit (prev.stdenv.hostPlatform) system;};
+    in {
+      inherit (goodPkgs) netavark aardvark-dns;
+    }
+  )
 ]
