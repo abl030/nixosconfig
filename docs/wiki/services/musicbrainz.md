@@ -77,13 +77,19 @@ had not converged 6+ hours after the nightly auto-update reboot (`musicbrainz.se
 
 **Root cause — two layers:**
 
-1. *Proximate trigger.* The MB web container is slow, not broken: cold start does
-   a webpack bundle compile, then a 10-process Plack boot, and `/ws/2/release`
-   (the readiness query) is Solr-backed, so it only answers once Solr cores load.
-   Under added doc2 load (concurrent `mailsearch-index` / `mailarchive-work` jobs)
-   this cold start exceeded `apiVerifyScript`'s budget. The ~3-min loop period ==
-   `apiVerify`'s budget, which proves the DB-plane checks (`dbVerify`/`amqpSetup`)
-   passed and `apiVerify` was the sole failure.
+1. *Proximate trigger.* The MB web container couldn't reach its dependencies. On
+   2026-06-25, doc2's nightly auto-update reboot started **netavark 2.0.0, which
+   broke container DNS** (see
+   [netavark-2.0-dns-regression](../infrastructure/netavark-2.0-dns-regression.md)):
+   the web container couldn't resolve `valkey`, so its wait-for-deps loop failed,
+   it crash-looped, and `/ws/2` never became healthy → `apiVerifyScript` always
+   failed. (The ~3-min loop period == `apiVerify`'s budget, which proves the
+   DB-plane checks `dbVerify`/`amqpSetup` passed and `apiVerify` was the sole
+   failure.) The web cold start is *also* genuinely heavy — webpack bundle +
+   10-proc Plack + Solr-backed `/ws/2/release` — so the same teardown loop can be
+   triggered by anything that delays readiness past apiVerify's budget, not just
+   DNS. (Early in the investigation this looked like plain slowness-under-load; the
+   real trigger was the DNS regression.)
 2. *Architectural fault (the real bug).* `apiVerifyScript` ran inside
    `musicbrainz.service`'s `postStart`, and that unit **owned the container
    lifecycle**: every container was `partOf = musicbrainz.service` and the service
@@ -110,10 +116,12 @@ had not converged 6+ hours after the nightly auto-update reboot (`musicbrainz.se
   only the podman network (`retire-compose`) and its data mount, so its Kuma
   monitor now reflects lrclib's actual health.
 
-**Why it didn't bite before:** the design had zero margin between MB-web warmup
-time and the verify budget; the extra steady-state load from the mailsearch
-indexing jobs tipped it over into the loop. Decoupling removes the margin
-dependency entirely.
+**Why it didn't bite before:** the DNS plane worked under netavark 1.x, so the web
+container resolved `valkey` and came up; the trigger was the reboot onto netavark
+2.0.0, not gradual load. But the architectural fault is independent of the trigger —
+after decoupling, a readiness failure from *any* cause (DNS, slow Solr warmup, a
+crashing dependency) can no longer tear down the stack or flap lrclib. The netavark
+regression itself is fixed separately by the 1.17.x pin (Forgejo #13).
 
 ## Maintenance Flow
 

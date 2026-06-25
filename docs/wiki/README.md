@@ -29,6 +29,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [nix-mirror-failover](infrastructure/nix-mirror-failover.md) — `nix-mirror.ablz.au` fails over cache.nixos.org → SJTU → TUNA; per-request re-resolution + `ipv6=off`; disk-caches the fallback once for the fleet
 - [cratesio-403-ua](infrastructure/cratesio-403-ua.md) — crates.io 403s nix's `curl/` UA; resolved by nixpkgs static.crates.io fix (#259)
 - [systemd-mount-ordering-cycles](infrastructure/systemd-mount-ordering-cycles.md) — why bind mounts on NFS need `_netdev`; cycle topology and latency-bomb properties
+- [netavark-2.0-dns-regression](infrastructure/netavark-2.0-dns-regression.md) — netavark 2.0.0 (nftables-only) broke rootful-podman container DNS on reboot; pinned to 1.17.x; forward path to native nftables (Forgejo #13)
 
 ### Services
 

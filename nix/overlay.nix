@@ -166,8 +166,8 @@
   # web stack → cratedigger) breaks on its NEXT reboot. doc2 hit it first
   # (incident 2026-06-25). Pin both back together (they are version-paired) until
   # upstream netavark 2.x applies the rules reliably. fetchTarball is sha256-pinned
-  # so the nightly flake update can't drag it forward. Revisit when a verified
-  # netavark >= 2.x lands. See docs/wiki/infrastructure/netavark-2.0-dns-regression.md
+  # so the nightly flake update can't drag it forward. Forward path / remove-the-pin
+  # tracked in Forgejo #13. See docs/wiki/infrastructure/netavark-2.0-dns-regression.md
   (
     _final: prev: let
       goodPkgs = import (builtins.fetchTarball {

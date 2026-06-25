@@ -174,7 +174,10 @@ in {
 
     # Allow DNS from containers on the default podman bridge. Isolated bridges
     # do NOT need an equivalent rule — netavark/aardvark answers external DNS on
-    # them without a host firewall opening (verified).
+    # them without a host firewall opening (verified under netavark 1.x).
+    # NB: netavark 2.0.0 (nftables-only) broke container *name* resolution on
+    # this iptables-nft fleet — pinned back to 1.17.x in nix/overlay.nix. Forward
+    # path: Forgejo #13 / docs/wiki/infrastructure/netavark-2.0-dns-regression.md
     networking.firewall.interfaces.podman0.allowedUDPPorts = [53];
 
     systemd = {

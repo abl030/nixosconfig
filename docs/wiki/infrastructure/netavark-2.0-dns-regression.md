@@ -1,7 +1,7 @@
 # netavark 2.0.0 broke rootful-podman container DNS (pinned to 1.17.x)
 
 - **Date:** 2026-06-25
-- **Status:** WORKED AROUND (pin). Upstream regression in netavark 2.0.0. Revisit when a verified netavark ≥ 2.x lands in nixpkgs.
+- **Status:** WORKED AROUND (pin to 1.17.x). Upstream regression in netavark 2.0.0. Forward path / remove-the-pin work tracked in **Forgejo issue #13**.
 - **Scope:** fleet-wide latent — every rootful-podman host (doc2, doc1, igpu, …). doc2 hit it first because it rebooted on the nightly auto-update.
 
 ## Symptom
@@ -74,11 +74,26 @@ podman exec <c> getent hosts <sibling>
 ss -ulnp | grep ':53'            # aardvark listeners
 ```
 
+## Forward path (Forgejo #13)
+
+The fleet runs `networking.nftables.enable = false` → host firewall is **iptables-nft**
+(`iptables v1.8.13 (nf_tables)`, no `nft` CLI). netavark 1.17.x spoke iptables and coexisted;
+netavark 2.0.0 speaks native nftables and its rules don't land alongside the host's
+iptables-nft ruleset. So "ride netavark 2.x" most likely requires migrating podman hosts to
+`networking.nftables.enable = true` (native nftables) — a real change that rewrites the whole
+firewall on each box (tailscale TCP/53 DNS forwarding, podman port openings, service ports).
+**Open question:** is 2.0.0 broken because it *needs* a native-nftables host, or is it a 2.0.0
+bug that fails regardless (open upstream issues #942/#1057 suggest nft-rule-application is a
+rough edge)? The one-host experiment in #13 answers it: flip `nftables.enable = true` +
+un-pin on a single recoverable host, reboot, test `getent hosts` from a container.
+
 ## When to revisit / remove the pin
 
-Remove the `netavark`/`aardvark-dns` overlay block in `nix/overlay.nix` once nixpkgs ships a
-netavark ≥ 2.x that reliably installs the DNS DNAT rules on this fleet (test on one host:
-deploy unpinned, reboot, `getent hosts` from a container). Until then, keep it.
+Remove the `netavark`/`aardvark-dns` overlay block in `nix/overlay.nix` once the one-host test
+(see #13) proves a netavark ≥ 2.x reliably installs the DNS DNAT rules on this fleet
+(unpinned + rebooted + `getent hosts <sibling>` resolves from inside a container). Until then,
+keep it — and note any podman host that has **not** rebooted since the 2.0.0 bump is still
+running aardvark 1.x and is unaffected until its next reboot; the pin protects it then.
 
 ## Related
 
