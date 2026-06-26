@@ -40,7 +40,14 @@
 
     # --- 3. Hardware & WSL ---
     #nixos-hardware
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware/master";
+      # Follow the fleet nixpkgs. nixos-hardware's modules take the importing
+      # system's `pkgs`, so its own nixpkgs input was only feeding its flake
+      # outputs (which we don't build) while leaving a stale duplicate nixpkgs
+      # node in flake.lock. Enforced by the nixpkgsFollowsCheck audit.
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     nixos-wsl = {
       url = "github:nix-community/NixOS-WSL/main";
@@ -1151,8 +1158,24 @@
 
               touch $out
             '';
+
+          # Every flake input must FOLLOW the fleet nixpkgs, never carry its own.
+          # A duplicate nixpkgs node in flake.lock drifts stale on its own (the
+          # rolling-flake-update only advances the ROOT pin), bloats every closure
+          # that pulls the input, and makes tooling/agents misread the fleet
+          # nixpkgs version — exactly the orphan that left a stale "nixpkgs from
+          # April" node lying in the lock. Deny-by-default: a genuine exception
+          # needs a `# NIXPKGS-OWN-OK: <input> — <reason>` marker in flake.nix.
+          # Detection is list-vs-string in flake.lock (follows = list, own = string
+          # node-ref); see nix/checks/nixpkgs-follows-audit.py and
+          # docs/wiki/infrastructure/nixpkgs-follows-policy.md.
+          nixpkgsFollowsCheck = pkgs.runCommand "nixpkgs-follows-audit" {} ''
+            ${pkgs.python3}/bin/python3 ${./nix/checks/nixpkgs-follows-audit.py} \
+              ${./flake.lock} ${./flake.nix} || exit 1
+            touch $out
+          '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck nixpkgsFollowsCheck;}
           // (
             if !fullCheck
             then {}
