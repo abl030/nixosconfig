@@ -84,12 +84,14 @@
 - Operational/infra automation → write a Claude Code SKILL that discovers live
   state (`qm list`, etc.), NOT a hardcoded script (VMIDs/MACs/PCI drift → stale in
   a day). [feedback-skill-over-script-ops.md](feedback-skill-over-script-ops.md)
-- Apollo gaming VMs: clone template `WindowsGamingTemplate` (one per game, single
-  GPU = one runs at a time, shared MAC `BC:24:11:5E:E5:00`→.111 carries pfSense
-  VPN/isolation). Skill: `gaming-vm`; doc: `docs/wiki/services/apollo-gaming-vm.md`.
-  ⚠️ WIP 2026-06-25: Windows-MCP GUI-automation + VB-CABLE installed on VM 120;
-  audio crackle fix UNCONFIRMED (deploy rtprio + ear-test next); plan to rebuild a
-  fresh template with both baked. Resume: [gaming-vm-mcp-audio-wip.md](gaming-vm-mcp-audio-wip.md).
+- Apollo gaming VMs: clone golden template **`118` `WindowsGamingTemplate-v2`** (one
+  per game, single GPU = one runs at a time, shared MAC `BC:24:11:5E:E5:00`→.111
+  carries pfSense VPN/isolation). Skill: `gaming-vm`; doc:
+  `docs/wiki/services/apollo-gaming-vm.md`. **v2 DONE 2026-06-26** (windows-mcp +
+  VB-CABLE + MAS-activated + fully-updated baked in; old v1/119 is legacy):
+  [gaming-golden-image-v2.md](gaming-golden-image-v2.md). ⚠️ prom writes (`qm
+  clone`/firewall) need quorum — depends on the `Caddy2.0` VM witness:
+  [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat

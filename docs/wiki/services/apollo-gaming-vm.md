@@ -14,6 +14,65 @@
 
 ---
 
+## 🟢 v2 GOLDEN IMAGE — built & validated 2026-06-26 (VMID `118`)
+
+The "rebuild a fresh template with windows-mcp + VB-CABLE baked" plan is **DONE**.
+New golden template = **VMID `118` `WindowsGamingTemplate-v2`** (full clone of v1/119,
+so de-linked). Built headless via `qm guest exec` (SYSTEM) + elevated session-1
+scheduled tasks. Validated as `.111`: stream 9012 large pkts / 14.8 MB, Apollo
+`Selected audio sink: CABLE Input` → `Opus initialized`, VPN exit NL, LAN isolated,
+windows-mcp 401/200 from doc1, `LicenseStatus=1`. The full runbook lives in the
+**`gaming-vm` skill → "Rebuilding the golden template"**; this section is the *why* +
+the gotchas worth not re-discovering.
+
+**What's new in v2 vs v1:** Windows 11 Pro 24H2 fully updated (26100.8655, online
+COM scan = 0 pending) + **activated** (MAS `/HWID`, RETAIL digital license);
+**windows-mcp** GUI-automation server (autostarts session 1, SSE `:8765`); **VB-CABLE**
+as the audio sink. The `8765`-from-doc1 pinhole was moved into the **`apollo_vpn`
+group** so all clones inherit it.
+
+**The audio decision (settled).** The 2026-06-25 crackle was diagnosed as *client-side*
+(Linux Moonlight rtprio ceilings → `hosts/common/realtime-audio.nix`), not the VM.
+The objective tone test showed VB-CABLE did **not** beat the bare null-backend HDA
+sink — both were bad only because rtprio wasn't deployed. After rtprio landed, the
+user confirmed smooth audio by ear (framework, 2026-06-25). v2 nonetheless ships
+**VB-CABLE** (user's call): `CABLE Input (VB-Audio Virtual Cable)` = default playback
++ Apollo `audio_sink`. It's a clean software-clocked sink (vs the null backend's
+jittery 10 ms software timer) and is the proven-good config. The Intel-HDA `audio0`
+stays as a fallback render endpoint.
+
+**windows-mcp — install + the gotchas.** Server = `uv tool install windows-mcp`
+(v0.8.2) on **system Python 3.13.5** (`C:\Program Files\Python313`), launched by
+`C:\Users\abl030\start-winmcp.cmd` from abl030's **HKCU Run-key** so it lives in
+**session 1** (it automates the *interactive* desktop — a session-0/SYSTEM launch
+sees nothing). `serve --transport sse --host 0.0.0.0 --port 8765 --ip-allowlist
+192.168.1.29 --auth-key <token>`. Controls: app-layer bearer + `--ip-allowlist`,
+plus two Windows firewall allow rules (TCP 8765 from `.29`: `Program Any` +
+`Program …python.exe`) — Windows auto-creates inbound **Block** rules for a new
+listening python, which *override* allow rules, so delete them and pre-create the
+allow rules before first listen. **UIPI:** the medium-IL server can't click
+`requireAdministrator` windows; drive elevated installers from a `/RU abl030 /IT
+/RL HIGHEST` scheduled task instead (elevated, session 1, no UAC prompt).
+
+**VB-CABLE headless install — what works.** `VBCABLE_Driver_Pack45.zip`; add the
+VB-Audio signer cert to `TrustedPublisher`+`Root` then `pnputil /add-driver
+vbMmeCable64_win10.inf /install` → driver staged, **no trust prompt** — but the
+**device is not created**; `VBCABLE_Setup_x64.exe` must run and its **"Install
+Driver"** button be clicked. That window is **fully custom-painted**:
+`EnumChildWindows` *and* UIAutomation return **zero** descendants, so neither
+`BM_CLICK` nor UIA `Invoke` work. The only way is **screenshot → click by
+coordinates** (button bottom-right, ≈ `(winX+755, winY+405)` in the 820×432 window;
+the window's Y drifts run-to-run, so recompute from the live `BoundingRectangle`)
+from an elevated session-1 process. Reboot finalizes; then `Set-AudioDevice`
+(AudioDeviceCmdlets) makes CABLE Input the default playback.
+
+**Operational footgun hit during the build: prom quorum.** prom is a **single node +
+a corosync-QDevice witness running on the `Caddy2.0` KVM VM (`192.168.1.6`, on
+tower)**. When `Caddy2.0` was down, prom dropped to 1/2 votes → pmxcfs **read-only** →
+`qm clone` and firewall writes failed with `cluster not ready - no quorum?` (reads
+still served from cache). Fix = start `Caddy2.0` (tower `virsh start`), not `pvecm
+expected 1`. `corosync.conf`: `quorum.device.net.host: 192.168.1.6`.
+
 ## ⭐ THE FIX (the one thing that mattered — "it used to just work" piece)
 
 **Disable the VirtIO NIC's UDP Segmentation Offload (USO) + LSO inside Windows.** This was the
