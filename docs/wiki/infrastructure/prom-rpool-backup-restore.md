@@ -40,6 +40,8 @@ So if only the **boot SSDs** die (the common case — see #276), the VM *data* o
 
 ---
 
+> **Update 2026-06-26:** the boot-SSD saga turned out **not** to be (just) a dying drive — it's a host-level **SATA/PCIe power-state instability** on this AM5 board that wedges prom under SATA I/O. Full diagnosis + the real fix path (BIOS 4.41, possibly move boot pool to NVMe) live in [prom-sata-power-state-hangs.md](prom-sata-power-state-hangs.md). This backup is exactly the insurance that makes that platform work safe.
+
 ## Hardware context (the short version of #276)
 
 prom's rpool is a 2-way ZFS mirror of two cheap consumer SATA SSDs (SanDisk SSD PLUS 240GB). One of them — serial **`24370L800457`** — has an **intermittent link-layer / IDENTIFY fault** (fails, vanishes, sometimes comes back after a cold boot). The healthy twin is **`24370L802287`**. A replacement **ADATA SU650 256GB** (serial `4P3621994623`) was bought to replace the bad SanDisk. This backup was taken mid-rebuild as insurance.
