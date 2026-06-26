@@ -26,9 +26,16 @@ WAN **before** launching its installer and **never** re-open it. Order: Windows 
 offline. If a game needs internet to RUN, the agent does NOT enable WAN — it finishes
 the whole skill, then surfaces the ask to the user at the very end; the user decides.
 
-**Caveats:** (1) **Activation is cosmetic and was finicky** — KMS38 wouldn't apply via
-headless `qm guest exec`/scheduled-task, so v3 shipped status-5/unactivated; games run
-fine unactivated, don't block on it. (2) **Don't thrash the GPU reset** — clean
+**Caveats:** (1) **Activation: KMS38 is DEAD; HWID-online is the only way.** MS removed
+`gatherosstate.exe` (build 26040) + fully deprecated KMS38 at 26100.7019, so `/KMS38`
+silently no-ops on 26100.8655 (that's why early attempts ran exit-0 but never licensed).
+**HWID is online** → needs a Microsoft-accepted IP; the AirVPN NL exit is **rejected**, so
+HWID must run on a **direct-WAN** MAC (a clone's fresh random MAC) BEFORE applying `.111`.
+Run the AIO directly as SYSTEM (`MAS_AIO.cmd -el /HWID`) — the `irm|iex` loader's `-Verb
+RunAs` detaches headless. **Proven 2026-06-26: VM 120 (007) HWID-activated** over the AU
+residential IP (temporarily swapped off `.111` to a temp MAC, activated, swapped back +
+re-locked). The v3 template itself shipped unactivated (cosmetic — games run fine). (2)
+**Don't thrash the GPU reset** — clean
 `qm shutdown` + let the 1080 settle before the next start; back-to-back shutdown→set→start
 (MAC change) or SIGTERM of a guest hung mid-GPU-init **wedges** the card
 (`failed to reset PCI device … got timeout`); recover via PCI remove/rescan + vfio

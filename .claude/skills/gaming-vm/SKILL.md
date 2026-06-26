@@ -106,8 +106,11 @@ which are running, and which VMIDs are free. Decide from *this*, not from memory
 2. **Free the GPU:** stop every *running* GPU VM from Step 0 (`qm shutdown <v>
    --timeout 90`, fall back to `qm stop`). Tell the user which you stopped.
 3. **Linked-clone the template:** `qm clone <template> <newid> --name apollo-<game>`.
-4. **Set the shared MAC:** `qm set <newid> -net0 virtio=BC:24:11:5E:E5:00,bridge=vmbr0,firewall=1`.
-5. **Write its firewall file** and compile:
+   A `qm clone` gets a **fresh random MAC** → a normal DHCP lease → **direct WAN**
+   (not the AirVPN tunnel). **Leave it on this MAC for now** — Windows activation
+   needs direct WAN (step 6), so the `.111` MAC goes on *after* activation.
+4. **Write its firewall file** and compile (the `apollo_vpn` group; on the random MAC
+   it still gets WAN egress + LAN-isolation — exactly what we want for update/activate):
    ```bash
    ssh $P 'cat > /etc/pve/firewall/<newid>.fw' <<'FW'
    [OPTIONS]
@@ -122,30 +125,36 @@ which are running, and which VMIDs are free. Decide from *this*, not from memory
    FW
    ssh $P 'pve-firewall compile'
    ```
-6. **Boot:** `qm start <newid>` (the PCI-reset "Inappropriate ioctl" warning is
-   benign for passthrough — ignore it).
-7. **Verify** (next section).
-8. **Update Windows fully, THEN re-activate (do this before installing any game).**
-   The clone inherits the template's state, but weeks of CVEs accrue and a fresh
-   SMBIOS uuid usually drops HWID activation — so for a box that will run cracked
-   binaries (even jailed), patch first, then re-activate:
-   - **Windows Update (loop until clean), as SYSTEM** — deploy a self-driving
-     `ONSTART`/SYSTEM scheduled task that loops scan→install→reboot via
-     PSWindowsUpdate, writing a status file you poll (a single `qm guest exec` only
-     gets ~30 s, so don't run it inline). Confirm done with the authoritative online
-     scan: `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()`
-     `.Search("IsInstalled=0 and IsHidden=0").Updates.Count` → `0`.
-   - **Activate with MAS — use `/KMS38`, NOT `/HWID`, on a clone.** HWID has to
-     reach Microsoft's activation servers, which **reject the clone's AirVPN NL
-     egress** → HWID fails behind the VPN (confirmed in the RDR2 test). `/KMS38` is a
-     **fully offline** activation (valid to 2038; Pro/Ent only — this image is Pro)
-     and works behind the VPN, as SYSTEM:
-     `&([ScriptBlock]::Create((irm https://get.activated.win))) /KMS38` (set TLS 1.2
-     first; `irm get.activated.win` is a WAN/CDN fetch, still reachable). Verify:
-     `SoftwareLicensingProduct … LicenseStatus` → `1` (Licensed). (`/HWID` only works
-     where the VM has *direct* WAN — e.g. the template build on a non-`.111` MAC,
-     which is how the template itself is HWID-activated.)
-   - Then clean up the scheduled task + scratch dir before moving on.
+5. **Boot:** `qm start <newid>` (the PCI-reset "Inappropriate ioctl" warning is
+   benign — ignore it). Confirm it's up (IP will be a dynamic LAN addr, not `.111`).
+6. **Update Windows fully, then activate — both need WAN; do them now on the
+   direct-WAN MAC.** (Activation is cosmetic — games run unactivated — so this whole
+   step is optional; skip it and you can set the `.111` MAC before first boot instead.)
+   - **Windows Update (loop until clean), as SYSTEM** — a self-driving `ONSTART`/SYSTEM
+     scheduled task that loops scan→install→reboot via PSWindowsUpdate, writing a
+     status file you poll (`qm guest exec` only gets ~30 s, don't run it inline).
+     Confirm with the online scan: `(New-Object -ComObject Microsoft.Update.Session)`
+     `.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` → 0.
+   - **Activate with MAS HWID (online).** ⚠️ **KMS38 is DEAD** — MS removed
+     `gatherosstate.exe` (build 26040) and fully deprecated KMS38 at **26100.7019**, so
+     `/KMS38` silently no-ops on our build (don't use it). **HWID is the only option and
+     it's ONLINE** — it must reach MS activation servers from an IP they accept; the
+     **AirVPN NL exit is rejected**, which is the whole reason we activate here on the
+     direct-WAN MAC. Run as SYSTEM, bypassing the loader's `-Verb RunAs` (it detaches
+     headless) by running the AIO directly:
+     ```powershell
+     $u='https://raw.githubusercontent.com/massgravel/Microsoft-Activation-Scripts/<commit>/MAS/All-In-One-Version-KL/MAS_AIO.cmd'
+     irm $u -OutFile C:\MAS_AIO.cmd
+     Start-Process $env:ComSpec -ArgumentList '/c','C:\MAS_AIO.cmd','-el','/HWID' -Wait -NoNewWindow
+     ```
+     Verify `LicenseStatus` → `1` ("permanently activated with a digital license"),
+     then delete `C:\MAS_AIO.cmd`. (HWID is hardware-tied to the SMBIOS uuid → survives
+     MAC changes + reboots; a *new* clone's new uuid drops it → re-activate per clone.)
+7. **Now apply the shared `.111` MAC** (needs a fresh QEMU start, so shut down cleanly
+   and **let the GPU settle** first — never thrash the reset):
+   `qm shutdown <newid> --timeout 120`; wait ~30 s; `qm set <newid> -net0
+   virtio=BC:24:11:5E:E5:00,bridge=vmbr0,firewall=1`; `qm start <newid>`.
+8. **Verify** (next section) — now `.111`, VPN exit NL, LAN-isolated, activated.
 9. **Hand off:** stream from any already-paired client (Moonlight/Artemis) →
    host `192.168.1.111` (auto-discovers as `Gaming-106`) → **Desktop**. No new
    pairing needed. Only pair (PIN at `apollo.ablz.au`) if it's a brand-new client.
@@ -477,13 +486,17 @@ switch to the shared MAC only at the very end.
   no quorum?` (reads still work from cache). Fix: start `Caddy2.0` on tower (the
   `tower` subagent), confirm `pvecm status` → `Quorate: Yes`. Don't `pvecm expected
   1` blindly — revive the witness.
-- **Activation is cosmetic — don't block on it.** Games run fine unactivated (just a
-  watermark). HWID needs direct WAN (so only the template build, on a non-`.111` MAC,
-  can use it — and a clone's fresh SMBIOS uuid drops it anyway). `/KMS38` is the
-  offline method for behind-the-VPN clones, **but it proved finicky in the headless
-  build** (didn't apply via `qm guest exec`/scheduled-task; the v3 template shipped
-  status-5/unactivated). If you want a clone activated and KMS38 won't take, note it
-  and move on — it never blocks the build or gameplay.
+- **Activation: HWID-online only; KMS38 is DEAD.** Microsoft removed
+  `gatherosstate.exe` (build 26040) and **fully deprecated KMS38 at build 26100.7019**
+  — on our 26100.8655 `/KMS38` silently no-ops (this is why early attempts "ran" with
+  exit 0 but never licensed). So the **only** method is **HWID, which is online** and
+  needs a Microsoft-accepted IP. The clone's **AirVPN NL exit is rejected**, so HWID
+  must run on a **direct-WAN** MAC (a fresh `qm clone`'s random MAC) *before* the
+  `.111` MAC is applied (step 6). Run the AIO directly as SYSTEM (`MAS_AIO.cmd -el
+  /HWID`) — the `irm | iex` loader's `-Verb RunAs` detaches in a headless context and
+  no-ops. Verified working on 120 (007) over the AU residential IP. Activation is
+  cosmetic (games run unactivated) so it never blocks the build; HWID is hardware-tied
+  (SMBIOS uuid), so re-activate per clone.
 - **UAC stays ON; drive elevated installers via the elevated session-1 task** (`/RU
   abl030 /IT /RL HIGHEST`), NOT by disabling UAC — it's a deliberate guard against
   misbehaving cracked binaries. (Full detail in the windows-mcp section.)
