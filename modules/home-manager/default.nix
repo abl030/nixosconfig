@@ -13,7 +13,7 @@
     ./display/remote-desktop.nix
     ./services/ssh.nix
     ./services/git.nix
-    ./services/git-prepush-audit.nix
+    ./services/git-hooks.nix
     ./services/pdf.nix
     ./services/beets.nix
   ];
