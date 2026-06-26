@@ -7,6 +7,11 @@
 # ESTALE ("Stale file handle"). A server must stay mounted. The roaming/laptop
 # pattern (x-systemd.automount + idle-timeout, which WANTS to drop the mount when the
 # network goes away) lives in the sibling nfs.nix and is used by framework/epi.
+#
+# Static mounting only mitigates ESTALE; the ROOT cause is Unraid shfs (FUSE-union)
+# synthetic-inode instability on /mnt/user exports + the fuse_remember timer (a
+# tower-side knob). Full mechanism + the server-side fuse_remember bump:
+# docs/wiki/infrastructure/unraid-nfs-shfs-estale.md
 {
   config,
   lib,

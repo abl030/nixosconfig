@@ -19,8 +19,15 @@ shared **server** module `homelab.mounts.nfsLocal` (the same one doc2 uses for t
 **Never re-introduce automount on a server that re-shares an NFS mount over virtiofs.** Recovery if
 it recurs: `sudo systemctl restart microvm@qbt.service` (resume state survives in `qbt-state.img`);
 a `homelab.nfsWatchdog.qbt` automates it. The roaming/laptop pattern (automount + idle-timeout) is
-the *other* module, `nfs.nix` (framework/epi). Full writeup:
-`docs/wiki/services/servarr-and-qbt-cage.md` (the "host NFS mount MUST be static" gotcha).
+the *other* module, `nfs.nix` (framework/epi). The static mount only MITIGATES; the ROOT cause is
+Unraid `shfs` (FUSE-union) synthetic-inode instability on `/mnt/user` exports + the `fuse_remember`
+timer. Server-side mitigation: **tower's `fuse_remember` bumped 330→604800 (1 week)** on 2026-06-26
+via `emcmd` (backup `share.cfg.bak-fuse-remember`) — **pending activation at next tower array
+start/reboot** (it's a shfs `-o remember=N` mount arg; verify `ps -C shfs -o args=` shows 604800
+after). Can't "just export one disk" — library is 12.4 TB across 2×7.3 TB disks. Latent (NOT chased
+per 2026-06-26 call): cross-disk `*arr` hardlinks silently copy → 2× space. Full root-cause writeup
++ `fuse_remember` reference: `docs/wiki/infrastructure/unraid-nfs-shfs-estale.md`. Static-mount/cage
+gotcha: `docs/wiki/services/servarr-and-qbt-cage.md`.
 
 **2. abl030 now has PASSWORDLESS sudo on servarr** (hermes-style `security.sudo.extraRules` mkAfter
 NOPASSWD ALL). So unlike the other locked siblings, **`ssh servarr "sudo ..."` from doc1 WORKS** —

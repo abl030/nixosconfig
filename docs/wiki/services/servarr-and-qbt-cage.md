@@ -99,6 +99,13 @@ resume state lives in the persistent `qbt-state.img` volume so it survives. A `h
 (stat-probe `/media/data/Media/Temp` every 10 min → restart `microvm@qbt.service` + Loki alert)
 automates this for the residual case (e.g. a tower NFS-server reboot).
 
+**Why it happens at all (the deeper root cause) + the server-side knob:** the stale handle is a
+structural Unraid `shfs` (FUSE-union) problem — synthetic, non-stable inodes on `/mnt/user` exports,
+governed by the `fuse_remember` timer. Full mechanism, our config, the `fuse_remember` 330→604800 bump
+(set 2026-06-26, pending activation at next array start), the "why we can't just export one disk"
+(capacity), and the latent cross-disk hardlink caveat:
+[../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md).
+
 ## Migration (data)
 
 The migration that works (per app; do it with **both** source+dest *arr stopped for a consistent DB):
