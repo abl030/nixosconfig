@@ -96,3 +96,6 @@
 - Task tracking: NEW issues → Forgejo (`git.ablz.au`, REST API; doc1 agent has a scoped
   write:issue token — see [forgejo-issue-token-doc1.md](forgejo-issue-token-doc1.md)). Legacy
   issues still on GitHub (`gh`), NOT migrated. (beads removed 2026-04-14 — see `docs/beads-archive.md`)
+- Gotify pings the phone when an agent finishes a LONG task and is waiting (silent in
+  live chat). Wired as $HOME hooks on doc1, not behavior — knob + how to extend:
+  [feedback-gotify-long-task-notifier.md](feedback-gotify-long-task-notifier.md)
