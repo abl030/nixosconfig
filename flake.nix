@@ -119,6 +119,13 @@
 
     cratedigger-src = {
       url = "github:abl030/cratedigger";
+      # Follow the fleet nixpkgs so cratedigger-src does not carry its own
+      # (previously a stale orphan node pinned at nixos-unstable 2026-04-14,
+      # the lone reference keeping that node in flake.lock). The deployed
+      # service already builds against the host's pkgs (module.nix uses
+      # `pkgs.callPackage`), so this only affects cratedigger-src's own
+      # checks/devShells and removes the misleading April-dated nixpkgs node.
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     discogs-src = {
