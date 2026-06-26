@@ -77,6 +77,10 @@
 - Tailscale ACL (#239): **FLIPPED to default-deny 2026-06-21** — 5-tag `grants` policy live
   (server/client/share/edge/cullen), all nodes tagged, allow-all removed. Apply/revert via
   gitops-pusher on doc1. See [tailscale-acl-state.md](tailscale-acl-state.md).
+- framework lid won't suspend = stuck GNOME gsd-power `handle-lid-switch` lock (phantom
+  external monitor; AMD s2idle glitch-wake trigger). Fix is `services.upower.ignoreLid=true`
+  (live 2026-06-26), NOT `LidSwitchIgnoreInhibited` (a trap — low-level locks always honored;
+  cost one reverted commit). [framework-lid-suspend-gsd-power.md](framework-lid-suspend-gsd-power.md).
 - Plex CONTAINED 2026-06-24 (#277): moved off tower `--net=host` onto its own **VLAN 30
   MEDIA_DMZ** (`192.168.30.2`), pfSense default-denies it to all RFC1918, WAN egress only,
   WAN:11338 Oceania-gated; media RO, hardened, autoupdate intact. Casting preserved. Caddy
