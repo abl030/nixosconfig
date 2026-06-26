@@ -84,19 +84,11 @@ in {
       # the Kuma HTTP monitor above and through the tailscale-share
       # sidecar pattern in tailscale-share.nix.
       #
-      # NAMESPACE entry added for #257: the unit now binds its virtiofs
-      # config dir fail-loud, so a missing/stale source surfaces here.
-      monitoring.errorPatterns = [
-        {
-          name = "Seerr NFS/namespace failure";
-          unit = "seerr.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "critical";
-          summary = "seerr cannot bind its virtiofs config dir — request manager is down";
-          description = "BindPaths source /mnt/virtio/overseerr is missing or stale — check mnt-virtio.mount on doc2.";
-          threshold = 0;
-        }
-      ];
+      # NAMESPACE/bind start-failures (#257) page ONCE via the fleet-wide
+      # "Service failed to start (sandbox/namespace)" alert in alerting.nix —
+      # no per-service entry, so one stale mount can't fan out into N identical
+      # critical pages (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

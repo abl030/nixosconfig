@@ -249,7 +249,7 @@ in {
           # for table) plus any pg_dump backup failure. Skips noisy
           # ERR_HTTP_HEADERS_SENT and "Failed to fetch latest release"
           # — those are warns, not service-broken.
-          pattern = "(?i)permission denied for table|pg_dump non-zero exit code|Database Backup Failure|Failed at step NAMESPACE";
+          pattern = "(?i)permission denied for table|pg_dump non-zero exit code|Database Backup Failure";
           severity = "critical";
           summary = "Immich app is throwing DB errors — uploads likely broken";
           description = ''

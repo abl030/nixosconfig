@@ -54,18 +54,11 @@ in {
       ];
 
       # See #253 audit. Plex stats viewer with no actionable failure log
-      # fingerprint (outages surface via the Kuma HTTP monitor above) — the
-      # only entry is the #257 fail-loud bind of its virtiofs dataDir.
-      monitoring.errorPatterns = [
-        {
-          name = "Tautulli namespace failure";
-          unit = "tautulli.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "warning";
-          summary = "tautulli cannot bind its virtiofs dataDir";
-          threshold = 0;
-        }
-      ];
+      # fingerprint (outages surface via the Kuma HTTP monitor above).
+      # NAMESPACE/bind start-failures page ONCE via the fleet-wide "Service
+      # failed to start (sandbox/namespace)" alert in alerting.nix — no
+      # per-service entry (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

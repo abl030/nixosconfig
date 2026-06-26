@@ -684,19 +684,12 @@ in {
       ];
 
       # A raced/stale /mnt bind source under TemporaryFileSystem fails loud at
-      # namespace setup — page on it (#257). Other transient embed/IMAP/NFS
+      # namespace setup. That (#257) now pages ONCE via the fleet-wide "Service
+      # failed to start (sandbox/namespace)" alert in alerting.nix — no
+      # per-service entry, so one stale mount can't fan out into N identical
+      # pages (storm de-collide 2026-06-26). Other transient embed/IMAP/NFS
       # flakiness is normal and surfaces via the heartbeat + Kuma monitor above.
-      homelab.monitoring.errorPatterns = [
-        {
-          name = "Mailsearch namespace setup failure";
-          unit = "mailsearch-index.service";
-          pattern = "Failed at step NAMESPACE";
-          severity = "critical";
-          summary = "mailsearch-index could not set up its mount namespace (bind source missing/stale)";
-          description = "A BindPaths/BindReadOnlyPaths source under /mnt was unavailable at unit start. Check mnt-data.mount / mnt-virtio.mount on doc2.";
-          threshold = 0;
-        }
-      ];
+      homelab.monitoring.errorPatterns = []; # ^ namespace → fleet alert; outages → Kuma
     })
   ];
 }

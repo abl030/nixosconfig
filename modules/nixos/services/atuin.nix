@@ -137,7 +137,7 @@ in {
         {
           name = "Atuin DB connection failure";
           unit = "atuin.service";
-          pattern = "(?i)password authentication failed for user \"atuin\"|failed to connect to db|Failed at step NAMESPACE";
+          pattern = "(?i)password authentication failed for user \"atuin\"|failed to connect to db";
           severity = "critical";
           summary = "Atuin server cannot reach its DB";
         }

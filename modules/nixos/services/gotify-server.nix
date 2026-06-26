@@ -142,7 +142,7 @@ in {
         {
           name = "Gotify server failure";
           unit = "gotify-server.service";
-          pattern = "(?i)panic|fatal|listen tcp.*bind|Failed at step NAMESPACE";
+          pattern = "(?i)panic|fatal|listen tcp.*bind";
           severity = "critical";
           summary = "Gotify server crashed — push notifications offline";
           # Single-shot: panic/fatal lines emit once before the process

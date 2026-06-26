@@ -82,7 +82,7 @@ in {
         {
           name = "Uptime Kuma server failure";
           unit = "uptime-kuma.service";
-          pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked|Failed at step NAMESPACE";
+          pattern = "(?i)FATAL|UnhandledPromiseRejection|database is locked";
           severity = "critical";
           summary = "Uptime Kuma is failing — HTTP monitors will silently stop";
           # Single-shot: a FATAL / UnhandledPromiseRejection takes the

@@ -137,19 +137,11 @@ in {
       #   - per-asset [AudioFileScanner] failures on malformed media
       # None of these represent service-broken state — they're per-asset
       # or external-API noise. Real outages flow through the Kuma HTTP
-      # monitor above. The one entry is the #257 fail-loud bind of the
-      # virtiofs state dir + NFS library folders.
-      monitoring.errorPatterns = [
-        {
-          name = "Audiobookshelf namespace failure";
-          unit = "audiobookshelf.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "critical";
-          summary = "audiobookshelf cannot bind its state/library dirs — server is down";
-          description = "A BindPaths source (virtiofs dataDir or an NFS library folder) is missing or stale — check mnt-virtio.mount / mnt-data.mount on doc2.";
-          threshold = 0;
-        }
-      ];
+      # monitor above. Per-service NAMESPACE/bind start-failures are no longer
+      # enumerated here: they page ONCE via the fleet-wide "Service failed to
+      # start (sandbox/namespace)" alert in alerting.nix, so one stale mount
+      # can't fan out into N identical critical pages (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

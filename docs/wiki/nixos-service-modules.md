@@ -1089,14 +1089,19 @@ Two rules that bit us during the audit:
    the backing `*.mount` unit and both orders-after and pulls-in. (Old
    `ReadWritePaths=` hid this by silently skipping the unmounted source; the
    fail-loud bind exposes it.)
-2. **errorPattern policy.** Add a `Failed at step NAMESPACE` `errorPatterns`
-   entry **only when the unit binds a real `/mnt/*` source** that can disappear
-   (NFS stale, dataset unmounted). A blank-`/mnt`-no-bind unit has nothing to
-   fail on — a tmpfs-only namespace effectively never fails to set up — so skip
-   the pattern there and rely on the HTTP/Kuma monitor (note this in a comment).
-   For units that already have an errorPattern for their main service, append
-   `|Failed at step NAMESPACE` to the existing alternation rather than adding a
-   second entry.
+2. **errorPattern policy — do NOT add a per-service `Failed at step NAMESPACE`
+   entry.** As of the 2026-06-26 storm de-collide, sandbox/namespace start
+   failures are caught fleet-wide by ONE alert — `homelab-namespace-fail-fleet`
+   ("Service failed to start (sandbox/namespace)") in `alerting.nix` — which
+   matches `Failed at step NAMESPACE spawning` across every unit and is delivered
+   with the failing log lines by alert-bridge. Per-service NAMESPACE patterns are
+   exactly what made a single stale mount fan out into ~15 identical critical
+   pages (the 2026-06-25 prom-disk cascade), so all 16 were removed. Keep your
+   module's errorPatterns for its OWN actionable fingerprints (DB auth, panics,
+   migration failures) and leave the namespace case to the fleet alert. You still
+   must order the unit after its bind sources (rule 1) so the fail-loud bind is
+   detectable at all. (A flood of these — many units failing at once — is itself
+   collapsed into one digest by the alert-bridge storm damper.)
 
 See `docs/wiki/infrastructure/systemd-sandbox-mnt.md` for the failure-mode
 narrative this rule grew out of and the per-service audit findings, and
@@ -1167,8 +1172,8 @@ Before submitting a new service module:
       `unitConfig.RequiresMountsFor` entry so the fail-loud bind can't race the
       mount at boot
 - [ ] For NFS-backed writable paths: use `BindPaths=` not `ReadWritePaths=`
-      (fail-loud vs silent-skip), and add `Failed at step NAMESPACE` to the
-      `errorPatterns` of any unit that binds a real `/mnt/*` source (skip it for
-      blank-`/mnt`-no-bind units — nothing to fail on)
+      (fail-loud vs silent-skip). Do NOT add a per-service `Failed at step
+      NAMESPACE` errorPattern — the fleet-wide `homelab-namespace-fail-fleet`
+      alert in `alerting.nix` covers all units (storm de-collide 2026-06-26)
 - [ ] Service enabled in appropriate host config
 - [ ] `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` succeeds

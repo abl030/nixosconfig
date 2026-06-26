@@ -453,6 +453,42 @@
     })
   ];
 
+  # Fleet-wide "a service couldn't start" alert (storm de-collide 2026-06-26).
+  # Replaces the 16 per-service `Failed at step NAMESPACE` errorPatterns that
+  # each used to fire independently — so a single stale NFS/virtiofs mount pages
+  # ONCE here, not N times. systemd emits this exact line when a unit fails its
+  # sandbox/namespace setup (a BindPaths/BindReadOnlyPaths source missing or
+  # stale → "Stale file handle"; a fail-loud #257 bind). The alert-bridge fetches
+  # the matching lines, which name every affected unit and its failing path.
+  #
+  # Feedback-loop guard (same trap the OOM alert documents): Grafana/Loki log the
+  # alert's own query string to journald, alloy ships it back to Loki, and a bare
+  # token would self-trigger. Two defences: (1) anchor on "spawning" — the REAL
+  # systemd line is `<unit>: Failed at step NAMESPACE spawning <path>: <reason>`,
+  # whereas the logged query echo has no "spawning"; (2) exclude the querier
+  # units (grafana/loki) whose streams carry that echo.
+  namespaceFailAlerts = lib.optionals cfg.namespaceFailAlert.enable [
+    (mkLokiAlert {
+      uid = "homelab-namespace-fail-fleet";
+      title = "Service failed to start (sandbox/namespace)";
+      severity = "critical";
+      summary = "A unit failed its systemd sandbox setup — a bind/NFS/virtiofs mount is likely missing or stale.";
+      description = ''
+        One or more units failed at the systemd NAMESPACE step in the last 5
+        minutes — usually a BindPaths/BindReadOnlyPaths source that is missing
+        or stale (an NFS/virtiofs mount went stale → "Stale file handle"). The
+        matched log lines (delivered via alert-bridge) name every affected unit
+        and the failing path. This single fleet alert replaces the old
+        per-service NAMESPACE errorPatterns (storm de-collide 2026-06-26).
+
+        Query in Grafana Explore:
+          {source="journald", unit!="grafana.service", unit!="loki.service"} |~ "Failed at step NAMESPACE spawning"
+      '';
+      logql = ''sum(count_over_time({source="journald", unit!="grafana.service", unit!="loki.service"} |~ "Failed at step NAMESPACE spawning" [5m]))'';
+      lokiLines = ''{source="journald", unit!="grafana.service", unit!="loki.service"} |~ "Failed at step NAMESPACE spawning"'';
+    })
+  ];
+
   # Per-host log-ingestion silence alert. Fires when a fleet host that
   # should always be shipping logs to Loki has sent zero lines in the
   # past `window`. Closes the silent-log-loss gap that hid prom's
@@ -747,6 +783,15 @@
           rules = oomAlerts;
         }
       ]
+      ++ lib.optionals (namespaceFailAlerts != []) [
+        {
+          orgId = 1;
+          name = "service-start-failures";
+          folder = "Homelab";
+          interval = "1m";
+          rules = namespaceFailAlerts;
+        }
+      ]
       ++ lib.optionals (diskAlerts != []) [
         {
           orgId = 1;
@@ -854,6 +899,10 @@ in {
 
     oomAlert = {
       enable = lib.mkEnableOption "Alert when the kernel OOM killer fires on any fleet host" // {default = true;};
+    };
+
+    namespaceFailAlert = {
+      enable = lib.mkEnableOption "Fleet-wide alert when any unit fails its systemd sandbox/namespace setup (replaces the per-service NAMESPACE errorPatterns; one stale mount → one page)" // {default = true;};
     };
 
     ingestionSilenceAlert = {

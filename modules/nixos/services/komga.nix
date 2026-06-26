@@ -176,16 +176,10 @@ in {
           severity = "warning";
           summary = "Komga library scan threw an error — new issues may not be indexed";
         }
-        {
-          name = "Komga bind-mount failure";
-          unit = "komga.service";
-          # Mirrors the NFS-backed BindReadOnlyPaths fail-loud failure
-          # mode documented in the Sandbox patterns rule.
-          pattern = "Failed at step NAMESPACE";
-          severity = "critical";
-          summary = "Komga refused to start — magazine library bind failed (likely NFS stale)";
-          threshold = 0;
-        }
+        # Komga's NAMESPACE/bind start-failure (#257) now pages ONCE via the
+        # fleet-wide "Service failed to start (sandbox/namespace)" alert in
+        # alerting.nix — no per-service entry (storm de-collide 2026-06-26).
+        # The nfsWatchdog below still restarts Komga when the mount goes stale.
       ];
 
       # NFS watchdog — restart Komga if the bind-source mount goes stale.

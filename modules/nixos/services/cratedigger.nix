@@ -703,32 +703,16 @@ in {
         # Per-thread "crashed" alone is too low-bar (ffmpeg per-file
         # failures). "exiting after N crash(es)" is when the worker
         # actually gives up and the preview pipeline stops.
-        pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash|Failed at step NAMESPACE";
+        pattern = "(?i)Import preview worker exiting after \\d+ worker thread crash";
         severity = "critical";
         summary = "preview worker hit the crash limit and exited";
         # Single-shot: worker logs the give-up line once and exits.
         threshold = 0;
       }
-      # #257: NAMESPACE start-failures on the music-touching app units (a
-      # bound /mnt source — virtiofs Music/cratedigger or the slskd NFS
-      # staging — went missing). Distinct from the noisy operational logs
-      # that get web/importer skipped above; the unit won't even start.
-      {
-        name = "Cratedigger web namespace failure";
-        unit = "cratedigger-web.service";
-        pattern = "(?i)Failed at step NAMESPACE";
-        severity = "critical";
-        summary = "cratedigger-web cannot bind its music/state dirs — UI is down";
-        threshold = 0;
-      }
-      {
-        name = "Cratedigger importer namespace failure";
-        unit = "cratedigger-importer.service";
-        pattern = "(?i)Failed at step NAMESPACE";
-        severity = "critical";
-        summary = "cratedigger-importer cannot bind its music/state dirs — imports stopped";
-        threshold = 0;
-      }
+      # #257 NAMESPACE start-failures on the music-touching app units
+      # (cratedigger-web / cratedigger-importer) now page ONCE via the
+      # fleet-wide "Service failed to start (sandbox/namespace)" alert in
+      # alerting.nix — no per-service entries (storm de-collide 2026-06-26).
       {
         name = "Cratedigger DB migration failed";
         unit = "cratedigger-db-migrate.service";

@@ -242,7 +242,7 @@ in {
           unit = "paperless-web.service";
           # NAMESPACE failure = NFS+BindPaths cycle.
           # pgauth failure = DB grant regression (#232 trust→scram).
-          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"";
+          pattern = "(?i)password authentication failed for user \"paperless\"";
           severity = "critical";
           summary = "paperless-web cannot start or connect to DB";
           description = ''
@@ -257,7 +257,7 @@ in {
           unit = "paperless-consumer.service";
           # NAMESPACE = BindPaths source unavailable (NFS stale, dir gone).
           # Excludes the chronic ConsumerError(duplicate) noise.
-          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"";
+          pattern = "(?i)password authentication failed for user \"paperless\"";
           severity = "critical";
           summary = "paperless-consumer cannot start or connect to DB";
           description = "Document ingest is stopped while NFS/DB is broken.";
@@ -269,7 +269,7 @@ in {
           # NAMESPACE = BindPaths source unavailable.
           # Redis MISCONF = disk persistence broken; beat won't schedule.
           # DB auth = #232 class.
-          pattern = "(?i)Failed at step NAMESPACE|password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
+          pattern = "(?i)password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
           severity = "warning";
           summary = "celery beat scheduler is degraded";
           threshold = 0;
@@ -280,7 +280,7 @@ in {
           # NAMESPACE = BindPaths source unavailable.
           # Worker death = ingest pipeline stops. Excludes per-doc
           # ConsumerError + OCR ghostscript warnings.
-          pattern = "(?i)Failed at step NAMESPACE|\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
+          pattern = "(?i)\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
           severity = "critical";
           summary = "celery worker can't start or died — document ingest stopped";
           threshold = 0;

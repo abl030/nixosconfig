@@ -171,19 +171,10 @@ in {
 
       # See #253 audit. Soulseek client where peer/network errors are normal
       # operation, not an actionable fingerprint (outages surface via the
-      # Kuma HTTP monitor above) — the only entry is the #257 fail-loud bind
-      # of its music paths.
-      monitoring.errorPatterns = [
-        {
-          name = "slskd namespace failure";
-          unit = "slskd.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "warning";
-          summary = "slskd cannot bind its download/music dirs";
-          description = "A BindPaths source (downloadDir or musicDir) is missing or stale — check the backing mount on doc2.";
-          threshold = 0;
-        }
-      ];
+      # Kuma HTTP monitor above). NAMESPACE/bind start-failures page ONCE via
+      # the fleet-wide "Service failed to start (sandbox/namespace)" alert in
+      # alerting.nix — no per-service entry (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

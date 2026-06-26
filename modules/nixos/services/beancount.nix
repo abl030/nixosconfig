@@ -177,17 +177,10 @@ in {
 
       # See #253 audit. Fava is a read-only ledger UI with no actionable
       # failure log fingerprint (outages surface via the Kuma HTTP monitor
-      # above) — the only entry is the #257 fail-loud bind of its dataDir.
-      monitoring.errorPatterns = [
-        {
-          name = "Fava namespace failure";
-          unit = "fava.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "warning";
-          summary = "fava cannot bind its virtiofs dataDir — ledger UI is down";
-          threshold = 0;
-        }
-      ];
+      # above). NAMESPACE/bind start-failures page ONCE via the fleet-wide
+      # "Service failed to start (sandbox/namespace)" alert in alerting.nix —
+      # no per-service entry (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

@@ -144,27 +144,12 @@ in {
 
       # See #253 audit. The git server itself has no actionable failure
       # fingerprint in casual operation (outages surface via the Kuma
-      # /api/healthz monitor above), but #257 added fail-loud BindPaths for
-      # the virtiofs stateDir and NFS dump dir — page if either bind fails.
-      monitoring.errorPatterns = [
-        {
-          name = "Forgejo NFS/namespace failure";
-          unit = "forgejo.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "critical";
-          summary = "forgejo cannot bind its state/dump dirs — git server is down";
-          description = "A BindPaths source (/mnt/virtio/forgejo or the NFS dump dir) is missing or stale — check mnt-virtio.mount / mnt-data.mount on doc2.";
-          threshold = 0;
-        }
-        {
-          name = "Forgejo dump namespace failure";
-          unit = "forgejo-dump.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "warning";
-          summary = "forgejo nightly dump cannot bind its dirs — backups are not running";
-          threshold = 0;
-        }
-      ];
+      # /api/healthz monitor above). The #257 fail-loud BindPaths for the
+      # virtiofs stateDir and NFS dump dir now page ONCE via the fleet-wide
+      # "Service failed to start (sandbox/namespace)" alert in alerting.nix —
+      # no per-service entries, so one stale mount can't fan out into N
+      # identical pages (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }

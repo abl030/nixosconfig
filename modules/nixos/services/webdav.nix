@@ -75,19 +75,11 @@ in {
       ];
 
       # See #253 audit. Simple file server; NFS-backed outages already
-      # covered by the nfsWatchdog above + Kuma HTTP monitor — the only
-      # entry is the #257 fail-loud bind of the Zotero Library NFS dir.
-      monitoring.errorPatterns = [
-        {
-          name = "WebDAV namespace failure";
-          unit = "webdav.service";
-          pattern = "(?i)Failed at step NAMESPACE";
-          severity = "warning";
-          summary = "webdav cannot bind the Zotero Library NFS dir";
-          description = "BindPaths source on /mnt/data is missing or stale — check mnt-data.mount on doc2.";
-          threshold = 0;
-        }
-      ];
+      # covered by the nfsWatchdog above + Kuma HTTP monitor. NAMESPACE/bind
+      # start-failures page ONCE via the fleet-wide "Service failed to start
+      # (sandbox/namespace)" alert in alerting.nix — no per-service entry
+      # (storm de-collide 2026-06-26).
+      monitoring.errorPatterns = []; # ^ namespace → fleet alert; real outages → Kuma
     };
   };
 }
