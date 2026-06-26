@@ -725,7 +725,7 @@ in {
     };
 
     deepProbes = lib.mkOption {
-      type = lib.types.listOf (lib.types.submodule ({config, ...}: {
+      type = lib.types.listOf (lib.types.submodule (_: {
         options = {
           name = lib.mkOption {
             type = lib.types.str;

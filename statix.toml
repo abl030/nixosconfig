@@ -1,0 +1,16 @@
+# statix configuration for the fleet config repo.
+#
+# `repeated_keys` is disabled deliberately. This repo (like nixpkgs and idiomatic
+# NixOS generally) uses FLAT dotted attribute paths —
+#   networking.hostName = …;
+#   services.fstrim.enable = …;
+#   boot.loader.systemd-boot.enable = …;
+# — which are scannable and conventional. `repeated_keys` would have us merge
+# every shared top-level key (`boot`, `services`, `networking`, `homelab`, …)
+# into nested blocks across the whole codebase: churny, anti-idiomatic, and
+# strictly less readable. We keep the flat style and turn this one lint off.
+#
+# Every OTHER statix lint stays on (empty patterns, manual inherit, useless
+# parens, etc. — those are genuine fixes and are enforced by the warn-only
+# pre-commit hook in modules/home-manager/services/git-hooks.nix).
+disabled = ["repeated_keys"]

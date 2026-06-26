@@ -14,7 +14,7 @@
 # personal single-user workstation, so @users (== the interactive user) is fine.
 #
 # See docs/wiki/services/apollo-gaming-vm.md — "audio stutter" section.
-{...}: {
+_: {
   security.pam.loginLimits = [
     {
       domain = "@users";

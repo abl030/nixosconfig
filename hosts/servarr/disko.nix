@@ -1,7 +1,7 @@
 # Disk layout for the servarr VM (Unraid KVM guest, virtio disk = /dev/vda).
 # Consumed by disko at install time — nixos-anywhere partitions + formats from
 # this, and the fileSystems are generated from it (none in hardware-configuration.nix).
-{...}: {
+_: {
   disko.devices.disk.main = {
     type = "disk";
     # SATA disk on the tower KVM (q35) — confirmed /dev/sda at install (cdrom = sr0).

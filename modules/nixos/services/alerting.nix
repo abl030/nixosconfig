@@ -617,7 +617,7 @@
       labels = {
         severity = "warning";
         category = "ingestion";
-        host = host;
+        inherit host;
       };
     })
     cfg.ingestionSilenceAlert.hosts

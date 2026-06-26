@@ -8,7 +8,6 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }: let
   cfg = config.homelab.services.komga;
@@ -75,7 +74,7 @@ in {
           # Bind to loopback only — LAN access flows through nginx via
           # homelab.localProxy, never direct.
           address = "127.0.0.1";
-          port = cfg.port;
+          inherit (cfg) port;
           # Tomcat ships forwarded-headers support so Komga sees the real
           # client IP / scheme behind the nginx proxy.
           forward-headers-strategy = "framework";
@@ -118,7 +117,7 @@ in {
       localProxy.hosts = [
         {
           host = cfg.fqdn;
-          port = cfg.port;
+          inherit (cfg) port;
           # EPUB / PDF downloads can be big; lift the upload cap. Komga
           # itself doesn't accept uploads from clients in our flow (the
           # archiver scripts write to the bind dir directly), but the
