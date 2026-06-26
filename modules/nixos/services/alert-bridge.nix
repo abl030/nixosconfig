@@ -41,6 +41,7 @@
     import os
     import subprocess
     import sys
+    import threading
     import time
     import urllib.parse
     import urllib.request
@@ -50,6 +51,16 @@
     LOKI_URL = os.environ.get("LOKI_URL", "http://127.0.0.1:3100")
     LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "9876"))
     MAX_MSG_CHARS = int(os.environ.get("MAX_MSG_CHARS", "1400"))
+
+    # Storm damper knobs. When many pages fire at once (one root cause → N distal
+    # symptom alerts — the 2026-06-25 prom-disk cascade was ~50 pings), coalesce
+    # the flood into a single digest instead of paging each. Root-cause-agnostic:
+    # it keys off page RATE, not any specific signature, so it catches the next
+    # storm too (network blip, OOM, wedged mount — whatever).
+    STORM_WINDOW_SECS = int(os.environ.get("STORM_WINDOW_SECS", "300"))
+    STORM_THRESHOLD = int(os.environ.get("STORM_THRESHOLD", "6"))
+    STORM_FLUSH_SECS = int(os.environ.get("STORM_FLUSH_SECS", "120"))
+    STORM_QUIET_SECS = int(os.environ.get("STORM_QUIET_SECS", "180"))
 
     def read_token():
         try:
@@ -115,6 +126,95 @@
                 resp.read()
         except Exception as e:
             print(f"[bridge] gotify push failed: {e}", file=sys.stderr)
+
+    # ---- Storm damper -------------------------------------------------------
+    # Every outgoing page flows through dispatch(). It counts pages in a rolling
+    # window; once more than STORM_THRESHOLD fire within STORM_WINDOW_SECS it
+    # flips to "storm" mode and HOLDS subsequent pages in a buffer, emitting one
+    # coalesced digest (rolling, at most every STORM_FLUSH_SECS) that lists the
+    # held alerts. A daemon thread flushes the tail and ends the storm after
+    # STORM_QUIET_SECS with no new pages. Nothing is dropped — the flood becomes
+    # a handful of digests, not 50 pushes. The digest calls gotify_push directly
+    # so it neither recurses nor counts toward the storm. Boxed single-element
+    # lists hold the mutable flags so the module-level helpers avoid `global`.
+    _storm_lock = threading.Lock()
+    _storm_recent = []        # dispatch timestamps within the window
+    _storm_buffer = []        # held (ts, title, priority) during a storm
+    _storm_active = [False]
+    _storm_last_digest = [0.0]
+
+    def _storm_prune(now):
+        cutoff = now - STORM_WINDOW_SECS
+        while _storm_recent and _storm_recent[0] < cutoff:
+            _storm_recent.pop(0)
+
+    def _push_digest(items):
+        if not items:
+            return
+        n = len(items)
+        crit = sum(1 for it in items if it[2] >= 8)
+        lines = [f"{n} alerts coalesced in the last few minutes ({crit} critical):"]
+        for (_ts, t, p) in items[:30]:
+            lines.append(f"{'🔴' if p >= 8 else '🟡'} {t}")
+        if n > 30:
+            lines.append(f"…and {n - 30} more")
+        lines.append("")
+        lines.append("(individual pages held by the storm damper — likely one root")
+        lines.append("cause. Check Grafana/Loki for the common failure.)")
+        gotify_push(f"⚡ Alert storm: {n} alerts", "\n".join(lines), priority=8)
+
+    def dispatch(title, message, priority=5):
+        """Single choke point for every outgoing page; applies the storm damper."""
+        now = time.time()
+        send = None
+        digest = None
+        with _storm_lock:
+            _storm_recent.append(now)
+            _storm_prune(now)
+            if not _storm_active[0] and len(_storm_recent) >= STORM_THRESHOLD:
+                _storm_active[0] = True
+                _storm_last_digest[0] = now
+                print(f"[bridge] STORM start: {len(_storm_recent)} pages in "
+                      f"{STORM_WINDOW_SECS}s — coalescing", file=sys.stderr, flush=True)
+            if _storm_active[0]:
+                _storm_buffer.append((now, title, priority))
+                if now - _storm_last_digest[0] >= STORM_FLUSH_SECS:
+                    digest = list(_storm_buffer)
+                    _storm_buffer.clear()
+                    _storm_last_digest[0] = now
+            else:
+                send = (title, message, priority)
+        # Network I/O outside the lock so the flusher thread never blocks on it.
+        if send is not None:
+            gotify_push(*send)
+        if digest is not None:
+            _push_digest(digest)
+
+    def _storm_flusher():
+        """Flush the storm tail: end the storm and emit a final digest once no
+        new pages have arrived for STORM_QUIET_SECS (also emits a rolling digest
+        if a long storm crosses STORM_FLUSH_SECS between dispatches)."""
+        while True:
+            time.sleep(15)
+            now = time.time()
+            digest = None
+            with _storm_lock:
+                _storm_prune(now)
+                if _storm_active[0]:
+                    last = _storm_recent[-1] if _storm_recent else 0
+                    if now - last >= STORM_QUIET_SECS:
+                        if _storm_buffer:
+                            digest = list(_storm_buffer)
+                            _storm_buffer.clear()
+                        _storm_active[0] = False
+                        print("[bridge] STORM end — flushing tail",
+                              file=sys.stderr, flush=True)
+                    elif _storm_buffer and now - _storm_last_digest[0] >= STORM_FLUSH_SECS:
+                        digest = list(_storm_buffer)
+                        _storm_buffer.clear()
+                        _storm_last_digest[0] = now
+            if digest:
+                _push_digest(digest)
 
     # Mirror of the probeSlug helper in monitoring_sync.nix so we can
     # reverse a Kuma push-monitor name back to its systemd unit. Must
@@ -183,7 +283,7 @@
                 body += f"\nat {hb_time}"
             if heartbeat_msg:
                 body += f"\n{heartbeat_msg[:300]}"
-            gotify_push(f"[recovered] {mon_name} is UP", body, priority=5)
+            dispatch(f"[recovered] {mon_name} is UP", body, priority=5)
             return
 
         # Anything else that isn't DOWN (PENDING / MAINTENANCE / unknown) → ignore.
@@ -226,7 +326,7 @@
 
         summary = format_message(ctx)
         title = f"[critical] {mon_name} DOWN"
-        gotify_push(title, summary, priority=8)
+        dispatch(title, summary, priority=8)
 
     def handle_alert(alert):
         if alert.get("status") != "firing":
@@ -261,7 +361,7 @@
         summary = format_message(ctx)
         title = f"[{severity}] {alertname}"
         priority = 8 if severity == "critical" else 5
-        gotify_push(title, summary, priority=priority)
+        dispatch(title, summary, priority=priority)
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):
@@ -304,6 +404,7 @@
 
     if __name__ == "__main__":
         print(f"[bridge] listening on 127.0.0.1:{LISTEN_PORT}", file=sys.stderr)
+        threading.Thread(target=_storm_flusher, daemon=True).start()
         http.server.HTTPServer(("127.0.0.1", LISTEN_PORT), Handler).serve_forever()
   '';
 in {
@@ -347,6 +448,30 @@ in {
         decrypted under a different owner (the bridge user).
       '';
     };
+
+    # Storm damper — collapse an alert flood (one root cause → N distal symptom
+    # pages) into a single coalesced digest. Root-cause-agnostic (keys off page
+    # rate). See the script's "Storm damper" block.
+    stormThreshold = lib.mkOption {
+      type = lib.types.int;
+      default = 6;
+      description = "More than this many pages within stormWindowSecs flips the bridge into storm mode (subsequent pages coalesced into a digest).";
+    };
+    stormWindowSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 300;
+      description = "Rolling window (seconds) over which outgoing pages are counted against stormThreshold.";
+    };
+    stormFlushSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 120;
+      description = "During a storm, emit a rolling digest of held alerts at most this often (seconds).";
+    };
+    stormQuietSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 180;
+      description = "A storm ends (final digest flushed) after this many seconds with no new pages.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -369,6 +494,10 @@ in {
         GOTIFY_TOKEN_FILE = config.sops.secrets."alert-bridge/gotify-token".path;
         LOKI_URL = cfg.lokiUrl;
         LISTEN_PORT = toString cfg.listenPort;
+        STORM_THRESHOLD = toString cfg.stormThreshold;
+        STORM_WINDOW_SECS = toString cfg.stormWindowSecs;
+        STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
+        STORM_QUIET_SECS = toString cfg.stormQuietSecs;
       };
 
       serviceConfig = {
