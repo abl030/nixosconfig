@@ -5,6 +5,23 @@
   ...
 }: let
   cfg = config.homelab.framework.hibernateFix;
+
+  # Force PCIe ASPM L1 + clock-PM OFF on the mt7921e (MT7922) WiFi card.
+  # The `mt7921e.disable_aspm=1` kernel param only disables the *driver's*
+  # ASPM handling, NOT the link-level L1 — which resume re-enables, leaving
+  # `/sys/.../link/l1_aspm` = 1. Repeated L1 entry/exit slowly wedges the
+  # MT7922 firmware → cyclic 25-175ms latency that builds over use after a
+  # resume and kills game streams (a full driver reload resets it). This
+  # writes l1_aspm=0 at boot AND on every resume (via wifi-hibernate-fix's
+  # ExecStop). Targeted to the WiFi PCI device, so everything else keeps its
+  # ASPM/battery savings. Ref: https://bbs.archlinux.org/viewtopic.php?id=287846
+  wifiAspmOff = pkgs.writeShellScript "wifi-aspm-off" ''
+    set -u
+    for d in /sys/bus/pci/drivers/mt7921e/0000:*; do
+      [ -e "$d/link/l1_aspm" ] && echo 0 > "$d/link/l1_aspm" || true
+      [ -e "$d/link/clkpm" ] && echo 0 > "$d/link/clkpm" || true
+    done
+  '';
 in {
   options.homelab.framework.hibernateFix = {
     enable = lib.mkEnableOption "Framework hibernate fixes (WiFi driver + RAM exhaustion)";
@@ -21,7 +38,10 @@ in {
     # =======================================================================
 
     boot.kernelParams = [
-      # Prevents the WiFi card from entering deep PCIe power states.
+      # Driver-side ASPM disable. NOTE: this alone is INSUFFICIENT — it does
+      # not clear the link-level ASPM L1 (`l1_aspm` stays 1, esp. after resume).
+      # The wifi-aspm-off service + the wifi-hibernate-fix ExecStop do the real
+      # work; kept here as belt-and-suspenders.
       "mt7921e.disable_aspm=1"
 
       # Disable zswap - it uses RAM for its compressed page pool, which
@@ -35,6 +55,19 @@ in {
     systemd.tmpfiles.rules = ["w /sys/power/image_size - - - - 0"];
 
     systemd.services = {
+      # Disable mt7921e PCIe ASPM L1 at boot (see the wifiAspmOff comment above).
+      # Resume is covered by wifi-hibernate-fix's ExecStop re-running it.
+      wifi-aspm-off = {
+        description = "Disable PCIe ASPM L1 on mt7921e WiFi (latency fix)";
+        wantedBy = ["multi-user.target"];
+        after = ["network-pre.target"];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = "${wifiAspmOff}";
+        };
+      };
+
       # Free RAM before hibernate to prevent ENOSPC during write phase
       pre-hibernate = {
         description = "Free RAM before hibernate";
@@ -92,6 +125,8 @@ in {
           ExecStop = [
             "${pkgs.kmod}/bin/modprobe mt7921e"
             "${pkgs.coreutils}/bin/sleep 2"
+            # Re-disable ASPM L1 after the resume reload (resume re-enables it).
+            "${wifiAspmOff}"
           ];
         };
       };

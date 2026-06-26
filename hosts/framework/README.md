@@ -5,7 +5,7 @@ This host has a few suspend/resume-specific pieces to improve stability and help
 ## Suspend/Resume Behavior
 - **Suspend mode**: Uses s2idle (deep does not work on this platform).
 - **Sleep-then-hibernate**: Enabled via `homelab.framework.sleepThenHibernate.enable`.
-- **Wi-Fi hibernate fix**: `homelab.framework.hibernateFix.enable` sets `mt7921e.disable_aspm=1` and unloads/reloads Mediatek modules around sleep.
+- **Wi-Fi hibernate fix**: `homelab.framework.hibernateFix.enable` sets `mt7921e.disable_aspm=1`, unloads/reloads Mediatek modules around sleep, and — the actual latency fix — forces PCIe **ASPM L1 off** on the mt7921e link (`l1_aspm=0`) at boot + every resume. (The `disable_aspm` param is driver-side only; the link keeps L1 on after resume, which slowly wedges the MT7922 firmware into 25–175 ms latency that kills game streams. A driver reload clears it; this prevents it. Ref: archlinux bbs id=287846.)
 - **NFS circuit breaker**: `nfs-suspend-prepare` stops NFS automounts and lazily unmounts NFS before sleep, then restarts automounts on resume.
 - **Update wake**: `homelab.update.wakeOnUpdate = true` triggers RTC wake for auto-updates (even if not on AC), then defers updates if `checkAcPower = true`.
 
