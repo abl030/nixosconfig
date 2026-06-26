@@ -13,11 +13,22 @@
 }: let
   cfg = config.homelab.nfsWatchdog;
 
-  watchdogEntry = lib.types.submodule {
+  watchdogEntry = lib.types.submodule ({name, ...}: {
     options = {
       path = lib.mkOption {
         type = lib.types.str;
         description = "NFS path to health-check via stat.";
+      };
+      unit = lib.mkOption {
+        type = lib.types.str;
+        default = "${name}.service";
+        description = ''
+          The systemd unit to restart when the path goes stale. Defaults to
+          <name>.service. Set explicitly when the watchdog key can't double as
+          the unit name — e.g. a templated unit like "microvm@qbt.service"
+          (keying the attr on "microvm@qbt" would make systemd mis-parse the
+          generated "<name>-nfs-watchdog" unit as a template instance).
+        '';
       };
       interval = lib.mkOption {
         type = lib.types.str;
@@ -25,7 +36,7 @@
         description = "How often to check (systemd OnUnitActiveSec format).";
       };
     };
-  };
+  });
 in {
   options.homelab.nfsWatchdog = lib.mkOption {
     type = lib.types.attrsOf watchdogEntry;
@@ -41,7 +52,7 @@ in {
           Type = "oneshot";
           NoNewPrivileges = true; # stat + systemctl only; no setuid exec (#232)
           ExecStart = pkgs.writeShellScript "${name}-nfs-watchdog" ''
-            svc=${lib.escapeShellArg "${name}.service"}
+            svc=${lib.escapeShellArg entry.unit}
             if ! timeout 10 stat ${lib.escapeShellArg entry.path} >/dev/null 2>&1; then
               # NFS path is dead. Clear any start-limit-hit residue before
               # restarting so the watchdog isn't gagged by systemd burst caps

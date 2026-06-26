@@ -70,6 +70,35 @@ Result: cage stays intact (no NFS pinhole), qbt writes `0664 99:100` files, *arr
 **A pre-existing 0-byte `0644` partfile blocks a re-add** (the umask only affects *new* files) — `rm`
 stale files from the scratch (via the guest agent / `99` owner) when testing.
 
+### ⚠️⚠️ The host NFS mount MUST be static — NEVER `x-systemd.automount` (the ESTALE trap)
+
+`/media/data` on servarr is the backing store for the qbt `/downloads` virtiofs share. **virtiofsd
+holds open handles into that NFS mount for the life of the qbt VM.** If the mount is an
+`x-systemd.automount` (the roaming/laptop pattern from `nfs.nix`), autofs can lazily unmount/remount
+it underneath virtiofsd — and virtiofsd's cached handles go **stale**. The guest then sees
+`file_open: Stale file handle` (`ESTALE`) and qBittorrent **errors the whole torrent**. Restarting the
+torrent in the WebUI does nothing — pause/resume only re-asks libtorrent, while virtiofsd still holds
+the same dead handle. Symptom observed 2026-06-26 on the 47 GB "Curb Your Enthusiasm" pack: errored at
+~0.4 %, re-errored on restart, **2.3 TB free** (not a space problem) — log showed `ESTALE` on
+`Season 3/S03E03…mkv`.
+
+**Fix:** mount `/media/data` via the shared **server** module `homelab.mounts.nfsLocal`
+(`mountPoint = "/media/data"; appdata = false; networkdWaitOnline = false`) — the SAME module doc2 uses
+for this very export. It is **static** (no automount → no lazy remount → no stale handle), **`hard`**
+(I/O blocks-and-resumes across a tower blip instead of erroring), and **`softreval`** (serves cached
+attrs during a brief revalidation outage). servarr is a VM *on* tower, so tower is up whenever servarr
+boots → a static `_netdev` mount is strictly safer here than autofs. This replaced a hand-rolled inline
+`fileSystems."/media/data"` that had copied the laptop automount pattern. **Don't ever re-introduce
+`x-systemd.automount` on a server that re-shares the mount over virtiofs.** (`networkdWaitOnline=false`
+because NetworkManager owns servarr's LAN and provides `network-online`; networkd here runs only the
+IP-less qbt DMZ cage, which never reaches "online".)
+
+**Recovery if it ever does go stale again:** `sudo systemctl restart microvm@qbt.service` on servarr
+(abl030 now has passwordless sudo there) — that re-launches virtiofsd with fresh handles; torrent
+resume state lives in the persistent `qbt-state.img` volume so it survives. A `homelab.nfsWatchdog.qbt`
+(stat-probe `/media/data/Media/Temp` every 10 min → restart `microvm@qbt.service` + Loki alert)
+automates this for the residual case (e.g. a tower NFS-server reboot).
+
 ## Migration (data)
 
 The migration that works (per app; do it with **both** source+dest *arr stopped for a consistent DB):
@@ -122,6 +151,12 @@ The migration that works (per app; do it with **both** source+dest *arr stopped 
   The migrated Prowlarr/\*arr DBs carry **inherited failure-backoff** that masks which actually work —
   a calm per-indexer test reveals the truth.
 - **No POSIX-ACL/xattr on the NFS** is a general trap for anything virtiofs-ing an Unraid NFS share.
+- **`/media/data` MUST be a static mount, never `x-systemd.automount`** — autofs remount under
+  virtiofsd = `ESTALE` = errored torrents. Uses `homelab.mounts.nfsLocal` (the doc2 server pattern).
+  Full writeup in the storage section above ("The host NFS mount MUST be static").
+- **abl030 has passwordless sudo on servarr** (`security.sudo.extraRules` mkAfter NOPASSWD, hermes-style)
+  so the agent can `systemctl restart microvm@qbt.service` etc. from the doc1 bastion without a password
+  prompt. servarr is otherwise a normal role="locked" host.
 
 ## When to revisit
 

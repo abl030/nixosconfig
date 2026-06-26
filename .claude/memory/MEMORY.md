@@ -55,6 +55,10 @@
   restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use
   **Loki** for logs. doc2 abl030 has NO password (console = break-glass).
 - Full models: `ssh-bastion-model.md` + `fleet-deploy-and-sibling-lockdown.md`.
+- **EXCEPTION: servarr now grants abl030 passwordless sudo** (hermes-style) — so
+  `ssh servarr "sudo ..."` from doc1 WORKS (e.g. restart qbt microVM). Also: servarr's
+  `/media/data` must be a STATIC NFS mount, never automount (automount→virtiofsd ESTALE→
+  errored qbt torrents). [servarr-nfs-static-and-sudo.md](servarr-nfs-static-and-sudo.md).
 - **tower (Unraid) joined the fleet SSH model 2026-06-22**: native OpenSSH, key-only root,
   fleet key from doc1 (`ssh root@tower`); Tailscale plugin `--ssh` DISABLED. The old
   "tower = Tailscale SSH / gated" assumption is STALE. Config lives on the Unraid flash (not

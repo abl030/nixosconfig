@@ -39,11 +39,16 @@
   # downloads land in a subdir (…/Media/Temp) and import hardlinks into the library
   # (…/Media/Movies, …/Media/TV Shows) on the same fs. The qbt microVM gets ONLY a
   # scratch subdir of this fs via virtiofs (never the library itself) — see issue #1.
-  fileSystems."/media/data" = {
-    device = "192.168.1.2:/mnt/user/data";
-    fsType = "nfs";
-    options = ["rw" "noatime" "vers=4.2" "hard" "_netdev" "x-systemd.automount" "x-systemd.mount-timeout=30"];
-  };
+  #
+  # Mounted via the shared SERVER NFS pattern (homelab.mounts.nfsLocal, the module
+  # doc2 already uses for this very export) — STATIC + hard + softreval, NEVER an
+  # x-systemd.automount. A server must not lazy-unmount: an automount idle-remount
+  # strands the virtiofsd handle the qbt cage holds open into /media/data/Media/Temp,
+  # which surfaces in the guest as ESTALE ("Stale file handle") and silently ERRORS
+  # live torrents. This box used to hand-roll an inline automount mount (the laptop
+  # pattern from nfs.nix) and hit exactly that. appdata=false: the only NFS consumer
+  # here is the *arr library + qbt scratch. See the NFS-must-be-static gotcha in
+  # docs/wiki/services/servarr-and-qbt-cage.md.
 
   # The media group + the *arr stack (Radarr/Sonarr/Prowlarr) + the qbt reverse-proxy
   # all live in homelab.services.servarr (modules/nixos/services/servarr.nix): bound to
@@ -56,6 +61,31 @@
 
   homelab = {
     services.servarr.enable = true;
+
+    # The media library mount — server pattern, static, no automount (see the long
+    # rationale above the /media/data comment). mountPoint=/media/data keeps the path
+    # the *arr config + qbt virtiofs share + hardlink layout bake in; appdata=false
+    # (not needed here); networkdWaitOnline=false because NetworkManager owns this
+    # box's LAN and provides network-online — networkd here only runs the IP-less qbt
+    # DMZ cage, which never reaches "online" (qbt-microvm.nix disables its wait-online).
+    mounts.nfsLocal = {
+      enable = true;
+      mountPoint = "/media/data";
+      appdata = false;
+      networkdWaitOnline = false;
+    };
+
+    # Belt-and-braces: if /media/data ever does go stale, restart the qbt microVM so
+    # virtiofsd re-opens fresh handles instead of the guest silently erroring torrents,
+    # and fire the standard NFS-watchdog alert. The static mount above is the real fix;
+    # this catches the residual case (e.g. tower NFS server reboot). `unit` is set
+    # because the watchdog key can't be "microvm@qbt" (systemd would template-parse it).
+    nfsWatchdog.qbt = {
+      path = "/media/data/Media/Temp";
+      unit = "microvm@qbt.service";
+      interval = "10min";
+    };
+
     ssh.enable = true; # fleet member: key-only, trusts the doc1 bastion key
     # NOT a tailnet node (overrides base's mkDefault). servarr is a VM on tower,
     # and tower is the sole subnet router advertising the LAN to the tailnet, so
@@ -78,6 +108,25 @@
     # so the 64 GiB disk doesn't fill. Re-enable only if servarr gets materially more RAM.
     update.enable = false;
   };
+
+  # servarr is a role="locked" host (base.nix sets wheelNeedsPassword=true for the
+  # locked role), but the agent OPERATES this box from the doc1 bastion — restarting
+  # the qbt microVM, clearing stale scratch files, managing downloads — none of which
+  # should hang on a password the agent can't type. Grant abl030 passwordless sudo
+  # here. mkAfter renders LAST and sudoers is last-match, so this wins over the locked
+  # role's default. Same escape hatch as hermes; the box is already firewall-caged and
+  # only reachable via the bastion key. See CLAUDE.md "MECHANICAL RECIPE / LOCKED-HOST sudo".
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "ALL";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
 
   # Housekeeping that homelab.update would have provided (it's off, above) — neither rebuilds.
   nix.gc = {
