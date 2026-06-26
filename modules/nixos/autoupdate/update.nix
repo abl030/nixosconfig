@@ -386,6 +386,35 @@ in {
       # When we exit, the inhibitor releases and logind will handle
       # suspend automatically if the lid is still closed.
     '';
+
+    # Scope LidSwitchIgnoreInhibited=no to ONLY the nightly-update window (laptops).
+    #
+    # The PERMANENT setting was a footgun: GNOME's gsd-power can get stuck holding
+    # a `handle-lid-switch` block inhibitor (e.g. after an AMD s2idle glitch-wake
+    # or a display reconfig), and with LidSwitchIgnoreInhibited=no logind honours
+    # it forever — so a closed lid silently stops suspending until reboot. By
+    # leaving the systemd default (=yes → lid always suspends) in place and only
+    # flipping to =no while nixos-upgrade actually runs, the lid suspends normally
+    # 24/7 while the rebuild still can't be cut short by a closed lid.
+    #
+    # Runtime-only drop-in + `systemctl reload systemd-logind` (reload re-reads
+    # config without dropping sessions; same mechanism base.nix relies on for
+    # StopIdleSessionSec). ExecStopPost always restores the default.
+    lidInhibitOn = pkgs.writeShellScript "nixos-upgrade-lid-inhibit-on" ''
+      set -uo pipefail
+      d=/run/systemd/logind.conf.d
+      ${pkgs.coreutils}/bin/mkdir -p "$d"
+      ${pkgs.coreutils}/bin/printf '%s\n' '[Login]' 'LidSwitchIgnoreInhibited=no' \
+        > "$d/90-nixos-upgrade-lid.conf"
+      ${pkgs.systemd}/bin/systemctl reload systemd-logind.service || true
+      exit 0
+    '';
+    lidInhibitOff = pkgs.writeShellScript "nixos-upgrade-lid-inhibit-off" ''
+      set -uo pipefail
+      ${pkgs.coreutils}/bin/rm -f /run/systemd/logind.conf.d/90-nixos-upgrade-lid.conf
+      ${pkgs.systemd}/bin/systemctl reload systemd-logind.service || true
+      exit 0
+    '';
   in {
     # 1) Base autoUpgrade setup
     system.autoUpgrade = {
@@ -405,10 +434,12 @@ in {
     # 2) Timer wake
     systemd.timers.nixos-upgrade.timerConfig.WakeSystem = cfg.wakeOnUpdate;
 
-    # 3) Logind: ONLY adjust lid inhibitor semantics on AC-gated hosts (i.e. laptops)
-    services.logind.settings.Login = lib.mkIf cfg.checkAcPower {
-      LidSwitchIgnoreInhibited = "no";
-    };
+    # 3) Logind lid semantics: the systemd default (LidSwitchIgnoreInhibited=yes
+    #    → a closed lid always suspends) is now left in place fleet-wide. On
+    #    laptops, the =no semantics needed to stop a closed lid from cutting the
+    #    nightly rebuild short are applied TRANSIENTLY by the nixos-upgrade
+    #    ExecStartPre/ExecStopPost below (lidInhibitOn/lidInhibitOff), never
+    #    permanently — see the comment on those scripts for the rationale.
 
     # 4) Override nixos-upgrade ExecStart:
     #    - on laptops (checkAcPower=true): wrapper (wait+inhibit)
@@ -443,42 +474,50 @@ in {
         # Prevents indefinite hangs from stuck activations (e.g., systemd generator bugs)
         TimeoutStartSec = cfg.timeout;
         ExecCondition = lib.optional useVerifiedUpdate "${lib.getExe config.system.build.fleetUpdate} --probe-origins";
-        ExecStartPre = [
-          (pkgs.writeShellScript "nixos-upgrade-net-ready" ''
-            set -euo pipefail
-            log() { echo "[SmartUpdate] $*"; }
+        # On laptops, flip LidSwitchIgnoreInhibited=no FIRST so the closed-lid
+        # protection covers the whole run (incl. the net-ready wait), then restore
+        # it in ExecStopPost regardless of how the run ends.
+        ExecStartPre =
+          lib.optional cfg.checkAcPower lidInhibitOn
+          ++ [
+            (pkgs.writeShellScript "nixos-upgrade-net-ready" ''
+              set -euo pipefail
+              log() { echo "[SmartUpdate] $*"; }
 
-            # Probe actual reachability of api.github.com, not just DNS
-            # resolution. tailscaled's stub resolver answers within seconds
-            # of resume-from-suspend, but the WAN route can still be down
-            # for 30s+ after that — long enough to blow through the rebuild's
-            # 5×15s curl retry budget. A real TLS request is the only honest
-            # signal that the upcoming flake fetch will actually work.
-            log "Waiting for api.github.com reachability (max 5 minutes)..."
-            for i in $(seq 1 60); do
-              if ${pkgs.curl}/bin/curl -sSf --max-time 5 https://api.github.com/zen >/dev/null 2>&1; then
-                log "GitHub reachable."
-                exit 0
-              fi
-              if [ "$i" -eq 1 ]; then
-                log "GitHub not reachable yet; retrying every 5s..."
-              fi
-              sleep 5
-            done
+              # Probe actual reachability of api.github.com, not just DNS
+              # resolution. tailscaled's stub resolver answers within seconds
+              # of resume-from-suspend, but the WAN route can still be down
+              # for 30s+ after that — long enough to blow through the rebuild's
+              # 5×15s curl retry budget. A real TLS request is the only honest
+              # signal that the upcoming flake fetch will actually work.
+              log "Waiting for api.github.com reachability (max 5 minutes)..."
+              for i in $(seq 1 60); do
+                if ${pkgs.curl}/bin/curl -sSf --max-time 5 https://api.github.com/zen >/dev/null 2>&1; then
+                  log "GitHub reachable."
+                  exit 0
+                fi
+                if [ "$i" -eq 1 ]; then
+                  log "GitHub not reachable yet; retrying every 5s..."
+                fi
+                sleep 5
+              done
 
-            log "GitHub unreachable after 5 minutes; skipping update."
-            exit 0
-          '')
-          # Revalidate the GitHub PAT BEFORE the fetch. A stale token poisons
-          # every github.com request with 401, so this must run before the
-          # flake is resolved, not just as a post-switch activation. See #210.
-          refreshAccessTokens
-        ];
+              log "GitHub unreachable after 5 minutes; skipping update."
+              exit 0
+            '')
+            # Revalidate the GitHub PAT BEFORE the fetch. A stale token poisons
+            # every github.com request with 401, so this must run before the
+            # flake is resolved, not just as a post-switch activation. See #210.
+            refreshAccessTokens
+          ];
         ExecStart = lib.mkForce (
           if cfg.checkAcPower
           then lib.getExe laptopWrapper
           else lib.getExe smartUpgrade
         );
+        # Always restore default lid semantics (=yes) after the run — success,
+        # failure, or timeout. Runs even if an ExecStartPre above bailed out.
+        ExecStopPost = lib.optional cfg.checkAcPower lidInhibitOff;
       };
     };
 
