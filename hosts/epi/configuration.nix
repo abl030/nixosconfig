@@ -155,6 +155,11 @@
 
   users.users.abl030 = {
     extraGroups = ["libvirtd" "vboxusers" "dialout"];
+    # Keep user@.service alive with no sessions so a detached tmux/mosh survives
+    # a full disconnect (not just the base.nix #232 55-min idle-stop). Without
+    # linger, closing the last connection stops user@.service and kills the
+    # scope-escaped server. Interactive host. (Mirrors doc1/framework.)
+    linger = true;
   };
 
   # forgejo#2 Phase 4: passwordless `nixos-rebuild` REMOVED. It was a passwordless

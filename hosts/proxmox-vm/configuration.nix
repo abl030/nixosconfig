@@ -146,6 +146,13 @@
   # ADD ONLY HOST SPECIFIC GROUPS
   users.users.abl030 = {
     extraGroups = ["libvirtd" "vboxusers"];
+    # Keep user@.service running with zero sessions so a detached tmux/mosh
+    # server (escaped into the user manager) survives a FULL disconnect — not
+    # just the StopIdleSessionSec=55min idle-stop in base.nix #232. Without
+    # linger, closing your last connection stops user@.service and kills the
+    # escaped server too. Was set imperatively (loginctl enable-linger); made
+    # declarative here. Interactive host only (doc1/framework/epi).
+    linger = true;
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [

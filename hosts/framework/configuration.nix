@@ -233,6 +233,11 @@
 
   users.users.abl030 = {
     extraGroups = ["libvertd" "dialout" "docker"];
+    # Keep user@.service alive with no sessions so a detached tmux/mosh survives
+    # a full disconnect (not just the base.nix #232 55-min idle-stop). Without
+    # linger, closing the last connection stops user@.service and kills the
+    # scope-escaped server. Interactive host. (Mirrors doc1/epi.)
+    linger = true;
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
