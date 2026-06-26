@@ -10,32 +10,32 @@
   # ---------------------------------------------------------
   # CLAUDE CODE  (native programs.claude-code — see issue #261)
   # ---------------------------------------------------------
-  # We use the upstream home-manager module instead of a hand-rolled one, but
-  # deliberately leave `settings`/`marketplaces` UNSET. The native module only
-  # seizes ~/.claude/settings.json (as a read-only /nix/store symlink) when
-  # those are set — which would clobber runtime-mutable state the CLI owns
-  # (effortLevel, interactively-installed plugins, /config changes). With them
-  # empty the module still installs the package, loads plugins (force-enabled
-  # via --plugin-dir), wires mcp-nixos, and symlinks the skill, while never
-  # touching settings.json. The 4 privacy env keys (which must reach the
-  # systemd `claude -p` diagnosis runs, so they can't be shell env vars) are
-  # merged in by the tiny idempotent `claudePrivacy` activation below.
+  # We use the upstream home-manager module but deliberately leave
+  # `settings`/`marketplaces`/`plugins`/`enableMcpIntegration` UNSET, so it
+  # installs the package WITHOUT building a `claude` wrapper. Two reasons:
+  #
+  #   1. Setting `settings`/`marketplaces` makes the module write
+  #      ~/.claude/settings.json (and known_marketplaces.json) as read-only
+  #      /nix/store symlinks, clobbering runtime-mutable state the CLI owns
+  #      (effortLevel, interactively-installed plugins, /config changes).
+  #   2. `plugins`/`enableMcpIntegration` force-load via `--plugin-dir`/
+  #      `--mcp-config` flags baked into a `claude` WRAPPER. Agent View's
+  #      supervisor daemon self-respawns background workers from the UNWRAPPED
+  #      binary with a fixed argv, so those flags never reach Agent-View /
+  #      `claude --bg` sessions — plugins + MCP were present in the foreground
+  #      but MISSING in every background session.
+  #
+  # Instead, the `claudeConfig` activation below registers the plugins and
+  # mcp-nixos as ARGV-INDEPENDENT on-disk config (the pyright-lsp model), so
+  # every session reads them the same way: foreground, Agent View, `claude
+  # --bg`, and the systemd `claude -p` diagnosis runs (which already invoke the
+  # unwrapped pkgs.claude-code). No wrapper, one source of truth.
+  # See docs/wiki/claude-code/plugins-in-agent-view.md.
   programs.claude-code = {
     enable = lib.mkDefault true;
     # Sadjow's auto-updating flake (via overlay) — ships releases hours after
     # upstream; nixpkgs-unstable lags days. Keep it as the module package.
     package = lib.mkDefault pkgs.claude-code;
-    # Shared programs.mcp.servers (mcp-nixos) → claude's main-chat MCP set.
-    enableMcpIntegration = lib.mkDefault true;
-    # Plugins load via `--plugin-dir <store-path>` on a wrapped `claude`.
-    # This force-enables them (no enabledPlugins entry needed) and reads fine
-    # from read-only store paths. ha-skills' repo root is itself a single
-    # plugin (has .claude-plugin/plugin.json); compound-engineering is a
-    # multi-plugin marketplace, so we point at the plugin subdir directly.
-    plugins = lib.mkDefault [
-      inputs.claude-plugin-ha-skills
-      "${inputs.claude-plugin-compound-engineering}/plugins/compound-engineering"
-    ];
     # Fleet-global skill: symlinked into ~/.claude/skills/talk-to-me so it's
     # available regardless of CWD. Shared one-and-only source, also consumed
     # by programs.codex.skills (home/utils/common.nix).
@@ -44,10 +44,13 @@
     };
   };
 
-  # Shared MCP definitions consumed by both Claude (enableMcpIntegration) and,
-  # in principle, Codex. mcp-nixos is the only main-chat MCP; the noisy
-  # subagent-only servers (unifi/pfsense/playwright/HA) stay scoped to
-  # .claude/agents/, and vinsight is per-repo via that repo's .mcp.json.
+  # Shared MCP definition. Codex consumes programs.mcp directly (home/utils/
+  # common.nix). Claude no longer uses enableMcpIntegration (it built a wrapper
+  # Agent View bypasses — see above); the `claudeConfig` activation mirrors
+  # mcp-nixos into ~/.claude.json user scope for Claude instead, so keep this
+  # list and that activation in sync. The noisy subagent-only servers
+  # (unifi/pfsense/playwright/HA) stay scoped to .claude/agents/, and vinsight
+  # is per-repo via that repo's .mcp.json.
   programs.mcp = {
     enable = lib.mkDefault true;
     servers.mcp-nixos = lib.mkDefault {
@@ -56,22 +59,25 @@
     };
   };
 
-  # Privacy + agentTeams cleanup + auto-memory for the runtime-mutable
-  # ~/.claude/settings.json. Idempotently merges ONLY the keys we manage,
-  # leaving everything the user/CLI writes (effortLevel, enabledPlugins for
-  # interactively-installed plugins, hooks, etc.) intact. Replaces the
-  # ~360-line settings/plugin machinery of the retired homelab.claudeCode.
-  home.activation.claudePrivacy = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    SETTINGS="${config.home.homeDirectory}/.claude/settings.json"
-    run mkdir -p "$(dirname "$SETTINGS")"
-    [ -f "$SETTINGS" ] || run sh -c "echo '{}' > '$SETTINGS'"
+  # Idempotent, argv-independent Claude Code config for the runtime-mutable
+  # files the CLI owns (~/.claude/settings.json, ~/.claude/plugins/*.json,
+  # ~/.claude.json). We merge ONLY the keys we manage and never write a
+  # read-only /nix/store symlink, so everything the user/CLI writes (effortLevel,
+  # hooks, oauth, history, interactively-installed plugins) is preserved. This
+  # replaces the old `--plugin-dir`/`--mcp-config` wrapper, which Agent View's
+  # supervisor bypassed (background sessions had no plugins/MCP).
+  # See docs/wiki/claude-code/plugins-in-agent-view.md.
+  home.activation.claudeConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    CLAUDE_DIR="${config.home.homeDirectory}/.claude"
+    PLUGINS_DIR="$CLAUDE_DIR/plugins"
+    run mkdir -p "$PLUGINS_DIR"
+
+    # --- settings.json: privacy opt-outs, agent-teams cleanup, enabledPlugins -
     # Privacy opt-outs (telemetry/error-reporting/survey/autoupdater); drop the
-    # experimental agent-teams flag (kills spurious TaskCreate nudges); and
-    # strip stale enabledPlugins entries. compound-engineering + ha-skills are
-    # now served from --plugin-dir (@inline) so their marketplace entries are
-    # redundant; episodic-memory is retired. All three lost their marketplace
-    # dirs, so leaving them throws "cache-miss" on every session. pyright-lsp
-    # (working, claude-plugins-official) and any other entries are untouched.
+    # experimental agent-teams flag (kills spurious TaskCreate nudges); enable
+    # our two plugins (and clean up the retired marketplace-named entries).
+    SETTINGS="$CLAUDE_DIR/settings.json"
+    [ -f "$SETTINGS" ] || run sh -c "echo '{}' > '$SETTINGS'"
     run ${pkgs.jq}/bin/jq '
       .env = ((.env // {}) + {
         "DISABLE_TELEMETRY": "1",
@@ -80,34 +86,63 @@
         "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
       })
       | del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
-      | if has("enabledPlugins") then
-          .enabledPlugins |=
-            (del(.["compound-engineering@everyinc-compound-engineering"])
-             | del(.["home-assistant-skills@homeassistant-ai-skills"])
-             | del(.["episodic-memory@episodic-memory-dev"]))
-        else . end
+      | .enabledPlugins = (((.enabledPlugins // {})
+          | del(.["compound-engineering@everyinc-compound-engineering"])
+          | del(.["home-assistant-skills@homeassistant-ai-skills"])
+          | del(.["episodic-memory@episodic-memory-dev"]))
+          + {
+            "home-assistant-skills@homelab-ha": true,
+            "compound-engineering@homelab-ce": true
+          })
     ' "$SETTINGS" > "$SETTINGS.tmp" && run mv "$SETTINGS.tmp" "$SETTINGS"
 
-    # Drop the matching stale marketplace/installed-plugin records so
-    # `claude plugin list` no longer shows them as failed-to-load. These files
-    # are runtime-mutable and claude-owned; we only delete the retired entries,
-    # never recreate the machinery.
-    PLUGINS_DIR="${config.home.homeDirectory}/.claude/plugins"
-    if [ -f "$PLUGINS_DIR/known_marketplaces.json" ]; then
-      run ${pkgs.jq}/bin/jq \
-        'del(.["everyinc-compound-engineering"]) | del(.["homeassistant-ai-skills"]) | del(.["episodic-memory-dev"])' \
-        "$PLUGINS_DIR/known_marketplaces.json" > "$PLUGINS_DIR/known_marketplaces.json.tmp" \
-        && run mv "$PLUGINS_DIR/known_marketplaces.json.tmp" "$PLUGINS_DIR/known_marketplaces.json"
-    fi
-    if [ -f "$PLUGINS_DIR/installed_plugins.json" ]; then
-      run ${pkgs.jq}/bin/jq \
-        '.plugins |= (del(.["compound-engineering@everyinc-compound-engineering"]) | del(.["home-assistant-skills@homeassistant-ai-skills"]) | del(.["episodic-memory@episodic-memory-dev"]))' \
-        "$PLUGINS_DIR/installed_plugins.json" > "$PLUGINS_DIR/installed_plugins.json.tmp" \
-        && run mv "$PLUGINS_DIR/installed_plugins.json.tmp" "$PLUGINS_DIR/installed_plugins.json"
-    fi
+    # --- plugins as on-disk marketplaces pointing straight at /nix/store ------
+    # Argv-independent: the unwrapped binary the Agent View supervisor spawns
+    # reads these files, so background sessions load the plugins + their skills
+    # (verified — the plugin subsystem enables and resolves skills straight from
+    # here). installLocation/installPath reference the read-only store paths
+    # directly (no copy); rewritten every activation so store-path churn from a
+    # rebuild can never leave a stale record. ha-skills' root and the
+    # compound-engineering root each carry .claude-plugin/marketplace.json.
+    MKT="$PLUGINS_DIR/known_marketplaces.json"
+    [ -f "$MKT" ] || run sh -c "echo '{}' > '$MKT'"
+    run ${pkgs.jq}/bin/jq \
+      --arg ha "${inputs.claude-plugin-ha-skills}" \
+      --arg ce "${inputs.claude-plugin-compound-engineering}" '
+        del(.["everyinc-compound-engineering"])
+        | del(.["homeassistant-ai-skills"])
+        | del(.["episodic-memory-dev"])
+        | .["homelab-ha"] = { source: { source: "directory", path: $ha }, installLocation: $ha, lastUpdated: "2026-06-26T00:00:00.000Z" }
+        | .["homelab-ce"] = { source: { source: "directory", path: $ce }, installLocation: $ce, lastUpdated: "2026-06-26T00:00:00.000Z" }
+      ' "$MKT" > "$MKT.tmp" && run mv "$MKT.tmp" "$MKT"
 
-    # Auto-memory: point Claude at the git-tracked .claude/memory dir via the
-    # project's (gitignored) settings.local.json. Project-scoped + idempotent;
+    INST="$PLUGINS_DIR/installed_plugins.json"
+    [ -f "$INST" ] || run sh -c "echo '{}' > '$INST'"
+    run ${pkgs.jq}/bin/jq \
+      --arg ha "${inputs.claude-plugin-ha-skills}" \
+      --arg ce "${inputs.claude-plugin-compound-engineering}" '
+        .version = (.version // 2)
+        | .plugins = ((.plugins // {})
+            | del(.["compound-engineering@everyinc-compound-engineering"])
+            | del(.["home-assistant-skills@homeassistant-ai-skills"])
+            | del(.["episodic-memory@episodic-memory-dev"]))
+        | .plugins["home-assistant-skills@homelab-ha"] = [ { scope: "user", installPath: $ha, version: "0.1.0", installedAt: "2026-06-26T00:00:00.000Z", lastUpdated: "2026-06-26T00:00:00.000Z" } ]
+        | .plugins["compound-engineering@homelab-ce"] = [ { scope: "user", installPath: $ce, version: "1.0.3", installedAt: "2026-06-26T00:00:00.000Z", lastUpdated: "2026-06-26T00:00:00.000Z" } ]
+      ' "$INST" > "$INST.tmp" && run mv "$INST.tmp" "$INST"
+
+    # --- mcp-nixos at user scope in ~/.claude.json (argv-independent) ---------
+    # Replaces the old enableMcpIntegration carrier (wrapper-only --mcp-config).
+    # tmp+mv guards the large claude-owned state file against a jq failure.
+    CLAUDE_JSON="${config.home.homeDirectory}/.claude.json"
+    [ -f "$CLAUDE_JSON" ] || run sh -c "echo '{}' > '$CLAUDE_JSON'"
+    run ${pkgs.jq}/bin/jq '
+      .mcpServers = ((.mcpServers // {}) + {
+        "mcp-nixos": { type: "stdio", command: "uvx", args: ["mcp-nixos"] }
+      })
+    ' "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && run mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+
+    # --- auto-memory: point Claude at the git-tracked .claude/memory dir ------
+    # Project-scoped via the (gitignored) settings.local.json; idempotent and
     # preserves any other local keys (e.g. permission allow-lists).
     REPO="${config.home.homeDirectory}/nixosconfig"
     if [ -d "$REPO/.claude" ]; then
