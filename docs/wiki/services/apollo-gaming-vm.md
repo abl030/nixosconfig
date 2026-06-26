@@ -73,6 +73,22 @@ tower)**. When `Caddy2.0` was down, prom dropped to 1/2 votes → pmxcfs **read-
 still served from cache). Fix = start `Caddy2.0` (tower `virsh start`), not `pvecm
 expected 1`. `corosync.conf`: `quorum.device.net.host: 192.168.1.6`.
 
+**First-clone E2E test (RDR2, VM `121`, 2026-06-26).** A cold skill test (agent given
+only the skill) cloned 118 → installed Red Dead Redemption 2 [FitGirl] (116.8 GB,
+CRC-verified) → streamed → added a tile. The **core clone recipe + verify suite +
+tile-add were flawless**; the gaps it found are now in the `gaming-vm` skill: (1) the
+skill never covered **game installation** — a clone is LAN-isolated so it can't reach
+the NAS share (copy in over the clone's allowed inbound SSH:22, or a *temporary*
+narrow per-VM 445 pinhole; `pve-firewall compile` lags ~20 s on removal); FitGirl is
+**GUI-only** (`/VERYSILENT` aborts), driven via windows-mcp with **`EnableLUA=0`+reboot
+→ High-IL** (simpler than the `-Verb RunAs` dance), restored after. (2) **MAS `/HWID`
+fails behind the VPN** (MS rejects the AirVPN NL IP) → use offline **`/KMS38`** on
+clones. (3) **Moonlight per-host app-list cache:** shared-identity clones mean a paired
+client keeps showing the *previous* clone's tiles (and the headless CLI won't see new
+ones) until the GUI refreshes on host-select — validate new tiles in the GUI. (Caveat:
+the test read the stale main-checkout skill, so its "template=119 / windows-mcp missing"
+findings were already fixed in the v2 commit.)
+
 ## ⭐ THE FIX (the one thing that mattered — "it used to just work" piece)
 
 **Disable the VirtIO NIC's UDP Segmentation Offload (USO) + LSO inside Windows.** This was the

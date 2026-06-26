@@ -131,14 +131,29 @@ which are running, and which VMIDs are free. Decide from *this*, not from memory
      gets ~30 s, so don't run it inline). Confirm done with the authoritative online
      scan: `(New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()`
      `.Search("IsInstalled=0 and IsHidden=0").Updates.Count` → `0`.
-   - **Activate with MAS (HWID), as SYSTEM:**
-     `&([ScriptBlock]::Create((irm https://get.activated.win))) /HWID` (set TLS 1.2
-     first). Verify: `SoftwareLicensingProduct … LicenseStatus` → `1` (Licensed).
-     (Edition is Pro, so `/KMS38` is a fully-offline fallback if HWID is refused.)
+   - **Activate with MAS — use `/KMS38`, NOT `/HWID`, on a clone.** HWID has to
+     reach Microsoft's activation servers, which **reject the clone's AirVPN NL
+     egress** → HWID fails behind the VPN (confirmed in the RDR2 test). `/KMS38` is a
+     **fully offline** activation (valid to 2038; Pro/Ent only — this image is Pro)
+     and works behind the VPN, as SYSTEM:
+     `&([ScriptBlock]::Create((irm https://get.activated.win))) /KMS38` (set TLS 1.2
+     first; `irm get.activated.win` is a WAN/CDN fetch, still reachable). Verify:
+     `SoftwareLicensingProduct … LicenseStatus` → `1` (Licensed). (`/HWID` only works
+     where the VM has *direct* WAN — e.g. the template build on a non-`.111` MAC,
+     which is how the template itself is HWID-activated.)
    - Then clean up the scheduled task + scratch dir before moving on.
 9. **Hand off:** stream from any already-paired client (Moonlight/Artemis) →
    host `192.168.1.111` (auto-discovers as `Gaming-106`) → **Desktop**. No new
    pairing needed. Only pair (PIN at `apollo.ablz.au`) if it's a brand-new client.
+   - ⚠️ **Client app-list cache (flip side of "no new pairing").** Because every
+     clone shares the same identity (`Gaming-106` / cert / UUID / `.111`), a
+     paired client **caches the app list per-host** and keeps showing the *previous*
+     clone's tiles (and may accumulate duplicate `.111` host records) until the user
+     opens the Moonlight **GUI** and re-selects the host, which refreshes the list.
+     The headless `moonlight list`/`stream` CLI reads the stale cache and will
+     **not** see a new clone's tiles. So **validate a freshly-added tile by clicking
+     it in the Moonlight GUI**, not via the CLI — a CLI "0 packets / no CONNECT" on a
+     new tile is usually this cache, not a server fault (Desktop still streams fine).
 
 ## windows-mcp — GUI automation for game installers
 
@@ -153,16 +168,27 @@ pinhole is in the `apollo_vpn` group so every clone has it). Add it as an MCP se
 **The one gotcha that matters — UIPI / integrity levels.** windows-mcp runs at
 **medium** integrity (abl030, non-elevated). It **cannot** send input to a
 `requireAdministrator` (elevated/high-IL) window — clicks silently no-op. Most game
-installers and `VBCABLE_Setup` are elevated. Two ways through:
-- **Run the click logic as an elevated session-1 process.** A scheduled task
-  `schtasks /Create /RU abl030 /IT /RL HIGHEST` runs abl030 **elevated** in the
-  interactive desktop *without* a UAC prompt (scheduled-task elevation property).
-  From there, `Start-Process` of the elevated installer + a coordinate
-  `mouse_event` click (or UIAutomation `Invoke`) lands, because both are high-IL on
-  the same desktop. **This is the deterministic path for the template's own build
-  steps** (it's how VB-CABLE was installed — see the rebuild section).
-- **From windows-mcp itself:** set `ConsentPromptBehaviorAdmin=0` and have its
-  PowerShell tool relaunch a `-Verb RunAs` elevated helper that does the clicking.
+installers and `VBCABLE_Setup` are elevated. Ways through (pick by task):
+- **For driving a game installer with windows-mcp's *own* Click/Snapshot tools (the
+  simplest, validated in the RDR2 test):** temporarily disable UAC so the Run-key
+  server itself comes up **High** integrity — `reg add
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA /t
+  REG_DWORD /d 0 /f` then **reboot**. Now windows-mcp (relaunched by the Run-key)
+  runs High and can inject clicks/keys into the elevated installer directly (the
+  RDR2 FitGirl wizard was driven this way — mostly `Enter` for Next/Install plus a
+  few targeted clicks). When the install is done, **restore `EnableLUA=1` + reboot**
+  to return the clone to template posture. (Cleaner than the `-Verb RunAs` dance the
+  wiki floats.)
+- **Run the click logic as an elevated session-1 process** (no windows-mcp). A
+  scheduled task `schtasks /Create /RU abl030 /IT /RL HIGHEST` runs abl030
+  **elevated** in the interactive desktop *without* a UAC prompt (scheduled-task
+  elevation property). From there, `Start-Process` of the elevated installer + a
+  coordinate `mouse_event` click (or UIAutomation `Invoke`) lands, because both are
+  high-IL on the same desktop. **This is the deterministic path for the template's
+  own build steps** (it's how VB-CABLE was installed — see the rebuild section).
+- **From windows-mcp itself, without disabling UAC:** set
+  `ConsentPromptBehaviorAdmin=0` and have its PowerShell tool relaunch a `-Verb
+  RunAs` elevated helper that does the clicking.
 - **Session 0 is a dead end:** a SYSTEM task (`qm guest exec` context) launches GUI
   apps on the hidden session-0 desktop — UIAutomation there finds *nothing*. The
   clicker must be in **session 1**.
@@ -171,6 +197,53 @@ installers and `VBCABLE_Setup` are elevated. Two ways through:
   descendants. Fall back to **screenshot → read the PNG → click by coordinates**
   relative to the window's live bounding rect (the window's Y drifts between runs,
   so always recompute from `BoundingRectangle`, never hard-code absolute Y).
+
+## Install a game on a clone (FitGirl repacks etc.)
+
+The skill used to start at "once a game is installed" — this section closes that
+gap (added from the RDR2 e2e test). Do this on the clone **after** Windows Update +
+KMS38 activation, **before** the tile step.
+
+### 1. Get the repack files onto the clone
+
+The clone is **LAN-isolated** (`apollo_vpn` does `OUT DROP 192.168.0.0/16`), so it
+**cannot reach the NAS/SMB share** where games live (e.g. `\\192.168.1.2\data` =
+tower Unraid; on prom it's the CIFS mount `/mnt/pve/Tower`, creds in
+`/etc/pve/priv/storage/Tower.pw`). Two ways in:
+
+- **A — copy IN over the clone's SSH:22 (firewall-clean, preferred).** `apollo_vpn`
+  already allows inbound `22` from the LAN, so push the repack onto the clone from a
+  host with normal LAN access (doc1 can read the tower share AND `ssh`/`scp` to the
+  clone): `scp -i <key> "<repack dir>" abl030@192.168.1.111:'C:/Games/<game>/'`. **No
+  firewall edit; the clone never reaches out.** (This is the user's preferred method.)
+- **B — let the clone PULL via SMB (what the RDR2 test did; direct, one hop).** Add a
+  **narrow temporary** per-VM rule *above* the group so the clone can reach only the
+  share host on 445, then `robocopy` from `\\192.168.1.2\data\...` (~95 MiB/s), then
+  **remove the rule and re-verify isolation**:
+  ```bash
+  # prepend to /etc/pve/firewall/<vmid>.fw [RULES], ABOVE "GROUP apollo_vpn":
+  #   OUT ACCEPT -dest 192.168.1.2 -p tcp -dport 445 -log nolog # TEMP: game copy
+  ssh $P 'pve-firewall compile'            # robocopy from the guest, then:
+  # delete that one line, recompile, and RE-CHECK isolation from the guest.
+  ```
+  ⚠️ **`pve-firewall compile` is not instant** — the daemon takes **~20 s** to apply,
+  so the port stays open briefly after you remove the rule. Wait, then confirm the
+  guest can no longer reach `192.168.1.2:445` before trusting that isolation is back.
+
+Mind disk space: a clone's disk is 300 GB; a big repack needs the source **plus** the
+install (~2×) during the run — e.g. RDR2 = 67 GB repack → 116.8 GB installed. **Delete
+the source repack after install.**
+
+### 2. Run the installer — FitGirl is GUI-only
+
+`setup.exe /VERYSILENT /SUPPRESSMSGBOXES` **aborts** ("error reading source file")
+— FitGirl repacks require the interactive wizard. Drive it via **windows-mcp** (see
+that section: `EnableLUA=0` + reboot so the server is High-integrity, then mostly
+`Enter` for Next/Install plus a few targeted clicks; restore `EnableLUA=1` + reboot
+after). Expect a **long** decompress (RDR2 ≈ 51 min on 24 cores) and a default
+"verify integrity" CRC pass at the end. At Finish the installer pulls DirectX legacy
++ VC++ redists over the VPN; a **.NET 3.5** on-demand prompt may pop (skip unless the
+game needs it); VC++ "already installed (0x80070666)" is benign.
 
 ## Add a per-game tile (one-click launch in Moonlight)
 
@@ -366,6 +439,19 @@ switch to the shared MAC only at the very end.
   no quorum?` (reads still work from cache). Fix: start `Caddy2.0` on tower (the
   `tower` subagent), confirm `pvecm status` → `Quorate: Yes`. Don't `pvecm expected
   1` blindly — revive the witness.
-- **Per clone: re-activate Windows (MAS) after updating.** A fresh SMBIOS uuid
-  usually drops the template's HWID digital license; the clone shows
-  unactivated until you re-run MAS `/HWID` (step 8).
+- **Per clone: re-activate Windows (MAS) after updating — with `/KMS38`, not
+  `/HWID`.** A fresh SMBIOS uuid drops the template's HWID license, so the clone
+  shows unactivated; but **HWID re-activation FAILS behind the VPN** (MS rejects the
+  AirVPN NL egress). Use the offline `/KMS38` on clones (step 8). HWID only works
+  with direct WAN (the template build).
+- **Driving game installers with windows-mcp:** the medium-IL autostart can't click
+  elevated installers. Simplest fix (RDR2-validated): `EnableLUA=0` + reboot →
+  windows-mcp comes up High-IL → drives the wizard → restore `EnableLUA=1` + reboot.
+  See the windows-mcp + "Install a game" sections.
+- **A clone is LAN-isolated, so it can't reach the NAS share to fetch games.** Copy
+  IN over its allowed inbound SSH:22, or punch a *temporary* narrow per-VM 445 hole
+  and re-verify isolation after (`pve-firewall compile` lags ~20 s). See "Install a
+  game on a clone".
+- **New-clone tiles are invisible to already-paired clients until the Moonlight GUI
+  refreshes** the per-host app list (shared identity → cached list). Validate a new
+  tile in the GUI, not the headless CLI.

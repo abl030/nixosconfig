@@ -24,12 +24,22 @@ windows-mcp doc1 401/200, `LicenseStatus=1`):
 - Inherited from v1: NIC offloads off, auto-login, Apollo + pairings, GPU passthrough,
   shared MAC `BC:24:11:5E:E5:00`→.111.
 
-**Per-clone now also does Windows-Update-fully → MAS `/HWID`** (CVE hygiene for
-cracked binaries; a fresh SMBIOS uuid drops HWID). Full runbook + the rebuild recipe
-+ gotchas (windows-mcp UIPI/session-1, VB-CABLE custom-painted-window coordinate
-click, prom-quorum/Caddy2.0-witness footgun) are in the **`gaming-vm` skill** and
-`docs/wiki/services/apollo-gaming-vm.md`.
+**Per-clone provisioning: Windows-Update-fully → MAS activate** (CVE hygiene for
+cracked binaries). ⚠️ Use MAS **`/KMS38` (offline)** on clones, NOT `/HWID` — HWID
+needs MS servers and they **reject the AirVPN NL egress** (e2e-test finding). HWID
+only works with direct WAN (the template build itself). Full runbook + rebuild recipe
++ gotchas are in the **`gaming-vm` skill** and `docs/wiki/services/apollo-gaming-vm.md`.
 
-**Legacy still on prom (pending user decision on cleanup):** v1 template `119`
-`WindowsGamingTemplate` + its linked clone `120 apollo-007-first-light` (has the
-007 First Light game). Can't destroy 119 until 120 is gone. See [[prom-quorum-qdevice]].
+**E2E skill test done 2026-06-26 (RDR2, VM `121 apollo-rdr2`):** first real clone —
+RDR2 [FitGirl] installed (116.8 GB, CRC-verified), streams, tile added. The cold test
+surfaced real skill gaps now folded in: no game-install guidance (LAN-isolated clone
+can't reach the NAS share → scp-in over SSH:22 or temp 445 pinhole; FitGirl is
+GUI-only, no `/VERYSILENT`; drive it via windows-mcp with `EnableLUA=0`+reboot →
+High-IL), KMS38-behind-VPN, and the Moonlight per-host app-list cache (new-clone tiles
+invisible to paired clients until the GUI refreshes). NOTE the test read the *stale*
+main-checkout skill (doc1 was behind origin/master), so its "template=119 / windows-mcp
+missing" findings were already v2-fixed.
+
+**Prom gaming VMs now:** `118` v2 template; `120 apollo-007-first-light` (de-linked
+onto nvmeprom 2026-06-26, kept for save files); `121 apollo-rdr2` (RDR2). **v1 template
+`119` DESTROYED 2026-06-26.** See [[prom-quorum-qdevice]].
