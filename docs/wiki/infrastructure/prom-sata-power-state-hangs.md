@@ -1,6 +1,15 @@
 # prom: hard hangs / power-state panics under SATA I/O (UNRESOLVED)
 
-**Date:** 2026-06-26 · **Status:** 🔴 **ongoing / root cause not fully fixed.** prom hard-freezes (and once kernel-panicked with on-screen *power-state* errors) under heavy SATA I/O. Disabling SATA link power management did **not** stop it. Lead now = platform/AGESA power-state, with a BIOS update + "move boot pool off chipset SATA" as the candidate cures.
+**Date:** 2026-06-26 (updated 2026-06-27) · **Status:** 🔴 **root cause is hardware — software/BIOS tunables EXHAUSTED.** prom hard-freezes under sustained SATA I/O (a `zpool scrub` reproduces it on demand). Confirmed it is **not** SATA LPM, the drive, cables, memory, or a BIOS knob — see Decisive Test. **The fix is to move the boot pool OFF the AMD chipset SATA controllers onto NVMe.**
+
+## ⚖️ Decisive test (2026-06-27) — tunables ruled out
+A watched `zpool scrub` of the rpool mirror **hard-froze the box again**, with every mitigation stacked in our favour:
+- SATA LPM **verifiably off from boot** — `ahci.mobile_lpm_policy=1` made all 8 ports read `max_performance` from kernel init (the earlier `libata.force=nolpm` never actually flipped the sysfs policy; this one did).
+- The operator's **BIOS tweaks** applied.
+- Both drives negotiated **6.0 Gb/s**, **zero** ata errors at boot/idle.
+- The scrub ran **clean at 432 MB/s to ~38%**, then instant hard freeze (no log, as always). Recovery boots then panicked until both drives were reseated.
+
+⇒ Sustained heavy I/O across the **AMD 600-series chipset SATA controllers** wedges this board regardless of LPM, BIOS, link speed, or which drive. It is a **hardware-level limitation of the chipset SATA path**, not a tunable. Stop scrubbing rpool; don't keep re-proving it (each hang erodes the drives).
 **Related:** GitHub **#276** (originally filed as "dodgy boot SSD") · [prom-rpool-backup-restore.md](prom-rpool-backup-restore.md) (the off-box backup + restore runbook — **the data is safe**).
 
 > **Headline:** what looked like a dying SanDisk boot SSD is really a **host-level power-state instability** on this AM5 / AMD 600-series-chipset board, triggered by SATA write/scrub load. The drive-swapping chased a symptom. Data was never at risk (pool clean + verified tower backup).
@@ -54,12 +63,12 @@
 1. **Platform / AGESA / Infinity-Fabric / chipset power-state instability (PRIMARY).** Fits: "power state" on the panic screen, cross-controller corruption (a layer above either SATA controller), instant log-less freeze, old AGESA (1.2.0.3g), and LPM-off not helping. Memtest-clean weakens the pure-RAM angle but not IF/chipset.
 2. **This cheap-SSD + AMD-600-chipset-SATA combo is just fragile under sustained I/O** — independent of the OS LPM knob. NVMe on the same box is flawless.
 
-## Recommended path (do in ONE planned maintenance window, fleet down)
-1. **Update BIOS 3.50 → 4.41** (major AGESA jump; explicit memory/stability notes). Single most-likely cure. Re-apply settings after (flash resets them). While in BIOS: SATA "Aggressive Link Power Management" → Disabled (if present); defensively Power Supply Idle Control → "Typical Current Idle" and Global C-State Control as desired.
-2. **Re-test under load** (a watched `zpool scrub` of the current mirror) **before** trusting it.
-3. **Strongly consider moving the boot pool OFF chipset SATA onto NVMe.** NVMe on this box has zero errors ever; a small NVMe boot mirror would make this entire class of fault disappear. This is the most durable fix if BIOS 4.41 doesn't fully settle it.
-4. Only **after** prom is provably stable under load: redo the mirror (the ADATA, or keep `…800457` if it proves clean). The rebuild is trivial once the platform stops hanging.
-5. Remaining storage knobs to stack if pursuing the SATA angle: `ahci.mobile_lpm_policy=1`, `libata.force=noncq`, `libata.force=3.0G`.
+## Recommended path
+1. **THE fix — move the boot pool OFF chipset SATA onto NVMe.** NVMe on this box has *zero* errors ever logged; the chipset SATA path is the sole problem child. Add 1–2 small NVMe (free M.2 slot → mirror), `zfs send rpool` → new pool, `proxmox-boot-tool` the new ESP(s), drop the SATA SSDs. This makes the entire fault class disappear and is robust whether the cause is the chipset SATA controllers, their PCIe uplink, or the SATA power rail. **This is now the plan, not an option.**
+2. **(Optional, cheap, do first if curious) test the power-rail theory:** put the SSDs on a separate PSU lead (not a shared splitter) and re-scrub. If it survives, it was power; if it hangs, it's the chipset path. Either way #1 fixes it.
+3. **BIOS 3.50 → 4.41** (newer AGESA) is still worth doing for general stability, but is **no longer expected to fix this** — the operator already tweaked BIOS and the scrub still hung.
+4. **Interim operating posture (current):** prom runs fine at idle / normal load (the boot pool sees little I/O — VMs live on NVMe). Known risks until #1: **never `zpool scrub rpool`** (it reliably wedges the host), and a **drive-failure resilver would be heavy I/O and could wedge it too**. Data integrity is covered by the verified tower backup.
+5. Storage knobs already applied (keep; harmless, not a cure): `ahci.mobile_lpm_policy=1`, `libata.force=nolpm`, `nvme_core.default_ps_max_latency_us=0`.
 
 ## Evidence-capture for next time
 These freezes log **nothing** (pstore empty, journal truncated, and **Loki is on a VM on prom so it dies too**). The only real evidence is the **screen** — if it panics again, **photograph the monitor** (exact "power state" wording / subsystem / stack trace). That photo is worth more than all the logs.
