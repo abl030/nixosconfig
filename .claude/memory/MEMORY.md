@@ -93,7 +93,10 @@
   carries pfSense VPN/isolation). Skill: `gaming-vm`; doc:
   `docs/wiki/services/apollo-gaming-vm.md`. **v2 DONE 2026-06-26** (windows-mcp +
   VB-CABLE + MAS-activated + fully-updated baked in; old v1/119 is legacy):
-  [gaming-golden-image-v2.md](gaming-golden-image-v2.md). ⚠️ prom writes (`qm
+  [gaming-golden-image-v2.md](gaming-golden-image-v2.md). 🚧 **v3 build IN PROGRESS**
+  (VM 117: bakes VC++/DirectX/.NET so installs need no WAN) — PAUSED by a wedged GPU,
+  pending a `prom` reboot; resume steps + the GPU-reset & ata8-disk gotchas:
+  [gaming-v3-build-resume.md](gaming-v3-build-resume.md). ⚠️ prom writes (`qm
   clone`/firewall) need quorum — depends on the `Caddy2.0` VM witness:
   [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
