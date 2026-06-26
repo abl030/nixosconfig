@@ -22,6 +22,6 @@ on tower (the **`tower` subagent**: `virsh start "Caddy2.0"`), then confirm on p
 `pvecm status` → `Quorate: Yes`, qdevice flag `A,V` (Alive+Voting, not `A,NV`).
 Config: `/etc/corosync/corosync.conf` → `quorum.device.net.host: 192.168.1.6`.
 
-Hit during the [[gaming-golden-image-v2]] build (2026-06-26) — `qm clone` failed until
-Caddy2.0 was started. Other nodelist entry `epi` (nodeid 1) is historical, not a live
+Hit during the v2 golden-image build (2026-06-26; see [[gaming-golden-image-v3]]) —
+`qm clone` failed until Caddy2.0 was started. Other nodelist entry `epi` (nodeid 1) is historical, not a live
 voter. Related: [[tower-unraid-fleet-ssh]].

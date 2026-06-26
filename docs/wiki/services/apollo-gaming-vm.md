@@ -14,7 +14,23 @@
 
 ---
 
-## 🟢 v2 GOLDEN IMAGE — built & validated 2026-06-26 (VMID `118`)
+## 🟢 CURRENT GOLDEN IMAGE = v3 / VMID `117` (2026-06-26)
+
+**Clone `117` `WindowsGamingTemplate-v3`.** v3 adds pre-baked game-install
+prerequisites (VC++ / DirectX June-2010 / .NET 3.5) so a clone installs games with
+**WAN cut**, keeps **UAC on** (drive elevated installers via an elevated session-1
+task), and pairs the user's work laptop. Full v3 detail: memory
+`gaming-golden-image-v3.md` + the `gaming-vm` skill.
+
+**⚠️ HISTORY BELOW.** The `118`/v2 **and** `119`/v1 templates were both **DELETED
+2026-06-26** (along with the RDR2 test clone `121 apollo-rdr2`). `117` is the only
+gaming template now; the only other gaming VM is `120 apollo-007-first-light`. The
+v2/v1 sections that follow are kept as **build history + rationale**, not current
+state — don't go looking for `118`/`119`, they're gone.
+
+---
+
+## v2 GOLDEN IMAGE (HISTORICAL — VMID `118`, DELETED 2026-06-26) — built & validated 2026-06-26
 
 The "rebuild a fresh template with windows-mcp + VB-CABLE baked" plan is **DONE**.
 New golden template = **VMID `118` `WindowsGamingTemplate-v2`** (full clone of v1/119,

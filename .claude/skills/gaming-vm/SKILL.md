@@ -28,9 +28,10 @@ anything is surprising).
   task, see windows-mcp section). Currently **VM `117` "WindowsGamingTemplate-v3"**
   on the `Test` lvmthin pool (= the Crucial T700, a single PCIe-Gen5 NVMe; *not* the
   `nvmeprom` ZFS pool). Find it live: `qm list` → the highest-version `template:1`
-  entry named `WindowsGamingTemplate-v*`. **⚠️ Older `118` (v2) / `119` (v1) are
-  legacy** — clone the **newest (v3 / 117)**. (v2/118 still exists while its clones —
-  e.g. `121 apollo-rdr2` — are linked to it; retire it once they're de-linked.)
+  entry named `WindowsGamingTemplate-v*`. **Clone the newest — v3 / `117`.** (The
+  older v1/`119` and v2/`118` templates were both **DELETED 2026-06-26**, along with
+  the RDR2 test clone `121 apollo-rdr2`; `117` is the only gaming template now, and
+  the only other gaming VM is `120 apollo-007-first-light`.)
 - **Per-game clones, kept around.** The user makes a clone per game and keeps a
   few. Clones are **linked clones** of the template (fast, space-cheap on
   lvmthin). De-linking is a *templating* concern only — never needed when cloning.
@@ -90,7 +91,7 @@ UI (for pairing a *new* client) is `https://apollo.ablz.au` or
 P="root@192.168.1.12"
 ssh $P 'qm list'                                   # all VMs + status
 # the template = template:1 with a "Gaming" name. Clone the NEWEST version:
-# "WindowsGamingTemplate-v3" = VMID 117 (deps baked). v2/118 + v1/119 are legacy.
+# "WindowsGamingTemplate-v3" = VMID 117 (deps baked) — the ONLY gaming template now (v1/119 + v2/118 deleted 2026-06-26).
 ssh $P 'for v in $(qm list|awk "NR>1{print \$1}"); do qm config $v 2>/dev/null|grep -q "^template: 1" && echo "$v $(qm config $v|sed -n s/^name:\ //p)"; done'
 # everything holding the single GPU (find the GPU addr from the template's hostpci0):
 ssh $P 'for v in $(qm list|awk "NR>1{print \$1}"); do qm config $v 2>/dev/null|grep -qE "^hostpci0:.*01:00" && echo "$v $(qm config $v|sed -n s/^name:\ //p) [$(qm status $v|awk "{print \$2}")]"; done'
@@ -387,13 +388,14 @@ ssh $P 'tcpdump -nr /tmp/v.pcap "greater 1000" | wc -l; ls -l /tmp/v.pcap'
 Working = thousands of >1000-byte packets + multi-MB pcap, with `…111.47998 > …`
 length-1408 video. Broken (offloads back on / locked session) = ~8 packets, ~14 KB.
 
-## Rebuilding the golden template (the v2 recipe)
+## Rebuilding the golden template (the v2/v3 recipe)
 
-How v2 (`118`) was built, 2026-06-26, from v1 (`119`) — follow this to make a v3.
-Build on a **non-`.111` MAC** so WAN egress is direct (the VPN throttles downloads);
-switch to the shared MAC only at the very end.
+How v2 (`118`) was built from v1 (`119`), then **v3 (`117`) from v2** — follow this
+to make a v4. **Always full-clone the *current* template (now `117`/v3)** — never a
+deleted older one. Build on a **non-`.111` MAC** so WAN egress is direct (the VPN
+throttles downloads); switch to the shared MAC only at the very end.
 
-1. **Full-clone the current template** (de-links it): `qm clone 119 <buildid> --full
+1. **Full-clone the current template** (de-links it): `qm clone 117 <buildid> --full
    --name WindowsGamingTemplate-vN`. A full clone gets a fresh random MAC → normal
    DHCP + direct WAN (good for the build). Write `<buildid>.fw` = `apollo_vpn` group
    with `policy_out: ACCEPT`; `pve-firewall compile`; `qm start`.
@@ -465,10 +467,12 @@ switch to the shared MAC only at the very end.
 - **Don't change a clone's MAC or add pfSense rules.** The shared MAC *is* the
   policy plumbing. A clone with a random MAC won't get `.111` and won't be
   isolated/VPN'd.
-- **Linked clones depend on the template.** Don't `qm destroy` the template while
-  clones exist (and note v2/118 was a **full** clone of v1/119, so 119 still has
-  its own linked children — destroying 119 needs those gone first). To rebuild the
-  template, see "Rebuilding the golden template" below.
+- **Linked clones depend on the template.** Don't `qm destroy` the template (`117`)
+  while linked clones exist — destroy or de-link the clones first. To tell which:
+  `lvs -o lv_name,origin` — a clone whose disk shows `origin base-117-disk-*` is
+  linked (destroying `117` would fail/orphan it); a clone on `nvmeprom` with no
+  origin (like `120`) is independent and safe. To rebuild the template, see
+  "Rebuilding the golden template" below.
 - **A clone is only as good as the template.** If you ever rebuild/replace the
   template, re-verify (reboot first) offloads-off + auto-login + pairings + the
   VB-CABLE default-sink + windows-mcp autostart + activation all survive before

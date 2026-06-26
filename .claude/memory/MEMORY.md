@@ -95,10 +95,10 @@
   DirectX/.NET so game installs need NO WAN; UAC stays ON; cut WAN before the
   (untrusted) installer & never re-open; work laptop paired; activation cosmetic/
   finicky; **don't thrash the GPU reset**:
-  [gaming-golden-image-v3.md](gaming-golden-image-v3.md) (v2/118 legacy:
-  [gaming-golden-image-v2.md](gaming-golden-image-v2.md)). ⚠️ prom writes (`qm
-  clone`/firewall) need quorum — depends on the `Caddy2.0` VM witness:
-  [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
+  [gaming-golden-image-v3.md](gaming-golden-image-v3.md). v1/119 + v2/118 templates +
+  RDR2 clone 121 all DELETED 2026-06-26 — `117` is the ONLY gaming template (other
+  gaming VM: `120 apollo-007`). ⚠️ prom writes (`qm clone`/firewall) need quorum —
+  depends on the `Caddy2.0` VM witness: [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat

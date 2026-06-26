@@ -7,8 +7,9 @@ metadata:
 
 **DONE 2026-06-26.** Apollo gaming golden template **v3 = VMID `117`
 `WindowsGamingTemplate-v3`** (full clone of v2/118 → de-linked → `qm template`).
-Current template — clone THIS one. v2/118 is legacy (kept only while `121 apollo-rdr2`
-links to it; retire 118 once 121 is de-linked). Supersedes [[gaming-golden-image-v2]].
+Current template — clone THIS one. **v2/`118` and v1/`119` templates (and the RDR2
+test clone `121 apollo-rdr2`) were all DELETED 2026-06-26 — `117` is the ONLY gaming
+template now**; the only other gaming VM is `120 apollo-007-first-light`.
 
 **New in v3 (on top of all v2 features — windows-mcp, VB-CABLE, offloads-off,
 auto-login, Apollo, shared MAC .111):**
