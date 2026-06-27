@@ -18,15 +18,10 @@
       enable = true;
       mouse = true;
       historyLimit = 50000;
-      # Default HM terminal is "screen" -> TERM=screen, a stripped-down terminfo
-      # whose cursor/scroll math is just wrong enough that Claude Code's
-      # repainting TUI drops a line or two into tmux scrollback on scroll.
-      # tmux-256color is tmux's own recommended terminfo. Re-eval new sessions
-      # only: `tmux kill-server` after deploy for existing panes to pick it up.
-      terminal = "tmux-256color";
-      extraConfig = ''
-        set -ga terminal-overrides ",*256col*:Tc"   # truecolor passthrough
-      '';
+      # NOTE: `terminal` deliberately left UNSET -> HM default "screen" (TERM=screen).
+      # The tmux-256color experiment (bad543a3) did NOT fix the scrollback line-loss
+      # it targeted and broke copy/paste (and TERM=tmux-256color also tripped up the
+      # atuin bash overlay), so it was reverted 2026-06-27.
     };
   };
 
