@@ -91,13 +91,36 @@ hard by unmounting a busy NFS mount with stale fileids. Disk space was never inv
     servarr, and every Docker container) — it'll take effect on the next natural reboot. Verify after:
     `ps -C shfs -o args=` on tower should show `-o remember=604800`.
 
+## The real fix DOES work for a small subset — magazines (2026-06-28)
+
+The "not viable" caveat below is about the **whole 12.4 TB media library**. For a *small* dataset the
+single-disk real fix is not only viable, it's the right call — and we applied it to the **wine-magazine
+archive** (2.6 GB):
+
+- A dedicated Unraid user share `magazines` pinned to a **single array disk** (`shareInclude="disk1"`,
+  `shareUseCache="no"`) → one XFS backing disk, so shfs has nothing to reassign inodes across → ESTALE
+  class gone for this tree.
+- Exported as its **own** NFS share `192.168.1.2:/mnt/user/magazines`, `private`, scoped to exactly
+  doc2 `192.168.1.35` (rw), epi `192.168.1.5` (rw), framework `100.78.17.73` (**ro**, defense-in-depth).
+- Mounted at `/mnt/magazines` (NixOS module `modules/nixos/services/mounts/magazines-nfs.nix`,
+  `homelab.mounts.magazines`), fully decoupled from the `/mnt/data` union. Consumers (gwm-archiver,
+  komga, komga-sync, marker-convert) repointed; added to kopia-mum + kopia-photos for backup.
+
+**Why this was the trigger:** gwm-archiver runs with `ProtectSystem=strict` + `ReadWritePaths=[GAW]`. The
+write-churned `GAW/` leaf on the multi-disk union flapped its NFS filehandle, so systemd's namespace
+setup resolved a stale handle → `status=226/NAMESPACE` (it failed *before* the script even ran). Binding
+the mount root RO (the podcast trick) doesn't help a *writer*; moving to a stable-inode share does. The
+takeaway: **small, ESTALE-sensitive datasets (especially `ProtectSystem=strict` writers) belong on a
+single-disk dedicated share, not the `/mnt/user` union.**
+
 ## What we did NOT do, and why
 
-- **Export a single disk / ZFS dataset (the real fix).** Real filesystems have stable inodes → ESTALE
-  class gone. **Not viable on current hardware:** the library is ~12.4 TB and the largest single disk is
-  7.3 TB (and both are 83–88 % full); the `cache` ZFS pool is only 450 GB. Consolidating onto one real
-  fs needs a **≥14 TB disk** first. This is the fundamental Unraid tension: you can't have multi-disk
-  array capacity *and* stable union inodes.
+- **Export a single disk / ZFS dataset for the WHOLE library (the real fix).** Real filesystems have
+  stable inodes → ESTALE class gone. **Not viable on current hardware:** the library is ~12.4 TB and the
+  largest single disk is 7.3 TB (and both are 83–88 % full); the `cache` ZFS pool is only 450 GB.
+  Consolidating onto one real fs needs a **≥14 TB disk** first. This is the fundamental Unraid tension:
+  you can't have multi-disk array capacity *and* stable union inodes. (The magazines carve-out above
+  works precisely because 2.6 GB fits on one existing disk.)
 - **virtiofs straight from tower → servarr (bypass NFS).** servarr *is* a KVM VM on tower, so this is
   architecturally possible and would drop the strict-NFSv4 fileid layer — but virtiofs-over-shfs inode
   stability is **unproven** (virtiofs of a *real* fs is solid; over the shfs union, uncertain), and it's

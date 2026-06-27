@@ -16,6 +16,15 @@
       enable = true;
       external = true; # framework is mobile — reach tower over Tailscale
     };
+    # Dedicated magazine archive share — READ-ONLY (defense in depth: framework
+    # only reads the library, never writes). Tailscale + automount + soft to
+    # match its mobile /mnt/data pattern.
+    mounts.magazines = {
+      enable = true;
+      external = true;
+      automount = true;
+      readOnly = true;
+    };
     mounts.nfsMusic.enable = true;
     rdpInhibitor.enable = true;
     ssh = {

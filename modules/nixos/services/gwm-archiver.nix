@@ -142,12 +142,15 @@ in {
 
     outDir = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/data/Media/Magazines/GAW";
+      default = "/mnt/magazines/GAW";
       description = ''
         Destination directory for downloaded magazine PDFs and sidecars.
         Layout: <outDir>/<YYYY>/<MM>_<basename>.{pdf,json}.
-        Must be writable by the service user and survive across hosts (typically
-        a virtiofs- or NFS-backed media share).
+        Must be writable by the service user and survive across hosts. Lives on
+        the dedicated single-disk /mnt/magazines NFS share (stable inodes) — NOT
+        the multi-disk /mnt/data shfs union, whose synthetic-inode flap used to
+        fail this service's ProtectSystem=strict namespace bind with ESTALE
+        (226/NAMESPACE). See docs/wiki/infrastructure/unraid-nfs-shfs-estale.md.
       '';
     };
 
@@ -239,6 +242,10 @@ in {
       unitConfig = {
         OnFailure = ["gwm-archiver-notify-failure.service"];
         OnSuccess = ["gwm-archiver-notify-success.service"];
+        # Guarantee the dedicated magazines mount is up before the
+        # ProtectSystem=strict namespace bind resolves cfg.outDir — pulls in
+        # mnt-magazines.mount so the bind never races an unmounted share.
+        RequiresMountsFor = [cfg.outDir];
       };
 
       # Tools the script shells out to: qpdf (merge), pdfinfo (page counts),
@@ -295,8 +302,11 @@ in {
     };
 
     # No homelab.nfsWatchdog wiring: the watchdog auto-restarts dead services,
-    # which on a oneshot would re-fire the run. If /mnt/data is stale at the
-    # weekly trigger time, the script fails, OnFailure pings Gotify, and the
-    # following week's timer picks up cleanly once the mount recovers.
+    # which on a oneshot would re-fire the run. The dedicated single-disk
+    # /mnt/magazines share has stable inodes, so the shfs-union ESTALE that
+    # used to fail the namespace bind should no longer occur; if the mount is
+    # genuinely down at the weekly trigger, RequiresMountsFor holds the unit
+    # until it's up (or the run fails, OnFailure pings Gotify, and the
+    # following week's timer picks up cleanly once it recovers).
   };
 }

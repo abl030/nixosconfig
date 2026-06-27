@@ -24,7 +24,11 @@
   #   edits, that fights Calibre's metadata management and we revisit.
   #   Note the literal capital-I "LIbrary" in the path -- that's the
   #   actual directory name on disk, not a typo.
-  magazinesHost = "/mnt/data/Media/Magazines";
+  # Magazines now lives on its own dedicated single-disk NFS share (stable
+  # inodes — escapes the /mnt/data shfs-union ESTALE); Calibre stays on the
+  # /mnt/data union. So Komga straddles TWO mounts (see after/wants + the two
+  # nfsWatchdog entries below). docs/wiki/infrastructure/unraid-nfs-shfs-estale.md
+  magazinesHost = "/mnt/magazines";
   calibreHost = "/mnt/data/Media/Books/Calibre LIbrary";
   # systemd parses BindReadOnlyPaths values as whitespace-separated within
   # each assignment, so paths with literal spaces must be double-quoted
@@ -95,8 +99,11 @@ in {
       # but the service stays up. We mark the dep as Wants= (not Requires=)
       # so a temporary mount blip doesn't cascade-stop the whole service —
       # homelab.nfsWatchdog below handles recovery.
-      after = ["mnt-data.mount"];
-      wants = ["mnt-data.mount"];
+      # Both library roots must be reachable: Magazines on /mnt/magazines,
+      # Calibre on /mnt/data. Wants (not Requires) so a transient blip on
+      # either doesn't cascade-stop Komga — the two nfsWatchdogs recover it.
+      after = ["mnt-data.mount" "mnt-magazines.mount"];
+      wants = ["mnt-data.mount" "mnt-magazines.mount"];
 
       serviceConfig = {
         # Narrow /mnt visibility: only the library roots + stateDir.
@@ -140,7 +147,7 @@ in {
       ];
 
       # Stateful service but no deep probe yet. Justification:
-      #   - The canonical archive is /mnt/data/Media/Magazines/ and is
+      #   - The canonical archive is /mnt/magazines/ and is
       #     maintained by gwm-archiver / wvj-archive — Komga is read-only
       #     against it. There is no user-driven write path inside Komga
       #     that we'd lose silently the way Immich lost asset_edit_audit.
@@ -181,13 +188,17 @@ in {
         # The nfsWatchdog below still restarts Komga when the mount goes stale.
       ];
 
-      # NFS watchdog — restart Komga if the bind-source mount goes stale.
+      # NFS watchdog — restart Komga if a bind-source mount goes stale.
       # The 5min-interval timer + service restart is the canonical pattern
-      # used by paperless, immich, etc.
-      # magazinesHost is a canary for the whole /mnt/data NFS mount; both
-      # library roots live on it, so a stale stat on one means both bind
-      # mounts are toast and the unit needs a restart either way.
+      # used by paperless, immich, etc. Komga's two library roots now live on
+      # SEPARATE mounts (Magazines on /mnt/magazines, Calibre on /mnt/data), so
+      # one canary can't cover both — give each its own watchdog, both
+      # restarting komga.service.
       nfsWatchdog.komga.path = magazinesHost;
+      nfsWatchdog.komga-calibre = {
+        path = calibreHost;
+        unit = "komga.service";
+      };
     };
   };
 }

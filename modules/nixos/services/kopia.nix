@@ -247,10 +247,12 @@
     hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
     hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
     hasMntVirtio = lib.any (s: lib.hasPrefix "/mnt/virtio" s) allPaths;
+    hasMntMagazines = lib.any (s: lib.hasPrefix "/mnt/magazines" s) allPaths;
   in
     lib.optional hasMntData "mnt-data.mount"
     ++ lib.optional hasMntMum "mnt-mum.automount"
-    ++ lib.optional hasMntVirtio "mnt-virtio.mount";
+    ++ lib.optional hasMntVirtio "mnt-virtio.mount"
+    ++ lib.optional hasMntMagazines "mnt-magazines.mount";
 
   instanceModule = lib.types.submodule {
     options = {

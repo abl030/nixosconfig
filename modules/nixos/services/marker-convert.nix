@@ -100,8 +100,8 @@ in {
 
     archiveRoot = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/data/Media/Magazines";
-      description = "Root walked for PDFs lacking an EPUB sibling.";
+      default = "/mnt/magazines";
+      description = "Root walked for PDFs lacking an EPUB sibling (dedicated single-disk magazines share).";
     };
 
     stateDir = lib.mkOption {

@@ -45,8 +45,8 @@ in {
 
     sidecarRoot = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/data/Media/Magazines";
-      description = "Root directory whose JSON sidecars are projected into Komga.";
+      default = "/mnt/magazines";
+      description = "Root directory whose JSON sidecars are projected into Komga (dedicated single-disk share).";
     };
 
     komgaUrl = lib.mkOption {
@@ -95,8 +95,8 @@ in {
 
     systemd.services.komga-sync = {
       description = "Sync Komga book/series metadata from JSON sidecars";
-      after = ["network-online.target" "mnt-data.mount"];
-      wants = ["network-online.target" "mnt-data.mount"];
+      after = ["network-online.target" "mnt-magazines.mount"];
+      wants = ["network-online.target" "mnt-magazines.mount"];
 
       unitConfig.OnFailure = ["komga-sync-notify-failure.service"];
 

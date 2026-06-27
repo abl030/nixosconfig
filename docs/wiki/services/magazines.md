@@ -49,7 +49,7 @@ TOC instead of horrible multi-column raster scroll.
 
 ## Where stuff lives
 
-* **PDFs + JSON sidecars + EPUBs:** `/mnt/data/Media/Magazines/{GAW,WVJ}/<YEAR>/<basename>.{pdf,json,epub}` (NFS share, mounted on doc2 + epi)
+* **PDFs + JSON sidecars + EPUBs:** `/mnt/magazines/{GAW,WVJ}/<YEAR>/<basename>.{pdf,json,epub}` — its own **dedicated single-disk NFS share** (`192.168.1.2:/mnt/user/magazines`, tower disk1, stable inodes), scoped to doc2 (rw) + epi (rw) + framework (ro). Moved off the `/mnt/data` shfs union 2026-06-28 to kill the ESTALE that failed gwm-archiver's namespace bind; see [../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md). Backed up by kopia-mum (Synology) + kopia-photos (Wasabi).
 * **Komga DB + thumbnails:** `/mnt/virtio/komga/` (virtio mount on doc2; SQLite, ~MBs)
 * **Secrets:** `secrets/hosts/doc2/{gwm-archiver,komga-sync}.env` (sops)
 * **All systemd units on doc2:** `systemctl list-unit-files | grep -E 'gwm-|komga'`
@@ -83,7 +83,7 @@ TOC instead of horrible multi-column raster scroll.
 journalctl -u gwm-archiver -u komga -u komga-sync --since=yesterday
 
 # What's in the library
-find /mnt/data/Media/Magazines -type f \( -name '*.pdf' -o -name '*.epub' -o -name '*.json' \) | wc -l
+find /mnt/magazines -type f \( -name '*.pdf' -o -name '*.epub' -o -name '*.json' \) | wc -l
 
 # Force a Komga scan after editing/deleting files
 curl -X POST -H "X-API-Key: $KEY" https://magazines.ablz.au/api/v1/libraries/{libraryId}/scan

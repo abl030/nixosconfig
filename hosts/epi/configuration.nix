@@ -25,6 +25,12 @@
     gpu.intel.enable = true;
     mounts.nfs.enable = true;
     mounts.nfsMusic.enable = true; # prom ZFS-direct NFS over LAN
+    # Dedicated magazine archive share — marker-convert reads PDFs + writes
+    # EPUBs here. rw, automount (epi suspends / is WOL-woken), LAN.
+    mounts.magazines = {
+      enable = true;
+      automount = true;
+    };
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;

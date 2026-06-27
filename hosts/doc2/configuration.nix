@@ -78,6 +78,11 @@
     # NFS for Immich media — same writable mount as doc1
     mounts.nfsLocal.enable = true;
 
+    # Dedicated single-disk magazine archive share (escapes the /mnt/data
+    # shfs-union ESTALE). Static + rw: doc2 runs gwm-archiver (write),
+    # komga/komga-sync (read) and kopia (read for backup) against it.
+    mounts.magazines.enable = true;
+
     nixCaches = {
       enable = true;
       profile = "internal";
@@ -276,6 +281,11 @@
               # Photos/backups (immich DB dumps) rides along into Wasabi.
               # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
               "/mnt/data/Life"
+              # Wine-magazine archive (PDFs + EPUBs + JSON sidecars, ~2.6 GB)
+              # on its dedicated single-disk share. Expensive to regenerate
+              # (Marker ML conversion + sidecars; pre-2017 issues are 0-byte /
+              # unrecoverable server-side), so it earns an offsite copy.
+              "/mnt/magazines"
               # pfSense backup is intentionally NOT in kopia-photos: those
               # snapshots will live in a dedicated Wasabi bucket better
               # suited to small high-churn appliance backups. Existing
@@ -315,6 +325,9 @@
               "/mnt/data/Life"
               "/mnt/data/Media/Books"
               "/mnt/data/Media/Music"
+              # Wine-magazine archive on its dedicated single-disk share.
+              # Synology offsite copy alongside the photos-repo (Wasabi) one.
+              "/mnt/magazines"
               # Curated beets music library — its own ZFS dataset on prom
               # (nvmeprom/containers/Music), a virtiofs submount under /mnt/virtio.
               # Synology-only (re-downloadable; not worth per-GB Wasabi). Walks

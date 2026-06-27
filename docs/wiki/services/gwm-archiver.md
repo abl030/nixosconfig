@@ -4,7 +4,7 @@
 **Module:** `modules/nixos/services/gwm-archiver.nix`
 **Script:** `scripts/gwm-archiver.py`
 **Secret:** `secrets/hosts/doc2/gwm-archiver.env` — `WT_USER` + `WT_PASS`
-**Output:** `/mnt/data/Media/Magazines/GAW/<YYYY>/<MM>_<basename>.{pdf,json}`
+**Output:** `/mnt/magazines/GAW/<YYYY>/<MM>_<basename>.{pdf,json}` (dedicated single-disk NFS share — moved off `/mnt/data` 2026-06-28 to escape the shfs-union ESTALE that failed this service's namespace bind; see [../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md))
 **Schedule:** weekly, Sun 03:30 AWST + 1 h jitter
 
 > 📂 Part of the magazine archive system. Start at

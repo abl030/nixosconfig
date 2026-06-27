@@ -3,6 +3,7 @@
   imports = [
     ./nfs.nix
     ./nfs-local.nix
+    ./magazines-nfs.nix
     ./mum-nfs.nix
     ./fuse.nix
     ./drvfs.nix
