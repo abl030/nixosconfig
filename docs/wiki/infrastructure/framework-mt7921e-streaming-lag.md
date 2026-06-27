@@ -58,10 +58,24 @@ make it permanent; runtime now: `sudo sh -c 'for d in /sys/bus/pci/drivers/mt792
 
 ## The decisive test (do this the instant it lags, BEFORE Ctrl+Alt+Shift+Q)
 
-`ping 192.168.1.1` from framework. **Bad ping → WiFi-level (A).  Fine ping → stream-level (B)** and the
-ASPM fix won't help. Then restart and watch whether the ping recovers with it.
+`ping 192.168.1.1` (gateway) **and `ping 192.168.1.111` (the VM)** from framework. **Bad ping →
+WiFi-level (A).  Fine ping → stream-level (B)** and the ASPM fix won't help. Then restart and watch
+whether the ping recovers with it. (As of 2026-06-28 `.111` answers ICMP — see the kit note below — so
+`vm_ms` measures the *full* stream path framework→AP→prom→VM, a sharper signal than the gateway hop.)
 
 ## Real-time capture kit (durable dual-side logging)
+
+> **Update 2026-06-28 — kit validated end-to-end and pre-staged.** Both loggers now live as ready-to-run
+> files: **`~/stream-log.sh` on framework** and **`C:\stream-log.ps1` on the VM** (run the PS one from an
+> **admin** PowerShell). Every column was confirmed to populate with sane idle values. Two infra fixes
+> were needed and are now in place:
+> - **`iw` is now in framework's `systemPackages`** (commit `d632e241`) — it shipped without `iw`
+>   (NetworkManager-managed), so the old logger logged blanks for `tx retries`/`signal`. The staged
+>   script prefers the system `iw` and falls back to a one-time `nix build nixpkgs#iw` if the box hasn't
+>   been rebuilt yet. **Rebuild framework** to make `iw` native.
+> - **`.111` now answers ICMP** so `vm_ms` works: a scoped `IN ACCEPT -p icmp` (LAN/tailnet source) in
+>   `/etc/pve/firewall/120.fw` **plus** a Windows-firewall inbound ICMPv4-echo allow on the VM. (The VM
+>   was firewalled silent before; `vm_ms` used to be a dead `LOSS` column.)
 
 Plan: start both loggers → game → **stop the loggers DURING a lag** (don't restart Moonlight until after
 you've stopped logging). The **tail of both logs is the smoking gun**; timestamps (`HH:MM:SS`) line up
@@ -69,18 +83,30 @@ between the two sides. Also flip on Moonlight's **performance overlay** (Setting
 stats while streaming", or **Ctrl+Alt+Shift+S** mid-stream) and eyeball which metric spikes
 (network-latency/packet-loss → link; decode-time → client GPU).
 
-### Side 1 — framework (Linux). Save as `~/stream-log.sh`, `chmod +x`, run, Ctrl+C during a lag.
+### Side 1 — framework (Linux). Pre-staged at `~/stream-log.sh` (already `chmod +x`). Run it, Ctrl+C during a lag.
+
+This is the validated version (2026-06-28): hardens `PATH` for non-login shells, prefers the system `iw`
+(falls back to a one-time `nix build nixpkgs#iw`, whose multi-output result needs the `/bin/iw` one
+picked), pings both the gateway **and** `.111`, and adds `txMbps` (PHY bitrate — a collapse is a strong
+Hypothesis-A tell).
 
 ```bash
 #!/usr/bin/env bash
 # framework streaming-lag logger. Run during a session; Ctrl+C while it's LAGGING.
-# Columns: ts ping_gw ping_vm tx_retries(cumulative) signal l1_aspm rx_KB/s lost_frames/s
+# Columns: ts gw_ms vm_ms txRetry(cumul) sig(dBm) txMbps l1 rxKB/s lost/s
 set -u
+export PATH="/run/wrappers/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:$PATH"
 DEV=wlp1s0; PCI=0000:01:00.0; GW=192.168.1.1; VM=192.168.1.111
-IW=$(command -v iw 2>/dev/null || echo /run/current-system/sw/bin/iw)
+IW="$(command -v iw 2>/dev/null)"
+if [ -z "$IW" ]; then            # framework not rebuilt yet → fetch iw from the cache once
+  for p in $(nix build --no-link --print-out-paths nixpkgs#iw 2>/dev/null); do
+    [ -x "$p/bin/iw" ] && IW="$p/bin/iw" && break   # nix emits iw + iw-man; take the binary one
+  done
+fi
+[ -x "$IW" ] || { echo "FATAL: no iw (PATH or nix)"; exit 1; }
 LOG="$HOME/stream-fra-$(date +%Y%m%d-%H%M%S).log"
-echo "logging -> $LOG  (Ctrl+C DURING a lag)"
-printf '%-12s %7s %7s %9s %5s %3s %7s %5s\n' ts gw_ms vm_ms txRetry sig l1 rxKBs lost | tee -a "$LOG"
+echo "logging -> $LOG  (Ctrl+C DURING a lag)   iw=$IW"
+printf '%-12s %7s %7s %9s %5s %8s %3s %7s %5s\n' ts gw_ms vm_ms txRetry sig txMbps l1 rxKBs lost | tee -a "$LOG"
 prx=$(cat /sys/class/net/$DEV/statistics/rx_bytes)
 while true; do
   ts=$(date +%H:%M:%S.%2N)
@@ -89,10 +115,11 @@ while true; do
   d=$("$IW" dev $DEV station dump 2>/dev/null)
   rt=$(printf '%s' "$d" | sed -n 's/.*tx retries:[[:space:]]*//p' | head -1)
   sg=$(printf '%s' "$d" | sed -n 's/.*signal:[[:space:]]*\(-[0-9]*\).*/\1/p' | head -1)
+  bw=$(printf '%s' "$d" | sed -n 's/.*tx bitrate:[[:space:]]*\([0-9.]*\).*/\1/p' | head -1)
   l1=$(cat /sys/bus/pci/devices/$PCI/link/l1_aspm 2>/dev/null)
   rx=$(cat /sys/class/net/$DEV/statistics/rx_bytes); rxk=$(( (rx-prx)/1024 )); prx=$rx
   lost=$(journalctl --since '1 second ago' --no-pager -q 2>/dev/null | grep -ci 'Invalidate reference frame')
-  printf '%-12s %7s %7s %9s %5s %3s %7s %5s\n' "$ts" "$gw" "$vm" "${rt:-?}" "${sg:-?}" "${l1:-?}" "$rxk" "$lost" | tee -a "$LOG"
+  printf '%-12s %7s %7s %9s %5s %8s %3s %7s %5s\n' "$ts" "$gw" "$vm" "${rt:-?}" "${sg:-?}" "${bw:-?}" "${l1:-?}" "$rxk" "$lost" | tee -a "$LOG"
   sleep 1
 done
 ```
@@ -100,17 +127,21 @@ done
 What the tail tells you:
 - **`gw_ms`/`vm_ms` spike** (→100+ ms) → it's the WiFi link (Hypothesis A). Confirm `l1` stayed `0`.
 - **`txRetry` jumping fast** between rows → WiFi retransmits (RF/driver). (It's cumulative; watch the rate.)
+- **`txMbps` collapses** (idle baseline ~866) → PHY-rate degradation (RF/driver), supports Hypothesis A.
 - **`rxKBs` collapses** (stream was ~6 MB/s = ~6000 KB/s at 51.5 Mbps) → the stream stopped arriving.
-- **`lost`/s climbs** while `gw_ms` is *fine* → loss isn't WiFi latency; look server-side (Hypothesis B).
+- **`lost`/s climbs** while `gw_ms`/`vm_ms` are *fine* → loss isn't WiFi latency; look server-side (B).
 - **`l1` flips to `1`** → the ASPM fix didn't hold across a resume; that's the bug, re-apply.
 
-### Side 2 — the gaming VM (Windows/PowerShell). Run in an **admin** PowerShell; Ctrl+C during a lag.
+### Side 2 — the gaming VM (Windows/PowerShell). Pre-staged at `C:\stream-log.ps1`. Run in an **admin** PowerShell; Ctrl+C during a lag.
+
+Validated 2026-06-28 (idle row: `gpu/enc/temp/thr=0%,0%,42,0x..01 | tx=0 rx=0 KB/s`). Uses `Tee-Object`
+so rows print live **and** append to `C:\stream-vm.log`.
 
 ```powershell
-# Gaming-VM streaming-lag logger. Run during a session; Ctrl+C while it's LAGGING.
+# Gaming-VM streaming-lag logger. Run in an ADMIN PowerShell during a session; Ctrl+C while it's LAGGING.
 $log='C:\stream-vm.log'; $smi="$env:windir\System32\nvidia-smi.exe"
 $alog='C:\Program Files\Apollo\config\sunshine.log'
-"=== start $(Get-Date -f 'yyyy-MM-dd HH:mm:ss') ===" | Out-File $log -Append -Encoding utf8
+"=== start $(Get-Date -f 'yyyy-MM-dd HH:mm:ss') ===" | Tee-Object $log -Append
 $apos = if(Test-Path $alog){(Get-Item $alog).Length}else{0}
 $n=Get-NetAdapterStatistics|Sort-Object ReceivedBytes -Desc|Select -First 1; $ptx=$n.SentBytes; $prx=$n.ReceivedBytes
 while($true){
@@ -123,7 +154,7 @@ while($true){
     if($len -gt $apos){ $fs=[IO.File]::Open($alog,'Open','Read','ReadWrite'); [void]$fs.Seek($apos,'Begin'); $sr=New-Object IO.StreamReader($fs)
       $anew=(($sr.ReadToEnd() -split "`n") | Where-Object {$_ -match 'frame|loss|drop|nack|FEC|bitrate|slow|retransmit|CONNECT'} | Select -Last 2) -join ' || '
       $sr.Close(); $fs.Close(); $apos=$len } }
-  "$ts | gpu/enc/temp/thr=$g | tx=$txk KB/s rx=$rxk KB/s | $anew" | Out-File $log -Append -Encoding utf8
+  "$ts | gpu/enc/temp/thr=$g | tx=$txk KB/s rx=$rxk KB/s | $anew" | Tee-Object $log -Append
   Start-Sleep 1
 }
 ```
