@@ -81,6 +81,13 @@
   external monitor; AMD s2idle glitch-wake trigger). Fix is `services.upower.ignoreLid=true`
   (live 2026-06-26), NOT `LidSwitchIgnoreInhibited` (a trap — low-level locks always honored;
   cost one reverted commit). [framework-lid-suspend-gsd-power.md](framework-lid-suspend-gsd-power.md).
+- ⚠️ OPEN: framework Moonlight stream → 007 VM (.111) **lags intermittently after ~1h**, fixed
+  by restarting Moonlight (Ctrl+Alt+Shift+Q) but won't self-recover. Suspect mt7921e PCIe ASPM-L1
+  (link `l1_aspm=1` despite the driver param; resume re-enables it) → fix `l1_aspm=0` at boot+resume
+  committed (9633d46a, hibernate-fix.nix) but UNVALIDATED. But a *client* restart fixing it hints at
+  the Moonlight↔Apollo flow too. Full RCA + a durable dual-side (framework bash + VM PowerShell)
+  real-time logging kit to catch the smoking gun next session:
+  [`docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md`](../../docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md).
 - Plex CONTAINED 2026-06-24 (#277): moved off tower `--net=host` onto its own **VLAN 30
   MEDIA_DMZ** (`192.168.30.2`), pfSense default-denies it to all RFC1918, WAN egress only,
   WAN:11338 Oceania-gated; media RO, hardened, autoupdate intact. Casting preserved. Caddy
