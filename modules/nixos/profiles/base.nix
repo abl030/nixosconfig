@@ -334,7 +334,13 @@
 
   programs = {
     zsh.enable = true;
-    bash.blesh.enable = true;
+    # ble.sh DISABLED: the dev snapshot nixpkgs ships (blesh 0.4.0-devel3,
+    # 2026-05-28) freezes ALL keyboard input under bash 5.3 — you type `bash`,
+    # drop in, and cannot type. The 2026-03-10 snapshot worked, so this is an
+    # upstream regression. zsh (the primary shell) is unaffected. Re-enable once
+    # nixpkgs ships a fixed ble.sh.
+    # See docs/wiki/infrastructure/blesh-bash53-input-freeze.md
+    bash.blesh.enable = false;
     nix-ld.enable = true;
   };
 
