@@ -1,3 +1,11 @@
+### DEPRECATED / OUT OF DATE (2026-06-27) ###
+# This Ansible NVMe-power workaround is NO LONGER USED. prom's kernel cmdline is
+# now hand-managed via /etc/kernel/cmdline + `proxmox-boot-tool refresh`. The NVMe
+# APST param (nvme_core.default_ps_max_latency_us=0) lives there now.
+# Current source of truth: docs/wiki/infrastructure/prom-hypervisor.md
+# (Notes below kept for historical context only.)
+##############################################
+
 Why these choices (brief)
 
 nvme_core.default_ps_max_latency_us=0: disables APST completely first. This removes D3/L1.2 transitions that commonly cause transient link drops behind PCIe switches. Once stable, you can raise to 5500 µs to allow shallow low-power states.

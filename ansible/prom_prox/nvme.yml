@@ -1,4 +1,11 @@
 # ansible/prom_prox/nvme_power_fixes.yml
+#
+# ⚠️ DEPRECATED / NO LONGER USED (2026-06-27) ⚠️
+# prom's kernel cmdline (including `nvme_core.default_ps_max_latency_us=0`) is now
+# managed DIRECTLY on the box via /etc/kernel/cmdline + `proxmox-boot-tool refresh`,
+# not by this playbook. Kept for history only — do NOT run it.
+# Current source of truth for prom's kernel flags + setup:
+#   docs/wiki/infrastructure/prom-hypervisor.md
 ---
 - name: NVMe power behavior hardening (APST cap + no runtime D3)
   hosts: proxmox_hosts

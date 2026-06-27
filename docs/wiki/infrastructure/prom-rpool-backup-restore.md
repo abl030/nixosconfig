@@ -40,13 +40,13 @@ So if only the **boot SSDs** die (the common case — see #276), the VM *data* o
 
 ---
 
-> **Update 2026-06-26:** the boot-SSD saga turned out **not** to be (just) a dying drive — it's a host-level **SATA/PCIe power-state instability** on this AM5 board that wedges prom under SATA I/O. Full diagnosis + the real fix path (BIOS 4.41, possibly move boot pool to NVMe) live in [prom-sata-power-state-hangs.md](prom-sata-power-state-hangs.md). This backup is exactly the insurance that makes that platform work safe.
+> **Update 2026-06-27 — RESOLVED:** the boot-SSD saga was a **single faulty drive** (SanDisk `…802287`) dropping its SATA link under load — *not* cables, the controller, or a power-state/platform issue. It was removed and the mirror rebuilt as **`…800457` + ADATA SU650** (1.5 Gb/s, NCQ off). Full post-mortem: [prom-sata-power-state-hangs.md](prom-sata-power-state-hangs.md); current host config: [prom-hypervisor.md](prom-hypervisor.md). This backup is the off-box safety net that made the rebuild safe to attempt.
 
 ## Hardware context (the short version of #276)
 
-prom's rpool is a 2-way ZFS mirror of two cheap consumer SATA SSDs (SanDisk SSD PLUS 240GB). One of them — serial **`24370L800457`** — has an **intermittent link-layer / IDENTIFY fault** (fails, vanishes, sometimes comes back after a cold boot). The healthy twin is **`24370L802287`**. A replacement **ADATA SU650 256GB** (serial `4P3621994623`) was bought to replace the bad SanDisk. This backup was taken mid-rebuild as insurance.
+prom's rpool was a 2-way ZFS mirror of two cheap consumer SATA SSDs (SanDisk SSD PLUS 240GB). The diagnosis flipped during the rebuild: the genuinely **faulty** drive turned out to be **`24370L802287`** (it drops its SATA link under sustained load — full story in [prom-sata-power-state-hangs.md](prom-sata-power-state-hangs.md)), *not* `…800457` as #276 first assumed. **Resolution (2026-06-27):** removed `…802287`; rpool is now a mirror of **`24370L800457` + ADATA SU650 256GB (`4P3621994623`)** at 1.5 Gb/s with NCQ off. This backup was taken mid-rebuild as the off-box safety net.
 
-**Key fact proven 2026-06-26:** the survivor `…802287` is a **complete, standalone bootable system** — its ESP holds systemd-boot + `\EFI\BOOT\BOOTX64.EFI` + all three kernel images, and `bootfs=rpool/ROOT/pve-1` lives on its mirror leg. A ZFS mirror imports off a single leg, so **one good SSD = a bootable prom.** You are not one drive from disaster.
+**Key fact (still true):** a ZFS mirror imports off a single leg, and each rpool drive now carries a managed ESP (systemd-boot + all kernels), so **any one SSD = a bootable prom.** The backed-up *data* (host OS + `/etc/pve`) is unchanged by the drive swap, so this image remains a valid restore source.
 
 ---
 

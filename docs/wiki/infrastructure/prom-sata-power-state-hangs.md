@@ -1,78 +1,44 @@
-# prom: hard hangs / power-state panics under SATA I/O (UNRESOLVED)
+# prom rpool SATA instability — RESOLVED: one faulty drive
 
-**Date:** 2026-06-26 (updated 2026-06-27) · **Status:** 🔴 **root cause is hardware — software/BIOS tunables EXHAUSTED.** prom hard-freezes under sustained SATA I/O (a `zpool scrub` reproduces it on demand). Confirmed it is **not** SATA LPM, the drive, cables, memory, or a BIOS knob — see Decisive Test. **The fix is to move the boot pool OFF the AMD chipset SATA controllers onto NVMe.**
+**Status:** ✅ **RESOLVED 2026-06-27.** Root cause was a **single faulty SanDisk SSD (`24370L802287`)** dropping its SATA link under sustained load. *Not* cables, ports, the controller, PCIe/power-states, NCQ, or LPM — those were investigated and excluded. Fixed by removing the drive and rebuilding the mirror. Current host config: [prom-hypervisor.md](prom-hypervisor.md). Original ticket: GitHub **#276**.
 
-## ⚖️ Decisive test (2026-06-27) — tunables ruled out
-A watched `zpool scrub` of the rpool mirror **hard-froze the box again**, with every mitigation stacked in our favour:
-- SATA LPM **verifiably off from boot** — `ahci.mobile_lpm_policy=1` made all 8 ports read `max_performance` from kernel init (the earlier `libata.force=nolpm` never actually flipped the sysfs policy; this one did).
-- The operator's **BIOS tweaks** applied.
-- Both drives negotiated **6.0 Gb/s**, **zero** ata errors at boot/idle.
-- The scrub ran **clean at 432 MB/s to ~38%**, then instant hard freeze (no log, as always). Recovery boots then panicked until both drives were reseated.
+## What it was
+prom (the Proxmox hypervisor) hard-froze — total lockup, nothing logged (`/sys/fs/pstore` empty, journal truncated, no MCE) — whenever its rpool boot mirror saw **sustained SATA I/O**: a `zpool scrub`, a resilver, or even the boot-time pool-import write burst. Over ~3 weeks it escalated from kernel log storms → ungraceful reboots → full host hangs.
 
-⇒ Sustained heavy I/O across the **AMD 600-series chipset SATA controllers** wedges this board regardless of LPM, BIOS, link speed, or which drive. It is a **hardware-level limitation of the chipset SATA path**, not a tunable. Stop scrubbing rpool; don't keep re-proving it (each hang erodes the drives).
-**Related:** GitHub **#276** (originally filed as "dodgy boot SSD") · [prom-rpool-backup-restore.md](prom-rpool-backup-restore.md) (the off-box backup + restore runbook — **the data is safe**).
+## Root cause (the actual one)
+One of the two SanDisk SSD PLUS 240GB drives in the boot mirror — serial **`24370L802287`**, confusingly the one originally labelled the healthy *"survivor"* — has a **failing SATA interface**. Under sustained read load its link throws **8b/10b decode errors**:
+```
+ataX: SError: { RecovComm HostInt PHYRdyChg PHYInt CommWake 10B8B DevExch }
+ataX.00: exception Emask 0x50 ... frozen      (0x50 = host-bus-fatal)
+ataX: hard resetting link → SATA link up 1.5 Gbps   (degraded from 6.0)
+```
+i.e. the drive **drops in and out of SATA under load**. With **NCQ enabled**, a link reset mid-queue deadlocked the AHCI controller → **total host freeze**, and corrupted in-flight reads on the *other* controller (the "cross-controller corruption" that sent us chasing the chipset/PCIe/power-state for a while — a red herring).
 
-> **Headline:** what looked like a dying SanDisk boot SSD is really a **host-level power-state instability** on this AM5 / AMD 600-series-chipset board, triggered by SATA write/scrub load. The drive-swapping chased a symptom. Data was never at risk (pool clean + verified tower backup).
+## The test that proved it
+Disabling NCQ (`queue_depth=1`) stopped the fault from freezing the host and turned it into a *contained, recoverable* link-reset storm — which **unmasked the source**. The storm then **followed drive `…802287` across a brand-new SATA cable AND a different SATA port AND a forced 1.5 Gb/s link**, on two separate runs, while the *other* SanDisk (`…800457`) and a new ADATA SSD ran the identical load flawlessly. **A fault that follows one specific drive across new cable + new port = the drive itself.**
 
----
+## Ruled out along the way (don't re-chase these)
+All investigated and **excluded** — none was the cause:
+- **SATA data cables** — replaced all; fault stayed with the drive (SMART showed 0 CRC).
+- **SATA ports** — moved drives to different ports; fault followed the drive.
+- **Power** — gave the replacement its own PSU lead; irrelevant to the (drive) fault.
+- **AMD chipset SATA controller / PCIe uplink** — the cross-controller corruption was an *NCQ-deadlock artifact*; healthy drives share the same controller and are fine.
+- **PCIe ASPM** — already disabled on the SATA controllers by BIOS.
+- **SATA LPM / DIPM (`med_power_with_dipm`)** — disabled it; box still froze. (A genuine hang-trigger *class* on AMD SATA, worth keeping off — but not *this* fault.)
+- **AMD-gen5 AHCI NCQ-timeout kernel regression (kernel.org #220693)** — our kernel was already past the fix and the signature was the worse host-bus-fatal variant; noncq helped only by *containing* the drive fault.
+- **Memory / Infinity-Fabric** — MemTest clean; NVMe on the same board flawless throughout.
+- **The originally-condemned drive `…800457`** — its earlier #276 symptoms (IDENTIFY failures, link drops) were the *old* cabling; on fresh wiring it ran a full resilver **and** scrub clean. A wiring victim, not faulty.
 
-## Current state (leave it alone)
-- prom is **up and stable at idle** on a clean 2-way ZFS mirror: **`…802287` (survivor) + `…800457`** (the original "failing" drive — it currently works). Pool `rpool` ONLINE, "No known data errors."
-- The replacement **ADATA SU650 256GB is NOT installed** (set aside as a spare).
-- **Do NOT**: pull a drive, run `zpool scrub`, or attempt the mirror rebuild — every load/boot experiment re-triggers the hang and erodes the drives. Get the platform stable *first*.
+## The fix (2026-06-27)
+1. Removed the faulty **`…802287`**.
+2. Rebuilt the mirror as **`…800457` (SanDisk survivor) + ADATA SU650 256GB** — `zpool replace`, resilvered clean. Rebuilt a managed ESP on both drives.
+3. Kept a conservative, reliability-first SATA config as defence-in-depth (negligible cost on a boot pool that does almost nothing): **1.5 Gb/s link cap · NCQ off · LPM off**. Full flag list + rationale: [prom-hypervisor.md](prom-hypervisor.md).
 
-## Hardware
-- Board **ASRock X870E Taichi Lite**, BIOS AMI **3.50** (2025-09-18, AGESA ComboAM5 **1.2.0.3g**). Current available: **4.41** (AGESA **1.3.0.1b**).
-- CPU **AMD Ryzen 9 9950X** (Granite Ridge, Zen 5, AM5). RAM 128 GB DDR5-5600 (2×64 GB Micron). **MemTest: ~3 days clean at purchase** → memory largely ruled out.
-- OS Proxmox VE 9.2.3, kernel **7.0.12-1-pve**.
-- Boot pool `rpool` = ZFS mirror of **2× SanDisk SSD PLUS 240GB fw 42077100** (Marvell, DRAM-less budget SATA). Replacement tried: **ADATA SU650 256 GB** (also DRAM-less) — behaved identically.
-- The two SATA controllers are **AMD 600-series chipset SATA `[1022:43f6]`** at PCI `13:00.0` and `15:00.0`, each **behind the chipset's internal PCIe switches** (`[1022:43f4/43f5]`). NVMe (3× Samsung 990 PRO + 1× Crucial T700) is on CPU/other lanes and is **rock-solid**.
+**Validation:** a full resilver (22 GB) **and** a full scrub both completed at 1.5 Gb/s with **0 ata errors and zero link flapping** — the exact sustained load that froze the host every time before.
 
-## Symptoms
-- **Hard host lockups** (total freeze — ICMP/SSH/UI all dead) and, once, a **kernel panic with "power state" errors visible on the monitor**, struck:
-  - ~1–2 s into early userspace at the first **writes to rpool** (`systemd-journal-flush`), and
-  - within ~2 s of a ZFS **resilver/scrub** starting heavy SATA I/O.
-- **Nothing is logged**: `/sys/fs/pstore` empty every time (no panic dump), no MCE/EDAC, no ata error/ZFS error in the persistent journal — the on-disk journal just stops mid-line (storage path hangs → can't write the journal).
-- When network-shipped logs caught the tail: a write to a SSD on **controller B (15:00.0)** produced **ZFS checksum errors on the survivor SSD on controller A (13:00.0)** + `ata.00 … (ATA bus error)` Emask 0x50 (host/system bus class) — i.e. **cross-controller corruption**, then freeze.
-- Both SSDs show **0 SATA_CRC_Error / 0 reallocated** in SMART (links electrically clean). A **brand-new ADATA reproduced the freeze**.
-- Reproducible oddity: **survivor-alone often won't boot** (hangs/panics after pool import); **adding `…800457` back lets it boot.** Not fully explained (see Open questions).
-
-## Investigation & what it ruled out
-| Suspect | Verdict | Why |
-|---|---|---|
-| Dying SanDisk `…800457` | **Not the host-wedge cause** | A brand-new ADATA reproduces the freeze; SMART CRC=0; faults cross to the *other* controller. (The drive *may* still be independently marginal — link negotiates 3.0 Gb/s vs survivor's 6.0 — but it is not what wedges the host.) |
-| Bad SATA cable | **No** | SMART SATA_CRC_Error = 0 on both. |
-| Memory / RAM | **Largely ruled out** | ~3 days MemTest clean at purchase. |
-| PCIe ASPM | **Not active** | `LnkCtl: ASPM Disabled` on both SATA controllers already. |
-| **SATA link power management (DIPM/DevSleep)** | **Necessary fix but NOT sufficient** | Initial lead (kernel default `CONFIG_SATA_MOBILE_LPM_POLICY=3` → `med_power_with_dipm`; cheap SSDs mis-handle DIPM). External confirmation below. **BUT** the scrub hung **with the policy verifiably at `max_performance` (LPM off)**, and a boot with `libata.force=nolpm` active **still panicked with power-state errors.** So SATA LPM is at most one layer. |
-
-### External confirmation this *class* of bug is real (it is)
-- **AMD/ASUS** acknowledge the AMD FCH SATA controller defaulting to `med_power_with_dipm` under Linux is problematic, and document a BIOS workaround (AMD CBS → FCH → SATA → "AHCI as ID 0x7904"). https://www.asus.com/me-en/support/faq/1049364/
-- **Debian kernel bug, same controller** ("AMD 600 Series Chipset SATA Controller rev 01") + cheap DRAM-less SSD → random multi-second freezes + SATA resets, root-caused to `CONFIG_SATA_MOBILE_LPM_POLICY=3`, **fixed with `ahci.mobile_lpm_policy=1`**. https://www.mail-archive.com/debian-kernel@lists.debian.org/msg143011.html
-- Kernel 6.9+ broadened auto-LPM; some cheap SSDs **report DIPM support then hang when it's used** — explains why a brand-new ADATA also fails. https://bbs.archlinux.org/viewtopic.php?id=296144
-- Same-platform precedent on this very box: the **NVMe drives** previously dropped out and needed `nvme_core.default_ps_max_latency_us=0` (APST off) — i.e. this board has a **documented history of power-state-transition link drops behind its PCIe switches** (see `ansible/prom_prox/nvme_readme.txt`, which literally notes "Reboot will hang").
-
-## What was applied (2026-06-26)
-- **Live (lost on reboot):** set all 8 SATA ports `link_power_management_policy=max_performance`.
-- **Persisted** in `/etc/kernel/cmdline` (+ fixed a latent **2-line cmdline bug** where an intended `pcie_port_pm=off` sat on line 2 and was never read by proxmox-boot-tool): single line now =
-  `root=ZFS=rpool/ROOT/pve-1 boot=zfs vmlinuz video=vesafb:ywrap,mtrr initrd=initrd.magic nvme_core.default_ps_max_latency_us=0 libata.force=nolpm`
-  then `proxmox-boot-tool refresh` (verified `libata.force=nolpm` baked into all 3 boot entries on the registered ESP). Backup: `/etc/kernel/cmdline.bak-20260626`.
-- **Result: did NOT fix it.** Scrub still hung (LPM verifiably off); survivor-alone boot still power-state-panicked. Keep `libata.force=nolpm` (correct for a server, harmless) but it is **not the cure**. NB the sysfs policy still read `med_power_with_dipm` under `libata.force=nolpm` → if testing the SATA-LPM angle again, prefer **`ahci.mobile_lpm_policy=1`** (verifiably flips the policy).
-
-## Leading hypotheses now
-1. **Platform / AGESA / Infinity-Fabric / chipset power-state instability (PRIMARY).** Fits: "power state" on the panic screen, cross-controller corruption (a layer above either SATA controller), instant log-less freeze, old AGESA (1.2.0.3g), and LPM-off not helping. Memtest-clean weakens the pure-RAM angle but not IF/chipset.
-2. **This cheap-SSD + AMD-600-chipset-SATA combo is just fragile under sustained I/O** — independent of the OS LPM knob. NVMe on the same box is flawless.
-
-## Recommended path
-1. **THE fix — move the boot pool OFF chipset SATA onto NVMe.** NVMe on this box has *zero* errors ever logged; the chipset SATA path is the sole problem child. Add 1–2 small NVMe (free M.2 slot → mirror), `zfs send rpool` → new pool, `proxmox-boot-tool` the new ESP(s), drop the SATA SSDs. This makes the entire fault class disappear and is robust whether the cause is the chipset SATA controllers, their PCIe uplink, or the SATA power rail. **This is now the plan, not an option.**
-2. **(Optional, cheap, do first if curious) test the power-rail theory:** put the SSDs on a separate PSU lead (not a shared splitter) and re-scrub. If it survives, it was power; if it hangs, it's the chipset path. Either way #1 fixes it.
-3. **BIOS 3.50 → 4.41** (newer AGESA) is still worth doing for general stability, but is **no longer expected to fix this** — the operator already tweaked BIOS and the scrub still hung.
-4. **Interim operating posture (current):** prom runs fine at idle / normal load (the boot pool sees little I/O — VMs live on NVMe). Known risks until #1: **never `zpool scrub rpool`** (it reliably wedges the host), and a **drive-failure resilver would be heavy I/O and could wedge it too**. Data integrity is covered by the verified tower backup.
-5. Storage knobs already applied (keep; harmless, not a cure): `ahci.mobile_lpm_policy=1`, `libata.force=nolpm`, `nvme_core.default_ps_max_latency_us=0`.
-
-## Evidence-capture for next time
-These freezes log **nothing** (pstore empty, journal truncated, and **Loki is on a VM on prom so it dies too**). The only real evidence is the **screen** — if it panics again, **photograph the monitor** (exact "power state" wording / subsystem / stack trace). That photo is worth more than all the logs.
-
-## Open questions
-- Why does **survivor-alone** frequently fail to boot while **survivor + `…800457`** boots? (ZFS degraded-import hitting a block needing redundancy? power-draw/enumeration timing changing the power-state path? unknown.) Don't chase it by repeatedly pulling drives — re-test only after the platform is stabilised.
-- Is `…800457` independently healthy or genuinely marginal (3.0 Gb/s link cap)? Can only be judged fairly once the host stops hanging.
+## Lessons
+- A drive can be **SMART-clean and fine at idle yet have a failing SATA PHY that only shows under sustained load** — and it can be the drive you *least* suspect.
+- **NCQ-off (`queue_depth=1`) is a powerful diagnostic**: it converts a controller-deadlocking link fault into a contained, attributable storm.
+- A fault that **follows the drive across new cable + new port** is the drive — run that test early instead of theorising.
+- On AMD chipset SATA, set `ahci.mobile_lpm_policy=1` regardless — the `med_power_with_dipm` default is a known hang trigger.
+- Don't `udevadm trigger` a whole disk while a SATA link is flapping (forces a re-scan that reads the bad drive and wedges rpool I/O). And on long doc1 sessions, a stale forwarded ssh-agent can masquerade as a wedged host — bypass with `SSH_AUTH_SOCK= ssh -i ~/.ssh/id_ed25519`.
