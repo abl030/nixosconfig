@@ -245,6 +245,7 @@
     gnome-remote-desktop
     dmidecode
     fprintd
+    iw # wifi station-dump diagnostics (mt7921e streaming-lag capture kit)
   ]);
 
   programs.firefox.enable = true;
