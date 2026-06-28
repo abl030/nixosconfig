@@ -50,13 +50,17 @@
   bridge `172.16/12`); break-glass `wsl -u root`. hermes break-glass = prom console.
   epi + framework are LOCKED workstations — the agent does NOT deploy them (roam/
   off); owner deploys interactively / via nightly.
-- On doc2/igpu only these sudo work: read-only `podman` (ps/inspect/logs/top/…),
+- On **igpu** only these sudo work: read-only `podman` (ps/inspect/logs/top/…),
   `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
   restart podman-*`. NO `sudo journalctl/cat/rm/systemctl-restart-other` — use
-  **Loki** for logs. doc2 abl030 has NO password (console = break-glass).
+  **Loki** for logs. (doc2 USED to be in this bucket; no longer — see below.)
 - Full models: `ssh-bastion-model.md` + `fleet-deploy-and-sibling-lockdown.md`.
-- **EXCEPTION: servarr now grants abl030 passwordless sudo** (hermes-style) — so
-  `ssh servarr "sudo ..."` from doc1 WORKS (e.g. restart qbt microVM). Also: servarr's
+- **EXCEPTION: doc2 + servarr now grant abl030 FULL passwordless sudo** (hermes-style,
+  `(ALL) NOPASSWD: ALL` via `security.sudo.extraRules` mkAfter). So `ssh doc2 "sudo
+  -n systemctl start/restart <anything>"` from doc1 WORKS (e.g. fired gwm-archiver
+  2026-06-28). doc2's grant = commit `30f4e3bf` (user-requested, deliberate relaxation
+  of the locked-role posture; role default is still "locked" — sudo is role-driven, not
+  flake-asserted). servarr likewise — `ssh servarr "sudo ..."` WORKS (restart qbt microVM). Also: servarr's
   `/media/data` must be a STATIC NFS mount, never automount (automount→virtiofsd ESTALE→
   errored qbt torrents). [servarr-nfs-static-and-sudo.md](servarr-nfs-static-and-sudo.md).
 - **tower (Unraid) joined the fleet SSH model 2026-06-22**: native OpenSSH, key-only root,
