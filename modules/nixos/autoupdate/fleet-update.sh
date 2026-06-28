@@ -559,7 +559,60 @@ flake_ref() {
 
 is_plumbing_failure_log() {
     local log_file="$1"
-    grep -Eiq 'HTTP error (401|403|5[0-9][0-9])|failed to insert entry|timed out|timeout|Could not resolve host|Network is unreachable|Connection reset|temporary failure' "$log_file"
+    # Recoverable, non-config failures that justify a clear-and-retry: transient
+    # network/HTTP errors, a corrupt local fetch cache ("failed to insert entry"),
+    # and a corrupt local store ("narHash=... does not exist" — a locked input is
+    # registered valid in the Nix DB but its source is missing on disk). Genuine
+    # eval/build errors do NOT match, so they fall through to a loud failure
+    # unmasked (verified: a real missing config path without narHash won't match).
+    grep -Eiq 'HTTP error (401|403|5[0-9][0-9])|failed to insert entry|narHash=.*does not exist|timed out|timeout|Could not resolve host|Network is unreachable|Connection reset|temporary failure' "$log_file"
+}
+
+# Distinct from a fetch-cache miss: an abrupt power loss / unclean shutdown can
+# truncate store writes, leaving paths registered valid in the Nix DB but absent
+# on disk. Nix then trusts the DB, refuses to re-fetch or re-substitute, and
+# evaluation dies with "path '«github:...?narHash=...»/flake.nix' does not exist".
+# Clearing the fetch cache does NOT fix this — the corruption is in the store.
+is_store_corruption_log() {
+    local log_file="$1"
+    grep -Eiq 'narHash=.*does not exist' "$log_file"
+}
+
+clear_fetch_cache() {
+    if [ -n "$NIX_FETCH_CACHE_DIR" ] && [ -d "$NIX_FETCH_CACHE_DIR" ]; then
+        log "clearing nix fetch cache at $NIX_FETCH_CACHE_DIR"
+        rm -rf "$NIX_FETCH_CACHE_DIR"
+    fi
+}
+
+repair_store() {
+    # Drop store paths that vanished from disk so the retry re-substitutes them.
+    # `nix-store --verify --repair` does an existence check only — deliberately
+    # NOT --check-contents, which hashes the entire store and is far slower; the
+    # power-loss failure mode is whole paths disappearing, which the existence
+    # pass catches and removes from the DB. The daemon protocol doesn't expose
+    # repair, so force direct local-store access (NIX_REMOTE=''), which needs
+    # root — fleet-update has it on the enforced path. Content corruption (paths
+    # present but bit-rotted) is rarer; escalate manually with:
+    #   sudo nix-store --verify --check-contents --repair
+    if [ "$(id -u)" -ne 0 ]; then
+        log "store repair skipped (not root); escalate manually: sudo nix-store --verify --repair"
+        return 0
+    fi
+    log "repairing local store (existence check) to drop vanished paths"
+    NIX_REMOTE='' nix-store --verify --repair >&2 || log "store verify/repair returned nonzero; continuing to retry"
+}
+
+# Recover from a recoverable failure before retrying: always clear the fetch
+# cache; additionally repair the store when the log shows the store-corruption
+# signature. Both target the SAME verified, rev+narHash-pinned inputs, so
+# recovery never changes what gets deployed.
+recover_from_failure_log() {
+    local log_file="$1"
+    clear_fetch_cache
+    if is_store_corruption_log "$log_file"; then
+        repair_store
+    fi
 }
 
 metadata_preflight() {
@@ -581,10 +634,8 @@ metadata_preflight() {
     fi
 
     if is_plumbing_failure_log "$log_file"; then
-        log "metadata preflight hit fetch plumbing; clearing $NIX_FETCH_CACHE_DIR and retrying once"
-        if [ -n "$NIX_FETCH_CACHE_DIR" ] && [ -d "$NIX_FETCH_CACHE_DIR" ]; then
-            rm -rf "$NIX_FETCH_CACHE_DIR"
-        fi
+        log "metadata preflight hit fetch plumbing; recovering and retrying once"
+        recover_from_failure_log "$log_file"
         if "$NIX_BIN" flake metadata "$meta_ref" --no-write-lock-file --option accept-flake-config true >"$log_file" 2>&1; then
             rm -f "$log_file"
             return 0
@@ -637,18 +688,37 @@ run_switch() {
     rebuild_flags=($REBUILD_FLAGS)
     log "switching $FLEET_HOSTNAME to $target"
     log_file="$(mktemp)"
-    set +e
-    "$REBUILD_BIN" switch --flake "$ref" "${rebuild_flags[@]}" >"$log_file" 2>&1
-    status=$?
-    set -e
-    cat "$log_file"
 
-    if [ "$status" -eq 0 ]; then
-        rm -f "$log_file"
-        write_success_anchor "$target"
-        log "switch succeeded; anchor advanced to $target"
-        return 0
-    fi
+    # metadata_preflight only resolves the lock; it doesn't read every input's
+    # source tree, so a corrupt fetch cache or a vanished store path can pass
+    # preflight and only surface here during the full evaluation. The target's
+    # inputs are pinned by rev+narHash and its commit range was signature-verified
+    # before run_switch, so recovering (cache clear and/or store repair) and
+    # rebuilding the SAME ref re-fetches sources without changing what gets
+    # deployed. Retry once on a recoverable failure; any other failure (eval/build
+    # error) falls straight through to fail, unmasked.
+    local attempt
+    for attempt in 1 2; do
+        set +e
+        "$REBUILD_BIN" switch --flake "$ref" "${rebuild_flags[@]}" >"$log_file" 2>&1
+        status=$?
+        set -e
+        cat "$log_file"
+
+        if [ "$status" -eq 0 ]; then
+            rm -f "$log_file"
+            write_success_anchor "$target"
+            log "switch succeeded; anchor advanced to $target"
+            return 0
+        fi
+
+        if [ "$attempt" -eq 1 ] && is_plumbing_failure_log "$log_file"; then
+            log "switch hit recoverable plumbing/corruption; recovering and retrying once"
+            recover_from_failure_log "$log_file"
+            continue
+        fi
+        break
+    done
 
     mkdir -p "$(dirname "$FAILURE_LOG")"
     install -m 0644 "$log_file" "$FAILURE_LOG" || true

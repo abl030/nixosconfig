@@ -449,6 +449,64 @@ Fatal non-group failures preserve the temporary clone and scrub the remote URL
 back to a tokenless form before printing the recovery path. Treat preserved
 workdirs as sensitive until inspected.
 
+## Self-Heal: Corrupt Fetch Cache Or Store
+
+`fleet-update` builds from a pinned, signature-verified rev, so its inputs are
+fixed by rev+narHash. Two *local* corruptions can still break the build with no
+change to the repo; both surface as a deploy failure and both recover without
+changing what is deployed (the retry re-fetches the SAME pinned inputs).
+
+**1. Corrupt fetch cache.** Nix's tarball/fetcher cache (`/root/.cache/nix` on
+the root-run enforced path) loses or mis-maps a fetched input. Symptoms:
+`failed to insert entry: invalid object specified`, or transient HTTP/DNS errors
+mid-fetch. Manual fix: `rm -rf /root/.cache/nix` (cache only — nothing in the
+store). Safe, periodic.
+
+**2. Corrupt store (registered-valid-but-missing).** An abrupt power loss /
+unclean shutdown truncates store writes, leaving paths registered *valid* in the
+Nix DB while their content is gone from disk. Nix trusts the DB, refuses to
+re-fetch or re-substitute, and evaluation dies with:
+
+    error: path '«github:owner/repo/REV?narHash=sha256-…»/flake.nix' does not exist
+
+A cache wipe does **not** fix this — the corruption is in the store, not the
+cache. `nix-store --delete` won't help either: the path is pinned by a
+flake-input GC root (it reports "still alive"), and `--ignore-liveness` still
+fails. Diagnosis: `nix path-info <path>` says valid, but the directory is missing
+on disk, and `nix copy --from <cache> <path>` copies "0 paths" (nix thinks it is
+already valid). A power event usually truncates *many* paths at once, so fixing
+one is whack-a-mole.
+
+Manual fix — repair the whole store from trusted substituters (run on the host):
+
+    # Fast: existence check only — drops vanished paths from the DB so the next
+    # build re-substitutes them. Caught every corrupt path in the 2026-06-28
+    # framework incident (~60 paths).
+    sudo NIX_REMOTE= nix-store --verify --repair
+    sudo fleet-update
+
+    # Thorough (slow — hashes the ENTIRE store): also catches present-but-rotted
+    # content. Only needed if the fast pass leaves a build still failing.
+    sudo NIX_REMOTE= nix-store --verify --check-contents --repair
+
+`NIX_REMOTE=` forces direct local-store access as root; the nix-daemon protocol
+does not expose repair (`nix store repair-path` → "operation 'repairPath' is not
+supported by store 'daemon'").
+
+**Automated self-heal (`fleet-update.sh`).** Both classes are now recovered
+automatically: on a recoverable failure, `recover_from_failure_log` clears the
+fetch cache and — when the log shows the `narHash=… does not exist` store
+signature — runs `NIX_REMOTE= nix-store --verify --repair` (existence-only, not
+`--check-contents`), then retries the deploy ONCE. It wraps both
+`metadata_preflight` and the `run_switch` build: the preflight `nix flake
+metadata` only resolves the lock, so store corruption of an input slips past it
+and only bites the full eval. Gated by `is_plumbing_failure_log` /
+`is_store_corruption_log`, so genuine eval/build errors fall straight through to a
+loud failure, unmasked; the retry rebuilds the same rev+narHash-pinned,
+already-verified ref. Origin: 2026-06-28, framework failed every `fleet-update`
+with the flake-parts `does not exist` error after a low-battery shutdown
+corrupted ~60 store paths.
+
 ## Break-Glass Host Deploy
 
 Use this only when the signed update path is blocked and a host must be fixed

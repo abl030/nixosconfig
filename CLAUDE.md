@@ -257,6 +257,7 @@ Sops-nix + Age. Config: `secrets/.sops.yaml`. **Per-host scoped (#234):** a secr
 ## Troubleshooting
 
 - **`failed to insert entry: invalid object specified`** during `nix flake update`: Corrupted fetch cache. Fix with `rm -rf ~/.cache/nix/` and retry. This is safe — it's only a fetch cache, not the store. Common issue, happens periodically.
+- **`path '«github:…?narHash=…»/flake.nix' does not exist`** during `fleet-update`/`nixos-rebuild` (a *locked* input — not a flake bug): corrupt local **store**, not cache. A path is registered valid in the Nix DB but its content vanished from disk (classic after an abrupt power loss / low-battery shutdown; usually many paths at once). A cache wipe does NOT fix it, and `nix-store --delete` reports "still alive". Fix on the host: `sudo NIX_REMOTE= nix-store --verify --repair && sudo fleet-update` (existence-only, fast; add `--check-contents` only if a build still fails — it hashes the whole store). `fleet-update` now self-heals this automatically (clear-cache + store-repair + one retry). Full model: `docs/wiki/infrastructure/signed-fleet-deploys.md` → *Self-Heal*.
 
 ## Issue and TODO Tracking
 
