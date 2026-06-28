@@ -64,6 +64,7 @@ in
     import subprocess
     import sys
     import time
+    import urllib.error
     import urllib.request
     from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
@@ -239,6 +240,37 @@ in
         return [row["embedding"] for row in rows]
 
 
+    def embed_one(text):
+        """Embed a single document, shrinking on context-overflow.
+
+        llama-server rejects inputs over its batch/ctx (8192 tokens) with an
+        HTTP 500 'input (N tokens) is too large to process'. MAX_CHARS can't
+        guarantee a token bound — the token/char ratio swings with content, so
+        token-dense bodies (big auto-generated HTML tables, base64, CJK) blow
+        the ctx even after the char cap. Those used to error, get skipped, and
+        — because the `messages` table is the only watermark — be retried EVERY
+        run forever (~4.8k messages churning the embed server + log). On that
+        specific error we halve the text and retry down to a floor, so the
+        message embeds instead of being dropped. Only the tail is lost; the
+        message lead is what semantic search needs. Non-overflow errors
+        (network/transient) re-raise unchanged → skipped + retried next run.
+        """
+        t = text
+        while True:
+            try:
+                return embed([t])[0]
+            except urllib.error.HTTPError as e:
+                detail = ""
+                try:
+                    detail = e.read().decode("utf-8", "replace")
+                except Exception:  # noqa: BLE001
+                    pass
+                if "too large" in detail and len(t) > 2000:
+                    t = t[: len(t) // 2]
+                    continue
+                raise
+
+
     def open_db():
         db = apsw.Connection(VECTOR_DB)
         # No WAL: the read-only MCP runs as a different user with only group-read
@@ -309,7 +341,7 @@ in
             rec["clean"] = clean_body(rec)
             if not rec["clean"]:
                 return (mid, None, None, None)
-            vec = embed([rec["clean"]])[0]
+            vec = embed_one(rec["clean"])
             return (mid, rec, vec, None)
         except Exception as e:  # noqa: BLE001
             return (mid, None, None, type(e).__name__)
