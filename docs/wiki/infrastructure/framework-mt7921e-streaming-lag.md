@@ -1,12 +1,16 @@
-# Framework → Apollo streaming lag (mt7921e) — investigation + real-time capture kit
+# Framework → Apollo streaming lag (mt7921e) — DIAGNOSED: it's the MT7922 firmware; fix = Intel AX210 swap
 
-- **Date:** 2026-06-26, updated **2026-06-28** · **Status:** **STILL OPEN / UNSOLVED — but narrowed by a
-  live dual-side capture (2026-06-28).** No working fix has been tested yet; the stream still lags. What
-  the capture *did* establish: the lag reproduces with **`l1_aspm=0` the whole time** (so the ASPM fix is
-  **not** the cure), the **server/encoder and the AP/channel are clean**, and the failure shows up as a
-  **degraded AP→framework downlink** (rate-control dropped to ~48 Mbps + 12% retries while signal is −37/−39
-  dBm). **Leading hypothesis:** mt7921e downlink/RX-path degradation under sustained load. This is still a
-  hypothesis — it has NOT been confirmed by fixing it. See **[2026-06-28 capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved)** below.
+- **Date:** 2026-06-26, updated **2026-06-28** · **Status:** **DIAGNOSED → RESOLVED-by-replacement
+  (2026-06-28).** Root cause confirmed by elimination, *live, during real lags*: a **known, unfixed MT7922
+  firmware rate-control / aggregation stall under sustained one-directional load.** It is **not** ASPM,
+  power-management, `txpower`, the server, the AP, or Bluetooth — all ruled out by direct test. There is
+  **no kernel or firmware fix** (framework runs a **Feb-2026** firmware, newer than any known-good build,
+  and it still stalls; the bug reproduces on MediaTek's *proprietary* driver too). **Decision: replace the
+  card** with an **Intel AX210 (non-vPro)** — the `iwlwifi`-driven cure Framework-AMD users adopt. Card on
+  order 2026-06-28; **re-verify after the swap** (checklist in the Resolution section). Full story + the
+  decisive tests: **[Resolution (2026-06-28)](#resolution-2026-06-28--its-the-mt7922-firmware-fix--intel-ax210-swap)** below.
+  The earlier "[capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved)"
+  section is the detailed evidence that led here.
 - **Host:** `framework` (Framework 13, NixOS) · WiFi = **MediaTek MT7922** (`mt7921e`, PCI `0000:01:00.0`).
 - **Stream:** Moonlight on framework → Apollo on the gaming VM `120 apollo-007-first-light` (`.111`), LAN, direct over WiFi (not Tailscale-relayed).
 
@@ -54,6 +58,12 @@ They are not mutually exclusive — most likely the WiFi spikes (A) cause the lo
 pipeline (B) fails to recover from it.
 
 ## 2026-06-28 live capture findings — narrows the search, NOT yet solved
+
+> ➡️ **This section is the evidence trail; the case was closed later the same day — jump to
+> [Resolution (2026-06-28)](#resolution-2026-06-28--its-the-mt7922-firmware-fix--intel-ax210-swap)** for
+> the conclusion (it's the MT7922 firmware; fix = AX210 swap). The "leading hypothesis" below was then
+> confirmed in mechanism (it's the card) and corrected in detail (firmware rate-control session state, not
+> an RX-DMA issue).
 
 ⚠️ **Nothing here is a fix.** We ran the dual-side capture kit during a real lag and pulled the AP's view
 from UniFi. The data **rules several things out** and points at a leading suspect, but **no fix has been
@@ -120,6 +130,103 @@ the link starts clean) — but **"consistent with" is not "confirmed."**
 
 **Raw capture saved:** `~/framework-streamlag-capture-20260628.log` on doc1 (framework side); VM side was
 `C:\stream-vm.log` on VM 120.
+
+## Resolution (2026-06-28) — it's the MT7922 firmware; fix = Intel AX210 swap
+
+A second session that day — with a **temporary passwordless `sudo` on framework (since reverted)** — ran
+the experiments the capture findings called for, **live, during real lags**. They closed the case: the
+leading hypothesis was right that it's the mt7921e/MT7922, but the mechanism is a **firmware-level
+rate-control / aggregation session stall**, and **no software fix exists** — so the resolution is a
+**card swap**.
+
+### Ruled OUT by direct live test (not theory)
+
+| Suspect | Test | Result |
+| --- | --- | --- |
+| PCIe ASPM | read `l1_aspm` throughout every lag | **`0` always** — lag happens with ASPM off. Not it. |
+| 802.11 power-save | `iw get power_save`, NM `wifi.powersave` | already **off / `2 (disable)`**. Not it. |
+| **Firmware runtime-PM / deep-sleep** | `echo 0 > .../mt76/{runtime-pm,deep-sleep}` **mid-lag** | loss stayed 15→20%. **Not it** — a real *third* PM layer (distinct from ASPM and 802.11-PS), but innocent here. |
+| **`txpower 3 dBm`** (the tempting one) | a reload fixed the lag **with txpower still 3 dBm**; UniFi heard the uplink at 866 Mbps | **exonerated** — `3 dBm` is a persistent mt7921e *misreport*; `iw set txpower` no-ops (it `WARN`s in `drv_link_info_changed`, mac80211↔mt76). Identical before/after a fix → not causal. |
+| Server / encoder | VM-side logger | tx steady ~5.5 MB/s, NVENC 6%, no GPU throttle. Clean. |
+| AP / channel / airtime | UniFi | AP 11% airtime, 21-day uptime; the other 2 clients on ch149 are clean (0–0.6% retries). Clean. |
+| Bluetooth coexistence | `bluetoothctl` | BT radio on but **no devices connected** this session → not active. |
+| HE / 802.11ax rate path | `iw link` → **VHT-MCS** | already on **VHT** (the AP is a Wi-Fi-5 UAP-AC-Pro); there is **no HE path to "force off"** — the research agent's top fix is moot here. |
+| Driver RX queues / DMA | `ip -s link`, mt76 debugfs | netdev RX drops **~0** (99 in 3.8M packets) → the loss is **over-the-air**, not a driver queue. |
+
+### The two decisive recovery tests (what fixes it, and what that proves)
+
+- **Module reload** (`modprobe -r mt7921e && modprobe mt7921e`): gateway loss **15% → 0%**, latency
+  16.8 → 1.1 ms, instantly — **with txpower unchanged at 3 dBm** (the txpower exoneration above).
+- **Bare re-association, NO module reload** (`nmcli device disconnect wlp1s0 && … connect`): loss
+  **10% → 0%** in **~1 second**. This is the key result — a fresh 802.11 association (which tears down +
+  rebuilds the BlockAck/AMPDU + rate-control session) is *sufficient*. So the wedged state is
+  **per-association session state**, **not** deep firmware/MCU state.
+- During a lag, dmesg had **no MCU-hang / reset / `Message … timeout` markers**, **`BA miss count: 0`**,
+  netdev drops ~0 → a **silent rate-control stall**, not a crash. Fully consistent with "reassoc clears it."
+- **Cadence:** it re-degraded **~20 min** into the next stream — so the failure builds within minutes of
+  sustained ~44 Mbps downlink, not "after ~1 h" as first thought.
+
+### Why it's unfixable in software (research-corroborated)
+
+A dedicated web-research pass (OpenWrt forum 250118; openwrt/mt76 #956; a near-identical Fedora MT7922
+thread fixed only by `modprobe` reload; Framework community) converges with the live data:
+- On these chips **rate control is done in firmware** (the host only writes an "RA-info" TLV in the station
+  record) — there is **no minstrel / `fixed_rate` / `disable_aggregation` knob** on mt7921 (those are
+  mt7915-only). That's *why* `iw set bitrates`/txpower can't steer it.
+- The **same TX-rate-collapse-under-load reproduces on MediaTek's *proprietary* driver**, so it's
+  **firmware/MAC-level, not an mt76 bug** a kernel update would fix.
+- **No newer firmware helps:** framework runs WM firmware **Build Time `20260224`** (Feb 2026, from
+  `dmesg`) — *newer* than any known-good blob in the research, and it still stalls. (The "firmware 1.1" in
+  the capture-findings section is just the *filename* segment, not a version.) The one later linux-firmware
+  bump (Sep-2025) was a hard-init regression that was **reverted** upstream — nothing to chase forward.
+- 7.1.1 is current; no post-7.1.1 mt76 commit targets load-induced rate-control degradation.
+- The fixes people actually adopt are **(a) re-init the card on a watchdog** or **(b) swap to an Intel
+  AX210.** This is a long-standing, open MT7922 pathology.
+
+### Decision — replace the card (Intel AX210, **non-vPro**)
+
+Not worth chasing a software fix upstream says doesn't exist. The permanent cure is the **Intel Wi-Fi 6E
+AX210 (non-vPro, ~$29)** — `iwlwifi`, rock-solid on Linux. A focused research pass confirmed compatibility
+with the **Framework 13 AMD Ryzen 7040** board:
+- The AX210 is a **discrete PCIe + USB M.2 2230 card** — **not** CNVi like the AX211/AX411 (which are
+  Intel-CPU-only and would *not* work on AMD). Multiple owners confirm the exact swap on the AMD-7040 FW13.
+- **Framework does not whitelist WiFi cards** (no BIOS allowlist, unlike Lenovo/HP). Their "not compatible
+  with 7040" is an *unsupported-stance*, very likely conflated with the **vPro** variant's real AMD issues.
+- **Buy the $29 non-vPro; AVOID the $39 vPro** — vPro management is Intel-CPU-only (dead weight on AMD) and
+  there are documented reports of the **vPro AX210 not being detected / dying after sleep on AMD** boards.
+- Linux/NixOS: `iwlwifi` is in-mainline, firmware ships in `linux-firmware` (already enabled here) → no
+  DKMS, no per-kernel rebuild. Bluetooth works over USB (`btusb`, BT 5.3). 6 GHz needs the regulatory
+  country set (already AU). Antennas are standard MHF4/IPEX — the existing pigtails fit (handle gently).
+
+### Stopgap until the AX210 arrives
+
+Fastest manual recovery is a **re-association**, not a Moonlight restart:
+`sudo nmcli device disconnect wlp1s0 && sudo nmcli device connect wlp1s0` (~1 s).
+⚠️ It **does briefly drop the WiFi link**, so Moonlight blips/disconnects and needs a reconnect — a manual
+"kick", faster/gentler than the module reload but **not transparent**. An **auto-reassoc watchdog was
+considered and rejected**: *any* reassoc interrupts the live stream (you'd get kicked mid-game before you
+could pause), so automating it is no better than kicking it by hand. The AX210 is the real answer.
+
+### Re-verify checklist after the AX210 swap
+
+Once the card is in and framework is rebuilt, confirm the lag is genuinely gone:
+1. `lspci | grep -i net` + `dmesg | grep -i iwlwifi` → AX210 on `iwlwifi`, firmware loaded, no errors;
+   `rfkill list`.
+2. `iw dev wlp1s0 link` → associated to `theblackduck`, VHT/HE-MCS, sane signal; `iw … get power_save`.
+3. Re-run the **dual-side capture kit** (below) during a **≥1 h** Moonlight session at 51.5 Mbps — the old
+   failure showed within ~20 min. Confirm `gw_ms`/`vm_ms` loss and `lost`/s stay ~0 and tx-retries stay flat.
+4. Bluetooth check (controller/headset) + a suspend/resume cycle.
+5. If clean over a long session, mark this doc **CLOSED** and **retire the mt7921e-only workarounds** that
+   exist solely for this card: the `mt7921e.disable_aspm=1` kernel param and the `hibernate-fix.nix`
+   l1_aspm/clkpm forcing + module unload/reload dance (`modules/nixos/services/framework/hibernate-fix.nix`).
+   The AX210/iwlwifi should not need any of it.
+
+### Footnote — the temporary `sudo` grant
+
+The rootful experiments above needed passwordless `sudo` on framework (a locked workstation). A scoped
+`security.sudo.extraRules` block was added for the session and **reverted on 2026-06-28** once the
+diagnosis was complete — framework is back to interactive `sudo` only. (The repo never carries a standing
+passwordless-root grant on a workstation; see the forgejo#2 note in `hosts/framework/configuration.nix`.)
 
 ## Fix already applied (validate it)
 

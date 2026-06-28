@@ -85,17 +85,22 @@
   external monitor; AMD s2idle glitch-wake trigger). Fix is `services.upower.ignoreLid=true`
   (live 2026-06-26), NOT `LidSwitchIgnoreInhibited` (a trap — low-level locks always honored;
   cost one reverted commit). [framework-lid-suspend-gsd-power.md](framework-lid-suspend-gsd-power.md).
-- ⚠️ OPEN (still UNSOLVED, narrowed 2026-06-28): framework Moonlight stream → 007 VM (.111) **lags
-  intermittently**. Dual-side capture + UniFi ran during a live lag. It is NOT solved — no fix tested —
-  but the capture RULES OUT: ASPM (lag reproduces with `l1_aspm=0` throughout, so 9633d46a is NOT the
-  cure — keep it anyway), the server/encoder (VM tx steady ~5.5 MB/s, no throttle), and the AP/channel/
-  signal/uplink (AP near-idle 11% util, hears framework's uplink at 866 Mbps/−39 dBm; `txpower 3 dBm` is a
-  cosmetic driver artifact). LEADING HYPOTHESIS (unproven): **mt7921e downlink/RX-path collapse under load**
-  — AP→framework rate-control falls to ~48 Mbps + 12% retries → frame loss → lag, on current kernel 7.1.1 +
-  fw 1.1. NEXT TESTS: A/B the Moonlight bitrate (51.5→30 Mbps), driver reload mid-lag w/o restarting
-  Moonlight, try a different NIC/band, read mt76 debugfs as root. Don't overclaim it as "confirmed" until a
-  fix actually holds. Full writeup + the validated capture kit (staged at `~/stream-log.sh` on framework +
-  `C:\stream-log.ps1` on VM 120; needs `iw`, now in framework pkgs + `.111` answers ICMP):
+- ✅ DIAGNOSED 2026-06-28 (awaiting hardware): framework Moonlight stream lag = **MT7922 firmware
+  rate-control/aggregation stall under sustained load** — unfixable in software (firmware-level, reproduces
+  on MediaTek's own driver; on a Feb-2026 fw, no newer blob; no mt7921 rate knob). **Fix = swap the card to
+  an Intel AX210 (non-vPro, ~$29; NOT the vPro — dead weight on AMD + dies-after-sleep reports).** Verified
+  compatible w/ Framework 13 AMD 7040 (discrete PCIe, not CNVi; no Framework BIOS WiFi whitelist; iwlwifi).
+  Card on order; **re-verify after swap** (checklist in the wiki). Proven by live tests: a bare
+  **re-association** (`nmcli device disconnect/connect wlp1s0`, ~1s, no module reload) fixes it → it's
+  per-association 802.11/BlockAck/rate-control session state, not MCU-hang (no dmesg reset markers, BA-miss
+  0, netdev drops ~0 = over-air loss). RULED OUT by direct test: ASPM (`l1_aspm=0` throughout — 9633d46a is
+  NOT the cure, keep anyway), 802.11 power-save, firmware runtime-pm/deep-sleep, **txpower 3 dBm** (a
+  misreport — identical across a fix), server/encoder, AP/channel/airtime, Bluetooth, HE (already on VHT —
+  AP is Wi-Fi 5). Temp passwordless sudo on framework was added for the rootful debug and **reverted**.
+  Stopgap until the card: manual `nmcli` reassoc (drops the stream briefly — auto-watchdog rejected, any
+  reassoc interrupts the game). On swap, retire the mt7921e-only `disable_aspm`/`hibernate-fix.nix` hacks.
+  Full writeup + capture kit (`~/stream-log.sh` on framework + `C:\stream-log.ps1` on VM 120; `iw` now in
+  framework pkgs + `.111` answers ICMP):
   [`docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md`](../../docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md).
 - Plex CONTAINED 2026-06-24 (#277): moved off tower `--net=host` onto its own **VLAN 30
   MEDIA_DMZ** (`192.168.30.2`), pfSense default-denies it to all RFC1918, WAN egress only,
