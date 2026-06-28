@@ -99,6 +99,20 @@ in {
     # Privacy opt-outs (telemetry/error-reporting/survey/autoupdater); drop the
     # experimental agent-teams flag (kills spurious TaskCreate nudges); enable
     # our two plugins (and clean up the retired marketplace-named entries).
+    #
+    # SHELL=claude-clean-bash: the rc-free bash for the Bash tool's "shell
+    # snapshot". The `claude-agents` wrapper's `export SHELL` only fixes the
+    # FOREGROUND process — but background Bash-tool shells are forked by the
+    # long-lived `claude daemon`, which the wrapper can't reach (it reuses an
+    # already-running transient daemon spawned by a plain `claude` with
+    # SHELL=zsh). Setting SHELL here, on-disk, makes it argv/daemon-independent:
+    # settings.json .env provably flows into the daemon and every child session
+    # (the DISABLE_* vars above already prove this path), so EVERY session —
+    # foreground, Agent View, `claude --bg`, and the systemd `claude -p` runs —
+    # snapshots clean bash instead of dragging in zoxide/atuin/starship/lsd.
+    # Same argv-independent fix as the plugins/MCP block below. The user's
+    # interactive login shell stays zsh (this scopes SHELL to claude only).
+    # See docs/wiki/claude-code/clean-bash-shell-snapshot.md.
     SETTINGS="$CLAUDE_DIR/settings.json"
     [ -f "$SETTINGS" ] || run sh -c "echo '{}' > '$SETTINGS'"
     run ${pkgs.jq}/bin/jq '
@@ -106,7 +120,8 @@ in {
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         "DISABLE_AUTOUPDATER": "1",
-        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+        "SHELL": "${claude-clean-bash}/bin/claude-clean-bash"
       })
       | del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS)
       | .enabledPlugins = (((.enabledPlugins // {})

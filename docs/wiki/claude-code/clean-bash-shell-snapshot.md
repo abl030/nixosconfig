@@ -46,27 +46,60 @@ Verified: under the wrapper, `alias` is empty, `ls` → `/run/current-system/sw/
 
 ## Implementation (declarative)
 
-`modules/home-manager/profiles/base.nix` (the shared HM profile) builds two
-`writeShellScriptBin`s and puts them in `home.packages`:
+`modules/home-manager/profiles/base.nix` (the shared HM profile) does two things:
 
-- **`claude-clean-bash`** — `exec bashInteractive --norc --noprofile "$@"`.
+**1. `SHELL` in `settings.json` `.env` (the load-bearing fix).** The `claudeConfig`
+home-activation merges `"SHELL": "…/claude-clean-bash"` into
+`~/.claude/settings.json`'s `.env` block (next to the `DISABLE_*` opt-outs). Claude
+applies `.env` to its own process env, and — critically — that env **propagates to
+the background `claude daemon` and every session it forks**. Proof: the daemon and
+background sessions already carry the `DISABLE_*` vars, which come *only* from this
+block. So every session snapshots clean bash regardless of how it was launched:
+foreground, Agent View, `claude --bg`, and the systemd `claude -p` diagnosis runs.
+This is the same argv-independent, daemon-proof pattern used for plugins/MCP (see
+[plugins-in-agent-view.md](plugins-in-agent-view.md)).
+
+**2. Two `writeShellScriptBin`s in `home.packages`:**
+
+- **`claude-clean-bash`** — `exec bashInteractive --norc --noprofile "$@"` (the
+  rc-free shell `$SHELL` points at).
 - **`claude-agents`** — exports `SHELL=…/claude-clean-bash`, then
-  `exec claude --verbose agents --dangerously-skip-permissions "$@"`.
+  `exec claude --verbose agents --dangerously-skip-permissions "$@"`. The everyday
+  entrypoint (opens the Agent View). Its `export SHELL` is now belt-and-suspenders
+  for the **foreground only** — see the gotcha below.
 
-`claude-agents` is the everyday entrypoint (opens the Agent View — `claude agents`
-manages background sessions). It does **not** wrap the `claude` binary: base.nix
-deliberately keeps `claude` unwrapped so Agent View / `claude --bg` supervisors
-respawn workers with a fixed argv and still load plugins+MCP from on-disk config
-(see [plugins-in-agent-view.md](plugins-in-agent-view.md)). A separate launcher
-sidesteps that entirely.
+## Why the launcher's `export SHELL` alone wasn't enough (the daemon)
+
+The Bash-tool shells in Agent-View / `--bg` sessions are **not** children of the
+foreground `claude-agents` process. They are forked by a long-lived
+`claude-unwrapped daemon run --origin transient` supervisor:
+
+    daemon run (SHELL=zsh) → --bg-pty-host → --bg-spare → zsh -c 'source <snapshot-zsh>'
+
+That daemon is spawned lazily by the *first* `claude` invocation and then **reused**
+across launches. A plain `claude` (`SHELL=zsh`) typically wins that race, so the
+daemon — and every worker it forks — inherits `SHELL=zsh`, no matter that a later
+`claude-agents` exported `SHELL=clean-bash` on its own foreground process.
+`export SHELL` in the wrapper cannot reach a daemon it didn't spawn. Same class of
+gotcha as plugins/MCP: foreground/argv tricks don't reach daemon-respawned workers
+— only on-disk config (`settings.json`) does. Hence fix #1 above.
+
+**Caveat when deploying the fix:** a stale `SHELL=zsh` daemon already running will
+persist and keep serving zsh snapshots to *new* sessions until it is killed. After
+activation, kill it once — `pkill -f 'claude-unwrapped daemon run'` — then relaunch
+`claude-agents`; the fresh daemon inherits `SHELL=clean-bash` from `settings.json`
+`.env`. Killing the daemon drops active Agent-View background sessions, so wait for
+them to finish first.
 
 ## Confirming it took
 
-In a session started via `claude-agents`:
+In a session started via `claude-agents` (after the stale daemon was killed):
 
-- a new `~/.claude/shell-snapshots/snapshot-claude-clean-bash-*.sh` appears
-  (instead of `snapshot-zsh-*`), and
-- `type ls` → `/run/current-system/sw/bin/ls` (not the `lsd` alias).
+- the Bash tool's snapshot is `snapshot-claude-clean-bash-*.sh` (not `snapshot-zsh-*`),
+- `type ls` → `/run/current-system/sw/bin/ls` (not the `lsd` alias), and
+- the daemon proves it:
+  `tr '\0' '\n' < /proc/$(pgrep -f 'daemon run')/environ | grep '^SHELL='` →
+  `…/claude-clean-bash`.
 
 ## Why not just `SHELL=bash`?
 
