@@ -98,10 +98,15 @@ services.logind.settings.Login.StopIdleSessionSec = "55min";
   `claude` run printing) keeps the pts atime fresh and is **not** killed. A
   session left at a bare idle prompt past 55 min is terminated (SSH connection
   dropped).
-- **`KillUserProcesses` stays `false`** (nixpkgs default — it's that way
-  precisely so tmux/screen/mosh/nohup survive a logout). So the idle reap drops
-  the *connection* but a detached tmux/mosh session persists; reconnect and
-  reattach.
+- **`KillUserProcesses` stays `false`** (nixpkgs default). NB this protects only
+  the **graceful last-logout** path (leftover processes survive when the final
+  session ends normally). It does **NOT** protect against the idle reap: a
+  `StopIdleSessionSec` stop *force-stops the session `scope` unit*, killing every
+  process in that cgroup — including any tmux/mosh server that was launched into
+  that session's scope. A detached server survives the idle reap **only** if it
+  lives in `user@.service` (run it from a `systemd.user` unit) or on a different,
+  non-idle session. Full mechanics + the doc1 fix:
+  [tmux-durable-idle-reap.md](tmux-durable-idle-reap.md).
 
 ### ⚠️ Gotcha: the switch does NOT activate logind.conf by itself
 

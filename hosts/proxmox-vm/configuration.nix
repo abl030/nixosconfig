@@ -170,8 +170,8 @@
   # user unit -> /run/user/1000/tmux-1000/default), so plain `tmux attach` finds
   # it. After deploy the existing in-scope server keeps the socket until it dies;
   # a reboot (or one `systemctl --user restart tmux` after killing the old
-  # server) hands the socket to this unit. See
-  # docs/wiki/infrastructure/host-hardening-baseline.md.
+  # server) hands the socket to this unit. Full mechanics + diagnosis:
+  # docs/wiki/infrastructure/tmux-durable-idle-reap.md.
   systemd.user.services.tmux = {
     description = "Durable tmux server (user@.service-scoped; survives idle-session reap)";
     wantedBy = ["default.target"];
