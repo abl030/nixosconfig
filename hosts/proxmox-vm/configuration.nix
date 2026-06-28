@@ -146,13 +146,42 @@
   # ADD ONLY HOST SPECIFIC GROUPS
   users.users.abl030 = {
     extraGroups = ["libvirtd" "vboxusers"];
-    # Keep user@.service running with zero sessions so a detached tmux/mosh
-    # server (escaped into the user manager) survives a FULL disconnect — not
-    # just the StopIdleSessionSec=55min idle-stop in base.nix #232. Without
-    # linger, closing your last connection stops user@.service and kills the
-    # escaped server too. Was set imperatively (loginctl enable-linger); made
-    # declarative here. Interactive host only (doc1/framework/epi).
+    # Keep user@.service running with zero sessions so the tmux server below
+    # (which lives IN user@.service, not a login-session scope) survives a FULL
+    # disconnect. NB: a tmux started by hand from a shell does NOT "escape" into
+    # the user manager — it stays in that login's session-<n>.scope, so linger
+    # ALONE does not save it. base.nix's StopIdleSessionSec=55min idle-stop
+    # force-stops that scope and takes the in-scope server down with it
+    # (KillUserProcesses=false only guards the graceful-logout path, NOT an
+    # explicit session stop). The systemd.user.services.tmux unit below is what
+    # actually puts the server in user@.service so linger protects it. Was set
+    # imperatively (loginctl enable-linger); made declarative here. Interactive
+    # host only (doc1/framework/epi).
     linger = true;
+  };
+
+  # Durable tmux server: born inside user@1000.service (NOT a login-session
+  # scope), so base.nix's StopIdleSessionSec=55min idle-stop can't reap it and,
+  # with linger above, it persists across full disconnects and reboots. doc1 ONLY
+  # — it's the bastion attached to from the phone (Termux), where idling is
+  # guaranteed: locking the phone used to leave the server in the SSH session's
+  # scope and the 55-min reaper killed it ("[server exited]"). Uses the same
+  # socket the interactive shells do (TMUX_TMPDIR=/run/user/1000, i.e. %t for a
+  # user unit -> /run/user/1000/tmux-1000/default), so plain `tmux attach` finds
+  # it. After deploy the existing in-scope server keeps the socket until it dies;
+  # a reboot (or one `systemctl --user restart tmux` after killing the old
+  # server) hands the socket to this unit. See
+  # docs/wiki/infrastructure/host-hardening-baseline.md.
+  systemd.user.services.tmux = {
+    description = "Durable tmux server (user@.service-scoped; survives idle-session reap)";
+    wantedBy = ["default.target"];
+    serviceConfig = {
+      Type = "forking";
+      Environment = "TMUX_TMPDIR=%t";
+      ExecStart = "${pkgs.tmux}/bin/tmux new-session -d -s 0";
+      ExecStop = "${pkgs.tmux}/bin/tmux kill-server";
+      Restart = "on-failure";
+    };
   };
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
