@@ -190,7 +190,9 @@ committed. Recorded so the next local-inference / NFS-indexing service avoids th
    8192-token email in one pass), `MAX_CHARS=24000` (stay under the ceiling), and
    a per-message fallback in `flush()` so one pathological email skips instead of
    killing the run. A small fraction of very dense/long emails still exceed 8192
-   tokens and are skipped (still keyword-searchable).
+   tokens and were skipped (still keyword-searchable) — **superseded 2026-06-28:
+   they're now shrink-and-retried instead of skipped, see the 2026-06-28 section
+   below.**
 4. **Embed context silently capped at 2048 — index stalled at ~35% (2026-06-25).**
    Despite the recommended `-c 8192 --rope-scaling yarn --rope-freq-scale 0.75`,
    the `already-embedded` watermark climbed to ~49.5k/143k then flatlined (**+6
@@ -254,6 +256,67 @@ user reads the `0700` Maildir over the NFS mount **without** any extra ACL or th
 broad `users` group (verified by indexing all ~143k messages). The earlier
 "setfacl `g:mailsearch:rX` required" deploy step turned out unnecessary; leave it
 out unless a future perms/uid-mapping change breaks reads.
+
+---
+
+## 2026-06-28 — phantom write-path alert + recovering the long-email tail
+
+Two more issues, both found via morning triage and fixed the same day.
+
+### A. "Mailsearch index write-path DOWN" paged every ~30 min — and had NEVER worked
+
+The Kuma push monitor for the deep write-path probe had been **DOWN since the
+probe landed (0 successful pushes in 7 days)**, paging ~every 30 min. Not
+mailsearch — a **permissions** bug:
+
+- The deep-probe is the *only* probe that drops privilege (`User = indexUser`,
+  for least-privilege mail access); every sibling probe runs as root.
+- Its push-URL is `/var/lib/homelab/monitoring/push-urls/<slug>.url`. That dir
+  was made `0755` *specifically* so non-root probes could read it — but the
+  **parent** `/var/lib/homelab/monitoring` was `0750 root root`, so a non-root
+  user had no traverse bit and couldn't descend to the file. The runner's
+  `[ -r "$url_file" ]` failed `EACCES` → logged the misleading **"push URL file
+  missing … waiting for monitoring-sync"** (it wasn't missing; sync *had* written
+  it) → never pushed → Kuma's no-heartbeat window flipped it DOWN.
+- **Fix:** tmpfiles `/var/lib/homelab/monitoring` `0750 → 0751` (traverse-only;
+  `monitoring_sync.nix`, commit `a23c1976`). Honors the existing "push URLs are
+  non-secret" model (the dir was already `0755`). For zero token exposure later:
+  per-probe-user ACL or `LoadCredential` (noted in-module). **General lesson: a
+  non-root systemd unit reading a file under a `0750 root` dir fails on parent
+  *traversal*, not the file's own mode — the error reads like ENOENT.**
+
+### B. The dense/long-email tail — recovered, not skipped (supersedes lesson #3)
+
+~4,831 messages (3.4% — old auto-generated O365 scheduler/JavaMail mail with big
+HTML tables) cleaned to bodies of **8208–15252 tokens**, over llama-server's 8192
+batch/ctx → HTTP 500 `input (N tokens) is too large`. Because **the `messages`
+table is the only watermark, a skipped message is retried every run forever** — a
+~3.6k-message burst hammering the embed server + Loki each cycle, and 3.4% of the
+archive permanently missing from semantic search.
+
+`MAX_CHARS` can't bound *tokens* (token/char ratio swings with content), so the
+fix is in the indexer (`nix/pkgs/mailsearch-indexer.nix`):
+
+- **`embed_one()`** halves the text and retries on the "too large" `HTTPError`
+  down to a 2000-char floor → the message embeds (tail lost; the lead is what
+  semantic search needs) instead of being dropped+churned (commit `0ec8e55f`).
+- **Connection-drop backoff** — the embed server is **single-slot**, so the
+  one-time recovery firing 4.8k requests × 8 workers saturated its accept queue
+  and it dropped connections (`RemoteDisconnected`) instead of cleanly 500ing.
+  `embed_one()` now also catches `http.client.HTTPException`/`OSError` and retries
+  with bounded backoff (commit `28c3d7a1`). *nvtop on igpu was normal throughout
+  — it was queue saturation, not a GPU/crash issue.*
+- **One-time recovery** of the existing backlog: run the indexer with a temporary
+  `MAILSEARCH_MAX_CHARS=8000` (no input overflows → no rejects → no storm →
+  full-speed clean) via a non-persistent `/run` drop-in; it's GPU-bound on the
+  iGPU (~hours for 4.8k long messages). Steady state stays `MAX_CHARS=24000` (full
+  English emails) + the `embed_one` shrink-retry as the backstop for the rare
+  overflow. The `/run` drop-in self-clears on doc2's nightly reboot.
+
+*General lesson: an embedding model's context is a hard ceiling — cap by a
+mechanism that actually bounds tokens (shrink-and-retry on the server's own
+"too large", or a token-aware cap), not a fixed char count; and a 1-slot
+inference server needs client-side backoff under burst, not just more workers.*
 
 ---
 

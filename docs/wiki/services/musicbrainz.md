@@ -198,8 +198,16 @@ Net: 13 days of no replication, no alert.
 - For a one-step schema mismatch, run upstream `upgrade.sh` in-band
   (under `carton exec`, sourcing `/noninteractive.bash_env` for the
   image's local::lib env) and retry replication.
-- Exit non-zero on any remaining failure so the systemd unit goes to
-  `failed`.
+- **Classify the remaining (non-schema) failure (2026-06-28).** A *transient
+  upstream fetch* failure — `LoadReplicationChanges` couldn't DOWNLOAD a packet
+  (network/TLS/DNS blip to metabrainz.org; e.g. `SSL … unexpected eof`,
+  `Died at … LoadReplicationChanges line 238`), with no apply/data error —
+  **exits 0 and does NOT page**: it self-heals on the next run and the
+  state-based freshness probe backstops a real stall. A real *apply/data*
+  failure (a packet downloaded but failed to apply) or a failed schema
+  auto-heal **exits 1 with an `[mb-replication] …` verdict line**. Detection is
+  a `fetch_re` vs `apply_re` grep over stdout+`mirror.log`; ambiguous/unknown
+  failures default to paging (fail safe).
 
 The image's `upgrade.sh` has a few non-obvious requirements the wrapper
 satisfies:
@@ -222,10 +230,18 @@ satisfies:
 
 Two independent signals — either one fires if replication is broken:
 
-1. **errorPattern `MusicBrainz replication failed`** — Loki match on
-   `LoadReplicationChanges failed|Schema sequence mismatch` in
-   `musicbrainz-replication.service` journal. threshold=0 (single-shot;
-   the unit runs once daily). Validates that auto-heal didn't engage.
+1. **errorPattern `MusicBrainz replication failed`** — Loki match in the
+   `musicbrainz-replication.service` journal. threshold=0 (single-shot; the
+   unit runs once daily).
+   **As of 2026-06-28 it keys ONLY on the wrapper's own verdict lines**
+   (`\[mb-replication\] (replication apply failed|upgrade\.sh failed|schema
+   mismatch needs manual|retry still failed)`), NOT the raw upstream
+   `LoadReplicationChanges failed (rc=255)` / `Schema sequence mismatch`
+   strings we tee to the journal. Why: the wrapper is the decision authority —
+   it has already excluded a transient fetch blip (exits 0) and a *successful*
+   schema auto-heal (exits 0). Matching the raw strings used to **false-page**
+   on both (a momentary metabrainz TLS hiccup at 03:00, and every clean
+   auto-heal, since the raw diagnostics are still printed). Commit `dbd09c3f`.
 
 2. **deepProbe `MusicBrainz replication freshness`** —
    `modules/nixos/services/probes/check-musicbrainz-replication.nix`.

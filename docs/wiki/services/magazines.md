@@ -54,6 +54,29 @@ TOC instead of horrible multi-column raster scroll.
 * **Secrets:** `secrets/hosts/doc2/{gwm-archiver,komga-sync}.env` (sops)
 * **All systemd units on doc2:** `systemctl list-unit-files | grep -E 'gwm-|komga'`
 
+### The dedicated NFS share (tower-side, 2026-06-28)
+
+The archive lives on its **own** Unraid share, *not* in the big `/mnt/user/data`
+union — that's what eliminated the shfs synthetic-inode ESTALE that was failing
+`gwm-archiver`'s `ProtectSystem=strict` namespace bind (`226/NAMESPACE`).
+Full rationale: [../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md).
+
+- **Tower:** share `magazines`, cfg `/boot/config/shares/magazines.cfg` —
+  `shareInclude="disk1"` (single XFS disk → stable inodes), `shareUseCache="no"`.
+  NFS-exported `private`, `fsid=104`, scoped to exactly **doc2 `192.168.1.35` (rw),
+  epi `192.168.1.5` (rw), framework `100.78.17.73` (ro)**. Physically at
+  `/mnt/disk1/magazines`.
+- **Clients:** `homelab.mounts.magazines` (`modules/nixos/services/mounts/magazines-nfs.nix`)
+  mounts `192.168.1.2:/mnt/user/magazines → /mnt/magazines` — doc2 static+rw,
+  epi automount+rw, framework Tailscale+automount+**ro** (defense in depth).
+- **Backup:** in **both** kopia-mum (Synology) and kopia-photos (Wasabi). It was
+  in *no* kopia source before the move.
+- **Rollback / restore:** the old `/mnt/data/Media/Magazines` was **deleted**
+  after the migration verified, so the archive now lives *only* on the dedicated
+  share + the two kopia repos. To restore: `kopia` restore from kopia-mum/photos
+  into `/mnt/disk1/magazines`. epi's `.5` is DHCP — keep a pfSense reservation or
+  the rw export scope breaks.
+
 ## Surprising / load-bearing facts (read at least once)
 
 * **Komga doesn't merge `<name>.pdf` + `<name>.epub` into one book** — they
