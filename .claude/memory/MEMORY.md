@@ -1,8 +1,6 @@
 # Memory
 
-## Shell Environment Quirk
-- zoxide hook (`__zoxide_z`) causes `cd` commands to fail with exit 127 in Bash tool
-- Workaround: use `git -C /path/to/repo` instead of `cd /path && git`
+## Commit Discipline
 - Tree often has pre-staged WIP; bare `git commit` sweeps the whole index. Commit
   by pathspec (`git commit <file>`) + verify `git show --stat HEAD` before push:
   [feedback-commit-pathspec-staged-wip.md](feedback-commit-pathspec-staged-wip.md)
