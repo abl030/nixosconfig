@@ -81,12 +81,17 @@
   external monitor; AMD s2idle glitch-wake trigger). Fix is `services.upower.ignoreLid=true`
   (live 2026-06-26), NOT `LidSwitchIgnoreInhibited` (a trap — low-level locks always honored;
   cost one reverted commit). [framework-lid-suspend-gsd-power.md](framework-lid-suspend-gsd-power.md).
-- ⚠️ OPEN: framework Moonlight stream → 007 VM (.111) **lags intermittently after ~1h**, fixed
-  by restarting Moonlight (Ctrl+Alt+Shift+Q) but won't self-recover. Suspect mt7921e PCIe ASPM-L1
-  (link `l1_aspm=1` despite the driver param; resume re-enables it) → fix `l1_aspm=0` at boot+resume
-  committed (9633d46a, hibernate-fix.nix) but UNVALIDATED. But a *client* restart fixing it hints at
-  the Moonlight↔Apollo flow too. Full RCA + a durable dual-side (framework bash + VM PowerShell)
-  real-time logging kit to catch the smoking gun next session:
+- ⚠️ OPEN (still UNSOLVED, narrowed 2026-06-28): framework Moonlight stream → 007 VM (.111) **lags
+  intermittently**. Dual-side capture + UniFi ran during a live lag. It is NOT solved — no fix tested —
+  but the capture RULES OUT: ASPM (lag reproduces with `l1_aspm=0` throughout, so 9633d46a is NOT the
+  cure — keep it anyway), the server/encoder (VM tx steady ~5.5 MB/s, no throttle), and the AP/channel/
+  signal/uplink (AP near-idle 11% util, hears framework's uplink at 866 Mbps/−39 dBm; `txpower 3 dBm` is a
+  cosmetic driver artifact). LEADING HYPOTHESIS (unproven): **mt7921e downlink/RX-path collapse under load**
+  — AP→framework rate-control falls to ~48 Mbps + 12% retries → frame loss → lag, on current kernel 7.1.1 +
+  fw 1.1. NEXT TESTS: A/B the Moonlight bitrate (51.5→30 Mbps), driver reload mid-lag w/o restarting
+  Moonlight, try a different NIC/band, read mt76 debugfs as root. Don't overclaim it as "confirmed" until a
+  fix actually holds. Full writeup + the validated capture kit (staged at `~/stream-log.sh` on framework +
+  `C:\stream-log.ps1` on VM 120; needs `iw`, now in framework pkgs + `.111` answers ICMP):
   [`docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md`](../../docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md).
 - Plex CONTAINED 2026-06-24 (#277): moved off tower `--net=host` onto its own **VLAN 30
   MEDIA_DMZ** (`192.168.30.2`), pfSense default-denies it to all RFC1918, WAN egress only,

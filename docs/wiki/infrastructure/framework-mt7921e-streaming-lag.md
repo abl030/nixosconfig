@@ -1,6 +1,12 @@
 # Framework → Apollo streaming lag (mt7921e) — investigation + real-time capture kit
 
-- **Date:** 2026-06-26 · **Status:** OPEN — root cause not yet confirmed; one fix applied, needs validation + a real-time capture.
+- **Date:** 2026-06-26, updated **2026-06-28** · **Status:** **STILL OPEN / UNSOLVED — but narrowed by a
+  live dual-side capture (2026-06-28).** No working fix has been tested yet; the stream still lags. What
+  the capture *did* establish: the lag reproduces with **`l1_aspm=0` the whole time** (so the ASPM fix is
+  **not** the cure), the **server/encoder and the AP/channel are clean**, and the failure shows up as a
+  **degraded AP→framework downlink** (rate-control dropped to ~48 Mbps + 12% retries while signal is −37/−39
+  dBm). **Leading hypothesis:** mt7921e downlink/RX-path degradation under sustained load. This is still a
+  hypothesis — it has NOT been confirmed by fixing it. See **[2026-06-28 capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved)** below.
 - **Host:** `framework` (Framework 13, NixOS) · WiFi = **MediaTek MT7922** (`mt7921e`, PCI `0000:01:00.0`).
 - **Stream:** Moonlight on framework → Apollo on the gaming VM `120 apollo-007-first-light` (`.111`), LAN, direct over WiFi (not Tailscale-relayed).
 
@@ -31,7 +37,7 @@ Two different "resets" both work, which is the central puzzle (see Hypotheses).
 - Moonlight config: `bitrate=51500` (51.5 Mbps), 60 fps, 1080p, `framepacing=false`, vsync on,
   `packetsize=0` (auto). Nothing pathological.
 
-## Two hypotheses (still open)
+## Two hypotheses (original framing — see [2026-06-28 capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved) for what's since been ruled in/out)
 
 **(A) WiFi-level — ASPM L1 / mt7921e firmware degradation.** PCIe ASPM L1 stays on; repeated L1
 entry/exit during the bursty stream slowly wedges the MT7922 firmware → latency spikes → UDP frames
@@ -47,14 +53,85 @@ WiFi spikes may be the *source* of the loss while Moonlight's non-recovery is *w
 They are not mutually exclusive — most likely the WiFi spikes (A) cause the loss, and Moonlight's
 pipeline (B) fails to recover from it.
 
+## 2026-06-28 live capture findings — narrows the search, NOT yet solved
+
+⚠️ **Nothing here is a fix.** We ran the dual-side capture kit during a real lag and pulled the AP's view
+from UniFi. The data **rules several things out** and points at a leading suspect, but **no fix has been
+tested** — the stream was still lagging when we stopped. Treat the conclusion as a *hypothesis to test*,
+not a solved root cause.
+
+**Setup:** Moonlight on framework ← Apollo on VM 120 (`.111`), ~51.5 Mbps / 1080p60, l1_aspm forced 0.
+Kernel **7.1.1**, MT7922 firmware **1.1** (both current — not a stale-driver case). AP = "Living Room"
+UAP-AC-Pro, **channel 149** (5745 MHz, 80 MHz, non-DFS UNII-3).
+
+**What the two loggers showed (aligned by `HH:MM:SS`), over ~7.5 min:**
+
+| Side | Reading during the lag |
+| --- | --- |
+| **VM (server) tx** | **steady, avg 5,529 KB/s** (max 6,101), GPU ~60%, NVENC 6%, temp 64 °C, **throttle `0x0`** |
+| framework `gw_ms` (→AP) | **21% of samples = LOSS**, spikes to 74 ms (idle baseline ~7 ms, 0% loss) |
+| framework `vm_ms` (→VM) | 13% LOSS, spikes to 36 ms |
+| framework `rxKBs` | erratic — collapses to ~1,300 then bursts to ~13,100 (delayed / catch-up) |
+| framework `lost` | **avg 29 Moonlight "Invalidate reference frame"/s** |
+| framework `txRetry` | climbing ~6/s (3,133 → 4,804 over a minute) |
+| framework `txMbps` (PHY) | swinging 866 → 433 → **173** |
+| framework `l1_aspm` | **`0` the entire time** |
+| framework signal | −37 dBm (−41…−39), excellent, beacon loss 0 |
+
+**What UniFi (the AP's view) added — the decisive half:**
+
+- AP is **healthy and near-idle**: 22 dBm TX, **11% airtime**, 3 clients, CPU 12%, 21-day uptime, no DFS
+  events, channel unchanged.
+- AP **hears framework's *uplink* perfectly**: −39 dBm, **866.7 Mbps uplink, the best client on the radio.**
+  → framework's transmit side is fine; the client's reported **`txpower 3 dBm` is a cosmetic mt7921e driver
+  artifact**, not a real cap (AU/ch149 allows 36 dBm).
+- **The damage is on the *downlink* (AP→framework): only 48 Mbps with 12.1% TX retries** — the AP's
+  rate-control has bailed out of VHT to a legacy rate **for framework only**. At −39 dBm it should be 866.
+- **The other two clients on the same AP/channel are clean** (0–0.6% retries, 866 Mbps) → not the channel,
+  not the AP, not airtime. framework-specific.
+
+**What this rules OUT (well-supported):**
+- **The old ASPM theory as the cure** — lag reproduces with `l1_aspm=0` throughout. The 9633d46a fix holds
+  but does **not** prevent the lag. (Note: the original `l1_aspm=1` measurement on 2026-06-26 is no longer
+  reproducible to test, since the fix now forces it 0.)
+- **The server / encoder (old Hypothesis B's server angle)** — VM tx is rock-steady, GPU/NVENC fine, no
+  throttle. Apollo sent a clean ~44 Mbps the whole time.
+- **AP, channel 149, airtime, signal strength, and framework's uplink** — all measured clean.
+
+**Leading hypothesis (still UNPROVEN):** the **mt7921e RX/downlink path degrades under sustained
+high-throughput load** — framework fails to reliably ACK high-VHT-rate downlink frames, the AP retries
+(12%) and rate-adapts down to 48 Mbps legacy, the ~44 Mbps stream no longer fits → frame loss → lag. The
+gateway-ping loss is the AP dropping frames to framework after exhausting retries. This is *consistent*
+with the two known resets (driver reload re-inits the NIC; a Moonlight restart drops the sustained load so
+the link starts clean) — but **"consistent with" is not "confirmed."**
+
+**To actually confirm/refute it (next session — none done yet):**
+1. **A/B the bitrate.** Drop Moonlight to ~30 Mbps (or 20). If the downlink stops collapsing and the lag
+   goes away, the load-induced-rate-collapse story holds and we have a usable workaround. If it still
+   lags at 30 Mbps, the "sustained load" framing is wrong.
+2. **Driver reload mid-lag** (`sudo modprobe -r mt7921e && sudo modprobe mt7921e`) *without* restarting
+   Moonlight, and watch the AP downlink rate + `gw_ms` recover. Confirms it's the NIC/driver, not Moonlight.
+3. **Different NIC / band.** Try a USB WiFi dongle (different chipset) or force 2.4 GHz / a different 5 GHz
+   channel for one session — if a different radio path is stable under the same stream, it isolates to the
+   mt7921e.
+4. **mt76 debugfs under root** (`/sys/kernel/debug/ieee80211/phy0/mt76/`) during a lag — fw/queue/AMSDU
+   stats may show the wedge directly (we couldn't read it non-root).
+5. Search mt76 upstream for a load-induced RX rate-control / AMPDU-AMSDU bug on MT7922 at kernel ≥7.1.
+
+**Raw capture saved:** `~/framework-streamlag-capture-20260628.log` on doc1 (framework side); VM side was
+`C:\stream-vm.log` on VM 120.
+
 ## Fix already applied (validate it)
 
 Commit **9633d46a** — `hibernate-fix.nix` now **forces `l1_aspm=0` (+ `clkpm=0`) on the mt7921e at boot
 and on every resume** (the existing suspend reload re-triggers it). Targeted to the card, so other
 devices keep ASPM/battery. **Deploy framework** (`sudo nixos-rebuild switch --flake .#framework`) to
 make it permanent; runtime now: `sudo sh -c 'for d in /sys/bus/pci/drivers/mt7921e/0000:*; do echo 0 >
-"$d/link/l1_aspm"; echo 0 > "$d/link/clkpm"; done'`. **Open question:** does the lag still happen with
-`l1_aspm` confirmed 0? If yes → it's (B) or a firmware/kernel issue, not ASPM.
+"$d/link/l1_aspm"; echo 0 > "$d/link/clkpm"; done'`. **Open question (now ANSWERED, 2026-06-28):** the lag
+**still happens with `l1_aspm` confirmed `0` throughout** — so the ASPM fix is **not** the cure. Keep it
+(it's cheap, targeted, and closes a real PCIe-ASPM trap that could still bite on resume), but stop treating
+it as the streaming-lag fix. The cause is downstream — the mt7921e RX/downlink path, not PCIe ASPM. See the
+[2026-06-28 capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved).
 
 ## The decisive test (do this the instant it lags, BEFORE Ctrl+Alt+Shift+Q)
 
