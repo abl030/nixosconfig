@@ -134,9 +134,21 @@ reaches ~120 Mbit only by stacking ~50 of them. The tunnel itself has headroom
 - **Policy routing:** both `192.168.1.17` (tower/NZBGet) and `192.168.1.36`
   (doc2 ens19) are in the `MV_VPN_IPS` alias → LAN rule routes them via the
   `AirVPN` (NZ) gateway, with a following kill-switch block rule.
-- **VPN gateway monitoring is DISABLED** (`monitor_disable=true`) on both
-  tunnels — pfSense shows them "online" without probing, so the kill switches
-  never auto-trigger and there's no live RTT/loss data.
+- **VPN gateway monitoring is ACTIVE, but its ACTION is disabled** (corrected
+  2026-06-28 — the earlier "monitoring is disabled / `monitor_disable=true` / no
+  live RTT data" claim was WRONG; it conflated `monitor_disable` with
+  `action_disable`). Reality on `AirVPN_SG` (gw id=2): `monitor_disable=false`
+  (dpinger DOES probe — pings `10.128.0.1` every 2s, with live RTT/loss; e.g.
+  225ms / 0% when healthy) but **`action_disable=true`**, so probe results never
+  trigger a route change. The kill switches never auto-trigger because the
+  *action* is off, NOT because monitoring is off. **Consequence:** if a tunnel
+  silently dies, dpinger goes red but pfSense keeps it in the route table — rules
+  27/30 still first-match and WireGuard black-holes the packets (Usenet / Apollo
+  **stall**; still NO WAN leak — the kill-switch property holds via WireGuard's
+  dead-peer drop, not via the block rule). So a red gateway monitor is the signal,
+  not a kill-switch block log. (A transient 100% loss with `action_disable=true`
+  is harmless — it's what the 2026-06-28 "is the tunnel off?" scare turned out to
+  be; the tunnel was UP the whole time.)
 
 ### Exit-location experiments → NL wins at ~234 Mbit/s (2026-06-18)
 
@@ -172,13 +184,21 @@ rule 27 → gateway **AirVPN_SG** → `tun_wg0` → `213.152.176.140:1637` → e
   tunnel drops — re-pull a fresh AirVPN NL config and update the endpoint.
 - The NZ tunnel (`tun_wg2` / `AirVPN` gateway) stays configured but idle as a
   known-good fallback: point rule 27 back at `AirVPN` and reload NZBGet to revert.
+- *Observed 2026-06-28:* the live peer endpoint is now `213.152.161.37:1637`
+  (`europe3.vpn.airdns.org`, NL) — it rotated off `…176.140` **without** dropping
+  the tunnel (fresh handshake; NZBGet exiting `213.152.161.52`, Lelystad NL), so in
+  practice the endpoint tracked the hostname rather than hard-failing on the
+  pinned-IP rotation the caveat above feared.
 
 ### Other open items
 
-- **Re-enable VPN gateway monitoring** (`monitor_disable=true` on both tunnels):
-  the kill switch can't auto-trigger, and with monitoring off a silently-dead
-  tunnel just blackholes Usenet (kill switch still holds, so no WAN leak — it
-  stops rather than leaks). Worth fixing now that NL is the production path.
+- **Enable gateway-down ACTION / failover** (`action_disable=true` today on both
+  tunnels; monitoring itself is already ON — see the corrected note above). The
+  kill switch / failover can't auto-trigger, so a silently-dead tunnel just
+  blackholes Usenet (kill switch still holds via WireGuard's dead-peer drop, so no
+  WAN leak — it stops rather than leaks). Flipping `action_disable=false` would let
+  dpinger pull a dead tunnel from the route table and (given a configured fallback
+  gateway) auto-failover. Worth considering now that NL is the production path.
 
 ### Unrelated finding: doc2 `192.168.1.35` (ens18) has no internet egress
 
