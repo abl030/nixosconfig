@@ -474,21 +474,31 @@ in {
 
         # See #253 audit + rules-doc "Per-service errorPatterns".
         # AxiosError dumps from polling Jellyfin are routine WARN noise.
-        # DB-pool timeouts mean the jellystat-db container is dead or
-        # the connection pool is exhausted — actionable.
+        # A genuinely-dead jellystat-db makes the app log "Postgres DB
+        # Connection refused at <db>:5432" repeatedly — that is the real,
+        # actionable signal.
         monitoring.errorPatterns = [
           {
-            name = "Jellystat DB pool timeout";
+            name = "Jellystat DB unreachable";
             unit = "podman-jellystat.service";
-            pattern = "(?i)Connection terminated due to connection timeout|FATAL";
+            # 2026-06-28: the old pattern matched "Connection terminated due
+            # to connection timeout" — that is the node app's *client-side*
+            # pg-pool timeout (connectionTimeoutMillis), a benign blip that
+            # self-heals every time (app stays Up, DB authed fine). It fired
+            # ~19x/24h and false-paged when two blips straddled the 10m gate.
+            # The real DB-down signature is "Postgres DB Connection refused"
+            # (the app can't reach the nspawn at all); FATAL is kept as a
+            # cheap catch-all but never appears in this unit on its own.
+            pattern = "(?i)Postgres DB Connection refused|FATAL";
             severity = "warning";
-            summary = "jellystat lost its DB connection pool";
+            summary = "jellystat cannot reach its PostgreSQL DB";
             # 2026-06-06: false-fired on a 3-line, ~10s self-healing pool
             # blip (default threshold=2 → count>2 paged instantly). A dead
             # jellystat-db keeps erroring for minutes, so require the
-            # condition to persist past the 5m window before paging. Real
-            # outage now pages ~10m later — fine for warning-severity
-            # analytics. See rules-doc "forDuration — transient bursts".
+            # condition to persist past the 5m window before paging. Brief
+            # DB autoupdate restarts (refused for <10m) stay quiet; only a
+            # genuinely dead DB pages. See rules-doc "forDuration — transient
+            # bursts".
             forDuration = "10m";
           }
         ];
