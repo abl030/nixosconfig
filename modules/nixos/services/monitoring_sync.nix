@@ -1170,7 +1170,21 @@ in {
       config.sops.secrets."uptime-kuma/api".path;
 
     systemd.tmpfiles.rules = lib.mkOrder 2000 [
-      "d /var/lib/homelab/monitoring 0750 root root -"
+      # 0751 (not 0750): a non-root deep-probe user (e.g. mailsearch's
+      # User=indexUser — the only probe that drops privilege) must TRAVERSE
+      # this dir to reach its push-URL under push-urls/. With 0750, "other"
+      # had no execute bit, so traversal was denied and the probe read of the
+      # already-0755 push-urls/<slug>.url below ALWAYS failed with EACCES — the
+      # runner logged "push URL file missing", never pushed a heartbeat, and
+      # Kuma flipped the monitor DOWN and paged ~every 30 min (it never once
+      # worked since the mailsearch probe landed). --x grants traverse only
+      # (not listing) to "other"; the sibling 0644 records/maintenance.json
+      # become readable to a local user that already knows their names, but
+      # those are non-secret monitor metadata (names/ids, empty url fields).
+      # Push URLs themselves are per-monitor heartbeat tokens, already treated
+      # as non-secret (see the push-urls 0755 below). If they ever need to be
+      # secret, switch to a per-probe-user ACL or systemd LoadCredential.
+      "d /var/lib/homelab/monitoring 0751 root root -"
       # Push-URL state dir: monitor_sync writes <safe-name>.url here
       # after creating each push monitor in Kuma; deep-probe oneshots
       # read those files at runtime. 0755 so non-root probe users can
