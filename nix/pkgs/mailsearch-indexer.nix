@@ -58,6 +58,7 @@ in
       MAILSEARCH_MAX_CHARS    truncate cleaned body to this many chars (default 30000)
       NOTMUCH_BIN             path to the notmuch binary (default "notmuch")
     """
+    import http.client
     import itertools
     import json
     import os
@@ -252,10 +253,18 @@ in
         run forever (~4.8k messages churning the embed server + log). On that
         specific error we halve the text and retry down to a floor, so the
         message embeds instead of being dropped. Only the tail is lost; the
-        message lead is what semantic search needs. Non-overflow errors
-        (network/transient) re-raise unchanged → skipped + retried next run.
+        message lead is what semantic search needs.
+
+        Connection drops (RemoteDisconnected / reset / timeout) get a bounded
+        backoff-retry: the embed server has ONE slot, so a burst — e.g. the
+        one-time backlog recovery firing thousands of requests across the
+        worker pool — saturates its accept queue and it drops connections
+        instead of 500ing. Those are transient, so retry the same input a few
+        times (the backoff also lets the queue drain) before giving up → then
+        skip + retry next run, as before.
         """
         t = text
+        conn_tries = 0
         while True:
             try:
                 return embed([t])[0]
@@ -269,6 +278,14 @@ in
                     t = t[: len(t) // 2]
                     continue
                 raise
+            except (http.client.HTTPException, OSError):
+                # RemoteDisconnected, ConnectionResetError, socket timeout, …
+                # HTTPError subclasses OSError but is handled above, so it never
+                # reaches here. Bounded so a real outage still gives up + skips.
+                conn_tries += 1
+                if conn_tries > 6:
+                    raise
+                time.sleep(min(2 ** conn_tries, 20))
 
 
     def open_db():
