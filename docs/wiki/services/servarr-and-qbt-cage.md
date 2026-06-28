@@ -129,12 +129,23 @@ The migration that works (per app; do it with **both** source+dest *arr stopped 
   downloader2), **Unbound host overrides** `radarr/sonarr/prowlarr/qbt.ablz.au → .4` (these names had
   **no** Unbound override before and resolved to `.4` via external DNS / Cloudflare — which always
   pointed at the intended final `.4`), the `45726` torrent-port forward, and the LAN→qbt `:8080`
-  exception pointed at `.4`. **servarr is NOT in `MV_VPN_IPS`** — it egresses via the normal WAN (only
-  the qbt DMZ guest is VPN-routed).
+  exception pointed at `.4`.
+  - **UPDATE 2026-06-28 — servarr IS now in `MV_VPN_IPS`** (reversing the original design below).
+    1337x.to banned our home WAN IP (almost certainly from Prowlarr's indexer / Cloudflare-solver
+    requests), so `192.168.1.4` was added back to the `MV_VPN_IPS` alias → servarr's internet egress
+    now exits via AirVPN (NZ, `AS45179 SiteHost`, e.g. `223.165.69.73`) instead of the home WAN,
+    inheriting the existing gateway + kill-switch. A pfSense **floating bypass rule** (src `.4` → dst
+    `192.168.20.2:8080`, quick, no gateway) keeps servarr→qbt WebUI direct (cross-VLAN; would otherwise
+    be eaten by the `dest=any` MV_VPN_IPS rule). doc2's `vpnClientIPs` mirror re-added `.4` to match.
+    Verified live: servarr egress NZ, qbt `:8080`→200, NZBGet `.17`→401. The qbt DMZ guest remains
+    separately VPN-caged.
+  - *Original design (superseded above): servarr was NOT in `MV_VPN_IPS` — it egressed via the normal
+    WAN, and only the qbt DMZ guest was VPN-routed.*
   - *History: the first cutover landed on a temporary `.101` (2026-06-22); the move to the final `.4`
     (2026-06-23) repointed the DHCP reservation, the four Unbound host overrides, and the LAN→qbt rule
     `.101 → .4`, and removed `.4` from `MV_VPN_IPS` (so servarr stops inheriting the old downloader's
-    AirVPN kill-switch). doc2's `vpnClientIPs` mirror dropped `.4` to match.*
+    AirVPN kill-switch). doc2's `vpnClientIPs` mirror dropped `.4` to match. Re-added 2026-06-28 (see
+    UPDATE above).*
 - **ACME:** first deploy left a **minica self-signed** cert (the Cloudflare token wasn't decryptable
   pre-sops-bootstrap, so the `acme-order-renew-*` units failed with "dependency"). After the token
   lands, **restart `acme-order-renew-<name>.service`** to fetch the real LE certs, then `reload nginx`.
