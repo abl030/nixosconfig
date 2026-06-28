@@ -333,10 +333,16 @@
   #   2. If output contains "Schema sequence mismatch" (codebase ahead of DB)
   #      AND the DB schema is exactly one behind the codebase, runs upgrade.sh
   #      to migrate then retries replication.
-  #   3. Treats any `LoadReplicationChanges failed` or `Schema sequence mismatch`
-  #      line in the final run as a hard failure (exit non-zero) so the unit
-  #      goes to `activating (start) → failed`, which is what the errorPattern
-  #      + freshness probe also catch.
+  #   3. Classifies a non-schema failure: a TRANSIENT upstream fetch blip
+  #      (network/TLS/DNS to metabrainz.org — LoadReplicationChanges couldn't
+  #      DOWNLOAD a packet) exits 0 and does NOT page (self-heals next run; the
+  #      hourly state-based freshness probe is the backstop for a real stall),
+  #      whereas a REAL apply/data failure or a failed schema auto-heal exits 1
+  #      with an "[mb-replication] …" verdict line that the errorPattern keys on.
+  #      The errorPattern matches ONLY those wrapper verdicts, NOT the raw
+  #      upstream "LoadReplicationChanges failed (rc=255)" / "Schema sequence
+  #      mismatch" diagnostics we tee to the journal — otherwise a transient
+  #      blip (or even a SUCCESSFUL schema auto-heal) would false-page.
   replicationScript = pkgs.writeShellScript "musicbrainz-replication-run" ''
     set -uo pipefail
 
@@ -396,12 +402,30 @@
             exit 1
           fi
         else
-          echo "[mb-replication] schema mismatch not single-step (codebase=$codebase db=$db_seq); needs manual intervention" >&2
+          echo "[mb-replication] schema mismatch needs manual intervention — not single-step (codebase=$codebase db=$db_seq)" >&2
           exit 1
         fi
       fi
 
-      echo "[mb-replication] LoadReplicationChanges failed (no schema mismatch detected); see journal + mirror.log above" >&2
+      # No schema mismatch. Distinguish a TRANSIENT upstream fetch failure
+      # (LoadReplicationChanges died trying to DOWNLOAD a packet — network/TLS/
+      # DNS blip to metabrainz.org, retries exhausted) from a REAL apply/data
+      # failure (a packet downloaded but failed to apply). Only the latter is
+      # page-worthy: a fetch blip self-heals on the next run, and the hourly
+      # state-based freshness deep-probe (last_replication_date) is the backstop
+      # that pages if the stall actually persists past ~24h. This stops a
+      # momentary metabrainz TLS hiccup from waking the phone at 03:00.
+      combined=$(printf '%s\n%s' "$out" "$mirror_log")
+      fetch_re='Error retrieving|[Cc]an.t connect to|SSL connect attempt failed|unexpected eof while reading|Connection timed out|Connection refused|Could not connect|Timeout was reached|Temporary failure in name resolution|Network is unreachable'
+      apply_re='DBD::Pg|duplicate key value|violates|does not exist|out of (memory|shared memory)|No space left|deadlock detected'
+
+      if printf '%s' "$combined" | ${pkgs.gnugrep}/bin/grep -qE "$fetch_re" \
+        && ! printf '%s' "$combined" | ${pkgs.gnugrep}/bin/grep -qE "$apply_re"; then
+        echo "[mb-replication] transient upstream fetch failure (network/TLS to metabrainz.org); NOT paging — the hourly freshness deep-probe pages on sustained staleness. Retrying next run."
+        exit 0
+      fi
+
+      echo "[mb-replication] replication apply failed (not a fetch blip, no schema mismatch) — see mirror.log above" >&2
       exit 1
     fi
   '';
@@ -533,28 +557,31 @@ in {
         {
           name = "MusicBrainz replication failed";
           unit = "musicbrainz-replication.service";
-          # Matches both the cron wrapper's swallowed-rc message and the
-          # bare schema-mismatch line from LoadReplicationChanges. Either
-          # one means the daily run made no forward progress.
+          # Key ONLY on the wrapper's own verdict lines ("[mb-replication] …"),
+          # NOT the raw upstream "LoadReplicationChanges failed (rc=255)" /
+          # "Schema sequence mismatch" diagnostics it tees to the journal. The
+          # wrapper is the decision authority: it has already ruled out a
+          # transient upstream fetch blip (which exits 0, doesn't page — the
+          # hourly freshness deep-probe backstops a real stall) and a SUCCESSFUL
+          # schema auto-heal (exits 0). So these verdicts mean a genuine,
+          # human-needed failure. (Matching the raw strings used to false-page
+          # on both a momentary metabrainz TLS hiccup and a clean auto-heal.)
           #
-          # Single-shot: the unit fires once a day and the wrapper exits
-          # immediately after printing the failure. threshold=0 ⇒ page
-          # on the first occurrence.
-          pattern = "(?i)LoadReplicationChanges failed|Schema sequence mismatch";
+          # Single-shot: the unit fires daily and the wrapper exits immediately
+          # after printing the verdict. threshold=0 ⇒ page on first occurrence.
+          pattern = "\\[mb-replication\\] (replication apply failed|upgrade\\.sh failed|schema mismatch needs manual|retry still failed)";
           severity = "critical";
           summary = "MusicBrainz daily replication did not make forward progress";
           description = ''
-            Indicates either upstream replication packets failed to apply
-            (codebase ahead of DB schema, DB unreachable, packet auth
-            issue) or the wrapper's auto-heal upgrade.sh attempt failed.
+            A real replication failure (NOT a transient upstream fetch blip,
+            which no longer pages — the freshness deep-probe covers sustained
+            staleness). Means a downloaded packet failed to APPLY, or the
+            schema auto-heal bailed (multi-step jump, upgrade.sh failure, perms).
 
             Drill into journal: `sudo journalctl -u musicbrainz-replication.service -e`.
             Mirror log inside the container: `sudo podman exec musicbrainz-musicbrainz-1 tail -200 /musicbrainz-server/mirror.log`.
 
-            For a one-major-version-behind schema mismatch, the wrapper
-            normally heals automatically; if this alert fires, the auto-heal
-            path bailed (multi-step jump, upgrade.sh failure, perms). See
-            docs/wiki/services/musicbrainz.md "Replication monitoring".
+            See docs/wiki/services/musicbrainz.md "Replication monitoring".
           '';
           threshold = 0;
         }
