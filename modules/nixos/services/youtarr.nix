@@ -106,8 +106,16 @@ in {
       monitoring.errorPatterns = [
         {
           name = "Youtarr DB unable to write";
-          unit = "podman-youtarr-db.service";
-          pattern = "(?i)\\[ERROR\\] (InnoDB|mysqld):.*(Permission denied|Cannot open)";
+          # 2026-06-28: was wired to `podman-youtarr-db.service` — WRONG unit,
+          # so this critical could never fire (0 lines/30d). youtarr's *app*
+          # is an OCI/podman unit, but its DB is a systemd-NSPAWN container
+          # (containers.youtarr-db = mdbc.containerConfig), whose journal unit
+          # is `container@youtarr-db.service`. The `podman-` prefix on the app
+          # unit misled the original author. Real DB log lines (1000+/30d)
+          # land under the nspawn unit.
+          unit = "container@youtarr-db.service";
+          # MariaDB 10.5+ logs as `mariadbd`; keep `mysqld` for older builds.
+          pattern = "(?i)\\[ERROR\\] (InnoDB|mariadbd|mysqld):.*(Permission denied|Cannot open)";
           severity = "critical";
           summary = "MariaDB can't open data files — likely UID mismatch";
         }

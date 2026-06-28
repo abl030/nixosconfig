@@ -523,10 +523,15 @@ in {
           name = "MusicBrainz post-deploy verification failed";
           unit = "musicbrainz.service";
           # DB-plane verification (artist/release populated, ownership, amqp
-          # broker, SIR triggers) + image build. The /ws/2 web-readiness check
-          # moved to musicbrainz-ready.service (separate pattern below) so a
-          # slow web start can no longer fail this lifecycle-owning unit.
-          pattern = "(?i)MusicBrainz DB verification failed|build images failed";
+          # broker, SIR triggers). The /ws/2 web-readiness check moved to
+          # musicbrainz-ready.service (separate pattern below) so a slow web
+          # start can no longer fail this lifecycle-owning unit.
+          # 2026-06-28: dropped the dead `build images failed` alt — nothing
+          # in musicbrainz.service ever emits it (image builds run in the
+          # separate musicbrainz-build-images.service, and a build failure is
+          # intentionally non-fatal: the stack stays on old images, RCA
+          # 2026-06-25). Matching it here only advertised coverage we lacked.
+          pattern = "(?i)MusicBrainz DB verification failed";
           severity = "critical";
           summary = "musicbrainz orchestration's post-deploy verification failed";
           # Single-shot: emitted once per failed deploy run; the
@@ -553,6 +558,17 @@ in {
           pattern = "(?i)aardvark-dns failed to start";
           severity = "warning";
           summary = "podman DNS plane is unhealthy — MB containers can't resolve each other";
+          # 2026-06-28: every observed match was benign SHUTDOWN-RACE noise,
+          # not a real DNS failure — at host poweroff podman tears containers
+          # down and netavark logs `aardvark-dns failed to start: ... is
+          # destructive (systemd-poweroff.service has 'start' job queued)`.
+          # The indexer restarts cleanly on the next boot. Go RE2 has no
+          # negative lookahead so we can't exclude the `is destructive`
+          # variant in the pattern; instead require the failure to PERSIST so
+          # the poweroff burst (gone after the reboot) can't page, while a
+          # genuinely wedged DNS plane (recurring during normal operation)
+          # still does. See rules-doc "forDuration — transient bursts".
+          forDuration = "10m";
         }
         {
           name = "MusicBrainz replication failed";

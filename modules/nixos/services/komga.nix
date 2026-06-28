@@ -176,9 +176,14 @@ in {
         {
           name = "Komga library scan failed";
           unit = "komga.service";
-          # Komga logs `Library scan for library X failed` or
-          # `Error scanning ...` on per-library scan errors.
-          pattern = "(?i)(library scan for .* failed|error scanning|book analysis failed)";
+          # 2026-06-28: the guessed wording (`library scan for X failed` /
+          # `error scanning`) never matched — verified against Loki, Komga's
+          # actual scan-failure line is, from the TaskHandler:
+          #   `Task ScanLibrary(libraryId='...', scanDeep='false', ...) execution failed`
+          # A real scan failure on 2026-06-28 went unmatched under the old
+          # pattern. Anchored to the real string (the month-of-data tighten-up
+          # the original comment promised).
+          pattern = "(?i)Task ScanLibrary\\(.*\\) execution failed";
           severity = "warning";
           summary = "Komga library scan threw an error — new issues may not be indexed";
         }

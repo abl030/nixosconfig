@@ -142,11 +142,19 @@ in {
         {
           name = "Gotify server failure";
           unit = "gotify-server.service";
-          pattern = "(?i)panic|fatal|listen tcp.*bind";
+          # 2026-06-28: dropped the dead `fatal` arm — gotify (Go) never logs
+          # that word, so it matched nothing and only implied coverage. The
+          # two arms kept ARE genuine non-recovering crash signatures. Routine
+          # gotify noise (`SLOW SQL >= 200ms`, `WebSocket: ReadError ... use
+          # of closed network connection`) and the self-healing `unable to
+          # open database` blip are deliberately NOT matched — they recover on
+          # their own and would only false-page; a true gotify outage shows as
+          # panic / bind failure here and via its Kuma HTTP monitor.
+          pattern = "(?i)panic|listen tcp.*bind";
           severity = "critical";
           summary = "Gotify server crashed — push notifications offline";
-          # Single-shot: panic/fatal lines emit once before the process
-          # exits. Sustained-threshold would silently lose the alert.
+          # Single-shot: panic lines emit once before the process exits.
+          # Sustained-threshold would silently lose the alert.
           threshold = 0;
         }
       ];

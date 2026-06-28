@@ -620,6 +620,15 @@ in {
             silenced by the data loss. Investigate the Loki ingester
             state, network to Loki, and disk pressure on /var/lib/alloy.
           '';
+          # 2026-06-28: this critical was false-paging (~46 hits/7d). A
+          # doc2/Loki NIGHTLY REBOOT makes every host's alloy drop a batch
+          # simultaneously (≥3 in one 5m window → count>2 trips instantly
+          # at forDuration=0s). But those drops are recovered from the WAL
+          # on /var/lib/alloy (see the alloy config above) — no logs are
+          # actually lost. Require the drop to PERSIST past a reboot cycle
+          # so only a sustained Loki outage (WAL filling, ingester down for
+          # real) pages. See rules-doc "forDuration — transient bursts".
+          forDuration = "15m";
         }
       ];
     })

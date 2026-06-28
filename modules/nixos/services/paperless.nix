@@ -233,53 +233,61 @@ in {
 
       # See #253 audit + rules-doc "Per-service errorPatterns".
       monitoring.errorPatterns = [
-        # All paperless patterns: threshold=0. Each catches a
-        # start-failure or DB-auth failure that emits the matching
-        # line once per restart attempt; systemd's StartLimitBurst
-        # caps retries, so we can't rely on N occurrences.
+        # All paperless patterns: threshold=0. Each catches a DB-auth or
+        # worker/scheduler failure that emits the matching line once per
+        # restart attempt; systemd's StartLimitBurst caps retries, so we
+        # can't rely on N occurrences.
+        #
+        # 2026-06-28: these were named "…NFS/auth failure" and their comments
+        # claimed to catch the NFS+BindPaths `Failed at step NAMESPACE` cycle
+        # — but the regexes only ever matched the Postgres auth string, so an
+        # operator over-trusted them for NFS. NFS/NAMESPACE start-failures
+        # already page ONCE fleet-wide via the "Service failed to start
+        # (sandbox/namespace)" alert in alerting.nix (storm de-collide
+        # 2026-06-26), and a stale mount also trips the nfs-watchdog. Adding
+        # `Failed at step NAMESPACE` here too would just DOUBLE-page. So the
+        # fix is honesty: rename to the DB/worker signal they actually carry.
         {
-          name = "Paperless web NFS/auth failure";
+          name = "Paperless web DB auth failure";
           unit = "paperless-web.service";
-          # NAMESPACE failure = NFS+BindPaths cycle.
           # pgauth failure = DB grant regression (#232 trust→scram).
           pattern = "(?i)password authentication failed for user \"paperless\"";
           severity = "critical";
-          summary = "paperless-web cannot start or connect to DB";
+          summary = "paperless-web cannot connect to its database";
           description = ''
-            NAMESPACE failures are an NFS/mount issue — check
-            mnt-data-*.mount on doc2 and the nfs-watchdog. pgauth
-            failures match the #232 trust→scram class.
+            paperless-web hit `password authentication failed` — the #232
+            trust→scram class. NFS/mount failures are covered separately by
+            the fleet-wide NAMESPACE alert and the nfs-watchdog, not here.
           '';
           threshold = 0;
         }
         {
-          name = "Paperless consumer NFS/auth failure";
+          name = "Paperless consumer DB auth failure";
           unit = "paperless-consumer.service";
-          # NAMESPACE = BindPaths source unavailable (NFS stale, dir gone).
-          # Excludes the chronic ConsumerError(duplicate) noise.
+          # pgauth = DB grant regression (#232). Excludes the chronic
+          # ConsumerError(duplicate) noise. NFS handled fleet-wide (see above).
           pattern = "(?i)password authentication failed for user \"paperless\"";
           severity = "critical";
-          summary = "paperless-consumer cannot start or connect to DB";
-          description = "Document ingest is stopped while NFS/DB is broken.";
+          summary = "paperless-consumer cannot connect to its database";
+          description = "Document ingest is stopped while the DB grant is broken.";
           threshold = 0;
         }
         {
-          name = "Paperless scheduler NFS/degraded";
+          name = "Paperless scheduler degraded";
           unit = "paperless-scheduler.service";
-          # NAMESPACE = BindPaths source unavailable.
           # Redis MISCONF = disk persistence broken; beat won't schedule.
-          # DB auth = #232 class.
+          # DB auth = #232 class. NFS handled fleet-wide (see above).
           pattern = "(?i)password authentication failed for user \"paperless\"|celery\\.beat.*MISCONF";
           severity = "warning";
           summary = "celery beat scheduler is degraded";
           threshold = 0;
         }
         {
-          name = "Paperless task queue NFS/worker dead";
+          name = "Paperless task queue worker dead";
           unit = "paperless-task-queue.service";
-          # NAMESPACE = BindPaths source unavailable.
           # Worker death = ingest pipeline stops. Excludes per-doc
-          # ConsumerError + OCR ghostscript warnings.
+          # ConsumerError + OCR ghostscript warnings. DB auth = #232 class.
+          # NFS handled fleet-wide (see above).
           pattern = "(?i)\\[CRITICAL\\] \\[celery\\.worker\\] Unrecoverable|password authentication failed for user \"paperless\"";
           severity = "critical";
           summary = "celery worker can't start or died — document ingest stopped";

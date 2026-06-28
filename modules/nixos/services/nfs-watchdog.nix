@@ -109,10 +109,27 @@ in {
         pattern = "(?i)NFS path .* (is stale, restarting|healthy but service is (down|failed), recovering)";
         severity = "warning";
         summary = "an NFS-dependent service was restarted by its watchdog";
-        # Single-shot per watchdog tick (5min interval). One tripped
-        # mount = one log line per cycle; default threshold=2 would
-        # need 3 cycles ≈ 15min before paging. Keep eager.
+        # 2026-06-28: this was the noisiest rule in the fleet (~72 hits/7d).
+        # threshold=0 + forDuration=0 paged on EVERY single watchdog trip —
+        # but a lone trip is usually a self-healing blip (tower/Synology
+        # rebooted) and a boot-time burst (8 services all trip once when
+        # /mnt isn't ready yet at the 2-min check) is also self-healing once
+        # the mount lands. Both clear within a window or two.
+        #
+        # The watchdog ticks every `interval` (5min default), so the trip
+        # signal is SPARSE: ~1 line per 5min while a mount is unhealthy.
+        # That breaks the usual threshold approach (count[5m]>2 can never
+        # hold — only one tick fits a 5m window). Instead: keep threshold=0
+        # (a single tick registers), widen `window` past the tick interval
+        # so a SUSTAINED outage keeps count continuously >0 across ticks,
+        # and require it to PERSIST via forDuration (> window) so a one-off
+        # trip or a boot burst decays before it can page. Net: isolated
+        # blips + boot storms stay quiet; a genuinely unhealthy mount that
+        # keeps tripping for ~3 cycles pages. (forDuration must exceed
+        # window — a single burst keeps count elevated for exactly `window`.)
         threshold = 0;
+        window = "6m";
+        forDuration = "15m";
         description = ''
           The watchdog stat-probed an NFS mount, it failed, the dependent
           service got restarted. Single trip can be a one-off blip
