@@ -265,26 +265,12 @@
   # when you're using it; fleet-wide changes also converge via the nightly
   # nixos-upgrade timer (root, no sudo). A popped abl030 can no longer
   # rebuild-to-root. See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
-
-  # ⚠️ TEMPORARY DIAGNOSTIC GRANT (2026-06-28) — REVERT WHEN DONE.
-  # Passwordless sudo for abl030 so the doc1 agent can drive the mt7921e
-  # streaming-lag root-cause hunt over SSH (driver reloads, mt76 debugfs reads,
-  # sysfs/iw rate experiments, kernel-param tests). This DELIBERATELY re-opens the
-  # passwordless-root pivot the forgejo#2 note above closed — accepted for the
-  # duration of the debug only. mkAfter → renders last in sudoers → wins (last
-  # match). Remove this block once the streaming lag is fixed.
-  # See docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md.
-  security.sudo.extraRules = lib.mkAfter [
-    {
-      users = ["abl030"];
-      commands = [
-        {
-          command = "ALL";
-          options = ["NOPASSWD"];
-        }
-      ];
-    }
-  ];
+  #
+  # (2026-06-28: a temporary passwordless-sudo grant lived here during the mt7921e
+  # streaming-lag root-cause hunt and was REVERTED once the diagnosis was complete —
+  # back to interactive sudo only, closing the passwordless-root pivot again. The
+  # diagnosis: it's the MT7922 firmware, fix = Intel AX210 card swap. Full story:
+  # docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md.)
 
   system.stateVersion = "24.05";
 
