@@ -6,7 +6,30 @@
   inputs,
   pkgs,
   ...
-}: {
+}: let
+  # rc-free bash for Claude Code's Bash tool. Claude builds a "shell snapshot"
+  # at startup by dumping $SHELL's state (aliases + functions) into
+  # ~/.claude/shell-snapshots/, then sources it on every Bash tool call. With
+  # $SHELL=zsh that drags in zoxide (__zoxide_z), the `ls`->lsd alias, atuin and
+  # starship — whose zsh syntax then misbehaves under the agent's bash and burns
+  # tokens fighting the user's config. `--norc --noprofile` reads NO rc files, so
+  # the snapshot comes out empty and the agent gets a vanilla, predictable shell.
+  # The user's interactive zsh is untouched (this only sets SHELL for `claude`).
+  # See docs/wiki/claude-code/clean-bash-shell-snapshot.md.
+  claude-clean-bash = pkgs.writeShellScriptBin "claude-clean-bash" ''
+    exec ${pkgs.bashInteractive}/bin/bash --norc --noprofile "$@"
+  '';
+
+  # `claude-agents`: launch the Agent View (`claude agents` manages background
+  # sessions) with the clean shell as the snapshot source. Equivalent to
+  # `SHELL=claude-clean-bash claude --verbose agents --dangerously-skip-permissions`.
+  # Any extra args pass through.
+  claude-agents = pkgs.writeShellScriptBin "claude-agents" ''
+    export SHELL=${claude-clean-bash}/bin/claude-clean-bash
+    exec ${config.programs.claude-code.package}/bin/claude \
+      --verbose agents --dangerously-skip-permissions "$@"
+  '';
+in {
   # ---------------------------------------------------------
   # CLAUDE CODE  (native programs.claude-code — see issue #261)
   # ---------------------------------------------------------
@@ -154,6 +177,11 @@
   '';
 
   home.packages = [
+    # Clean-shell launcher for Claude Code (see the `let` block above).
+    # `claude-agents` is the everyday entrypoint; `claude-clean-bash` is exposed
+    # too so it can be used manually as `SHELL=claude-clean-bash claude …`.
+    claude-agents
+    claude-clean-bash
     # MCP servers + runtime deps formerly installed by homelab.claudeCode.
     # Kept available even though most are subagent-only (see .claude/agents/).
     pkgs.unifi-mcp
