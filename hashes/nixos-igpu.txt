@@ -1,1 +1,1 @@
-/nix/store/dpg8g78vjxqzc53v41nqsjvkxwsmlf5f-nixos-system-igpu-26.11.20260627.3d46470
+/nix/store/i0vxz79nvqggbb9vpaqk94d21d3yhb3x-nixos-system-igpu-lxc-proxmox-26.11.20260628.e1c1b84
