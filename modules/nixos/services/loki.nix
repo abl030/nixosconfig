@@ -1,5 +1,5 @@
 # Alloy shipper + optional syslog receiver on every NixOS host.
-# Ships journald + node_exporter to the LGTM stack via HTTPS FQDN.
+# Ships journald + node_exporter + process-exporter to the LGTM stack via HTTPS FQDN.
 # See docs/wiki/services/lgtm-stack.md for the server side + DNS-first rule.
 {
   config,
@@ -135,6 +135,22 @@
     '')
   cfg.extraScrapeTargets;
 
+  # Scrape the local process-exporter when it's running (homelab.prometheus.
+  # processExporter.enable, on by default fleet-wide). Gated on the upstream
+  # exporter option directly so this stays correct if the port/enable changes.
+  # Localhost-only target — the exporter binds 127.0.0.1 (see prometheus.nix).
+  processScrapeBlock = lib.optionalString config.services.prometheus.exporters.process.enable ''
+    prometheus.scrape "process" {
+      targets = [{
+        __address__ = "localhost:${toString config.services.prometheus.exporters.process.port}",
+        instance    = "${config.networking.hostName}",
+      }]
+      forward_to      = [prometheus.remote_write.mimir.receiver]
+      scrape_interval = "60s"
+      job_name        = "process"
+    }
+  '';
+
   alloyConfig = pkgs.writeText "alloy-loki.hcl" ''
     loki.write "loki" {
       endpoint {
@@ -237,6 +253,8 @@
       scrape_interval = "60s"
       job_name        = "node"
     }
+
+    ${processScrapeBlock}
 
     ${extraScrapeBlocks}
 
