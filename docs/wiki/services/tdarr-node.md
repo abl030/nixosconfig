@@ -146,7 +146,7 @@ Tdarr images ship both ffmpeg 6 and 7. With ffmpeg 6 we were seeing occasional V
 Image is `ghcr.io/haveagitgat/tdarr_node:latest`. The `homelab.podman` registry (`modules/nixos/homelab/podman.nix`) pulls newer images nightly and restarts `podman-tdarr-node.service` only if the digest changed. To force an update:
 
 ```
-ssh igp 'sudo systemctl start podman-update-containers.service'
+ssh igpu 'sudo systemctl start podman-update-containers.service'
 ```
 
 Node version must match server version. If the server on tower is upgraded, the node will refuse to connect until pulled; the nightly timer covers that after one cycle, or run the command above.

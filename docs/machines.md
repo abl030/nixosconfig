@@ -111,7 +111,7 @@ homelab.ci.rollingFlakeUpdate.enable = true;
 **Import Note**: This VM is documented as imported/read-only in automation
 
 - **Hostname**: `igpu` (in hosts.nix)
-- **SSH Alias**: `igp`
+- **SSH Alias**: `igpu`
 - **Status**: Running
 - **Purpose**: Media transcoding with AMD iGPU passthrough
 - **Config Path**: `hosts/igpu/`
