@@ -41,18 +41,9 @@
   cfg = config.homelab.services.cratedigger;
   operatorUser = hostConfig.user or "abl030";
   patchedCratediggerSrc = pkgs.applyPatches {
-    name = "cratedigger-src-patched";
+    name = "cratedigger-src-group-permissions";
     src = inputs.cratedigger-src;
-    patches = [
-      ./cratedigger-group-permissions.patch
-      # beets 2.12 dropped beets.ui.get_path_formats/get_replacements and changed
-      # Library() to derive path formats + replacements from config itself. The
-      # harness still used the beets 1.x `from beets.ui import …` + 4-arg
-      # Library() form, so the 2.11→2.12 nixpkgs bump broke EVERY import
-      # (ImportError at beets_harness.py:27). This adapts the harness to the 2.x
-      # API. Upstream this to github:abl030/cratedigger and drop the patch.
-      ./cratedigger-beets2-library-api.patch
-    ];
+    patches = [./cratedigger-group-permissions.patch];
   };
 
   metadataGateStateDir = "/run/cratedigger-metadata-gate";
