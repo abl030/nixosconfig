@@ -117,6 +117,62 @@
       echo "qbt-merge-config: crudini merge failed; starting with existing conf" >&2
     fi
   '';
+
+  # ── B2 (host): qbt guest-health watchdog — the 2026-06-29 tower-reboot blind spot ──
+  # The host NFS watchdog (homelab.nfsWatchdog.qbt, below) only stats the SERVER side of
+  # the scratch on servarr — it stays green even when the GUEST's /downloads virtiofs
+  # view is wedged. That exact blind spot stranded qbt for ~1h after a tower reboot:
+  # servarr's NFS mount was healthy, but virtiofsd had grabbed a tower-shfs handle before
+  # the share settled, the handle went ESTALE, the guest's /downloads mount hung,
+  # qBittorrent ran against a dead save path, and the host watchdog never tripped (path
+  # fine + VM "active"). Only a manual `systemctl restart microvm@qbt` (fresh virtiofsd)
+  # fixed it. This probes qbt the one way only servarr can (pfSense permits servarr→
+  # qbt:8080, and servarr's .4 is in the WebUI AuthSubnetWhitelist so no creds) and
+  # re-rolls the VM when the guest is genuinely unhealthy. See the cage wiki for the RCA.
+  qbtHealthCheck = pkgs.writeShellScript "qbt-health-check" ''
+    set -u
+    api="http://192.168.20.2:8080/api/v2"
+    # Healthy /downloads is the tower array (~1 TB free). A stale/unmounted share falls
+    # back to the 768 MiB guest's tmpfs root (sub-GiB). 5 GiB is a wide moat: far above
+    # any tmpfs fallback, far below the array's real free space (no false trips).
+    floor=5368709120
+
+    sc=${pkgs.systemd}/bin/systemctl
+    curl="${pkgs.curl}/bin/curl -fsS -m 8"
+
+    # Only act on a SETTLED VM: skip if microvm@qbt isn't active, or (re)started within
+    # the last 3 min — qbt's WebUI needs ~60-70s to come up, so don't fight a normal
+    # boot/restart (this also rate-limits our own re-rolls to one per timer window).
+    "$sc" is-active --quiet microvm@qbt.service || exit 0
+    mono=$("$sc" show microvm@qbt.service -p ActiveEnterTimestampMonotonic --value)
+    up=$(${pkgs.coreutils}/bin/cut -d. -f1 /proc/uptime)
+    if [ -n "$mono" ] && [ "$mono" -gt 0 ]; then
+      [ $(( up - mono / 1000000 )) -lt 180 ] && exit 0
+    fi
+
+    restart() {
+      echo "qbt-health: $1 — restarting microvm@qbt" >&2
+      "$sc" reset-failed microvm@qbt.service 2>/dev/null || true
+      "$sc" restart microvm@qbt.service
+      exit 0
+    }
+
+    # Liveness — ride out a brief blip (a few retries) before declaring qbt down.
+    ver=""
+    for _ in 1 2 3 4 5 6; do
+      ver=$($curl "$api/app/version" 2>/dev/null) && break
+      ${pkgs.coreutils}/bin/sleep 5
+    done
+    [ -n "$ver" ] || restart "WebUI unreachable (qbt down — e.g. qBittorrent refused a failed /downloads)"
+
+    # Save-path sanity — free space must look like the array, not the tmpfs root.
+    free=$($curl "$api/sync/maindata?rid=0" 2>/dev/null \
+      | ${pkgs.jq}/bin/jq -r '.server_state.free_space_on_disk // empty' 2>/dev/null)
+    case "$free" in
+      "" | *[!0-9]*) exit 0 ;; # unreadable → don't act on noise
+    esac
+    [ "$free" -lt "$floor" ] && restart "free_space_on_disk=$free < $floor (/downloads stale or unmounted)"
+  '';
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -160,6 +216,54 @@ in {
     "interface-name:${dmzUplink}"
     "interface-name:br-dmz"
     "interface-name:vm-qbt"
+  ];
+
+  # ── A (host): gate the virtiofs daemon on the NFS scratch being MOUNTED ──────────
+  # microvm-virtiofsd@qbt is the process that opens the handle into the scratch; stock
+  # it only orders after local-fs.target, NOT the (remote-fs / _netdev) tower NFS mount.
+  # So at boot it could start before /media/data is mounted (2026-06-29 it won the race
+  # by only 3s — pure luck) and, worse, grab a tower-shfs handle while the share is still
+  # settling → the ESTALE wedge that stranded qbt. RequiresMountsFor pulls in + orders
+  # after media-data.mount; microvm@qbt already Requires+After virtiofsd, so the whole VM
+  # now waits for a real, settled mount. Merges into microvm.nix's per-instance drop-in
+  # for this unit (it sets overrideStrategy=asDropin), so this is just a [Unit] add-on.
+  systemd.services."microvm-virtiofsd@qbt".unitConfig.RequiresMountsFor = "/media/data/Media/Temp";
+
+  # ── B2 (host): qbt guest-health watchdog (script + full rationale in the let above) ──
+  systemd.services.qbt-health = {
+    description = "qbt guest-health watchdog (WebUI liveness + save-path sanity)";
+    serviceConfig = {
+      Type = "oneshot";
+      NoNewPrivileges = true; # curl + systemctl only; no setuid exec (#232)
+      ExecStart = qbtHealthCheck;
+    };
+  };
+  systemd.timers.qbt-health = {
+    description = "qbt guest-health watchdog timer";
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnBootSec = "4min";
+      OnUnitActiveSec = "5min";
+    };
+  };
+
+  # Alert when the guest-health watchdog re-rolls the VM (mirrors the nfsWatchdog alert).
+  homelab.monitoring.errorPatterns = [
+    {
+      name = "qbt guest-health watchdog re-rolled qbt";
+      unit = "qbt-health.service";
+      pattern = "(?i)qbt-health:.*restarting microvm@qbt";
+      severity = "warning";
+      summary = "qbt's guest /downloads view was stale/unreachable; the microVM was restarted";
+      threshold = 0;
+      description = ''
+        servarr's qbt-health watchdog probed the qBittorrent WebUI and found qbt either
+        down or pointing at a tmpfs-sized save path (a stale/unmounted /downloads
+        virtiofs share), and restarted microvm@qbt to re-roll virtiofsd. A single trip
+        after a tower reboot is expected self-healing. Repeated trips = the virtiofs-
+        over-NFS scratch is genuinely flaky; see docs/wiki/services/servarr-and-qbt-cage.md.
+      '';
+    }
   ];
 
   microvm.vms.qbt.config = {
@@ -214,6 +318,15 @@ in {
       ];
     };
 
+    # ── B1 (guest): fail FAST, not silently, if /downloads can't mount ───────────────
+    # Bound the virtiofs mount so a wedged/stale share FAILS in 60s instead of hanging
+    # forever — on 2026-06-29 it hung indefinitely and qBittorrent started anyway against
+    # an empty save path. microvm.nix sets this share's options to a plain list, so the
+    # timeout concatenates onto it. (qBittorrent then refuses to start without it — see
+    # its RequiresMountsFor below — so a failed mount surfaces as "qbt down", which the
+    # host qbt-health watchdog catches and re-rolls the VM with a fresh virtiofsd.)
+    fileSystems."/downloads".options = ["x-systemd.mount-timeout=60"];
+
     # VLAN-20 address only. Egress restriction / kill-switch / default-deny all
     # live at pfSense — the guest just needs IP + gateway + DNS-via-pfSense.
     systemd.network.enable = true;
@@ -253,6 +366,13 @@ in {
       # restartTriggers re-runs the merge (→ fresh tracker list) whenever managedConf changes.
       restartTriggers = [managedConf];
       serviceConfig.ExecStartPre = lib.mkForce "${qbtMergeConfig}";
+
+      # B1: hard-require /downloads (Requires + After downloads.mount). NEVER start
+      # qBittorrent against an unmounted save path — it would write into the EPHEMERAL
+      # guest root and lose both the in-flight data and torrent state on the next
+      # restart. If the mount fails its 60s timeout above, qBittorrent stays down → WebUI
+      # down → the host qbt-health watchdog re-rolls the VM (fresh virtiofsd) and recovers.
+      unitConfig.RequiresMountsFor = "/downloads";
 
       # Downloads land on the NFS scratch, where the backend squashes qbt's uid to 99
       # (nobody); qbt re-opens its OWN files for writing via gid 100 (group), so they

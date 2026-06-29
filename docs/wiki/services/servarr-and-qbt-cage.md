@@ -106,6 +106,44 @@ governed by the `fuse_remember` timer. Full mechanism, our config, the `fuse_rem
 (capacity), and the latent cross-disk hardlink caveat:
 [../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md).
 
+### ⚠️ Boot-race / ESTALE-at-boot after a tower reboot — and the 3 resilience layers (2026-06-29)
+
+The static-mount fix above stops autofs from yanking the mount at *idle*, but a **tower reboot** is a
+second, distinct way the same virtiofs handle goes stale — and on 2026-06-29 it stranded qbt for ~1h.
+
+**What happened:** tower rebooted → servarr (a VM *on* tower) rebooted with it. servarr's `/media/data`
+NFS mount succeeded fast (07:15:47, only 3 s after attempt), `microvm@qbt` started 3 s later (07:15:50) —
+it won the race *by luck*. But tower's `shfs` union was still settling, so the virtiofsd that opened a
+handle into `…/Media/Temp` grabbed a soon-to-be-stale inode; tower finished assembling and re-numbered,
+the handle went **ESTALE**, and the **guest's `/downloads` mount hung and never completed**. qBittorrent
+started anyway (it didn't order after the mount) and ran for an hour against a dead save path. A manual
+`systemctl restart microvm@qbt.service` (fresh virtiofsd) fixed it in 2 s.
+
+**Why nothing self-healed — two blind spots:** (1) `microvm-virtiofsd@qbt` only ordered after
+`local-fs.target`, **not** the remote-fs NFS mount → it could start before/while the mount was unsettled.
+(2) `homelab.nfsWatchdog.qbt` stats `…/Media/Temp` **on servarr**, where the mount was healthy the whole
+hour, and `microvm@qbt` stayed `active` — so neither watchdog branch (stale-path / is-failed) could see
+that the **guest's** view was wedged.
+
+**The fix — three layers, all in `qbt-microvm.nix` (live 2026-06-29):**
+- **A (host ordering):** `systemd.services."microvm-virtiofsd@qbt".unitConfig.RequiresMountsFor =
+  "/media/data/Media/Temp"` → virtiofsd (and thus the whole VM) waits for a real, settled mount; closes
+  the start-before-mount race. Merges into microvm.nix's per-instance drop-in (`overrideStrategy=asDropin`).
+- **B1 (guest fail-fast):** the guest `/downloads` mount gets `x-systemd.mount-timeout=60` (a wedge
+  **fails** in 60 s instead of hanging forever), and `qbittorrent.service` gets
+  `unitConfig.RequiresMountsFor = "/downloads"` so it **refuses to start** without a real save path
+  (never writes to the ephemeral guest root → no lost data/torrent-state).
+- **B2 (host guest-health watchdog):** `qbt-health.{service,timer}` (every 5 min, OnBoot 4 min, skips a
+  VM active < 3 min so it won't fight a normal boot) probes the qBittorrent WebUI from servarr (pfSense
+  allows servarr→`:8080`, `.4` is whitelisted so no creds): if the WebUI is unreachable **or**
+  `free_space_on_disk` looks like the guest's sub-GiB tmpfs root instead of the ~1 TB array, it re-rolls
+  `microvm@qbt` (fresh virtiofsd) and fires a `warning` Loki alert. This is the layer that *would have*
+  auto-fixed the incident — in ~4 min instead of an hour. **This is the canonical recovery now;** the
+  manual `systemctl restart microvm@qbt.service` is the break-glass equivalent.
+
+Net: A prevents the bad-handle grab at boot; B1 makes a wedge a crisp failure (qbt down) instead of a
+silent one; B2 detects the guest-side wedge the host-path watchdog is blind to and re-rolls automatically.
+
 ## Migration (data)
 
 The migration that works (per app; do it with **both** source+dest *arr stopped for a consistent DB):
@@ -172,6 +210,12 @@ The migration that works (per app; do it with **both** source+dest *arr stopped 
 - **`/media/data` MUST be a static mount, never `x-systemd.automount`** — autofs remount under
   virtiofsd = `ESTALE` = errored torrents. Uses `homelab.mounts.nfsLocal` (the doc2 server pattern).
   Full writeup in the storage section above ("The host NFS mount MUST be static").
+- **A tower reboot can wedge the guest `/downloads` at boot even with the static mount** (virtiofsd grabs
+  a tower-`shfs` handle before the share settles → ESTALE → guest mount hangs, VM still "active" so the
+  host-path `nfsWatchdog` stays green). Mitigated by 3 layers (A virtiofsd-ordering, B1 guest fail-fast,
+  B2 `qbt-health` WebUI watchdog) — see "Boot-race / ESTALE-at-boot" above. If qbt is up but downloads
+  are dead after a tower reboot, the canonical fix is now automatic (`qbt-health` re-rolls in ~4 min);
+  break-glass is still `sudo systemctl restart microvm@qbt.service`.
 - **abl030 has passwordless sudo on servarr** (`security.sudo.extraRules` mkAfter NOPASSWD, hermes-style)
   so the agent can `systemctl restart microvm@qbt.service` etc. from the doc1 bastion without a password
   prompt. servarr is otherwise a normal role="locked" host.
