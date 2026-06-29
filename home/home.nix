@@ -22,6 +22,18 @@
       # The tmux-256color experiment (bad543a3) did NOT fix the scrollback line-loss
       # it targeted and broke copy/paste (and TERM=tmux-256color also tripped up the
       # atuin bash overlay), so it was reverted 2026-06-27.
+      #
+      # OSC 52 clipboard: copy in tmux (mouse-drag or copy-mode) now reaches the
+      # OUTER terminal's system clipboard over SSH. tmux's default `external` only
+      # SENDS for its own copy ops and silently DROPS OSC52 emitted by apps inside
+      # tmux; `on` forwards both. Debugged 2026-06-29: raw OSC52 already landed in
+      # Windows Terminal / Ghostty (both honour OSC52 write), but tmux copy didn't
+      # until set-clipboard flipped to on. tmux 3.6's `clipboard` terminal-feature
+      # already supplies the BEL-terminated Ms for xterm* clients, so no Ms override
+      # is needed. Read direction stays disabled (no exfil path).
+      extraConfig = ''
+        set -g set-clipboard on
+      '';
     };
   };
 
