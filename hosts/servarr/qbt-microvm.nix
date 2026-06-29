@@ -171,7 +171,10 @@
     case "$free" in
       "" | *[!0-9]*) exit 0 ;; # unreadable → don't act on noise
     esac
-    [ "$free" -lt "$floor" ] && restart "free_space_on_disk=$free < $floor (/downloads stale or unmounted)"
+    if [ "$free" -lt "$floor" ]; then
+      restart "free_space_on_disk=$free < $floor (/downloads stale or unmounted)"
+    fi
+    exit 0 # healthy fall-through: never leak the test's exit code as a unit failure
   '';
 in {
   imports = [inputs.microvm.nixosModules.host];
