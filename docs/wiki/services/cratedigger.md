@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-06-29
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`
 **Issue:** #228
@@ -93,3 +93,26 @@ hit local metadata APIs.
 - Slskd and cratedigger share the bounded `music-import` group. The upstream
   zero-umask behavior is patched in the Nix source input so imported library
   directories settle at `0775`, not `0777`.
+
+## Incidents
+
+### 2026-06-29 — beets 2.11→2.12 bump broke every import
+
+A nightly closure bump moved beets `2.11.0 → 2.12.0`, which did the beets 2.x
+library refactor: `get_path_formats` moved from `beets.ui` to
+`beets.util.pathformats` (and now requires a config subview), `get_replacements`
+became a `Library` staticmethod, and `Library.__init__` dropped its
+`path_formats`/`replacements` positional args (it now derives both from
+`config["paths"]`/`config["replace"]` itself). The harness
+(`harness/beets_harness.py` in `inputs.cratedigger-src`) still used the beets 1.x
+`from beets.ui import get_path_formats, get_replacements` + 4-arg `Library(...)`
+form, so it crashed at import (line 27) on **every** force-import, automation
+import, and beets validation — `FORCE-IMPORT FAILED ... ImportError: cannot
+import name 'get_path_formats' from 'beets.ui'`. The preview worker was
+unaffected (it never opens the beets library).
+
+Fix: `modules/nixos/services/cratedigger-beets2-library-api.patch` adapts the
+harness to the 2.x API (drop the `beets.ui` import, pass only `(library,
+directory)`; config-derived path formats/replacements are preserved). This is a
+homelab stopgap — upstream the same change to `github:abl030/cratedigger` and
+drop the patch.
