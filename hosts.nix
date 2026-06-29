@@ -221,7 +221,7 @@ in {
     # sudo). abl030 keeps only the role=locked read-only/deploy-hygiene allowlist.
     # abl030 has a password here (unlike doc2) so interactive sudo is the
     # break-glass; Proxmox console otherwise. No service/abl030 root pivot.
-    syncthingDeviceId = "IJ3FS4G-DBM47AW-WEEM7W3-VCEOYP4-K6QRJLG-LHRZMJH-EMNN4IS-ZVHX6QF";
+    # syncthing dropped on the LXC migration (not needed on igpu).
   };
 
   doc2 = {

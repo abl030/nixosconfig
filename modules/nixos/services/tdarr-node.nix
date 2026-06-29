@@ -53,6 +53,17 @@ in {
       default = "ghcr.io/haveagitgat/tdarr_node:latest";
       description = "Tdarr node container image.";
     };
+
+    renderDevice = lib.mkOption {
+      type = lib.types.str;
+      default = "/dev/dri/renderD128";
+      description = ''
+        Host DRM render node passed to the container for VAAPI. Defaults to
+        renderD128, but on a host with multiple GPUs the iGPU may enumerate at a
+        different node (e.g. renderD129 in the igpu LXC, where the GTX 1080 takes
+        renderD128). Set this to the actual iGPU render node.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -113,7 +124,10 @@ in {
           "--cap-add=DAC_OVERRIDE"
           "--cap-add=FOWNER"
           "--cap-add=KILL"
-          "--device=/dev/dri/renderD128:/dev/dri/renderD128"
+          # Map the host iGPU render node to renderD128 INSIDE the container, so
+          # tdarr's ffmpeg always finds it at the expected path regardless of which
+          # node the iGPU enumerates at on the host.
+          "--device=${cfg.renderDevice}:/dev/dri/renderD128"
         ];
     };
 

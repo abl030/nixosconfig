@@ -69,12 +69,12 @@
   hardware.graphics.enable = true;
   # Pin render GID to match the CT config's `dev0 gid=303` (NixOS static render gid).
   users.groups.render.gid = 303;
-  # jellyfin/tdarr hard-code /dev/dri/renderD128 (it was the iGPU inside the VM).
-  # In the CT the iGPU is renderD129, so alias it. radv services auto-detect the
-  # amdgpu node and don't need this. NOTE: if prom ever boots with the GTX 1080 on
-  # vfio (gaming VM onboot), the iGPU could become renderD128 — then drop this
-  # symlink and set dev0 to renderD128. See igpu-lxc-migration.md.
-  systemd.tmpfiles.rules = ["L+ /dev/dri/renderD128 - - - - /dev/dri/renderD129"];
+  # jellyfin transcodes via the iGPU's render node, which is renderD129 here (the
+  # GTX 1080 takes renderD128). Point it directly at the right node. radv services
+  # (whisper/mailsearch) auto-detect the amdgpu node and need nothing. NOTE: if prom
+  # ever boots with the GTX 1080 on vfio (gaming VM onboot), the iGPU could become
+  # renderD128 — then update this + the CT's dev0. See igpu-lxc-migration.md.
+  services.jellyfin.hardwareAcceleration.device = lib.mkForce "/dev/dri/renderD129";
 
   users.users.abl030.extraGroups = ["video" "render"];
 
@@ -84,6 +84,11 @@
   users.groups.jellyfin.gid = 997;
   users.users.whisper-server.uid = 988;
   users.groups.whisper-server.gid = 986;
+
+  # ---- CT-specific disables (meaningless or blocked in an unprivileged LXC) ----
+  networking.wireless.enable = lib.mkForce false; # no wifi — kills the failing wpa_supplicant
+  system.autoUpgrade.enable = lib.mkForce false; # deploy via fleet-deploy; the CT can't arm the realtime upgrade timer
+  # (syncthing is disabled by dropping syncthingDeviceId from this host's hosts.nix entry.)
 
   # ---- Workloads (unchanged from the VM) ----------------------------------
   homelab = {
@@ -98,7 +103,10 @@
       nfsLocal.enable = false;
     };
 
-    services.tdarrNode.enable = true;
+    services.tdarrNode = {
+      enable = true;
+      renderDevice = "/dev/dri/renderD129"; # iGPU node in the CT (mapped to renderD128 in-container)
+    };
 
     services.jellyfin = {
       enable = true;
