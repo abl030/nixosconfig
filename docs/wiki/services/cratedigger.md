@@ -116,3 +116,22 @@ harness to the 2.x API (drop the `beets.ui` import, pass only `(library,
 directory)`; config-derived path formats/replacements are preserved). This is a
 homelab stopgap — upstream the same change to `github:abl030/cratedigger` and
 drop the patch.
+
+**Resolution (same day).** The patch above fixed only breakage #1 (the harness
+crashed at import). Once it landed, force-imports ran again but *upgrade*
+imports of already-in-library albums still failed with `decision=import_failed
+… Post-import: release <mbid> has multiple beets album rows [X, Y]`. beets 2.x
+ALSO replaced the duplicate-resolution hook: the 1.x
+`ImportSession.resolve_duplicate` + `task.should_remove_duplicates = True` is
+gone; 2.x calls `session.get_duplicate_action(task, found_duplicates) ->
+DuplicateAction` and removes the old album in `manipulate_files` only when the
+action is `REMOVE`. The harness's stale `resolve_duplicate` override was
+silently never called, so every upgrade added a second album row and tripped
+cratedigger's post-import single-row guard. Both fixes (Library/import API +
+`get_duplicate_action`), plus a `lib/beets_distance.py` autotag fix and a
+real-beets subprocess contract test (the harness unit tests mock beets, which
+is why the API drift shipped undetected), landed upstream in
+`github:abl030/cratedigger` PR #462. `cratedigger-src` was bumped
+`8486be16 → 25c15e0` and the stopgap patch removed (nixosconfig `4862ac45`).
+Verified live: an upgrade force-import now logs `[DUP-GUARD] Allowing beets
+remove …` → `[POST-FLIGHT OK]` (single row) → `decision=import`.
