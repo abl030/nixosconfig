@@ -61,15 +61,29 @@
   # (jellyfin/syncthing inotify watches are governed by the host kernel.)
 
   # ---- GPU: host owns amdgpu; CT just needs Mesa userspace + render group --
-  # The kernel driver + firmware live on prom; /dev/dri/renderD128 is bind-mounted
-  # in via the CT's `dev0` (gid=303,mode=0660). radeonsi (VAAPI) and radv (Vulkan)
-  # both ride this single render node — no /dev/kfd, no privileged CT.
+  # The kernel driver + firmware live on prom. prom has TWO GPUs: the GTX 1080
+  # (nouveau, renderD128) and this iGPU (amdgpu, 7a:00.0). The iGPU enumerates
+  # SECOND, so its render node is /dev/dri/renderD129 — that's what the CT's
+  # `dev0` passes in (gid=303,mode=0660). radeonsi (VAAPI) + radv (Vulkan) both
+  # ride this single node — no /dev/kfd, no privileged CT.
   hardware.graphics.enable = true;
   # Pin render GID to match the CT config's `dev0 gid=303` (NixOS static render gid).
-  # #1 silent-failure cause if mismatched.
   users.groups.render.gid = 303;
+  # jellyfin/tdarr hard-code /dev/dri/renderD128 (it was the iGPU inside the VM).
+  # In the CT the iGPU is renderD129, so alias it. radv services auto-detect the
+  # amdgpu node and don't need this. NOTE: if prom ever boots with the GTX 1080 on
+  # vfio (gaming VM onboot), the iGPU could become renderD128 — then drop this
+  # symlink and set dev0 to renderD128. See igpu-lxc-migration.md.
+  systemd.tmpfiles.rules = ["L+ /dev/dri/renderD128 - - - - /dev/dri/renderD129"];
 
   users.users.abl030.extraGroups = ["video" "render"];
+
+  # ---- Pin migrated service UIDs so the host-side chown stays valid across
+  # rebuilds (unprivileged CT: host owner = these + 100000). See migration doc. ----
+  users.users.jellyfin.uid = 997;
+  users.groups.jellyfin.gid = 997;
+  users.users.whisper-server.uid = 988;
+  users.groups.whisper-server.gid = 986;
 
   # ---- Workloads (unchanged from the VM) ----------------------------------
   homelab = {

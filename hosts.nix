@@ -203,7 +203,9 @@ in {
   };
 
   igpu = {
-    configurationFile = ./hosts/igpu/configuration.nix;
+    # MIGRATED to an unprivileged Proxmox LXC (CT 107) — see
+    # docs/wiki/infrastructure/igpu-lxc-migration.md. Was a VFIO-passthrough VM.
+    configurationFile = ./hosts/igpu/configuration-lxc.nix;
     homeFile = ./hosts/igpu/home.nix;
     user = "abl030";
     homeDirectory = "/home/abl030";
@@ -212,7 +214,7 @@ in {
     tailscaleIp = "100.112.123.5";
     sshAlias = "igpu";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPucrnfLpTjCzItnNPvGJ0iqQs2+iTyTXZH5pCBpuvDp root@nixos";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN0D4iWhnKUXWX+khGN4hXyzvqw/K4jyoL/w4q/1I8fH root@igpu";
     authorizedKeys = fleetKeys;
     # forgejo#2: LOCKED by default (role defaults to "locked"). Deploys come from
     # doc1 via `fleet-deploy igpu` (forced-command key → nixos-upgrade, polkit, no
