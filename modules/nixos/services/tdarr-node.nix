@@ -124,10 +124,11 @@ in {
           "--cap-add=DAC_OVERRIDE"
           "--cap-add=FOWNER"
           "--cap-add=KILL"
-          # Map the host iGPU render node to renderD128 INSIDE the container, so
-          # tdarr's ffmpeg always finds it at the expected path regardless of which
-          # node the iGPU enumerates at on the host.
-          "--device=${cfg.renderDevice}:/dev/dri/renderD128"
+          # Pass the iGPU render node through UNCHANGED (same path in/out). Do NOT
+          # rename it to renderD128: mesa/libva resolve the GPU via /sys/class/drm/
+          # <name>, and on a multi-GPU host renderD128 is a DIFFERENT card's sysfs,
+          # so a rename makes VAAPI init fail ("Cannot open a VA display").
+          "--device=${cfg.renderDevice}:${cfg.renderDevice}"
         ];
     };
 
