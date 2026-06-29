@@ -1,7 +1,24 @@
 # iGPU passthrough to the `igpu` VM
 
-**Last updated:** 2026-05-14
-**Status:** working; tdarr-node render-node-only access verified 2026-05-14
+> **⚠️ SUPERSEDED (2026-06-29) — this VFIO-passthrough VM was RETIRED.**
+> `igpu` is now an **unprivileged Proxmox LXC** (the host binds `amdgpu`, the CT
+> bind-mounts the render node). See [`igpu-lxc-migration.md`](./igpu-lxc-migration.md)
+> and the reusable [`nixos-proxmox-lxc-guide.md`](./nixos-proxmox-lxc-guide.md).
+>
+> **Why we abandoned VFIO:** the AMD **Raphael** iGPU (`1002:13C0`, RDNA2) cannot be
+> reliably reset under VFIO. Our `vendor-reset` was a kludge mapping `13C0` onto the
+> **Navi10** reset ops (RDNA1, SMU-11/PSP-11) because Raphael has no real entry — that
+> runs the wrong reset sequence against SMU-13/PSP-13 silicon. It POSTs the card but
+> doesn't restore the **PSP**, so after a few reset cycles the PSP wedges permanently
+> (`psp reg … wait timed out → PSP firmware loading failed → amdgpu probe -22`), and a
+> driver-level reset can't clear it (proven: host `amdgpu` bind fails identically). The
+> *correct* reset (mode2) lives only inside the `amdgpu` driver and isn't in the kernel
+> PCI quirk table, so `vfio-pci` can't call it. **Under LXC the host keeps `amdgpu`
+> bound and the GPU is never reset → the failure class is gone.** The kernel-update
+> auto-reboot footgun documented below is the same bug.
+
+**Last updated:** 2026-05-14 (historical; superseded 2026-06-29)
+**Status:** RETIRED — replaced by an unprivileged LXC. Kept for VFIO history/reference.
 **Host:** `igpu` (VMID 109) on `prom` (AMD 9950X)
 **Owner:** `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.hostpci`)
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208)
