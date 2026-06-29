@@ -155,7 +155,7 @@ memory: 16384
 hostname: igpu
 onboot: 1
 net0: name=eth0,bridge=vmbr0,ip=192.168.1.33/24,gw=192.168.1.1
-dev0: /dev/dri/renderD128,gid=303,mode=0660    # render node → in-CT render gid 303
+dev0: /dev/dri/renderD129,gid=303,mode=0666    # iGPU node (see gotchas: renderD129 + 0666)
 dev1: /dev/net/tun                             # tailscale
 mp0: /nvmeprom/containers,mp=/mnt/virtio,rbind=1
 mp1: /mnt/tower-data,mp=/mnt/data,bind=1        # prom-mounted tower NFS
@@ -253,3 +253,43 @@ started this is cleared by that same reboot.) Once the VM is destroyed and
   (#1 silent-failure cause.) prom's host render gid is 993 — irrelevant, Proxmox
   idmaps `dev0`'s gid to the in-CT value.
 - **Interface rename** `ens18`→`eth0` (mdnsReflector, mailsearch bind).
+
+---
+
+## Cutover gotchas — RESOLVED (2026-06-29, live)
+
+Status: **DONE.** CT 107 live, all services active, `is-system-running = running`,
+survives `pct reboot` with the GPU intact (reset bug gone). Diagram above still says
+`renderD128` in places — the truth is **`renderD129`**; see #1.
+
+1. **The iGPU is `renderD129`, not `renderD128`.** prom has TWO GPUs: the GTX 1080
+   (nouveau, takes `renderD128`) and the iGPU (amdgpu `7a:00.0`, enumerates second →
+   `renderD129`). Critically, do **NOT** rename it to `renderD128` inside the tdarr
+   container: mesa/libva resolve the GPU via `/sys/class/drm/<name>`, and there
+   `renderD128` is the *nvidia* card → VAAPI fails "Cannot open a VA display". Pass it
+   through unchanged. `dev0: /dev/dri/renderD129,…`; jellyfin
+   `hardwareAcceleration.device = "/dev/dri/renderD129"`; tdarr module gained a
+   `renderDevice` option set to `/dev/dri/renderD129`. (A cleaner long-term fix would be
+   to blacklist nouveau on prom so the iGPU becomes `renderD128` — deferred.)
+2. **`dev0` mode `0666`, not `0660`.** tdarr's container process runs as uid 2010 (PUID),
+   not in the render group, so a `0660 root:render` node denies it (jellyfin/whisper are
+   native + in the render group, so they're fine at 0660). The VM's node was `0666`;
+   match it. (Could instead `--group-add 303` the container if the image preserves it.)
+3. **Fresh host key ⇒ re-key sops AND `flake.nix`.** The CT gets a new SSH host key, so
+   `secrets/hosts/igpu/*` + every shared secret igpu is a recipient of must be
+   `sops updatekeys`'d, the `igpu` recipient updated in `.sops.yaml`, AND the **hardcoded
+   `igpu=age1…` in `flake.nix`'s `sopsRecipientScopeCheck`** must be updated or the push
+   audit fails.
+4. **Mount only igpu's own subdirs of the shared `containers` dataset**, and `chown` them
+   to the CT's idmapped UIDs (`<ct-uid>+100000`): jellyfin `data/config/log`, whisper.
+   The CT's NixOS UIDs differ from the VM's, so pin them (`users.users.jellyfin.uid=997`
+   etc.) so the chown stays valid. Don't chown the shared `Music`/`media_metadata`.
+5. **`chown -R /home/abl030`** in the CT — a root activation left `~/.config` & `~/.local`
+   root-owned, breaking `home-manager-abl030`.
+6. **The Cloudflare ACME cert** (jelly.ablz.au) only provisions once the CT can decrypt
+   `acme-cloudflare.env` (i.e. after the sops re-key) — before that nginx serves a minica
+   fallback. After re-key it self-heals to a real Let's Encrypt cert.
+7. **Deploy bootstrap:** a fresh locked CT can't fetch Forgejo (its baked `nix-netrc` is
+   encrypted to the old key). Build the toplevel **on doc1** and activate it in the CT via
+   the LAN cache (`nix-store --realise` + `nix-env --set` + `switch-to-configuration`),
+   `pct exec`'d as root with **full paths** (pct exec has a minimal PATH).
