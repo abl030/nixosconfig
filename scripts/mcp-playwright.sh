@@ -30,7 +30,7 @@ CDP_PORT="${PLAYWRIGHT_MCP_CDP_PORT:-9222}"
 CDP_ENDPOINT="http://127.0.0.1:${CDP_PORT}"
 
 if curl -sf --max-time 1 "${CDP_ENDPOINT}/json/version" >/dev/null 2>&1; then
-  exec mcp-server-playwright --cdp-endpoint "${CDP_ENDPOINT}" "$@"
+  exec playwright-mcp --cdp-endpoint "${CDP_ENDPOINT}" "$@"
 fi
 
 mode=()
@@ -42,4 +42,4 @@ elif [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
   mode=(--headless)
 fi
 
-exec mcp-server-playwright "${mode[@]}" "$@"
+exec playwright-mcp "${mode[@]}" "$@"
