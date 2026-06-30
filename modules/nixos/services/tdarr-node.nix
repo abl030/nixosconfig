@@ -3,6 +3,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.services.tdarrNode;
@@ -62,6 +63,18 @@ in {
         renderD128, but on a host with multiple GPUs the iGPU may enumerate at a
         different node (e.g. renderD129 in the igpu LXC, where the GTX 1080 takes
         renderD128). Set this to the actual iGPU render node.
+      '';
+    };
+
+    vaapiHealthcheckFilter = lib.mkOption {
+      type = lib.types.str;
+      default = "hwdownload,format=nv12";
+      description = ''
+        Extra FFmpeg output filter args for Tdarr GPU thorough health checks.
+        Tdarr's VAAPI health check decodes to GPU frames and then writes to a
+        null sink; on this AMD iGPU path it must download frames back to software
+        before the null output, otherwise FFmpeg can fail with Parsed_null_0 /
+        auto_scale_0 conversion errors on valid files.
       '';
     };
   };
@@ -136,6 +149,7 @@ in {
       "d ${cfg.dataDir} 0755 root root - -"
       "d ${cfg.dataDir}/configs 0750 tdarr tdarr - -"
       "d ${cfg.dataDir}/logs 0750 tdarr tdarr - -"
+      "f ${cfg.dataDir}/configs/vaapi-hevc.filter 0644 tdarr tdarr - format=nv12,hwupload"
       "Z ${cfg.dataDir}/configs - tdarr tdarr - -"
       "Z ${cfg.dataDir}/logs - tdarr tdarr - -"
     ];
@@ -144,6 +158,86 @@ in {
       requires = ["mnt-data.mount"];
       after = ["mnt-data.mount" "network-online.target"];
       wants = ["network-online.target"];
+
+      postStart = ''
+        set -eu
+        for _ in $(seq 1 30); do
+          if ${pkgs.podman}/bin/podman exec tdarr-node test -f /app/Tdarr_Node/srcug/node/workers/healthCheckUtils.js; then
+            break
+          fi
+          sleep 1
+        done
+
+        # Tdarr Node 2.81.01 hardcodes VAAPI health checks to renderD128 in its
+        # bundled worker code. The igpu LXC's actual AMD iGPU node is renderD129;
+        # keep the upstream image but patch the runtime file after container start
+        # so GPU health checks exercise the real device.
+        ${pkgs.podman}/bin/podman exec tdarr-node /bin/sh -lc ${lib.escapeShellArg ''
+          set -eu
+          f=/app/Tdarr_Node/srcug/node/workers/healthCheckUtils.js
+          cp -a "$f" "$f.nixos-prepatch" 2>/dev/null || true
+          perl -0pi -e 's#/dev/dri/renderD128#${cfg.renderDevice}#g' "$f"
+        ''}
+      '';
+    };
+
+    systemd.services.tdarr-node-gpu-healthcheck-config = {
+      description = "Declaratively seed Tdarr GPU health-check args for the igpu node";
+      after = ["podman-tdarr-node.service" "network-online.target"];
+      wants = ["network-online.target"];
+      wantedBy = ["multi-user.target"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        NoNewPrivileges = true;
+      };
+      script = ''
+        set -eu
+        ${pkgs.python3}/bin/python3 - <<'PY'
+        import json
+        import time
+        import urllib.request
+
+        base = "http://${cfg.serverIp}:${toString cfg.serverPort}/api/v2"
+        node_name = ${builtins.toJSON cfg.nodeName}
+        updates = {
+            "thoroughHealthCheckGpuExtraInputArgs": "",
+            "thoroughHealthCheckGpuExtraArgs": "-vf ${cfg.vaapiHealthcheckFilter}",
+        }
+
+        def call(method, path, data=None, timeout=10):
+            body = None if data is None else json.dumps({"data": data}).encode()
+            req = urllib.request.Request(
+                base + path,
+                data=body,
+                headers={"content-type": "application/json"},
+                method=method,
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw = r.read().decode("utf-8", "replace")
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return raw
+
+        last_error = None
+        for _ in range(60):
+            try:
+                nodes = call("GET", "/get-nodes")
+                for node_id, node in nodes.items():
+                    if node.get("nodeName") == node_name:
+                        call("POST", "/update-node", {"nodeID": node_id, "nodeUpdates": updates})
+                        print(f"seeded GPU health-check args for {node_name} ({node_id})")
+                        raise SystemExit(0)
+                last_error = f"node {node_name!r} not registered yet"
+            except SystemExit:
+                raise
+            except Exception as exc:
+                last_error = repr(exc)
+            time.sleep(2)
+        raise SystemExit(f"failed to seed Tdarr GPU health-check args: {last_error}")
+        PY
+      '';
     };
   };
 }

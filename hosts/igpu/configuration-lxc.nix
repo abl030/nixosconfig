@@ -105,7 +105,7 @@
 
     services.tdarrNode = {
       enable = true;
-      renderDevice = "/dev/dri/renderD129"; # iGPU node in the CT (mapped to renderD128 in-container)
+      renderDevice = "/dev/dri/renderD129"; # iGPU render node in the CT; keep same path in-container
     };
 
     services.jellyfin = {
