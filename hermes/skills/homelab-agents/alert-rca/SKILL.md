@@ -24,13 +24,20 @@ and/or journalctl output from the failing service.
 
 ### 1. Parse the alert payload
 
-The webhook delivers the alert context as JSON. Key fields:
-- `title` — alert title (e.g. "[critical] Whisper Server DOWN")
-- `message` — enriched body with Loki lines / journal output
+The webhook delivers either a single enriched alert or a 10-minute RCA batch.
+For batches, treat the whole batch as one incident unless the alert list clearly
+contains unrelated failures. Key fields:
+- `title` — alert title or batch title (e.g. "Alert batch: 50 alerts in 10m")
+- `message` — enriched body with Loki lines / journal output, or a batch body
+  containing multiple `--- alert N/M ...` sections
+- `priority` — max/representative priority for the batch
 - `alertname`, `severity` — for Grafana alerts
 - `monitor.name`, `monitor.url`, `heartbeat.msg` — for Kuma alerts
 
-Extract the hostname, service name, and error signatures from the message.
+Extract the hostnames, service names, and repeated error signatures from the
+message. For a batch, look for the common root first: shared host, shared
+network path, shared storage, shared upstream, recent deploy, or one root alert
+followed by many dependent symptom alerts.
 
 ### 2. Query Loki for more context
 

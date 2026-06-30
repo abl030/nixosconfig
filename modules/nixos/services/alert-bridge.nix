@@ -61,6 +61,7 @@
     STORM_THRESHOLD = int(os.environ.get("STORM_THRESHOLD", "6"))
     STORM_FLUSH_SECS = int(os.environ.get("STORM_FLUSH_SECS", "120"))
     STORM_QUIET_SECS = int(os.environ.get("STORM_QUIET_SECS", "180"))
+    RCA_BATCH_SECS = int(os.environ.get("RCA_BATCH_SECS", "600"))
 
     def read_token():
         try:
@@ -157,6 +158,63 @@
         except Exception as e:
             print(f"[bridge] rca forward failed: {e}", file=sys.stderr)
 
+    # ---- RCA batching ------------------------------------------------------
+    # RCA is LLM-backed and expensive; alert storms usually share one root cause.
+    # Every alert is queued into a rolling batch and a daemon flushes one Hermes
+    # prompt per RCA_BATCH_SECS. Gotify paging remains immediate/storm-damped;
+    # only the agent investigation is delayed/coalesced.
+    _rca_lock = threading.Lock()
+    _rca_batch = []  # (ts, title, priority, message)
+
+    def rca_enqueue(title, message, priority=5):
+        if not RCA_WEBHOOK_URL:
+            return
+        now = time.time()
+        with _rca_lock:
+            _rca_batch.append((now, title, priority, message))
+            print(f"[bridge] rca queued: batch_size={len(_rca_batch)} title={title}",
+                  file=sys.stderr, flush=True)
+
+    def _format_rca_batch(items):
+        n = len(items)
+        crit = sum(1 for (_ts, _t, p, _m) in items if p >= 8)
+        window_start = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(items[0][0]))
+        window_end = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(items[-1][0]))
+        suffix = "s" if n != 1 else ""
+        title = f"Alert batch: {n} alert{suffix} in {RCA_BATCH_SECS // 60}m ({crit} critical)"
+        lines = [
+            "Alert batch for RCA",
+            f"count: {n}",
+            f"critical: {crit}",
+            f"window_start: {window_start}",
+            f"window_end: {window_end}",
+            "",
+            "Alerts:",
+        ]
+        for idx, (_ts, t, p, m) in enumerate(items[:50], start=1):
+            lines.append(f"\n--- alert {idx}/{n} priority={p} title={t}")
+            msg = (m or "").strip()
+            if len(msg) > 1800:
+                msg = msg[:1800].rstrip() + "\n…(alert message truncated)"
+            lines.append(msg)
+        if n > 50:
+            lines.append(f"\n…{n - 50} additional alerts omitted from prompt; inspect alert-bridge logs/Grafana if needed.")
+        return title, "\n".join(lines), 8 if crit else 5
+
+    def _rca_batch_flusher():
+        while True:
+            time.sleep(5)
+            items = None
+            with _rca_lock:
+                if _rca_batch and time.time() - _rca_batch[0][0] >= RCA_BATCH_SECS:
+                    items = list(_rca_batch)
+                    _rca_batch.clear()
+            if items:
+                title, message, priority = _format_rca_batch(items)
+                print(f"[bridge] rca batch flush: {len(items)} alerts",
+                      file=sys.stderr, flush=True)
+                rca_forward(title, message, priority)
+
     # ---- Storm damper -------------------------------------------------------
     # Every outgoing page flows through dispatch(). It counts pages in a rolling
     # window; once more than STORM_THRESHOLD fire within STORM_WINDOW_SECS it
@@ -198,6 +256,7 @@
         now = time.time()
         send = None
         digest = None
+        rca_enqueue(title, message, priority)
         with _storm_lock:
             _storm_recent.append(now)
             _storm_prune(now)
@@ -217,7 +276,6 @@
         # Network I/O outside the lock so the flusher thread never blocks on it.
         if send is not None:
             gotify_push(*send)
-            rca_forward(*send)
         if digest is not None:
             _push_digest(digest)
 
@@ -436,6 +494,7 @@
     if __name__ == "__main__":
         print(f"[bridge] listening on 127.0.0.1:{LISTEN_PORT}", file=sys.stderr)
         threading.Thread(target=_storm_flusher, daemon=True).start()
+        threading.Thread(target=_rca_batch_flusher, daemon=True).start()
         http.server.HTTPServer(("127.0.0.1", LISTEN_PORT), Handler).serve_forever()
   '';
 in {
@@ -483,6 +542,16 @@ in {
         Shared secret for the RCA webhook URL. Sent as X-Gitlab-Token
         header (plain secret match — simplest Hermes webhook auth).
         Required when rcaWebhookUrl is set.
+      '';
+    };
+
+    rcaBatchSecs = lib.mkOption {
+      type = lib.types.int;
+      default = 600;
+      description = ''
+        Seconds to coalesce alerts before forwarding one batched prompt to
+        Hermes for RCA. Gotify notifications still flow through the immediate
+        alert/storm-damper path; this only controls LLM-backed investigation.
       '';
     };
 
@@ -551,6 +620,7 @@ in {
         STORM_WINDOW_SECS = toString cfg.stormWindowSecs;
         STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
         STORM_QUIET_SECS = toString cfg.stormQuietSecs;
+        RCA_BATCH_SECS = toString cfg.rcaBatchSecs;
       } // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
         RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;
       } // lib.optionalAttrs (cfg.rcaWebhookSecret != null) {
