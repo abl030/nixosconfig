@@ -20,43 +20,43 @@ image_gen:
   model: gpt-image-2-low
 platform_toolsets:
   cli:
-  - browser
-  - clarify
-  - code_execution
-  - computer_use
-  - cronjob
-  - delegation
-  - file
-  - image_gen
-  - memory
-  - session_search
-  - skills
-  - terminal
-  - todo
-  - tts
-  - vision
-  - web
-  - mcp-nixos
+    - browser
+    - clarify
+    - code_execution
+    - computer_use
+    - cronjob
+    - delegation
+    - file
+    - image_gen
+    - memory
+    - session_search
+    - skills
+    - terminal
+    - todo
+    - tts
+    - vision
+    - web
+    - mcp-nixos
   webhook:
-  - terminal
-  - file
-  - web
-  - skills
-  - delegation
-  - code_execution
-  - session_search
-  - memory
-  - todo
+    - terminal
+    - file
+    - web
+    - skills
+    - delegation
+    - code_execution
+    - session_search
+    - memory
+    - todo
 known_plugin_toolsets:
   cli:
-  - spotify
+    - spotify
 onboarding:
   seen:
     busy_input_prompt: true
     tool_progress_prompt: true
 skills:
   external_dirs:
-  - /home/abl030/nixosconfig/hermes/skills
+    - /home/abl030/nixosconfig/hermes/skills
 command_allowlist:
   - shell command via -c/-lc flag
   - git force push (rewrites remote history)
@@ -64,7 +64,7 @@ mcp_servers:
   nixos:
     command: uvx
     args:
-    - mcp-nixos
+      - mcp-nixos
     enabled: true
     timeout: 180
     connect_timeout: 60
@@ -102,6 +102,8 @@ platforms:
   webhook:
     enabled: true
     extra:
-      host: "0.0.0.0"
+      host: 0.0.0.0
       port: 8644
-      secret: "alert-bridge-rca"
+      secret: alert-bridge-rca
+approvals:
+  mode: "off"
