@@ -73,10 +73,26 @@ in {
       default = null;
       description = ''
         File containing the Forgejo push token (nixbot). Sent as an
-        `Authorization: token` header on push only — never embedded in the
+        `Authorization` header on push only — never embedded in the
         remote URL, so it cannot leak into logs, the saved remote, or failure
         artifacts. Clone stays anonymous (public repo).
       '';
+    };
+
+    rcaWebhookUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Optional Hermes webhook endpoint for failed rolling-update summaries.
+        When set, failures go to the RCA agent first; direct Gotify is only the
+        delivery fallback if the webhook call fails.
+      '';
+    };
+
+    rcaWebhookSecret = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Shared secret sent as X-Gitlab-Token to rcaWebhookUrl.";
     };
 
     signingKeyFile = lib.mkOption {
@@ -207,6 +223,10 @@ in {
           }
           // lib.optionalAttrs (gotifyTokenFile != null) {
             GOTIFY_TOKEN_FILE = "${gotifyTokenFile}";
+          }
+          // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
+            RFU_RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;
+            RFU_RCA_WEBHOOK_SECRET = cfg.rcaWebhookSecret;
           };
       };
 

@@ -745,6 +745,37 @@
 
   rules = {
     apiVersion = 1;
+    # Grafana's alert provisioning does not prune rules that disappear from the
+    # file. Delete known retired/noisy rules explicitly so old per-service
+    # patterns don't keep paging after this repo removed them.
+    deleteRules =
+      map (uid: {
+        orgId = 1;
+        inherit uid;
+      }) [
+        "homelab-err-6bce2be0d07f947b" # Audiobookshelf namespace failure
+        "homelab-err-06aa974947672f73" # Cratedigger importer namespace failure
+        "homelab-err-a0a027172d357965" # Cratedigger web namespace failure
+        "homelab-err-ce7ed950f3e6daff" # Fava namespace failure
+        "homelab-err-bd8da5c73c6b3fb6" # Fleet update freshness stale
+        "homelab-err-0bdcb8feee5bbf0e" # Forgejo NFS/namespace failure
+        "homelab-err-dc4f3db8da2699eb" # Forgejo dump namespace failure
+        "homelab-err-1fe5abe2bdf7dde1" # Jellystat DB pool timeout
+        "homelab-err-caaad7cd92e87b31" # Jellystat DB unreachable
+        "homelab-err-fdb7d8bc97d96bdb" # Komga bind-mount failure
+        "homelab-err-d04f6b0da7669290" # Mailsearch namespace setup failure
+        "homelab-err-50ec45304613cb00" # Paperless consumer NFS/auth failure
+        "homelab-err-67cea775058e73ce" # Paperless scheduler NFS/degraded
+        "homelab-err-60ff574b40aadc0f" # Paperless task queue NFS/worker dead
+        "homelab-err-652bdfbd1169fa4b" # Paperless web NFS/auth failure
+        "homelab-err-b12081ac7486bad1" # Seerr NFS/namespace failure
+        "homelab-err-9a171aaf47116174" # Synthetic 253 test trigger
+        "homelab-err-d1407f61d7734b50" # Tautulli namespace failure
+        "homelab-err-401f4858d8ec48cd" # WebDAV namespace failure
+        "homelab-err-c591598c3246ade8" # gtk-gnutella-gui
+        "homelab-err-ad883dfa8507ecc8" # gtk-gnutella-listener
+        "homelab-err-7666ab8dea979afb" # slskd namespace failure
+      ];
     groups =
       lib.optionals (rebootAlerts != []) [
         {

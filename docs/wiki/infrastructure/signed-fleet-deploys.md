@@ -20,8 +20,9 @@ duplicate noise during the alert-fatigue cleanup. `freshness.enable` /
 in-deploy freshness verification in `fleet-update.sh` (fail-open,
 `FLEET-FRESHNESS FAIL` journal/Loki lines, no paging), the local markers, the
 monotonic anti-replay guard, and `freshness.maxAgeSeconds`. The bot's own
-failure notification (rolling-flake-update → Gotify) is the single alert for a
-stalled update pipeline; the updater now also auto-rebases on commit races, so
+failure notification goes to Hermes alert-RCA first, which sends the single
+user-facing Gotify analysis; direct Gotify is only the webhook-down fallback.
+The updater now also auto-rebases on commit races, so
 the 2026-06-12 failure class self-heals.
 
 **Forgejo cutover is LIVE (Phase D, U8–U10, 2026-06-10).** Forgejo
@@ -257,8 +258,9 @@ FLEET-FRESHNESS FAIL
 These appear in `nixos-upgrade.service` journal (shipped to Loki) when the
 in-deploy check in `fleet-update.sh` cannot authenticate a fresh green
 heartbeat. **They do not page** — the hourly `fleet-update-freshness` watchdog
-timer and its `errorPatterns` Gotify rule were removed 2026-06-13 (duplicate
-alert noise; the rolling bot's own failure notification is the alert). To
+timer and its `errorPatterns` Gotify rule were removed 2026-06-13, and a stale
+Grafana rule copy was explicitly deleted 2026-07-01 after it caused duplicate
+pages. The rolling bot's own Hermes-RCA failure notification is the alert. To
 inspect freshness manually: `cat /var/lib/fleet-update/last-verified-freshness`
 or query Loki for `FLEET-FRESHNESS`.
 

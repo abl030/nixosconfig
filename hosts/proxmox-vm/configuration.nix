@@ -101,6 +101,11 @@
       # Push to Forgejo (write root, #235). remoteUrl defaults to git.ablz.au;
       # clone is anonymous (public repo), push uses this token via a header.
       pushTokenFile = config.sops.secrets."forgejo/nixbot-token".path;
+      # Failed groups go to the unattended RCA agent first; it sends the single
+      # user-facing Gotify analysis. The updater falls back to direct Gotify only
+      # if Hermes/webhook delivery is down.
+      rcaWebhookUrl = "http://127.0.0.1:8644/webhooks/alert-rca";
+      rcaWebhookSecret = "alert-bridge-rca";
     };
     services = {
       # Immich moved to doc2 (2026-02-25)

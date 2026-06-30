@@ -611,21 +611,24 @@ in {
       wants = ["network-online.target"];
       wantedBy = ["multi-user.target"];
 
-      environment = {
-        GOTIFY_URL = cfg.gotifyUrl;
-        GOTIFY_TOKEN_FILE = config.sops.secrets."alert-bridge/gotify-token".path;
-        LOKI_URL = cfg.lokiUrl;
-        LISTEN_PORT = toString cfg.listenPort;
-        STORM_THRESHOLD = toString cfg.stormThreshold;
-        STORM_WINDOW_SECS = toString cfg.stormWindowSecs;
-        STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
-        STORM_QUIET_SECS = toString cfg.stormQuietSecs;
-        RCA_BATCH_SECS = toString cfg.rcaBatchSecs;
-      } // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
-        RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;
-      } // lib.optionalAttrs (cfg.rcaWebhookSecret != null) {
-        RCA_WEBHOOK_SECRET = cfg.rcaWebhookSecret;
-      };
+      environment =
+        {
+          GOTIFY_URL = cfg.gotifyUrl;
+          GOTIFY_TOKEN_FILE = config.sops.secrets."alert-bridge/gotify-token".path;
+          LOKI_URL = cfg.lokiUrl;
+          LISTEN_PORT = toString cfg.listenPort;
+          STORM_THRESHOLD = toString cfg.stormThreshold;
+          STORM_WINDOW_SECS = toString cfg.stormWindowSecs;
+          STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
+          STORM_QUIET_SECS = toString cfg.stormQuietSecs;
+          RCA_BATCH_SECS = toString cfg.rcaBatchSecs;
+        }
+        // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
+          RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;
+        }
+        // lib.optionalAttrs (cfg.rcaWebhookSecret != null) {
+          RCA_WEBHOOK_SECRET = cfg.rcaWebhookSecret;
+        };
 
       serviceConfig = {
         User = cfg.user;

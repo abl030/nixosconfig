@@ -43,6 +43,8 @@ GOTIFY_URL="${GOTIFY_URL:-}"
 GOTIFY_TOKEN_FILE="${GOTIFY_TOKEN_FILE:-}"
 TRIAGE_PROMPT_FILE="${RFU_TRIAGE_PROMPT_FILE:-}"
 RFU_HOSTNAME="${RFU_HOSTNAME:-$(cat /proc/sys/kernel/hostname 2>/dev/null || echo unknown)}"
+RCA_WEBHOOK_URL="${RFU_RCA_WEBHOOK_URL:-}"
+RCA_WEBHOOK_SECRET="${RFU_RCA_WEBHOOK_SECRET:-}"
 
 # Testing knobs: NO_COMMIT=1 (build but never commit/push), ONLY_GROUP=<name>.
 ONLY_GROUP="${ONLY_GROUP:-}"
@@ -405,6 +407,26 @@ send_summary_notification() {
         -F "priority=8" >/dev/null || true
 }
 
+# Prefer the unattended RCA agent for rolling-update failures. The agent sends
+# the user one phone-readable Gotify with classification + local action; direct
+# Gotify here is only the safety fallback if Hermes/webhook delivery is down.
+send_rca_notification() {
+    [ -z "$RCA_WEBHOOK_URL" ] && return 1
+    local nfail ntotal body payload
+    ntotal=${#SUMMARY_LINES[@]}
+    nfail=$(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true)
+    body="$(printf '%s\n' "${SUMMARY_LINES[@]}")"
+    payload="$(jq -n \
+        --arg title "rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}" \
+        --arg message "## Rolling flake update failed\nhost: ${RFU_HOSTNAME}\nfailed_groups: ${nfail}/${ntotal}\n\n${body}\n\nInvestigate read-only. Tell the user once: failing package/input, classification, and whether there is anything to do locally." \
+        '{title: $title, message: $message, priority: 8}')"
+
+    curl -fsS -X POST "$RCA_WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -H "X-Gitlab-Token: $RCA_WEBHOOK_SECRET" \
+        -d "$payload" >/dev/null
+}
+
 # shellcheck disable=SC2329  # Invoked by the EXIT trap.
 cleanup_work_dir() {
     if [ -z "${WORK_DIR:-}" ] || [ ! -d "$WORK_DIR" ]; then
@@ -542,7 +564,7 @@ fi
 
 # Bundled notification only if something failed.
 if [ "$ANY_FAIL" -eq 1 ]; then
-    send_summary_notification
+    send_rca_notification || send_summary_notification
 fi
 
 log "===== summary ====="
