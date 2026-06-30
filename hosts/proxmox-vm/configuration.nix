@@ -135,12 +135,11 @@
       enable = true;
       allowedTCPPorts = [8096];
       # Hermes webhook listener for alert-bridge RCA pipeline.
-      # Port 8644 is firewalled to doc2 (192.168.1.35) only — the
-      # alert-bridge running there is the sole sender. The extraRules
-      # accept from doc2 and drop everything else on that port.
-      interfaces.ens18.allowedTCPPorts = [8644];
+      # Port 8644 is NOT in allowedTCPPorts — it's opened only for
+      # doc2 (192.168.1.35) via extraRules below. The general accept
+      # from allowedTCPPorts would fire before any DROP rule.
       extraCommands = ''
-        iptables -I nixos-fw -p tcp --dport 8644 -s 192.168.1.35 -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --dport 8644 -s 192.168.1.35 -j nixos-fw-accept
         iptables -A nixos-fw -p tcp --dport 8644 -j DROP
       '';
     };
