@@ -211,7 +211,7 @@ in {
     homeDirectory = "/home/abl030";
     hostname = "igpu";
     localIp = "192.168.1.33";
-    tailscaleIp = "100.112.123.5";
+    tailscaleIp = "100.99.161.18"; # was 100.112.123.5 (old VM); updated to CT's actual tailscale ip -4
     sshAlias = "igpu";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN0D4iWhnKUXWX+khGN4hXyzvqw/K4jyoL/w4q/1I8fH root@igpu";
