@@ -139,12 +139,13 @@
     firewall = {
       enable = true;
       allowedTCPPorts = [8096];
-      # Hermes webhook listener for alert-bridge RCA pipeline.
-      # Port 8644 is NOT in allowedTCPPorts — it's opened only for
-      # doc2 (192.168.1.35) via extraRules below. The general accept
-      # from allowedTCPPorts would fire before any DROP rule.
+      # Hermes webhook listener for alert-bridge/RCA pipeline.
+      # Port 8644 is NOT in allowedTCPPorts — it is opened only for doc2 on
+      # LAN and for fleet nodes over Tailscale. Direct negative alert hooks
+      # use this path first; direct Gotify is fallback-only.
       extraCommands = ''
         iptables -A nixos-fw -p tcp --dport 8644 -s 192.168.1.35 -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --dport 8644 -s 100.64.0.0/10 -j nixos-fw-accept
         iptables -A nixos-fw -p tcp --dport 8644 -j DROP
       '';
     };

@@ -15,7 +15,7 @@
     then bridgeUrl
     else if rollingUrl != null
     then rollingUrl
-    else "http://192.168.1.29:8644/webhooks/alert-rca";
+    else "http://100.89.160.60:8644/webhooks/alert-rca";
   rcaWebhookSecret =
     if bridgeSecret != null
     then bridgeSecret
@@ -60,8 +60,8 @@ in ''
       return 0
     fi
     ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=$title" \
-      -F "message=$message" \
-      -F "priority=$priority" >/dev/null || true
+      --data-urlencode "title=$title" \
+      --data-urlencode "message=$message" \
+      --data-urlencode "priority=$priority" >/dev/null || true
   }
 ''

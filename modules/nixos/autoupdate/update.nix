@@ -392,6 +392,11 @@ in {
     # Do NOT use Wants= here - that would TRIGGER these services to start!
     systemd.services.nixos-upgrade = {
       onFailure = lib.optional cfg.diagnose.enable "nixos-upgrade-diagnose.service";
+      # A rebuild can legitimately change this unit while it is the process doing
+      # the rebuild. Do not stop/restart the running updater during activation —
+      # that self-TERM is a false failure and pages OnFailure.
+      restartIfChanged = false;
+      stopIfChanged = false;
 
       after = lib.mkAfter [
         "network-online.target"
