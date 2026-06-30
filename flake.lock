@@ -297,11 +297,11 @@
     "gaj-shared": {
       "flake": false,
       "locked": {
-        "lastModified": 1782740396,
-        "narHash": "sha256-9pN5wipW/lTcze89+TYIhA6W55IiKr0j/xz+0PwHOkI=",
+        "lastModified": 1782762143,
+        "narHash": "sha256-eKvqTibAQ9Pz1ORSTazRAyMfdb4Yo5mjQt9Z4n0drE0=",
         "owner": "gaj-nixos",
         "repo": "shared",
-        "rev": "90eaf4df805b25258dbb855314cf1fe6747a590c",
+        "rev": "18d081fe3cd2379ebd910dc5b77aa0fd6ddc9c55",
         "type": "gitlab"
       },
       "original": {
@@ -340,11 +340,11 @@
         "uv2nix": "uv2nix_2"
       },
       "locked": {
-        "lastModified": 1782776711,
-        "narHash": "sha256-pA7m1+3lo3YZw18Rs8XJgpm80dWQQxcD3dDNPqeOpgQ=",
+        "lastModified": 1782829876,
+        "narHash": "sha256-OiHvjPnxLOoiGlaO1/NPFOJiB/DPubeo3L0WttXelHY=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "f3d2dfbec670cd520bf23fe6ec1f4ce918d286bd",
+        "rev": "a5e8cd4d400c3ed7efa457d507ceaaef7deaab9b",
         "type": "github"
       },
       "original": {
@@ -420,11 +420,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1782324740,
-        "narHash": "sha256-EpaYlgijQUv8nvbhMStQEFoO7aDWxJmVTOlsoHWqHpg=",
+        "lastModified": 1782764610,
+        "narHash": "sha256-CzCF8RD9a9kwRrpeQ+z67sqqADUG0tf+4+YBSUG30y0=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "49a3e9fe33d33f189d24dafca36096766faa60ad",
+        "rev": "3904edd282a7166cdad6c597964718e6d018baa6",
         "type": "github"
       },
       "original": {
@@ -855,11 +855,11 @@
     "spectrum": {
       "flake": false,
       "locked": {
-        "lastModified": 1778940603,
-        "narHash": "sha256-voSM8dZNlaOWN3kbYFky+FNY6fFQOEw0xF+ZMpZKkCQ=",
+        "lastModified": 1782480951,
+        "narHash": "sha256-jrfyAgv5XfYDXJJ28OzANQOQIlsfNaI1kM9Mt13n+5k=",
         "ref": "refs/heads/main",
-        "rev": "367dd227f539267eae2b62770b4c17b88ac8c1f1",
-        "revCount": 1265,
+        "rev": "e4562d4c7646fea3cbb7306ff9b7ff41154c75c3",
+        "revCount": 1400,
         "type": "git",
         "url": "https://spectrum-os.org/git/spectrum"
       },
@@ -1012,11 +1012,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1782684585,
-        "narHash": "sha256-bdTFVbYoqb9pldXkN/mlQ3jT2uK4PwU5SUJweZCHpJY=",
+        "lastModified": 1782770982,
+        "narHash": "sha256-f5IHXhxmSveeD1zmMlfUXPaUXymsUSvmUh6rE+pc07Q=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "e9764d8add436b0c89f7235cc811eabbccadac7a",
+        "rev": "f4b3d8fcd5939f82f3489be41e7a1a4c1b459d56",
         "type": "github"
       },
       "original": {
@@ -1118,11 +1118,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1782685742,
-        "narHash": "sha256-8ZHnodqUmR2t2yuLfq5Mb7k84DEWppa0P+ifIprV93Y=",
+        "lastModified": 1782790129,
+        "narHash": "sha256-TyNijtU1pnnEAYC58wpvpL/F2wuMgG/I5N+Ao4sXxM8=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "5678b282e2a17a8181e682a9681461b9c82ff008",
+        "rev": "e584a65f2a0feee0c6c363b3309e9ebd6065f6b4",
         "type": "github"
       },
       "original": {
