@@ -70,11 +70,12 @@ in {
       type = lib.types.str;
       default = "hwdownload,format=nv12";
       description = ''
-        Extra FFmpeg output filter args for Tdarr GPU thorough health checks.
+        FFmpeg filter script content for Tdarr GPU thorough health checks.
         Tdarr's VAAPI health check decodes to GPU frames and then writes to a
         null sink; on this AMD iGPU path it must download frames back to software
         before the null output, otherwise FFmpeg can fail with Parsed_null_0 /
-        auto_scale_0 conversion errors on valid files.
+        auto_scale_0 conversion errors on valid files. Keep this as a filter
+        script because Tdarr splits comma-containing extra args.
       '';
     };
   };
@@ -150,6 +151,7 @@ in {
       "d ${cfg.dataDir}/configs 0750 tdarr tdarr - -"
       "d ${cfg.dataDir}/logs 0750 tdarr tdarr - -"
       "f ${cfg.dataDir}/configs/vaapi-hevc.filter 0644 tdarr tdarr - format=nv12,hwupload"
+      "f ${cfg.dataDir}/configs/vaapi-healthcheck.filter 0644 tdarr tdarr - ${cfg.vaapiHealthcheckFilter}"
       "Z ${cfg.dataDir}/configs - tdarr tdarr - -"
       "Z ${cfg.dataDir}/logs - tdarr tdarr - -"
     ];
@@ -202,7 +204,7 @@ in {
         node_name = ${builtins.toJSON cfg.nodeName}
         updates = {
             "thoroughHealthCheckGpuExtraInputArgs": "",
-            "thoroughHealthCheckGpuExtraArgs": "-vf ${cfg.vaapiHealthcheckFilter}",
+            "thoroughHealthCheckGpuExtraArgs": "-filter_script:v /app/configs/vaapi-healthcheck.filter",
         }
 
         def call(method, path, data=None, timeout=10):
