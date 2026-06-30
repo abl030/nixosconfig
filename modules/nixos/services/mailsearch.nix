@@ -368,6 +368,18 @@ in {
   options.homelab.services.mailsearch = {
     enable = lib.mkEnableOption "Local hybrid (keyword + semantic) mail-archive search";
 
+    tuiOnly = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Install only the TUI/CLI wrappers (mailsearch-tui, mailsearch-live,
+        mailsearch, notmuch) plus the mailsearch group for the tuiUser —
+        NO index timer, embed server, health endpoint, or MCP forced command.
+        Use on a bastion (doc1) that shares the same /mnt/virtio as the
+        indexing host (doc2) so it can read the Xapian DB read-only.
+      '';
+    };
+
     maildirRoot = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/data/Life/Andy/Email";
@@ -524,6 +536,13 @@ in {
   config = lib.mkMerge [
     # Embeddings backend — wherever embed.enable is set (e.g. the igpu GPU box).
     (lib.mkIf cfg.embed.enable mailsearchEmbedConfig)
+
+    # TUI-only mode (doc1): install wrappers + group, no services.
+    (lib.mkIf cfg.tuiOnly {
+      users.groups.mailsearch = {};
+      users.users.${cfg.tuiUser}.extraGroups = lib.mkIf (cfg.tuiUser != null) ["mailsearch"];
+      environment.systemPackages = [tui cli live pkgs.notmuch];
+    })
 
     # Index + keyword/semantic search stack (doc2).
     (lib.mkIf cfg.enable {

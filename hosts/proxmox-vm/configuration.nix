@@ -106,6 +106,14 @@
       # Immich moved to doc2 (2026-02-25)
       immich.enable = false;
 
+      # Mailsearch TUI on doc1: the Xapian DB lives on the shared /mnt/virtio
+      # (same ZFS pool as doc2), so doc1 can read it directly. tuiOnly installs
+      # the wrappers + mailsearch group without the index timer/services.
+      mailsearch = {
+        tuiOnly = true;
+        tuiUser = "abl030";
+      };
+
       # SSE bridge that streams this host's Claude transcripts to the phone.
       # Tailnet-only via homelab.localProxy.tailscaleOnly; bound to
       # voice.ablz.au which Cloudflare resolves to the Tailscale IP.
