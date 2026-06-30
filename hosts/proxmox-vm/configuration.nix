@@ -186,6 +186,7 @@
 
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
     butane
+    hermes-agent
   ]);
 
   # NOTE: doc1 is the bastion (homelab.fleetDeploy.role = "bastion") →

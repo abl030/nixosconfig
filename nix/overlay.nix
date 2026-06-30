@@ -72,6 +72,15 @@
     }
   )
 
+  # Hermes Agent CLI: use the full upstream package output with optional
+  # integrations included. This is only a package; the gateway service remains
+  # disabled unless a host explicitly enables it.
+  (
+    final: _prev: {
+      hermes-agent = inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default;
+    }
+  )
+
   # unifi-mcp overlay: auto-generated MCP server for UniFi Network Controller
   (
     final: _prev: {

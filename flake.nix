@@ -182,6 +182,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Hermes Agent CLI (Nous Research). Installed on doc1 as a local CLI package
+    # only; no Hermes gateway service or Telegram integration is enabled here.
+    hermes-agent = {
+      url = "github:nousresearch/hermes-agent";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+    };
+
     # UniFi MCP - auto-generated MCP server for UniFi Network Controller
     unifi-mcp = {
       url = "github:abl030/unifi-mcp";
