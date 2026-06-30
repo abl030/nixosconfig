@@ -9,6 +9,7 @@
   ...
 }: let
   cfg = config.homelab.services.komga-sync;
+  alertBridgeCfg = config.homelab.services.alertBridge or {};
 
   syncScript = builtins.path {
     path = ../../../scripts/komga-sync.py;
@@ -17,9 +18,34 @@
 
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint or "";
+  rcaWebhookUrl = alertBridgeCfg.rcaWebhookUrl or null;
+  rcaWebhookUrlString =
+    if rcaWebhookUrl == null
+    then ""
+    else rcaWebhookUrl;
+  rcaWebhookSecret = alertBridgeCfg.rcaWebhookSecret or "";
 
   notifyFailure = pkgs.writeShellScript "komga-sync-notify-failure" ''
     set -euo pipefail
+    message="$(journalctl -u komga-sync.service -n 80 --no-pager 2>/dev/null \
+                 | sed 's/[[:cntrl:]]/ /g')"
+    title="komga-sync failed on ${config.networking.hostName}"
+
+    # Prefer the unattended Hermes RCA path. This is the same contract used by
+    # alert-bridge: Hermes investigates, sends one phone-readable Gotify RCA,
+    # and can propose a nixosconfig fix when the root cause is declarative.
+    if [ -n "${rcaWebhookUrlString}" ]; then
+      payload="$(${pkgs.python3}/bin/python3 -c 'import json,sys; print(json.dumps({"title": sys.argv[1], "message": sys.argv[2], "priority": 5}))' "$title" "$message")"
+      if ${pkgs.curl}/bin/curl -fsS -X POST "${rcaWebhookUrlString}" \
+        -H "Content-Type: application/json" \
+        -H "X-Gitlab-Token: ${toString rcaWebhookSecret}" \
+        --data-binary "$payload" >/dev/null; then
+        exit 0
+      fi
+    fi
+
+    # Fallback only: if Hermes/RCA is unreachable, page directly so failures
+    # do not disappear silently.
     token_file="''${GOTIFY_TOKEN_FILE:-${toString gotifyTokenFile}}"
     if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
       echo "No gotify token file available, skipping notification"
@@ -32,10 +58,8 @@
       token="$raw_token"
     fi
     if [ -z "$token" ]; then exit 0; fi
-    message="$(journalctl -u komga-sync.service -n 50 --no-pager 2>/dev/null \
-                 | sed 's/[[:cntrl:]]/ /g')"
     ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=komga-sync failed on ${config.networking.hostName}" \
+      -F "title=$title" \
       -F "message=$message" \
       -F "priority=5" >/dev/null || true
   '';
@@ -86,7 +110,7 @@ in {
     };
 
     systemd.services.komga-sync-notify-failure = {
-      description = "Notify Gotify on komga-sync failure";
+      description = "Send komga-sync failures to RCA, with Gotify fallback";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = notifyFailure;

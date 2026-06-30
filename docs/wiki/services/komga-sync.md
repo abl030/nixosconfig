@@ -101,9 +101,11 @@ values before comparing — only PATCHes when meaningfully different.
 
 ## Notifications
 
-* **OnFailure** → root oneshot dumps last 50 journal lines to Gotify at
-  priority 5 (warning — failures here mean new issues might lack metadata
-  for a day, not user-visible breakage)
+* **OnFailure** → root oneshot sends the recent journal tail to the Hermes
+  RCA webhook when `homelab.services.alertBridge.rcaWebhookUrl` is configured.
+  Hermes should investigate and send one phone-readable Gotify RCA instead of
+  paging raw job output directly.
+* Direct Gotify is fallback-only, used if Hermes/RCA delivery is unavailable.
 * No OnSuccess — this is a silent maintenance task. Manually check via
   `journalctl -u komga-sync` if curious.
 
@@ -112,7 +114,7 @@ values before comparing — only PATCHes when meaningfully different.
 * Pure stdlib (`urllib.request`, `json`, `pathlib`) — no requests / no
   third-party deps. Keeps the systemd unit minimal.
 * Reads `KOMGA_URL` (default `https://magazines.ablz.au`), `KOMGA_API_KEY`
-  (required), `SIDECAR_ROOT` (default `/mnt/data/Media/Magazines`),
+  (required), `SIDECAR_ROOT` (doc2 uses `/mnt/magazines`),
   `DRY_RUN` (default off — set to `1` to see what would change).
 
 ## When to run manually

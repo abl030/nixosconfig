@@ -31,7 +31,7 @@ using OPDS-only.
 ## Architecture
 
 ```
-       /mnt/data/Media/Magazines/
+       /mnt/magazines/
        ├── GAW/2026/05_GW_MAY_2026-WEB.pdf
        ├── GAW/2026/05_GW_MAY_2026-WEB.json   ← sidecar (TOC, tags)
        ├── GAW/2026/05_GW_MAY_2026-WEB.epub   ← once marker batch finishes
@@ -56,8 +56,8 @@ Three libraries configured via REST API on first deploy:
 
 | Library | ID (env-specific) | Root | Books | Source of truth |
 |---|---|---|---|---|
-| Grapegrower & Winemaker | `0QFB0VEFMZBE3` | `/mnt/data/Media/Magazines/GAW` | 107 PDFs (→ 214 once EPUBs land) | gwm-archiver + marker-batch |
-| Wine & Viticulture Journal | `0QFB0WAJ0Z3KF` | `/mnt/data/Media/Magazines/WVJ` | 28 PDFs (→ 56) | wvj-archive + marker-batch |
+| Grapegrower & Winemaker | `0QFB0VEFMZBE3` | `/mnt/magazines/GAW` | 107 PDFs (→ 214 once EPUBs land) | gwm-archiver + marker-batch |
+| Wine & Viticulture Journal | `0QFB0WAJ0Z3KF` | `/mnt/magazines/WVJ` | 28 PDFs (→ 56) | wvj-archive + marker-batch |
 | Calibre Library | `0QFQQFTD08FRG` | `/mnt/data/Media/Books/Calibre LIbrary` | 273 (228 EPUB + 45 PDF, 3.2 GB) | Calibre on the desktop |
 
 Settings used at creation: `scanPdf=true`, `scanEpub=true`,
