@@ -538,8 +538,10 @@ in {
     (lib.mkIf cfg.embed.enable mailsearchEmbedConfig)
 
     # TUI-only mode (doc1): install wrappers + group, no services.
+    # Pin the mailsearch GID to match doc2 (964) so the shared /mnt/virtio
+    # permissions line up across hosts.
     (lib.mkIf cfg.tuiOnly {
-      users.groups.mailsearch = {};
+      users.groups.mailsearch.gid = 964;
       users.users.${cfg.tuiUser}.extraGroups = lib.mkIf (cfg.tuiUser != null) ["mailsearch"];
       environment.systemPackages = [tui cli live pkgs.notmuch];
     })
@@ -566,7 +568,7 @@ in {
           ''command="${mcpTrigger}",restrict,from="100.64.0.0/10,192.168.1.0/24" ${fleetPubKey}''
         ];
       };
-      users.groups.mailsearch = {};
+      users.groups.mailsearch.gid = 964; # pin across hosts sharing /mnt/virtio
 
       users.users.${cfg.tuiUser}.extraGroups = lib.mkIf (cfg.tuiUser != null) ["mailsearch"];
 
