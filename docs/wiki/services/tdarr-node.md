@@ -1,7 +1,7 @@
 # tdarr-node on igpu
 
-**Last updated:** 2026-05-14
-**Status:** least-privilege hardening verified; VAAPI working
+**Last updated:** 2026-06-30
+**Status:** least-privilege hardening verified; VAAPI working (transcode + GPU healthcheck)
 **Owner:** `modules/nixos/services/tdarr-node.nix`
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208), [#232](https://github.com/abl030/nixosconfig/issues/232)
 
@@ -40,7 +40,7 @@ If you want an external view of whether the node is *connected* rather than just
 ```nix
 virtualisation.oci-containers.containers.tdarr-node = {
   # ...
-  extraOptions = ["--device=/dev/dri/renderD128:/dev/dri/renderD128"];
+  extraOptions = ["--device=/dev/dri/renderD129:/dev/dri/renderD129"];
 };
 ```
 
@@ -140,6 +140,41 @@ Old compose had `firewallPorts = [8265]` which was a copy-paste from the tdarr *
 ### `ffmpegVersion=7` matters
 
 Tdarr images ship both ffmpeg 6 and 7. With ffmpeg 6 we were seeing occasional VAAPI session timeouts on the 9950X iGPU; ffmpeg 7 resolved it. The env var is set in the module.
+
+## VAAPI transcode + GPU healthcheck configuration
+
+The AMD Raphael iGPU on igpu enumerates as `/dev/dri/renderD129` (not `renderD128` — the GTX 1080 takes `renderD128`). The NixOS module handles three VAAPI plumbing issues declaratively:
+
+### 1. Tdarr Node hardcoded renderD128
+
+Tdarr Node 2.81.01's bundled `healthCheckUtils.js` hardcodes `/dev/dri/renderD128` for VAAPI health checks. The module's `podman-tdarr-node.service` postStart patches this file in-container to the actual render device on every container start.
+
+### 2. GPU healthcheck filter script
+
+Tdarr's VAAPI health check decodes to GPU frames then writes to a null sink. FFmpeg 7.1 can't convert the VAAPI surface format to the null output without explicitly downloading frames first. The fix is a filter script at `/app/configs/vaapi-healthcheck.filter` containing `hwdownload,format=nv12`, passed via `-filter_script:v`. A filter script is required because Tdarr splits comma-containing `-vf` args on commas, truncating the chain.
+
+The `tdarr-node-gpu-healthcheck-config.service` oneshot seeds the Tdarr server with `thoroughHealthCheckGpuExtraArgs=-filter_script:v /app/configs/vaapi-healthcheck.filter` via API after the node registers.
+
+### 3. `-noautoscale` for interlaced content (transcode plugin)
+
+FFmpeg 7.1 auto-inserts an `auto_scale` filter between `hwupload` and the VAAPI encoder. For interlaced content (MBAFF/TFF, `field_order=tt`), this auto-inserted filter cannot convert formats, causing `CLI code: 218` with `Impossible to convert between the formats supported by the filter 'Parsed_hwupload_1' and the filter 'auto_scale_1'`.
+
+Fix: `-noautoscale` in the ffmpeg transcode args. This is applied in the Tdarr **server** plugin file `Tdarr_Plugin_Mthr_VaapiHEVCTranscode.js` on tower's appdata (`/mnt/user/appdata/tdarr/server/Tdarr/Plugins/Community/`). This is a persistent bind mount — it survives container reboots and Docker image updates. The only thing that reverts it is Tdarr's "Plugin Update" feature (manually triggered).
+
+The full patched ffmpegParameters line in the plugin:
+
+```text
+-c:v:0 hevc_vaapi -b:v ${targetBitrate}k -minrate ${minimumBitrate}k
+  -maxrate ${maximumBitrate}k -bufsize 1M -vaapi_device /dev/dri/renderD129
+  -filter_script:v /app/configs/vaapi-hevc.filter -noautoscale -max_muxing_queue_size 1024
+```
+
+### Non-GPU transcode failures
+
+Not all transcode errors are GPU issues:
+
+- **File size check rejection**: `Tdarr_Plugin_a9he_New_file_size_check` rejects successfully transcoded files if the HEVC output is larger than the original (e.g. already-low-bitrate SDTV sources). Adjust upperBound/lowerBound plugin inputs or skip these files.
+- **Corrupt cache files**: AVI files with DivX packed bitstream can produce `rawvideo` decoder errors in Tdarr's cycle-2 cache reprocessing. The original file transcodes fine with a direct ffmpeg command — the issue is Tdarr's internal cache, not the GPU.
 
 ## How to update
 
