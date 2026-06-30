@@ -1,1 +1,1 @@
-/nix/store/ds0adaqmndmfz2q8k0a8n5lxgp8hdvl2-nixos-system-hermes-26.11.20260628.e1c1b84
+/nix/store/rprya3laq1ncnwcsm0pf6lqdhipsysvq-nixos-system-hermes-26.11.20260628.e1c1b84
