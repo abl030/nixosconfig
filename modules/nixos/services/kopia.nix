@@ -11,9 +11,7 @@
   ...
 }: let
   cfg = config.homelab.services.kopia;
-
-  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
-  gotifyUrl = config.homelab.gotify.endpoint;
+  sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
   # Reconciliation script — makes `inst.sources` the source of truth
   # for what's registered in the running kopia daemon. Runs once on every
@@ -222,16 +220,9 @@
       fi
 
       if [ "$exit_code" -ne 0 ]; then
-        token_file="${gotifyTokenFile}"
-        if [ -n "$token_file" ] && [ -r "$token_file" ]; then
-          token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
-          if [ -n "$token" ]; then
-            /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-              -F "title=kopia-verify failed: ${name} on ${config.networking.hostName}" \
-              -F "message=Verify exited with code $exit_code. Check journalctl -u kopia-verify-${name}." \
-              -F "priority=8" >/dev/null || true
-          fi
-        fi
+        ${sendNegativeAlert}
+        message="Verify exited with code $exit_code. Check journalctl -u kopia-verify-${name}."
+        send_negative_alert "kopia-verify failed: ${name} on ${config.networking.hostName}" "$message" 8
         exit "$exit_code"
       fi
     '';

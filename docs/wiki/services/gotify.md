@@ -7,7 +7,7 @@
 Self-hosted push notification server at https://gotify.ablz.au. Every fleet
 host posts here via the `homelab.gotify.endpoint` option — agents (claude
 triage), cron jobs (rolling-flake-update), watchdogs (NFS, cratedigger
-metadata gate), Home Assistant, Uptime Kuma, Kopia, domain-monitor, etc.
+metadata gate), Home Assistant, Uptime Kuma, etc.
 Mobile push delivered via the Gotify Android app.
 
 ## Apps
@@ -26,6 +26,18 @@ id | name
 
 Reading apps for new sources: see `modules/nixos/services/alert-bridge.nix`,
 which centralises the priority→app routing for log-derived alerts.
+
+## Failure-routing policy
+
+As of 2026-07-01, negative/failure notifications should not raw-page the phone
+directly. They route to Hermes alert-RCA first so the user gets one diagnosis
+with the failing package/service and whether local action is needed. Direct
+Gotify is retained only as fallback when Hermes/RCA delivery is unavailable.
+
+Reusable helper: `modules/nixos/lib/negative-alert.nix`.
+
+Success/useful progress notifications may still post direct to Gotify; example:
+`gwm-archiver`'s “new issue picked up” notification.
 
 ## Reading messages (no client token in repo)
 

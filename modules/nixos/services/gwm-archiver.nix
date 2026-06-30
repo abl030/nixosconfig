@@ -9,6 +9,7 @@
   ...
 }: let
   cfg = config.homelab.services.gwm-archiver;
+  sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
   # Pin the source so flake-eval doesn't churn on unrelated repo edits.
   archiveScript = builtins.path {
@@ -41,15 +42,14 @@
     fi
   '';
 
-  # OnFailure=: post the last 50 journal lines to Gotify at high priority.
+  # OnFailure=: send the last 50 journal lines to Hermes RCA first, with direct
+  # Gotify as fallback. Success notifications remain direct/user-facing.
   notifyFailure = pkgs.writeShellScript "gwm-archiver-notify-failure" ''
-    ${readGotifyToken}
+    set -euo pipefail
+    ${sendNegativeAlert}
     message="$(journalctl -u gwm-archiver.service -n 50 --no-pager 2>/dev/null \
                  | sed 's/[[:cntrl:]]/ /g')"
-    ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=gwm-archiver failed on ${config.networking.hostName}" \
-      -F "message=$message" \
-      -F "priority=7" >/dev/null || true
+    send_negative_alert "gwm-archiver failed on ${config.networking.hostName}" "$message" 7
   '';
 
   tc = cfg.triggerConvert;
@@ -219,7 +219,7 @@ in {
     # Notification units run as root (no User=) so they can read the
     # shared homelab gotify/token (mode 0400, root-owned).
     systemd.services.gwm-archiver-notify-failure = {
-      description = "Notify Gotify on gwm-archiver failure";
+      description = "Send gwm-archiver failures to RCA, with Gotify fallback";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = notifyFailure;

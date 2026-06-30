@@ -11,8 +11,7 @@
   # the break-glass / key-rotation / compromise / history-rewrite runbooks:
   # docs/wiki/infrastructure/signed-fleet-deploys.md
   useVerifiedUpdate = verifyCfg.enable && verifyCfg.enforce;
-  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
-  gotifyUrl = config.homelab.gotify.endpoint;
+  sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
   diagnoseUser = hostConfig.user;
   diagnoseHome = hostConfig.homeDirectory or "/home/${diagnoseUser}";
 in {
@@ -79,9 +78,8 @@ in {
       default = "60min";
       description = "Maximum time allowed for the entire update operation (DNS check + rebuild + activation). Prevents hangs from stuck activations.";
     };
-
     diagnose = {
-      enable = lib.mkEnableOption "Run claude -p on nixos-upgrade failure and post the diagnosis to Gotify (replaces the raw-log failure ping). Requires one-time interactive `sudo -u abl030 --login claude` per host.";
+      enable = lib.mkEnableOption "Run claude -p on nixos-upgrade failure and route the diagnosis through Hermes RCA first, with Gotify fallback. Requires one-time interactive `sudo -u abl030 --login claude` per host.";
     };
   };
 
@@ -204,20 +202,8 @@ in {
       printf '%s\n' "$summary"
       echo "[Diagnose] === end diagnosis ==="
 
-      token_file="${
-        if gotifyTokenFile != null
-        then gotifyTokenFile
-        else ""
-      }"
-      if [ -n "$token_file" ] && [ -r "$token_file" ]; then
-        token="$(${pkgs.gawk}/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
-        if [ -n "$token" ]; then
-          ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-            -F "title=nixos-upgrade failed on ${config.networking.hostName}" \
-            -F "message=$summary" \
-            -F "priority=8" >/dev/null || true
-        fi
-      fi
+      ${sendNegativeAlert}
+      send_negative_alert "nixos-upgrade failed on ${config.networking.hostName}" "$summary" 8
     '';
 
     smartUpgrade = pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
@@ -227,21 +213,10 @@ in {
       notify_failure() {
         local status="$1"
         local log_file="$2"
-        local token_file="${gotifyTokenFile}"
-        if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
-          return 0
-        fi
-        local token
-        token="$(/run/current-system/sw/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "$token_file")"
-        if [ -z "$token" ]; then
-          return 0
-        fi
         local message_tail
         message_tail="$(/run/current-system/sw/bin/tail -n 120 "$log_file" | /run/current-system/sw/bin/sed 's/[[:cntrl:]]/ /g')"
-        /run/current-system/sw/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-          -F "title=nixos-upgrade failed on ${config.networking.hostName}" \
-          -F "message=$message_tail" \
-          -F "priority=8" >/dev/null || true
+        ${sendNegativeAlert}
+        send_negative_alert "nixos-upgrade failed on ${config.networking.hostName}" "$message_tail" 8
         return "$status"
       }
 

@@ -10,8 +10,7 @@ with lib; let
   cfg = config.homelab.mounts.opsSync;
   src = "/mnt/z/Operations & Production/";
   dest = "/mnt/data/Life/Cullen/Ops Backup/";
-  gotifyCfg = config.homelab.gotify;
-  gotifyTokenFile = config.sops.secrets."gotify/token".path or null;
+  sendNegativeAlert = import ../../lib/negative-alert.nix {inherit config lib pkgs;};
 in {
   options.homelab.mounts.opsSync = {
     enable = mkEnableOption "Scheduled rsync of Operations & Production to home NFS";
@@ -45,15 +44,8 @@ in {
 
           notify() {
             local title="$1" msg="$2" priority="''${3:-8}"
-            if [ -n "${gotifyTokenFile}" ] && [ -r "${gotifyTokenFile}" ]; then
-              token=$(${pkgs.gawk}/bin/awk -F= '/^GOTIFY_TOKEN=/{print $2}' "${gotifyTokenFile}")
-              if [ -n "$token" ]; then
-                curl -fsS -X POST "${gotifyCfg.endpoint}/message?token=$token" \
-                  -F "title=$title" \
-                  -F "message=$msg" \
-                  -F "priority=$priority" >/dev/null || true
-              fi
-            fi
+            ${sendNegativeAlert}
+            send_negative_alert "$title" "$msg" "$priority"
           }
 
           trap 'notify "ops-sync failed on ${config.networking.hostName}" "Sync failed at line $LINENO"' ERR

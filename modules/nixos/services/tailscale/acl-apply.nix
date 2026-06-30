@@ -25,7 +25,8 @@
 #   transient/hung Tailscale-API call can NEVER fail or delay doc1's fleet-update
 #   (we refuse to couple the bastion's deploy health to api.tailscale.com); the
 #   apply just runs async after activation, ordered after tailscaled by its own
-#   After=. OnFailure pings Gotify (a 401 = expired/revoked credential).
+#   After=. OnFailure routes through Hermes RCA first, with Gotify fallback
+#   (a 401 = expired/revoked credential).
 #   NB: `restartTriggers` alone does NOT re-run this inactive oneshot on switch —
 #   the activation hook is what makes "apply on deploy" actually happen.
 #
@@ -46,6 +47,7 @@
   ...
 }: let
   cfg = config.homelab.tailscale.aclApply;
+  sendNegativeAlert = import ../../lib/negative-alert.nix {inherit config lib pkgs;};
 
   # Isolated copy of the policy file (stabilization rule: builtins.path, not a raw
   # path, so unrelated repo churn doesn't invalidate the store reference).
@@ -54,29 +56,12 @@
     name = "acl.hujson";
   };
 
-  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
-  gotifyUrl = config.homelab.gotify.endpoint or "";
-
   notifyFailure = pkgs.writeShellScript "tailscale-acl-apply-notify-failure" ''
     set -euo pipefail
-    token_file="''${GOTIFY_TOKEN_FILE:-${toString gotifyTokenFile}}"
-    if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
-      echo "No gotify token file available, skipping notification"
-      exit 0
-    fi
-    raw_token="$(cat "$token_file")"
-    if [[ "$raw_token" == GOTIFY_TOKEN=* ]]; then
-      token="''${raw_token#GOTIFY_TOKEN=}"
-    else
-      token="$raw_token"
-    fi
-    if [ -z "$token" ]; then exit 0; fi
+    ${sendNegativeAlert}
     message="$(journalctl -u tailscale-acl-apply.service -n 50 --no-pager 2>/dev/null \
                  | sed 's/[[:cntrl:]]/ /g')"
-    ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=tailscale-acl-apply FAILED on ${config.networking.hostName}" \
-      -F "message=$message" \
-      -F "priority=8" >/dev/null || true
+    send_negative_alert "tailscale-acl-apply FAILED on ${config.networking.hostName}" "$message" 8
   '';
 in {
   options.homelab.tailscale.aclApply = {
@@ -136,7 +121,7 @@ in {
     };
 
     systemd.services.tailscale-acl-apply-notify-failure = {
-      description = "Notify Gotify on tailscale-acl-apply failure";
+      description = "Send tailscale-acl-apply failures to RCA, with Gotify fallback";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = notifyFailure;

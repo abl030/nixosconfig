@@ -5,39 +5,20 @@
   ...
 }: let
   cfg = config.homelab.services.rtrfm-nowplaying;
-
-  gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
-  gotifyUrl = config.homelab.gotify.endpoint;
+  sendNegativeAlert = import ../../lib/negative-alert.nix {inherit config lib pkgs;};
 
   serverScript = builtins.path {
     path = ./server.py;
     name = "rtrfm-nowplaying-server.py";
   };
 
-  # Gotify notification script for OnFailure=
+  # RCA-first notification script for OnFailure=, with Gotify fallback.
   notifyScript = pkgs.writeShellScript "rtrfm-notify-failure" ''
     set -euo pipefail
-    token_file="''${GOTIFY_TOKEN_FILE:-${toString gotifyTokenFile}}"
-    if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
-      echo "No gotify token file available, skipping notification"
-      exit 0
-    fi
-    raw_token="$(cat "$token_file")"
-    if [[ "$raw_token" == GOTIFY_TOKEN=* ]]; then
-      token="''${raw_token#GOTIFY_TOKEN=}"
-    else
-      token="$raw_token"
-    fi
-    if [ -z "$token" ]; then
-      echo "Empty gotify token, skipping notification"
-      exit 0
-    fi
+    ${sendNegativeAlert}
     # Grab recent journal entries for context
     message="$(journalctl -u rtrfm-nowplaying.service -n 50 --no-pager 2>/dev/null | sed 's/[[:cntrl:]]/ /g')"
-    ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=rtrfm-nowplaying failed on ${config.networking.hostName}" \
-      -F "message=$message" \
-      -F "priority=5" >/dev/null || true
+    send_negative_alert "rtrfm-nowplaying failed on ${config.networking.hostName}" "$message" 5
   '';
 in {
   options.homelab.services.rtrfm-nowplaying = {
@@ -59,13 +40,10 @@ in {
   config = lib.mkIf cfg.enable {
     # Failure notification unit — triggered by OnFailure=
     systemd.services.rtrfm-nowplaying-notify = {
-      description = "Notify Gotify on rtrfm-nowplaying failure";
+      description = "Send rtrfm-nowplaying failures to RCA, with Gotify fallback";
       serviceConfig = {
         Type = "oneshot";
         ExecStart = notifyScript;
-        Environment = lib.optionals (gotifyTokenFile != null) [
-          "GOTIFY_TOKEN_FILE=${gotifyTokenFile}"
-        ];
       };
     };
 

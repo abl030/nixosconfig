@@ -33,7 +33,7 @@
       url = "https://${d}";
       interval = "24h";
       conditions = ["[DOMAIN_EXPIRATION] > 720h"]; # 30 days
-      alerts = [{type = "gotify";}];
+      alerts = [{type = "custom";}];
     })
     allDomains;
 
@@ -47,7 +47,7 @@
         "[CERTIFICATE_EXPIRATION] > 720h" # 30 days
         "[STATUS] < 400"
       ];
-      alerts = [{type = "gotify";}];
+      alerts = [{type = "custom";}];
     })
     sslDomains;
 in {
@@ -58,26 +58,29 @@ in {
   config = lib.mkIf cfg.enable {
     services.gatus = {
       enable = true;
-      environmentFile = config.sops.secrets."gatus/env".path;
       settings = {
         web.port = 8090;
-        alerting.gotify = {
-          server-url = config.homelab.gotify.endpoint;
-          token = "\${GOTIFY_TOKEN}";
+        alerting.custom = {
+          url = "http://192.168.1.29:8644/webhooks/alert-rca";
+          method = "POST";
+          headers = {
+            "Content-Type" = "application/json";
+            "X-Gitlab-Token" = "alert-bridge-rca";
+          };
+          body = builtins.toJSON {
+            title = "domain-monitor alert: [ENDPOINT_NAME]";
+            message = ''
+              endpoint: [ENDPOINT_NAME]
+              url: [ENDPOINT_URL]
+              description: [ALERT_DESCRIPTION]
+              errors: [RESULT_ERRORS]
+              conditions: [RESULT_CONDITIONS]
+            '';
+            priority = 5;
+          };
         };
         endpoints = domainExpiryEndpoints ++ sslEndpoints;
       };
-    };
-
-    sops.secrets."gatus/env" = {
-      sopsFile = config.homelab.secrets.sopsFile "gotify.env";
-      format = "dotenv";
-      # Loaded via services.gatus.environmentFile → systemd reads it as root
-      # before launching gatus, so it needs zero broad perms. Was 0444
-      # (world-readable: every user/process on the host could read the Gotify
-      # token) — a gratuitous leak with no functional need. (#232 secrets audit)
-      owner = "root";
-      mode = "0400";
     };
 
     # Blank /mnt (#257). Gatus probes over the network and reads config from
