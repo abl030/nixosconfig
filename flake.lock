@@ -24,11 +24,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1782512584,
-        "narHash": "sha256-6pAOPEzTR5vGudD9K+zbD4u3mPetOg+HgMydzF0m8SM=",
+        "lastModified": 1782779017,
+        "narHash": "sha256-lbAYB7r2H5B7n/verak4R6YbnuUaqCzpRfascDcL9SA=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "e0c8acbcb3690471a2d2d485b03d09e303780932",
+        "rev": "e64c198efb1ad4b91d349369a161d95d8e8f54b5",
         "type": "github"
       },
       "original": {
@@ -40,11 +40,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1782709653,
-        "narHash": "sha256-ruPRb8z4I0Q/JqJzQlMkgWzINUUarein54RbDLG3T2A=",
+        "lastModified": 1782800830,
+        "narHash": "sha256-aTF0fj6kO1nmZjv93EYrquNsjB+iztVXo4pFgbOVal4=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "f8e90d11fe6c4f034ccb450f0f3302f3d33dc21a",
+        "rev": "cc816ef14ae44b1ca36d084e01792ff33cd2ce90",
         "type": "github"
       },
       "original": {
