@@ -133,7 +133,14 @@
       # alerting.nix automatically points Grafana's webhook at the
       # bridge (127.0.0.1:9876) instead of Gotify, and the bridge
       # forwards a summarised push.
-      alertBridge.enable = true;
+      alertBridge = {
+        enable = true;
+        # Forward enriched alerts to Hermes on doc1 for automated RCA.
+        # The webhook triggers the alert-rca skill which investigates
+        # read-only and optionally opens a signed PR to nixosconfig.
+        rcaWebhookUrl = "http://192.168.1.29:8644/webhooks/alert-rca";
+        rcaWebhookSecret = "alert-bridge-rca";
+      };
       # Byparr — Cloudflare-challenge solver Prowlarr uses for its gated indexers
       # (1337x/EZTV). Stateless OCI container, reached LAN-wide at byparr.ablz.au.
       byparr.enable = true;

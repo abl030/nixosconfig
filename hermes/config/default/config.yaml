@@ -37,15 +37,29 @@ platform_toolsets:
   - vision
   - web
   - mcp-nixos
+  webhook:
+  - terminal
+  - file
+  - web
+  - skills
+  - delegation
+  - code_execution
+  - session_search
+  - memory
+  - todo
 known_plugin_toolsets:
   cli:
   - spotify
 onboarding:
   seen:
     busy_input_prompt: true
+    tool_progress_prompt: true
 skills:
   external_dirs:
   - /home/abl030/nixosconfig/hermes/skills
+command_allowlist:
+  - shell command via -c/-lc flag
+  - git force push (rewrites remote history)
 mcp_servers:
   nixos:
     command: uvx
@@ -84,3 +98,10 @@ mcp_servers:
     enabled: false
     timeout: 300
     connect_timeout: 60
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      host: "0.0.0.0"
+      port: 8644
+      secret: "alert-bridge-rca"

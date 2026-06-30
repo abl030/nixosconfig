@@ -127,6 +127,36 @@
         except Exception as e:
             print(f"[bridge] gotify push failed: {e}", file=sys.stderr)
 
+    # ---- RCA forward -------------------------------------------------------
+    # Forward the enriched alert context to Hermes for automated RCA.
+    # Best-effort: failures here don't affect the Gotify push path.
+    # Auth: X-Gitlab-Token header (plain secret match) — simplest scheme
+    # the Hermes webhook platform supports without computing HMAC.
+    RCA_WEBHOOK_URL = os.environ.get("RCA_WEBHOOK_URL")
+    RCA_WEBHOOK_SECRET = os.environ.get("RCA_WEBHOOK_SECRET", "")
+
+    def rca_forward(title, message, priority=5):
+        if not RCA_WEBHOOK_URL:
+            return
+        payload = json.dumps({
+            "title": title,
+            "message": message,
+            "priority": priority,
+        }).encode()
+        req = urllib.request.Request(
+            RCA_WEBHOOK_URL,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-Gitlab-Token": RCA_WEBHOOK_SECRET,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                resp.read()
+        except Exception as e:
+            print(f"[bridge] rca forward failed: {e}", file=sys.stderr)
+
     # ---- Storm damper -------------------------------------------------------
     # Every outgoing page flows through dispatch(). It counts pages in a rolling
     # window; once more than STORM_THRESHOLD fire within STORM_WINDOW_SECS it
@@ -187,6 +217,7 @@
         # Network I/O outside the lock so the flusher thread never blocks on it.
         if send is not None:
             gotify_push(*send)
+            rca_forward(*send)
         if digest is not None:
             _push_digest(digest)
 
@@ -433,6 +464,28 @@ in {
       description = "Base URL of the Gotify server (no trailing slash).";
     };
 
+    rcaWebhookUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Hermes webhook URL to forward enriched alert context for RCA.
+        When set, the bridge POSTs the alert (title, message, priority)
+        to this URL in addition to pushing to Gotify. The Hermes agent
+        on the receiving end runs the alert-rca skill.
+        Set to null to disable RCA forwarding.
+      '';
+    };
+
+    rcaWebhookSecret = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Shared secret for the RCA webhook URL. Sent as X-Gitlab-Token
+        header (plain secret match — simplest Hermes webhook auth).
+        Required when rcaWebhookUrl is set.
+      '';
+    };
+
     lokiUrl = lib.mkOption {
       type = lib.types.str;
       default = "http://127.0.0.1:3100";
@@ -498,6 +551,10 @@ in {
         STORM_WINDOW_SECS = toString cfg.stormWindowSecs;
         STORM_FLUSH_SECS = toString cfg.stormFlushSecs;
         STORM_QUIET_SECS = toString cfg.stormQuietSecs;
+      } // lib.optionalAttrs (cfg.rcaWebhookUrl != null) {
+        RCA_WEBHOOK_URL = cfg.rcaWebhookUrl;
+      } // lib.optionalAttrs (cfg.rcaWebhookSecret != null) {
+        RCA_WEBHOOK_SECRET = cfg.rcaWebhookSecret;
       };
 
       serviceConfig = {
