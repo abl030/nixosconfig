@@ -126,6 +126,8 @@
         enable = true;
         user = "abl030";
       };
+
+      promRpoolBackup.enable = true;
     };
   };
 

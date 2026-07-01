@@ -65,5 +65,6 @@
     ./komga.nix
     ./komga-sync.nix
     ./marker-convert.nix
+    ./prom-rpool-backup.nix
   ];
 }
