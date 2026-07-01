@@ -109,6 +109,22 @@ in {
       "d /run/push-deploy 0700 root root -"
     ];
 
+    # Root now logs in (forced-command) to fire the trigger — it never did before.
+    # On an LXC, that root login's `/run/user/0` loses its teardown race on logout:
+    # user-runtime-dir@0.service's ExecStop rmdir fails "Directory not empty"
+    # (exit 1) and the host flaps to `degraded`. It is COSMETIC — the tmpfs is
+    # unmounted, only the now-empty mount-point dir removal fails, and the next
+    # login re-mounts fine — but a degraded host trips health checks. The switch
+    # already runs under PID 1 (above), so this is purely the root *login session*,
+    # not our activation (igpu reproduced it even with an empty trigger). Treat that
+    # one benign exit-1 as success so the host stays clean. Scoped to @0 (root) and
+    # only on push-deploy hosts; servarr (a VM) never hits it but the override is
+    # inert there. Verified 2026-07-01.
+    systemd.services."user-runtime-dir@0" = {
+      overrideStrategy = "asDropin";
+      serviceConfig.SuccessExitStatus = "1";
+    };
+
     # The actual activation, run under PID 1 (never in the SSH login session).
     # Realises the staged closure from nixcache.ablz.au (signature-checked
     # substitution), registers it as the system generation, and switches.

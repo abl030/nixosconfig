@@ -111,12 +111,17 @@ the night's Gotify summary. The deploy key is `/run/secrets/deploy-trigger/key`
 - **Bootstrap is chicken-and-egg**: the forced-command key arrives *with* the new
   config, so the very first activation must go through some pre-existing root path
   (sudo where it exists, `fleet-deploy` otherwise, Proxmox console as break-glass).
-- **Runtime-dir race (SOLVED, but note for anyone tempted to simplify)**: the *first*
-  cut ran `switch` inside the root SSH session; on the igpu LXC that left
-  `user-runtime-dir@0.service` failing ("Directory not empty") on every activation →
-  host `degraded`. Fixed by the trigger-and-detach split (`--no-block`, switch under
-  PID 1). Do **not** move the switch back into the session to "get a synchronous exit
-  code" — poll instead (that's what `push_deploy.sh` does).
+- **Runtime-dir race on LXC (handled two ways)**: root now logs in (forced-command) to
+  fire the trigger — it never did before — and on the igpu LXC that login's `/run/user/0`
+  loses its teardown race on logout: `user-runtime-dir@0.service`'s ExecStop rmdir fails
+  "Directory not empty" (exit 1) → host `degraded`. It is cosmetic (the tmpfs is
+  unmounted; the next login re-mounts fine). Two fixes together: (1) the trigger-and-detach
+  split (`--no-block`, switch under PID 1) keeps the *switch* out of the session — do **not**
+  move it back in to "get a synchronous exit code", poll instead; and (2) a drop-in on
+  `user-runtime-dir@0.service` sets `SuccessExitStatus=1` so that benign exit-1 doesn't mark
+  the host degraded. (1) alone fixed servarr (a VM); igpu reproduced the race even with an
+  empty trigger, so (2) is what actually keeps the LXC clean. Verified 2026-07-01: after a
+  full `push_deploy.sh` run both hosts stay `running`, no failed units.
 - **Profile-lock contention**: `nix-env --set` briefly locks the system profile. Firing
   push-deploy on the heels of another switch/GC can hit `Could not acquire lock` (seen
   once during testing, right after a bootstrap switch was still settling). In production
