@@ -5,15 +5,19 @@
 # configured push-deploy host it:
 #   1. Resolves the GC-root symlink populate_cache.sh left for that host
 #      (${CI_RESULTS_DIR}/<host>-system -> /nix/store/…-nixos-system-<host>-…).
-#   2. SSHes to `root@<host>` using doc1's fleet-deploy trigger key, passing the
-#      store path as the command. The host's root authorized_keys entry is a
-#      forced command (modules/nixos/autoupdate/push-deploy.nix): sshd ignores the
-#      requested command, runs the activation wrapper, and hands it the path via
-#      $SSH_ORIGINAL_COMMAND. The wrapper (as root) realises the closure from
-#      nixcache.ablz.au (signature-checked) and runs switch-to-configuration.
+#   2. TRIGGERS activation: SSH to `root@<host>` with doc1's fleet-deploy trigger
+#      key, passing the store path as the command. The host's root authorized_keys
+#      entry is a forced command (modules/nixos/autoupdate/push-deploy.nix): sshd
+#      runs the trigger wrapper, which stages the path and fires
+#      push-activate.service --no-block, then the root session exits immediately.
+#      The heavy realise + switch-to-configuration runs under PID 1, NOT in the SSH
+#      session (so root's runtime dir tears down cleanly — see the module header).
+#   3. POLLS the host (read-only, no privilege) until push-activate.service
+#      finishes: success when the system generation == the target closure and the
+#      service isn't failed; failure on a failed unit or timeout.
 #
-# No sudo, no polkit, no login-user involvement on the target — the key can do
-# exactly one thing (activate a doc1-signed closure) and only doc1 holds it.
+# No sudo, no polkit, no login-user involvement in the activation — the key can do
+# exactly one thing (trigger a doc1-signed closure) and only doc1 holds it.
 #
 # Env vars (set by modules/nixos/ci/rolling-flake-update.nix):
 #   RFU_PUSH_DEPLOY_HOST_MAP  comma-separated "name:addr" pairs (addr = ssh host)
@@ -28,6 +32,11 @@ HOST_MAP="${RFU_PUSH_DEPLOY_HOST_MAP:-}"
 CI_RESULTS_DIR="${RFU_CI_RESULTS_DIR:-/home/abl030/.cache/nix-ci-results}"
 DEPLOY_KEY="${RFU_DEPLOY_KEY:-}"
 
+# Poll budget: 3s between reads, up to 100 reads (~5 min) — a cold cache pull plus
+# switch fits comfortably; a real failure surfaces well before the ceiling.
+POLL_INTERVAL="${RFU_PUSH_DEPLOY_POLL_INTERVAL:-3}"
+POLL_MAX="${RFU_PUSH_DEPLOY_POLL_MAX:-100}"
+
 log() { echo "[$TAG] $*"; }
 
 if [ -z "$HOST_MAP" ]; then
@@ -41,13 +50,20 @@ fi
 
 any_fail=0
 
+# Read-only poll of the target via a normal (login-user) session — is-active +
+# current generation in one round trip. No privilege needed.
+poll_state() {
+    local addr="$1"
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "$addr" \
+        'printf "%s %s\n" "$(systemctl is-active push-activate.service 2>/dev/null || true)" "$(readlink -f /nix/var/nix/profiles/system 2>/dev/null)"' \
+        2>/dev/null || echo "sshfail "
+}
+
 push_deploy_host() {
     local entry="$1"
     # Entry format: "name:addr"
     local name="${entry%%:*}"
     local addr="${entry#*:}"
-
-    log "[$name] starting push-deploy to root@$addr"
 
     local gc_root="$CI_RESULTS_DIR/${name}-system"
     if [ ! -L "$gc_root" ]; then
@@ -62,11 +78,9 @@ push_deploy_host() {
         return 1
     fi
 
-    log "[$name] activating $toplevel"
-
+    log "[$name] triggering activation of $toplevel"
     # Pass the store path as the SSH command; the host's forced command turns it
-    # into $SSH_ORIGINAL_COMMAND for the activation wrapper. Blocking (no
-    # --no-block equivalent) so we get a clean success/failure signal here.
+    # into $SSH_ORIGINAL_COMMAND, stages it, and fires push-activate.service.
     if ! ssh \
             -i "$DEPLOY_KEY" \
             -o IdentitiesOnly=yes \
@@ -75,11 +89,39 @@ push_deploy_host() {
             -o StrictHostKeyChecking=accept-new \
             "root@$addr" \
             "$toplevel"; then
-        log "[$name] push-deploy FAILED (ssh/realise/activate)"
+        log "[$name] FAILED to trigger (ssh/forced-command)"
         return 1
     fi
 
-    log "[$name] push-deploy done"
+    # Poll until push-activate.service settles.
+    local i state gen
+    for ((i = 1; i <= POLL_MAX; i++)); do
+        sleep "$POLL_INTERVAL"
+        read -r state gen < <(poll_state "$addr")
+        case "$state" in
+            failed)
+                log "[$name] activation FAILED (push-activate.service failed):"
+                ssh -o BatchMode=yes -o ConnectTimeout=10 "$addr" \
+                    'journalctl -u push-activate.service -n 15 --no-pager 2>/dev/null | tail -15' \
+                    2>/dev/null | sed "s/^/[$TAG] [$name]   /" || true
+                return 1
+                ;;
+            activating | sshfail)
+                : # still running, or a transient poll hiccup — keep waiting
+                ;;
+            *)
+                # Oneshot done (inactive/dead) — success iff the generation flipped
+                # to the target closure. (A no-op re-activation matches immediately.)
+                if [ "$gen" = "$toplevel" ]; then
+                    log "[$name] activated ($toplevel)"
+                    return 0
+                fi
+                ;;
+        esac
+    done
+
+    log "[$name] timed out after ~$((POLL_INTERVAL * POLL_MAX))s waiting for activation"
+    return 1
 }
 
 # Parse HOST_MAP: comma-separated "name:addr"

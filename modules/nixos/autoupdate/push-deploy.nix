@@ -8,35 +8,44 @@
 #
 # TRIGGER MODEL — a restricted forced-command key on ROOT (NOT polkit / sudo):
 #   * The host authorizes ONE key on `root`: the doc1 fleet-deploy trigger key,
-#     pinned with `command="<activate-wrapper>",restrict,from=<tailnet+LAN>`. The
-#     key can do EXACTLY one thing — run the wrapper as root — and nothing else
-#     (no shell, no pty, no forwarding). Only doc1 holds the private half (sops,
-#     doc1-scoped), so only doc1 can fire it.
+#     pinned with `command="<trigger-wrapper>",restrict,from=<tailnet+LAN>`. The
+#     key can do EXACTLY one thing — run the wrapper — and nothing else (no shell,
+#     no pty, no forwarding). Only doc1 holds the private half (sops, doc1-scoped),
+#     so only doc1 can fire it.
 #   * `PermitRootLogin` is forced to "forced-commands-only": root may log in ONLY
 #     via a forced-command key. Interactive and password root login stay OFF
-#     (this is strictly narrower than the "prohibit-password" that ssh.secure=false
-#     would otherwise give, and it un-blocks the "no" that ssh.secure=true sets on
-#     servarr — for this one key only).
+#     (strictly narrower than the "prohibit-password" ssh.secure=false gives, and
+#     it opens — for this one key only — the "no" ssh.secure=true sets on servarr).
 #   * doc1 connects `root@host "<store-path>"`; the forced command ignores the
 #     requested command and runs the wrapper, exposing the path as
-#     $SSH_ORIGINAL_COMMAND. The wrapper validates it, realises it from the cache,
-#     registers it as the system generation, and switches.
+#     $SSH_ORIGINAL_COMMAND.
 #
-# WHY NOT polkit + abl030 (the first cut): a polkit rule granting the login user
-# `systemctl start` on an activation unit lets ANY session of that user activate
-# whatever path it can stage — on a locked host (igpu) that is a new passwordless
-# root path. This design keeps the whole activation OUT of the login user's reach:
-# it runs as root off a key only doc1 holds, so target sudo posture is irrelevant
-# ("we don't care about sudo status on the VMs") and no interactive session gains
-# anything. Mirrors the fleet-deploy / marker-convert forced-command pattern.
+#   The wrapper does the MINIMUM in-session: validate the path, stage it to a
+#   root-only file, and `systemctl start --no-block push-activate.service`, then
+#   exit. The heavy work (realise + switch-to-configuration) runs in
+#   push-activate.service under PID 1, NOT in the SSH login session. This mirrors
+#   fleet-deploy's `systemctl start --no-block nixos-upgrade` exactly, and is what
+#   keeps the root login session trivial: a switch run *inside* the session leaves
+#   root's `systemd --user` manager holding /run/user/0 and, on an LXC, the runtime
+#   dir teardown then loses the race and fails ("Directory not empty" → degraded).
+#   Trigger-and-detach sidesteps that. doc1 confirms the outcome by polling the
+#   host's generation + push-activate.service result (scripts/push_deploy.sh).
+#
+# WHY NOT polkit + abl030: a polkit rule granting the login user `systemctl start`
+# on the activation unit lets ANY session of that user activate whatever path it
+# can stage — on a locked host (igpu) that is a new passwordless root path. This
+# design keeps the whole activation OUT of the login user's reach: it runs off a
+# key only doc1 holds, and both the trigger and the staged path are root-only, so
+# target sudo posture is irrelevant ("we don't care about sudo status on the VMs")
+# and no interactive session gains anything.
 #
 # TRUST BOUNDARY: a LEAKED deploy key can still only activate closures doc1 has
-# SIGNED INTO THE CACHE — the wrapper realises via the nix daemon, which accepts a
-# substituted path only if signed by a trusted key (doc1's cache key, ablz.au-1:…,
-# already trusted at priority 10 on every internal host). An unsigned/unbuildable
-# path fails closed. That is the SAME trust root as fleet-deploy (doc1 is the
-# bastion); this adds no surface beyond trusting doc1's binary cache, which the
-# host already does.
+# SIGNED INTO THE CACHE — push-activate.service realises via the nix daemon, which
+# accepts a substituted path only if signed by a trusted key (doc1's cache key,
+# ablz.au-1:…, already trusted at priority 10 on every internal host). An
+# unsigned/unbuildable path fails closed. Same trust root as fleet-deploy (doc1 is
+# the bastion); no surface beyond trusting doc1's binary cache, which the host
+# already does.
 #
 # See docs/wiki/infrastructure/push-deploy.md (forgejo#10).
 {
@@ -47,42 +56,32 @@
 }: let
   cfg = config.homelab.update.pushDeploy;
   fleetCfg = config.homelab.fleetDeploy;
+  stagedFile = "/run/push-deploy/staged";
 
-  # The ONLY thing the doc1 deploy key can run as root. Receives the target store
-  # path via $SSH_ORIGINAL_COMMAND (set by sshd to whatever doc1 asked to run,
-  # which the forced command otherwise ignores).
-  activateScript = pkgs.writeShellScript "push-activate" ''
+  # In-session forced command: validate + stage + fire push-activate.service
+  # --no-block, then exit. Deliberately does NO heavy work in the login session
+  # (see the runtime-dir race note above).
+  triggerScript = pkgs.writeShellScript "push-trigger" ''
     set -euo pipefail
-    export PATH=${lib.makeBinPath [pkgs.nix pkgs.coreutils]}:$PATH
+    export PATH=${lib.makeBinPath [config.systemd.package pkgs.coreutils]}:$PATH
 
     # Strip stray whitespace/newline; a store path never contains spaces.
     toplevel="$(printf '%s' "''${SSH_ORIGINAL_COMMAND:-}" | tr -d '[:space:]')"
-
     case "$toplevel" in
       /nix/store/*) ;;
-      *) echo "push-activate: refusing non-store path: '$toplevel'" >&2; exit 1 ;;
+      *) echo "push-deploy: refusing non-store path: '$toplevel'" >&2; exit 1 ;;
     esac
 
-    # Realise from the binary cache if not already present. For a not-yet-local
-    # path this forces substitution, which the nix daemon accepts ONLY if the
-    # narinfo is signed by a trusted key (doc1's cache key). Unsigned or
-    # unbuildable ⇒ this fails and nothing is activated — so a leaked deploy key
-    # can only ever activate closures doc1 signed into the cache.
-    if [ ! -e "$toplevel" ]; then
-      echo "push-activate: realising $toplevel from cache…"
-      nix-store --realise "$toplevel" >/dev/null
-    fi
+    # Stage the path for push-activate.service. /run/push-deploy is 0700 root
+    # (tmpfiles below), so only this root wrapper can write it — no login-user
+    # tampering. The service re-validates and signature-checks on read.
+    umask 077
+    printf '%s\n' "$toplevel" > ${stagedFile}
 
-    if [ ! -x "$toplevel/bin/switch-to-configuration" ]; then
-      echo "push-activate: no switch-to-configuration at $toplevel" >&2
-      exit 1
-    fi
-
-    # Register as the current system generation (so it becomes the boot default)
-    # then activate — exactly what `nixos-rebuild switch` does under the hood.
-    echo "push-activate: registering + switching to $toplevel"
-    nix-env -p /nix/var/nix/profiles/system --set "$toplevel"
-    exec "$toplevel/bin/switch-to-configuration" switch
+    # Clear any leftover failed state from a prior run so the poll reads cleanly.
+    systemctl reset-failed push-activate.service 2>/dev/null || true
+    echo "push-deploy: staged $toplevel; starting push-activate.service"
+    exec systemctl start --no-block push-activate.service
   '';
 in {
   options.homelab.update.pushDeploy = {
@@ -96,13 +95,65 @@ in {
     # and password root login remain disabled either way.
     services.openssh.settings.PermitRootLogin = lib.mkForce "forced-commands-only";
 
-    # The doc1 deploy key, locked to run ONLY the activation wrapper as root.
-    # Reuses the fleet-deploy trigger key (already lives ONLY on doc1, sops-scoped);
-    # it is authorized on a DIFFERENT login user here (root vs abl030 for
-    # fleet-deploy), so sshd selects this entry by login user. `restrict` strips
+    # The doc1 deploy key, locked to run ONLY the trigger wrapper. Reuses the
+    # fleet-deploy trigger key (already lives ONLY on doc1, sops-scoped); it is
+    # authorized on a DIFFERENT login user here (root vs abl030 for fleet-deploy),
+    # so sshd selects this entry by login user. `restrict` strips
     # pty/forwarding/agent/X11; `from=` pins the source to tailnet + home LAN.
     users.users.root.openssh.authorizedKeys.keys = [
-      ''command="${activateScript}",restrict,from="${fleetCfg.triggerFrom}" ${fleetCfg.triggerPublicKey}''
+      ''command="${triggerScript}",restrict,from="${fleetCfg.triggerFrom}" ${fleetCfg.triggerPublicKey}''
     ];
+
+    # Root-only staging dir for the closure path handed over by the trigger.
+    systemd.tmpfiles.rules = [
+      "d /run/push-deploy 0700 root root -"
+    ];
+
+    # The actual activation, run under PID 1 (never in the SSH login session).
+    # Realises the staged closure from nixcache.ablz.au (signature-checked
+    # substitution), registers it as the system generation, and switches.
+    systemd.services.push-activate = {
+      description = "Activate a doc1-staged NixOS closure (push-deploy, forgejo#10)";
+      # Do not tie to network-online here — the trigger only fires after doc1 has
+      # already reached us, and the cache is on the LAN.
+      serviceConfig = {
+        Type = "oneshot";
+        # Realise + activation can take a few minutes on a cold cache pull.
+        TimeoutStartSec = "30min";
+      };
+      path = [pkgs.nix pkgs.coreutils];
+      script = ''
+        set -euo pipefail
+        if [ ! -f "${stagedFile}" ]; then
+          echo "push-activate: no staged path at ${stagedFile}" >&2
+          exit 1
+        fi
+        toplevel="$(tr -d '[:space:]' < "${stagedFile}")"
+        case "$toplevel" in
+          /nix/store/*) ;;
+          *) echo "push-activate: invalid staged path: '$toplevel'" >&2; exit 1 ;;
+        esac
+
+        # Realise from the binary cache if not already present. For a not-yet-local
+        # path this forces substitution, which the nix daemon accepts ONLY if the
+        # narinfo is signed by a trusted key (doc1's cache key). Unsigned or
+        # unbuildable ⇒ fails closed.
+        if [ ! -e "$toplevel" ]; then
+          echo "push-activate: realising $toplevel from cache…"
+          nix-store --realise "$toplevel" >/dev/null
+        fi
+
+        if [ ! -x "$toplevel/bin/switch-to-configuration" ]; then
+          echo "push-activate: no switch-to-configuration at $toplevel" >&2
+          exit 1
+        fi
+
+        # Register as the current system generation (boot default) then activate —
+        # exactly what `nixos-rebuild switch` does under the hood.
+        echo "push-activate: registering + switching to $toplevel"
+        nix-env -p /nix/var/nix/profiles/system --set "$toplevel"
+        exec "$toplevel/bin/switch-to-configuration" switch
+      '';
+    };
   };
 }

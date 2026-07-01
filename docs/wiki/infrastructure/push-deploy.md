@@ -39,13 +39,25 @@ user — rejected). Instead:
   opens — for this one key only — the `no` that `ssh.secure = true` sets (servarr).
 - doc1 connects `ssh -i <key> root@host "<store-path>"`; sshd ignores the requested
   command, runs the wrapper, and exposes the path as `$SSH_ORIGINAL_COMMAND`.
-- The wrapper (as root): validate the path is `/nix/store/*` → `nix-store --realise`
-  (substitute from cache) → `nix-env -p /nix/var/nix/profiles/system --set` → `exec
-  switch-to-configuration switch`. Exactly what `nixos-rebuild switch` does.
+- The wrapper does the **minimum in-session**: validate the path is `/nix/store/*` →
+  stage it to a root-only file (`/run/push-deploy/staged`, dir `0700 root`) → `systemctl
+  start --no-block push-activate.service` → exit. The **heavy work runs under PID 1**,
+  not in the login session: `push-activate.service` (oneshot) reads the staged path,
+  `nix-store --realise`s it (substitute from cache), `nix-env --set`s the system profile,
+  and `switch-to-configuration switch`es. Exactly what `nixos-rebuild switch` does.
+
+**Why the trigger-and-detach split** (mirrors fleet-deploy's `systemctl start --no-block
+nixos-upgrade`): running `switch` *inside* the root SSH session leaves root's `systemd
+--user` manager holding `/run/user/0`, and on an LXC the runtime-dir teardown then loses
+the race on logout — `user-runtime-dir@0.service` fails with "Directory not empty" and the
+whole host goes **degraded** (observed on igpu, first cut). Firing `--no-block` and exiting
+keeps the root session trivial, so `/run/user/0` is empty at teardown and cleans up fine;
+the switch runs later under PID 1 where no login session exists.
 
 **Result:** target sudo posture is irrelevant ("we don't care about sudo status on the
-VMs"), and no interactive/login-user session gains anything. Mirrors the
-`fleet-deploy` / marker-convert forced-command pattern.
+VMs"), and no interactive/login-user session gains anything. The staged path is root-only
+(the login user can't write it), and `push-activate.service` re-validates + signature-checks
+on read, so staging adds no surface.
 
 ## Trust boundary
 
@@ -67,8 +79,12 @@ exit 1, the file never appears.
 each nightly run (post Forgejo-push, and on no-op nights so a host that missed a night
 catches up), `scripts/rolling_flake_update.sh` calls `scripts/push_deploy.sh`, which for
 each host: resolves the populate_cache GC root (`~/.cache/nix-ci-results/<host>-system`
-→ toplevel) and SSHes `root@<host>` with the path. Failures fold into the night's Gotify
-summary. The deploy key is `/run/secrets/deploy-trigger/key` (RFU_DEPLOY_KEY).
+→ toplevel), SSHes `root@<host>` with the path to trigger, then — because activation is
+`--no-block` — **polls** the host (read-only, login-user session, no privilege) until
+`push-activate.service` settles: success when the system generation == the target closure
+and the unit isn't failed; failure on a failed unit or a ~5-min timeout. Failures fold into
+the night's Gotify summary. The deploy key is `/run/secrets/deploy-trigger/key`
+(RFU_DEPLOY_KEY).
 
 ## Enabling push-deploy on a new host
 
@@ -95,15 +111,21 @@ summary. The deploy key is `/run/secrets/deploy-trigger/key` (RFU_DEPLOY_KEY).
 - **Bootstrap is chicken-and-egg**: the forced-command key arrives *with* the new
   config, so the very first activation must go through some pre-existing root path
   (sudo where it exists, `fleet-deploy` otherwise, Proxmox console as break-glass).
+- **Runtime-dir race (SOLVED, but note for anyone tempted to simplify)**: the *first*
+  cut ran `switch` inside the root SSH session; on the igpu LXC that left
+  `user-runtime-dir@0.service` failing ("Directory not empty") on every activation →
+  host `degraded`. Fixed by the trigger-and-detach split (`--no-block`, switch under
+  PID 1). Do **not** move the switch back into the session to "get a synchronous exit
+  code" — poll instead (that's what `push_deploy.sh` does).
 - **Profile-lock contention**: `nix-env --set` briefly locks the system profile. Firing
   push-deploy on the heels of another switch/GC can hit `Could not acquire lock` (seen
-  once during testing, immediately after the bootstrap switch was still settling). A
-  single retry clears it; in production the nightly build finishes well before the
-  activation, and each host is activated sequentially. Not currently retried in-wrapper.
-- **Same-toplevel activation is a fast no-op** (no unit restarts, no sshd bounce, clean
-  return). A *real* change restarts sshd, so a `switch` invoked over SSH may drop the
-  session's stdout even though the server-side switch completes — verify the resulting
-  generation, don't trust the dropped connection.
+  once during testing, right after a bootstrap switch was still settling). In production
+  the nightly build finishes well before the activation and hosts are activated
+  sequentially; a transient collision just fails that host for the night (logged, retried
+  next run). Not currently retried in-service.
+- **Same-toplevel activation is a fast no-op**; the poll matches the generation
+  immediately. Because the switch now runs under PID 1, an sshd restart during a *real*
+  change no longer drops the trigger connection (the trigger already returned).
 - **igpu host key**: igpu-as-LXC has a fresh SSH host key; doc1 pins it from hosts.nix.
   If that pin is stale, root@igpu (like any ssh to igpu) fails host-key verification —
   fix the hosts.nix `publicKey` first. See `igpu-lxc-migration.md`.
