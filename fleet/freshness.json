@@ -1,9 +1,9 @@
 {
-  "epoch": 1782833156,
-  "timestamp": "2026-06-30T15:25:56Z",
+  "epoch": 1782921310,
+  "timestamp": "2026-07-01T15:55:10Z",
   "actor": "nix bot <acme@ablz.au>",
   "host": "proxmox-vm",
-  "status": "partial_failure",
-  "failed_groups": 1,
+  "status": "green",
+  "failed_groups": 0,
   "summary_lines": 3
 }
