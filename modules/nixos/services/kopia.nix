@@ -470,8 +470,20 @@ in {
             after = ["kopia-${name}.service"];
             requires = ["kopia-${name}.service"];
             environment.HOME = cfg.dataDir;
+            # The verify is a long oneshot (killed runs have exceeded 2h) whose
+            # ExecStart derivation changes on every rebuild. With the default
+            # restartIfChanged=true, each deploy restarts it and
+            # switch-to-configuration blocks on the oneshot until it finishes —
+            # wedging activation, and re-killing the in-flight verify from
+            # scratch every deploy so it never completes. Keep deploys off a
+            # running verify; the daily timer re-runs it on the new script.
+            restartIfChanged = false;
             serviceConfig = {
               Type = "oneshot";
+              # Backstop only — restartIfChanged=false already decouples this
+              # from deploys. Bound a genuinely hung verify: well under the 24h
+              # timer cadence, well over observed runtimes.
+              TimeoutStartSec = "12h";
               User =
                 if inst.runAsRoot
                 then "root"

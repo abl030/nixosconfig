@@ -303,9 +303,19 @@ in {
                 requires = ["mnt-data.mount"];
                 wants = ["network-online.target"];
 
+                # mbsync is a long oneshot (initial/large syncs run for hours).
+                # With the default restartIfChanged=true, every deploy restarts
+                # it and switch-to-configuration blocks on the oneshot until it
+                # finishes — wedging activation. Keep deploys off a running
+                # sync; the interval timer re-runs it on the new derivation.
+                restartIfChanged = false;
+
                 path = with pkgs; [isync coreutils];
                 serviceConfig = {
                   Type = "oneshot";
+                  # Backstop only — restartIfChanged=false already decouples
+                  # this from deploys. Bound a genuinely hung mbsync.
+                  TimeoutStartSec = "6h";
                   User = "mailarchive";
                   Group = "mailarchive";
                   # libsasl2 finds plugins via SASL_PATH; PATH alone is not enough.
