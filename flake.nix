@@ -598,9 +598,8 @@
             epi=age1gr4papzzdqfxd34ushr88303f2ypdwvgx9cw2xqs87yn4zf8lpxqc0rur5
             fw=age1ysfdznu87vwwqtpudchkyx0wlhuhteqljrqkt6963pcmhwprlgcqasg0gv
             wsl=age10hqxw3uxvg9nkc56rm495ty0rge0yhkcqp95gx00tgsv8ptg93mqwywlja
-            hermes=age1a2gezkcxar2ss9zksys4ej4qlxa4uj32zyctycew364jw2fj5veq00a3v0
             servarr=age1tdnkggnfqkav7zxw5r3ty4d8r0tavk34p8aclzmkdtzjp69smpusudf2k4
-            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $hermes $servarr"
+            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $servarr"
             fail=0
             for d in ${./secrets/hosts}/*/; do
               h=$(basename "$d")
@@ -611,7 +610,6 @@
                 epimetheus) own=$epi ;;
                 framework) own=$fw ;;
                 wsl) own=$wsl ;;
-                hermes) own=$hermes ;;
                 servarr) own=$servarr ;;
                 *) echo "unknown host dir: $h"; fail=1; continue ;;
               esac

@@ -245,26 +245,6 @@ in {
     gotifyServer = true;
   };
 
-  hermes = {
-    configurationFile = ./hosts/hermes/configuration.nix;
-    homeFile = ./hosts/hermes/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "hermes";
-    sshAlias = "hermes";
-    sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMMJJaMvEpjESv/B83CpDuzeOlz/ur+Mw7WP3KaL2+cd root@hermes";
-    # Keyless re: the fleet — trusts ONLY the doc1 bastion's resident key, so a
-    # compromised agent VM cannot reach siblings. Reach hermes via doc1. #270.
-    authorizedKeys = fleetKeys;
-    # forgejo#2: LOCKED by default (role defaults to "locked"). Keyless,
-    # Telegram-only agent VM on prom — abl030 has no password, prom console is
-    # break-glass (like doc2). The agent container is unaffected (containers
-    # don't use abl030 sudo). Deploy via `fleet-deploy hermes` from doc1.
-    localIp = "192.168.1.162";
-    tailscaleIp = "100.78.254.6";
-  };
-
   # servarr — dedicated NixOS VM on tower for the *arr stack (Radarr / Sonarr /
   # Prowlarr), which replaced the legacy Ubuntu `genericvm` and reclaimed its
   # 192.168.1.4. qBittorrent runs SEPARATELY in an isolated microvm.nix guest on
