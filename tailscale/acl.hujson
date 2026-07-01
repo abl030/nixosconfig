@@ -45,7 +45,6 @@
     "homeassistant": "100.106.165.120", // edge node allowed to reach the Cullen inverters
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
-    "hermes":        "100.78.254.6",   // locked-down agent VM (keyless re: the fleet, see grants)
     "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
   },
 
@@ -130,6 +129,8 @@
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
     { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
     { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
+    // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
+    { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
     // them over tower's 192.168.0.0/23 route (added 2026-06-23, the servarr .4 cutover).
     { "src": ["tag:cullen"], "dst": ["192.168.1.4/32", "192.168.1.29/32", "192.168.1.35/32", "192.168.1.33/32", "192.168.1.6/32"], "ip": ["tcp:443"] },
@@ -146,7 +147,7 @@
     { "src": ["tag:cullen"], "dst": ["192.168.1.111/32"], "ip": ["tcp:47984", "tcp:47989", "tcp:47990", "tcp:48010", "udp:47998-48010"] },
 
     // === tag:edge — remote / isolated nodes ================================
-    // homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes.
+    // homeassistant, raspberrypi (dad's), kerrynas (mum's).
     // No implicit fleet access; egress enumerated per-node; inbound only what is
     // explicitly granted (e.g. server→kerrynas NFS above).
     //
@@ -157,17 +158,6 @@
     // NOT Speedwire (udp:9522) / Modbus (tcp:502). .139 = Bank A + Bank B cluster
     // gateway; .133 = Warehouse. (Bank B is a SD2P sub-device behind .139, no own IP.)
     { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
-
-    // === hermes — locked-down agent VM ====================================
-    // Keyless re: the fleet, the blast-radius boundary for LLM-generated code.
-    // tag:edge, so NO server mesh; exactly two tailnet paths:
-    //   1. inbound :22 from servers — doc1 bastion `fleet-deploy hermes`.
-    //   2. outbound DNS to pfSense.
-    // Dashboard is the SEPARATE hermes-ui share sidecar (tag:share). Observability
-    // (loki/prometheus/gotify with doc2) runs over the prom LAN, not the tailnet.
-    { "src": ["tag:server"], "dst": ["hermes"], "ip": ["tcp:22"] },
-    { "src": ["hermes"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
-
     // doc1 (bastion) → dad's raspberrypi: SSH admin only. doc1 logs into the pi
     // (key-only) for management; dad's-LAN access otherwise rides the tag:client
     // subnet route (192.168.2.0/24), so doc1 needs just :22 to the rpi node.
@@ -249,16 +239,16 @@
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
+    // cullen → doc1 RCA webhook (8644) for negative alert routing.
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },
     // trusted clients can reach Cullen; Cullen still cannot initiate broadly back.
     { "src": "s-a55", "proto": "tcp", "accept": ["cullen:22", "cullen:443"] },
-    // hermes → pfSense DNS only; no fleet mesh.
-    { "src": "hermes", "proto": "tcp", "accept": ["pfsense:53"], "deny": ["tag:server:443"] },
     // doc1 → rpi diagnostic path.
     { "src": "doc1", "proto": "tcp", "accept": ["rpi:22"] },
     // doc1 (bastion) unrestricted egress: now reaches tag:client (e.g. framework
     // — fixes `ssh epi` over the tailnet) and any server/share port, beyond the
     // old server-mesh + cullen/rpi :22.
-    { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "tag:client:22", "tag:server:443", "tag:share:443", "hermes:22"] },
+    { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "tag:client:22", "tag:server:443", "tag:share:443"] },
     // edge / share isolation: no path into the fleet.
     { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
