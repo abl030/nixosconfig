@@ -3,5 +3,6 @@
   imports = [
     ./update.nix
     ./verify.nix
+    ./push-deploy.nix
   ];
 }

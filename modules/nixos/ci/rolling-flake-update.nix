@@ -2,11 +2,31 @@
   lib,
   pkgs,
   config,
+  allHosts,
   ...
 }: let
   cfg = config.homelab.ci.rollingFlakeUpdate or {};
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
   gotifyUrl = config.homelab.gotify.endpoint;
+
+  # Push-deploy (forgejo#10): "name:addr" per target host, addr resolved from
+  # hosts.nix so it stays in sync with the fleet definition. doc1 connects as
+  # root@addr (the target's push-deploy forced-command key), so no login user is
+  # encoded here. Lazy eval makes referencing cfg.pushDeployHosts here safe.
+  pushDeployHostMap = lib.concatStringsSep "," (
+    map (name: let
+      h = allHosts.${name};
+    in "${name}:${h.sshHostName or h.hostname}")
+    (cfg.pushDeployHosts or [])
+  );
+
+  # doc1's deploy-trigger private key (reused for push-deploy). Defined by the
+  # fleet-deploy bastion role; guard the lookup so this module still evaluates on
+  # a host without it (push-deploy is only ever driven from the bastion anyway).
+  deployKeyPath =
+    if (config.sops.secrets ? "deploy-trigger/key")
+    then config.sops.secrets."deploy-trigger/key".path
+    else "";
 
   # Per-group failure triage prompt. The script (scripts/rolling_flake_update.sh)
   # runs this against each FAILED group's build log and bundles the summaries into
@@ -166,6 +186,20 @@ in {
         is intentionally not listed here. See GitHub issue #260.
       '';
     };
+
+    pushDeployHosts = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = ''
+        Hostnames (hosts.nix attr names) of push-deploy targets (forgejo#10).
+        After each nightly run, doc1 SSHes to `root@<host>` with the pre-built
+        closure store path; the host's forced-command key realises it from
+        nixcache.ablz.au and runs switch-to-configuration — no local eval or
+        build. Use for hosts that OOM under a local nixos-rebuild (servarr) or
+        cannot rebuild at all (igpu LXC). Each host must set
+        `homelab.update.pushDeploy.enable = true`.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -211,6 +245,11 @@ in {
             RFU_TRIAGE_PROMPT_FILE = "${triagePromptFile}";
             RFU_GROUP_CORE = lib.concatStringsSep " " (cfg.groups.core or []);
             RFU_GROUP_LLM = lib.concatStringsSep " " (cfg.groups.llm or []);
+            # Push-deploy (forgejo#10): comma-separated "name:addr" pairs (empty
+            # ⇒ the script skips the step), the GC-root dir, and doc1's deploy key.
+            RFU_PUSH_DEPLOY_HOST_MAP = pushDeployHostMap;
+            RFU_CI_RESULTS_DIR = "/home/abl030/.cache/nix-ci-results";
+            RFU_DEPLOY_KEY = deployKeyPath;
           }
           // lib.optionalAttrs (gotifyUrl != null) {
             GOTIFY_URL = gotifyUrl;

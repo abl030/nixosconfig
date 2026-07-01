@@ -155,6 +155,13 @@
       trim = lib.mkForce false; # no block device in a CT
       # rebootOnKernelUpdate is moot in a CT (host owns the kernel). The reset bug
       # that motivated rebootOnKernelUpdate=false is GONE with host-bound amdgpu.
+      # NIGHTLY AUTO-UPGRADE IS OFF (system.autoUpgrade forced false above): the CT
+      # can't run a local nixos-rebuild. Closures are built on doc1 nightly and
+      # ACTIVATED here via a root forced-command key only doc1 holds (realise the
+      # doc1-signed closure from cache + switch-to-configuration). update.enable
+      # stays true purely for GC. See forgejo#10 and
+      # modules/nixos/autoupdate/push-deploy.nix.
+      pushDeploy.enable = true;
     };
   };
 

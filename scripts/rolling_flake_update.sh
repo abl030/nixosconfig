@@ -562,6 +562,21 @@ else
     write_base_anchor
 fi
 
+# Push-deploy: activate the freshly-built closures on RAM-constrained hosts that
+# can't rebuild locally. Runs after the Forgejo push so the activated rev is
+# already on the remote, and on no-op nights too (so a host that missed a night
+# still catches up to the current build). Failures fold into the notification.
+# See forgejo#10 and modules/nixos/autoupdate/push-deploy.nix.
+if [ -n "${RFU_PUSH_DEPLOY_HOST_MAP:-}" ] && [ -x ./scripts/push_deploy.sh ]; then
+    log "📦 Running push-deploy for configured hosts..."
+    if ! ./scripts/push_deploy.sh; then
+        ANY_FAIL=1
+        SUMMARY_LINES+=("❌ push-deploy — one or more hosts failed (see log above)")
+    else
+        SUMMARY_LINES+=("✅ push-deploy — all hosts activated")
+    fi
+fi
+
 # Bundled notification only if something failed.
 if [ "$ANY_FAIL" -eq 1 ]; then
     send_rca_notification || send_summary_notification

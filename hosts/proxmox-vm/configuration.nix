@@ -106,6 +106,12 @@
       # if Hermes/webhook delivery is down.
       rcaWebhookUrl = "http://127.0.0.1:8644/webhooks/alert-rca";
       rcaWebhookSecret = "alert-bridge-rca";
+      # Push-deploy (forgejo#10): after each nightly run, activate the freshly
+      # built closure on hosts that can't rebuild locally. doc1 SSHes root@<host>
+      # with its deploy key; the host's forced-command key realises the doc1-signed
+      # closure from the cache and switch-to-configuration's it. These hosts each
+      # set homelab.update.pushDeploy.enable = true.
+      pushDeployHosts = ["servarr" "igpu"];
     };
     services = {
       # Immich moved to doc2 (2026-02-25)

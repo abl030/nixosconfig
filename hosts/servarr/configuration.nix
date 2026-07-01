@@ -101,12 +101,17 @@
     # NIGHTLY AUTO-UPGRADE IS OFF (update.enable = false): servarr is RAM-tight (4 GiB;
     # tower is too full to grant more) and OOM-kills itself doing a local nixos-rebuild
     # — the eval + closure-copy page-cache blow past 4 GiB and the kernel shoots the qbt
-    # microVM (2026-06-23 incident). Deploys are instead BUILT ON doc1 and the closure
-    # pushed over + activated remotely (break-glass; the locked host activates via the
-    # qemu-guest-agent). Disabling the whole module (rather than just system.autoUpgrade)
-    # avoids an orphan/malformed nixos-upgrade.timer. GC + fstrim are kept directly below
-    # so the 64 GiB disk doesn't fill. Re-enable only if servarr gets materially more RAM.
+    # microVM (2026-06-23 incident). Disabling the whole module (rather than just
+    # system.autoUpgrade) avoids an orphan/malformed nixos-upgrade.timer. GC + fstrim are
+    # kept directly below so the 64 GiB disk doesn't fill.
+    #
+    # Deploys instead ride push-deploy (forgejo#10): doc1 builds servarr's closure
+    # nightly (populate_cache.sh) and ACTIVATES it here via a root forced-command key
+    # only doc1 holds — the host realises the doc1-signed closure from nixcache.ablz.au
+    # and switch-to-configuration's it, no local build, no OOM, no sudo path used.
+    # See modules/nixos/autoupdate/push-deploy.nix.
     update.enable = false;
+    update.pushDeploy.enable = true;
   };
 
   # servarr is a role="locked" host (base.nix sets wheelNeedsPassword=true for the
