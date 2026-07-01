@@ -176,7 +176,31 @@
   # sudo). A popped abl030/service can no longer rebuild-to-root without the
   # password. See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
+  # !! TEMPORARY (2026-07-01) — REVERT AFTER USE !!
+  # Full passwordless sudo for abl030 so the doc1 agent can drive the USB-floppy
+  # recovery hands-off (imaging a raw block device with ddrescue needs root, and
+  # the agent's SSH session can't type a password). This deliberately REVERSES
+  # the forgejo#2 Phase 4 hardening documented directly above — it is a temporary
+  # break-glass for recovering the grandad-memoirs floppy, mirroring the framework
+  # MT7922 debug precedent. Remove this block (and the ddrescue/mtools packages
+  # below) once the floppy is imaged. mkAfter → renders last → wins (sudoers is
+  # last-match). Same shape as hosts/servarr/configuration.nix.
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = [
+        {
+          command = "ALL";
+          options = ["NOPASSWD"];
+        }
+      ];
+    }
+  ];
+
   environment.systemPackages = lib.mkOrder 3000 (with pkgs; [
+    # TEMPORARY (2026-07-01) — floppy recovery; remove with the sudo block above.
+    ddrescue # GNU ddrescue: image the failing floppy read-only w/ a mapfile
+    mtools # mdir/mcopy: read the FAT12 image without mounting the physical disk
     gnome-remote-desktop
     kdiskmark
     # Morrowind via OpenMW (open-source engine reimplementation) + portmod, a
