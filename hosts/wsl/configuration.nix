@@ -8,6 +8,8 @@
   imports = [
     inputs.nixos-wsl.nixosModules.default
     ../common/desktop.nix
+    # forgejo#4: on-demand /mnt/data + narrow ops-sync mount (see file header).
+    ./data-mounts.nix
   ];
 
   # --- Base.nix Overrides for WSL ---
@@ -65,11 +67,14 @@
     # WSL reassigning the bridge subnet across restarts.
     fleetDeploy.triggerFrom = "100.64.0.0/10,192.168.1.0/24,172.16.0.0/12";
     mounts = {
-      nfs = {
-        enable = true;
-        server = "192.168.1.2"; # Via Windows Tailscale subnet route
-        appdata = false;
-      };
+      # forgejo#4: DO NOT re-enable the shared automount here. That module mounts
+      # the WHOLE tower data share RW on *any* filesystem access, so a ransomware
+      # crawler on this least-trusted (Cullen-site) box silently mounts and
+      # encrypts the entire home NAS overnight — and the NAS can't snapshot to
+      # roll back. wsl instead uses an on-demand manual mount + idle/nightly
+      # auto-unmount, defined in ./data-mounts.nix; ops-sync gets its own narrow
+      # just-in-time mount scoped to the Cullen backup folder only.
+      nfs.enable = false;
       drvfs = {
         enable = true;
         drives.z = {
