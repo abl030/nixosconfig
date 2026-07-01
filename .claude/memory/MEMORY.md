@@ -6,6 +6,11 @@
   [feedback-commit-pathspec-staged-wip.md](feedback-commit-pathspec-staged-wip.md)
 
 ## Critical "Never Do" Rules
+- Email/mail tasks ("emails", "my mail", "find that invoice" — even without the word
+  "Gmail") → the **`mailsearch` subagent** (local notmuch archive on doc2, ~143k msgs,
+  personal + Cullen work mail). NEVER the Gmail/Google MCP connector — it's OAuth-gated
+  & misses the work mail; the local archive is the better system:
+  [feedback-email-use-mailsearch-not-gmail.md](feedback-email-use-mailsearch-not-gmail.md)
 - NEVER run `npm install` manually in a Nix-managed Claude Code installation (breaks the store irreparably)
 - NEVER flush pfSense firewall states after rule changes — see [feedback_pfsense_no_state_flush.md](feedback_pfsense_no_state_flush.md)
 - Source of truth is FORGEJO (`git.ablz.au/abl030/nixosconfig`); push dev commits
