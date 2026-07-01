@@ -22,7 +22,8 @@
 # This is a window-limiter, not a blast-radius bound: while you're logged in and
 # working with it mounted RW, everything is reachable by anything running as you
 # (recovery for that worst case is the offsite kopia backups, since the NAS
-# can't snapshot). Full rationale: forgejo#4.
+# can't snapshot). Full rationale + the automount->noauto transition gotcha:
+# docs/wiki/infrastructure/wsl-ondemand-data-mount.md (forgejo#4).
 {
   lib,
   pkgs,

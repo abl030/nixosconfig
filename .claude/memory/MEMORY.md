@@ -72,6 +72,11 @@
   `sops updatekeys` from **inside `secrets/`**. See [sops-recipient-model.md](sops-recipient-model.md).
 
 ## Key Decisions
+- wsl `/mnt/data` is now ON-DEMAND (`data-mount`/`data-umount`, NOT automount): idle-reap
+  15m + force-off **17:00**; ops-sync JIT-mounts only the Cullen backup folder; wsl dropped
+  from Syncthing (+ACL). GOTCHA: automount→noauto on a LIVE mount fails the switch (NFS
+  can't remount hard→soft) + orphans the autofs → needs a reboot. forgejo#4:
+  [wsl-ondemand-data-mount.md](wsl-ondemand-data-mount.md).
 - ⚠️ Dad's raspberrypi (Pi Zero W, dad's house, tailnet-only access) is **MID
   bullseye→bookworm upgrade & currently OFF the tailnet** (2026-06-21, likely OOM'd
   tailscaled). Resume steps + access/breakglass model:
