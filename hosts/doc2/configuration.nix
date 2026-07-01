@@ -347,6 +347,12 @@
               # invisible to kopia and snapshots came in at 298 bytes.)
               # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
               "/mnt/backup/pfsense"
+              # VM backup archives from prom — age-encrypted weekly tarballs of
+              # nvmeprom/containers written by containers-backup.service on doc1.
+              # Tower exposes VMBackups as a read-only NFS share; we ship the
+              # encrypted .tar.gz.age files offsite to mum's Synology.
+              # Requires: tower VMBackups NFS export scoped to 192.168.1.35/36 (doc2).
+              "/mnt/backup/vm-backups/containers"
             ];
             repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
@@ -408,6 +414,30 @@
     device = "containers";
     fsType = "virtiofs";
     options = ["rw" "relatime"];
+  };
+
+  # VM backup archives — read-only NFS mount of tower's VMBackups share.
+  # Kopia-mum walks /mnt/backup/vm-backups/containers to ship the age-encrypted
+  # .tar.gz.age files written by containers-backup.service on doc1 to mum's Synology.
+  # Automount (lazy): only attached when kopia accesses it; nofail so a down tower
+  # doesn't block boot or activation. Tower side: enable NFS export for the
+  # VMBackups share, scoped read-only to 192.168.1.35 and 192.168.1.36 (doc2 NICs).
+  fileSystems."/mnt/backup/vm-backups" = {
+    device = "192.168.1.2:/mnt/user/VMBackups";
+    fsType = "nfs";
+    options = [
+      "x-systemd.automount"
+      "noauto"
+      "nofail"
+      "_netdev"
+      "x-systemd.requires=network-online.target"
+      "x-systemd.after=network-online.target"
+      "x-systemd.mount-timeout=30s"
+      "x-systemd.idle-timeout=300"
+      "noatime"
+      "nfsvers=4.2"
+      "ro"
+    ];
   };
 
   # Mirrors virtiofs mount — re-downloadable data (MusicBrainz, etc.), NOT backed up

@@ -2,11 +2,15 @@
 #
 # Orchestrates a weekly full ZFS send of prom's rpool through doc1 to tower:
 #   1. zfs snapshot -r rpool@<tag>  (on prom)
-#   2. zfs send -R rpool@<tag> | zstd  (piped from prom through doc1 to tower)
-#   3. zstd integrity check + sha256 sidecar  (on tower)
+#   2. zfs send -R | zstd | age -e  (piped prom → doc1 → tower; encrypted in flight)
+#   3. rename .tmp → final; sha256 sidecar  (on tower; age AEAD catches corruption at decrypt)
 #   4. write status JSON  (locally on doc1)
 #   5. prune old backups on tower (keep last <keepCount>)
 #   6. prune old snapshots on prom (keep last <keepSnapshotsOnProm>)
+#
+# Encryption: archives are age-encrypted on doc1 before writing to tower.
+#   Recipients: break-glass key (Bitwarden) + doc1 editor key (~/.config/sops/age/).
+#   To decrypt: age -d -i ~/.config/sops/age/keys.txt <file>.zfs.zst.age | zstd -d | zfs receive -F rpool
 #
 # Monitoring: homelab.monitoring.errorPatterns watches the unit exit-code;
 # the separate prom-rpool-backup-watchdog service watches the status JSON age.
@@ -28,9 +32,12 @@
   cfg = config.homelab.services.promRpoolBackup;
   sshKey = config.sops.secrets."prom-rpool-backup/key".path;
 
+  # Build age -r flags from the recipient key list at Nix eval time.
+  ageArgs = lib.concatMapStringsSep " " (k: "-r ${lib.escapeShellArg k}") cfg.encryptTo;
+
   backupScript = pkgs.writeShellApplication {
     name = "prom-rpool-backup";
-    runtimeInputs = with pkgs; [openssh coreutils jq util-linux];
+    runtimeInputs = with pkgs; [openssh coreutils jq util-linux age];
     text = ''
       set -uo pipefail
 
@@ -62,7 +69,7 @@
       # so the filename matches the original manual format (prom-rpool-FULL-YYYY-MM-DD).
       SNAP_TAG="prom-rpool-$(date +%F)"
       DATE_TAG="$(date +%F)"
-      FILE="prom-rpool-FULL-$DATE_TAG.zfs.zst"
+      FILE="prom-rpool-FULL-$DATE_TAG.zfs.zst.age"
 
       START_EPOCH=$(date -u +%s)
       START_ISO=$(date -u -Iseconds)
@@ -79,25 +86,28 @@
         logger -t prom-rpool-backup "FAILED: $LAST_ERR"
       }
 
-      # 2. Send (pipe prom → doc1 → tower; write to .tmp first, rename on success)
+      # 2. Send (pipe prom → doc1 → age → tower; write to .tmp first, rename on success)
+      # age encrypts in flight on doc1 before hitting tower; recipients baked at build time.
       if [ "$RC" -eq 0 ]; then
-        logger -t prom-rpool-backup "step 2/6: zfs send | zstd → tower"
+        logger -t prom-rpool-backup "step 2/6: zfs send | zstd | age-encrypt → tower"
         ssh_prom "zfs send -R rpool@$SNAP_TAG | zstd -T0 -3" \
+          | age -e ${ageArgs} \
           | ssh_tower "cat > $TOWER_DIR/$FILE.tmp" || {
-          LAST_ERR="zfs send or transfer failed rc=$?"
+          LAST_ERR="zfs send/encrypt/transfer failed rc=$?"
           RC=1
           logger -t prom-rpool-backup "FAILED: $LAST_ERR — cleaning .tmp"
           ssh_tower "rm -f $TOWER_DIR/$FILE.tmp" || true
         }
       fi
 
-      # 3. Atomic rename + integrity check + sha256 sidecar
+      # 3. Atomic rename + sha256 sidecar
+      # age uses AEAD (ChaCha20-Poly1305) — corruption is caught at decrypt time.
+      # The sha256 sidecar lets kopia and spot-checks detect bitrot independently.
       if [ "$RC" -eq 0 ]; then
-        logger -t prom-rpool-backup "step 3/6: rename + zstd verify + sha256"
+        logger -t prom-rpool-backup "step 3/6: rename + sha256 sidecar"
         ssh_tower "mv $TOWER_DIR/$FILE.tmp $TOWER_DIR/$FILE \
-          && zstd -t $TOWER_DIR/$FILE \
           && sha256sum $TOWER_DIR/$FILE > $TOWER_DIR/$FILE.sha256" || {
-          LAST_ERR="verify/rename failed rc=$?"
+          LAST_ERR="rename/sha256 failed rc=$?"
           RC=1
           logger -t prom-rpool-backup "FAILED: $LAST_ERR"
         }
@@ -130,11 +140,11 @@
           ok: $ok, last_error: $last_error}' > "$STATUS_FILE"
       chmod 644 "$STATUS_FILE"
 
-      # 5. Prune old backups on tower (keep the last KEEP_BACKUPS .zfs.zst files by time)
+      # 5. Prune old backups on tower (keep the last KEEP_BACKUPS .zfs.zst.age files by time)
       if [ "$RC" -eq 0 ]; then
         logger -t prom-rpool-backup "step 5/6: prune tower (keep $KEEP_BACKUPS)"
         ssh_tower "cd $TOWER_DIR \
-          && ls -t prom-rpool-*.zfs.zst 2>/dev/null \
+          && ls -t prom-rpool-*.zfs.zst.age 2>/dev/null \
           | tail -n +$((KEEP_BACKUPS + 1)) \
           | xargs -r rm -v" 2>&1 | logger -t prom-rpool-backup || true
         # Remove .sha256 sidecars for deleted files and any stale .tmp files
@@ -260,6 +270,19 @@ in {
       description = "Number of distinct rpool snapshot tags to retain on prom.";
     };
 
+    encryptTo = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "age1y6nasu9gplutapjne4yv0uhzrwee6ayf2mygwhphf3nty6x5xddqy4zl4h" # break-glass (Bitwarden)
+        "age17uw7vxe8x3nmg0lu5j33qlh8pxr538jlqhhjngmexdc0macccg8sc8rw63" # editor (doc1 ~/.config/sops/age)
+      ];
+      description = ''
+        age public keys to encrypt backup archives to before writing to tower.
+        Default: break-glass (Bitwarden) + doc1 editor key.
+        Decrypt: age -d -i ~/.config/sops/age/keys.txt <file>.zfs.zst.age | zstd -d | zfs receive -F rpool
+      '';
+    };
+
     watchdogMaxAgeDays = lib.mkOption {
       type = lib.types.int;
       default = 9;
@@ -291,14 +314,14 @@ in {
     ];
 
     systemd.services.prom-rpool-backup = {
-      description = "Weekly full ZFS send of prom rpool to tower";
+      description = "Weekly full ZFS send of prom rpool to tower (age-encrypted)";
       documentation = ["file:///run/current-system/etc/nixos/docs/wiki/infrastructure/prom-rpool-backup-restore.md"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${backupScript}/bin/prom-rpool-backup";
-        # Generous timeout: ~17 GB send over LAN at ~100 MB/s + zstd + verify
+        # Generous timeout: ~17 GB send over LAN at ~100 MB/s + zstd + age
         TimeoutStartSec = "4h";
         Nice = 10;
         IOSchedulingClass = "best-effort";

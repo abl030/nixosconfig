@@ -1,18 +1,22 @@
 # containers-backup — doc1-orchestrated weekly backup of /nvmeprom/containers to tower.
 #
 # Takes an atomic ZFS snapshot of nvmeprom/containers on prom, tars the
-# snapshot contents (with opt-out exclusions) through doc1 to a .tar.gz on
-# tower, verifies the archive, then destroys the snapshot. New services under
+# snapshot contents (with opt-out exclusions), age-encrypts on doc1, and
+# writes to a .tar.gz.age file on tower. New services under
 # /nvmeprom/containers are included automatically — add to cfg.excludeDirs to
 # explicitly skip.
 #
 # Steps:
 #   1. zfs snapshot nvmeprom/containers@<tag>  (on prom — atomic, instantaneous)
-#   2. tar snapshot | gzip → pipe through doc1 → .tar.gz.tmp on tower
-#   3. mv tmp → final file; tar -tzf integrity check on tower
+#   2. tar snapshot | gzip | age -e → pipe through doc1 → .tar.gz.age.tmp on tower
+#   3. mv tmp → final; sha256 sidecar  (age AEAD catches corruption at decrypt)
 #   4. write status JSON  (locally on doc1)
 #   5. zfs destroy <snapshot>  (on prom)
-#   6. prune old .tar.gz files on tower (keep last <keepCount>)
+#   6. prune old .tar.gz.age files on tower (keep last <keepCount>)
+#
+# Encryption: archives are age-encrypted on doc1 before writing to tower.
+#   Recipients: break-glass key (Bitwarden) + doc1 editor key (~/.config/sops/age/).
+#   To decrypt: age -d -i ~/.config/sops/age/keys.txt <file>.tar.gz.age | tar -xzf -
 #
 # SSH keys:
 #   prom  — reuses prom-rpool-backup/key (same sops secret, same from= auth on prom)
@@ -33,9 +37,12 @@
 
   excludeArgs = lib.concatMapStringsSep " " (d: "--exclude=${lib.escapeShellArg d}") cfg.excludeDirs;
 
+  # Build age -r flags from the recipient key list at Nix eval time.
+  ageArgs = lib.concatMapStringsSep " " (k: "-r ${lib.escapeShellArg k}") cfg.encryptTo;
+
   backupScript = pkgs.writeShellApplication {
     name = "containers-backup";
-    runtimeInputs = with pkgs; [openssh coreutils jq util-linux];
+    runtimeInputs = with pkgs; [openssh coreutils jq util-linux age];
     text = ''
       set -uo pipefail
 
@@ -63,7 +70,7 @@
       }
 
       SNAP_TAG="containers-backup-$(date +%F)"
-      FILE="containers-backup-$(date +%F).tar.gz"
+      FILE="containers-backup-$(date +%F).tar.gz.age"
       SNAP_PATH="$MOUNTPOINT/.zfs/snapshot/$SNAP_TAG"
 
       START_EPOCH=$(date -u +%s)
@@ -81,26 +88,29 @@
         logger -t containers-backup "FAILED: $LAST_ERR"
       }
 
-      # 2. tar snapshot → pipe through doc1 → .tmp on tower
-      # Excludes are baked in at Nix eval time (${excludeArgs}).
+      # 2. tar snapshot | gzip | age-encrypt → pipe through doc1 → .tmp on tower
+      # age encrypts in flight on doc1; recipients baked at build time.
       # --exclude=.zfs is a safety net in case snapdir is ever set to visible.
       if [ "$RC" -eq 0 ]; then
-        logger -t containers-backup "step 2/6: tar snapshot | gzip → tower"
+        logger -t containers-backup "step 2/6: tar snapshot | gzip | age-encrypt → tower"
         ssh_prom "tar -C $SNAP_PATH ${excludeArgs} --exclude=.zfs -czf - ." \
+          | age -e ${ageArgs} \
           | ssh_tower "cat > $TOWER_DIR/$FILE.tmp" || {
-          LAST_ERR="tar/transfer failed rc=$?"
+          LAST_ERR="tar/encrypt/transfer failed rc=$?"
           RC=1
           logger -t containers-backup "FAILED: $LAST_ERR — cleaning .tmp"
           ssh_tower "rm -f $TOWER_DIR/$FILE.tmp" || true
         }
       fi
 
-      # 3. Atomic rename + integrity check (list archive — confirms gzip header + EOF)
+      # 3. Atomic rename + sha256 sidecar
+      # age uses AEAD (ChaCha20-Poly1305) — corruption is caught at decrypt time.
+      # The sha256 sidecar lets kopia and spot-checks detect bitrot independently.
       if [ "$RC" -eq 0 ]; then
-        logger -t containers-backup "step 3/6: rename + tar integrity check"
+        logger -t containers-backup "step 3/6: rename + sha256 sidecar"
         ssh_tower "mv $TOWER_DIR/$FILE.tmp $TOWER_DIR/$FILE \
-          && tar -tzf $TOWER_DIR/$FILE > /dev/null" || {
-          LAST_ERR="rename/verify failed rc=$?"
+          && sha256sum $TOWER_DIR/$FILE > $TOWER_DIR/$FILE.sha256" || {
+          LAST_ERR="rename/sha256 failed rc=$?"
           RC=1
           logger -t containers-backup "FAILED: $LAST_ERR"
         }
@@ -144,10 +154,16 @@
       if [ "$RC" -eq 0 ]; then
         logger -t containers-backup "step 6/6: prune tower (keep $KEEP)"
         ssh_tower "cd $TOWER_DIR \
-          && ls -t containers-backup-*.tar.gz 2>/dev/null \
+          && ls -t containers-backup-*.tar.gz.age 2>/dev/null \
           | tail -n +$((KEEP + 1)) \
           | xargs -r rm -v" 2>&1 | logger -t containers-backup || true
-        ssh_tower "rm -f $TOWER_DIR/containers-backup-*.tmp" 2>&1 | logger -t containers-backup || true
+        # Remove .sha256 sidecars for deleted files and any stale .tmp files
+        ssh_tower "cd $TOWER_DIR \
+          && for sha in containers-backup-*.sha256; do \
+               base=\"\''${sha%.sha256}\"; \
+               [ -f \"\$base\" ] || rm -f \"\$sha\"; \
+             done; \
+          rm -f $TOWER_DIR/containers-backup-*.tmp" 2>&1 | logger -t containers-backup || true
       fi
 
       logger -t containers-backup "end rc=$RC duration=''${DURATION}s ok=$OK_BOOL"
@@ -262,6 +278,19 @@ in {
       '';
     };
 
+    encryptTo = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [
+        "age1y6nasu9gplutapjne4yv0uhzrwee6ayf2mygwhphf3nty6x5xddqy4zl4h" # break-glass (Bitwarden)
+        "age17uw7vxe8x3nmg0lu5j33qlh8pxr538jlqhhjngmexdc0macccg8sc8rw63" # editor (doc1 ~/.config/sops/age)
+      ];
+      description = ''
+        age public keys to encrypt backup archives to before writing to tower.
+        Default: break-glass (Bitwarden) + doc1 editor key.
+        Decrypt: age -d -i ~/.config/sops/age/keys.txt <file>.tar.gz.age | tar -xzf -
+      '';
+    };
+
     watchdogMaxAgeDays = lib.mkOption {
       type = lib.types.int;
       default = 9;
@@ -294,14 +323,14 @@ in {
     ];
 
     systemd.services.containers-backup = {
-      description = "Weekly backup of /nvmeprom/containers snapshot to tower";
+      description = "Weekly backup of /nvmeprom/containers snapshot to tower (age-encrypted)";
       after = ["network-online.target"];
       wants = ["network-online.target"];
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${backupScript}/bin/containers-backup";
-        # ~10 GB tar over LAN + gzip. 2h is generous.
-        TimeoutStartSec = "2h";
+        # ~10 GB tar over LAN + gzip + age. 3h is generous.
+        TimeoutStartSec = "3h";
         Nice = 10;
         IOSchedulingClass = "best-effort";
         IOSchedulingPriority = 5;
