@@ -81,6 +81,7 @@ Infrastructure as Code knowledge base for homelab VMs and hosts.
 - 250 GB disk (nvmeprom)
 - MTU: 1400 on ens18
 - Firewall: Disabled
+- **CPU type**: `host` (passthrough — gives `/dev/kvm` for nested virt; set 2026-07-01, Forgejo #6)
 
 **Services Running**:
 - **Network**: Tailscale + Caddy (reverse proxy)
@@ -94,6 +95,7 @@ Infrastructure as Code knowledge base for homelab VMs and hosts.
 - Rolling flake updates enabled via CI module
 - Daily auto-updates at 03:00 with GC at 03:30
 - Reboot on kernel updates enabled
+- Has `/dev/kvm` (nested virt via `cpu: host`) — enables `diskoImages` builds for provisioning new VMs; see `docs/wiki/infrastructure/vm-provisioning.md`
 
 **NixOS Configuration Highlights**:
 ```nix
