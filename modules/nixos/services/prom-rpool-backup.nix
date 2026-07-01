@@ -57,19 +57,23 @@
           "$TOWER" "$@"
       }
 
-      TAG="prom-rpool-$(date +%F)"
-      FILE="prom-rpool-FULL-$TAG.zfs.zst"
+      # SNAP_TAG used for rpool snapshot names (prom-rpool- prefix distinguishes
+      # automated backups from manual/one-off snapshots). FILE uses just the date
+      # so the filename matches the original manual format (prom-rpool-FULL-YYYY-MM-DD).
+      SNAP_TAG="prom-rpool-$(date +%F)"
+      DATE_TAG="$(date +%F)"
+      FILE="prom-rpool-FULL-$DATE_TAG.zfs.zst"
 
       START_EPOCH=$(date -u +%s)
       START_ISO=$(date -u -Iseconds)
       LAST_ERR=""
       RC=0
 
-      logger -t prom-rpool-backup "begin: snapshot=$TAG target=$TOWER:$TOWER_DIR/$FILE"
+      logger -t prom-rpool-backup "begin: snapshot=$SNAP_TAG target=$TOWER:$TOWER_DIR/$FILE"
 
       # 1. Snapshot
-      logger -t prom-rpool-backup "step 1/6: zfs snapshot -r rpool@$TAG"
-      ssh_prom "zfs snapshot -r rpool@$TAG" || {
+      logger -t prom-rpool-backup "step 1/6: zfs snapshot -r rpool@$SNAP_TAG"
+      ssh_prom "zfs snapshot -r rpool@$SNAP_TAG" || {
         LAST_ERR="zfs snapshot failed rc=$?"
         RC=1
         logger -t prom-rpool-backup "FAILED: $LAST_ERR"
@@ -78,7 +82,7 @@
       # 2. Send (pipe prom → doc1 → tower; write to .tmp first, rename on success)
       if [ "$RC" -eq 0 ]; then
         logger -t prom-rpool-backup "step 2/6: zfs send | zstd → tower"
-        ssh_prom "zfs send -R rpool@$TAG | zstd -T0 -3" \
+        ssh_prom "zfs send -R rpool@$SNAP_TAG | zstd -T0 -3" \
           | ssh_tower "cat > $TOWER_DIR/$FILE.tmp" || {
           LAST_ERR="zfs send or transfer failed rc=$?"
           RC=1
@@ -112,7 +116,7 @@
       jq -n \
         --arg host "${config.networking.hostName}" \
         --arg unit "prom-rpool-backup" \
-        --arg snapshot "rpool@$TAG" \
+        --arg snapshot "rpool@$SNAP_TAG" \
         --arg backup_file "$BACKUP_FILE" \
         --arg started_at "$START_ISO" \
         --arg finished_at "$END_ISO" \
