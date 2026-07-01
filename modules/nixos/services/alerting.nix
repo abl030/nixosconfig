@@ -975,22 +975,22 @@ in {
             };
           };
         });
-        # Tier 1 (critical infra: firewall, hypervisor, NAS) — 5min
-        # window + 1min for = ~6min time-to-fire. These boxes don't
-        # do nightly reboots, so the maintenance-window safety margin
-        # other hosts need doesn't apply. Silence on these = real loss.
+        # Tier 1 (critical infra: firewall, hypervisor, NAS) — page
+        # quickly only for chatty hosts. Low-volume hosts need longer
+        # windows so ordinary quiet periods don't look identical to a
+        # dead log shipper.
         #
         # Tier 2 (defaults: 15m window + 5m for = ~20min time-to-fire)
         # for VMs that DO have nightly auto-reboots.
         default = {
           # Tier 1: critical, page fast.
           tower = {
-            window = "5m";
-            forDuration = "1m";
+            window = "30m";
+            forDuration = "5m";
           };
           prom = {
-            window = "5m";
-            forDuration = "1m";
+            window = "45m";
+            forDuration = "5m";
           };
           pfsense = {
             window = "5m";
