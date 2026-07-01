@@ -134,6 +134,7 @@
       };
 
       promRpoolBackup.enable = true;
+      containersBackup.enable = true;
     };
   };
 
