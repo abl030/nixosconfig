@@ -746,12 +746,6 @@ in {
       pipelineDb.dsn = pgc.dbUri;
       importer.previewWorkers = 6;
 
-      # Production coverage instrumentation for the dead-code audit. ~5-10%
-      # CPU overhead per long-running service; data accumulates under
-      # /var/lib/cratedigger/coverage. See cratedigger CLAUDE.md "Finding
-      # dead code". Disable after the audit window closes.
-      coverage.enable = true;
-
       # Absolute path to the beets library root. Beets stores file paths in
       # its SQLite DB as relative to this root; consumers that absolutize
       # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
