@@ -11,9 +11,10 @@
 # So on wsl we DON'T use the shared automount (`homelab.mounts.nfs.enable =
 # false` in configuration.nix). Instead:
 #   * The whole share is mounted ONLY when the human runs `data-mount`, and is
-#     auto-unmounted after 15 min idle + force-unmounted nightly at 02:00 — so
-#     it is invisible/unmounted the ~23h/day it isn't in use, defeating
-#     commodity overnight ransomware that crawls already-mounted drives.
+#     auto-unmounted after 15 min idle + force-unmounted daily at 17:00 (end of
+#     workday) — so it is invisible/unmounted the ~23h/day it isn't in use, and
+#     is guaranteed down before the overnight window, defeating commodity
+#     ransomware that crawls already-mounted drives after hours.
 #   * The unattended nightly writer (ops-sync) gets its OWN narrow just-in-time
 #     mount scoped to the Cullen backup folder — see
 #     modules/nixos/services/mounts/ops-sync.nix.
@@ -49,7 +50,7 @@
       fi
       echo "Mounting home NAS (${remote}) -> ${mountPoint} (read-write)..."
       sudo -n ${systemctl} start ${mountUnit}
-      echo "Mounted. Auto-unmounts after 15 min idle; force-unmounted nightly at 02:00."
+      echo "Mounted. Auto-unmounts after 15 min idle; force-unmounted daily at 17:00."
       echo "Unmount now with: data-umount"
     '';
   };
@@ -163,11 +164,13 @@ in {
     };
   };
 
-  # Backstop: guarantee /mnt/data is DOWN overnight (the ransomware window),
-  # even if a shell is parked in it so the idle reaper won't fire. Force + lazy
-  # so a busy mount still comes down.
-  systemd.services.data-mount-nightly-umount = {
-    description = "Force-unmount /mnt/data overnight so the home NAS is never left mounted unattended";
+  # Backstop: guarantee /mnt/data is DOWN by end of the workday (17:00), so it is
+  # never left mounted into the overnight ransomware window — even if a shell is
+  # parked in it so the idle reaper won't fire. Force + lazy so a busy mount
+  # still comes down. (17:00 not 02:00: the owner wants the gap between "done for
+  # the day" and "asleep" closed, not just the small hours.)
+  systemd.services.data-mount-daily-umount = {
+    description = "Daily 17:00 force-unmount of /mnt/data so the home NAS is never left mounted after hours";
     path = [pkgs.util-linux pkgs.coreutils];
     serviceConfig.Type = "oneshot";
     script = ''
@@ -176,16 +179,16 @@ in {
       if mountpoint -q "$MP"; then
         umount -l -f "$MP" 2>/dev/null || true
         rm -f ${idleState}
-        logger -t data-mount-reaper "nightly forced unmount of $MP"
+        logger -t data-mount-reaper "daily 17:00 forced unmount of $MP"
       fi
     '';
   };
 
-  systemd.timers.data-mount-nightly-umount = {
-    description = "Nightly forced unmount of /mnt/data";
+  systemd.timers.data-mount-daily-umount = {
+    description = "Daily end-of-workday forced unmount of /mnt/data";
     wantedBy = ["timers.target"];
     timerConfig = {
-      OnCalendar = "*-*-* 02:00:00";
+      OnCalendar = "*-*-* 17:00:00";
       Persistent = true;
     };
   };

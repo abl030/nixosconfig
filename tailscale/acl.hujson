@@ -101,13 +101,15 @@
     { "src": ["autogroup:shared"], "dst": ["tag:share"], "ip": ["tcp:443"] },
 
     // === Syncthing mesh ====================================================
-    // Participants: epi, framework (client), doc1, igpu (server), cullen. It's a
-    // mesh; either peer may initiate. One symmetric grant on the syncthing ports
+    // Participants: epi, framework (client), doc1, igpu (server). It's a mesh;
+    // either peer may initiate. One symmetric grant on the syncthing ports
     // (tcp/udp 22000 data, udp 21027 discovery). Non-participants (doc2, caddy,
-    // phone, …) don't listen on these, so the tag-broad dst is harmless. This is
-    // cullen's only peer-to-peer mesh path into the fleet; the temporary tower
-    // NFS path below is a separate, exact /32 subnet-route grant.
-    { "src": ["tag:client", "tag:server", "tag:cullen"], "dst": ["tag:client", "tag:server", "tag:cullen"], "ip": ["tcp:22000", "udp:22000", "udp:21027"] },
+    // phone, …) don't listen on these, so the tag-broad dst is harmless.
+    // forgejo#4: tag:cullen was REMOVED from this mesh — wsl no longer runs
+    // syncthing (its syncthingDeviceId was dropped from hosts.nix). This closes
+    // cullen's ONLY peer-to-peer mesh path into the fleet; home NAS access is now
+    // the on-demand NFS mount (the exact /32 tower grant below), not a sync mesh.
+    { "src": ["tag:client", "tag:server"], "dst": ["tag:client", "tag:server"], "ip": ["tcp:22000", "udp:22000", "udp:21027"] },
 
     // === tag:cullen — the Cullen-site laptop (laptop-btibh4ie / wsl) ========
     // Strictest tag. A compromise here must not pivot into the fleet, and the
@@ -120,8 +122,11 @@
     //        DNS to pfSense; exact doc1/doc2/igpu web ports for fleet-update,
     //        dashboard/media access, Loki/Mimir push, and Gotify (8050) — via
     //        tower's route, but NOT the whole home LAN.
-    //   + Syncthing (mesh grant above). NOT client↔client, NOT the broad fleet,
-    //     NOT the exit node, NO broad NFS (transport is moving to Syncthing, #4).
+    //   NO Syncthing (dropped from the mesh, #4), NOT client↔client, NOT the
+    //     broad fleet, NOT the exit node. Home NAS access is the on-demand,
+    //     self-unmounting NFS mount (tcp:2049 /32 below) — Syncthing was
+    //     considered and rejected for it (#4: can't hold the whole NAS, and a
+    //     standing sync mesh is exactly the reach cullen-isolation removes).
     // The Cullen LAN route stays exact-/32 only: client dashboard+inverters,
     // HA inverters, no broad work-subnet access.
     { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
@@ -136,7 +141,8 @@
     { "src": ["tag:cullen"], "dst": ["192.168.1.4/32", "192.168.1.29/32", "192.168.1.35/32", "192.168.1.33/32", "192.168.1.6/32"], "ip": ["tcp:443"] },
     { "src": ["tag:cullen"], "dst": ["192.168.1.35/32"], "ip": ["tcp:8050"] },
     // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
-    // tower's 192.168.0.0/23 route. Syncthing is the intended future transport (#4).
+    // tower's 192.168.0.0/23 route. This is the CHOSEN transport (#4): an
+    // on-demand, self-unmounting mount (hosts/wsl/data-mounts.nix), not Syncthing.
     { "src": ["tag:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
     // Apollo gaming VM (.111, "Gaming-106"): Moonlight/Artemis game streaming from
     // the Cullen laptop over tower's 192.168.0.0/23 route. Sunshine/Apollo protocol:
@@ -232,12 +238,12 @@
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
-    // DNS, exact mgmt endpoints, tower NFS(2049), syncthing(22000). doc1:22 is
-    // cullen's SOLE tailnet :22 path — it still reaches NO other fleet tailnet IP
-    // and no broad home-LAN route.
+    // DNS, exact mgmt endpoints, tower NFS(2049). doc1:22 is cullen's SOLE tailnet
+    // :22 path — it still reaches NO other fleet tailnet IP and no broad home-LAN
+    // route. forgejo#4: syncthing(22000) is now DENIED (wsl left the mesh).
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010", "tag:server:22000"], "deny": ["tag:server:443", "tag:client:443", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["tag:server:443", "tag:client:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
     // cullen → doc1 RCA webhook (8644) for negative alert routing.
     { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },

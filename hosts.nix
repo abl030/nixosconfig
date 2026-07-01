@@ -161,7 +161,13 @@ in {
     # works once the widened triggerFrom (configuration.nix — the Windows
     # portproxy makes wsl's sshd see connections from the WSL bridge, not the
     # tailnet) has landed.
-    syncthingDeviceId = "5HJSG3P-3LHIT3B-77EMHZP-FIOUOSN-FULX6IU-BQBGLNZ-UUJKAJM-Q67CHA2";
+    # forgejo#4: wsl is deliberately OUT of the fleet Syncthing mesh. Removing its
+    # syncthingDeviceId both stops syncthing on wsl (the module's config is gated
+    # on `hostConfig ? syncthingDeviceId`) and drops wsl as a peer from every other
+    # member's device list (built from hosts WITH an id). Cullen-isolation (#239)
+    # wants the least standing reach into the fleet; a full-copy sync mesh is the
+    # opposite, and can't hold the whole NAS anyway. Home NAS access is the
+    # on-demand NFS mount in hosts/wsl/data-mounts.nix, not Syncthing.
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
     # services exposed via homelab.localProxy point here; Windows then
     # port-forwards 443 into the WSL VM's eth0.
