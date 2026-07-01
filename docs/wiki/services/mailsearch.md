@@ -1,20 +1,25 @@
 # Mail-archive search (notmuch + embeddings + read-only MCP)
 
-**Status: LIVE on doc2** (deployed 2026-06-23, hardening + embed fix 2026-06-24).
+**Status: LIVE — index + MCP on doc2, embed backend on igpu (iGPU/Vulkan)**
+(deployed 2026-06-23; hardening + embed fix 2026-06-24; embed server moved off
+doc2 CPU to igpu's iGPU shortly after — see Architecture).
 Keyword search is fully working over the whole archive (~143k messages). The
 semantic (embedding) index bootstrap **completed 2026-07-01** — the vector store
 now covers the full archive (bar a handful of pathological dense emails), so
 semantic search + `find_similar` reach old mail too. **`mode=` selector +
 `find_similar` ("more like this") added 2026-07-01.** Forgejo #11.
 
-**What it is:** local hybrid search over the mailarchive Maildir on doc2. A
-notmuch (Xapian) keyword index and a `nomic-embed` / `sqlite-vec` semantic index
-feed two surfaces — a terminal client for human keyword search, and a read-only
-MCP tool (`search_mail` + `get_message`) for the Claude agents driven on doc1.
-Everything runs locally on doc2; the corpus never leaves the fleet.
+**What it is:** hybrid search over the mailarchive Maildir. A notmuch (Xapian)
+keyword index and a `nomic-embed` / `sqlite-vec` semantic index feed two surfaces
+— a terminal client for human keyword search, and a read-only MCP tool
+(`search_mail` + `find_similar` + `get_message`) for the Claude agents driven on
+doc1. The index, vector store, and MCP live on **doc2**; the resident **embedding
+server runs on igpu's iGPU** (Vulkan) and doc2 calls it over the LAN (see
+Architecture). The corpus never leaves the fleet.
 
-Module: `modules/nixos/services/mailsearch.nix`, enabled in
-`hosts/doc2/configuration.nix`. Python: `nix/pkgs/mailsearch-{indexer,mcp}.nix`.
+Module: `modules/nixos/services/mailsearch.nix`, enabled on **doc2** (index + MCP,
+`hosts/doc2/configuration.nix`) and on **igpu** (embed backend only,
+`hosts/igpu/configuration.nix`). Python: `nix/pkgs/mailsearch-{indexer,mcp}.nix`.
 Deep probe: `modules/nixos/services/probes/check-mailsearch.nix`.
 
 ---
@@ -113,17 +118,31 @@ keyword leg, embedded or not.
 - **Maildir** (read-only source): `/mnt/data/Life/Andy/Email/{gmail,work}` — a
   `hard` NFS mount from tower. The legacy `Mailstore/` + `export-staging/` trees
   are excluded via notmuch `new.ignore`.
-- **Indexes** (local virtiofs, `/mnt/virtio/mailsearch`): the Xapian DB
-  (`xapian/`), the sqlite-vec store (`vectors.db`), the GGUF model cache
-  (`models/`), and `index.heartbeat` / `embed.heartbeat`. **Never on the NFS
-  mount** — Xapian's lock is unreliable over NFS and a hard mount hangs.
-- **`mailsearch-index`** (oneshot, timer every 5 min): `notmuch new` (read-only,
-  `synchronize_flags=false`) → touch `index.heartbeat` → `mailsearch-indexer`
-  embeds the delta. `Nice 15` / idle IO. `restartIfChanged=false` so the
-  multi-hour bootstrap never wedges `nixos-rebuild switch` (see Lessons).
-- **`mailsearch-embed`** (resident): `llama-server --embeddings --pooling mean
-  -c 8192 -b 8192 -ub 8192 -ngl 0` serving `nomic-embed-text-v1.5` (F16 GGUF) on
-  **`127.0.0.1:18181`**, CPU only.
+- **Indexes** (on doc2, local virtiofs `/mnt/virtio/mailsearch`): the Xapian DB
+  (`xapian/`), the sqlite-vec store (`vectors.db`), and `index.heartbeat` /
+  `embed.heartbeat`. **Never on the NFS mount** — Xapian's lock is unreliable over
+  NFS and a hard mount hangs. (The GGUF model cache lives on **igpu**, not here —
+  see the embed server below.)
+- **`mailsearch-index`** (on doc2, oneshot, timer every 5 min): `notmuch new`
+  (read-only, `synchronize_flags=false`) → touch `index.heartbeat` →
+  `mailsearch-indexer` sends each new body to the **igpu** embed server over the
+  LAN and upserts the returned vectors into `vectors.db`. `Nice 15` / idle IO.
+  `restartIfChanged=false` so the multi-hour bootstrap never wedges
+  `nixos-rebuild switch` (see Lessons).
+- **`mailsearch-embed`** (resident, on **igpu** — `hosts/igpu/configuration.nix`,
+  `services.mailsearch.embed`): `llama-server -hf
+  nomic-ai/nomic-embed-text-v1.5-GGUF:F16 --embeddings --pooling mean --parallel 1
+  -c 8192 --override-kv nomic-bert.context_length=int:8192 --yarn-orig-ctx 2048
+  -b 8192 -ub 8192 --rope-scaling yarn --rope-freq-scale 0.75 **-ngl 99**` — full
+  GPU offload on the AMD **iGPU via Vulkan** (`llama-cpp-vulkan`, flipped by
+  `embed.gpu`), bound to **`192.168.1.33:18181`** (igpu's LAN IP, *not* loopback
+  and *not* `0.0.0.0` — so a firewall misfire can't expose the unauthenticated
+  endpoint on tailscale0). **Moved off doc2's CPU** because CPU embedding of the
+  backlog was the wall at ~7-8 s/email; on the iGPU it's ~sub-second. The firewall
+  opens `:18181` only to doc2's two NICs (`embed.allowFrom` = `.35`/`.36`).
+  `--parallel 1` is a hard ceiling: this 2-CU iGPU crash-loops multi-slot (`radv/
+  amdgpu: context lost`). doc2 runs `embed.enable = false` and points its
+  indexer + MCP at this endpoint (`embed.url` / `readyUrl`).
 - **`mailsearch-mcp`** (SSH forced-command): the read-only MCP server, run as
   `mailsearch-ro` when doc1 connects.
 - **`mailsearch-health`** (resident): 200/503 on heartbeat freshness → Kuma.
@@ -149,9 +168,16 @@ legs with Reciprocal Rank Fusion.
   read-only mount).
 - **Query strings are never logged** — indexer + MCP log only counts /
   Message-IDs / timings to stderr (doc2's journal ships to fleet-readable Loki).
-- All three systemd units are namespace-sandboxed (`TemporaryFileSystem=/mnt` +
-  `BindReadOnlyPaths`/`BindPaths` for only what each needs — #257), loopback-only
-  bind, full hardening block.
+- The doc2 units (`mailsearch-index`, `-health`) are namespace-sandboxed
+  (`TemporaryFileSystem=/mnt` + `BindReadOnlyPaths`/`BindPaths` for only what each
+  needs — #257), loopback-only bind, full hardening block.
+- The **igpu embed server** is the one non-loopback listener: nomic-embed has **no
+  auth**, so it binds igpu's **LAN IP** (`192.168.1.33`), never `0.0.0.0` and never
+  `tailscale0`, and the firewall opens `:18181` only to doc2's NICs
+  (`embed.allowFrom`). Two layers (specific bind + source allowlist) keep the
+  unauthenticated endpoint off the tailnet. It runs as its own `mailsearch-embed`
+  user with GPU `video`/`render` groups and a host-local model dir (own UID, to
+  avoid the shared-mount UID clash with doc2).
 - **Agent reach is doc1-only.** doc1's MCP wrapper SSHes `mailsearch-ro@doc2`
   over the fleet key; that account's authorized key is a forced command
   (`mailsearch-mcp`, `restrict`, tailnet/LAN `from=`) — it can run nothing but
@@ -172,7 +198,8 @@ legs with Reciprocal Rank Fusion.
 ssh doc2 'mailsearch count "*"'                                        # keyword index size
 ssh doc2 'sqlite3 /mnt/virtio/mailsearch/vectors.db "SELECT count(*) FROM messages"'  # vectors embedded
 ssh doc2 'journalctl -u mailsearch-index.service -n 20 --no-pager'     # indexer progress / skips
-curl -s http://127.0.0.1:18181/health   # (on doc2) embed server ready?
+ssh doc2 'curl -s http://192.168.1.33:18181/health'                   # embed server (on igpu) ready?
+ssh igpu 'systemctl status mailsearch-embed.service --no-pager | head' # embed server unit (igpu)
 ```
 
 The deep probe pages if the embed leg is broken (0 vectors against a real
