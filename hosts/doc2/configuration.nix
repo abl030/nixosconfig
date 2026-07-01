@@ -141,9 +141,7 @@
         rcaWebhookUrl = "http://192.168.1.29:8644/webhooks/alert-rca";
         rcaWebhookSecret = "alert-bridge-rca";
       };
-      # Byparr — Cloudflare-challenge solver Prowlarr uses for its gated indexers
-      # (1337x/EZTV). Stateless OCI container, reached LAN-wide at byparr.ablz.au.
-      byparr.enable = true;
+      byparr.enable = false;
       immich = {
         enable = true;
         dataDir = "/mnt/virtio/immich";
