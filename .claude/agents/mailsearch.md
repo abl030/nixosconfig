@@ -23,20 +23,38 @@ prompt-injected email read by a shelled agent is a fleet-takeover path. You
 never write to the Maildir.
 
 ## Tools
-- `search_mail(query, top_k, folder?, date_from?, date_to?, sender?)` — hybrid
-  search → ranked **metadata + snippet** (no bodies). `query` is a **notmuch query
-  string** (operators below), not just prose.
+- `search_mail(query, top_k, mode?, folder?, date_from?, date_to?, sender?)` →
+  ranked **metadata + snippet** (no bodies). `query` is a **notmuch query string**
+  (operators below) for keyword/hybrid, or plain prose for semantic. **`mode`
+  defaults to `"keyword"`** — semantic is opt-in:
+    - `mode="keyword"` (default) — notmuch only. Exact, structured, works even if
+      the embed server is down. Use for anything precise, older, or metadata-shaped.
+    - `mode="semantic"` — embedding KNN only. Fuzzy "the email *about* X" recall for
+      when you genuinely can't name a keyword. Pass prose, not operators.
+    - `mode="hybrid"` — both legs, RRF-fused. For a query with **both** exact terms
+      and fuzzy intent. (This was the old always-on behaviour; now you choose it.)
+- `find_similar(message_id, top_k, folder?, date_from?, date_to?)` — **"more like
+  this"**: messages semantically nearest to an existing one, using its *stored*
+  vector (no re-embed, no query text). Anchor on one solid hit, then pull the
+  cluster around it — the semantic version of anchor-then-pivot. Returns
+  `{"error": ...}` if the seed isn't embedded yet (fall back to keyword on its
+  subject/sender).
 - `get_message(message_id)` — full body (HTML stripped) + attachment **filenames**.
 - Your **shell** — for reading attachment *contents* (the tools give only names),
   and for ad-hoc notmuch queries on doc2 (`ssh doc2 mailsearch <args>`).
 
 ## How the two legs behave (calibrate)
-- **Keyword leg** = notmuch over the full 143k. Exact, structured, reliable — your
-  workhorse.
-- **Semantic leg** = embeddings for fuzzy "the email *about* X" recall, but it is
-  **newsletter-noisy** and (during the initial bootstrap) only covers **recent**
-  mail — so it silently misses older mail and can rank junk first. Don't trust a
-  single fuzzy query; lean keyword for anything precise or older.
+- **Keyword leg** (`mode="keyword"`, the default) = notmuch over the full 143k.
+  Exact, structured, reliable — your workhorse. Default here means a plain
+  `search_mail("from:x subject:y")` is **not** diluted by embedding noise.
+- **Semantic leg** (`mode="semantic"`/`"hybrid"`, or `find_similar`) = embeddings
+  for fuzzy "the email *about* X" recall. The vector store now covers the **full**
+  ~143k archive (bootstrap completed 2026-07-01), so it no longer misses older
+  mail — but it is still **newsletter-noisy** and can rank junk first. Opt in
+  deliberately; don't trust a single fuzzy query; lean keyword for anything precise.
+- **`find_similar` is the semantic move that pays off most**: instead of guessing
+  the corpus's vocabulary, find one good message by keyword, then ask for its
+  neighbours — now works across the whole archive, old mail included.
 
 ## `query` takes notmuch operators — use them
 `from: to: subject: body: attachment: folder: tag:`,
@@ -53,7 +71,8 @@ A vague natural-language query alone usually fails (returns newsletters). Instea
    (or French `facture`) + `attachment:pdf` + date; *what someone said* → `from:`/`to:`
    a person + a date range.
 2. **Anchor, then pivot** — find one solid hit, then use its sender/date/thread to
-   pull the rest.
+   pull the rest, or `find_similar(message_id)` to pull its semantic neighbours
+   when the connection is topical rather than metadata-shaped.
 3. **Narrow with dates aggressively** — the archive is huge.
 
 ## Read attachment contents (the EA superpower)

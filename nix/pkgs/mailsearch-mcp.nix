@@ -1,9 +1,15 @@
 # mailsearch-mcp — read-only hybrid mail search exposed as an MCP stdio server.
 #
-# Two tools, both read-only:
-#   search_mail(query, top_k, folder, date_from, date_to, sender)
-#       -> ranked metadata + snippet (NO bodies); fuses notmuch keyword search
-#          with sqlite-vec semantic KNN via Reciprocal Rank Fusion.
+# Three tools, all read-only:
+#   search_mail(query, top_k, mode, folder, date_from, date_to, sender)
+#       -> ranked metadata + snippet (NO bodies). `mode` picks the retrieval
+#          strategy: "keyword" (notmuch only, the DEFAULT — exact/structured),
+#          "semantic" (sqlite-vec KNN only — fuzzy "about X" recall), or "hybrid"
+#          (both, fused via Reciprocal Rank Fusion). Semantic is OPT-IN so a
+#          precise keyword query isn't diluted by embedding noise.
+#   find_similar(message_id, top_k, folder, date_from, date_to)
+#       -> "more like this": messages semantically nearest to an existing one,
+#          via that message's STORED vector (no re-embed). Seed must be embedded.
 #   get_message(message_id)
 #       -> one full body (text/plain preferred, HTML stripped), attachment
 #          FILENAMES only, length-capped.
@@ -18,6 +24,9 @@
 #
 # DEPLOY-TIME VERIFY: first-cut, validated by `nix flake check` (eval only).
 # Confirm the FastMCP API, notmuch JSON shapes, and sqlite-vec KNN at deploy.
+# find_similar reads a stored vector back out of vec0 (`SELECT v.embedding`) and
+# feeds it straight into a fresh `embedding MATCH ?` KNN — verify the returned
+# blob is byte-compatible with the probe param (a str/JSON fallback is handled).
 {pkgs}: let
   py = pkgs.python3Packages;
 in
@@ -150,10 +159,14 @@ in
         return ids
 
 
-    def semantic_ids(db, qvec, folder, date_from, date_to, limit):
-        clauses, params = ["embedding MATCH ?", "k = ?"], [
-            sqlite_vec.serialize_float32(qvec), limit,
-        ]
+    def semantic_knn(db, qvec_blob, folder, limit, exclude_rowid=None):
+        # Low-level KNN over the vector store. qvec_blob is a serialized float32
+        # blob — either freshly serialized from a query embedding (search_mail)
+        # or a vector read straight back out of vec0 (find_similar / "more like
+        # this"). Returns [(rowid, message_id), ...] nearest-first. The date
+        # filter is applied post-hoc against notmuch below (vec0 has no date
+        # predicate here); folder is a real partition/column filter.
+        clauses, params = ["embedding MATCH ?", "k = ?"], [qvec_blob, limit]
         if folder:
             clauses.append("folder = ?")
             params.append(folder)
@@ -167,11 +180,12 @@ in
         except apsw.Error as e:
             log(f"sqlite-vec KNN failed: {e}")
             return []
-        out = []
-        for _rowid, mid, _dist in rows:
-            # date filter is applied post-hoc against the messages table below.
-            out.append(mid)
-        return out
+        return [(rowid, mid) for rowid, mid, _dist in rows if rowid != exclude_rowid]
+
+
+    def semantic_ids(db, qvec, folder, limit):
+        return [mid for _rowid, mid in
+                semantic_knn(db, sqlite_vec.serialize_float32(qvec), folder, limit)]
 
 
     def rrf(*ranked_lists):
@@ -252,34 +266,61 @@ in
         return "\n".join(out)
 
 
+    VALID_MODES = ("keyword", "semantic", "hybrid")
+
+
     @mcp.tool()
-    def search_mail(query: str, top_k: int = 10, folder: str | None = None,
+    def search_mail(query: str, top_k: int = 10, mode: str = "keyword",
+                    folder: str | None = None,
                     date_from: str | None = None, date_to: str | None = None,
                     sender: str | None = None) -> dict:
         """Search the personal mail archive. Returns ranked metadata + a short
         snippet only (never full bodies — use get_message for that).
 
         Args:
-          query: keyword and/or natural-language query.
+          query: a notmuch query string (from:/to:/subject:/body:/attachment:,
+            "quoted phrases", bare words, and/or/not) for keyword/hybrid, or
+            plain natural-language prose for semantic.
           top_k: max results (capped server-side).
+          mode: retrieval strategy — DEFAULT "keyword". Semantic is opt-in.
+            - "keyword": notmuch exact/structured search only. Precise, reliable,
+              works even if the embedding server is down. Your workhorse.
+            - "semantic": embedding KNN only — fuzzy "the email ABOUT X" recall
+              for when you can't name the keyword. Newsletter-noisy and misses
+              un-embedded (older, during bootstrap) mail; reach for it only when
+              keyword genuinely can't express the concept.
+            - "hybrid": run both legs and fuse with Reciprocal Rank Fusion — for
+              a query carrying BOTH exact terms and fuzzy intent.
           folder: optional Maildir folder filter (e.g. "work/INBOX").
           date_from, date_to: optional YYYY-MM-DD bounds.
-          sender: optional From: substring filter.
+          sender: optional From: substring filter (applied in every mode).
         """
+        mode = (mode or "keyword").strip().lower()
+        if mode not in VALID_MODES:
+            log(f"unknown mode, falling back to keyword (got {mode!r})")
+            mode = "keyword"
         k = max(1, min(int(top_k), TOPK_CAP))
         over = min(TOPK_CAP, k * 5)
         db = db_ro()
-        kw = keyword_ids(query, folder, date_from, date_to, sender, over)
+        kw = []
+        if mode in ("keyword", "hybrid"):
+            kw = keyword_ids(query, folder, date_from, date_to, sender, over)
         sem = []
-        if query and query.strip():
+        if mode in ("semantic", "hybrid") and query and query.strip():
             try:
-                sem = semantic_ids(db, embed_query(query), folder,
-                                   date_from, date_to, over)
+                sem = semantic_ids(db, embed_query(query), folder, over)
             except Exception as e:  # noqa: BLE001
-                log(f"semantic leg unavailable, keyword-only: {type(e).__name__}")
-        ranked = rrf(kw, sem)
+                # Keyword still stands (hybrid); semantic-only just yields nothing.
+                log(f"semantic leg unavailable: {type(e).__name__}")
+        if mode == "keyword":
+            ranked = kw
+        elif mode == "semantic":
+            ranked = sem
+        else:
+            ranked = rrf(kw, sem)
         ef = to_epoch(date_from) if date_from else None
         et = to_epoch(date_to, end=True) if date_to else None
+        sender_lc = sender.lower() if sender else None
         results = []
         for mid in ranked:
             if len(results) >= k:
@@ -287,8 +328,77 @@ in
             m = notmuch_meta(mid)
             if m is None:
                 continue
-            # Enforce the date bound uniformly: the semantic leg does not filter
-            # by date, so an out-of-range neighbour could otherwise slip through.
+            # Enforce date + sender uniformly: the semantic leg filters on
+            # neither, so an out-of-range or wrong-sender neighbour could
+            # otherwise slip into semantic/hybrid results.
+            if (ef is not None and m["date"] < ef) or (et is not None and m["date"] > et):
+                continue
+            if sender_lc and sender_lc not in m["from"].lower():
+                continue
+            results.append({
+                "message_id": mid,
+                "from": m["from"],
+                "subject": m["subject"],
+                "date": m["date"],
+                "folder": m["folder"],
+                "snippet": m["snippet"],
+            })
+        log(f"search_mail mode={mode} keyword={len(kw)} semantic={len(sem)} returned={len(results)}")
+        return {"results": results}
+
+
+    @mcp.tool()
+    def find_similar(message_id: str, top_k: int = 10, folder: str | None = None,
+                     date_from: str | None = None,
+                     date_to: str | None = None) -> dict:
+        """'More like this': find messages semantically nearest to an existing
+        one, using that message's already-stored embedding — no re-embedding and
+        no query text. Anchor on one solid hit (from search_mail), then pull the
+        cluster around it without having to guess the corpus vocabulary.
+
+        The seed must already be embedded (recent-ish mail during the one-time
+        bootstrap). If it isn't, returns {"error": ...} with empty results — fall
+        back to a keyword search on the seed's subject/sender.
+
+        Args:
+          message_id: the seed message's Message-ID (from search_mail results).
+          top_k: max neighbours (capped server-side; excludes the seed itself).
+          folder: optional Maildir folder filter.
+          date_from, date_to: optional YYYY-MM-DD bounds.
+        """
+        k = max(1, min(int(top_k), TOPK_CAP))
+        over = min(TOPK_CAP, k * 5)
+        db = db_ro()
+        try:
+            row = db.execute(
+                "SELECT v.message_rowid, v.embedding "
+                "FROM vec_messages v JOIN messages m ON m.rowid = v.message_rowid "
+                "WHERE m.message_id = ?", (message_id,),
+            ).fetchone()
+        except apsw.Error as e:
+            log(f"find_similar seed lookup failed: {e}")
+            return {"error": "seed lookup failed", "results": []}
+        if row is None:
+            return {"error": "seed not embedded (no vector for this message_id)",
+                    "results": []}
+        seed_rowid, seed_vec = row
+        # seed_vec is the raw serialized float32 blob straight from vec0, fed back
+        # as the KNN probe. Some sqlite-vec builds hand it back as JSON text —
+        # re-serialize in that case so the probe param is always a float32 blob.
+        if isinstance(seed_vec, str):
+            seed_vec = sqlite_vec.serialize_float32(json.loads(seed_vec))
+        # Ask for one extra so we still return k after dropping the seed itself.
+        neighbours = semantic_knn(db, seed_vec, folder, over + 1,
+                                  exclude_rowid=seed_rowid)
+        ef = to_epoch(date_from) if date_from else None
+        et = to_epoch(date_to, end=True) if date_to else None
+        results = []
+        for _rowid, mid in neighbours:
+            if len(results) >= k:
+                break
+            m = notmuch_meta(mid)
+            if m is None:
+                continue
             if (ef is not None and m["date"] < ef) or (et is not None and m["date"] > et):
                 continue
             results.append({
@@ -299,7 +409,7 @@ in
                 "folder": m["folder"],
                 "snippet": m["snippet"],
             })
-        log(f"search_mail keyword={len(kw)} semantic={len(sem)} returned={len(results)}")
+        log(f"find_similar neighbours={len(neighbours)} returned={len(results)}")
         return {"results": results}
 
 

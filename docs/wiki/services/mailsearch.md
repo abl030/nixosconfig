@@ -2,8 +2,10 @@
 
 **Status: LIVE on doc2** (deployed 2026-06-23, hardening + embed fix 2026-06-24).
 Keyword search is fully working over the whole archive (~143k messages). The
-semantic (embedding) index is built incrementally; the one-time bootstrap embed
-runs for hours on CPU after first deploy. Forgejo #11.
+semantic (embedding) index bootstrap **completed 2026-07-01** — the vector store
+now covers the full archive (bar a handful of pathological dense emails), so
+semantic search + `find_similar` reach old mail too. **`mode=` selector +
+`find_similar` ("more like this") added 2026-07-01.** Forgejo #11.
 
 **What it is:** local hybrid search over the mailarchive Maildir on doc2. A
 notmuch (Xapian) keyword index and a `nomic-embed` / `sqlite-vec` semantic index
@@ -65,19 +67,41 @@ Just ask in plain language — "search my mail for the barrel repair quote",
 "what did the cooper say about the renewal", "find emails from X about Y last
 March". It calls:
 
-- `search_mail(query, top_k, folder?, date_from?, date_to?, sender?)` → ranked
-  metadata + a short snippet (no bodies), fusing the keyword and semantic legs.
+- `search_mail(query, top_k, mode?, folder?, date_from?, date_to?, sender?)` →
+  ranked metadata + a short snippet (no bodies). **`mode` (added 2026-07-01)
+  selects the retrieval strategy and defaults to `"keyword"`** — semantic is
+  now **opt-in**, not silently fused into every call:
+    - `"keyword"` (default) — notmuch only; exact/structured; works even with the
+      embed server down.
+    - `"semantic"` — sqlite-vec KNN only; fuzzy "about X" recall (pass prose).
+    - `"hybrid"` — both legs fused with Reciprocal Rank Fusion (the pre-2026-07-01
+      always-on behaviour; now chosen explicitly).
+- `find_similar(message_id, top_k, folder?, date_from?, date_to?)` → **"more like
+  this"** (added 2026-07-01): messages semantically nearest to an existing one via
+  its *stored* vector — no re-embed, no query text. Reads the seed's vector back
+  out of vec0 and probes the KNN with it; returns `{"error": ...}` if the seed
+  isn't embedded yet. This is the "anchor by keyword, then pull the semantic
+  cluster" move that makes the vector store earn its keep.
 - `get_message(message_id)` → the full body (HTML stripped, length-capped) +
   attachment **filenames** (never payloads) when it needs detail.
+
+**Why opt-in (2026-07-01):** RRF-fusing the semantic leg into *every* query added
+newsletter noise to well-specified keyword searches for no gain — and the one
+thing embeddings uniquely offer (nearest-neighbour from an example) wasn't exposed
+at all, since `query` is a notmuch string with no way to seed from a document.
+`mode=` + `find_similar` fix both: keyword stays the clean default, and semantic
+becomes a tool the agent reaches for deliberately. Tone/sentiment queries are **not**
+a retrieval job — embeddings are topic-dominated; that stays an LLM-read task.
 
 **From your phone:** ask Claude — it drives the agent for you. That's the mobile
 search surface; there is no web app to maintain.
 
-The **semantic leg** ("find the email about X" with no matching keyword) only
-returns hits once a message has been embedded — the bootstrap fills the vector
-store over a few hours after first deploy (watch `vectors` count below). Until
-then, `search_mail` is effectively keyword-only. Exact strings (invoice numbers,
-surnames) always go through the keyword leg, embedded or not.
+The **semantic leg** ("find the email about X" with no matching keyword, or any
+`find_similar` call) needs a message embedded to return it — and as of the
+**bootstrap completing 2026-07-01** the vector store covers the full ~143k archive
+(bar a handful of pathological dense emails), so semantic/`find_similar` now reach
+old mail too. Exact strings (invoice numbers, surnames) always go through the
+keyword leg, embedded or not.
 
 **Not available to hermes or any always-on/Telegram agent** — by construction
 (see Least-privilege below).
