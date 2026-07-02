@@ -30,7 +30,7 @@ Forgejo has been live on doc2 (`git.ablz.au`) since the #223 v0, but the flake c
 - **Per-machine signing-only keys.** Each pushing machine gets a dedicated ed25519 signing key; the doc1 bot gets its own, separate from the personal doc1 key, so bot commits are independently attributable and revocable.
 - **`allowed_signers` is read from the currently running closure, never from the fetched tree** — otherwise an attacker ships their own key list alongside their commit.
 - **Anti-rollback:** a verified rev must descend from the currently deployed rev, so a replayed old-but-signed commit can't downgrade the fleet.
-- **Issues stay on GitHub.** `gh`-based agent workflows are load-bearing; the push-mirror keeps issue↔code references meaningful. Code sovereignty is the security fix; issue sovereignty is out of scope.
+- **Issue tracking moved to Forgejo.** The earlier transitional plan kept GitHub issues temporarily, but that phase is over: GitHub issues are closed/disabled and new tracking lives on Forgejo. Code sovereignty and issue sovereignty now match the Forgejo source of truth.
 - **Accepted residuals,** documented rather than papered over: doc1-as-abl030 compromise remains fleet-write (autonomous agent pushes are a feature); flake *inputs* (nixpkgs et al.) remain an unverified nightly supply chain; a compromised dev machine signs with that machine's key.
 
 ```mermaid

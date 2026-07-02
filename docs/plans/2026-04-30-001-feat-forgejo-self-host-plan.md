@@ -36,7 +36,7 @@ Constraints:
 - Must follow `.claude/rules/nixos-service-modules.md` (upstream module > custom > OCI; no hardcoded LAN IPs; restartTriggers if it gets a DB container; standard infra wiring).
 - Must run on doc2 (CLAUDE.md fleet overview: doc2 already hosts immich, paperless, mealie, kopia, uptime-kuma, etc.; light footprint expected).
 - Cannot break the rebuild path during cutover (every host nightly hits `system.autoUpgrade.flake`).
-- Issue tracking moves with the forge — we use issues for everything (per memory and CLAUDE.md "Issue Tracking with GitHub Issues" section).
+- Issue tracking moves with the forge — we use issues for everything (per memory and CLAUDE.md "Issue and TODO Tracking" section).
 
 ---
 
@@ -124,12 +124,12 @@ Explicit non-goals:
 - **Storage: `/mnt/virtio/forgejo`** (virtiofs, same convention as every other doc2 service). Subdirs: `data/` (Forgejo's `STATE_DIR` content — repos, attachments, LFS later), `dump/` (nightly dumps emitted by `services.forgejo.dump`).
 - **Module shape: wrap upstream `services.forgejo`.** This is preference-1 per rules.md (upstream module > custom > OCI). The upstream module is mature enough that our wrapper is mostly: options, sops wiring, infra wiring, virtiofs paths.
 - **FQDN: `forge.ablz.au`** via `homelab.localProxy` — identical pattern to every other LAN-only service on doc2.
-- **Secrets via `services.forgejo.secrets`** (LoadCredential): `SECRET_KEY`, `INTERNAL_TOKEN`, `JWT_SECRET`, `LFS_JWT_SECRET`. These get rotated once and never again. Admin password and the GitHub mirror PAT use the existing sops-dotenv pattern (`config.homelab.secrets.sopsFile`).
-- **Push-mirror to GitHub: configured per-repo via the Forgejo API**, not via NixOS. Push-mirror config is repo-state, not host-state — it lives in Forgejo's DB, gets backed up by `services.forgejo.dump`, and would be awkward to encode declaratively. We accept that and document the API call in the module README/wiki.
+- **Secrets via `services.forgejo.secrets`** (LoadCredential): `SECRET_KEY`, `INTERNAL_TOKEN`, `JWT_SECRET`, `LFS_JWT_SECRET`. These get rotated once and never again. Admin password uses the existing sops-dotenv pattern (`config.homelab.secrets.sopsFile`). The implemented GitHub mirror uses a doc1-only repo deploy key, not a GitHub PAT stored in Forgejo.
+- **GitHub code mirror: doc1 timer + deploy key.** The implemented mirror is host-state on doc1 (`github-nixosconfig-mirror.timer`) using a repo-scoped GitHub deploy key, not Forgejo DB state. This avoids storing a GitHub PAT in Forgejo and keeps the mirror code-only.
 - **CI runner: `services.gitea-actions-runner` as OCI container on doc1** (preserves the doc1-runs-CI pattern). Forgejo Actions uses the same runner binary as Gitea Actions; the module is shared. Decommission `services.github-runners.proxmox-bastion` *after* the cutover proves out, not during.
 - **Rebuild flake URL: phased cutover.** epimetheus first (workstation, can be hand-fixed if it breaks); soak for a week; then doc2/doc1/igpu/dev/wsl/framework/caddy in two batches. The flag lives in `update.nix` as a per-host option override so we can flip individuals without rebuilding the whole fleet.
-- **GitHub stays as a hot fallback** for at least 30 days post-cutover. Forgejo push-mirrors to GitHub continuously, so swapping the autoUpgrade URL back is a one-line change with no data loss.
-- **Issue migration: clean break.** Existing GitHub issues stay on GitHub (mirror remains read-accessible). New issues open on Forgejo. CLAUDE.md updated to point future agents at `tea` (Forgejo CLI) for issue ops; a thin `gh issue`-compatible wrapper script keeps muscle memory working if needed.
+- **GitHub stays as a read-only code fallback** after cutover. Forgejo mirrors code to GitHub continuously, but issue tracking lives only on Forgejo.
+- **Issue migration: clean break.** Existing GitHub issues are closed/archival; GitHub issues are disabled on the mirror. New and active issues open on Forgejo. CLAUDE.md points future agents at Forgejo REST/API issue operations; `gh issue` is not used for this repo.
 
 ---
 
@@ -266,7 +266,7 @@ Rollback (any week, any host): revert the autoUpgrade.flake override → GitHub.
 - `homelab.nfsWatchdog.forgejo.path = cfg.dataDir;` only if `cfg.dataDir` is on NFS — for virtiofs it's not needed. Make this conditional on a `cfg.dataDirOnNfs` boolean (default `false`).
 - Sops:
   - `services.forgejo.secrets.security.SECRET_KEY = config.sops.secrets."forgejo/SECRET_KEY".path;` (and same shape for `INTERNAL_TOKEN`, `JWT_SECRET`, `LFS_JWT_SECRET`). `services.forgejo.secrets` is the LoadCredential pathway — files are not in /nix/store.
-  - `sops.secrets."forgejo/env" = { sopsFile = config.homelab.secrets.sopsFile "forgejo.env"; format = "dotenv"; owner = "forgejo"; mode = "0400"; };` for the GitHub mirror PAT (used by U4 manual API calls; not consumed by the service itself).
+  - `sops.secrets."github/nixosconfig-mirror-deploy-key"` on doc1 for the GitHub code mirror deploy key; Forgejo itself does not consume GitHub mirror credentials.
 
 **Patterns to follow:**
 - `modules/nixos/services/paperless.nix` (sops dotenv pattern + monitoring + localProxy).
@@ -446,7 +446,7 @@ Rollback (any week, any host): revert the autoUpgrade.flake override → GitHub.
 **Requirements:** R8, R9.
 
 **Files:**
-- Modify: `CLAUDE.md` — replace `nixos-rebuild` runbook URLs with Forgejo, update "Issue Tracking" section to reference both `gh` (GitHub mirror) and `tea` (Forgejo native), update "Landing the Plane" push instructions.
+- Modify: `CLAUDE.md` — replace `nixos-rebuild` runbook URLs with Forgejo, update "Issue Tracking" section to reference Forgejo issue operations via REST/API; GitHub is code-only, update "Landing the Plane" push instructions.
 - Modify: `modules/home-manager/shell/aliases.nix` — add `tea` aliases mirroring the `gh issue` workflow.
 - Add: `tea` to `home.packages` for `abl030@*` (or wherever the existing CLI stack lives).
 - Create: `docs/wiki/services/forgejo.md` — operations runbook (push-mirror API recipe, runner registration, dump/restore, rollback procedure for U6).
@@ -467,9 +467,9 @@ Rollback (any week, any host): revert the autoUpgrade.flake override → GitHub.
 ## System-Wide Impact
 
 - **Interaction graph:** every host's `nixos-upgrade.service` reaches the new flake URL nightly; the doc1 `rolling-flake-update.service` pushes to it; the new Forgejo Actions runner pulls jobs from it; CLAUDE.md-driven agents read/write issues against it. Forgejo itself runs *on* the host that hosts most other services (doc2), so a Forgejo outage does not cascade — but a doc2 outage takes Forgejo with it.
-- **Error propagation:** Forgejo down → autoUpgrade fails on each host → current generation keeps running → Uptime Kuma pages within ~10 min → manual rollback by flipping `homelab.update.flakeRef` per host (or fleet-wide) back to GitHub. No data loss in any failure mode because the GitHub mirror is hot.
-- **State lifecycle risks:** Forgejo's repo + issue + PR state lives in `/mnt/virtio/forgejo/data` (virtiofs). `services.forgejo.dump` writes nightly tarballs to `/mnt/virtio/forgejo/dump`, picked up by Kopia. Verify Kopia is actually backing this path post-cutover (separate issue).
-- **API surface parity:** `gh` keeps working against the GitHub mirror; `tea` is the new tool for native Forgejo ops. Agent skills that use `gh issue *` need updating in U8.
+- **Error propagation:** Forgejo down → `fleet-update` skips/fails safely depending on reachability and verified fallback availability; current generation keeps running. GitHub remains a code mirror/fallback only, not an issue tracker.
+- **State lifecycle risks:** Forgejo's repo + issue + PR state lives in `/mnt/virtio/forgejo/data` (virtiofs). `services.forgejo.dump` writes nightly tarballs to `/mnt/virtio/forgejo/dump`, picked up by Kopia. Verify Kopia is actually backing this path post-cutover (tracked in Forgejo).
+- **API surface parity:** `gh issue *` must not be used for this repo. Use Forgejo REST/API tooling for issue operations; the GitHub mirror is code-only.
 - **Integration coverage:** the cutover phases in U6 are themselves integration tests — each phase intentionally lands a small change so a regression is bisectable to a single host.
 - **Unchanged invariants:** the rebuild *protocol* per CLAUDE.md (git push → ssh remote nixos-rebuild from the GitHub-style URL with `--refresh`) doesn't change, only the URL. The localProxy / monitoring / sops contracts don't change.
 
@@ -482,19 +482,19 @@ Rollback (any week, any host): revert the autoUpgrade.flake override → GitHub.
 | Forgejo down → fleet can't auto-rebuild | GitHub mirror stays hot for 30+ days post-cutover; per-host `homelab.update.flakeRef` override is a one-line revert; rollback runbook in `docs/wiki/services/forgejo.md`. |
 | doc2 specifically can't rebuild itself when its own Forgejo is down | Same mitigation; CLAUDE.md gains a "doc2 emergency rebuild" note pointing to the GitHub URL fallback. |
 | sops secret rotation footgun for `services.forgejo.secrets.security.SECRET_KEY` | Generated once, never rotated; documented in the wiki. Forgejo rejects reading existing data with a different SECRET_KEY → loud, not silent. |
-| Push-mirror PAT leak | Fine-scoped PAT (single repo, push-only, no admin); rotate on any suspicion; sops-encrypted, never on disk in plaintext. |
+| GitHub mirror key leak | Repo-scoped deploy key can write only `abl030/nixosconfig`; revoke it from GitHub deploy keys and re-key `secrets/hosts/proxmox-vm/github-nixosconfig-mirror-deploy-key`. |
 | `nix flake metadata` over `git+https://` is slower than `github:` (no API, just `git ls-remote`) | Acceptable — adds <2s to autoUpgrade. If it ever matters, run a local nix-binary cache (cache.ablz.au already exists). |
 | Forgejo upstream rename / breaking change | LTS package (`pkgs.forgejo-lts`) is the default in stable channels — gives a long upgrade runway. Minor releases land via nightly autoUpgrade; major upgrades batched manually. |
-| Loss of GitHub issue history during agent context swap | Accepted — clean break per Scope Boundaries. GitHub issues remain readable on the mirror; new work tracks in Forgejo. |
+| Loss of GitHub issue history during agent context swap | Accepted — clean break per Scope Boundaries. GitHub issues are closed/disabled on the mirror; all active work tracks in Forgejo. |
 
 ---
 
 ## Documentation / Operational Notes
 
 - New wiki page: `docs/wiki/services/forgejo.md` — first version lands in U3 with operations basics, expands in U6 with cutover/rollback runbook and in U8 with `tea` usage.
-- CLAUDE.md updates touch: rebuild runbook (top-of-file CRITICAL block), "Issue Tracking with GitHub Issues" → "Issue Tracking" with both forges noted, "Landing the Plane" push step, AI Tool Integration section.
+- CLAUDE.md updates touch: rebuild runbook (top-of-file CRITICAL block), "Issue and TODO Tracking" → Forgejo-only active issue tracking, "Landing the Plane" push step, AI Tool Integration section.
 - Module-level comment pointers from `modules/nixos/services/forgejo.nix` and `modules/nixos/autoupdate/update.nix` to the wiki page.
-- Single `gh issue` → cutover communication: open a parent epic-style issue on **both** GitHub and Forgejo describing the move, so future searches from either side land on it.
+- Cutover communication lives in Forgejo issues and this wiki; the GitHub mirror has issues disabled.
 
 ---
 

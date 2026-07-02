@@ -95,8 +95,8 @@ current settings fallout:
   Forgejo's built-in SSH server, not a Forgejo-managed OpenSSH key file.
 - v15 rootless-container config path changes do not apply to the NixOS service.
 - v15 cookie-name changes only require users to log in again.
-- v15 repository-scoped access tokens are useful for the future `nixbot` and
-  mirror-poller tokens.
+- v15 repository-scoped access tokens are useful for `nixbot` and other
+  narrow Forgejo-side automation tokens.
 
 Sources:
 
@@ -154,17 +154,29 @@ Mint an ephemeral admin token via `run admin user generate-access-token -u abl03
 (HTTP 401), so revoke by stopping forgejo and deleting the row:
 `sqlite3 /mnt/virtio/forgejo/data/forgejo.db "DELETE FROM access_token WHERE id=<n>;"`.
 
-### Deferred (blocked on the GitHub mirror PAT)
+### GitHub code mirror (completed 2026-07-02)
 
-These U8 items need the operator-created GitHub machine-user (`abl030-forgejo-mirror`)
-and its fine-grained PAT (GitHub does not mint PATs via API):
+GitHub is a **read-only code mirror/fallback** of Forgejo. It is not the issue
+tracker; GitHub issues are disabled and all active issue tracking lives on
+Forgejo.
 
-- Forgejo → GitHub push-mirror (`sync_on_commit`) with the mirror PAT.
-- Mirror-health poller on doc2 + its dedicated read-only Forgejo token
-  (`secrets/hosts/doc2/forgejo-mirror-poller-token`) — defined once a mirror
-  exists to poll.
-- GitHub `master` ruleset allowing only `abl030-forgejo-mirror` to update.
-- Synthetic propagation test (signed commit → Forgejo → GitHub).
+The mirror is driven from doc1 by `github-nixosconfig-mirror.timer`, not by a
+Forgejo push-mirror. That avoids storing a GitHub account PAT in Forgejo. The
+timer uses a repo-scoped GitHub deploy key:
+
+- private key: `secrets/hosts/proxmox-vm/github-nixosconfig-mirror-deploy-key`
+  → `/run/secrets/github/nixosconfig-mirror-deploy-key` on doc1 only;
+- GitHub key title: `doc1 Forgejo→GitHub mirror`;
+- sync behavior: `git clone --mirror`/`fetch --prune` from Forgejo, then
+  `git push --prune` heads/tags to `git@github.com:abl030/nixosconfig.git`.
+
+Operational checks:
+
+```sh
+systemctl status github-nixosconfig-mirror.timer github-nixosconfig-mirror.service
+git ls-remote --heads --tags https://git.ablz.au/abl030/nixosconfig.git
+git ls-remote --heads --tags https://github.com/abl030/nixosconfig.git
+```
 
 ## SSH Keys
 
@@ -208,10 +220,10 @@ unzip -l /mnt/data/Life/Andy/Code/forgejo-dumps/$latest | sed -n "1,40p"'
 ```
 
 The dump zip includes `custom/conf/app.ini`, repositories, and Forgejo data.
-Treat dumps as credential-bearing secret material. They can include app
-secrets today and will include mirror credentials in Forgejo repository state
-after the GitHub push mirror is configured. Any restore, dump extraction, or
-off-host copy requires mirror PAT rotation before mirror sync is re-enabled.
+Treat dumps as credential-bearing secret material. They include app secrets and
+Forgejo access tokens. The GitHub mirror deploy key is **not** stored in Forgejo
+state; it is a doc1-only sops secret. If a dump is restored, rotate any Forgejo
+access tokens that may have been exposed or replayed.
 
 Restore outline:
 
@@ -222,8 +234,8 @@ Restore outline:
 4. Start Forgejo and run the doctor command above.
 5. Verify `https://git.ablz.au/api/healthz`, SSH on `:2222`, and refs for
    critical repos.
-6. If mirror state was restored or extracted, rotate the GitHub mirror PAT
-   before enabling mirror sync.
+6. If restoring from an old dump, verify the doc1 GitHub mirror key still exists
+   and run `github-nixosconfig-mirror.service` after Forgejo is healthy.
 
 ## Least-Privilege Notes
 

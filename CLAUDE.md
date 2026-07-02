@@ -15,9 +15,11 @@
 # pinned to that verified rev. Running closures track "tip of Forgejo master last
 # night" with a HOT binary cache.
 #
-# GitHub is a FROZEN, ancestor-only fallback (no push mirror yet). Do NOT deploy
-# from `github:abl030/nixosconfig` — it is stale, missing every commit since the
-# cutover. Pushing dev commits goes to FORGEJO (origin = git.ablz.au).
+# GitHub is a READ-ONLY mirror/fallback maintained from Forgejo by doc1's
+# `github-nixosconfig-mirror.timer`. Do NOT deploy from
+# `github:abl030/nixosconfig` in normal operations — Forgejo remains the write
+# root and verified deploy source. Pushing dev commits goes to FORGEJO
+# (origin = git.ablz.au), never GitHub.
 #
 # EVERY host is LOCKED except doc1 (forgejo#2 — `homelab.fleetDeploy.role`
 # defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
@@ -101,8 +103,9 @@
 # SSH trigger (polkit, no sibling sudo) — async, so confirm the result afterward
 # (rev/freshness/Loki), there's no live build stream. Works over Tailscale / VPN.
 #
-# Do NOT deploy `--flake github:abl030/nixosconfig#<host>` — GitHub is the FROZEN
-# fallback (stale). Do NOT use `--target-host` (builds here, pushes over SSH —
+# Do NOT deploy `--flake github:abl030/nixosconfig#<host>` in normal operations —
+# GitHub is a read-only mirror/fallback, not the write/fetch root. Do NOT use
+# `--target-host` (builds here, pushes over SSH —
 # slow, leaks uncommitted local work into the closure). The service-deploy skill
 # has the full runbook; always follow it.
 #
@@ -261,8 +264,9 @@ Sops-nix + Age. Config: `secrets/.sops.yaml`. **Per-host scoped (#234):** a secr
 
 ## Issue and TODO Tracking
 
-- Larger work items are tracked in issues on this repo. **Forgejo issues are now live** (`git.ablz.au/abl030/nixosconfig`) and are the home for **new** items as we migrate off GitHub. **Existing GitHub issues (e.g. #232, #277) stay on GitHub for now — they are NOT migrated**, so still use `gh issue list/view/create` for that older work.
+- Larger work items are tracked in **Forgejo issues** on this repo (`https://git.ablz.au/abl030/nixosconfig/issues`). GitHub issues are closed and disabled on the read-only mirror; do not use `gh issue *` for this repo.
   - File/edit Forgejo issues via the **REST API** (`https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues`); `gh` does NOT work against Forgejo. The doc1 agent has a scoped `nixbot` `write:issue` token (sops-encrypted, doc1-only) for this — see `.claude/memory/forgejo-issue-token-doc1.md`.
+  - Old `github.com/abl030/nixosconfig/issues/<n>` links in historical docs are closed archival references only. New tracking, comments, and closeout go to Forgejo.
 - Lightweight in-repo TODOs live in `docs/todo/*.md`. Check there before starting new work.
 - Historical issues from the retired `bd` (beads) tracker are archived in `docs/beads-archive.md` — read-only reference, do not try to resurrect the `.beads/` directory.
 
@@ -323,8 +327,8 @@ Monitor URL conventions and defaults are documented inline in `modules/nixos/ser
 
 MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
 
-- Use **issues** for decisions, rationale, workflow preferences, research findings, and feature progress — **Forgejo** (`git.ablz.au`) for new ones, legacy **GitHub** issues stay put (see "Issue and TODO Tracking").
-- Use **MEMORY.md** for shell/env quirks needed every session, "never do X" safety rules, and one-line pointers to relevant GitHub issues.
+- Use **Forgejo issues** for decisions, rationale, workflow preferences, research findings, and feature progress (see "Issue and TODO Tracking").
+- Use **MEMORY.md** for shell/env quirks needed every session, "never do X" safety rules, and one-line pointers to relevant Forgejo issues or wiki pages.
 - The `docs/wiki/` tree is the long-form knowledge base for research and architectural context.
 
 Do NOT duplicate rationale into MEMORY.md — point to the issue or wiki page instead.
@@ -421,4 +425,4 @@ When work is committed, push it. `git pull --rebase && git push` is pre-authoris
 
 ## Issue Tracking
 
-Issues cover both real bugs/features and long-running session work that spans multiple conversations. **New issues now go to Forgejo** (`git.ablz.au`, via the REST API + the doc1 agent's scoped token — see "Issue and TODO Tracking"); **existing GitHub issues (`gh`) are not yet migrated** and remain authoritative for that older work. Historical beads issues are read-only in `docs/beads-archive.md`.
+Issues cover both real bugs/features and long-running session work that spans multiple conversations. **All active issue tracking is now on Forgejo** (`git.ablz.au`, via the REST API + the doc1 agent's scoped token — see "Issue and TODO Tracking"). GitHub issues are closed/disabled on the read-only mirror; old GitHub issue links are archival references only. Historical beads issues are read-only in `docs/beads-archive.md`.

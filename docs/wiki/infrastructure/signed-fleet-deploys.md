@@ -25,15 +25,15 @@ user-facing Gotify analysis; direct Gotify is only the webhook-down fallback.
 The updater now also auto-rebases on commit races, so
 the 2026-06-12 failure class self-heals.
 
-**Forgejo cutover is LIVE (Phase D, U8–U10, 2026-06-10).** Forgejo
-(`git.ablz.au/abl030/nixosconfig`) is the write+fetch root: the rolling bot and
-doc1's dev remote push to Forgejo (nixbot / doc1-writer tokens), and hosts fetch
-`origins = {forgejo, github}` with `writeRoot = forgejo`. Validated end-to-end
-(bot push → Forgejo → igpu enforced deploy from Forgejo). **GitHub is FROZEN at
-the cutover commit** as a linear, ancestor-only fallback — no push mirror yet, so
-it never advances and never diverges. The GitHub push-mirror, mirror poller, and
-GitHub `master` ruleset remain deferred (blocked on the operator GitHub mirror
-PAT); when added, GitHub becomes a hot fallback again.
+**Forgejo cutover is LIVE (Phase D, U8–U10, 2026-06-10; GitHub mirror
+activated 2026-07-02).** Forgejo (`git.ablz.au/abl030/nixosconfig`) is the
+write+fetch root: the rolling bot and doc1's dev remote push to Forgejo (nixbot /
+doc1-writer tokens), and hosts fetch `origins = {forgejo, github}` with
+`writeRoot = forgejo`. Validated end-to-end (bot push → Forgejo → igpu enforced
+deploy from Forgejo). GitHub is now a **read-only mirror/fallback** maintained by
+doc1's `github-nixosconfig-mirror.timer`; it uses a repo-scoped GitHub deploy key
+stored as a doc1-only sops secret and prunes stale branches/tags to match Forgejo.
+Normal deploys still use Forgejo; GitHub is only a fallback/read surface; GitHub issues are disabled and all active issue tracking is on Forgejo.
 **Related:** #235, #270, #232
 
 This repo is moving from "whoever can update `master` can deploy the fleet" to
@@ -74,7 +74,7 @@ Landed and live:
   on their next nightly. (`freshness.enable` existed here until 2026-06-13 —
   see the retirement note at the top.)
 
-Landed (Phase D, 2026-06-10):
+Landed (Phase D, 2026-06-10; mirror completed 2026-07-02):
 
 - **U8** — `abl030/nixosconfig` on git.ablz.au (public, full history, anon read);
   restricted write accounts (`nixbot` + per-machine writers); `master` branch
@@ -82,13 +82,13 @@ Landed (Phase D, 2026-06-10):
 - **U9** — rolling bot pushes to Forgejo (nixbot token, header auth);
   doc1 dev remote repointed; `doc1-writer` token issued.
 - **U10** — hosts fetch `{forgejo, github}`, `writeRoot = forgejo`.
+- **Mirror leg** — doc1 runs `github-nixosconfig-mirror.timer` every 5 minutes,
+  mirroring Forgejo heads/tags to GitHub with `--prune` via a repo-scoped GitHub
+  deploy key (`secrets/hosts/proxmox-vm/github-nixosconfig-mirror-deploy-key`).
+  The GitHub repo metadata says it is a read-only mirror; GitHub issues are disabled because all active issue tracking lives on Forgejo.
 
 Not yet landed:
 
-- Phase D mirror leg — Forgejo→GitHub push-mirror, GitHub `master` ruleset, the
-  mirror-health poller. **Blocked on the operator-created GitHub machine-user
-  (`abl030-forgejo-mirror`) + fine-grained PAT** (GitHub does not mint PATs via
-  API).
 - Per-machine dev-push credential helper (declarative, in the HM git module) +
   epimetheus/framework/wsl writer tokens + remote repoints — doc1 done; the
   other pushers onboard when next at the machine.

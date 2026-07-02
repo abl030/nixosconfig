@@ -20,6 +20,17 @@
     mode = "0400";
   };
 
+  # GitHub deploy key used ONLY by the doc1 Forgejo→GitHub mirror timer. The
+  # GitHub repo is a read-only human-facing mirror/fallback; Forgejo remains the
+  # write root and fleet deploy source. Deploy keys are repo-scoped, so this is
+  # narrower than storing an account PAT in Forgejo.
+  sops.secrets."github/nixosconfig-mirror-deploy-key" = {
+    sopsFile = config.homelab.secrets.sopsFile "github-nixosconfig-mirror-deploy-key";
+    format = "binary";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   # *arr-stack API keys (Radarr/Sonarr/Prowlarr + NZBHydra2) so the doc1 agent can
   # manage indexers/downloaders from the bastion. Decryptable by doc1 ONLY (per-host
   # sops scope, #234); deployed as a dotenv to /run/secrets/arr-api-keys, read by the
@@ -209,6 +220,62 @@
       ExecStart = "${pkgs.tmux}/bin/tmux new-session -d -s 0";
       ExecStop = "${pkgs.tmux}/bin/tmux kill-server";
       Restart = "on-failure";
+    };
+  };
+
+  # Keep GitHub as a read-only mirror/fallback of the Forgejo write root (#235).
+  # Forgejo's built-in push-mirror API would require storing a GitHub PAT there;
+  # this uses a repo-scoped GitHub deploy key on doc1 instead. The mirror prunes
+  # GitHub branches/tags that no longer exist on Forgejo so stale pre-cutover
+  # branches do not masquerade as current source-of-truth state.
+  systemd.services.github-nixosconfig-mirror = {
+    description = "Mirror Forgejo nixosconfig to GitHub";
+    wants = ["network-online.target"];
+    after = ["network-online.target"];
+    path = [pkgs.git pkgs.openssh pkgs.coreutils];
+    script = ''
+      set -euo pipefail
+      state=/var/lib/github-nixosconfig-mirror
+      repo="$state/nixosconfig.git"
+      key=${config.sops.secrets."github/nixosconfig-mirror-deploy-key".path}
+
+      mkdir -p "$state"
+      chmod 700 "$state"
+
+      if [ ! -d "$repo/objects" ]; then
+        rm -rf "$repo"
+        git clone --mirror https://git.ablz.au/abl030/nixosconfig.git "$repo"
+      else
+        git -C "$repo" remote set-url origin https://git.ablz.au/abl030/nixosconfig.git
+        git -C "$repo" fetch --prune origin '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+      fi
+
+      export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$state/known_hosts"
+      git -C "$repo" push --prune git@github.com:abl030/nixosconfig.git \
+        '+refs/heads/*:refs/heads/*' \
+        '+refs/tags/*:refs/tags/*'
+    '';
+    serviceConfig = {
+      Type = "oneshot";
+      User = "abl030";
+      Group = "users";
+      StateDirectory = "github-nixosconfig-mirror";
+      StateDirectoryMode = "0700";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectHome = "read-only";
+      ProtectSystem = "strict";
+      ReadWritePaths = ["/var/lib/github-nixosconfig-mirror"];
+    };
+  };
+
+  systemd.timers.github-nixosconfig-mirror = {
+    description = "Periodic Forgejo→GitHub nixosconfig mirror";
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnBootSec = "3min";
+      OnUnitActiveSec = "5min";
+      Persistent = true;
     };
   };
 

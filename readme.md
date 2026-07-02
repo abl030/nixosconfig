@@ -42,7 +42,7 @@ the rest. The full module-authoring spec lives in
 
 ## Autoupdates that don't fight the user
 
-Every host runs a nightly `nixos-rebuild switch` from GitHub. The
+Every host runs a nightly verified `fleet-update` from Forgejo (`git.ablz.au`), with GitHub kept as a read-only mirror/fallback. The
 interesting part is everything that had to be engineered to make it
 **reliable in the real world**:
 
@@ -83,7 +83,7 @@ step and fully up to date every day**, kernels included — hosts even
 auto-reboot when a kernel update comes in (`rebootOnKernelUpdate`).
 
 No CI/CD pipeline, no `--target-host` over flaky links — each host
-self-heals from GitHub.
+self-heals from the verified Forgejo source of truth.
 
 ## Tailscale-share sidecars
 
@@ -137,7 +137,7 @@ but it's nice that they all just work.
 - **Secrets** — sops-nix with age, per-host keys, all encrypted in-repo.
 - **Shared nix binary cache** — doc1 runs `nix-serve`; the rest of the
   fleet pulls from it. Saves rebuilds on every machine.
-- **Self-hosted CI** — GitHub Actions runners on the fleet, sharing the
+- **Self-hosted CI / automation** — fleet automation shares the
   binary cache with dev workstations.
 - **Containers** — most stacks are native NixOS modules now; the
   remaining ones use either the `oci-containers` wrapper (autoupdate +
@@ -159,7 +159,7 @@ but it's nice that they all just work.
 - **framework** — Framework 13 laptop (hibernation, AC-power-gated
   updates)
 - **wsl** — Windows Subsystem for Linux, full NixOS
-- **proxmox-vm** (doc1) — main services VM, binary cache, GitHub Actions
+- **proxmox-vm** (doc1) — main services VM, binary cache, Forgejo/GitHub mirror automation
 - **doc2** — service appliance VM (immich, paperless, mealie,
   cratedigger, slskd, musicbrainz, kopia, uptime-kuma, the LGTM stack…)
 - **igpu** — media transcoding VM with AMD iGPU passthrough
