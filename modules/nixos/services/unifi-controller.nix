@@ -1,3 +1,6 @@
+# UniFi Network controller (on doc2). Full model + gotchas — CSRF/Host login bug,
+# the 8080 device-inform port conflict, state relocation to /mnt/virtio, and the
+# dual-NIC device-inform quirk: docs/wiki/services/unifi-controller.md
 {
   config,
   lib,

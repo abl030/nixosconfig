@@ -1,3 +1,5 @@
+# Static MSN history viewer (on doc2). Migrated off the caddy LXC alongside unifi;
+# see docs/wiki/services/unifi-controller.md for the edge-split context.
 {
   config,
   lib,

@@ -380,10 +380,10 @@ Full HA usage guide incl. Music Assistant playback and volume quirks lives in `d
 
 - **epimetheus**: Main workstation (desktop, full NixOS)
 - **framework**: Laptop (Framework 13, full NixOS with hibernation)
-- **caddy**: Server/container (Home Manager only)
+- **caddy**: NixOS LXC (CT 108, `192.168.1.6`) on prom — runs the *legacy-edge* Caddy reverse proxy for appliance FQDNs only (apollo/plex/pihole/cockpit/brother/…). unifi + msn were migrated OFF it to doc2 (2026-07-03); see [docs/wiki/services/unifi-controller.md](docs/wiki/services/unifi-controller.md). (Was an Ubuntu VM; → LXC in b34bbc6e.)
 - **wsl**: WSL instance (full NixOS with NixOS-WSL)
 - **proxmox-vm** (doc1): Main services VM on Proxmox prom
-- **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot.
+- **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, unifi (network controller), msn, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot. **Dual-homed on the LAN: `.35`/ens18 + `.36`/ens19 both on `192.168.1.0/24`** — outbound LAN packets can egress from `.36`, which bit UniFi device-inform (see [services/unifi-controller.md](docs/wiki/services/unifi-controller.md)).
 - **igpu**: Media transcoding VM on Proxmox prom with AMD iGPU passthrough
 - **hermes**: Dedicated, locked-down VM on prom running the Hermes Agent (Nous Research) OCI container — reached via Telegram, keyless re: the fleet. See `docs/wiki/services/hermes-agent.md`.
 

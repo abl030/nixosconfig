@@ -345,12 +345,18 @@ Every service should wire into these infrastructure systems where applicable:
 homelab.localProxy.hosts = [{
   host = "<service>.ablz.au";
   port = <port>;
-  websocket = true;     # optional, for websocket support
-  maxBodySize = "0";    # optional, for large uploads
+  websocket = true;           # optional, for websocket support
+  maxBodySize = "0";          # optional, for large uploads
+  https = true;               # optional: upstream speaks TLS (e.g. UniFi's :8443)
+  insecureSkipVerify = true;  # optional: skip verify for a self-signed upstream
 }];
 ```
 
 This automatically creates nginx virtualHosts with ACME certs and syncs DNS to Cloudflare.
+Prefer a plain-HTTP loopback upstream; reach for `https`/`insecureSkipVerify` only when
+the app is HTTPS-only (UniFi, appliance UIs). nginx sends `Host: $host`
+(`recommendedProxySettings`), which UniFi's CSRF/Origin check requires — see
+[services/unifi-controller.md](services/unifi-controller.md).
 
 #### Moving a `localProxy` service between hosts — deploy NEW host first
 
