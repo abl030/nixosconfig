@@ -138,6 +138,11 @@ in {
     # substitution), registers it as the system generation, and switches.
     systemd.services.push-activate = {
       description = "Activate a doc1-staged NixOS closure (push-deploy, forgejo#10)";
+      # switch-to-configuration runs inside this service. If NixOS sees the unit
+      # change during activation it may otherwise stop the running service, killing
+      # its own switch and leaving the host on the old generation.
+      restartIfChanged = false;
+      stopIfChanged = false;
       # Do not tie to network-online here — the trigger only fires after doc1 has
       # already reached us, and the cache is on the LAN.
       serviceConfig = {
