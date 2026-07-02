@@ -22,7 +22,8 @@ in {
 
     assetsPort = lib.mkOption {
       type = lib.types.port;
-      default = 8080;
+      # UniFi uses 8080 for device inform on doc2; keep netboot assets off it.
+      default = 8087;
       description = "Port for the assets HTTP server (PXE clients fetch boot files here).";
     };
 
