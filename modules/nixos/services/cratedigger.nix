@@ -210,7 +210,7 @@
         systemctl stop "''${guarded_units[@]}" || true
       }
 
-      hold_reason() {
+      write_hold_reason() {
         local reason="$1"
         valid_reason "$reason"
         lock_state
@@ -218,6 +218,11 @@
           echo "reason=$reason"
           echo "timestamp=$(date --iso-8601=seconds)"
         } >"$hold_dir/$reason"
+      }
+
+      hold_reason() {
+        local reason="$1"
+        write_hold_reason "$reason"
         stop_guarded_units
       }
 
@@ -239,7 +244,12 @@
         fi
 
         echo "cratedigger metadata dependency check failed; entering dependency hold" >&2
-        hold_reason dependency
+        # ExecCondition runs inside the unit that is starting. Calling
+        # hold_reason here would stop all guarded units, including this
+        # in-flight unit, so systemd reports SIGTERM and switch-to-configuration
+        # fails. Record the hold only; ExecCondition's non-zero exit cleanly skips
+        # this start, and the watchdog still stops already-running guarded units.
+        write_hold_reason dependency
         return 1
       }
 
