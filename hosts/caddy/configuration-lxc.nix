@@ -39,9 +39,11 @@
 
   homelab = {
     services = {
+      # Edge Caddy for the legacy appliance proxies only. unifiController +
+      # msnHistoryViewer moved to doc2 as standard localProxy/nginx service
+      # modules (portable /mnt/virtio state, least-privilege) — see their
+      # modules under modules/nixos/services/.
       legacyEdgeCaddy.enable = true;
-      unifiController.enable = true;
-      msnHistoryViewer.enable = true;
     };
 
     ssh = {

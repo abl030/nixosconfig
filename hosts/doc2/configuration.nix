@@ -233,6 +233,16 @@
         dataDir = "/mnt/virtio/komga";
       };
       komga-sync.enable = true;
+      # UniFi Network controller — migrated off the caddy LXC to a standard
+      # localProxy/nginx service module. State on portable, kopia-backed
+      # virtiofs (was stranded on the LXC's unbacked-up root); UI surfaced via
+      # localProxy (https upstream), which also fixes the CSRF/Host login bug.
+      unifiController = {
+        enable = true;
+        dataDir = "/mnt/virtio/unifi";
+      };
+      # Static MSN history viewer — sandboxed static server behind localProxy.
+      msnHistoryViewer.enable = true;
       # Mail archival — replaces Win10 MailStore VM (VMID 102).
       # Two accounts: personal Gmail and work O365 (cullenwines.com.au).
       # Bootstrap procedure (per-account refresh tokens, sops env files):

@@ -242,6 +242,19 @@
         if entry.maxBodySize or null != null
         then "client_max_body_size ${entry.maxBodySize};"
         else "";
+      # HTTPS upstream (e.g. UniFi's self-signed :8443). Default is a plain
+      # http upstream, so existing entries are unaffected.
+      upstreamScheme =
+        if entry.https or false
+        then "https"
+        else "http";
+      upstreamTlsConfig =
+        if entry.https or false
+        then ''
+          proxy_ssl_server_name on;
+          ${lib.optionalString (entry.insecureSkipVerify or false) "proxy_ssl_verify off;"}
+        ''
+        else "";
       # When tailscaleOnly, bind nginx to the tailnet IP only. Anything hitting
       # the LAN IP with this Host header will fall through to whatever default
       # server happens to be on that interface (typically a 404).
@@ -256,10 +269,11 @@
           useACMEHost = entry.host;
           onlySSL = true;
           locations."/" = {
-            proxyPass = "http://${entry.upstreamHost}:${toString entry.port}";
+            proxyPass = "${upstreamScheme}://${entry.upstreamHost}:${toString entry.port}";
             extraConfig = ''
               ${maxBodySizeConfig}
               ${websocketConfig}
+              ${upstreamTlsConfig}
               proxy_set_header X-Forwarded-Proto https;
               proxy_set_header X-Forwarded-Port 443;
               proxy_redirect http://$host/ https://$host/;
@@ -327,6 +341,22 @@ in {
             type = lib.types.bool;
             default = false;
             description = "Enable websocket proxy headers for this host.";
+          };
+          https = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Proxy to an HTTPS upstream instead of plain HTTP. Needed for
+              backends that only speak TLS (e.g. UniFi's self-signed :8443).
+            '';
+          };
+          insecureSkipVerify = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              When https = true, skip verification of the upstream's TLS cert.
+              Required for self-signed backends (UniFi, appliance UIs, etc.).
+            '';
           };
           maxBodySize = lib.mkOption {
             type = lib.types.nullOr lib.types.str;

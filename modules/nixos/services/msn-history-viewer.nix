@@ -43,24 +43,85 @@ in {
     fqdn = lib.mkOption {
       type = lib.types.str;
       default = "msn.ablz.au";
-      description = "FQDN for the MSN history viewer.";
+      description = "FQDN for the viewer (surfaced via homelab.localProxy).";
+    };
+
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 8791;
+      description = "Loopback port the sandboxed static server listens on; proxied by homelab.localProxy.";
     };
 
     package = lib.mkOption {
       type = lib.types.package;
       default = defaultPackage;
-      description = "Built static MSN history viewer package.";
+      description = "Built static MSN history viewer bundle (served read-only).";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    services.caddy.virtualHosts.${cfg.fqdn} = {
-      useACMEHost = "ablz.au";
-      extraConfig = ''
-        root * ${cfg.package}
-        file_server
-      '';
+    # This is an UNMAINTAINED third-party bundle. Crucially, the XML parsing runs
+    # entirely CLIENT-SIDE in the visitor's browser — the server only hands out
+    # read-only static files, so there is no server-side interpreter or upload
+    # endpoint. We still serve it from the most locked-down thing we can: a
+    # minimal static server, DynamicUser, no state, no writable paths, no
+    # capabilities, and no network reach beyond loopback. nginx localProxy fronts
+    # it for TLS/DNS like every other web service.
+    systemd.services.msn-history-viewer = {
+      description = "MSN history viewer (sandboxed static file server)";
+      wantedBy = ["multi-user.target"];
+      after = ["network.target"];
+      serviceConfig = {
+        ExecStart = lib.concatStringsSep " " [
+          "${pkgs.static-web-server}/bin/static-web-server"
+          "--host 127.0.0.1"
+          "--port ${toString cfg.port}"
+          "--root ${cfg.package}"
+          "--log-level warn"
+        ];
+
+        DynamicUser = true;
+        NoNewPrivileges = true; # static server, never needs to gain privilege
+
+        # Read-only world: the served root is a /nix/store path (already ro),
+        # and the unit owns no writable state.
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectClock = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+
+        RestrictAddressFamilies = ["AF_INET" "AF_INET6"];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        SystemCallFilter = ["@system-service" "~@privileged"];
+        SystemCallArchitectures = "native";
+
+        # Only the loopback nginx ever connects; no outbound reach at all.
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
+        UMask = "0077";
+      };
     };
+
+    homelab.localProxy.hosts = [
+      {
+        host = cfg.fqdn;
+        inherit (cfg) port;
+      }
+    ];
 
     homelab.monitoring = {
       monitors = [
@@ -69,7 +130,7 @@ in {
           url = "https://${cfg.fqdn}/";
         }
       ];
-      # Static site: no write path or app log stream; HTTP monitor covers serving.
+      # Static, stateless: no write path or app-log stream; HTTP monitor covers it.
       deepProbes = [];
       errorPatterns = [];
     };
