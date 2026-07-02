@@ -72,6 +72,14 @@
       *) echo "push-deploy: refusing non-store path: '$toplevel'" >&2; exit 1 ;;
     esac
 
+    # Refuse closures for another host. If doc1 ever hands the wrong GC root to a
+    # target, fail closed before staging instead of activating e.g. caddy on igpu.
+    base="$(basename "$toplevel")"
+    case "$base" in
+      *-nixos-system-${config.networking.hostName}-*) ;;
+      *) echo "push-deploy: refusing closure for another host on ${config.networking.hostName}: '$base'" >&2; exit 1 ;;
+    esac
+
     # Stage the path for push-activate.service. /run/push-deploy is 0700 root
     # (tmpfiles below), so only this root wrapper can write it — no login-user
     # tampering. The service re-validates and signature-checks on read.
@@ -148,6 +156,11 @@ in {
         case "$toplevel" in
           /nix/store/*) ;;
           *) echo "push-activate: invalid staged path: '$toplevel'" >&2; exit 1 ;;
+        esac
+        base="$(basename "$toplevel")"
+        case "$base" in
+          *-nixos-system-${config.networking.hostName}-*) ;;
+          *) echo "push-activate: refusing closure for another host on ${config.networking.hostName}: '$base'" >&2; exit 1 ;;
         esac
 
         # Realise from the binary cache if not already present. For a not-yet-local
