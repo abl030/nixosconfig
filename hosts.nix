@@ -105,6 +105,11 @@ in {
     # LAN IP of the caddy LXC (CT 108). Cut over from the temporary .60 build-out
     # IP once the old Ubuntu caddy VM was stopped (edge-services migration).
     localIp = "192.168.1.6";
+    # Reach caddy over LAN, not MagicDNS: on 2026-07-03 tailscaled was down for
+    # ~14h (missing CT TUN device) and `ssh caddy` + the nightly push-deploy
+    # trigger both timed out on the dead tailnet address. The LAN IP keeps the
+    # deploy path independent of tailnet state (same pattern as wsl).
+    sshHostName = "192.168.1.6";
     sshAlias = "cad";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICOXKdOCzhkvsqQFnHo7LAntR9fq9C4qAbWbz8N1ckj/ root@caddy";

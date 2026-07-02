@@ -44,6 +44,7 @@
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
     "homeassistant": "100.106.165.120", // edge node allowed to reach the Cullen inverters
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
+    "caddy":         "100.96.32.96",   // edge-proxy LXC (CT 108) — legacy proxies to mum's gear + Cullen solar
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
     "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
   },
@@ -60,6 +61,15 @@
     // IP via MagicDNS). NFS: tcp:2049 (v4) + 111 (rpcbind, if v3 negotiated).
     // TODO: confirm v4-only and narrow to ["tcp:2049"]. kerrynas is tag:edge.
     { "src": ["tag:server"], "dst": ["kerrynas"], "ip": ["tcp:2049", "tcp:111", "udp:111"] },
+
+    // caddy (edge-proxy LXC, pinned by IP) → its tailnet-crossing legacy proxy
+    // upstreams, enumerated: mumnas.ablz.au → kerrynas DSM (tcp:5000),
+    // mumrouter.ablz.au → mum's router via kerrynas's 192.168.4.0/23 route, and
+    // the two Cullen solar dashboards (same /32:443 pinholes tag:client + HA
+    // get; .140 stays outside). Re-pin the IP here if caddy is ever re-keyed.
+    { "src": ["caddy"], "dst": ["kerrynas"], "ip": ["tcp:5000"] },
+    { "src": ["caddy"], "dst": ["192.168.4.1/32"], "ip": ["tcp:80"] },
+    { "src": ["caddy"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
 
     // === doc1 (bastion) — unrestricted tailnet EGRESS ======================
     // doc1 is the most-privileged node already (fleet SSH key, sole Forgejo
@@ -260,5 +270,7 @@
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
     // HA → inverter only; adjacent Cullen IP denied.
     { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443"], "deny": ["192.168.100.140:443"] },
+    // caddy edge proxy → mum's DSM/router + Cullen solar dashboards, nothing wider.
+    { "src": "caddy", "proto": "tcp", "accept": ["kerrynas:5000", "192.168.4.1:80", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443", "kerrynas:22"] },
   ],
 }
