@@ -194,6 +194,9 @@
       netboot = {
         enable = true;
         dataDir = "/mnt/virtio/netboot";
+        # 8080 (the default) collides with UniFi's device-inform port now that
+        # the controller lives on doc2 — move netboot's asset HTTP server off it.
+        assetsPort = 8070;
       };
       youtarr = {
         enable = true;
