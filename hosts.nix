@@ -102,9 +102,9 @@ in {
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "caddy";
-    # Temporary build-out IP for the new LXC. Cut over to 192.168.1.6 after the
-    # Ubuntu caddy VM is stopped.
-    localIp = "192.168.1.60";
+    # LAN IP of the caddy LXC (CT 108). Cut over from the temporary .60 build-out
+    # IP once the old Ubuntu caddy VM was stopped (edge-services migration).
+    localIp = "192.168.1.6";
     sshAlias = "cad";
     sshKeyName = "ssh_key_abl030";
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICOXKdOCzhkvsqQFnHo7LAntR9fq9C4qAbWbz8N1ckj/ root@caddy";
