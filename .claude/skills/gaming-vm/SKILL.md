@@ -484,12 +484,12 @@ throttles downloads); switch to the shared MAC only at the very end.
   Medium-IL (the default autostart) can't click installers; SYSTEM/session-0 can't
   see the desktop. Use a `/RU abl030 /IT /RL HIGHEST` task. (Full detail in the
   windows-mcp section.)
-- **prom quorum is a single node + a QDevice witness on the `Caddy2.0` VM
-  (`192.168.1.6`, on tower).** If that VM is down, prom loses quorum and pmxcfs goes
-  **read-only** — every `qm clone` / firewall write fails with `cluster not ready -
-  no quorum?` (reads still work from cache). Fix: start `Caddy2.0` on tower (the
-  `tower` subagent), confirm `pvecm status` → `Quorate: Yes`. Don't `pvecm expected
-  1` blindly — revive the witness.
+- **prom is a standalone single-node cluster — no QDevice, no witness** (the old
+  `Caddy2.0` QDevice was removed 2026-07-02). `qm clone` / `pct` / firewall writes
+  just work; you do NOT need to start anything on tower for quorum. If prom is ever
+  non-quorate now, that's a NEW fault — do not `pvecm expected 1` blindly; the
+  local-mode recovery recipe + full history are in
+  `docs/wiki/infrastructure/prom-hypervisor.md` → *Cluster / quorum*.
 - **Activation: HWID-online only; KMS38 is DEAD.** Microsoft removed
   `gatherosstate.exe` (build 26040) and **fully deprecated KMS38 at build 26100.7019**
   — on our 26100.8655 `/KMS38` silently no-ops (this is why early attempts "ran" with

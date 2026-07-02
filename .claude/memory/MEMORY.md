@@ -130,8 +130,9 @@
   finicky; **don't thrash the GPU reset**:
   [gaming-golden-image-v3.md](gaming-golden-image-v3.md). v1/119 + v2/118 templates +
   RDR2 clone 121 all DELETED 2026-06-26 — `117` is the ONLY gaming template (other
-  gaming VM: `120 apollo-007`). ⚠️ prom writes (`qm clone`/firewall) need quorum —
-  depends on the `Caddy2.0` VM witness: [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
+  gaming VM: `120 apollo-007`). prom is now a STANDALONE single-node cluster (QDevice
+  removed 2026-07-02) — `qm clone`/firewall writes just work, no witness needed:
+  [prom-quorum-qdevice.md](prom-quorum-qdevice.md).
 - Custom Claude Code HM module stays over official `programs.claude-code`
 - Episodic-memory plugin disabled (npm-install breaks the Nix store)
 - Heavy MCPs (pfsense, unifi, HA) moved to subagent-only in .claude/agents/ to reduce context bloat

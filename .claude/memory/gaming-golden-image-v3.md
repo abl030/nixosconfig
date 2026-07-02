@@ -45,4 +45,5 @@ rebind, last resort a prom reboot. (3) The flaky **ata8** SATA disk (controller
 mitigations I'd added were **removed** at the user's request.
 
 Full runbook: `gaming-vm` skill + `docs/wiki/services/apollo-gaming-vm.md`.
-See [[prom-quorum-qdevice]] (prom needs the Caddy2.0 witness for `qm` writes).
+See [[prom-quorum-qdevice]] (prom is now a standalone single-node cluster — QDevice
+removed 2026-07-02; `qm` writes no longer need the Caddy2.0 witness).

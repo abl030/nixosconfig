@@ -82,12 +82,15 @@ the window's Y drifts run-to-run, so recompute from the live `BoundingRectangle`
 from an elevated session-1 process. Reboot finalizes; then `Set-AudioDevice`
 (AudioDeviceCmdlets) makes CABLE Input the default playback.
 
-**Operational footgun hit during the build: prom quorum.** prom is a **single node +
-a corosync-QDevice witness running on the `Caddy2.0` KVM VM (`192.168.1.6`, on
-tower)**. When `Caddy2.0` was down, prom dropped to 1/2 votes → pmxcfs **read-only** →
-`qm clone` and firewall writes failed with `cluster not ready - no quorum?` (reads
-still served from cache). Fix = start `Caddy2.0` (tower `virsh start`), not `pvecm
-expected 1`. `corosync.conf`: `quorum.device.net.host: 192.168.1.6`.
+**prom quorum footgun — RESOLVED 2026-07-02.** prom is now a **standalone
+single-node cluster**: the corosync QDevice witness that used to run inside the old
+`Caddy2.0` KVM VM (`192.168.1.6`, on tower) was **removed**, so `qm clone` / firewall
+writes no longer depend on any external host and pmxcfs won't go read-only from a
+missing witness. *(History, for context on older sessions: during these gaming-VM
+builds a stopped `Caddy2.0` dropped prom to 1/2 votes → pmxcfs read-only → `cluster
+not ready - no quorum?`. That dependency is gone — do NOT try to revive the witness.)*
+Full model + local-mode recovery recipe:
+[prom-hypervisor.md](../infrastructure/prom-hypervisor.md) → *Cluster / quorum*.
 
 **First-clone E2E test (RDR2, VM `121`, 2026-06-26).** A cold skill test (agent given
 only the skill) cloned 118 → installed Red Dead Redemption 2 [FitGirl] (116.8 GB,

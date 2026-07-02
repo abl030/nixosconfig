@@ -1,7 +1,7 @@
 # prom — Proxmox hypervisor (host config reference)
 
 **Host:** `prom` · 192.168.1.12 · AMD Ryzen 9 9950X · ASRock X870E Taichi Lite · Proxmox VE 9.2 (kernel 7.0.12-1-pve)
-**Status:** ✅ stable as of **2026-06-27**. This is the canonical record of prom's kernel flags, boot pool, and bootloader setup.
+**Status:** ✅ stable as of **2026-06-27**. This is the canonical record of prom's kernel flags, boot pool, bootloader setup, and cluster/quorum posture.
 
 > prom is **not** a NixOS host — it's a hand-managed Proxmox install. Its host-level config (kernel cmdline, ESPs, ZFS pools) is managed **directly on the box**, *not* via this flake and **no longer via Ansible** (see [Management](#management)).
 
@@ -53,6 +53,27 @@ Check: `proxmox-boot-tool status` (both should list all kernels). After any `/et
   ```
   SSH_AUTH_SOCK= ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 root@192.168.1.12
   ```
+
+## Cluster / quorum (single-node, no QDevice)
+**prom is a standalone single-node Proxmox "cluster" (`grevcluster`, config_version 28): `Expected votes: 1`, `Quorum: 1`, `Flags: Quorate`, no QDevice, no other voting nodes.** Nothing external is needed for quorum — `qm` / `pct` / firewall writes to pmxcfs (`/etc/pve`) always work. **If prom is ever non-quorate now, that's a NEW fault — do not go hunting for a witness to revive.**
+
+**History.** Until **2026-07-02** prom was a single node **plus an external corosync QDevice witness** (`corosync-qnetd`) that ran **inside the old `Caddy2.0` KVM VM (`192.168.1.6`) on tower** → expected votes = 2, quorum = 2. So whenever `Caddy2.0` was down, prom dropped to 1/2 → `Quorate: No, Activity blocked` → **pmxcfs read-only** → every write failed (`qm clone`/`qm set` → `cluster not ready - no quorum?`; firewall edits → `Permission denied`; reads still served from cache). This bit the gaming golden-image builds — see [apollo-gaming-vm.md](../services/apollo-gaming-vm.md).
+
+**Why it was removed.** The edge services migrated off the old caddy VM onto **LXC 108 (`caddy-new`)**, which reuses the **same IP+MAC `192.168.1.6`**. Stopping the old VM at cutover killed the witness and wedged prom. Reviving the VM to "fix" quorum was impossible — it would collide on IP+MAC with the live LXC 108. So the witness dependency was retired entirely: prom is now self-quorate on its own single vote.
+
+**Recovery recipe — regain quorum when a QDevice host is gone (reusable).** `pvecm expected 1` does **not** work while a qdevice is configured (corosync ignores the manual override — it returns exit 0 but changes nothing), and `pvecm qdevice remove` needs quorum to write corosync.conf → deadlock. Break it by editing corosync.conf in **local mode** (`pmxcfs -l` makes `/etc/pve` writable *without* quorum):
+```
+systemctl stop pve-cluster corosync
+systemctl stop corosync-qdevice; systemctl disable corosync-qdevice
+pmxcfs -l
+# edit /etc/pve/corosync.conf: delete the quorum{device{...}} stanza (keep
+#   provider: corosync_votequorum), delete any dead node from nodelist, bump config_version
+cp /etc/pve/corosync.conf /etc/corosync/corosync.conf   # keep both files identical
+killall pmxcfs
+systemctl start corosync; systemctl start pve-cluster
+pvecm status   # -> Quorate: Yes, Expected 1, Flags: Quorate, no Qdevice
+```
+The end state must have **exactly one node and no device** so `expected=1` is unambiguous and reboot-safe (this sidesteps corosync's "never-seen node" and no-downscale high-water quirks — with a lone node there's no ambiguity). prom has **no HA resources**, so the CRM watchdog stays on **standby** and a quorum change won't self-fence the node (confirmed: prom sat non-quorate for a while without rebooting). Done 2026-07-02; the phantom `epi` (nodeid 1, `192.168.1.5`) nodelist entry was dropped in the same edit; pre-change backups on prom at `/root/corosync.conf.*.pre-qdevice-removal`.
 
 ## Off-box backup
 A full rpool image lives on **tower**; restore runbook: [prom-rpool-backup-restore.md](prom-rpool-backup-restore.md). Automating this as a recurring service is tracked in Forgejo (catastrophic-recovery safety net).
