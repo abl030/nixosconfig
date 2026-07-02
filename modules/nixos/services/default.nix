@@ -12,6 +12,7 @@
     ./rdp-inhibitor.nix
     ./nginx.nix
     ./local_proxy.nix
+    ./legacy-edge-caddy.nix
     ./monitoring_sync.nix
     ./gotify.nix
     ./loki.nix
@@ -31,6 +32,8 @@
     ./atuin.nix
     ./beancount.nix
     ./byparr.nix
+    ./unifi-controller.nix
+    ./msn-history-viewer.nix
     ./slskd.nix
     ./cratedigger.nix
     ./discogs.nix

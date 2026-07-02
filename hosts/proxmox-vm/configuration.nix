@@ -122,7 +122,7 @@
       # with its deploy key; the host's forced-command key realises the doc1-signed
       # closure from the cache and switch-to-configuration's it. These hosts each
       # set homelab.update.pushDeploy.enable = true.
-      pushDeployHosts = ["servarr" "igpu"];
+      pushDeployHosts = ["servarr" "igpu" "caddy"];
     };
     services = {
       # Immich moved to doc2 (2026-02-25)

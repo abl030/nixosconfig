@@ -97,13 +97,17 @@ in {
   };
 
   caddy = {
+    configurationFile = ./hosts/caddy/configuration-lxc.nix;
     homeFile = ./hosts/caddy/home.nix;
     user = "abl030";
     homeDirectory = "/home/abl030";
     hostname = "caddy";
+    # Temporary build-out IP for the new LXC. Cut over to 192.168.1.6 after the
+    # Ubuntu caddy VM is stopped.
+    localIp = "192.168.1.60";
     sshAlias = "cad";
     sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGfVo+vSFpz+oRQqC+ZbGgDzJMRlmydMidZISurihzTZ";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICOXKdOCzhkvsqQFnHo7LAntR9fq9C4qAbWbz8N1ckj/ root@caddy";
     authorizedKeys = fleetKeys;
   };
 
