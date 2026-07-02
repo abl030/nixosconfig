@@ -207,7 +207,25 @@
       }
 
       stop_guarded_units() {
-        systemctl stop "''${guarded_units[@]}" || true
+        # Only stop units that are fully RUNNING. A unit in 'activating' is
+        # mid-start (typically its start-check ExecCondition), and `systemctl
+        # stop` there kills the start job with SIGTERM — systemd records
+        # "Failed with result 'signal'" and switch-to-configuration exits 4
+        # (the 2026-07-03 deploy failure: cratedigger-musicbrainz-maintenance-
+        # hold's ExecStart raced the guarded units' starts). Every caller
+        # writes the hold file BEFORE calling us, so an in-flight start either
+        # skips cleanly via ExecCondition or runs at most one watchdog
+        # interval (1min) before the next hold_reason catches it active.
+        local unit
+        local to_stop=()
+        for unit in "''${guarded_units[@]}"; do
+          case "$(systemctl is-active "$unit" 2>/dev/null || true)" in
+            active|reloading) to_stop+=("$unit") ;;
+          esac
+        done
+        if [ "''${#to_stop[@]}" -gt 0 ]; then
+          systemctl stop "''${to_stop[@]}" || true
+        fi
       }
 
       write_hold_reason() {
