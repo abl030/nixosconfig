@@ -774,6 +774,24 @@ in {
       pipelineDb.dsn = pgc.dbUri;
       importer.previewWorkers = 6;
 
+      # Tier-2 cutover (cratedigger plan U12): mirrors as configuration.
+      # ONE MB origin threads to web/mb.py, pipeline-cli, and the rendered
+      # beets musicbrainz block (host:port / http / ratelimit 100 derived).
+      musicbrainz.apiBase = "http://192.168.1.35:5200";
+      # Discogs browse is mirror-required; this is the Rust mirror.
+      discogs.apiBase = "https://discogs.ablz.au";
+
+      # Module-owned beets (replaces the Home Manager beets): build-time
+      # mirror patches + the Discogs token via the *File pattern. The token
+      # file is root-owned 0400 under /var/lib (extracted from the old
+      # ~/.config/beets/secrets.yaml during the cutover window; migrate to
+      # sops alongside the other cratedigger secrets when convenient).
+      beets = {
+        discogsMirrorUrl = "https://discogs.ablz.au";
+        lrclibUrl = "http://192.168.1.35:3300/api";
+        discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
+      };
+
       # Absolute path to the beets library root. Beets stores file paths in
       # its SQLite DB as relative to this root; consumers that absolutize
       # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
