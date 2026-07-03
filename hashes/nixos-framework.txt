@@ -1,1 +1,1 @@
-/nix/store/ay140m8qrkqvp75mzmj2h7ib7gcydz3f-nixos-system-framework-26.11.20260701.e8273b2
+/nix/store/1pw481vs5sqn0m90fqxc0hqvlw5cnhjy-nixos-system-framework-26.11.20260701.e8273b2
