@@ -293,3 +293,58 @@ survives `pct reboot` with the GPU intact (reset bug gone). Diagram above still 
    encrypted to the old key). Build the toplevel **on doc1** and activate it in the CT via
    the LAN cache (`nix-store --realise` + `nix-env --set` + `switch-to-configuration`),
    `pct exec`'d as root with **full paths** (pct exec has a minimal PATH).
+
+## Post-migration: gid-100 idmap for shared-tree writes (2026-07-04)
+
+**Status: live.** The unprivileged idmap left the shared trees (`media_metadata`,
+`Music`, the tower NFS binds) `nobody:nogroup` inside the CT — fine for reads,
+fatal for *writes*. First casualty: jellyfin trickplay "save with media" failed
+`UnauthorizedAccessException` on every item, so the daily task re-churned the
+missing-trickplay backlog forever = the "14% CPU floor" incident (one pegged
+core since 2026-06-27; predates the LXC — on the VM the same writes failed
+because jellyfin lacked gid 100). Fix was five-layered; ALL are needed:
+
+1. **CT 107 idmaps gid 100 (`users`) through** (`/etc/pve/lxc/107.conf` +
+   `root:100:1` in `/etc/subgid` on prom; backup at `/root/107.conf.bak-trickplay`):
+   ```
+   lxc.idmap: u 0 100000 65536
+   lxc.idmap: g 0 100000 100
+   lxc.idmap: g 100 100 1
+   lxc.idmap: g 101 100101 65435
+   ```
+   Deliberately gid-only: mapping uid 1000 too would let CT-root impersonate
+   abl030 on every shared mount (incl. tower masters over the NFS bind).
+2. **`media_metadata` normalized from doc2** (real UIDs there): `chgrp -R 100`,
+   `chmod -R g+w`, dirs `g+s`. Branch **roots** `Movies`/`TV Shows` are `3777`
+   (o+w + sticky): mergerfs's clone-path (creating a missing title dir on the RW
+   branch) runs with credentials that can't use the group grant on
+   unmapped-owner parents — o+w on just those two dirs is what lets clones
+   happen. Cloned title dirs inherit the *source* (tower) dir's mode, hence:
+3. **tower media dirs swept `g+w`** (69 stragglers were 755) and **radarr+sonarr
+   now enforce `chmodFolder=775`** (Media Management → Permissions) so future
+   imports stay group-writable.
+4. **jellyfin's PRIMARY group is `users`** (`services.jellyfin.group`, commit
+   f5efb901): mergerfs only honors the FUSE context uid + primary gid for the
+   underlying op — **supplementary groups are dropped in the unprivileged CT**
+   (verified: mkdir through the union succeeds with gid 100 primary, fails with
+   gid 100 supplementary-only). `SupplementaryGroups=` is NOT enough for
+   anything writing through `/mnt/fuse`.
+5. **Remap fallout (bit us, will bite again on any idmap change):** files
+   created pre-remap with CT gid 100 sat on disk as host gid 100100 — now
+   unmapped, and **CT-root loses CAP_DAC_OVERRIDE over any inode whose uid OR
+   gid is unmapped**. Consequences: activation `setupSecrets` failed
+   (`mkdir /home/abl030/.local: permission denied`) and podman's layer store
+   went unloadable (`error removing stale temp dir … permission denied`).
+   Fixes: on prom `find <rootfs+service trees> -gid 100100 -exec chgrp -h 100`
+   (353 files), and the podman store (`Test:vm-107-disk-0` LV, mount it on prom
+   while the CT is stopped) was **wiped** — disposable, images re-pull. The
+   re-pull burst tripped docker.io's anonymous rate limit (shared house IP);
+   ghcr images were fine, `tailscale/tailscale` sat in retry until the window
+   cleared.
+
+**Known residual quirk:** *deletes* (`rm`/`rmdir`) through the mergerfs union
+are denied even for callers whose creds pass the same check that lets *creates*
+succeed — deletes work fine directly on the branch path. Unexplained mergerfs
+behavior (2.42.0, unprivileged CT); harmless for trickplay (regeneration for
+upgraded files writes a new dir name), but means jellyfin cannot delete media
+via the union. Revisit if a service needs union deletes.

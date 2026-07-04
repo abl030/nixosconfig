@@ -229,3 +229,23 @@ If moving a service from LSIO/compose to native where its database stores absolu
 - `hosts/igpu/configuration.nix` — `fileSystems."/mnt/virtio"` entry pointing at `containers`
 - `hosts/doc2/configuration.nix` — same `containers` mapping
 - [`igpu-passthrough.md`](igpu-passthrough.md) — the `qm shutdown` vs `qm stop` rationale
+
+### mergerfs write semantics in the unprivileged igpu CT (2026-07-04)
+
+Writes through `/mnt/fuse/Media/*` from igpu only work because of a stack of
+non-obvious grants — see the "gid-100 idmap" section of
+[igpu-lxc-migration.md](igpu-lxc-migration.md) for the full model. Short form:
+
+- mergerfs performs the underlying branch op with the caller's uid + **primary
+  gid only** — supplementary groups are dropped (unprivileged-CT behavior). Any
+  service writing through the union needs gid 100 as its **primary** group
+  (jellyfin: `services.jellyfin.group = "users"`).
+- The `uid=1000,gid=100,umask=002` options on the mergerfs mounts are purely
+  cosmetic presentation — permission enforcement happens against the real
+  branch inodes.
+- `media_metadata` is group-users writable (`g+w`, setgid dirs), its
+  `Movies`/`TV Shows` roots are `3777` so mergerfs clone-path can create
+  missing title dirs; cloned dirs inherit the tower source mode, so tower dirs
+  are kept `g+w` (radarr/sonarr `chmodFolder=775`).
+- Deletes through the union are (unexplainedly) denied even when creates
+  succeed; delete on the branch path directly.
