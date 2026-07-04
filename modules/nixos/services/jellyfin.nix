@@ -262,7 +262,20 @@ in {
         };
 
         services.jellyfin = {
-          serviceConfig.UMask = lib.mkForce "0027";
+          serviceConfig = {
+            UMask = lib.mkForce "0027";
+
+            # Trickplay "save with media" writes .trickplay dirs onto the
+            # /mnt/fuse mergerfs union, which presents everything as
+            # abl030:users 0775 — jellyfin needs gid 100 (users) for group
+            # write, else every save fails UnauthorizedAccessException and the
+            # task re-churns the library forever (the July 2026 "14% CPU
+            # floor"). Unit-level rather than users.*.extraGroups so a switch
+            # restarts jellyfin and the running process picks the group up;
+            # systemd extends (not replaces) the user-db groups, so
+            # render/video from extraGroups below keep working.
+            SupplementaryGroups = ["users"];
+          };
 
           # PublishedServerUrl drives the auto-announce URL clients pick up.
           environment.JELLYFIN_PublishedServerUrl = cfg.publishedServerUrl;
