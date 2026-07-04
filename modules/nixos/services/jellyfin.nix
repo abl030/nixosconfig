@@ -265,15 +265,10 @@ in {
           serviceConfig = {
             UMask = lib.mkForce "0027";
 
-            # Trickplay "save with media" writes .trickplay dirs onto the
-            # /mnt/fuse mergerfs union, which presents everything as
-            # abl030:users 0775 — jellyfin needs gid 100 (users) for group
-            # write, else every save fails UnauthorizedAccessException and the
-            # task re-churns the library forever (the July 2026 "14% CPU
-            # floor"). Unit-level rather than users.*.extraGroups so a switch
-            # restarts jellyfin and the running process picks the group up;
-            # systemd extends (not replaces) the user-db groups, so
-            # render/video from extraGroups below keep working.
+            # Belt-and-braces alongside group = "users" below (see that
+            # comment for the full trickplay story). Unit-level so a switch
+            # restarts jellyfin; systemd extends (not replaces) the user-db
+            # groups, so render/video from extraGroups below keep working.
             SupplementaryGroups = ["users"];
           };
 
@@ -285,7 +280,18 @@ in {
       services.jellyfin = {
         enable = true;
         user = "jellyfin";
-        group = "jellyfin";
+        # `users` (gid 100), NOT a dedicated group. Trickplay/metadata
+        # "save with media" writes go through the /mnt/fuse mergerfs union,
+        # whose underlying branches are group-users writable (0775/g+s,
+        # normalized 2026-07-04; igpu's CT idmaps gid 100 through — see
+        # docs/wiki/infrastructure/igpu-lxc-migration.md). mergerfs only
+        # honors the FUSE context's uid + PRIMARY gid for the underlying
+        # op — supplementary groups are dropped in the unprivileged CT —
+        # so gid 100 must be jellyfin's primary group or every save fails
+        # UnauthorizedAccessException and the daily trickplay task
+        # re-churns the whole library forever (the July 2026 "14% CPU
+        # floor" incident).
+        group = "users";
         dataDir = "${cfg.dataRoot}/data";
         configDir = "${cfg.dataRoot}/config";
         logDir = "${cfg.dataRoot}/log";
