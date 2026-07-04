@@ -144,7 +144,14 @@
   # streaming session (build/agent output) is NOT killed; one left at a bare
   # prompt is. KillUserProcesses stays false (nixpkgs default) so detached
   # tmux/mosh/nohup survive the disconnect. #232 host-hardening.
-  services.logind.settings.Login.StopIdleSessionSec = "55min";
+  #
+  # mkDefault so GRAPHICAL WORKSTATIONS can opt out: StopIdleSessionSec is NOT
+  # SSH-specific — it stops ANY idle logind session, including a Wayland desktop
+  # (GNOME marks the session idle after its idle-delay, then logind KILLS the
+  # whole session, taking down every open app; the "unlock" is then a fresh GDM
+  # login). On a headless server it only reaps idle SSH shells. epi/framework
+  # override to "infinity" — they aren't the SSH-hardening target, the servers are.
+  services.logind.settings.Login.StopIdleSessionSec = lib.mkDefault "55min";
 
   # `nixos-rebuild switch` does NOT restart systemd-logind (that would kill every
   # session) and nixpkgs wires no reload trigger for logind.conf — so the idle

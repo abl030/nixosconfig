@@ -159,6 +159,15 @@
   };
   security.rtkit.enable = true;
 
+  # Do NOT let base.nix's #232 idle-stop (StopIdleSessionSec = 55min) apply here.
+  # It is an SSH-session hardening for the SERVERS, but it stops ANY idle logind
+  # session — on this GNOME/Wayland desktop it KILLS the whole session after 55min
+  # idle (SIGTERM to gnome-session + every app), so a "suspend → unlock" is really
+  # session-death → fresh GDM login with all windows gone. epi is an interactive
+  # workstation, not the SSH-hardening target; the screen still locks. See
+  # base.nix and docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
+  services.logind.settings.Login.StopIdleSessionSec = "infinity";
+
   users.users.abl030 = {
     extraGroups = ["libvirtd" "vboxusers" "dialout"];
     # Keep user@.service alive with no sessions so a detached tmux/mosh survives

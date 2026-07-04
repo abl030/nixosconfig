@@ -104,6 +104,13 @@
     # disabled — gnome-keyring's secret service is unaffected.
     gnome.gcr-ssh-agent.enable = false;
 
+    # Opt out of base.nix's #232 idle-stop (StopIdleSessionSec = 55min): it stops
+    # ANY idle logind session, so on this GNOME/Wayland desktop it would KILL the
+    # whole session after 55min idle and lose every open window. Interactive
+    # workstation, not the SSH-hardening target; the screen still locks. See
+    # base.nix. (Suspend-then-hibernate usually fires first, but don't rely on it.)
+    logind.settings.Login.StopIdleSessionSec = "infinity";
+
     # Audio
     pulseaudio.enable = false;
     pipewire = {
