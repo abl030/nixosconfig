@@ -786,22 +786,28 @@ in {
       # file is root-owned 0400 under /var/lib (extracted from the old
       # ~/.config/beets/secrets.yaml during the cutover window; migrate to
       # sops alongside the other cratedigger secrets when convenient).
+      # #495-era refactor (cratedigger commit 604da00) consolidated the beets
+      # option surface under services.cratedigger.beets.*: the package/mirror
+      # knobs moved to beets.package.*, the config.ini [Beets] directory to
+      # beets.directory, and the validation gate to beets.validation.*.
       beets = {
-        discogsMirrorUrl = "https://discogs.ablz.au";
-        lrclibUrl = "http://192.168.1.35:3300/api";
-        discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
-      };
+        package = {
+          discogsMirrorUrl = "https://discogs.ablz.au";
+          lrclibUrl = "http://192.168.1.35:3300/api";
+          discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
+        };
 
-      # Absolute path to the beets library root. Beets stores file paths in
-      # its SQLite DB as relative to this root; consumers that absolutize
-      # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
-      # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
-      beetsDirectory = "/mnt/virtio/Music/Beets";
+        # Absolute path to the beets library root. Beets stores file paths in
+        # its SQLite DB as relative to this root; consumers that absolutize
+        # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
+        # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
+        directory = "/mnt/virtio/Music/Beets";
 
-      beetsValidation = {
-        enable = true;
-        stagingDir = "/mnt/virtio/Music/Incoming";
-        trackingFile = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
+        validation = {
+          enable = true;
+          stagingDir = "/mnt/virtio/Music/Incoming";
+          trackingFile = "/mnt/virtio/Music/Re-download/beets-validated.jsonl";
+        };
       };
 
       youtubeIngest = {

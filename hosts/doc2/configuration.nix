@@ -414,7 +414,7 @@
   # Cratedigger — host-specific app tuning. Everything else lives in the
   # homelab wrapper at modules/nixos/services/cratedigger.nix, which configures
   # the upstream module from the cratedigger flake (inputs.cratedigger-src).
-  services.cratedigger.beetsValidation.verifiedLosslessTarget = "opus 128";
+  services.cratedigger.beets.validation.verifiedLosslessTarget = "opus 128";
 
   # Virtiofs mount — ALL service state lives here
   # This is the whole point: storage decoupled from compute.
