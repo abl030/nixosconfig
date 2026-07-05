@@ -56,11 +56,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1782844863,
-        "narHash": "sha256-E47dmYvzZtSM2danwg4jmQdEFzq+6CXnQQMqeZayvdg=",
+        "lastModified": 1783197087,
+        "narHash": "sha256-kS/ltDBJhtLUS8KvQ+lxA9vY3Nnfo2oRE9g0n+5fuC8=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "441d0770fcebe2c2fa3ef0a08aafb215782b80b6",
+        "rev": "5c023edf38677ef7484aa8b0cc621bedcfcfcdae",
         "type": "github"
       },
       "original": {
