@@ -69,6 +69,19 @@
   # supporting them) here so genuine drift surfaces as a container-start
   # failure. See issue #250 for the asset_edit_audit incident that drove this.
   ownershipAllowList ? [],
+  # Function-ownership allow-list. Unlike the relations above, non-extension
+  # FUNCTIONS in `public` are auto-reassigned to the service role `name` on
+  # every start (see the function auto-heal below) rather than merely flagged:
+  # a function a migration does `CREATE OR REPLACE FUNCTION` on must be OWNED
+  # by the app role, so a GRANT (the relation remedy) does not help — a
+  # superuser-owned function crash-loops the service with "must be owner of
+  # function ...". List here any non-extension function that must legitimately
+  # stay owned by another role (e.g. a SECURITY DEFINER helper); names in this
+  # list are neither healed nor flagged. Extension-owned functions
+  # (pg_depend deptype 'e') are always exempt. See the immich album_user_
+  # after_insert incident (2026-07-07) that drove this:
+  # docs/wiki/services/immich-db-function-ownership-incident.md
+  functionOwnershipAllowList ? [],
 }: let
   hostAddress = "10.20.0.${toString (hostNum * 2)}";
   localAddress = "10.20.0.${toString (hostNum * 2 + 1)}";
@@ -85,7 +98,64 @@
     then "ARRAY[]::text[]"
     else "ARRAY[" + (pkgs.lib.concatMapStringsSep "," (s: "'${s}'") ownershipAllowList) + "]::text[]";
 
+  funcAllowListSql =
+    if functionOwnershipAllowList == []
+    then "ARRAY[]::text[]"
+    else "ARRAY[" + (pkgs.lib.concatMapStringsSep "," (s: "'${s}'") functionOwnershipAllowList) + "]::text[]";
+
   ownershipInvariantSql = ''
+    -- Function-ownership auto-heal (runs FIRST, before the assertions below).
+    -- Functions a service's migrations `CREATE OR REPLACE` must be OWNED by
+    -- the service role — a GRANT is not enough (unlike the read-only relation
+    -- case). Some apps create schema functions as the postgres superuser at
+    -- bootstrap (e.g. immich's audit triggers), leaving them superuser-owned;
+    -- the next app-role migration that CREATE OR REPLACEs one then fails with
+    -- "must be owner of function ...", crash-looping the service. Reassign
+    -- every non-extension public function not owned by ${name} (and not in
+    -- functionOwnershipAllowList) back to ${name}. Extension-owned functions
+    -- (pg_depend deptype 'e') are left untouched. Idempotent; runs as the
+    -- postgres superuser (postgresql-setup), which can reassign to any role.
+    --
+    -- SECURITY DEFINER functions are deliberately NOT auto-healed: reassigning
+    -- the owner changes the privileges the function executes with, which is a
+    -- security-sensitive change that must not happen silently. Any such
+    -- superuser-owned function instead falls through to the invariant below and
+    -- fails the container start, forcing an explicit decision (allow-list it to
+    -- keep it superuser-owned, or handle the migration by hand).
+    DO $fnheal$
+    DECLARE
+      r record;
+      healed int := 0;
+    BEGIN
+      FOR r IN
+        SELECT p.oid::regprocedure::text AS ident, p.prokind
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proowner::regrole::text <> '${name}'
+          AND NOT p.prosecdef
+          AND p.proname <> ALL(${funcAllowListSql})
+          AND NOT EXISTS (
+            SELECT 1 FROM pg_depend d
+            WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e'
+          )
+      LOOP
+        -- ALTER FUNCTION is rejected for procedures/aggregates; pick the verb
+        -- by prokind ('p'=procedure, 'a'=aggregate, 'f'/'w'=function/window).
+        EXECUTE format(
+          'ALTER %s %s OWNER TO %I',
+          CASE r.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE' ELSE 'FUNCTION' END,
+          r.ident,
+          '${name}'
+        );
+        healed := healed + 1;
+      END LOOP;
+      IF healed > 0 THEN
+        RAISE NOTICE 'mk-pg-container: auto-healed % function owner(s) to % in database %', healed, '${name}', current_database();
+      END IF;
+    END
+    $fnheal$;
+
     DO $invariant$
     DECLARE
       bad_objects text;
@@ -149,6 +219,38 @@
       END IF;
     END
     $grants$;
+
+    -- Function-ownership invariant (post-condition). After the auto-heal above,
+    -- no non-extension, non-allow-listed public function should remain owned by
+    -- anyone but ${name}. A surviving violation means the reassignment could not
+    -- run (privilege problem) or functionOwnershipAllowList is masking a
+    -- genuinely superuser-owned function a migration will later try to
+    -- CREATE OR REPLACE. Fail the container start so the monitor alerts.
+    DO $fninv$
+    DECLARE
+      bad_fns text;
+    BEGIN
+      SELECT string_agg(
+        p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ') (owner=' || p.proowner::regrole::text || ')',
+        E'\n  '
+        ORDER BY p.proname
+      )
+      INTO bad_fns
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proowner::regrole::text <> '${name}'
+        AND p.proname <> ALL(${funcAllowListSql})
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_depend d
+          WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e'
+        );
+      IF bad_fns IS NOT NULL THEN
+        RAISE EXCEPTION E'function-ownership invariant violated; public functions not owned by service role, not extension-owned, and not in functionOwnershipAllowList:\n  %', bad_fns
+          USING HINT = 'These are auto-healed on start; a persistent violation means the reassignment failed or functionOwnershipAllowList is masking a superuser-owned function a migration will CREATE OR REPLACE.';
+      END IF;
+    END
+    $fninv$;
   '';
 in {
   inherit hostAddress localAddress;
