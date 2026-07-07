@@ -109,7 +109,10 @@
     "Archive"
     "Archives*"
     "Drafts"
-    "Deleted Items*"
+    # Do not recurse Deleted Items: Exchange can expose inaccessible repair
+    # subfolders (for example "Deleted Items/Repairs (2)"), and mbsync fails
+    # the whole channel when a matched far-side box cannot be opened.
+    "Deleted Items"
     "Junk Email"
   ];
 
