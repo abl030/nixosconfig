@@ -1,0 +1,4 @@
+interface:
+  display_name: "Moonlight iperf"
+  short_description: "Size Moonlight streams with iperf"
+  default_prompt: "Use $moonlight-iperf to test a client Wi-Fi link and recommend a Moonlight bitrate."
