@@ -1000,7 +1000,6 @@ in {
           doc2 = {};
           proxmox-vm = {};
           igpu = {};
-          wsl = {};
         };
         description = ''
           `host` label values that should always be sending logs.
@@ -1010,6 +1009,7 @@ in {
 
           Excludes legitimately-offline hosts:
           - framework, epimetheus (workstations that sleep)
+          - wsl (Cullen laptop/WSL endpoint; can sleep or be stopped between syncs)
           - dev (development VM, off most of the time)
           - caddy, cache (Home Manager-only; no alloy/journald to ship)
 
