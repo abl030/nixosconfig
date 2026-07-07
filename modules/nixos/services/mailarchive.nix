@@ -111,8 +111,11 @@
     "Drafts"
     # Do not recurse Deleted Items: Exchange can expose inaccessible repair
     # subfolders (for example "Deleted Items/Repairs (2)"), and mbsync fails
-    # the whole channel when a matched far-side box cannot be opened.
+    # the whole channel when a matched far-side box cannot be opened. Keep the
+    # top-level folder, then explicitly exclude descendants; existing sync
+    # state can otherwise keep the stale subfolder selected.
     "Deleted Items"
+    "!Deleted Items/*"
     "Junk Email"
   ];
 
@@ -205,7 +208,7 @@
           else defaultO365Folders;
         defaultText = lib.literalExpression ''
           gmail → ["[Gmail]/All Mail"]
-          o365  → ["INBOX*" "Sent Items*" "Archive" "Archives*" "Drafts" "Deleted Items" "Junk Email"]
+          o365  → ["INBOX*" "Sent Items*" "Archive" "Archives*" "Drafts" "Deleted Items" "!Deleted Items/*" "Junk Email"]
         '';
         description = ''
           mbsync Patterns directive — list of patterns to fetch. Trailing `*`
