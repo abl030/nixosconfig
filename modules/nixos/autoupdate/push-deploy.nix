@@ -151,6 +151,18 @@ in {
         Type = "oneshot";
         # Realise + activation can take a few minutes on a cold cache pull.
         TimeoutStartSec = "30min";
+        # switch-to-configuration returns exit 4 when the system generation
+        # switched cleanly but only root's systemd --user units failed to
+        # restart (in an LXC: "Connection is closed" on the user session).
+        # Cosmetic — the generation DID advance — but it flapped push-activate
+        # to `failed`, which push_deploy.sh checks BEFORE its gen==toplevel
+        # backstop and reports "activation FAILED", pinging the rolling page.
+        # 4 whitelists ONLY the pure user-scope case (system-unit failures use
+        # other codes and combine to non-4), and gen==toplevel still guards a
+        # false success. Same class as homelab.update.tolerateUserUnitFailure
+        # on the nixos-upgrade path (and the user-runtime-dir@0 exit-1 above).
+        # 2026-07-07.
+        SuccessExitStatus = "4";
       };
       path = [pkgs.nix pkgs.coreutils];
       script = ''

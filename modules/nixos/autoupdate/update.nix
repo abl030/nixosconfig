@@ -78,6 +78,27 @@ in {
       default = "60min";
       description = "Maximum time allowed for the entire update operation (DNS check + rebuild + activation). Prevents hangs from stuck activations.";
     };
+    tolerateUserUnitFailure = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Treat a verified fleet-update whose ONLY failure is systemd --user
+        (per-user session) units as SUCCESS instead of paging. On a graphical
+        workstation with a live session, switch-to-configuration returns exit 4
+        when GNOME/session user units (evolution-alarm-notify,
+        xdg-desktop-portal, gnome-session targets, …) fail to restart even
+        though the system generation switched cleanly — cosmetic, self-heals on
+        next login/reboot, but otherwise pages "nixos-upgrade failed on <host>"
+        on every nightly rebuild done while logged in.
+
+        Only tolerated when the rebuild log shows a user-unit/activation failure
+        AND no system-unit failure, so a genuine system breakage still fails
+        loudly; the failed user units are logged. Enable on graphical
+        workstations (framework, epi); leave off on servers, where a live user
+        session is unexpected and worth seeing. Only affects the verified
+        fleet-update path (homelab.update.verify.enforce).
+      '';
+    };
     diagnose = {
       enable = lib.mkEnableOption "Run claude -p on nixos-upgrade failure and route the diagnosis through Hermes RCA first, with Gotify fallback. Requires one-time interactive `sudo -u abl030 --login claude` per host.";
     };

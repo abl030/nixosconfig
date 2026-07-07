@@ -64,6 +64,11 @@
       export FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS=${toString cfg.freshness.maxAgeSeconds}
       export FLEET_UPDATE_REBUILD_BIN=${lib.escapeShellArg "${config.system.build.nixos-rebuild}/bin/nixos-rebuild"}
       export FLEET_UPDATE_REBUILD_FLAGS=${lib.escapeShellArg rebuildFlags}
+      export FLEET_UPDATE_TOLERATE_USER_UNIT_FAILURE=${
+        if config.homelab.update.tolerateUserUnitFailure
+        then "1"
+        else "0"
+      }
       exec ${pkgs.bash}/bin/bash ${fleetUpdateSource} "$@"
     '';
   };

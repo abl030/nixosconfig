@@ -32,6 +32,12 @@ SKIP_PREFLIGHT="${FLEET_UPDATE_SKIP_PREFLIGHT:-0}"
 NO_SWITCH="${FLEET_UPDATE_NO_SWITCH:-0}"
 CURRENT_REV_OVERRIDE="${FLEET_UPDATE_CURRENT_REV:-}"
 NOW_OVERRIDE="${FLEET_UPDATE_NOW:-}"
+# When truthy, a verified switch whose ONLY failure is systemd --user session
+# units (switch-to-configuration exit 4 — e.g. GNOME units on a workstation with
+# a live login) is treated as success instead of a hard failure. Gated to
+# graphical workstations via homelab.update.tolerateUserUnitFailure; run_switch
+# adds log guards so a real system-unit failure stays loud.
+TOLERATE_USER_UNIT_FAILURE="${FLEET_UPDATE_TOLERATE_USER_UNIT_FAILURE:-0}"
 
 REQUESTED_REV=""
 ACCEPT_NEW_ROOT=""
@@ -709,6 +715,24 @@ run_switch() {
             rm -f "$log_file"
             write_success_anchor "$target"
             log "switch succeeded; anchor advanced to $target"
+            return 0
+        fi
+
+        # Exit 4 with ONLY user-session units failed = the system generation
+        # switched, but systemd --user units (e.g. a live GNOME session on a
+        # workstation) failed to restart. Cosmetic; self-heals on next login.
+        # Tolerate as success ONLY on opt-in hosts AND only when the log
+        # positively shows a user-unit/activation failure and NO system-unit
+        # failure ("the following units failed:") — so a genuine system breakage
+        # (even one that also returns 4) still falls through to fail().
+        if [ "$status" -eq 4 ] && is_truthy "$TOLERATE_USER_UNIT_FAILURE" \
+            && grep -qE 'user activation for .* failed|the following user units failed:' "$log_file" \
+            && ! grep -qE 'the following units failed:' "$log_file"; then
+            local failed_user
+            failed_user="$(grep -oE 'the following user units failed:.*' "$log_file" | head -1 || true)"
+            log "switch exit 4 tolerated: system generation switched; only user-session units failed. ${failed_user:-(user activation failed)}"
+            rm -f "$log_file"
+            write_success_anchor "$target"
             return 0
         fi
 

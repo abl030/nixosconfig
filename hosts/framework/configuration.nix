@@ -55,6 +55,11 @@
       # Smart Update Gates
       checkWifi = ["theblackduck"];
       checkAcPower = true;
+
+      # Graphical workstation: a nightly rebuild done while logged in returns
+      # switch-to-configuration exit 4 (live GNOME --user units can't restart)
+      # even though the system switched — don't page for that. See update.nix.
+      tolerateUserUnitFailure = true;
     };
     framework = {
       sleepThenHibernate.enable = true;
