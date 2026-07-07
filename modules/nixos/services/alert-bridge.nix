@@ -21,9 +21,9 @@
 #   3. Composes a context block: alert metadata + log lines
 #   4. POSTs that context (truncated) to Gotify with severity-aware priority
 #
-# Grafana/Prometheus "resolved" alerts are skipped, but Kuma DOWN→UP
-# recoveries DO send a plain "[recovered] … is UP" Gotify ping —
-# the "you can stop worrying" signal.
+# Grafana/Prometheus "resolved" alerts are skipped. Kuma DOWN→UP recoveries
+# send a plain "[recovered] … is UP" Gotify ping directly — the "you can stop
+# worrying" signal — but deliberately bypass RCA/LLM forwarding.
 #
 # Runs as the abl030 user (historical; it has systemd-journal access and the
 # decrypted Gotify token). No longer needs ~/.claude.
@@ -358,9 +358,10 @@
         ping = heartbeat.get("ping")
         hb_time = heartbeat.get("time", "")
 
-        # Recovery (UP, status 1): send a plain "back online" ping — a
-        # templated Gotify push so the user gets the "you can stop worrying,
-        # it's resolved" signal. Lower priority than the critical DOWN page.
+        # Recovery (UP, status 1): send a plain "back online" ping directly to
+        # Gotify so the user gets the "you can stop worrying, it's resolved"
+        # signal. Do NOT use dispatch(): it feeds the RCA queue, and recovery
+        # notifications do not need LLM/root-cause analysis.
         # Kuma only fires UP on a real DOWN→UP transition, so this won't spam.
         if status_code == 1:
             print(f"[bridge] kuma recovery: {mon_name} UP",
@@ -372,7 +373,7 @@
                 body += f"\nat {hb_time}"
             if heartbeat_msg:
                 body += f"\n{heartbeat_msg[:300]}"
-            dispatch(f"[recovered] {mon_name} is UP", body, priority=5)
+            gotify_push(f"[recovered] {mon_name} is UP", body, priority=5)
             return
 
         # Anything else that isn't DOWN (PENDING / MAINTENANCE / unknown) → ignore.
