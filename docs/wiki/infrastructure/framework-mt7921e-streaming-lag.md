@@ -4,14 +4,16 @@
   (2026-06-28).** Root cause confirmed by elimination, *live, during real lags*: a **known, unfixed MT7922
   firmware rate-control / aggregation stall under sustained one-directional load.** It is **not** ASPM,
   power-management, `txpower`, the server, the AP, or Bluetooth — all ruled out by direct test. There is
-  **no kernel or firmware fix** (framework runs a **Feb-2026** firmware, newer than any known-good build,
-  and it still stalls; the bug reproduces on MediaTek's *proprietary* driver too). **Decision: replace the
-  card** with an **Intel AX210 (non-vPro)** — the `iwlwifi`-driven cure Framework-AMD users adopt. Card on
-  order 2026-06-28; **re-verify after the swap** (checklist in the Resolution section). Full story + the
-  decisive tests: **[Resolution (2026-06-28)](#resolution-2026-06-28--its-the-mt7922-firmware-fix--intel-ax210-swap)** below.
+  **no kernel or firmware fix** (framework ran a **Feb-2026** firmware, newer than any known-good build,
+  and it still stalled; the bug reproduces on MediaTek's *proprietary* driver too). **Decision implemented:
+  replace the card** with an **Intel AX210 (non-vPro)** — the `iwlwifi`-driven cure Framework-AMD users
+  adopt. Swap verified 2026-07-07; the stale MT7922-only kernel param and module-reload services were
+  retired. Full story + the decisive tests:
+  **[Resolution (2026-06-28)](#resolution-2026-06-28--its-the-mt7922-firmware-fix--intel-ax210-swap)** below.
   The earlier "[capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved)"
   section is the detailed evidence that led here.
-- **Host:** `framework` (Framework 13, NixOS) · WiFi = **MediaTek MT7922** (`mt7921e`, PCI `0000:01:00.0`).
+- **Host:** `framework` (Framework 13, NixOS) · original WiFi = **MediaTek MT7922** (`mt7921e`, PCI
+  `0000:01:00.0`); current WiFi = **Intel AX210/AX1675** (`iwlwifi`, same PCI slot), verified 2026-07-07.
 - **Stream:** Moonlight on framework → Apollo on the gaming VM `120 apollo-007-first-light` (`.111`), LAN, direct over WiFi (not Tailscale-relayed).
 
 ## Symptom
@@ -221,6 +223,49 @@ Once the card is in and framework is rebuilt, confirm the lag is genuinely gone:
    l1_aspm/clkpm forcing + module unload/reload dance (`modules/nixos/services/framework/hibernate-fix.nix`).
    The AX210/iwlwifi should not need any of it.
 
+### 2026-07-07 AX210 install verification and config cleanup
+
+Live checks from doc1 via `ssh fra` after the hardware swap:
+- `lspci -nnk`: `Intel Corporation Wi-Fi 6E(802.11ax) AX210/AX1675* 2x2 [Typhoon Peak] [8086:2725]`,
+  `Kernel driver in use: iwlwifi`.
+- `lsmod`: `iwlmvm`, `iwlwifi`, `mac80211`, `cfg80211`; no loaded `mt7921e` / `mt76` modules.
+- `journalctl -k -b`: `Detected Intel(R) Wi-Fi 6E AX210 160MHz`, firmware
+  `89.735b75a4.0 ty-a0-gf-a0-89.ucode`; Bluetooth firmware also loads via `btusb`.
+- `iw dev wlp1s0 link`: connected to `theblackduck` on 5745 MHz, signal `-47 dBm`,
+  RX/TX `866.7 MBit/s VHT-MCS 9 80MHz`; power save `off`.
+
+Config decision:
+- Removed `mt7921e.disable_aspm=1` from the Framework kernel command line.
+- Removed the `wifi-aspm-off` service and `wifi-hibernate-fix` suspend service from
+  `modules/nixos/services/framework/hibernate-fix.nix`.
+- Kept the rest of `homelab.framework.hibernateFix`: it is a hibernate RAM exhaustion fix
+  (`zswap.enabled=0`, `/sys/power/image_size = 0`, pre-hibernate cache drop), not WiFi-specific.
+- Kept `hardware.wirelessRegulatoryDatabase = true`, AU regdom, and `iw` in `systemPackages`; they remain
+  useful for Intel WiFi/6 GHz regulatory behavior and link diagnostics.
+
+Iperf smoke test:
+- Test path: doc1/proxmox-vm LAN `192.168.1.29` <-> framework WiFi `192.168.1.146`, direct LAN, not
+  Tailscale. Iperf package is `nixpkgs#iperf` (`iperf3` binary).
+- Doc1 firewall blocks random inbound ports. For the one-off test, temporarily inserted scoped runtime
+  rules for framework only:
+  `iptables -I nixos-fw 3 -s 192.168.1.146/32 -p tcp --dport 5201 -j nixos-fw-accept` and the same for
+  UDP; both rules were removed after testing.
+- Server command on doc1: `nix shell nixpkgs#iperf -c iperf3 -s -B 192.168.1.29`.
+- Framework client commands:
+  `nix shell nixpkgs#iperf -c iperf3 -c 192.168.1.29 -t 20` (uplink),
+  `... -R -t 20` (downlink),
+  `... -R -P 4 -t 20` (downlink ceiling),
+  `... -u -R -b 60M -t 30` and `... -u -R -b 120M -t 30` (Moonlight-like UDP downlink).
+- Results: TCP uplink averaged `447 Mbit/s`; TCP downlink averaged `565 Mbit/s`; four-stream downlink
+  averaged `564 Mbit/s`; UDP reverse at both `60M` and `120M` had `0%` loss. Jitter was about `0.33 ms`
+  at 60M and `0.13 ms` at 120M.
+- Post-test `iw`: still `866.7/866.7 MBit/s VHT-MCS 9 80MHz`, signal `-46 dBm`, beacon loss `0`,
+  `tx failed: 0`.
+
+Not yet re-run: the optional one-hour Moonlight soak. The iperf smoke test is already far above the old
+51.5 Mbit/s stream target, so if streaming still misbehaves after the AX210, treat it as a new problem,
+not an mt7921e follow-up.
+
 ### Footnote — the temporary `sudo` grant
 
 The rootful experiments above needed passwordless `sudo` on framework (a locked workstation). A scoped
@@ -228,17 +273,12 @@ The rootful experiments above needed passwordless `sudo` on framework (a locked 
 diagnosis was complete — framework is back to interactive `sudo` only. (The repo never carries a standing
 passwordless-root grant on a workstation; see the forgejo#2 note in `hosts/framework/configuration.nix`.)
 
-## Fix already applied (validate it)
+## Retired MT7922 workaround
 
-Commit **9633d46a** — `hibernate-fix.nix` now **forces `l1_aspm=0` (+ `clkpm=0`) on the mt7921e at boot
-and on every resume** (the existing suspend reload re-triggers it). Targeted to the card, so other
-devices keep ASPM/battery. **Deploy framework** (`sudo nixos-rebuild switch --flake .#framework`) to
-make it permanent; runtime now: `sudo sh -c 'for d in /sys/bus/pci/drivers/mt7921e/0000:*; do echo 0 >
-"$d/link/l1_aspm"; echo 0 > "$d/link/clkpm"; done'`. **Open question (now ANSWERED, 2026-06-28):** the lag
-**still happens with `l1_aspm` confirmed `0` throughout** — so the ASPM fix is **not** the cure. Keep it
-(it's cheap, targeted, and closes a real PCIe-ASPM trap that could still bite on resume), but stop treating
-it as the streaming-lag fix. The cause is downstream — the mt7921e RX/downlink path, not PCIe ASPM. See the
-[2026-06-28 capture findings](#2026-06-28-live-capture-findings--narrows-the-search-not-yet-solved).
+Commit **9633d46a** forced `l1_aspm=0` (+ `clkpm=0`) on the old mt7921e at boot and on every resume.
+That was useful evidence and a reasonable stopgap, but the later live tests proved the streaming lag still
+happened with ASPM off. After the 2026-07-07 AX210 swap, keeping the workaround would only leave dead
+`mt7921e` config on an `iwlwifi` host, so it was removed.
 
 ## The decisive test (do this the instant it lags, BEFORE Ctrl+Alt+Shift+Q)
 

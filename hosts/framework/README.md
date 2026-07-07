@@ -5,7 +5,8 @@ This host has a few suspend/resume-specific pieces to improve stability and help
 ## Suspend/Resume Behavior
 - **Suspend mode**: Uses s2idle (deep does not work on this platform).
 - **Sleep-then-hibernate**: Enabled via `homelab.framework.sleepThenHibernate.enable`.
-- **Wi-Fi hibernate fix**: `homelab.framework.hibernateFix.enable` sets `mt7921e.disable_aspm=1`, unloads/reloads Mediatek modules around sleep, and — the actual latency fix — forces PCIe **ASPM L1 off** on the mt7921e link (`l1_aspm=0`) at boot + every resume. (The `disable_aspm` param is driver-side only; the link keeps L1 on after resume, which slowly wedges the MT7922 firmware into 25–175 ms latency that kills game streams. A driver reload clears it; this prevents it. Ref: archlinux bbs id=287846.)
+- **Hibernate RAM fix**: `homelab.framework.hibernateFix.enable` keeps `zswap.enabled=0`, forces the hibernate image size to `0`, and drops caches before hibernate so the kernel has enough free RAM for the write phase.
+- **Wi-Fi card**: The MT7922 was replaced with an Intel AX210 on 2026-07-07. The old `mt7921e` ASPM/module-reload workaround was removed; the card is now handled by in-kernel `iwlwifi`. See `docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md`.
 - **NFS circuit breaker**: `nfs-suspend-prepare` stops NFS automounts and lazily unmounts NFS before sleep, then restarts automounts on resume.
 - **Update wake**: `homelab.update.wakeOnUpdate = true` triggers RTC wake for auto-updates (even if not on AC), then defers updates if `checkAcPower = true`.
 
@@ -25,4 +26,3 @@ When the AMDGPU driver creates a devcoredump, this host captures it automaticall
 - `journalctl -t amdgpu-devcoredump -b`
 - `ls -lh /var/lib/amdgpu-devcoredump/`
 - `journalctl -k -b | rg -i 'amdgpu|suspend|resume'`
-

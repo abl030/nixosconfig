@@ -266,7 +266,7 @@
     gnome-remote-desktop
     dmidecode
     fprintd
-    iw # wifi station-dump diagnostics (mt7921e streaming-lag capture kit)
+    iw # Wi-Fi link diagnostics; kept useful after AX210 swap.
   ]);
 
   programs.firefox.enable = true;
@@ -279,9 +279,9 @@
   # rebuild-to-root. See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
   #
   # (2026-06-28: a temporary passwordless-sudo grant lived here during the mt7921e
-  # streaming-lag root-cause hunt and was REVERTED once the diagnosis was complete —
-  # back to interactive sudo only, closing the passwordless-root pivot again. The
-  # diagnosis: it's the MT7922 firmware, fix = Intel AX210 card swap. Full story:
+  # streaming-lag root-cause hunt and was REVERTED once the diagnosis was complete.
+  # 2026-07-07: the Intel AX210 swap is live; the stale mt7921e kernel param and
+  # Mediatek module reload workaround were retired. Full story:
   # docs/wiki/infrastructure/framework-mt7921e-streaming-lag.md.)
 
   system.stateVersion = "24.05";
