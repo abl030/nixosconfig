@@ -205,7 +205,7 @@
           else defaultO365Folders;
         defaultText = lib.literalExpression ''
           gmail → ["[Gmail]/All Mail"]
-          o365  → ["INBOX*" "Sent Items*" "Archive" "Archives*" "Drafts" "Deleted Items*" "Junk Email"]
+          o365  → ["INBOX*" "Sent Items*" "Archive" "Archives*" "Drafts" "Deleted Items" "Junk Email"]
         '';
         description = ''
           mbsync Patterns directive — list of patterns to fetch. Trailing `*`
