@@ -396,6 +396,23 @@
       }
     ];
 
+    # Cullen Wines' PUBLIC website (a client site we don't host). Uptime only —
+    # cert/domain expiry is covered separately in domain-monitor.nix. This
+    # pre-existed as a hand-made Kuma monitor with maxretries=2, so one slow
+    # response on the external site tripped a DOWN→UP flap constantly, and it
+    # still carried the legacy direct-Gotify notification (double-paging).
+    # Declaring it here adopts that monitor (matched by URL) so the reconciler
+    # (a) resets it to the alert-bridge notification ONLY — no more double-ping —
+    # and (b) widens maxretries to 10 (~10 min of continuous failure before it
+    # pages) so brief upstream blips no longer flap. 2026-07-07.
+    monitoring.monitors = [
+      {
+        name = "Cullen Wines";
+        url = "https://cullenwines.com.au";
+        maxretries = 10;
+      }
+    ];
+
     # See modules/nixos/services/tailscale-share.nix.
     tailscaleShare.overseerr = {
       enable = true;
