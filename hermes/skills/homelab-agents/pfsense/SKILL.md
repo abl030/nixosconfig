@@ -197,7 +197,7 @@ Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, 
 | Name | Purpose |
 |------|---------|
 | WAN_DHCP | Default internet gateway |
-| AirVPN | AirVPN WireGuard tunnel (NZ, tun_wg2/opt5) |
+| AirVPN | AirVPN WireGuard tunnel (NZ, tun_wg2/opt5). Important: `dpinger_dont_add_static_route=true` on this gateway — its monitor is the public AirVPN endpoint `223.165.69.102`, and letting dpinger add a host route for that IP via `tun_wg2` blackholes the WireGuard endpoint after a restart. If NZ goes dark after a kick, verify `route -n get 223.165.69.102` points to WAN (`61.245.132.1`/`igc0`), not `tun_wg2`. |
 | AirVPN_SG | AirVPN WireGuard tunnel (Europe/Norway, tun_wg0/opt1) — internal name kept as AirVPN_SG; descr updated to "AirVPN Europe WireGuard gateway" |
 
 ### WireGuard Tunnels
