@@ -1,9 +1,38 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.services.jdownloader2;
+
+  # jlesage/jdownloader-2 v26.07.1 ships `/run` as a symlink to `/tmp/run`, and
+  # `/tmp/run` does not exist in the image. Under podman that is fatal two ways:
+  #   1. crun creates `/run/.containerenv` before the entrypoint runs → resolves
+  #      through the dangling symlink to `/tmp/run/.containerenv` → ENOENT
+  #      ("openat2 run: No such file or directory"). Fixed by --tmpfs=/run below
+  #      (the mount follows the symlink and materialises /tmp/run).
+  #   2. With /tmp/run now a mountpoint, the stock cont-init script
+  #      `08-clear-tmp-dir.sh` does `rm -rf /tmp/run` and dies EBUSY on podman's
+  #      `.containerenv` bind-mount ("Resource busy") → container crash-loops.
+  # Docker never creates `.containerenv`, so the image works there — this is a
+  # podman-only incompatibility. We can't pin the image (autoupdate is a hard
+  # rule) and can't rebuild it, so we neutralise the one broken init script via
+  # a read-only bind-mount. Retire this when upstream restores a real /run.
+  # Verified end-to-end on doc2 (HTTP 200) 2026-07-09.
+  # See docs/wiki/services/jdownloader2-podman-run-symlink.md
+  clearTmpNoop = pkgs.writeTextFile {
+    name = "jdownloader2-clear-tmp-noop.sh";
+    executable = true;
+    text = ''
+      #!/bin/sh
+      # No-op replacement for jlesage 08-clear-tmp-dir.sh: the stock script's
+      # `rm -rf /tmp/run` dies EBUSY on podman's .containerenv bind-mount. /tmp
+      # is a fresh overlay on every container (re)creation, so skipping the
+      # clear is safe.
+      exit 0
+    '';
+  };
 in {
   options.homelab.services.jdownloader2 = {
     enable = lib.mkEnableOption "JDownloader2 download manager (OCI container)";
@@ -68,6 +97,8 @@ in {
         "${cfg.dataDir}:/config"
         "${cfg.mediaDir}/Temp:/output"
         "${cfg.mediaDir}/Books/Unsorted/Books:/books"
+        # Neutralise the image's broken /tmp clear script (see clearTmpNoop above).
+        "${clearTmpNoop}:/etc/cont-init.d/08-clear-tmp-dir.sh:ro"
       ];
       environment = {
         TZ = "Australia/Perth";
@@ -86,9 +117,9 @@ in {
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
-          # jlesage/jdownloader-2 v26.07.1 no longer ships a /run directory in
-          # the image rootfs. crun creates /run/.containerenv before exec, so
-          # provide /run as a tmpfs mount rather than relying on the image.
+          # Materialise /run (dangling symlink in the image) so crun can create
+          # /run/.containerenv. Paired with the clearTmpNoop override above —
+          # both are needed; see the let-binding for the full root cause.
           "--tmpfs=/run:rw,nosuid,nodev,exec,size=64m"
           "--cap-add=CHOWN"
           "--cap-add=SETUID"
