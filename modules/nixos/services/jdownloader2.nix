@@ -86,6 +86,10 @@ in {
       extraOptions =
         config.homelab.podman.hardenOptions
         ++ [
+          # jlesage/jdownloader-2 v26.07.1 no longer ships a /run directory in
+          # the image rootfs. crun creates /run/.containerenv before exec, so
+          # provide /run as a tmpfs mount rather than relying on the image.
+          "--tmpfs=/run:rw,nosuid,nodev,exec,size=64m"
           "--cap-add=CHOWN"
           "--cap-add=SETUID"
           "--cap-add=SETGID"
