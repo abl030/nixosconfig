@@ -6,6 +6,8 @@
 **Owner:** `modules/nixos/services/jellyfin.nix` under `homelab.services.jellyfin`
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208) (Phase 3)
 
+> **I/O pressure from library scans / keyframe extraction?** See [infrastructure/igpu-io-pressure-tuning](../infrastructure/igpu-io-pressure-tuning.md) — root cause (raidz1 latency + mergerfs cache), ranked reversible tuning levers, and what to leave alone.
+
 ## Deployment shape
 
 Upstream nixpkgs `services.jellyfin` (10.11.8) wrapped by `homelab.services.jellyfin`. Replaces the compose stack retired in `#208` Phase 3.

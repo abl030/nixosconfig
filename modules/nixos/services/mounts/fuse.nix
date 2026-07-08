@@ -10,8 +10,15 @@
 with lib; let
   cfg = config.homelab.mounts.fuse;
 
+  # dropcacheonclose=false: with cache.files=off, mergerfs would otherwise
+  # posix_fadvise(DONTNEED) the underlying branch file on every close, so Jellyfin's
+  # back-to-back passes over the same file (duration probe -> keyframe walk -> trickplay)
+  # each re-read from the backend. `false` lets passes 2..N hit the guest page cache,
+  # cutting I/O-pressure (PSI) during library scans / keyframe extraction. The 16G CT's
+  # kernel evicts this cache under memory pressure, so the cost is bounded.
+  # See docs/wiki/infrastructure/igpu-io-pressure-tuning.md.
   baseFlags =
-    "allow_other,use_ino,cache.files=off,dropcacheonclose=true,"
+    "allow_other,use_ino,cache.files=off,dropcacheonclose=false,"
     + "moveonenospc=true,minfreespace=20G,category.create=ff,"
     + "uid=1000,gid=100,umask=002";
 

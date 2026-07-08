@@ -21,6 +21,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [signed-fleet-deploys](infrastructure/signed-fleet-deploys.md) — every deployed commit must be SSH-signed by a `hosts.nix` key; verified `fleet-update` path, Forgejo write root (#235)
 - [igpu-passthrough](infrastructure/igpu-passthrough.md) — AMD iGPU → `igpu` VM, `/dev/dri` health, kernel-reboot footgun
 - [media-filesystem](infrastructure/media-filesystem.md) — mergerfs + virtiofs + tower NFS layout, where each library's media/metadata lives
+- [igpu-io-pressure-tuning](infrastructure/igpu-io-pressure-tuning.md) — why the igpu LXC shows I/O PSI (Jellyfin keyframe/trickplay scans on raidz1), ranked reversible levers, `dropcacheonclose=false`, and what's NOT worth it (special vdev/L2ARC/SLOG/cgroup throttling)
 - [nfs-over-tailscale](infrastructure/nfs-over-tailscale.md) — Tailscale readiness gap, `tailscale-wait.service`, LAN-vs-tailnet routing for tower NFS
 - [pfsense-dns-resolver](infrastructure/pfsense-dns-resolver.md) — pfSense as the fleet DNS resolver: tunables, restart commands, ntopng/pfBlockerNG/kea2unbound footguns
 - [pfsense-backup](infrastructure/pfsense-backup.md) — ACB + ZFS-pull-to-prom + dual-Kopia off-site architecture, restore procedures incl. VM-on-prom emergency play
