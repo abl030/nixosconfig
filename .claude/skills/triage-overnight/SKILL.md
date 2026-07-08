@@ -1,7 +1,7 @@
 ---
 name: triage-overnight
-description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki AND audit recent Gotify pings on doc2, then summarise. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
-version: 1.3.0
+description: Pull overnight failure diagnoses (claude -p output) for nightly nixos-upgrade and rolling-flake-update from Loki, audit recent Gotify pings on doc2, AND review any auto-generated RCA fix PRs on Forgejo, then summarise with a merge recommendation per PR. Use when the user says "triage last night", "triage overnight", "what failed overnight", "what broke last night", or similar morning-ritual phrasing.
+version: 1.4.0
 ---
 
 # Triage Overnight Failures
@@ -29,13 +29,14 @@ This keeps the chat conversational while the user is deciding (often while drivi
 
 ## What to check
 
-Three things to check every morning:
+Four things to check every morning:
 
 1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → claude triage → Gotify.
 2. **`nixos-upgrade.service`** on every NixOS host between 01:00 and 02:00 local. Pulls the latest flake and rebuilds. On failure → `nixos-upgrade-diagnose.service` runs claude -p → Gotify.
 3. **Gotify pings** on doc2. Picks up the long tail — watchdogs, alert-bridge, Grafana alerts, Domain-Monitor, Kuma — that isn't a nightly job but did wake the phone overnight.
+4. **Auto-generated RCA fix PRs** on Forgejo. When an overnight alert's root cause has a mechanical fix, the RCA pipeline opens a PR with the patch (see Step 1c). These are candidate fixes already written for you — your job is to **review each and recommend merge / hold / changes**, then (on the user's go) merge and deploy.
 
-The nightly-job diagnoses land in journal as plain text and ship to Loki. Gotify pings are stored on doc2 in sqlite. Your job in the morning is to pull them all out, summarise, and propose fixes.
+The nightly-job diagnoses land in journal as plain text and ship to Loki. Gotify pings are stored on doc2 in sqlite. RCA fix PRs live on Forgejo. Your job in the morning is to pull them all out, summarise, review the PRs, and propose fixes.
 
 ## Step 1: Query Loki for failures, last 12h, all hosts
 
@@ -162,6 +163,60 @@ If everything is HA garage doors and Kuma flaps → "Gotify clean overnight (X H
 
 See `docs/wiki/services/gotify.md` for the sqlite schema, why we don't use the HTTP API (no client token in repo), and the full reading workflow.
 
+## Step 1c: Collect + review auto-generated RCA fix PRs (Forgejo)
+
+Run **in parallel** with Steps 1 and 1b. Overnight, a critical alert doesn't just
+get a Gotify RCA — when the root cause has a mechanical fix, the RCA pipeline
+**opens a Forgejo PR** with the patch. Flow: `alert-bridge` (doc2) forwards the
+enriched alert context to **Hermes** via webhook (`homelab.services.alert-bridge.rcaWebhookUrl`);
+Hermes runs the LLM RCA, opens a PR authored by `nixbot`, and posts the RCA back to
+Gotify with a `PR:` link. So a morning cluster often arrives with a candidate fix
+already written — your job is to **review it and recommend merge / hold / changes**,
+not to re-derive the fix from scratch.
+
+Find them two ways (they agree):
+
+```bash
+TOKEN=$(cat /run/secrets/forgejo/nixbot-token)   # doc1 only; 0400 abl030
+# 1. RCA Gotify bodies carry the link — grep the Step 1b `gotify-triage msg` output
+#    for "PR: https://git.ablz.au/.../pulls/<N>".
+# 2. List open PRs directly (authoritative):
+curl -sG "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls" \
+  -H "Authorization: token $TOKEN" \
+  --data-urlencode "state=open" --data-urlencode "limit=20" \
+  | jq -r '.[] | "#\(.number) [\(.user.login)] \(.title)\n  \(.head.ref) -> \(.base.ref) | mergeable=\(.mergeable) draft=\(.draft) | updated \(.updated_at)"'
+```
+
+Focus on PRs authored by `nixbot` and updated inside the triage window. Older open
+PRs are usually human WIP — mention them once, don't review them unless asked.
+
+**Review each candidate PR — do NOT trust the diff alone:**
+
+```bash
+curl -sG "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<N>.diff" \
+  -H "Authorization: token $TOKEN"
+git fetch origin "refs/pull/<N>/head:pr<N>"      # local ref to inspect + sign-check
+git log -1 --format='%G? %an | %s' pr<N>          # MUST be G — see Step 4 caveat
+```
+
+Verify **five** things before recommending merge:
+
+1. **Root cause is real.** Confirm the RCA's claimed cause against the *live* module
+   file (not just the diff hunk) — e.g. `hardenOptions` genuinely lacks the mount
+   the fix adds; the Kuma window math (`intervalSecs + maxretries * retryInterval`,
+   defaults `retryInterval=60`/`maxretries=10` in `monitoring_sync.nix`) really
+   produces the flap the RCA describes. Trace it like any Step 1b ping.
+2. **The fix addresses it** and is the minimal change (no scope creep).
+3. **Signed by a hosts.nix key** (`%G?` → `G`). An unsigned PR commit CANNOT be
+   deployed — signed deploys are enforced fleet-wide, so merging it would loud-fail
+   the next `nixos-upgrade` / `fleet-deploy`.
+4. **Least-privilege / blast-radius audit** (CLAUDE.md rule): does it touch auth,
+   secrets, image trust, network exposure, file ownership, or shared resources? A
+   container flag like `--tmpfs=/run` should stay `nosuid,nodev`, size-capped, and
+   add no new caps.
+5. **Is the service still down?** Re-probe live (HTTP / Kuma). A still-down service
+   makes its PR urgent (deploy now); a self-recovered flap makes its PR routine.
+
 ## Step 2: Summarise to the user
 
 For each host/unit that fired (Loki, Step 1), report:
@@ -177,17 +232,78 @@ For each Gotify ping (Step 1b) that you didn't skip-list:
 - **Your traced root cause** — not just the ping title. Cross-reference the unit log in the ±5min window, check whether a recent commit changed the relevant module, and state the real cause. If the alert title is misleading (e.g. "NFS watchdog tripped" when the actual cause was a config error), say so explicitly.
 - **Current state** — did it self-recover, is the service active now, was it the watchdog's job to recover it.
 
+For each auto-generated RCA PR (Step 1c):
+
+- **PR # + title + author + affected host/service** (one line).
+- **Your review verdict** — `merge` / `hold` / `needs-changes`, with the one-line reason (root cause confirmed against live code? fix minimal? signed? least-privilege ok?).
+- **Urgency** — is the service still down (deploy now) or did it self-recover (routine, land it to stop the recurrence).
+
 If nothing fired in the 12h window and Gotify is just HA/Kuma noise: report "no overnight failures, both jobs green, Gotify clean" and stop.
 
 ## Step 3: Offer to fix
 
-After the summary, ask in plain chat: *"Want to walk through them one by one?"* When the user says `yes`, take the first item, dig into it, propose a fix, **wait for explicit approval**, then move to the next. One issue per turn. Do **not** use structured-question UIs.
+After the summary, ask in plain chat: *"Want to walk through them one by one?"* When the user says `yes`, take the first item, dig into it, propose a fix, **wait for explicit approval**, then move to the next. One issue per turn. Do **not** use structured-question UIs. RCA fix PRs (Step 1c) are walked through here too — but you *review and merge* them (Step 4), you don't hand-edit them.
 
-For each `actionable` entry, present the diff that would implement claude's suggested fix and ask the user to approve. Do **not** auto-apply — the overnight diagnosis is advisory, the morning fix is intentional.
+For each `actionable` entry, present the diff that would implement claude's suggested fix and ask the user to approve. Do **not** auto-apply — the overnight diagnosis is advisory, the morning fix is intentional. Same rule for RCA PRs: present the verdict, wait for `go`, then merge per Step 4.
 
 For `transient` entries: report and move on (next nightly run will retry).
 
 For `upstream` entries: open or update a GitHub issue (`gh issue list --search 'in:title <package>'` first to dedupe) noting the failure and that we're waiting for nixpkgs.
+
+## Step 4: Merge & deploy approved RCA PRs
+
+Only after the user says `go` on a specific PR (Step 3's one-at-a-time approval
+applies — the overnight fix is advisory, the morning merge is intentional).
+
+**CRITICAL — merge signed, never via the Forgejo "Merge" button.** Forgejo's
+server-side merge creates an *unsigned* merge commit, which loud-fails signed-deploy
+enforcement on every host's nightly `nixos-upgrade`. Merge locally on doc1 so every
+commit landing on master stays SSH-signed by a `hosts.nix` key:
+
+```bash
+# work from a clean doc1 checkout on master, fast-forwarded to origin/master first
+git fetch origin && git checkout master && git merge --ff-only origin/master
+
+# If the PR branch's parent IS the current master tip → fast-forward: keeps the
+# original signed SHA and auto-closes the PR.
+git merge --ff-only pr<N>
+
+# Otherwise (master moved, or landing several PRs at once) → cherry-pick onto
+# master; doc1 re-signs with abl030's key, so the SHA changes (close the PR
+# manually after). cherry-pick preserves author + message.
+git cherry-pick pr<N> [pr<M> ...]
+git log -1 --format='%G?'                  # confirm G BEFORE pushing
+
+# Push to master with the nixbot token header (doc1 has no https cred otherwise):
+export GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
+  GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
+git push origin HEAD:master
+```
+
+If a cherry-pick changed the SHA the PR won't auto-close — close it via API with a
+pointer to the landed commit (PRs are issues in Forgejo's REST API):
+
+```bash
+curl -s -X POST "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>/comments" \
+  -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"body":"Merged to master as <sha> (signed), deployed to <host>."}'
+curl -s -X PATCH "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>" \
+  -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"state":"closed"}'
+```
+
+**Deploy the affected host.** Find it (`grep -rln '<svc>.enable' hosts/`), then from
+doc1 deploy the locked sibling with `fleet-deploy <host>` (async, no live build
+stream). doc1 itself: `sudo fleet-update`. See CLAUDE.md deploy rules — never
+`--target-host`, never deploy from the `github:` mirror.
+
+**Verify** (fleet-deploy is async — you MUST confirm after it settles):
+- Re-probe the service with the same HTTP/Kuma check that fired — DOWN → UP.
+- Confirm the host built the new rev (deploy log / freshness / `nixos-rebuild
+  list-generations`) and the service unit is active.
+- For a container fix, confirm the container was recreated with the new flag
+  (e.g. `ssh <host> "sudo podman inspect <c> --format '{{.HostConfig.Tmpfs}}'"`).
 
 ## Failure modes to recognise
 
