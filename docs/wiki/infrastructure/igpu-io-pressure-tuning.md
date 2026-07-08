@@ -32,11 +32,24 @@ Verified on the hypervisor — corrects several first-glance assumptions:
 
 ## Levers — ranked (impact × ease ÷ risk)
 
-### 1. Jellyfin: cap scan concurrency — **best easy win** (imperative, UI)
-Dashboard → General → **"Parallel library scan tasks limit" = 2** (from 0/auto = up to 8). Serialises the read pile-up on the single raidz1 queue into a near-sequential stream, flattening the `io full` peak. Jellyfin's own docs recommend lowering this on network/FUSE filesystems. Also set **"Parallel image encoding limit" = 2**. Reversible; scans just take longer in wall-clock.
+### 1. Jellyfin: cap scan concurrency — **best easy win** (imperative, API) — **APPLIED 2026-07-08**
+Set **`LibraryScanFanoutConcurrency = 2`** (UI label: "Parallel library scan tasks limit"; was `0`/auto = up to 8 on this 8-core CT). Serialises the read pile-up on the single raidz1 queue into a near-sequential stream, flattening the `io full` peak. Jellyfin's own docs recommend lowering this on network/FUSE filesystems. Reversible; scans just take longer in wall-clock.
 
-### 2. Raise `zfs_arc_max` on `prom` → ~24 GiB (imperative on prom, reversible)
-Runtime: `echo 25769803776 > /sys/module/zfs/parameters/zfs_arc_max`. Persist: `/etc/modprobe.d/zfs.conf` (`options zfs zfs_arc_max=25769803776`) + `update-initramfs -u`. Lowers per-read latency for the metadata-heavy walk and keeps the library's metadata resident for repeat scans. Helps the single-reader case too (unlike #1). Uses currently-free RAM; benefits the whole fleet's storage. Soft cap — helps warm/repeat scans more than the first cold pass.
+Jellyfin config is **jellyfin-owned, not NixOS-managed**, so this is set via the REST API (no restart needed) rather than the repo. Reuse the existing soularr Jellyfin key (doc1 holds the sops editor key):
+
+```sh
+# from secrets/ on doc1:
+TOK=$(sops -d hosts/doc2/soularr.env | sed -n 's/^JELLYFIN_TOKEN=//p')
+curl -s -H "X-Emby-Token: $TOK" https://jelly.ablz.au/System/Configuration -o cfg.json
+jq '.LibraryScanFanoutConcurrency = 2' cfg.json \
+  | curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "X-Emby-Token: $TOK" \
+      -H 'Content-Type: application/json' --data @- https://jelly.ablz.au/System/Configuration   # -> 204
+```
+
+Siblings `LibraryMetadataRefreshConcurrency` and `ParallelImageEncodingLimit` left at auto (`0`) — set them to 2 the same way if pressure persists during metadata refresh / image (trickplay) encoding.
+
+### 2. ~~Raise `zfs_arc_max` on `prom`~~ — **RULED OUT (prom is memory-pressured at times)**
+Raising the ARC cap would lower per-read latency, but **`prom` runs under memory pressure at times**, so stealing more RAM for ARC is off the table for this host. **Do NOT bump `zfs_arc_max`** — leave PVE's 10% cap. (Revisit only if prom's memory headroom structurally changes.)
 
 ### 3. mergerfs: stop purging the page cache — **the clean repo change (APPLIED 2026-07-08)**
 `modules/nixos/services/mounts/fuse.nix` `baseFlags`: **`dropcacheonclose=true` → `false`.** With `cache.files=off`, mergerfs otherwise `posix_fadvise(DONTNEED)`s the underlying branch file on every close, so Jellyfin's back-to-back passes each re-read from the backend. `false` lets passes 2..N hit the guest page cache. trapexit's own recommendation for kernel ≥6.6 with `cache.files=off`. Cost: bounded guest page-cache RAM on the 16 GB CT (kernel evicts under pressure). Deploy: signed commit → `fleet-deploy igpu`.
@@ -71,10 +84,10 @@ Check: `stat` a few Movies files before/after a scan; watch whether the "Generat
 
 ## Verdict
 
-The pool is healthy and the stall is intermittent, purely the shape of latency-bound small reads on a raidz1 vdev. **No hardware change is warranted.** The two highest-leverage, fully-reversible moves are Jellyfin **"Parallel library scan tasks = 2"** and raising **`zfs_arc_max` to ~24 GiB** — they stack and directly target `io full`. The one repo-declarative change (`dropcacheonclose=false`, applied) helps Jellyfin's multi-pass re-reads. Everything else is polish. But first confirm media mtimes are stable — if they are, this is one-time backfill and leaving it alone is exactly right.
+The pool is healthy and the stall is intermittent, purely the shape of latency-bound small reads on a raidz1 vdev. **No hardware change is warranted.** The highest-leverage, fully-reversible move — Jellyfin **`LibraryScanFanoutConcurrency = 2`** — is **applied** and directly targets `io full`. The ARC bump is **ruled out** (prom memory pressure). The one repo-declarative change (`dropcacheonclose=false`, applied) helps Jellyfin's multi-pass re-reads. Everything else is polish. But first confirm media mtimes are stable — if they are, this is one-time backfill and leaving it alone is exactly right.
 
 ## When to revisit
 
 - If PSI is chronic (not just during a known scan) → run the mtime diagnostic; suspect Jellyfin 10.11 prune-on-change.
 - If `FileChangeRequireSizeChange` (PR #14716) merges upstream → enable it to stop mtime-triggered regeneration.
-- Re-measure after applying #1/#2: `cat /sys/fs/cgroup/lxc/107/io.pressure` on `prom` during a scan.
+- Re-measure after the `LibraryScanFanoutConcurrency=2` + `dropcacheonclose=false` changes: `cat /sys/fs/cgroup/lxc/107/io.pressure` on `prom` during a scan.
