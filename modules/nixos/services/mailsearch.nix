@@ -689,17 +689,17 @@ in {
         {
           name = "Mailsearch index write-path";
           command = "${pkgs.callPackage ./probes/check-mailsearch.nix {}}/bin/check-mailsearch";
-          # 15m push cadence against an unchanged 2400 + 10*60 = 3000s Kuma
-          # window (intervalSecs + maxretries*retryInterval). The window — and
-          # thus real-DOWN detection speed — does NOT depend on cadence, so this
-          # keeps detection identical while shrinking a SINGLE dropped-push gap
-          # from ~3600s (2×30m, > window → nightly DOWN→UP flap) to ~1800s
-          # (2×15m, comfortably < window). The drop happens when one probe
-          # transiently fails during the nightly notmuch/embed burst. Do NOT
-          # shrink intervalSecs to "match" 15m — the extra headroom is the fix.
-          # 2026-07-07.
+          # 15m push cadence with a 2400 + 20*60 = 3600s Kuma window
+          # (intervalSecs + maxretries*retryInterval). 15m cadence shrinks a
+          # single dropped-push gap to ~1800s, and maxretries=20 keeps nightly
+          # maintenance ending between probes from paging before the next
+          # scheduled heartbeat arrives (Kuma records maintenance heartbeats as
+          # status=3, then starts no-heartbeat retries from the stale pre-window
+          # UP). Do NOT shrink intervalSecs to "match" 15m — the extra headroom
+          # is the fix. 2026-07-09 RCA.
           interval = "15m";
           intervalSecs = 2400;
+          maxretries = 20;
           serviceConfig = {
             User = cfg.indexUser;
             Group = "mailsearch";
