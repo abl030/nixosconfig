@@ -40,11 +40,6 @@
 }: let
   cfg = config.homelab.services.cratedigger;
   operatorUser = hostConfig.user or "abl030";
-  patchedCratediggerSrc = pkgs.applyPatches {
-    name = "cratedigger-src-group-permissions";
-    src = inputs.cratedigger-src;
-    patches = [./cratedigger-group-permissions.patch];
-  };
 
   metadataGateStateDir = "/run/cratedigger-metadata-gate";
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
@@ -506,6 +501,17 @@ in {
         "d ${pgDataDirRoot}/postgres 0700 root root -"
         "d ${metadataGateStateDir} 0755 root root -"
         "d ${metadataGateHoldDir} 0755 root root -"
+        # #570: the discogs token is root:root 0400 (see the beets.package
+        # comment below); the `z` rule reclassifies it group-readable by
+        # cratedigger-ops so the non-root cratedigger service's preStart can
+        # read it — otherwise every unit fails to start. The two `d` rules
+        # keep the library roots setgid + group-writable + group `users` so
+        # new album dirs inherit the group and gid-consumers (Jellyfin) can
+        # write NFO/art. Existing subtree ownership is fixed by a one-time
+        # operator chgrp/chmod during the deploy window, not by this config.
+        "z /var/lib/cratedigger/secrets/discogs-token 0440 root cratedigger-ops -"
+        "d /mnt/virtio/Music/Beets 2775 cratedigger users -"
+        "d /mnt/virtio/Music/Incoming 2775 cratedigger users -"
       ];
 
       services = lib.mkMerge [
@@ -706,6 +712,13 @@ in {
         music-import = {};
       };
       users.${operatorUser}.extraGroups = ["cratedigger-ops"];
+      # The cratedigger user itself is declared by the upstream module (its
+      # `mkIf (cfg.user != "root")` block below); this is an additive merge
+      # of supplementary groups, not a redefinition. `music-import` is
+      # LOAD-BEARING: slskd's download dir is 770 slskd:music-import, so
+      # without it a non-root cratedigger can't read/reap in-flight
+      # downloads. `cratedigger-ops` is needed to read /run/cratedigger-secrets/*.
+      users.cratedigger.extraGroups = ["music-import" "cratedigger-ops"];
     };
 
     # ---------------------------------------------------------------------
@@ -757,8 +770,9 @@ in {
     # ---------------------------------------------------------------------
     services.cratedigger = {
       enable = true;
-      src = patchedCratediggerSrc;
-      group = "music-import";
+      src = inputs.cratedigger-src;
+      user = "cratedigger";
+      group = "users";
 
       # config.ini is world-readable (0644) since issue #117 — it contains
       # only *_file paths, no secrets. The raw secrets live under
