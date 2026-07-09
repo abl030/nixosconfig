@@ -501,17 +501,20 @@ in {
         "d ${pgDataDirRoot}/postgres 0700 root root -"
         "d ${metadataGateStateDir} 0755 root root -"
         "d ${metadataGateHoldDir} 0755 root root -"
-        # #570: the discogs token is root:root 0400 (see the beets.package
-        # comment below); the `z` rule reclassifies it group-readable by
-        # cratedigger-ops so the non-root cratedigger service's preStart can
-        # read it — otherwise every unit fails to start. The two `d` rules
-        # keep the library roots setgid + group-writable + group `users` so
-        # new album dirs inherit the group and gid-consumers (Jellyfin) can
-        # write NFO/art. Existing subtree ownership is fixed by a one-time
-        # operator chgrp/chmod during the deploy window, not by this config.
-        "z /var/lib/cratedigger/secrets/discogs-token 0440 root cratedigger-ops -"
+        # #570: keep the library roots setgid + group-writable + group `users`
+        # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
+        # can write NFO/art alongside media. Existing subtree ownership is fixed
+        # by a one-time operator chgrp/chmod during the deploy window.
         "d /mnt/virtio/Music/Beets 2775 cratedigger users -"
         "d /mnt/virtio/Music/Incoming 2775 cratedigger users -"
+        # NOTE: the discogs token (/var/lib/cratedigger/secrets/discogs-token,
+        # root:root 0400) CANNOT be managed by tmpfiles — systemd-tmpfiles
+        # refuses the "unsafe path transition" from the cratedigger-owned
+        # /var/lib/cratedigger into the root-owned secrets/ subdir. The
+        # non-root service reads it via a durable one-time operator chown to
+        # `root:cratedigger-ops 0440` (matches the out-of-band-secret pattern
+        # noted on beets.package.discogsTokenFile below; migrate to sops-nix
+        # with owner=cratedigger when convenient).
       ];
 
       services = lib.mkMerge [
