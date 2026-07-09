@@ -505,6 +505,17 @@ in {
         # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
         # can write NFO/art alongside media. Existing subtree ownership is fixed
         # by a one-time operator chgrp/chmod during the deploy window.
+        #
+        # /mnt/virtio/Music itself (root:root 0755 by default) MUST be
+        # group-writable too: the beets library DB, its SQLite rollback journal,
+        # beets-import.log and .harness-mutations.jsonl all live directly under
+        # it, and a non-root cratedigger creating the journal in a 0755 root dir
+        # fails with "attempt to write a readonly database" (regression fixed
+        # 2026-07-09 — the cutover provisioned Beets/Incoming but missed their
+        # shared parent). Owner stays root since the dir also holds unrelated
+        # content (AI/, Live/, VA/); group `users` + setgid gives cratedigger
+        # write + makes new files inherit the group.
+        "d /mnt/virtio/Music 2775 root users -"
         "d /mnt/virtio/Music/Beets 2775 cratedigger users -"
         "d /mnt/virtio/Music/Incoming 2775 cratedigger users -"
         # NOTE: the discogs token (/var/lib/cratedigger/secrets/discogs-token,
