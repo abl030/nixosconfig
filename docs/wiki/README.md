@@ -31,6 +31,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [cratesio-403-ua](infrastructure/cratesio-403-ua.md) — crates.io 403s nix's `curl/` UA; resolved by nixpkgs static.crates.io fix (#259)
 - [systemd-mount-ordering-cycles](infrastructure/systemd-mount-ordering-cycles.md) — why bind mounts on NFS need `_netdev`; cycle topology and latency-bomb properties
 - [netavark-2.0-dns-regression](infrastructure/netavark-2.0-dns-regression.md) — netavark 2.0.0 (nftables-only) broke rootful-podman container DNS on reboot; pinned to 1.17.x; forward path to native nftables (Forgejo #13)
+- [framework-hibernate-ttm-oops-2026-07-09](infrastructure/framework-hibernate-ttm-oops-2026-07-09.md) — "failed hibernate resume" RCA: restore actually succeeded, then kernel 7.1.3 amdgpu/TTM NULL-deref froze the compositor; wifi-card swap exonerated; evidence-only subagent verification pattern
 
 ### Services
 
