@@ -150,7 +150,9 @@ names out of workflows where a normal shell/read/edit instruction suffices.
 Claude auto-memory and Codex native memory are client-local recall caches, not
 project truth. Promote durable discoveries to the shared Markdown/wiki/issue
 surfaces. Keep `.claude/memory/MEMORY.md` at 15 lines or fewer as an index; do not
-duplicate rationale there. Codex native memory may remain personal and local.
+duplicate rationale there. Codex native memory is enabled as personal local
+recall, with tasks that used external MCP/web/tool-search context excluded from
+generation; it never replaces the shared surfaces.
 
 ### Specialist Agents and MCP
 

@@ -1188,6 +1188,7 @@
           # See docs/wiki/claude-code/poly-ai-shared-surfaces.md.
           aiPortabilityCheck = pkgs.runCommand "ai-portability" {} ''
             ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
+            ${pkgs.python3}/bin/python3 ${./.}/scripts/merge-toml-settings.py --self-test
             touch $out
           '';
         in

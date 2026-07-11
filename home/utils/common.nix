@@ -3,7 +3,24 @@
   lib,
   pkgs,
   ...
-}: {
+}: let
+  codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON {
+    analytics.enabled = false;
+    features.memories = true;
+    memories = {
+      generate_memories = true;
+      use_memories = true;
+      # Exclude sessions that actually used MCP/web/tool-search context. This
+      # keeps mail, firewall, HA, and other sensitive external data out of the
+      # generated local recall store while preserving memory for code work.
+      disable_on_external_context = true;
+    };
+    "mcp_servers.mcp-nixos" = {
+      command = "uvx";
+      args = ["mcp-nixos"];
+    };
+  });
+in {
   # ---------------------------------------------------------
   # CODEX CLI  (native programs.codex — see issue #261)
   # ---------------------------------------------------------
@@ -15,12 +32,9 @@
   # NOT own it. With `settings` empty and no MCP integration the module never
   # writes config.toml.
   #
-  # mcp-nixos on Codex: the native `enableMcpIntegration = true` path can't be
-  # used — it writes mcp_servers INTO config.toml and so would seize the mutable
-  # file. Instead the codexConfig activation below idempotently APPENDS the
-  # [mcp_servers.mcp-nixos] table (same trick as the [analytics] opt-out),
-  # leaving everything codex writes intact. Mirrors the shared
-  # programs.mcp.servers.mcp-nixos used by Claude.
+  # The native `settings` / MCP integration paths cannot be used because they
+  # seize config.toml as a read-only store symlink. The activation below instead
+  # merges only our managed keys while preserving Codex/plugin runtime state.
   #
   # Codex plugins remain runtime-managed in ~/.codex/config.toml; Home Manager
   # must not own or reset them. Project skills and custom agents are shared from
@@ -33,14 +47,16 @@
     skills.talk-to-me = ../../.claude/skills/talk-to-me;
   };
 
-  # Codex config: idempotent, APPEND-ONLY edits to the runtime-mutable
+  # Codex config: idempotent, section-aware edits to the runtime-mutable
   # ~/.codex/config.toml. That file is owned by codex (trust levels, plugin
-  # enables, model migrations), so home-manager must NOT take it over — we only
-  # ensure two top-level tables exist, appending each if its header is missing
-  # and leaving everything else codex writes untouched:
+  # enables, model migrations), so Home Manager must NOT take it over. The
+  # line-preserving merger atomically updates only these managed values and
+  # validates the complete TOML before replacement:
   #   * [analytics] enabled = false  — opt out of client-side analytics. Pair
   #     with the ChatGPT Data Controls toggle + privacy.openai.com opt-out;
   #     true ZDR isn't a Pro/consumer feature.
+  #   * [features]/[memories]        — local cross-session recall, excluding
+  #     tasks that used external MCP/web/tool-search context.
   #   * [mcp_servers.mcp-nixos]      — the same shared mcp-nixos Claude gets, so
   #     codex also has live nixpkgs/option lookups (avoids the native
   #     enableMcpIntegration path, which would seize the whole file).
@@ -48,12 +64,8 @@
     CODEX_CONFIG="${config.home.homeDirectory}/.codex/config.toml"
     run mkdir -p "$(dirname "$CODEX_CONFIG")"
     [ -f "$CODEX_CONFIG" ] || run ${pkgs.coreutils}/bin/touch "$CODEX_CONFIG"
-    if ! ${pkgs.gnugrep}/bin/grep -q '^\[analytics\]' "$CODEX_CONFIG"; then
-      run sh -c "printf '\n[analytics]\nenabled = false\n' >> '$CODEX_CONFIG'"
-    fi
-    if ! ${pkgs.gnugrep}/bin/grep -q '^\[mcp_servers\.mcp-nixos\]' "$CODEX_CONFIG"; then
-      run sh -c "printf '\n[mcp_servers.mcp-nixos]\ncommand = \"uvx\"\nargs = [\"mcp-nixos\"]\n' >> '$CODEX_CONFIG'"
-    fi
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-toml-settings.py} \
+      "$CODEX_CONFIG" ${codexManagedSettings}
   '';
 
   home.packages = [

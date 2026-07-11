@@ -62,14 +62,22 @@ compatibility for older material.
 Do not synchronize Claude auto-memory internals with Codex native memory.
 
 - Claude auto-memory writes Markdown in the configured project memory folder.
-- Codex native memory is generated local state under `~/.codex/memories` and is
-  intentionally not a hand-edited or repository control surface.
+- Codex native memory is enabled as a personal recall layer. It is generated
+  local state under `~/.codex/memories`, not a hand-edited or repository control
+  surface. Home Manager keeps generation and use enabled while setting
+  `disable_on_external_context = true`, so tasks that actually used MCP, web, or
+  tool-search context do not become memory inputs.
 - Client-local memory is useful recall, but it is not durable project truth.
 
 Both clients instead read `.claude/memory/MEMORY.md` at session start. That file
 is a maximum-15-line index of critical quirks and links. Detailed discoveries go
 in a focused memory file, `docs/wiki/`, or a Forgejo issue. This promotion step is
 what makes something learned by one client available to the other.
+
+`scripts/merge-toml-settings.py` applies managed Codex user settings without
+taking ownership of the mutable file. It preserves comments and unknown
+Codex/plugin keys, validates the full document with `tomllib`, and atomically
+replaces the file only when values changed.
 
 ## Context Budget
 
