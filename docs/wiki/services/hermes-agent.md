@@ -1,10 +1,10 @@
 # Hermes Agent (Nous Research)
 
-- **Date:** 2026-06-13
+- **Date:** 2026-07-11
 - **Status:** working
 - **Host:** `hermes` — dedicated VM, VMID 115 on `prom` (4 vCPU / 8 GB / 50 GB)
 - **Interface:** Telegram bot `@Hermes_abl030_bot`
-- **Model:** `gpt-5.5` via ChatGPT Pro **Codex OAuth** (no API key)
+- **Model:** `gpt-5.6-sol` via ChatGPT Pro **Codex OAuth** (no API key)
 - **Module:** `modules/nixos/services/hermes-agent.nix` · **Host cfg:** `hosts/hermes/`
 - **Upstream:** github.com/nousresearch/hermes-agent
 
@@ -89,15 +89,16 @@ The trap:
   `gpt-5-codex`. Likewise forcing `-m <other>` never reaches an API call.
 - **FIX = the interactive picker `hermes model`.** *Selecting* a model writes the
   full provider block (`provider` + `default` + `base_url`) that the provider
-  actually honors. Pick from the LIVE list — for this Pro account, **`gpt-5.5`**
-  works (the picker also offered gpt-5.4, gpt-5.4-mini, gpt-5.3-codex-spark).
+  actually honors. Pick from the LIVE list. The repo default is currently
+  **`gpt-5.6-sol`**; verify it with the smoke test below after deployment because
+  the account's accepted set can change independently of this file.
 
 Driving the picker headlessly (it needs a TTY) — from doc1 via tmux:
 ```sh
 tmux new-session -d -s pick 'ssh -tt hermes "sudo podman exec -it hermes hermes model --refresh"'
 sleep 9; tmux capture-pane -t pick -p          # read the screen
 tmux send-keys -t pick Enter                   # ↑↓ navigate, ENTER selects
-# flow: OpenAI → OpenAI Codex → type "1" (use existing creds) → pick gpt-5.5
+# flow: OpenAI → OpenAI Codex → type "1" (use existing creds) → pick gpt-5.6-sol
 ```
 
 ## Runbook
