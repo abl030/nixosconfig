@@ -1,1 +1,1 @@
-/nix/store/yhc6f18p5in79ifi6m68mjwmzbhqzs1l-nixos-system-caddy-lxc-proxmox-26.11.20260708.05988b0
+/nix/store/9ki8dylw6nzjlwszjs06xa860xvw8vsx-nixos-system-caddy-lxc-proxmox-26.11.20260708.05988b0
