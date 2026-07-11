@@ -1,7 +1,11 @@
 # Claude Code + Codex → native home-manager modules
 
 **Date:** 2026-05-29
-**Status:** Done (deployed to proxmox-vm, fleet picks it up via nightly rolling update)
+**Status:** Historical migration record; runtime details have since changed. See
+[`poly-ai-shared-surfaces.md`](poly-ai-shared-surfaces.md) for the current shared
+Claude Code/Codex contract and
+[`plugins-in-agent-view.md`](plugins-in-agent-view.md) for current Claude plugin
+registration.
 **Issue:** #261
 **Pinned home-manager:** `1a95e2ef` (2026-05-25)
 

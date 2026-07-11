@@ -8,20 +8,13 @@ version: 1.0.0
 
 Systematic service debugging workflow that handles both local and remote services.
 
-> **⚠️ LOCKED SIBLINGS (doc2, igpu) — sudo is restricted (forgejo#2, 2026-06-19).**
-> These hosts have **no passwordless sudo**. When debugging a service on doc2/igpu:
-> - **Logs: use Loki** (logs.ablz.au / `https://loki.ablz.au/...`), NOT `ssh <h>
->   "sudo journalctl ..."` — that's blocked. Plain `journalctl` over SSH only sees
->   limited (non-root) logs. `{host="doc2", unit="..."}` or `{container="..."}`.
-> - **Container state works:** `ssh <h> "sudo podman ps/inspect/logs/top ..."` (the
->   read-only allowlist). `ssh <h> "sudo podman logs <ctr>"` is your container-log path.
-> - **`systemctl status`** works WITHOUT sudo (read-only); `sudo systemctl status`
->   PROMPTS and fails. Use plain `ssh <h> "systemctl status <unit> --no-pager"`.
-> - **Mutations are NOT possible via sudo:** `sudo systemctl restart <non-podman>`,
->   `sudo cat`, `sudo ss`, `sudo runuser` all fail. Restart a container with
->   `sudo systemctl restart podman-<svc>` (allowed). Other fixes go via a signed
->   `fleet-deploy <h>` (service-deploy skill) or the Proxmox console.
-> See docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
+> **Privilege posture varies by host.** doc2 and servarr deliberately grant
+> `abl030` full passwordless sudo despite retaining `role = "locked"`; igpu and
+> wsl retain only the narrow read-only/container recovery allowlist. Read the
+> target host config before assuming. `systemctl status` works without sudo;
+> Loki is the default remote log path and is required when journal access is
+> unavailable. Deploy config fixes through `fleet-deploy <host>` from doc1.
+> See `docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md`.
 
 ## Step 1: Identify the service and its host
 
@@ -51,14 +44,16 @@ CURRENT=$(hostname)
 
 ### SSH aliases (from hosts.nix)
 
-| Host       | SSH alias | LAN IP        |
-|------------|-----------|---------------|
-| proxmox-vm | doc1      | 192.168.1.29  |
-| doc2       | doc2      | 192.168.1.35  |
-| igpu       | igp       | 192.168.1.33  |
-| dev        | dev       | (dynamic)     |
-| framework  | fw        | (dynamic)     |
-| epimetheus | epi       | (dynamic)     |
+| Host       | SSH alias | Address                    |
+|------------|-----------|----------------------------|
+| proxmox-vm | doc1      | 192.168.1.29               |
+| doc2       | doc2      | 192.168.1.35               |
+| igpu       | igpu      | 192.168.1.33               |
+| servarr    | servarr   | 192.168.1.4                |
+| caddy      | cad       | 192.168.1.6                |
+| wsl        | wsl       | Windows SSH port-forward   |
+| framework  | fra       | dynamic                    |
+| epimetheus | epi       | 192.168.1.5                |
 
 ## Step 3: Check service status
 
@@ -74,11 +69,6 @@ ssh <alias> "systemctl status <service> --no-pager"
 ssh <alias> "systemctl is-active <service>"
 ```
 
-For user services (compose stacks):
-```bash
-ssh <alias> "sudo runuser -u abl030 -- systemctl --user status <service> --no-pager"
-```
-
 ## Step 4: Investigate with journalctl
 
 ### Recent logs (start here)
@@ -86,8 +76,10 @@ ssh <alias> "sudo runuser -u abl030 -- systemctl --user status <service> --no-pa
 # Local
 journalctl -u <service> --no-pager -n 50
 
-# Remote
-ssh <alias> "journalctl -u <service> --no-pager -n 50"
+# Remote when the target permits root journal access (doc2/servarr)
+ssh <alias> "sudo journalctl -u <service> --no-pager -n 50"
+
+# Otherwise query Loki, e.g. {host="igpu", unit="<service>.service"}
 ```
 
 ### Logs around a specific incident

@@ -98,11 +98,11 @@ Both diagnoses follow the same three-label format produced by the system prompt:
 
 Run **in parallel** with Step 1. The two channels (Loki nightly diagnoses + Gotify pings) overlap but don't fully duplicate.
 
-Read the Gotify pings via the **`gotify-triage`** wrapper on doc2. The locked host
-(forgejo#2) has no passwordless sudo, so this scoped, fixed-query read-only wrapper
-is the single sudo carve-out — it cannot run arbitrary SQL or shell (that's why it
-exists instead of a `sudo sqlite3` grant, which the sqlite `.shell`/`.system`
-dot-commands would turn into a root shell). Defined in
+Read the Gotify pings via the **`gotify-triage`** wrapper on doc2. doc2 now has a
+deliberate full `NOPASSWD` host override, but this scoped fixed-query wrapper is
+still the least-privilege interface: it cannot run arbitrary SQL or shell. Do not
+replace it with `sudo sqlite3`, whose `.shell`/`.system` dot-commands provide a
+root shell. Defined in
 `modules/nixos/services/gotify-server.nix`.
 
 ```bash

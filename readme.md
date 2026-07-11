@@ -143,10 +143,10 @@ but it's nice that they all just work.
   remaining ones use either the `oci-containers` wrapper (autoupdate +
   autoheal via `homelab.podman`) or `mk-pg-container` (per-service
   Postgres in an isolated systemd-nspawn machine).
-- **AI integration** — `.mcp.json` for MCP servers (pfsense, unifi,
-  homeassistant, loki, mcp-nixos), a `claude-code` home-manager
-  module, fleet-wide Syncthing for the Claude Code conversation
-  archive.
+- **PolyAI integration** — one shared instruction file and skill tree for Claude
+  Code and Codex, generated Codex adapters for specialist agents and scoped MCP,
+  shared durable memory in Markdown/wiki/Forgejo, plus a flake check that rejects
+  adapter drift and context bloat.
 - **NFS watchdog** — services that depend on NFS mounts get restarted
   when the mount comes back from a network blip, instead of going
   zombie.

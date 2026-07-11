@@ -15,6 +15,7 @@ tfplan
 result
 result-*
 .cache/
+__pycache__/
 ha/esphome/secrets.yaml
 ha/esphome/.esphome/
 

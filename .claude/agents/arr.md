@@ -28,9 +28,10 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
 ## Where things live
 
 - **servarr** — NixOS VM on tower, LAN **192.168.1.4** (pfSense DHCP reservation, MAC
-  `52:54:00:5e:a1:04`). A **locked** fleet host (no passwordless sudo, root SSH off, NOT a tailnet
-  node — reached over the LAN / tower's `192.168.0.0/23` subnet route). Runs the *arr trio bound to
-  loopback behind nginx.
+  `52:54:00:5e:a1:04`). It retains `role = "locked"` for fleet deployment but has
+  a deliberate full `NOPASSWD` override for `abl030`; root SSH remains off. It is
+  not a tailnet node and is reached over the LAN / tower's `192.168.0.0/23`
+  subnet route. Runs the arr trio bound to loopback behind nginx.
 - **Radarr** `127.0.0.1:7878` (`/api/v3`) → `https://radarr.ablz.au` — movies.
 - **Sonarr** `127.0.0.1:8989` (`/api/v3`) → `https://sonarr.ablz.au` — TV.
 - **Prowlarr** `127.0.0.1:9696` (`/api/v1`) → `https://prowlarr.ablz.au` — **the indexer manager;

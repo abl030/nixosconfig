@@ -75,12 +75,13 @@ Lessons from provisioning `servarr` (a NixOS VM). Read before driving any VM con
 - **`tee` masks exit codes** — `nixos-anywhere … | tee log` reports tee's `0` even on failure. Read the log tail, not `$?`.
 - Paths: VM disks `/mnt/cache/domains/<vm>/vdisk1.img`; OVMF `/usr/share/qemu/ovmf-x64/OVMF_{CODE,VARS}-pure-efi.fd` (copy VARS → `/etc/libvirt/qemu/nvram/<uuid>_VARS-pure-efi.fd` per VM); ISOs `/mnt/user/isos/`. CPU `host-passthrough` gives nested virt (tower i7-7700K, `nested=Y`).
 
-## Running root commands inside the `servarr` NixOS VM (the break-glass path, 2026-06-22)
+## Running root commands inside the `servarr` NixOS VM
 
 `servarr` (NixOS VM on tower, dom name `servarr`) replaced the old `Downloader2`/genericvm and
-hosts the *arr stack (radarr/sonarr/prowlarr) **and** the nested `qbt` qBittorrent microVM. It's a
-**locked** fleet host: `abl030` has **no passwordless sudo** and **root SSH is off**. So the *only*
-root path from tower is the **qemu guest agent** (`services.qemuGuest.enable = true` is on):
+hosts the *arr stack (radarr/sonarr/prowlarr) **and** the nested `qbt` qBittorrent microVM. It keeps
+the fleet `locked` role but now has a deliberate full `NOPASSWD` override for `abl030`, so prefer
+`ssh servarr "sudo ..."` for ordinary operations. Root SSH remains off. The **qemu guest agent**
+(`services.qemuGuest.enable = true`) remains the tower-side break-glass path when guest SSH is down:
 
 ```sh
 # one-shot, capture output:

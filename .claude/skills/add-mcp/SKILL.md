@@ -1,7 +1,6 @@
 ---
 name: add-mcp
 description: Add an MCP server to the project and sync to all AI tools
-allowed-tools: Bash(python3 *), Read, Edit
 argument-hint: <name> <url-or-command>
 ---
 
@@ -24,9 +23,11 @@ Add a new MCP server to `.mcp.json` (the single source of truth) and sync to all
 
 4. Write the updated `.mcp.json`.
 
-5. Run the sync script to push to Codex:
+5. Regenerate and validate the Codex adapter:
    ```
-   python3 .claude/skills/sync-mcp/sync.py
+   python3 scripts/generate-ai-adapters.py
+   python3 scripts/generate-ai-adapters.py --check
    ```
 
-6. Report what was added and remind the user to restart Claude Code for the new MCP server to take effect.
+6. Report what was added and remind the user to start new Claude Code and Codex
+   sessions for the new project MCP server to take effect.

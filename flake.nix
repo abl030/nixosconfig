@@ -1180,8 +1180,18 @@
               ${./flake.lock} ${./flake.nix} || exit 1
             touch $out
           '';
+
+          # Claude Code and Codex share authored instructions, skills, agents,
+          # MCP declarations, and durable memory. Fail closed when a symlink is
+          # broken, a generated Codex adapter drifts, a skill is undiscoverable,
+          # or always-loaded context grows past its explicit budget.
+          # See docs/wiki/claude-code/poly-ai-shared-surfaces.md.
+          aiPortabilityCheck = pkgs.runCommand "ai-portability" {} ''
+            ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
+            touch $out
+          '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck nixpkgsFollowsCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck nixpkgsFollowsCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

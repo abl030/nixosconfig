@@ -1,6 +1,6 @@
 ---
 name: drift
-description: Detect configuration drift using hash-based verification
+description: Detect configuration drift using hash-based verification.
 ---
 
 # Configuration Drift Detection

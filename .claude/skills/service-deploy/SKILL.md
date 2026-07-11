@@ -10,11 +10,13 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
 
 ## Fleet Quick Reference
 
-| Host       | SSH alias | LAN IP        | Key services                        |
+| Host       | SSH alias | LAN IP        | Role                                |
 |------------|-----------|---------------|-------------------------------------|
-| proxmox-vm | doc1      | 192.168.1.29  | nix-serve(:5000), nix cache, CI     |
+| proxmox-vm | doc1      | 192.168.1.29  | Bastion, cache, control plane       |
 | doc2       | doc2      | 192.168.1.35  | Most homelab services               |
-| igpu       | igp       | 192.168.1.33  | Jellyfin, Plex, Tdarr               |
+| igpu       | igpu      | 192.168.1.33  | Media transcoding LXC               |
+| servarr    | servarr   | 192.168.1.4   | arr stack                           |
+| caddy      | cad       | 192.168.1.6   | Legacy appliance edge              |
 
 **doc1 port conflict:** `nix-serve` binds `127.0.0.1:5000`. Any service with default port 5000 will fail on doc1 — always use a different port.
 
@@ -22,7 +24,7 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
 
 1. **Check for port conflicts** on the destination host before touching config:
    ```bash
-   ssh <dest> "sudo ss -tlnp | grep :<port>"
+   ssh <dest> "ss -tln | grep :<port>"
    ```
 
 2. **Update config** — disable on source, enable on destination:
@@ -50,14 +52,13 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    # ALWAYS verify hostname before rebuilding — wrong hostname = wrong config silently applied
    ssh <dest> "hostname"     # must match #<dest-hostname>
 
-   # EVERY host is LOCKED except doc1 (forgejo#2 — homelab.fleetDeploy.role
-   # defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
-   # but doc1, so `ssh <h> "sudo fleet-update"` FAILS on all siblings.
-   #  * doc2, igpu, hermes, wsl, cache (LOCKED siblings) — deploy FROM doc1:
+   # Every host defaults to role="locked"; doc1 is the sole bastion. Deploy
+   # full NixOS siblings FROM doc1 through the forced-command path:
+   #  * doc2, igpu, servarr, caddy, wsl:
    #      fleet-deploy <dest>     # forced-command → nixos-upgrade, polkit
    #    async (--no-block): no live build stream → VERIFY after (rev/freshness/Loki).
    #    (wsl resolves to nixos@<windows-portproxy>; epi/framework: owner/nightly.)
-   #  * doc1 itself: sudo fleet-update   (local; the only passwordless host)
+   #  * doc1 itself: sudo fleet-update   (local)
    fleet-deploy <dest>                 # destination FIRST (locked sibling)
    ssh <source> "hostname"   # must match #<source-hostname>
    fleet-deploy <source>     # source second
@@ -70,14 +71,11 @@ Covers the full lifecycle: config change → deploy → verify end-to-end. Never
    `nixos-rebuild switch --flake .#<host>` from a tree fast-forwarded to Forgejo
    tip. Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md.
 
-   > **LOCKED SIBLINGS (doc2, igpu, hermes, wsl, cache) — sudo is restricted.**
-   > Only these `sudo` work there: read-only `podman ps/inspect/logs/top/...`,
-   > `systemctl stop nixos-rebuild-switch-to-configuration.service`, `systemctl
-   > restart podman-*`. `sudo journalctl/cat/rm/ss/systemctl-status` and arbitrary
-   > `sudo` will PROMPT FOR A PASSWORD AND FAIL (doc2/hermes/wsl have none). For
-   > the `ssh <host> "sudo ..."` verification/DNS examples below: read logs via
-   > **Loki** (logs.ablz.au), and any root mutation goes via `fleet-deploy`
-   > (signed) or the host console.
+   > **Sudo posture is separate from the fleet role.** doc2 and servarr have
+   > deliberate full `NOPASSWD` host overrides. igpu and wsl retain only the
+   > narrow read-only/container recovery allowlist; use Loki for their privileged
+   > logs and deploy config fixes through `fleet-deploy`. Read the target host
+   > config before using any `sudo` verification example below.
 
 4. **DNS record ownership (the #202 race is fixed in code, but verify anyway).**
    Each Cloudflare A record now carries `comment = "managed-by:<host>"`, and

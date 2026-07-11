@@ -22,12 +22,9 @@
   # leaving everything codex writes intact. Mirrors the shared
   # programs.mcp.servers.mcp-nixos used by Claude.
   #
-  # MANUAL STEP (compound-engineering on Codex): Codex's module has no plugin
-  # option and the install is interactive — register the marketplace, install
-  # via `/plugins`, then `bunx @every-env/compound-plugin` to add the agents
-  # (Codex's plugin spec doesn't install custom agents yet, per upstream).
-  # Keep aligned with the Claude CE plugin version (currently 3.9.0).
-  # Sources: EveryInc/compound-engineering-plugin README; OpenAI Codex plugins docs.
+  # Codex plugins remain runtime-managed in ~/.codex/config.toml; Home Manager
+  # must not own or reset them. Project skills and custom agents are shared from
+  # the repository instead; see docs/wiki/claude-code/poly-ai-shared-surfaces.md.
   programs.codex = {
     enable = true;
     # Sadjow's fast-updating community flake (via overlay).

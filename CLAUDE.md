@@ -1,428 +1,236 @@
-# !! CRITICAL: CHECK HOSTNAME BEFORE REBUILD !!
-#
-# BEFORE running `nixos-rebuild switch`, ALWAYS run `hostname` first.
-# Use the ACTUAL hostname in the flake URI: --flake .#<actual-hostname>
-# NEVER assume which host you are on. NEVER hardcode a hostname.
-# Getting this wrong rebuilds the WRONG system config onto the current machine.
-#
-
-# !! CRITICAL: SOURCE OF TRUTH IS FORGEJO; DEPLOY VIA fleet-update !!
-#
-# As of the signed-fleet-deploys cutover (#235), the write+fetch root is FORGEJO
-# (git.ablz.au/abl030/nixosconfig), and signed-deploy enforcement is ON. Every
-# fleet host runs the verified `fleet-update` path nightly: it fetches Forgejo,
-# verifies every commit in range is SSH-signed by a key in hosts.nix, then builds
-# pinned to that verified rev. Running closures track "tip of Forgejo master last
-# night" with a HOT binary cache.
-#
-# GitHub is a READ-ONLY mirror/fallback maintained from Forgejo by doc1's
-# `github-nixosconfig-mirror.timer`. Do NOT deploy from
-# `github:abl030/nixosconfig` in normal operations — Forgejo remains the write
-# root and verified deploy source. Pushing dev commits goes to FORGEJO
-# (origin = git.ablz.au), never GitHub.
-#
-# EVERY host is LOCKED except doc1 (forgejo#2 — `homelab.fleetDeploy.role`
-# defaults to "locked"; only doc1 is "bastion"). NO passwordless sudo anywhere
-# but doc1. HOW to deploy:
-#   * doc2, igpu, hermes (LOCKED siblings) — `ssh <h> "sudo fleet-update"`
-#     FAILS (no passwordless sudo). Deploy from doc1 with:   fleet-deploy <host>
-#     (forced-command key → nixos-upgrade, polkit, no sibling sudo). It's async
-#     (--no-block): NO live build stream, so VERIFY after (rev / freshness /
-#     service health). A stuck doc2 switch: `sudo systemctl stop
-#     nixos-rebuild-switch-to-configuration.service` (it IS in the locked allowlist).
-#   * doc1 (the bastion — the ONLY passwordless host) — `sudo fleet-update` locally.
-#   * wsl (LOCKED) — also a `fleet-deploy wsl` target (reached at the Windows
-#     port-forward; needs the widened triggerFrom that lands on its next nightly).
-#     Otherwise nightly auto-update or `wsl -u root fleet-update`. Break-glass:
-#     `wsl -u root` from Windows. Do NOT `ssh wsl "sudo ..."` — no passwordless sudo.
-#   * epi, framework (LOCKED workstations) — the AGENT does not deploy these (they
-#     roam / are usually off; they DO accept the trigger but aren't reliable
-#     targets). Their OWNER deploys interactively (`sudo nixos-rebuild`/`fleet-update`,
-#     types the password) or they ride the nightly auto-update. Do NOT
-#     `ssh epi "sudo ..."` — it hangs on a password prompt.
-# Full model: docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md
-#
-# Only `nixos-rebuild switch --flake .#<host>` from a local tree for break-glass,
-# and first `git fetch && git status -sb` + fast-forward to Forgejo tip — a
-# behind checkout downgrades the world (older flake.lock) and misses the warm
-# cache. NEVER rebuild from a checkout behind origin, and NEVER deploy from the
-# frozen `github:` flake.
-#
-
-# !! CRITICAL: DEV BOXES CANNOT PUSH — RELAY THROUGH doc1 (relay-push skill) !!
-#
-# By design, dev boxes (epi, framework) hold NO Forgejo push token. doc1 is the
-# SOLE writer to master. Reason: the fleet auto-deploys Forgejo master nightly and
-# dev boxes sign by default with a hosts.nix key — so a push token on a dev box
-# turns one popped box into a signed, auto-deployed FLEET TAKEOVER. Signing does
-# NOT defend this (the key is on the same box). So the gate is a HUMAN reviewing
-# the diff on doc1 before the push.
-#
-# Do NOT "fix" a dev box that "can't push" by installing a token on it. To land a
-# dev box's commits: on doc1, run the `relay-push` skill — it SSH-fetches the
-# box's commits, verifies signatures, rebases onto current master, security-
-# reviews each diff against least-privilege, and pushes ONLY after you say "go".
-# An AUTO-relay buys zero security; the human-reads-the-diff step IS the security.
-#
-# Gotchas the skill encodes: inspect each commit individually (the range diff vs
-# master is a staleness MIRAGE when the box is behind — looked like 1062 deletions
-# for a 1-file change); non-fast-forward is normal (rebase, never force); dev-box
-# SSH may need the LAN IP (alias/tailscale can time out). wsl keeps its own token
-# (USB FIDO can't enter WSL); doc1's bot is the one unattended writer.
-#
-# Endgame (planned, no hardware yet): a carried FIDO key makes push require a
-# physical TOUCH (sk-ssh over SSH:2222; fetch stays HTTPS), retiring the relay.
-# Full model + rationale: docs/wiki/infrastructure/dev-box-gated-push.md
-#
-
-# !! INTERACTION STYLE !!
-#
-# DO NOT use AskUserQuestion / the structured question UI. The user dislikes
-# it — just chat in plain text. Present decisions as a conversational message
-# and let them reply normally.
-#
-# When there are multiple decisions to make, present them ONE AT A TIME and
-# wait for an answer before moving to the next. Only bundle questions when
-# they are very small or tightly linked.
-#
-
-# !! CRITICAL: DEPLOY REMOTELY VIA fleet-deploy / fleet-update, NOT --target-host !!
-#
-# To deploy current verified config to a remote host:
-#   1. Push your SIGNED commit to FORGEJO (origin = git.ablz.au) first.
-#   2. LOCKED siblings (doc2, igpu, hermes, wsl): from doc1 run
-#      `fleet-deploy <host>` (wsl reached at the Windows port-forward). doc1
-#      itself: `sudo fleet-update` locally. Locked workstations (epi, framework):
-#      the AGENT can't deploy — owner deploys interactively / nightly. Nothing is
-#      passwordless except doc1, so `ssh <host> "sudo fleet-update"` FAILS on all
-#      siblings now.
-#
-# Both fetch Forgejo, verify every commit in range is signed and descends from the
-# running rev, then build locally from a root-owned verified clone — nothing
-# transits your laptop or the SSH link. `fleet-deploy <host>` is a forced-command
-# SSH trigger (polkit, no sibling sudo) — async, so confirm the result afterward
-# (rev/freshness/Loki), there's no live build stream. Works over Tailscale / VPN.
-#
-# Do NOT deploy `--flake github:abl030/nixosconfig#<host>` in normal operations —
-# GitHub is a read-only mirror/fallback, not the write/fetch root. Do NOT use
-# `--target-host` (builds here, pushes over SSH —
-# slow, leaks uncommitted local work into the closure). The service-deploy skill
-# has the full runbook; always follow it.
-#
-
-# !! MECHANICAL RECIPE: author → sign → push → deploy FROM doc1 !!
-#
-# These are settled facts — do NOT re-derive them each session:
-#
-# * PUSH (doc1 has NO https cred for git.ablz.au; the gh helper only covers
-#   github.com). Push with the abl030-owned (0400) nixbot token as a header —
-#   no sudo, token never in argv/remote:
-#     export GIT_CONFIG_COUNT=1 \
-#       GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
-#       GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
-#     git push origin HEAD:master
-#   (Same header auth rolling-flake-update uses. Memory: forgejo-push-from-doc1.)
-#
-# * SIGNING is already configured on doc1 and TRUSTED. user.signingkey =
-#   ~/.ssh/id_ed25519_git_sign (comment git-signing:proxmox-vm), commit.gpgsign
-#   = true, gpg.format = ssh; its pubkey is in hosts.nix, so fleet-update accepts
-#   it. `git commit` signs automatically — VERIFY `git log -1 --format=%G?` → `G`
-#   BEFORE pushing (signed deploys are enforced fleet-wide; an unsigned commit
-#   loud-fails the host's nightly nixos-upgrade).
-#
-# * LOCKED-HOST sudo is role-driven, NOT guarded by a flake check. `wheelNeeds
-#   Password` is set true for role="locked" in base.nix (via homelab.fleetDeploy);
-#   nothing ASSERTS a locked host can't have passwordless sudo. You can't flip a
-#   host to role="bastion" to get it (fleetBastionRoleCheck asserts EXACTLY ONE
-#   bastion = doc1). To grant it on a specific locked box, override directly in
-#   that host's config: `security.sudo.extraRules = lib.mkAfter [{ users=["abl030"];
-#   commands=[{command="ALL"; options=["NOPASSWD"];}]; }];` (mkAfter → renders
-#   last → wins, since sudoers is last-match). Example live on hermes.
-#
-
-# !! CRITICAL: NEVER `nix build` ON WSL !!
-#
-# When `hostname` reports `wsl`, do NOT run `nix build .#nixosConfigurations.<host>...`
-# to validate a remote-host change. WSL pulls the full closure (tens of GB) from
-# the binary cache over a slow link — it will hang or burn bandwidth for nothing,
-# and the build artefact isn't used anywhere (the remote host rebuilds from
-# GitHub via the deploy pattern above).
-#
-# To validate a change for a remote host from WSL:
-#   - `nix flake check` (eval-only, no closure fetch) for syntax/type errors, OR
-#   - push and let the remote host build it during `nixos-rebuild switch --refresh`.
-#
-
-# !! SESSION START: ALWAYS RUN THESE FIRST !!
-#
-# At the START of every conversation, run `hostname` and `date` before doing
-# anything else. This establishes which machine you are on and the current time.
-# Do this silently — no need to announce it, just know your context.
-#
-
-# !! CRITICAL: AUDIT FOR LEAST PRIVILEGE !!
-#
-# This repo is moving to least-privilege bit by bit. Anything you add or
-# touch — modules, scripts, configs, deploy steps — gets a privilege and
-# blast-radius audit before commit. Two threat models, both assumed:
-# external probe (LAN, internet, Tailscale) and post-compromise lateral
-# movement (upstream supply chain, evil maid, one container popped).
-#
-# The blast radius of a single failure must stay bounded. If a change
-# touches auth, secrets, image trust, network exposure, file ownership,
-# or shared resources — flag it, don't paper over it.
-#
-# Concrete patterns / anti-patterns / checklist live in
-# `docs/wiki/nixos-service-modules.md`. Outstanding work is tracked
-# in issue #232; new findings get appended there.
-#
-
-# !! NO SCOPE-SPLITTING TO DEFER WORK !!
-#
-# When an issue or task contains multiple related items, tackle ALL of
-# them in one session. Do NOT propose splitting items out into
-# follow-up issues "for later" — follow-ups accumulate, never get
-# prioritised, and the original work stays half-finished forever.
-#
-# Force a decision on every item in scope, even if some parts will
-# land in multiple PRs over a few days. "Different shape of work" or
-# "outside the module" is not a reason to defer — it's a reason to
-# brainstorm harder. Genuinely blocked items get an explicit blocker
-# named in the issue, not a sibling-issue dump.
-#
-
-# !! CRITICAL: DO THE MIGRATION, DON'T CODE A DEFERRAL MACHINE !!
-#
-# When the real task is a data/service migration, perform the migration during
-# the work session. Do NOT replace it with runtime cutover guards, approval
-# JSON, rollback state machines, or "operator must later..." paths unless the
-# user explicitly asks to stage instead of migrate.
-#
-# Safety belongs in preflight checks, backups when needed, verification, and a
-# clear rollback command — not in permanent code that exists only because the
-# migration was deferred. If the system is already live and verified, remove
-# migration scaffolding before calling the work complete.
-#
-
-# Repository Guidelines
-
-This file provides guidance to AI coding assistants working with this repository.
-It is the single source of truth for both Claude Code (CLAUDE.md) and Codex (AGENTS.md via symlink).
-
-## Repository Overview
-
-This is a flake-based NixOS and Home Manager configuration managing a homelab infrastructure. The repository uses a custom configuration factory pattern to generate both full NixOS systems and standalone Home Manager configurations from a single host definition file (`hosts.nix`).
-
-## Core Architecture
-
-### Configuration Factory Pattern
-
-The heart of this repo is `nix/lib.nix`, which provides two factory functions:
-- `mkNixosSystem`: Creates full NixOS configurations (machines with `configurationFile` in `hosts.nix`)
-- `mkHomeConfiguration`: Creates standalone Home Manager configs (machines without `configurationFile`)
-
-Both functions automatically inject:
-- Standard module sets (NixOS, Home Manager, Sops)
-- Special arguments: `inputs`, `hostname`, `allHosts`, `system`, `flake-root`, `hostConfig`
-- Global overlays and registry settings
-
-### Host Definition System
-
-`hosts.nix` is the **single source of truth** for fleet identity and trust. Each host entry defines:
-- **Identity**: hostname, sshAlias, user, homeDirectory
-- **Trust**: publicKey (SSH host key), authorizedKeys (who can access)
-- **Config**: paths to configuration.nix and home.nix files
-- Optional: initialHashedPassword, sudoPasswordless
-
-The presence of `configurationFile` determines whether a host is a full NixOS system or Home Manager-only.
-
-### Module Structure
-
-**NixOS modules** (`modules/nixos/`):
-- `profiles/base.nix`: Base profile automatically imported for all NixOS hosts
-- Custom modules under `homelab.*` namespace:
-  - `homelab.ssh`: SSH server configuration
-  - `homelab.tailscale`: Tailscale mesh networking
-  - `homelab.update`: Automated system updates and garbage collection
-  - `homelab.nixCaches`: Nix cache client configuration
-  - `homelab.cache`: Nix cache server (for doc1)
-  - `homelab.ci`: CI/CD including GitHub Actions runners and rolling flake updates
-
-**Home Manager modules** (`modules/home-manager/`):
-- Registered in `modules/home-manager/default.nix`
-- Display, shell, services, and multimedia configurations
-- Automatically imported for both NixOS (via HM module) and standalone HM configs
-
-## Secrets Management
-
-Sops-nix + Age. Config: `secrets/.sops.yaml`. **Per-host scoped (#234):** a secret under `secrets/hosts/<H>/` is decryptable only by host `<H>` plus two universal keys — a cold **break-glass** key (recovery only; Bitwarden + printed paper, on no host) and a warm **editor** key (doc1 `~/.config/sops/age/keys.txt`, used to edit/re-key from the bastion). Shared secrets get explicit multi-host/fleet-wide rules; a **fail-closed** `.*` fallback means an unscoped secret deploys nowhere until given a rule. `sopsRecipientScopeCheck` (a flake check) enforces the per-host invariant. Re-key with `sops updatekeys` run from **inside `secrets/`** (config discovery uses CWD). There is no "master" recipient — the old fleet-key-as-master was retired. Full model, recovery, and rollback: [docs/wiki/infrastructure/sops-break-glass-recovery.md](docs/wiki/infrastructure/sops-break-glass-recovery.md).
-
-## Troubleshooting
-
-- **`failed to insert entry: invalid object specified`** during `nix flake update`: Corrupted fetch cache. Fix with `rm -rf ~/.cache/nix/` and retry. This is safe — it's only a fetch cache, not the store. Common issue, happens periodically.
-- **`path '«github:…?narHash=…»/flake.nix' does not exist`** during `fleet-update`/`nixos-rebuild` (a *locked* input — not a flake bug): corrupt local **store**, not cache. A path is registered valid in the Nix DB but its content vanished from disk (classic after an abrupt power loss / low-battery shutdown; usually many paths at once). A cache wipe does NOT fix it, and `nix-store --delete` reports "still alive". Fix on the host: `sudo NIX_REMOTE= nix-store --verify --repair && sudo fleet-update` (existence-only, fast; add `--check-contents` only if a build still fails — it hashes the whole store). `fleet-update` now self-heals this automatically (clear-cache + store-repair + one retry). Full model: `docs/wiki/infrastructure/signed-fleet-deploys.md` → *Self-Heal*.
-
-## Issue and TODO Tracking
-
-- Larger work items are tracked in **Forgejo issues** on this repo (`https://git.ablz.au/abl030/nixosconfig/issues`). GitHub issues are closed and disabled on the read-only mirror; do not use `gh issue *` for this repo.
-  - File/edit Forgejo issues via the **REST API** (`https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues`); `gh` does NOT work against Forgejo. The doc1 agent has a scoped `nixbot` `write:issue` token (sops-encrypted, doc1-only) for this — see `.claude/memory/forgejo-issue-token-doc1.md`.
-  - Old `github.com/abl030/nixosconfig/issues/<n>` links in historical docs are closed archival references only. New tracking, comments, and closeout go to Forgejo.
-- Lightweight in-repo TODOs live in `docs/todo/*.md`. Check there before starting new work.
-- Historical issues from the retired `bd` (beads) tracker are archived in `docs/beads-archive.md` — read-only reference, do not try to resurrect the `.beads/` directory.
-
-## Wiki / Knowledge Base
-
-`docs/wiki/` is our internal knowledge base — written **by AI agents, for AI agents**. It captures research findings, architectural decisions, upstream bugs, workarounds, and operational knowledge that doesn't belong in code comments or CLAUDE.md.
-
-**Structure:**
-- `docs/wiki/claude-code/` — Claude Code features, plugins, skills, bugs, workarounds
-- `docs/wiki/infrastructure/` — Network, VMs, storage, monitoring
-- `docs/wiki/services/` — Container stacks, integrations, service-specific docs
-
-**For external agents** (paperless, accounting/beancount from `git.ablz.au/abl030/agents`): start at [`docs/wiki/agent-operations.md`](docs/wiki/agent-operations.md) — service module map, edit/deploy workflow, secrets layout.
-
-**Rules:**
-- Update the wiki as you go. When you research something, document it.
-- In modules, agents, and config files, add comment pointers to relevant wiki docs (e.g. `# See docs/wiki/claude-code/skills-in-subagents.md`). This creates a breadcrumb trail so future sessions can find context fast.
-- Wiki docs should include: date researched, status (working/broken/upstream bug), issue links, what we tried, what works, and when to revisit.
-- Don't duplicate CLAUDE.md content into the wiki — CLAUDE.md is for rules and instructions, the wiki is for research and rationale.
-
-## Stabilization Rules
-
-- Isolate assets/scripts/config sources with `builtins.path` or `writeTextFile` to avoid flake-source churn.
-- Avoid relying on module import order for list options; use `lib.mkOrder` when order must be stable.
-
-### Known Eval Warnings (upstream, safe to ignore)
-
-- `proxmox.qemuConf.diskSize` renamed to `virtualisation.diskSize` — upstream nixpkgs proxmox-image module sets a default using the old option name
-
-## Gotify Notifications
-
-If asked, send a Gotify ping before requesting human input and include a brief summary of what is needed.
-
-## Debug Session Notes
-
-Verify upstream with `--resolve` before changing nginx/Cloudflare.
-
-## Standard Kuma Health Endpoints
-
-Monitor URL conventions and defaults are documented inline in `modules/nixos/services/uptime-kuma.nix` and per-service modules under `modules/nixos/services/`.
-
-## Coding Style
-
-- Nix formatting is enforced via Alejandra (`nix fmt`); let the formatter decide layout.
-- Run deadnix for unused declarations and statix for style/lint issues.
-- Prefer explicit, descriptive module names under `modules/nixos/` and `modules/home-manager/`.
-- Keep host names consistent with `hosts.nix` and `hosts/<name>/`.
-- If adding scripts, ensure shellcheck warnings are addressed or justified.
-- There is no separate unit test suite; validation is via `nix flake check`.
-
-## Commit & PR Guidelines
-
-- Follow Conventional Commits style like `fix(pve): ...`; keep messages short and scoped.
-- If a change is operational or host-specific, mention the host, module, or subsystem in the subject.
-- PRs should describe impact and any deployment notes.
-
-## Memory Discipline
-
-MEMORY.md (auto memory) is injected into every system prompt — keep it under 15 lines for critical technical patterns only.
-
-- Use **Forgejo issues** for decisions, rationale, workflow preferences, research findings, and feature progress (see "Issue and TODO Tracking").
-- Use **MEMORY.md** for shell/env quirks needed every session, "never do X" safety rules, and one-line pointers to relevant Forgejo issues or wiki pages.
-- The `docs/wiki/` tree is the long-form knowledge base for research and architectural context.
-
-Do NOT duplicate rationale into MEMORY.md — point to the issue or wiki page instead.
-
-## AI Tool Integration
-
-### MCP Servers
-
-MCP servers are defined in `.mcp.json` (source of truth). Use `/add-mcp` to add new servers.
-
-### Loki / LGTM stack
-
-Logs, metrics, and traces live on **doc2** (LGTM: Loki + Grafana + Tempo + Mimir). See `docs/wiki/services/lgtm-stack.md` for architecture, gotchas, and migration history.
-
-Agent-facing query paths:
-- **Grafana Explore:** https://logs.ablz.au — interactive log/metric browsing.
-- **Loki HTTP API:** `https://loki.ablz.au/loki/api/v1/query_range?query={host="<h>"}&start=<RFC3339-or-ns>&end=<…>&limit=<n>`.
-- **Label values:** `curl -s https://loki.ablz.au/loki/api/v1/label/host/values | jq .data` → returns the current ingesting hosts.
-
-Usage notes:
-- **Time formats**: Use RFC3339 (`2026-02-02T04:00:00Z`) in queries. Loki also accepts nanosecond epochs.
-- Default query range is 1 hour; compute a start timestamp for longer windows.
-- Current `host` labels: `doc2`, `igpu`, `proxmox-vm` (doc1), `framework`, `epimetheus`, `wsl`, `tower` (Unraid), `pfsense` (via syslog), `prom` (alloy on the Proxmox hypervisor; deployed via `ansible/common/monitoring.yml`).
-- Container logs use the `container` label (e.g. `{host="proxmox-vm", container="immich-server"}`).
-- **`rolling-flake-update.service`** runs on doc1 (`proxmox-vm`) nightly at 23:00 AWST (15:00 UTC). It is a systemd unit (NOT a GitHub Action). Query with `{unit="rolling-flake-update.service", host="proxmox-vm"}` using an RFC3339 `start` before 15:00 UTC of the relevant day.
-- The former `loki-mcp` server was removed in April 2026 — query Loki directly via HTTP or Grafana.
-
-### Home Assistant, pfSense, UniFi
-
-These MCPs are **subagent-only** — defined in `.claude/agents/` to avoid context bloat. Spawn the appropriate agent when you need to interact with them:
-- `homeassistant` — Home automation, entities, automations, media playback
-- `pfsense` — Firewall rules, NAT, VPN, DHCP, DNS
-- `unifi` — Network devices, clients, WLANs, port profiles
-
-These agents run on **doc1**, where their credentials live. As of #234 the MCP control creds deploy to `/run/secrets/mcp/` on **doc1 only** (`homelab.mcp` defaults off fleet-wide; doc1 opts in) — they used to land on every host. doc2's metrics exporter uses a separate **read-only** pfSense key (`metrics-exporter-ro`), not the full-control token.
-
-Full HA usage guide incl. Music Assistant playback and volume quirks lives in `docs/wiki/services/` (search for `home-assistant`).
-
-### mcp-nixos
-
-[mcp-nixos](https://github.com/utensils/mcp-nixos) prevents hallucinations about NixOS:
-- Provides real-time access to 130K+ packages and 22K+ NixOS options
-- Validates package names and option paths against official APIs
-- Eliminates guesswork about deprecated options or renamed packages
-
-## Fleet Overview
-
-### Current Hosts
-
-- **epimetheus**: Main workstation (desktop, full NixOS)
-- **framework**: Laptop (Framework 13, full NixOS with hibernation)
-- **caddy**: NixOS LXC (CT 108, `192.168.1.6`) on prom — runs the *legacy-edge* Caddy reverse proxy for appliance FQDNs only (apollo/plex/pihole/cockpit/brother/…). unifi + msn were migrated OFF it to doc2 (2026-07-03); see [docs/wiki/services/unifi-controller.md](docs/wiki/services/unifi-controller.md). (Was an Ubuntu VM; → LXC in b34bbc6e.)
-- **wsl**: WSL instance (full NixOS with NixOS-WSL)
-- **proxmox-vm** (doc1): Main services VM on Proxmox prom
-- **doc2**: Secondary services VM on Proxmox prom (IPs: 192.168.1.35/ens18, 192.168.1.36/ens19). Hosts most homelab services: immich, seerr/overseerr, cratedigger, slskd, musicbrainz, discogs, paperless, mealie, kopia, uptime-kuma, unifi (network controller), msn, etc. All state on virtiofs (`device = "containers"` from prom ZFS). Auto-updates with reboot. **Dual-homed on the LAN: `.35`/ens18 + `.36`/ens19 both on `192.168.1.0/24`** — outbound LAN packets can egress from `.36`, which bit UniFi device-inform (see [services/unifi-controller.md](docs/wiki/services/unifi-controller.md)).
-- **igpu**: Media transcoding VM on Proxmox prom with AMD iGPU passthrough
-- **hermes**: Dedicated, locked-down VM on prom running the Hermes Agent (Nous Research) OCI container — reached via Telegram, keyless re: the fleet. See `docs/wiki/services/hermes-agent.md`.
-
-*(The `dev` and `sandbox` VMs were decommissioned in #234 — removed from `hosts.nix`. Live fleet = the 8 hosts above.)*
-
-### Hypervisors
-
-- **prom** (192.168.1.12, AMD 9950X): Proxmox host running most VMs (doc1, doc2, igpu, …). Manage via the Proxmox web UI; no in-repo automation.
-- **tower** (192.168.1.2): Unraid host (7.3.0) — NAS + some KVM VMs + docker stacks, incl. **Plex** (its music library is an NFSv3 mount from prom: `192.168.1.12:/nvmeprom/containers/Music` → `/mnt/remotes/192.168.1.12_Music`, a `hard` mount, so it **hangs if prom is down** — a stalled music mount usually means prom, not tower). As of 2026-06-22 tower is a **standard fleet SSH member**: `ssh root@tower` from doc1 with the fleet key (native OpenSSH, key-only root; Tailscale plugin `--ssh` is disabled). Manage it via the **`tower` subagent** (`.claude/agents/tower.md`). Full SSH/flash model + reboot recovery: `docs/wiki/infrastructure/tower-unraid-fleet-ssh.md`.
-
-### Network & DNS Topology (non-obvious — read before debugging)
-
-- **`192.168.1.1` and `100.123.61.111` are the same box: pfSense.** LAN interface and Tailscale interface. Logs that mention both are not describing two failures.
-- **pfSense runs on bare metal — a small dedicated appliance in the cupboard (Protectli FW4C, ZFS-on-root).** It is NOT a VM on `prom`. No PBS or vzdump, but `zfs send` works fine: syncoid pulls daily from pfSense to `nvmeprom/backup/pfsense` on prom, doc2 mounts that RO via virtiofs and ships to kopia-mum (Synology); the Wasabi/photos copy was dropped 2026-05-26 (appliance backups don't fit the photos bucket's economics). Plus ACB at Netgate for config-only. See [docs/wiki/infrastructure/pfsense-backup.md](docs/wiki/infrastructure/pfsense-backup.md) for the full architecture, restore procedures (incl. the emergency "spin pfSense as a VM on prom" play), and the prom-side files that are NOT in this repo.
-- **pfSense's unbound is the single recursive DNS resolver for the entire fleet.** Every NixOS host's `tailscaled` forwards DNS upstream to pfSense; pfSense forwards out to Cloudflare DoT (`1.1.1.2`/`1.0.0.2`). If pfSense unbound stops, the whole fleet loses non-MagicDNS resolution.
-- **`tailscaled` uses TCP/53 for forwarded queries in this environment** (empirical, despite public Tailscale docs suggesting UDP-only). Each NixOS host holds ~4 persistent ESTABLISHED TCP/53 connections to pfSense at idle. Check with `sudo ss -tnp '( dport = :53 )'` on any fleet host.
-- **ntopng runs on pfSense, NOT on doc2.** doc2 only runs the Go `ntopng-exporter` (HTTP scraper, no DNS). ntopng tuning (e.g. `--dns-mode`) is pfSense-side.
-- **pfSense logs ship to doc2 Loki** as of 2026-05-23: `{host="pfsense", app=<program>}` — observed apps include `unbound`, `kea2unbound`, `filterlog`, `filterdns`, `nginx`, `kea-dhcp4`, `kernel`, `php`, `syslogd`. pfBlockerNG DNSBL blocks come through as `app="unbound"` with `[pfBlockerNG]` prefix.
-- See [docs/wiki/infrastructure/pfsense-dns-resolver.md](docs/wiki/infrastructure/pfsense-dns-resolver.md) for tunables, restart commands, and footguns (kea2unbound reload-per-lease, ntopng restart-script gotcha, pfBlockerNG `dnsbl_python` mode, `serve-expired` RFC 8767 setup). Past incident: [docs/wiki/infrastructure/dns-saturation-incident-2026-05-22.md](docs/wiki/infrastructure/dns-saturation-incident-2026-05-22.md).
-- **pfBlockerNG IP feeds can false-positive CDN anycast IPs** (Fastly/Cloudflare/Akamai), silently blocking legit destinations LAN-wide — e.g. it blocked `cache.nixos.org` for hours on 2026-06-07. **Diagnostic rule: when something is reachable from the whole world but not from us, test it FROM pfSense itself first** — if pfSense can reach it but LAN clients can't, it's our end (a rule / pfBlockerNG / policy route), NOT the ISP. Don't theorise about ISP/BGP before running that one test. Full RCA + suppression-list how-to: [docs/wiki/infrastructure/pfblockerng-fastly-block-incident-2026-06-07.md](docs/wiki/infrastructure/pfblockerng-fastly-block-incident-2026-06-07.md). The mirror now fails over regardless: [docs/wiki/infrastructure/nix-mirror-failover.md](docs/wiki/infrastructure/nix-mirror-failover.md).
-
-## Containers
-
-The rootless `podman compose` stack system was retired on 2026-04-16 — every stack became a native NixOS module under `modules/nixos/services/`. For service-adjacent containers that remain (tdarr-node, youtarr, netboot, jdownloader2, the tailscale-share sidecars), use:
-
-- **`virtualisation.oci-containers.containers.<name>`** — standard nixpkgs OCI wrapper, driven by `homelab.podman` (rootful) for autoupdate + autoheal.
-- **`modules/nixos/services/tailscale-share.nix`** — per-service inter-tailnet pinhole pattern (ts sidecar + caddy sidecar, each a dedicated tailnet node).
-- **`modules/nixos/lib/mk-pg-container.nix`** — isolated PostgreSQL via systemd-nspawn when a service needs its own DB.
-
-See `docs/wiki/services/retired-container-stacks.md` for what was retired and how to recover a stack from git history if needed. See `docs/wiki/nixos-service-modules.md` for the service hierarchy (upstream module > custom module > OCI container).
-
-## Special Configurations
-
-Host-specific details for doc1, igpu, and framework live in their respective `hosts/<name>/configuration.nix` and `hosts/<name>/home.nix` files.
-
-## Session Completion
-
-When work is committed, push it. `git pull --rebase && git push` is pre-authorised in this repo — don't ask, don't leave commits stranded locally, don't say "ready to push when you are". If push fails, resolve and retry.
-
-## Issue Tracking
-
-Issues cover both real bugs/features and long-running session work that spans multiple conversations. **All active issue tracking is now on Forgejo** (`git.ablz.au`, via the REST API + the doc1 agent's scoped token — see "Issue and TODO Tracking"). GitHub issues are closed/disabled on the read-only mirror; old GitHub issue links are archival references only. Historical beads issues are read-only in `docs/beads-archive.md`.
+# NixOS Configuration Agent Guide
+
+This file is the shared project instruction source for Claude Code and Codex.
+`AGENTS.md` must remain a symlink to it. Keep this guide concise; put procedures
+in skills and put rationale or changing operational knowledge in `docs/wiki/`.
+
+## Session Start
+
+Before doing anything else, silently run `hostname` and `date`. Then read
+`.claude/memory/MEMORY.md` unless the client already injected it. This establishes
+the current machine, time, and shared cross-agent memory.
+
+Before any `nixos-rebuild switch`, run `hostname` again and use the actual host in
+`--flake .#<actual-hostname>`. Never assume or hardcode the rebuild target.
+
+## Non-Negotiable Safety
+
+### Source, Signing, and Deployment
+
+- Forgejo (`git.ablz.au/abl030/nixosconfig`) is the write and verified-deploy
+  root. GitHub is a read-only mirror/fallback; never push to it or deploy its
+  `github:` flake in normal operations.
+- Fleet deployment accepts only commits descending from the running revision and
+  SSH-signed by a key trusted in `hosts.nix`. Verify a new commit with
+  `git log -1 --format=%G?` and require `G` before pushing.
+- Never use `--target-host`. It moves local/uncommitted state over SSH and bypasses
+  the verified local-build path.
+- From doc1, deploy a full NixOS sibling with `fleet-deploy <host>`; it starts the
+  remote verified update asynchronously through a forced-command key. Verify the
+  resulting revision, freshness, and service health afterward.
+- Deploy doc1 locally with `sudo fleet-update`.
+- Do not deploy roaming workstations `epimetheus` or `framework`; their owner
+  deploys interactively or they use the nightly update.
+- Local-tree rebuilds are break-glass only. First fetch Forgejo and confirm the
+  checkout is not behind origin; an old checkout downgrades the fleet and misses
+  the warm cache.
+- Full deployment model and recovery commands:
+  `docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md` and
+  `docs/wiki/infrastructure/signed-fleet-deploys.md`.
+
+On doc1, Forgejo push authentication uses the `abl030`-owned 0400 nixbot token as an
+HTTP header, never in argv or the remote URL:
+
+```bash
+export GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
+  GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
+git push origin HEAD:master
+```
+
+Dev boxes (`epimetheus`, `framework`) intentionally hold no Forgejo push token.
+Never install one to fix a failed push. Land their work from doc1 with the
+`relay-push` skill, which fetches over SSH, verifies signatures, rebases, presents
+each diff for human review, and pushes only after the user says `go`. See
+`docs/wiki/infrastructure/dev-box-gated-push.md`.
+
+### Host Privilege Model
+
+- `homelab.fleetDeploy.role` defaults to `locked`; doc1 is the only `bastion`.
+- Locked-role defaults have passworded sudo plus a narrow read-only/container
+  recovery allowlist. `fleetBastionRoleCheck` enforces exactly one bastion.
+- doc2 and servarr deliberately override the locked-role default with full
+  passwordless sudo for `abl030`. igpu and wsl remain narrowly locked. Read the
+  target host config before assuming its sudo posture.
+- Do not grant a second bastion role. A host-specific exception uses an explicit
+  `security.sudo.extraRules = lib.mkAfter [...]` override with documented blast
+  radius and rollback.
+
+### WSL
+
+When `hostname` is `wsl`, never run `nix build` for another host. It downloads a
+large unused closure over a slow link. Use eval-only `nix flake check`, or push
+and let the target host build through the verified deploy path. WSL break-glass
+root is `wsl -u root` from Windows, not remote passwordless sudo.
+
+### Least Privilege
+
+Audit every touched module, script, config, and deployment step against both an
+external probe and post-compromise lateral movement. Explicitly review auth,
+secrets, image trust, network exposure, file ownership, shared resources, and
+root command surfaces. Bound the blast radius of a single failure. The canonical
+patterns and checklist are in `docs/wiki/nixos-service-modules.md`; outstanding
+fleet work is tracked in Forgejo issue #232.
+
+## Working Style
+
+- Compound Engineering skills are explicit-invocation only. Do not load, invoke,
+  or route to `ce-*`, `compound-engineering:*`, or `lfg` because a description
+  happens to match. Handle ordinary planning, implementation, debugging, review,
+  brainstorming, commits, and PR work with the native agent. Use CE only when the
+  user explicitly names or invokes it.
+- Do not use structured question UI. Ask in plain chat. When several decisions
+  are needed, ask one at a time unless they are tiny and tightly coupled.
+- Complete every related item in the requested scope. Do not manufacture sibling
+  issues to defer awkward work; name a genuine blocker on the original issue.
+- For a real data or service migration, perform the migration in-session unless
+  the user explicitly asks for staging. Use preflight checks, backups,
+  verification, and a rollback command rather than permanent deferral machinery.
+- If asked, send a Gotify ping before requesting human input.
+
+## Repository Architecture
+
+This flake manages NixOS and Home Manager for the homelab. `hosts.nix` is the
+single source of truth for host identity, SSH trust, and commit-signing trust.
+
+- `nix/lib.nix`: `mkNixosSystem` and `mkHomeConfiguration` factories.
+- `hosts/<name>/`: host-specific NixOS and Home Manager configuration.
+- `modules/nixos/profiles/base.nix`: fleet-wide NixOS baseline.
+- `modules/nixos/services/`: service modules under `homelab.*`.
+- `modules/home-manager/`: shared user environment.
+- `modules/nixos/lib/mk-pg-container.nix`: isolated per-service PostgreSQL.
+- `modules/nixos/services/tailscale-share.nix`: scoped cross-tailnet sharing.
+
+Prefer the established hierarchy: upstream NixOS module, then a custom module,
+then an OCI container only when necessary. Remaining OCI services use
+`virtualisation.oci-containers` plus `homelab.podman` isolation, auto-update, and
+autoheal. The retired rootless compose model is documented in
+`docs/wiki/services/retired-container-stacks.md`.
+
+## Secrets
+
+Secrets use sops-nix with Age. A secret in `secrets/hosts/<host>/` must be
+decryptable only by that host plus the editor and cold break-glass recipients.
+Shared secrets require an explicit multi-host rule; the fallback deploys nowhere.
+Run `sops updatekeys` from inside `secrets/` so `.sops.yaml` is discovered.
+`sopsRecipientScopeCheck` enforces the model. See
+`docs/wiki/infrastructure/sops-break-glass-recovery.md`.
+
+## Shared AI Surfaces
+
+One authored source exists for each concept; client-specific formats are adapters:
+
+- Instructions: `CLAUDE.md`; `AGENTS.md` is its symlink.
+- Skills: `.claude/skills/`; `.agents/skills` is the Codex discovery symlink.
+- Specialist agents: `.claude/agents/*.md`; `.codex/agents/*.toml` is generated.
+- Project MCP: `.mcp.json`; `.codex/config.toml` is generated.
+- Durable learning: `.claude/memory/`, `docs/wiki/`, and Forgejo issues.
+
+After editing an agent or `.mcp.json`, run:
+
+```bash
+python3 scripts/generate-ai-adapters.py
+python3 scripts/generate-ai-adapters.py --check
+```
+
+Never edit generated `.codex/agents/*.toml` or `.codex/config.toml` directly.
+Author skills in the common `SKILL.md` format and keep platform-specific tool
+names out of workflows where a normal shell/read/edit instruction suffices.
+
+Claude auto-memory and Codex native memory are client-local recall caches, not
+project truth. Promote durable discoveries to the shared Markdown/wiki/issue
+surfaces. Keep `.claude/memory/MEMORY.md` at 15 lines or fewer as an index; do not
+duplicate rationale there. Codex native memory may remain personal and local.
+
+### Specialist Agents and MCP
+
+The generated Codex agents mirror the Claude agent bodies and scoped MCP servers.
+Use the matching specialist for pfSense, UniFi, Home Assistant, mail search,
+Audiobookshelf, browser testing, tower, and the arr stack. Control credentials for
+pfSense, UniFi, Home Assistant, and mail search exist only on doc1 under
+`/run/secrets/mcp/`; do not widen them fleet-wide. Live state overrides snapshots
+in agent documentation, and an agent that changes infrastructure must update its
+source definition when the snapshot changes.
+
+`mcp-nixos` provides current package and option data. Use it rather than guessing
+renamed options or package availability.
+
+## Knowledge and Issue Tracking
+
+- Active issues live on Forgejo. GitHub issues and `docs/beads-archive.md` are
+  historical only; do not use `gh issue` for this repository.
+- Use the Forgejo REST API for issue reads/writes. The doc1-only scoped issue token
+  is documented in `.claude/memory/forgejo-issue-token-doc1.md`.
+- Lightweight TODOs live in `docs/todo/`.
+- `docs/wiki/` is the long-form knowledge base written by agents for agents.
+  Update it as research or operational understanding changes. Include date,
+  status, issue links, what was tried, what works, and when to revisit.
+- Add short code comments pointing to relevant wiki pages where future agents
+  need the rationale. Do not duplicate the full explanation in code or memory.
+- External service agents should start with `docs/wiki/agent-operations.md`.
+
+## Fleet Orientation
+
+The eight Nix-managed hosts in `hosts.nix` are `epimetheus`, `framework`, `wsl`,
+`proxmox-vm` (doc1), `doc2`, `igpu`, `servarr`, and `caddy`. `prom` is the Proxmox
+hypervisor and `tower` is Unraid; neither is a NixOS flake host.
+
+- doc1 is the bastion, Forgejo writer, binary cache, and control-plane host.
+- doc2 hosts most services and the LGTM stack. It is dual-homed on
+  `192.168.1.35` and `.36`; outbound LAN traffic may use `.36`.
+- igpu is the media-transcoding LXC.
+- servarr hosts the arr applications; qBittorrent is isolated separately.
+- caddy is the legacy appliance-edge reverse proxy.
+- tower is managed through the `tower` agent over native key-only SSH from doc1.
+- pfSense is bare metal at `192.168.1.1` and tailnet address `100.123.61.111`.
+  It is the fleet DNS resolver; ntopng also runs there, not on doc2.
+
+Logs, metrics, and traces live on doc2. Query Loki at
+`https://loki.ablz.au/loki/api/v1/query_range`; use RFC3339 or nanosecond times.
+Important host labels include `doc2`, `igpu`, `proxmox-vm`, `framework`,
+`epimetheus`, `wsl`, `tower`, `pfsense`, and `prom`. Container logs use the
+`container` label. The old `loki-mcp` is retired; use HTTP or Grafana Explore.
+See `docs/wiki/services/lgtm-stack.md`.
+
+Network troubleshooting starts from observed topology. In particular, when a
+public destination works globally but not from the LAN, test from pfSense before
+blaming the ISP; pfBlockerNG has previously blocked CDN anycast addresses. DNS
+architecture and incident notes live under `docs/wiki/infrastructure/`.
+
+## Coding and Validation
+
+- Format Nix with Alejandra; use `nix fmt` or the repo formatter.
+- Run deadnix and statix for touched Nix code.
+- Address shellcheck findings for shell scripts.
+- Avoid import-order dependencies; use `lib.mkOrder` where list order matters.
+- Isolate generated assets/config sources with `builtins.path` or
+  `writeTextFile` to avoid unrelated flake-source churn.
+- Validation is primarily `nix flake check`. The known upstream
+  `proxmox.qemuConf.diskSize` rename warning is safe to ignore.
+- Before changing nginx or Cloudflare behavior, verify upstream with `--resolve`.
+- Standard Kuma health conventions are documented in
+  `modules/nixos/services/uptime-kuma.nix` and service modules.
+
+Two common Nix failures:
+
+- `failed to insert entry: invalid object specified`: clear `~/.cache/nix/` and retry.
+- A locked input path registered in the store but missing on disk: run
+  `sudo NIX_REMOTE= nix-store --verify --repair`, then `sudo fleet-update`.
+  `fleet-update` also performs this self-heal on retry.
+
+## Completion
+
+Use Conventional Commit subjects such as `fix(pve): ...`. Commit only explicit
+pathspecs so unrelated staged work is never swept in, and verify the resulting
+commit diff. When work is committed, push it to Forgejo; do not leave local
+commits stranded. Include operational impact and deployment notes in PR text.

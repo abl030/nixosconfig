@@ -104,7 +104,10 @@ The `MV_VPN_IPS` alias on pfSense (LAN IPs that get policy-routed through AirVPN
 **When you modify the MV_VPN_IPS alias on pfSense, you MUST do all three of these, atomically:**
 
 1. Update `hosts/doc2/configuration.nix`'s `homelab.loki.ntopngExporter.vpnClientIPs` list to match the new pfSense state (add/remove IPs).
-2. Tell the user **"push + rebuild doc2 to propagate"** — the canonical flow is `git push && ssh doc2 "sudo nixos-rebuild switch --flake github:abl030/nixosconfig#doc2 --refresh"` (see CLAUDE.md "NEVER DEPLOY REMOTELY WITH --target-host"). Without a rebuild, the dashboard will silently mis-tag hosts.
+2. Tell the user **"push + deploy doc2 to propagate"** — push the signed commit
+   to Forgejo, then from doc1 run `fleet-deploy doc2` and verify the resulting
+   revision/freshness. Never rebuild from the read-only GitHub mirror and never
+   use `--target-host`. Without the deploy, the dashboard silently mis-tags hosts.
 3. Audit that the two lists are in sync after the change. The check: fetch the current MV_VPN_IPS alias from pfSense, diff it against the Nix list as it stands in `hosts/doc2/configuration.nix`, and confirm they are byte-equivalent (order doesn't matter, content does).
 
 **On every session where you interact with the MV_VPN_IPS alias at all** (even read-only), run a drift audit as a courtesy to the user:
