@@ -75,6 +75,29 @@ scoping Jellyfin to `Beets`; never delete or move it as library cleanup.
 Cratedigger targets this stable library ID after imports. Its path map remains
 `/mnt/virtio/Music/Beets:/mnt/fuse/Media/Music/Beets`.
 
+#### 2026-07-13 Music scope migration
+
+Changing the location in place preserved the virtual-folder ID and options, but
+Jellyfin 10.11.11 left the removed parent tree searchable as phantom items after
+a completed scan. This is upstream [jellyfin#14680](https://github.com/jellyfin/jellyfin/issues/14680),
+not evidence that the configured location still includes the old path.
+
+The completed migration used Jellyfin's structural library APIs rather than
+per-item deletion: back up the database and `root/default/Music`, remove the
+whole Music virtual folder, let Jellyfin purge the old collection, then recreate
+Music with the backed-up options and only the Beets path. The `Music` item ID is
+deterministic for this virtual-folder path, so recreation retained
+`7e64e319657a9516ec78490da03edccb`.
+
+The old collection contained two quarantine tracks with the same retained user
+data key (the FLAC and partial Opus copies of `English Party`). Jellyfin's purge
+therefore hit the 10.11 `UserData` uniqueness failure tracked in
+[jellyfin#15343](https://github.com/jellyfin/jellyfin/issues/15343). Re-keying
+one of those two retained user-data rows, without deleting a media item, allowed
+Jellyfin's structural purge to finish. No file under `Incoming/failed_imports`
+was moved, changed, or deleted. The pre-migration rollback snapshot is
+`/mnt/virtio/jellyfin/backups/20260713T223500-music-scope/`.
+
 ### Admin (abl030) debugging access
 
 Upstream's defaults (mode 0700, UMask 0077) make every inspection require sudo. The module overrides:
