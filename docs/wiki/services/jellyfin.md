@@ -1,6 +1,6 @@
 # Jellyfin (native, on igpu)
 
-**Last updated:** 2026-06-19 (jellystat→UID 2014, watchstate→userns host 201000; forgejo#2 Phase 1)
+**Last updated:** 2026-07-13 (Music library narrowed to the canonical Beets tree)
 **Status:** working
 **Host:** `igpu` (VM 109)
 **Owner:** `modules/nixos/services/jellyfin.nix` under `homelab.services.jellyfin`
@@ -50,6 +50,30 @@ Single root-owned parent (`dataRoot`, default `/mnt/virtio/jellyfin`) so jellyfi
 `/var/cache/jellyfin` stays on local igpu storage (regenerable; not worth virtiofs).
 
 See [media-filesystem.md](../infrastructure/media-filesystem.md) for the mergerfs layout that backs `/mnt/fuse/Media/{Movies,TV_Shows,Music}`.
+
+### Music library ownership and scope
+
+Jellyfin library locations are **Jellyfin-owned persistent runtime state**, not
+NixOS options. NixOS owns the service process and forced `encoding.xml`, but
+must not generate pretend library configuration that Jellyfin does not read.
+Manage locations through Jellyfin's library API/UI; the persistent shortcut is
+under `data/root/default/<library>/`.
+
+The `Music` virtual folder keeps item ID
+`7e64e319657a9516ec78490da03edccb` and has exactly one location:
+
+```text
+/mnt/fuse/Media/Music/Beets
+```
+
+Do not point it at `/mnt/fuse/Media/Music`. That parent also contains
+Cratedigger's `Incoming` staging/quarantine tree, `Re-download` evidence, and
+other non-library working or legacy directories. In particular,
+`Incoming/**/failed_imports` is protected evidence: exclude it structurally by
+scoping Jellyfin to `Beets`; never delete or move it as library cleanup.
+
+Cratedigger targets this stable library ID after imports. Its path map remains
+`/mnt/virtio/Music/Beets:/mnt/fuse/Media/Music/Beets`.
 
 ### Admin (abl030) debugging access
 
@@ -103,7 +127,7 @@ Script in the #208 Phase 3 commit message. Worked cleanly in a single transactio
 `${dataDir}/root/default/<lib>/options.xml` stores library folder paths (matched to `.mblink` files in the same dir). We had to:
 
 - Drop `<MediaPathInfo><Path>/data/</Path></MediaPathInfo>` from Movies/options.xml (orphan, no matching `.mblink`)
-- Re-add a Music path (`<Path>/mnt/fuse/Media/Music</Path>`) and create `Music.mblink` containing `/mnt/fuse/Media/Music` — the Music library's `PathInfos` was empty after some earlier edit attempt
+- Re-add a Music path (`<Path>/mnt/fuse/Media/Music</Path>`) and create `Music.mblink` containing `/mnt/fuse/Media/Music` — the Music library's `PathInfos` was empty after some earlier edit attempt. This records the 2026-05 migration state only; the live library was narrowed to `/mnt/fuse/Media/Music/Beets` on 2026-07-13 as documented above.
 
 Jellyfin refuses to edit a library whose declared path doesn't resolve on disk. During migration we temporarily symlinked `/data` → real paths so the UI would let us edit; after the SQL fix + options.xml cleanup the symlinks were removed.
 

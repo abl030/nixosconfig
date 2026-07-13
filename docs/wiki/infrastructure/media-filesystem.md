@@ -1,6 +1,6 @@
 # Media filesystem layout (mergerfs + virtiofs + tower NFS)
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-07-13
 **Status:** working
 **Hosts:** `igpu` (consumer), `proxmox-vm`/doc1 (consumer), `prom` (storage), `tower`/Unraid (storage)
 **Owner:** `modules/nixos/services/mounts/fuse.nix` + `hosts/igpu/configuration.nix` + `hosts.nix` (`igpu.proxmox.virtiofs`)
@@ -8,7 +8,11 @@
 
 ## Why this is non-obvious
 
-Jellyfin and friends consume **one** filesystem path per library (`/mnt/fuse/Media/Music`, etc.) but the bytes underneath that path come from **two** different storage backends with **different access modes**:
+Jellyfin and friends consume filesystem paths below `/mnt/fuse/Media`, but the
+bytes underneath those paths come from **two** different storage backends with
+**different access modes**. Movies and TV use their whole mergerfs roots;
+Jellyfin Music deliberately uses the narrower
+`/mnt/fuse/Media/Music/Beets` subtree:
 
 - **Media files** (the actual MKV / FLAC / etc.) — large, mostly read-only from jellyfin's perspective
 - **Metadata** (NFOs, artwork, trickplay, subtitle caches) — small, hot, write-heavy during scans
@@ -115,7 +119,14 @@ mergerfs /mnt/virtio/media_metadata/Music (RW) + /mnt/virtio/Music (RO) → /mnt
 mergerfs /mnt/virtio/Music (RW) → /mnt/fuse/Media/Music_RW
 ```
 
-The `Music_RW` wrapper is a direct writable view of the canonical tree for import/repair tooling that needs a FUSE path. Jellyfin reads from `Music`; Beets and cratedigger library/import paths use `/mnt/virtio/Music` directly, while slskd's temporary download handoff stays under its configured download directory. Canonical-library views ultimately hit the same `nvmeprom/containers/Music` dataset.
+The `Music_RW` wrapper is a direct writable view of the canonical tree for
+import/repair tooling that needs a FUSE path. Jellyfin's Music library reads
+only `/mnt/fuse/Media/Music/Beets`; Beets and Cratedigger use
+`/mnt/virtio/Music/Beets` directly. The parent also contains Cratedigger's
+`Incoming` and `Re-download` trees plus non-library working/legacy directories,
+so it must never be a Jellyfin library root. Slskd's temporary download handoff
+stays under its configured download directory. Canonical-library views
+ultimately hit the same `nvmeprom/containers/Music` dataset.
 
 Jellyfin itself stores its state under `/mnt/virtio/jellyfin` (Phase 3 of #208):
 

@@ -866,9 +866,12 @@ in {
           enable = true;
           url = "https://jelly.ablz.au";
           tokenFile = "/run/cratedigger-secrets/JELLYFIN_TOKEN";
-          # Jellyfin's music library reads the beets tree through the fuse
-          # mount — this prefix swap lets the "Recently Added" DateCreated
-          # pin (cratedigger issue #574) locate albums in Jellyfin.
+          # Jellyfin owns library locations in its persistent runtime state.
+          # Music item 7e64...ccb is scoped there to the Beets subtree; pin the
+          # stable ID so imports refresh only that library instead of every
+          # Jellyfin library. The prefix swap lets the "Recently Added"
+          # DateCreated pin (cratedigger issue #574) locate imported albums.
+          libraryId = "7e64e319657a9516ec78490da03edccb";
           pathMap = "/mnt/virtio/Music/Beets:/mnt/fuse/Media/Music/Beets";
         };
       };
