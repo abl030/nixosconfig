@@ -35,7 +35,10 @@
     version = "0.1.0";
     src = inputs.discogs-src;
     cargoLock.lockFile = "${inputs.discogs-src}/Cargo.lock";
-    nativeBuildInputs = [pkgs.pkg-config];
+    nativeBuildInputs = [
+      pkgs.pkg-config
+      pkgs.postgresql_16
+    ];
     buildInputs = [pkgs.openssl];
   };
 in {
