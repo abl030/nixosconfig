@@ -241,22 +241,31 @@ If moving a service from LSIO/compose to native where its database stores absolu
 - `hosts/doc2/configuration.nix` — same `containers` mapping
 - [`igpu-passthrough.md`](igpu-passthrough.md) — the `qm shutdown` vs `qm stop` rationale
 
-### mergerfs write semantics in the unprivileged igpu CT (2026-07-04)
+### mergerfs write semantics in the unprivileged igpu CT (updated 2026-07-14)
 
 Writes through `/mnt/fuse/Media/*` from igpu only work because of a stack of
 non-obvious grants — see the "gid-100 idmap" section of
 [igpu-lxc-migration.md](igpu-lxc-migration.md) for the full model. Short form:
 
-- mergerfs performs the underlying branch op with the caller's uid + **primary
-  gid only** — supplementary groups are dropped (unprivileged-CT behavior). Any
-  service writing through the union needs gid 100 as its **primary** group
-  (jellyfin: `services.jellyfin.group = "users"`).
+- Normal FUSE file operations reach the branch with the caller's uid +
+  **primary gid only**; supplementary groups are dropped in the unprivileged
+  CT. Jellyfin therefore needs gid 100 as its primary group
+  (`services.jellyfin.group = "users"`).
+- Missing-parent cloning is a separate path. When an item exists only on the
+  RO media branch, mergerfs first mirrors its parent directories onto the RW
+  metadata branch. That internal `mkdir` runs with the **mergerfs daemon's**
+  primary group, not Jellyfin's. `fuse-mergerfs-music.service` must therefore
+  also run with `Group=users`; its `ExecStartPre` refuses to mount unless
+  `/mnt/virtio/media_metadata/Music` is writable. Without this, Jellyfin can
+  appear correctly grouped yet every first NFO/LRC write in a new album fails
+  at clone-path with `EACCES`.
 - The `uid=1000,gid=100,umask=002` options on the mergerfs mounts are purely
   cosmetic presentation — permission enforcement happens against the real
   branch inodes.
-- `media_metadata` is group-users writable (`g+w`, setgid dirs), its
-  `Movies`/`TV Shows` roots are `3777` so mergerfs clone-path can create
-  missing title dirs; cloned dirs inherit the tower source mode, so tower dirs
-  are kept `g+w` (radarr/sonarr `chmodFolder=775`).
+- `media_metadata` is group-users writable (`g+w`, setgid dirs). The Music root
+  is `abl030:users 2775`; its daemon-group preflight plus a deep write probe
+  through `/mnt/fuse/Media/Music/Beets` verify the actual clone-path contract.
+  The `Movies`/`TV Shows` roots are `3777`; cloned dirs inherit the tower source
+  mode, so tower dirs stay `g+w` (radarr/sonarr `chmodFolder=775`).
 - Deletes through the union are (unexplainedly) denied even when creates
   succeed; delete on the branch path directly.

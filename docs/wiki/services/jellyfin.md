@@ -10,7 +10,7 @@
 
 ## Deployment shape
 
-Upstream nixpkgs `services.jellyfin` (10.11.8) wrapped by `homelab.services.jellyfin`. Replaces the compose stack retired in `#208` Phase 3.
+Upstream nixpkgs `services.jellyfin` (10.11.11) wrapped by `homelab.services.jellyfin`. Replaces the compose stack retired in `#208` Phase 3.
 
 **Runs alongside production Plex on tower, not as a replacement.** The two servers serve the same media library; jellyfin adds a second front-end with native VAAPI on the AMD iGPU. Tower-Plex remains the primary streaming target.
 
@@ -98,31 +98,63 @@ Jellyfin's structural purge to finish. No file under `Incoming/failed_imports`
 was moved, changed, or deleted. The pre-migration rollback snapshot is
 `/mnt/virtio/jellyfin/backups/20260713T223500-music-scope/`.
 
-Recreating the library exposed a second Jellyfin 10.11 behaviour: the normal
-Cratedigger target (`POST /Items/<library-id>/Refresh`) defaults to
-`metadataRefreshMode=None`. It rebuilt the Beets folder, album, and audio rows
-but did not populate their media metadata. A completed `POST /Library/Refresh`
-also left those existing rows unchanged. All 93,154 audio rows consequently had
-`Album=NULL`, so Jellyfin's grouped `/Items/Latest` music query collapsed the
-whole library into one bogus "Recently Added" group. The 8,437 album rows also
-had folder-derived names and no artist, genre, year, or original creation date.
+Recreating the library exposed a second Jellyfin 10.11 behaviour: the old
+Cratedigger target (`POST /Items/<library-id>/Refresh`) omitted refresh modes,
+so Jellyfin defaulted to `metadataRefreshMode=None`. It could discover new
+rows without loading their media tags. Cratedigger
+[issue #697](https://github.com/abl030/cratedigger/issues/697) and PR #704
+changed the target to `Default` metadata/image modes with both replace-all
+flags false. Jellyfin still recurses a collection-folder target intrinsically:
+HTTP 204 proves submission, not completion, and a production-sized invocation
+walks the entire 93k-track library rather than only the imported album.
 
-The recovery path-matched the rebuilt database against the pre-migration
-snapshot with zero unmatched Beets audio or album rows. With Jellyfin stopped,
-it restored only the erased media metadata on a verified copy, retained the new
-structural parent/top-parent state and stable item IDs, passed SQLite
-`quick_check`, and atomically installed the repaired database. The recovery
-snapshots are:
+#### 2026-07-14 clean rebuild and recovery
 
-- `/mnt/virtio/jellyfin/backups/20260714T083033-pre-audio-metadata-restore/`
-- `/mnt/virtio/jellyfin/backups/20260714T084215-pre-album-metadata-restore/`
+The clean rebuild retained the stable Music ID and rebuilt only the Beets tree.
+An initially hidden NFO failure was not a Jellyfin group regression: mergerfs
+normal writes used Jellyfin's primary `users` group, but its internal clone-path
+worker still ran as `root:root`. The durable fix gives
+`fuse-mergerfs-music.service` primary group `users` and preflights the RW Music
+metadata root. A deep write through the real union and post-fix NFO/LRC saves
+then succeeded without authorization errors. See
+[media-filesystem.md](../infrastructure/media-filesystem.md#mergerfs-write-semantics-in-the-unprivileged-igpu-ct-updated-2026-07-14).
 
-Never edit this WAL database underneath a running Jellyfin process. Stop
-Jellyfin first, work on a copy, validate it, then replace the database before
-starting the service. For future structural library recreation, do not treat a
-default targeted refresh or default full-library scan as a metadata bootstrap;
-preserve and restore the existing metadata or use an explicitly verified
-metadata-refresh mode.
+A single collection-root `FullRefresh` was unsafe at this scale: Jellyfin grew
+to about 3.3 GiB, died with SIGBUS, and left a malformed SQLite database. The
+stopped-database recovery used SQLite `.recover`, restored only nine missing
+pre-crash rows whose exact physical paths still existed (six Audio and three
+MusicAlbum), dropped recovery fragments, and passed `quick_check`. The result
+exactly matched the filesystem: 93,135 Beets Audio rows, 8,436 MusicAlbums, and
+zero Audio/MusicAlbum rows under `Music/Incoming`.
+
+Metadata was then rebuilt in bounded album batches: four concurrent album
+refreshes, a clean Jellyfin stop, `quick_check`, and restart every 100 albums.
+2,422 of 2,423 incomplete albums converged with all integrity checkpoints clean
+and memory returning to roughly 170--206 MiB. The sole baseline exception is
+`Coil/1984 - How to Destroy Angels/02 Absolute Elsewhere.opus`: it is an
+85,831-byte truncated Ogg file, ffprobe returns `End of file`, and the
+pre-migration database also had `Album=NULL` for it. Preserve it for separate
+media repair; do not fabricate metadata to hide the bad file.
+
+The authoritative pre-migration snapshot supplied the Recently Added history.
+With Jellyfin stopped, `DateCreated` was restored by exact `(Type, Path)` match
+for 93,097 Audio rows and 8,434 MusicAlbum rows. Sixteen MP3-to-Opus conversions
+were matched uniquely by album directory, title, and track number and restored
+through Jellyfin's full-DTO API. The only unmatched rows were the two albums
+added after the snapshot (22 tracks), whose new dates correctly remain newest.
+No other historical rows were assigned rebuild time.
+
+Relevant rollback/evidence snapshots are:
+
+- `/mnt/virtio/jellyfin/backups/20260713T223500-music-scope/` (authoritative dates)
+- `/mnt/virtio/jellyfin/backups/20260714T162738-corrupt-after-fullrefresh/` (corrupt original, recovered and repaired copies)
+- `/mnt/virtio/jellyfin/backups/20260714T184705-pre-datecreated-restore/` (clean rebuilt DB before date restore)
+
+Never edit this database underneath a running Jellyfin process. Stop Jellyfin,
+work on a copy, validate it, atomically replace it, and preserve its `WAL`
+journal mode: SQLite `.recover` creates a `DELETE`-mode database unless WAL is
+explicitly restored. A recovered DB left in DELETE mode causes Jellyfin's
+concurrent library workers to collide with `database is locked` errors.
 
 ### Admin (abl030) debugging access
 
