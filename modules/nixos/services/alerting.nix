@@ -628,10 +628,16 @@
   # independently per filesystem and the labels carry through to the
   # Gotify body. Excludes ephemeral and pseudo filesystems where
   # "fullness" is either expected or meaningless.
+  #
+  # tower's large data shares intentionally run with less headroom than normal
+  # service filesystems. Match their NFS source device rather than client-side
+  # mountpoints so every fleet view of the same backing share gets one policy.
+  towerDataDeviceRegex = "192[.]168[.]1[.]2:/mnt/user/(data|magazines)";
+  towerDataThresholdPercent = 95;
   diskAlerts = lib.optionals cfg.diskPressureAlert.enable [
     {
       uid = "homelab-disk-pressure-fleet";
-      title = "Filesystem ≥ ${toString cfg.diskPressureAlert.thresholdPercent}% full";
+      title = "Filesystem capacity threshold exceeded";
       condition = "C";
       "for" = cfg.diskPressureAlert.forDuration;
       noDataState = "OK";
@@ -655,17 +661,38 @@
             # free) because ext4/xfs reserve ~5% for root and avail
             # accounts for that — matches what `df` shows.
             expr = ''
-              100 * (1 - (
-                node_filesystem_avail_bytes{
-                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
-                }
-                /
-                node_filesystem_size_bytes{
-                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
-                }
-              ))
+              (
+                100 * (1 - (
+                  node_filesystem_avail_bytes{
+                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
+                    device!~"${towerDataDeviceRegex}"
+                  }
+                  /
+                  node_filesystem_size_bytes{
+                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
+                    device!~"${towerDataDeviceRegex}"
+                  }
+                ))
+              )
+              or
+              (
+                100 * (1 - (
+                  node_filesystem_avail_bytes{
+                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
+                    device=~"${towerDataDeviceRegex}"
+                  }
+                  /
+                  node_filesystem_size_bytes{
+                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
+                    device=~"${towerDataDeviceRegex}"
+                  }
+                ))
+                > ${toString towerDataThresholdPercent}
+              )
             '';
             instant = true;
             intervalMs = 60000;
@@ -726,11 +753,13 @@
         }
       ];
       annotations = {
-        summary = "{{ $labels.host }} {{ $labels.mountpoint }} ≥ ${toString cfg.diskPressureAlert.thresholdPercent}% full";
+        summary = "{{ $labels.host }} {{ $labels.mountpoint }} capacity threshold exceeded";
         description = ''
           Filesystem {{ $labels.mountpoint }} on host {{ $labels.host }}
-          ({{ $labels.fstype }}) crossed ${toString cfg.diskPressureAlert.thresholdPercent}%
-          usage and stayed there for ${cfg.diskPressureAlert.forDuration}.
+          ({{ $labels.fstype }}) crossed its configured usage threshold and
+          stayed there for ${cfg.diskPressureAlert.forDuration}. The default is
+          ${toString cfg.diskPressureAlert.thresholdPercent}%; tower data and
+          magazines NFS shares use ${toString towerDataThresholdPercent}%.
           Free space, prune snapshots, or grow the volume — at our nightly
           ingest rates a filesystem hitting 100% will block kopia backups
           and likely take services offline.
