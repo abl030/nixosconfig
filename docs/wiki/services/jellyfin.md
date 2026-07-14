@@ -1,8 +1,8 @@
 # Jellyfin (native, on igpu)
 
-**Last updated:** 2026-07-13 (Music library narrowed to the canonical Beets tree)
+**Last updated:** 2026-07-14 (Music scope migration and metadata recovery)
 **Status:** working
-**Host:** `igpu` (VM 109)
+**Host:** `igpu` (LXC 107)
 **Owner:** `modules/nixos/services/jellyfin.nix` under `homelab.services.jellyfin`
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208) (Phase 3)
 
@@ -97,6 +97,32 @@ one of those two retained user-data rows, without deleting a media item, allowed
 Jellyfin's structural purge to finish. No file under `Incoming/failed_imports`
 was moved, changed, or deleted. The pre-migration rollback snapshot is
 `/mnt/virtio/jellyfin/backups/20260713T223500-music-scope/`.
+
+Recreating the library exposed a second Jellyfin 10.11 behaviour: the normal
+Cratedigger target (`POST /Items/<library-id>/Refresh`) defaults to
+`metadataRefreshMode=None`. It rebuilt the Beets folder, album, and audio rows
+but did not populate their media metadata. A completed `POST /Library/Refresh`
+also left those existing rows unchanged. All 93,154 audio rows consequently had
+`Album=NULL`, so Jellyfin's grouped `/Items/Latest` music query collapsed the
+whole library into one bogus "Recently Added" group. The 8,437 album rows also
+had folder-derived names and no artist, genre, year, or original creation date.
+
+The recovery path-matched the rebuilt database against the pre-migration
+snapshot with zero unmatched Beets audio or album rows. With Jellyfin stopped,
+it restored only the erased media metadata on a verified copy, retained the new
+structural parent/top-parent state and stable item IDs, passed SQLite
+`quick_check`, and atomically installed the repaired database. The recovery
+snapshots are:
+
+- `/mnt/virtio/jellyfin/backups/20260714T083033-pre-audio-metadata-restore/`
+- `/mnt/virtio/jellyfin/backups/20260714T084215-pre-album-metadata-restore/`
+
+Never edit this WAL database underneath a running Jellyfin process. Stop
+Jellyfin first, work on a copy, validate it, then replace the database before
+starting the service. For future structural library recreation, do not treat a
+default targeted refresh or default full-library scan as a metadata bootstrap;
+preserve and restore the existing metadata or use an explicitly verified
+metadata-refresh mode.
 
 ### Admin (abl030) debugging access
 
