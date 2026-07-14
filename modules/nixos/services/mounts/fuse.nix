@@ -99,6 +99,15 @@ in {
           unitConfig.RequiresMountsFor = ["/mnt/virtio/Music" "/mnt/virtio/media_metadata"];
           serviceConfig = {
             Type = "simple";
+
+            # mergerfs performs normal file creates with the FUSE caller's
+            # credentials, but its internal clone-path mkdirs run with the
+            # daemon's primary group.  Music's RW metadata branch is gid 100
+            # and setgid; without this, a new Beets directory that exists only
+            # on the RO media branch cannot be mirrored for Jellyfin's NFO/LRC
+            # writes even though Jellyfin itself has primary group `users`.
+            Group = "users";
+            ExecStartPre = "${pkgs.coreutils}/bin/test -w /mnt/virtio/media_metadata/Music";
             ExecStart = mkExecStart brMusic dstMusic;
             ExecStop = "${umnt} ${dstMusic}";
             Restart = "on-failure";
