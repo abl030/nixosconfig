@@ -39,6 +39,8 @@
   // re-pin only if a node is deleted + re-created (fails closed if stale).
   "hosts": {
     "doc1":          "100.89.160.60",  // the bastion — the only node that deploys cullen
+    "doc2":          "100.87.177.120", // GWM archiver host; triggers EPUB conversion on epi
+    "epimetheus":    "100.115.114.53", // conversion workstation, normally asleep
     "pfsense":       "100.123.61.111", // recursive DNS resolver for the whole fleet
     "framework":     "100.78.17.73",   // dev workstation; reaches cullen for Cullen-side work
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
@@ -56,6 +58,10 @@
     // (intra-fleet microsegmentation is #232's job, at container granularity).
     // Covers server→pfsense:53 (DNS), telemetry push (→doc2:443), Tempo OTLP, etc.
     { "src": ["tag:server"], "dst": ["tag:server"], "ip": ["*"] },
+
+    // doc2's GWM archiver wakes epimetheus and uses a forced-command SSH key to
+    // start marker-convert. Keep this to the exact nodes and OpenSSH port.
+    { "src": ["doc2"], "dst": ["epimetheus"], "ip": ["tcp:22"] },
 
     // server → kerrynas: offsite backup only (doc2 kopia-mum NFS mount, by node
     // IP via MagicDNS). NFS: tcp:2049 (v4) + 111 (rpcbind, if v3 negotiated).
@@ -247,6 +253,8 @@
     { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
+    // GWM post-download conversion trigger: exact doc2 → epimetheus SSH only.
+    { "src": "doc2", "proto": "tcp", "accept": ["epimetheus:22"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
     // DNS, exact mgmt endpoints, tower NFS(2049). doc1:22 is cullen's SOLE tailnet
     // :22 path — it still reaches NO other fleet tailnet IP and no broad home-LAN
