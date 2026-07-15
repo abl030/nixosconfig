@@ -1,1 +1,1 @@
-/nix/store/4mqahgjmqry3lxv0hyfbi2nvdk37xf0a-nixos-system-framework-26.11.20260708.05988b0
+/nix/store/8i3bmpynxs1q585yvpbi1hh3i8hphdgb-nixos-system-framework-26.11.20260708.05988b0
