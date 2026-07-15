@@ -1029,7 +1029,6 @@ in {
           doc2 = {};
           proxmox-vm = {};
           igpu = {};
-          wsl = {};
         };
         description = ''
           `host` label values that should always be sending logs.
@@ -1038,7 +1037,7 @@ in {
           defaults. An empty `{}` uses both defaults.
 
           Excludes legitimately-offline hosts:
-          - framework, epimetheus (workstations that sleep)
+          - framework, epimetheus, wsl (workstations that sleep or stop)
           - dev (development VM, off most of the time)
           - caddy, cache (Home Manager-only; no alloy/journald to ship)
 
