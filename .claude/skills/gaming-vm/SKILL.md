@@ -136,6 +136,12 @@ which are running, and which VMIDs are free. Decide from *this*, not from memory
      status file you poll (`qm guest exec` only gets ~30 s, don't run it inline).
      Confirm with the online scan: `(New-Object -ComObject Microsoft.Update.Session)`
      `.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0").Updates.Count` → 0.
+     **Updater edge case:** after successfully installing a cumulative update,
+     `PSWindowsUpdate` can throw `0x80248007` because its data-store view was
+     invalidated while Windows is already marked reboot-pending. Before treating that
+     as failure, check `Get-WURebootStatus -Silent` plus the CBS/WindowsUpdate
+     `RebootPending` registry keys; if any are set, reboot and let the ONSTART task
+     continue. Verify success only with the fresh post-reboot COM scan.
    - **Activate with MAS HWID (online).** ⚠️ **KMS38 is DEAD** — MS removed
      `gatherosstate.exe` (build 26040) and fully deprecated KMS38 at **26100.7019**, so
      `/KMS38` silently no-ops on our build (don't use it). **HWID is the only option and
@@ -265,6 +271,15 @@ prerequisite step (VC++ / DirectX / .NET) is a **no-op** — they're pre-baked i
 so it completes with WAN already cut. VC++ "already installed (0x80070666)" is benign;
 if a game wants a prereq we *didn't* bake, note it and add it to a template refresh —
 **do NOT re-open WAN for the untrusted installer**.
+
+**FitGirl completion/verification gotcha:** extraction completion is not installation
+completion. On the final wizard page, leave **Verify files integrity** enabled, disable
+website/redirect/game-launch options, click Finish, and wait for `QuickSFV.EXE` to show
+`Finished` with all files OK and `Bad: 0 / Missing: 0`. Do not infer completion from
+CPU dropping, the game executable existing, or `setup.tmp` becoming idle. A normal SSH
+session cannot read the elevated verifier's `MainWindowTitle`; monitor it from an
+**elevated session-1 task** (or inspect its screenshot). Only close QuickSFV after the
+final counts are recorded, then delete the copied repack source.
 
 ## Add a per-game tile (one-click launch in Moonlight)
 
