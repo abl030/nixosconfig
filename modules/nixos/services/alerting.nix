@@ -617,6 +617,7 @@
       labels = {
         severity = "warning";
         category = "ingestion";
+        notification_mode = hostCfg.notificationMode;
         inherit host;
       };
     })
@@ -1002,6 +1003,15 @@ in {
               default = null;
               description = "Override the default for-duration for this host.";
             };
+            notificationMode = lib.mkOption {
+              type = lib.types.enum ["rca" "status-only"];
+              default = "rca";
+              description = ''
+                `rca` sends the firing alert through Hermes investigation.
+                `status-only` sends direct firing and recovery pings without
+                consuming RCA agent time or tokens.
+              '';
+            };
           };
         });
         # Tier 1 (critical infra: firewall, hypervisor, NAS) — page
@@ -1029,6 +1039,10 @@ in {
           doc2 = {};
           proxmox-vm = {};
           igpu = {};
+          # WSL is expected to stay up for the internal work dashboard, but an
+          # outage is normally caused by Windows lifecycle events and cannot be
+          # remediated from this repository. Page on stop/resume without RCA.
+          wsl.notificationMode = "status-only";
         };
         description = ''
           `host` label values that should always be sending logs.
@@ -1037,9 +1051,12 @@ in {
           defaults. An empty `{}` uses both defaults.
 
           Excludes legitimately-offline hosts:
-          - framework, epimetheus, wsl (workstations that sleep or stop)
+          - framework, epimetheus (workstations that sleep)
           - dev (development VM, off most of the time)
           - caddy, cache (Home Manager-only; no alloy/journald to ship)
+
+          WSL is monitored as always-on, but uses `status-only` delivery because
+          Windows/WSL lifecycle outages are not actionable by automated RCA.
 
           Background: alloy can silently drop every batch with HTTP 421
           if it holds a stale TCP connection to a migrated vhost IP.

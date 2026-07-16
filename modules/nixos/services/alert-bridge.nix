@@ -21,9 +21,10 @@
 #   3. Composes a context block: alert metadata + log lines
 #   4. POSTs that context (truncated) to Gotify with severity-aware priority
 #
-# Grafana/Prometheus "resolved" alerts are skipped. Kuma DOWN→UP recoveries
-# send a plain "[recovered] … is UP" Gotify ping directly — the "you can stop
-# worrying" signal — but deliberately bypass RCA/LLM forwarding.
+# Grafana/Prometheus resolved alerts are skipped except for rules labelled
+# `notification_mode=status-only`: those send direct firing/recovery Gotify pings
+# and bypass RCA. Kuma DOWN→UP recoveries likewise send a plain "[recovered] …
+# is UP" ping directly — the "you can stop worrying" signal.
 #
 # Runs as the abl030 user (historical; it has systemd-journal access and the
 # decrypted Gotify token). No longer needs ~/.claude.
@@ -251,12 +252,13 @@
         lines.append("cause. Check Grafana/Loki for the common failure.)")
         gotify_push(f"⚡ Alert storm: {n} alerts", "\n".join(lines), priority=8)
 
-    def dispatch(title, message, priority=5):
+    def dispatch(title, message, priority=5, enqueue_rca=True):
         """Single choke point for every outgoing page; applies the storm damper."""
         now = time.time()
         send = None
         digest = None
-        rca_enqueue(title, message, priority)
+        if enqueue_rca:
+            rca_enqueue(title, message, priority)
         with _storm_lock:
             _storm_recent.append(now)
             _storm_prune(now)
@@ -419,16 +421,39 @@
         dispatch(title, summary, priority=8)
 
     def handle_alert(alert):
-        if alert.get("status") != "firing":
-            return
-        fp = alert.get("fingerprint", "?")
         labels = alert.get("labels", {})
+        status = alert.get("status")
+        notification_mode = labels.get("notification_mode", "rca")
+        alertname = labels.get("alertname", "unknown")
+
+        # Status-only alerts represent known, non-actionable outage classes.
+        # Their DOWN and recovery signals are useful, but an LLM investigation
+        # cannot remediate them. Grafana sends resolved alerts because the
+        # contact point has disableResolveMessage=false.
+        if status == "resolved":
+            if notification_mode == "status-only":
+                host = labels.get("host", alertname)
+                category = labels.get("category", "")
+                if category == "ingestion":
+                    title = f"[recovered] {host} resumed shipping logs to Loki"
+                    body = "✅ logs resumed"
+                else:
+                    title = f"[recovered] {alertname}"
+                    body = "✅ alert resolved"
+                ends_at = alert.get("endsAt", "")
+                if ends_at:
+                    body += f"\nat {ends_at}"
+                gotify_push(title, body, priority=5)
+            return
+        if status != "firing":
+            return
+
+        fp = alert.get("fingerprint", "?")
         print(f"[bridge] handle fp={fp} name={labels.get('alertname','?')} "
               f"has_loki_lines={bool(labels.get('loki_lines'))} "
               f"has_loki_query={bool(labels.get('loki_query'))}",
               file=sys.stderr, flush=True)
         annotations = alert.get("annotations", {})
-        alertname = labels.get("alertname", "unknown")
         severity = labels.get("severity", "warning")
         starts_at = alert.get("startsAt", "")
 
@@ -451,7 +476,12 @@
         summary = format_message(ctx)
         title = f"[{severity}] {alertname}"
         priority = 8 if severity == "critical" else 5
-        dispatch(title, summary, priority=priority)
+        dispatch(
+            title,
+            summary,
+            priority=priority,
+            enqueue_rca=notification_mode != "status-only",
+        )
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self):

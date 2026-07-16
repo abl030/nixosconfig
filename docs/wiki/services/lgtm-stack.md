@@ -288,39 +288,25 @@ To add more reboot alerts, append instance labels to `homelab.services.alerting.
 
 Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "application" stream as agent pings. If the noise mix becomes a problem, create a separate Gotify app, store its token in `secrets/gotify-alerting.env`, and point `homelab.services.alerting.gotifyTokenSopsFile` at it.
 
-### alert-bridge — claude-summarised Gotify pushes (added 2026-05-20)
+### alert-bridge — Gotify delivery and optional RCA (added 2026-05-20)
 
-Grafana and Kuma both have verbose default webhook payloads (30+ lines per alert: LogQL, DAG metadata, raw monitor body); reading them on a phone at speed is painful. `modules/nixos/services/alert-bridge.nix` runs a small Python HTTP listener on `127.0.0.1:9876` between BOTH systems and Gotify. When `homelab.services.alertBridge.enable = true`:
+Grafana and Kuma both have verbose default webhook payloads. `modules/nixos/services/alert-bridge.nix` runs a small Python listener on `127.0.0.1:9876` between both systems and Gotify. When `homelab.services.alertBridge.enable = true`:
 
-- `alerting.nix` automatically swaps Grafana's webhook URL from the direct-Gotify form to the bridge URL.
-- `monitoring_sync.nix` declaratively provisions a Kuma webhook notification (`alert-bridge`, isDefault=true) pointing at the bridge (#256).
+- `alerting.nix` sends Grafana webhooks to the bridge.
+- `monitoring_sync.nix` provisions Kuma's default `alert-bridge` webhook (#256).
+- Gotify delivery is immediate; LLM-backed Hermes RCA is separately batched and best-effort.
 
-**Per-alert flow.** The bridge detects payload shape on each POST:
+**Grafana flow.** For each firing alert, the bridge optionally re-queries `labels.loki_lines` (falling back to `loki_query`), formats phone-readable metadata/context, and sends it through the Gotify storm damper. Normal firing alerts are also queued for batched Hermes RCA. Resolved Grafana alerts are ignored unless the rule has `notification_mode = "status-only"`.
 
-**Grafana shape** (`alerts: [...]` at top level):
-1. For each `status=firing` alert, read `labels.loki_lines` and run that raw stream-selector against Loki to fetch up to 10 matching lines (10m window). `labels.loki_query` is the aggregated form used for the alert *condition* and returns scalar counts — don't use it for context.
-2. Compose `## Alert metadata` + `## Matching log lines` block, pipe to `claude -p --model opus --allowedTools ""`.
-3. Push summary to Gotify with severity-aware priority (critical → 8, others → 5). Resolved alerts skipped.
+`status-only` is for monitored outages where a DOWN/UP signal is useful but automated investigation cannot help. Firing alerts still page Gotify but bypass the RCA queue; resolved alerts send a direct recovery ping. WSL log-ingestion silence uses this mode because the internal work dashboard should remain online, while Windows updates and WSL lifecycle outages cannot be repaired from nixosconfig.
 
-**Kuma shape** (`heartbeat` + `monitor` at top level — added 2026-05-20, #256):
-1. Skip recovery (UP) events. Only DOWN (`heartbeat.status = 0`) fires the bridge.
-2. For push-type monitors, infer the corresponding systemd unit via the `probeSlug` convention (`Kopia mum freshness` → `deep-probe-kopia-mum-freshness.service`) and `journalctl --since=20min -n 40` to fetch the probe's stdout/stderr — this is the actual diagnostic context.
-3. For HTTP-type monitors, the journal fetch is skipped (no per-monitor unit to read); the bridge passes the URL, status code, ping ms, and Kuma's `msg` field to claude as the only context.
-4. Compose `## Kuma monitor DOWN` block + optional `## Recent journal for <unit>`, pipe to the same claude system prompt (which knows both formats), and push.
+**Kuma flow.** DOWN events page and enter RCA. Push monitors are enriched with the matching `deep-probe-<slug>.service` journal. Real DOWN→UP transitions send a direct `[recovered]` Gotify ping and deliberately bypass RCA.
 
-The system prompt knows about both shapes and produces the same 2-3 line output format either way, so the phone push looks consistent.
+**Why `labels.loki_lines` matters:** the alert condition needs aggregation (`sum(count_over_time(...))`) to produce a numeric series, while incident context needs the underlying text stream. `mkLokiAlert` keeps those concerns separate. Prometheus rules can omit both labels and use metadata-only context.
 
-**Why opus, not haiku:** the DDL classification needs reasoning over actual log lines (operator session vs drift), not pattern-match. Audit alerts are rare so cost isn't a concern. `homelab.services.alertBridge.model` overrides per-host.
+**Journal access for Kuma push enrichment.** The bridge runs with `SupplementaryGroups = ["systemd-journal"]` and a systemd-containing `PATH`, so it can read deep-probe journals without sudo. The service's sops-decrypted Gotify token is owned by the bridge user.
 
-**Why `labels.loki_lines` matters:** the alert *condition* needs the aggregation (`sum(count_over_time(...))`) to produce a numeric series to threshold on. But running that same query for context returns the count, not the text. Two label slots split the concern. `mkLokiAlert`'s `lokiLines` argument is optional — Prometheus rules can skip it and the bridge falls through to metadata-only context.
-
-**Auth gotcha:** the bridge runs as `abl030` because `claude-code` auth lives in `~/.claude` after the one-time interactive `sudo -u abl030 --login claude` setup. Same constraint as `nixos-upgrade-diagnose` in `modules/nixos/autoupdate/update.nix`. The bridge service has its own sops decryption of the Gotify token (`alert-bridge/gotify-token`) with `owner=abl030` so the systemd service can read it.
-
-**Group gotcha:** systemd service `Group=` needs a real group; `abl030` user has primary group `users` (not a group named `abl030`). Use `Group = "users"` in the service config.
-
-**Journal access for Kuma push enrichment.** The bridge service has `SupplementaryGroups = ["systemd-journal"]` so `journalctl -u deep-probe-<slug>.service` works without sudo. Plus `PATH=${pkgs.systemd}/bin` since journalctl isn't in the default `writeShellApplication` runtime PATH. Without these, push-monitor enrichment silently degrades — the alert still fires but claude sees only Kuma metadata, no journal context.
-
-**Re-alert cadence:** the bridge itself doesn't dedupe — that's Grafana's notification policy (`repeat_interval = "24h"`) and Kuma's per-monitor `resendInterval`. Effective re-page cadence is documented in the next subsection.
+**Re-alert cadence:** the bridge itself doesn't dedupe — Grafana's notification policy (`repeat_interval = "24h"`) and Kuma's per-monitor `resendInterval` do that. Effective re-page cadence is documented in the next subsection.
 
 **probeSlug must stay in sync** between `monitoring_sync.nix` (Nix-side, used to build push monitor names) and `alert-bridge.nix` (Python-side, used to reverse-map names to systemd units). If you change one, change both. The exact replacements: `/` → `-`, `space` → `-`, `(` → ``, `)` → ``, `—` → `-`, `[` → ``, `]` → ``, then lowercase.
 
@@ -442,9 +428,9 @@ Within seconds, prom appeared in Loki's host label values and kernel logs were f
 
 ### Detect-this-class-of-failure
 
-A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. **Implemented same day** as `homelab.services.alerting.ingestionSilenceAlert` in `modules/nixos/services/alerting.nix`. Default: per-host LogQL `sum(count_over_time({host="<name>"}[15m]))` rule per always-on host (`doc2 proxmox-vm igpu prom tower pfsense wsl`), threshold `< 1`, `for: 5m`, `noDataState: Alerting`. Time-to-fire ~20 min. Skips workstations (framework, epimetheus), workstation WSL when it's offline (wsl is in the list but you'll get the page if you shut down — that's intended), and HM-only hosts that have no journal/alloy to begin with (caddy). (`dev`/`sandbox`/`cache` removed from the fleet — #234, this session.)
+A "host hasn't shipped to Loki in N hours" alert would have caught this immediately. **Implemented same day** as `homelab.services.alerting.ingestionSilenceAlert` in `modules/nixos/services/alerting.nix`. Default: per-host LogQL `sum(count_over_time({host="<name>"}[15m]))` rule per always-on host (`doc2 proxmox-vm igpu prom tower pfsense wsl`), threshold `< 1`, `for: 5m`, `noDataState: Alerting`. Time-to-fire ~20 min. Framework and epimetheus are excluded because they legitimately sleep; HM-only hosts without journal/alloy are also excluded. WSL remains monitored as always-on, but its `notificationMode = "status-only"` sends direct stop/resume pings without waking Hermes RCA.
 
-Tune via `homelab.services.alerting.ingestionSilenceAlert.{hosts,window,forDuration}` per host config. Disable per-fleet with `enable = false` (default true, only loads on the Loki host since the rest of the alerting module is gated on `homelab.services.loki.enable`).
+Tune via each entry in `homelab.services.alerting.ingestionSilenceAlert.hosts` (`window`, `forDuration`, and `notificationMode`). Disable fleet-wide with `enable = false` (default true, and only active on the Loki host because the alerting module is gated on `homelab.services.loki.enable`).
 
 ### 2026-06-09 recurrence — ungraceful reboot re-triggers the coalesce
 
