@@ -761,11 +761,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779913509,
-        "narHash": "sha256-79ZsCKUEU8swzzlYf5Lnnb3g/gfHfzobTyuhQuXf/FY=",
+        "lastModified": 1784180186,
+        "narHash": "sha256-xDu+jbWH7ubXC6ImvkRVgPI0OHAaUQ60sELDJN8hY1M=",
         "owner": "maaslalani",
         "repo": "sheets",
-        "rev": "45ac88b616ee3600487bd2d4805ded7d99bb6379",
+        "rev": "88792494684f959d58d00bf4fc595f9a9f05c3ff",
         "type": "github"
       },
       "original": {

@@ -149,7 +149,10 @@
   # sheets overlay: terminal spreadsheet from upstream flake
   (
     final: _prev: {
-      sheets = inputs.sheets.packages.${final.stdenv.hostPlatform.system}.default;
+      sheets = inputs.sheets.packages.${final.stdenv.hostPlatform.system}.default.overrideAttrs (_old: {
+        # Upstream's hash was not updated when go.mod changed in 8879249.
+        vendorHash = "sha256-X7bfALH9mM15HP6SM60CFIG1rm4Ma6LEh2p7z5LNW64=";
+      });
     }
   )
 
