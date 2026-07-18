@@ -24,11 +24,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784251880,
-        "narHash": "sha256-Lm9c8DZJHCkd6HcEEOwyh3cooo/hgqWFju1sn+Lq6lo=",
+        "lastModified": 1784338248,
+        "narHash": "sha256-kcjdOso7Q+ldnpPIMVEIy6w7S84hSnjGSQR1e4utSqc=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "d316ee38bc9966215bd487f9733ae75d483b6363",
+        "rev": "68d9189ab82bc80dd0b2ea0e87fe34429c35265e",
         "type": "github"
       },
       "original": {
@@ -40,11 +40,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1784278920,
-        "narHash": "sha256-6BS2QHlmY+LS1ivcJVWHLealkUJ7AJ2G/Mb1INT7d94=",
+        "lastModified": 1784358179,
+        "narHash": "sha256-8M5jVdLykfLnPfQLmvd3N5cpV0r8slpGI1eWVbqJeNM=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "32fae6c546704b3befb7e5eba30fc6bed931fba9",
+        "rev": "d1bff966296b687eb8509312098458e5fa2535dc",
         "type": "github"
       },
       "original": {
@@ -56,11 +56,11 @@
     "claude-plugin-ha-skills": {
       "flake": false,
       "locked": {
-        "lastModified": 1783197087,
-        "narHash": "sha256-kS/ltDBJhtLUS8KvQ+lxA9vY3Nnfo2oRE9g0n+5fuC8=",
+        "lastModified": 1784319430,
+        "narHash": "sha256-Jg7iXGMOFDIZ+32NxKe+on1fGw+B1kJt738HlrF41hg=",
         "owner": "homeassistant-ai",
         "repo": "skills",
-        "rev": "5c023edf38677ef7484aa8b0cc621bedcfcfcdae",
+        "rev": "38a6212bc7bbb91e2e27a95b4377e4350e8bec11",
         "type": "github"
       },
       "original": {
@@ -77,11 +77,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784171300,
-        "narHash": "sha256-LiWzndOW88994z4SCnenv+2rKe/ryEgvWSsBjFpNvrc=",
+        "lastModified": 1784384930,
+        "narHash": "sha256-lryd9mbuc7wwmj8lbOETqv2SuupguefCRb8lco6cFLI=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "c4b3fc9d761797a813b5f8b1d38a9a81cdba6e45",
+        "rev": "3aebac7a5d4caac5e65c9b7ea443620dcb147d65",
         "type": "github"
       },
       "original": {
