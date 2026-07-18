@@ -356,12 +356,6 @@ try_group() {
         return 0
     fi
 
-    # jolt's cargo hash lives in nix/overlay.nix and must be refreshed when jolt bumps.
-    if [[ " $inputs " == *" jolt "* ]] && [ -x ./scripts/update-jolt.sh ]; then
-        log "⚡ [$name] refreshing jolt cargo hash..."
-        ./scripts/update-jolt.sh >>"$glog" 2>&1 || true
-    fi
-
     log "🚧 [$name] flake check + build (all hosts)..."
     if FULL_CHECK=1 nix flake check --impure --print-build-logs >>"$glog" 2>&1 \
         && ./scripts/populate_cache.sh >>"$glog" 2>&1; then

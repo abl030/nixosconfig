@@ -79,11 +79,6 @@
     };
 
     # --- 5. Static Sources (Non-flake) ---
-    gaj-shared = {
-      url = "gitlab:gaj-nixos/shared";
-      flake = false;
-    };
-
     yt-dlp-src = {
       url = "github:yt-dlp/yt-dlp";
       flake = false;
@@ -165,11 +160,6 @@
       flake = false;
     };
 
-    jolt = {
-      url = "github:jordond/jolt/6dd559cc8038f901a1150cdf5add608f65a5c52a";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Claude Code - auto-updating flake with hourly GitHub Actions updates
     claude-code-nix = {
       url = "github:sadjow/claude-code-nix";
@@ -244,15 +234,6 @@
     # download from static.crates.io. History/rationale: docs/wiki/infrastructure/cratesio-403-ua.md
     netwatch = {
       url = "github:matthart1983/netwatch";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
-
-    # sheets - terminal spreadsheet (Go)
-    sheets = {
-      url = "github:maaslalani/sheets";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         flake-utils.follows = "flake-utils";

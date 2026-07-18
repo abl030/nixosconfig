@@ -14,7 +14,6 @@
     pkgs.kdePackages.qtwayland
     pkgs.kdePackages.qtsvg
     pkgs.libsForQt5.qt5ct
-    pkgs.jolt
     pkgs.spotify
     pkgs.nvtopPackages.amd
     pkgs.acpi

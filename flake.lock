@@ -236,25 +236,7 @@
     },
     "flake-utils_4": {
       "inputs": {
-        "systems": "systems_5"
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "flake-utils_5": {
-      "inputs": {
-        "systems": "systems_8"
+        "systems": "systems_7"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -292,22 +274,6 @@
         "owner": "niksingh710",
         "repo": "fzf-preview",
         "type": "github"
-      }
-    },
-    "gaj-shared": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1783891967,
-        "narHash": "sha256-6ci4NdS8mqjyj6SSYwSCydNuSAIdY7pfdOJycbBGFks=",
-        "owner": "gaj-nixos",
-        "repo": "shared",
-        "rev": "e8d0beafe0d30298d417f50f5c55f1722cdc2c1f",
-        "type": "gitlab"
-      },
-      "original": {
-        "owner": "gaj-nixos",
-        "repo": "shared",
-        "type": "gitlab"
       }
     },
     "grafana-dashboards-rfmoz": {
@@ -371,28 +337,6 @@
         "owner": "nix-community",
         "ref": "master",
         "repo": "home-manager",
-        "type": "github"
-      }
-    },
-    "jolt": {
-      "inputs": {
-        "flake-utils": "flake-utils_4",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1769196182,
-        "narHash": "sha256-b++iAzZVjG4wJGy+oal3mTh0dQiCvSMqBigu2RqgyVE=",
-        "owner": "jordond",
-        "repo": "jolt",
-        "rev": "6dd559cc8038f901a1150cdf5add608f65a5c52a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jordond",
-        "repo": "jolt",
-        "rev": "6dd559cc8038f901a1150cdf5add608f65a5c52a",
         "type": "github"
       }
     },
@@ -724,11 +668,9 @@
         "flake-parts": "flake-parts",
         "flake-utils": "flake-utils_3",
         "fzf-preview": "fzf-preview",
-        "gaj-shared": "gaj-shared",
         "grafana-dashboards-rfmoz": "grafana-dashboards-rfmoz",
         "hermes-agent": "hermes-agent",
         "home-manager": "home-manager",
-        "jolt": "jolt",
         "lrclib-src": "lrclib-src",
         "microvm": "microvm",
         "musicbrainz-docker": "musicbrainz-docker",
@@ -740,38 +682,14 @@
         "nvchad4nix": "nvchad4nix",
         "pfsense-exporter-src": "pfsense-exporter-src",
         "pfsense-mcp": "pfsense-mcp",
-        "sheets": "sheets",
         "slskd-mcp": "slskd-mcp",
         "sops-nix": "sops-nix",
         "spicetify-nix": "spicetify-nix",
-        "systems": "systems_7",
+        "systems": "systems_6",
         "trackerslist": "trackerslist",
         "unifi-mcp": "unifi-mcp",
         "vinsight-mcp": "vinsight-mcp",
         "yt-dlp-src": "yt-dlp-src"
-      }
-    },
-    "sheets": {
-      "inputs": {
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1779913509,
-        "narHash": "sha256-79ZsCKUEU8swzzlYf5Lnnb3g/gfHfzobTyuhQuXf/FY=",
-        "owner": "maaslalani",
-        "repo": "sheets",
-        "rev": "45ac88b616ee3600487bd2d4805ded7d99bb6379",
-        "type": "github"
-      },
-      "original": {
-        "owner": "maaslalani",
-        "repo": "sheets",
-        "type": "github"
       }
     },
     "slskd-mcp": {
@@ -835,7 +753,7 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "systems": "systems_6"
+        "systems": "systems_5"
       },
       "locked": {
         "lastModified": 1783838433,
@@ -956,21 +874,6 @@
         "type": "github"
       }
     },
-    "systems_8": {
-      "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
-      }
-    },
     "trackerslist": {
       "flake": false,
       "locked": {
@@ -1034,7 +937,7 @@
     },
     "vinsight-mcp": {
       "inputs": {
-        "flake-utils": "flake-utils_5",
+        "flake-utils": "flake-utils_4",
         "nixpkgs": [
           "nixpkgs"
         ]

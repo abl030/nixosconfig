@@ -47,17 +47,6 @@
     }
   )
 
-  # jolt overlay: fix upstream feature flag regression (linux -> jolt-platform/linux)
-  (
-    final: _prev: let
-      upstream = inputs.jolt.packages.${final.stdenv.hostPlatform.system}.default;
-    in {
-      jolt = upstream.overrideAttrs (_old: {
-        cargoBuildFeatures = ["jolt-platform/linux"];
-      });
-    }
-  )
-
   # claude-code overlay: use auto-updating flake (hourly GitHub Actions updates)
   (
     final: _prev: {
@@ -143,13 +132,6 @@
   (
     final: _prev: {
       netwatch = inputs.netwatch.packages.${final.stdenv.hostPlatform.system}.default;
-    }
-  )
-
-  # sheets overlay: terminal spreadsheet from upstream flake
-  (
-    final: _prev: {
-      sheets = inputs.sheets.packages.${final.stdenv.hostPlatform.system}.default;
     }
   )
 
