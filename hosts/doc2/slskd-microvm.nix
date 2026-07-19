@@ -10,6 +10,7 @@
 {
   config,
   inputs,
+  lib,
   pkgs,
   ...
 }: let
@@ -22,6 +23,21 @@
   musicDir = "/mnt/virtio/Music/Beets";
   slskdUid = 988;
   musicImportGid = 968;
+
+  # Every persistent path on doc2 is already a Proxmox virtiofs mount. The
+  # microVM's second virtiofs layer must retain O_PATH descriptors instead of
+  # asking the outer filesystem for inode file handles: those handles go stale
+  # immediately and make slskd's SQLite/backup paths unusable.
+  virtiofsdNoFileHandles = pkgs.writeShellScriptBin "virtiofsd" ''
+    args=()
+    for arg in "$@"; do
+      case "$arg" in
+        --inode-file-handles=prefer) args+=(--inode-file-handles=never) ;;
+        *) args+=("$arg") ;;
+      esac
+    done
+    exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
+  '';
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -85,12 +101,9 @@ in {
     "interface-name:vm-slskd"
   ];
   # networkd owns only the IP-less guest bridge on this NetworkManager host.
-  # Exclude those links explicitly so network-online never burns its 120-second
-  # timeout waiting for an address that the containment boundary forbids.
-  systemd.network.wait-online = {
-    anyInterface = true;
-    ignoredInterfaces = [dmzUplink "br-slskd" "vm-slskd"];
-  };
+  # NetworkManager already provides network-online; networkd must not wait for
+  # an address that the containment boundary deliberately forbids.
+  systemd.services.systemd-networkd-wait-online.enable = lib.mkForce false;
 
   # microvm.nix runs one virtiofsd process per guest. Gate it on every shared
   # host path and the decrypted secret; microvm@slskd requires this daemon.
@@ -140,6 +153,7 @@ in {
       vcpu = 4;
       mem = 6144;
       vsock.cid = 21;
+      virtiofsd.package = virtiofsdNoFileHandles;
       shares = [
         {
           source = "/nix/store";

@@ -38,6 +38,13 @@ The native service's state was on doc2's disposable root disk at
 portable containers dataset and backup inventory; the guest mounts that path
 back at `/var/lib/slskd`, so slskd sees no app-directory change.
 
+These sources are already Proxmox virtiofs mounts inside doc2. The nested
+virtiofs daemon is therefore wrapped to replace
+`--inode-file-handles=prefer` with `--inode-file-handles=never`; the outer
+virtiofs layer cannot provide stable export file handles, and using them makes
+SQLite and backup paths fail with `Stale file handle`. The O_PATH-backed mode
+must remain enabled for every guest share, not only the state directory.
+
 ## Host prerequisites
 
 Nested virtualization is required. Proxmox has nested AMD-V enabled globally,
