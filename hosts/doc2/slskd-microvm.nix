@@ -84,13 +84,21 @@ in {
     "interface-name:br-slskd"
     "interface-name:vm-slskd"
   ];
+  # networkd owns only the IP-less guest bridge on this NetworkManager host.
+  # Exclude those links explicitly so network-online never burns its 120-second
+  # timeout waiting for an address that the containment boundary forbids.
+  systemd.network.wait-online.ignoredInterfaces = [dmzUplink "br-slskd" "vm-slskd"];
 
   # microvm.nix runs one virtiofsd process per guest. Gate it on every shared
   # host path and the decrypted secret; microvm@slskd requires this daemon.
+  # This sops-nix version installs secrets during activation rather than through
+  # a long-lived systemd unit, so use a path condition instead of a dangling
+  # dependency on sops-install-secrets.service.
   systemd.services."microvm-virtiofsd@slskd" = {
-    after = ["sops-nix.service"];
-    requires = ["sops-nix.service"];
-    unitConfig.RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
+    unitConfig = {
+      ConditionPathExists = "/run/secrets/slskd/env";
+      RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
+    };
   };
 
   homelab = {
