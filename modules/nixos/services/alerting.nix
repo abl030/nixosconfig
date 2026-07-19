@@ -633,7 +633,9 @@
   # tower's large data shares intentionally run with less headroom than normal
   # service filesystems. Match their NFS source device rather than client-side
   # mountpoints so every fleet view of the same backing share gets one policy.
-  towerDataDeviceRegex = "192[.]168[.]1[.]2:/mnt/user/(data|magazines)";
+  # Roaming clients resolve tower over Tailscale and expose the hostname in the
+  # node-exporter device label; LAN clients expose the literal IPv4 address.
+  towerDataDeviceRegex = "(192[.]168[.]1[.]2|tower):/mnt/user/(data|magazines)";
   towerDataThresholdPercent = 95;
   diskAlerts = lib.optionals cfg.diskPressureAlert.enable [
     {
