@@ -70,6 +70,10 @@ in {
       };
     };
 
+    # Keep the admin CLI at a stable path for token/account operations instead
+    # of discovering the package's versioned /nix/store path from ExecStart.
+    environment.systemPackages = [config.services.forgejo.package];
+
     systemd = {
       # virtiofs path needs explicit creation; upstream module's StateDirectory
       # only manages /var/lib paths cleanly. Create dump dir on NFS too —

@@ -123,6 +123,7 @@ to; throwaway random passwords, they auth via token, not password):
 | Account | Purpose | Token |
 |---|---|---|
 | `nixbot` | nightly rolling-flake-update bot push | `nixbot-push` (`write:repository`) → `secrets/hosts/proxmox-vm/forgejo-nixbot-token` |
+| `nixbot` | interactive Hermes issue API | `hermes-agent-doc1` (`write:issue`, which includes issue reads) → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` → `/run/secrets/forgejo/hermes-token` |
 | `doc1-writer` | interactive dev push from doc1 | per-machine, issued in U9 |
 | `epimetheus-writer` | dev push from epimetheus | per-machine, issued in U9 |
 | `framework-writer` | dev push from framework | per-machine, issued in U9 |
@@ -147,6 +148,14 @@ run() { sudo -u forgejo env FORGEJO_WORK_DIR=/mnt/virtio/forgejo FORGEJO_CUSTOM=
 run admin user create --username <name> --email <name>@ablz.au --restricted --random-password --must-change-password=false
 run admin user generate-access-token -u <name> -t <token-name> --scopes write:repository --raw   # pipe to sops, never echo
 ```
+
+Forgejo issues are available through the normal REST API; the web UI is not
+required. Interactive Hermes sessions on doc1 use the separate
+`write:issue` token at `/run/secrets/forgejo/hermes-token`; Forgejo includes
+issue reads in that scope. This is
+deliberately not the repository-write token: creating, searching, commenting
+on, and closing issues does not need permission to push code. The tracked
+`homelab-agents:forgejo` skill owns the API workflow and duplicate check.
 
 Repo/collaborator/branch-protection operations use the API with an admin token.
 Mint an ephemeral admin token via `run admin user generate-access-token -u abl030

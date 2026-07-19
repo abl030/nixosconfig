@@ -20,6 +20,17 @@
     mode = "0400";
   };
 
+  # Least-privilege Forgejo issue API token for interactive Hermes sessions.
+  # Kept separate from nixbot's repository-write token so issue operations do
+  # not grant source-code push access.
+  sops.secrets."forgejo/hermes-token" = {
+    sopsFile = config.homelab.secrets.sopsFile "forgejo-hermes-token.yaml";
+    format = "yaml";
+    key = "token";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   # GitHub deploy key used ONLY by the doc1 Forgejo→GitHub mirror timer. The
   # GitHub repo is a read-only human-facing mirror/fallback; Forgejo remains the
   # write root and fleet deploy source. Deploy keys are repo-scoped, so this is
