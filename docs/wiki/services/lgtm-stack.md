@@ -1,6 +1,6 @@
 # LGTM observability stack
 
-**Last updated:** 2026-04-15
+**Last updated:** 2026-07-19
 **Status:** working
 **Owner:** `modules/nixos/services/loki-server.nix` (server) + `modules/nixos/services/loki.nix` (alloy shipper on every NixOS host)
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208)
@@ -104,6 +104,22 @@ OCI container `ghcr.io/pfrest/pfsense_exporter` on doc2, configured via `homelab
 **pfSense host IP exception:** `192.168.1.1` is hardcoded as the default because pfSense IS the gateway — no localProxy-managed FQDN exists. Documented exception to the DNS-first rule. The option is configurable if the IP ever changes.
 
 **Prerequisites on pfSense:** the `pfSense-pkg-RESTAPI` package must be installed. It's removed on every pfSense major upgrade and must be reinstalled manually.
+
+The active collector set also requires these GET-only privileges beyond the
+exporter's original baseline ACL:
+
+- `api-v2-firewall-virtual-ips-get`
+- `api-v2-firewall-schedules-get`
+- `api-v2-diagnostics-table-get`
+- `api-v2-system-packages-get`
+- `api-v2-system-restapi-version-get`
+
+Do not replace these with `page-all` or write privileges. The 2026-07-19 outage
+had two independent layers: missing collector privileges caused HTTP 403s, then
+the undersized collector channel caused otherwise-authorized scrapes to hang.
+Both the ACL and `max_collector_buffer_size: 1000` are required. Live acceptance
+returned Prometheus text in about two seconds, and Uptime Kuma subsequently
+reported HTTP 200 with no active monitor left down.
 
 ### AirVPN failover alerts
 

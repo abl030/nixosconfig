@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-19
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`
 **Issue:** #228
@@ -55,6 +55,28 @@ sudo cratedigger-metadata-gate resume-if-clear
 local metadata probes pass. The dependency watchdog can clear only the
 `dependency` hold; manual, Discogs import, and MusicBrainz maintenance holds are
 released only by their owner.
+
+## Runtime Config Convergence
+
+`/var/lib/cratedigger/config.ini` is mutable secret-bearing runtime state, not a
+Nix-store config file. The upstream Cratedigger NixOS module owns a dedicated
+`cratedigger-config-render.service` oneshot that renders it during boot and each
+system convergence, independently of application `ExecCondition` gates.
+Application units retain fail-fast render fallbacks, so none can successfully
+start against a missing or stale file.
+
+Only `cratedigger.service`, which owns the singleton pipeline lock, uses the
+pipeline pre-start wrapper that may clear `.cratedigger.lock`. Web, importer,
+preview, unfindable, YouTube ingest, and the deployment renderer are render-only
+and must never remove or recreate that lock. This is pinned by the upstream
+module VM: every application unit is held, the independent renderer materializes
+a non-default config, and a renderer restart repairs a corrupted file while
+preserving both lock inode and contents.
+
+This fixes the 2026-07-19 deployment incident where systemd evaluated the
+metadata gate's `ExecCondition` before application `ExecStartPre`, leaving the
+old localhost slskd URL in mutable state even though the evaluated Nix template
+already contained `http://192.168.21.2:5030`.
 
 MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. The migration
 is complete; this hold now protects ordinary provider restarts and rebuilds.

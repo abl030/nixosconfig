@@ -1,6 +1,6 @@
 # slskd microVM cage
 
-**Built:** 2026-07-19 · **Status:** deployed; acceptance in progress · **Tracking:** Forgejo [#38](https://git.ablz.au/abl030/nixosconfig/issues/38)
+**Built:** 2026-07-19 · **Status:** deployed and accepted · **Tracking:** Forgejo [#38](https://git.ablz.au/abl030/nixosconfig/issues/38) (closed)
 
 slskd parses Internet peer traffic and accepts the USA AirVPN `45727` forward. It therefore runs in a dedicated `microvm.nix` / cloud-hypervisor guest instead of doc2's host namespace. The configuration is `hosts/doc2/slskd-microvm.nix`.
 
@@ -159,7 +159,33 @@ Then verify through pfSense/live clients:
 - doc2 `.35 -> .21.2:5030` succeeds, while another LAN source fails;
 - a Cratedigger search/enqueue produces slskd API activity and an event-stamped completed path in the unchanged download tree.
 
-For controlled failover tests, use fresh connections and packet/counter evidence. USA down must move guest egress to Netherlands while losing inbound reachability. Both VPNs down must time out, with a simultaneous physical-WAN capture showing zero packets for the unique test destination. Never flush all firewall states.
+For controlled failover tests, use fresh connections and packet/state evidence.
+Marking a gateway `force_down` tests gateway-group selection but does **not** make
+the WireGuard transport unavailable; a physically live tunnel may still carry
+traffic. Test the terminal kill switch by taking both `tun_wg*` interfaces down
+through the pfSense MCP command-prompt surface, killing only the guest and its
+two VPN-NAT state keys, and restarting the guest so it makes fresh connection
+attempts. The guest API must remain healthy while slskd reports disconnected,
+with no WAN or tunnel egress states. Restore both interfaces and clear every
+temporary `force_down` flag before declaring success. Never flush all firewall
+states.
+
+## Accepted result
+
+Acceptance completed on 2026-07-19 and is recorded in Forgejo
+[#38 comment 177](https://git.ablz.au/abl030/nixosconfig/issues/38#issuecomment-177).
+
+- USA-preferred egress produced fresh `tun_wg2` states and public TCP 45727 was
+  externally open.
+- With USA forced down, fresh guest connections moved to Netherlands `tun_wg0`.
+- With both WireGuard interfaces physically down, slskd stayed API-healthy but
+  disconnected from Soulseek and produced no WAN/tunnel egress state. It
+  reconnected automatically after both transports were restored.
+- A full doc2 reboot preserved the signed fleet anchor, IP-less host bridge,
+  nspawn database routes, nested virtiofs, Cratedigger integration, and exact
+  slskd share inventory: 12,578 directories and 106,490 files.
+- Post-boot state had both VPN gateways online, the USA forward open, no
+  metadata-gate holds, and zero failed units.
 
 ## Rollback
 
