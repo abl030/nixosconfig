@@ -39,6 +39,16 @@ Reusable helper: `modules/nixos/lib/negative-alert.nix`.
 Success/useful progress notifications may still post direct to Gotify; example:
 `gwm-archiver`'s “new issue picked up” notification.
 
+### AirVPN failover and recovery
+
+Grafana's `vpn-gateways` rule group sends sustained pfSense AirVPN state
+changes through the existing alert-bridge/Gotify path. Expected firing titles
+are `AirVPN USA failed over to Netherlands` and
+`AirVPN Netherlands failed over to USA`; Grafana also sends a resolved message
+when the preferred path returns. The USA alert notes that its USA-only inbound
+qBittorrent/slskd ports are temporarily unavailable. Rules wait three minutes,
+so brief packet-loss samples do not page.
+
 ## Reading messages (no client token in repo)
 
 The repo only carries the **app token** (`secrets/gotify.env`) for *sending*

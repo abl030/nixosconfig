@@ -162,5 +162,5 @@ today.)
 
 - If you add a second tenant to VLAN 30, add an intra-VLAN block (qbt's template has one) and the Avahi
   reflector interface if it needs cast discovery.
-- #277's other item: the two **disabled** AirVPN-NZ P2P forwards (45726/45727) — decide keep/delete.
+- The AirVPN P2P forwards are resolved: USA-only 45726 → qBittorrent and 45727 → slskd. They are deliberately absent on Netherlands.
 - Consider narrowing `/dev/dri` cgroup perms from `rwm` to `rw` (mknod not needed) — low priority.

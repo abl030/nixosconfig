@@ -197,35 +197,37 @@ Both are L2-only in UniFi (vlan-only mode). pfSense provides the gateway, DHCP, 
 | Name | Purpose |
 |------|---------|
 | WAN_DHCP | Default internet gateway |
-| AirVPN | AirVPN WireGuard tunnel (NZ, tun_wg2/opt5). Important: `dpinger_dont_add_static_route=true` on this gateway — its monitor is the public AirVPN endpoint `223.165.69.102`, and letting dpinger add a host route for that IP via `tun_wg2` blackholes the WireGuard endpoint after a restart. If NZ goes dark after a kick, verify `route -n get 223.165.69.102` points to WAN (`61.245.132.1`/`igc0`), not `tun_wg2`. |
-| AirVPN_SG | AirVPN WireGuard tunnel (Europe/Norway, tun_wg0/opt1) — internal name kept as AirVPN_SG; descr updated to "AirVPN Europe WireGuard gateway" |
+| AirVPN | USA AirVPN WireGuard gateway (`tun_wg2`/opt5 `AIRVPN_US`). Pinned to Xamidimura in Los Angeles; monitor `1.1.1.1` tests decrypted Internet traffic. Internal name retained to avoid rewriting every reference. |
+| AirVPN_SG | Netherlands AirVPN WireGuard gateway (`tun_wg0`/opt1 `AIRVPN_NL`). Pinned to Vindemiatrix in Amsterdam; monitor `1.0.0.1` tests decrypted Internet traffic. Historical internal name retained. |
 
 ### WireGuard Tunnels
 
 | Tunnel | Port | Interface | Description |
 |--------|------|-----------|-------------|
-| tun_wg2 | 51822 | opt5 (AIRVPN_NZ implied, descr OPT5) | WG_AIRVPN (New Zealand) |
-| tun_wg0 | 51823 | opt1 (AIRVPN_SG) | WG_AIRVPN_EU (Europe/Norway) — revived 2026-06-23 |
+| tun_wg2 | 51822 | opt5 (`AIRVPN_US`) | AirVPN USA — Los Angeles Xamidimura (`198.54.129.46:1637`) |
+| tun_wg0 | 51823 | opt1 (`AIRVPN_NL`) | AirVPN Netherlands — Amsterdam Vindemiatrix (`94.228.209.212:47107`) |
 
-Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the same server pubkey (`PyLCXA...`) across regions. The EU peer was injected directly into config.xml via PHP to bypass this API-layer constraint — WireGuard kernel itself supports same peer pubkey on different interfaces. The EU tunnel uses a distinct client private key and client IP (10.136.216.104/32).
+Note: pfSense REST API enforces global peer pubkey uniqueness. AirVPN reuses the same server pubkey (`PyLCXA...`) across regions. The second AirVPN peer was injected directly into config.xml via PHP to bypass this API-layer constraint — WireGuard itself supports the same peer public key on different interfaces. The Netherlands tunnel uses a distinct client private key and client IP (`10.136.216.104/32`).
 
-Tunnel details (as of 2026-06-23 revival):
-- Peer endpoint: `europe3.vpn.airdns.org:1637` (resolves to 82.102.27.173)
-- PSK: set (added during revival)
-- Exit IP: 146.70.219.2 (Oslo, Norway — M247 Europe SRL)
-- Gateway monitor: 10.128.0.1 (AirVPN internal DNS, reachable only through tunnel)
-- wg syncconf is used to apply peer changes (bypasses API pubkey uniqueness check)
+Tunnel details (as of 2026-07-19 redesign):
+- Both assigned interfaces use MTU 1320 and distinct client identities/listen ports.
+- Both peers are pinned to named-server IPs, not AirVPN regional DNS selectors.
+- `AirVPN` and `AirVPN_SG` have `action_disable=false`; dpinger can remove a failed member from its gateway groups.
+- Monitor targets are stable, unique external IPs (`1.1.1.1` USA, `1.0.0.1` Netherlands), not tunnel endpoints or WireGuard handshakes.
+- Monitor host routes are intentionally installed through each VPN gateway. The two WireGuard transport endpoint IPs must independently route through physical WAN (`igc0`) to avoid recursion.
+- Gateway groups: `AIRVPN_US_PREFERRED` = USA tier 1, NL tier 2; `AIRVPN_NL_PREFERRED` = NL tier 1, USA tier 2. Neither contains WAN. Trigger is packet loss or down state.
+- `wg syncconf` is used to apply peer changes when necessary (bypasses API pubkey uniqueness check).
+- **Regional DNS rotation + WireGuard roaming trap (confirmed 2026-07-17):** a peer configured with a regional hostname can remain on an old resolved backend indefinitely because WireGuard stores the resolved IP and endpoint roaming keeps accepting authenticated packets from the old backend. `ifconfig <tun> down/up` and `wg set ... endpoint <new-ip>` are insufficient: they preserve the peer's cryptokey/session state, and old authenticated packets immediately roam the endpoint back. Prove the fault with LAN+tunnel packet capture. Recovery is to save `wg showconf` to a root-only temporary file, remove and re-add/sync the peer (resetting session state) while pointed at the hostname's current IP, then delete the temp file. Restore the configured listen port/keepalive and verify both a fresh handshake and real data-plane traffic. Never print the temporary config; it contains the private key and PSK.
 - The stale "Singapore" peer (pubkey 3HtGdhEX..., endpoint 138.199.60.28) was deleted during revival
 
 ## VPN Routing Policy
 
-Traffic is routed through AirVPN based on source IP using aliases:
+Traffic is policy-routed through reciprocal two-member AirVPN gateway groups:
 
-- **MV_VPN_IPS** → AirVPN gateway (NZ): 192.168.1.4, .15, .17, .18, .24, .34, .36, .118 + doc2 slskd NIC (alias also contains a stray IPv6 placeholder `aaaa:bbbb:cccc::3a` — not a real address, harmless, but present in live pfSense state)
-- Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback)
-- **MV_VPN_SG_IPS** → AirVPN_SG gateway (Europe/Norway, tunnel relabelled EU 2026-06-23): 192.168.1.5 (epimetheus) — rules 21 (pass) + 22 (kill switch) enabled 2026-05-16
-- Has **kill switch** (block rule after pass-via-gateway rule prevents WAN fallback on SG tunnel)
-- **OPT3 (Docker VLAN)** → all traffic routes via AirVPN (NZ)
+- **NZBGet `192.168.1.17`** → `AIRVPN_NL_PREFERRED` (Netherlands tier 1, USA tier 2).
+- **MV_VPN_IPS**, Apollo `192.168.1.111`, **TORRENT_DMZ**, and **OPT3/Docker VLAN** → `AIRVPN_US_PREFERRED` (USA tier 1, Netherlands tier 2). `MV_VPN_IPS` contains 192.168.1.4, .15, .17, .18, .24, .34, .36, .118; the earlier explicit NZBGet rule wins for `.17`.
+- Each active cohort retains an immediately following kill-switch block (or final default deny for Docker VLAN). If both VPN gateways fail, there is no ordinary-WAN member and traffic is blocked.
+- The obsolete `MV_VPN_SG_IPS` pass/block pair remains disabled.
 
 ## Key Firewall Rules
 
@@ -237,7 +239,7 @@ Traffic is routed through AirVPN based on source IP using aliases:
 
 ### LAN Rules (order matters)
 1. Pass Cloudflare IPs (172.64.32.0/24, 173.245.58.0/24)
-2. MV_VPN_IPS → pass via AirVPN, then block (kill switch)
+2. NZBGet → NL-preferred group, then its kill switch; Apollo and MV_VPN_IPS → US-preferred group, each followed by its kill switch
 3. Block baby monitors (VTechCameras) on WAN and AirVPN gateways
 4. Block DoT (port 853) and DoH (to pfB_DoH_v4:443) for DHCP_Dynamic and LG TV (192.168.1.42)
 5. Default allow LAN to any
@@ -250,7 +252,7 @@ Traffic is routed through AirVPN based on source IP using aliases:
 5. Pass IoT → WAN only (via WAN_DHCP gateway)
 
 ### TORRENT_DMZ Rules (opt2, VLAN 20 — qbt cage)
-Default-deny template: block DoT/DoH; pass DNS → .20.1; block → LAN/Docker/IoT/intra-VLAN/10.0.0.0/8; pass egress via AirVPN NZ gateway; final kill-switch block. Full detail: docs/wiki/services/servarr-and-qbt-cage.md.
+Default-deny template: block DoT/DoH; pass DNS → .20.1; block → LAN/Docker/IoT/intra-VLAN/10.0.0.0/8; pass egress via `AIRVPN_US_PREFERRED`; final kill-switch block. Full detail: docs/wiki/services/servarr-and-qbt-cage.md.
 
 ### MEDIA_DMZ Rules (opt6, VLAN 30 — Plex cage, GitHub #277)
 Order: 1) block DoT (:853); 2) block DoH (→ pfB_DoH_v4:443); 3) pass DNS opt6 → .30.1:53; 4) **block opt6 → RFC1918** (the containment rule — no fleet/VLAN reachability); 5) pass opt6 → any (WAN egress, WAN_DHCP). LAN reaches Plex via the LAN catch-all; IoT via the explicit opt4 → .30.2:32400 pass. Full detail: docs/wiki/services/plex-media-dmz.md.
@@ -285,14 +287,20 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 | Src | Dest Port | Target | Local Port | Description |
 |-----|-----------|--------|------------|-------------|
 | pfB_Oceania_v4 | 11338 (WAN) | 192.168.30.2 | 32400 | Plex — retargeted to MEDIA_DMZ + source Oceania-gated on the NAT rule (2026-06-24, GitHub #277) |
-| any | 45726 (OPT5/AirVPN NZ) | 192.168.20.2 | 45726 | qbt torrent inbound (id=5, **ENABLED**) — lands on the qbt microVM cage in TORRENT_DMZ; retargeted from the old .1.4 during the 2026-06-22 qbt build. See servarr-and-qbt-cage.md |
-| any | 45727 (OPT5/AirVPN NZ) | 192.168.11.3 | 45727 | nicotine-plus soulseek inbound (id=6, **DISABLED**) — still points at the old Docker-VLAN nicotine-plus; leave disabled until nicotine-plus migrates into TORRENT_DMZ (.20.3), then re-enable + retarget. GitHub #277 |
+| any | 45726 (opt5/AIRVPN_US only) | 192.168.20.2 | 45726 | qBittorrent inbound (id=5, **ENABLED**). Deliberately not duplicated on Netherlands. |
+| any | 45727 (opt5/AIRVPN_US only) | 192.168.1.36 | 50300 | slskd Soulseek inbound (id=6, **ENABLED**). Deliberately not duplicated on Netherlands. |
 | LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (MEDIA_DMZ/opt6) | 127.0.0.1 | 53 | Force DNS (Plex → pfSense Unbound) |
 
-**Outbound NAT: Hybrid mode.** Manual entries exist for the DMZ subnets: `192.168.20.0/24 → opt5/AirVPN NZ` (qbt) and `192.168.30.0/24 → wan:ip` masquerade (Plex/MEDIA_DMZ, added 2026-06-24). In Hybrid mode a new directly-connected subnet does NOT auto-masquerade — add an explicit `<subnet> → wan` entry or it has no internet.
+The two AirVPN rdr entries have matching explicit pass rules on opt5 for the
+translated destinations. A NAT entry with an empty `associated_rule_id` does
+not create that filter permission by itself: both ports timed out externally
+until the explicit rules were added. Verify from genuinely external probes,
+not from a LAN client hitting the VPN exit address.
+
+**Outbound NAT: Hybrid mode.** LAN, Docker VLAN (`192.168.11.0/24`), and TORRENT_DMZ (`192.168.20.0/24`) have mappings on both AirVPN interfaces so either gateway-group tier can carry them. MEDIA_DMZ (`192.168.30.0/24`) maps to WAN. In Hybrid mode a new directly-connected subnet does NOT auto-masquerade — add explicit mappings for every permitted egress interface.
 
 ## Key Aliases
 
@@ -374,7 +382,7 @@ Note: .21 printer PTR returns both `brw4cd577318e30.local.com` (Kea auto-generat
 - **Unbound** (DNS Resolver) — running
 - **Kea DHCP4** — running
 - **pfBlockerNG** (DNSBL + IP blocklists) — running (REST API reports false for package services)
-- **WireGuard** — 1 tunnel (AirVPN) active (REST API reports false, actually running)
+- **WireGuard** — 2 AirVPN tunnels active (USA + Netherlands; REST API may report the package service false while both peers are healthy)
 - **Tailscale** — running (REST API reports false)
 - **UPnP/PCP** — enabled
 - **SSH** — enabled

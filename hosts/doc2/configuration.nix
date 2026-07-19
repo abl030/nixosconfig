@@ -63,7 +63,7 @@
         # docs/wiki/services/lgtm-stack.md §"VPN-routed IP sync contract".
         vpnClientIPs = [
           # 192.168.1.4 = servarr (*arr stack). Re-added to MV_VPN_IPS 2026-06-28 so
-          # its Prowlarr indexer / Cloudflare-solver egress exits via AirVPN (NZ) and
+          # its Prowlarr indexer / Cloudflare-solver egress exits via AirVPN (USA preferred) and
           # not the home WAN IP — which 1337x.to banned. servarr→qbt .20.2:8080 is
           # carved out by a pfSense floating bypass rule so the qbt WebUI stays direct.
           # (.4 was the decommissioned downloader2 before; removed 2026-06-23 at the
@@ -118,7 +118,10 @@
       };
       # Grafana alerting → Gotify (#201). Default rule: alert on
       # unexpected reboots of prom (the canonical case from 2026-02-22).
-      alerting.enable = true;
+      alerting = {
+        enable = true;
+        vpnGatewayAlert.enable = true;
+      };
       # pfSense ZFS backup chain — doc2 hosts the receiver natively on its
       # own local ZFS pool (pfsensebackup, backed by a zvol passthrough from
       # prom's nvmeprom). syncoid pulls directly from pfSense; sanoid prunes;

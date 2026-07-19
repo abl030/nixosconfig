@@ -105,6 +105,22 @@ OCI container `ghcr.io/pfrest/pfsense_exporter` on doc2, configured via `homelab
 
 **Prerequisites on pfSense:** the `pfSense-pkg-RESTAPI` package must be installed. It's removed on every pfSense major upgrade and must be reinstalled manually.
 
+### AirVPN failover alerts
+
+`homelab.alerting.vpnGatewayAlert.enable = true` provisions two Grafana rules in
+the `vpn-gateways` group. They combine `pfsense_gateway_up` with
+`pfsense_gateway_loss_ratio`, so a WireGuard peer that still handshakes but no
+longer passes decrypted Internet traffic is still detected. The rule waits three
+minutes before firing to ignore transient packet loss. Existing Grafana →
+alert-bridge → Gotify routing handles firing and resolved notifications.
+
+- `AirVPN` down/high-loss: USA-preferred traffic has failed over to Netherlands;
+  USA-only qBittorrent/slskd inbound ports are unavailable.
+- `AirVPN_SG` down/high-loss: NZBGet has failed over from Netherlands to USA.
+
+Missing exporter metrics do not masquerade as VPN failure; exporter/scrape
+health is monitored separately.
+
 **Thermal metrics:** `pfsense_system_temperature_celsius` requires the `coretemp` FreeBSD kernel module on pfSense. Enabled via `System > Advanced > Miscellaneous > Thermal Sensors = Intel Core`, or `kldload coretemp` + `/boot/loader.conf.local` entry for persistence. Without it, the metric emits 0.
 
 ## ntopng per-client traffic exporter

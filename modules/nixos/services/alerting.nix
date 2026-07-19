@@ -161,6 +161,138 @@
     })
     cfg.rebootAlert.instances);
 
+  # pfSense gateway groups provide the actual failover; these alerts report
+  # that a preferred AirVPN path has been excluded and traffic is using its
+  # reciprocal backup.  The loss metric is essential: WireGuard can keep
+  # handshaking while its decrypted data plane is dead, which leaves
+  # pfsense_gateway_up=1 until dpinger's state transition completes.
+  mkVpnGatewayAlert = {
+    uid,
+    title,
+    gateway,
+    summary,
+    description,
+  }: {
+    inherit uid title;
+    condition = "C";
+    "for" = cfg.vpnGatewayAlert.forDuration;
+    # Exporter/scrape failure has its own monitoring. Missing metrics must not
+    # be misreported as a VPN failover.
+    noDataState = "OK";
+    execErrState = "OK";
+    data = [
+      {
+        refId = "A";
+        queryType = "";
+        relativeTimeRange = {
+          from = 600;
+          to = 0;
+        };
+        datasourceUid = "Prometheus";
+        model = {
+          refId = "A";
+          # Aggregate each metric before combining it. Their exporter label
+          # sets differ (`gateway_up` adds `substatus`), and relying on that
+          # mismatch in a vector `or` would be fragile if the exporter changed.
+          expr = ''clamp_max((max(pfsense_gateway_loss_ratio{host="192.168.1.1",name="${gateway}"} >= bool ${toString cfg.vpnGatewayAlert.lossRatioThreshold}) or vector(0)) + (max(pfsense_gateway_up{host="192.168.1.1",name="${gateway}"} == bool 0) or vector(0)), 1)'';
+          instant = true;
+          intervalMs = 60000;
+          maxDataPoints = 43200;
+          datasource = {
+            type = "prometheus";
+            uid = "Prometheus";
+          };
+        };
+      }
+      {
+        refId = "B";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "B";
+          type = "reduce";
+          expression = "A";
+          reducer = "last";
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
+      }
+      {
+        refId = "C";
+        queryType = "";
+        relativeTimeRange = {
+          from = 0;
+          to = 0;
+        };
+        datasourceUid = "__expr__";
+        model = {
+          refId = "C";
+          type = "threshold";
+          expression = "B";
+          conditions = [
+            {
+              evaluator = {
+                params = [0.5];
+                type = "gt";
+              };
+              operator.type = "and";
+              query.params = ["C"];
+              reducer = {
+                params = [];
+                type = "last";
+              };
+              type = "query";
+            }
+          ];
+          datasource = {
+            type = "__expr__";
+            uid = "__expr__";
+          };
+        };
+      }
+    ];
+    annotations = {inherit summary description;};
+    labels = {
+      severity = "warning";
+      category = "vpn";
+      inherit gateway;
+    };
+  };
+
+  vpnGatewayAlerts = lib.optionals cfg.vpnGatewayAlert.enable [
+    (mkVpnGatewayAlert {
+      uid = "homelab-vpn-usa-failover";
+      title = "AirVPN USA failed over to Netherlands";
+      gateway = "AirVPN";
+      summary = "USA-preferred VPN traffic is using Netherlands; qBittorrent and slskd inbound ports are unavailable until USA recovers.";
+      description = ''
+        pfSense excluded the USA AirVPN gateway after sustained data-plane
+        failure. MV_VPN_IPS, Apollo, TORRENT_DMZ, and the Docker VLAN now use
+        the Netherlands backup. Outbound traffic remains protected; USA-only
+        inbound ports 45726 (qBittorrent) and 45727 (slskd) are unavailable.
+        Grafana sends a resolved notification when USA is healthy again.
+      '';
+    })
+    (mkVpnGatewayAlert {
+      uid = "homelab-vpn-nl-failover";
+      title = "AirVPN Netherlands failed over to USA";
+      gateway = "AirVPN_SG";
+      summary = "NZBGet is using its USA fallback because the Netherlands AirVPN data plane is unhealthy.";
+      description = ''
+        pfSense excluded the Netherlands AirVPN gateway after sustained
+        data-plane failure. NZBGet now uses the USA backup; all other VPN
+        cohorts remain on their preferred USA path. Grafana sends a resolved
+        notification when Netherlands is healthy again.
+      '';
+    })
+  ];
+
   # Helper: build a Loki-backed alert rule with the same A/B/C DAG shape
   # as the Prometheus reboot rule above.
   #   uid, title, summary, description, severity — alert identity + body
@@ -818,6 +950,15 @@
           rules = rebootAlerts;
         }
       ]
+      ++ lib.optionals (vpnGatewayAlerts != []) [
+        {
+          orgId = 1;
+          name = "vpn-gateways";
+          folder = "Homelab";
+          interval = "1m";
+          rules = vpnGatewayAlerts;
+        }
+      ]
       ++ lib.optionals (dbAuditAlerts != []) [
         {
           orgId = 1;
@@ -956,6 +1097,22 @@ in {
           seconds. 600s = 10 minutes — long enough to survive a missed
           eval after boot, short enough that the alert doesn't linger.
         '';
+      };
+    };
+
+    vpnGatewayAlert = {
+      enable = lib.mkEnableOption "Alert on sustained AirVPN data-plane failover and recovery";
+
+      forDuration = lib.mkOption {
+        type = lib.types.str;
+        default = "3m";
+        description = "How long a VPN gateway must remain failed/high-loss before notifying.";
+      };
+
+      lossRatioThreshold = lib.mkOption {
+        type = lib.types.float;
+        default = 0.8;
+        description = "Packet-loss ratio that constitutes a failed VPN data plane.";
       };
     };
 

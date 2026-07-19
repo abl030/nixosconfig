@@ -44,12 +44,15 @@ NetworkManager owns the LAN NIC.
 
 pfSense `opt2` rule chain (egress is VPN-only):
 1. block DoT(853)/DoH · **PASS DMZ→`.20.1:53`** (DNS — see gotcha) · block →LAN/Docker/IoT/intra-VLAN/`10/8`
-2. **PASS opt2-net → any via the AirVPN NZ gateway** (`opt5`/`tun_wg2`) · **kill-switch BLOCK** (tunnel
-   down = drop, never leak). Plus outbound NAT `.20.0/24 → opt5`, a DNS redirect (`:53 → 127.0.0.1:53`),
-   the inbound forward `opt5:45726 → .20.2:45726` (torrent port), and ONE LAN exception
+2. **PASS opt2-net → any via `AIRVPN_US_PREFERRED`** (USA `opt5`/`tun_wg2` tier 1,
+   Netherlands `opt1`/`tun_wg0` tier 2) · **kill-switch BLOCK** (both tunnels down = drop, never
+   leak). Outbound NAT exists on both VPN interfaces. The inbound forward remains USA-only:
+   `opt5:45726 → .20.2:45726`. There is also ONE LAN exception
    `192.168.1.4 → .20.2:8080` (servarr → qbt WebUI) above a `block LAN → .20.0/24` least-privilege rule.
 
-Verified egress is the AirVPN NZ exit IP (qbt's `Detected external IP` = the tunnel; DHT live).
+Steady-state egress is the AirVPN USA exit. During USA failover, outbound torrent
+traffic continues through Netherlands but inbound connectability on port 45726
+is intentionally unavailable; the port is not exposed on both tunnels.
 
 ## ⚠️ The qbt STORAGE gotcha chain (virtiofs-over-NFS) — the hard one
 

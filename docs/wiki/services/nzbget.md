@@ -123,32 +123,22 @@ So per-connection throughput to Eweka is latency-capped at a few Mbit; NZBGet
 reaches ~120 Mbit only by stacking ~50 of them. The tunnel itself has headroom
 (216 Mbit) — the bottleneck is the NZ→NL distance, not the VPN bandwidth.
 
-### pfSense VPN topology (from the pfsense subagent, read-only)
+### Current pfSense VPN topology (2026-07-19)
 
-- **Active tunnels (both AirVPN WireGuard):** `tun_wg2`/opt5 → **NZ/Auckland**
-  (gateway `AirVPN`, the Usenet path); `tun_wg0`/opt1 → **Singapore** (gateway
-  `AirVPN_SG`, configured but unused for Usenet). A `tun_wg1` Mullvad-Perth peer
-  exists but has no interface/gateway — orphaned and inert.
-- **No European exit exists.** AirVPN offers `eu-nl-*` / `eu-de-*` servers; using
-  one needs a new WireGuard tunnel + pfSense interface + gateway.
-- **Policy routing:** both `192.168.1.17` (tower/NZBGet) and `192.168.1.36`
-  (doc2 ens19) are in the `MV_VPN_IPS` alias → LAN rule routes them via the
-  `AirVPN` (NZ) gateway, with a following kill-switch block rule.
-- **VPN gateway monitoring is ACTIVE, but its ACTION is disabled** (corrected
-  2026-06-28 — the earlier "monitoring is disabled / `monitor_disable=true` / no
-  live RTT data" claim was WRONG; it conflated `monitor_disable` with
-  `action_disable`). Reality on `AirVPN_SG` (gw id=2): `monitor_disable=false`
-  (dpinger DOES probe — pings `10.128.0.1` every 2s, with live RTT/loss; e.g.
-  225ms / 0% when healthy) but **`action_disable=true`**, so probe results never
-  trigger a route change. The kill switches never auto-trigger because the
-  *action* is off, NOT because monitoring is off. **Consequence:** if a tunnel
-  silently dies, dpinger goes red but pfSense keeps it in the route table — rules
-  27/30 still first-match and WireGuard black-holes the packets (Usenet / Apollo
-  **stall**; still NO WAN leak — the kill-switch property holds via WireGuard's
-  dead-peer drop, not via the block rule). So a red gateway monitor is the signal,
-  not a kill-switch block log. (A transient 100% loss with `action_disable=true`
-  is harmless — it's what the 2026-06-28 "is the tunnel off?" scare turned out to
-  be; the tunnel was UP the whole time.)
+- `tun_wg0`/opt1 (`AIRVPN_NL`, internal gateway name `AirVPN_SG`) is pinned to
+  Amsterdam server Vindemiatrix. Its data-plane monitor is `1.0.0.1`.
+- `tun_wg2`/opt5 (`AIRVPN_US`, internal gateway name `AirVPN`) is pinned to Los
+  Angeles server Xamidimura. Its data-plane monitor is `1.1.1.1`.
+- `AIRVPN_NL_PREFERRED` uses Netherlands tier 1 and USA tier 2. NZBGet
+  `192.168.1.17` is explicitly routed through this group.
+- `AIRVPN_US_PREFERRED` uses USA tier 1 and Netherlands tier 2. Other active
+  VPN cohorts use this group.
+- dpinger actions are enabled and group trigger is packet loss or down state.
+  The monitors verify decrypted Internet traffic, not WireGuard handshake age.
+- Neither group contains WAN. NZBGet's following kill-switch block remains, so
+  failure of both tunnels blocks traffic instead of leaking through the ISP.
+- Grafana alerts via Gotify after three minutes of sustained failover and sends
+  a resolved notification when the preferred gateway recovers.
 
 ### Exit-location experiments → NL wins at ~234 Mbit/s (2026-06-18)
 
@@ -173,32 +163,12 @@ AirVPN exits) — bounce NZBGet and read its `status` download rate. NZBGet must
 **reloaded** after any gateway change, because pfSense does not flush states and
 existing connections stay pinned to the old gateway until they reconnect.
 
-**Current production path:** Usenet (`MV_VPN_IPS` = tower `.17` + doc2 `.36`) →
-rule 27 → gateway **AirVPN_SG** → `tun_wg0` → `213.152.176.140:1637` → exits NL,
-~234 Mbit/s to Eweka. Caveats:
-
-- The gateway is still *named* `AirVPN_SG` but exits NL — a cosmetic mislabel
-  left in place so existing rule references don't break.
-- The endpoint was set via pfSense `write_config()` (survives reboots) but is a
-  **raw IP pinned to this specific good server**. If AirVPN rotates that IP the
-  tunnel drops — re-pull a fresh AirVPN NL config and update the endpoint.
-- The NZ tunnel (`tun_wg2` / `AirVPN` gateway) stays configured but idle as a
-  known-good fallback: point rule 27 back at `AirVPN` and reload NZBGet to revert.
-- *Observed 2026-06-28:* the live peer endpoint is now `213.152.161.37:1637`
-  (`europe3.vpn.airdns.org`, NL) — it rotated off `…176.140` **without** dropping
-  the tunnel (fresh handshake; NZBGet exiting `213.152.161.52`, Lelystad NL), so in
-  practice the endpoint tracked the hostname rather than hard-failing on the
-  pinned-IP rotation the caveat above feared.
-
-### Other open items
-
-- **Enable gateway-down ACTION / failover** (`action_disable=true` today on both
-  tunnels; monitoring itself is already ON — see the corrected note above). The
-  kill switch / failover can't auto-trigger, so a silently-dead tunnel just
-  blackholes Usenet (kill switch still holds via WireGuard's dead-peer drop, so no
-  WAN leak — it stops rather than leaks). Flipping `action_disable=false` would let
-  dpinger pull a dead tunnel from the route table and (given a configured fallback
-  gateway) auto-failover. Worth considering now that NL is the production path.
+**Current production path:** NZBGet `.17` → `AIRVPN_NL_PREFERRED` →
+`AirVPN_SG`/`tun_wg0` → Vindemiatrix `94.228.209.212:47107`. The observed steady
+state public exit after cutover was `94.228.209.215`. If Netherlands fails,
+pfSense moves new NZBGet traffic to the USA tunnel automatically. Existing
+long-lived connections may need NZBGet reloaded if they do not reconnect by
+themselves.
 
 ### Unrelated finding: doc2 `192.168.1.35` (ens18) has no internet egress
 
