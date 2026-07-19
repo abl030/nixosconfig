@@ -61,7 +61,11 @@ The state databases are SQLite files with WALs. Stop both the producer and slskd
 
 ```bash
 # Preflight
+# Stop the gate watchdog first: while metadata is healthy it deliberately
+# restarts cratedigger.timer, which in turn wants native slskd.service.
+ssh doc2 'sudo systemctl stop cratedigger-metadata-gate-watchdog.timer cratedigger-metadata-gate-watchdog.service'
 ssh doc2 'sudo systemctl stop cratedigger.timer cratedigger.service slskd.service'
+ssh doc2 '! pgrep -f "^/nix/store/.*/slskd .*--app-dir /var/lib/slskd" && ! pgrep -f "^/nix/store/.*/python .*cratedigger.py"'
 ssh doc2 'sudo tar --xattrs --acls -C /var/lib -czf /var/lib/slskd-pre-microvm.tar.gz slskd'
 ssh doc2 'sudo tar -tzf /var/lib/slskd-pre-microvm.tar.gz >/dev/null'
 ssh doc2 'sudo test ! -e /mnt/virtio/slskd && sudo install -d -m0755 -o slskd -g music-import /mnt/virtio/slskd'
