@@ -40,13 +40,19 @@ back at `/var/lib/slskd`, so slskd sees no app-directory change.
 
 ## Host prerequisites
 
-Nested virtualization is required. Proxmox has nested AMD-V enabled globally, but VMID 114 previously used `x86-64-v3`, which hid SVM. The cutover changes it to `cpu=host` and adds the VLAN-tagged third NIC:
+Nested virtualization is required. Proxmox has nested AMD-V enabled globally,
+but VMID 114 previously used `x86-64-v3`, which hid SVM. `cpu=host` alone also
+keeps SVM hidden on this Proxmox version; the VM-specific `+nested-virt` flag is
+required. The cutover also adds the VLAN-tagged third NIC:
 
 ```bash
-ssh root@prom 'qm set 114 --cpu host --net2 virtio,bridge=vmbr0,firewall=1,tag=21'
+ssh root@prom 'qm set 114 --cpu host,flags=+nested-virt --net2 virtio,bridge=vmbr0,firewall=1,tag=21'
 ```
 
-A reboot is required for the CPU model and NIC. After reboot, doc2 must show `svm` in `/proc/cpuinfo`, `/dev/kvm`, and `ens20`; the NixOS config loads `kvm-amd`.
+A full Proxmox stop/start is required for the CPU model; an in-guest reboot keeps
+the existing QEMU process and does not expose SVM. After power-cycling, doc2
+must show `svm` in `/proc/cpuinfo`, `/dev/kvm`, and `ens20`; the NixOS config
+loads `kvm-amd`.
 
 The existing `ens19 = 192.168.1.36` remains. It is no longer a slskd boundary, but Cratedigger's yt-dlp rescue worker still binds to it for source-policy-routed VPN egress. Do not remove its table-100 route while YouTube rescue is enabled.
 
@@ -72,9 +78,16 @@ ssh doc2 'sudo test ! -e /mnt/virtio/slskd && sudo install -d -m0755 -o slskd -g
 ssh doc2 'sudo rsync -aHAX --numeric-ids /var/lib/slskd/ /mnt/virtio/slskd/'
 ssh doc2 'sudo rsync -aHAXnc --delete --numeric-ids /var/lib/slskd/ /mnt/virtio/slskd/' # must print nothing
 
-# Expose nested KVM + the tagged DMZ vNIC, then reboot doc2.
-ssh root@prom 'qm set 114 --cpu host --net2 virtio,bridge=vmbr0,firewall=1,tag=21'
-ssh doc2 'sudo reboot'
+# Expose nested KVM + the tagged DMZ vNIC, then fully power-cycle VMID 114.
+ssh root@prom 'qm set 114 --cpu host,flags=+nested-virt --net2 virtio,bridge=vmbr0,firewall=1,tag=21'
+ssh root@prom 'qm shutdown 114 --timeout 60 && qm start 114'
+
+# The old generation starts native slskd after boot. Quiesce convergence and
+# refresh the portable copy before switching to the guest generation.
+ssh doc2 'sudo systemctl stop cratedigger-metadata-gate-watchdog.timer cratedigger-metadata-gate-watchdog.service'
+ssh doc2 'sudo systemctl stop cratedigger.timer cratedigger.service slskd.service'
+ssh doc2 'sudo rsync -aHAX --delete --numeric-ids /var/lib/slskd/ /mnt/virtio/slskd/'
+ssh doc2 'test -z "$(sudo rsync -aHAXnc --delete --numeric-ids /var/lib/slskd/ /mnt/virtio/slskd/)"'
 
 # Deploy the signed Forgejo revision from doc1.
 fleet-deploy doc2

@@ -25,8 +25,9 @@
 in {
   imports = [inputs.microvm.nixosModules.host];
 
-  # doc2 is itself a Proxmox VM. VMID 114 must use cpu=host so nested AMD-V
-  # reaches this guest; boot.kernelModules then materialises /dev/kvm.
+  # doc2 is itself a Proxmox VM. VMID 114 must use cpu=host with Proxmox's
+  # +nested-virt flag so AMD-V reaches this guest; boot.kernelModules then
+  # materialises /dev/kvm.
   boot.kernelModules = ["kvm-amd"];
 
   # Keep host ownership stable across the native-service -> guest cutover.
