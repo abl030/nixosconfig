@@ -174,8 +174,10 @@
 
     # Hermes Agent CLI (Nous Research). Installed on doc1 as a local CLI package
     # only; no Hermes gateway service or Telegram integration is enabled here.
+    # 0.18.2 (614dc194) is missing packages/shared/src/charge-settlement.ts.
+    # Pin the last known-good revision until upstream repairs the release.
     hermes-agent = {
-      url = "github:nousresearch/hermes-agent";
+      url = "github:nousresearch/hermes-agent?rev=07be37d996be7df1965441ca8bdacdb3f884c7e2";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
     };
