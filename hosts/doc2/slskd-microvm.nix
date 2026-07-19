@@ -28,11 +28,12 @@
   # microVM's second virtiofs layer must retain O_PATH descriptors instead of
   # asking the outer filesystem for inode file handles: those handles go stale
   # immediately and make slskd's SQLite/backup paths unusable.
-  virtiofsdNoFileHandles = pkgs.writeShellScriptBin "virtiofsd" ''
+  virtiofsdNestedSafe = pkgs.writeShellScriptBin "virtiofsd" ''
     args=()
     for arg in "$@"; do
       case "$arg" in
         --inode-file-handles=prefer) args+=(--inode-file-handles=never) ;;
+        --posix-acl | --xattr) ;;
         *) args+=("$arg") ;;
       esac
     done
@@ -111,6 +112,7 @@ in {
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
   systemd.services."microvm-virtiofsd@slskd" = {
+    restartTriggers = [virtiofsdNestedSafe];
     unitConfig = {
       ConditionPathExists = "/run/secrets/slskd/env";
       RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
@@ -153,7 +155,7 @@ in {
       vcpu = 4;
       mem = 6144;
       vsock.cid = 21;
-      virtiofsd.package = virtiofsdNoFileHandles;
+      virtiofsd.package = virtiofsdNestedSafe;
       shares = [
         {
           source = "/nix/store";

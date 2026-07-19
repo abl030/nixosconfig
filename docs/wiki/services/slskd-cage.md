@@ -40,10 +40,12 @@ back at `/var/lib/slskd`, so slskd sees no app-directory change.
 
 These sources are already Proxmox virtiofs mounts inside doc2. The nested
 virtiofs daemon is therefore wrapped to replace
-`--inode-file-handles=prefer` with `--inode-file-handles=never`; the outer
-virtiofs layer cannot provide stable export file handles, and using them makes
-SQLite and backup paths fail with `Stale file handle`. The O_PATH-backed mode
-must remain enabled for every guest share, not only the state directory.
+`--inode-file-handles=prefer` with `--inode-file-handles=never` and to strip
+`--posix-acl`/`--xattr`; the outer virtiofs layer cannot provide stable export
+file handles or nested ACL/xattr operations. The defaults make SQLite and
+backup paths fail with `Stale file handle` and library scans fail with
+`Operation not supported`. The wrapper must remain enabled for every guest
+share, not only the state directory.
 
 ## Host prerequisites
 
