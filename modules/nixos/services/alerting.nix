@@ -632,8 +632,9 @@
   #
   # tower's large data shares intentionally run with less headroom than normal
   # service filesystems. Match their NFS source device rather than client-side
-  # mountpoints so every fleet view of the same backing share gets one policy.
-  towerDataDeviceRegex = "192[.]168[.]1[.]2:/mnt/user/(data|magazines)";
+  # mountpoints. Framework reaches the single-disk magazines export by the tower
+  # Tailscale hostname; data remains covered only through the LAN source label.
+  towerDataDeviceRegex = "(192[.]168[.]1[.]2:/mnt/user/(data|magazines)|tower:/mnt/user/magazines)";
   towerDataThresholdPercent = 95;
   diskAlerts = lib.optionals cfg.diskPressureAlert.enable [
     {
