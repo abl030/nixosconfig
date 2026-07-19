@@ -92,6 +92,14 @@
     ];
   };
 
+  # Re-arm the NFS automount triggers after every resume (suspend, hibernate,
+  # hybrid sleep, or suspend-then-hibernate) through NixOS's stock power-management
+  # resume hook. ExecStop-on-target-stop did not reliably run on wake and left the
+  # automount triggers dead.
+  powerManagement.resumeCommands = ''
+    /run/current-system/systemd/bin/systemctl restart mnt-data.automount mnt-appdata.automount mnt-Music.automount || true
+  '';
+
   services = {
     fwupd = {
       enable = true;
@@ -207,15 +215,6 @@
 
         serviceConfig = {
           Type = "oneshot";
-
-          # RemainAfterExit is REQUIRED for the resume path to work. A bare
-          # oneshot goes inactive the instant ExecStart finishes, so on resume
-          # there is no active unit left for systemd to "stop" — and ExecStop
-          # (which restarts the automounts) would never fire. With this set the
-          # unit stays "active (exited)" across the sleep, so stopping
-          # suspend.target on resume runs ExecStop. (#mnt-data-suspend)
-          RemainAfterExit = true;
-
           TimeoutSec = "30s"; # Increased from 5s - NFS unmount can be slow
 
           # The '-' prefix tells systemd to ignore errors (e.g. if already unmounted).
@@ -234,9 +233,6 @@
             #    during suspend.
             "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount mnt-Music.automount"
           ];
-
-          # Restart the automounts on resume so they work again.
-          ExecStop = "-${pkgs.systemd}/bin/systemctl start mnt-data.automount mnt-appdata.automount mnt-Music.automount";
         };
       };
     };
