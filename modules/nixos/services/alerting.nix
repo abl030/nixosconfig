@@ -193,10 +193,11 @@
         datasourceUid = "Prometheus";
         model = {
           refId = "A";
-          # Aggregate each metric before combining it. Their exporter label
-          # sets differ (`gateway_up` adds `substatus`), and relying on that
-          # mismatch in a vector `or` would be fragile if the exporter changed.
-          expr = ''clamp_max((max(pfsense_gateway_loss_ratio{host="192.168.1.1",name="${gateway}"} >= bool ${toString cfg.vpnGatewayAlert.lossRatioThreshold}) or vector(0)) + (max(pfsense_gateway_up{host="192.168.1.1",name="${gateway}"} == bool 0) or vector(0)), 1)'';
+          # Aggregate each family, give the two scalar signals distinct labels
+          # so `or` retains both, then collapse them with max. If either family
+          # reports failure the result is 1; if both disappear the result stays
+          # empty so Grafana reaches KeepLast instead of manufacturing recovery.
+          expr = ''max(label_replace(max(pfsense_gateway_loss_ratio{host="192.168.1.1",name="${gateway}"} >= bool ${toString cfg.vpnGatewayAlert.lossRatioThreshold}), "signal", "loss", "", ".*") or label_replace(max(pfsense_gateway_up{host="192.168.1.1",name="${gateway}"} == bool 0), "signal", "up", "", ".*"))'';
           instant = true;
           intervalMs = 60000;
           maxDataPoints = 43200;

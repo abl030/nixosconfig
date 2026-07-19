@@ -138,7 +138,7 @@ reaches ~120 Mbit only by stacking ~50 of them. The tunnel itself has headroom
 - Neither group contains WAN. NZBGet's following kill-switch block remains, so
   failure of both tunnels blocks traffic instead of leaking through the ISP.
 - Grafana alerts via Gotify after three minutes of sustained gateway failure.
-  Its message distinguishes USA failover from both-gateway kill-switch blocking
+  Its message describes both USA failover and both-gateway kill-switch blocking,
   and resolves only when the preferred gateway recovers.
 
 ### Exit-location experiments → NL wins at ~234 Mbit/s (2026-06-18)
