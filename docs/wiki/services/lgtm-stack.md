@@ -113,6 +113,9 @@ the `vpn-gateways` group. They combine `pfsense_gateway_up` with
 longer passes decrypted Internet traffic is still detected. The rule waits three
 minutes before firing to ignore transient packet loss. Existing Grafana →
 alert-bridge → Gotify routing handles firing and resolved notifications.
+The rules use `notification_mode=status-only`: failover is already remediated
+by pfSense, so alert-bridge sends direct state/recovery pings rather than
+opening an RCA job.
 
 - `AirVPN` down/high-loss: USA-preferred traffic has failed over to Netherlands;
   USA-only qBittorrent/slskd inbound ports are unavailable.

@@ -261,6 +261,9 @@
     labels = {
       severity = "warning";
       category = "vpn";
+      # A known failover is self-healing state, not an RCA job. This mode is
+      # also what makes alert-bridge deliver Grafana's resolved webhook.
+      notification_mode = "status-only";
       inherit gateway;
     };
   };

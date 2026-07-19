@@ -76,9 +76,19 @@ the on-disk sqlite is the simplest path that doesn't require provisioning a
 new client just for triage. If we ever want HTTP-API reads, mint a client
 token via the Gotify UI and store it in sops as `gotify/client-token`.
 
-`sqlite3` lives in `/run/current-system/sw/bin/` (always on PATH for sudo).
 The DB is at `/mnt/virtio/gotify/data/gotify.db` (Gotify's `WorkingDirectory`),
-owned by the `gotify` system user; needs sudo.
+owned by the `gotify` system user and therefore needs sudo. If the `sqlite3`
+CLI is absent from the current doc2 generation, use Python's stdlib instead:
+
+```bash
+ssh doc2 'sudo python3 - <<"PY"
+import sqlite3
+p = "/mnt/virtio/gotify/data/gotify.db"
+con = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+for row in con.execute("SELECT id, datetime(date), priority, title FROM messages ORDER BY id DESC LIMIT 20"):
+    print("|".join(map(str, row)))
+PY'
+```
 
 ## Schema
 
