@@ -25,6 +25,15 @@
     zfs.extraPools = ["pfsensebackup"];
   };
 
+  # NixOS' container setup owns the static 10.20.0.x addresses on these veths.
+  # If networkd restarts during a live switch, its stock 80-container-ve.network
+  # otherwise replaces those addresses with pool addresses and disconnects every
+  # nspawn-hosted database until the containers restart.
+  systemd.network.networks."10-nspawn-db-veth" = {
+    matchConfig.Name = "ve-*-db";
+    linkConfig.Unmanaged = true;
+  };
+
   homelab = {
     ssh = {
       enable = true;
