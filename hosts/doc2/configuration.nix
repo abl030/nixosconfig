@@ -8,6 +8,7 @@
     inputs.disko.nixosModules.disko
     ./disko.nix
     ./hardware-configuration.nix
+    ./slskd-microvm.nix
   ];
 
   boot = {
@@ -74,7 +75,7 @@
           "192.168.1.18" # tower nzbhydra2 (ipvlan on br0)
           "192.168.1.24"
           "192.168.1.34"
-          "192.168.1.36" # doc2-vpn (2nd NIC — slskd)
+          "192.168.1.36" # doc2-vpn (2nd NIC — yt-dlp rescue egress)
           "192.168.1.118"
         ];
       };
@@ -166,11 +167,6 @@
         dataDir = "/mnt/virtio/atuin";
       };
       beancount.enable = true;
-      slskd = {
-        enable = true;
-        downloadDir = "/mnt/virtio/music/slskd";
-        musicDir = "/mnt/virtio/Music/Beets";
-      };
       cratedigger = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
@@ -544,6 +540,22 @@
   # Static IPs — previously set manually, NM would drop them after ~2h
   networking = {
     useDHCP = false;
+    # Keep the pre-existing VPN-routed source address for Cratedigger's yt-dlp
+    # rescue worker. slskd no longer uses ens19; it is jailed on SLSKD_DMZ.
+    iproute2.enable = true;
+    localCommands = ''
+      for i in $(seq 1 30); do
+        main_ip=$(ip -4 addr show ens18 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)
+        vpn_ip=$(ip -4 addr show ens19 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)
+        [ -n "$main_ip" ] && [ -n "$vpn_ip" ] && break
+        sleep 1
+      done
+      ip route replace 192.168.1.0/24 dev ens18 src "$main_ip" table main
+      ip route replace 192.168.1.0/24 dev ens19 src 192.168.1.36 table 100
+      ip route replace default via 192.168.1.1 dev ens19 table 100
+      ip rule del from 192.168.1.36 table 100 2>/dev/null || true
+      ip rule add from 192.168.1.36 table 100 priority 101
+    '';
     interfaces = {
       ens18 = {
         ipv4.addresses = [

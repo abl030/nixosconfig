@@ -16,16 +16,15 @@
 # rank tuning). Anything past the option-set below is purely homelab plumbing.
 #
 # Network topology:
-#   doc2 has two NICs on 192.168.1.0/24:
-#     ens18 = 192.168.1.35 (main, DHCP) — cratedigger, metadata APIs, NFS, everything else
-#     ens19 = 192.168.1.36 (VPN, static) — slskd Soulseek traffic only
-#   See slskd.nix for the policy routing.
+#   ens18 = 192.168.1.35 (main); ens19 = .36 (VPN-routed yt-dlp only).
+#   slskd is a microVM at 192.168.21.2 on SLSKD_DMZ; see
+#   hosts/doc2/slskd-microvm.nix.
 #
 # Debugging:
 #   journalctl -u cratedigger -f              — watch a run in real time
 #   sudo systemctl start cratedigger          — trigger a run now
 #   sudo cat /var/lib/cratedigger/config.ini  — verify rendered config
-#   curl -s localhost:5030/api/v0/searches -H 'X-API-Key: <key>' | jq
+#   curl -s 192.168.21.2:5030/api/v0/searches -H @/tmp/slskd-api-header | jq
 #                                         — check slskd search queue
 #
 # Operations: docs/wiki/services/cratedigger.md documents the metadata gate,
@@ -582,8 +581,8 @@ in {
           };
 
           cratedigger = {
-            after = ["slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
-            wants = ["slskd.service" "container@cratedigger-db.service"];
+            after = ["microvm@slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            wants = ["microvm@slskd.service" "container@cratedigger-db.service"];
             serviceConfig = {
               ExecCondition = metadataGateStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
@@ -796,6 +795,7 @@ in {
 
       slskd = {
         apiKeyFile = "/run/cratedigger-secrets/SOULARR_SLSKD_API_KEY";
+        hostUrl = "http://192.168.21.2:5030";
         inherit (cfg) downloadDir;
       };
 
@@ -840,11 +840,8 @@ in {
 
       youtubeIngest = {
         enable = true;
-        # Bind yt-dlp egress to the VPN-routed second NIC (ens19,
-        # 192.168.1.36). The host's source-IP policy-routing rule (installed
-        # by the slskd module) sends sockets bound to this address out
-        # pfSense WireGuard — the same path slskd uses. Only yt-dlp binds to
-        # it, so the worker's PostgreSQL/control traffic stays on the main NIC.
+        # Keep yt-dlp on doc2's pre-existing VPN-routed second NIC. slskd moved
+        # to SLSKD_DMZ, but this source route remains intentionally separate.
         sourceAddress = "192.168.1.36";
       };
 
@@ -878,7 +875,7 @@ in {
 
       healthCheck = {
         enable = true;
-        onFailureCommand = "${pkgs.systemd}/bin/systemctl restart slskd.service";
+        onFailureCommand = "${pkgs.systemd}/bin/systemctl restart microvm@slskd.service";
       };
     };
 

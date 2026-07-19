@@ -149,12 +149,12 @@ This homelab uses a **split-responsibility** network architecture:
 | DNS | **pfSense** | Unbound resolver + pfBlockerNG DNSBL, forced for untrusted devices |
 | VPN | **pfSense** | AirVPN WireGuard tunnel with policy routing + Tailscale mesh |
 
-**There is no UniFi gateway.** pfSense is the sole router/firewall. UniFi manages L2 only — VLANs 10, 20, 30 and 100 are defined as "vlan-only" in UniFi (no subnet/DHCP) with pfSense providing all L3 services on those VLANs.
+**There is no UniFi gateway.** pfSense is the sole router/firewall. UniFi manages L2 only — VLANs 10, 20, 21, 30 and 100 are defined as "vlan-only" in UniFi (no subnet/DHCP) with pfSense providing all L3 services on those VLANs.
 
 ### Physical Topology
 
 ```
-Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,30,100)
+Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,21,30,100)
                 │
                 ├──► MastSwitch (US-8-60W, .53) ──► 3x APs (PoE ports 5-7)
                 │       ports 1,4: VLAN trunks        port 8: Zigbee coordinator
@@ -181,12 +181,14 @@ pfSense 2.8.1-RELEASE running on dedicated hardware (Intel igc NICs).
 | IOT_OF_DEATH | opt4 | 192.168.101.0/24 | igc1.100 (VLAN 100) | Isolated IoT devices |
 | OPT5 (AirVPN NZ) | opt5 | 10.136.18.126/32 | tun_wg2 | AirVPN WG tunnel (New Zealand) |
 | OPT2 (TORRENT_DMZ) | opt2 | 192.168.20.0/24 | igc1.20 (VLAN 20) | qbt microVM cage — default-deny, egress AirVPN NZ + kill-switch |
+| OPT7 (SLSKD_DMZ) | opt7 | 192.168.21.0/24 | igc1.21 (VLAN 21) | single-tenant slskd microVM cage — RFC1918 deny, AirVPN failover + kill-switch |
 | OPT6 (MEDIA_DMZ) | opt6 | 192.168.30.0/24 | igc1.30 (VLAN 30) | Plex cage — default-deny to RFC1918, egress WAN only (GitHub #277) |
 
 ### VLANs
 
 - **VLAN 10** (igc1.10) — Docker_Network — 192.168.11.0/24 — UniFi name: "DOckerVLan"
 - **VLAN 20** (igc1.20) — TORRENT_DMZ — 192.168.20.0/24 — UniFi name: "Torrent_DMZ" — qbt microVM cage (egress AirVPN NZ). See docs/wiki/services/servarr-and-qbt-cage.md
+- **VLAN 21** (igc1.21) — SLSKD_DMZ — 192.168.21.0/24 — UniFi name: "SLSKD_DMZ" — jailed slskd microVM. See docs/wiki/services/slskd-cage.md
 - **VLAN 30** (igc1.30) — MEDIA_DMZ — 192.168.30.0/24 — UniFi name: "MEDIA_DMZ" — Plex cage (egress WAN only, GitHub #277). See docs/wiki/services/plex-media-dmz.md
 - **VLAN 100** (igc1.100) — IOT_of_Death — 192.168.101.0/24 — UniFi name: "IOT_OF_DEATH"
 
@@ -253,6 +255,9 @@ Traffic is policy-routed through reciprocal two-member AirVPN gateway groups:
 
 ### TORRENT_DMZ Rules (opt2, VLAN 20 — qbt cage)
 Default-deny template: block DoT/DoH; pass DNS → .20.1; block → LAN/Docker/IoT/intra-VLAN/10.0.0.0/8; pass egress via `AIRVPN_US_PREFERRED`; final kill-switch block. Full detail: docs/wiki/services/servarr-and-qbt-cage.md.
+
+### SLSKD_DMZ Rules (opt7, VLAN 21 — slskd cage, Forgejo #38)
+Single-tenant default-deny template: block DoT/DoH; pass DNS to `.21.1:53`; block the complete `RFC1918` alias; pass egress through `AIRVPN_US_PREFERRED` (Netherlands fallback); final kill-switch block. LAN has one floating quick pass from doc2 `.35` to `.21.2:5030`, followed by a floating quick block to the whole VLAN. Outbound NAT exists on USA and Netherlands; inbound `45727` remains USA-only. Full detail: docs/wiki/services/slskd-cage.md.
 
 ### MEDIA_DMZ Rules (opt6, VLAN 30 — Plex cage, GitHub #277)
 Order: 1) block DoT (:853); 2) block DoH (→ pfB_DoH_v4:443); 3) pass DNS opt6 → .30.1:53; 4) **block opt6 → RFC1918** (the containment rule — no fleet/VLAN reachability); 5) pass opt6 → any (WAN egress, WAN_DHCP). LAN reaches Plex via the LAN catch-all; IoT via the explicit opt4 → .30.2:32400 pass. Full detail: docs/wiki/services/plex-media-dmz.md.
@@ -341,7 +346,8 @@ RESERVED placeholder MACs: IPs used by ipvlan containers (sharing a real NIC's M
 | 192.168.1.30 | — | Proxmox Backup Server |
 | 192.168.1.33 | igpu | iGPU transcoding VM (VMID 109) |
 | 192.168.1.35 | doc2 | NixOS service appliance VM |
-| 192.168.1.36 | doc2-vpn | doc2 2nd NIC — VPN-routed traffic (slskd) |
+| 192.168.1.36 | doc2-vpn | doc2 2nd NIC — VPN-routed yt-dlp rescue traffic |
+| 192.168.21.2 | slskd | jailed slskd microVM on single-tenant SLSKD_DMZ (VLAN 21) |
 | 192.168.1.37 | framework | Framework 13 Laptop |
 | 192.168.1.38 | s-a55 | Samsung Galaxy A55 |
 | 192.168.1.39 | daikin-ir | Seeed XIAO IR - Daikin AC |
@@ -360,7 +366,7 @@ All overrides use domain `local.com` to match existing convention.
 | bastion.local.com | 192.168.1.3 | BastionProxy |
 | doc1.local.com | 192.168.1.29 | doc1 (proxmox-vm) — primary services VM |
 | doc2.local.com | 192.168.1.35 | doc2 primary NIC (ens18) |
-| doc2-vpn.local.com | 192.168.1.36 | doc2 2nd NIC (ens19) — VPN-routed (slskd) |
+| doc2-vpn.local.com | 192.168.1.36 | doc2 2nd NIC (ens19) — VPN-routed yt-dlp rescue traffic |
 | lgwebostv.local.com | 192.168.1.42 | LG webOS TV (DHCP static at .42, MAC 14:c9:13:49:95:fe) |
 | prom.local.com | 192.168.1.12 | Proxmox host — AMD 9950X hypervisor |
 | pbs.local.com | 192.168.1.30 | Proxmox Backup Server |

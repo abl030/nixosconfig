@@ -593,7 +593,13 @@ The module design must allow the service to run on ANY host by changing only the
 
 ## VPN Routing (for services needing external VPN)
 
-See `slskd.nix` for the dual-NIC policy routing pattern. Services needing VPN use a second NIC with UID-based routing rules that send traffic through pfSense's WireGuard tunnel.
+Use pfSense gateway groups and a following kill-switch rule rather than putting
+WireGuard credentials in application hosts. Internet-facing P2P daemons use a
+dedicated microVM on a single-tenant, default-deny DMZ; see
+`hosts/doc2/slskd-microvm.nix` and `hosts/servarr/qbt-microvm.nix`. A
+source-bound trusted worker may use a dedicated host address with source-policy
+routing, as Cratedigger's yt-dlp rescue worker does on doc2, but that is not an
+isolation boundary.
 
 ## Podman/OCI Services
 

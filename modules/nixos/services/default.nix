@@ -34,7 +34,6 @@
     ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix
-    ./slskd.nix
     ./cratedigger.nix
     ./discogs.nix
     ./paperless.nix

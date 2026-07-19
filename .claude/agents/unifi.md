@@ -43,7 +43,7 @@ This homelab uses a **split-responsibility** network architecture:
 ### Physical Topology
 
 ```
-Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,30,100)
+Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,21,30,100)
                 │
                 ├──► MastSwitch (US-8-60W, .53) ──► 3x APs (PoE ports 5-7)
                 │       ports 1,4: VLAN trunks        port 8: Zigbee coordinator
@@ -59,7 +59,8 @@ Internet ──► pfSense (igc0=WAN, igc1=LAN trunk w/ VLANs 10,20,30,100)
 |------|------------------|--------|------|-----------------|
 | untagged (LAN) | igc1 | 192.168.1.0/24 | .6-.254 | Allow most traffic; VPN policy routing for select IPs; block DoH/DoT for DHCP_Dynamic range (.100-.254) |
 | 10 (Docker) | igc1.10 (OPT3) | 192.168.11.0/24 | Yes | All traffic routes via AirVPN |
-| 20 (Torrent DMZ) | igc1.20 (OPT2) | 192.168.20.0/24 | static (qbt .20.2) | Default-deny to fleet/VLANs; egress AirVPN NZ + kill-switch; holds the qbt microVM. See services/servarr-and-qbt-cage.md |
+| VLAN 20 (Torrent DMZ) | igc1.20 (OPT2) | 192.168.20.0/24 | static (qbt .20.2) | Default-deny to fleet/VLANs; egress AirVPN; holds the qbt microVM. See services/servarr-and-qbt-cage.md |
+| VLAN 21 (slskd DMZ) | igc1.21 (OPT7) | 192.168.21.0/24 | static (slskd .21.2) | Single-tenant, RFC1918-denied; USA-preferred AirVPN with Netherlands fallback + kill-switch. See services/slskd-cage.md |
 | 30 (Media DMZ) | igc1.30 (OPT6) | 192.168.30.0/24 | static (Plex .30.2) | Default-deny to all RFC1918; WAN egress only; holds Plex. WAN:11338→.30.2:32400 (Oceania). See services/plex-media-dmz.md |
 | 100 (IoT) | igc1.100 (OPT4) | 192.168.101.0/24 | Yes | Isolated: blocked from LAN + Docker VLAN, WAN-only egress, forced DNS |
 
@@ -109,10 +110,11 @@ Key pfSense rules affecting devices you manage:
 | Default | corporate | untagged | 192.168.1.0/24 | Yes (.6-.254) | Main LAN, mDNS enabled |
 | DOckerVLan | vlan-only | 10 | L2 only | No | pfSense provides gateway/DHCP (192.168.11.0/24) |
 | Torrent_DMZ | vlan-only | 20 | L2 only | No | pfSense igc1.20 (opt2), 192.168.20.0/24; qbt microVM cage (egress AirVPN NZ). Created 2026-06-22 |
+| SLSKD_DMZ | vlan-only | 21 | L2 only | No | pfSense igc1.21 (opt7), 192.168.21.0/24; single-tenant slskd microVM cage. Created 2026-07-19, Forgejo #38 |
 | MEDIA_DMZ | vlan-only | 30 | L2 only | No | pfSense igc1.30 (opt6), 192.168.30.0/24; Plex cage (egress WAN only). Created 2026-06-24, GitHub #277 |
 | IOT_OF_DEATH | vlan-only | 100 | L2 only | No | pfSense provides gateway/DHCP (192.168.101.0/24) |
 
-**Key point:** VLANs 10, 20, 30, and 100 are L2-only in UniFi. pfSense handles all L3 services for them. All trunk ports use `tagged_vlan_mgmt: auto`, so a new vlan-only network is carried on every trunk automatically once created — but pfSense still needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
+**Key point:** VLANs 10, 20, 21, 30, and 100 are L2-only in UniFi. pfSense handles all L3 services for them. All trunk ports use `tagged_vlan_mgmt: auto`, so a new vlan-only network is carried on every trunk automatically once created — but pfSense still needs a corresponding interface + DHCP + firewall rules (use the pfSense agent for that).
 
 ## WLANs
 
