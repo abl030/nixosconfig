@@ -162,8 +162,10 @@
     cfg.rebootAlert.instances);
 
   # pfSense gateway groups provide the actual failover; these alerts report
-  # that a preferred AirVPN path has been excluded and traffic is using its
-  # reciprocal backup.  The loss metric is essential: WireGuard can keep
+  # that an AirVPN path is unavailable. Descriptions stay conditional because
+  # the reciprocal backup can also be down, in which case kill switches block
+  # traffic instead of completing a failover. The loss metric is essential:
+  # WireGuard can keep
   # handshaking while its decrypted data plane is dead, which leaves
   # pfsense_gateway_up=1 until dpinger's state transition completes.
   mkVpnGatewayAlert = {
@@ -176,10 +178,10 @@
     inherit uid title;
     condition = "C";
     "for" = cfg.vpnGatewayAlert.forDuration;
-    # Exporter/scrape failure has its own monitoring. Missing metrics must not
-    # be misreported as a VPN failover.
-    noDataState = "OK";
-    execErrState = "OK";
+    # Exporter/scrape failure has its own monitoring. Preserve the last VPN
+    # state so telemetry loss cannot emit a false recovery notification.
+    noDataState = "KeepLast";
+    execErrState = "KeepLast";
     data = [
       {
         refId = "A";
@@ -271,27 +273,29 @@
   vpnGatewayAlerts = lib.optionals cfg.vpnGatewayAlert.enable [
     (mkVpnGatewayAlert {
       uid = "homelab-vpn-usa-failover";
-      title = "AirVPN USA failed over to Netherlands";
+      title = "AirVPN USA gateway failure";
       gateway = "AirVPN";
-      summary = "USA-preferred VPN traffic is using Netherlands; qBittorrent and slskd inbound ports are unavailable until USA recovers.";
+      summary = "The USA AirVPN data plane is unhealthy. Protected cohorts use Netherlands if it is healthy, otherwise their kill switches block traffic; USA-only inbound ports are unavailable.";
       description = ''
         pfSense excluded the USA AirVPN gateway after sustained data-plane
-        failure. MV_VPN_IPS, Apollo, TORRENT_DMZ, and the Docker VLAN now use
-        the Netherlands backup. Outbound traffic remains protected; USA-only
+        failure. MV_VPN_IPS, Apollo, TORRENT_DMZ, and the Docker VLAN use the
+        Netherlands backup when it is healthy; if both VPN gateways are down,
+        their following kill-switch rules block traffic instead. USA-only
         inbound ports 45726 (qBittorrent) and 45727 (slskd) are unavailable.
-        Grafana sends a resolved notification when USA is healthy again.
+        Grafana sends a resolved notification only when USA is healthy again.
       '';
     })
     (mkVpnGatewayAlert {
       uid = "homelab-vpn-nl-failover";
-      title = "AirVPN Netherlands failed over to USA";
+      title = "AirVPN Netherlands gateway failure";
       gateway = "AirVPN_SG";
-      summary = "NZBGet is using its USA fallback because the Netherlands AirVPN data plane is unhealthy.";
+      summary = "The Netherlands AirVPN data plane is unhealthy. NZBGet uses USA if it is healthy, otherwise its kill switch blocks traffic.";
       description = ''
         pfSense excluded the Netherlands AirVPN gateway after sustained
-        data-plane failure. NZBGet now uses the USA backup; all other VPN
-        cohorts remain on their preferred USA path. Grafana sends a resolved
-        notification when Netherlands is healthy again.
+        data-plane failure. NZBGet uses the USA backup when it is healthy; if
+        both VPN gateways are down, NZBGet's following kill-switch rule blocks
+        traffic instead. Grafana sends a resolved notification only when the
+        Netherlands gateway is healthy again.
       '';
     })
   ];
@@ -1113,9 +1117,9 @@ in {
       };
 
       lossRatioThreshold = lib.mkOption {
-        type = lib.types.float;
+        type = lib.types.addCheck lib.types.float (value: value >= 0.0 && value <= 1.0);
         default = 0.8;
-        description = "Packet-loss ratio that constitutes a failed VPN data plane.";
+        description = "Packet-loss ratio from 0.0 through 1.0 that constitutes a failed VPN data plane.";
       };
     };
 

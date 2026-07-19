@@ -43,9 +43,10 @@ Success/useful progress notifications may still post direct to Gotify; example:
 
 Grafana's `vpn-gateways` rule group sends sustained pfSense AirVPN state
 changes through the existing alert-bridge/Gotify path. Expected firing titles
-are `AirVPN USA failed over to Netherlands` and
-`AirVPN Netherlands failed over to USA`; Grafana also sends a resolved message
-when the preferred path returns. The USA alert notes that its USA-only inbound
+are `AirVPN USA gateway failure` and `AirVPN Netherlands gateway failure`.
+The body distinguishes healthy-backup failover from both-gateway kill-switch
+blocking, and Grafana sends a resolved message only when the failed path
+returns. The USA alert notes that its USA-only inbound
 qBittorrent/slskd ports are temporarily unavailable. Rules wait three minutes,
 so brief packet-loss samples do not page.
 

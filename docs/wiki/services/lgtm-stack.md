@@ -113,16 +113,19 @@ the `vpn-gateways` group. They combine `pfsense_gateway_up` with
 longer passes decrypted Internet traffic is still detected. The rule waits three
 minutes before firing to ignore transient packet loss. Existing Grafana →
 alert-bridge → Gotify routing handles firing and resolved notifications.
-The rules use `notification_mode=status-only`: failover is already remediated
-by pfSense, so alert-bridge sends direct state/recovery pings rather than
-opening an RCA job.
+The rules use `notification_mode=status-only`: pfSense already handles failover
+or kill-switch blocking, so alert-bridge sends direct state/recovery pings
+rather than opening an RCA job.
 
-- `AirVPN` down/high-loss: USA-preferred traffic has failed over to Netherlands;
-  USA-only qBittorrent/slskd inbound ports are unavailable.
-- `AirVPN_SG` down/high-loss: NZBGet has failed over from Netherlands to USA.
+- `AirVPN` down/high-loss: USA is unavailable; protected cohorts use Netherlands
+  when healthy, otherwise their kill switches block. USA-only
+  qBittorrent/slskd inbound ports are unavailable.
+- `AirVPN_SG` down/high-loss: Netherlands is unavailable; NZBGet uses USA when
+  healthy, otherwise its kill switch blocks.
 
-Missing exporter metrics do not masquerade as VPN failure; exporter/scrape
-health is monitored separately.
+Missing metrics and evaluation errors keep the previous rule state. Separate
+exporter/scrape monitoring reports telemetry loss, so it cannot manufacture a
+false VPN recovery notification.
 
 **Thermal metrics:** `pfsense_system_temperature_celsius` requires the `coretemp` FreeBSD kernel module on pfSense. Enabled via `System > Advanced > Miscellaneous > Thermal Sensors = Intel Core`, or `kldload coretemp` + `/boot/loader.conf.local` entry for persistence. Without it, the metric emits 0.
 
