@@ -24,15 +24,16 @@ gotchas, and what to check before touching it. Rules in code live in `hosts/serv
   rollback). Usenet client **NZBGet @ `192.168.1.17`** and **Prowlarr→Readarr @ tower `192.168.1.2:8787`**
   were untouched and carried over.
 
-### QXL kernel driver is intentionally disabled in the guest
+### Servarr uses Virtio video for Unraid VNC
 
-tower's libvirt definition continues to expose its QXL VGA device for the working Unraid VNC
-console. The guest does not need QXL DRM acceleration: on 2026-07-18 the Linux `qxl` framebuffer
-damage worker repeatedly failed TTM buffer eviction, wedged in `qxl_fence_wait`, and blocked PID 1
-through `fbcon`; the guest became unreachable and qBittorrent alerted while servarr recovered.
-`hosts/servarr/configuration.nix` therefore blacklists the guest `qxl` kernel driver while retaining
-simpledrm for basic framebuffer output. The serial console remains the recovery path. Do not
-re-enable the driver unless a replacement display model is tested.
+On 2026-07-18 the Linux QXL framebuffer damage worker repeatedly failed TTM buffer eviction,
+wedged in `qxl_fence_wait`, and blocked PID 1 through `fbcon`; the guest became unreachable and
+qBittorrent alerted while servarr recovered. Blacklisting `qxl` was rejected because it left the
+VNC framebuffer stale and the guest failed to finish normal service startup.
+
+tower's persistent libvirt definition instead uses `<model type='virtio' .../>`. This preserves
+the working Unraid VNC console while binding the guest's `virtio_gpu` driver instead of QXL. Do not
+change servarr's video model back to QXL.
 
 ## The qbt cage (network)
 

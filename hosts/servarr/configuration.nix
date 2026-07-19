@@ -28,11 +28,6 @@
   boot = {
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
-    # tower presents a QXL VGA device for VNC, but servarr is headless. On 2026-07-18
-    # qxl's framebuffer damage worker wedged in qxl_fence_wait/TTM eviction; systemd
-    # then blocked in fbcon and the whole guest stopped responding. Keep simpledrm for
-    # early console output and prevent the unused qxl driver from binding.
-    blacklistedKernelModules = ["qxl"];
     # *arr apps watch large library trees.
     kernel.sysctl."fs.inotify.max_user_watches" = 2097152;
   };
