@@ -293,7 +293,7 @@ Rationale: whenever an IP is static (no DHCP lease) or needs a different name th
 |-----|-----------|--------|------------|-------------|
 | pfB_Oceania_v4 | 11338 (WAN) | 192.168.30.2 | 32400 | Plex — retargeted to MEDIA_DMZ + source Oceania-gated on the NAT rule (2026-06-24, GitHub #277) |
 | any | 45726 (opt5/AIRVPN_US only) | 192.168.20.2 | 45726 | qBittorrent inbound (id=5, **ENABLED**). Deliberately not duplicated on Netherlands. |
-| any | 45727 (opt5/AIRVPN_US only) | 192.168.1.36 | 50300 | slskd Soulseek inbound (id=6, **ENABLED**). Deliberately not duplicated on Netherlands. |
+| any | 45727 (opt5/AIRVPN_US only) | 192.168.21.2 | 50300 | slskd Soulseek inbound to the jailed VLAN-21 guest (id=6, **ENABLED**). Deliberately not duplicated on Netherlands. |
 | LG TV | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | DHCP_Dynamic | 53 (LAN) | 127.0.0.1 | 53 | Force DNS |
 | any | 53 (IOT) | 127.0.0.1 | 53 | Force DNS |

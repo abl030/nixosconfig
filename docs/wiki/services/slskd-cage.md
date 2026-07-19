@@ -1,6 +1,6 @@
 # slskd microVM cage
 
-**Built:** 2026-07-19 · **Status:** ready for cutover · **Tracking:** Forgejo [#38](https://git.ablz.au/abl030/nixosconfig/issues/38)
+**Built:** 2026-07-19 · **Status:** deployed; acceptance in progress · **Tracking:** Forgejo [#38](https://git.ablz.au/abl030/nixosconfig/issues/38)
 
 slskd parses Internet peer traffic and accepts the USA AirVPN `45727` forward. It therefore runs in a dedicated `microvm.nix` / cloud-hypervisor guest instead of doc2's host namespace. The configuration is `hosts/doc2/slskd-microvm.nix`.
 
@@ -46,6 +46,17 @@ file handles or nested ACL/xattr operations. The defaults make SQLite and
 backup paths fail with `Stale file handle` and library scans fail with
 `Operation not supported`. The wrapper must remain enabled for every guest
 share, not only the state directory.
+
+The bridge requires systemd-networkd on a host whose PostgreSQL nspawn
+containers otherwise use NixOS' container-owned veth setup. The stock
+`80-container-ve.network` claims every `ve-*` link when networkd is enabled,
+replaces the containers' fixed `10.20.0.0/24` host routes with generated
+private subnets, and takes every database-backed service offline while the
+containers themselves still look active. `10-nspawn-veth-unmanaged.network`
+must sort before that stock rule and mark `ve-*` unmanaged. After first
+deploying this protection over already-misconfigured links, restart the nspawn
+containers once so their units recreate the fixed host-side routes; subsequent
+container starts remain owned exclusively by the container setup.
 
 ## Host prerequisites
 
