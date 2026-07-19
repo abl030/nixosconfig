@@ -87,7 +87,10 @@ in {
   # networkd owns only the IP-less guest bridge on this NetworkManager host.
   # Exclude those links explicitly so network-online never burns its 120-second
   # timeout waiting for an address that the containment boundary forbids.
-  systemd.network.wait-online.ignoredInterfaces = [dmzUplink "br-slskd" "vm-slskd"];
+  systemd.network.wait-online = {
+    anyInterface = true;
+    ignoredInterfaces = [dmzUplink "br-slskd" "vm-slskd"];
+  };
 
   # microvm.nix runs one virtiofsd process per guest. Gate it on every shared
   # host path and the decrypted secret; microvm@slskd requires this daemon.
@@ -223,7 +226,14 @@ in {
 
     systemd.services.slskd = {
       unitConfig.RequiresMountsFor = [guestStateDir downloadDir musicDir "/run/host-secrets/slskd"];
-      serviceConfig.UMask = "0002";
+      serviceConfig = {
+        UMask = "0002";
+        # The guest deliberately has no management plane. Mirror service output
+        # to its serial console so the host journal remains a usable diagnostic
+        # surface for this Internet-facing daemon.
+        StandardOutput = "journal+console";
+        StandardError = "journal+console";
+      };
     };
 
     # The guest has no SSH, Tailscale, fleet credentials, or management plane.
