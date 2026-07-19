@@ -668,6 +668,11 @@ in {
             key: __PFSENSE_API_KEY__
             validate_cert: false
             timeout: 30
+            # Upstream buffers each collector before forwarding any metrics.
+            # The default 100 deadlocks once a collector emits >100 series
+            # (this pfSense's interface collector does). Keep the bound ample
+            # but finite; four concurrent collectors make this inexpensive.
+            max_collector_buffer_size: 1000
       '';
 
       preStartScript = pkgs.writeShellScript "pfsense-exporter-prestart" ''

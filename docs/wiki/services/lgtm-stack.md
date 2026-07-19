@@ -99,7 +99,7 @@ OCI container `ghcr.io/pfrest/pfsense_exporter` on doc2, configured via `homelab
 
 **Metrics coverage:** CPU, memory, disk, swap, mbuf, interface bytes/packets/errors, firewall state count, gateway latency + loss + status (WAN_DHCP, AirVPN, AirVPN_SG), CARP status, service health, temperature.
 
-**Architecture:** multi-target exporter pattern — alloy scrapes `localhost:9945/metrics?target=192.168.1.1` (the `targetParam` option in `extraScrapeTargets` emits `__param_target` in alloy HCL). Config.yml generated at runtime from sops (`secrets/pfsense-mcp.env` — reuses the existing pfSense REST API key).
+**Architecture:** multi-target exporter pattern — alloy scrapes `localhost:9945/metrics?target=192.168.1.1` (the `targetParam` option in `extraScrapeTargets` emits `__param_target` in alloy HCL). Config.yml is generated at runtime from the doc2-scoped SOPS secret `secrets/hosts/doc2/pfsense-exporter.env`, which belongs to the dedicated GET-only `metrics-exporter-ro` user. The target pins `max_collector_buffer_size: 1000`: upstream buffers an entire collector before draining it, so its default 100 deadlocks on this pfSense's interface-series cardinality and makes `/metrics` hang indefinitely.
 
 **pfSense host IP exception:** `192.168.1.1` is hardcoded as the default because pfSense IS the gateway — no localProxy-managed FQDN exists. Documented exception to the DNS-first rule. The option is configurable if the IP ever changes.
 
