@@ -80,6 +80,16 @@ in {
     Kind = "bridge";
   };
   systemd.network.networks = {
+    # doc2's PostgreSQL nspawn containers use NixOS' container network setup
+    # to assign their fixed 10.20.0.0/24 host routes. Enabling networkd for the
+    # slskd bridge otherwise lets the stock 80-container-ve.network seize every
+    # ve-* link, replace those routes with random private subnets, and take all
+    # database-backed services offline. Keep networkd away from nspawn veths;
+    # the container units remain their sole network owner.
+    "10-nspawn-veth-unmanaged" = {
+      matchConfig.Name = "ve-*";
+      linkConfig.Unmanaged = true;
+    };
     "40-br-slskd" = {
       matchConfig.Name = "br-slskd";
       networkConfig.ConfigureWithoutCarrier = true;
