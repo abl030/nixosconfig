@@ -819,7 +819,7 @@ in {
       # #495-era refactor (cratedigger commit 604da00) consolidated the beets
       # option surface under services.cratedigger.beets.*: the package/mirror
       # knobs moved to beets.package.*, the config.ini [Beets] directory to
-      # beets.directory, and the validation gate to beets.validation.*.
+      # beets.config.directory, and the validation gate to beets.validation.*.
       beets = {
         package = {
           discogsMirrorUrl = "https://discogs.ablz.au";
@@ -832,7 +832,7 @@ in {
         # its SQLite DB as relative to this root; consumers that absolutize
         # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
         # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
-        directory = "/mnt/virtio/Music/Beets";
+        config.directory = "/mnt/virtio/Music/Beets";
 
         validation = {
           enable = true;
@@ -850,7 +850,6 @@ in {
 
       web = {
         enable = true;
-        beetsDb = "/mnt/virtio/Music/beets-library.db";
         redis.host = "127.0.0.1";
       };
 
