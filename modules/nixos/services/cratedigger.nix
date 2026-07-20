@@ -730,8 +730,9 @@ in {
       # of supplementary groups, not a redefinition. `music-import` is
       # LOAD-BEARING: slskd's download dir is 770 slskd:music-import, so
       # without it a non-root cratedigger can't read/reap in-flight
-      # downloads. `cratedigger-ops` is needed to read /run/cratedigger-secrets/*.
-      users.cratedigger.extraGroups = ["music-import" "cratedigger-ops"];
+      # downloads. The upstream discogsOperatorGroup setting below adds
+      # `cratedigger-ops`, which also grants /run/cratedigger-secrets access.
+      users.cratedigger.extraGroups = ["music-import"];
     };
 
     # ---------------------------------------------------------------------
@@ -811,9 +812,10 @@ in {
 
       # Module-owned beets (replaces the Home Manager beets): build-time
       # mirror patches + the Discogs token via the *File pattern. The token
-      # file is root-owned 0400 under /var/lib (extracted from the old
-      # ~/.config/beets/secrets.yaml during the cutover window; migrate to
-      # sops alongside the other cratedigger secrets when convenient).
+      # file is root-owned under /var/lib (extracted from the old
+      # ~/.config/beets/secrets.yaml during the cutover window). The upstream
+      # module renders its include at 0440 for the explicit operator group so
+      # pipeline-cli and the service load the same noninteractive config.
       # #495-era refactor (cratedigger commit 604da00) consolidated the beets
       # option surface under services.cratedigger.beets.*: the package/mirror
       # knobs moved to beets.package.*, the config.ini [Beets] directory to
@@ -823,6 +825,7 @@ in {
           discogsMirrorUrl = "https://discogs.ablz.au";
           lrclibUrl = "http://192.168.1.35:3300/api";
           discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
+          discogsOperatorGroup = "cratedigger-ops";
         };
 
         # Absolute path to the beets library root. Beets stores file paths in
