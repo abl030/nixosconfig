@@ -817,9 +817,9 @@ in {
       # module renders its include at 0440 for the explicit operator group so
       # pipeline-cli and the service load the same noninteractive config.
       # #495-era refactor (cratedigger commit 604da00) consolidated the beets
-      # option surface under services.cratedigger.beets.*: the package/mirror
-      # knobs moved to beets.package.*, the config.ini [Beets] directory to
-      # beets.directory, and the validation gate to beets.validation.*.
+      # option surface under services.cratedigger.beets.*: package/mirror
+      # knobs live under beets.package.*, rendered Beets settings under
+      # beets.config.*, and the validation gate under beets.validation.*.
       beets = {
         package = {
           discogsMirrorUrl = "https://discogs.ablz.au";
@@ -830,9 +830,12 @@ in {
 
         # Absolute path to the beets library root. Beets stores file paths in
         # its SQLite DB as relative to this root; consumers that absolutize
-        # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
-        # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
-        directory = "/mnt/virtio/Music/Beets";
+        # (cleanup_disambiguation_orphans, trigger_plex_scan) use the rendered
+        # config. Matches `directory:` in ~/.config/beets/config.yaml.
+        config = {
+          directory = "/mnt/virtio/Music/Beets";
+          library = "/mnt/virtio/Music/beets-library.db";
+        };
 
         validation = {
           enable = true;
@@ -850,7 +853,6 @@ in {
 
       web = {
         enable = true;
-        beetsDb = "/mnt/virtio/Music/beets-library.db";
         redis.host = "127.0.0.1";
       };
 
