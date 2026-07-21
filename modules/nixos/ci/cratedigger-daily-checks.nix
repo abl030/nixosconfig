@@ -53,6 +53,7 @@ in {
           pkgs.gh
           pkgs.git
           pkgs.nix
+          pkgs.nodejs
           pkgs.openssh
           pkgs.pyright
         ];
@@ -63,8 +64,11 @@ in {
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.35:5200";
           # ProtectHome hides the user's nix.conf, so enable the client-side
-          # flake commands explicitly inside this sandboxed unit.
+          # flake commands and classic nix-shell lookup explicitly inside this
+          # sandboxed unit. Node is also explicit in path because run_tests.sh
+          # validates the JavaScript suite before Python discovery.
           NIX_CONFIG = "experimental-features = nix-command flakes";
+          NIX_PATH = "nixpkgs=${pkgs.path}";
         };
 
         serviceConfig = {
