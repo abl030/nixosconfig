@@ -123,3 +123,96 @@ Escalate from the two-vCPU mitigation to a hypervisor/placement change if any of
 - netconsole captures a trace that points outside the nested VMM/KVM path;
 - an upstream Linux, Cloud Hypervisor, QEMU, or Proxmox fix names this signature;
 - qbt develops the same host-kernel signature on its two-queue-pair Intel topology.
+
+## Deferred reproduction lab
+
+**Status:** design saved on 2026-07-22 and deferred until a later session, as requested. The goal is an upstream-quality reproducer and complete first-fault trace.
+
+### Objective
+
+Reproduce the outer NixOS guest panic in an isolated sacrificial VM on `prom` while preserving the first oops, complete call trace, and exact workload seed. Start with ordinary Cloud Hypervisor network, lifecycle, memory-pressure, and ZFS workloads that model the incident. Known-CVE PoCs are excluded because they answer a different question and would contaminate attribution of this unknown crash.
+
+### Proposed outer VM
+
+- VMID `122` (confirmed unused on 2026-07-22), name `doc2-panic-lab`.
+- Six outer vCPUs, 8 GiB RAM, and a 32 GiB disposable root disk.
+- Same Proxmox machine type and `cpu=host,flags=+nested-virt` model as doc2 unless a deliberate matrix variant says otherwise.
+- Same NixOS kernel 6.18.38, OpenZFS 2.4.3, Cloud Hypervisor 52, and `microvm.nix` revision as the incident host.
+- No production virtiofs mounts, pools, secrets, databases, backup targets, or service credentials.
+- No routable L2 network. The inner guest uses a private TAP/bridge contained inside VM 122; test traffic is generated between the L1 and L2 only.
+- Management through QGA and a serial console restricted to doc1/prom. Do not depend on the lab VM preserving its own journal.
+- Disable automatic panic reboot during evidence collection. A prom-side harness continuously records serial output, captures QMP/VGA and VM state after loss of QGA, and resets only after artifacts are safely external.
+
+Before starting VM 122, verify the final Proxmox config, absence of production mounts and VLANs, private-network containment, serial capture, free memory/storage headroom, and a one-command destroy path.
+
+### Inner guest and controls
+
+The primary inner Cloud Hypervisor guest uses the original failing topology:
+
+```text
+--cpus boot=4
+--net ... num_queues=8
+```
+
+The control uses the deployed mitigation:
+
+```text
+--cpus boot=2
+--net ... num_queues=4
+```
+
+Apart from CPU/queue count, primary and control must use the same image, kernel, memory, TAP setup, workload sequence, and replay seed. Capture the generated VMM command and live thread inventory so the presence or absence of `_net0_qp2` is proven rather than inferred.
+
+### Experiment matrix
+
+Run the highest-value discriminator first:
+
+1. **Eight-queue network baseline:** sustained normal bidirectional TCP and UDP with many parallel flows, enough flow diversity to exercise all queue pairs.
+2. **Four-queue control:** the identical workload and duration with only `qp0`/`qp1`.
+3. **Eight-queue lifecycle stress:** repeatedly start/stop the inner guest and create/tear down its private TAP while bounded traffic is active.
+4. **Disposable ZFS churn only:** use a separate virtual disk and throwaway pool for create/delete, image extraction, ARC pressure, and bounded I/O; do not involve Cloud Hypervisor networking.
+5. **Combined eight-queue plus ZFS pressure:** run the network and disposable-pool workloads together.
+6. If baseline runs stay clean, repeat selected scenarios with diagnostic kernel options such as KFENCE or allocator poisoning. Do not begin with heavy instrumentation because it can hide timing-sensitive failures.
+
+The previous failures occurred after approximately 25 and 36 hours. Give the eight-queue baseline 48–72 hours before treating a clean run as meaningful, then run the four-queue control for the same duration. Lifecycle stress may provide a faster signal but does not replace the steady-state run.
+
+### Replayable harness
+
+Each run receives a recorded seed. Given the same seed and scenario version, it must reproduce:
+
+- traffic flow counts, directions, protocol mix, rates, and durations;
+- lifecycle timing and ordering;
+- ZFS workload sizes and operation order;
+- queue topology and inner-guest image;
+- artifact naming and run metadata.
+
+Vary seeds across long runs, but never use unrecorded randomness. Stop on the first outer-kernel warning, oops, panic, QGA loss, or serial signature matching `BUG:`, `KASAN:`, `KFENCE:`, `corrupt`, `stack`, `preempt_count`, or `irqs disabled`.
+
+### Required artifacts
+
+Store each run outside VM 122 with:
+
+- scenario name/version, seed, start/end time, and result;
+- complete serial stream from boot through failure;
+- first warning/oops and full call trace, not only the final scheduler panic;
+- `qm config`, `qm status --verbose`, QMP status, and VGA screendump;
+- outer and inner kernel versions/configurations;
+- Cloud Hypervisor, QEMU, Proxmox, OpenZFS, and `microvm.nix` versions;
+- exact Cloud Hypervisor command, thread names, and queue count;
+- recent pressure, memory, ZFS, and workload summaries;
+- whether QGA, SSH, and packet activity stopped, with timestamps;
+- replay command and checksums of guest images/configuration closures.
+
+Do not reset or destroy the failed VM until the serial log and capture bundle have been read back from external storage.
+
+### Interpretation
+
+- Failure only with eight queues materially strengthens the queue-topology hypothesis.
+- Failure with both queue counts weakens it and shifts attention toward common nested KVM, ZFS, or memory-corruption paths.
+- Failure during ZFS-only churn points away from Cloud Hypervisor networking.
+- A first trace naming KVM/SVM, OpenZFS, virtio, or another subsystem determines the correct upstream project. `_net0_qp2` alone remains victim context, not proof of origin.
+- No failure after equal 72-hour primary/control runs does not disprove the incident; record it as an unreproduced timing-dependent failure and retain production netconsole capture.
+
+### Upstream-report gate
+
+Open an upstream report only when the bundle contains a full first-fault trace plus a replayable scenario, or when a new production incident supplies that trace. The report must distinguish observed facts from the working hypothesis and disclose the nested Proxmox → NixOS → Cloud Hypervisor topology precisely.
