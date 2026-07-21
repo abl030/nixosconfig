@@ -52,6 +52,7 @@ in {
           pkgs.coreutils
           pkgs.gh
           pkgs.git
+          pkgs.jq
           pkgs.nix
           pkgs.nodejs
           pkgs.openssh
