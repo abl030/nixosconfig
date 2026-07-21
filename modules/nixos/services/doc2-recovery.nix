@@ -157,7 +157,10 @@ in {
 
     failureThreshold = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 5;
+      # A clean doc2 reboot can spend more than four minutes stopping Kopia.
+      # kernel panic=30 handles actual panics quickly; this fallback deliberately
+      # waits longer so normal shutdown is not mistaken for a hard freeze.
+      default = 10;
       description = "Consecutive one-minute dual-path failures required before reset.";
     };
 
@@ -188,8 +191,8 @@ in {
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = cfg.failureThreshold >= 3;
-        message = "doc2Recovery.failureThreshold must require at least three consecutive failures";
+        assertion = cfg.failureThreshold >= 5;
+        message = "doc2Recovery.failureThreshold must require at least five consecutive failures";
       }
       {
         assertion = cfg.minimumVmUptimeSeconds >= 300;

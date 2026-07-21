@@ -60,7 +60,9 @@ A separate watchdog runs on doc1 once per minute. It acts only when all of these
 - VM uptime is at least ten minutes.
 - doc2 TCP/22 is unavailable.
 - Proxmox QGA ping is unavailable.
-- Both failures persist for five consecutive checks.
+- Both failures persist for ten consecutive checks. The original five-minute
+  threshold reset doc2 during a clean reboot while Kopia consumed its 4m30s stop
+  timeout; ten minutes keeps that normal shutdown inside the no-action window.
 - No automated reset occurred in the previous fifteen minutes.
 
 Before resetting, it saves under `/var/lib/doc2-recovery/incidents/<UTC timestamp>/`:
