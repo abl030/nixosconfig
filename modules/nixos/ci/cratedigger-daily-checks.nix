@@ -62,6 +62,9 @@ in {
           XDG_CACHE_HOME = "${stateDir}/cache";
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.35:5200";
+          # ProtectHome hides the user's nix.conf, so enable the client-side
+          # flake commands explicitly inside this sandboxed unit.
+          NIX_CONFIG = "experimental-features = nix-command flakes";
         };
 
         serviceConfig = {
