@@ -116,6 +116,8 @@
     # Override profile from "internal" (base default) to "server"
     nixCaches.profile = "server";
 
+    ci.cratediggerDailyChecks.enable = true;
+
     ci.rollingFlakeUpdate = {
       enable = true;
       repoDir = "/home/abl030/nixosconfig";

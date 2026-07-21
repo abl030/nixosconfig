@@ -1,9 +1,9 @@
 # Cratedigger
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-07-21
 **Status:** active on `doc2`
-**Owner:** `modules/nixos/services/cratedigger.nix`
-**Issue:** #228
+**Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
+**Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
 
 Cratedigger is the local Soulseek download pipeline and request UI behind
 `music.ablz.au`. It is intentionally coupled to exactly two local metadata APIs:
@@ -13,6 +13,28 @@ Cratedigger is the local Soulseek download pipeline and request UI behind
 
 LRCLIB, iTunes, Amazon, Last.fm, albumart.org, Cover Art Archive reachability,
 and other optional Beets enrichers are not cratedigger availability gates.
+
+## Daily unstable compatibility checks
+
+Doc1 runs `cratedigger-daily-checks.service` every day at 05:05 AWST. The unit
+executes the runner from `inputs.cratedigger-src`; Cratedigger owns the test and
+lock-update semantics, while nixosconfig owns scheduling, persistent Hypothesis
+state, journald output, and the existing RCA-first/Gotify-fallback notification.
+
+The runner checks out current GitHub `main`, updates its standalone `flake.lock`,
+then runs whole-repository Pyright, the deterministic suite, `nix flake check`,
+the lifecycle world burst, the full fuzz burst, and the mirror-harness smoke.
+Every test stage runs even after an earlier test failure so one notification has
+the complete result. A fully green candidate pushes one lock-only commit;
+anything red pushes nothing. Fleet continues to follow nixosconfig's nixpkgs
+input, so the service owns no urllib3, idna, lxml, msgpack, soupsieve, Flask,
+yt-dlp, or ffmpeg version and adds no overrides.
+
+Replay databases and complete failed fuzz logs live under
+`/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private
+to the unit and removed at exit. After Cratedigger #762 makes current Beets
+authority definitive, its read-only doc2 world audit joins this same run as a
+non-blocking final report; it does not get another timer or notification path.
 
 ## Metadata Gate
 
