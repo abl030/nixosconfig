@@ -239,8 +239,7 @@ in {
       serviceConfig = {
         ExecStart = "${pkgs.systemd}/bin/systemd-cat --identifier=doc2-netconsole --priority=warning";
         StandardInput = "socket";
-        User = "nobody";
-        Group = "nogroup";
+        DynamicUser = true;
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectHome = true;
