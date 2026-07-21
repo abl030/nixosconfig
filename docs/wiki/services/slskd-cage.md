@@ -4,6 +4,8 @@
 
 slskd parses Internet peer traffic and accepts the USA AirVPN `45727` forward. It therefore runs in a dedicated `microvm.nix` / cloud-hypervisor guest instead of doc2's host namespace. The configuration is `hosts/doc2/slskd-microvm.nix`.
 
+**2026-07-22 stability mitigation:** two outer doc2 kernel panics after cutover implicated Cloud Hypervisor's `_net0_qp2` worker. slskd is now fixed at two vCPUs/four network queues, matching the stable qbt cage and removing `qp2`/`qp3`. Doc1 independently captures netconsole/VGA evidence and resets only after sustained dual-path failure. See [the full RCA hypothesis and recovery design](../infrastructure/doc2-kernel-panic-2026-07-22.md).
+
 ## Boundary
 
 The guest is `192.168.21.2` on the single-tenant VLAN 21 `SLSKD_DMZ`.

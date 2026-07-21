@@ -159,6 +159,12 @@
 
       promRpoolBackup.enable = true;
       containersBackup.enable = true;
+      doc2Recovery = {
+        enable = true;
+        # Reuse the existing doc1-only, source-restricted root@prom key. The
+        # watchdog needs qm status/screendump/reset; no new credential surface.
+        sshKeyFile = config.sops.secrets."prom-rpool-backup/key".path;
+      };
     };
   };
 

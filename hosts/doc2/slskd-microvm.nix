@@ -162,7 +162,11 @@ in {
 
     microvm = {
       hypervisor = "cloud-hypervisor";
-      vcpu = 4;
+      # The two doc2 panics after this guest was introduced both implicated
+      # Cloud Hypervisor's _net0_qp2 host thread. Two vCPUs generate only the
+      # qp0/qp1 pair topology proven stable by the qbt microVM; slskd does not
+      # need four vCPUs. See the 2026-07-22 RCA in the cage wiki.
+      vcpu = 2;
       mem = 6144;
       vsock.cid = 21;
       virtiofsd.package = virtiofsdNestedSafe;

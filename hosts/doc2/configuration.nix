@@ -23,6 +23,31 @@
     };
     supportedFilesystems = ["zfs"];
     zfs.extraPools = ["pfsensebackup"];
+    # A kernel panic must not leave this service appliance frozen indefinitely.
+    # The independent doc1 watchdog still captures the console before resetting
+    # failures that do not reach the kernel's own reboot path.
+    kernelParams = ["panic=30"];
+  };
+
+  # Stream kernel printk records to doc1's source-restricted UDP receiver. This
+  # survives the exact failure mode where doc2's journal and entire monitoring
+  # stack stop together. The fixed interface/IP/MAC values are VM inventory, not
+  # runtime discovery; see docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md.
+  systemd.services.doc2-netconsole-sender = {
+    description = "Stream doc2 kernel records to doc1 netconsole receiver";
+    wantedBy = ["multi-user.target"];
+    wants = ["network-online.target"];
+    after = ["network-online.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.kmod}/bin/modprobe netconsole netconsole=6665@192.168.1.35/ens18,6666@192.168.1.29/bc:24:11:a4:f8:32 oops_only=0";
+      ExecStop = "${pkgs.kmod}/bin/modprobe -r netconsole";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+    };
   };
 
   homelab = {

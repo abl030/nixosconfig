@@ -69,5 +69,6 @@
     ./marker-convert.nix
     ./prom-rpool-backup.nix
     ./containers-backup.nix
+    ./doc2-recovery.nix
   ];
 }
