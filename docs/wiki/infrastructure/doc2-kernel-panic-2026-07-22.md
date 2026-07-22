@@ -212,7 +212,4 @@ Do not reset or destroy the failed VM until the serial log and capture bundle ha
 - Failure during ZFS-only churn points away from Cloud Hypervisor networking.
 - A first trace naming KVM/SVM, OpenZFS, virtio, or another subsystem determines the correct upstream project. `_net0_qp2` alone remains victim context, not proof of origin.
 - No failure after equal 72-hour primary/control runs does not disprove the incident; record it as an unreproduced timing-dependent failure and retain production netconsole capture.
-
-### Upstream-report gate
-
-Open an upstream report only when the bundle contains a full first-fault trace plus a replayable scenario, or when a new production incident supplies that trace. The report must distinguish observed facts from the working hypothesis and disclose the nested Proxmox → NixOS → Cloud Hypervisor topology precisely.
+- After any result, stop and present the evidence bundle and interpretation to the user for direction. Do not file or draft an upstream report autonomously.
