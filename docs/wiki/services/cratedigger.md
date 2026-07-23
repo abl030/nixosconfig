@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-23
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
 **Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
@@ -32,9 +32,20 @@ yt-dlp, or ffmpeg version and adds no overrides.
 
 Replay databases and complete failed fuzz logs live under
 `/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private
-to the unit and removed at exit. After Cratedigger #762 makes current Beets
-authority definitive, its read-only doc2 world audit joins this same run as a
-non-blocking final report; it does not get another timer or notification path.
+to the unit and removed at exit.
+
+The same unit always finishes with doc2's deployed
+`pipeline-cli audit world --json`, after both successful and failed candidate
+runs. It reaches one root-only wrapper over SSH; that wrapper supplies the
+PostgreSQL secret and exposes no mutation or repair operation. The post-step
+logs aggregate counts and violation-code counts rather than hundreds of raw
+production identities. Its failure cannot stop a green candidate from updating
+`flake.lock`, because the runner has already finished, but it does make the
+single daily unit red and uses the same RCA/Gotify path.
+
+The current `current_evidence_missing` and `evidence_fingerprint_mismatch`
+backlog remains deliberately red pending the ownership decision in Cratedigger
+#759. Do not suppress those known violations merely to make the timer green.
 
 ## Metadata Gate
 
