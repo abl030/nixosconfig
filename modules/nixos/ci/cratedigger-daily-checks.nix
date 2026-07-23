@@ -130,6 +130,7 @@ in {
         environment = {
           HOME = "/home/abl030";
           XDG_CACHE_HOME = "${stateDir}/cache";
+          XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.35:5200";
           # ProtectHome hides the user's nix.conf, so enable the client-side
@@ -156,6 +157,8 @@ in {
 
           StateDirectory = "cratedigger-daily-checks";
           StateDirectoryMode = "0700";
+          RuntimeDirectory = "cratedigger-daily-checks";
+          RuntimeDirectoryMode = "0700";
           UMask = "0077";
 
           BindReadOnlyPaths = [
