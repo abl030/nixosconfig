@@ -836,6 +836,7 @@ in {
       src = inputs.cratedigger-src;
       user = "cratedigger";
       group = "users";
+      processingDir = "${cfg.dataDir}/processing";
 
       # config.ini is world-readable (0644) since issue #117 — it contains
       # only *_file paths, no secrets. The raw secrets live under
