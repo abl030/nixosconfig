@@ -10,6 +10,74 @@
   stateDir = "/var/lib/cratedigger-daily-checks";
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
+  liveWorldAudit = pkgs.writeShellApplication {
+    name = "cratedigger-daily-live-world-audit";
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.openssh
+    ];
+    text = ''
+      set -euo pipefail
+
+      echo ""
+      echo "=== live world audit ==="
+
+      audit_status=0
+      if audit_json="$(
+        ${pkgs.openssh}/bin/ssh \
+          -F /dev/null \
+          -T \
+          -o BatchMode=yes \
+          -o ConnectTimeout=30 \
+          -o GlobalKnownHostsFile=/etc/ssh/ssh_known_hosts \
+          -o UserKnownHostsFile=/dev/null \
+          -o StrictHostKeyChecking=yes \
+          -o IdentitiesOnly=yes \
+          -i ${lib.escapeShellArg config.sops.secrets."ssh_key_abl030".path} \
+          abl030@doc2 \
+          sudo --non-interactive \
+          /run/current-system/sw/bin/cratedigger-live-world-audit
+      )"; then
+        audit_status=0
+      else
+        audit_status=$?
+      fi
+
+      if ! summary="$(
+        ${pkgs.jq}/bin/jq -ce '
+          if (
+            (.status | type) == "string"
+            and (.counts | type) == "object"
+            and (.violations | type) == "array"
+          )
+          then {
+            status,
+            counts,
+            violations_by_code: (
+              [.violations[] | .code]
+              | sort
+              | group_by(.)
+              | map({code: .[0], count: length})
+            )
+          }
+          else error("invalid world-audit report")
+          end
+        ' <<<"$audit_json"
+      )"; then
+        echo "live world audit: invalid JSON report (remote exit $audit_status)" >&2
+        exit 1
+      fi
+
+      echo "$summary"
+      if ((audit_status == 0)); then
+        echo "PASS live world audit"
+      else
+        echo "FAIL live world audit (exit $audit_status)" >&2
+      fi
+      exit "$audit_status"
+    '';
+  };
+
   notifyFailure = pkgs.writeShellScript "cratedigger-daily-checks-notify-failure" ''
     set -euo pipefail
     ${sendNegativeAlert}
@@ -77,7 +145,14 @@ in {
           User = "abl030";
           Group = "users";
           ExecStart = "${pkgs.bash}/bin/bash ${runner}";
+          # Always run against doc2's deployed revision after the candidate
+          # runner exits. The "+" prefix keeps the fleet SSH identity out of
+          # the untrusted candidate checkout's sandbox. A green runner has
+          # already committed/pushed before this begins, while this command's
+          # nonzero status still makes the same unit and alert path red.
+          ExecStopPost = "+${liveWorldAudit}/bin/cratedigger-daily-live-world-audit";
           TimeoutStartSec = "12h";
+          TimeoutStopSec = "5min";
 
           StateDirectory = "cratedigger-daily-checks";
           StateDirectoryMode = "0700";

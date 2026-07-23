@@ -357,6 +357,37 @@
       esac
     '';
   };
+  liveWorldAudit = pkgs.writeShellApplication {
+    name = "cratedigger-live-world-audit";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+    ];
+    text = ''
+      set -euo pipefail
+
+      if ((EUID != 0)); then
+        echo "cratedigger-live-world-audit must run as root" >&2
+        exit 4
+      fi
+      if (($# != 0)); then
+        echo "usage: sudo cratedigger-live-world-audit" >&2
+        exit 2
+      fi
+
+      pgpass=${lib.escapeShellArg config.sops.secrets."cratedigger-pgpass".path}
+      if ! password="$(
+        ${pkgs.gnugrep}/bin/grep -m1 '^PGPASSWORD=' "$pgpass" \
+          | ${pkgs.coreutils}/bin/cut -d= -f2-
+      )" || [[ -z "$password" ]]; then
+        echo "cratedigger-live-world-audit: PGPASSWORD is unavailable" >&2
+        exit 5
+      fi
+
+      export PGPASSWORD="$password"
+      exec /run/current-system/sw/bin/pipeline-cli audit world --json
+    '';
+  };
   metadataGateCommand = "${metadataGateTool}/bin/cratedigger-metadata-gate";
   metadataGateStartCheckCommand = "${metadataGateCommand} start-check";
   metadataGateReleaseAndResumeScript = reason:
@@ -456,7 +487,25 @@ in {
       }
     ];
 
-    environment.systemPackages = [metadataGateTool];
+    environment.systemPackages = [
+      metadataGateTool
+      liveWorldAudit
+    ];
+
+    # The daily doc1 compatibility unit runs this exact read-only command over
+    # SSH after its candidate gates. Keep the privilege boundary narrower than
+    # a remote shell even if doc2 returns to the locked-host sudo posture.
+    security.sudo.extraRules = [
+      {
+        users = [operatorUser];
+        commands = [
+          {
+            command = "/run/current-system/sw/bin/cratedigger-live-world-audit";
+            options = ["NOPASSWD"];
+          }
+        ];
+      }
+    ];
 
     # ---------------------------------------------------------------------
     # sops-nix: decrypt the dotenv-format envfile, then split it into
