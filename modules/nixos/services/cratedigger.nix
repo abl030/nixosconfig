@@ -44,8 +44,11 @@
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
 
   processingDir = "${cfg.dataDir}/processing";
+  beetsDbDir = "${cfg.dataDir}/beets-db";
   musicRoot = "/mnt/virtio/Music";
   stagingRoot = "${musicRoot}/Incoming";
+  beetsLibraryRoot = "${musicRoot}/Beets";
+  redownloadTrackingDir = "${musicRoot}/Re-download";
   slskdDownloadDir = cfg.downloadDir;
 
   # #257: the cratedigger app units run as ROOT and inherited the host's
@@ -70,10 +73,18 @@
   # A writable BindPaths mount remains writable even when an upstream module
   # enables ProtectSystem=strict or names a narrower ReadWritePaths list. Keep
   # this authority table explicit so the downstream overlay cannot reopen a
-  # broad /mnt write surface. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+  # broad Music-root write surface. Web/importer inspect the complete music
+  # tree read-only but receive writes only to their reviewed subtrees.
+  # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
   upstreamHardenedMntSandboxes = {
-    cratedigger-web.writable = [processingDir musicRoot slskdDownloadDir];
-    cratedigger-importer.writable = [processingDir musicRoot slskdDownloadDir];
+    cratedigger-web = {
+      writable = [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
+      readOnly = [musicRoot];
+    };
+    cratedigger-importer = {
+      writable = [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir];
+      readOnly = [musicRoot];
+    };
     cratedigger-import-preview-worker = {
       writable = [processingDir slskdDownloadDir];
       readOnly = [musicRoot];
@@ -493,16 +504,52 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = config.homelab.services.musicbrainz.enable;
-        message = "homelab.services.cratedigger requires homelab.services.musicbrainz because MusicBrainz /ws/2 is a hard metadata gate.";
-      }
-      {
-        assertion = config.homelab.services.discogs.enable;
-        message = "homelab.services.cratedigger requires homelab.services.discogs because Discogs is a hard metadata gate.";
-      }
-    ];
+    # #847: evaluation-time pins for the declarative sandbox authority table.
+    # These use the same data-driven table that renders the units; the final
+    # negative assertion is the known-bad broad-parent case.
+    assertions =
+      [
+        {
+          assertion = config.services.cratedigger.beets.config.library == "${beetsDbDir}/beets-library.db";
+          message = "cratedigger must use the dedicated beets DB parent";
+        }
+        {
+          assertion =
+            config.systemd.services.cratedigger-web.serviceConfig.BindPaths
+            == [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
+          message = "cratedigger-web must bind only its reviewed writable Music subtrees";
+        }
+        {
+          assertion = config.systemd.services.cratedigger-web.serviceConfig.BindReadOnlyPaths == [musicRoot];
+          message = "cratedigger-web must see the broad Music root read-only";
+        }
+        {
+          assertion =
+            config.systemd.services.cratedigger-importer.serviceConfig.BindPaths
+            == [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir];
+          message = "cratedigger-importer must bind only its reviewed writable Music subtrees";
+        }
+        {
+          assertion = config.systemd.services.cratedigger-importer.serviceConfig.BindReadOnlyPaths == [musicRoot];
+          message = "cratedigger-importer must see the broad Music root read-only";
+        }
+        {
+          assertion =
+            !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-web.writable)
+            && !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-importer.writable);
+          message = "known-bad: web/importer must never receive a broad Music-root writable bind";
+        }
+      ]
+      ++ [
+        {
+          assertion = config.homelab.services.musicbrainz.enable;
+          message = "homelab.services.cratedigger requires homelab.services.musicbrainz because MusicBrainz /ws/2 is a hard metadata gate.";
+        }
+        {
+          assertion = config.homelab.services.discogs.enable;
+          message = "homelab.services.cratedigger requires homelab.services.discogs because Discogs is a hard metadata gate.";
+        }
+      ];
 
     environment.systemPackages = [
       metadataGateTool
@@ -566,21 +613,17 @@ in {
         "d ${pgDataDirRoot}/postgres 0700 root root -"
         "d ${metadataGateStateDir} 0755 root root -"
         "d ${metadataGateHoldDir} 0755 root root -"
-        # #570: keep the library roots setgid + group-writable + group `users`
+        # #570: keep the library subtrees setgid + group-writable + group `users`
         # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
         # can write NFO/art alongside media. Existing subtree ownership is fixed
         # by a one-time operator chgrp/chmod during the deploy window.
         #
-        # /mnt/virtio/Music itself (root:root 0755 by default) MUST be
-        # group-writable too: the beets library DB, its SQLite rollback journal,
-        # beets-import.log and .harness-mutations.jsonl all live directly under
-        # it, and a non-root cratedigger creating the journal in a 0755 root dir
-        # fails with "attempt to write a readonly database" (regression fixed
-        # 2026-07-09 — the cutover provisioned Beets/Incoming but missed their
-        # shared parent). Owner stays root since the dir also holds unrelated
-        # content (AI/, Live/, VA/); group `users` + setgid gives cratedigger
-        # write + makes new files inherit the group.
-        "d /mnt/virtio/Music 2775 root users -"
+        # The DB, rollback journals, import log and harness mutation audit live
+        # in beetsDbDir, never beside unrelated Music-root content. Keep the
+        # broad parent root:root 0755; only explicit pipeline subtrees carry
+        # the group write authority.
+        "d /mnt/virtio/Music 0755 root root -"
+        "d ${beetsDbDir} 2775 cratedigger users -"
         "d /mnt/virtio/Music/Beets 2775 cratedigger users -"
         "d /mnt/virtio/Music/Incoming 2775 cratedigger users -"
         # NOTE: the discogs token (/var/lib/cratedigger/secrets/discogs-token,
@@ -918,6 +961,7 @@ in {
         # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
         # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
         config.directory = "/mnt/virtio/Music/Beets";
+        config.library = "${beetsDbDir}/beets-library.db";
 
         validation = {
           enable = true;

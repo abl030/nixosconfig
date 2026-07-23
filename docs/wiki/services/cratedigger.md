@@ -154,9 +154,11 @@ hit local metadata APIs.
 Every Cratedigger app unit gets a private empty `/mnt`. The timer-driven
 `cratedigger` and `cratedigger-unfindable` units retain the established writable
 `dataDir`, Music root, and slskd download binds. The four long-running units are
-narrower: web/importer write only `dataDir/processing`, Music, and slskd;
-preview writes processing and slskd but sees Music read-only; YouTube ingest
-writes only `Music/Incoming`. This is deliberate preparation for upstream
+narrower: web/importer see Music read-only and write only `dataDir/processing`,
+`dataDir/beets-db`, `Music/Beets`, `Music/Incoming`, and slskd (the importer
+also writes the `Music/Re-download` tracking parent); preview writes processing
+and slskd but sees Music read-only; YouTube ingest writes only `Music/Incoming`.
+This is deliberate preparation for upstream
 `ProtectSystem=strict`: a writable `BindPaths` mount itself grants write access,
 so a narrower upstream `ReadWritePaths` cannot revoke it.
 
