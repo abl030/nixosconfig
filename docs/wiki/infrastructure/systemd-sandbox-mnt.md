@@ -117,11 +117,19 @@ The unhardened set (`ProtectSystem=no`, full `/mnt` **RW**-visible). Done in thr
 | fava (+ clone/pull) | `ProtectSystem=strict` (fava) + bind virtiofs dataDir | replaced fava's `ReadWritePaths` |
 | webdav | `ProtectSystem=strict` + bind **only** the Zotero Library NFS dir | space-bearing path, escaped |
 | audiobookshelf (+ cache-cleanup) | blank `/mnt` + bind state + declared library dirs | new `libraryDirs` option; real path is `/mnt/data/Media/Books/Audiobooks` |
-| cratedigger ×6 app units | blank `/mnt` + bind state + `/mnt/virtio/Music` + `cfg.downloadDir` | **biggest win** — ran as root seeing `/mnt/backup/pfsense`, `/mnt/appdata`, `/mnt/mum`; validated live (pipeline imported music inside the sandbox with zero errors) |
+| cratedigger timer units | blank `/mnt` + bind state + `/mnt/virtio/Music` + `cfg.downloadDir` | `cratedigger` and `cratedigger-unfindable` retain the established private scope |
+| cratedigger web/importer | blank `/mnt` + writable processing, Music, and slskd binds | Beets SQLite DB/import log live at the Music parent |
+| cratedigger preview | blank `/mnt` + writable processing/slskd and read-only Music bind | preview needs library evidence, not library mutation |
+| cratedigger YouTube ingest | blank `/mnt` + writable `Music/Incoming` bind | its temp/state are outside `/mnt` |
 
 **Class C learnings:**
 
-- **`ProtectSystem=strict` added only where the writable-path set is known** (single-user services writing one dataDir, or stateless). Skipped for audiobookshelf and the cratedigger app units (large Node/Python apps with unpinned write paths) — there the `/mnt` narrowing alone is the blast-radius win #257 targets.
+- **A writable `BindPaths` mount is authority.** It remains writable even if an
+  upstream unit enables `ProtectSystem=strict` or has a narrower
+  `ReadWritePaths` list. Cratedigger's #663 overlay therefore gives its
+  upstream-hardened long-running units per-unit bind sets instead of reusing
+  the original broad app list; only the timer-driven units retain that legacy
+  scope.
 - **Verify against the resolved value, not the module default.** cratedigger's `downloadDir` default is `/mnt/data/Media/Temp/slskd`, but doc2 overrides it to `/mnt/virtio/music/slskd` (lowercase, ≠ the capital-M `/mnt/virtio/Music` beets tree). Always read the actual `systemctl show -p BindPaths` and the host override, not the option default, when sanity-checking a namespace.
 - **Audit guesses need confirming.** The audit listed audiobookshelf's library as `/mnt/data/Media/Audiobooks`; the real path (from the ABS sqlite DB) is `/mnt/data/Media/Books/Audiobooks`. Pulled it from `libraryFolders` rather than trusting the issue.
 

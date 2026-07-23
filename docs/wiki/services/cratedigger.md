@@ -149,6 +149,22 @@ hit local metadata APIs.
   zero-umask behavior is patched in the Nix source input so imported library
   directories settle at `0775`, not `0777`.
 
+## `/mnt` sandbox boundary
+
+Every Cratedigger app unit gets a private empty `/mnt`. The timer-driven
+`cratedigger` and `cratedigger-unfindable` units retain the established writable
+`dataDir`, Music root, and slskd download binds. The four long-running units are
+narrower: web/importer write only `dataDir/processing`, Music, and slskd;
+preview writes processing and slskd but sees Music read-only; YouTube ingest
+writes only `Music/Incoming`. This is deliberate preparation for upstream
+`ProtectSystem=strict`: a writable `BindPaths` mount itself grants write access,
+so a narrower upstream `ReadWritePaths` cannot revoke it.
+
+The metadata-gate `ExecCondition` for web/importer/preview is a fixed Nix-store
+command prefixed with systemd `+`, with only
+`/run/cratedigger-metadata-gate` added to those units' `ReadWritePaths`. It can
+record a dependency hold without granting the services broad `/run` authority.
+
 ## Incidents
 
 ### 2026-06-29 — beets 2.11→2.12 bump broke every import

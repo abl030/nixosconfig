@@ -43,6 +43,11 @@
   metadataGateStateDir = "/run/cratedigger-metadata-gate";
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
 
+  processingDir = "${cfg.dataDir}/processing";
+  musicRoot = "/mnt/virtio/Music";
+  stagingRoot = "${musicRoot}/Incoming";
+  slskdDownloadDir = cfg.downloadDir;
+
   # #257: the cratedigger app units run as ROOT and inherited the host's
   # entire /mnt tree RW — including /mnt/backup/pfsense (the pfSense ZFS
   # backups), /mnt/appdata, /mnt/mum, /mnt/mirrors. The pipeline's real scope
@@ -54,16 +59,27 @@
   # biggest blast-radius reduction in the #257 audit (root + everything → a
   # root process confined to its own music pipeline). NOT applied to the
   # gate/secrets/db-migrate/temp-clean oneshots — they touch only /run, /tmp,
-  # or the DB container over TCP. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
-  musicBinds = [cfg.dataDir "/mnt/virtio/Music" cfg.downloadDir];
-  musicSandboxUnits = [
+  # or the DB container over TCP. The two timer-driven units intentionally
+  # retain this broad private /mnt view; #663 narrows the four upstream-hardened
+  # long-running units below. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+  timerDrivenMusicBinds = [cfg.dataDir musicRoot slskdDownloadDir];
+  timerDrivenMusicSandboxUnits = [
     "cratedigger"
-    "cratedigger-web"
-    "cratedigger-importer"
-    "cratedigger-import-preview-worker"
     "cratedigger-unfindable"
-    "cratedigger-youtube-ingest"
   ];
+  # A writable BindPaths mount remains writable even when an upstream module
+  # enables ProtectSystem=strict or names a narrower ReadWritePaths list. Keep
+  # this authority table explicit so the downstream overlay cannot reopen a
+  # broad /mnt write surface. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
+  upstreamHardenedMntSandboxes = {
+    cratedigger-web.writable = [processingDir musicRoot slskdDownloadDir];
+    cratedigger-importer.writable = [processingDir musicRoot slskdDownloadDir];
+    cratedigger-import-preview-worker = {
+      writable = [processingDir slskdDownloadDir];
+      readOnly = [musicRoot];
+    };
+    cratedigger-youtube-ingest.writable = [stagingRoot];
+  };
   metadataGateGuardedUnits = [
     "cratedigger.timer"
     "cratedigger.service"
@@ -390,6 +406,7 @@
   };
   metadataGateCommand = "${metadataGateTool}/bin/cratedigger-metadata-gate";
   metadataGateStartCheckCommand = "${metadataGateCommand} start-check";
+  metadataGatePrivilegedStartCheckCommand = "+${metadataGateCommand} start-check";
   metadataGateReleaseAndResumeScript = reason:
     pkgs.writeShellScript "cratedigger-release-${reason}-and-resume" ''
       set -euo pipefail
@@ -644,8 +661,11 @@ in {
             wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
-              ExecCondition = metadataGateStartCheckCommand;
+              # The fixed store command records a dependency hold. `+` keeps
+              # that trusted control-plane action outside ProtectSystem=strict.
+              ExecCondition = metadataGatePrivilegedStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              ReadWritePaths = lib.mkAfter [metadataGateStateDir];
               UMask = lib.mkForce "0002";
             };
           };
@@ -655,8 +675,9 @@ in {
             wants = ["container@cratedigger-db.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
-              ExecCondition = metadataGateStartCheckCommand;
+              ExecCondition = metadataGatePrivilegedStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              ReadWritePaths = lib.mkAfter [metadataGateStateDir];
               UMask = lib.mkForce "0002";
             };
           };
@@ -666,8 +687,9 @@ in {
             wants = ["container@cratedigger-db.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
-              ExecCondition = metadataGateStartCheckCommand;
+              ExecCondition = metadataGatePrivilegedStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              ReadWritePaths = lib.mkAfter [metadataGateStateDir];
               UMask = lib.mkForce "0002";
             };
           };
@@ -730,16 +752,29 @@ in {
           after = ["cratedigger-musicbrainz-maintenance-hold.service"];
           requires = ["cratedigger-musicbrainz-maintenance-hold.service"];
         }))
-        # #257 /mnt sandbox — merged into each app unit's serviceConfig
-        # (systemd's submodule merge composes this with the ExecCondition /
-        # EnvironmentFile / UMask blocks above). See musicBinds comment.
-        (lib.genAttrs musicSandboxUnits (_: {
-          unitConfig.RequiresMountsFor = musicBinds;
+        # #257's timer-driven scope remains broad; #663 gives the four
+        # long-running units their least-privilege /mnt mount sets.
+        (lib.genAttrs timerDrivenMusicSandboxUnits (_: {
+          unitConfig.RequiresMountsFor = timerDrivenMusicBinds;
           serviceConfig = {
             TemporaryFileSystem = "/mnt";
-            BindPaths = musicBinds;
+            BindPaths = timerDrivenMusicBinds;
           };
         }))
+        (lib.mapAttrs (_: sandbox: {
+            unitConfig.RequiresMountsFor = sandbox.writable ++ (sandbox.readOnly or []);
+            serviceConfig =
+              {
+                TemporaryFileSystem = "/mnt";
+              }
+              // lib.optionalAttrs (sandbox.writable != []) {
+                BindPaths = sandbox.writable;
+              }
+              // lib.optionalAttrs ((sandbox.readOnly or []) != []) {
+                BindReadOnlyPaths = sandbox.readOnly;
+              };
+          })
+          upstreamHardenedMntSandboxes)
       ];
 
       timers = {
