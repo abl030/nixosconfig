@@ -128,7 +128,10 @@
     "podman-musicbrainz-search-1.service"
     "podman-musicbrainz-indexer-1.service"
     "podman-musicbrainz-musicbrainz-1.service"
-    "podman-musicbrainz-lrclib-1.service"
+    # LRCLIB is intentionally excluded: it is a standalone lyrics service, not
+    # part of the MusicBrainz provider transition lifecycle. Coupling it to the
+    # cratedigger maintenance hold caused an operator stop of the hold unit to
+    # tear down LRCLIB and leave port 3300 offline (RCA 2026-07-24).
     "musicbrainz.service"
   ];
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
