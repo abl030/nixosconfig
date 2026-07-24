@@ -53,6 +53,12 @@ missing, doc1 hasn't deployed the current config — `sops -d` it from inside `s
   meta-indexer (aggregates NZBGeek etc.). Newznab: `…/api?apikey=$HK&t=search&q=…`.
 - **Download clients:** **NZBGet** (usenet) `192.168.1.17:6789`; **qBittorrent** (torrent) in the
   VPN-isolated `qbt` microVM → `https://qbt.ablz.au` (`192.168.20.2:8080`).
+- **NZBGet API auth:** use the live container environment variables `NZBGET_USER` and
+  `NZBGET_PASS` from `docker inspect nzbget` on tower, without printing them. They override the
+  stale-looking `ControlUsername` / `ControlPassword` values in
+  `/mnt/user/appdata/nzbget/nzbget.conf`; using the config-file pair returns HTTP 401. API base:
+  `http://192.168.1.17:6789/jsonrpc`. Read settings with `config`, runtime state with `status`,
+  and queue state with `listgroups`.
 - Architecture, the qbt cage, migration + traps: `docs/wiki/services/servarr-and-qbt-cage.md`
   (Forgejo #1; indexers #8).
 

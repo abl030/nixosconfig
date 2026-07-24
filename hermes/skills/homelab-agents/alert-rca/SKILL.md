@@ -91,7 +91,24 @@ Classify the alert:
 
 ## PR Workflow (only for config issues)
 
-If the root cause is a fixable nixosconfig issue:
+If the root cause is a fixable nixosconfig issue, first perform a duplicate and
+operator-disposition preflight:
+
+1. Search Forgejo PRs in **all states**, not only open PRs, for the same service,
+   error signature, upstream revision, and proposed policy. Inspect the body and
+   comments on matching recently closed PRs.
+2. Search recent Hermes sessions for the same alert/error signature when the
+   `session_search` tool is available.
+3. A recently closed PR with an operator disposition such as "wait for upstream",
+   "do not pin", or "do not recreate" is authoritative while the running service
+   remains healthy and the upstream failure is unchanged. Report the existing
+   disposition and do **not** create another PR.
+4. Reconsider only when materially new evidence exists: upstream changed, the
+   runtime (not merely an atomic upgrade attempt) is unhealthy, or the operator
+   explicitly requests the previously rejected mitigation.
+
+This prevents unattended retries from reopening the same workaround every time a
+nightly update encounters an unchanged upstream failure.
 
 ### 1. Create a branch
 
