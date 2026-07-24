@@ -38,3 +38,14 @@ ha/esphome/.esphome/
 # Untracked so its own git activity doesn't drift this repo's index.
 /cratedigger/
 .worktrees
+
+# Hermes agent scratch dir, created when hermes runs with cwd = repo root.
+# Its home-dir counterpart holds `.env` and `auth.json` (see hermes/README.md),
+# so this must never be committable. Authored plans belong in docs/plans/.
+.hermes/
+
+# gitops-pusher ETag cache from a manual `tailscale-acl-apply` run. The unit
+# keeps the real cache in its StateDirectory (/var/lib/tailscale-acl-apply/);
+# it is a per-apply operational artifact, not policy, and never belongs in the
+# repo. See modules/nixos/services/tailscale/acl-apply.nix.
+/version-cache.json
