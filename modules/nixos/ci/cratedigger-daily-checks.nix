@@ -10,6 +10,18 @@
   stateDir = "/var/lib/cratedigger-daily-checks";
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
+  githubCredentialHelper = pkgs.writeShellApplication {
+    name = "cratedigger-daily-github-credential";
+    runtimeInputs = [pkgs.gh];
+    text = ''
+      set -euo pipefail
+
+      [[ "''${1:-}" == "get" ]] || exit 0
+      token="$(${pkgs.gh}/bin/gh auth token --hostname github.com)"
+      printf 'username=x-access-token\npassword=%s\n' "$token"
+    '';
+  };
+
   liveWorldAudit = pkgs.writeShellApplication {
     name = "cratedigger-daily-live-world-audit";
     runtimeInputs = [
@@ -139,6 +151,15 @@ in {
           XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.35:5200";
+          # gh 2.96's git-credential mode attempts an in-place hosts.yml
+          # migration. That correctly fails because the credential file is
+          # bind-mounted read-only. Replace only GitHub's Git helper with a
+          # read-only token lookup while retaining gh's protected config.
+          GIT_CONFIG_COUNT = "2";
+          GIT_CONFIG_KEY_0 = "credential.https://github.com.helper";
+          GIT_CONFIG_VALUE_0 = "";
+          GIT_CONFIG_KEY_1 = "credential.https://github.com.helper";
+          GIT_CONFIG_VALUE_1 = "!${githubCredentialHelper}/bin/cratedigger-daily-github-credential";
           # ProtectHome hides the user's nix.conf, so enable the client-side
           # flake commands and classic nix-shell lookup explicitly inside this
           # sandboxed unit. Node is also explicit in path because run_tests.sh
