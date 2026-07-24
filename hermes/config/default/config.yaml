@@ -107,3 +107,4 @@ platforms:
       secret: alert-bridge-rca
 approvals:
   mode: "off"
+  destructive_slash_confirm: false
