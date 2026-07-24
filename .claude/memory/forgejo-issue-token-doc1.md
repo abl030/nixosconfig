@@ -8,17 +8,17 @@ metadata:
 ---
 
 The doc1 agent can create/edit Forgejo issues via the **Forgejo REST API** using a
-scoped `nixbot` token (name `claude-agent-doc1`, scope **`write:issue`** only —
+scoped `nixbot` token (name `hermes` (successor of `claude-agent-doc1`), scope **`write:issue`** only —
 no code push, no admin). Minted 2026-06-18 (owner-authorised) via the forgejo
 admin CLI on doc2. Issues authored as `nixbot`.
 
 Token is stored **sops-encrypted, doc1-scope only** (recipients = doc1 host key
-+ editor + break-glass) at `secrets/hosts/proxmox-vm/forgejo-claude-token.yaml`.
++ editor + break-glass) at `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml`.
 Decrypt + use on doc1 (never echo it):
 
 ```sh
 cd /home/abl030/nixosconfig
-TOKEN=$(env -C "$PWD/secrets" sops -d --extract '["token"]' hosts/proxmox-vm/forgejo-claude-token.yaml)
+TOKEN=$(env -C "$PWD/secrets" sops -d --extract '["token"]' hosts/proxmox-vm/forgejo-hermes-token.yaml)
 curl -s -H "Authorization: token $TOKEN" \
   https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues   # list
 # create: POST .../issues  -d '{"title":"…","body":"…"}'   (Content-Type: application/json)
@@ -35,3 +35,7 @@ header trick, not this token.
 delete the `claude-agent-doc1` token (or re-mint via `forgejo admin user
 generate-access-token` on doc2 and re-key the sops file). Leak blast radius =
 create/edit issues on nixosconfig — nothing else.
+
+UPDATE 2026-07-23: token file renamed → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml`,
+also materialized at `/run/secrets/forgejo/hermes-token` (root-readable) — verified working
+(created nixosconfig#46). The old claude-token path no longer exists.
