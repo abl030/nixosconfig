@@ -98,6 +98,12 @@ in {
         assertion = builtins.pathExists runner;
         message = "cratedigger-src must provide scripts/daily_flake_update.sh";
       }
+      {
+        assertion =
+          config.systemd.services.cratedigger-daily-checks.serviceConfig.RestrictSUIDSGID
+          == false;
+        message = "cratedigger daily checks must permit the setgid permission contract";
+      }
     ];
 
     systemd.services = {
@@ -177,7 +183,10 @@ in {
           ProtectHome = "tmpfs";
           ProtectKernelTunables = true;
           ProtectSystem = "strict";
-          RestrictSUIDSGID = true;
+          # The candidate suite asserts the production beets tree's setgid
+          # contract (02775). This non-root, NoNewPrivileges service must be
+          # able to exercise that invariant rather than strip the bit first.
+          RestrictSUIDSGID = false;
           TemporaryFileSystem = "/mnt";
 
           StandardOutput = "journal";
