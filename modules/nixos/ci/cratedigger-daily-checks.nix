@@ -8,7 +8,24 @@
   cfg = config.homelab.ci.cratediggerDailyChecks;
   runner = "${inputs.cratedigger-src}/scripts/daily_flake_update.sh";
   stateDir = "/var/lib/cratedigger-daily-checks";
+  ghConfigDir = "${stateDir}/gh";
+  ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
+
+  prepareGhConfig = pkgs.writeShellApplication {
+    name = "cratedigger-daily-prepare-gh-config";
+    runtimeInputs = [pkgs.coreutils];
+    text = ''
+      set -euo pipefail
+
+      # gh currently migrates hosts.yml before serving git's credential
+      # helper. Keep the operator's credential source read-only and refresh a
+      # service-private copy that gh may safely rewrite.
+      install -d -m 0700 ${lib.escapeShellArg ghConfigDir}
+      install -m 0600 ${lib.escapeShellArg ghHostsFile} \
+        ${lib.escapeShellArg "${ghConfigDir}/hosts.yml"}
+    '';
+  };
 
   liveWorldAudit = pkgs.writeShellApplication {
     name = "cratedigger-daily-live-world-audit";
@@ -104,6 +121,18 @@ in {
           == false;
         message = "cratedigger daily checks must permit the setgid permission contract";
       }
+      {
+        assertion =
+          config.systemd.services.cratedigger-daily-checks.environment.GH_CONFIG_DIR
+          == ghConfigDir;
+        message = "cratedigger daily checks must give gh a private writable config directory";
+      }
+      {
+        assertion =
+          lib.elem ghHostsFile
+          config.systemd.services.cratedigger-daily-checks.serviceConfig.BindReadOnlyPaths;
+        message = "cratedigger daily checks must retain the read-only operator GitHub credential source";
+      }
     ];
 
     systemd.services = {
@@ -135,6 +164,7 @@ in {
 
         environment = {
           HOME = "/home/abl030";
+          GH_CONFIG_DIR = ghConfigDir;
           XDG_CACHE_HOME = "${stateDir}/cache";
           XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
@@ -151,6 +181,7 @@ in {
           Type = "oneshot";
           User = "abl030";
           Group = "users";
+          ExecStartPre = "${prepareGhConfig}/bin/cratedigger-daily-prepare-gh-config";
           ExecStart = "${pkgs.bash}/bin/bash ${runner}";
           # Always run against doc2's deployed revision after the candidate
           # runner exits. The "+" prefix keeps the fleet SSH identity out of
@@ -168,7 +199,7 @@ in {
           UMask = "0077";
 
           BindReadOnlyPaths = [
-            "/home/abl030/.config/gh/hosts.yml"
+            ghHostsFile
             "/home/abl030/.gitconfig"
             "/home/abl030/.ssh/id_ed25519_git_sign"
           ];
