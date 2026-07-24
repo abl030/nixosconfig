@@ -74,7 +74,9 @@
   # enables ProtectSystem=strict or names a narrower ReadWritePaths list. Keep
   # this authority table explicit so the downstream overlay cannot reopen a
   # broad Music-root write surface. Web/importer inspect the complete music
-  # tree read-only but receive writes only to their reviewed subtrees.
+  # tree read-only but receive writes only to their reviewed subtrees. Preview
+  # also resolves current-HAVE evidence from Beets, so it needs the dedicated
+  # database directory as read-only authority.
   # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
   upstreamHardenedMntSandboxes = {
     cratedigger-web = {
@@ -87,7 +89,7 @@
     };
     cratedigger-import-preview-worker = {
       writable = [processingDir slskdDownloadDir];
-      readOnly = [musicRoot];
+      readOnly = [beetsDbDir musicRoot];
     };
     cratedigger-youtube-ingest.writable = [stagingRoot];
   };
@@ -532,6 +534,12 @@ in {
         {
           assertion = config.systemd.services.cratedigger-importer.serviceConfig.BindReadOnlyPaths == [musicRoot];
           message = "cratedigger-importer must see the broad Music root read-only";
+        }
+        {
+          assertion =
+            config.systemd.services.cratedigger-import-preview-worker.serviceConfig.BindReadOnlyPaths
+            == [beetsDbDir musicRoot];
+          message = "cratedigger preview must see the canonical Beets DB and Music root read-only";
         }
         {
           assertion =
