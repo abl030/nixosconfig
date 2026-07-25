@@ -54,6 +54,28 @@
   };
 
   homelab = {
+    # doc1 is the fleet's netconsole collector for everyone else, so it cannot be
+    # its own — and doc2 is a bad choice too, because it wedged during the same
+    # 2026-07-24 event we are trying to capture. prom is the only sound target:
+    # it is the hypervisor, and its journal was pristine through the entire
+    # window in which both guests died.
+    #
+    # kdump is enabled here specifically so a repeat of the 2026-07-24 panic
+    # yields the faulting frames that EFI pstore truncated. Note doc1 runs
+    # panic=0 (hang forever) by default; the module sets a panic=30 safety net
+    # for the case where kexec itself fails.
+    # See docs/wiki/infrastructure/fleet-crash-capture.md and issue #51.
+    crashCapture = {
+      netconsole = {
+        collectorAddress = "192.168.1.12";
+        collectorMac = "9c:6b:00:95:f5:51";
+      };
+      kdump = {
+        enable = true;
+        reservedMemory = "512M";
+      };
+    };
+
     mounts = {
       nfsLocal.enable = true;
       nfsLocal.readOnly = false; # Safety during podman testing

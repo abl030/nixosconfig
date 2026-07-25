@@ -256,6 +256,12 @@ in {
       # is how doc1's original faulting frames were lost.
       boot.kernel.sysctl."kernel.panic_on_oops" = lib.mkDefault 1;
 
+      # Safety net only. With a capture kernel loaded, panic kexecs immediately
+      # and this never fires; it matters when kexec itself fails, where the
+      # alternative is the host hanging until someone notices. doc1 currently
+      # runs panic=0, i.e. hang forever — never arm kdump without this.
+      boot.kernel.sysctl."kernel.panic" = lib.mkDefault 30;
+
       systemd.services.crash-capture-save-vmcore = {
         description = "Persist vmcore after a kernel crash, then reboot";
         unitConfig.ConditionPathExists = "/proc/vmcore";
