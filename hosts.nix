@@ -58,12 +58,19 @@ let
     wsl = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII5iTwmDvCAemE2p9vm0aOOj9oFnCwQZC9JQQAQnSnTE git-signing:wsl";
     proxmox-vm = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIp/G54mPRjf5aZIZIrqFC065w1SHAz4oJethLkep0mO git-signing:proxmox-vm";
     nixBot = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOzUflpYoSH5vtyQiEYy4vI/KiCQqkpDKV9EtZMUvpZV git-signing:nix-bot";
+    forgejoMerge = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFHbnp0jItnexAICg9EAu0N0WS0ib1jASIwuApgpyOAi forgejo-merge@doc2";
   };
 in {
   _signingPrincipals = [
     {
       principal = "nix bot <acme@ablz.au>";
       key = gitSigningKeys.nixBot;
+    }
+    {
+      # This key is constrained by fleet-update and rolling-flake-update to
+      # deterministic two-parent merges with the Forgejo committer identity.
+      principal = "forgejo-merge@doc2";
+      key = gitSigningKeys.forgejoMerge;
     }
   ];
 
