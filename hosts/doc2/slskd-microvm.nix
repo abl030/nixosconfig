@@ -28,6 +28,15 @@
   # microVM's second virtiofs layer must retain O_PATH descriptors instead of
   # asking the outer filesystem for inode file handles: those handles go stale
   # immediately and make slskd's SQLite/backup paths unusable.
+  #
+  # KNOWN BROKEN — this trade is not a fix, it swaps one staleness mode for
+  # another. `never` pins one O_PATH fd per inode into a FUSE mount; when any
+  # other writer replaces a directory in the tree the pin goes ESTALE and this
+  # daemon then serves sticky per-directory ENOENT/ESTALE until it is restarted.
+  # Reproduced deterministically 2026-07-25; 37-96% of slskd moves failed for
+  # six days. Re-exporting virtiofs is unsound in BOTH modes — the real fix is
+  # to de-nest downloads/ and incomplete/, not to flip this flag.
+  # See docs/wiki/infrastructure/virtiofs-nested-reexport-stale-pins.md (#51).
   virtiofsdNestedSafe = pkgs.writeShellScriptBin "virtiofsd" ''
     args=()
     for arg in "$@"; do
