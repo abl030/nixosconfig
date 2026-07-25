@@ -64,9 +64,33 @@ Attempted at full parity in an isolated lab (VM 951 + 952, own dataset, never `/
 **9.6M metadata operations, 35 minutes — past doc1's ~28-minute fatal point. Zero filesystem errors,
 zero kernel messages, both guests survived.** The netconsole log stayed byte-identical from boot.
 
-The "virtiofs load kills the guest kernel" hypothesis is materially weaker — it survived a harder,
-longer, better-instrumented version of the same load on the same kernel, host and pool. Not disproven;
-the only thing still supporting it is the original correlation.
+Then repeated **on doc1 itself, against production `/mnt/virtio`**, at exact parity — same host, same
+storage, same 24 workers / 3 walkers, same 30 vCPU, same kernel — with kdump and netconsole armed:
+
+| | 2026-07-24 fatal run | 2026-07-25 repeat |
+|---|---|---|
+| Outcome | panic at ~14M ops, ~28 cumulative min | **14.64M ops, 55 continuous min, nothing** |
+
+Zero genuine violations, and the netconsole log was **byte-identical to its baseline for the entire
+run** — not one kernel event. doc2 stayed at 0 D-state tasks and slskd at 0 failures throughout.
+
+Every remaining difference from the fatal run — production dataset, single guest with 30 vCPU,
+concurrent production load — has now been eliminated. **The "virtiofs metadata load kills the guest
+kernel" hypothesis is not supported.** The load was a bystander on 2026-07-24, not the cause.
+
+doc2 also stayed healthy this time, which fits the finding above: its wedge was tied to doc1 *dying*,
+not to I/O pressure. doc1 never died here, and doc2 never wedged.
+
+### Capture is proven, not assumed
+
+Before the real run, doc1 was deliberately panicked with `sysrq-c` to test the pipeline end to end. It
+produced a full backtrace on prom (`sysrq_handle_crash+0x1a/0x20`, `Kdump: loaded`) and a 1.86 GB
+vmcore, and doc1 self-rebooted and re-armed.
+
+That test paid for itself immediately: the save service wrote a **0-byte** `dmesg-*.txt`, because plain
+`dmesg` in a kexec capture kernel reads *that* kernel's freshly-booted ring buffer rather than the dead
+one. Fixed to use `vmcore-dmesg(8)`. Without the test, the cheap-to-read artifact would have been empty
+on the real panic — the same class of failure as 2026-07-24, discovered too late.
 
 ## Things that turned out to be wrong
 
@@ -117,7 +141,8 @@ to a reader** — use netconsole.
 
 - #53: de-nest slskd's `downloads/`+`incomplete/`. Deferred pending a decision between local disk,
   promoting slskd to a prom VM, or NFS.
-- doc1 panic: unexplained. Capture is now armed so a recurrence produces the backtrace this campaign
+- doc1 panic: cause unknown, but the load hypothesis is falsified. Capture is armed and proven, so a
+  recurrence produces the backtrace this campaign
   could not manufacture.
 - doc2 wedge: needs `sysrq-t` from a live recurrence.
 - `deep-probe-kopia-mum-*` fails when its 250 s curl timeout collides with the 5–6 hour verify window;
