@@ -11,4 +11,5 @@
 - Never flush pfSense firewall states after a rule change: [pfSense safety](feedback_pfsense_no_state_flush.md).
 - Never pin container images or add a `:latest` CI gate; harden runtime and preserve auto-update: [image policy](feedback-no-image-pinning.md).
 - SOPS secrets are host-scoped plus editor and break-glass recipients; re-key from inside `secrets/`: [recipient model](sops-recipient-model.md).
+- Hermes' brain (memories, SOUL, authored skills) backs up to private `abl030/hermes-brain`; `~/.hermes` denies git by default: [brain backup](hermes-brain-backup.md).
 - Search the rest of `.claude/memory/` and `docs/wiki/` for operational state; promote durable discoveries there before ending substantive work.
