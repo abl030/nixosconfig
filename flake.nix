@@ -848,11 +848,15 @@
                     git -C "$repo" add forged.txt
                     forgejo_signed_commit "$repo" "$forgejo_key" "fixture forbidden Forgejo linear commit"
                     ;;
-                  valid|altered-tree)
+                  valid|altered-tree|wrong-identity|unsigned-parent)
                     git -C "$repo" checkout -q -b signed-side
                     printf 'side\n' > "$repo/side.txt"
                     git -C "$repo" add side.txt
-                    signed_commit "$repo" "$human_key" "fixture signed side"
+                    if [ "$mode" = unsigned-parent ]; then
+                      unsigned_commit "$repo" "fixture unsigned side"
+                    else
+                      signed_commit "$repo" "$human_key" "fixture signed side"
+                    fi
                     git -C "$repo" checkout -q master
                     git -C "$repo" \
                       -c user.name="Forgejo Merge" \
@@ -862,7 +866,16 @@
                       printf 'not present in either signed parent\n' > "$repo/injected.txt"
                       git -C "$repo" add injected.txt
                     fi
-                    forgejo_signed_commit "$repo" "$forgejo_key" "fixture Forgejo merge"
+                    if [ "$mode" = wrong-identity ]; then
+                      git -C "$repo" \
+                        -c user.name="fixture attacker" \
+                        -c user.email="attacker@example.invalid" \
+                        -c gpg.format=ssh \
+                        -c user.signingkey="$forgejo_key" \
+                        commit -q -S -m "fixture wrong-identity Forgejo merge"
+                    else
+                      forgejo_signed_commit "$repo" "$forgejo_key" "fixture Forgejo merge"
+                    fi
                     ;;
                   *)
                     echo "unknown Forgejo fixture mode: $mode" >&2
@@ -992,6 +1005,18 @@
               read -r forgejo_altered_remote forgejo_altered_base _forgejo_altered_target < <(make_forgejo_merge_remote forgejo-altered "$TMPDIR/human" "$TMPDIR/forgejo" altered-tree)
               if run_fleet forgejo-altered "$forgejo_altered_remote" "$forgejo_altered_base"; then
                 echo "Forgejo merge signer was accepted with a non-deterministic merge tree" >&2
+                exit 1
+              fi
+
+              read -r forgejo_identity_remote forgejo_identity_base _forgejo_identity_target < <(make_forgejo_merge_remote forgejo-identity "$TMPDIR/human" "$TMPDIR/forgejo" wrong-identity)
+              if run_fleet forgejo-identity "$forgejo_identity_remote" "$forgejo_identity_base"; then
+                echo "Forgejo merge signer was accepted with a forged committer identity" >&2
+                exit 1
+              fi
+
+              read -r forgejo_unsigned_remote forgejo_unsigned_base _forgejo_unsigned_target < <(make_forgejo_merge_remote forgejo-unsigned "$TMPDIR/human" "$TMPDIR/forgejo" unsigned-parent)
+              if run_fleet forgejo-unsigned "$forgejo_unsigned_remote" "$forgejo_unsigned_base"; then
+                echo "Forgejo merge signer was accepted over an unsigned parent" >&2
                 exit 1
               fi
 
@@ -1174,16 +1199,23 @@
                     printf 'forged\n' > "$repo/forged.txt"
                     git -C "$repo" add forged.txt
                     ;;
-                  valid|altered-tree)
+                  valid|altered-tree|wrong-identity|unsigned-parent)
                     git -C "$repo" checkout -q -b signed-side
                     printf 'side\n' > "$repo/side.txt"
                     git -C "$repo" add side.txt
-                    git -C "$repo" \
-                      -c user.name="fixture human" \
-                      -c user.email="fixture@example.invalid" \
-                      -c gpg.format=ssh \
-                      -c user.signingkey="$human_key" \
-                      commit -q -S -m "fixture signed side"
+                    if [ "$mode" = unsigned-parent ]; then
+                      git -C "$repo" \
+                        -c user.name="fixture attacker" \
+                        -c user.email="attacker@example.invalid" \
+                        commit -q -m "fixture unsigned side"
+                    else
+                      git -C "$repo" \
+                        -c user.name="fixture human" \
+                        -c user.email="fixture@example.invalid" \
+                        -c gpg.format=ssh \
+                        -c user.signingkey="$human_key" \
+                        commit -q -S -m "fixture signed side"
+                    fi
                     git -C "$repo" checkout -q master
                     git -C "$repo" \
                       -c user.name="Forgejo Merge" \
@@ -1197,12 +1229,21 @@
                   *) exit 1 ;;
                 esac
 
-                git -C "$repo" \
-                  -c user.name="Forgejo Merge" \
-                  -c user.email="forgejo-merge@ablz.au" \
-                  -c gpg.format=ssh \
-                  -c user.signingkey="$forgejo_key" \
-                  commit -q -S -m "fixture Forgejo commit"
+                if [ "$mode" = wrong-identity ]; then
+                  git -C "$repo" \
+                    -c user.name="fixture attacker" \
+                    -c user.email="attacker@example.invalid" \
+                    -c gpg.format=ssh \
+                    -c user.signingkey="$forgejo_key" \
+                    commit -q -S -m "fixture wrong-identity Forgejo commit"
+                else
+                  git -C "$repo" \
+                    -c user.name="Forgejo Merge" \
+                    -c user.email="forgejo-merge@ablz.au" \
+                    -c gpg.format=ssh \
+                    -c user.signingkey="$forgejo_key" \
+                    commit -q -S -m "fixture Forgejo commit"
+                fi
                 git clone -q --bare "$repo" "$remote"
                 printf '%s %s\n' "$remote" "$anchor"
               }
@@ -1287,6 +1328,20 @@
               printf '%s\n' "$forgejo_altered_anchor" > "$TMPDIR/forgejo-altered-anchor"
               if run_update "$forgejo_altered_remote" "$allowed_all" "$TMPDIR/forgejo-altered-anchor"; then
                 echo "rolling updater accepted a non-deterministic Forgejo merge tree" >&2
+                exit 1
+              fi
+
+              read -r forgejo_identity_remote forgejo_identity_anchor < <(make_forgejo_remote forgejo-identity "$TMPDIR/human" "$TMPDIR/forgejo" wrong-identity)
+              printf '%s\n' "$forgejo_identity_anchor" > "$TMPDIR/forgejo-identity-anchor"
+              if run_update "$forgejo_identity_remote" "$allowed_all" "$TMPDIR/forgejo-identity-anchor"; then
+                echo "rolling updater accepted a forged Forgejo committer identity" >&2
+                exit 1
+              fi
+
+              read -r forgejo_unsigned_remote forgejo_unsigned_anchor < <(make_forgejo_remote forgejo-unsigned "$TMPDIR/human" "$TMPDIR/forgejo" unsigned-parent)
+              printf '%s\n' "$forgejo_unsigned_anchor" > "$TMPDIR/forgejo-unsigned-anchor"
+              if run_update "$forgejo_unsigned_remote" "$allowed_all" "$TMPDIR/forgejo-unsigned-anchor"; then
+                echo "rolling updater accepted a Forgejo merge over an unsigned parent" >&2
                 exit 1
               fi
 
