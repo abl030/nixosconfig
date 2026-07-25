@@ -29,12 +29,22 @@
     kernelParams = ["panic=30"];
   };
 
-  # Kernel printk streaming to doc1 now comes from homelab.crashCapture, which
-  # generalises this host's 2026-07-22 sender to the whole fleet — doc1 had no
-  # sender of its own, which is why its 2026-07-24 panic frames were lost (#51).
-  # Only the interface discovery changed; the collector, ports and pinned MAC are
-  # identical. See docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md and
+  # Kernel printk streaming now comes from homelab.crashCapture, which generalises
+  # this host's 2026-07-22 sender to the whole fleet — doc1 had no sender of its
+  # own, which is why its 2026-07-24 panic frames were lost (#51).
+  #
+  # Collector is prom, not doc1. On 2026-07-24 doc1 panicked and doc2 wedged in
+  # the same window, so pointing doc2's kernel log at doc1 loses exactly the
+  # records worth having. prom is the hypervisor and its journal was pristine
+  # throughout. Note doc1 also hosts the doc2Recovery watchdog, so a doc1 outage
+  # takes out doc2's capture path twice over; the prom-side collector removes one
+  # of those dependencies.
+  # See docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md and
   # docs/wiki/infrastructure/fleet-crash-capture.md.
+  homelab.crashCapture.netconsole = {
+    collectorAddress = "192.168.1.12";
+    collectorMac = "9c:6b:00:95:f5:51";
+  };
 
   homelab = {
     ssh = {
