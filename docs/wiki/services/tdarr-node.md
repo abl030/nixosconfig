@@ -1,7 +1,7 @@
 # tdarr-node on igpu
 
-**Last updated:** 2026-06-30
-**Status:** least-privilege hardening verified; VAAPI working (transcode + GPU healthcheck)
+**Last updated:** 2026-07-26
+**Status:** least-privilege hardening verified; VAAPI working (transcode + GPU healthcheck); Local plugin survives Community updates
 **Owner:** `modules/nixos/services/tdarr-node.nix`
 **Issue:** [#208](https://github.com/abl030/nixosconfig/issues/208), [#232](https://github.com/abl030/nixosconfig/issues/232)
 
@@ -155,19 +155,28 @@ Tdarr's VAAPI health check decodes to GPU frames then writes to a null sink. FFm
 
 The `tdarr-node-gpu-healthcheck-config.service` oneshot seeds the Tdarr server with `thoroughHealthCheckGpuExtraArgs=-filter_script:v /app/configs/vaapi-healthcheck.filter` via API after the node registers.
 
-### 3. `-noautoscale` for interlaced content (transcode plugin)
+### 3. Local VAAPI transcode plugin
 
 FFmpeg 7.1 auto-inserts an `auto_scale` filter between `hwupload` and the VAAPI encoder. For interlaced content (MBAFF/TFF, `field_order=tt`), this auto-inserted filter cannot convert formats, causing `CLI code: 218` with `Impossible to convert between the formats supported by the filter 'Parsed_hwupload_1' and the filter 'auto_scale_1'`.
 
-Fix: `-noautoscale` in the ffmpeg transcode args. This is applied in the Tdarr **server** plugin file `Tdarr_Plugin_Mthr_VaapiHEVCTranscode.js` on tower's appdata (`/mnt/user/appdata/tdarr/server/Tdarr/Plugins/Community/`). This is a persistent bind mount — it survives container reboots and Docker image updates. The only thing that reverts it is Tdarr's "Plugin Update" feature (manually triggered).
+The community `Tdarr_Plugin_Mthr_VaapiHEVCTranscode` also hardcodes `/dev/dri/renderD128`. Patching that file in place proved insufficient: Tdarr's Community Plugin Update restores the upstream file and silently reintroduces the wrong device.
 
-The full patched ffmpegParameters line in the plugin:
+Since 2026-07-26, both Movies and TV Shows use a **Local** clone with the same plugin ID from tower appdata:
+
+```text
+/mnt/user/appdata/tdarr/server/Tdarr/Plugins/Local/
+  Tdarr_Plugin_Mthr_VaapiHEVCTranscode.js
+```
+
+Local plugins are not replaced by Community Plugin Update. The clone uses software decode plus VAAPI encode on the real render node:
 
 ```text
 -c:v:0 hevc_vaapi -b:v ${targetBitrate}k -minrate ${minimumBitrate}k
   -maxrate ${maximumBitrate}k -bufsize 1M -vaapi_device /dev/dri/renderD129
   -filter_script:v /app/configs/vaapi-hevc.filter -noautoscale -max_muxing_queue_size 1024
 ```
+
+Do not map or rename `renderD129` to `renderD128`: the device name must remain consistent with DRM sysfs for Mesa/libva. Do not switch these stacks back to the Community source when updating plugins.
 
 ### Non-GPU transcode failures
 
