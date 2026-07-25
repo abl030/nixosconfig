@@ -49,3 +49,7 @@ ha/esphome/.esphome/
 # it is a per-apply operational artifact, not policy, and never belongs in the
 # repo. See modules/nixos/services/tailscale/acl-apply.nix.
 /version-cache.json
+
+# Claude Code's worktree directory (EnterWorktree creates nested checkouts of
+# this repo here). The bare `.worktrees` rule above does not match this path.
+/.claude/worktrees/
