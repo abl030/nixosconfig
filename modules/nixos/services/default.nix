@@ -70,5 +70,6 @@
     ./prom-rpool-backup.nix
     ./containers-backup.nix
     ./doc2-recovery.nix
+    ./crash-capture.nix
   ];
 }

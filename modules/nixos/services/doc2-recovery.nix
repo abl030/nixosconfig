@@ -108,6 +108,30 @@
       ssh_prom "journalctl --since '20 minutes ago' --no-pager | grep -Ei 'qemu|kvm|qga|VM $vmid|vhost|virtiofs|oom|mce|hardware error'" \
         > "$incident/prom-vm.txt" 2>&1 || true
 
+      # In-guest kernel state. The 2026-07-24 tty wedge was captured with WCHAN
+      # only, which named the layer (64/65 tasks in tty_open) but never the lock
+      # holder, so the RCA could not be closed. QGA stays responsive in exactly
+      # these wedges even when SSH is dead, so drive sysrq through it:
+      #   t = every task's stack, w = tasks blocked in uninterruptible sleep.
+      # __handle_sysrq() raises console_loglevel for the duration, so this output
+      # also reaches doc1 over netconsole despite doc2's loglevel=4 console filter
+      # (which is why routine INFO-level records never appear there).
+      # See docs/wiki/infrastructure/virtiofs-nested-reexport-stale-pins.md (#51).
+      qga_exec() {
+        ssh_prom "timeout 25 qm guest exec $vmid --timeout 20 -- $*" 2>&1 || true
+      }
+      for key in w t; do
+        qga_exec "/bin/sh -c 'echo $key > /proc/sysrq-trigger'" \
+          > "$incident/sysrq-$key.json" 2>&1 || true
+      done
+      # Give the task dump time to drain into the ring buffer before reading it.
+      sleep 5
+      qga_exec "/bin/sh -c 'dmesg --notime --level=emerg,alert,crit,err,warn,info | tail -n 2000'" \
+        > "$incident/doc2-dmesg-after-sysrq.json" 2>&1 || true
+      # Per-task kernel stacks for everything still stuck in D state.
+      qga_exec "/bin/sh -c 'for p in \$(ls /proc | grep -E \"^[0-9]+\$\"); do s=\$(cut -d\" \" -f3 /proc/\$p/stat 2>/dev/null); [ \"\$s\" = D ] || continue; echo \"=== pid \$p \$(tr -d \"\\0\" < /proc/\$p/comm 2>/dev/null) ===\"; cat /proc/\$p/stack 2>/dev/null; done'" \
+        > "$incident/doc2-dstate-stacks.json" 2>&1 || true
+
       remote_image="/tmp/doc2-recovery-$stamp.ppm"
       if ssh_prom "rm -f '$remote_image'; printf 'screendump $remote_image\\nquit\\n' | qm monitor $vmid >/dev/null; test -s '$remote_image'"; then
         ssh_prom "cat '$remote_image'; rm -f '$remote_image'" > "$incident/console.ppm" 2>/dev/null || true
