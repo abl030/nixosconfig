@@ -3,7 +3,7 @@
 #     -> virtiofsd(never) -> this microVM                  [= slskd guest]
 {repo ? /home/abl030/nixosconfig/.claude/worktrees/issue51-nested-virtiofs-repro}: let
   flake = builtins.getFlake (toString repo);
-  inputs = flake.inputs;
+  inherit (flake) inputs;
   system = "x86_64-linux";
   pkgs = inputs.nixpkgs.legacyPackages.${system};
 
