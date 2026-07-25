@@ -1,5 +1,16 @@
 # Container storage migration plan (nvmeprom -> shared virtiofs)
 
+> **Historical plan — partially superseded 2026-07-25.** This document records
+> how the shared virtiofs layout was introduced; it is not the current golden
+> path for mutable database state. Shared bulk files may remain on virtiofs,
+> but PostgreSQL, MariaDB, MongoDB, SQLite/WAL, TSDB, and search/index state
+> should move to workload-appropriate direct-bound native datasets in the
+> proposed doc2 LXC, or to dedicated local block storage if doc2 remains a VM.
+> See
+> [`docs/wiki/infrastructure/virtiofs-database-state-exit.md`](wiki/infrastructure/virtiofs-database-state-exit.md)
+> and issue #53. The commands below are retained as historical context, not an
+> execution runbook.
+
 ## Goals
 
 - Create a dedicated dataset on the existing ZFS pool `nvmeprom` for container data.
@@ -7,7 +18,7 @@
 - Move containers off `doc1` and `igpu` with planned downtime.
 - Track virtiofs in OpenTofu state.
   - Note: `igpu2` passthrough is deferred until after `doc2` is verified.
-- Golden path: keep container data on the main node and use virtiofs mappings per node.
+- Historical migration path: keep shared container data on the main node and use virtiofs mappings per node.
   When the maintenance node is in use, create its own containers path and point the
   same virtiofs mapping ID at that path for migration.
 

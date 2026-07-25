@@ -40,6 +40,9 @@ with a trap.
    issue number and `html_url`.
 4. Read an issue with `GET /repos/abl030/nixosconfig/issues/{number}`; comment
    with `POST .../comments`; update title/body/state with `PATCH .../{number}`.
+   This Forgejo instance returns HTTP 201 for a successful issue PATCH (not only
+   200); accept either success code, parse the response, then GET the issue back
+   and verify the stored fields.
 5. If Forgejo returns HTTP 403, inspect its JSON `message`. Scope errors are a
    token configuration problem, not evidence that issue operations require the
    web UI.

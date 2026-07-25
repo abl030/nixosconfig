@@ -2,9 +2,10 @@
 
 **Date:** 2026-07-25
 **Status:** slskd fault solved and reproduced; doc1 panic unreproduced, capture now armed
-**Issues:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51) (investigation), [#53](https://git.ablz.au/abl030/nixosconfig/issues/53) (deferred slskd fix)
+**Issues:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51) (investigation), [#53](https://git.ablz.au/abl030/nixosconfig/issues/53) (database-state virtiofs exit)
 **Detail pages:** [virtiofs-nested-reexport-stale-pins.md](virtiofs-nested-reexport-stale-pins.md),
-[fleet-crash-capture.md](fleet-crash-capture.md)
+[fleet-crash-capture.md](fleet-crash-capture.md),
+[virtiofs-database-state-exit.md](virtiofs-database-state-exit.md)
 
 ## What was actually wrong
 
@@ -33,8 +34,13 @@ controls clean. Onset is coeval with `a73909c6`/`c604cc8f` (2026-07-19) — a si
 chronic condition. Failure rate ran 37–96% of completed downloads per day and dropped to 0% the moment
 `microvm-virtiofsd@slskd` was restarted at 18:47 on 2026-07-24.
 
-Fix options are in #53. Re-exporting virtiofs is unsound in **both** `--inode-file-handles` modes, so
-flipping the flag is not a fix; the nest has to go.
+The original slskd fix options remain in #53. Re-exporting virtiofs is unsound
+in **both** `--inode-file-handles` modes, so flipping the flag is not a fix;
+the nest has to go. The subsequent storage audit widened #53 to cover the
+larger production problem: all nine doc2 nspawn databases also sit on direct
+virtiofs. Corrected low-QD and same-filesystem controls now favor an
+unprivileged doc2 LXC with direct host dataset binds as the architecture to
+prototype; dedicated VM block disks remain the fallback.
 
 ### 2. doc2 wedge — misattributed
 
@@ -139,8 +145,11 @@ to a reader** — use netconsole.
 
 ## Open
 
-- #53: de-nest slskd's `downloads/`+`incomplete/`. Deferred pending a decision between local disk,
-  promoting slskd to a prom VM, or NFS.
+- #53: move production database/hot mutable state off virtiofs. Prototype doc2
+  as an unprivileged LXC with direct host dataset binds; retain tuned VM block
+  storage as the fallback. The slskd nested-share decision remains related but
+  is no longer the issue's primary scope. See
+  [virtiofs-database-state-exit.md](virtiofs-database-state-exit.md).
 - doc1 panic: cause unknown, but the load hypothesis is falsified. Capture is armed and proven, so a
   recurrence produces the backtrace this campaign
   could not manufacture.

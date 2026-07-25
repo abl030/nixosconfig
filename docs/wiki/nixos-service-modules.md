@@ -585,11 +585,36 @@ Services are enabled in host configs (`hosts/<host>/configuration.nix`):
 ```nix
 homelab.services.<name> = {
   enable = true;
-  dataDir = "/mnt/virtio/<name>";  # virtiofs mount for portability
+  dataDir = "/var/lib/<name>";
 };
 ```
 
-The module design must allow the service to run on ANY host by changing only the host config. All paths, ports, and dependencies should be configurable via options.
+The module design must allow the service to run on ANY host by changing only
+the host config. All paths, ports, and dependencies should be configurable via
+options.
+
+**Choose state storage from workload and recovery requirements, not from a
+fleet-wide path convention.** In particular, do not default PostgreSQL,
+MariaDB, MongoDB, SQLite/WAL, TSDB, or search/vector-index state to
+`/mnt/virtio/<name>` merely for portability. The #53 lab found all nine doc2
+nspawn databases behind virtiofs, then showed materially better database-shaped
+I/O through direct LXC bind mounts. Native ZFS 4K and 8K datasets delivered
+2.78x and 2.53x the direct-virtiofs mixed IOPS respectively. On the exact same
+populated ext4 filesystem, LXC also beat VM virtio-SCSI in both run orders.
+
+When a service combines hot database state with shared uploads, media, caches,
+or backups, expose a separate `databaseDir` (or equivalent) rather than making
+one broad `dataDir` choose the storage class for everything. Critical state
+belongs on a separately backed-up dataset or local block filesystem;
+rebuildable databases/indexes belong in an explicitly unbacked storage class;
+genuinely shared bulk files may use a larger-record dataset or remain on an
+appropriate shared transport. Do not infer one ZFS `recordsize` from the VM
+zvol `volblocksize`: the LXC lab found 8K a balanced database starting point
+and 4K the write-heavy/SQLite candidate, both requiring application validation.
+See
+[`virtiofs-database-state-exit.md`](infrastructure/virtiofs-database-state-exit.md)
+for the corrected methodology, same-filesystem A/B, backup boundaries, and
+doc2 LXC feasibility gates.
 
 ## VPN Routing (for services needing external VPN)
 
