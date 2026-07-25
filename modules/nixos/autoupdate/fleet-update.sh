@@ -21,6 +21,9 @@ BRANCH="${FLEET_UPDATE_BRANCH:-master}"
 FLEET_HOSTNAME="${FLEET_UPDATE_HOSTNAME:-$(cat /proc/sys/kernel/hostname 2>/dev/null || echo unknown)}"
 HEARTBEAT_FILE="${FLEET_UPDATE_HEARTBEAT_FILE:-fleet/freshness.json}"
 BOT_PRINCIPAL="${FLEET_UPDATE_BOT_PRINCIPAL:-nix bot <acme@ablz.au>}"
+FORGEJO_MERGE_PRINCIPAL="${FLEET_UPDATE_FORGEJO_MERGE_PRINCIPAL:-forgejo-merge@doc2}"
+FORGEJO_MERGE_COMMITTER_NAME="${FLEET_UPDATE_FORGEJO_MERGE_COMMITTER_NAME:-Forgejo Merge}"
+FORGEJO_MERGE_COMMITTER_EMAIL="${FLEET_UPDATE_FORGEJO_MERGE_COMMITTER_EMAIL:-forgejo-merge@ablz.au}"
 FRESHNESS_MAX_AGE_SECONDS="${FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS:-108000}"
 REBUILD_BIN="${FLEET_UPDATE_REBUILD_BIN:-nixos-rebuild}"
 REBUILD_FLAGS="${FLEET_UPDATE_REBUILD_FLAGS:---no-write-lock-file -L --option accept-flake-config true}"
@@ -266,6 +269,43 @@ fetch_origins() {
     [ "$any" -eq 1 ] || skip_plumbing "no configured origin was fetchable"
 }
 
+verify_forgejo_merge_policy() {
+    local rev="$1"
+    local record signer identity committer_name committer_email actual_tree expected_tree merge_output
+    local -a parents
+
+    record="$(git -C "$REPO_DIR" \
+        -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" \
+        log -1 --format='%G?%n%GS' "$rev")"
+    signer="$(printf '%s\n' "$record" | sed -n '2p')"
+    [ "$signer" = "$FORGEJO_MERGE_PRINCIPAL" ] || return 0
+
+    read -r -a parents <<<"$(git -C "$REPO_DIR" show -s --format='%P' "$rev")"
+    if [ "${#parents[@]}" -ne 2 ]; then
+        log "Forgejo merge signer is restricted to two-parent commits: $rev"
+        return 1
+    fi
+
+    identity="$(git -C "$REPO_DIR" show -s --format='%cn%n%ce' "$rev")"
+    committer_name="$(printf '%s\n' "$identity" | sed -n '1p')"
+    committer_email="$(printf '%s\n' "$identity" | sed -n '2p')"
+    if [ "$committer_name" != "$FORGEJO_MERGE_COMMITTER_NAME" ] || [ "$committer_email" != "$FORGEJO_MERGE_COMMITTER_EMAIL" ]; then
+        log "Forgejo merge signer has unexpected committer identity on $rev"
+        return 1
+    fi
+
+    if ! merge_output="$(git -C "$REPO_DIR" merge-tree --write-tree "${parents[0]}" "${parents[1]}" 2>/dev/null)"; then
+        log "Forgejo merge signer produced a conflicted or non-reproducible merge: $rev"
+        return 1
+    fi
+    expected_tree="$(printf '%s\n' "$merge_output" | sed -n '1p')"
+    actual_tree="$(git -C "$REPO_DIR" show -s --format='%T' "$rev")"
+    if [ "$actual_tree" != "$expected_tree" ]; then
+        log "Forgejo merge signer produced a non-deterministic merge tree: $rev"
+        return 1
+    fi
+}
+
 verify_commit() {
     local rev="$1"
     local output
@@ -279,6 +319,8 @@ verify_commit() {
         printf '%s\n' "$output"
         return 1
     fi
+
+    verify_forgejo_merge_policy "$rev"
 }
 
 verify_candidate_tips() {

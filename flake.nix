@@ -706,6 +706,18 @@
                   commit -q -S -m "$message"
               }
 
+              forgejo_signed_commit() {
+                local repo="$1"
+                local key="$2"
+                local message="$3"
+                git -C "$repo" \
+                  -c user.name="Forgejo Merge" \
+                  -c user.email="forgejo-merge@ablz.au" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$key" \
+                  commit -q -S -m "$message"
+              }
+
               unsigned_commit() {
                 local repo="$1"
                 local message="$2"
@@ -814,6 +826,55 @@
                 printf '%s %s %s\n' "$remote" "$base" "$target"
               }
 
+              make_forgejo_merge_remote() {
+                local name="$1"
+                local human_key="$2"
+                local forgejo_key="$3"
+                local mode="$4"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local base target
+
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                printf 'base\n' > "$repo/flake.nix"
+                git -C "$repo" add flake.nix
+                signed_commit "$repo" "$human_key" "fixture signed base"
+                base="$(git -C "$repo" rev-parse HEAD)"
+
+                case "$mode" in
+                  one-parent)
+                    printf 'forged\n' > "$repo/forged.txt"
+                    git -C "$repo" add forged.txt
+                    forgejo_signed_commit "$repo" "$forgejo_key" "fixture forbidden Forgejo linear commit"
+                    ;;
+                  valid|altered-tree)
+                    git -C "$repo" checkout -q -b signed-side
+                    printf 'side\n' > "$repo/side.txt"
+                    git -C "$repo" add side.txt
+                    signed_commit "$repo" "$human_key" "fixture signed side"
+                    git -C "$repo" checkout -q master
+                    git -C "$repo" \
+                      -c user.name="Forgejo Merge" \
+                      -c user.email="forgejo-merge@ablz.au" \
+                      merge -q --no-ff --no-commit signed-side
+                    if [ "$mode" = altered-tree ]; then
+                      printf 'not present in either signed parent\n' > "$repo/injected.txt"
+                      git -C "$repo" add injected.txt
+                    fi
+                    forgejo_signed_commit "$repo" "$forgejo_key" "fixture Forgejo merge"
+                    ;;
+                  *)
+                    echo "unknown Forgejo fixture mode: $mode" >&2
+                    exit 1
+                    ;;
+                esac
+
+                target="$(git -C "$repo" rev-parse HEAD)"
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s %s\n' "$remote" "$base" "$target"
+              }
+
               run_fleet() {
                 local name="$1"
                 local remote="$2"
@@ -845,9 +906,11 @@
 
               make_key human
               make_key bot
+              make_key forgejo
               {
                 printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
                 printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+                printf 'forgejo-merge@doc2 namespaces="git" %s\n' "$(cat "$TMPDIR/forgejo.pub")"
               } > "$TMPDIR/allowed"
 
               read -r linear_remote linear_base linear_target < <(make_linear_remote linear "$TMPDIR/human" "$TMPDIR/bot" 2000000000 green)
@@ -912,6 +975,23 @@
               read -r merge_remote merge_base _merge_target < <(make_signed_merge_unsigned_parent_remote signed-merge "$TMPDIR/human")
               if run_fleet signed-merge "$merge_remote" "$merge_base"; then
                 echo "signed merge with unsigned parent was accepted" >&2
+                exit 1
+              fi
+
+              read -r forgejo_valid_remote forgejo_valid_base forgejo_valid_target < <(make_forgejo_merge_remote forgejo-valid "$TMPDIR/human" "$TMPDIR/forgejo" valid)
+              : > "$TMPDIR/rebuilds"
+              run_fleet forgejo-valid "$forgejo_valid_remote" "$forgejo_valid_base"
+              grep -q "rev=$forgejo_valid_target#fixture-host" "$TMPDIR/rebuilds"
+
+              read -r forgejo_linear_remote forgejo_linear_base _forgejo_linear_target < <(make_forgejo_merge_remote forgejo-linear "$TMPDIR/human" "$TMPDIR/forgejo" one-parent)
+              if run_fleet forgejo-linear "$forgejo_linear_remote" "$forgejo_linear_base"; then
+                echo "Forgejo merge signer was accepted on a one-parent commit" >&2
+                exit 1
+              fi
+
+              read -r forgejo_altered_remote forgejo_altered_base _forgejo_altered_target < <(make_forgejo_merge_remote forgejo-altered "$TMPDIR/human" "$TMPDIR/forgejo" altered-tree)
+              if run_fleet forgejo-altered "$forgejo_altered_remote" "$forgejo_altered_base"; then
+                echo "Forgejo merge signer was accepted with a non-deterministic merge tree" >&2
                 exit 1
               fi
 
@@ -1063,6 +1143,70 @@
                 printf '%s %s\n' "$remote" "$anchor"
               }
 
+              make_forgejo_remote() {
+                local name="$1"
+                local human_key="$2"
+                local forgejo_key="$3"
+                local mode="$4"
+                local repo="$TMPDIR/$name-src"
+                local remote="$TMPDIR/$name.git"
+                local anchor
+
+                mkdir "$repo"
+                git -C "$repo" init -q -b master
+                cat > "$repo/flake.nix" <<'EOF'
+              {
+                description = "rolling flake update Forgejo fixture";
+                outputs = { self }: {};
+              }
+              EOF
+                git -C "$repo" add flake.nix
+                git -C "$repo" \
+                  -c user.name="fixture human" \
+                  -c user.email="fixture@example.invalid" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$human_key" \
+                  commit -q -S -m "fixture signed anchor"
+                anchor="$(git -C "$repo" rev-parse HEAD)"
+
+                case "$mode" in
+                  one-parent)
+                    printf 'forged\n' > "$repo/forged.txt"
+                    git -C "$repo" add forged.txt
+                    ;;
+                  valid|altered-tree)
+                    git -C "$repo" checkout -q -b signed-side
+                    printf 'side\n' > "$repo/side.txt"
+                    git -C "$repo" add side.txt
+                    git -C "$repo" \
+                      -c user.name="fixture human" \
+                      -c user.email="fixture@example.invalid" \
+                      -c gpg.format=ssh \
+                      -c user.signingkey="$human_key" \
+                      commit -q -S -m "fixture signed side"
+                    git -C "$repo" checkout -q master
+                    git -C "$repo" \
+                      -c user.name="Forgejo Merge" \
+                      -c user.email="forgejo-merge@ablz.au" \
+                      merge -q --no-ff --no-commit signed-side
+                    if [ "$mode" = altered-tree ]; then
+                      printf 'not in either parent\n' > "$repo/injected.txt"
+                      git -C "$repo" add injected.txt
+                    fi
+                    ;;
+                  *) exit 1 ;;
+                esac
+
+                git -C "$repo" \
+                  -c user.name="Forgejo Merge" \
+                  -c user.email="forgejo-merge@ablz.au" \
+                  -c gpg.format=ssh \
+                  -c user.signingkey="$forgejo_key" \
+                  commit -q -S -m "fixture Forgejo commit"
+                git clone -q --bare "$repo" "$remote"
+                printf '%s %s\n' "$remote" "$anchor"
+              }
+
               run_update() {
                 local remote="$1"
                 local allowed="$2"
@@ -1081,11 +1225,13 @@
               make_key human
               make_key bot
               make_key other
+              make_key forgejo
 
               allowed_all="$TMPDIR/allowed-all"
               {
                 printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
                 printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+                printf 'forgejo-merge@doc2 namespaces="git" %s\n' "$(cat "$TMPDIR/forgejo.pub")"
               } > "$allowed_all"
 
               allowed_human_only="$TMPDIR/allowed-human-only"
@@ -1125,6 +1271,24 @@
                 exit 1
               fi
               test "$(git --git-dir="$merge_remote" rev-parse refs/heads/master)" = "$merge_before"
+
+              read -r forgejo_valid_remote forgejo_valid_anchor < <(make_forgejo_remote forgejo-valid "$TMPDIR/human" "$TMPDIR/forgejo" valid)
+              printf '%s\n' "$forgejo_valid_anchor" > "$TMPDIR/forgejo-valid-anchor"
+              run_update "$forgejo_valid_remote" "$allowed_all" "$TMPDIR/forgejo-valid-anchor"
+
+              read -r forgejo_linear_remote forgejo_linear_anchor < <(make_forgejo_remote forgejo-linear "$TMPDIR/human" "$TMPDIR/forgejo" one-parent)
+              printf '%s\n' "$forgejo_linear_anchor" > "$TMPDIR/forgejo-linear-anchor"
+              if run_update "$forgejo_linear_remote" "$allowed_all" "$TMPDIR/forgejo-linear-anchor"; then
+                echo "rolling updater accepted Forgejo merge signer on a one-parent commit" >&2
+                exit 1
+              fi
+
+              read -r forgejo_altered_remote forgejo_altered_anchor < <(make_forgejo_remote forgejo-altered "$TMPDIR/human" "$TMPDIR/forgejo" altered-tree)
+              printf '%s\n' "$forgejo_altered_anchor" > "$TMPDIR/forgejo-altered-anchor"
+              if run_update "$forgejo_altered_remote" "$allowed_all" "$TMPDIR/forgejo-altered-anchor"; then
+                echo "rolling updater accepted a non-deterministic Forgejo merge tree" >&2
+                exit 1
+              fi
 
               wrong_bot_remote="$(make_signed_remote wrong-bot "$TMPDIR/human")"
               wrong_bot_before="$(git --git-dir="$wrong_bot_remote" rev-parse refs/heads/master)"

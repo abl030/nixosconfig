@@ -26,6 +26,9 @@ GIT_USER_NAME="${GIT_USER_NAME:-nix bot}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-acme@ablz.au}"
 GIT_SIGNING_KEY="${RFU_GIT_SIGNING_KEY:-}"
 ALLOWED_SIGNERS_FILE="${RFU_ALLOWED_SIGNERS_FILE:-/etc/fleet-update/allowed_signers}"
+FORGEJO_MERGE_PRINCIPAL="${RFU_FORGEJO_MERGE_PRINCIPAL:-forgejo-merge@doc2}"
+FORGEJO_MERGE_COMMITTER_NAME="${RFU_FORGEJO_MERGE_COMMITTER_NAME:-Forgejo Merge}"
+FORGEJO_MERGE_COMMITTER_EMAIL="${RFU_FORGEJO_MERGE_COMMITTER_EMAIL:-forgejo-merge@ablz.au}"
 REQUIRE_SIGNED_BASE="${RFU_REQUIRE_SIGNED_BASE:-0}"
 HEARTBEAT_FILE="${RFU_HEARTBEAT_FILE:-fleet/freshness.json}"
 SKIP_HEARTBEAT="${RFU_SKIP_HEARTBEAT:-0}"
@@ -56,6 +59,43 @@ signed_base_required() {
     [ "$REQUIRE_SIGNED_BASE" = "1" ] || [ "$REQUIRE_SIGNED_BASE" = "true" ]
 }
 
+verify_forgejo_merge_policy() {
+    local rev="$1"
+    local record signer identity committer_name committer_email actual_tree expected_tree merge_output
+    local -a parents
+
+    record="$(git \
+        -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" \
+        log -1 --format='%G?%n%GS' "$rev")"
+    signer="$(printf '%s\n' "$record" | sed -n '2p')"
+    [ "$signer" = "$FORGEJO_MERGE_PRINCIPAL" ] || return 0
+
+    read -r -a parents <<<"$(git show -s --format='%P' "$rev")"
+    if [ "${#parents[@]}" -ne 2 ]; then
+        log "❌ Forgejo merge signer is restricted to two-parent commits: $rev"
+        return 1
+    fi
+
+    identity="$(git show -s --format='%cn%n%ce' "$rev")"
+    committer_name="$(printf '%s\n' "$identity" | sed -n '1p')"
+    committer_email="$(printf '%s\n' "$identity" | sed -n '2p')"
+    if [ "$committer_name" != "$FORGEJO_MERGE_COMMITTER_NAME" ] || [ "$committer_email" != "$FORGEJO_MERGE_COMMITTER_EMAIL" ]; then
+        log "❌ Forgejo merge signer has unexpected committer identity on $rev"
+        return 1
+    fi
+
+    if ! merge_output="$(git merge-tree --write-tree "${parents[0]}" "${parents[1]}" 2>/dev/null)"; then
+        log "❌ Forgejo merge signer produced a conflicted or non-reproducible merge: $rev"
+        return 1
+    fi
+    expected_tree="$(printf '%s\n' "$merge_output" | sed -n '1p')"
+    actual_tree="$(git show -s --format='%T' "$rev")"
+    if [ "$actual_tree" != "$expected_tree" ]; then
+        log "❌ Forgejo merge signer produced a non-deterministic merge tree: $rev"
+        return 1
+    fi
+}
+
 verify_commit() {
     local rev="$1"
 
@@ -69,6 +109,8 @@ verify_commit() {
         git -c "gpg.ssh.allowedSignersFile=$ALLOWED_SIGNERS_FILE" verify-commit "$rev" || true
         return 1
     fi
+
+    verify_forgejo_merge_policy "$rev"
 }
 
 verify_commit_range() {
