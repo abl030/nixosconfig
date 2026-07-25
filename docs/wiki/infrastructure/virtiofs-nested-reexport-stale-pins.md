@@ -89,6 +89,36 @@ That is why the guest sees a mix of "could not find a part of the path" and raw 
 does **not** poison a pin (the open fd holds a reference). Cache eviction is not the trigger;
 **replacement by another writer** is.
 
+## End-to-end confirmation through a real virtiofsd re-export (E4)
+
+The probes above establish the *primitive*. They do not by themselves prove virtiofsd hits it — and
+the first attempt to show that it does **failed**, which sharpened the diagnosis:
+
+- **Round 1 (negative, important):** a harness that re-opened files by full path saw **zero**
+  failures after an external replacement. virtiofsd runs `--cache=auto`, so its entry expires, it
+  re-LOOKUPs, and it picks up the new inode. *Plain external replacement is not sufficient.*
+- **Round 2 (positive):** the missing ingredient is a **held reference**. slskd created its
+  destination directory at 13:37 and was still writing into it at 16:56 — it held the directory the
+  whole time, which keeps the guest's FUSE lookup count above zero, so virtiofsd never forgets the
+  inode and keeps using its pinned descriptor instead of re-resolving.
+
+Measured 2026-07-25 in the full nested stack (`scripts/issue51/l2-lab/`), 12 albums, 6 replaced
+externally by prom while the nested guest held an open dirfd on each:
+
+| Operation | Replaced (6) | Untouched controls (6) |
+|---|---|---|
+| read via **held** dirfd | **ESTALE** | OK |
+| create via **held** dirfd | **ESTALE** | OK |
+| read by path | OK | OK |
+| rename by path | OK | OK |
+
+Sticky across every subsequent check (90 s+, never recovered) while the directories remained plainly
+present on prom's backing dataset. That is the incident's central paradox reproduced exactly: the
+path resolves fine by name, and everything through the retained reference fails permanently.
+
+**The trigger is therefore two-part** — an external writer replacing a directory **and** the guest
+holding a reference across it. Either alone is harmless.
+
 ## Timeline that anchors it
 
 slskd was jailed into the nested microVM on **2026-07-19** (`a73909c6`); the stale-handle wrapper
