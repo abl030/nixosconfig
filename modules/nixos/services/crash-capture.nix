@@ -93,7 +93,7 @@
     # writeShellApplication pins PATH to exactly these: dmesg comes from
     # util-linux and the df parser needs awk, both easy to omit and only
     # discoverable at crash time, which is the worst moment to find out.
-    runtimeInputs = with pkgs; [coreutils gzip systemd findutils util-linux gawk];
+    runtimeInputs = with pkgs; [coreutils gzip systemd findutils util-linux gawk kexec-tools];
     text = ''
       set -uo pipefail
       dir=${lib.escapeShellArg cfg.kdump.dumpDir}
@@ -101,9 +101,16 @@
       mkdir -p "$dir"
       stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
-      # The kernel log buffer is the high-value part and is tiny; write it first
-      # so a full-disk failure on the vmcore still leaves the backtrace behind.
-      dmesg --read-from-kmsg > "$dir/dmesg-$stamp.txt" 2>/dev/null || true
+      # The crashed kernel's log buffer is the high-value part and is tiny; write
+      # it first so a full-disk failure on the vmcore still leaves the backtrace.
+      #
+      # It must come from vmcore-dmesg(8), which reads the log out of the DEAD
+      # kernel's memory via /proc/vmcore. Plain `dmesg` here reads the *capture*
+      # kernel's own freshly-booted ring buffer and silently produces an empty
+      # file — verified on doc1's 2026-07-25 sysrq test, which wrote 0 bytes.
+      vmcore-dmesg /proc/vmcore > "$dir/dmesg-$stamp.txt" 2>"$dir/dmesg-$stamp.err" \
+        || echo "vmcore-dmesg failed; see .err and the vmcore itself" \
+             >> "$dir/dmesg-$stamp.err"
 
       avail=$(df -Pk "$dir" | awk 'NR==2{print $4}')
       core=$(stat -Lc %s /proc/vmcore 2>/dev/null || echo 0)
