@@ -1,6 +1,6 @@
 ---
 name: brain-backup
-description: Back up your own durable brain — memories, SOUL, and agent-authored skills — to the private abl030/hermes-brain Forgejo repo, excluding credentials and runtime state.
+description: Back up your durable brain and encrypted session snapshots to the private abl030/hermes-brain Forgejo repo while excluding credentials and disposable runtime state.
 version: 1.0.0
 metadata:
   hermes:
@@ -28,15 +28,33 @@ survives.
 That is the whole operation. The script computes what to save, refuses to run if
 anything looks like a credential, commits, and pushes to `main`.
 
+Session history is a separate encrypted snapshot because `state.db` is large,
+contains sensitive conversation content, and changes constantly:
+
+```sh
+~/nixosconfig/hermes/skills/homelab-agents/brain-backup/scripts/brain-snapshot.sh
+```
+
+It takes an online SQLite backup, verifies integrity, compresses it with zstd,
+encrypts it to the break-glass and doc1 editor Age recipients, proves local
+decryption, then force-replaces the one-commit `snapshots` branch. The disposable
+upload repository keeps the opaque ~100 MiB blob out of `~/.hermes/.git`.
+The live `~/.hermes/scripts/brain-snapshot.sh` is a tracked, fixed-path wrapper
+for this reviewed script so Hermes' script-only weekly cron can invoke it without
+an LLM while satisfying Hermes' script-directory confinement.
+
 ## What gets saved
 
 | Saved | Never saved |
 |---|---|
 | `memories/MEMORY.md`, `memories/USER.md` | `.env`, `auth.json`, `auth.lock`, `pairing/` |
-| `SOUL.md` | `state.db*` (300 MB+ sessions/messages) |
+| `SOUL.md` | Raw or unencrypted `state.db*` |
 | Agent-authored skills under `skills/` | The ~78 skills bundled with the package |
 | `webhook_subscriptions.json` | `sessions/`, `logs/`, `bin/`, `worktrees/`, caches |
-| `cron/jobs.json`, `hooks/` | `kanban.db`, `verification_evidence.db` |
+| `cron/jobs.json`, reviewed script wrapper, `hooks/` | `kanban.db`, `verification_evidence.db` |
+
+The canonical `state.db` is saved only as
+`snapshots:sessions/state.db.zst.age`, never on `main` and never unencrypted.
 
 "Authored" is computed each run as: has a `SKILL.md`, leaf name absent from
 `skills/.bundled_manifest`, and not inside a read-only nix-store collection. New
@@ -57,6 +75,9 @@ skills are therefore picked up automatically — you never maintain a list.
   `hermes-brain` and nothing else. It cannot see `nixosconfig`.
 - The brain repo is **not a deploy root**. Nothing is built or deployed from it,
   so no commit there needs signing and none of it reaches the fleet.
+- Never add session ciphertext to `main`. Encrypted files do not delta, so the
+  snapshot script force-replaces a root commit on the dedicated branch instead
+  of making Git retain every historical 100 MiB version.
 
 ## If the preflight aborts
 
@@ -84,7 +105,17 @@ git ls-files | grep -E 'auth|\.env|state'  # MUST be empty
 The script asserts that last check itself after pushing, and fails loudly if a
 credential ever became tracked.
 
+For sessions, the snapshot script verifies SQLite integrity, local Age
+decryption, zstd integrity, and that Forgejo's `snapshots` ref equals the commit
+it uploaded. Inspect the remote metadata with:
+
+```sh
+git fetch origin snapshots
+git show origin/snapshots:sessions/MANIFEST
+```
+
 ## Restore
 
-See the Restore section of `~/.hermes/README.md`. Restoring deliberately does not
-bring back credentials or session history — re-run the provider login afterwards.
+See the Restore section of `~/.hermes/README.md`. Credentials are never restored;
+re-run the provider login afterwards. Session restore must happen while Hermes is
+stopped and must preserve the old DB/WAL/SHM files until the restored DB opens.

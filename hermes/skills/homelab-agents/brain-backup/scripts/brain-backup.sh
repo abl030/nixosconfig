@@ -42,7 +42,7 @@ done < <(find skills -name SKILL.md -not -path 'skills/.curator_backups/*' -prin
 
 # --- durable top-level artifacts ----------------------------------------
 durable=()
-for f in memories/MEMORY.md memories/USER.md SOUL.md webhook_subscriptions.json cron/jobs.json; do
+for f in README.md memories/MEMORY.md memories/USER.md SOUL.md webhook_subscriptions.json cron/jobs.json scripts/brain-snapshot.sh; do
   [ -f "$f" ] && durable+=("$f")
 done
 while IFS= read -r h; do [ -n "$h" ] && durable+=("$h"); done \
