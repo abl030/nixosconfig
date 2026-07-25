@@ -150,8 +150,15 @@ structural, not a flag:
   console and `softlockup_panic=1`.
 - **Not the doc2 tty wedge.** Its preserved `doc2-ps.json` shows 64 of 65 D-state tasks in `tty_open`
   and **zero** in any FUSE path. Different problem, TTY layer, still uncaptured — the recovery module
-  should collect `sysrq-t` / `/proc/<pid>/stack`, and doc1's `doc2-netconsole.socket` currently receives
-  `0B`, so that capture path is non-functional.
+  only collected WCHAN, which names the layer but never the lock holder. `sysrq-t`/`sysrq-w` and
+  `/proc/<pid>/stack` capture has since been added to `doc2-recovery` (driven over QGA, which stayed
+  responsive throughout the wedge while SSH was dead).
+
+  Note on netconsole, corrected 2026-07-25: doc1's `doc2-netconsole.socket` showing `0B in` is **not**
+  a fault. doc2 boots `loglevel=4`, so only KERN_ERR and above reach any console; routine INFO records
+  are filtered by design and the fleet's kernels are simply quiet. Verified end-to-end by emitting
+  `<2>` (crit) on doc2 and observing it arrive on doc1. Oops/panic output is EMERG/ALERT/CRIT and is
+  carried, as is sysrq output (`__handle_sysrq` raises `console_loglevel` for its duration).
 
 ## When to revisit
 

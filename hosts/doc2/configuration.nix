@@ -29,26 +29,12 @@
     kernelParams = ["panic=30"];
   };
 
-  # Stream kernel printk records to doc1's source-restricted UDP receiver. This
-  # survives the exact failure mode where doc2's journal and entire monitoring
-  # stack stop together. The fixed interface/IP/MAC values are VM inventory, not
-  # runtime discovery; see docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md.
-  systemd.services.doc2-netconsole-sender = {
-    description = "Stream doc2 kernel records to doc1 netconsole receiver";
-    wantedBy = ["multi-user.target"];
-    wants = ["network-online.target"];
-    after = ["network-online.target"];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.kmod}/bin/modprobe netconsole netconsole=6665@192.168.1.35/ens18,6666@192.168.1.29/bc:24:11:a4:f8:32 oops_only=0";
-      ExecStop = "${pkgs.kmod}/bin/modprobe -r netconsole";
-      NoNewPrivileges = true;
-      PrivateTmp = true;
-      ProtectHome = true;
-      ProtectSystem = "strict";
-    };
-  };
+  # Kernel printk streaming to doc1 now comes from homelab.crashCapture, which
+  # generalises this host's 2026-07-22 sender to the whole fleet — doc1 had no
+  # sender of its own, which is why its 2026-07-24 panic frames were lost (#51).
+  # Only the interface discovery changed; the collector, ports and pinned MAC are
+  # identical. See docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md and
+  # docs/wiki/infrastructure/fleet-crash-capture.md.
 
   homelab = {
     ssh = {
