@@ -44,6 +44,11 @@
       # modules (portable /mnt/virtio state, least-privilege) — see their
       # modules under modules/nixos/services/.
       legacyEdgeCaddy.enable = true;
+      # Re-export the scanner drop directory from tower with the older,
+      # Brother-compatible standalone Samba policy at \\192.168.1.6\Scans.
+      # /mnt/scans is CT 108 mp0, narrowly bind-mounted by prom from
+      # /mnt/tower-data/Life/Meg and Andy/Scans (tower's NFS export).
+      scannerSamba.enable = true;
     };
 
     ssh = {

@@ -13,6 +13,7 @@
     ./nginx.nix
     ./local_proxy.nix
     ./legacy-edge-caddy.nix
+    ./scanner-samba.nix
     ./monitoring_sync.nix
     ./gotify.nix
     ./loki.nix
