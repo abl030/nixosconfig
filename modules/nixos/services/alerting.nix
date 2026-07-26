@@ -347,7 +347,7 @@
     data = [
       {
         refId = "A";
-        queryType = "range";
+        queryType = "instant";
         relativeTimeRange = {
           from = 600;
           to = 0;
@@ -355,11 +355,16 @@
         datasourceUid = cfg.dbAuditAlert.lokiDatasourceUid;
         model = {
           refId = "A";
-          # Loki range query — Grafana wraps the expr in its own time-window
-          # handling. The count_over_time window inside is what controls
-          # the lookback for matches.
+          # Evaluate only at the rule's current timestamp. A range query can
+          # return an earlier positive sample but omit later zero samples; the
+          # `last` reducer then keeps that stale positive alive for this outer
+          # 10m query range in addition to the count_over_time window. That
+          # defeats forDuration (a one-off [6m] NFS event survived for ~16m and
+          # passed a 15m pending period). The count_over_time window inside the
+          # expression is the sole intended lookback.
           expr = logql;
-          queryType = "range";
+          instant = true;
+          queryType = "instant";
           intervalMs = 60000;
           maxDataPoints = 43200;
           datasource = {
