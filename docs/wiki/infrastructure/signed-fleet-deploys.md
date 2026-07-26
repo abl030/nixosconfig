@@ -47,8 +47,19 @@ Landed (U2–U7, all on `master`):
 
 - `hosts.nix` has `signingKeys` for the human pushing machines:
   `epimetheus`, `framework`, `wsl`, and `proxmox-vm`.
-- `hosts.nix` has `_signingPrincipals` for non-host service principals. The
-  first one is `nix bot <acme@ablz.au>`.
+- `hosts.nix` has `_signingPrincipals` for non-host service principals:
+  `nix bot <acme@ablz.au>` and the merge-only `forgejo-merge@doc2`.
+- The Forgejo key is not ordinary authoring authority. Both `fleet-update` and
+  `rolling-flake-update` accept it only on a two-parent commit whose committer is
+  exactly `Forgejo Merge <forgejo-merge@ablz.au>` and whose tree equals Git's
+  clean deterministic merge of those parents. The normal range walk separately
+  verifies every commit reachable from both parents.
+- Forgejo's repository signer is instance-wide; SSH commit signatures do not
+  carry a repository identity. The fleet therefore never treats repository
+  origin as part of the authorization decision: only the pinned principal plus
+  the merge-only constraints above are trusted. As elsewhere in this design, a
+  developer signature authorizes that content for deployment if a trusted
+  origin publishes it; branch protection is the separate publication control.
 - NixOS renders `/etc/fleet-update/allowed_signers` from `hosts.nix`.
 - `nix flake check` has an always-run `allowedSignersCheck`.
 - Home Manager writes git identity and enables SSH commit signing on hosts with
