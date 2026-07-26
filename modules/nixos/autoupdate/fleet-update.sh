@@ -323,6 +323,19 @@ verify_commit() {
     verify_forgejo_merge_policy "$rev"
 }
 
+verify_non_forgejo_commit() {
+    local rev="$1"
+    local record signer
+
+    verify_commit "$rev" || return 1
+    record="$(commit_signature_status "$rev")"
+    signer="$(printf '%s\n' "$record" | sed -n '2p')"
+    if [ "$signer" = "$FORGEJO_MERGE_PRINCIPAL" ]; then
+        log "Forgejo merge signer cannot establish a new trust root: $rev"
+        return 1
+    fi
+}
+
 verify_candidate_tips() {
     local i
     for i in "${!CANDIDATE_SHAS[@]}"; do
@@ -470,12 +483,15 @@ record_verified_freshness() {
 verify_commit_range() {
     local base="$1"
     local target="$2"
-    local rev
+    local rev revisions
 
+    if ! revisions="$(git -C "$REPO_DIR" rev-list "$base..$target")"; then
+        tamper "could not enumerate the complete deployment range: $base..$target"
+    fi
     while IFS= read -r rev; do
         [ -n "$rev" ] || continue
         verify_commit "$rev" || tamper "deployment range contains an untrusted commit: $rev"
-    done < <(git -C "$REPO_DIR" rev-list "$base..$target")
+    done <<<"$revisions"
 }
 
 target_reachable_from_candidates() {
@@ -548,7 +564,7 @@ read_anchor() {
 
     if [ -n "$ACCEPT_NEW_ROOT" ]; then
         git -C "$REPO_DIR" cat-file -e "$ACCEPT_NEW_ROOT^{commit}" 2>/dev/null || tamper "accepted root is not present after fetch: $ACCEPT_NEW_ROOT"
-        verify_commit "$ACCEPT_NEW_ROOT" || tamper "accepted root is not signed by an allowed key"
+        verify_non_forgejo_commit "$ACCEPT_NEW_ROOT" || tamper "accepted root is not signed by an ordinary allowed key"
         printf '%s\n' "$ACCEPT_NEW_ROOT"
         return 0
     fi

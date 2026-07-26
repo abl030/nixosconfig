@@ -917,6 +917,18 @@
                 ${pkgs.bash}/bin/bash ${./modules/nixos/autoupdate/fleet-update.sh} --probe-origins
               }
 
+              mkdir -p "$TMPDIR/fail-rev-list-bin"
+              cat > "$TMPDIR/fail-rev-list-bin/git" <<'EOF'
+              #!${pkgs.bash}/bin/bash
+              for arg in "$@"; do
+                if [ "$arg" = rev-list ]; then
+                  exit 97
+                fi
+              done
+              exec ${pkgs.git}/bin/git "$@"
+              EOF
+              chmod +x "$TMPDIR/fail-rev-list-bin/git"
+
               make_key human
               make_key bot
               make_key forgejo
@@ -1029,6 +1041,16 @@
               run_fleet accept-root "$linear_remote" "not-a-sha" --accept-new-root "$linear_base"
               test "$(cat "$TMPDIR/accept-root-anchor")" = "$linear_target"
               grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+
+              if run_fleet forgejo-accept-root "$forgejo_valid_remote" "not-a-sha" --accept-new-root "$forgejo_valid_target"; then
+                echo "Forgejo merge signer was accepted as a new trust root without verifying parent histories" >&2
+                exit 1
+              fi
+
+              if PATH="$TMPDIR/fail-rev-list-bin:$PATH" run_fleet rev-list-failure "$linear_remote" "$linear_base" 2>"$TMPDIR/rev-list-failure.log"; then
+                echo "failed rev-list was accepted by the deployment verifier" >&2
+                exit 1
+              fi
 
               if run_fleet bad-branch "$linear_remote" "$linear_base" --branch test-branch; then
                 echo "non-master branch was accepted without override" >&2
@@ -1263,6 +1285,18 @@
                 ${pkgs.bash}/bin/bash ${./scripts/rolling_flake_update.sh}
               }
 
+              mkdir -p "$TMPDIR/rolling-fail-rev-list-bin"
+              cat > "$TMPDIR/rolling-fail-rev-list-bin/git" <<'EOF'
+              #!${pkgs.bash}/bin/bash
+              for arg in "$@"; do
+                if [ "$arg" = rev-list ]; then
+                  exit 97
+                fi
+              done
+              exec ${pkgs.git}/bin/git "$@"
+              EOF
+              chmod +x "$TMPDIR/rolling-fail-rev-list-bin/git"
+
               make_key human
               make_key bot
               make_key other
@@ -1287,6 +1321,14 @@
               git -C "$TMPDIR/valid-inspect" -c "gpg.ssh.allowedSignersFile=$allowed_all" verify-commit HEAD
               test "$(git -C "$TMPDIR/valid-inspect" log --format=%s -1)" = "rolling: freshness heartbeat ($(date +%F))"
               test "$(cat "$valid_anchor")" = "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+
+              rev_list_fail_remote="$(make_signed_remote rev-list-fail "$TMPDIR/human")"
+              rev_list_fail_before="$(git --git-dir="$rev_list_fail_remote" rev-parse refs/heads/master)"
+              printf '%s\n' "$rev_list_fail_before" > "$TMPDIR/rev-list-fail-anchor"
+              if PATH="$TMPDIR/rolling-fail-rev-list-bin:$PATH" run_update "$rev_list_fail_remote" "$allowed_all" "$TMPDIR/rev-list-fail-anchor"; then
+                echo "rolling update accepted a failed rev-list" >&2
+                exit 1
+              fi
 
               git --git-dir="$valid_remote" update-ref refs/heads/master "$valid_before"
               if run_update "$valid_remote" "$allowed_all" "$valid_anchor"; then
