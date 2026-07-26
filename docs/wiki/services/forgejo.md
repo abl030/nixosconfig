@@ -144,7 +144,8 @@ squash and rebase merge modes are disabled.
 ### Trusted Web UI merge signer
 
 Forgejo signs server-created merge commits with the dedicated SSH principal
-`forgejo-merge@doc2`. Its private key is encrypted only to doc2 at
+`forgejo-merge@doc2`. Its private key is scoped to doc2 plus the universal
+editor and break-glass recovery recipients at
 `secrets/hosts/doc2/forgejo-merge-signing-key`; systemd exposes it only inside
 `forgejo.service` as a credential. The public key lives beside `forgejo.nix` and
 is pinned in `hosts.nix`.
