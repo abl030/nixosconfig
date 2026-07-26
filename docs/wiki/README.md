@@ -36,6 +36,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 
 ### Services
 
+- [brother-scanner-smb](services/brother-scanner-smb.md) — Brother scanner compatibility share at `\\192.168.1.6\Scans`; caddy LXC Samba, narrow tower-backed CT mount, credential recovery and verification
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
 - [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime

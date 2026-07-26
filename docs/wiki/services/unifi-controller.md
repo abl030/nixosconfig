@@ -109,9 +109,8 @@ otherwise leave them.
 
 ## Deploy / access notes
 
-- doc2 deploy: `fleet-deploy doc2` from doc1 (async). caddy LXC is a **push-deploy** target
-  (`pushDeployHosts` on doc1), cleaned up by the nightly `rolling-flake-update` — it is NOT
-  a `fleet-deploy` name.
+- doc2 deploy: `fleet-deploy doc2` from doc1 (async). The caddy LXC is also a
+  verified push-deploy target and is deployed with `fleet-deploy caddy`.
 - Root-level log/DB access into the caddy LXC: `ssh root@192.168.1.12 'pct exec 108 -- …'`
   (use absolute paths — `pct exec` has a minimal PATH; NixOS binaries are in
   `/run/current-system/sw/bin`).
