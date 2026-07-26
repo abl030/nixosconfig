@@ -116,12 +116,16 @@ verify_commit() {
 verify_commit_range() {
     local base="$1"
     local target="$2"
-    local rev
+    local rev revisions
 
+    if ! revisions="$(git rev-list "$base..$target")"; then
+        log "❌ could not enumerate the complete signed range: $base..$target"
+        return 1
+    fi
     while IFS= read -r rev; do
         [ -n "$rev" ] || continue
         verify_commit "$rev"
-    done < <(git rev-list "$base..$target")
+    done <<<"$revisions"
 }
 
 verify_base_anchor() {
@@ -191,11 +195,15 @@ verify_new_commits() {
         return 0
     fi
 
-    local rev
+    local rev revisions
+    if ! revisions="$(git rev-list "origin/$BRANCH..HEAD")"; then
+        log "❌ could not enumerate generated commits for verification"
+        return 1
+    fi
     while IFS= read -r rev; do
         [ -n "$rev" ] || continue
         verify_commit "$rev"
-    done < <(git rev-list "origin/$BRANCH..HEAD")
+    done <<<"$revisions"
 }
 
 write_heartbeat() {
@@ -297,11 +305,15 @@ push_with_retries() {
 # abort on a bad commit, which is suspended when called inside a condition —
 # this variant explicitly fails if ANY commit in base..target fails to verify.
 verify_range_strict() {
-    local rev ok=0
+    local rev revisions ok=0
+    if ! revisions="$(git rev-list "$1..$2")"; then
+        log "❌ could not enumerate the complete rebase verification range: $1..$2"
+        return 1
+    fi
     while IFS= read -r rev; do
         [ -n "$rev" ] || continue
         verify_commit "$rev" || ok=1
-    done < <(git rev-list "$1..$2")
+    done <<<"$revisions"
     return "$ok"
 }
 

@@ -31,7 +31,14 @@
 
   validationErrors = hosts: let
     allEntries = entries hosts;
-    botEntries = lib.filter (entry: entry.principal == "nix bot <acme@ablz.au>") allEntries;
+    botPrincipal = "nix bot <acme@ablz.au>";
+    forgejoPrincipal = "forgejo-merge@doc2";
+    botEntries = lib.filter (entry: (entry.principal or "") == botPrincipal) allEntries;
+    forgejoEntries = lib.filter (entry: (entry.principal or "") == forgejoPrincipal) allEntries;
+    forgejoKeyEntries =
+      if lib.length forgejoEntries == 1 && lib.head forgejoEntries ? key
+      then lib.filter (entry: (entry.key or "") == (lib.head forgejoEntries).key) allEntries
+      else [];
   in
     lib.flatten (
       lib.imap0 (
@@ -50,6 +57,18 @@
     )
     ++ lib.optionals (botEntries == []) [
       "missing required nix bot <acme@ablz.au> signing principal"
+    ]
+    ++ lib.optionals (lib.length botEntries > 1) [
+      "nix bot <acme@ablz.au> signing principal must appear exactly once"
+    ]
+    ++ lib.optionals (forgejoEntries == []) [
+      "missing required forgejo-merge@doc2 signing principal"
+    ]
+    ++ lib.optionals (lib.length forgejoEntries > 1) [
+      "forgejo-merge@doc2 signing principal must appear exactly once"
+    ]
+    ++ lib.optionals (lib.length forgejoKeyEntries > 1) [
+      "forgejo-merge@doc2 signing key must not be reused by another principal"
     ];
 in {
   inherit entries renderAllowedSigner validationErrors;
