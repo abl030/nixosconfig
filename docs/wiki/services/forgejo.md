@@ -108,11 +108,11 @@ Sources:
 
 ## Phase D (U8) Write-Root Setup
 
-Landed 2026-06-10. **These objects are Forgejo runtime/DB state, not Nix config**
-— only the instance settings (sign-in view, body size) live in
-`forgejo.nix`. The repo, accounts, collaborators, branch protection, and tokens
-below are reproduced from the Forgejo dump/DB, not the flake. Recreate via the
-admin CLI + API if restoring to a fresh instance.
+Landed 2026-06-10. **Repository objects below are Forgejo runtime/DB state, not
+Nix config.** Instance settings — including the dedicated repository merge
+signer — live in `forgejo.nix`; repository accounts, collaborators, branch
+protection, tokens, and allowed merge modes are restored through the admin CLI
+and API. The values below are reproduced from the Forgejo dump/DB.
 
 **Repo:** `abl030/nixosconfig`, public, default branch `master`, seeded with the
 full history pushed from doc1 (HTTPS, after the `maxBodySize` fix).
@@ -138,6 +138,43 @@ a nixbot force-push to master is rejected with "branch master is protected from
 force push"); `require_signed_commits = false` — signing keys are deliberately
 NOT uploaded to Forgejo (auth/signing conflation, forgejo#4268), so host-side
 signature verification is the trust control, not Forgejo's "Verified" badge.
+Only merge commits and fast-forward merges are enabled for this repository;
+squash and rebase merge modes are disabled.
+
+### Trusted Web UI merge signer
+
+Forgejo signs server-created merge commits with the dedicated SSH principal
+`forgejo-merge@doc2`. Its private key is encrypted only to doc2 at
+`secrets/hosts/doc2/forgejo-merge-signing-key`; systemd exposes it only inside
+`forgejo.service` as a credential. The public key lives beside `forgejo.nix` and
+is pinned in `hosts.nix`.
+
+`[repository.signing]` uses `FORMAT=ssh`, `MERGES=always`, and
+`DEFAULT_TRUST_MODEL=committer`. The committer trust model makes Forgejo use the
+fixed `Forgejo Merge <forgejo-merge@ablz.au>` service identity instead of the
+interactive merging user's identity, which is required by the fleet verifier.
+`always` is necessary because the fleet's signing-only developer keys are
+deliberately not registered as Forgejo login keys, so Forgejo cannot evaluate
+`commitssigned`.
+This does not weaken the fleet gate: `fleet-update` and the rolling updater
+verify every parent commit themselves, and accept this server key only when all
+of the following are true:
+
+1. the signed object has exactly two parents;
+2. its committer is exactly `Forgejo Merge <forgejo-merge@ablz.au>`;
+3. its tree is byte-for-byte the clean `git merge-tree --write-tree` result for
+   those parents; and
+4. the normal deployment range check validates every commit on both sides.
+
+A Forgejo-signed linear commit, a merge with an injected/conflict-resolution
+tree, an unsigned parent, or a commit signed by any unlisted key fails closed.
+Fast-forward merges create no server commit and preserve the developer's
+existing signatures.
+
+**Bootstrap order:** deploy the verifier/public-key commit to online fleet hosts
+before enabling `[repository.signing]`. A host that was offline during rollout
+remains safe: it rejects later Forgejo-signed history until an operator first
+deploys the signed bootstrap revision explicitly, then resumes normal updates.
 
 Create/manage accounts and tokens with the admin CLI on doc2 (works against the
 live SQLite DB):

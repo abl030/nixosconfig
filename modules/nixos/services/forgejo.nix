@@ -6,6 +6,8 @@
 }: let
   cfg = config.homelab.services.forgejo;
   dumpDir = "/mnt/data/Life/Andy/Code/forgejo-dumps";
+  mergeSigningPublicKey = ./forgejo-merge-signing-key.pub;
+  mergeSigningCredential = "/run/credentials/forgejo.service/repository-signing-key.pub";
 in {
   options.homelab.services.forgejo = {
     enable = lib.mkEnableOption "Forgejo self-hosted git forge";
@@ -17,6 +19,15 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    # Private key is encrypted only to doc2 (+ editor/break-glass). systemd copies
+    # it into the Forgejo service's private credentials directory; the forgejo
+    # account cannot read the source secret outside that service.
+    sops.secrets."forgejo/merge-signing-key" = {
+      sopsFile = config.homelab.secrets.sopsFile "forgejo-merge-signing-key";
+      format = "binary";
+      mode = "0400";
+    };
+
     services.forgejo = {
       enable = true;
       package = pkgs.forgejo-lts;
@@ -64,6 +75,22 @@ in {
           DEFAULT_PRIVATE = "private";
           DEFAULT_PUSH_CREATE_PRIVATE = true;
         };
+        "repository.signing" = {
+          FORMAT = "ssh";
+          SIGNING_KEY = mergeSigningCredential;
+          SIGNING_NAME = "Forgejo Merge";
+          SIGNING_EMAIL = "forgejo-merge@ablz.au";
+          # Forgejo cannot validate the fleet's signing-only SSH keys because
+          # those keys are intentionally absent from its login-key database.
+          # Use the fixed service committer identity, sign every server-created
+          # merge, and let fleet-side policy verify both parents and constrain
+          # this key to deterministic merges.
+          DEFAULT_TRUST_MODEL = "committer";
+          MERGES = "always";
+          CRUD_ACTIONS = "never";
+          WIKI = "never";
+          INITIAL_COMMIT = "never";
+        };
         time.DEFAULT_UI_LOCATION = "Australia/Perth";
         session.COOKIE_SECURE = true;
         log.LEVEL = "Info";
@@ -97,6 +124,10 @@ in {
         forgejo = {
           unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
           serviceConfig = {
+            LoadCredential = [
+              "repository-signing-key:${config.sops.secrets."forgejo/merge-signing-key".path}"
+              "repository-signing-key.pub:${mergeSigningPublicKey}"
+            ];
             TemporaryFileSystem = "/mnt";
             BindPaths = [cfg.dataDir dumpDir];
             # Drop upstream's ReadWritePaths (custom, repositories, data/lfs,
