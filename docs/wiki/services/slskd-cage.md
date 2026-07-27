@@ -48,10 +48,11 @@ over the legacy paths. The guest and Cratedigger therefore retain identical
 event-stamped paths while the inner virtiofsd sees an ext4 backing filesystem,
 not FUSE re-exported through FUSE.
 
-The wrapper keeps `--inode-file-handles=prefer` for those two block-backed
-shares. It rewrites only the still-nested read-only library, secret, and Nix
-store shares to `--inode-file-handles=never` and strips unsupported ACL/xattr
-flags there. This distinction is load-bearing: globally forcing `never` pinned
+The wrapper keeps `--inode-file-handles=prefer` for block-backed state/downloads,
+the local ext4 Nix store, and the local ramfs secret. It rewrites only the
+still-nested read-only library to `--inode-file-handles=never` and strips
+unsupported ACL/xattr flags there. This distinction is load-bearing: globally
+forcing `never` pinned
 `O_PATH` descriptors into the outer FUSE mount and caused issue #51's sticky
 ENOENT/ESTALE failures.
 
@@ -173,8 +174,8 @@ rollback.
   to `/dev/sda[/state]` and `/dev/sda[/downloads]`, with
   `rw,nosuid,nodev,noexec,noatime,errors=remount-ro`.
 - The active writable virtiofsd processes use `inode-file-handles=prefer` on
-  those ext4-backed binds. Store, library, and secret processes use
-  `inode-file-handles=never --readonly`.
+  those ext4-backed binds. The local ext4 store and ramfs secret also retain
+  `prefer --readonly`; only the nested library uses `never --readonly`.
 - slskd reported `Databases are up to date`, opened HTTP 5030 and Soulseek TCP
   50300, connected and logged in, and returned `Healthy`. Online SQLite
   `quick_check` returned `ok` for all five state databases.

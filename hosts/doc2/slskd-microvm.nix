@@ -26,35 +26,37 @@
   slskdUid = 988;
   musicImportGid = 968;
 
-  # The read-only library, Nix store, and secret remain nested exports from
-  # doc2's outer virtiofs mounts. Those shares must retain O_PATH descriptors
-  # instead of asking the outer FUSE filesystem for export file handles.
+  # Only the read-only library remains a nested export from doc2's outer
+  # virtiofs mount. It must retain O_PATH descriptors instead of asking the
+  # outer FUSE filesystem for export file handles. The Nix store is local ext4
+  # and the secret is local ramfs, so leave their normal `prefer` behavior
+  # intact; forcing `never` there would needlessly pin large local trees.
   #
   # The writable state and download shares are bind mounts backed by a dedicated
-  # ext4 block disk. Keep `prefer` for those two shares so virtiofsd uses stable
-  # ext4 file handles. Only the still-nested read-only shares are rewritten to
-  # `never`. Applying `never` to the writable shares was the issue #51 bug: it
+  # ext4 block disk. Keep `prefer` for those shares so virtiofsd uses stable
+  # ext4 file handles. Only the still-nested library is rewritten to `never`.
+  # Applying `never` to the writable shares was the issue #51 bug: it
   # pinned O_PATH descriptors into FUSE and served sticky ENOENT/ESTALE after an
   # external directory replacement.
   # See docs/wiki/infrastructure/virtiofs-nested-reexport-stale-pins.md (#51).
   virtiofsdNestedSafe = pkgs.writeShellScriptBin "virtiofsd" ''
-    block_backed=false
+    nested_fuse=false
     for arg in "$@"; do
       case "$arg" in
-        --shared-dir=${hostStateDir} | --shared-dir=${downloadDir}) block_backed=true ;;
+        --shared-dir=${musicDir}) nested_fuse=true ;;
       esac
     done
 
     args=()
     for arg in "$@"; do
-      if "$block_backed"; then
-        args+=("$arg")
-      else
+      if "$nested_fuse"; then
         case "$arg" in
           --inode-file-handles=prefer) args+=(--inode-file-handles=never) ;;
           --posix-acl | --xattr) ;;
           *) args+=("$arg") ;;
         esac
+      else
+        args+=("$arg")
       fi
     done
     exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
