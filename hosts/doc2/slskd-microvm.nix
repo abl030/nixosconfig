@@ -17,6 +17,8 @@
   dmzUplink = "ens20";
   guestAddress = "192.168.21.2";
   dmzGateway = "192.168.21.1";
+  storageMount = "/srv/slskd-storage";
+  storageUuid = "8b2fb269-84d2-4480-8fea-34bcf1d59b42";
   hostStateDir = "/mnt/virtio/slskd";
   guestStateDir = "/var/lib/slskd";
   downloadDir = "/mnt/virtio/music/slskd";
@@ -24,27 +26,36 @@
   slskdUid = 988;
   musicImportGid = 968;
 
-  # Every persistent path on doc2 is already a Proxmox virtiofs mount. The
-  # microVM's second virtiofs layer must retain O_PATH descriptors instead of
-  # asking the outer filesystem for inode file handles: those handles go stale
-  # immediately and make slskd's SQLite/backup paths unusable.
+  # The read-only library, Nix store, and secret remain nested exports from
+  # doc2's outer virtiofs mounts. Those shares must retain O_PATH descriptors
+  # instead of asking the outer FUSE filesystem for export file handles.
   #
-  # KNOWN BROKEN — this trade is not a fix, it swaps one staleness mode for
-  # another. `never` pins one O_PATH fd per inode into a FUSE mount; when any
-  # other writer replaces a directory in the tree the pin goes ESTALE and this
-  # daemon then serves sticky per-directory ENOENT/ESTALE until it is restarted.
-  # Reproduced deterministically 2026-07-25; 37-96% of slskd moves failed for
-  # six days. Re-exporting virtiofs is unsound in BOTH modes — the real fix is
-  # to de-nest downloads/ and incomplete/, not to flip this flag.
+  # The writable state and download shares are bind mounts backed by a dedicated
+  # ext4 block disk. Keep `prefer` for those two shares so virtiofsd uses stable
+  # ext4 file handles. Only the still-nested read-only shares are rewritten to
+  # `never`. Applying `never` to the writable shares was the issue #51 bug: it
+  # pinned O_PATH descriptors into FUSE and served sticky ENOENT/ESTALE after an
+  # external directory replacement.
   # See docs/wiki/infrastructure/virtiofs-nested-reexport-stale-pins.md (#51).
   virtiofsdNestedSafe = pkgs.writeShellScriptBin "virtiofsd" ''
-    args=()
+    block_backed=false
     for arg in "$@"; do
       case "$arg" in
-        --inode-file-handles=prefer) args+=(--inode-file-handles=never) ;;
-        --posix-acl | --xattr) ;;
-        *) args+=("$arg") ;;
+        --shared-dir=${hostStateDir} | --shared-dir=${downloadDir}) block_backed=true ;;
       esac
+    done
+
+    args=()
+    for arg in "$@"; do
+      if "$block_backed"; then
+        args+=("$arg")
+      else
+        case "$arg" in
+          --inode-file-handles=prefer) args+=(--inode-file-handles=never) ;;
+          --posix-acl | --xattr) ;;
+          *) args+=("$arg") ;;
+        esac
+      fi
     done
     exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
   '';
@@ -73,6 +84,44 @@ in {
     "d ${downloadDir} 0770 slskd music-import -"
     "d ${downloadDir}/incomplete 0770 slskd music-import -"
   ];
+
+  # Dedicated 300 GiB sparse 64K-zvol/ext4 disk for the hostile downloader's
+  # SQLite state and mutable handoff tree. The underlying ext4 filesystem is
+  # mounted outside /mnt/virtio, then bind-mounted over the legacy paths so
+  # Cratedigger's event-stamped paths remain unchanged. `nofail` lets doc2 boot
+  # for recovery if the disk is absent; explicit Requires= dependencies below
+  # keep slskd failed closed instead of falling through to the old virtiofs data.
+  fileSystems.${storageMount} = {
+    device = "/dev/disk/by-uuid/${storageUuid}";
+    fsType = "ext4";
+    options = [
+      "nofail"
+      "noatime"
+      "nodev"
+      "nosuid"
+      "noexec"
+      "errors=remount-ro"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+  fileSystems.${hostStateDir} = {
+    device = "${storageMount}/state";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+      "x-systemd.requires-mounts-for=${storageMount}"
+    ];
+  };
+  fileSystems.${downloadDir} = {
+    device = "${storageMount}/downloads";
+    fsType = "none";
+    options = [
+      "bind"
+      "nofail"
+      "x-systemd.requires-mounts-for=${storageMount}"
+    ];
+  };
 
   sops.secrets."slskd/env" = {
     sopsFile = config.homelab.secrets.sopsFile "slskd.env";
@@ -132,10 +181,42 @@ in {
   # dependency on sops-install-secrets.service.
   systemd.services."microvm-virtiofsd@slskd" = {
     restartTriggers = [virtiofsdNestedSafe];
+    requires = [
+      "mnt-virtio-slskd.mount"
+      "mnt-virtio-music-slskd.mount"
+    ];
+    after = [
+      "mnt-virtio-slskd.mount"
+      "mnt-virtio-music-slskd.mount"
+    ];
     unitConfig = {
       ConditionPathExists = "/run/secrets/slskd/env";
       RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
     };
+  };
+
+  # Every Cratedigger unit that binds the handoff tree must also fail closed.
+  # Otherwise a missing block disk would expose the old nested mountpoint and
+  # let them move files into a hidden, divergent tree while slskd stays down.
+  systemd.services.cratedigger = {
+    requires = ["mnt-virtio-music-slskd.mount"];
+    after = ["mnt-virtio-music-slskd.mount"];
+    unitConfig.RequiresMountsFor = [downloadDir];
+  };
+  systemd.services.cratedigger-web = {
+    requires = ["mnt-virtio-music-slskd.mount"];
+    after = ["mnt-virtio-music-slskd.mount"];
+    unitConfig.RequiresMountsFor = [downloadDir];
+  };
+  systemd.services.cratedigger-importer = {
+    requires = ["mnt-virtio-music-slskd.mount"];
+    after = ["mnt-virtio-music-slskd.mount"];
+    unitConfig.RequiresMountsFor = [downloadDir];
+  };
+  systemd.services.cratedigger-import-preview-worker = {
+    requires = ["mnt-virtio-music-slskd.mount"];
+    after = ["mnt-virtio-music-slskd.mount"];
+    unitConfig.RequiresMountsFor = [downloadDir];
   };
 
   homelab = {
@@ -185,6 +266,7 @@ in {
           mountPoint = "/nix/.ro-store";
           tag = "ro-store";
           proto = "virtiofs";
+          readOnly = true;
         }
         {
           source = hostStateDir;
@@ -221,6 +303,20 @@ in {
         }
       ];
     };
+
+    # Host mount flags do not propagate through virtiofs. Enforce these in the
+    # hostile guest too: slskd needs data and SQLite access, never execution
+    # from its mutable state or Internet-controlled download tree.
+    fileSystems.${guestStateDir}.options = lib.mkAfter [
+      "nodev"
+      "nosuid"
+      "noexec"
+    ];
+    fileSystems.${downloadDir}.options = lib.mkAfter [
+      "nodev"
+      "nosuid"
+      "noexec"
+    ];
 
     systemd.network = {
       enable = true;

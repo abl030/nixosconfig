@@ -7,9 +7,9 @@
   system = "x86_64-linux";
   pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-  # Byte-for-byte the same wrapper doc2 uses (hosts/doc2/slskd-microvm.nix):
-  # force --inode-file-handles=never, which is what makes virtiofsd pin one
-  # O_PATH descriptor per inode into the outer FUSE mount.
+  # Historical wrapper from doc2 before issue #51's block-storage fix. Keep it
+  # here to reproduce the original failure: force --inode-file-handles=never,
+  # which makes virtiofsd pin one O_PATH descriptor per inode into outer FUSE.
   virtiofsdNestedSafe = pkgs.writeShellScriptBin "virtiofsd" ''
     args=()
     for arg in "$@"; do

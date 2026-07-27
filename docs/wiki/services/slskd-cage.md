@@ -27,27 +27,61 @@ The guest has no SSH, Tailscale, fleet key, SOPS age key, or host management ser
 
 | Guest path | Host source | Access |
 |---|---|---|
-| `/var/lib/slskd` | `/mnt/virtio/slskd` (migrated state) | read/write |
-| `/mnt/virtio/music/slskd` | Cratedigger handoff/download tree | read/write |
+| `/var/lib/slskd` | block-backed `/mnt/virtio/slskd` compatibility bind | read/write |
+| `/mnt/virtio/music/slskd` | block-backed Cratedigger handoff/download compatibility bind | read/write |
 | `/mnt/virtio/Music/Beets` | curated library share | read-only |
 | `/run/host-secrets/slskd` | slskd's own environment secret | read-only |
 | `/nix/.ro-store` | host Nix store | read-only |
 
 UID `988` and GID `968` are fixed on both sides of virtiofs to preserve the live `slskd:music-import` ownership. Cratedigger remains in `music-import` and sees the same host download path, so event-stamped completed-file locations do not change.
 
-The native service's state was on doc2's disposable root disk at
-`/var/lib/slskd`. Cutover copies it to `/mnt/virtio/slskd`, matching the
-portable containers dataset and backup inventory; the guest mounts that path
-back at `/var/lib/slskd`, so slskd sees no app-directory change.
+The native service's state was originally on doc2's disposable root disk at
+`/var/lib/slskd`, then moved to `/mnt/virtio/slskd` for the microVM cutover.
+Issue #51 moves that state again onto the dedicated block disk while retaining
+`/mnt/virtio/slskd` as a compatibility bind, so the guest sees no app-directory
+change.
 
-These sources are already Proxmox virtiofs mounts inside doc2. The nested
-virtiofs daemon is therefore wrapped to replace
-`--inode-file-handles=prefer` with `--inode-file-handles=never` and to strip
-`--posix-acl`/`--xattr`; the outer virtiofs layer cannot provide stable export
-file handles or nested ACL/xattr operations. The defaults make SQLite and
-backup paths fail with `Stale file handle` and library scans fail with
-`Operation not supported`. The wrapper must remain enabled for every guest
-share, not only the state directory.
+The writable state and download paths no longer come from doc2's outer
+virtiofs mount. A dedicated 300 GiB ext4 disk is mounted at
+`/srv/slskd-storage`; its `state/` and `downloads/` directories are bind-mounted
+over the legacy paths. The guest and Cratedigger therefore retain identical
+event-stamped paths while the inner virtiofsd sees an ext4 backing filesystem,
+not FUSE re-exported through FUSE.
+
+The wrapper keeps `--inode-file-handles=prefer` for those two block-backed
+shares. It rewrites only the still-nested read-only library, secret, and Nix
+store shares to `--inode-file-handles=never` and strips unsupported ACL/xattr
+flags there. This distinction is load-bearing: globally forcing `never` pinned
+`O_PATH` descriptors into the outer FUSE mount and caused issue #51's sticky
+ENOENT/ESTALE failures.
+
+The host ext4 mount and both writable guest virtiofs mounts are independently
+`nodev,nosuid,noexec`; host mount flags do not propagate through virtiofs. The
+guest's Nix store, curated library, and secret shares are explicitly read-only.
+
+## Dedicated block storage
+
+prom provisions `nvmeprom/vm-114-slskd-storage` as a sparse 300 GiB zvol with
+64K `volblocksize`, attached to VM 114 as `scsi0` with `cache=none`, discard, a
+dedicated iothread, SSD semantics, and Proxmox backup enabled. doc2 formats it
+as ext4 with fixed UUID `8b2fb269-84d2-4480-8fea-34bcf1d59b42` and mounts it:
+
+```text
+prom 64K sparse zvol
+  -> VM 114 virtio-scsi-single scsi0
+    -> doc2 ext4 /srv/slskd-storage (nodev,nosuid,noexec,noatime)
+      -> state     bind-mounted at /mnt/virtio/slskd
+      -> downloads bind-mounted at /mnt/virtio/music/slskd
+        -> one virtiofs layer into the slskd microVM
+```
+
+The base and bind mounts are `nofail` so an absent data disk does not prevent
+doc2 from booting for recovery. `microvm-virtiofsd@slskd` and every Cratedigger
+unit that binds the handoff tree explicitly require the
+block-backed bind mounts, so the pipeline fails closed rather than writing into
+the hidden legacy directories on the outer virtiofs mount. The old source trees
+stay intact and hidden below the compatibility bind mounts for the rollback
+window.
 
 The bridge requires systemd-networkd on a host whose PostgreSQL nspawn
 containers otherwise use NixOS' container-owned veth setup. The stock
@@ -83,7 +117,50 @@ VLAN ID 21. Trunk profiles use `tagged_vlan_mgmt=auto`, so no per-port change
 is required. On pfSense create `igc1.21`, assign it as `SLSKD_DMZ`, and give it
 `192.168.21.1/24` with no DHCP server.
 
-## Cutover
+## Issue #51 block-storage cutover
+
+The live precopy may run while services are active, but the final copy must
+quiesce every writer. SQLite WALs, partial downloads, and importer moves must
+all converge before mounting over the legacy paths:
+
+```bash
+# The new filesystem must already be formatted and mounted. Never precopy into
+# an unmounted /srv directory on doc2's root disk.
+ssh doc2 'test "$(sudo blkid -s UUID -o value /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0)" = 8b2fb269-84d2-4480-8fea-34bcf1d59b42'
+ssh doc2 'test "$(findmnt -rn -o UUID -T /srv/slskd-storage)" = 8b2fb269-84d2-4480-8fea-34bcf1d59b42'
+ssh doc2 'sudo install -d -m0755 -o slskd -g music-import /srv/slskd-storage/state && sudo install -d -m0770 -o slskd -g music-import /srv/slskd-storage/downloads'
+
+# Precopy while live.
+ssh doc2 'sudo rsync -aHAXS --numeric-ids /mnt/virtio/slskd/ /srv/slskd-storage/state/'
+ssh doc2 'sudo rsync -aHAXS --numeric-ids /mnt/virtio/music/slskd/ /srv/slskd-storage/downloads/'
+
+# Final cutover. Stop timers first so they cannot restart a writer.
+ssh doc2 'sudo systemctl stop cratedigger-metadata-gate-watchdog.timer cratedigger-metadata-gate-watchdog.service cratedigger.timer'
+ssh doc2 'sudo systemctl stop cratedigger.service cratedigger-web.service cratedigger-importer.service cratedigger-import-preview-worker.service cratedigger-youtube-ingest.service'
+ssh doc2 'sudo systemctl stop microvm@slskd.service microvm-virtiofsd@slskd.service'
+ssh doc2 '! pgrep -fa "slskd|cratedigger" | grep -vE "calib|pgrep"'
+
+ssh doc2 'sudo rsync -aHAXS --delete --numeric-ids /mnt/virtio/slskd/ /srv/slskd-storage/state/'
+ssh doc2 'sudo rsync -aHAXS --delete --numeric-ids /mnt/virtio/music/slskd/ /srv/slskd-storage/downloads/'
+ssh doc2 'test -z "$(sudo rsync -aHAXSni --delete --numeric-ids /mnt/virtio/slskd/ /srv/slskd-storage/state/)"'
+ssh doc2 'test -z "$(sudo rsync -aHAXSni --delete --numeric-ids /mnt/virtio/music/slskd/ /srv/slskd-storage/downloads/)"'
+
+# Deploy the signed revision. Activation installs and mounts the ext4 filesystem
+# and compatibility binds before services are explicitly restarted below.
+fleet-deploy doc2
+
+# Explicitly restore every unit stopped above; switch-to-configuration does not
+# restart an unchanged unit that an operator deliberately stopped.
+ssh doc2 'sudo systemctl start microvm@slskd.service'
+ssh doc2 'curl -fsS http://192.168.21.2:5030/health'
+ssh doc2 'sudo systemctl start cratedigger-web.service cratedigger-importer.service cratedigger-import-preview-worker.service cratedigger-youtube-ingest.service cratedigger.timer cratedigger-metadata-gate-watchdog.timer'
+```
+
+After deployment, verify every source with `findmnt -T`, inspect the active
+virtiofsd command lines, check SQLite integrity inside the guest, and complete a
+real download/import. Keep both hidden source trees untouched for rollback.
+
+## Original native-service to microVM cutover (historical)
 
 The state databases are SQLite files with WALs. Stop both the producer and slskd before taking the backup; do not copy a live database by file glob.
 
@@ -189,7 +266,24 @@ Acceptance completed on 2026-07-19 and is recorded in Forgejo
 - Post-boot state had both VPN gateways online, the USA forward open, no
   metadata-gate holds, and zero failed units.
 
-## Rollback
+## Block-storage rollback
+
+The pre-cutover source trees remain underneath the two compatibility bind
+mounts. During the rollback window, do not delete either old tree or detach the
+new disk. To return to nested storage while preserving writes made after
+cutover:
+
+1. stop `cratedigger-metadata-gate-watchdog.timer`, its service, `cratedigger.timer`, every Cratedigger unit that binds the handoff tree, `microvm@slskd`, and `microvm-virtiofsd@slskd`, in that order, so no timer can restart a writer and no daemon retains a handle into either bind mount;
+2. unmount the state/download bind mounts, exposing the old outer-virtiofs trees;
+3. sync `state/` and `downloads/` from `/srv/slskd-storage` back to those exposed paths with `rsync -aHAXS --delete --numeric-ids`;
+4. deploy the signed parent configuration, which removes the dedicated mounts and restores the global nested-share wrapper;
+5. start the guest and Cratedigger, then verify API health, Soulseek login, event paths, and a real completed transfer;
+6. retain the detached zvol until the rollback has soaked and a current backup is verified.
+
+Never sync into a hidden mountpoint: verify `findmnt -T` identifies the expected
+source before either rollback copy.
+
+## Native-service rollback
 
 Rollback leaves the preserved files in place and returns the listener/forward to the native service:
 

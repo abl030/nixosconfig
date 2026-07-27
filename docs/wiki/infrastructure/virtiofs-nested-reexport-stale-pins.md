@@ -1,7 +1,7 @@
 # Nested virtiofs re-export serves sticky ENOENT/ESTALE (slskd move failures)
 
 **Date researched:** 2026-07-25
-**Status:** Mechanism reproduced deterministically; production fix not yet applied
+**Status:** Mechanism reproduced deterministically; writable state/downloads moved to dedicated block-backed ext4
 **Hosts:** doc2 (re-exporter) → slskd microVM. prom's outer layer is NOT implicated.
 **Issue:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51)
 **Related:** [virtiofsd-fd-exhaustion.md](virtiofsd-fd-exhaustion.md) (#267 — same `--inode-file-handles`
@@ -38,8 +38,10 @@ Distinctive fingerprint — this is what rules out an application path bug:
 
 ## Root cause
 
-`hosts/doc2/slskd-microvm.nix` wraps virtiofsd to force `--inode-file-handles=never`
-(added 2026-07-19 in `c604cc8f` to stop SQLite handles going stale). Confirmed live:
+At the time of the incident, `hosts/doc2/slskd-microvm.nix` wrapped virtiofsd to
+force `--inode-file-handles=never` for every share (added 2026-07-19 in
+`c604cc8f` to stop SQLite handles going stale). Confirmed live before the block
+storage cutover:
 
 ```
 virtiofsd --shared-dir=/mnt/virtio/music/slskd --cache=auto --inode-file-handles=never
@@ -156,19 +158,31 @@ journalctl -u microvm@slskd --since today | grep -ciE 'could not find a part of 
 Immediate relief (empirically buys 13h+): stop `microvm@slskd`, restart `microvm-virtiofsd@slskd`,
 start the guest.
 
-## Fix direction
+## Production fix
 
 **Both** modes are unsound when re-exporting FUSE: `never` pins descriptors that die on replacement
-(proven above), and `prefer` was already observed to go stale immediately (`c604cc8f`). So the fix is
-structural, not a flag:
+(proven above), and `prefer` was already observed to go stale immediately (`c604cc8f`). The production
+fix is therefore structural, not a global flag flip.
 
-1. **De-nest slskd's hot paths** — `downloads/` + `incomplete/` on a VM-local virtio-blk disk, or a
-   share served **directly** from prom into the slskd guest (single nest, no doc2 middleman). This is
-   option 1 in #51 and the only option the evidence actually supports.
-2. Stopgap until then: scheduled restart of `microvm-virtiofsd@slskd`.
-3. Still worth doing for a definitive upstream-quality trace: **virtiofsd debug logging on the nested
-   daemon**. Production fails on its own; one failed LOOKUP with parent inode finishes the RCA. This
-   was #51's original "do this first" and has never been done.
+The selected design keeps both isolation boundaries and introduces no storage-network exception:
+
+```text
+prom sparse 300 GiB 64K zvol
+  -> virtio-SCSI into the existing doc2 VM
+    -> ext4 at /srv/slskd-storage
+      -> compatibility bind mounts for state and downloads
+        -> one virtiofs layer into the slskd microVM
+```
+
+State, downloads, and `incomplete/` are block-backed. Their virtiofsd instances retain
+`--inode-file-handles=prefer`, which can use stable ext4 file handles. The wrapper rewrites only the
+remaining read-only shares backed by outer FUSE to `never`. Existing guest and Cratedigger paths do
+not change.
+
+This was preferred over direct prom-to-guest virtiofs because a malicious Internet-facing slskd guest
+still attacks a backend contained by doc2 rather than one running on the Proxmox hypervisor. It was
+preferred over NFS because the SLSKD_DMZ needs no new route or storage-server capability. A missing
+disk leaves doc2 recoverable but keeps the slskd virtiofs service failed closed.
 
 ## What this is NOT
 
@@ -192,6 +206,6 @@ structural, not a flag:
 
 ## When to revisit
 
-After de-nesting lands: confirm the failure rate stays at 0% under real load for a week, then remove the
-stopgap restart timer. If failures recur *after* de-nesting, the mechanism above is wrong and the outer
-layer needs re-examination.
+After cutover: confirm the failure rate stays at 0% under real load for a week. If failures recur on the
+two block-backed shares, inspect the active per-share virtiofsd arguments first. If they retain
+`prefer`, the mechanism above is incomplete and the outer layer needs re-examination.
