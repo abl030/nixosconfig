@@ -1,4 +1,4 @@
-# nixosconfig#51 E4: the L2 nested seam, built to mirror doc2 -> slskd exactly.
+# nixosconfig#51 E4: the historical L2 nested writable seam.
 #   prom ZFS -> virtiofsd(prefer) -> VM951 /mnt/virtiofs   [= doc2 /mnt/virtio]
 #     -> virtiofsd(never) -> this microVM                  [= slskd guest]
 {repo ? /home/abl030/nixosconfig/.claude/worktrees/issue51-nested-virtiofs-repro}: let
@@ -56,6 +56,7 @@ in
               mountPoint = "/nix/.ro-store";
               tag = "ro-store";
               proto = "virtiofs";
+              readOnly = true;
             }
             {
               # The scratch tree lives on VM951's virtiofs mount, so this share

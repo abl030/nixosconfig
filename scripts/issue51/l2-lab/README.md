@@ -9,9 +9,12 @@ prom ZFS /nvmeprom/issue51-virtiofs-lab
        └─ VM951 virtiofsd (--inode-file-handles=never) → L2 microVM /data  [= slskd guest]
 ```
 
-`l2-guest.nix` builds the nested cloud-hypervisor microVM with the *same*
-virtiofsd wrapper doc2 uses. `l2-harness.py` runs inside it. `l2-start.sh` brings
-the stack up on VM951 under transient systemd units.
+`l2-guest.nix` builds the nested cloud-hypervisor microVM with doc2's
+**historical pre-fix** wrapper. It intentionally forces `never` on the nested
+writable data share so the original issue #51 failure remains reproducible;
+production doc2 now classifies each share by its backing filesystem.
+`l2-harness.py` runs inside the guest. `l2-start.sh` brings the stack up on
+VM951 under transient systemd units.
 
 ## Running
 
