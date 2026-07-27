@@ -387,6 +387,12 @@
               # Requires: tower VMBackups NFS export scoped to 192.168.1.35/36 (doc2).
               "/mnt/backup/vm-backups/containers"
             ];
+            # Calibration encodes are regenerable scratch data. A 693 GiB run
+            # monopolized Kopia's single scheduled upload queue for >13h on
+            # 2026-07-27, preventing the other six daily sources from running.
+            sourceExcludes = {
+              "/mnt/virtio/Music" = ["/calibration-tmp"];
+            };
             repositoryMounts = ["/mnt/mum"];
             proxyHost = "kopiamum.ablz.au";
             verifyPercent = 2;

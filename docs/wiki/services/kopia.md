@@ -13,7 +13,7 @@ Two kopia server instances run on doc2, each backing up to a different destinati
 | Instance | Sources | Destination | Purpose |
 |---|---|---|---|
 | **photos** | `/mnt/data/Life/Photos/library` + `/mnt/data/Life` (excluding the `Photos/*` derivatives, the already-covered library, and `Tech/Backups/UnraidUSB`) | Wasabi S3 (`kopiaphotos` bucket, ap-southeast-2) | Immutable, jurisdictional offsite for irreplaceable personal data — photo originals + the rest of `/Life` (incl. immich DB dumps in `Photos/backups`) |
-| **mum** | `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`, `/mnt/virtio/Music` (the beets library), `/mnt/backup/pfsense` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything irreplaceable + the curated music library |
+| **mum** | `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`, `/mnt/virtio/Music` (the beets library, excluding regenerable `calibration-tmp` scratch data), `/mnt/backup/pfsense` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything irreplaceable + the curated music library |
 
 `/mnt/data/Life` is deliberately backed up to **both** repos — Synology (mum) for the full family-grade copy, Wasabi (photos) for the immutable, jurisdictionally-separate copy. The photos copy excludes the regenerable immich derivatives and dedupes the photo library against its own source, so nothing re-uploads. See the [2026-06-07 brainstorm](../../brainstorms/2026-06-07-backup-coverage-widening-requirements.md) and [#237](https://github.com/abl030/nixosconfig/issues/237).
 
