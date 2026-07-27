@@ -184,11 +184,15 @@ in {
   #
   # Trigger wrapper changes through the parent guest unit, not virtiofsd alone.
   # The guest closure does not change when only this host-side wrapper changes.
-  # Restarting the parent propagates to virtiofsd through PartOf=, then its
-  # Requires=/After= ordering starts fresh daemons before the guest. Restarting
-  # only virtiofsd races the guest's Restart=always path against stale sockets.
+  # Restarting only virtiofsd races the guest's Restart=always path against stale
+  # sockets. PartOf= propagates explicit jobs but is insufficient when activation
+  # cancels the daemon's pending stop as it starts the guest: virtiofsd remains
+  # active after its one-shot backends disconnect. BindsTo= also follows the
+  # guest's inactive state, forcing fresh daemons before Requires=/After= starts
+  # the guest again.
   systemd.services."microvm@slskd".restartTriggers = [virtiofsdNestedSafe];
   systemd.services."microvm-virtiofsd@slskd" = {
+    bindsTo = ["microvm@slskd.service"];
     requires = [
       "mnt-virtio-slskd.mount"
       "mnt-virtio-music-slskd.mount"
