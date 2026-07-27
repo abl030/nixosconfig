@@ -181,8 +181,14 @@ in {
   # This sops-nix version installs secrets during activation rather than through
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
+  #
+  # Trigger wrapper changes through the parent guest unit, not virtiofsd alone.
+  # The guest closure does not change when only this host-side wrapper changes.
+  # Restarting the parent propagates to virtiofsd through PartOf=, then its
+  # Requires=/After= ordering starts fresh daemons before the guest. Restarting
+  # only virtiofsd races the guest's Restart=always path against stale sockets.
+  systemd.services."microvm@slskd".restartTriggers = [virtiofsdNestedSafe];
   systemd.services."microvm-virtiofsd@slskd" = {
-    restartTriggers = [virtiofsdNestedSafe];
     requires = [
       "mnt-virtio-slskd.mount"
       "mnt-virtio-music-slskd.mount"
