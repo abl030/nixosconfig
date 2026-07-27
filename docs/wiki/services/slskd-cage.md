@@ -164,8 +164,10 @@ rollback.
 
 ## Production cutover evidence (2026-07-27)
 
-- Signed commit `439c440692c8ab7a50b32892e1adb1a6e9946674` was fast-forwarded
-  to Forgejo `master`; doc2 reports the same configuration revision.
+- Signed implementation commit `439c440692c8ab7a50b32892e1adb1a6e9946674`
+  was fast-forwarded to Forgejo `master`. doc2 subsequently deployed its signed
+  review/documentation descendants; exact revision evidence is retained in
+  issue #51 rather than embedding a self-staling repository tip here.
 - The final writer-quiesced sync and no-change rsync check matched exactly:
   state had 8 files, 7 directories, and 2,298,200,969 bytes; downloads had
   3,897 files, 786 directories, and 111,400,371,495 bytes.

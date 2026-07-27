@@ -1,7 +1,7 @@
 # Issue 51 investigation summary: nested virtiofs, and the doc1 panic
 
 **Date:** 2026-07-25
-**Status:** slskd fault solved, reproduced, and removed from production; doc1 panic unreproduced, capture now armed
+**Status:** slskd fault solved, reproduced, and removed from production; one-week move-rate soak pending through 2026-08-03; doc1 panic unreproduced, capture now armed
 **Issues:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51) (investigation), [#53](https://git.ablz.au/abl030/nixosconfig/issues/53) (database-state virtiofs exit)
 **Detail pages:** [virtiofs-nested-reexport-stale-pins.md](virtiofs-nested-reexport-stale-pins.md),
 [fleet-crash-capture.md](fleet-crash-capture.md),
