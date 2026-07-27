@@ -45,6 +45,7 @@
     "framework":     "100.78.17.73",   // dev workstation; reaches cullen for Cullen-side work
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
     "homeassistant": "100.106.165.120", // edge node allowed to reach the Cullen inverters
+    "water-meter":   "192.168.100.89", // Cullen ESPHome water meter; API + authenticated OTA only
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "caddy":         "100.96.32.96",   // edge-proxy LXC (CT 108) — legacy proxies to mum's gear + Cullen solar
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
@@ -173,13 +174,20 @@
     // No implicit fleet access; egress enumerated per-node; inbound only what is
     // explicitly granted (e.g. server→kerrynas NFS above).
     //
-    // HA → the two Cullen inverters ONLY (solar). The 192.168.100.0/24 route is
-    // advertised (so the /32s are routable) but access is pinned to these /32s.
+    // HA → the two Cullen inverters (solar) and the indoor water meter's
+    // encrypted ESPHome native API and authenticated OTA. The
+    // 192.168.100.0/24 route is advertised
+    // (so the /32s are routable) but access is pinned to these exact hosts and
+    // ports.
     // Port CONFIRMED tcp:443 (2026-06-21): `pysmaplus` in ennexOS mode talks HTTPS
     // to https://<ip>/api/v1/... — verified by source + a live probe of both IPs.
     // NOT Speedwire (udp:9522) / Modbus (tcp:502). .139 = Bank A + Bank B cluster
     // gateway; .133 = Warehouse. (Bank B is a SD2P sub-device behind .139, no own IP.)
     { "src": ["homeassistant"], "dst": ["192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+    // ESPHome API encryption and OTA authentication are mandatory in
+    // ha/esphome/water-meter.yaml. Keep this /32 synchronized with the work
+    // DHCP lease and reserve it when the work DHCP server is next administered.
+    { "src": ["homeassistant"], "dst": ["water-meter"], "ip": ["tcp:6053", "tcp:3232"] },
     // doc1 (bastion) → dad's raspberrypi: SSH admin only. doc1 logs into the pi
     // (key-only) for management; dad's-LAN access otherwise rides the tag:client
     // subnet route (192.168.2.0/24), so doc1 needs just :22 to the rpi node.
@@ -276,8 +284,9 @@
     // edge / share isolation: no path into the fleet.
     { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
-    // HA → inverter only; adjacent Cullen IP denied.
-    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443"], "deny": ["192.168.100.140:443"] },
+    // HA → inverters + encrypted ESPHome API only; adjacent Cullen IP and the
+    // water-meter captive-portal port remain denied.
+    { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "water-meter:6053", "water-meter:3232"], "deny": ["192.168.100.140:443", "192.168.100.90:6053", "water-meter:80"] },
     // caddy edge proxy → mum's DSM/router + Cullen solar dashboards, nothing wider.
     { "src": "caddy", "proto": "tcp", "accept": ["kerrynas:5000", "192.168.4.1:80", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443", "kerrynas:22"] },
   ],

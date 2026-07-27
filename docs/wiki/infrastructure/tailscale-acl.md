@@ -1,6 +1,6 @@
 # Tailscale ACL — the fleet's tailnet trust boundary
 
-- **Date:** 2026-06-21
+- **Date:** 2026-06-21 (updated 2026-07-27)
 - **Status:** ✅ **Default-deny LIVE** (flipped 2026-06-21). 5-tag `grants` policy; all
   20 nodes tagged; 6 stale nodes culled. Route-grant hardening landed 2026-06-22:
   broad home-LAN route access was replaced with exact `/32` + port grants.
@@ -43,8 +43,10 @@ routes, but does **not** get the whole Cullen work subnet (`192.168.100.0/24`) b
 Clients get only the dashboard host (`192.168.100.128:443`) and the two inverter `/32`s
 (`192.168.100.139:443`, `192.168.100.133:443`). Less-trusted roles (`tag:cullen`,
 `tag:edge`, `tag:share`, `autogroup:shared`) must use exact destination IP + port route
-grants into fleet LANs. Route approval (`autoApprovers`) is only reachability plumbing; it is
-not an access decision.
+grants into fleet LANs. The HA edge node also has one such grant to the Cullen indoor water
+meter (`192.168.100.89/32`, encrypted ESPHome API on TCP 6053 and authenticated OTA on TCP
+3232). Route approval
+(`autoApprovers`) is only reachability plumbing; it is not an access decision.
 
 ## The five tags
 
@@ -63,7 +65,7 @@ not an access decision.
 | `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:443` (Kuma health-checks); `hermes:22` (deploy) |
 | `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress; Cullen dashboard + inverter `/32`s only |
 | `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
-| `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` only. hermes → `pfsense:53` only (and inbound `:22` from servers) |
+| `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` plus the indoor water-meter `/32` on encrypted ESPHome API `:6053` and authenticated OTA `:3232`. hermes → `pfsense:53` only (and inbound `:22` from servers) |
 | `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), `192.168.1.35:8050` (Gotify), `192.168.1.2:2049` (tower NFS), Syncthing mesh. Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
 | `framework` | `tag:cullen:22` (Cullen dev path, in addition to `doc1`) |
 | `autogroup:shared` | `tag:share:443` (inter-tailnet shares, e.g. overseer shared to ali@) |
@@ -77,11 +79,19 @@ that, not this table, when changing policy.
 > **The Cullen LAN footgun.** The Cullen subnet route (`192.168.100.0/24`, advertised by
 > `laptop-btibh4ie`) is not a broad work-network grant. Current permitted subnet
 > destinations are the solar inverters (`192.168.100.139/32` + `192.168.100.133/32` on
-> `:443`) and the WSL dashboard host (`192.168.100.128/32` on `:443` for
-> `cullen.ablz.au`). **The route existing is NOT access.** A future project that assumes
+> `:443`), the indoor water meter (`192.168.100.89/32` on encrypted ESPHome API `:6053`
+> and authenticated OTA `:3232`), and the WSL dashboard host (`192.168.100.128/32` on
+> `:443` for `cullen.ablz.au`).
+> **The route existing is NOT access.** A future project that assumes
 > "the fleet can reach the Cullen LAN" will be silently denied — it needs its own `/32`
 > (or host) added to a grant. `laptop-btibh4ie`/wsl is the intended handler for
 > Cullen-side resources.
+
+The water-meter address is also named `water-meter` in `tailscale/acl.hujson`. It was assigned
+by work DHCP during commissioning; reserve it to the ESP32 MAC when that DHCP server is next
+administered. If the lease changes first, update the host alias, run the policy tests, and
+apply the policy before changing the HA integration host. The grant does not expose the
+captive portal and does not grant HA the rest of the work LAN.
 
 `laptop-btibh4ie` is a Windows laptop at the Cullen winery running the `wsl` NixOS instance;
 WSL's tailnet traffic egresses *through* the Windows host, so `tag:cullen` governs both. It is

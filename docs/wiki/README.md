@@ -42,6 +42,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime
 - [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
 - [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
+- [indoor-water-meter](services/indoor-water-meter.md) — ESPHome GPIO27 reed-pulse water meter; bench-test evidence, persistence, calibration, and recovery
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
 
 ### Claude Code

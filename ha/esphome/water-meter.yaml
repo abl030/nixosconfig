@@ -1,0 +1,165 @@
+# Commissioning status and recovery notes:
+# docs/wiki/services/indoor-water-meter.md
+substitutions:
+  # TEMPORARY CALIBRATION VALUE ONLY.
+  # Replace this with the meter's documented or measured pulse constant before
+  # treating the converted litre and cubic-metre entities as authoritative.
+  # The value must be greater than zero and means "reed closures per litre".
+  pulses_per_litre: "1"
+
+esphome:
+  name: indoor-water-meter
+  friendly_name: Indoor Water Meter
+  min_version: 2026.7.2
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          ESP_LOGI(
+            "water_meter",
+            "Restored lifetime pulse count: %llu",
+            static_cast<unsigned long long>(id(lifetime_water_pulses))
+          );
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+# Preference changes are coalesced in RAM and flushed to flash at most once per
+# minute. ESPHome also syncs them during a graceful reboot/OTA shutdown. A hard
+# power loss can therefore lose no more than roughly the last minute of pulses.
+preferences:
+  flash_write_interval: 1min
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret water_meter_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret water_meter_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Water-Meter-Recovery"
+    password: !secret water_meter_fallback_ap_password
+
+captive_portal:
+
+globals:
+  # pulse_meter's own total is session-only. Keep the authoritative raw pulse
+  # count in ESP32 NVS so calibration can change without losing the raw count.
+  - id: lifetime_water_pulses
+    type: uint64_t
+    restore_value: true
+    initial_value: "0"
+    update_interval: 1s
+
+sensor:
+  - platform: pulse_meter
+    id: water_pulse_meter
+    name: "Flow Rate"
+    pin:
+      number: GPIO27
+      allow_other_uses: true
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    # PULSE mode requires a stable pulse, making it suitable for a mechanical
+    # reed that may bounce on both closure and release.
+    internal_filter: 10ms
+    internal_filter_mode: PULSE
+    timeout: 2min
+    unit_of_measurement: "L/min"
+    device_class: volume_flow_rate
+    state_class: measurement
+    accuracy_decimals: 3
+    filters:
+      - lambda: return x / ${pulses_per_litre};
+    total:
+      id: session_water_pulses
+      internal: true
+      on_value:
+        then:
+          - lambda: |-
+              static uint32_t last_session_pulses = 0;
+              const uint32_t session_pulses = static_cast<uint32_t>(x);
+              const uint32_t new_pulses =
+                session_pulses - last_session_pulses;
+              last_session_pulses = session_pulses;
+
+              if (new_pulses != 0) {
+                id(lifetime_water_pulses) += new_pulses;
+                ESP_LOGI(
+                  "water_meter",
+                  "Counted %u pulse(s); lifetime total: %llu",
+                  new_pulses,
+                  static_cast<unsigned long long>(id(lifetime_water_pulses))
+                );
+              }
+
+  # Exposing the restored raw count makes calibration and one-pulse testing
+  # independent of the temporary pulses-per-litre conversion.
+  - platform: template
+    id: lifetime_pulses_sensor
+    name: "Lifetime Pulses"
+    lambda: return static_cast<float>(id(lifetime_water_pulses));
+    update_interval: 5s
+    unit_of_measurement: "pulses"
+    state_class: total_increasing
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: template
+    id: total_water_litres
+    name: "Total Water Litres"
+    lambda: |-
+      return static_cast<float>(
+        static_cast<double>(id(lifetime_water_pulses)) /
+        static_cast<double>(${pulses_per_litre})
+      );
+    update_interval: 5s
+    unit_of_measurement: "L"
+    device_class: water
+    state_class: total_increasing
+    accuracy_decimals: 3
+
+  - platform: template
+    id: total_water_cubic_metres
+    name: "Total Water"
+    lambda: |-
+      return static_cast<float>(
+        static_cast<double>(id(lifetime_water_pulses)) /
+        static_cast<double>(${pulses_per_litre}) /
+        1000.0
+      );
+    update_interval: 5s
+    unit_of_measurement: "m³"
+    device_class: water
+    state_class: total_increasing
+    accuracy_decimals: 6
+
+binary_sensor:
+  # Direct electrical view of the reed input. This is intentionally diagnostic:
+  # ON means GPIO27 is being pulled to GND, independent of pulse conversion.
+  - platform: gpio
+    id: reed_contact
+    name: "Reed Contact"
+    pin:
+      number: GPIO27
+      allow_other_uses: true
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    use_interrupt: false
+    filters:
+      - delayed_on_off: 10ms
+    entity_category: diagnostic
