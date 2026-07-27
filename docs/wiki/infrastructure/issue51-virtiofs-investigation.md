@@ -1,7 +1,7 @@
 # Issue 51 investigation summary: nested virtiofs, and the doc1 panic
 
 **Date:** 2026-07-25
-**Status:** slskd fault solved and reproduced; doc1 panic unreproduced, capture now armed
+**Status:** slskd fault solved, reproduced, and removed from production; doc1 panic unreproduced, capture now armed
 **Issues:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51) (investigation), [#53](https://git.ablz.au/abl030/nixosconfig/issues/53) (database-state virtiofs exit)
 **Detail pages:** [virtiofs-nested-reexport-stale-pins.md](virtiofs-nested-reexport-stale-pins.md),
 [fleet-crash-capture.md](fleet-crash-capture.md),
@@ -34,13 +34,13 @@ controls clean. Onset is coeval with `a73909c6`/`c604cc8f` (2026-07-19) — a si
 chronic condition. Failure rate ran 37–96% of completed downloads per day and dropped to 0% the moment
 `microvm-virtiofsd@slskd` was restarted at 18:47 on 2026-07-24.
 
-The original slskd fix options remain in #53. Re-exporting virtiofs is unsound
-in **both** `--inode-file-handles` modes, so flipping the flag is not a fix;
-the nest has to go. The subsequent storage audit widened #53 to cover the
-larger production problem: all nine doc2 nspawn databases also sit on direct
-virtiofs. Corrected low-QD and same-filesystem controls now favor an
-unprivileged doc2 LXC with direct host dataset binds as the architecture to
-prototype; dedicated VM block disks remain the fallback.
+Re-exporting virtiofs is unsound in **both** `--inode-file-handles` modes, so
+flipping the flag is not a fix. Production commit `439c4406` removes the nested
+writable seam: prom presents a bounded zvol as a block disk to doc2, doc2
+mounts ext4, and only doc2 exports the writable state/download trees to slskd.
+The subsequent storage audit widened #53 to cover the separate production
+problem of doc2 nspawn databases on direct virtiofs. Its broader unprivileged
+LXC prototype remains independent of the deployed slskd fix.
 
 ### 2. doc2 wedge — misattributed
 

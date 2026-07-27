@@ -157,8 +157,40 @@ ssh doc2 'sudo systemctl start cratedigger-web.service cratedigger-importer.serv
 ```
 
 After deployment, verify every source with `findmnt -T`, inspect the active
-virtiofsd command lines, check SQLite integrity inside the guest, and complete a
-real download/import. Keep both hidden source trees untouched for rollback.
+virtiofsd command lines, check SQLite integrity, and observe real
+completed-download/import traffic. Keep both hidden source trees untouched for
+rollback.
+
+## Production cutover evidence (2026-07-27)
+
+- Signed commit `439c440692c8ab7a50b32892e1adb1a6e9946674` was fast-forwarded
+  to Forgejo `master`; doc2 reports the same configuration revision.
+- The final writer-quiesced sync and no-change rsync check matched exactly:
+  state had 8 files, 7 directories, and 2,298,200,969 bytes; downloads had
+  3,897 files, 786 directories, and 111,400,371,495 bytes.
+- `/srv/slskd-storage` is `/dev/sda` ext4 with UUID
+  `8b2fb269-84d2-4480-8fea-34bcf1d59b42`. The state and download paths resolve
+  to `/dev/sda[/state]` and `/dev/sda[/downloads]`, with
+  `rw,nosuid,nodev,noexec,noatime,errors=remount-ro`.
+- The active writable virtiofsd processes use `inode-file-handles=prefer` on
+  those ext4-backed binds. Store, library, and secret processes use
+  `inode-file-handles=never --readonly`.
+- slskd reported `Databases are up to date`, opened HTTP 5030 and Soulseek TCP
+  50300, connected and logged in, and returned `Healthy`. Online SQLite
+  `quick_check` returned `ok` for all five state databases.
+- Cratedigger web/importer/preview workers are active; the main run connected
+  PostgreSQL and Redis, completed startup reconciliation, queried slskd events,
+  and submitted searches. Its local web root returned HTTP 200.
+- The initial post-cutover window contained zero known
+  ENOENT/ESTALE/ENOMEM move signatures. It contained no new completed move, so
+  this is topology/health verification rather than the one-week normalized
+  move-rate acceptance result.
+- The 300 GiB zvol remains sparse, `backup=1`, `cache=none`, discard-enabled,
+  and iothread-backed. Both hidden legacy trees remain untouched for rollback.
+
+Keep issue #51 open through at least 2026-08-03. Do not remove the restart
+workaround or legacy trees until one full week of normalized move-failure data
+is clean.
 
 ## Original native-service to microVM cutover (historical)
 

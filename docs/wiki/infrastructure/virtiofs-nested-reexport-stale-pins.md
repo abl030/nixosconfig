@@ -1,7 +1,7 @@
 # Nested virtiofs re-export serves sticky ENOENT/ESTALE (slskd move failures)
 
 **Date researched:** 2026-07-25
-**Status:** Mechanism reproduced deterministically; writable state/downloads moved to dedicated block-backed ext4
+**Status:** Mechanism reproduced deterministically; production fixed in `439c4406`, soak underway
 **Hosts:** doc2 (re-exporter) → slskd microVM. prom's outer layer is NOT implicated.
 **Issue:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51)
 **Related:** [virtiofsd-fd-exhaustion.md](virtiofsd-fd-exhaustion.md) (#267 — same `--inode-file-handles`
@@ -183,6 +183,13 @@ This was preferred over direct prom-to-guest virtiofs because a malicious Intern
 still attacks a backend contained by doc2 rather than one running on the Proxmox hypervisor. It was
 preferred over NFS because the SLSKD_DMZ needs no new route or storage-server capability. A missing
 disk leaves doc2 recoverable but keeps the slskd virtiofs service failed closed.
+
+The signed revision reached doc2 on 2026-07-27. The first post-cutover smoke
+window recorded zero known ENOENT/ESTALE/ENOMEM move signatures. That short
+window is not the acceptance period: retain the restart workaround and hidden
+rollback trees until normalized completed-move failures have remained clean for
+at least one week (not before 2026-08-03). Runtime evidence is recorded in
+[slskd-cage.md](../services/slskd-cage.md#production-cutover-evidence-2026-07-27).
 
 ## What this is NOT
 
