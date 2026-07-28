@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-28
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
 **Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
@@ -34,18 +34,31 @@ Replay databases and complete failed fuzz logs live under
 `/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private
 to the unit and removed at exit.
 
-The same unit always finishes with doc2's deployed
+The same unit always finishes with doc2's deployed strict
 `pipeline-cli audit world --json`, after both successful and failed candidate
-runs. It reaches one root-only wrapper over SSH; that wrapper supplies the
-PostgreSQL secret and exposes no mutation or repair operation. The post-step
-logs aggregate counts and violation-code counts rather than hundreds of raw
-production identities. Its failure cannot stop a green candidate from updating
-`flake.lock`, because the runner has already finished, but it does make the
-single daily unit red and uses the same RCA/Gotify path.
+runs. The strict audit remains nonzero for every current violation. A second
+root-only wrapper classifies that exact report against a schema-versioned,
+digest-only authority state under
+`/var/lib/cratedigger-live-world-audit/known-debt.json`; the raw report and its
+production identities stay on doc2.
 
-The current `current_evidence_missing` and `evidence_fingerprint_mismatch`
-backlog remains deliberately red pending the ownership decision in Cratedigger
-#759. Do not suppress those known violations merely to make the timer green.
+The tracked gate is green only when the current violations are an exact stable
+or shrinking subset of the persisted member fingerprints. It atomically removes
+converged members, but any new member, changed cause/identity, same-count
+replacement, growth, missing state, or corrupt state is red without rewriting
+the authority. The daily post-step logs only aggregate classifier counts. Its
+failure cannot stop a green candidate from updating `flake.lock`, because the
+runner has already finished, but it does make the single daily unit red and uses
+the same RCA/Gotify path. The initial state is an explicit one-time rollout
+action and must never be regenerated to recover a failing daily gate. See
+[Cratedigger #910](https://github.com/abl030/cratedigger/issues/910).
+
+The #910 rollout authority is exactly the twice-observed 658-member cohort:
+420 `current_evidence_missing` and 238
+`evidence_fingerprint_mismatch`. Initialization must stop if a fresh strict
+audit differs from those code counts, contains another code, or has duplicate
+members. After initialization, deleting or replacing the state to admit a red
+result is forbidden; investigate the reported new/changed members instead.
 
 ## Metadata Gate
 

@@ -53,7 +53,7 @@
           -i ${lib.escapeShellArg config.sops.secrets."ssh_key_abl030".path} \
           abl030@doc2 \
           sudo --non-interactive \
-          /run/current-system/sw/bin/cratedigger-live-world-audit
+          /run/current-system/sw/bin/cratedigger-live-world-audit-tracked
       )"; then
         audit_status=0
       else
@@ -63,35 +63,54 @@
       if ! summary="$(
         ${pkgs.jq}/bin/jq -ce '
           if (
-            (.status | type) == "string"
-            and (.counts | type) == "object"
-            and (.violations | type) == "array"
+            (.status == "clean" or .status == "tracked_debt" or .status == "unrecognized_violations")
+            and (.strict_status == "clean" or .strict_status == "violations")
+            and ([.strict_violations, .approved_total, .known_remaining,
+                  .newly_converged, .converged_total, .new_members,
+                  .changed_members, .growth] | all(type == "number"))
+            and (.state_updated | type) == "boolean"
+            and (.by_code | type) == "array"
+            and (.by_code | all(
+              (.code | type) == "string"
+              and ([.approved, .current, .known_remaining,
+                    .newly_converged, .new_members, .changed_members]
+                   | all(type == "number"))
+            ))
           )
           then {
             status,
-            counts,
-            violations_by_code: (
-              [.violations[] | .code]
-              | sort
-              | group_by(.)
-              | map({code: .[0], count: length})
-            )
+            strict_status,
+            strict_violations,
+            approved_total,
+            known_remaining,
+            newly_converged,
+            converged_total,
+            new_members,
+            changed_members,
+            growth,
+            state_updated,
+            by_code
           }
-          else error("invalid world-audit report")
+          else error("invalid tracked world-audit report")
           end
         ' <<<"$audit_json"
       )"; then
-        echo "live world audit: invalid JSON report (remote exit $audit_status)" >&2
+        echo "live world audit: invalid tracked JSON report (remote exit $audit_status)" >&2
         exit 1
       fi
 
       echo "$summary"
-      if ((audit_status == 0)); then
-        echo "PASS live world audit"
-      else
-        echo "FAIL live world audit (exit $audit_status)" >&2
+      summary_status="$(${pkgs.jq}/bin/jq -r '.status' <<<"$summary")"
+      if ((audit_status == 0)) && [[ "$summary_status" =~ ^(clean|tracked_debt)$ ]]; then
+        echo "PASS live world audit: known debt is stable or shrinking"
+        exit 0
       fi
-      exit "$audit_status"
+      if ((audit_status == 1)) && [[ "$summary_status" == unrecognized_violations ]]; then
+        echo "FAIL live world audit: new or changed violations (exit $audit_status)" >&2
+        exit 1
+      fi
+      echo "live world audit: exit/status protocol mismatch (remote exit $audit_status)" >&2
+      exit 1
     '';
   };
 

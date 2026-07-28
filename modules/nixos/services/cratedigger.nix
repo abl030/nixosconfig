@@ -386,6 +386,9 @@
       esac
     '';
   };
+  liveWorldAuditDebtStateDir = "/var/lib/cratedigger-live-world-audit";
+  liveWorldAuditDebtState = "${liveWorldAuditDebtStateDir}/known-debt.json";
+  worldAuditDebtGate = "${inputs.cratedigger-src.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/cratedigger-world-audit-debt-gate";
   liveWorldAudit = pkgs.writeShellApplication {
     name = "cratedigger-live-world-audit";
     runtimeInputs = [
@@ -415,6 +418,40 @@
 
       export PGPASSWORD="$password"
       exec /run/current-system/sw/bin/pipeline-cli audit world --json
+    '';
+  };
+  liveWorldAuditTracked = pkgs.writeShellApplication {
+    name = "cratedigger-live-world-audit-tracked";
+    runtimeInputs = [pkgs.coreutils];
+    text = ''
+      set -euo pipefail
+
+      if ((EUID != 0)); then
+        echo "cratedigger-live-world-audit-tracked must run as root" >&2
+        exit 4
+      fi
+      if (($# != 0)); then
+        echo "usage: sudo cratedigger-live-world-audit-tracked" >&2
+        exit 2
+      fi
+
+      strict_status=0
+      if strict_json="$(
+        ${liveWorldAudit}/bin/cratedigger-live-world-audit
+      )"; then
+        strict_status=0
+      else
+        strict_status=$?
+      fi
+      if ((strict_status != 0 && strict_status != 1)); then
+        echo "cratedigger-live-world-audit-tracked: strict audit failed (exit $strict_status)" >&2
+        exit "$strict_status"
+      fi
+
+      # The raw production report stays on doc2. Only the classifier's
+      # aggregate result crosses the daily SSH boundary.
+      printf '%s\n' "$strict_json" |
+        ${worldAuditDebtGate} --state ${lib.escapeShellArg liveWorldAuditDebtState}
     '';
   };
   metadataGateCommand = "${metadataGateTool}/bin/cratedigger-metadata-gate";
@@ -562,17 +599,23 @@ in {
     environment.systemPackages = [
       metadataGateTool
       liveWorldAudit
+      liveWorldAuditTracked
     ];
 
-    # The daily doc1 compatibility unit runs this exact read-only command over
-    # SSH after its candidate gates. Keep the privilege boundary narrower than
-    # a remote shell even if doc2 returns to the locked-host sudo posture.
+    # The daily doc1 compatibility unit runs the tracked read-only command over
+    # SSH after its candidate gates. Keep the strict command independently
+    # available for diagnosis, and keep both privilege boundaries narrower
+    # than a remote shell even if doc2 returns to the locked-host sudo posture.
     security.sudo.extraRules = [
       {
         users = [operatorUser];
         commands = [
           {
             command = "/run/current-system/sw/bin/cratedigger-live-world-audit";
+            options = ["NOPASSWD"];
+          }
+          {
+            command = "/run/current-system/sw/bin/cratedigger-live-world-audit-tracked";
             options = ["NOPASSWD"];
           }
         ];
@@ -621,6 +664,7 @@ in {
         "d ${pgDataDirRoot}/postgres 0700 root root -"
         "d ${metadataGateStateDir} 0755 root root -"
         "d ${metadataGateHoldDir} 0755 root root -"
+        "d ${liveWorldAuditDebtStateDir} 0700 root root -"
         # #570: keep the library subtrees setgid + group-writable + group `users`
         # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
         # can write NFO/art alongside media. Existing subtree ownership is fixed
