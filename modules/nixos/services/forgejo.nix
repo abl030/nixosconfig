@@ -8,6 +8,22 @@
   dumpDir = "/mnt/data/Life/Andy/Code/forgejo-dumps";
   mergeSigningPublicKey = ./forgejo-merge-signing-key.pub;
   mergeSigningCredential = "/run/credentials/forgejo.service/repository-signing-key.pub";
+  dumpSigningCredential = "/run/credentials/forgejo-dump.service/repository-signing-key.pub";
+  dumpCommand = pkgs.writeShellApplication {
+    name = "forgejo-dump-with-private-config";
+    runtimeInputs = [pkgs.coreutils];
+    text = ''
+      set -euo pipefail
+
+      config="$RUNTIME_DIRECTORY/app.ini"
+      install -m 0600 ${lib.escapeShellArg "${cfg.dataDir}/custom/conf/app.ini"} "$config"
+      ${lib.getExe' config.services.forgejo.package "environment-to-ini"} --config "$config"
+      chmod 0400 "$config"
+      exec ${lib.getExe config.services.forgejo.package} dump \
+        --config "$config" \
+        --type zip
+    '';
+  };
 in {
   options.homelab.services.forgejo = {
     enable = lib.mkEnableOption "Forgejo self-hosted git forge";
@@ -19,6 +35,28 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion =
+          config.systemd.services.forgejo-dump.environment.FORGEJO__REPOSITORY_0x2E_SIGNING__SIGNING_KEY
+          == dumpSigningCredential;
+        message = "forgejo dump must override the repository signing key with its unit-local credential path";
+      }
+      {
+        assertion =
+          lib.elem
+          "repository-signing-key.pub:${mergeSigningPublicKey}"
+          config.systemd.services.forgejo-dump.serviceConfig.LoadCredential;
+        message = "forgejo dump must receive its own repository-signing public-key credential";
+      }
+      {
+        assertion =
+          config.systemd.services.forgejo-dump.serviceConfig.ExecStart
+          == "${dumpCommand}/bin/forgejo-dump-with-private-config";
+        message = "forgejo dump must consume its unit-local signing override through the private-config wrapper";
+      }
+    ];
+
     # Private key is encrypted only to doc2 (+ editor/break-glass). systemd copies
     # it into the Forgejo service's private credentials directory; the forgejo
     # account cannot read the source secret outside that service.
@@ -145,7 +183,21 @@ in {
           after = ["mnt-data.mount"];
           requires = ["mnt-data.mount"];
           unitConfig.RequiresMountsFor = [cfg.dataDir dumpDir];
+          # systemd credential directories are private to each unit. The shared
+          # app.ini points at forgejo.service's credential directory, which a
+          # sibling dump unit cannot traverse. The dump wrapper makes a private
+          # runtime copy, applies Forgejo's environment-to-ini helper, and passes
+          # that exact config to `forgejo dump`. Merely exporting the variable is
+          # insufficient: Forgejo does not consume it without the helper.
+          environment.FORGEJO__REPOSITORY_0x2E_SIGNING__SIGNING_KEY = dumpSigningCredential;
           serviceConfig = {
+            ExecStart = lib.mkForce "${dumpCommand}/bin/forgejo-dump-with-private-config";
+            LoadCredential = [
+              "repository-signing-key.pub:${mergeSigningPublicKey}"
+            ];
+            RuntimeDirectory = "forgejo-dump";
+            RuntimeDirectoryMode = "0700";
+            NoNewPrivileges = true;
             TemporaryFileSystem = "/mnt";
             BindPaths = [cfg.dataDir dumpDir];
           };
