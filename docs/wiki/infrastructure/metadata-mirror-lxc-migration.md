@@ -174,14 +174,52 @@ These are smoke-test timings rather than capacity benchmarks. Their purpose is
 to reject a gross migration regression while the exact row-count and response
 identity checks establish correctness.
 
+A cache-aware Cratedigger audit after cutover separated browser, Redis, API,
+and LAN costs:
+
+- Artist search waits for a deliberate 300 ms browser debounce before issuing
+  one selected-source request. Five probe-owned MusicBrainz search keys had a
+  first-request median of 129.6 ms and a Redis-hit median of 0.8 ms; each was
+  verified absent before the test and deleted afterward. Redis stores the pure
+  metadata result for 24 hours.
+- After the corresponding MusicBrainz application paths were warm but Redis was
+  still cold, the same Cratedigger requests had a 47.9 ms median. The remainder
+  of the first sample was mirror-side search/detail cache warming, not LAN
+  transport.
+- A warmed MusicBrainz query from doc2 to CT 100 had a 9.1 ms median versus
+  10.3 ms inside CT 100 over loopback (`n=20`). Median TCP connect time from
+  doc2 was 0.16 ms. The cross-VM hop is below measurement noise relative to the
+  API work.
+- Three probe-owned artist-page metadata keys took 424–487 ms cold and 56–59 ms
+  warm through Cratedigger. The cold path paginates several MusicBrainz
+  endpoints; the warm path still applies live pipeline/library overlays.
+- A warmed Discogs artist query from doc2 to CT 102 had a 0.48 ms median versus
+  0.89 ms over CT 102 loopback (`n=20`), again showing no measurable LAN
+  penalty.
+
+This audit also found that the first cutover closure still configured
+Cratedigger's Discogs client as `https://discogs.ablz.au`. On doc2 that name
+resolved to the public Caddy proxy (`192.168.1.6`), which returned HTTP 421, so
+uncached Discogs searches and the background cross-source artist complement
+failed before reaching CT 102. Cratedigger's web client, pipeline track
+population, and module-owned beets package now address the private Rust API
+directly at `http://192.168.1.44:8086`. This was a correctness defect, not a
+cross-VM latency regression. The metadata gate, web client, pipeline track
+population, and beets package now derive their Discogs origin from the rendered
+configuration so a healthy direct gate probe cannot mask consumer URL drift
+again. Cratedigger PR #916 removed the pipeline's separate hardcoded
+MusicBrainz and Discogs origins; the deployment pin includes merge commit
+`8381f81f17d9dc6a32fb847c6df089d016b45a8d`.
+
 ### Cutover and rollback-rehearsal record
 
 The reviewed cutover closure was activated on doc2, then the complete
 cutover/rollback/restore-forward sequence was exercised on 2026-07-28:
 
-1. doc2 consumers resolved `musicbrainz.local.com` to `192.168.1.43` and
-   `discogs.local.com` to `192.168.1.44`; Cratedigger web, importer, and preview
-   workers were active against the remote mirrors.
+1. The target mirror addresses and representative direct probes passed, and
+   Cratedigger web, importer, and preview workers were active. A subsequent
+   cache-aware consumer audit corrected Cratedigger's stale public Discogs URL
+   to the private CT 102 API as recorded above.
 2. A persistent manual metadata hold stopped those workers before doc2 was
    switched to the immediately preceding source-enabled generation.
 3. The source PostgreSQL/API units and representative local API probes passed;
