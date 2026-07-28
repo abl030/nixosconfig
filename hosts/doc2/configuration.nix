@@ -191,6 +191,7 @@
       cratedigger = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";
+        metadataGate.remoteDiscogsImportHost = "192.168.1.44";
       };
       paperless = {
         enable = true;
@@ -223,12 +224,12 @@
         dataDir = "/mnt/virtio/youtarr";
       };
       musicbrainz = {
-        enable = true;
+        enable = false;
         dataDir = "/mnt/virtio/musicbrainz";
         mirrorDir = "/mnt/mirrors/musicbrainz";
       };
       discogs = {
-        enable = true;
+        enable = false;
         mirrorDir = "/mnt/mirrors/discogs";
       };
       overseerr = {

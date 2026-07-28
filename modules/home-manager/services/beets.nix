@@ -235,7 +235,7 @@
 }: let
   cfg = config.homelab.beets;
   # Patch beets plugins to use local mirrors instead of upstream APIs:
-  # - lyrics.py → local LRCLIB at 192.168.1.35:3300
+  # - lyrics.py → local LRCLIB at 192.168.1.43:3300
   # - discogs.py → local Discogs mirror at discogs.ablz.au (issue #69)
   beetsWithLocalMirrors = pkgs.beets.overrideAttrs (old: {
     postPatch =
@@ -243,7 +243,7 @@
       + ''
         substituteInPlace beetsplug/lyrics.py \
           --replace-fail 'BASE_URL = "https://lrclib.net/api"' \
-                         'BASE_URL = "http://192.168.1.35:3300/api"'
+                         'BASE_URL = "http://192.168.1.43:3300/api"'
 
         substituteInPlace beetsplug/discogs/__init__.py \
           --replace-fail 'self.discogs_client = Client(USER_AGENT, user_token=user_token)' \
@@ -335,7 +335,7 @@ in {
         };
 
         musicbrainz = {
-          host = "192.168.1.35:5200";
+          host = "192.168.1.43:5200";
           https = false;
           ratelimit = 100;
         };

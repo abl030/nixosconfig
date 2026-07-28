@@ -5,7 +5,10 @@
   config,
   hostConfig,
   ...
-}: {
+}: let
+  privateFlakeAuth = hostConfig.privateFlakeAuth or true;
+  atuinCredentials = hostConfig.atuinCredentials or true;
+in {
   # ---------------------------------------------------------
   # 0. IDENTITY & BOOTSTRAP
   # ---------------------------------------------------------
@@ -39,19 +42,22 @@
   nixpkgs.config.allowUnfree = true;
 
   nix = {
-    settings = {
-      experimental-features = ["nix-command" "flakes"];
-      download-buffer-size = 256 * 1024 * 1024; # 256 MB
-      auto-optimise-store = true;
-      netrc-file = config.sops.secrets.nix-netrc.path;
-      # Allow the admin user to copy unsigned store paths via SSH
-      # (fleet-internal deploys with nixos-rebuild --target-host).
-      trusted-users = ["root" hostConfig.user];
-    };
+    settings =
+      {
+        experimental-features = ["nix-command" "flakes"];
+        download-buffer-size = 256 * 1024 * 1024; # 256 MB
+        auto-optimise-store = true;
+        # Allow the admin user to copy unsigned store paths via SSH
+        # (fleet-internal deploys with nixos-rebuild --target-host).
+        trusted-users = ["root" hostConfig.user];
+      }
+      // lib.optionalAttrs privateFlakeAuth {
+        netrc-file = config.sops.secrets.nix-netrc.path;
+      };
 
     # Include access-tokens at runtime for private flake metadata resolution.
     # The file is derived from nix-netrc by an activation script below.
-    extraOptions = ''
+    extraOptions = lib.mkIf privateFlakeAuth ''
       !include /run/secrets/nix-access-tokens
     '';
 
@@ -267,29 +273,31 @@
   # ---------------------------------------------------------
   # 4b. PRIVATE FLAKE AUTH
   # ---------------------------------------------------------
-  sops.secrets = {
-    nix-netrc = {
-      sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
-      format = "binary";
+  sops.secrets =
+    lib.optionalAttrs privateFlakeAuth {
+      nix-netrc = {
+        sopsFile = config.homelab.secrets.sopsFile "nix-netrc";
+        format = "binary";
+      };
+    }
+    // lib.optionalAttrs atuinCredentials {
+      # Atuin sync credentials — deploy session token and encryption key
+      # so `atuin sync` works on every interactive host without manual login.
+      atuin-session = {
+        sopsFile = config.homelab.secrets.sopsFile "atuin-session";
+        format = "binary";
+        owner = hostConfig.user;
+        path = "${hostConfig.homeDirectory}/.local/share/atuin/session";
+        mode = "0600";
+      };
+      atuin-key = {
+        sopsFile = config.homelab.secrets.sopsFile "atuin-key";
+        format = "binary";
+        owner = hostConfig.user;
+        path = "${hostConfig.homeDirectory}/.local/share/atuin/key";
+        mode = "0600";
+      };
     };
-
-    # Atuin sync credentials — deploy session token and encryption key
-    # so `atuin sync` works on every host without manual `atuin login`.
-    atuin-session = {
-      sopsFile = config.homelab.secrets.sopsFile "atuin-session";
-      format = "binary";
-      owner = hostConfig.user;
-      path = "${hostConfig.homeDirectory}/.local/share/atuin/session";
-      mode = "0600";
-    };
-    atuin-key = {
-      sopsFile = config.homelab.secrets.sopsFile "atuin-key";
-      format = "binary";
-      owner = hostConfig.user;
-      path = "${hostConfig.homeDirectory}/.local/share/atuin/key";
-      mode = "0600";
-    };
-  };
 
   # Least-privilege secrets (#232): NO sops secret may carry world (other) access.
   # sops-nix defaults to 0400 (root-only), so a leak only happens via an explicit
@@ -326,7 +334,7 @@
   # the flake, not after. See issue #210,
   # modules/nixos/lib/refresh-access-tokens.nix, and
   # docs/wiki/infrastructure/github-pat-and-private-inputs.md.
-  system.activationScripts.nix-access-tokens = {
+  system.activationScripts.nix-access-tokens = lib.mkIf privateFlakeAuth {
     deps = ["setupSecrets"];
     text = ''
       ${import ../lib/refresh-access-tokens.nix {inherit pkgs;}}

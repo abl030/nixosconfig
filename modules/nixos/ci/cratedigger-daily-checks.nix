@@ -187,7 +187,7 @@ in {
           XDG_CACHE_HOME = "${stateDir}/cache";
           XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
-          CRATEDIGGER_MIRROR_URL = "http://192.168.1.35:5200";
+          CRATEDIGGER_MIRROR_URL = "http://192.168.1.43:5200";
           # ProtectHome hides the user's nix.conf, so enable the client-side
           # flake commands and classic nix-shell lookup explicitly inside this
           # sandboxed unit. Node is also explicit in path because run_tests.sh

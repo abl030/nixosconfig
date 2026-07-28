@@ -1,9 +1,9 @@
 # MusicBrainz
 
-**Last updated:** 2026-05-23
-**Status:** active on `doc2`; external PostgreSQL and OCI migration completed 2026-05-14; replication fail-loud + schema auto-heal landed 2026-05-23
+**Last updated:** 2026-07-28
+**Status:** dedicated unprivileged LXC canary on CT 100 (`192.168.1.43`); frozen `doc2` source retained for rollback
 **Owner:** `modules/nixos/services/musicbrainz.nix`
-**Issue:** #228
+**Issues:** #228, #53
 
 MusicBrainz serves the local `/ws/2` API used by Beets and cratedigger. LRCLIB
 runs in the same MusicBrainz operational boundary for Beets lyrics. LMD/Lidarr
@@ -12,14 +12,27 @@ monitoring, firewall exposure, or secret surface.
 
 ## Current Boundary
 
+- Guest: Proxmox CT 100, `musicbrainz`, `192.168.1.43`, 8 CPU / 24 GiB.
 - MusicBrainz web/API port: `5200`
 - LRCLIB port: `3300`
 - Cratedigger gate: MusicBrainz `/ws/2` is a hard gate.
 - Non-gates: LRCLIB and optional public Beets enrichment providers.
+- Architecture and rollback runbook: [metadata-mirror-lxc-migration](../infrastructure/metadata-mirror-lxc-migration.md).
 
 ## PostgreSQL Ownership
 
-The steady-state database boundary is a fleet-managed nspawn PostgreSQL service:
+On the dedicated CT, PostgreSQL runs natively in the outer unprivileged LXC:
+
+- Unit: `postgresql.service`
+- Data path: `/var/lib/musicbrainz-postgresql/postgres/18`
+- Host dataset: `nvmeprom/metadata-mirrors/musicbrainz/postgres`
+- Application DB: `musicbrainz_db`
+- DB user: `musicbrainz`
+- Podman clients: `host.containers.internal:5432`, admitted only from the
+  `podman+` firewall interface prefix.
+
+The frozen doc2 rollback source retains the previous fleet-managed nspawn
+PostgreSQL boundary:
 
 - Unit: `container@musicbrainz-db.service`
 - Helper: `modules/nixos/lib/mk-pg-container.nix`
