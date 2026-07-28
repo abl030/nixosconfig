@@ -1,0 +1,96 @@
+# Winery hot-water demand analytics.
+# Design, calibration, and retention notes:
+# docs/wiki/services/indoor-water-meter.md
+
+utility_meter:
+  winery_hot_water_quarter_hourly:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - This 15 Minutes
+    unique_id: winery_hot_water_quarter_hourly
+    cycle: quarter-hourly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_hourly:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - This Hour
+    unique_id: winery_hot_water_hourly
+    cycle: hourly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_daily:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - Today
+    unique_id: winery_hot_water_daily
+    cycle: daily
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_weekly:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - This Week
+    unique_id: winery_hot_water_weekly
+    cycle: weekly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_monthly:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - This Month
+    unique_id: winery_hot_water_monthly
+    cycle: monthly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_yearly:
+    source: sensor.indoor_water_meter_total_water_litres
+    name: Winery Hot Water - This Year
+    unique_id: winery_hot_water_yearly
+    cycle: yearly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+# Home Assistant has no native unbounded maximum helper. Trigger-based template
+# sensors restore their state, so this retains the highest valid flow forever.
+# Seed with the 15.459 L/min flow calculated from the verified real-pulse
+# interval observed during commissioning after applying the final 10 L/pulse
+# calibration. The pre-calibration Recorder maximum must not be used directly.
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: sensor.indoor_water_meter_flow_rate
+        not_to:
+          - unknown
+          - unavailable
+    sensor:
+      - name: Winery Hot Water Peak Flow Ever
+        unique_id: winery_hot_water_peak_flow_ever
+        unit_of_measurement: L/min
+        device_class: volume_flow_rate
+        state_class: measurement
+        icon: mdi:speedometer
+        state: >-
+          {% set current = trigger.to_state.state | float(0)
+            if trigger.platform == 'state' else 0 %}
+          {% set previous = this.state | float(15.459) %}
+          {{ [current, previous, 15.459] | max | round(3) }}
+        attributes:
+          peak_recorded_at: >-
+            {% set current = trigger.to_state.state | float(0)
+              if trigger.platform == 'state' else 0 %}
+            {% set previous = this.state | float(15.459) %}
+            {% if current > previous %}
+              {{ now().isoformat() }}
+            {% else %}
+              {{ this.attributes.get('peak_recorded_at') }}
+            {% endif %}
+          seed_basis: Verified real-pulse interval from 2026-07-28 commissioning

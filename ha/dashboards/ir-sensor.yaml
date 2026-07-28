@@ -418,3 +418,148 @@ views:
     - entity: sensor.bfplus_advantage_yearly
       name: Yearly
       icon: mdi:scale-balance
+- title: Hot Water
+  path: hot-water
+  icon: mdi:water-thermometer
+  cards:
+  - type: markdown
+    content: |
+      ## ♨️ Winery Hot-Water Demand
+      Demand data for sizing solar hot-water generation and storage. The meter
+      currently measures in 10 L pulses, so short-period totals are quantised
+      in 10 L steps.
+
+      > **Commissioning note:** the 2026-07-28 raw flow history contains one
+      > 10×-low point recorded before final calibration. **Peak Flow Ever** is
+      > corrected; the new hourly and daily usage series start from a clean
+      > baseline.
+  - type: horizontal-stack
+    cards:
+    - type: entity
+      entity: sensor.indoor_water_meter_flow_rate
+      name: Current Flow
+      icon: mdi:waves-arrow-right
+    - type: entity
+      entity: sensor.winery_hot_water_peak_flow_ever
+      name: Peak Flow Ever
+      icon: mdi:speedometer
+    - type: entity
+      entity: sensor.winery_hot_water_today
+      name: Used Today
+      icon: mdi:calendar-today
+    - type: entity
+      entity: sensor.winery_hot_water_this_hour
+      name: Used This Hour
+      icon: mdi:clock-outline
+  - type: history-graph
+    title: Flow Rate — Last 24 Hours
+    hours_to_show: 24
+    entities:
+    - entity: sensor.indoor_water_meter_flow_rate
+      name: Hot-Water Flow
+  - type: entities
+    title: Usage Totals
+    show_header_toggle: false
+    entities:
+    - type: section
+      label: Short-period demand
+    - entity: sensor.winery_hot_water_this_15_minutes
+      name: This 15 Minutes
+      icon: mdi:timer-sand
+    - type: attribute
+      entity: sensor.winery_hot_water_this_15_minutes
+      attribute: last_period
+      name: Previous 15 Minutes
+      icon: mdi:timer-sand-complete
+    - entity: sensor.winery_hot_water_this_hour
+      name: This Hour
+      icon: mdi:clock-outline
+    - type: attribute
+      entity: sensor.winery_hot_water_this_hour
+      attribute: last_period
+      name: Previous Hour
+      icon: mdi:clock-check-outline
+    - type: section
+      label: Daily and longer totals
+    - entity: sensor.winery_hot_water_today
+      name: Today
+      icon: mdi:calendar-today
+    - type: attribute
+      entity: sensor.winery_hot_water_today
+      attribute: last_period
+      name: Yesterday
+      icon: mdi:calendar-arrow-left
+    - entity: sensor.winery_hot_water_this_week
+      name: This Week
+      icon: mdi:calendar-week
+    - entity: sensor.winery_hot_water_this_month
+      name: This Month
+      icon: mdi:calendar-month
+    - entity: sensor.winery_hot_water_this_year
+      name: This Year
+      icon: mdi:calendar-star
+    - entity: sensor.indoor_water_meter_total_water_litres
+      name: Lifetime Total
+      icon: mdi:counter
+    - type: section
+      label: Related energy
+    - entity: sensor.sa_todays_hot_water_total
+      name: Hot-Water Electricity Today (Solar Analytics)
+      icon: mdi:water-boiler
+  - type: statistics-graph
+    title: Hourly Hot-Water Usage — Last 7 Days
+    entities:
+    - entity: sensor.winery_hot_water_this_hour
+      name: Litres per hour
+    stat_types:
+    - change
+    period: hour
+    days_to_show: 7
+    chart_type: bar
+    hide_legend: true
+  - type: statistics-graph
+    title: Daily Hot-Water Usage — Last 90 Days
+    entities:
+    - entity: sensor.winery_hot_water_today
+      name: Litres per day
+    stat_types:
+    - change
+    period: day
+    days_to_show: 90
+    chart_type: bar
+    hide_legend: true
+  - type: statistics-graph
+    title: Hourly Peak and Mean Flow — Last 30 Days
+    entities:
+    - entity: sensor.indoor_water_meter_flow_rate
+      name: Flow rate
+    stat_types:
+    - max
+    - mean
+    period: hour
+    days_to_show: 30
+    chart_type: line
+  - type: statistics-graph
+    title: Daily Hot-Water Electricity — Last 90 Days
+    entities:
+    - entity: sensor.sa_todays_hot_water_total
+      name: Solar Analytics estimate
+    stat_types:
+    - change
+    period: day
+    days_to_show: 90
+    chart_type: bar
+    hide_legend: true
+  - type: markdown
+    content: |
+      ### How to read this for system sizing
+      - **Daily litres** indicate storage capacity and total heating demand.
+      - **Hourly and 15-minute litres** show when stored hot water is drawn.
+      - **Peak L/min** indicates the delivery rate the plumbing and backup heat
+        source must sustain.
+      - **Electrical energy** is Solar Analytics' hot-water load estimate, not
+        measured thermal output.
+      - Compare at least several representative production weeks, including
+        busy cleaning and processing days, before choosing equipment.
+      - The next useful instruments are cold-inlet and hot-outlet temperatures;
+        together with litres they allow direct thermal-energy calculation.
