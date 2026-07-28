@@ -1,6 +1,6 @@
 # Indoor Water Meter Tracker
 
-- **Status:** Live 2026-07-28; real reed pulses confirmed, standard 10 L/pulse calibration selected
+- **Status:** Live 2026-07-28; real reed pulses, 10 L/pulse calibration, volume analytics, and estimated thermal-demand analytics confirmed
 - **Wiki:** [`docs/wiki/services/indoor-water-meter.md`](../wiki/services/indoor-water-meter.md)
 - **Firmware:** [`ha/esphome/water-meter.yaml`](../../ha/esphome/water-meter.yaml)
 
@@ -27,11 +27,21 @@
 - [x] Prove all usage helpers and the lifetime peak survive a Home Assistant Core restart.
 - [x] Observe the first hourly reset move `20 L` into the previous-period field.
 - [x] Correct the six one-time unitless Recorder metadata entries and clear their Repairs.
+- [x] Add a 14-day ambient-derived cold-water temperature proxy for the 50 kL tank.
+- [x] Add current and lifetime-peak estimated thermal-power sensors.
+- [x] Add restored lifetime thermal energy from volume deltas and temperature rise.
+- [x] Add 15-minute, hourly, daily, weekly, monthly, and yearly thermal-energy helpers.
+- [x] Replace the cramped four-card row with a legible two-column tile grid.
+- [x] Add thermal model, total, power, and history cards to the Hot Water view.
+- [x] Verify one real 10 L pulse adds exactly `0.850700 kWh` under the model.
+- [x] Prove thermal totals, period helpers, proxy, and lifetime peak survive a Core restart.
+- [x] Verify all thermal Recorder metadata and zero active unit/statistics Repairs.
 
 ## Follow-up
 
 - [ ] Cross-check 10 L/pulse against a larger mechanical-register delta during normal use.
 - [ ] Reserve `192.168.100.89` to ESP32 MAC `30:76:F5:F4:22:FC` in work DHCP.
 - [ ] If the lease changes first, update the Tailscale host alias and HA integration host.
-- [ ] Add cold-inlet and hot-outlet temperature probes before final thermal sizing.
+- [ ] Add an insulated cold-inlet or tank-outlet probe before final thermal sizing.
+- [ ] Add a hot-outlet probe if the fixed 85°C setting needs measurement.
 - [ ] Add cable-noise mitigation only if real logs show phantom pulses.

@@ -1,9 +1,11 @@
 # Indoor Water Meter
 
 - **Date:** 2026-07-27 (updated 2026-07-28)
-- **Status:** Live on independent power with the reed connected. Two clean
-  water-driven pulses have been observed. The selected calibration is the
-  WMMJH-25-PN standard 10 L/pulse option (`0.1` pulses/L).
+- **Status:** Live on independent power with the reed connected. Clean
+  water-driven pulse operation and 16 real lifetime pulses are confirmed. The
+  selected calibration is the
+  WMMJH-25-PN standard 10 L/pulse option (`0.1` pulses/L). Volume and estimated
+  thermal-demand analytics are live.
 - **Tracker:** [`docs/todo/indoor-water-meter.md`](../../todo/indoor-water-meter.md)
 - **Firmware source:** [`ha/esphome/water-meter.yaml`](../../../ha/esphome/water-meter.yaml)
 - **HA analytics source:** [`ha/water_meter.yaml`](../../../ha/water_meter.yaml)
@@ -11,9 +13,9 @@
 
 ## Current physical state
 
-The generic ESP32 DevKit is powered from an independent USB supply. The passive
-two-wire reed is connected between the screw terminals labelled `D27` (GPIO27)
-and `GND`; polarity does not matter.
+The generic ESP32 DevKit is wall-mounted and powered from an independent USB
+supply. The passive two-wire reed is connected between the screw terminals
+labelled `D27` (GPIO27) and `GND`; polarity does not matter.
 
 ## What was proved
 
@@ -96,6 +98,8 @@ and conversion change make its state and cumulative sum converge on the real
 water pulses: after the migration, two real pulses equal 20 L or `0.020 m³`.
 The 08:30 AWST recorder bucket was verified with both state and cumulative sum at
 approximately `0.020 m³`; the synthetic pulse did not remain in recorded usage.
+By the final thermal-model verification, the restored counter had reached
+16 real pulses, `160 L`, and approximately `0.160 m³`.
 
 After a reboot, live flow is `unknown` until `pulse_meter` has a new pulse
 interval. It publishes the calibrated rate on the next pair of pulses and falls
@@ -137,19 +141,22 @@ rather than ongoing drift.
 sensor because the native Statistics helper requires a bounded sample count or
 time window and cannot represent an unbounded lifetime maximum. It is seeded at
 `15.459 L/min`, calculated from the verified real-pulse interval after applying
-the final 10 L/pulse conversion. Only a later valid flow above that value can
-raise it.
+the final 10 L/pulse conversion. Later production flow raised the live maximum
+to `29.107 L/min`; only a still-higher valid flow can raise it again.
 
 The fourth view at **IR Sensor → Hot Water** follows the electricity Overview
 and contains:
 
-- current flow, lifetime peak, current-hour usage, and today's usage;
+- readable two-column tile summaries for current flow, lifetime peak,
+  current-hour usage, and today's usage on both phone and desktop;
 - a native table for current and previous 15-minute/hour/day periods plus
   week, month, year, and lifetime totals;
 - the raw flow trace for the last 24 hours;
 - clean helper-based hourly-volume bars for seven days and daily-volume bars
   for 90 days;
 - hourly maximum and mean flow for 30 days;
+- estimated current/lifetime-peak thermal power, period/lifetime thermal
+  energy, temperature-model inputs, and thermal history;
 - the existing Solar Analytics hot-water electrical-energy estimate and its
   daily 90-day history.
 
@@ -170,13 +177,80 @@ statistics are retained indefinitely:
 
 For solar hot-water sizing, accumulate several representative production weeks,
 including cleaning and vintage peaks. Volume is the strongest storage-capacity
-input; 15-minute/hourly draw, peak flow, and electrical input describe delivery
-and backup-heating requirements. Adding cold-inlet and hot-outlet temperature
-probes would allow direct thermal-demand estimates:
+input; 15-minute/hourly draw, peak flow, thermal demand, and electrical input
+describe delivery, collection, storage, and backup-heating requirements.
+
+## Estimated thermal demand
+
+No tank, cold-inlet, or hot-outlet temperature probe is present. The only
+suitable on-site proxy is `sensor.imarga43_temperature`, the winery Weather
+Underground outdoor-temperature observation. Its long-term Recorder history has
+good coverage, but instantaneous outdoor air is too volatile to represent a
+50 kL tank.
+
+Home Assistant therefore implements a deliberately slow planning model:
+
+1. `sensor.winery_outdoor_temperature_24h_mean` calculates a time-weighted
+   average from the preceding 24 hours of Recorder samples.
+2. `sensor.winery_cold_water_estimated_temperature` updates once daily with a
+   14-day e-folding exponential low-pass:
+   `new = 0.931 × previous + 0.069 × daily mean`.
+3. The cold-water estimate was seeded at `11.853°C`, the measured 14-day
+   outdoor mean ending 2026-07-28. An update is skipped unless the 24-hour
+   statistics buffer spans at least 90% of the day.
+4. Delivery temperature is explicitly assumed constant at `85°C`.
+
+The resulting quantities are:
 
 ```text
-thermal kWh = litres × temperature rise °C × 0.001163
+temperature rise °C = 85°C - estimated inlet temperature
+thermal kW = flow L/min × temperature rise °C × 0.06978
+thermal kWh = volume litres × temperature rise °C × 0.001163
 ```
+
+At commissioning, the modelled rise was `73.147°C`. This is an engineering
+estimate for comparative system sizing, not a measured tank temperature,
+delivered heat, or appliance efficiency.
+
+The first model load backfilled the then-known `150 L` as `12.760494 kWh`.
+One subsequent real 10 L reed pulse added exactly `0.850700 kWh`, producing a
+restored lifetime total of `13.611194 kWh` at `160 L`. The existing
+`29.107 L/min` lifetime flow peak maps to an estimated `148.568 kW` thermal
+peak at the commissioning temperature rise.
+
+`sensor.winery_hot_water_total_thermal_energy` is a restored
+`total_increasing` template sensor. It adds energy only when the restored
+lifetime-litres counter increases, applying the temperature rise valid for that
+increment. It deliberately does not integrate the live flow sensor because
+ESPHome holds the last interval-derived flow until its two-minute timeout;
+integrating that held value would over-count thermal energy. A lower/replaced
+volume counter re-baselines without subtracting accumulated energy.
+
+Six native Utility Meter helpers split the cumulative thermal total into
+15-minute, hourly, daily, weekly, monthly, and yearly estimated kWh. The same
+restored-state pattern retains the unbounded lifetime thermal-power peak. These
+entities record thermal demand even when not every series is displayed:
+
+| Entity | Meaning |
+|---|---|
+| `sensor.winery_hot_water_thermal_power` | Current estimated thermal delivery rate |
+| `sensor.winery_hot_water_peak_thermal_power_ever` | Restored lifetime estimated peak |
+| `sensor.winery_hot_water_total_thermal_energy` | Restored lifetime estimated heat delivered |
+| `sensor.winery_hot_water_thermal_this_15_minutes` | Current 15-minute estimated energy |
+| `sensor.winery_hot_water_thermal_this_hour` | Current hourly estimated energy |
+| `sensor.winery_hot_water_thermal_today` | Current daily estimated energy |
+| `sensor.winery_hot_water_thermal_this_week` | Current weekly estimated energy |
+| `sensor.winery_hot_water_thermal_this_month` | Current monthly estimated energy |
+| `sensor.winery_hot_water_thermal_this_year` | Current yearly estimated energy |
+
+Solar Analytics' hot-water electrical sensor remains separate. It estimates
+electrical input, while this model estimates heat carried by the metered water;
+their ratio must not be presented as verified efficiency.
+
+An insulated contact probe on the tank outlet or cold inlet pipe, sampled while
+water is flowing, is the preferred next measurement. It can replace the proxy
+without changing the volume counter or losing accumulated demand history. A
+hot-outlet probe would additionally verify the fixed 85°C assumption.
 
 The device is on the work LAN at the DHCP-assigned address
 `192.168.100.89`. Home Assistant reaches only TCP 6053 (encrypted ESPHome API)
@@ -196,8 +270,9 @@ password in this repository.
    during normal use; this distinguishes it from the optional 1 L/pulse version
    without wasting water.
 2. Reserve the work DHCP address to the ESP32 MAC.
-3. Add cold-inlet and hot-outlet temperature probes if thermal-demand
-   calculation is required for final equipment selection.
+3. Install an insulated cold-inlet/tank-outlet probe before final equipment
+   selection and compare it with the ambient-derived proxy; add a hot-outlet
+   probe if the fixed 85°C setting also needs verification.
 4. Add cable-noise mitigation only if real logs show phantom pulses.
 
 ## Calibration and maths
@@ -301,5 +376,27 @@ On 2026-07-28:
   remaining water-unit Repairs and no winery statistics errors.
 - The `ir-sensor` dashboard gained the fourth **Hot Water** view; live dashboard
   structure and all referenced entities were verified against the tracked YAML.
+- Home Assistant Core accepted the thermal-demand package with a Recorder-backed
+  24-hour outdoor mean, restored inlet-temperature proxy, current and lifetime
+  peak thermal power, cumulative thermal energy, and six thermal Utility Meter
+  periods.
+- The commissioning proxy was `11.853°C`, the assumed delivery temperature was
+  `85.0°C`, and the resulting rise was `73.147°C`; the 24-hour source statistics
+  had full age coverage.
+- The then-known `150 L` backfilled to `12.760494 kWh`. A later real pulse
+  advanced the counters to `160 L` and `13.611194 kWh`, an exact
+  `0.850700 kWh` increment under the model.
+- The natural 10:00 boundary paired `10 L` with `0.850700 kWh` for the previous
+  15 minutes and `140 L` with `11.909795 kWh` for the previous hour.
+- Recorder assigned `kW`/power metadata to the thermal-rate sensors,
+  `kWh`/energy metadata to the cumulative and period sensors, and
+  `°C`/temperature metadata to the model sensors. There were zero active
+  Repairs and no thermal unit or statistics issues.
+- A subsequent Core restart restored `160 L`, `13.611194 kWh`, the
+  `148.568 kW` thermal peak, all six current/previous period values, and every
+  temperature-model state without reset.
+- The Hot Water dashboard now uses readable two-column tile grids for volume
+  and thermal summaries. Its 16-card live structure exactly matched the tracked
+  YAML and all 23 referenced entities resolved.
 
 Revisit this page after the mechanical-register cross-check or DHCP reservation.
