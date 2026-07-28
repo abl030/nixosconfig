@@ -1,6 +1,6 @@
 # Metadata mirrors on dedicated Proxmox LXCs
 
-**Status:** canary deployed 2026-07-28; doc2 retained as a frozen rollback source
+**Status:** consumer cutover and rollback rehearsal completed 2026-07-28; doc2 retained as a frozen rollback source
 **Issue:** Forgejo #53
 **Owners:** `hosts/musicbrainz/configuration-lxc.nix`, `hosts/discogs/configuration-lxc.nix`
 
@@ -174,6 +174,42 @@ These are smoke-test timings rather than capacity benchmarks. Their purpose is
 to reject a gross migration regression while the exact row-count and response
 identity checks establish correctness.
 
+### Cutover and rollback-rehearsal record
+
+The reviewed cutover closure was activated on doc2, then the complete
+cutover/rollback/restore-forward sequence was exercised on 2026-07-28:
+
+1. doc2 consumers resolved `musicbrainz.local.com` to `192.168.1.43` and
+   `discogs.local.com` to `192.168.1.44`; Cratedigger web, importer, and preview
+   workers were active against the remote mirrors.
+2. A persistent manual metadata hold stopped those workers before doc2 was
+   switched to the immediately preceding source-enabled generation.
+3. The source PostgreSQL/API units and representative local API probes passed;
+   source producer timers remained stopped, so the rehearsal introduced no
+   writer divergence.
+4. doc2 was switched forward to the reviewed cutover generation. The manual
+   hold survived both generation switches and a subsequent full doc2 reboot;
+   guarded workers remained inactive until the hold was explicitly released.
+5. After release, all three guarded workers resumed, both remote probes passed,
+   and the canonical persistent `discogs-import.timer` retained its historical
+   2 July stamp and next 2 August schedule. CT 102's independent timer remained
+   disabled.
+
+CT 100 and CT 102 were also rebooted independently after their final closures
+were activated. Their native PostgreSQL and API/application units returned
+healthy, representative queries passed, and TCP 5432 remained blocked from the
+LAN on both guests.
+
+During the doc2 reboot rehearsal, SeaBIOS once fell through to PXE. The disk's
+pre-incident boot sectors were preserved and restored, and an exact no-network
+clone of those sectors booted with both an empty Proxmox `boot` property and an
+explicit disk order. The event therefore did not reproduce as a persistent
+on-disk or default-order fault. VM 114 now has the defensive explicit setting
+`boot: order=virtio0`; a subsequent controlled reboot reached NixOS normally.
+The full pre-repair boot-drive snapshot is
+`nvmeprom/vm-114-disk-0@pre-doc2-boot-repair-20260728-151902` and must remain
+until the canary is retired.
+
 ### Required clean-restart checks
 
 Run after deploying the exact reviewed closures:
@@ -193,6 +229,7 @@ Also verify:
 - PostgreSQL is not listening on either guest's LAN interface except where explicitly intended; MusicBrainz TCP 5432 is reachable from its Podman bridge only.
 - `discogs-import.timer` is disabled on CT 102 and active as the remote
   coordinator on doc2.
-- source APIs on doc2 still pass with source replication/import timers deliberately stopped.
+- the source-enabled rollback generation still restores local source APIs, with
+  source replication/import timers deliberately left stopped during rehearsal.
 - ACME certificates are Let's Encrypt rather than the bootstrap minica certificate.
 - Loki logs and node/process metrics identify the new host names.
