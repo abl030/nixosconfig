@@ -25,8 +25,16 @@ Each host keeps `/var/lib/homelab/dns/records.json`:
 ```
 
 `records.json` is a **local, per-host** convenience cache to skip redundant
-Cloudflare API calls (`ip+ttl+recordId` match → "up-to-date (cache)", no call).
-`zone-id` caches the zone lookup. These are *not* authoritative — Cloudflare is.
+Cloudflare API calls. An `ip+ttl+recordId` match is accepted only when live DNS
+also resolves to the desired IP; otherwise the activation refreshes Cloudflare
+using the cached record ID. `zone-id` caches the zone lookup. These are *not*
+authoritative — Cloudflare is.
+
+The live-resolution guard matters after out-of-band DNS changes such as a
+rollback rehearsal. Without it, a destination host can retain a cache that says
+`.44` while Cloudflare has been restored to `.6`; every later activation then
+skips the API indefinitely and consumers hit the wrong virtual host. The nightly
+validator remains a backstop, not the first repair opportunity.
 
 ## The race it used to cause (issue #202)
 
@@ -113,6 +121,9 @@ IP/TTL changes. No `records.json` schema change was needed.
 
 ## Backstops still in place
 
+- **Activation-time live resolution check:** a cache hit is trusted only when
+  DNS resolves to the desired address. Drift forces an immediate `PUT` using the
+  cached record ID.
 - **Nightly `homelab-dns-validate`** (02:00): `dig`s each cached host; on IP
   mismatch it invalidates the cache entry and triggers a re-sync. Catches
   out-of-band deletes/changes (a deleted record resolves to the wildcard IP,
