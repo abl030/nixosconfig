@@ -61,6 +61,33 @@
     done
     exec ${lib.getExe pkgs.virtiofsd} "''${args[@]}"
   '';
+
+  # Keep the parent guest's activation transaction coupled to every local
+  # lifecycle override on its virtiofsd instance. Serialising the exact attrset
+  # used below means a future lifecycle edit also changes the parent unit, while
+  # restartIfChanged=false prevents an independent child activation job.
+  virtiofsdLifecycle = {
+    bindsTo = ["microvm@slskd.service"];
+    # microvm.nix writes this activation metadata directly into serviceConfig,
+    # so force both the NixOS policy option and the emitted drop-in directive.
+    restartIfChanged = lib.mkForce false;
+    serviceConfig.X-RestartIfChanged = lib.mkForce false;
+    requires = [
+      "mnt-virtio-slskd.mount"
+      "mnt-virtio-music-slskd.mount"
+    ];
+    after = [
+      "mnt-virtio-slskd.mount"
+      "mnt-virtio-music-slskd.mount"
+    ];
+    unitConfig = {
+      ConditionPathExists = "/run/secrets/slskd/env";
+      RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
+    };
+  };
+  virtiofsdLifecycleTrigger = pkgs.writeText "slskd-virtiofs-lifecycle-policy" (
+    builtins.toJSON virtiofsdLifecycle
+  );
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -185,27 +212,17 @@ in {
   # Trigger wrapper changes through the parent guest unit, not virtiofsd alone.
   # The guest closure does not change when only this host-side wrapper changes.
   # Restarting only virtiofsd races the guest's Restart=always path against stale
-  # sockets. PartOf= propagates explicit jobs but is insufficient when activation
-  # cancels the daemon's pending stop as it starts the guest: virtiofsd remains
-  # active after its one-shot backends disconnect. BindsTo= also follows the
-  # guest's inactive state, forcing fresh daemons before Requires=/After= starts
-  # the guest again.
-  systemd.services."microvm@slskd".restartTriggers = [virtiofsdNestedSafe];
-  systemd.services."microvm-virtiofsd@slskd" = {
-    bindsTo = ["microvm@slskd.service"];
-    requires = [
-      "mnt-virtio-slskd.mount"
-      "mnt-virtio-music-slskd.mount"
-    ];
-    after = [
-      "mnt-virtio-slskd.mount"
-      "mnt-virtio-music-slskd.mount"
-    ];
-    unitConfig = {
-      ConditionPathExists = "/run/secrets/slskd/env";
-      RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
-    };
-  };
+  # sockets. PartOf= propagates the parent's restart and BindsTo= follows its
+  # inactive state. The child must not also receive an independent activation
+  # restart job: that can be ordered after the parent starts, leaving systemd to
+  # consider the old supervisor ready after its one-shot backends disconnected.
+  # The policy marker makes the transition to parent-owned restarts cycle the
+  # complete graph once; subsequent wrapper changes use the same parent trigger.
+  systemd.services."microvm@slskd".restartTriggers = [
+    virtiofsdNestedSafe
+    virtiofsdLifecycleTrigger
+  ];
+  systemd.services."microvm-virtiofsd@slskd" = virtiofsdLifecycle;
 
   # Every Cratedigger unit that binds the handoff tree must also fail closed.
   # Otherwise a missing block disk would expose the old nested mountpoint and
