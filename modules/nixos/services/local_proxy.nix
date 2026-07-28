@@ -149,8 +149,17 @@
       cache_id=$(${pkgs.jq}/bin/jq -r --arg host "$host" '.[$host].recordId // ""' "$records_cache")
 
       if [[ "$cache_ip" == "$entry_ip" && "$cache_ttl" == "$ttl" && -n "$cache_id" ]]; then
-        echo "homelab-dns-sync: $host up-to-date (cache)"
-        continue
+        # The cache is only an API-call optimisation. An out-of-band DNS change
+        # (for example a rollback rehearsal) can leave it claiming the desired
+        # address while Cloudflare points elsewhere. Verify resolution before
+        # trusting the cache so every activation repairs that drift immediately
+        # instead of waiting for the nightly validator.
+        resolved_ip=$(${pkgs.dnsutils}/bin/dig +short "$host" | ${pkgs.coreutils}/bin/head -1)
+        if [[ "$resolved_ip" == "$entry_ip" ]]; then
+          echo "homelab-dns-sync: $host up-to-date (cache + DNS)"
+          continue
+        fi
+        echo "homelab-dns-sync: $host resolves to ''${resolved_ip:-<none>}, expected $entry_ip — refreshing"
       fi
 
       record_id="$cache_id"
