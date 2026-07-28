@@ -15,7 +15,7 @@ write root (mirrored to GitHub). See
 
 ## Runtime
 
-- Package: `forgejo-lts-15.0.2`
+- Package: `forgejo-lts-15.0.3`
 - State: `/mnt/virtio/forgejo`
 - Repositories: `/mnt/virtio/forgejo/repositories`
 - Database: SQLite at `/mnt/virtio/forgejo/data/forgejo.db`
@@ -258,6 +258,15 @@ Daily dumps land in:
 ```sh
 /mnt/data/Life/Andy/Code/forgejo-dumps
 ```
+
+The dump process receives the repository-signing public key through its own
+`forgejo-dump.service` credential directory. systemd credential directories are
+unit-private, so the dump wrapper copies the shared `app.ini` into a mode-0700
+runtime directory, applies Forgejo's `environment-to-ini` helper to override only
+`repository.signing.SIGNING_KEY`, and invokes `forgejo dump` with that exact
+private copy. Exporting the override alone is inert. The dump must never reach
+into `/run/credentials/forgejo.service/` or receive the private merge-signing
+key.
 
 List and inspect the latest dump:
 
