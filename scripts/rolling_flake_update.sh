@@ -10,9 +10,10 @@ set -Eeuo pipefail
 #
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
-# Group order is fixed: core (nixpkgs+home-manager) first so llm/rest build on the
-# cached new world, then llm (claude-code/codex — always wins through), then rest
-# (everything else; computed = all inputs - core - llm, so new inputs auto-fall in).
+# Group order is fixed: core (nixpkgs+home-manager) first so later groups build on
+# the cached new world, then llm, then nvchad (independently maintained and prone
+# to breaking flake-output changes), then rest. Rest is computed as all inputs
+# minus the named groups, so new inputs still fall into it automatically.
 
 # --- Configuration ---------------------------------------------------------
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
@@ -37,9 +38,12 @@ BASE_ANCHOR_FILE="${RFU_BASE_ANCHOR_FILE:-${STATE_DIR:+$STATE_DIR/last-verified-
 FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
-# Group membership (space-separated input names). Overridable from the nix module.
+# Group membership (space-separated input names). Core and LLM are configurable
+# from the Nix module. NvChad is a hardcoded isolation boundary.
 GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
+# Deliberately not configurable: nvchad4nix must never leak back into rest.
+GROUP_NVCHAD="nvchad4nix"
 
 # Notification / triage knobs (passed by the module; empty = skip that bit).
 GOTIFY_URL="${GOTIFY_URL:-}"
@@ -547,10 +551,10 @@ fi
 
 DATE=$(date +%F)
 
-# Compute the "rest" group = all top-level inputs minus core minus llm.
+# Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_CORE $GROUP_LLM "
+NAMED=" $GROUP_CORE $GROUP_LLM $GROUP_NVCHAD "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
@@ -560,6 +564,7 @@ for inp in $ALL_INPUTS; do
 done
 log "   core: $GROUP_CORE"
 log "   llm : $GROUP_LLM"
+log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
 
 # --- Run each group as its own transaction ---------------------------------
@@ -567,6 +572,8 @@ log "   rest:$GROUP_REST"
 try_group core $GROUP_CORE || true
 # shellcheck disable=SC2086
 try_group llm $GROUP_LLM || true
+# shellcheck disable=SC2086
+try_group nvchad $GROUP_NVCHAD || true
 # shellcheck disable=SC2086
 try_group rest $GROUP_REST || true
 

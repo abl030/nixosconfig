@@ -59,7 +59,7 @@ in {
   ];
 
   imports = [
-    inputs.nvchad4nix.homeManagerModule
+    inputs.nvchad4nix.homeManagerModules.default
   ];
 
   home.file = {

@@ -58,10 +58,7 @@
     #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     fzf-preview = {
@@ -1091,7 +1088,7 @@
               #!${pkgs.bash}/bin/bash
               set -euo pipefail
               if [ "$#" -eq 3 ] && [ "$1" = "flake" ] && [ "$2" = "metadata" ] && [ "$3" = "--json" ]; then
-                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{}}}}}\n'
+                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","other-input":"other-input"}}}}}\n'
                 exit 0
               fi
               echo "unexpected nix invocation in signing fixture: $*" >&2
@@ -1277,6 +1274,7 @@
                 REPO_DIR="$TMPDIR/local-source" \
                 RFU_REMOTE_URL="file://$remote" \
                 RFU_REQUIRE_SIGNED_BASE=1 \
+                RFU_GROUP_NVCHAD=other-input \
                 RFU_GIT_SIGNING_KEY="$TMPDIR/bot" \
                 RFU_ALLOWED_SIGNERS_FILE="$allowed" \
                 RFU_BASE_ANCHOR_FILE="$anchor_file" \
@@ -1316,7 +1314,13 @@
               valid_anchor="$TMPDIR/valid-anchor"
               valid_before="$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
               printf '%s\n' "$valid_before" > "$valid_anchor"
-              run_update "$valid_remote" "$allowed_all" "$valid_anchor"
+              run_update "$valid_remote" "$allowed_all" "$valid_anchor" | tee "$TMPDIR/valid-update.log"
+              grep -F '[nix-rolling]    nvchad: nvchad4nix' "$TMPDIR/valid-update.log"
+              grep -F '[nix-rolling]    rest: other-input' "$TMPDIR/valid-update.log"
+              if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F nvchad4nix; then
+                echo "nvchad4nix leaked into the rest update group" >&2
+                exit 1
+              fi
               git clone -q "$valid_remote" "$TMPDIR/valid-inspect"
               git -C "$TMPDIR/valid-inspect" -c "gpg.ssh.allowedSignersFile=$allowed_all" verify-commit HEAD
               test "$(git -C "$TMPDIR/valid-inspect" log --format=%s -1)" = "rolling: freshness heartbeat ($(date +%F))"

@@ -106,7 +106,7 @@ For other hosts, substitute the hostname (`#doc2` -> `#proxmox-vm`, `#igpu`, etc
 
 ### Auto-deploy
 
-`rolling-flake-update.service` on doc1 (`proxmox-vm`) bumps flake inputs and rebuilds nightly at 23:00 AWST. doc2 has its own auto-update. Neither auto-deploys agent-driven module edits — those still need the explicit `nixos-rebuild switch` above.
+`rolling-flake-update.service` on doc1 (`proxmox-vm`) bumps flake inputs and rebuilds nightly at 23:00 AWST. Updates are fail-isolated into `core` (nixpkgs + Home Manager), `llm`, `nvchad`, and computed `rest` transactions. NvChad is deliberately separate because its independently maintained flake API can break while the rest of the fleet inputs remain compatible. doc2 has its own auto-update. Neither auto-deploys agent-driven module edits — those still need the explicit `nixos-rebuild switch` above.
 
 ---
 

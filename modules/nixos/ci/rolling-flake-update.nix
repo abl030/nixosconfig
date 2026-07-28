@@ -176,7 +176,7 @@ in {
           "claude-plugin-compound-engineering"
           "claude-plugin-ha-skills"
         ];
-        # "rest" is implicit and COMPUTED in the script (all inputs - core - llm),
+        # "rest" is implicit and COMPUTED in the script (all inputs - named groups),
         # so newly-added flake inputs fall into it automatically.
       };
       description = ''
@@ -245,6 +245,7 @@ in {
             RFU_TRIAGE_PROMPT_FILE = "${triagePromptFile}";
             RFU_GROUP_CORE = lib.concatStringsSep " " (cfg.groups.core or []);
             RFU_GROUP_LLM = lib.concatStringsSep " " (cfg.groups.llm or []);
+
             # Push-deploy (forgejo#10): comma-separated "name:addr" pairs (empty
             # ⇒ the script skips the step), the GC-root dir, and doc1's deploy key.
             RFU_PUSH_DEPLOY_HOST_MAP = pushDeployHostMap;
