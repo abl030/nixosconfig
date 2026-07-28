@@ -63,7 +63,8 @@ result is forbidden; investigate the reported new/changed members instead.
 ## Metadata Gate
 
 The metadata gate helper is installed as `cratedigger-metadata-gate`. It owns
-root-only state under `/run/cratedigger-metadata-gate/holds` and accepts only
+root-only persistent safety state under
+`/var/lib/cratedigger-metadata-gate/holds` and accepts only
 fixed hold reasons:
 
 - `manual`
@@ -124,27 +125,29 @@ metadata gate's `ExecCondition` before application `ExecStartPre`, leaving the
 old localhost slskd URL in mutable state even though the evaluated Nix template
 already contained `http://192.168.21.2:5030`.
 
-MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. The migration
-is complete; this hold now protects ordinary provider restarts and rebuilds.
-Cratedigger attaches the hold before MusicBrainz retire/build/token/container
-units, then releases it only after `musicbrainz.service` verification succeeds.
+MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. MusicBrainz now
+runs in dedicated CT 100, so an operator enters this hold on doc2 before a
+provider deployment or disruptive restart and releases it only after the remote
+representative probe succeeds. Discogs's automatic monthly import is coordinated
+by doc2's `discogs-import.service`: it enters the durable hold, invokes CT 102
+through a restricted forced-command machine identity, and releases only after
+all metadata probes pass.
 
 ## Probe Shape
 
-The helper uses local loopback endpoints on doc2, not LAN literals or public
-FQDNs:
+The helper uses direct LAN endpoints for the dedicated metadata guests, not
+public FQDNs:
 
-- `http://127.0.0.1:5200/ws/2/release` with a low-limit Radiohead / OK Computer search.
-- `http://127.0.0.1:8086/health`, requiring `status = "ok"`.
-- `http://127.0.0.1:8086/api/releases/83182`, currently OK Computer in the Discogs mirror.
+- `http://192.168.1.43:5200/ws/2/release` with a low-limit Radiohead / OK Computer search.
+- `http://192.168.1.44:8086/health`, requiring `status = "ok"`.
+- `http://192.168.1.44:8086/api/releases/83182`, currently OK Computer in the Discogs mirror.
 
 These probes are intentionally lightweight and use short timeouts so the gate
 does not become another source of API load.
 
-This is a narrow exception to the repo's DNS-first rule. The gate is checking the
-same-host local service boundary and must not depend on Cloudflare, nginx, DNS,
-or public proxy health when deciding whether cratedigger should be allowed to
-hit local metadata APIs.
+This is a narrow exception to the repo's DNS-first rule. The gate is checking
+the provider service boundary and must not depend on Cloudflare, nginx, DNS, or
+public proxy health when deciding whether Cratedigger may use metadata APIs.
 
 ## Least Privilege Notes
 
@@ -177,8 +180,10 @@ so a narrower upstream `ReadWritePaths` cannot revoke it.
 
 The metadata-gate `ExecCondition` for web/importer/preview is a fixed Nix-store
 command prefixed with systemd `+`, with only
-`/run/cratedigger-metadata-gate` added to those units' `ReadWritePaths`. It can
-record a dependency hold without granting the services broad `/run` authority.
+`/var/lib/cratedigger-metadata-gate` added to those units' `ReadWritePaths`. It
+can record a dependency hold without granting the services broad `/var/lib`
+authority. Holds survive reboot; this is mandatory for remote imports that may
+continue while doc2 restarts.
 
 ## Incidents
 

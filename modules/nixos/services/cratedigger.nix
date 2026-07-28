@@ -40,7 +40,10 @@
   cfg = config.homelab.services.cratedigger;
   operatorUser = hostConfig.user or "abl030";
 
-  metadataGateStateDir = "/run/cratedigger-metadata-gate";
+  # Holds are safety state, not runtime cache. In particular, a doc2 reboot
+  # during a remote Discogs table rebuild must not erase `discogs-import` and
+  # let Cratedigger restart against a half-imported database.
+  metadataGateStateDir = "/var/lib/cratedigger-metadata-gate";
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
 
   processingDir = "${cfg.dataDir}/processing";
@@ -115,22 +118,7 @@
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
   ];
-  metadataGateDependencyUnits = [
-    "musicbrainz.service"
-    "discogs-api.service"
-  ];
-  musicbrainzMaintenanceUnits = [
-    "musicbrainz-retire-compose.service"
-    "musicbrainz-build-images.service"
-    "musicbrainz-token.service"
-    "podman-musicbrainz-valkey-1.service"
-    "podman-musicbrainz-mq-1.service"
-    "podman-musicbrainz-search-1.service"
-    "podman-musicbrainz-indexer-1.service"
-    "podman-musicbrainz-musicbrainz-1.service"
-    "podman-musicbrainz-lrclib-1.service"
-    "musicbrainz.service"
-  ];
+
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
   metadataGateTool = pkgs.writeShellApplication {
     name = "cratedigger-metadata-gate";
@@ -230,25 +218,48 @@
       }
 
       stop_guarded_units() {
-        # Only stop units that are fully RUNNING. A unit in 'activating' is
-        # mid-start (typically its start-check ExecCondition), and `systemctl
-        # stop` there kills the start job with SIGTERM — systemd records
-        # "Failed with result 'signal'" and switch-to-configuration exits 4
-        # (the 2026-07-03 deploy failure: cratedigger-musicbrainz-maintenance-
-        # hold's ExecStart raced the guarded units' starts). Every caller
-        # writes the hold file BEFORE calling us, so an in-flight start either
-        # skips cleanly via ExecCondition or runs at most one watchdog
-        # interval (1min) before the next hold_reason catches it active.
-        local unit
-        local to_stop=()
-        for unit in "''${guarded_units[@]}"; do
-          case "$(systemctl is-active "$unit" 2>/dev/null || true)" in
-            active|reloading) to_stop+=("$unit") ;;
-          esac
+        # Never SIGTERM an activating unit: doing so makes a NixOS switch fail.
+        # Instead, keep reconciling until every guarded unit is conclusively
+        # inactive. An activation that passed ExecCondition just before the hold
+        # was written may finish, but it is stopped before this function returns
+        # and therefore before any destructive remote import begins.
+        local attempts=0
+        local state unit
+        local unsettled
+        local to_stop
+        while ((attempts < 120)); do
+          ((attempts += 1))
+          unsettled=false
+          to_stop=()
+          for unit in "''${guarded_units[@]}"; do
+            if ! state="$(systemctl show --property=ActiveState --value "$unit")"; then
+              echo "failed to query guarded unit state: $unit" >&2
+              return 1
+            fi
+            case "$state" in
+              inactive|failed) ;;
+              active|reloading)
+                unsettled=true
+                to_stop+=("$unit")
+                ;;
+              "")
+                echo "systemd returned an empty state for guarded unit: $unit" >&2
+                return 1
+                ;;
+              *) unsettled=true ;;
+            esac
+          done
+
+          if [ "''${#to_stop[@]}" -gt 0 ]; then
+            systemctl stop "''${to_stop[@]}" || true
+          elif [ "$unsettled" = false ]; then
+            return 0
+          fi
+          sleep 1
         done
-        if [ "''${#to_stop[@]}" -gt 0 ]; then
-          systemctl stop "''${to_stop[@]}" || true
-        fi
+
+        echo "timed out waiting for guarded Cratedigger units to become inactive" >&2
+        return 1
       }
 
       write_hold_reason() {
@@ -455,22 +466,55 @@
     '';
   };
   metadataGateCommand = "${metadataGateTool}/bin/cratedigger-metadata-gate";
-  metadataGateStartCheckCommand = "${metadataGateCommand} start-check";
   metadataGatePrivilegedStartCheckCommand = "+${metadataGateCommand} start-check";
-  metadataGateReleaseAndResumeScript = reason:
-    pkgs.writeShellScript "cratedigger-release-${reason}-and-resume" ''
-      set -euo pipefail
-      ${metadataGateCommand} release ${lib.escapeShellArg reason}
-      ${metadataGateCommand} resume-if-clear || true
-    '';
-  metadataGateReleaseIfClearScript = reason:
-    pkgs.writeShellScript "cratedigger-release-${reason}-if-clear" ''
-      set -euo pipefail
-      if ${metadataGateCommand} check; then
-        ${metadataGateCommand} release ${lib.escapeShellArg reason}
-        ${metadataGateCommand} resume-if-clear || true
+  remoteDiscogsImportScript = pkgs.writeShellScript "cratedigger-discogs-import-remote" ''
+    set -euo pipefail
+
+    host=${lib.escapeShellArg cfg.metadataGate.remoteDiscogsImportHost}
+    # Use doc2's persistent machine identity. The matching key on the Discogs
+    # guest is forced-command + restrict, so it cannot open a shell or request
+    # any operation other than starting the importer.
+    key=/etc/ssh/ssh_host_ed25519_key
+    ssh=(
+      ${pkgs.openssh}/bin/ssh
+      -o BatchMode=yes
+      -o ConnectTimeout=30
+      -o GlobalKnownHostsFile=/etc/ssh/ssh_known_hosts
+      -o UserKnownHostsFile=/dev/null
+      -o StrictHostKeyChecking=yes
+      -o IdentitiesOnly=yes
+      -i "$key"
+      discogs-import-coordinator@"$host"
+    )
+
+    # Fail closed: any remote/import/probe failure deliberately leaves this
+    # durable hold in place. Only a completed import followed by healthy
+    # representative probes may release Cratedigger.
+    ${metadataGateCommand} hold discogs-import
+    imported=false
+    for attempt in $(${pkgs.coreutils}/bin/seq 1 4); do
+      if "''${ssh[@]}" start-discogs-import
+      then
+        imported=true
+        break
       fi
-    '';
+      echo "remote Discogs import attempt $attempt failed" >&2
+      if [ "$attempt" -lt 4 ]; then
+        ${pkgs.coreutils}/bin/sleep 15m
+      fi
+    done
+
+    if [ "$imported" != true ]; then
+      echo "remote Discogs import exhausted retries; discogs-import hold retained" >&2
+      exit 1
+    fi
+    if ! ${metadataGateCommand} check; then
+      echo "metadata probes failed after remote Discogs import; hold retained" >&2
+      exit 1
+    fi
+    ${metadataGateCommand} release discogs-import
+    ${metadataGateCommand} resume-if-clear || true
+  '';
 
   # PostgreSQL in an nspawn container — data lives at pgDataDirRoot/postgres
   # on doc2's LOCAL disk (NOT on virtiofs). The /mnt/virtio/cratedigger/postgres
@@ -514,18 +558,17 @@ in {
     metadataGate = {
       musicbrainzApiBase = lib.mkOption {
         type = lib.types.str;
-        # Intentional DNS-first exception: this gate is validating the local
-        # process boundary on doc2 and must not depend on Cloudflare/nginx/proxy
-        # reachability while deciding whether to hold cratedigger.
-        default = "http://127.0.0.1:${toString config.homelab.services.musicbrainz.webPort}/ws/2";
-        description = "Local MusicBrainz /ws/2 API base URL used by the cratedigger metadata gate.";
+        # Direct LAN endpoint: the gate must not depend on Cloudflare/nginx
+        # while deciding whether to hold cratedigger.
+        default = "http://192.168.1.43:${toString config.homelab.services.musicbrainz.webPort}/ws/2";
+        description = "MusicBrainz /ws/2 API base URL used by the cratedigger metadata gate.";
       };
 
       discogsApiBase = lib.mkOption {
         type = lib.types.str;
-        # Intentional DNS-first exception: see musicbrainzApiBase above.
-        default = "http://127.0.0.1:${toString config.homelab.services.discogs.apiPort}";
-        description = "Local Discogs API base URL used by the cratedigger metadata gate.";
+        # Direct LAN endpoint: see musicbrainzApiBase above.
+        default = "http://192.168.1.44:${toString config.homelab.services.discogs.apiPort}";
+        description = "Discogs API base URL used by the cratedigger metadata gate.";
       };
 
       discogsProbeReleaseId = lib.mkOption {
@@ -539,6 +582,12 @@ in {
         default = 10;
         description = "Maximum seconds each metadata gate HTTP probe may take.";
       };
+
+      remoteDiscogsImportHost = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "SSH host for a remotely hosted Discogs importer. When set, Cratedigger owns the monthly timer, durable hold, retries, and post-import release.";
+      };
     };
   };
 
@@ -546,55 +595,44 @@ in {
     # #847: evaluation-time pins for the declarative sandbox authority table.
     # These use the same data-driven table that renders the units; the final
     # negative assertion is the known-bad broad-parent case.
-    assertions =
-      [
-        {
-          assertion = config.services.cratedigger.beets.config.library == "${beetsDbDir}/beets-library.db";
-          message = "cratedigger must use the dedicated beets DB parent";
-        }
-        {
-          assertion =
-            config.systemd.services.cratedigger-web.serviceConfig.BindPaths
-            == [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
-          message = "cratedigger-web must bind only its reviewed writable Music subtrees";
-        }
-        {
-          assertion = config.systemd.services.cratedigger-web.serviceConfig.BindReadOnlyPaths == [musicRoot];
-          message = "cratedigger-web must see the broad Music root read-only";
-        }
-        {
-          assertion =
-            config.systemd.services.cratedigger-importer.serviceConfig.BindPaths
-            == [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir];
-          message = "cratedigger-importer must bind only its reviewed writable Music subtrees";
-        }
-        {
-          assertion = config.systemd.services.cratedigger-importer.serviceConfig.BindReadOnlyPaths == [musicRoot];
-          message = "cratedigger-importer must see the broad Music root read-only";
-        }
-        {
-          assertion =
-            config.systemd.services.cratedigger-import-preview-worker.serviceConfig.BindReadOnlyPaths
-            == [beetsDbDir musicRoot];
-          message = "cratedigger preview must see the canonical Beets DB and Music root read-only";
-        }
-        {
-          assertion =
-            !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-web.writable)
-            && !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-importer.writable);
-          message = "known-bad: web/importer must never receive a broad Music-root writable bind";
-        }
-      ]
-      ++ [
-        {
-          assertion = config.homelab.services.musicbrainz.enable;
-          message = "homelab.services.cratedigger requires homelab.services.musicbrainz because MusicBrainz /ws/2 is a hard metadata gate.";
-        }
-        {
-          assertion = config.homelab.services.discogs.enable;
-          message = "homelab.services.cratedigger requires homelab.services.discogs because Discogs is a hard metadata gate.";
-        }
-      ];
+    assertions = [
+      {
+        assertion = config.services.cratedigger.beets.config.library == "${beetsDbDir}/beets-library.db";
+        message = "cratedigger must use the dedicated beets DB parent";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-web.serviceConfig.BindPaths
+          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
+        message = "cratedigger-web must bind only its reviewed writable Music subtrees";
+      }
+      {
+        assertion = config.systemd.services.cratedigger-web.serviceConfig.BindReadOnlyPaths == [musicRoot];
+        message = "cratedigger-web must see the broad Music root read-only";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-importer.serviceConfig.BindPaths
+          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir];
+        message = "cratedigger-importer must bind only its reviewed writable Music subtrees";
+      }
+      {
+        assertion = config.systemd.services.cratedigger-importer.serviceConfig.BindReadOnlyPaths == [musicRoot];
+        message = "cratedigger-importer must see the broad Music root read-only";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-import-preview-worker.serviceConfig.BindReadOnlyPaths
+          == [beetsDbDir musicRoot];
+        message = "cratedigger preview must see the canonical Beets DB and Music root read-only";
+      }
+      {
+        assertion =
+          !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-web.writable)
+          && !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-importer.writable);
+        message = "known-bad: web/importer must never receive a broad Music-root writable bind";
+      }
+    ];
 
     environment.systemPackages = [
       metadataGateTool
@@ -662,8 +700,8 @@ in {
         # as the pre-migration rollback snapshot.
         "d ${pgDataDirRoot} 0755 root root -"
         "d ${pgDataDirRoot}/postgres 0700 root root -"
-        "d ${metadataGateStateDir} 0755 root root -"
-        "d ${metadataGateHoldDir} 0755 root root -"
+        "d ${metadataGateStateDir} 0700 root root -"
+        "d ${metadataGateHoldDir} 0700 root root -"
         "d ${liveWorldAuditDebtStateDir} 0700 root root -"
         # #570: keep the library subtrees setgid + group-writable + group `users`
         # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
@@ -742,17 +780,18 @@ in {
           };
 
           cratedigger = {
-            after = ["microvm@slskd.service" "container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            after = ["microvm@slskd.service" "container@cratedigger-db.service"];
             wants = ["microvm@slskd.service" "container@cratedigger-db.service"];
             serviceConfig = {
-              ExecCondition = metadataGateStartCheckCommand;
+              ExecCondition = metadataGatePrivilegedStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              ReadWritePaths = lib.mkAfter [metadataGateStateDir];
               UMask = lib.mkForce "0002";
             };
           };
 
           cratedigger-web = {
-            after = ["container@cratedigger-db.service" "redis-cratedigger.service"] ++ metadataGateDependencyUnits;
+            after = ["container@cratedigger-db.service" "redis-cratedigger.service"];
             wants = ["container@cratedigger-db.service" "redis-cratedigger.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
@@ -766,7 +805,7 @@ in {
           };
 
           cratedigger-importer = {
-            after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            after = ["container@cratedigger-db.service"];
             wants = ["container@cratedigger-db.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
@@ -778,7 +817,7 @@ in {
           };
 
           cratedigger-import-preview-worker = {
-            after = ["container@cratedigger-db.service"] ++ metadataGateDependencyUnits;
+            after = ["container@cratedigger-db.service"];
             wants = ["container@cratedigger-db.service"];
             restartTriggers = [config.systemd.units."container@cratedigger-db.service".unit];
             serviceConfig = {
@@ -820,33 +859,20 @@ in {
             };
           };
 
-          cratedigger-musicbrainz-maintenance-hold = {
-            description = "Hold cratedigger before MusicBrainz provider transitions";
-            before = musicbrainzMaintenanceUnits;
-            requiredBy = musicbrainzMaintenanceUnits;
+          # Keep the historical unit name so systemd's Persistent timer stamp
+          # survives the move from the local importer to the remote coordinator.
+          discogs-import = lib.mkIf (cfg.metadataGate.remoteDiscogsImportHost != null) {
+            description = "Run remote Discogs import inside the Cratedigger metadata hold";
+            after = ["network-online.target"];
+            wants = ["network-online.target"];
             serviceConfig = {
               Type = "oneshot";
-              RemainAfterExit = true;
-              NoNewPrivileges = true; # gate CLI → systemctl as root; no setuid exec (#232)
-              ExecStart = "${metadataGateCommand} hold musicbrainz-maintenance";
+              ExecStart = remoteDiscogsImportScript;
+              TimeoutStartSec = "14h";
+              NoNewPrivileges = true;
             };
           };
-
-          musicbrainz.serviceConfig = {
-            ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "musicbrainz-maintenance"}"];
-            ExecStop = lib.mkBefore ["${metadataGateCommand} hold musicbrainz-maintenance"];
-          };
-
-          discogs-import.serviceConfig = {
-            ExecStartPre = lib.mkBefore ["${metadataGateCommand} hold discogs-import"];
-            ExecStartPost = lib.mkAfter ["${metadataGateReleaseAndResumeScript "discogs-import"}"];
-            ExecStopPost = lib.mkAfter ["${metadataGateReleaseIfClearScript "discogs-import"}"];
-          };
         }
-        (lib.genAttrs (map (lib.removeSuffix ".service") musicbrainzMaintenanceUnits) (_: {
-          after = ["cratedigger-musicbrainz-maintenance-hold.service"];
-          requires = ["cratedigger-musicbrainz-maintenance-hold.service"];
-        }))
         # #257's timer-driven scope remains broad; #663 gives the four
         # long-running units their least-privilege /mnt mount sets.
         (lib.genAttrs timerDrivenMusicSandboxUnits (_: {
@@ -892,6 +918,15 @@ in {
           timerConfig = {
             OnBootSec = "30min";
             OnUnitInactiveSec = "1h";
+            Persistent = true;
+          };
+        };
+
+        discogs-import = lib.mkIf (cfg.metadataGate.remoteDiscogsImportHost != null) {
+          description = "Monthly remotely coordinated Discogs dump import";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = "*-*-02 04:00:00";
             Persistent = true;
           };
         };
@@ -986,7 +1021,7 @@ in {
       # Tier-2 cutover (cratedigger plan U12): mirrors as configuration.
       # ONE MB origin threads to web/mb.py, pipeline-cli, and the rendered
       # beets musicbrainz block (host:port / http / ratelimit 100 derived).
-      musicbrainz.apiBase = "http://192.168.1.35:5200";
+      musicbrainz.apiBase = "http://192.168.1.43:5200";
       # Discogs browse is mirror-required; this is the Rust mirror.
       discogs.apiBase = "https://discogs.ablz.au";
 
@@ -1003,7 +1038,7 @@ in {
       beets = {
         package = {
           discogsMirrorUrl = "https://discogs.ablz.au";
-          lrclibUrl = "http://192.168.1.35:3300/api";
+          lrclibUrl = "http://192.168.1.43:3300/api";
           discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
           discogsOperatorGroup = "cratedigger-ops";
         };

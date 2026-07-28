@@ -12,10 +12,10 @@
   pgpassSecret = config.sops.secrets."musicbrainz-pgpass".path;
 
   pgc = import ../lib/mk-pg-container.nix {
-    inherit pkgs;
+    inherit lib pkgs;
     name = "musicbrainz";
     hostNum = 10;
-    dataDir = "${cfg.mirrorDir}/postgres-nspawn";
+    dataDir = cfg.databaseDir;
     passwordFile = pgpassSecret;
     pgPackage = pkgs.postgresql_18;
     extensions = _ps: [pkgs.musicbrainz-pg-amqp];
@@ -24,6 +24,8 @@
       shared_preload_libraries = ["pg_amqp.so"];
     };
     extraDatabases = ["musicbrainz_db"];
+    native = cfg.databaseMode == "native";
+    clientCidrs = lib.optional (cfg.databaseMode == "native") "10.89.0.0/24";
     postStartSQLByDatabase.musicbrainz_db = ''
       CREATE EXTENSION IF NOT EXISTS cube;
       CREATE EXTENSION IF NOT EXISTS earthdistance;
@@ -31,6 +33,16 @@
       CREATE EXTENSION IF NOT EXISTS amqp;
     '';
   };
+  nativeDatabase = cfg.databaseMode == "native";
+  dbUnit =
+    if nativeDatabase
+    then "postgresql.service"
+    else "container@musicbrainz-db.service";
+  dbAdminHost = pgc.dbHost;
+  dbContainerHost =
+    if nativeDatabase
+    then "host.containers.internal"
+    else pgc.dbHost;
 
   # --- lrclib image build (no public image available) ---
   lrclibPkg = pkgs.rustPlatform.buildRustPackage {
@@ -72,6 +84,21 @@
     mqImage
     searchImage
   ];
+  # Upstream Dockerfiles use Docker Hub short names. Keep the host's
+  # fail-closed empty unqualified-search list and qualify those FROM lines in a
+  # read-only build-context copy instead of weakening registry policy.
+  musicbrainzDockerSource = pkgs.runCommand "musicbrainz-docker-qualified" {} ''
+    cp -R ${inputs.musicbrainz-docker} "$out"
+    chmod -R u+w "$out"
+    substituteInPlace "$out/build/musicbrainz-prebuilt/Dockerfile" \
+      --replace-fail 'FROM metabrainz/' 'FROM docker.io/metabrainz/'
+    substituteInPlace "$out/build/sir/Dockerfile" \
+      --replace-fail 'FROM metabrainz/' 'FROM docker.io/metabrainz/'
+    substituteInPlace "$out/build/rabbitmq/Dockerfile" \
+      --replace-fail 'FROM rabbitmq:' 'FROM docker.io/library/rabbitmq:'
+    substituteInPlace "$out/build/solr/Dockerfile" \
+      --replace-fail 'FROM metabrainz/' 'FROM docker.io/metabrainz/'
+  '';
   musicbrainzDockerRev = inputs.musicbrainz-docker.rev or inputs.musicbrainz-docker.lastModifiedDate or "source";
 
   containerNames = [
@@ -130,7 +157,10 @@
       ${pkgs.coreutils}/bin/touch "$marker"
     fi
 
-    ${pkgs.podman}/bin/podman network create musicbrainz --ignore
+    # Keep PostgreSQL's SCRAM CIDR narrow and reproducible after a fresh
+    # container-store rebuild. Podman's first custom network currently chooses
+    # this subnet implicitly; declare it instead of relying on allocation order.
+    ${pkgs.podman}/bin/podman network create musicbrainz --subnet 10.89.0.0/24 --ignore
   '';
 
   buildImagesScript = pkgs.writeShellScript "musicbrainz-build-images" ''
@@ -151,10 +181,10 @@
       exit 0
     fi
 
-    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg musicbrainzImage} ${inputs.musicbrainz-docker}/build/musicbrainz-prebuilt
-    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg indexerImage} ${inputs.musicbrainz-docker}/build/sir
-    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg mqImage} ${inputs.musicbrainz-docker}/build/rabbitmq
-    ${pkgs.podman}/bin/podman build --build-arg MB_SOLR_VERSION=4.1.0 -t ${lib.escapeShellArg searchImage} ${inputs.musicbrainz-docker}/build/solr
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg musicbrainzImage} ${musicbrainzDockerSource}/build/musicbrainz-prebuilt
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg indexerImage} ${musicbrainzDockerSource}/build/sir
+    ${pkgs.podman}/bin/podman build -t ${lib.escapeShellArg mqImage} ${musicbrainzDockerSource}/build/rabbitmq
+    ${pkgs.podman}/bin/podman build --build-arg MB_SOLR_VERSION=4.1.0 -t ${lib.escapeShellArg searchImage} ${musicbrainzDockerSource}/build/solr
 
     ${pkgs.coreutils}/bin/install -d -m 0755 "$stamp_dir"
     ${pkgs.findutils}/bin/find "$stamp_dir" -mindepth 1 -maxdepth 1 -type f -delete
@@ -176,7 +206,7 @@
 
     psql() {
       ${pkgs.postgresql_18}/bin/psql \
-        -h ${pgc.dbHost} \
+        -h ${dbAdminHost} \
         -p ${toString pgc.dbPort} \
         -U musicbrainz \
         -d musicbrainz_db \
@@ -209,7 +239,7 @@
 
     psql() {
       ${pkgs.postgresql_18}/bin/psql \
-        -h ${pgc.dbHost} \
+        -h ${dbAdminHost} \
         -p ${toString pgc.dbPort} \
         -U musicbrainz \
         -d musicbrainz_db \
@@ -231,7 +261,7 @@
     require_true "amqp extension exists" \
       "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'amqp')"
 
-    require_true "amqp broker points at nspawn host bridge" \
+    require_true "amqp broker points at PostgreSQL-reachable host address" \
       "SELECT EXISTS (SELECT 1 FROM amqp.broker WHERE host = '${pgc.hostAddress}' AND port = 5672)"
 
     require_true "SIR/indexer triggers exist" \
@@ -250,7 +280,7 @@
 
     psql_scalar() {
       ${pkgs.postgresql_18}/bin/psql \
-        -h ${pgc.dbHost} \
+        -h ${dbAdminHost} \
         -p ${toString pgc.dbPort} \
         -U musicbrainz \
         -d musicbrainz_db \
@@ -260,7 +290,7 @@
 
     psql_exec() {
       ${pkgs.postgresql_18}/bin/psql \
-        -h ${pgc.dbHost} \
+        -h ${dbAdminHost} \
         -p ${toString pgc.dbPort} \
         -U musicbrainz \
         -d musicbrainz_db \
@@ -270,7 +300,7 @@
 
     psql_file() {
       ${pkgs.postgresql_18}/bin/psql \
-        -h ${pgc.dbHost} \
+        -h ${dbAdminHost} \
         -p ${toString pgc.dbPort} \
         -U musicbrainz \
         -d musicbrainz_db \
@@ -484,6 +514,18 @@ in {
       description = "Directory for re-downloadable mirror data (pgdata, solrdata, lrclib). Should NOT be backed up.";
     };
 
+    databaseDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.mirrorDir}/postgres-nspawn";
+      description = "Root containing the PostgreSQL data directory; may be a dedicated direct-bound dataset.";
+    };
+
+    databaseMode = lib.mkOption {
+      type = lib.types.enum ["nspawn" "native"];
+      default = "nspawn";
+      description = "Run PostgreSQL in nspawn, or natively when this service owns a dedicated LXC appliance.";
+    };
+
     webPort = lib.mkOption {
       type = lib.types.port;
       default = 5200;
@@ -497,510 +539,531 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    homelab = {
-      podman.enable = true;
-      podman.containers = [
-        {
-          unit = "musicbrainz.service";
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    (lib.mkIf nativeDatabase pgc.nativeConfig)
+    {
+      homelab = {
+        podman.enable = true;
+        podman.containers = [
+          {
+            unit = "musicbrainz.service";
+            image = valkeyImage;
+          }
+        ];
+
+        monitoring.monitors = [
+          {
+            name = "LRCLIB";
+            url = "http://${localIp}:${toString cfg.lrclibPort}/api/search?artist_name=Radiohead&track_name=Creep";
+          }
+        ];
+
+        # See #253 audit + rules-doc "Per-service errorPatterns".
+        # Skipped containers: musicbrainz-musicbrainz-1 (only webpack
+        # progress noise) and musicbrainz-valkey-1 (silent in 30d) — both
+        # surface via the LRCLIB Kuma monitor.
+        monitoring.errorPatterns = [
+          {
+            name = "MusicBrainz post-deploy verification failed";
+            unit = "musicbrainz.service";
+            # DB-plane verification (artist/release populated, ownership, amqp
+            # broker, SIR triggers). The /ws/2 web-readiness check moved to
+            # musicbrainz-ready.service (separate pattern below) so a slow web
+            # start can no longer fail this lifecycle-owning unit.
+            # 2026-06-28: dropped the dead `build images failed` alt — nothing
+            # in musicbrainz.service ever emits it (image builds run in the
+            # separate musicbrainz-build-images.service, and a build failure is
+            # intentionally non-fatal: the stack stays on old images, RCA
+            # 2026-06-25). Matching it here only advertised coverage we lacked.
+            pattern = "(?i)MusicBrainz DB verification failed";
+            severity = "critical";
+            summary = "musicbrainz orchestration's post-deploy verification failed";
+            # Single-shot: emitted once per failed deploy run; the
+            # service exits after logging. Page on first occurrence.
+            threshold = 0;
+          }
+          {
+            name = "MusicBrainz web readiness failed";
+            unit = "musicbrainz-ready.service";
+            # Non-destructive readiness probe (apiVerifyScript). Firing means the
+            # web /ws/2 search path did not answer within the ~10 min start
+            # window — it does NOT tear down the stack (RCA 2026-06-25). Treat as
+            # "investigate web/Solr warmup", not a stack-down event.
+            pattern = "(?i)/ws/2 representative lookup did not become healthy";
+            severity = "critical";
+            summary = "MusicBrainz web /ws/2 did not become healthy within the start window";
+            # Single-shot: the oneshot exits after logging once.
+            threshold = 0;
+          }
+          {
+            name = "MusicBrainz indexer DNS plane failure";
+            unit = "podman-musicbrainz-indexer-1.service";
+            # podman/aardvark DNS plane failure affects all MB containers.
+            pattern = "(?i)aardvark-dns failed to start";
+            severity = "warning";
+            summary = "podman DNS plane is unhealthy — MB containers can't resolve each other";
+            # 2026-06-28: every observed match was benign SHUTDOWN-RACE noise,
+            # not a real DNS failure — at host poweroff podman tears containers
+            # down and netavark logs `aardvark-dns failed to start: ... is
+            # destructive (systemd-poweroff.service has 'start' job queued)`.
+            # The indexer restarts cleanly on the next boot. Go RE2 has no
+            # negative lookahead so we can't exclude the `is destructive`
+            # variant in the pattern; instead require the failure to PERSIST so
+            # the poweroff burst (gone after the reboot) can't page, while a
+            # genuinely wedged DNS plane (recurring during normal operation)
+            # still does. See rules-doc "forDuration — transient bursts".
+            forDuration = "10m";
+          }
+          {
+            name = "MusicBrainz replication failed";
+            unit = "musicbrainz-replication.service";
+            # Key ONLY on the wrapper's own verdict lines ("[mb-replication] …"),
+            # NOT the raw upstream "LoadReplicationChanges failed (rc=255)" /
+            # "Schema sequence mismatch" diagnostics it tees to the journal. The
+            # wrapper is the decision authority: it has already ruled out a
+            # transient upstream fetch blip (which exits 0, doesn't page — the
+            # hourly freshness deep-probe backstops a real stall) and a SUCCESSFUL
+            # schema auto-heal (exits 0). So these verdicts mean a genuine,
+            # human-needed failure. (Matching the raw strings used to false-page
+            # on both a momentary metabrainz TLS hiccup and a clean auto-heal.)
+            #
+            # Single-shot: the unit fires daily and the wrapper exits immediately
+            # after printing the verdict. threshold=0 ⇒ page on first occurrence.
+            pattern = "\\[mb-replication\\] (replication apply failed|upgrade\\.sh failed|schema mismatch needs manual|retry still failed)";
+            severity = "critical";
+            summary = "MusicBrainz daily replication did not make forward progress";
+            description = ''
+              A real replication failure (NOT a transient upstream fetch blip,
+              which no longer pages — the freshness deep-probe covers sustained
+              staleness). Means a downloaded packet failed to APPLY, or the
+              schema auto-heal bailed (multi-step jump, upgrade.sh failure, perms).
+
+              Drill into journal: `sudo journalctl -u musicbrainz-replication.service -e`.
+              Mirror log inside the container: `sudo podman exec musicbrainz-musicbrainz-1 tail -200 /musicbrainz-server/mirror.log`.
+
+              See docs/wiki/services/musicbrainz.md "Replication monitoring".
+            '';
+            threshold = 0;
+          }
+          {
+            name = "MusicBrainz Solr proxy failure";
+            unit = "podman-musicbrainz-search-1.service";
+            # "Error trying to proxy request" is restart noise — Solr emits
+            # ~3-6 of them in ~30s after every container restart while the
+            # replica peer reconnects (false positives 2026-05-20 and
+            # 2026-05-27, both immediately after nightly podman autoupdate).
+            # Bumping the threshold was guesswork; instead alert only on
+            # `Connection pool shut down`, which indicates real pool
+            # exhaustion (not restart-cascade transients).
+            pattern = "(?i)Connection pool shut down";
+            severity = "warning";
+            summary = "Solr search container pool shutdown (sustained)";
+            threshold = 3;
+            # threshold=3 wasn't enough: a doc2 reboot emits exactly 4×
+            # "Connection pool shut down" within ~1s at container shutdown,
+            # which just trips >3 and paged (2026-06-15 triage). forDuration >
+            # the 5m window makes that 1-second burst self-clear before the
+            # pending period elapses; genuine steady-state pool exhaustion
+            # keeps erroring for >10m and still pages.
+            forDuration = "10m";
+          }
+        ];
+
+        # State-based freshness signal. Backstop for the errorPattern above:
+        # if the daily unit doesn't run at all (timer disabled, DB unreachable,
+        # whatever), the errorPattern can't fire — but `last_replication_date`
+        # ages out and this probe goes DOWN. Hourly cadence so we notice
+        # within ~hours of a 24h+ stall.
+        monitoring.deepProbes = [
+          {
+            name = "MusicBrainz replication freshness";
+            command = "${pkgs.callPackage ./probes/check-musicbrainz-replication.nix {}}/bin/check-musicbrainz-replication";
+            interval = "1h";
+            # Headroom over the 1h cadence so on-time pushes never race Kuma's
+            # deadline and false-flap DOWN (2026-06-05 RCA, lgtm-stack.md).
+            # 4500s = 1h + 15m slack. See intervalSecs option doc in monitoring_sync.nix.
+            intervalSecs = 4500;
+            serviceConfig = {
+              Environment = [
+                "MB_PG_HOST=${dbAdminHost}"
+                "MB_PG_PORT=${toString pgc.dbPort}"
+                "MB_PG_USER=musicbrainz"
+                "MB_PG_DB=musicbrainz_db"
+                "MB_PGPASS_FILE=${pgpassSecret}"
+                # Daily replication + 12h slack for slow runs / boot drift.
+                "MB_MAX_REPLICATION_AGE_HOURS=36"
+              ];
+            };
+          }
+        ];
+      };
+
+      sops.secrets."musicbrainz/env" = {
+        sopsFile = config.homelab.secrets.sopsFile "musicbrainz.env";
+        format = "dotenv";
+      };
+
+      sops.secrets."musicbrainz-pgpass" = {
+        sopsFile = config.homelab.secrets.sopsFile "musicbrainz-pgpass.env";
+        format = "dotenv";
+        mode = "0400";
+      };
+
+      containers.musicbrainz-db = lib.mkIf (!nativeDatabase) pgc.containerConfig;
+
+      networking.firewall = {
+        allowedTCPPorts = [cfg.webPort cfg.lrclibPort];
+        # Native PostgreSQL is reachable only from loopback and the rootful
+        # Podman bridges. This fleet still uses the iptables firewall backend;
+        # extraInputRules is nftables-only and would be silently ignored.
+        # `podman+` is iptables' interface-prefix syntax. Do not expose the
+        # database on eth0/LAN.
+        extraCommands = lib.optionalString nativeDatabase ''
+          iptables -I nixos-fw 1 -i podman+ -p tcp --dport 5432 -j nixos-fw-accept
+        '';
+      };
+
+      virtualisation.oci-containers.containers = {
+        musicbrainz-valkey-1 = {
           image = valkeyImage;
-        }
-      ];
-
-      monitoring.monitors = [
-        {
-          name = "LRCLIB";
-          url = "http://${localIp}:${toString cfg.lrclibPort}/api/search?artist_name=Radiohead&track_name=Creep";
-        }
-      ];
-
-      # See #253 audit + rules-doc "Per-service errorPatterns".
-      # Skipped containers: musicbrainz-musicbrainz-1 (only webpack
-      # progress noise) and musicbrainz-valkey-1 (silent in 30d) — both
-      # surface via the LRCLIB Kuma monitor.
-      monitoring.errorPatterns = [
-        {
-          name = "MusicBrainz post-deploy verification failed";
-          unit = "musicbrainz.service";
-          # DB-plane verification (artist/release populated, ownership, amqp
-          # broker, SIR triggers). The /ws/2 web-readiness check moved to
-          # musicbrainz-ready.service (separate pattern below) so a slow web
-          # start can no longer fail this lifecycle-owning unit.
-          # 2026-06-28: dropped the dead `build images failed` alt — nothing
-          # in musicbrainz.service ever emits it (image builds run in the
-          # separate musicbrainz-build-images.service, and a build failure is
-          # intentionally non-fatal: the stack stays on old images, RCA
-          # 2026-06-25). Matching it here only advertised coverage we lacked.
-          pattern = "(?i)MusicBrainz DB verification failed";
-          severity = "critical";
-          summary = "musicbrainz orchestration's post-deploy verification failed";
-          # Single-shot: emitted once per failed deploy run; the
-          # service exits after logging. Page on first occurrence.
-          threshold = 0;
-        }
-        {
-          name = "MusicBrainz web readiness failed";
-          unit = "musicbrainz-ready.service";
-          # Non-destructive readiness probe (apiVerifyScript). Firing means the
-          # web /ws/2 search path did not answer within the ~10 min start
-          # window — it does NOT tear down the stack (RCA 2026-06-25). Treat as
-          # "investigate web/Solr warmup", not a stack-down event.
-          pattern = "(?i)/ws/2 representative lookup did not become healthy";
-          severity = "critical";
-          summary = "MusicBrainz web /ws/2 did not become healthy within the start window";
-          # Single-shot: the oneshot exits after logging once.
-          threshold = 0;
-        }
-        {
-          name = "MusicBrainz indexer DNS plane failure";
-          unit = "podman-musicbrainz-indexer-1.service";
-          # podman/aardvark DNS plane failure affects all MB containers.
-          pattern = "(?i)aardvark-dns failed to start";
-          severity = "warning";
-          summary = "podman DNS plane is unhealthy — MB containers can't resolve each other";
-          # 2026-06-28: every observed match was benign SHUTDOWN-RACE noise,
-          # not a real DNS failure — at host poweroff podman tears containers
-          # down and netavark logs `aardvark-dns failed to start: ... is
-          # destructive (systemd-poweroff.service has 'start' job queued)`.
-          # The indexer restarts cleanly on the next boot. Go RE2 has no
-          # negative lookahead so we can't exclude the `is destructive`
-          # variant in the pattern; instead require the failure to PERSIST so
-          # the poweroff burst (gone after the reboot) can't page, while a
-          # genuinely wedged DNS plane (recurring during normal operation)
-          # still does. See rules-doc "forDuration — transient bursts".
-          forDuration = "10m";
-        }
-        {
-          name = "MusicBrainz replication failed";
-          unit = "musicbrainz-replication.service";
-          # Key ONLY on the wrapper's own verdict lines ("[mb-replication] …"),
-          # NOT the raw upstream "LoadReplicationChanges failed (rc=255)" /
-          # "Schema sequence mismatch" diagnostics it tees to the journal. The
-          # wrapper is the decision authority: it has already ruled out a
-          # transient upstream fetch blip (which exits 0, doesn't page — the
-          # hourly freshness deep-probe backstops a real stall) and a SUCCESSFUL
-          # schema auto-heal (exits 0). So these verdicts mean a genuine,
-          # human-needed failure. (Matching the raw strings used to false-page
-          # on both a momentary metabrainz TLS hiccup and a clean auto-heal.)
-          #
-          # Single-shot: the unit fires daily and the wrapper exits immediately
-          # after printing the verdict. threshold=0 ⇒ page on first occurrence.
-          pattern = "\\[mb-replication\\] (replication apply failed|upgrade\\.sh failed|schema mismatch needs manual|retry still failed)";
-          severity = "critical";
-          summary = "MusicBrainz daily replication did not make forward progress";
-          description = ''
-            A real replication failure (NOT a transient upstream fetch blip,
-            which no longer pages — the freshness deep-probe covers sustained
-            staleness). Means a downloaded packet failed to APPLY, or the
-            schema auto-heal bailed (multi-step jump, upgrade.sh failure, perms).
-
-            Drill into journal: `sudo journalctl -u musicbrainz-replication.service -e`.
-            Mirror log inside the container: `sudo podman exec musicbrainz-musicbrainz-1 tail -200 /musicbrainz-server/mirror.log`.
-
-            See docs/wiki/services/musicbrainz.md "Replication monitoring".
-          '';
-          threshold = 0;
-        }
-        {
-          name = "MusicBrainz Solr proxy failure";
-          unit = "podman-musicbrainz-search-1.service";
-          # "Error trying to proxy request" is restart noise — Solr emits
-          # ~3-6 of them in ~30s after every container restart while the
-          # replica peer reconnects (false positives 2026-05-20 and
-          # 2026-05-27, both immediately after nightly podman autoupdate).
-          # Bumping the threshold was guesswork; instead alert only on
-          # `Connection pool shut down`, which indicates real pool
-          # exhaustion (not restart-cascade transients).
-          pattern = "(?i)Connection pool shut down";
-          severity = "warning";
-          summary = "Solr search container pool shutdown (sustained)";
-          threshold = 3;
-          # threshold=3 wasn't enough: a doc2 reboot emits exactly 4×
-          # "Connection pool shut down" within ~1s at container shutdown,
-          # which just trips >3 and paged (2026-06-15 triage). forDuration >
-          # the 5m window makes that 1-second burst self-clear before the
-          # pending period elapses; genuine steady-state pool exhaustion
-          # keeps erroring for >10m and still pages.
-          forDuration = "10m";
-        }
-      ];
-
-      # State-based freshness signal. Backstop for the errorPattern above:
-      # if the daily unit doesn't run at all (timer disabled, DB unreachable,
-      # whatever), the errorPattern can't fire — but `last_replication_date`
-      # ages out and this probe goes DOWN. Hourly cadence so we notice
-      # within ~hours of a 24h+ stall.
-      monitoring.deepProbes = [
-        {
-          name = "MusicBrainz replication freshness";
-          command = "${pkgs.callPackage ./probes/check-musicbrainz-replication.nix {}}/bin/check-musicbrainz-replication";
-          interval = "1h";
-          # Headroom over the 1h cadence so on-time pushes never race Kuma's
-          # deadline and false-flap DOWN (2026-06-05 RCA, lgtm-stack.md).
-          # 4500s = 1h + 15m slack. See intervalSecs option doc in monitoring_sync.nix.
-          intervalSecs = 4500;
-          serviceConfig = {
-            Environment = [
-              "MB_PG_HOST=${pgc.dbHost}"
-              "MB_PG_PORT=${toString pgc.dbPort}"
-              "MB_PG_USER=musicbrainz"
-              "MB_PG_DB=musicbrainz_db"
-              "MB_PGPASS_FILE=${pgpassSecret}"
-              # Daily replication + 12h slack for slow runs / boot drift.
-              "MB_MAX_REPLICATION_AGE_HOURS=36"
-            ];
-          };
-        }
-      ];
-    };
-
-    sops.secrets."musicbrainz/env" = {
-      sopsFile = config.homelab.secrets.sopsFile "musicbrainz.env";
-      format = "dotenv";
-    };
-
-    sops.secrets."musicbrainz-pgpass" = {
-      sopsFile = config.homelab.secrets.sopsFile "musicbrainz-pgpass.env";
-      format = "dotenv";
-      mode = "0400";
-    };
-
-    containers.musicbrainz-db = pgc.containerConfig;
-
-    networking.firewall.allowedTCPPorts = [cfg.webPort cfg.lrclibPort];
-
-    virtualisation.oci-containers.containers = {
-      musicbrainz-valkey-1 = {
-        image = valkeyImage;
-        autoStart = false;
-        pull = "newer";
-        extraOptions = ["--network=musicbrainz" "--network-alias=valkey"];
-      };
-
-      musicbrainz-mq-1 = {
-        image = mqImage;
-        autoStart = false;
-        pull = "never";
-        ports = ["${pgc.hostAddress}:5672:5672"];
-        volumes = ["${cfg.dataDir}/mqdata:/var/lib/rabbitmq"];
-        extraOptions = ["--network=musicbrainz" "--network-alias=mq" "--hostname=mq"];
-      };
-
-      musicbrainz-search-1 = {
-        image = searchImage;
-        autoStart = false;
-        pull = "never";
-        environment = {
-          SOLR_HEAP = "2g";
-          LOG4J_FORMAT_MSG_NO_LOOKUPS = "true";
+          autoStart = false;
+          pull = "newer";
+          extraOptions = ["--network=musicbrainz" "--network-alias=valkey"];
         };
-        volumes = [
-          "${cfg.mirrorDir}/dbdump:/media/dbdump:ro"
-          "${cfg.mirrorDir}/solrdata:/var/solr"
-          "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups"
-        ];
-        extraOptions = ["--network=musicbrainz" "--network-alias=search" "--memory-swappiness=-1"];
-      };
 
-      musicbrainz-indexer-1 = {
-        image = indexerImage;
-        autoStart = false;
-        pull = "never";
-        dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1"];
-        environmentFiles = [pgpassSecret];
-        environment = {
-          POSTGRES_USER = "musicbrainz";
-          MUSICBRAINZ_POSTGRES_SERVER = pgc.dbHost;
-          MUSICBRAINZ_POSTGRES_READONLY_SERVER = pgc.dbHost;
-          MUSICBRAINZ_RABBITMQ_SERVER = "mq";
-          MUSICBRAINZ_SEARCH_SERVER = "search:8983/solr";
+        musicbrainz-mq-1 = {
+          image = mqImage;
+          autoStart = false;
+          pull = "never";
+          ports = ["${pgc.hostAddress}:5672:5672"];
+          volumes = ["${cfg.dataDir}/mqdata:/var/lib/rabbitmq"];
+          extraOptions = ["--network=musicbrainz" "--network-alias=mq" "--hostname=mq"];
         };
-        volumes = ["${inputs.musicbrainz-docker}/default/indexer.ini:/code/config.ini:ro"];
-        extraOptions = ["--network=musicbrainz" "--network-alias=indexer"];
-      };
 
-      musicbrainz-musicbrainz-1 = {
-        image = musicbrainzImage;
-        autoStart = false;
-        pull = "never";
-        dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1" "musicbrainz-valkey-1"];
-        ports = ["${toString cfg.webPort}:5000"];
-        environmentFiles = [pgpassSecret];
-        environment = {
-          POSTGRES_USER = "musicbrainz";
-          MUSICBRAINZ_POSTGRES_SERVER = pgc.dbHost;
-          MUSICBRAINZ_POSTGRES_READONLY_SERVER = pgc.dbHost;
-          MUSICBRAINZ_REDIS_SERVER = "valkey";
-          MUSICBRAINZ_VALKEY_SERVER = "valkey";
-          MUSICBRAINZ_WEB_SERVER_HOST = localIp;
-          MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
-          MUSICBRAINZ_BASE_FTP_URL = "";
-          MUSICBRAINZ_BASE_DOWNLOAD_URL = "https://data.metabrainz.org/pub/musicbrainz";
-          MUSICBRAINZ_SERVER_PROCESSES = "10";
-          MUSICBRAINZ_USE_PROXY = "1";
+        musicbrainz-search-1 = {
+          image = searchImage;
+          autoStart = false;
+          pull = "never";
+          environment = {
+            SOLR_HEAP = "2g";
+            LOG4J_FORMAT_MSG_NO_LOOKUPS = "true";
+          };
+          volumes = [
+            "${cfg.mirrorDir}/dbdump:/media/dbdump:ro"
+            "${cfg.mirrorDir}/solrdata:/var/solr"
+            "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups"
+          ];
+          extraOptions = ["--network=musicbrainz" "--network-alias=search" "--memory-swappiness=-1"];
         };
-        volumes = [
-          "${cfg.mirrorDir}/dbdump:/media/dbdump"
-          "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups:ro"
-          "${mbTokenPath}:/run/secrets/metabrainz_access_token:ro"
-        ];
-        extraOptions = ["--network=musicbrainz" "--network-alias=musicbrainz"];
+
+        musicbrainz-indexer-1 = {
+          image = indexerImage;
+          autoStart = false;
+          pull = "never";
+          dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1"];
+          environmentFiles = [pgpassSecret];
+          environment = {
+            POSTGRES_USER = "musicbrainz";
+            MUSICBRAINZ_POSTGRES_SERVER = dbContainerHost;
+            MUSICBRAINZ_POSTGRES_READONLY_SERVER = dbContainerHost;
+            MUSICBRAINZ_RABBITMQ_SERVER = "mq";
+            MUSICBRAINZ_SEARCH_SERVER = "search:8983/solr";
+          };
+          volumes = ["${inputs.musicbrainz-docker}/default/indexer.ini:/code/config.ini:ro"];
+          extraOptions = ["--network=musicbrainz" "--network-alias=indexer"];
+        };
+
+        musicbrainz-musicbrainz-1 = {
+          image = musicbrainzImage;
+          autoStart = false;
+          pull = "never";
+          dependsOn = ["musicbrainz-mq-1" "musicbrainz-search-1" "musicbrainz-valkey-1"];
+          ports = ["${toString cfg.webPort}:5000"];
+          environmentFiles = [pgpassSecret];
+          environment = {
+            POSTGRES_USER = "musicbrainz";
+            MUSICBRAINZ_POSTGRES_SERVER = dbContainerHost;
+            MUSICBRAINZ_POSTGRES_READONLY_SERVER = dbContainerHost;
+            MUSICBRAINZ_REDIS_SERVER = "valkey";
+            MUSICBRAINZ_VALKEY_SERVER = "valkey";
+            MUSICBRAINZ_WEB_SERVER_HOST = localIp;
+            MUSICBRAINZ_WEB_SERVER_PORT = toString cfg.webPort;
+            MUSICBRAINZ_BASE_FTP_URL = "";
+            MUSICBRAINZ_BASE_DOWNLOAD_URL = "https://data.metabrainz.org/pub/musicbrainz";
+            MUSICBRAINZ_SERVER_PROCESSES = "10";
+            MUSICBRAINZ_USE_PROXY = "1";
+          };
+          volumes = [
+            "${cfg.mirrorDir}/dbdump:/media/dbdump"
+            "${cfg.mirrorDir}/solrdump:/var/cache/musicbrainz/solr-backups:ro"
+            "${mbTokenPath}:/run/secrets/metabrainz_access_token:ro"
+          ];
+          extraOptions = ["--network=musicbrainz" "--network-alias=musicbrainz"];
+        };
+
+        musicbrainz-lrclib-1 = {
+          image = lrclibImageName;
+          imageFile = lrclibImage;
+          autoStart = false;
+          pull = "never";
+          ports = ["${toString cfg.lrclibPort}:3300"];
+          volumes = ["${cfg.mirrorDir}/lrclib:/data"];
+          extraOptions = ["--network=musicbrainz" "--network-alias=lrclib" "--user=65532:65532"];
+        };
       };
 
-      musicbrainz-lrclib-1 = {
-        image = lrclibImageName;
-        imageFile = lrclibImage;
-        autoStart = false;
-        pull = "never";
-        ports = ["${toString cfg.lrclibPort}:3300"];
-        volumes = ["${cfg.mirrorDir}/lrclib:/data"];
-        extraOptions = ["--network=musicbrainz" "--network-alias=lrclib" "--user=65532:65532"];
-      };
-    };
-
-    systemd = {
-      services = lib.mkMerge [
-        {
-          musicbrainz-retire-compose = {
-            description = "Retire legacy MusicBrainz compose containers";
-            before = containerServices;
-            requiredBy = containerServices;
-            after = ["podman.service"];
-            requires = ["podman.service"];
-            unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
-            # NNP-OK: MusicBrainz runs a bespoke multi-container compose-style
-            # stack (CONTAINER-NETWORK-OK, own network). These root oneshots
-            # orchestrate rootful podman (compose retire/build, replication,
-            # podman exec). NNP is left off the orchestration units to avoid
-            # destabilizing the fragile MB stack; the containers themselves are
-            # the real surface. Residual: harden the MB units individually later
-            # (tracked under #232). (#232)
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              ExecStart = retireComposeScript;
+      systemd = {
+        services = lib.mkMerge [
+          {
+            postgresql = lib.mkIf nativeDatabase {
+              unitConfig.RequiresMountsFor = [cfg.databaseDir];
             };
-          };
 
-          musicbrainz-build-images = {
-            description = "Build upstream MusicBrainz OCI images";
-            # Only the MB *app* containers are built here; lrclib's image is
-            # Nix-built (imageFile) and must not depend on this oneshot, so it
-            # stays up even if an upstream image build fails (RCA 2026-06-25).
-            before = coupledContainerServices;
-            requiredBy = coupledContainerServices;
-            after = ["podman.service" "musicbrainz-retire-compose.service"];
-            requires = ["podman.service" "musicbrainz-retire-compose.service"];
-            unitConfig.RequiresMountsFor = [cfg.dataDir];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              ExecStart = buildImagesScript;
+            musicbrainz-retire-compose = {
+              description = "Retire legacy MusicBrainz compose containers";
+              before = containerServices;
+              requiredBy = containerServices;
+              after = ["podman.service"];
+              requires = ["podman.service"];
+              unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+              # NNP-OK: MusicBrainz runs a bespoke multi-container compose-style
+              # stack (CONTAINER-NETWORK-OK, own network). These root oneshots
+              # orchestrate rootful podman (compose retire/build, replication,
+              # podman exec). NNP is left off the orchestration units to avoid
+              # destabilizing the fragile MB stack; the containers themselves are
+              # the real surface. Residual: harden the MB units individually later
+              # (tracked under #232). (#232)
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart = retireComposeScript;
+              };
             };
-          };
 
-          musicbrainz-token = {
-            description = "Extract MusicBrainz replication token for container bind mount";
-            before = ["podman-musicbrainz-musicbrainz-1.service"];
-            requiredBy = ["podman-musicbrainz-musicbrainz-1.service"];
-            after = ["sops-install-secrets.service"];
-            wants = ["sops-install-secrets.service"];
-            serviceConfig = {
-              Type = "oneshot";
-              ExecStart = tokenExtractScript;
+            musicbrainz-build-images = {
+              description = "Build upstream MusicBrainz OCI images";
+              # Only the MB *app* containers are built here; lrclib's image is
+              # Nix-built (imageFile) and must not depend on this oneshot, so it
+              # stays up even if an upstream image build fails (RCA 2026-06-25).
+              before = coupledContainerServices;
+              requiredBy = coupledContainerServices;
+              after = ["podman.service" "musicbrainz-retire-compose.service"];
+              requires = ["podman.service" "musicbrainz-retire-compose.service"];
+              unitConfig.RequiresMountsFor = [cfg.dataDir];
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart = buildImagesScript;
+              };
             };
-          };
 
-          musicbrainz = {
-            description = "MusicBrainz Mirror DB-plane orchestration + verify";
-            # This unit orchestrates the MB *app* containers (valkey/mq/search/
-            # indexer/web) and verifies the DB plane. It NO LONGER owns their
-            # lifecycle: containers are pulled at boot via `wants` (not
-            # `requires`) and are not `partOf` this unit, so a verification
-            # failure can never tear the stack down. Web /ws/2 readiness moved to
-            # musicbrainz-ready.service. lrclib is fully decoupled (standalone).
-            # RCA 2026-06-25: the old web-readiness check in postStart, combined
-            # with `requires`+`partOf` ownership of every container, bounced the
-            # entire stack — including the unrelated lrclib service — in a
-            # self-perpetuating loop whenever MB-web was slow to warm up.
-            after = ["network-online.target" "container@musicbrainz-db.service"] ++ coupledContainerServices;
-            wants = ["network-online.target"] ++ coupledContainerServices;
-            requires = ["container@musicbrainz-db.service"];
+            musicbrainz-token = {
+              description = "Extract MusicBrainz replication token for container bind mount";
+              before = ["podman-musicbrainz-musicbrainz-1.service"];
+              requiredBy = ["podman-musicbrainz-musicbrainz-1.service"];
+              after = ["sops-install-secrets.service"];
+              wants = ["sops-install-secrets.service"];
+              serviceConfig = {
+                Type = "oneshot";
+                ExecStart = tokenExtractScript;
+              };
+            };
+
+            musicbrainz = {
+              description = "MusicBrainz Mirror DB-plane orchestration + verify";
+              # This unit orchestrates the MB *app* containers (valkey/mq/search/
+              # indexer/web) and verifies the DB plane. It NO LONGER owns their
+              # lifecycle: containers are pulled at boot via `wants` (not
+              # `requires`) and are not `partOf` this unit, so a verification
+              # failure can never tear the stack down. Web /ws/2 readiness moved to
+              # musicbrainz-ready.service. lrclib is fully decoupled (standalone).
+              # RCA 2026-06-25: the old web-readiness check in postStart, combined
+              # with `requires`+`partOf` ownership of every container, bounced the
+              # entire stack — including the unrelated lrclib service — in a
+              # self-perpetuating loop whenever MB-web was slow to warm up.
+              after = ["network-online.target" dbUnit] ++ coupledContainerServices;
+              wants = ["network-online.target"] ++ coupledContainerServices;
+              requires = [dbUnit];
+              wantedBy = ["multi-user.target"];
+              unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
+
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                TimeoutStartSec = "600s";
+              };
+
+              preStart = ''
+                ${dbPreflightVerifyScript}
+              '';
+
+              script = ''
+                true
+              '';
+
+              restartTriggers =
+                [
+                  dbPreflightVerifyScript
+                  dbVerifyScript
+                  amqpSetupScript
+                  pgpassSecret
+                  tokenExtractScript
+                  retireComposeScript
+                  buildImagesScript
+                  config.systemd.units.${dbUnit}.unit
+                  config.systemd.units."musicbrainz-token.service".unit
+                ]
+                ++ map (unit: config.systemd.units.${unit}.unit) coupledContainerServices;
+
+              postStart = ''
+                ${amqpSetupScript}
+                ${dbVerifyScript}
+              '';
+            };
+
+            # Non-destructive web readiness probe. Split out of musicbrainz.service
+            # so a slow or failed MB-web warmup pages (via its own errorPattern)
+            # WITHOUT tearing down the container stack. Ordered after the web +
+            # search containers so it observes them once they exist; apiVerifyScript
+            # is patient (~10 min) and exits early on the first healthy /ws/2 reply.
+            musicbrainz-ready = {
+              description = "MusicBrainz web /ws/2 readiness verification";
+              after = [
+                "musicbrainz.service"
+                "podman-musicbrainz-musicbrainz-1.service"
+                "podman-musicbrainz-search-1.service"
+              ];
+              wants = ["musicbrainz.service"];
+              wantedBy = ["multi-user.target"];
+              restartTriggers = [apiVerifyScript];
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                TimeoutStartSec = "900s";
+                ExecStart = apiVerifyScript;
+              };
+            };
+
+            # Daily replication — pulls latest MusicBrainz data.
+            # ExecStart wraps replication.sh so failures (incl. swallowed-by-mirror.sh
+            # rc=1) fail the unit, and single-step schema mismatches auto-heal
+            # by running upgrade.sh then re-replicating. See replicationScript
+            # above for the why (May 2026 silent freeze incident).
+            musicbrainz-replication = {
+              description = "MusicBrainz daily replication";
+              after = ["musicbrainz.service"];
+              requires = ["musicbrainz.service"];
+              serviceConfig = {
+                Type = "oneshot";
+                # Three independent budgets live inside this timeout:
+                #   - normal daily replication (~20 min for ~24 packets)
+                #   - in-band schema upgrade (DDL + VACUUM ANALYZE, ~1 min)
+                #   - recovery catch-up after a missed window (worst case
+                #     was 11 days × ~24 packets/day at ~1.5 packets/min ≈
+                #     ~3 h during the May 2026 incident).
+                # 4 h covers all three. Steady-state daily runs finish in
+                # tens of minutes; a multi-day gap recovers in one run.
+                TimeoutStartSec = "14400s";
+                ExecStart = replicationScript;
+              };
+            };
+
+            # Weekly Solr reindex — rebuilds search index
+            musicbrainz-reindex = {
+              description = "MusicBrainz weekly Solr reindex";
+              after = ["musicbrainz.service"];
+              requires = ["musicbrainz.service"];
+              serviceConfig = {
+                Type = "oneshot";
+                ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir reindex --entity-type artist --entity-type release";
+              };
+            };
+          }
+          # MB *app* containers (lrclib excluded — see its own block below). These
+          # boot on their own (wantedBy multi-user.target) and order after the
+          # retire/build oneshots. They are NOT `partOf` musicbrainz.service: the
+          # verify/orchestration unit observes them but must never tear them down
+          # (RCA 2026-06-25). A config change still restarts a changed container
+          # directly via switch-to-configuration, independent of this.
+          (lib.genAttrs coupledContainerUnitNames (_: {
             wantedBy = ["multi-user.target"];
+            after = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
+            requires = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
             unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
-
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              TimeoutStartSec = "600s";
+          }))
+          {
+            # LRCLIB: standalone Rust+sqlite lyrics server, fully decoupled from
+            # the MB app stack. Boots independently; needs only the podman network
+            # (created by retire-compose) and its data mount. NOT partOf / required
+            # by musicbrainz.service or musicbrainz-build-images, so MB-web
+            # readiness can never bounce it — this is the service that was paging.
+            podman-musicbrainz-lrclib-1 = {
+              wantedBy = ["multi-user.target"];
+              after = ["musicbrainz-retire-compose.service"];
+              requires = ["musicbrainz-retire-compose.service"];
+              unitConfig.RequiresMountsFor = [cfg.mirrorDir];
             };
 
-            preStart = ''
-              ${dbPreflightVerifyScript}
-            '';
-
-            script = ''
-              true
-            '';
-
-            restartTriggers =
-              [
-                dbPreflightVerifyScript
-                dbVerifyScript
-                amqpSetupScript
-                pgpassSecret
-                tokenExtractScript
-                retireComposeScript
-                buildImagesScript
-                config.systemd.units."container@musicbrainz-db.service".unit
-                config.systemd.units."musicbrainz-token.service".unit
-              ]
-              ++ map (unit: config.systemd.units.${unit}.unit) coupledContainerServices;
-
-            postStart = ''
-              ${amqpSetupScript}
-              ${dbVerifyScript}
-            '';
-          };
-
-          # Non-destructive web readiness probe. Split out of musicbrainz.service
-          # so a slow or failed MB-web warmup pages (via its own errorPattern)
-          # WITHOUT tearing down the container stack. Ordered after the web +
-          # search containers so it observes them once they exist; apiVerifyScript
-          # is patient (~10 min) and exits early on the first healthy /ws/2 reply.
-          musicbrainz-ready = {
-            description = "MusicBrainz web /ws/2 readiness verification";
-            after = [
-              "musicbrainz.service"
-              "podman-musicbrainz-musicbrainz-1.service"
-              "podman-musicbrainz-search-1.service"
-            ];
-            wants = ["musicbrainz.service"];
-            wantedBy = ["multi-user.target"];
-            restartTriggers = [apiVerifyScript];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              TimeoutStartSec = "900s";
-              ExecStart = apiVerifyScript;
+            podman-musicbrainz-musicbrainz-1 = {
+              after = ["musicbrainz-token.service"];
+              requires = ["musicbrainz-token.service"];
             };
-          };
 
-          # Daily replication — pulls latest MusicBrainz data.
-          # ExecStart wraps replication.sh so failures (incl. swallowed-by-mirror.sh
-          # rc=1) fail the unit, and single-step schema mismatches auto-heal
-          # by running upgrade.sh then re-replicating. See replicationScript
-          # above for the why (May 2026 silent freeze incident).
+            # mq binds to ${pgc.hostAddress}:5672 — either the nspawn host-side
+            # veth or native-LXC loopback. Without an explicit ordering dep, parallel
+            # restart during switch-to-configuration races: mq tries to bind
+            # before the veth exists and burns through StartLimitBurst.
+            podman-musicbrainz-mq-1 = {
+              after = [dbUnit];
+              requires = [dbUnit];
+              serviceConfig.RestartSec = "5s";
+              unitConfig = {
+                StartLimitIntervalSec = "120s";
+                StartLimitBurst = "10";
+              };
+            };
+          }
+        ];
+
+        timers = {
           musicbrainz-replication = {
-            description = "MusicBrainz daily replication";
-            after = ["musicbrainz.service"];
-            requires = ["musicbrainz.service"];
-            serviceConfig = {
-              Type = "oneshot";
-              # Three independent budgets live inside this timeout:
-              #   - normal daily replication (~20 min for ~24 packets)
-              #   - in-band schema upgrade (DDL + VACUUM ANALYZE, ~1 min)
-              #   - recovery catch-up after a missed window (worst case
-              #     was 11 days × ~24 packets/day at ~1.5 packets/min ≈
-              #     ~3 h during the May 2026 incident).
-              # 4 h covers all three. Steady-state daily runs finish in
-              # tens of minutes; a multi-day gap recovers in one run.
-              TimeoutStartSec = "14400s";
-              ExecStart = replicationScript;
+            description = "MusicBrainz daily replication timer";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnCalendar = "*-*-* 03:00:00";
+              Persistent = true;
             };
           };
 
-          # Weekly Solr reindex — rebuilds search index
           musicbrainz-reindex = {
-            description = "MusicBrainz weekly Solr reindex";
-            after = ["musicbrainz.service"];
-            requires = ["musicbrainz.service"];
-            serviceConfig = {
-              Type = "oneshot";
-              ExecStart = "${pkgs.podman}/bin/podman exec musicbrainz-indexer-1 python -m sir reindex --entity-type artist --entity-type release";
+            description = "MusicBrainz weekly Solr reindex timer";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnCalendar = "Sun 01:00";
+              Persistent = true;
             };
-          };
-        }
-        # MB *app* containers (lrclib excluded — see its own block below). These
-        # boot on their own (wantedBy multi-user.target) and order after the
-        # retire/build oneshots. They are NOT `partOf` musicbrainz.service: the
-        # verify/orchestration unit observes them but must never tear them down
-        # (RCA 2026-06-25). A config change still restarts a changed container
-        # directly via switch-to-configuration, independent of this.
-        (lib.genAttrs coupledContainerUnitNames (_: {
-          wantedBy = ["multi-user.target"];
-          after = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
-          requires = ["musicbrainz-retire-compose.service" "musicbrainz-build-images.service"];
-          unitConfig.RequiresMountsFor = [cfg.dataDir cfg.mirrorDir];
-        }))
-        {
-          # LRCLIB: standalone Rust+sqlite lyrics server, fully decoupled from
-          # the MB app stack. Boots independently; needs only the podman network
-          # (created by retire-compose) and its data mount. NOT partOf / required
-          # by musicbrainz.service or musicbrainz-build-images, so MB-web
-          # readiness can never bounce it — this is the service that was paging.
-          podman-musicbrainz-lrclib-1 = {
-            wantedBy = ["multi-user.target"];
-            after = ["musicbrainz-retire-compose.service"];
-            requires = ["musicbrainz-retire-compose.service"];
-            unitConfig.RequiresMountsFor = [cfg.mirrorDir];
-          };
-
-          podman-musicbrainz-musicbrainz-1 = {
-            after = ["musicbrainz-token.service"];
-            requires = ["musicbrainz-token.service"];
-          };
-
-          # mq binds to ${pgc.hostAddress}:5672 — the host-side veth IP of the
-          # musicbrainz-db nspawn. Without an explicit ordering dep, parallel
-          # restart during switch-to-configuration races: mq tries to bind
-          # before the veth exists and burns through StartLimitBurst.
-          podman-musicbrainz-mq-1 = {
-            after = ["container@musicbrainz-db.service"];
-            requires = ["container@musicbrainz-db.service"];
-            serviceConfig.RestartSec = "5s";
-            unitConfig = {
-              StartLimitIntervalSec = "120s";
-              StartLimitBurst = "10";
-            };
-          };
-        }
-      ];
-
-      timers = {
-        musicbrainz-replication = {
-          description = "MusicBrainz daily replication timer";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnCalendar = "*-*-* 03:00:00";
-            Persistent = true;
           };
         };
 
-        musicbrainz-reindex = {
-          description = "MusicBrainz weekly Solr reindex timer";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnCalendar = "Sun 01:00";
-            Persistent = true;
-          };
-        };
+        tmpfiles.rules = [
+          # Backed-up data (small, operational)
+          "d ${cfg.dataDir} 0755 root root - -"
+          "d ${cfg.dataDir}/mqdata 0755 root root - -"
+          # Mirror data (large, re-downloadable, NOT backed up)
+          "d ${cfg.mirrorDir} 0755 root root - -"
+          "d ${cfg.databaseDir} 0755 root root - -"
+          "d ${cfg.databaseDir}/postgres 0700 ${
+            if nativeDatabase
+            then "postgres postgres"
+            else "root root"
+          } - -"
+          "d ${cfg.mirrorDir}/solrdata 0755 root root - -"
+          "d ${cfg.mirrorDir}/dbdump 0755 root root - -"
+          "d ${cfg.mirrorDir}/solrdump 0755 root root - -"
+          "d ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
+          "Z ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
+        ];
       };
-
-      tmpfiles.rules = [
-        # Backed-up data (small, operational)
-        "d ${cfg.dataDir} 0755 root root - -"
-        "d ${cfg.dataDir}/mqdata 0755 root root - -"
-        # Mirror data (large, re-downloadable, NOT backed up)
-        "d ${cfg.mirrorDir} 0755 root root - -"
-        "d ${cfg.mirrorDir}/postgres-nspawn 0755 root root - -"
-        "d ${cfg.mirrorDir}/postgres-nspawn/postgres 0700 root root - -"
-        "d ${cfg.mirrorDir}/solrdata 0755 root root - -"
-        "d ${cfg.mirrorDir}/dbdump 0755 root root - -"
-        "d ${cfg.mirrorDir}/solrdump 0755 root root - -"
-        "d ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
-        "Z ${cfg.mirrorDir}/lrclib 0750 65532 65532 - -"
-      ];
-    };
-  };
+    }
+  ]);
 }

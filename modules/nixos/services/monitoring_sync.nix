@@ -595,6 +595,12 @@ in {
       description = "SOPS file with KUMA_API_KEY for metrics access.";
     };
 
+    deployOperatorApiKey = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Deploy the operator-facing Kuma metrics API key and shell variable.";
+    };
+
     secretEnvFiles = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
@@ -1150,24 +1156,29 @@ in {
   };
 
   config = lib.mkIf (cfg.enable && haveMonitoringConfig) {
-    sops.secrets."uptime-kuma/env" = {
-      sopsFile = cfg.authSecret;
-      format = "dotenv";
-      owner = "root";
-      group = "root";
-      mode = "0400";
-    };
+    sops.secrets =
+      {
+        "uptime-kuma/env" = {
+          sopsFile = cfg.authSecret;
+          format = "dotenv";
+          owner = "root";
+          group = "root";
+          mode = "0400";
+        };
+      }
+      // lib.optionalAttrs cfg.deployOperatorApiKey {
+        "uptime-kuma/api" = {
+          sopsFile = cfg.apiKeySecret;
+          format = "dotenv";
+          key = "KUMA_API_KEY";
+          owner = config.homelab.user;
+          mode = "0400";
+        };
+      };
 
-    sops.secrets."uptime-kuma/api" = {
-      sopsFile = cfg.apiKeySecret;
-      format = "dotenv";
-      key = "KUMA_API_KEY";
-      owner = config.homelab.user;
-      mode = "0400";
+    environment.sessionVariables = lib.optionalAttrs cfg.deployOperatorApiKey {
+      KUMA_API_KEY_FILE = config.sops.secrets."uptime-kuma/api".path;
     };
-
-    environment.sessionVariables.KUMA_API_KEY_FILE =
-      config.sops.secrets."uptime-kuma/api".path;
 
     systemd.tmpfiles.rules = lib.mkOrder 2000 [
       # 0751 (not 0750): a non-root deep-probe user (e.g. mailsearch's

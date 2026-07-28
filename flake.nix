@@ -577,7 +577,9 @@
             fw=age1ysfdznu87vwwqtpudchkyx0wlhuhteqljrqkt6963pcmhwprlgcqasg0gv
             wsl=age10hqxw3uxvg9nkc56rm495ty0rge0yhkcqp95gx00tgsv8ptg93mqwywlja
             servarr=age1tdnkggnfqkav7zxw5r3ty4d8r0tavk34p8aclzmkdtzjp69smpusudf2k4
-            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $servarr"
+            musicbrainz=age1cde5nfss8lkstnpe5qjq357hw253lk5sedtpznulnq5gllsc33lsll5rrl
+            discogs=age12u5yjh0wff8y2tdfx5yzewrpqnhadlrafhmmmctsy37vnu8mgdlsz2p7wc
+            allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $servarr $musicbrainz $discogs"
             fail=0
             for d in ${./secrets/hosts}/*/; do
               h=$(basename "$d")
@@ -589,6 +591,8 @@
                 framework) own=$fw ;;
                 wsl) own=$wsl ;;
                 servarr) own=$servarr ;;
+                musicbrainz) own=$musicbrainz ;;
+                discogs) own=$discogs ;;
                 *) echo "unknown host dir: $h"; fail=1; continue ;;
               esac
               for f in "$d"*; do

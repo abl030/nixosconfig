@@ -47,6 +47,7 @@
 # monitoring.
 {
   pkgs,
+  lib ? pkgs.lib,
   name,
   hostNum,
   dataDir,
@@ -82,13 +83,39 @@
   # after_insert incident (2026-07-07) that drove this:
   # docs/wiki/services/immich-db-function-ownership-incident.md
   functionOwnershipAllowList ? [],
+  # Run the same PostgreSQL ownership/auth/setup policy directly on a host
+  # instead of wrapping it in an nspawn container. This is intended for
+  # single-database unprivileged LXC appliances, where another container layer
+  # adds no isolation but does add cgroup/namespace and I/O overhead.
+  native ? false,
+  # Additional authenticated client networks for native mode (for example the
+  # rootful Podman bridge used by the MusicBrainz application containers).
+  clientCidrs ? [],
 }: let
-  hostAddress = "10.20.0.${toString (hostNum * 2)}";
-  localAddress = "10.20.0.${toString (hostNum * 2 + 1)}";
+  hostAddress =
+    if native
+    then "127.0.0.1"
+    else "10.20.0.${toString (hostNum * 2)}";
+  localAddress =
+    if native
+    then "127.0.0.1"
+    else "10.20.0.${toString (hostNum * 2 + 1)}";
 
   # Path inside the container where the bindmounted password file appears.
-  pgpassPath = "/run/secrets/pgpass.env";
+  pgpassPath =
+    if native
+    then passwordFile
+    else "/run/secrets/pgpass.env";
   pgpassRuntimePath = "/run/postgresql-${name}-pgpass.env";
+  pgDataDir = "${dataDir}/postgres/${lib.versions.major pgPackage.version}";
+  authCidrs =
+    if native
+    then ["127.0.0.1/32"] ++ clientCidrs
+    else ["${hostAddress}/32"];
+  authentication = ''
+    local all all peer
+    ${lib.concatMapStringsSep "\n" (cidr: "host all ${name} ${cidr} scram-sha-256") authCidrs}
+  '';
 
   # Schema-ownership invariant. Runs on every database in this instance
   # after init. RAISE EXCEPTION fails the psql step → fails postgresql-setup
@@ -252,7 +279,7 @@
     END
     $fninv$;
   '';
-in {
+in rec {
   inherit hostAddress localAddress;
   dbHost = localAddress;
   dbPort = 5432;
@@ -336,10 +363,7 @@ in {
         # `peer` for local Unix socket = always-available superuser backdoor for
         # ops work via `machinectl shell`. `scram-sha-256` for TCP from host-side
         # veth = consumer must authenticate; superuser is unreachable over TCP.
-        authentication = lib.mkForce ''
-          local all all peer
-          host all ${name} ${hostAddress}/32 scram-sha-256
-        '';
+        authentication = lib.mkForce authentication;
       };
 
       # postgresql-setup runs ensureDatabases/ensureUsers, then our own steps:
@@ -434,7 +458,7 @@ in {
         # in `ownershipAllowList` raises an exception → container start fails.
         ++ (map (db: ''${lib.getExe' pgPackage "psql"} -d "${db}" -v ON_ERROR_STOP=1 -f "${pkgs.writeText "${name}-${db}-ownership-invariant.sql" ownershipInvariantSql}"'') ([name] ++ extraDatabases));
 
-      networking.firewall.allowedTCPPorts = [5432];
+      networking.firewall.allowedTCPPorts = lib.optionals (!native) [5432];
 
       # NixOS containers need this or DNS resolution fails (nixpkgs #162686)
       networking.useHostResolvConf = lib.mkForce false;
@@ -442,5 +466,17 @@ in {
 
       system.stateVersion = "25.05";
     };
+  };
+
+  # Native single-instance mode for dedicated LXC appliances. Reuse the exact
+  # same setup, password, ownership, audit, and extension policy as nspawn, but
+  # place PostgreSQL directly on the LXC's bind-mounted dataset. The host-level
+  # firewall remains closed; callers may open only a Podman bridge explicitly.
+  nativeConfig = lib.recursiveUpdate (containerConfig.config {inherit lib;}) {
+    services.postgresql.dataDir = pgDataDir;
+    systemd.tmpfiles.rules = [
+      "d ${pgDataDir} 0700 postgres postgres -"
+    ];
+    system.stateVersion = lib.mkDefault "25.05";
   };
 }

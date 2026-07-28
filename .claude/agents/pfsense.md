@@ -272,6 +272,8 @@ These exist either because the device has no DHCP lease (statically-assigned NIC
 | doc2 | local.com | 192.168.1.35 | doc2 primary NIC (ens18) |
 | doc2-vpn | local.com | 192.168.1.36 | doc2 2nd NIC (ens19) — static-only, no DHCP lease |
 | lgwebostv | local.com | 192.168.1.42 | LG TV — moved off .36 which collided with doc2-vpn |
+| musicbrainz | local.com | 192.168.1.43 | MusicBrainz metadata mirror LXC (CT 100) |
+| discogs | local.com | 192.168.1.44 | Discogs metadata mirror LXC (CT 102) |
 | prom-mgmt | local.com | 192.168.11.12 | prom's management NIC on Docker VLAN |
 
 Rationale: whenever an IP is static (no DHCP lease) or needs a different name than the DHCP mapping has, use a Host Override rather than fighting Kea's auto-PTR generation. If two devices share an IP in DHCP static mappings (like the LG TV at .36 that was never online while doc2-vpn took the IP), move the inactive device to a clean IP and restore the Host Override.
@@ -353,6 +355,8 @@ All overrides use domain `local.com` to match existing convention.
 | prom.local.com | 192.168.1.12 | Proxmox host — AMD 9950X hypervisor |
 | pbs.local.com | 192.168.1.30 | Proxmox Backup Server |
 | igpu.local.com | 192.168.1.33 | iGPU transcoding VM (VMID 109) |
+| musicbrainz.local.com | 192.168.1.43 | MusicBrainz metadata mirror LXC (CT 100) |
+| discogs.local.com | 192.168.1.44 | Discogs metadata mirror LXC (CT 102) |
 | homeassistant.local.com | 192.168.1.20 | Home Assistant (pre-existing) |
 | nzbget.local.com | 192.168.1.17 | tower Docker container (ipvlan on br0) |
 | nzbhydra2.local.com | 192.168.1.18 | tower Docker container (ipvlan on br0) |

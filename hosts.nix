@@ -123,6 +123,38 @@ in {
     authorizedKeys = fleetKeys;
   };
 
+  musicbrainz = {
+    configurationFile = ./hosts/musicbrainz/configuration-lxc.nix;
+    homeFile = ./hosts/musicbrainz/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "musicbrainz";
+    localIp = "192.168.1.43";
+    sshHostName = "192.168.1.43";
+    sshAlias = "mb";
+    privateFlakeAuth = false;
+    atuinCredentials = false;
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFl+37MytWD3tb0Qo2RSWWUrZ7tKc3GKK0xXJIwuKb04 root@musicbrainz";
+    authorizedKeys = fleetKeys;
+  };
+
+  discogs = {
+    configurationFile = ./hosts/discogs/configuration-lxc.nix;
+    homeFile = ./hosts/discogs/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "discogs";
+    localIp = "192.168.1.44";
+    sshHostName = "192.168.1.44";
+    sshAlias = "discogs";
+    privateFlakeAuth = false;
+    atuinCredentials = false;
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDDvEW+z0C4FkrGN7IywOnmLq1GKNQ7Yl0Z48WKgcB7l root@discogs";
+    authorizedKeys = fleetKeys;
+  };
+
   framework = {
     configurationFile = ./hosts/framework/configuration.nix;
     homeFile = ./hosts/framework/home.nix;

@@ -1,8 +1,9 @@
 # Deploying a NixOS service as an unprivileged Proxmox LXC
 
-**Status:** Working / battle-tested (first conversion: `igpu`, 2026-06-29).
+**Status:** Working / battle-tested (first conversion: `igpu`, 2026-06-29; dedicated metadata database appliances: 2026-07-28).
 **Reference implementation:** [`igpu-lxc-migration.md`](./igpu-lxc-migration.md) +
-`hosts/igpu/configuration-lxc.nix`.
+`hosts/igpu/configuration-lxc.nix`. For database-heavy service appliances, see
+[`metadata-mirror-lxc-migration.md`](./metadata-mirror-lxc-migration.md).
 
 This is the repeatable recipe for moving a NixOS VM (or standing up a new service)
 as an **unprivileged Proxmox LXC** on `prom`, managed by this flake exactly like any
