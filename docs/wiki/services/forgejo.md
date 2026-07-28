@@ -15,7 +15,7 @@ write root (mirrored to GitHub). See
 
 ## Runtime
 
-- Package: `forgejo-lts-15.0.2`
+- Package: `forgejo-lts-15.0.3`
 - State: `/mnt/virtio/forgejo`
 - Repositories: `/mnt/virtio/forgejo/repositories`
 - Database: SQLite at `/mnt/virtio/forgejo/data/forgejo.db`
