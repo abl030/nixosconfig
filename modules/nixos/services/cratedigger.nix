@@ -1022,8 +1022,11 @@ in {
       # ONE MB origin threads to web/mb.py, pipeline-cli, and the rendered
       # beets musicbrainz block (host:port / http / ratelimit 100 derived).
       musicbrainz.apiBase = "http://192.168.1.43:5200";
-      # Discogs browse is mirror-required; this is the Rust mirror.
-      discogs.apiBase = "https://discogs.ablz.au";
+      # Discogs browse is mirror-required. Address the Rust API directly on
+      # the private LAN: discogs.ablz.au resolves to the public Caddy proxy,
+      # whose domain-fronting guard rejects this machine-to-machine path with
+      # HTTP 421 before the request reaches CT 102.
+      discogs.apiBase = cfg.metadataGate.discogsApiBase;
 
       # Module-owned beets (replaces the Home Manager beets): build-time
       # mirror patches + the Discogs token via the *File pattern. The token
@@ -1037,7 +1040,9 @@ in {
       # beets.config.directory, and the validation gate to beets.validation.*.
       beets = {
         package = {
-          discogsMirrorUrl = "https://discogs.ablz.au";
+          # One origin owns the gate, web/API, and beets consumer paths so a
+          # healthy direct probe cannot mask a stale consumer URL again.
+          discogsMirrorUrl = cfg.metadataGate.discogsApiBase;
           lrclibUrl = "http://192.168.1.43:3300/api";
           discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
           discogsOperatorGroup = "cratedigger-ops";
