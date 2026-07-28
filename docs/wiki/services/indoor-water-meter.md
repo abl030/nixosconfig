@@ -1,22 +1,17 @@
 # Indoor Water Meter
 
-- **Date:** 2026-07-27
-- **Status:** Paused after bench commissioning. The ESP32 input, Home Assistant
-  integration, persistence, and OTA path work. The reed is not connected to the
-  two loose field wires, and no water-driven pulse or flow has been observed.
+- **Date:** 2026-07-27 (updated 2026-07-28)
+- **Status:** Live on independent power with the reed connected. Two clean
+  water-driven pulses have been observed. The selected calibration is the
+  WMMJH-25-PN standard 10 L/pulse option (`0.1` pulses/L).
 - **Tracker:** [`docs/todo/indoor-water-meter.md`](../../todo/indoor-water-meter.md)
 - **Firmware source:** [`ha/esphome/water-meter.yaml`](../../../ha/esphome/water-meter.yaml)
 
 ## Current physical state
 
-The generic ESP32 DevKit is powered temporarily from `framework` over USB. Its
-two screw-terminal field wires are connected to the board terminals labelled
-`D27` (GPIO27) and `GND`, but their far ends are loose. The passive two-wire reed
-must eventually connect across those two wires. Polarity does not matter.
-
-Unplugging the USB cable is safe after the 2026-07-27 persistence tests, but it
-removes the board's only current power source. At installation, move it directly
-to a stable USB power supply; do not expect it to remain online while unplugged.
+The generic ESP32 DevKit is powered from an independent USB supply. The passive
+two-wire reed is connected between the screw terminals labelled `D27` (GPIO27)
+and `GND`; polarity does not matter.
 
 ## What was proved
 
@@ -31,14 +26,31 @@ produced one clean diagnostic sequence:
 This proves the GPIO27 input, internal pull-up, inversion, GND path, screw
 terminals, field wires, firmware input logic, and debounce. It does **not** prove
 the reed, its meter mounting/position, the meter's pulse constant, or real flow.
-The persisted count of `1` is a synthetic commissioning pulse, not one litre of
-measured water.
+The first persisted count of `1` was a synthetic commissioning pulse.
 
 The count was then allowed to pass the one-minute preference flush interval. It
 survived both:
 
 - a CP2102/RTS hardware-style ESP32 reset at 15:31 AWST; and
 - an authenticated ESPHome OTA upload at 15:32 AWST.
+
+On 2026-07-28, after moving to independent power and connecting the reed, the
+meter produced two clean water-driven pulses:
+
+- first closure: 08:11:50–08:12:02 AWST;
+- second pulse: approximately 38.8 seconds after the first;
+- no bounce or duplicate count occurred.
+
+With the selected 10 L/pulse calibration, that interval represents about
+15.46 L/min. This is a plausible open hot-water flow and independently supports
+the standard pulse option.
+
+The red DN25 meter corresponds to Hydroflow model `WMMJH-25-PN`: the hot-water,
+25 mm nominal (1-inch service) member of the WMMJ family. The manufacturer page
+lists 10 L/pulse as standard and 1 L/pulse as an option:
+
+- <https://hydroflowaus.com.au/product/multi-jet-water-meter>
+- <https://hydroflowaus.com.au/downloads/multi-jet-water-meter-xgqqc-2-kigkh.pdf>
 
 ## Firmware and persistence
 
@@ -59,6 +71,12 @@ A graceful reboot or OTA shutdown also synchronizes preferences. This bounds
 flash wear to at most one scheduled write per minute, with a roughly one-minute
 worst-case pulse-loss window during sudden power loss.
 
+Data schema 1 performs a one-time migration that removes the single synthetic
+commissioning pulse from the restored raw total. After allowing the globals
+component to queue both changed values, boot forces a preference sync so the
+migration cannot be applied twice after a later power loss. The schema marker
+makes a fresh board/NVS state safe: an empty counter is not decremented.
+
 ## Home Assistant
 
 The loaded ESPHome integration exposes:
@@ -71,11 +89,15 @@ The loaded ESPHome integration exposes:
 | `sensor.indoor_water_meter_total_water_litres` | Converted cumulative usage | `L`, `water`, `total_increasing` |
 | `sensor.indoor_water_meter_total_water` | Water-dashboard source | `m³`, `water`, `total_increasing` |
 
-Recorder statistics are active for the cubic-metre entity. Its current
-`0.001 m³` state comes only from the synthetic test pulse and the temporary
-one-pulse-per-litre conversion; it is not authoritative water usage. Before
-using it for reporting, settle the real conversion and account for/reset the
-commissioning pulse and its initial statistic.
+Recorder statistics are active for the cubic-metre entity. The schema migration
+and conversion change make its state and cumulative sum converge on the real
+water pulses: after the migration, two real pulses equal 20 L or `0.020 m³`.
+The 08:30 AWST recorder bucket was verified with both state and cumulative sum at
+approximately `0.020 m³`; the synthetic pulse did not remain in recorded usage.
+
+After a reboot, live flow is `unknown` until `pulse_meter` has a new pulse
+interval. It publishes the calibrated rate on the next pair of pulses and falls
+back to zero after the configured two-minute timeout.
 
 The device is on the work LAN at the DHCP-assigned address
 `192.168.100.89`. Home Assistant reaches only TCP 6053 (encrypted ESPHome API)
@@ -89,36 +111,27 @@ Secrets remain only in `/config/esphome/secrets.yaml` on Home Assistant OS. Do
 not put the Wi-Fi password, API encryption key, OTA password, or fallback-AP
 password in this repository.
 
-## Resume procedure
+## Remaining commissioning
 
-1. Power the ESP32 from its intended stable USB supply near the meter and verify
-   that the integration becomes available.
-2. Inspect the meter label, pulse-output plate, and manufacturer datasheet for
-   markings such as `1 pulse = X L`, `X imp/L`, or `X imp/m³`.
-3. Connect the two loose field wires to the passive reed. Polarity does not
-   matter. Secure the cable so movement cannot pull on the screw terminals.
-4. Watch `Reed Contact` and `Lifetime Pulses` while passing enough measured water
-   to guarantee at least several pulses for the documented constant.
-5. If the direct short still works but no meter pulse appears, inspect reed
-   continuity with a magnet/meter and correct its mounting over the meter's
-   magnet before changing firmware.
-6. Confirm one real reed closure produces exactly one raw pulse.
-7. Determine `pulses_per_litre`, update the substitution, validate, compile, and
-   upload over authenticated OTA.
-8. Remove or account for the one synthetic commissioning pulse before treating
-   cumulative water statistics as authoritative.
+1. Validate the 10 L/pulse selection against a larger mechanical-register delta
+   during normal use; this distinguishes it from the optional 1 L/pulse version
+   without wasting water.
+2. Reserve the work DHCP address to the ESP32 MAC.
+3. Add daily, weekly, and monthly Utility Meter helpers if desired.
+4. Add cable-noise mitigation only if real logs show phantom pulses.
 
 ## Calibration and maths
 
-The temporary setting is:
+The selected standard pulse setting is:
 
 ```yaml
 substitutions:
-  pulses_per_litre: "1"
+  pulses_per_litre: "0.1"
 ```
 
-It exists only so the pipeline can be tested. Do not infer the real value from
-the synthetic pulse.
+The same meter family has an optional 1 L/pulse version, so retain the
+substitution and verify the selected option against the mechanical register
+during normal use.
 
 For a label expressed as pulses per cubic metre:
 
@@ -141,15 +154,19 @@ the result.
 
 ## Debounce and cable noise
 
-Once `P` is known, the shortest expected pulse interval at peak flow `Q` L/min
-is:
+The shortest expected pulse interval at peak flow `Q` L/min is:
 
 ```text
 interval seconds = 60 / (Q × P)
 ```
 
-The current 10 ms stable-pulse filter has a theoretical ceiling of about 100
-pulses/second, or:
+At `P = 0.1`, the observed 38.8-second interval is roughly 3,880 times the
+10 ms filter. Even the meter's DN25 maximum flow of 7 m³/h implies about one
+pulse every 5.14 seconds, leaving over 500 times margin. The current debounce is
+therefore safe for this meter.
+
+In general, the 10 ms stable-pulse filter has a theoretical ceiling of about
+100 pulses/second, or:
 
 ```text
 maximum indicated flow ≈ 6000 / P L/min
@@ -167,15 +184,12 @@ isolation and surge protection.
 
 ## Optional Utility Meter helpers
 
-After calibration and commissioning cleanup:
+After the mechanical-register cross-check:
 
 1. Open **Settings → Devices & services → Helpers**.
 2. Select **Create helper → Utility Meter**.
 3. Use `sensor.indoor_water_meter_total_water` as the source.
 4. Create separate helpers with daily, weekly, and monthly reset cycles.
-
-Do not create these while the conversion remains temporary; their histories
-would inherit the synthetic value.
 
 ## Validation receipts
 
@@ -190,5 +204,16 @@ On 2026-07-27:
   recorder statistics for the cubic-metre entity.
 - `nix flake check` passed with only existing repository warnings.
 
-Revisit this page when the reed is physically attached, the meter label or
-measured calibration is available, or the DHCP lease is reserved.
+On 2026-07-28:
+
+- independent USB power rejoined Wi-Fi with the restored count intact;
+- the installed reed produced two clean water-driven pulses;
+- the observed interval maps to approximately 15.46 L/min at 10 L/pulse.
+- ESPHome accepted and compiled `pulses_per_litre: "0.1"` without warnings;
+- authenticated OTA applied data schema 1, changing the stored count from three
+  raw closures to two real meter pulses;
+- an immediate second authenticated OTA/reboot restored the same two pulses,
+  proving the schema migration was persisted and did not run twice;
+- Home Assistant reported `2` pulses, `20 L`, and `0.020 m³`.
+
+Revisit this page after the mechanical-register cross-check or DHCP reservation.

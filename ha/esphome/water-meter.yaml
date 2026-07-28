@@ -1,11 +1,10 @@
 # Commissioning status and recovery notes:
 # docs/wiki/services/indoor-water-meter.md
 substitutions:
-  # TEMPORARY CALIBRATION VALUE ONLY.
-  # Replace this with the meter's documented or measured pulse constant before
-  # treating the converted litre and cubic-metre entities as authoritative.
-  # The value must be greater than zero and means "reed closures per litre".
-  pulses_per_litre: "1"
+  # WMMJH-25-PN standard pulse option: 1 reed closure per 10 litres.
+  # This is configurable because the same meter family also offers a 1 L/pulse
+  # option. The value means "reed closures per litre" and must be > 0.
+  pulses_per_litre: "0.1"
 
 esphome:
   name: indoor-water-meter
@@ -15,11 +14,28 @@ esphome:
     priority: -100
     then:
       - lambda: |-
+          // Data schema 1 removes the one known synthetic pulse created by
+          // shorting the field wires during commissioning on 2026-07-27.
+          if (id(water_meter_data_schema) < 1) {
+            if (id(lifetime_water_pulses) != 0) {
+              id(lifetime_water_pulses) -= 1;
+              ESP_LOGI(
+                "water_meter",
+                "Removed one synthetic commissioning pulse"
+              );
+            }
+            id(water_meter_data_schema) = 1;
+          }
+
           ESP_LOGI(
             "water_meter",
             "Restored lifetime pulse count: %llu",
             static_cast<unsigned long long>(id(lifetime_water_pulses))
           );
+      # Allow the restored globals component to queue both migration values,
+      # then force that one-time change to NVS before commissioning continues.
+      - delay: 2s
+      - lambda: global_preferences->sync();
 
 esp32:
   board: esp32dev
@@ -57,6 +73,13 @@ globals:
   # count in ESP32 NVS so calibration can change without losing the raw count.
   - id: lifetime_water_pulses
     type: uint64_t
+    restore_value: true
+    initial_value: "0"
+    update_interval: 1s
+  # One-time persisted-data migrations. Schema 1 removes the known synthetic
+  # commissioning pulse without adding a permanent offset to water maths.
+  - id: water_meter_data_schema
+    type: uint8_t
     restore_value: true
     initial_value: "0"
     update_interval: 1s
@@ -100,13 +123,13 @@ sensor:
                 ESP_LOGI(
                   "water_meter",
                   "Counted %u pulse(s); lifetime total: %llu",
-                  new_pulses,
+                  static_cast<unsigned int>(new_pulses),
                   static_cast<unsigned long long>(id(lifetime_water_pulses))
                 );
               }
 
-  # Exposing the restored raw count makes calibration and one-pulse testing
-  # independent of the temporary pulses-per-litre conversion.
+  # Exposing the restored raw count makes pulse verification independent of the
+  # volume conversion.
   - platform: template
     id: lifetime_pulses_sensor
     name: "Lifetime Pulses"
