@@ -70,7 +70,10 @@
       tmp="$(mktemp -d)"
       trap 'rm -rf "$tmp"' EXIT
 
-      pages=$(qpdf --show-npages "$doc")
+      # qpdf exits 3 when it successfully repairs a malformed-but-readable PDF.
+      # Paperless treats any non-zero pre-consume exit as fatal, so accept qpdf's
+      # warning-only status while preserving real errors (exit 2).
+      pages=$(qpdf --warning-exit-0 --show-npages "$doc")
       (( pages <= 1 )) && exit 0
 
       keep=()
@@ -100,7 +103,7 @@
 
       ranges=$(IFS=,; echo "''${keep[*]}")
       out="$tmp/out.pdf"
-      qpdf --empty --pages "$doc" "$ranges" -- "$out"
+      qpdf --warning-exit-0 --empty --pages "$doc" "$ranges" -- "$out"
       mv "$out" "$doc"
       echo "blank-strip: kept ''${#keep[@]} of $pages pages" >&2
     '';
