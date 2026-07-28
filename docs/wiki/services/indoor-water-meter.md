@@ -6,6 +6,8 @@
   WMMJH-25-PN standard 10 L/pulse option (`0.1` pulses/L).
 - **Tracker:** [`docs/todo/indoor-water-meter.md`](../../todo/indoor-water-meter.md)
 - **Firmware source:** [`ha/esphome/water-meter.yaml`](../../../ha/esphome/water-meter.yaml)
+- **HA analytics source:** [`ha/water_meter.yaml`](../../../ha/water_meter.yaml)
+- **Dashboard source:** [`ha/dashboards/ir-sensor.yaml`](../../../ha/dashboards/ir-sensor.yaml)
 
 ## Current physical state
 
@@ -99,6 +101,83 @@ After a reboot, live flow is `unknown` until `pulse_meter` has a new pulse
 interval. It publishes the calibrated rate on the next pair of pulses and falls
 back to zero after the configured two-minute timeout.
 
+## Demand analytics and dashboard
+
+Home Assistant loads `ha/water_meter.yaml` as a package. It uses native Utility
+Meter helpers, sourced from the restored cumulative litres sensor, for these
+periods:
+
+| Entity | Period | Sizing use |
+|---|---|---|
+| `sensor.winery_hot_water_this_15_minutes` | 15 minutes | Short demand bursts and storage drawdown |
+| `sensor.winery_hot_water_this_hour` | Hour | Time-of-day demand |
+| `sensor.winery_hot_water_today` | Day | Daily storage and heating requirement |
+| `sensor.winery_hot_water_this_week` | Week | Production-week comparison |
+| `sensor.winery_hot_water_this_month` | Month | Seasonal trend |
+| `sensor.winery_hot_water_this_year` | Year | Long-term demand |
+
+The source is lifetime cumulative and never resets, so every helper sets
+`periodically_resetting: false`, `delta_values: false`, and
+`always_available: true`. Utility Meter state is restored across Home Assistant
+restarts. The initial current hour/day/week/month/year were calibrated to the
+known two real pulses (`20 L`); the then-current 15-minute period was correctly
+zero. Future resets and `last_period` values are automatic.
+
+On their first-ever load, the helpers started before ESPHome had republished the
+source attributes. Home Assistant therefore created their Recorder metadata as
+unitless, then raised six `units_changed` Repairs after the helpers acquired
+`L`. The ESPHome config entry was reloaded to initialize the live helpers, and
+only those six statistics metadata records were corrected to unit `L` and unit
+class `volume` through Home Assistant's Recorder WebSocket API. Statistics
+validation then removed all six Repairs. A later Core restart restored the
+helpers with their units intact, so this is a one-time creation-order issue
+rather than ongoing drift.
+
+`sensor.winery_hot_water_peak_flow_ever` is a restored trigger-based template
+sensor because the native Statistics helper requires a bounded sample count or
+time window and cannot represent an unbounded lifetime maximum. It is seeded at
+`15.459 L/min`, calculated from the verified real-pulse interval after applying
+the final 10 L/pulse conversion. Only a later valid flow above that value can
+raise it.
+
+The fourth view at **IR Sensor → Hot Water** follows the electricity Overview
+and contains:
+
+- current flow, lifetime peak, current-hour usage, and today's usage;
+- a native table for current and previous 15-minute/hour/day periods plus
+  week, month, year, and lifetime totals;
+- the raw flow trace for the last 24 hours;
+- clean helper-based hourly-volume bars for seven days and daily-volume bars
+  for 90 days;
+- hourly maximum and mean flow for 30 days;
+- the existing Solar Analytics hot-water electrical-energy estimate and its
+  daily 90-day history.
+
+The first raw Recorder buckets predate final calibration: the 08:10–08:15 flow
+maximum is 10 times low, and the 08:30–08:35 total-litres change includes the
+calibration/migration transition. The final lifetime total is correct, but
+those first buckets do not have trustworthy physical timing. The dashboard
+therefore uses the new Utility Meter helpers for hourly/daily usage history and
+calls out the one stale point on the 24-hour raw flow graph.
+
+Recorder produces five-minute and hourly statistics for these sensors. The
+fine-grained statistics follow Recorder retention, while hourly long-term
+statistics are retained indefinitely:
+
+- <https://www.home-assistant.io/dashboards/statistics-graph/>
+- <https://www.home-assistant.io/integrations/utility_meter/>
+- <https://www.home-assistant.io/integrations/template/>
+
+For solar hot-water sizing, accumulate several representative production weeks,
+including cleaning and vintage peaks. Volume is the strongest storage-capacity
+input; 15-minute/hourly draw, peak flow, and electrical input describe delivery
+and backup-heating requirements. Adding cold-inlet and hot-outlet temperature
+probes would allow direct thermal-demand estimates:
+
+```text
+thermal kWh = litres × temperature rise °C × 0.001163
+```
+
 The device is on the work LAN at the DHCP-assigned address
 `192.168.100.89`. Home Assistant reaches only TCP 6053 (encrypted ESPHome API)
 and TCP 3232 (authenticated OTA) over the existing routed work subnet. The
@@ -117,7 +196,8 @@ password in this repository.
    during normal use; this distinguishes it from the optional 1 L/pulse version
    without wasting water.
 2. Reserve the work DHCP address to the ESP32 MAC.
-3. Add daily, weekly, and monthly Utility Meter helpers if desired.
+3. Add cold-inlet and hot-outlet temperature probes if thermal-demand
+   calculation is required for final equipment selection.
 4. Add cable-noise mitigation only if real logs show phantom pulses.
 
 ## Calibration and maths
@@ -182,15 +262,6 @@ away from mains and pump wiring, then consider a 4.7–10 kΩ external pull-up a
 a small capacitor at the ESP32 end. Very long or exposed runs may justify
 isolation and surge protection.
 
-## Optional Utility Meter helpers
-
-After the mechanical-register cross-check:
-
-1. Open **Settings → Devices & services → Helpers**.
-2. Select **Create helper → Utility Meter**.
-3. Use `sensor.indoor_water_meter_total_water` as the source.
-4. Create separate helpers with daily, weekly, and monthly reset cycles.
-
 ## Validation receipts
 
 On 2026-07-27:
@@ -215,5 +286,20 @@ On 2026-07-28:
 - an immediate second authenticated OTA/reboot restored the same two pulses,
   proving the schema migration was persisted and did not run twice;
 - Home Assistant reported `2` pulses, `20 L`, and `0.020 m³`.
+- Home Assistant Core accepted the tracked demand-analytics package and created
+  six persistent, water-class Utility Meter sensors plus the restored lifetime
+  peak sensor.
+- The helpers were baselined against the known `20 L`, acquired `L`,
+  `device_class: water`, and `state_class: total_increasing`, and remained
+  `collecting`.
+- A second Core restart restored the same six helper values and metadata plus
+  the `15.459 L/min` lifetime peak; no count or peak reset.
+- The first natural hourly boundary reset the current-hour helper to `0 L` and
+  moved its verified `20 L` into `last_period`.
+- Six one-time unit-change Repairs caused by unitless first-start statistics
+  metadata were corrected to `L`/`volume`; a fresh validation reported zero
+  remaining water-unit Repairs and no winery statistics errors.
+- The `ir-sensor` dashboard gained the fourth **Hot Water** view; live dashboard
+  structure and all referenced entities were verified against the tracked YAML.
 
 Revisit this page after the mechanical-register cross-check or DHCP reservation.
