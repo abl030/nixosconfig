@@ -769,13 +769,6 @@
   # independently per filesystem and the labels carry through to the
   # Gotify body. Excludes ephemeral and pseudo filesystems where
   # "fullness" is either expected or meaningless.
-  #
-  # tower's large data shares intentionally run with less headroom than normal
-  # service filesystems. Match their NFS source device rather than client-side
-  # mountpoints. Framework reaches the single-disk magazines export by the tower
-  # Tailscale hostname; data remains covered only through the LAN source label.
-  towerDataDeviceRegex = "(192[.]168[.]1[.]2:/mnt/user/(data|magazines)|tower:/mnt/user/magazines)";
-  towerDataThresholdPercent = 95;
   diskAlerts = lib.optionals cfg.diskPressureAlert.enable [
     {
       uid = "homelab-disk-pressure-fleet";
@@ -803,38 +796,17 @@
             # free) because ext4/xfs reserve ~5% for root and avail
             # accounts for that — matches what `df` shows.
             expr = ''
-              (
-                100 * (1 - (
-                  node_filesystem_avail_bytes{
-                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
-                    device!~"${towerDataDeviceRegex}"
-                  }
-                  /
-                  node_filesystem_size_bytes{
-                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
-                    device!~"${towerDataDeviceRegex}"
-                  }
-                ))
-              )
-              or
-              (
-                100 * (1 - (
-                  node_filesystem_avail_bytes{
-                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
-                    device=~"${towerDataDeviceRegex}"
-                  }
-                  /
-                  node_filesystem_size_bytes{
-                    fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
-                    mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}",
-                    device=~"${towerDataDeviceRegex}"
-                  }
-                ))
-                > ${toString towerDataThresholdPercent}
-              )
+              100 * (1 - (
+                node_filesystem_avail_bytes{
+                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
+                }
+                /
+                node_filesystem_size_bytes{
+                  fstype!~"${cfg.diskPressureAlert.fstypeExcludeRegex}",
+                  mountpoint!~"${cfg.diskPressureAlert.mountpointExcludeRegex}"
+                }
+              ))
             '';
             instant = true;
             intervalMs = 60000;
@@ -899,9 +871,8 @@
         description = ''
           Filesystem {{ $labels.mountpoint }} on host {{ $labels.host }}
           ({{ $labels.fstype }}) crossed its configured usage threshold and
-          stayed there for ${cfg.diskPressureAlert.forDuration}. The default is
-          ${toString cfg.diskPressureAlert.thresholdPercent}%; tower data and
-          magazines NFS shares use ${toString towerDataThresholdPercent}%.
+          stayed there for ${cfg.diskPressureAlert.forDuration}. The fleet-wide
+          threshold is ${toString cfg.diskPressureAlert.thresholdPercent}%.
           Free space, prune snapshots, or grow the volume — at our nightly
           ingest rates a filesystem hitting 100% will block kopia backups
           and likely take services offline.
@@ -1246,11 +1217,11 @@ in {
 
       thresholdPercent = lib.mkOption {
         type = lib.types.int;
-        default = 90;
+        default = 95;
         description = ''
           Fire when filesystem usage (1 - avail/size) exceeds this many
-          percent. 90% leaves enough headroom for typical churn while
-          still giving us time to act before a disk fills.
+          percent. 95% avoids paging on intentionally full large storage while
+          retaining a sustained warning before a filesystem reaches 100%.
         '';
       };
 

@@ -326,6 +326,16 @@ To add more reboot alerts, append instance labels to `homelab.services.alerting.
 
 Currently reuses `secrets/gotify.env` (`GOTIFY_TOKEN`) — same Gotify "application" stream as agent pings. If the noise mix becomes a problem, create a separate Gotify app, store its token in `secrets/gotify-alerting.env`, and point `homelab.services.alerting.gotifyTokenSopsFile` at it.
 
+### Filesystem capacity alerts
+
+The fleet-wide `homelab-disk-pressure-fleet` Grafana rule evaluates each
+filesystem independently from node-exporter labels and fires after usage stays
+above **95% for 15 minutes**. NFS clients can expose the same backing share as
+several alert instances; correlate those by `device` before treating them as
+separate disks. Ephemeral, pseudo, container-internal, and read-only Nix store
+mounts remain excluded. The rule intentionally uses one threshold for every
+ordinary filesystem rather than maintaining per-share exceptions.
+
 ### alert-bridge — Gotify delivery and optional RCA (added 2026-05-20)
 
 Grafana and Kuma both have verbose default webhook payloads. `modules/nixos/services/alert-bridge.nix` runs a small Python listener on `127.0.0.1:9876` between both systems and Gotify. When `homelab.services.alertBridge.enable = true`:
