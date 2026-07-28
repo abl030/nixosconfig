@@ -57,12 +57,234 @@ utility_meter:
     delta_values: false
     always_available: true
 
+  winery_hot_water_thermal_quarter_hourly:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - This 15 Minutes
+    unique_id: winery_hot_water_thermal_quarter_hourly
+    cycle: quarter-hourly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_thermal_hourly:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - This Hour
+    unique_id: winery_hot_water_thermal_hourly
+    cycle: hourly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_thermal_daily:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - Today
+    unique_id: winery_hot_water_thermal_daily
+    cycle: daily
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_thermal_weekly:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - This Week
+    unique_id: winery_hot_water_thermal_weekly
+    cycle: weekly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_thermal_monthly:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - This Month
+    unique_id: winery_hot_water_thermal_monthly
+    cycle: monthly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+  winery_hot_water_thermal_yearly:
+    source: sensor.winery_hot_water_total_thermal_energy
+    name: Winery Hot Water Thermal - This Year
+    unique_id: winery_hot_water_thermal_yearly
+    cycle: yearly
+    periodically_resetting: false
+    delta_values: false
+    always_available: true
+
+# This time-weighted mean is populated from Recorder's preceding 24 hours at
+# startup. It feeds the much slower 14-day estimated inlet-temperature model.
+sensor:
+  - platform: statistics
+    name: Winery Outdoor Temperature 24h Mean
+    unique_id: winery_outdoor_temperature_24h_mean
+    entity_id: sensor.imarga43_temperature
+    state_characteristic: average_step
+    max_age:
+      hours: 24
+    keep_last_sample: true
+    precision: 2
+
 # Home Assistant has no native unbounded maximum helper. Trigger-based template
 # sensors restore their state, so this retains the highest valid flow forever.
 # Seed with the 15.459 L/min flow calculated from the verified real-pulse
 # interval observed during commissioning after applying the final 10 L/pulse
 # calibration. The pre-calibration Recorder maximum must not be used directly.
 template:
+  # A 50 kL tank changes much more slowly than instantaneous outdoor air.
+  # Update its planning proxy once per day using a 14-day exponential moving
+  # average. The seed is the Recorder-derived 14-day mean at commissioning.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time
+        at: "00:10:00"
+    sensor:
+      - name: Winery Cold Water Estimated Temperature
+        default_entity_id: sensor.winery_cold_water_estimated_temperature
+        unique_id: winery_cold_water_estimated_temperature
+        unit_of_measurement: °C
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer-water
+        state: >-
+          {% set seed = 11.853 %}
+          {% set previous = this.state | float(seed) %}
+          {% set daily_mean =
+            states('sensor.winery_outdoor_temperature_24h_mean') %}
+          {% set coverage =
+            state_attr(
+              'sensor.winery_outdoor_temperature_24h_mean',
+              'age_coverage_ratio'
+            ) | float(0) %}
+          {% if trigger.platform == 'time'
+                and daily_mean | is_number
+                and coverage >= 0.9 %}
+            {{ ((0.931 * previous) + (0.069 * (daily_mean | float)))
+              | round(3) }}
+          {% else %}
+            {{ previous | round(3) }}
+          {% endif %}
+        attributes:
+          source_entity: sensor.imarga43_temperature
+          model: 14-day e-folding exponential low-pass of outdoor temperature
+          daily_weight: 0.069
+          seed_temperature_c: 11.853
+          seed_basis: Recorder 14-day mean ending 2026-07-28
+          measurement_status: Estimated planning proxy; not a water probe
+
+  # Thermal demand is estimated from the assumed 85 C delivery temperature and
+  # the slow inlet-temperature proxy above. Replace the constants/proxy when
+  # physical inlet and outlet probes are installed.
+  - sensor:
+      - name: Winery Hot Water Delivery Temperature
+        default_entity_id: sensor.winery_hot_water_delivery_temperature
+        unique_id: winery_hot_water_delivery_temperature
+        unit_of_measurement: °C
+        device_class: temperature
+        state_class: measurement
+        icon: mdi:thermometer-high
+        state: "85.0"
+        attributes:
+          measurement_status: Assumed fixed plant setting; not a sensor
+
+      - name: Winery Hot Water Temperature Rise
+        default_entity_id: sensor.winery_hot_water_temperature_rise
+        unique_id: winery_hot_water_temperature_rise
+        unit_of_measurement: °C
+        state_class: measurement
+        icon: mdi:thermometer-chevron-up
+        availability: >-
+          {{ states('sensor.winery_cold_water_estimated_temperature')
+            | is_number }}
+        state: >-
+          {% set inlet =
+            states('sensor.winery_cold_water_estimated_temperature') | float %}
+          {{ [85.0 - inlet, 0] | max | round(3) }}
+        attributes:
+          model: 85 C assumed delivery minus estimated cold-water temperature
+
+      - name: Winery Hot Water Thermal Power
+        default_entity_id: sensor.winery_hot_water_thermal_power
+        unique_id: winery_hot_water_thermal_power
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        icon: mdi:fire
+        availability: >-
+          {{ states('sensor.indoor_water_meter_flow_rate') | is_number
+             and states('sensor.winery_hot_water_temperature_rise')
+               | is_number }}
+        state: >-
+          {% set flow =
+            states('sensor.indoor_water_meter_flow_rate') | float %}
+          {% set rise =
+            states('sensor.winery_hot_water_temperature_rise') | float %}
+          {{ (flow * rise * 0.06978) | round(3) }}
+        attributes:
+          formula: flow L/min x temperature rise C x 0.06978
+          measurement_status: Estimated thermal demand
+
+  # Integrate volume deltas rather than the interval-derived flow sensor.
+  # pulse_meter holds its last rate until timeout, which would over-count energy
+  # if integrated directly. This restored total preserves the temperature rise
+  # applied to each future volume increment.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: sensor.indoor_water_meter_total_water_litres
+        not_to:
+          - unknown
+          - unavailable
+    sensor:
+      - name: Winery Hot Water Total Thermal Energy
+        default_entity_id: sensor.winery_hot_water_total_thermal_energy
+        unique_id: winery_hot_water_total_thermal_energy
+        unit_of_measurement: kWh
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:meter-electric
+        state: >-
+          {% set source =
+            trigger.to_state.state
+              if trigger.platform == 'state'
+              else states('sensor.indoor_water_meter_total_water_litres') %}
+          {% set previous_energy = this.state | float(0) %}
+          {% set previous_litres =
+            this.attributes.get('last_total_litres') %}
+          {% set rise =
+            states('sensor.winery_hot_water_temperature_rise')
+              | float(73.147) %}
+          {% if source | is_number %}
+            {% set new_litres = source | float %}
+            {% if previous_litres is none %}
+              {{ (new_litres * rise * 0.001163) | round(6) }}
+            {% else %}
+              {% set delta =
+                [new_litres - (previous_litres | float), 0] | max %}
+              {{ (previous_energy + (delta * rise * 0.001163))
+                | round(6) }}
+            {% endif %}
+          {% else %}
+            {{ previous_energy | round(6) }}
+          {% endif %}
+        attributes:
+          last_total_litres: >-
+            {% set source =
+              trigger.to_state.state
+                if trigger.platform == 'state'
+                else states('sensor.indoor_water_meter_total_water_litres') %}
+            {% if source | is_number %}
+              {{ source | float }}
+            {% else %}
+              {{ this.attributes.get('last_total_litres') }}
+            {% endif %}
+          last_temperature_rise_c: >-
+            {{ states('sensor.winery_hot_water_temperature_rise')
+              | float(73.147) | round(3) }}
+          formula: volume delta L x temperature rise C x 0.001163
+          measurement_status: Estimated thermal energy
+
   - triggers:
       - trigger: homeassistant
         event: start
@@ -94,3 +316,70 @@ template:
               {{ this.attributes.get('peak_recorded_at') }}
             {% endif %}
           seed_basis: Verified real-pulse interval from 2026-07-28 commissioning
+
+  # As with peak flow, retain the unbounded maximum across restarts. On first
+  # load, backfill from the already-restored lifetime peak flow and current
+  # planning temperature rise; later updates only use observed thermal power.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: state
+        entity_id:
+          - sensor.winery_hot_water_thermal_power
+          - sensor.winery_hot_water_peak_flow_ever
+          - sensor.winery_hot_water_temperature_rise
+        not_to:
+          - unknown
+          - unavailable
+    sensor:
+      - name: Winery Hot Water Peak Thermal Power Ever
+        default_entity_id: sensor.winery_hot_water_peak_thermal_power_ever
+        unique_id: winery_hot_water_peak_thermal_power_ever
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        icon: mdi:fire-alert
+        state: >-
+          {% set current =
+            trigger.to_state.state | float(0)
+              if trigger.platform == 'state'
+                and trigger.entity_id
+                  == 'sensor.winery_hot_water_thermal_power'
+              else 0 %}
+          {% set previous = this.state | float(0) %}
+          {% set can_seed =
+            states('sensor.winery_hot_water_peak_flow_ever') | is_number
+            and states('sensor.winery_hot_water_temperature_rise')
+              | is_number %}
+          {% set seed = (
+            states('sensor.winery_hot_water_peak_flow_ever') | float
+            * states('sensor.winery_hot_water_temperature_rise') | float
+            * 0.06978
+          ) if not this.attributes.get('initialized', false) and can_seed
+            else 0 %}
+          {{ [current, previous, seed] | max | round(3) }}
+        attributes:
+          initialized: >-
+            {{ this.attributes.get('initialized', false)
+               or (
+                 states('sensor.winery_hot_water_peak_flow_ever') | is_number
+                 and states('sensor.winery_hot_water_temperature_rise')
+                   | is_number
+               ) }}
+          peak_recorded_at: >-
+            {% set current =
+              trigger.to_state.state | float(0)
+                if trigger.platform == 'state'
+                  and trigger.entity_id
+                    == 'sensor.winery_hot_water_thermal_power'
+                else 0 %}
+            {% set previous = this.state | float(0) %}
+            {% if current > previous %}
+              {{ now().isoformat() }}
+            {% else %}
+              {{ this.attributes.get('peak_recorded_at') }}
+            {% endif %}
+          seed_basis: Existing lifetime peak flow at first thermal-model load
+          measurement_status: Estimated thermal demand
