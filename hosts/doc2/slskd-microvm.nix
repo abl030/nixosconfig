@@ -66,6 +66,8 @@
   # lifecycle override on its virtiofsd instance.
   virtiofsdLifecycle = {
     bindsTo = ["microvm@slskd.service"];
+    restartIfChanged = lib.mkForce false;
+    serviceConfig.X-RestartIfChanged = lib.mkForce false;
     requires = [
       "mnt-virtio-slskd.mount"
       "mnt-virtio-music-slskd.mount"
@@ -200,32 +202,40 @@ in {
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
   #
-  # NixOS switch-to-configuration submits and waits only for jobs it selected
-  # directly. It must select both units: stopping only the parent lets PartOf=
-  # enqueue a child stop that is not part of the wait barrier, so the subsequent
-  # parent start can cancel that pending stop and reuse dead virtiofs sockets.
-  # Keep the child's normal restartIfChanged=true, and make any exact child
-  # drop-in or wrapper change also select the parent. The stop barrier then waits
-  # for guest -> virtiofsd, and the start barrier follows virtiofsd -> guest.
-  systemd.services."microvm@slskd".restartTriggers = [
-    virtiofsdNestedSafe
-    config.systemd.units."microvm-virtiofsd@slskd.service".unit
-  ];
+  # A switch cannot safely submit restart jobs for the guest and backend in one
+  # transaction. Even when both are selected, systemd may begin the guest's
+  # restart as soon as its slow shutdown finishes, before the ordered backend
+  # stop has run. The guest then sees dead sockets behind an active supervisor.
+  #
+  # Give activation one coordinator instead. Its stop phase synchronously drains
+  # the guest and then the backend; its start phase starts the guest, whose
+  # Requires=/After= relationship first creates fresh virtiofs sockets. The
+  # runtime BindsTo=/Restart= policies remain unchanged for crash recovery.
+  systemd.services."microvm@slskd" = {
+    restartIfChanged = lib.mkForce false;
+    serviceConfig.X-RestartIfChanged = lib.mkForce false;
+  };
   systemd.services."microvm-virtiofsd@slskd" = virtiofsdLifecycle;
-
-  assertions = [
-    {
-      assertion = config.systemd.services."microvm-virtiofsd@slskd".restartIfChanged;
-      message = "slskd virtiofsd must be a directly tracked activation job";
-    }
-    {
-      assertion =
-        lib.elem
-        config.systemd.units."microvm-virtiofsd@slskd.service".unit
-        config.systemd.services."microvm@slskd".restartTriggers;
-      message = "slskd parent must track the exact generated virtiofsd unit";
-    }
-  ];
+  systemd.services.slskd-virtiofs-activation = {
+    description = "Serialize slskd guest and VirtioFS activation";
+    wantedBy = ["multi-user.target"];
+    restartTriggers = [
+      virtiofsdNestedSafe
+      config.systemd.units."microvm@slskd.service".unit
+      config.systemd.units."microvm-virtiofsd@slskd.service".unit
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    preStop = ''
+      ${pkgs.systemd}/bin/systemctl stop microvm@slskd.service
+      ${pkgs.systemd}/bin/systemctl stop microvm-virtiofsd@slskd.service
+    '';
+    script = ''
+      ${pkgs.systemd}/bin/systemctl start microvm@slskd.service
+    '';
+  };
 
   # Every Cratedigger unit that binds the handoff tree must also fail closed.
   # Otherwise a missing block disk would expose the old nested mountpoint and
