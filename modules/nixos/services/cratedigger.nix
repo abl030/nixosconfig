@@ -39,6 +39,9 @@
 }: let
   cfg = config.homelab.services.cratedigger;
   operatorUser = hostConfig.user or "abl030";
+  webHostName = "music.ablz.au";
+  webGatewayPort = 8086;
+  webAccessGroup = "cratedigger-web";
 
   # Holds are safety state, not runtime cache. In particular, a doc2 reboot
   # during a remote Discogs table rebuild must not erase `discogs-import` and
@@ -1023,7 +1026,10 @@ in {
         cratedigger-ops = {};
         music-import = {};
       };
-      users.${operatorUser}.extraGroups = ["cratedigger-ops"];
+      users.${operatorUser}.extraGroups = [
+        "cratedigger-ops"
+        webAccessGroup
+      ];
       # The cratedigger user itself is declared by the upstream module (its
       # `mkIf (cfg.user != "root")` block below); this is an additive merge
       # of supplementary groups, not a redefinition. `music-import` is
@@ -1039,8 +1045,8 @@ in {
     # ---------------------------------------------------------------------
     homelab.localProxy.hosts = [
       {
-        host = "music.ablz.au";
-        port = config.services.cratedigger.web.port;
+        host = webHostName;
+        port = webGatewayPort;
       }
     ];
 
@@ -1156,6 +1162,12 @@ in {
 
       web = {
         enable = true;
+        hostName = webHostName;
+        gatewayPort = webGatewayPort;
+        accessGroup = webAccessGroup;
+        # Temporary explicit opt-out while external OIDC authorization is
+        # designed and deployed. The upstream module otherwise fails closed.
+        enableInsecure = true;
         redis.host = "127.0.0.1";
       };
 
