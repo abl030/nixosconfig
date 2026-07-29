@@ -123,7 +123,7 @@ to; throwaway random passwords, they auth via token, not password):
 | Account | Purpose | Token |
 |---|---|---|
 | `nixbot` | nightly rolling-flake-update bot push | `nixbot-push` (`write:repository`) → `secrets/hosts/proxmox-vm/forgejo-nixbot-token` |
-| `nixbot` | interactive Hermes issue API | `hermes-agent-doc1` (`write:issue`, which includes issue reads) → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` → `/run/secrets/forgejo/hermes-token` |
+| `abl030` | interactive Hermes control plane | `hermes-agent-admin-doc1-20260729` (`all`) → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` → `/run/secrets/forgejo/hermes-token` |
 | `doc1-writer` | interactive dev push from doc1 | per-machine, issued in U9 |
 | `epimetheus-writer` | dev push from epimetheus | per-machine, issued in U9 |
 | `framework-writer` | dev push from framework | per-machine, issued in U9 |
@@ -187,19 +187,13 @@ run admin user create --username <name> --email <name>@ablz.au --restricted --ra
 run admin user generate-access-token -u <name> -t <token-name> --scopes write:repository --raw   # pipe to sops, never echo
 ```
 
-Forgejo issues are available through the normal REST API; the web UI is not
-required. Interactive Hermes sessions on doc1 use the separate
-`write:issue` token at `/run/secrets/forgejo/hermes-token`; Forgejo includes
-issue reads in that scope. This is
-deliberately not the repository-write token: creating, searching, commenting
-on, and closing issues does not need permission to push code. The tracked
-`homelab-agents:forgejo` skill owns the API workflow and duplicate check.
-
-Repo/collaborator/branch-protection operations use the API with an admin token.
-Mint an ephemeral admin token via `run admin user generate-access-token -u abl030
-... --scopes all`, and **revoke it when done** — token-auth cannot delete tokens
-(HTTP 401), so revoke by stopping forgejo and deleting the row:
-`sqlite3 /mnt/virtio/forgejo/data/forgejo.db "DELETE FROM access_token WHERE id=<n>;"`.
+Interactive Hermes sessions on doc1 use the persistent `abl030` all-scope admin
+token at `/run/secrets/forgejo/hermes-token`. It owns issue, pull-request,
+repository, collaborator, branch-protection, account, and instance API work; the
+web UI and ephemeral admin-token ceremony are unnecessary. The token is
+SOPS-encrypted with doc1/editor/break-glass recipients. If it must be replaced,
+mint the successor first, update the encrypted/runtime copies, verify an admin
+endpoint, then stop Forgejo briefly and delete the superseded `access_token` row.
 
 ### GitHub code mirror (completed 2026-07-02)
 

@@ -1,6 +1,6 @@
 ---
 name: forgejo
-description: Create, search, comment on, and manage issues in the canonical nixosconfig Forgejo tracker via its REST API.
+description: Administer Forgejo repositories, PRs, issues, users, and instance state via its REST API.
 version: 1.0.0
 metadata:
   hermes:
@@ -21,8 +21,9 @@ mirror; its issue tracker is not authoritative.
 - Pre-deploy fallback on doc1: decrypt
   `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` with `sops` directly
   into the same short-lived shell variable. Do not write plaintext to disk.
-- Token scope: `write:issue` only; Forgejo includes issue reads. It cannot push
-  source code.
+- Identity: Forgejo administrator `abl030`.
+- Token scope: `all`; use it for repository, pull-request, issue, user, and
+  instance administration without minting ephemeral API tokens.
 
 Never print, interpolate into a URL, or persist the token. Read it into a
 short-lived shell variable and send it only in Forgejo's token-authentication
@@ -31,7 +32,7 @@ with a trap.
 
 ## Workflow
 
-1. Search open and closed issues through
+1. For issue work, search open and closed issues through
    `GET /repos/abl030/nixosconfig/issues?state=all&limit=100` before creating a
    new one. Compare both title and body for the named subsystem and intent.
 2. If no duplicate exists, create with
@@ -44,8 +45,19 @@ with a trap.
    200); accept either success code, parse the response, then GET the issue back
    and verify the stored fields.
 5. If Forgejo returns HTTP 403, inspect its JSON `message`. Scope errors are a
-   token configuration problem, not evidence that issue operations require the
-   web UI.
+   token/configuration problem, not evidence that the operation requires the web
+   UI. The installed Hermes token is an all-scope administrator token.
+
+## Pull requests and administration
+
+- Create PRs with `POST /repos/{owner}/{repo}/pulls`; verify the returned URL,
+  base, head, and exact head SHA.
+- Read/merge PRs with `/repos/{owner}/{repo}/pulls/{number}` and
+  `/repos/{owner}/{repo}/pulls/{number}/merge`. Preserve the repository's signed
+  merge policy and verify the resulting commit independently.
+- Repository, collaborator, branch-protection, user, and instance operations use
+  the corresponding `/admin` or repository endpoints with this same token.
+- Keep the token out of argv by feeding curl authentication through stdin config.
 
 ## Quality bar
 

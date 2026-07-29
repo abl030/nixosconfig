@@ -20,9 +20,9 @@
     mode = "0400";
   };
 
-  # Least-privilege Forgejo issue API token for interactive Hermes sessions.
-  # Kept separate from nixbot's repository-write token so issue operations do
-  # not grant source-code push access.
+  # Persistent Forgejo administrator API token for interactive Hermes sessions.
+  # This is the operator-authorized control-plane credential for repository,
+  # pull-request, issue, account, and instance administration.
   sops.secrets."forgejo/hermes-token" = {
     sopsFile = config.homelab.secrets.sopsFile "forgejo-hermes-token.yaml";
     format = "yaml";

@@ -1,16 +1,16 @@
 ---
 name: forgejo-issue-token-doc1
-description: "How the doc1 agent files/edits Forgejo issues via a scoped nixbot write:issue token (sops-encrypted, doc1-only)"
+description: "How the doc1 agent administers Forgejo via its persistent all-scope token (sops-encrypted, doc1-only)"
 metadata: 
   node_type: memory
   type: project
   originSessionId: d598a222-4ab0-4b23-89dd-e330fdac9177
 ---
 
-The doc1 agent can create/edit Forgejo issues via the **Forgejo REST API** using a
-scoped `nixbot` token (name `hermes` (successor of `claude-agent-doc1`), scope **`write:issue`** only —
-no code push, no admin). Minted 2026-06-18 (owner-authorised) via the forgejo
-admin CLI on doc2. Issues authored as `nixbot`.
+The doc1 agent administers Forgejo through the **Forgejo REST API** using the
+`abl030` token `hermes-agent-admin-doc1-20260729` with scope **`all`**. The
+operator explicitly authorized this persistent control-plane credential on
+2026-07-29. It supersedes and revokes the old `nixbot` `write:issue` token.
 
 Token is stored **sops-encrypted, doc1-scope only** (recipients = doc1 host key
 + editor + break-glass) at `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml`.
@@ -24,18 +24,14 @@ curl -s -H "Authorization: token $TOKEN" \
 # create: POST .../issues  -d '{"title":"…","body":"…"}'   (Content-Type: application/json)
 ```
 
-Why scoped this way: the push token ([[forgejo-push-from-doc1]]) is
-`write:repository` only and gets 403 on issue endpoints; this token is the
-inverse — issues only, no code. Forgejo PAT scopes are **per-category, not
-per-repo**, so the repo boundary comes from `nixbot` being a collaborator on
-nixosconfig only (not from the scope). Pushing code still uses the push-token
-header trick, not this token.
+This token can manage issues, pull requests, repositories, users, and instance
+administration. Git pushes may continue using the dedicated push token, but API
+operations should use this admin token rather than minting ephemeral credentials.
 
-**Revoke** if ever leaked: Forgejo web UI → nixbot → Settings → Applications →
-delete the `claude-agent-doc1` token (or re-mint via `forgejo admin user
-generate-access-token` on doc2 and re-key the sops file). Leak blast radius =
-create/edit issues on nixosconfig — nothing else.
+**Revoke** if ever leaked: use the Forgejo admin CLI on doc2 to replace the token,
+update the SOPS file, then delete the old `access_token` row while Forgejo is
+stopped.
 
 UPDATE 2026-07-23: token file renamed → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml`,
-also materialized at `/run/secrets/forgejo/hermes-token` (root-readable) — verified working
-(created nixosconfig#46). The old claude-token path no longer exists.
+also materialized at `/run/secrets/forgejo/hermes-token` (owner `abl030`, mode
+`0400`) — verified working. Replaced by the persistent admin token on 2026-07-29.
