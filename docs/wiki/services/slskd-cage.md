@@ -244,14 +244,14 @@ Remove `192.168.1.36` from the `MV_VPN_IPS` alias only if no other workload stil
 
 Use observed traffic and state, not configuration alone.
 
-Host-side virtiofsd wrapper and lifecycle changes are included in the parent
-`microvm@slskd` restart trigger, while the child unit has activation-driven
-restarts disabled. This is required because NixOS stops changed units before
-its start phase and the guest has `Restart=always`: an independent child job
-can let the guest retry against sockets that are still draining. Parent-owned
-activation makes systemd stop and start the guest and daemon as one ordered
-transaction; `microvm@slskd`'s existing `Requires=`/`After=` starts fresh
-virtiofsd sockets before the guest.
+Host-side virtiofsd changes (the wrapper or exact generated instance drop-in)
+are included in the parent `microvm@slskd` restart trigger, while the child
+retains `restartIfChanged=true`. NixOS therefore submits and waits for both stop
+jobs (guest before backend) before activation, then both start jobs (backend
+before guest). `PartOf=` alone is not a sufficient activation barrier: its
+indirectly queued backend stop is absent from switch-to-configuration's wait
+set and can be cancelled when the parent start is submitted, leaving dead
+virtiofs sockets behind an apparently active supervisor.
 
 ```bash
 # Host/guest boundary and preserved state

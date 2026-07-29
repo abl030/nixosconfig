@@ -63,15 +63,9 @@
   '';
 
   # Keep the parent guest's activation transaction coupled to every local
-  # lifecycle override on its virtiofsd instance. Serialising the exact attrset
-  # used below means a future lifecycle edit also changes the parent unit, while
-  # restartIfChanged=false prevents an independent child activation job.
+  # lifecycle override on its virtiofsd instance.
   virtiofsdLifecycle = {
     bindsTo = ["microvm@slskd.service"];
-    # microvm.nix writes this activation metadata directly into serviceConfig,
-    # so force both the NixOS policy option and the emitted drop-in directive.
-    restartIfChanged = lib.mkForce false;
-    serviceConfig.X-RestartIfChanged = lib.mkForce false;
     requires = [
       "mnt-virtio-slskd.mount"
       "mnt-virtio-music-slskd.mount"
@@ -85,9 +79,6 @@
       RequiresMountsFor = [hostStateDir downloadDir musicDir "/run/secrets/slskd"];
     };
   };
-  virtiofsdLifecycleTrigger = pkgs.writeText "slskd-virtiofs-lifecycle-policy" (
-    builtins.toJSON virtiofsdLifecycle
-  );
 in {
   imports = [inputs.microvm.nixosModules.host];
 
@@ -209,20 +200,32 @@ in {
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
   #
-  # Trigger wrapper changes through the parent guest unit, not virtiofsd alone.
-  # The guest closure does not change when only this host-side wrapper changes.
-  # Restarting only virtiofsd races the guest's Restart=always path against stale
-  # sockets. PartOf= propagates the parent's restart and BindsTo= follows its
-  # inactive state. The child must not also receive an independent activation
-  # restart job: that can be ordered after the parent starts, leaving systemd to
-  # consider the old supervisor ready after its one-shot backends disconnected.
-  # The policy marker makes the transition to parent-owned restarts cycle the
-  # complete graph once; subsequent wrapper changes use the same parent trigger.
+  # NixOS switch-to-configuration submits and waits only for jobs it selected
+  # directly. It must select both units: stopping only the parent lets PartOf=
+  # enqueue a child stop that is not part of the wait barrier, so the subsequent
+  # parent start can cancel that pending stop and reuse dead virtiofs sockets.
+  # Keep the child's normal restartIfChanged=true, and make any exact child
+  # drop-in or wrapper change also select the parent. The stop barrier then waits
+  # for guest -> virtiofsd, and the start barrier follows virtiofsd -> guest.
   systemd.services."microvm@slskd".restartTriggers = [
     virtiofsdNestedSafe
-    virtiofsdLifecycleTrigger
+    config.systemd.units."microvm-virtiofsd@slskd.service".unit
   ];
   systemd.services."microvm-virtiofsd@slskd" = virtiofsdLifecycle;
+
+  assertions = [
+    {
+      assertion = config.systemd.services."microvm-virtiofsd@slskd".restartIfChanged;
+      message = "slskd virtiofsd must be a directly tracked activation job";
+    }
+    {
+      assertion =
+        lib.elem
+        config.systemd.units."microvm-virtiofsd@slskd.service".unit
+        config.systemd.services."microvm@slskd".restartTriggers;
+      message = "slskd parent must track the exact generated virtiofsd unit";
+    }
+  ];
 
   # Every Cratedigger unit that binds the handoff tree must also fail closed.
   # Otherwise a missing block disk would expose the old nested mountpoint and
