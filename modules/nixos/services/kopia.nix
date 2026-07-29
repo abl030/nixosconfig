@@ -12,6 +12,7 @@
 }: let
   cfg = config.homelab.services.kopia;
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
+  kopiaCurlAuth = builtins.readFile ./probes/kopia-curl-auth.sh;
 
   # Reconciliation script — makes `inst.sources` the source of truth
   # for what's registered in the running kopia daemon. Runs once on every
@@ -37,13 +38,15 @@
   }:
     pkgs.writeShellScript "kopia-${name}-source-sync" ''
       set -uo pipefail
+      ${kopiaCurlAuth}
 
       base="http://127.0.0.1:${toString inst.port}"
       hour="${toString inst.snapshotScheduleHour}"
       min="${toString inst.snapshotScheduleMinute}"
 
-      auth_user="''${KOPIA_SERVER_USER:?}"
-      auth_pass="''${KOPIA_SERVER_PASSWORD:?}"
+      kopia_auth_user="''${KOPIA_SERVER_USER:?}"
+      kopia_auth_pass="''${KOPIA_SERVER_PASSWORD:?}"
+      kopia_curl_bin=${pkgs.curl}/bin/curl
 
       override_host="${
         if inst.overrideHostname != null
@@ -59,8 +62,7 @@
       # Wait for daemon ready (HTTP 200 from /api/v1/repo/status).
       max_wait=90
       waited=0
-      while ! ${pkgs.curl}/bin/curl -fsS --max-time 3 \
-        -u "$auth_user:$auth_pass" \
+      while ! kopia_curl -fsS --max-time 3 \
         "$base/api/v1/repo/status" >/dev/null 2>&1; do
         if [ "$waited" -ge "$max_wait" ]; then
           echo "kopia-${name}-source-sync: daemon not reachable after ''${max_wait}s — aborting" >&2
@@ -77,7 +79,7 @@
       })
 
       # Current registered paths (for orphan detection).
-      current_json=$(${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" "$base/api/v1/sources")
+      current_json=$(kopia_curl -fsS --max-time 30 "$base/api/v1/sources")
       current_paths=$(printf '%s' "$current_json" | ${pkgs.jq}/bin/jq -r '.sources[].source.path')
 
       # NOTE: use `printf '%s'`, NOT `<<<` — bash here-strings add a
@@ -111,7 +113,7 @@
           body="$body,\"files\":{\"ignore\":''${ignore_json[$path]}}"
         fi
         body="$body}"
-        ${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" \
+        kopia_curl -fsS --max-time 30 \
           -X PUT \
           -H 'content-type: application/json' \
           --data "$body" \
@@ -126,7 +128,7 @@
         local path="$1"
         local encp
         encp=$(url_encode "$path")
-        ${pkgs.curl}/bin/curl -fsS --max-time 30 -u "$auth_user:$auth_pass" \
+        kopia_curl -fsS --max-time 30 \
           -X POST \
           "$base/api/v1/sources/upload?host=$override_host&userName=$override_user&path=$encp" \
           >/dev/null
@@ -434,13 +436,15 @@ in {
           #   snapshot" or "change UI preferences" — annoying, not data-loss.
           # See docs/wiki/services/kopia.md "Network exposure" for full reasoning.
           script = ''
+            { set +x; } 2>/dev/null
+            export KOPIA_SERVER_USERNAME="$KOPIA_SERVER_USER"
+            unset KOPIA_SERVER_USER
             exec ${pkgs.kopia}/bin/kopia server start \
               --config-file=${inst.configDir}/repository.config \
               --address=127.0.0.1:${toString inst.port} \
               --insecure \
+              --no-persist-credentials \
               --disable-csrf-token-checks \
-              --server-username="$KOPIA_SERVER_USER" \
-              --server-password="$KOPIA_SERVER_PASSWORD" \
               ${lib.optionalString (inst.overrideHostname != null) "--override-hostname=${inst.overrideHostname}"} \
               ${lib.optionalString (inst.overrideUsername != null) "--override-username=${inst.overrideUsername}"} \
               ${lib.concatStringsSep " " inst.extraArgs}

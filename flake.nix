@@ -1415,6 +1415,43 @@
               touch $out
             '';
 
+          # Credential-to-argv ratchet (#49). Audit both authored source and the
+          # evaluated systemd contracts. The unit text catches changes hidden by
+          # Nix rendering; deterministic known-bad fixtures qualify every owned
+          # detector before the real files are scanned.
+          secretArgvAuditCheck = let
+            discogsSystemd = self.nixosConfigurations.discogs.config.systemd;
+            doc2Systemd = self.nixosConfigurations.doc2.config.systemd;
+            renderedContracts = pkgs.writeText "secret-argv-rendered-contracts" (lib.concatStringsSep "\n" [
+              discogsSystemd.units."discogs-api.service".text
+              discogsSystemd.units."discogs-import.service".text
+              doc2Systemd.services."kopia-mum".script
+              doc2Systemd.services."kopia-photos".script
+            ]);
+          in
+            pkgs.runCommand "secret-argv-audit" {
+              nativeBuildInputs = [pkgs.python3 pkgs.gnugrep];
+            } ''
+              SECRET_ARGV_AUDIT=${./nix/checks/secret-argv-audit.py} \
+                python3 ${./nix/checks/test_secret_argv_audit.py}
+              bash ${./nix/checks/test-kopia-curl-auth.sh} \
+                ${./modules/nixos/services/probes/kopia-curl-auth.sh}
+              python3 ${./nix/checks/secret-argv-audit.py} \
+                ${renderedContracts} \
+                ${./modules/nixos/services/discogs.nix} \
+                ${./modules/nixos/services/kopia.nix} \
+                ${./modules/nixos/services/probes/check-kopia-fresh.nix} \
+                ${./modules/nixos/services/probes/check-kopia-backup-errors.nix}
+
+              test "$(grep -c -- '--credential-file %d/postgres-password' ${renderedContracts})" -eq 2
+              test "$(grep -c '^LoadCredential=postgres-password:' ${renderedContracts})" -eq 2
+              if grep -q '^EnvironmentFile=.*discogs-pgpass' ${renderedContracts}; then
+                echo "Discogs must not receive its PostgreSQL password through the environment" >&2
+                exit 1
+              fi
+              touch "$out"
+            '';
+
           # Every flake input must FOLLOW the fleet nixpkgs, never carry its own.
           # A duplicate nixpkgs node in flake.lock drifts stale on its own (the
           # rolling-flake-update only advances the ROOT pin), bloats every closure
@@ -1442,7 +1479,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck nixpkgsFollowsCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

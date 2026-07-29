@@ -113,11 +113,11 @@
     "discogs-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1783987594,
-        "narHash": "sha256-WDRlzONmnwjFs5pRZ4A9L+MX2lZzKeYQ13urw9o8Zps=",
+        "lastModified": 1785291924,
+        "narHash": "sha256-zxoEqMOydfAi0aq0gxe5Ol1spP/LUvQTxEDggUwDhDw=",
         "owner": "abl030",
         "repo": "discogs-api",
-        "rev": "123de5917d5d56a3c7b7446b3d1d72343b15d921",
+        "rev": "a75fa7fb81c919f7d7cbc2371fd5a21c6571e14a",
         "type": "github"
       },
       "original": {

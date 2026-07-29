@@ -43,6 +43,7 @@ If kopia ever exposes a per-endpoint CSRF whitelist, or if `--control-api` matur
 ## Secret handling
 
 - **Repository encryption password (`KOPIA_PASSWORD`)**: sops-encrypted at rest (`secrets/kopia.env`), decrypted to `/run/secrets/kopia/env` at boot, loaded into the systemd unit's `EnvironmentFile`. Kopia is started with `--no-persist-credentials` so the password is **never cached on disk** — kopia reads it from env on every operation.
+- **Server Basic-auth credentials**: the existing `KOPIA_SERVER_USER` secret key is mapped at startup to Kopia's native `KOPIA_SERVER_USERNAME` variable, while `KOPIA_SERVER_PASSWORD` is consumed directly through its native environment variable. Neither is expanded into `--server-username` or `--server-password`. Source reconciliation and both deep probes feed curl's `user` config over stdin with `--config -`, keeping both values out of `/proc/*/cmdline`. The shared helper rejects control characters and escapes curl-config quotes and backslashes; `secretArgvAuditCheck` qualifies the known-bad argv forms before scanning rendered units and source.
 - **Wasabi S3 access keys (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)**: also sops-encrypted and loaded via the same env file. **However**, kopia's `--no-persist-credentials` flag only strips the repo password, NOT S3 backend credentials. The S3 keys are persisted plaintext in `/mnt/virtio/kopia/photos/repository.config` (kopia limitation, not a config error). This is mitigated by Object Lock and IAM scoping — see below.
 
 ### Why the S3 key leak is acceptable
