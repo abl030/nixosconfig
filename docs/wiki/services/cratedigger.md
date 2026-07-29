@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-07-30
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
 **Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
@@ -26,13 +26,20 @@ then runs whole-repository Pyright, the deterministic suite, `nix flake check`,
 the lifecycle world burst, the full fuzz burst, and the mirror-harness smoke.
 Every test stage runs even after an earlier test failure so one notification has
 the complete result. A fully green candidate pushes one lock-only commit;
-anything red pushes nothing. Fleet continues to follow nixosconfig's nixpkgs
-input, so the service owns no urllib3, idna, lxml, msgpack, soupsieve, Flask,
-yt-dlp, or ffmpeg version and adds no overrides.
+anything red pushes nothing. Fleet and Cratedigger use nixpkgs' packaged yt-dlp;
+there is no independent yt-dlp source input or overlay. The service likewise
+owns no urllib3, idna, lxml, msgpack, soupsieve, Flask, or ffmpeg version.
 
 Replay databases and complete failed fuzz logs live under
 `/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private
 to the unit and removed at exit.
+
+Failure notifications are deliberately summaries, not raw journal tails. They
+report lock disposition, every stage result, the generated-fuzz outcome, unique
+Pyright errors, deterministic failed-test IDs with their rerun command, and a
+bounded live-world result. Progress lines and passing-test noise are excluded.
+The message includes the exact `_SYSTEMD_INVOCATION_ID` command for retrieving
+the complete journal when deeper diagnosis is needed.
 
 The same unit always finishes with doc2's deployed strict
 `pipeline-cli audit world --json`, after both successful and failed candidate

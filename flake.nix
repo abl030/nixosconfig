@@ -76,11 +76,6 @@
     };
 
     # --- 5. Static Sources (Non-flake) ---
-    yt-dlp-src = {
-      url = "github:yt-dlp/yt-dlp";
-      flake = false;
-    };
-
     musicbrainz-docker = {
       # Pinned to the PG18 cutover rev (PR #339). The on-disk cluster is being
       # migrated 16→18 via upstream's admin/upgrade-to-postgres18 ceremony.
@@ -1479,6 +1474,22 @@
             touch $out
           '';
 
+          cratediggerDailySummaryCheck = let
+            notifier = self.nixosConfigurations.proxmox-vm.config.systemd.services.cratedigger-daily-checks-notify-failure.serviceConfig.ExecStart;
+          in
+            pkgs.runCommand "cratedigger-daily-summary" {
+              nativeBuildInputs = [pkgs.gnugrep pkgs.python3];
+            } ''
+              CRATEDIGGER_DAILY_SUMMARY=${./modules/nixos/ci/scripts/cratedigger-daily-summary.py} \
+                python3 ${./nix/checks/test_cratedigger_daily_summary.py}
+              grep -q 'MONITOR_INVOCATION_ID' ${notifier}
+              if grep -q 'systemctl show' ${notifier}; then
+                echo "Cratedigger notifier must use the OnFailure invocation ID" >&2
+                exit 1
+              fi
+              touch "$out"
+            '';
+
           # Claude Code and Codex share authored instructions, skills, agents,
           # MCP declarations, and durable memory. Fail closed when a symlink is
           # broken, a generated Codex adapter drifts, a skill is undiscoverable,
@@ -1490,7 +1501,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

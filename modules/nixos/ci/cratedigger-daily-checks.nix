@@ -117,9 +117,32 @@
   notifyFailure = pkgs.writeShellScript "cratedigger-daily-checks-notify-failure" ''
     set -euo pipefail
     ${sendNegativeAlert}
-    message="$(${pkgs.systemd}/bin/journalctl \
-      -u cratedigger-daily-checks.service -n 200 --no-pager 2>/dev/null \
-      | ${pkgs.gnused}/bin/sed 's/[[:cntrl:]]/ /g')"
+    # systemd supplies the failed unit's exact invocation to OnFailure jobs.
+    # Do not query the unit's current InvocationID: a manual/concurrent rerun
+    # could otherwise make this alert summarize the wrong execution.
+    invocation_id="''${MONITOR_INVOCATION_ID:-}"
+    if [[ -n "$invocation_id" ]]; then
+      journal=(
+        ${pkgs.systemd}/bin/journalctl
+        -u cratedigger-daily-checks.service
+        "_SYSTEMD_INVOCATION_ID=$invocation_id"
+        --no-pager
+        -o cat
+      )
+    else
+      journal=(
+        ${pkgs.systemd}/bin/journalctl
+        -u cratedigger-daily-checks.service
+        -n 500
+        --no-pager
+        -o cat
+      )
+      invocation_id=unavailable
+    fi
+    message="$("''${journal[@]}" 2>/dev/null \
+      | ${pkgs.python3}/bin/python3 \
+          ${./scripts/cratedigger-daily-summary.py} \
+          --invocation-id "$invocation_id")"
     send_negative_alert \
       "Cratedigger daily unstable checks failed on ${config.networking.hostName}" \
       "$message" 5
