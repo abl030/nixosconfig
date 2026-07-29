@@ -171,8 +171,9 @@ renamed options or package availability.
 
 - Active issues live on Forgejo. GitHub issues and `docs/beads-archive.md` are
   historical only; do not use `gh issue` for this repository.
-- Use the Forgejo REST API for issue reads/writes. The doc1-only scoped issue token
-  is documented in `.claude/memory/forgejo-issue-token-doc1.md`.
+- Use the Forgejo REST API for issue, pull-request, repository, and instance
+  operations. The doc1-only admin token is documented in
+  `.claude/memory/forgejo-issue-token-doc1.md`.
 - Lightweight TODOs live in `docs/todo/`.
 - `docs/wiki/` is the long-form knowledge base written by agents for agents.
   Update it as research or operational understanding changes. Include date,
