@@ -1428,6 +1428,16 @@
               doc2Systemd.services."kopia-mum".script
               doc2Systemd.services."kopia-photos".script
             ]);
+            renderedKopiaExecutables = [
+              doc2Systemd.services."kopia-mum-source-sync".serviceConfig.ExecStart
+              doc2Systemd.services."kopia-photos-source-sync".serviceConfig.ExecStart
+              doc2Systemd.services."deep-probe-kopia-mum-freshness".serviceConfig.ExecStart
+              doc2Systemd.services."deep-probe-kopia-mum-backup".serviceConfig.ExecStart
+              doc2Systemd.services."deep-probe-kopia-photos-freshness".serviceConfig.ExecStart
+              doc2Systemd.services."deep-probe-kopia-photos-backup".serviceConfig.ExecStart
+              "${pkgs.callPackage ./modules/nixos/services/probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh"
+              "${pkgs.callPackage ./modules/nixos/services/probes/check-kopia-backup-errors.nix {}}/bin/check-kopia-backup-errors"
+            ];
           in
             pkgs.runCommand "secret-argv-audit" {
               nativeBuildInputs = [pkgs.python3 pkgs.gnugrep];
@@ -1438,6 +1448,7 @@
                 ${./modules/nixos/services/probes/kopia-curl-auth.sh}
               python3 ${./nix/checks/secret-argv-audit.py} \
                 ${renderedContracts} \
+                ${lib.escapeShellArgs renderedKopiaExecutables} \
                 ${./modules/nixos/services/discogs.nix} \
                 ${./modules/nixos/services/kopia.nix} \
                 ${./modules/nixos/services/probes/check-kopia-fresh.nix} \
