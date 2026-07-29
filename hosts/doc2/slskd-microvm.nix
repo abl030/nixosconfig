@@ -202,10 +202,11 @@ in {
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
   #
-  # A switch cannot safely submit restart jobs for the guest and backend in one
-  # transaction. Even when both are selected, systemd may begin the guest's
-  # restart as soon as its slow shutdown finishes, before the ordered backend
-  # stop has run. The guest then sees dead sockets behind an active supervisor.
+  # A switch cannot safely submit separate restart jobs for the guest and
+  # backend. Even when both are selected, their coupled systemd jobs remain
+  # mergeable and replaceable: the guest may restart as soon as its slow
+  # shutdown finishes, before the ordered backend stop has run. It then sees
+  # dead sockets behind an active supervisor.
   #
   # Give activation one coordinator instead. Its stop phase synchronously drains
   # the guest and then the backend; its start phase starts the guest, whose

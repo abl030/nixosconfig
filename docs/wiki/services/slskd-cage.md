@@ -249,10 +249,11 @@ drop-in) restart `slskd-virtiofs-activation.service`; activation-driven restarts
 are disabled on the guest and backend themselves. The coordinator synchronously
 stops the guest and then the backend before starting the guest again. The
 guest's existing `Requires=`/`After=` relationship starts fresh virtiofs
-sockets first. A single systemd transaction containing both restart jobs is not
-safe: the guest's restart may begin immediately after its slow shutdown and
-before the ordered backend stop, leaving dead sockets behind an apparently
-active supervisor.
+sockets first. Selecting both runtime units is not a sufficient barrier: their
+separately submitted, coupled systemd jobs remain mergeable and replaceable, so
+the guest may restart immediately after its slow shutdown and before the
+ordered backend stop, leaving dead sockets behind an apparently active
+supervisor.
 
 ```bash
 # Host/guest boundary and preserved state
