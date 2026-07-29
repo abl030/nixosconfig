@@ -296,7 +296,11 @@ in {
       serviceConfig = {
         ExecStart = "${pythonEnv}/bin/python3 ${serviceScript} --host 127.0.0.1 --port ${toString cfg.port}";
         User = cfg.user;
-        Restart = "on-failure";
+        # A clean SIGTERM can arrive when this login user's systemd --user
+        # manager exits; on-failure treats that as success and leaves the proxy
+        # returning 502 indefinitely. Keep this system service available across
+        # user-session teardown as well as actual crashes.
+        Restart = "always";
         RestartSec = "5s";
 
         # Read-only access to the user's home is enough — the service only
