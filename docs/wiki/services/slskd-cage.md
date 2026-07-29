@@ -244,16 +244,20 @@ Remove `192.168.1.36` from the `MV_VPN_IPS` alias only if no other workload stil
 
 Use observed traffic and state, not configuration alone.
 
-Host-side virtiofsd changes (the wrapper or either exact generated instance
-drop-in) restart `slskd-virtiofs-activation.service`; activation-driven restarts
-are disabled on the guest and backend themselves. The coordinator synchronously
-stops the guest and then the backend before starting the guest again. The
-guest's existing `Requires=`/`After=` relationship starts fresh virtiofs
-sockets first. Selecting both runtime units is not a sufficient barrier: their
-separately submitted, coupled systemd jobs remain mergeable and replaceable, so
-the guest may restart immediately after its slow shutdown and before the
-ordered backend stop, leaving dead sockets behind an apparently active
-supervisor.
+Host-side changes restart one lifecycle owner,
+`slskd-virtiofs-activation.service`, after daemon reload. The guest and backend
+disable independent activation restarts and are both `PartOf=` that owner. The
+owner `Requires=` both children and is ordered after the guest; the guest remains
+ordered after its backend. A single owner restart therefore stops owner → guest
+→ backend and starts backend READY → guest READY → owner. Its triggers cover the
+wrapper, template units, instance drop-ins, and install unit. Runtime crash
+recovery remains with the existing guest/backend `Restart=` and `BindsTo=`
+policies.
+
+This single-root transaction is required because NixOS' independently submitted
+stop/start jobs use systemd's replaceable job mode. Selecting both runtime units
+does not make those separate jobs indivisible and previously allowed the guest
+to start against dead-but-not-yet-reaped virtiofs sockets.
 
 ```bash
 # Host/guest boundary and preserved state
