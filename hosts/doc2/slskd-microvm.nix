@@ -66,6 +66,9 @@
   # lifecycle override on its virtiofsd instance.
   virtiofsdLifecycle = {
     bindsTo = ["microvm@slskd.service"];
+    partOf = ["slskd-virtiofs-activation.service"];
+    restartIfChanged = lib.mkForce false;
+    serviceConfig.X-RestartIfChanged = lib.mkForce false;
     requires = [
       "mnt-virtio-slskd.mount"
       "mnt-virtio-music-slskd.mount"
@@ -200,30 +203,105 @@ in {
   # a long-lived systemd unit, so use a path condition instead of a dangling
   # dependency on sops-install-secrets.service.
   #
-  # NixOS switch-to-configuration submits and waits only for jobs it selected
-  # directly. It must select both units: stopping only the parent lets PartOf=
-  # enqueue a child stop that is not part of the wait barrier, so the subsequent
-  # parent start can cancel that pending stop and reuse dead virtiofs sockets.
-  # Keep the child's normal restartIfChanged=true, and make any exact child
-  # drop-in or wrapper change also select the parent. The stop barrier then waits
-  # for guest -> virtiofsd, and the start barrier follows virtiofsd -> guest.
-  systemd.services."microvm@slskd".restartTriggers = [
-    virtiofsdNestedSafe
-    config.systemd.units."microvm-virtiofsd@slskd.service".unit
-  ];
+  # A switch cannot safely submit separate restart jobs for the guest and
+  # backend. Even when both are selected, their coupled systemd jobs remain
+  # mergeable and replaceable: the guest may restart as soon as its slow
+  # shutdown finishes, before the ordered backend stop has run. It then sees
+  # dead sockets behind an active supervisor.
+  #
+  # Give activation one stack owner instead. NixOS restarts only this unit after
+  # daemon-reload; PartOf= pulls both children into the same root transaction.
+  # The ordering graph then stops owner -> guest -> backend and starts backend ->
+  # guest -> owner. No nested systemctl process can race or replace those jobs.
+  # Runtime BindsTo=/Restart= policies remain unchanged for crash recovery.
+  systemd.services."microvm@slskd" = {
+    partOf = ["slskd-virtiofs-activation.service"];
+    restartIfChanged = lib.mkForce false;
+    serviceConfig.X-RestartIfChanged = lib.mkForce false;
+  };
   systemd.services."microvm-virtiofsd@slskd" = virtiofsdLifecycle;
+  systemd.services.slskd-virtiofs-activation = {
+    description = "slskd guest and VirtioFS lifecycle owner";
+    wantedBy = ["multi-user.target"];
+    requires = [
+      "microvm-virtiofsd@slskd.service"
+      "microvm@slskd.service"
+    ];
+    after = ["microvm@slskd.service"];
+    # A post-reload RestartUnit keeps this as one systemd transaction instead of
+    # NixOS' split stop/activation/start phases.
+    stopIfChanged = false;
+    restartTriggers = [
+      virtiofsdNestedSafe
+      config.systemd.units."microvm-macvtap-interfaces@.service".unit
+      config.systemd.units."microvm-pci-devices@.service".unit
+      config.systemd.units."microvm-pci-devices@slskd.service".unit
+      config.systemd.units."microvm-set-booted@.service".unit
+      config.systemd.units."microvm-tap-interfaces@.service".unit
+      config.systemd.units."microvm-tap-interfaces@slskd.service".unit
+      config.systemd.units."microvm@.service".unit
+      config.systemd.units."microvm@slskd.service".unit
+      config.systemd.units."microvm-virtiofsd@.service".unit
+      config.systemd.units."microvm-virtiofsd@slskd.service".unit
+      config.systemd.units."install-microvm-slskd.service".unit
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = "true";
+  };
 
-  assertions = [
+  assertions = let
+    owner = config.systemd.services.slskd-virtiofs-activation;
+    ownerUnit = "slskd-virtiofs-activation.service";
+    trackedUnits = map (name: config.systemd.units.${name}.unit) [
+      "microvm-macvtap-interfaces@.service"
+      "microvm-pci-devices@.service"
+      "microvm-pci-devices@slskd.service"
+      "microvm-set-booted@.service"
+      "microvm-tap-interfaces@.service"
+      "microvm-tap-interfaces@slskd.service"
+      "microvm@.service"
+      "microvm@slskd.service"
+      "microvm-virtiofsd@.service"
+      "microvm-virtiofsd@slskd.service"
+      "install-microvm-slskd.service"
+    ];
+  in [
     {
-      assertion = config.systemd.services."microvm-virtiofsd@slskd".restartIfChanged;
-      message = "slskd virtiofsd must be a directly tracked activation job";
+      assertion = !config.microvm.vms.slskd.autostart;
+      message = "slskd must boot exclusively through its lifecycle owner";
+    }
+    {
+      assertion = !owner.stopIfChanged;
+      message = "slskd lifecycle owner must restart only after daemon reload";
     }
     {
       assertion =
-        lib.elem
-        config.systemd.units."microvm-virtiofsd@slskd.service".unit
-        config.systemd.services."microvm@slskd".restartTriggers;
-      message = "slskd parent must track the exact generated virtiofsd unit";
+        lib.all
+        (unit: lib.elem unit owner.requires)
+        ["microvm@slskd.service" "microvm-virtiofsd@slskd.service"]
+        && lib.elem "microvm@slskd.service" owner.after;
+      message = "slskd lifecycle owner must require the stack and follow the guest";
+    }
+    {
+      assertion =
+        lib.all
+        (unit: !config.systemd.services.${unit}.restartIfChanged)
+        ["microvm@slskd" "microvm-virtiofsd@slskd"]
+        && lib.all
+        (unit: lib.elem ownerUnit config.systemd.services.${unit}.partOf)
+        ["microvm@slskd" "microvm-virtiofsd@slskd"];
+      message = "slskd children must delegate activation restarts to the lifecycle owner";
+    }
+    {
+      assertion = lib.all (trigger: lib.elem trigger owner.restartTriggers) trackedUnits;
+      message = "slskd lifecycle owner must track every effective MicroVM unit artifact";
+    }
+    {
+      assertion = !lib.hasInfix "systemctl" owner.script && owner.preStop == "";
+      message = "slskd lifecycle owner must use systemd graph ordering, not nested systemctl";
     }
   ];
 
@@ -267,6 +345,9 @@ in {
     ];
   };
 
+  # The stack owner is the sole boot owner; it pulls the guest and backend in
+  # through Requires= rather than racing microvms.target.
+  microvm.vms.slskd.autostart = false;
   microvm.vms.slskd.config = {
     imports = [inputs.microvm.nixosModules.microvm];
 

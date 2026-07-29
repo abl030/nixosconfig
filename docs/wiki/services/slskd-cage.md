@@ -244,14 +244,27 @@ Remove `192.168.1.36` from the `MV_VPN_IPS` alias only if no other workload stil
 
 Use observed traffic and state, not configuration alone.
 
-Host-side virtiofsd changes (the wrapper or exact generated instance drop-in)
-are included in the parent `microvm@slskd` restart trigger, while the child
-retains `restartIfChanged=true`. NixOS therefore submits and waits for both stop
-jobs (guest before backend) before activation, then both start jobs (backend
-before guest). `PartOf=` alone is not a sufficient activation barrier: its
-indirectly queued backend stop is absent from switch-to-configuration's wait
-set and can be cancelled when the parent start is submitted, leaving dead
-virtiofs sockets behind an apparently active supervisor.
+Host-side changes restart one lifecycle owner,
+`slskd-virtiofs-activation.service`, after daemon reload. The guest and backend
+disable independent activation restarts and are both `PartOf=` that owner. The
+owner `Requires=` both children and is ordered after the guest; the guest remains
+ordered after its backend. A single owner restart therefore stops owner → guest
+→ backend and starts backend READY → guest READY → owner. Its triggers cover the
+wrapper, template units, instance drop-ins, and install unit. Runtime crash
+recovery remains with the existing guest/backend `Restart=` and `BindsTo=`
+policies.
+
+This single-root transaction is required because NixOS' independently submitted
+stop/start jobs use systemd's replaceable job mode. Selecting both runtime units
+does not make those separate jobs indivisible and previously allowed the guest
+to start against dead-but-not-yet-reaped virtiofs sockets.
+
+The first switch that introduces the owner starts the new owner and deliberately
+leaves the already-healthy guest/backend running; there is no pre-existing owner
+to restart. Complete that rollout with one controlled owner restart and verify
+the ordered stop/start chronology plus both health endpoints. Subsequent tracked
+changes schedule one post-reload owner `RestartUnit` and exercise the lifecycle
+transaction automatically.
 
 ```bash
 # Host/guest boundary and preserved state
