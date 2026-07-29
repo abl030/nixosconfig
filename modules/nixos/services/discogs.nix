@@ -153,19 +153,20 @@ in {
                 then "on-failure"
                 else "no";
               RestartSec = "15min";
-              EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
+              LoadCredential = ["postgres-password:${config.sops.secrets."discogs-pgpass".path}"];
               # #257: blank /mnt, bind back only the mirror dir this importer
               # downloads dumps into. Was: full /mnt/* RW as root.
               TemporaryFileSystem = "/mnt";
               BindPaths = [cfg.mirrorDir];
-              # Wrap so $POSTGRES_PASSWORD expands at runtime — keeps the password
-              # out of /nix/store, which the bare DSN string would otherwise leak.
-              ExecStart = pkgs.writeShellScript "discogs-import-start" ''
-                set -eu
-                ${discogsPkg}/bin/discogs-import \
-                  --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
-                  --dump-dir '${cfg.mirrorDir}/dumps'
-              '';
+              ExecStart = lib.escapeShellArgs [
+                "${discogsPkg}/bin/discogs-import"
+                "--dsn"
+                pgc.dbUri
+                "--credential-file"
+                "%d/postgres-password"
+                "--dump-dir"
+                "${cfg.mirrorDir}/dumps"
+              ];
             };
           };
 
@@ -185,13 +186,16 @@ in {
             serviceConfig = {
               Type = "simple";
               NoNewPrivileges = true; # discogs axum API binary; no setuid exec (#232)
-              EnvironmentFile = config.sops.secrets."discogs-pgpass".path;
-              ExecStart = pkgs.writeShellScript "discogs-api-start" ''
-                set -eu
-                exec ${discogsPkg}/bin/discogs-api \
-                  --dsn "postgresql://discogs:$POSTGRES_PASSWORD@${pgc.dbHost}:${toString pgc.dbPort}/discogs" \
-                  --port ${toString cfg.apiPort}
-              '';
+              LoadCredential = ["postgres-password:${config.sops.secrets."discogs-pgpass".path}"];
+              ExecStart = lib.escapeShellArgs [
+                "${discogsPkg}/bin/discogs-api"
+                "--dsn"
+                pgc.dbUri
+                "--credential-file"
+                "%d/postgres-password"
+                "--port"
+                (toString cfg.apiPort)
+              ];
               Restart = "on-failure";
               RestartSec = 5;
               # #257: this API server is stateless (talks to the discogs-db

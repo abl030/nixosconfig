@@ -1,9 +1,9 @@
 # Discogs
 
-**Last updated:** 2026-07-28
+**Last updated:** 2026-07-29
 **Status:** dedicated unprivileged LXC canary on CT 102 (`192.168.1.44`); frozen `doc2` source retained for rollback
 **Owner:** `modules/nixos/services/discogs.nix`
-**Issues:** #228, #53
+**Issues:** #228, #53, #49
 
 Discogs is a local CC0 dump mirror. The canary runs native PostgreSQL and the
 Rust API in dedicated unprivileged CT 102; the former doc2 nspawn database is
@@ -48,6 +48,12 @@ mirror stops carrying it.
 ## Least Privilege Notes
 
 - Discogs and cratedigger database credentials remain separate.
+- The API and importer receive the passwordless PostgreSQL DSN in `ExecStart` and
+  the root-only dotenv secret through systemd `LoadCredential`. The shared Rust
+  constructor rejects any DSN containing a password, reads the literal
+  `PGPASSWORD=...` value from `%d/postgres-password` without process-environment
+  expansion, and applies it directly to `tokio_postgres::Config`; no PostgreSQL
+  password is inherited in either process environment or command line.
 - Import coordination uses root-owned systemd services, a restricted
   forced-command machine key, and one exact passwordless `systemctl start
   discogs-import.service` sudo rule; it exposes neither a shell nor writable

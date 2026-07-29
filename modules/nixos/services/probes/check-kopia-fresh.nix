@@ -29,6 +29,7 @@ pkgs.writeShellApplication {
   runtimeInputs = with pkgs; [curl jq coreutils gnugrep];
   text = ''
     set -uo pipefail
+    ${builtins.readFile ./kopia-curl-auth.sh}
 
     base="''${KOPIA_BASE_URL:?KOPIA_BASE_URL not set}"
     auth_file="''${KOPIA_AUTH_FILE:?KOPIA_AUTH_FILE not set}"
@@ -39,19 +40,20 @@ pkgs.writeShellApplication {
       exit 2
     fi
 
-    user=$(grep ^KOPIA_SERVER_USER "$auth_file" | cut -d= -f2-)
-    pass=$(grep ^KOPIA_SERVER_PASSWORD "$auth_file" | cut -d= -f2-)
-    if [ -z "$user" ] || [ -z "$pass" ]; then
+    kopia_auth_user=$(grep ^KOPIA_SERVER_USER "$auth_file" | cut -d= -f2-)
+    kopia_auth_pass=$(grep ^KOPIA_SERVER_PASSWORD "$auth_file" | cut -d= -f2-)
+    if [ -z "$kopia_auth_user" ] || [ -z "$kopia_auth_pass" ]; then
       echo "[probe] missing KOPIA_SERVER_USER or KOPIA_SERVER_PASSWORD in $auth_file" >&2
       exit 2
     fi
+    kopia_curl_bin=curl
 
     # Fetch source list. --max-time 250s sits under the deepProbe's
     # TimeoutStartSec=300s (set in kopia.nix) and absorbs kopia's full
     # maintenance lock (empirically 10–15 min on a 1.5 TB / 1M-content
     # repo: 2026-05-26 fired ping 3009 with curl exit 28 at 55s during a
     # full GC pass). 55s was the previous value; insufficient.
-    resp=$(curl -sS --max-time 250 --connect-timeout 5 -u "$user:$pass" "$base/api/v1/sources")
+    resp=$(kopia_curl -sS --max-time 250 --connect-timeout 5 "$base/api/v1/sources")
     rc=$?
     if [ "$rc" -ne 0 ]; then
       echo "[probe] curl exit $rc fetching $base/api/v1/sources" >&2
