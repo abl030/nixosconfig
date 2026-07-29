@@ -79,10 +79,22 @@ The fixed guarded unit set is:
 - `cratedigger-web.service`
 - `cratedigger-importer.service`
 - `cratedigger-import-preview-worker.service`
+- `cratedigger-youtube-ingest.service`
 
 The gate deliberately does not stop `container@cratedigger-db.service`,
 `cratedigger-db-migrate.service`, or `redis-cratedigger.service`; those are
 state plumbing and do not generate metadata API traffic by themselves.
+
+Lifecycle migrations can also place receipt-owned start inhibitors at:
+
+- `/var/lib/cratedigger-metadata-gate/inhibit-cratedigger.service`
+- `/var/lib/cratedigger-metadata-gate/inhibit-cratedigger-youtube-ingest.service`
+
+These root-evaluated conditions independently withhold the main pipeline or
+YouTube ingest when the ordinary metadata hold is released. They are outside
+`holds/`, so `release` and `resume-if-clear` never remove them; only the
+deployment receipt that created an inhibitor may do so. Web, importer, and
+preview remain free of these controlled-start conditions.
 
 `cratedigger-temp-clean.timer` removes stale `/tmp/cratedigger-import-preview-*`
 and `/tmp/cratedigger-v0-probe-*` directories older than six hours. This keeps
@@ -178,8 +190,8 @@ This is deliberate preparation for upstream
 `ProtectSystem=strict`: a writable `BindPaths` mount itself grants write access,
 so a narrower upstream `ReadWritePaths` cannot revoke it.
 
-The metadata-gate `ExecCondition` for web/importer/preview is a fixed Nix-store
-command prefixed with systemd `+`, with only
+The metadata-gate `ExecCondition` for web/importer/preview/YouTube ingest is a
+fixed Nix-store command prefixed with systemd `+`, with only
 `/var/lib/cratedigger-metadata-gate` added to those units' `ReadWritePaths`. It
 can record a dependency hold without granting the services broad `/var/lib`
 authority. Holds survive reboot; this is mandatory for remote imports that may

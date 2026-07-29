@@ -45,6 +45,12 @@
   # let Cratedigger restart against a half-imported database.
   metadataGateStateDir = "/var/lib/cratedigger-metadata-gate";
   metadataGateHoldDir = "${metadataGateStateDir}/holds";
+  # These stable files belong to the future lifecycle-migration receipt, not
+  # the generic metadata gate. Keeping them outside holds/ lets that receipt
+  # resume web/importer/preview while independently withholding each producer;
+  # only the owning receipt may remove them.
+  metadataGateMainStartInhibitor = "${metadataGateStateDir}/inhibit-cratedigger.service";
+  metadataGateYoutubeStartInhibitor = "${metadataGateStateDir}/inhibit-cratedigger-youtube-ingest.service";
 
   processingDir = "${cfg.dataDir}/processing";
   beetsDbDir = "${cfg.dataDir}/beets-db";
@@ -102,6 +108,7 @@
     "cratedigger-web.service"
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
+    "cratedigger-youtube-ingest.service"
   ];
   metadataGateResumeUnits = [
     # The pipeline service itself, not just its timer. The timer loops via
@@ -117,6 +124,7 @@
     "cratedigger-web.service"
     "cratedigger-importer.service"
     "cratedigger-import-preview-worker.service"
+    "cratedigger-youtube-ingest.service"
   ];
 
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
@@ -632,6 +640,77 @@ in {
           && !(builtins.elem musicRoot upstreamHardenedMntSandboxes.cratedigger-importer.writable);
         message = "known-bad: web/importer must never receive a broad Music-root writable bind";
       }
+      {
+        assertion =
+          metadataGateGuardedUnits
+          == [
+            "cratedigger.timer"
+            "cratedigger.service"
+            "cratedigger-web.service"
+            "cratedigger-importer.service"
+            "cratedigger-import-preview-worker.service"
+            "cratedigger-youtube-ingest.service"
+          ];
+        message = "metadata gate holds must stop every ordinary Cratedigger producer";
+      }
+      {
+        assertion =
+          metadataGateResumeUnits
+          == [
+            "cratedigger.service"
+            "cratedigger.timer"
+            "cratedigger-web.service"
+            "cratedigger-importer.service"
+            "cratedigger-import-preview-worker.service"
+            "cratedigger-youtube-ingest.service"
+          ];
+        message = "metadata gate resume must restore every ordinary Cratedigger producer";
+      }
+      {
+        assertion =
+          (config.systemd.services.cratedigger.unitConfig.ConditionPathExists or null)
+          == "!${metadataGateMainStartInhibitor}";
+        message = "the main controlled-start inhibitor must guard only cratedigger.service";
+      }
+      {
+        assertion =
+          (config.systemd.services.cratedigger-youtube-ingest.unitConfig.ConditionPathExists or null)
+          == "!${metadataGateYoutubeStartInhibitor}";
+        message = "the YouTube controlled-start inhibitor must guard only cratedigger-youtube-ingest.service";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger.serviceConfig.ExecCondition
+          == metadataGatePrivilegedStartCheckCommand
+          && (config.systemd.services.cratedigger-youtube-ingest.serviceConfig.ExecCondition or null)
+          == metadataGatePrivilegedStartCheckCommand;
+        message = "controlled Cratedigger producers must retain the privileged metadata readiness check";
+      }
+      {
+        assertion =
+          lib.all
+          (unit:
+            (config.systemd.services.${unit}.unitConfig.ConditionPathExists or null)
+            == null)
+          [
+            "cratedigger-web"
+            "cratedigger-importer"
+            "cratedigger-import-preview-worker"
+          ];
+        message = "controlled-start inhibitors must not block web, importer, or preview";
+      }
+      {
+        assertion =
+          lib.all
+          (path:
+            lib.hasPrefix "${metadataGateStateDir}/" path
+            && !(lib.hasPrefix "${metadataGateHoldDir}/" path))
+          [
+            metadataGateMainStartInhibitor
+            metadataGateYoutubeStartInhibitor
+          ];
+        message = "receipt-owned start inhibitors must stay outside metadata gate hold cleanup";
+      }
     ];
 
     environment.systemPackages = [
@@ -782,6 +861,7 @@ in {
           cratedigger = {
             after = ["microvm@slskd.service" "container@cratedigger-db.service"];
             wants = ["microvm@slskd.service" "container@cratedigger-db.service"];
+            unitConfig.ConditionPathExists = "!${metadataGateMainStartInhibitor}";
             serviceConfig = {
               ExecCondition = metadataGatePrivilegedStartCheckCommand;
               EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
@@ -833,7 +913,12 @@ in {
           };
 
           cratedigger-youtube-ingest = {
-            serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+            unitConfig.ConditionPathExists = "!${metadataGateYoutubeStartInhibitor}";
+            serviceConfig = {
+              ExecCondition = metadataGatePrivilegedStartCheckCommand;
+              EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+              ReadWritePaths = lib.mkAfter [metadataGateStateDir];
+            };
           };
 
           cratedigger-metadata-gate-watchdog = {
