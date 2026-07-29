@@ -233,6 +233,12 @@ in {
     stopIfChanged = false;
     restartTriggers = [
       virtiofsdNestedSafe
+      config.systemd.units."microvm-macvtap-interfaces@.service".unit
+      config.systemd.units."microvm-pci-devices@.service".unit
+      config.systemd.units."microvm-pci-devices@slskd.service".unit
+      config.systemd.units."microvm-set-booted@.service".unit
+      config.systemd.units."microvm-tap-interfaces@.service".unit
+      config.systemd.units."microvm-tap-interfaces@slskd.service".unit
       config.systemd.units."microvm@.service".unit
       config.systemd.units."microvm@slskd.service".unit
       config.systemd.units."microvm-virtiofsd@.service".unit
@@ -250,6 +256,12 @@ in {
     owner = config.systemd.services.slskd-virtiofs-activation;
     ownerUnit = "slskd-virtiofs-activation.service";
     trackedUnits = map (name: config.systemd.units.${name}.unit) [
+      "microvm-macvtap-interfaces@.service"
+      "microvm-pci-devices@.service"
+      "microvm-pci-devices@slskd.service"
+      "microvm-set-booted@.service"
+      "microvm-tap-interfaces@.service"
+      "microvm-tap-interfaces@slskd.service"
       "microvm@.service"
       "microvm@slskd.service"
       "microvm-virtiofsd@.service"

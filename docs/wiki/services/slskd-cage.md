@@ -259,6 +259,13 @@ stop/start jobs use systemd's replaceable job mode. Selecting both runtime units
 does not make those separate jobs indivisible and previously allowed the guest
 to start against dead-but-not-yet-reaped virtiofs sockets.
 
+The first switch that introduces the owner starts the new owner and deliberately
+leaves the already-healthy guest/backend running; there is no pre-existing owner
+to restart. Complete that rollout with one controlled owner restart and verify
+the ordered stop/start chronology plus both health endpoints. Subsequent tracked
+changes schedule one post-reload owner `RestartUnit` and exercise the lifecycle
+transaction automatically.
+
 ```bash
 # Host/guest boundary and preserved state
 ssh doc2 'test -c /dev/kvm && grep -qm1 svm /proc/cpuinfo'
