@@ -14,17 +14,22 @@
 cannot be changed under you, even by someone who can write to the repo:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/a247732b8023512e4a8151d2bae80c6ac6c58bac/tools/windows/Setup-FleetSSH.ps1')
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/4a3e7ebb6c2fbe2ad16846997322e287a25ee94e/tools/windows/Setup-FleetSSH.ps1')
 ```
 
 SHA-256 of the script at that commit:
-`d8194e522ba69213a6abff8935ecf473be4f39e34a62b9d34bcc40b73c60eb1d`
+`d0205ea5565fc3aadc44d78857b0cf0cbc524fd9fe290376d610683c8c06d535`
 
-Older Windows note: `CW-TS01` (Server 2016, build 14393) hung on the first
-attempt. The OpenSSH Windows *feature* does not exist before build 17763, so the
-script now checks the build first and installs Microsoft's signed MSI directly
-instead -- verifying its Authenticode signature before running it. Pass
-`-NoMsiDownload` to refuse that and get manual instructions.
+Where the Windows OpenSSH *feature* is unavailable or unhealthy, the script
+installs Microsoft's official signed MSI instead, verifying its Authenticode
+signature before running it. `-NoMsiDownload` refuses that and prints manual
+instructions.
+
+**Do not use `Get-WindowsCapability -Online` as a cheap probe.** It goes to the
+servicing stack just like `Add-WindowsCapability` and can hang indefinitely --
+this hung `CW-TS01` twice. Nothing on the fast path may touch DISM or WMI; the
+build number comes from `[Environment]::OSVersion`, and the only servicing call
+lives inside a killable child process with a timeout.
 
 **Floating.** Always the newest version, but trusts whatever `master` holds at the
 moment you paste it:
@@ -62,7 +67,7 @@ should keep SSH. To pass any argument use the script-block form, because `iex`
 cannot take arguments:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/a247732b8023512e4a8151d2bae80c6ac6c58bac/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/4a3e7ebb6c2fbe2ad16846997322e287a25ee94e/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
 ```
 
 ### Close it when you are done
