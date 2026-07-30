@@ -41,10 +41,12 @@
      powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-FleetSSH.ps1
 
  WHAT IT DOES
-   1. Installs the OpenSSH Server feature if it is missing. Where that is
-      impossible -- routine on IoT / LTSB / WSUS-managed images, which either
-      fail outright or hang forever against an unreachable Windows Update -- it
-      gives up on a timer and prints exactly how to install the MSI by hand,
+   1. Gets OpenSSH Server installed if it is missing. Uses the Windows feature
+      where that is actually possible, and otherwise -- on builds older than
+      17763 which have no such feature, or images where it fails or hangs
+      against an unreachable Windows Update -- downloads Microsoft's official
+      signed MSI and installs that, verifying its Authenticode signature first.
+      Only if BOTH routes fail does it stop and print manual instructions,
       having changed nothing.
    2. Opens TCP 22. Re-enables SSH rules a previous close disabled, and ALWAYS
       ensures its own port-keyed rule: a program-scoped rule pointing at an
@@ -73,8 +75,11 @@
                             console user, then to the sole enabled local account.
    -PublicKey <string>      Override the embedded fleet key.
    -Persist                 Leave sshd Automatic rather than session-only.
-   -CapTimeoutSec <n>       Seconds to wait for the feature install before giving
-                            up with manual instructions. Default 240.
+   -CapTimeoutSec <n>       Seconds to wait for the Windows feature install before
+                            falling back to the MSI. Default 240. Skipped entirely
+                            on builds older than 17763, which have no such feature.
+   -NoMsiDownload           Do not fetch the official OpenSSH MSI as a fallback;
+                            print manual instructions instead.
    -HardenPasswordAuth      After a PASSING self-test, also set
                             `PasswordAuthentication no` (key-only). Refuses if
                             the self-test did not pass, so it cannot lock you out.
@@ -97,7 +102,8 @@ param(
     [switch] $HardenPasswordAuth,
     [switch] $AnyRemote,
     [switch] $Persist,
-    [int]    $CapTimeoutSec = 240
+    [int]    $CapTimeoutSec = 240,
+    [switch] $NoMsiDownload
 )
 
 $ErrorActionPreference = 'Stop'
@@ -277,40 +283,136 @@ function Show-ManualInstallHelp {
     Write-Host ""
 }
 
+function Test-CapabilityUsable {
+    <#
+      The OpenSSH Features-on-Demand package only exists on Windows 10 1809 /
+      Server 2019 and later (build 17763). On anything older -- Server 2016,
+      LTSB 2016 -- Add-WindowsCapability can NEVER succeed, so attempting it and
+      waiting for a timeout is pure dead time in front of someone standing at
+      the machine. Check before spending their afternoon on it.
+    #>
+    $build = 0
+    try { $build = [int](Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).BuildNumber } catch {}
+    if ($build -gt 0 -and $build -lt 17763) {
+        Write-Info "Windows build $build predates the OpenSSH feature (needs 17763+) -- going straight to the MSI."
+        return $false
+    }
+    if (-not (Get-WindowsCapability -Online -Name 'OpenSSH.Server*' -ErrorAction SilentlyContinue)) {
+        Write-Info "This image offers no OpenSSH Server capability -- going straight to the MSI."
+        return $false
+    }
+    return $true
+}
+
+function Invoke-CapabilityInstall {
+    <#
+      Run the feature install in a separate PROCESS, not a PowerShell job.
+
+      A job wedged inside DISM does not answer Stop-Job, and Stop-Job then blocks
+      forever waiting for the runspace to die -- so the timeout fires and the
+      script hangs anyway, which is exactly what happened on CW-TS01. A process
+      can simply be killed. Same pattern as the loopback self-test below.
+    #>
+    param([int] $TimeoutSec)
+
+    $cmd = "Get-WindowsCapability -Online -Name 'OpenSSH.Server*' | " +
+           "Where-Object State -ne 'Installed' | " +
+           "ForEach-Object { Add-WindowsCapability -Online -Name `$_.Name | Out-Null }"
+    $proc = Start-Process powershell.exe -NoNewWindow -PassThru `
+                -ArgumentList '-NoProfile','-NonInteractive','-Command',$cmd
+    $null = $proc.Handle   # cache the handle or .HasExited/.ExitCode misbehave
+
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $proc.HasExited -and $sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
+        Start-Sleep -Seconds 5
+        Write-Host '.' -NoNewline -ForegroundColor DarkGray   # visible progress, not a dead screen
+    }
+    Write-Host ''
+    if (-not $proc.HasExited) {
+        try { $proc.Kill() } catch {}
+        return "timed out after ${TimeoutSec}s -- this box most likely has no route to Windows Update"
+    }
+    return $null
+}
+
+function Install-OpenSSHFromMsi {
+    <#
+      Fetch and install the official Win32-OpenSSH MSI.
+
+      We are already running a script fetched from GitHub as Administrator, so
+      pulling Microsoft's own signed OpenSSH package from the same origin adds no
+      meaningful trust surface -- and it turns "go and do this by hand" into
+      "it just worked". The Authenticode signature IS verified before anything is
+      executed, so a tampered or truncated download is refused rather than run.
+      -NoMsiDownload opts out entirely.
+    #>
+    [Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+    $msi = Join-Path $env:TEMP 'OpenSSH-Win64-fleet.msi'
+    $url = $null
+
+    # Prefer whatever is current; fall back to a known-good pin, because
+    # api.github.com is blocked on some sites where raw.githubusercontent is not.
+    try {
+        $rel = Invoke-RestMethod 'https://api.github.com/repos/PowerShell/Win32-OpenSSH/releases/latest' -TimeoutSec 20
+        $url = ($rel.assets | Where-Object { $_.name -like 'OpenSSH-Win64*.msi' } | Select-Object -First 1).browser_download_url
+    } catch {}
+    if (-not $url) {
+        $url = 'https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.0.0.0p2-Preview/OpenSSH-Win64-v10.0.0.0.msi'
+        Write-Info "Release API unreachable; using the pinned build."
+    }
+
+    Write-Info "Downloading $($url.Split('/')[-1]) ..."
+    try {
+        Invoke-WebRequest $url -OutFile $msi -UseBasicParsing -TimeoutSec 300
+    } catch {
+        Write-Warn "Download failed: $($_.Exception.Message)"
+        return $false
+    }
+
+    $sig = Get-AuthenticodeSignature $msi
+    if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
+        Write-Fail "Refusing to install: MSI signature is '$($sig.Status)' from '$($sig.SignerCertificate.Subject)'."
+        Remove-Item $msi -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+    Write-Ok "MSI signature valid (Microsoft)."
+
+    $p = Start-Process msiexec.exe -Wait -PassThru -NoNewWindow `
+            -ArgumentList '/i',"`"$msi`"",'ADDLOCAL=Server','/quiet','/norestart'
+    Remove-Item $msi -Force -ErrorAction SilentlyContinue
+    if ($p.ExitCode -ne 0) { Write-Warn "msiexec exited $($p.ExitCode)."; return $false }
+    return $true
+}
+
 $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
 if (-not $sshdSvc) {
-    Write-Info "sshd not present; trying the OpenSSH Server capability (up to ${CapTimeoutSec}s)..."
+    Write-Info "sshd not present."
     $capError = $null
-    # Run it in a job with a hard timeout. Features on Demand pulls from Windows
-    # Update, so on a box with no route to WU this does not fail -- it HANGS,
-    # indefinitely, with TiWorker spinning in the background. A hang at a
-    # customer site is worse than an error, so bound it and fall through to the
-    # manual-install instructions.
-    $job = Start-Job -ScriptBlock {
-        foreach ($cap in @('OpenSSH.Server*','OpenSSH.Client*')) {
-            Get-WindowsCapability -Online -Name $cap -ErrorAction Stop |
-                Where-Object State -ne 'Installed' |
-                ForEach-Object { Add-WindowsCapability -Online -Name $_.Name -ErrorAction Stop | Out-Null }
+
+    if (Test-CapabilityUsable) {
+        Write-Info "Trying the OpenSSH Server capability (up to ${CapTimeoutSec}s)..."
+        $capError = Invoke-CapabilityInstall -TimeoutSec $CapTimeoutSec
+        # Re-query REGARDLESS of what it reported: some SKUs claim success and
+        # install nothing, so the service is the only honest signal.
+        $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+        if ($sshdSvc) { Write-Ok "OpenSSH Server installed (Windows feature)." }
+        elseif (-not $capError) { $capError = "the capability reported success but no sshd service appeared" }
+    } else {
+        $capError = "the OpenSSH feature is not available on this Windows build"
+    }
+
+    if (-not $sshdSvc -and -not $NoMsiDownload) {
+        Write-Info "Falling back to the official OpenSSH MSI."
+        if (Install-OpenSSHFromMsi) {
+            $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+            if ($sshdSvc) { Write-Ok "OpenSSH Server installed (MSI)." }
         }
     }
-    if (Wait-Job $job -Timeout $CapTimeoutSec) {
-        $err = $null
-        Receive-Job $job -ErrorVariable err 2>&1 | Out-Null
-        if ($err) { $capError = ($err | Select-Object -First 1).ToString() }
-    } else {
-        Stop-Job $job -ErrorAction SilentlyContinue
-        $capError = "timed out after ${CapTimeoutSec}s -- this box most likely has no route to Windows Update"
-    }
-    Remove-Job $job -Force -ErrorAction SilentlyContinue
-    # Re-query REGARDLESS of whether the call threw. On some SKUs it reports
-    # success and installs nothing, so the service is the only honest signal.
-    $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+
     if (-not $sshdSvc) {
-        Show-ManualInstallHelp -Reason $(if ($capError) { $capError }
-                                        else { "the capability reported success but no sshd service appeared (common on IoT / LTSB / WSUS-managed images)" })
+        Show-ManualInstallHelp -Reason $capError
         exit 2
     }
-    Write-Ok "OpenSSH Server installed."
 }
 
 # Session-only by DEFAULT. This script's job is to open a door while we work,
