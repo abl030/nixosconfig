@@ -118,6 +118,33 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit 0
 }
 
+# ------------------------------------------------- resolve the target user ---
+# $env:USERNAME is the MACHINE account ("HOST$") or SYSTEM when this runs from a
+# SYSTEM context -- a scheduled task, an RMM agent, or a hypervisor guest agent.
+# None of those is a login we can authorise, and those are exactly the paths you
+# use to bootstrap a box you cannot reach interactively. Fall back to whoever is
+# logged in at the console, then to the sole enabled local account. Only ever
+# guess when the caller did not name a user explicitly.
+if (-not $PSBoundParameters.ContainsKey('TargetUser')) {
+    $isMachineCtx = $TargetUser -match '\$$' -or $TargetUser -in @('SYSTEM','LOCAL SERVICE','NETWORK SERVICE')
+    if ($isMachineCtx) {
+        $why = "running as '$TargetUser'"
+        $console = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).UserName
+        if ($console) {
+            $TargetUser = ($console -split '\\')[-1]
+            Write-Info "$why; targeting the console user '$TargetUser'."
+        } else {
+            $locals = @(Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Enabled })
+            if ($locals.Count -eq 1) {
+                $TargetUser = $locals[0].Name
+                Write-Info "$why; targeting the only enabled local account '$TargetUser'."
+            } else {
+                Write-Warn "$why and no console user is logged in. Pass -TargetUser explicitly."
+            }
+        }
+    }
+}
+
 $keyParts = $PublicKey.Trim() -split '\s+'
 Write-Host ""
 Write-Host "  Fleet SSH key installer" -ForegroundColor White
