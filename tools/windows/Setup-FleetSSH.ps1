@@ -57,9 +57,10 @@
       Bad ACLs are the single commonest cause of silent key-auth failure: sshd
       refuses a key file writable by anyone but SYSTEM/Administrators (and, for
       the per-user file, the user).
-   4. Ensures `PubkeyAuthentication yes`, inserted BEFORE the first `Match`
-      block -- anything after a Match belongs to that block and silently does
-      nothing.
+   4. Configures sshd KEY-ONLY -- `PubkeyAuthentication yes`,
+      `PasswordAuthentication no` -- inserted BEFORE the first `Match` block,
+      since anything after a Match belongs to that block and silently does
+      nothing. -AllowPasswordAuth opts out.
    5. Starts sshd for this session.
    6. SELF-TESTS for real: generates a throwaway keypair, authorises it, performs
       an actual loopback SSH login, then removes it. You find out whether this
@@ -80,9 +81,13 @@
                             on builds older than 17763, which have no such feature.
    -NoMsiDownload           Do not fetch the official OpenSSH MSI as a fallback;
                             print manual instructions instead.
-   -HardenPasswordAuth      After a PASSING self-test, also set
-                            `PasswordAuthentication no` (key-only). Refuses if
-                            the self-test did not pass, so it cannot lock you out.
+   -DownloadTimeoutSec <n>  Hard ceiling on the MSI download. Default 180.
+   -MsiTimeoutSec <n>       Hard ceiling on the MSI install. Default 300.
+   -AllowPasswordAuth       Keep SSH password authentication enabled. OFF by
+                            default: this script turns SSH ON, and leaving
+                            passwords accepted would expose every local (and
+                            domain) account to online guessing. Only use it if
+                            something else already relies on SSH passwords.
    -AllowBlankPasswordAuth  Only if the self-test is actively REFUSED on a
                             blank-password account. Relaxes LimitBlankPasswordUse
                             machine-wide -- see the warning where it is used.
@@ -99,11 +104,13 @@ param(
     [string] $TargetUser = $env:USERNAME,
     [string] $PublicKey  = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity',
     [switch] $AllowBlankPasswordAuth,
-    [switch] $HardenPasswordAuth,
+    [switch] $AllowPasswordAuth,
     [switch] $AnyRemote,
     [switch] $Persist,
     [int]    $CapTimeoutSec = 120,
-    [switch] $NoMsiDownload
+    [switch] $NoMsiDownload,
+    [int]    $DownloadTimeoutSec = 180,
+    [int]    $MsiTimeoutSec = 300
 )
 
 $ErrorActionPreference = 'Stop'
@@ -147,7 +154,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     $argList = @('-NoProfile','-ExecutionPolicy','Bypass','-NoExit',
                  '-File', "`"$PSCommandPath`"", '-TargetUser', "`"$TargetUser`"")
     if ($AllowBlankPasswordAuth) { $argList += '-AllowBlankPasswordAuth' }
-    if ($HardenPasswordAuth)     { $argList += '-HardenPasswordAuth' }
+    if ($AllowPasswordAuth)      { $argList += '-AllowPasswordAuth' }
     if ($AnyRemote)              { $argList += '-AnyRemote' }
     try   { Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList }
     catch { Write-Fail "Could not elevate: $($_.Exception.Message)" ; exit 1 }
@@ -367,13 +374,33 @@ function Install-OpenSSHFromMsi {
         Write-Info "Release API unreachable; using the pinned build."
     }
 
-    Write-Info "Downloading $($url.Split('/')[-1]) ..."
+    Write-Info "Downloading $($url.Split('/')[-1]) (up to ${DownloadTimeoutSec}s) ..."
+    # NOT Invoke-WebRequest. Its -TimeoutSec bounds the initial response only,
+    # not the transfer, so a stalled connection hangs indefinitely -- and in
+    # PowerShell 5.1 its progress rendering makes a multi-megabyte download
+    # crawl. WebClient with a bounded Task gives a hard ceiling and no progress
+    # overhead.
+    $prevPP = $ProgressPreference
+    $ProgressPreference = 'SilentlyContinue'
+    $wc = New-Object Net.WebClient
     try {
-        Invoke-WebRequest $url -OutFile $msi -UseBasicParsing -TimeoutSec 300
+        $task = $wc.DownloadFileTaskAsync([Uri]$url, $msi)
+        if (-not $task.Wait([TimeSpan]::FromSeconds($DownloadTimeoutSec))) {
+            try { $wc.CancelAsync() } catch {}
+            Write-Warn "Download timed out after ${DownloadTimeoutSec}s."
+            return $false
+        }
+        if ($task.IsFaulted) { throw $task.Exception.GetBaseException() }
     } catch {
         Write-Warn "Download failed: $($_.Exception.Message)"
         return $false
+    } finally {
+        $ProgressPreference = $prevPP
+        try { $wc.Dispose() } catch {}
     }
+    $size = (Get-Item $msi -ErrorAction SilentlyContinue).Length
+    if (-not $size -or $size -lt 1MB) { Write-Warn "Download looks truncated ($size bytes)."; return $false }
+    Write-Ok "Downloaded $([math]::Round($size/1MB,1)) MB."
 
     $sig = Get-AuthenticodeSignature $msi
     if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
@@ -383,8 +410,20 @@ function Install-OpenSSHFromMsi {
     }
     Write-Ok "MSI signature valid (Microsoft)."
 
-    $p = Start-Process msiexec.exe -Wait -PassThru -NoNewWindow `
+    # Bounded, not -Wait: msiexec blocks indefinitely if another installation
+    # already holds the _MSIExecute mutex.
+    Write-Info "Installing (up to ${MsiTimeoutSec}s) ..."
+    $p = Start-Process msiexec.exe -PassThru -NoNewWindow `
             -ArgumentList '/i',"`"$msi`"",'ADDLOCAL=Server','/quiet','/norestart'
+    $null = $p.Handle
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $p.HasExited -and $sw.Elapsed.TotalSeconds -lt $MsiTimeoutSec) { Start-Sleep -Seconds 3 }
+    if (-not $p.HasExited) {
+        try { $p.Kill() } catch {}
+        Write-Warn "msiexec did not finish within ${MsiTimeoutSec}s (another install may hold the MSI mutex)."
+        Remove-Item $msi -Force -ErrorAction SilentlyContinue
+        return $false
+    }
     Remove-Item $msi -Force -ErrorAction SilentlyContinue
     if ($p.ExitCode -ne 0) { Write-Warn "msiexec exited $($p.ExitCode)."; return $false }
     return $true
@@ -640,9 +679,26 @@ function Set-SshdManagedBlock {
                             (New-Object Text.UTF8Encoding($false)))
 }
 
-Set-SshdManagedBlock -Options ([ordered]@{ 'PubkeyAuthentication' = 'yes' })
+# Key-only by DEFAULT. Enabling sshd while leaving password auth on exposes every
+# local (and, on a domain member, domain) account to online password guessing --
+# a strictly worse position than the box was in before we touched it. We are here
+# to install a key, so passwords buy us nothing. -AllowPasswordAuth keeps them,
+# for a box where something else already relies on SSH password logins.
+# Set BEFORE the self-test, so the self-test proves key auth against the final
+# configuration rather than one we are about to change underneath it.
+$sshdOpts = [ordered]@{ 'PubkeyAuthentication' = 'yes' }
+if (-not $AllowPasswordAuth) {
+    $sshdOpts['PasswordAuthentication'] = 'no'
+    $sshdOpts['PermitEmptyPasswords']   = 'no'
+}
+Set-SshdManagedBlock -Options $sshdOpts
 Restart-Service sshd
-Write-Ok "PubkeyAuthentication yes  (original saved as sshd_config.fleet-backup)"
+if ($AllowPasswordAuth) {
+    Write-Warn "PasswordAuthentication left ENABLED at your request."
+} else {
+    Write-Ok "Key-only: PubkeyAuthentication yes, PasswordAuthentication no."
+}
+Write-Info "Original sshd_config saved as sshd_config.fleet-backup." 
 
 # ---------------------------------------------------------------- self-test ---
 # Proves the whole chain with a real SSH login over loopback using a throwaway
@@ -774,20 +830,6 @@ if ($AllowBlankPasswordAuth) {
     Write-Warn "LimitBlankPasswordUse=0 -- blank-password accounts may now be used for network logon."
     Write-Info "Revert: Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa' LimitBlankPasswordUse 1"
     Write-Info "Now re-run this script WITHOUT the switch to re-test."
-}
-
-# ------------------------------------------------- optional hardening ---------
-if ($HardenPasswordAuth) {
-    if ($testPass) {
-        Set-SshdManagedBlock -Options ([ordered]@{
-            'PubkeyAuthentication'   = 'yes'
-            'PasswordAuthentication' = 'no'
-        })
-        Restart-Service sshd
-        Write-Ok "PasswordAuthentication no (key-only)."
-    } else {
-        Write-Warn "Refusing to disable password auth: the self-test did not pass. That would lock you out."
-    }
 }
 
 # ----------------------------------------------------------------- summary ----
