@@ -1,7 +1,7 @@
 # Signing .rdp shortcuts to stop the "Do you trust this remote connection?" prompt
 
 **Status:** applied and verified 2026-07-30 on `CULLENW-POS4`
-**Script:** `scripts/Set-RdpSignedShortcut.ps1`
+**Script:** `tools/windows/Set-RdpSignedShortcut.ps1`
 **Context:** Cullen site POS terminals connecting to the terminal server `CW-TS01`
 
 ## The symptom

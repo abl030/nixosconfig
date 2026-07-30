@@ -1,7 +1,7 @@
-# Windows fleet SSH access (`scripts/Setup-FleetSSH.ps1`)
+# Windows fleet SSH access (`tools/windows/Setup-FleetSSH.ps1`)
 
 **Status:** working, verified end-to-end 2026-07-30
-**Script:** `scripts/Setup-FleetSSH.ps1`
+**Script:** `tools/windows/Setup-FleetSSH.ps1`
 **First real use:** `CULLENW-POS4` (Cullen site POS terminal, `192.168.100.67`)
 
 ## What it is
