@@ -781,7 +781,10 @@ in {
         # The original /mnt/virtio/cratedigger/postgres is preserved untouched
         # as the pre-migration rollback snapshot.
         "d ${pgDataDirRoot} 0755 root root -"
-        "d ${pgDataDirRoot}/postgres 0700 root root -"
+        # privateUsers=no exposes the container's PostgreSQL uid/gid directly
+        # on the host bind mount. Declaring this root-owned revokes PostgreSQL's
+        # access on every tmpfiles reset and panics the next checkpoint.
+        "d ${pgDataDirRoot}/postgres 0750 ${toString config.ids.uids.postgres} ${toString config.ids.gids.postgres} -"
         "d ${metadataGateStateDir} 0700 root root -"
         "d ${metadataGateHoldDir} 0700 root root -"
         "d ${liveWorldAuditDebtStateDir} 0700 root root -"
