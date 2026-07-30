@@ -31,6 +31,22 @@
     mode = "0400";
   };
 
+  # Immich API key, so the doc1 agent can read photos the operator points it at.
+  # This is the "send the agent a photo" channel: snap it on the phone, paste the
+  # photos.ablz.au link, the agent pulls the asset over the API and looks at it.
+  # Invaluable for anything physical — a screen showing an error dialog, a cable
+  # run, a serial number. See docs/wiki/services/immich.md.
+  # NOTE: this key carries the owner's full Immich privileges (it is not
+  # read-only, and Immich has no scoped API keys), so it stays doc1-only like the
+  # other control-plane credentials rather than going fleet-wide.
+  sops.secrets."immich/api-token" = {
+    sopsFile = config.homelab.secrets.sopsFile "immich-api-token.yaml";
+    format = "yaml";
+    key = "token";
+    owner = "abl030";
+    mode = "0400";
+  };
+
   # GitHub deploy key used ONLY by the doc1 Forgejo→GitHub mirror timer. The
   # GitHub repo is a read-only human-facing mirror/fallback; Forgejo remains the
   # write root and fleet deploy source. Deploy keys are repo-scoped, so this is
