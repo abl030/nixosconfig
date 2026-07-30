@@ -1,64 +1,91 @@
 <#
 ================================================================================
- Setup-FleetSSH.ps1  --  authorise the homelab fleet key on a Windows box
+ Setup-FleetSSH.ps1  --  give doc1 SSH access to a Windows box, in one paste
 ================================================================================
 
- WHY THIS EXISTS
-   The target box (the Idealpos machine, 192.168.100.67) has no usable account
-   password, so there is no way to ssh/scp/SMB the key on from doc1 first. This
-   script is run ONCE at the Windows console by a local Administrator. After it
-   succeeds, doc1 logs in with the fleet key and this script is never needed
-   again.
+ WHAT IT IS
+   A bootstrap tool for any Windows machine we need to work on. Run it once in an
+   elevated PowerShell and doc1 can SSH in with the fleet key.
 
-   sshd is ALREADY installed and running there (OpenSSH_for_Windows_10.0), and
-   doc1 already reaches port 22 over the Cullen tailscale subnet route. The only
-   missing piece is the key in the right file with the right ACL -- but every
-   step below is written to be safe on a box where none of that is true either.
+   It is built for the awkward cases, not the easy ones: a machine whose account
+   has no usable password (so the key cannot be copied on first), a locked-down
+   SKU where Group Policy silently overrides -ExecutionPolicy, an image where the
+   OpenSSH feature cannot be installed at all, and boxes driven through an RMM or
+   hypervisor guest agent rather than a keyboard.
 
- WHAT IT DOES
-   1. Makes sure the OpenSSH Server is installed, set to Automatic, and running.
-   2. Opens TCP 22 inbound, scoped to LAN + tailnet (only if nothing already does).
-   3. Installs the fleet public key into BOTH authorized-key locations Windows
-      OpenSSH can consult, so it works either way:
-        C:\ProgramData\ssh\administrators_authorized_keys   (admin accounts)
-        <profile>\.ssh\authorized_keys                      (normal accounts)
-   4. Repairs the file ACLs. This is the #1 reason Windows key auth silently
-      fails: sshd REFUSES an authorized-keys file that anyone other than
-      SYSTEM / Administrators (and, for the per-user file, the user) can write.
-   5. Ensures `PubkeyAuthentication yes` in sshd_config, inserted BEFORE the
-      first `Match` block -- anything appended after a Match belongs to that
-      Match and silently does nothing. Another classic.
-   6. SELF-TESTS end to end: generates a throwaway keypair, authorises it, does a
-      real `ssh -i throwaway Idealpos@127.0.0.1 whoami`, then removes it again.
-      If that passes, doc1's key will work too. If it fails you find out now,
-      while you are still standing at the machine.
+ ACCESS IS TEMPORARY BY DESIGN
+   sshd is left on Manual, not Automatic. It runs for THIS session and is gone
+   after a reboot, so a machine you forget about closes itself. Re-running this
+   re-opens it; -Persist keeps it across reboots.
 
- USAGE  (elevated PowerShell -- it offers to re-launch itself if not)
+   Close it deliberately when you are done:
+     Stop-Service sshd -Force; Set-Service sshd -StartupType Disabled; `
+       Get-NetFirewallRule -DisplayName '*SSH*' | Disable-NetFirewallRule
+
+ USAGE  (ELEVATED PowerShell)
+   Normally straight off the GitHub mirror, with nothing to download or save. It
+   runs as an in-memory script block, which is not subject to execution policy or
+   code signing. The Tls12 prefix is load-bearing: older Windows (.NET 4.6 era,
+   e.g. LTSB 2016) still defaults to TLS 1.0 and cannot reach GitHub without it.
+
+     [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '<url>')
+
+   Prefer a commit SHA over `master` in that URL where it matters that the
+   content cannot change under you -- the wiki carries the current pinned form.
+   To pass arguments, use the script-block form, because iex cannot take them:
+
+     [Net.ServicePointManager]::SecurityProtocol='Tls12'; `
+       & ([scriptblock]::Create((irm '<url>'))) -TargetUser bob -Persist
+
+   From a local copy:
      powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-FleetSSH.ps1
 
-   From the NAS share, if this box can reach it:
-     powershell -NoProfile -ExecutionPolicy Bypass -File "\\192.168.1.2\data\Life\Setup-FleetSSH.ps1"
+ WHAT IT DOES
+   1. Installs the OpenSSH Server feature if it is missing. Where that is
+      impossible -- routine on IoT / LTSB / WSUS-managed images, which either
+      fail outright or hang forever against an unreachable Windows Update -- it
+      gives up on a timer and prints exactly how to install the MSI by hand,
+      having changed nothing.
+   2. Opens TCP 22. Re-enables SSH rules a previous close disabled, and ALWAYS
+      ensures its own port-keyed rule: a program-scoped rule pointing at an
+      sshd.exe that has since moved enumerates perfectly and permits nothing.
+   3. Authorises the fleet key, with correct ACLs, wherever applies:
+        C:\ProgramData\ssh\administrators_authorized_keys   (administrators)
+        <profile>\.ssh\authorized_keys                      (if a profile exists)
+      Bad ACLs are the single commonest cause of silent key-auth failure: sshd
+      refuses a key file writable by anyone but SYSTEM/Administrators (and, for
+      the per-user file, the user).
+   4. Ensures `PubkeyAuthentication yes`, inserted BEFORE the first `Match`
+      block -- anything after a Match belongs to that block and silently does
+      nothing.
+   5. Starts sshd for this session.
+   6. SELF-TESTS for real: generates a throwaway keypair, authorises it, performs
+      an actual loopback SSH login, then removes it. You find out whether this
+      worked while still standing at the machine, not after driving away.
 
-   If the box cannot reach the share: open Notepad, paste this whole file, save
-   as Setup-FleetSSH.ps1, and run the command above against it. The script is
-   fully self-contained -- it downloads nothing and needs no internet.
+   Idempotent. Existing authorised keys are preserved, never replaced, and the
+   original sshd_config is kept at sshd_config.fleet-backup.
 
  OPTIONS
-   -TargetUser <name>          Account to authorise. Default: the current user.
-   -PublicKey  <string>        Override the embedded key.
-   -AllowBlankPasswordAuth     ONLY if the self-test fails on a blank-password
-                               account. See the warning where it is used.
-   -HardenPasswordAuth         After a PASSING self-test, also set
-                               `PasswordAuthentication no` (key-only).
-   -AnyRemote                  Do not scope the firewall rule to LAN/tailnet.
-   -CapTimeoutSec <n>          Seconds to wait for the OpenSSH feature install before
-                               giving up and printing manual instructions. Default 240.
-   -Persist                    Leave sshd set to start automatically at boot.
-                               Default is Manual: SSH runs for THIS session only
-                               and is gone after a reboot.
+   -TargetUser <name>       Account to authorise. Defaults to the current user.
+                            Under SYSTEM (scheduled task, RMM, guest agent) that
+                            is the MACHINE account, so it falls back to the
+                            console user, then to the sole enabled local account.
+   -PublicKey <string>      Override the embedded fleet key.
+   -Persist                 Leave sshd Automatic rather than session-only.
+   -CapTimeoutSec <n>       Seconds to wait for the feature install before giving
+                            up with manual instructions. Default 240.
+   -HardenPasswordAuth      After a PASSING self-test, also set
+                            `PasswordAuthentication no` (key-only). Refuses if
+                            the self-test did not pass, so it cannot lock you out.
+   -AllowBlankPasswordAuth  Only if the self-test is actively REFUSED on a
+                            blank-password account. Relaxes LimitBlankPasswordUse
+                            machine-wide -- see the warning where it is used.
+   -AnyRemote               Do not scope the firewall rule to LAN + tailnet.
 
- Written for the homelab fleet, 2026-07-30. Safe to re-run: every step is
- idempotent and existing authorised keys are preserved, never replaced.
+ Exit codes: 0 success, 1 error, 2 OpenSSH could not be installed (needs a human).
+
+ Wiki: docs/wiki/infrastructure/windows-fleet-ssh-access.md
 ================================================================================
 #>
 

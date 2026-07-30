@@ -32,10 +32,15 @@
    1. Creates (or reuses) a self-signed CODE SIGNING certificate.
    2. Backs up the .rdp, then signs it with rdpsign.exe.
    3. Installs the certificate's PUBLIC half into LocalMachine\TrustedPublisher
-      and adds its SHA1 thumbprint to the trusted-.rdp-publishers policy.
-   4. Optionally exports the public .cer so other terminals can trust the same
+      AND LocalMachine\Root, and adds its SHA1 thumbprint to the
+      trusted-.rdp-publishers policy. Root is required for a self-signed
+      publisher -- see ABOUT TRUSTED ROOT below. -NoRootTrust skips it.
+   4. VERIFIES the certificate chain actually builds, and says so loudly if it
+      does not, because an untrusted chain means the client still reports
+      "Unknown publisher" and keeps prompting.
+   5. Optionally exports the public .cer so other terminals can trust the same
       publisher, and the .pfx so the same key can re-sign future .rdp files.
-   5. Reports what it did and how to undo it.
+   6. Reports what it did and how to undo it.
 
  ABOUT TRUSTED ROOT
    A self-signed publisher certificate MUST also go into Trusted Root, or the
