@@ -14,16 +14,25 @@
 cannot be changed under you, even by someone who can write to the repo:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/4a3e7ebb6c2fbe2ad16846997322e287a25ee94e/tools/windows/Setup-FleetSSH.ps1')
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/078ff1074a2ed3574e04abf9db2430afab6cb02b/tools/windows/Setup-FleetSSH.ps1')
 ```
 
 SHA-256 of the script at that commit:
-`d0205ea5565fc3aadc44d78857b0cf0cbc524fd9fe290376d610683c8c06d535`
+`f5c9b796f9d83d85fb9a78877376f0cb6e1351d59b703b3adefc76916712cc24`
 
 Where the Windows OpenSSH *feature* is unavailable or unhealthy, the script
 installs Microsoft's official signed MSI instead, verifying its Authenticode
 signature before running it. `-NoMsiDownload` refuses that and prints manual
 instructions.
+
+**Nothing may block.** Every external call on this path has hung a real box at
+least once: `Add-WindowsCapability`, `Get-WindowsCapability`, `Get-CimInstance`,
+`Invoke-WebRequest`, and `msiexec -Wait`. All are now either avoided or run in a
+killable process under a hard timeout. `Invoke-WebRequest` deserves special
+mention: its `-TimeoutSec` bounds the *initial response*, not the transfer, and
+PowerShell 5.1's progress rendering makes multi-megabyte downloads crawl — the
+MSI now goes through `WebClient.DownloadFileTaskAsync` with
+`$ProgressPreference` silenced (6.3 MB in 2.5s, against an indefinite stall).
 
 **Do not use `Get-WindowsCapability -Online` as a cheap probe.** It goes to the
 servicing stack just like `Add-WindowsCapability` and can hang indefinitely --
@@ -50,7 +59,9 @@ so it works on locked-down boxes where Group Policy silently overrides
 1. get OpenSSH Server installed if missing — the Windows feature where that is
    possible, otherwise Microsoft's official signed MSI, Authenticode-verified
    before it runs;
-2. authorise the fleet key with correct ACLs;
+2. authorise the fleet key with correct ACLs, and set sshd **key-only**
+   (`PasswordAuthentication no`) — turning SSH on while still accepting
+   passwords would leave the box worse off than we found it;
 3. **open port 22**, re-enabling rules a previous close disabled and ensuring its
    own port-keyed rule;
 4. start `sshd` **for this session only**;
@@ -67,7 +78,7 @@ should keep SSH. To pass any argument use the script-block form, because `iex`
 cannot take arguments:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/4a3e7ebb6c2fbe2ad16846997322e287a25ee94e/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/078ff1074a2ed3574e04abf9db2430afab6cb02b/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
 ```
 
 ### Close it when you are done
