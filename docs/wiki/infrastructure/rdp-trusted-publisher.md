@@ -57,16 +57,45 @@ The signed `Server.rdp` is portable: copy it to the other terminals, run
 Undo: `.\Set-RdpSignedShortcut.ps1 -Undo -RdpPath '<path>'` restores the
 `.unsigned-backup` and clears the policy values.
 
-## What is deliberately not done
+## Trusted Root is required, and why that is acceptable here
 
-- **The certificate is never added to Trusted Root.** A cert in Root can vouch for
-  any TLS certificate or signed code on that machine, so a leaked key would be a
-  machine-wide problem. Only `TrustedPublisher` + the thumbprint policy are used —
-  the narrow, purpose-built mechanism.
+**A self-signed publisher certificate must go into Trusted Root as well as
+TrustedPublisher.** This was learned the hard way: the first attempt deliberately
+skipped Root on least-privilege grounds, and the client still showed
+*"Publisher: Unknown publisher"* with the prompt intact. The chain check told the
+story:
+
+```
+UntrustedRoot - A certificate chain processed, but terminated in a root
+                certificate which is not trusted by the trust provider.
+```
+
+TrustedPublisher plus the `TrustedCertThumbprints` policy is **not** sufficient on
+its own -- the certificate chain still has to validate. The script now installs to
+both stores and then *verifies the chain builds*, failing loudly if it does not,
+so this cannot silently regress.
+
+The exposure is narrower than "trusting a CA", and the specifics matter:
+
+- **EKU is Code Signing only.** It cannot vouch for a TLS server certificate, so it
+  cannot be used to intercept HTTPS on that terminal.
+- **No CA basic constraint** -- it is an end-entity certificate, so it cannot issue
+  or vouch for any *other* certificate. It only ever validates signatures made by
+  its own key.
+
+So the real risk is: whoever holds that private key can sign code and `.rdp` files
+that this terminal treats as a trusted publisher. The key stays in the signing
+machine's `LocalMachine\My`; other terminals receive the public `.cer` only.
+
+Where a real CA exists, issue a chaining code-signing certificate instead and pass
+`-NoRootTrust`. In a workgroup with no CA, self-signed plus Root is the available
+answer.
+
+## Also not done
+
 - **The terminal server is not touched.** This is entirely client-side.
 - **`full address` is left alone**, so the shortcut still connects where it did.
-- The private key stays in the signing machine's `LocalMachine\My`. Other
-  terminals only ever receive the public `.cer`.
+- The private key is never exported to the other terminals.
 
 ## Gotchas
 

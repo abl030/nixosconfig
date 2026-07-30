@@ -37,14 +37,28 @@
       publisher, and the .pfx so the same key can re-sign future .rdp files.
    5. Reports what it did and how to undo it.
 
- DELIBERATELY NOT DONE
-   The certificate is NOT added to Trusted Root Certification Authorities. A cert
-   in Root can vouch for ANY TLS certificate or signed code on that machine, so a
-   leaked key would be a machine-wide problem. The thumbprint policy is the
-   narrow, purpose-built mechanism, so we use only that.
+ ABOUT TRUSTED ROOT
+   A self-signed publisher certificate MUST also go into Trusted Root, or the
+   chain terminates in an untrusted root, the RDP client reports "Unknown
+   publisher", and the prompt still appears. Verified: TrustedPublisher plus the
+   thumbprint policy alone is NOT sufficient -- the chain still has to validate.
 
-   This also does NOT touch the terminal server, and does NOT change which host
-   the shortcut connects to.
+   That sounds worse than it is, because of what this particular certificate is:
+     * EKU is Code Signing ONLY, so it cannot vouch for a TLS server certificate.
+       It cannot be used to intercept HTTPS.
+     * It has NO CA basic constraint, so it is an end-entity certificate and
+       cannot issue or vouch for any OTHER certificate. It only ever validates
+       signatures made by its own key.
+   So the exposure is: whoever holds this private key can sign code and .rdp
+   files that this machine treats as coming from a trusted publisher. The key
+   stays in the signing machine's LocalMachine\My store and is never exported to
+   the other terminals -- they receive the public .cer only.
+
+   Use -NoRootTrust to skip it if you have a real CA and can issue a chaining
+   certificate instead; that is the better answer wherever it is available.
+
+   This does NOT touch the terminal server, and does NOT change which host the
+   shortcut connects to.
 
  USAGE  (elevated PowerShell on the CLIENT, i.e. the POS terminal)
    Sign a shortcut and trust it here, creating the publisher cert first time:
@@ -69,6 +83,8 @@
    -AlsoApproveDevices  Belt-and-braces: additionally set the LocalDevices mask
                         for this user so the prompt is suppressed even if the
                         signature path is not honoured. See the note where used.
+   -NoRootTrust         Skip the Trusted Root import. Only correct if the
+                        certificate already chains to a trusted CA.
    -Undo                Remove the trust and restore the .rdp from its backup.
 
  Written for the homelab fleet, 2026-07-30. Safe to re-run.
@@ -84,6 +100,7 @@ param(
     [switch] $TrustOnly,
     [string] $CerPath,
     [switch] $AlsoApproveDevices,
+    [switch] $NoRootTrust,
     [switch] $Undo
 )
 
@@ -137,6 +154,44 @@ function Add-TrustedThumbprint {
                      -Value 1 -PropertyType DWord -Force | Out-Null
 }
 
+function Install-PublisherTrust {
+    <#
+      Install the PUBLIC certificate so the RDP client will accept files signed
+      by it. TrustedPublisher alone is not enough for a self-signed certificate:
+      the chain must also validate, which for a self-signed cert means Root.
+      See the ABOUT TRUSTED ROOT note in the header for why that is bounded here.
+    #>
+    param([Parameter(Mandatory)] $Cert, [switch] $SkipRoot)
+
+    $pub    = [Security.Cryptography.X509Certificates.X509Certificate2]::new($Cert.Export('Cert'))
+    $stores = if ($SkipRoot) { @('TrustedPublisher') } else { @('Root','TrustedPublisher') }
+
+    foreach ($name in $stores) {
+        $store = New-Object Security.Cryptography.X509Certificates.X509Store($name,'LocalMachine')
+        $store.Open('ReadWrite')
+        if ($store.Certificates | Where-Object { $_.Thumbprint -eq $pub.Thumbprint }) {
+            Write-Info "Already present in LocalMachine\$name."
+        } else {
+            $store.Add($pub)
+            Write-Ok "Imported into LocalMachine\$name."
+        }
+        $store.Close()
+    }
+
+    # Prove it: if the chain still does not build, the client will say
+    # "Unknown publisher" and the prompt stays. Better to fail loudly here.
+    $chain = New-Object Security.Cryptography.X509Certificates.X509Chain
+    $chain.ChainPolicy.RevocationMode = 'NoCheck'
+    if ($chain.Build($pub)) {
+        Write-Ok "Certificate chain validates -- the client will recognise the publisher."
+        return $true
+    }
+    Write-Fail "Certificate chain does NOT validate:"
+    $chain.ChainStatus | ForEach-Object { Write-Info "  $($_.Status): $($_.StatusInformation.Trim())" }
+    Write-Warn "The RDP client will still show 'Unknown publisher'."
+    return $false
+}
+
 function Import-ToStore {
     param([Parameter(Mandatory)][string] $Path,
           [Parameter(Mandatory)][string] $StoreName)
@@ -169,8 +224,9 @@ if ($Undo) {
 if ($TrustOnly) {
     Write-Step "Trust an existing publisher certificate"
     if (-not $CerPath -or -not (Test-Path $CerPath)) { Write-Fail "-TrustOnly needs a valid -CerPath."; exit 1 }
-    $cert = Import-ToStore -Path $CerPath -StoreName 'TrustedPublisher'
-    Write-Ok "Imported $($cert.Subject) into LocalMachine\TrustedPublisher."
+    $cert = [Security.Cryptography.X509Certificates.X509Certificate2]::new($CerPath)
+    Write-Info "Publisher: $($cert.Subject)"
+    [void](Install-PublisherTrust -Cert $cert -SkipRoot:$NoRootTrust)
     Add-TrustedThumbprint -Thumbprint $cert.Thumbprint
     Write-Ok "Done. SHA1 $($cert.Thumbprint)"
     exit 0
@@ -247,20 +303,10 @@ if ($text -match 'signscope:s:(.*)') {
 
 # ------------------------------------------------------------------- trust ----
 Write-Step "Trusting the publisher on this machine"
-$store = New-Object Security.Cryptography.X509Certificates.X509Store('TrustedPublisher','LocalMachine')
-$store.Open('ReadWrite')
-if (-not ($store.Certificates | Where-Object { $_.Thumbprint -eq $cert.Thumbprint })) {
-    # Public half only -- never put the private key in a trust store.
-    # ::new() rather than New-Object: New-Object UNROLLS a byte[] into one
-    # argument per byte ("no overload for ... argument count: 782"), so the
-    # constructor never sees it as a single DER blob.
-    $pub = [Security.Cryptography.X509Certificates.X509Certificate2]::new($cert.Export('Cert'))
-    $store.Add($pub)
-    Write-Ok "Imported the public certificate into LocalMachine\TrustedPublisher."
-} else {
-    Write-Info "Already present in LocalMachine\TrustedPublisher."
-}
-$store.Close()
+# Public half only -- the private key never goes into a trust store.
+# ::new() rather than New-Object: New-Object UNROLLS a byte[] into one argument
+# per byte ("no overload ... argument count: 782").
+$chainOk = Install-PublisherTrust -Cert $cert -SkipRoot:$NoRootTrust
 Add-TrustedThumbprint -Thumbprint $cert.Thumbprint
 
 # --------------------------------------------------- optional device belt -----
