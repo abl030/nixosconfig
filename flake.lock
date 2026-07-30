@@ -685,7 +685,8 @@
         "systems": "systems_6",
         "trackerslist": "trackerslist",
         "unifi-mcp": "unifi-mcp",
-        "vinsight-mcp": "vinsight-mcp"
+        "vinsight-mcp": "vinsight-mcp",
+        "yt-dlp-src": "yt-dlp-src"
       }
     },
     "slskd-mcp": {
@@ -949,6 +950,22 @@
       "original": {
         "owner": "abl030",
         "repo": "vinsight-mcp",
+        "type": "github"
+      }
+    },
+    "yt-dlp-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784825688,
+        "narHash": "sha256-JavzrPx/UWFAnnkxmNDUCfBJnhsJC2coelqqUBumPk8=",
+        "owner": "yt-dlp",
+        "repo": "yt-dlp",
+        "rev": "fdcc954df4955267ec1627cbeb347b661a110e7c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "yt-dlp",
+        "repo": "yt-dlp",
         "type": "github"
       }
     }

@@ -76,6 +76,13 @@
     };
 
     # --- 5. Static Sources (Non-flake) ---
+    # Moving upstream tip. The rolling updater advances this independently so
+    # YouTube extractor fixes do not wait for a nixpkgs release.
+    yt-dlp-src = {
+      url = "github:yt-dlp/yt-dlp";
+      flake = false;
+    };
+
     musicbrainz-docker = {
       # Pinned to the PG18 cutover rev (PR #339). The on-disk cluster is being
       # migrated 16→18 via upstream's admin/upgrade-to-postgres18 ceremony.
@@ -1087,7 +1094,7 @@
               #!${pkgs.bash}/bin/bash
               set -euo pipefail
               if [ "$#" -eq 3 ] && [ "$1" = "flake" ] && [ "$2" = "metadata" ] && [ "$3" = "--json" ]; then
-                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","other-input":"other-input"}}}}}\n'
+                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","yt-dlp-src":"yt-dlp-src","other-input":"other-input"}}}}}\n'
                 exit 0
               fi
               echo "unexpected nix invocation in signing fixture: $*" >&2
@@ -1274,6 +1281,7 @@
                 RFU_REMOTE_URL="file://$remote" \
                 RFU_REQUIRE_SIGNED_BASE=1 \
                 RFU_GROUP_NVCHAD=other-input \
+                RFU_GROUP_YTDLP=other-input \
                 RFU_GIT_SIGNING_KEY="$TMPDIR/bot" \
                 RFU_ALLOWED_SIGNERS_FILE="$allowed" \
                 RFU_BASE_ANCHOR_FILE="$anchor_file" \
@@ -1315,9 +1323,14 @@
               printf '%s\n' "$valid_before" > "$valid_anchor"
               run_update "$valid_remote" "$allowed_all" "$valid_anchor" | tee "$TMPDIR/valid-update.log"
               grep -F '[nix-rolling]    nvchad: nvchad4nix' "$TMPDIR/valid-update.log"
+              grep -F '[nix-rolling]    yt-dlp: yt-dlp-src' "$TMPDIR/valid-update.log"
               grep -F '[nix-rolling]    rest: other-input' "$TMPDIR/valid-update.log"
               if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F nvchad4nix; then
                 echo "nvchad4nix leaked into the rest update group" >&2
+                exit 1
+              fi
+              if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F yt-dlp-src; then
+                echo "yt-dlp-src leaked into the rest update group" >&2
                 exit 1
               fi
               git clone -q "$valid_remote" "$TMPDIR/valid-inspect"
@@ -1490,6 +1503,21 @@
               touch "$out"
             '';
 
+          ytDlpTipVersionCheck = let
+            ytDlp = self.nixosConfigurations.proxmox-vm.pkgs.yt-dlp;
+            shortRev = builtins.substring 0 7 inputs.yt-dlp-src.rev;
+          in
+            pkgs.runCommand "yt-dlp-tip-version" {
+              nativeBuildInputs = [pkgs.python3Packages.packaging];
+            } ''
+              python -c 'from packaging.version import Version; Version("${ytDlp.version}")'
+              case '${ytDlp.version}' in
+                *'+git.${shortRev}') ;;
+                *) echo 'yt-dlp version does not identify locked upstream tip ${shortRev}' >&2; exit 1 ;;
+              esac
+              touch "$out"
+            '';
+
           # Claude Code and Codex share authored instructions, skills, agents,
           # MCP declarations, and durable memory. Fail closed when a symlink is
           # broken, a generated Codex adapter drifts, a skill is undiscoverable,
@@ -1501,7 +1529,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

@@ -5,6 +5,7 @@
 #
 # Notes:
 # - nvchad is sourced from the nvchad4nix flake for the current system.
+# - yt-dlp tracks upstream git tip; its package version includes that tip's rev.
 # - If an overlay needs the system string, prefer prev.stdenv.hostPlatform.system
 #   (that keeps it correct under cross and matches flake-parts guidance).
 {inputs}: [
@@ -13,6 +14,43 @@
     # Use `inherit` to bring a variable into scope, which is idiomatic when the attribute name matches.
     inherit (inputs.nvchad4nix.packages.${final.stdenv.hostPlatform.system}) nvchad;
   })
+
+  # yt-dlp overlay: keep riding upstream tip while retaining a PEP 440 version.
+  (
+    _final: prev: let
+      rev = inputs.yt-dlp-src.rev or (throw "yt-dlp-src must have a locked git revision");
+      short = builtins.substring 0 7 rev;
+      versionLine =
+        prev.lib.findFirst
+        (prev.lib.hasPrefix "__version__ = '")
+        (throw "yt-dlp-src/yt_dlp/version.py has no __version__")
+        (prev.lib.splitString "\n" (builtins.readFile (inputs.yt-dlp-src + "/yt_dlp/version.py")));
+      upstreamVersion =
+        prev.lib.removeSuffix "'"
+        (prev.lib.removePrefix "__version__ = '" versionLine);
+    in {
+      yt-dlp = prev.yt-dlp.overrideAttrs (old: {
+        src = inputs.yt-dlp-src;
+        version = "${upstreamVersion}+git.${short}";
+        # Upstream tip moves fast; retain nixpkgs patches except curl-cffi
+        # compatibility patches that target its older packaged source.
+        patches = builtins.filter (
+          patch: let
+            name = toString patch;
+          in
+            builtins.match ".*curlcffi.*" name
+            == null
+            && builtins.match ".*curl-cffi.*" name == null
+        ) (old.patches or []);
+        postPatch = let
+          oldPostPatch = old.postPatch or "";
+          oldLine = ''--replace-fail "if curl_cffi_version != (0, 5, 10) and not (0, 10) <= curl_cffi_version < (0, 14)" \'';
+          newLine = ''--replace "if curl_cffi_version != (0, 5, 10) and not (0, 10) <= curl_cffi_version < (0, 14)" \'';
+        in
+          prev.lib.replaceStrings [oldLine] [newLine] oldPostPatch;
+      });
+    }
+  )
 
   # claude-code overlay: use auto-updating flake (hourly GitHub Actions updates)
   (

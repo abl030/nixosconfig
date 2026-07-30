@@ -26,9 +26,10 @@ then runs whole-repository Pyright, the deterministic suite, `nix flake check`,
 the lifecycle world burst, the full fuzz burst, and the mirror-harness smoke.
 Every test stage runs even after an earlier test failure so one notification has
 the complete result. A fully green candidate pushes one lock-only commit;
-anything red pushes nothing. Fleet and Cratedigger use nixpkgs' packaged yt-dlp;
-there is no independent yt-dlp source input or overlay. The service likewise
-owns no urllib3, idna, lxml, msgpack, soupsieve, Flask, or ffmpeg version.
+anything red pushes nothing. Fleet yt-dlp deliberately tracks upstream git tip
+through an independently updated source input, so extractor fixes do not wait
+for a nixpkgs release. The service otherwise owns no urllib3, idna, lxml,
+msgpack, soupsieve, Flask, or ffmpeg version.
 
 Replay databases and complete failed fuzz logs live under
 `/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private

@@ -11,9 +11,9 @@ set -Eeuo pipefail
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
 # Group order is fixed: core (nixpkgs+home-manager) first so later groups build on
-# the cached new world, then llm, then nvchad (independently maintained and prone
-# to breaking flake-output changes), then rest. Rest is computed as all inputs
-# minus the named groups, so new inputs still fall into it automatically.
+# the cached new world, then yt-dlp tip, llm, nvchad (independently maintained and
+# prone to breaking flake-output changes), then rest. Rest is computed as all
+# inputs minus the named groups, so new inputs still fall into it automatically.
 
 # --- Configuration ---------------------------------------------------------
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
@@ -39,9 +39,12 @@ FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
 # Group membership (space-separated input names). Core and LLM are configurable
-# from the Nix module. NvChad is a hardcoded isolation boundary.
+# from the Nix module. yt-dlp and NvChad are hardcoded isolation boundaries.
 GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
+# Deliberately not configurable: upstream yt-dlp tip must advance even when an
+# unrelated rest input fails.
+GROUP_YTDLP="yt-dlp-src"
 # Deliberately not configurable: nvchad4nix must never leak back into rest.
 GROUP_NVCHAD="nvchad4nix"
 
@@ -554,7 +557,7 @@ DATE=$(date +%F)
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_CORE $GROUP_LLM $GROUP_NVCHAD "
+NAMED=" $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
@@ -563,6 +566,7 @@ for inp in $ALL_INPUTS; do
     esac
 done
 log "   core: $GROUP_CORE"
+log "   yt-dlp: $GROUP_YTDLP"
 log "   llm : $GROUP_LLM"
 log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
@@ -570,6 +574,8 @@ log "   rest:$GROUP_REST"
 # --- Run each group as its own transaction ---------------------------------
 # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
 try_group core $GROUP_CORE || true
+# shellcheck disable=SC2086
+try_group yt-dlp $GROUP_YTDLP || true
 # shellcheck disable=SC2086
 try_group llm $GROUP_LLM || true
 # shellcheck disable=SC2086
