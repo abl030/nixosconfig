@@ -300,19 +300,30 @@ if (-not (Test-Path $SshDataDir)) { Write-Fail "$SshDataDir missing -- sshd has 
 
 # ----------------------------------------------------------------- firewall ---
 Write-Step "Firewall (TCP 22 inbound)"
-# Idempotently OPEN the port, which is not the same as "create a rule if none
-# exists". A box we closed down earlier still has its SSH rules, just Disabled --
-# so re-enable those rather than adding a duplicate alongside them.
+# Idempotently OPEN the port. Two distinct jobs:
+#
+#  1. Re-enable SSH rules that a previous "close" disabled, rather than stacking
+#     a duplicate alongside them.
+#  2. Guarantee our OWN port-based rule exists. A pre-existing rule whose name
+#     matches /SSH/ is NOT proof the port is open: Windows firewall rules are
+#     often PROGRAM-scoped, and a rule pointing at an sshd.exe that no longer
+#     exists (e.g. the box previously had OpenSSH via Features on Demand and now
+#     has it from the MSI, at a different path) enumerates perfectly and permits
+#     nothing. Observed live: sshd Running, an enabled "OpenSSH SSH Server
+#     Preview (sshd)" rule present, and port 22 still refusing connections.
+#     A rule keyed on the PORT cannot go stale that way.
 $sshRules = @(Get-NetFirewallRule -Direction Inbound -Action Allow -ErrorAction SilentlyContinue |
     Where-Object { $_.DisplayName -match 'OpenSSH|SSH' })
-$disabled = @($sshRules | Where-Object { -not $_.Enabled -or $_.Enabled -eq 'False' })
+$disabled = @($sshRules | Where-Object { $_.Enabled -ne 'True' -and $_.Enabled -ne $true })
 if ($disabled.Count) {
     $disabled | Enable-NetFirewallRule
     Write-Ok "Re-enabled $($disabled.Count) disabled SSH rule(s): $(($disabled.DisplayName | Select-Object -Unique) -join ', ')"
 }
-$existingRules = @($sshRules | Where-Object { $_.Enabled -eq 'True' -or $_.Enabled -eq $true }) + $disabled
-if ($existingRules.Count) {
-    Write-Ok "Inbound SSH allowed by: $(($existingRules.DisplayName | Select-Object -Unique) -join ', ')"
+
+$ourRule = Get-NetFirewallRule -Name 'FleetSSH-In-TCP22' -ErrorAction SilentlyContinue
+if ($ourRule) {
+    if ($ourRule.Enabled -ne 'True' -and $ourRule.Enabled -ne $true) { $ourRule | Enable-NetFirewallRule }
+    Write-Ok "Port rule 'FleetSSH-In-TCP22' present and enabled."
 } else {
     $ruleArgs = @{
         Name        = 'FleetSSH-In-TCP22'
@@ -321,12 +332,11 @@ if ($existingRules.Count) {
         Protocol    = 'TCP';     LocalPort = 22
         Profile     = 'Any'
     }
-    # Default to LAN + tailnet CGNAT rather than Any. Tailscale subnet routers
-    # SNAT by default, so traffic from doc1 arrives sourced from the subnet
-    # router's own LAN address -- which is why the local /16 is what matters.
+    # Tailscale subnet routers SNAT by default, so traffic from doc1 arrives
+    # sourced from the subnet router's own LAN address -- hence the local /16.
     if (-not $AnyRemote) { $ruleArgs.RemoteAddress = @('192.168.0.0/16','10.0.0.0/8','172.16.0.0/12','100.64.0.0/10') }
     New-NetFirewallRule @ruleArgs | Out-Null
-    Write-Ok "Created 'Fleet SSH (TCP 22 inbound)'$(if (-not $AnyRemote) { ' scoped to LAN + tailnet' })"
+    Write-Ok "Created port rule 'Fleet SSH (TCP 22 inbound)'$(if (-not $AnyRemote) { ' scoped to LAN + tailnet' })"
 }
 
 # -------------------------------------------------------------- ACL helpers ---
@@ -441,7 +451,10 @@ if ($userKeys) {
 
 $sshdText      = if (Test-Path $SshdConfig) { [IO.File]::ReadAllText($SshdConfig) } else { '' }
 $hasAdminMatch = $sshdText -match '(?im)^\s*Match\s+Group\s+administrators'
-$effectiveFile = if ($isAdminAccount -and $hasAdminMatch) { $AdminKeys } else { $userKeys }
+$effectiveFile = if ($isAdminAccount -and $hasAdminMatch) { $AdminKeys }
+                 elseif ($userKeys)                        { $userKeys }
+                 elseif ($isAdminAccount)                  { $AdminKeys }  # no profile: admins still have this
+                 else                                      { $null }
 Write-Info "sshd will read: $effectiveFile"
 
 # --------------------------------------------------------------- sshd_config ---
@@ -585,8 +598,12 @@ try {
     $ErrorActionPreference = $prevEAP
     # ALWAYS remove the throwaway key again, from both files.
     if ($testPub) {
-        Remove-AuthorizedKey -Path $AdminKeys -Key $testPub
-        Remove-AuthorizedKey -Path $userKeys  -Key $testPub
+        # $userKeys is $null for an account with no profile, and Test-Path on an
+        # empty string throws -- which would abort the run in the finally block
+        # AFTER a successful self-test, losing the summary and exiting non-zero.
+        foreach ($f in @($AdminKeys, $userKeys)) {
+            if ($f) { Remove-AuthorizedKey -Path $f -Key $testPub }
+        }
         Write-Info "Throwaway self-test key removed."
     }
     Remove-Item "$testBase", "$testBase.pub" -Force -ErrorAction SilentlyContinue
