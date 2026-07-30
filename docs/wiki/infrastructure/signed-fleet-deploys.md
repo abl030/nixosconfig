@@ -462,6 +462,33 @@ Fatal non-group failures preserve the temporary clone and scrub the remote URL
 back to a tokenless form before printing the recovery path. Treat preserved
 workdirs as sensitive until inspected.
 
+### Rolling updater build envelope and yt-dlp tip metadata
+
+**Status (2026-07-31): active on doc1 after signed deployment.** The
+nightly updater runs with `max-jobs = 1` and `cores = 1`. Both limits are
+required: `max-jobs` serializes Nix derivations, while `cores` also serializes
+builder-internal work. MongoDB 7.0.37 demonstrated the distinction when SCons
+launched simultaneous linker jobs using roughly 8 GiB and 14 GiB RSS, exhausting
+doc1's 24 GiB RAM plus swap despite `max-jobs = 1`. This envelope applies only
+to `rolling-flake-update.service`; interactive and ordinary fleet builds retain
+their normal concurrency. Revisit it only after doc1's memory changes or a
+measured nightly runtime problem justifies a bounded higher value. See PR #95.
+
+The dedicated `yt-dlp` group advances `yt-dlp-src` independently at upstream git
+tip. A group result of “no changes” means the source revision did not move; it
+does not prove the existing package will rebuild under a changed `nixpkgs`.
+Nixpkgs metadata validation exposed that distinction on 2026-07-31: the existing
+git-tip derivation declared `2026.07.04+git.fdcc954`, while its wheel still
+advertised `2026.7.4`, so the `core` group failed even though `yt-dlp-src` was
+unchanged. The overlay keeps `pyprojectVersionPatchHook` in `nativeBuildInputs`
+so wheel metadata follows the git-qualified derivation version. Do not remove
+the hook or replace tip tracking with a nixpkgs release fallback. See PR #96.
+
+The same night's Cratedigger gate exhausted doc1's former 5.5 GiB `/run` ceiling.
+Its module now fixes `boot.runSize = "12G"`; this is a capacity ceiling, not a
+reservation, and is documented with the daily-gate contract in
+`docs/wiki/services/cratedigger.md`. See PR #97.
+
 ## Self-Heal: Corrupt Fetch Cache Or Store
 
 `fleet-update` builds from a pinned, signature-verified rev, so its inputs are
