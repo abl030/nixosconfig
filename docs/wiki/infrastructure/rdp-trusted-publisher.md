@@ -1,6 +1,7 @@
 # Signing .rdp shortcuts to stop the "Do you trust this remote connection?" prompt
 
-**Status:** applied and verified 2026-07-30 on `CULLENW-POS4`
+**Status:** applied 2026-07-30 on `CULLENW-POS4`; **confirmed by the operator at the
+console** — the trust prompt no longer appears
 **Script:** `tools/windows/Set-RdpSignedShortcut.ps1`
 **Context:** Cullen site POS terminals connecting to the terminal server `CW-TS01`
 
@@ -146,3 +147,19 @@ no GPO to distribute trust, so every client change is per-machine.
 | Public cert | `C:\rdp-publisher\RdpPublisher.cer` |
 | Backup | `C:\Users\Idealpos\Desktop\Server.rdp.unsigned-backup` |
 | `LocalDevices\CW-TS01` | `76` -> `255` (belt; restore with `76` if you want to isolate the signing path) |
+
+Both the signature path and the `LocalDevices` belt are in place, so which one is
+doing the work was not isolated. Set the value back to `76` and retest if you ever
+need to prove the signing path alone.
+
+## Rolling this out to the other terminals
+
+The signed `Server.rdp` is portable — the signature covers the file's settings, not
+the machine. On each additional terminal: copy the signed `.rdp` over, copy
+`RdpPublisher.cer` from `C:\rdp-publisher\`, then run
+
+```powershell
+.\Set-RdpSignedShortcut.ps1 -TrustOnly -CerPath '<path>\RdpPublisher.cer'
+```
+
+No private key leaves the signing box, and nothing needs re-signing.
