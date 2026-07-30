@@ -4,6 +4,46 @@
 **Script:** `tools/windows/Setup-FleetSSH.ps1`
 **First real use:** `CULLENW-POS4` (Cullen site POS terminal, `192.168.100.67`)
 
+---
+
+## ⚡ Re-open SSH on a closed box — the one-liner
+
+Paste into an **elevated PowerShell** at the machine (console, RDP or TeamViewer).
+Works regardless of the firewall rule names, and is safe to run twice:
+
+```powershell
+Get-NetFirewallRule -DisplayName '*SSH*' | Enable-NetFirewallRule; Set-Service sshd -StartupType Automatic; Start-Service sshd; Get-Service sshd
+```
+
+Expect `Running`. doc1 can then connect immediately — the authorised key is left
+in place when SSH is closed, it is just inert while nothing is listening.
+
+### Close it again
+
+```powershell
+Stop-Service sshd -Force; Set-Service sshd -StartupType Disabled; Get-NetFirewallRule -DisplayName '*SSH*' | Disable-NetFirewallRule; Get-Service sshd
+```
+
+Expect `Stopped`. Nothing listens on 22 and the inbound rules are disabled, so the
+port is shut at both layers.
+
+### Fully revoke, rather than just close
+
+Closing leaves the fleet key authorised. To actually remove doc1's ability to log
+in even if SSH is later re-enabled:
+
+```powershell
+Set-Content 'C:\ProgramData\ssh\administrators_authorized_keys' '' ; Remove-Item "$env:USERPROFILE\.ssh\authorized_keys" -Force -ErrorAction SilentlyContinue
+```
+
+After that, re-granting means running `Setup-FleetSSH.ps1` at the console again.
+
+> This page is mirrored read-only to
+> `github.com/abl030/nixosconfig/blob/master/docs/wiki/infrastructure/windows-fleet-ssh-access.md`
+> so the one-liner can be copied from a phone at the machine.
+
+---
+
 ## What it is
 
 A one-shot, self-contained PowerShell installer that authorises the fleet key
@@ -98,6 +138,15 @@ From doc1:
 ```bash
 ssh Idealpos@192.168.100.67   # -> cullenw-pos4\idealpos
 ```
+
+## Current state of CULLENW-POS4
+
+**SSH is CLOSED as of 2026-07-30.** `sshd` is Stopped + Disabled and the inbound
+rules are disabled, so nothing listens on 22. The fleet key is still authorised
+but inert. Re-open with the one-liner at the top of this page.
+
+Closing it does not strand anyone: the box has TeamViewer installed and console
+autologin as `Idealpos`, so there is always a way back in to run the one-liner.
 
 ## Notes on reach
 
