@@ -228,12 +228,12 @@ in {
         # systemd's Environment= splits on whitespace and would mangle them.
         environment =
           {
-            # doc1 exposes 30 build CPUs but has 34 GiB RAM. Unbounded Nix
-            # parallelism can launch 60+ cc1plus processes and exhaust RAM plus
-            # swap, so keep this unattended workload within a fixed memory-safe
-            # concurrency envelope. NIX_CONFIG applies to every Nix invocation
-            # in the updater and its cache-population helper.
-            NIX_CONFIG = "max-jobs = 1\ncores = 12";
+            # doc1 exposes 30 build CPUs but has 24 GiB RAM. Both Nix job-level
+            # and builder-internal parallelism must be serialized: MongoDB's
+            # SCons build can otherwise run two 8-14 GiB linker jobs at once and
+            # exhaust RAM plus swap even with max-jobs = 1. NIX_CONFIG applies to
+            # every Nix invocation in the updater and cache-population helper.
+            NIX_CONFIG = "max-jobs = 1\ncores = 1";
             REPO_DIR = cfg.repoDir;
             BASE_BRANCH = "master";
             RFU_REMOTE_URL = cfg.remoteUrl;
