@@ -14,12 +14,14 @@
 cannot be changed under you, even by someone who can write to the repo:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/dc17d6897ef97530301ab12dfd78c0e1e2a10e34/tools/windows/Setup-FleetSSH.ps1')
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/11be6ce7361be52502c31c352761a04f0e7b83fa/tools/windows/Setup-FleetSSH.ps1')
 ```
 
-That exact commit is the one end-to-end tested below.
 SHA-256 of the script at that commit:
-`000137516810bf2c4ee9188f485c5413b28d6423d58d5e4c415d30aa92460555`
+`8228b85fdcafaa51537e26ee77cee10f72341f1154918f1ba5f6556c8a6a1aed`
+
+The only change since the end-to-end run below is the file's header comment --
+the executable body is byte-identical to the validated version (dc17d68).
 
 **Floating.** Always the newest version, but trusts whatever `master` holds at the
 moment you paste it:
@@ -56,7 +58,7 @@ should keep SSH. To pass any argument use the script-block form, because `iex`
 cannot take arguments:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/dc17d6897ef97530301ab12dfd78c0e1e2a10e34/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/11be6ce7361be52502c31c352761a04f0e7b83fa/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
 ```
 
 ### Close it when you are done
