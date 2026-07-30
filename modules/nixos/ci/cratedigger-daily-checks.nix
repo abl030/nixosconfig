@@ -152,7 +152,17 @@ in {
     lib.mkEnableOption "daily Cratedigger compatibility checks against current nixpkgs unstable";
 
   config = lib.mkIf cfg.enable {
+    # The generated fuzz burst deliberately keeps every active target and its
+    # isolated evidence on tmpfs.  The queue has outgrown systemd's default
+    # 25%-of-RAM /run ceiling (5.5 GiB on doc1), so make the tested capacity an
+    # explicit host invariant rather than allowing a late ENOSPC cascade.
+    boot.runSize = "12G";
+
     assertions = [
+      {
+        assertion = config.boot.runSize == "12G";
+        message = "cratedigger daily checks require a 12G /run tmpfs ceiling";
+      }
       {
         assertion = builtins.pathExists runner;
         message = "cratedigger-src must provide scripts/daily_flake_update.sh";
