@@ -32,6 +32,7 @@
       yt-dlp = prev.yt-dlp.overrideAttrs (old: {
         src = inputs.yt-dlp-src;
         version = "${upstreamVersion}+git.${short}";
+        nativeBuildInputs = (old.nativeBuildInputs or []) ++ [prev.python3Packages.pyprojectVersionPatchHook];
         # Upstream tip moves fast; retain nixpkgs patches except curl-cffi
         # compatibility patches that target its older packaged source.
         patches = builtins.filter (
