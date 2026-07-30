@@ -76,7 +76,7 @@
    -PublicKey <string>      Override the embedded fleet key.
    -Persist                 Leave sshd Automatic rather than session-only.
    -CapTimeoutSec <n>       Seconds to wait for the Windows feature install before
-                            falling back to the MSI. Default 240. Skipped entirely
+                            falling back to the MSI. Default 120. Skipped entirely
                             on builds older than 17763, which have no such feature.
    -NoMsiDownload           Do not fetch the official OpenSSH MSI as a fallback;
                             print manual instructions instead.
@@ -102,7 +102,7 @@ param(
     [switch] $HardenPasswordAuth,
     [switch] $AnyRemote,
     [switch] $Persist,
-    [int]    $CapTimeoutSec = 240,
+    [int]    $CapTimeoutSec = 120,
     [switch] $NoMsiDownload
 )
 
@@ -285,20 +285,26 @@ function Show-ManualInstallHelp {
 
 function Test-CapabilityUsable {
     <#
-      The OpenSSH Features-on-Demand package only exists on Windows 10 1809 /
-      Server 2019 and later (build 17763). On anything older -- Server 2016,
-      LTSB 2016 -- Add-WindowsCapability can NEVER succeed, so attempting it and
-      waiting for a timeout is pure dead time in front of someone standing at
-      the machine. Check before spending their afternoon on it.
+      Decide whether the Windows OpenSSH feature is even worth attempting, using
+      ONLY calls that cannot block.
+
+      Two traps here, both learned on CW-TS01:
+
+      * Get-CimInstance can hang on a box with a sick WMI service, and a
+        try/catch does not save you from a hang -- only from an error. The build
+        number comes from [Environment]::OSVersion instead, which is in-process.
+      * Get-WindowsCapability -Online is NOT a cheap lookup. It goes to the
+        servicing stack (DISM/CBS) and can hang indefinitely, exactly like
+        Add-WindowsCapability. Probing with it to decide whether to run the
+        bounded install put an UNBOUNDED call in front of the bounded one, which
+        is what actually hung. So we do not probe at all: the bounded install
+        below does its own filtering, inside a process we can kill.
     #>
     $build = 0
-    try { $build = [int](Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).BuildNumber } catch {}
+    try { $build = [int][Environment]::OSVersion.Version.Build } catch {}
+    Write-Info "Windows build $build."
     if ($build -gt 0 -and $build -lt 17763) {
-        Write-Info "Windows build $build predates the OpenSSH feature (needs 17763+) -- going straight to the MSI."
-        return $false
-    }
-    if (-not (Get-WindowsCapability -Online -Name 'OpenSSH.Server*' -ErrorAction SilentlyContinue)) {
-        Write-Info "This image offers no OpenSSH Server capability -- going straight to the MSI."
+        Write-Info "That predates the OpenSSH feature (needs 17763+) -- going straight to the MSI."
         return $false
     }
     return $true
@@ -390,7 +396,7 @@ if (-not $sshdSvc) {
     $capError = $null
 
     if (Test-CapabilityUsable) {
-        Write-Info "Trying the OpenSSH Server capability (up to ${CapTimeoutSec}s)..."
+        Write-Info "Trying the OpenSSH Server capability (up to ${CapTimeoutSec}s, then the MSI)..."
         $capError = Invoke-CapabilityInstall -TimeoutSec $CapTimeoutSec
         # Re-query REGARDLESS of what it reported: some SKUs claim success and
         # install nothing, so the service is the only honest signal.
