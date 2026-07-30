@@ -51,6 +51,8 @@
    -HardenPasswordAuth         After a PASSING self-test, also set
                                `PasswordAuthentication no` (key-only).
    -AnyRemote                  Do not scope the firewall rule to LAN/tailnet.
+   -CapTimeoutSec <n>          Seconds to wait for the OpenSSH feature install before
+                               giving up and printing manual instructions. Default 240.
    -Persist                    Leave sshd set to start automatically at boot.
                                Default is Manual: SSH runs for THIS session only
                                and is gone after a reboot.
@@ -67,7 +69,8 @@ param(
     [switch] $AllowBlankPasswordAuth,
     [switch] $HardenPasswordAuth,
     [switch] $AnyRemote,
-    [switch] $Persist
+    [switch] $Persist,
+    [int]    $CapTimeoutSec = 240
 )
 
 $ErrorActionPreference = 'Stop'
@@ -180,17 +183,25 @@ try {
 }
 Write-Ok ("Administrator: {0}" -f $(if ($isAdminAccount) { 'yes' } else { 'no' }))
 
-# Profile path from the SID -- more reliable than guessing C:\Users\<name>.
+# Profile path from the SID. Deliberately NOT guessed if absent:
+#   * under SYSTEM, $env:USERPROFILE is C:\Windows\system32\config\systemprofile,
+#     so deriving a sibling path yields nonsense like
+#     C:\Windows\system32\config\<user>;
+#   * pre-creating C:\Users\<user> for an account that has never logged on makes
+#     Windows create a DIFFERENT folder (<user>.<HOST>) at first logon, quietly
+#     orphaning whatever we wrote.
+# An account with no profile simply gets no per-user key file.
 $profilePath = $null
 try {
     $profilePath = (Get-CimInstance Win32_UserProfile -Filter "SID='$($userSid.Value)'" `
                         -ErrorAction Stop).LocalPath
 } catch {}
-if (-not $profilePath) {
-    $profilePath = Join-Path (Split-Path $env:USERPROFILE -Parent) $TargetUser
-    Write-Warn "No profile registered for this SID; assuming $profilePath"
+$hasProfile = [bool]$profilePath
+if ($hasProfile) {
+    Write-Ok "Profile $profilePath"
+} else {
+    Write-Info "No profile yet (this account has never logged on) -- skipping the per-user key file."
 }
-Write-Ok "Profile $profilePath"
 
 # Blank password? Windows restricts blank-password accounts to console logon by
 # default (LimitBlankPasswordUse), which can break the S4U network logon OpenSSH
@@ -234,22 +245,36 @@ function Show-ManualInstallHelp {
     Write-Host "       [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')" -ForegroundColor Cyan
     Write-Host ""
     Write-Info "Nothing has been changed on this machine."
+    Write-Info "If the feature install was merely slow it may still complete in the background;"
+    Write-Info "re-running is always safe and will pick up an sshd that appeared since."
     Write-Host ""
 }
 
 $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
 if (-not $sshdSvc) {
-    Write-Info "sshd not present; trying the OpenSSH Server capability..."
+    Write-Info "sshd not present; trying the OpenSSH Server capability (up to ${CapTimeoutSec}s)..."
     $capError = $null
-    try {
+    # Run it in a job with a hard timeout. Features on Demand pulls from Windows
+    # Update, so on a box with no route to WU this does not fail -- it HANGS,
+    # indefinitely, with TiWorker spinning in the background. A hang at a
+    # customer site is worse than an error, so bound it and fall through to the
+    # manual-install instructions.
+    $job = Start-Job -ScriptBlock {
         foreach ($cap in @('OpenSSH.Server*','OpenSSH.Client*')) {
             Get-WindowsCapability -Online -Name $cap -ErrorAction Stop |
                 Where-Object State -ne 'Installed' |
                 ForEach-Object { Add-WindowsCapability -Online -Name $_.Name -ErrorAction Stop | Out-Null }
         }
-    } catch {
-        $capError = $_.Exception.Message
     }
+    if (Wait-Job $job -Timeout $CapTimeoutSec) {
+        $err = $null
+        Receive-Job $job -ErrorVariable err 2>&1 | Out-Null
+        if ($err) { $capError = ($err | Select-Object -First 1).ToString() }
+    } else {
+        Stop-Job $job -ErrorAction SilentlyContinue
+        $capError = "timed out after ${CapTimeoutSec}s -- this box most likely has no route to Windows Update"
+    }
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
     # Re-query REGARDLESS of whether the call threw. On some SKUs it reports
     # success and installs nothing, so the service is the only honest signal.
     $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
@@ -395,7 +420,7 @@ if ($PublicKey -notmatch '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-\S+|sk-ssh-ed25519@op
     Write-Fail "That does not look like an OpenSSH public key."; exit 1
 }
 
-$userKeys = Join-Path $profilePath '.ssh\authorized_keys'
+$userKeys = if ($hasProfile) { Join-Path $profilePath '.ssh\authorized_keys' } else { $null }
 
 # Both files are written on purpose. Which one sshd consults depends on the
 # `Match Group administrators` block in sshd_config; writing both means the key
@@ -405,8 +430,14 @@ if ($isAdminAccount) {
     $had = Add-AuthorizedKey -Path $AdminKeys -Key $PublicKey -AllowSids @($SID_SYSTEM, $SID_ADMINS)
     Write-Ok ("{0}  ({1})" -f $AdminKeys, $(if ($had) { 'already present' } else { 'KEY ADDED' }))
 }
-$had = Add-AuthorizedKey -Path $userKeys -Key $PublicKey -AllowSids @($SID_SYSTEM, $SID_ADMINS, $userSid.Value)
-Write-Ok ("{0}  ({1})" -f $userKeys, $(if ($had) { 'already present' } else { 'KEY ADDED' }))
+if ($userKeys) {
+    $had = Add-AuthorizedKey -Path $userKeys -Key $PublicKey -AllowSids @($SID_SYSTEM, $SID_ADMINS, $userSid.Value)
+    Write-Ok ("{0}  ({1})" -f $userKeys, $(if ($had) { 'already present' } else { 'KEY ADDED' }))
+} elseif (-not $isAdminAccount) {
+    Write-Fail "'$TargetUser' is not an administrator and has no profile, so there is nowhere sshd will look for its key."
+    Write-Info "Log in as '$TargetUser' once to create the profile, then re-run."
+    exit 1
+}
 
 $sshdText      = if (Test-Path $SshdConfig) { [IO.File]::ReadAllText($SshdConfig) } else { '' }
 $hasAdminMatch = $sshdText -match '(?im)^\s*Match\s+Group\s+administrators'
