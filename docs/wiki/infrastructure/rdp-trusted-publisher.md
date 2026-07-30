@@ -1,0 +1,119 @@
+# Signing .rdp shortcuts to stop the "Do you trust this remote connection?" prompt
+
+**Status:** applied and verified 2026-07-30 on `CULLENW-POS4`
+**Script:** `scripts/Set-RdpSignedShortcut.ps1`
+**Context:** Cullen site POS terminals connecting to the terminal server `CW-TS01`
+
+## The symptom
+
+Staff double-click the RDP shortcut, log in, and get a modal dialog:
+
+```
+Do you trust this remote connection?
+[x] Printers   [ ] Clipboard   [ ] Smart cards
+[ ] Don't ask me again for connections to this computer
+```
+
+During busy service this sits between the operator and the till. It appears
+*after* authentication, so nothing set beforehand carries through.
+
+## Why "Don't ask me again" had not fixed it
+
+Ticking that box writes a **bitmask** to:
+
+```
+HKCU\Software\Microsoft\Terminal Server Client\LocalDevices\<server>
+```
+
+recording *which* redirections were approved. On `CULLENW-POS4` this was already
+set to `76` — someone had ticked it, possibly years ago. But `76` does not
+include the clipboard bit, and `Server.rdp` requests
+`redirectclipboard:i:1`. Any redirection the file asks for that is *not* in the
+mask re-triggers the prompt, every single connection.
+
+So the box looked "already answered" while still prompting forever. Check the
+actual value before assuming the user never ticked it.
+
+## The fix
+
+Sign the `.rdp` with a code-signing certificate and add that certificate to the
+client's trusted-`.rdp`-publishers list. The RDP client then trusts every setting
+inside the signature scope and stops asking. This is Microsoft's supported
+mechanism, it survives profile resets, and the signed file can simply be copied
+to other terminals.
+
+```powershell
+# On the client, elevated:
+.\Set-RdpSignedShortcut.ps1 -RdpPath 'C:\Users\Idealpos\Desktop\Server.rdp' `
+    -Subject 'CN=Cullen RDP Publisher' -ExportDir 'C:\rdp-publisher'
+
+# On any OTHER terminal — public cert only, no private key, no signing:
+.\Set-RdpSignedShortcut.ps1 -TrustOnly -CerPath '\\share\RdpPublisher.cer'
+```
+
+The signed `Server.rdp` is portable: copy it to the other terminals, run
+`-TrustOnly` there, done.
+
+Undo: `.\Set-RdpSignedShortcut.ps1 -Undo -RdpPath '<path>'` restores the
+`.unsigned-backup` and clears the policy values.
+
+## What is deliberately not done
+
+- **The certificate is never added to Trusted Root.** A cert in Root can vouch for
+  any TLS certificate or signed code on that machine, so a leaked key would be a
+  machine-wide problem. Only `TrustedPublisher` + the thumbprint policy are used —
+  the narrow, purpose-built mechanism.
+- **The terminal server is not touched.** This is entirely client-side.
+- **`full address` is left alone**, so the shortcut still connects where it did.
+- The private key stays in the signing machine's `LocalMachine\My`. Other
+  terminals only ever receive the public `.cer`.
+
+## Gotchas
+
+- `rdpsign.exe /sha256 <hash>` — the `/sha256` selects the **signature** hash
+  algorithm; the argument after it is the certificate's ordinary **SHA1**
+  thumbprint (`$cert.Thumbprint`). The flag name invites the opposite assumption.
+  Verified against a live `rdpsign.exe`.
+- The client-side policy value is likewise a **SHA1** thumbprint list
+  (`TrustedCertThumbprints`, comma-separated `REG_SZ`). Append, never overwrite,
+  or you silently revoke other publishers.
+- `AllowSignedFiles = 1` is set alongside it; without it a signed file from an
+  otherwise-unknown publisher can still prompt.
+- **Editing a signed `.rdp` breaks the signature** and the prompt returns. Re-run
+  the script after any change to the shortcut.
+- `New-Object X509Certificate2($bytes)` **unrolls the byte array into one argument
+  per byte** ("no overload ... argument count: 782"). Use
+  `[X509Certificate2]::new($bytes)`. Same PowerShell array-unrolling family as the
+  bug documented in [windows-fleet-ssh-access.md](windows-fleet-ssh-access.md).
+
+## What this does NOT fix
+
+A separate warning — *"The identity of the remote computer cannot be verified"* —
+comes from the **server's** certificate, not the `.rdp` file, and signing does
+nothing for it. As of 2026-07-30 `CW-TS01` (`192.168.100.202`) presents a
+self-signed certificate:
+
+```
+Subject/Issuer : CN=CW-TS01.cullenwines.com.au   (self-signed)
+Valid          : 2026-05-20 -> 2026-11-19
+```
+
+Two problems if that warning ever needs fixing: the `.rdp` connects to the short
+name `CW-TS01` while the certificate says `CW-TS01.cullenwines.com.au` (name
+mismatch), and it is the auto-generated cert Windows rotates roughly every six
+months, so pinning its thumbprint would break again in November. The durable fix
+is a long-lived cert with proper SANs bound to CW-TS01's RDP listener
+(`Win32_TSGeneralSetting.SSLCertificateSHA1Hash`) plus a one-time trust import on
+each client. That requires access to CW-TS01 and has not been done.
+
+The site is **WORKGROUP, not domain-joined** — there is no AD, no enterprise CA and
+no GPO to distribute trust, so every client change is per-machine.
+
+## State on CULLENW-POS4
+
+| | |
+|---|---|
+| Publisher | `CN=Cullen RDP Publisher`, SHA1 `AC266169F886DF3D7D28C66A0CC6EB19A2EAF7E5`, expires 2036-07-30 |
+| Public cert | `C:\rdp-publisher\RdpPublisher.cer` |
+| Backup | `C:\Users\Idealpos\Desktop\Server.rdp.unsigned-backup` |
+| `LocalDevices\CW-TS01` | `76` -> `255` (belt; restore with `76` if you want to isolate the signing path) |
