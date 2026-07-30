@@ -44,13 +44,16 @@
    fully self-contained -- it downloads nothing and needs no internet.
 
  OPTIONS
-   -TargetUser <name>          Account to authorise. Default: Idealpos.
+   -TargetUser <name>          Account to authorise. Default: the current user.
    -PublicKey  <string>        Override the embedded key.
    -AllowBlankPasswordAuth     ONLY if the self-test fails on a blank-password
                                account. See the warning where it is used.
    -HardenPasswordAuth         After a PASSING self-test, also set
                                `PasswordAuthentication no` (key-only).
    -AnyRemote                  Do not scope the firewall rule to LAN/tailnet.
+   -Persist                    Leave sshd set to start automatically at boot.
+                               Default is Manual: SSH runs for THIS session only
+                               and is gone after a reboot.
 
  Written for the homelab fleet, 2026-07-30. Safe to re-run: every step is
  idempotent and existing authorised keys are preserved, never replaced.
@@ -59,11 +62,12 @@
 
 [CmdletBinding()]
 param(
-    [string] $TargetUser = 'Idealpos',
+    [string] $TargetUser = $env:USERNAME,
     [string] $PublicKey  = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDGR7mbMKs8alVN4K1ynvqT5K3KcXdeqlV77QQS0K1qy master-fleet-identity',
     [switch] $AllowBlankPasswordAuth,
     [switch] $HardenPasswordAuth,
-    [switch] $AnyRemote
+    [switch] $AnyRemote,
+    [switch] $Persist
 )
 
 $ErrorActionPreference = 'Stop'
@@ -73,6 +77,9 @@ $ErrorActionPreference = 'Stop'
 # Windows install.
 $SID_SYSTEM = 'S-1-5-18'
 $SID_ADMINS = 'S-1-5-32-544'
+
+# Canonical location of this script, for the bootstrap one-liner echoed on failure.
+$GHURL = 'https://raw.githubusercontent.com/abl030/nixosconfig/master/tools/windows/Setup-FleetSSH.ps1'
 
 $SshDataDir = Join-Path $env:ProgramData 'ssh'
 $SshdConfig = Join-Path $SshDataDir 'sshd_config'
@@ -91,9 +98,13 @@ $principal = New-Object Security.Principal.WindowsPrincipal(
                  [Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     if (-not $PSCommandPath) {
-        Write-Fail "Not elevated, and this was pasted rather than run from a file."
-        Write-Info "Save it as Setup-FleetSSH.ps1 and run:"
-        Write-Info "  powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-FleetSSH.ps1"
+        # Running from memory (pasted, or fetched straight off GitHub), so there
+        # is no file to hand to a re-launched elevated PowerShell. Tell the
+        # operator how to get where they need to be instead of failing blankly.
+        Write-Fail "Not elevated, and there is no script file to re-launch (running from memory)."
+        Write-Info "Start PowerShell as Administrator, then paste the same one-liner again:"
+        Write-Info ""
+        Write-Info "  [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')"
         exit 1
     }
     Write-Host "Not elevated. Re-launching as Administrator..." -ForegroundColor Yellow
@@ -186,19 +197,33 @@ if (-not $sshdSvc) {
 }
 if (-not $sshdSvc) { Write-Fail "sshd still not present after the install attempt."; exit 1 }
 
-Set-Service -Name sshd -StartupType Automatic
+# Session-only by DEFAULT. This script's job is to open a door while we work,
+# not to leave one standing open on someone else's machine. Manual means sshd
+# runs now but does not come back after a reboot, so a forgotten box closes
+# itself. -Persist opts into the old Automatic behaviour.
+$startup = if ($Persist) { 'Automatic' } else { 'Manual' }
+Set-Service -Name sshd -StartupType $startup
 if ((Get-Service sshd).Status -ne 'Running') { Start-Service sshd }
-Write-Ok "sshd is Running / Automatic"
+Write-Ok "sshd is Running / $startup$(if (-not $Persist) { '  (this session only -- gone after a reboot)' })"
 
 # The first start is what creates C:\ProgramData\ssh and the host keys.
 if (-not (Test-Path $SshDataDir)) { Write-Fail "$SshDataDir missing -- sshd has never started."; exit 1 }
 
 # ----------------------------------------------------------------- firewall ---
 Write-Step "Firewall (TCP 22 inbound)"
-$existingRules = @(Get-NetFirewallRule -Direction Inbound -Enabled True -Action Allow -ErrorAction SilentlyContinue |
+# Idempotently OPEN the port, which is not the same as "create a rule if none
+# exists". A box we closed down earlier still has its SSH rules, just Disabled --
+# so re-enable those rather than adding a duplicate alongside them.
+$sshRules = @(Get-NetFirewallRule -Direction Inbound -Action Allow -ErrorAction SilentlyContinue |
     Where-Object { $_.DisplayName -match 'OpenSSH|SSH' })
+$disabled = @($sshRules | Where-Object { -not $_.Enabled -or $_.Enabled -eq 'False' })
+if ($disabled.Count) {
+    $disabled | Enable-NetFirewallRule
+    Write-Ok "Re-enabled $($disabled.Count) disabled SSH rule(s): $(($disabled.DisplayName | Select-Object -Unique) -join ', ')"
+}
+$existingRules = @($sshRules | Where-Object { $_.Enabled -eq 'True' -or $_.Enabled -eq $true }) + $disabled
 if ($existingRules.Count) {
-    Write-Ok "Existing allow rule(s): $(($existingRules.DisplayName | Select-Object -Unique) -join ', ')"
+    Write-Ok "Inbound SSH allowed by: $(($existingRules.DisplayName | Select-Object -Unique) -join ', ')"
 } else {
     $ruleArgs = @{
         Name        = 'FleetSSH-In-TCP22'

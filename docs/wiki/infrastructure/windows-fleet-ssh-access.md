@@ -6,41 +6,85 @@
 
 ---
 
-## ⚡ Re-open SSH on a closed box — the one-liner
+## ⚡ The one-liner
 
-Paste into an **elevated PowerShell** at the machine (console, RDP or TeamViewer).
-Works regardless of the firewall rule names, and is safe to run twice:
+**Elevated PowerShell**, at the box, nothing to download or save:
 
 ```powershell
-Get-NetFirewallRule -DisplayName '*SSH*' | Enable-NetFirewallRule; Set-Service sshd -StartupType Automatic; Start-Service sshd; Get-Service sshd
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/master/tools/windows/Setup-FleetSSH.ps1')
 ```
 
-Expect `Running`. doc1 can then connect immediately — the authorised key is left
-in place when SSH is closed, it is just inert while nothing is listening.
+That is the whole loop. It fetches this repo's script from the public GitHub
+mirror and runs it **in memory**, which is not subject to execution policy or code
+signing — so it works on locked-down boxes where Group Policy silently overrides
+`-ExecutionPolicy Bypass`. In one paste it will:
 
-### Close it again
+1. install the OpenSSH Server feature if it is missing,
+2. authorise the fleet key (`master-fleet-identity`) with correct ACLs,
+3. **re-enable any disabled SSH firewall rules** — so a box we closed earlier
+   re-opens rather than accumulating duplicate rules,
+4. start `sshd` **for this session only**, and
+5. self-test a real key login and tell you whether it actually worked.
+
+`Tls12` is load-bearing: older Windows (.NET 4.6 era, e.g. LTSB 2016) still
+defaults to TLS 1.0 and simply cannot reach GitHub without it.
+
+### It does not stay open
+
+`sshd` is set to **Manual**, not Automatic. It runs now and is gone after a
+reboot, so a box you forget about closes itself. Pass `-Persist` for a machine
+that should keep SSH permanently:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/master/tools/windows/Setup-FleetSSH.ps1'))) -Persist
+```
+
+(Use the `[scriptblock]::Create(...)` form whenever you need to pass arguments —
+`iex` cannot take them.)
+
+### Close it when you are done
 
 ```powershell
 Stop-Service sshd -Force; Set-Service sshd -StartupType Disabled; Get-NetFirewallRule -DisplayName '*SSH*' | Disable-NetFirewallRule; Get-Service sshd
 ```
 
-Expect `Stopped`. Nothing listens on 22 and the inbound rules are disabled, so the
-port is shut at both layers.
+Expect `Stopped`. Nothing listens on 22 and the inbound rules are off, so the port
+is shut at both layers. The authorised key stays but is inert.
+
+### Re-open without re-fetching
+
+If the key is already installed and you only need the port back:
+
+```powershell
+Get-NetFirewallRule -DisplayName '*SSH*' | Enable-NetFirewallRule; Set-Service sshd -StartupType Manual; Start-Service sshd; Get-Service sshd
+```
 
 ### Fully revoke, rather than just close
 
-Closing leaves the fleet key authorised. To actually remove doc1's ability to log
-in even if SSH is later re-enabled:
+Closing leaves the fleet key authorised. To remove doc1's ability to log in even
+if SSH is later re-enabled:
 
 ```powershell
 Set-Content 'C:\ProgramData\ssh\administrators_authorized_keys' '' ; Remove-Item "$env:USERPROFILE\.ssh\authorized_keys" -Force -ErrorAction SilentlyContinue
 ```
 
-After that, re-granting means running `Setup-FleetSSH.ps1` at the console again.
+### The trade-off in that one-liner
 
-> This page is mirrored read-only to
+`iex (irm ...)` runs code from the internet as Administrator. That is a real
+supply-chain exposure: anyone who could alter the GitHub mirror — or MITM the
+fetch — would get admin on whatever box you paste it into. It is accepted here
+because the mirror is our own read-only repo over HTTPS and the convenience at a
+customer site is the entire point, but it is a deliberate trade, not a free lunch.
+
+To harden, pin a commit instead of `master` so the content cannot change under you:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/<commit-sha>/tools/windows/Setup-FleetSSH.ps1')
+```
+
+> Mirrored read-only to
 > `github.com/abl030/nixosconfig/blob/master/docs/wiki/infrastructure/windows-fleet-ssh-access.md`
-> so the one-liner can be copied from a phone at the machine.
+> so this can be copied from a phone while standing at the machine.
 
 ---
 
