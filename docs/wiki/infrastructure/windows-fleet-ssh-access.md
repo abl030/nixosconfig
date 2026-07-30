@@ -42,8 +42,9 @@ It runs **in memory**, which is not subject to execution policy or code signing,
 so it works on locked-down boxes where Group Policy silently overrides
 `-ExecutionPolicy Bypass`. In one go it will:
 
-1. install the OpenSSH Server feature if missing — or, if that is not possible,
-   stop and tell you exactly how to install it by hand;
+1. get OpenSSH Server installed if missing — the Windows feature where that is
+   possible, otherwise Microsoft's official signed MSI, Authenticode-verified
+   before it runs;
 2. authorise the fleet key with correct ACLs;
 3. **open port 22**, re-enabling rules a previous close disabled and ensuring its
    own port-keyed rule;
@@ -118,8 +119,7 @@ review would plausibly have caught:
    scheduled task, RMM agent or guest agent targeted `HOST$`, which cannot exist.
    Now falls back to the console user, then the sole local account.
 2. **`Add-WindowsCapability` hangs, it does not fail,** when the box has no route
-   to Windows Update. Now bounded by `-CapTimeoutSec` and falls through to
-   manual-install instructions.
+   to Windows Update. Now bounded, and the MSI takes over.
 3. **The profile path was invented.** Under SYSTEM `$env:USERPROFILE` is the
    systemprofile, yielding `C:\Windows\system32\config\<user>`. Worse,
    pre-creating `C:\Users\<user>` makes Windows create `<user>.<HOST>` at first
@@ -133,55 +133,57 @@ review would plausibly have caught:
    the `finally` block after a passing self-test, losing the summary and exiting
    non-zero.
 
+Two more came from the first real run on `CW-TS01`, which hung outright:
+
+6. **`Stop-Job` blocks, so the timeout did not save us.** The timer fired, but a
+   job wedged inside DISM never answers `Stop-Job`, which then waits forever for
+   the runspace to die — the script hung anyway, just after the timeout instead
+   of before it. Only a *process* can be killed reliably, so the feature install
+   now uses `Start-Process` + `WaitForExit` + `Kill()`, the same pattern already
+   used for the loopback self-test.
+7. **The call should never have been made.** The OpenSSH feature does not exist
+   before build **17763** (1809 / Server 2019). `CW-TS01` is Server 2016, build
+   14393 — four guaranteed-futile minutes in front of someone standing at the
+   machine. The build is now checked first.
+
 ---
 
-## What it is
+## Reference
 
-A one-shot, self-contained PowerShell installer that authorises the fleet key
-(`master-fleet-identity`, private half on doc1 only) on an arbitrary Windows box,
-so doc1 can then manage it over OpenSSH like any other host.
+The fleet key's private half lives only on doc1, so this widens what doc1 can
+reach without giving any other host a new path.
 
-It exists for the chicken-and-egg case: a Windows machine with **no usable account
-password**, so there is no way to `scp`/SMB the key on first. Someone with console
-access runs this once; after that doc1 has key-only access and the script is never
-needed again.
+**Switches**
 
-## Running it
+| | |
+|---|---|
+| `-TargetUser <name>` | Account to authorise. Defaults to the current user; under SYSTEM that is the machine account, so it falls back to the console user, then the sole local account. |
+| `-PublicKey <str>` | Override the embedded fleet key. |
+| `-Persist` | Leave `sshd` Automatic instead of session-only. |
+| `-CapTimeoutSec <n>` | Wait before abandoning the Windows feature install (default 240). Skipped entirely below build 17763. |
+| `-NoMsiDownload` | Refuse the MSI fallback; print manual instructions instead. |
+| `-HardenPasswordAuth` | After a **passing** self-test, also set `PasswordAuthentication no`. Refuses otherwise, so it cannot lock you out. |
+| `-AllowBlankPasswordAuth` | Only if the self-test is actively refused on a blank-password account. Relaxes `LimitBlankPasswordUse` machine-wide. |
+| `-AnyRemote` | Do not scope the firewall rule to LAN + tailnet. |
 
-Elevated PowerShell on the target (it re-launches itself elevated if needed):
+Exit codes: `0` success, `1` error, `2` OpenSSH could not be installed by any
+route (needs a human).
+
+Idempotent. Existing authorised keys are preserved, never replaced, and the
+original `sshd_config` is kept at `sshd_config.fleet-backup`.
+
+Running from a local copy instead of the one-liner:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-FleetSSH.ps1
 ```
 
-On a locked-down box where Group Policy pins the execution policy, the
-`-ExecutionPolicy Bypass` flag is **silently overridden** by `MachinePolicy`.
-An in-memory script block is not subject to execution policy at all:
+…except where Group Policy pins the execution policy, in which case only the
+in-memory form works:
 
 ```powershell
 & ([scriptblock]::Create((Get-Content .\Setup-FleetSSH.ps1 -Raw)))
 ```
-
-Useful switches: `-TargetUser <name>` (defaults to `Idealpos`), `-PublicKey <str>`,
-`-HardenPasswordAuth`, `-AllowBlankPasswordAuth`, `-AnyRemote`.
-
-## What it does
-
-1. Ensures the OpenSSH Server capability is installed, Automatic, and running.
-2. Adds a TCP 22 inbound rule scoped to LAN + tailnet, only if nothing already allows it.
-3. Writes the key to **both** authorized-key locations, so it works whether or not
-   the account is an administrator and whether or not the `Match Group administrators`
-   block is present:
-   - `C:\ProgramData\ssh\administrators_authorized_keys`
-   - `<profile>\.ssh\authorized_keys`
-4. Rebuilds the ACLs to `SYSTEM` + `Administrators` only (owner `Administrators`,
-   inheritance off). sshd's StrictModes silently ignores a key file that anyone
-   else can write.
-5. Ensures `PubkeyAuthentication yes`, inserted **before** the first `Match` block.
-6. Self-tests with a real loopback SSH login using a throwaway key, then removes it.
-
-Idempotent. Existing authorised keys are preserved, never replaced. The original
-`sshd_config` is kept at `sshd_config.fleet-backup`.
 
 ## Windows gotchas this script encodes
 
@@ -202,6 +204,9 @@ Preserve them if you refactor:
   when the script is itself launched over SSH or from a scheduled task). Use
   `Start-Process` with redirects and a hard `WaitForExit(ms)` timeout so the script
   can never hang on a machine someone is standing at.
+- **`Stop-Job` blocks on a job stuck in a native call.** A `Wait-Job -Timeout`
+  that expires is useless if the `Stop-Job` after it then hangs forever. Use a
+  separate process and `Kill()` it; never a job, for anything that can wedge.
 - **BOM.** A UTF-8 BOM corrupts the first line of `authorized_keys` and sshd silently
   ignores that key. Always write with `UTF8Encoding($false)`.
 - **`Match` block scoping.** Directives appended *after* a `Match` block belong to
@@ -250,10 +255,11 @@ to misread. See `docs/wiki/infrastructure/tailscale-acl.md`.
 
 ## When to revisit
 
-- If a target runs Windows older than 1809, `Add-WindowsCapability` has no OpenSSH
-  package. Install the Win32-OpenSSH GitHub release manually first; the script
-  detects an existing sshd and skips the install. `CULLENW-POS4` is Windows 10
-  Enterprise 2016 LTSB (build 14393) and already had OpenSSH 10.0 installed this way.
+- Windows older than build 17763 has no OpenSSH feature at all; the script detects
+  this and installs the signed MSI instead, so it no longer needs a human. Both
+  `CULLENW-POS4` (Win10 LTSB 2016) and `CW-TS01` (Server 2016) are build 14393.
+- The MSI fallback pins a known-good build if `api.github.com` is unreachable.
+  Refresh that pin occasionally — see `Install-OpenSSHFromMsi` in the script.
 - The script deliberately leaves `PasswordAuthentication` alone by default. On a
   box we own, consider `-HardenPasswordAuth` (it refuses unless the self-test passed,
   so it cannot lock you out).
