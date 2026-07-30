@@ -1,6 +1,6 @@
 # Cratedigger
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 **Status:** active on `doc2`
 **Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
 **Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
@@ -33,7 +33,11 @@ msgpack, soupsieve, Flask, or ffmpeg version.
 
 Replay databases and complete failed fuzz logs live under
 `/var/lib/cratedigger-daily-checks`. The temporary candidate checkout is private
-to the unit and removed at exit.
+to the unit and removed at exit. Generated tests use the service-owned runtime
+tmpfs for disposable audio, databases, and per-target evidence. Enabling the
+daily gate therefore fixes `/run`'s size ceiling at 12 GiB: the queue must fail
+before starting if that capacity invariant cannot be represented, rather than
+running for minutes and cascading into misleading `ENOSPC` target failures.
 
 Failure notifications are deliberately summaries, not raw journal tails. They
 report lock disposition, every stage result, the generated-fuzz outcome, unique
