@@ -8,39 +8,56 @@
 
 ## ⚡ The one-liner
 
-**Elevated PowerShell**, at the box, nothing to download or save:
+**Elevated PowerShell**, at the box, nothing to download or save.
+
+**Pinned (preferred).** A commit SHA in the raw URL is immutable — the content
+cannot be changed under you, even by someone who can write to the repo:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/dc17d6897ef97530301ab12dfd78c0e1e2a10e34/tools/windows/Setup-FleetSSH.ps1')
+```
+
+That exact commit is the one end-to-end tested below.
+SHA-256 of the script at that commit:
+`000137516810bf2c4ee9188f485c5413b28d6423d58d5e4c415d30aa92460555`
+
+**Floating.** Always the newest version, but trusts whatever `master` holds at the
+moment you paste it:
 
 ```powershell
 [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/master/tools/windows/Setup-FleetSSH.ps1')
 ```
 
-That is the whole loop. It fetches this repo's script from the public GitHub
-mirror and runs it **in memory**, which is not subject to execution policy or code
-signing — so it works on locked-down boxes where Group Policy silently overrides
-`-ExecutionPolicy Bypass`. In one paste it will:
+Re-pin after changing the script:
+`git rev-parse origin/master` — then swap the SHA above.
 
-1. install the OpenSSH Server feature if it is missing,
-2. authorise the fleet key (`master-fleet-identity`) with correct ACLs,
-3. **re-enable any disabled SSH firewall rules** — so a box we closed earlier
-   re-opens rather than accumulating duplicate rules,
-4. start `sshd` **for this session only**, and
+### What one paste does
+
+It runs **in memory**, which is not subject to execution policy or code signing,
+so it works on locked-down boxes where Group Policy silently overrides
+`-ExecutionPolicy Bypass`. In one go it will:
+
+1. install the OpenSSH Server feature if missing — or, if that is not possible,
+   stop and tell you exactly how to install it by hand;
+2. authorise the fleet key with correct ACLs;
+3. **open port 22**, re-enabling rules a previous close disabled and ensuring its
+   own port-keyed rule;
+4. start `sshd` **for this session only**;
 5. self-test a real key login and tell you whether it actually worked.
 
-`Tls12` is load-bearing: older Windows (.NET 4.6 era, e.g. LTSB 2016) still
-defaults to TLS 1.0 and simply cannot reach GitHub without it.
+`Tls12` is load-bearing: older Windows (.NET 4.6 era, e.g. LTSB 2016) defaults to
+TLS 1.0 and cannot reach GitHub at all without it.
 
 ### It does not stay open
 
-`sshd` is set to **Manual**, not Automatic. It runs now and is gone after a
-reboot, so a box you forget about closes itself. Pass `-Persist` for a machine
-that should keep SSH permanently:
+`sshd` is set to **Manual**, not Automatic — it runs now and is gone after a
+reboot, so a box you forget about closes itself. `-Persist` for a machine that
+should keep SSH. To pass any argument use the script-block form, because `iex`
+cannot take arguments:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/master/tools/windows/Setup-FleetSSH.ps1'))) -Persist
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/dc17d6897ef97530301ab12dfd78c0e1e2a10e34/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
 ```
-
-(Use the `[scriptblock]::Create(...)` form whenever you need to pass arguments —
-`iex` cannot take them.)
 
 ### Close it when you are done
 
@@ -48,43 +65,68 @@ that should keep SSH permanently:
 Stop-Service sshd -Force; Set-Service sshd -StartupType Disabled; Get-NetFirewallRule -DisplayName '*SSH*' | Disable-NetFirewallRule; Get-Service sshd
 ```
 
-Expect `Stopped`. Nothing listens on 22 and the inbound rules are off, so the port
-is shut at both layers. The authorised key stays but is inert.
-
-### Re-open without re-fetching
-
-If the key is already installed and you only need the port back:
-
-```powershell
-Get-NetFirewallRule -DisplayName '*SSH*' | Enable-NetFirewallRule; Set-Service sshd -StartupType Manual; Start-Service sshd; Get-Service sshd
-```
+Expect `Stopped`. Nothing listens on 22 and the inbound rules are off. The
+authorised key stays but is inert; re-running the one-liner re-opens everything.
 
 ### Fully revoke, rather than just close
-
-Closing leaves the fleet key authorised. To remove doc1's ability to log in even
-if SSH is later re-enabled:
 
 ```powershell
 Set-Content 'C:\ProgramData\ssh\administrators_authorized_keys' '' ; Remove-Item "$env:USERPROFILE\.ssh\authorized_keys" -Force -ErrorAction SilentlyContinue
 ```
 
-### The trade-off in that one-liner
+### The trade-off
 
-`iex (irm ...)` runs code from the internet as Administrator. That is a real
-supply-chain exposure: anyone who could alter the GitHub mirror — or MITM the
-fetch — would get admin on whatever box you paste it into. It is accepted here
-because the mirror is our own read-only repo over HTTPS and the convenience at a
-customer site is the entire point, but it is a deliberate trade, not a free lunch.
-
-To harden, pin a commit instead of `master` so the content cannot change under you:
-
-```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/<commit-sha>/tools/windows/Setup-FleetSSH.ps1')
-```
+`iex (irm ...)` runs code from the internet as Administrator. Pinning the commit
+removes the "changed under you" risk but not the "you are executing a remote
+script as admin" one. Accepted deliberately: it is our own repo over HTTPS and
+the convenience at a customer site is the entire point.
 
 > Mirrored read-only to
 > `github.com/abl030/nixosconfig/blob/master/docs/wiki/infrastructure/windows-fleet-ssh-access.md`
 > so this can be copied from a phone while standing at the machine.
+
+---
+
+## Proven end to end
+
+Validated against a throwaway VM clone, deliberately made hostile: OpenSSH
+capability removed entirely, host renamed (`TILL-07`), a **different**
+passwordless local admin (`shopfloor`) that had never logged in, and driven
+through the hypervisor guest agent as SYSTEM rather than from a console.
+
+Final result — one paste, from a box doc1 had never touched:
+
+```
+[ok] sshd is Running / Manual  (this session only -- gone after a reboot)
+[ok] Created port rule 'Fleet SSH (TCP 22 inbound)' scoped to LAN + tailnet
+[ok] C:\ProgramData\ssh\administrators_authorized_keys  (KEY ADDED)
+[ok] Key authentication WORKS. Remote whoami: till-07\shopfloor
+DONE and VERIFIED.
+```
+
+then from doc1: `ssh shopfloor@<ip>` → `till-07\shopfloor`.
+
+Five real defects were found and fixed by that exercise, none of which a code
+review would plausibly have caught:
+
+1. **`$env:USERNAME` is the machine account under SYSTEM.** Bootstrapping via a
+   scheduled task, RMM agent or guest agent targeted `HOST$`, which cannot exist.
+   Now falls back to the console user, then the sole local account.
+2. **`Add-WindowsCapability` hangs, it does not fail,** when the box has no route
+   to Windows Update. Now bounded by `-CapTimeoutSec` and falls through to
+   manual-install instructions.
+3. **The profile path was invented.** Under SYSTEM `$env:USERPROFILE` is the
+   systemprofile, yielding `C:\Windows\system32\config\<user>`. Worse,
+   pre-creating `C:\Users\<user>` makes Windows create `<user>.<HOST>` at first
+   logon. No profile now means no per-user key file.
+4. **A firewall rule named `*SSH*` is not an open port.** Windows rules are often
+   program-scoped; one pointing at an `sshd.exe` that no longer exists (feature
+   install removed, MSI install added at a different path) enumerates perfectly
+   and permits nothing. Observed live: `sshd` Running, rule enabled, port 22
+   refusing. The script now always ensures its own **port-keyed** rule.
+5. **Profile-less cleanup crashed a successful run.** `Test-Path ''` threw inside
+   the `finally` block after a passing self-test, losing the summary and exiting
+   non-zero.
 
 ---
 
