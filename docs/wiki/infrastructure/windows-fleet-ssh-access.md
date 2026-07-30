@@ -14,14 +14,17 @@
 cannot be changed under you, even by someone who can write to the repo:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/11be6ce7361be52502c31c352761a04f0e7b83fa/tools/windows/Setup-FleetSSH.ps1')
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm 'https://raw.githubusercontent.com/abl030/nixosconfig/a247732b8023512e4a8151d2bae80c6ac6c58bac/tools/windows/Setup-FleetSSH.ps1')
 ```
 
 SHA-256 of the script at that commit:
-`8228b85fdcafaa51537e26ee77cee10f72341f1154918f1ba5f6556c8a6a1aed`
+`d8194e522ba69213a6abff8935ecf473be4f39e34a62b9d34bcc40b73c60eb1d`
 
-The only change since the end-to-end run below is the file's header comment --
-the executable body is byte-identical to the validated version (dc17d68).
+Older Windows note: `CW-TS01` (Server 2016, build 14393) hung on the first
+attempt. The OpenSSH Windows *feature* does not exist before build 17763, so the
+script now checks the build first and installs Microsoft's signed MSI directly
+instead -- verifying its Authenticode signature before running it. Pass
+`-NoMsiDownload` to refuse that and get manual instructions.
 
 **Floating.** Always the newest version, but trusts whatever `master` holds at the
 moment you paste it:
@@ -58,7 +61,7 @@ should keep SSH. To pass any argument use the script-block form, because `iex`
 cannot take arguments:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/11be6ce7361be52502c31c352761a04f0e7b83fa/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/abl030/nixosconfig/a247732b8023512e4a8151d2bae80c6ac6c58bac/tools/windows/Setup-FleetSSH.ps1'))) -TargetUser shopfloor -Persist
 ```
 
 ### Close it when you are done
