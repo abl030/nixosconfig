@@ -204,25 +204,62 @@ if ($blankPassword) { Write-Info "Account appears to have no password set." }
 
 # ------------------------------------------------------------ OpenSSH server ---
 Write-Step "OpenSSH Server"
+function Show-ManualInstallHelp {
+    <#
+      Features on Demand is not available on every SKU. IoT / LTSB / Enterprise
+      images behind WSUS routinely either throw or -- worse -- report success and
+      install nothing at all. Both land here, because the only thing that matters
+      is whether an sshd service exists afterwards.
+
+      Do not try to be clever and download it: fetching and executing an
+      installer for the operator is a much bigger supply-chain decision than
+      fetching this script. Tell them exactly what to do and get out of the way.
+    #>
+    param([string] $Reason)
+
+    Write-Host ""
+    Write-Fail "Could not install OpenSSH Server automatically."
+    if ($Reason) { Write-Info "Reason: $Reason" }
+    Write-Host ""
+    Write-Host "  Install it by hand, then re-run this script -- it will pick up from here." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. On any machine, download the latest OpenSSH-Win64 MSI:" -ForegroundColor White
+    Write-Host "       https://github.com/PowerShell/Win32-OpenSSH/releases/latest" -ForegroundColor Cyan
+    Write-Host "       (grab OpenSSH-Win64-v<version>.msi -- the .msi is by far the easiest)"
+    Write-Host ""
+    Write-Host "  2. Copy it to this machine and install it (double-click, or):" -ForegroundColor White
+    Write-Host "       msiexec /i OpenSSH-Win64-v<version>.msi ADDLOCAL=Server" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  3. Re-run the one-liner in an elevated PowerShell:" -ForegroundColor White
+    Write-Host "       [Net.ServicePointManager]::SecurityProtocol='Tls12'; iex (irm '$GHURL')" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Info "Nothing has been changed on this machine."
+    Write-Host ""
+}
+
 $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
 if (-not $sshdSvc) {
-    Write-Info "sshd not present; installing the OpenSSH Server capability..."
+    Write-Info "sshd not present; trying the OpenSSH Server capability..."
+    $capError = $null
     try {
         foreach ($cap in @('OpenSSH.Server*','OpenSSH.Client*')) {
-            Get-WindowsCapability -Online -Name $cap |
+            Get-WindowsCapability -Online -Name $cap -ErrorAction Stop |
                 Where-Object State -ne 'Installed' |
-                ForEach-Object { Add-WindowsCapability -Online -Name $_.Name | Out-Null }
+                ForEach-Object { Add-WindowsCapability -Online -Name $_.Name -ErrorAction Stop | Out-Null }
         }
-        $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
     } catch {
-        Write-Fail "Could not install OpenSSH Server: $($_.Exception.Message)"
-        Write-Info "Usually means no internet, or a WSUS policy blocking Features on Demand."
-        Write-Info "Install manually from https://github.com/PowerShell/Win32-OpenSSH/releases"
-        Write-Info "then re-run this script."
-        exit 1
+        $capError = $_.Exception.Message
     }
+    # Re-query REGARDLESS of whether the call threw. On some SKUs it reports
+    # success and installs nothing, so the service is the only honest signal.
+    $sshdSvc = Get-Service -Name sshd -ErrorAction SilentlyContinue
+    if (-not $sshdSvc) {
+        Show-ManualInstallHelp -Reason $(if ($capError) { $capError }
+                                        else { "the capability reported success but no sshd service appeared (common on IoT / LTSB / WSUS-managed images)" })
+        exit 2
+    }
+    Write-Ok "OpenSSH Server installed."
 }
-if (-not $sshdSvc) { Write-Fail "sshd still not present after the install attempt."; exit 1 }
 
 # Session-only by DEFAULT. This script's job is to open a door while we work,
 # not to leave one standing open on someone else's machine. Manual means sshd
