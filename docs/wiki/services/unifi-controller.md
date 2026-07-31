@@ -10,6 +10,11 @@ stranded on the LXC's **unbacked-up root disk** (`/var/lib/unifi`, not `/mnt/vir
 
 - **UI:** `https://unifi.ablz.au` → doc2 nginx (localProxy, `https`+`insecureSkipVerify`) → controller `:8443`.
 - **State:** `/mnt/virtio/unifi` (portable, kopia-backed), bind-mounted over `/var/lib/unifi`.
+- **MongoDB package:** selected from the independent `mongodb-nixpkgs` input, but
+  the series is derived from the current upstream `services.unifi` module. Routine
+  fleet nixpkgs updates therefore keep the exact MongoDB output; an upstream UniFi
+  series migration is still followed. The rolling updater advances the isolated
+  pin only for source/version/patch or available-series changes.
 - **msn-history-viewer** moved in the same migration → a hardened `static-web-server`
   sandbox on doc2 (`msn.ablz.au`). See its module; it's a stateless static site.
 - **caddy LXC** now runs the *legacy-edge* Caddy for appliance FQDNs only (apollo, plex,

@@ -10,10 +10,11 @@ set -Eeuo pipefail
 #
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
-# Group order is fixed: core (nixpkgs+home-manager) first so later groups build on
-# the cached new world, then yt-dlp tip, llm, nvchad (independently maintained and
-# prone to breaking flake-output changes), then rest. Rest is computed as all
-# inputs minus the named groups, so new inputs still fall into it automatically.
+# Group order is fixed: package-change-gated MongoDB first so a newly available
+# series is pinned before core can make UniFi require it; then core, yt-dlp tip,
+# llm, nvchad (independently maintained and prone to breaking flake-output
+# changes), and rest. Rest is computed as all inputs minus the named groups, so
+# new inputs still fall into it automatically.
 
 # --- Configuration ---------------------------------------------------------
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
@@ -39,9 +40,14 @@ FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
 # Group membership (space-separated input names). Core and LLM are configurable
-# from the Nix module. yt-dlp and NvChad are hardcoded isolation boundaries.
+# from the Nix module. MongoDB, yt-dlp, and NvChad are hardcoded isolation
+# boundaries.
 GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
+# Deliberately not configurable: MongoDB is unfree and expensive to build. The
+# independent MongoDB package set advances only on material package input
+# changes, not builder-only nixpkgs churn.
+GROUP_MONGODB="mongodb-nixpkgs"
 # Deliberately not configurable: upstream yt-dlp tip must advance even when an
 # unrelated rest input fails.
 GROUP_YTDLP="yt-dlp-src"
@@ -360,6 +366,7 @@ rebase_onto_moved_remote() {
 declare -a SUMMARY_LINES=()
 ANY_FAIL=0
 ANY_COMMIT=0
+FATAL_TRANSACTION=0
 
 # Triage a failed group's build log via headless Claude. Uses opus: this is one
 # of the two diagnosis paths (with nixos-upgrade) where an accurate, actionable
@@ -382,10 +389,98 @@ triage() {
     echo "$out"
 }
 
-# Run one group as an isolated transaction. Never aborts the script (call with || true).
+# A failed rollback poisons the whole temporary transaction. Later groups must
+# not run, and no prior successful group commits may be pushed from this clone.
+restore_group_state() {
+    local name="$1"
+    local glog="$2"
+    local restore_failed=0
+
+    git reset -q -- flake.lock nix/overlay.nix >>"$glog" 2>&1 || restore_failed=1
+    git checkout -- flake.lock nix/overlay.nix >>"$glog" 2>&1 || restore_failed=1
+    if [ "$restore_failed" -ne 0 ]; then
+        log "🛑 [$name] rollback failed; poisoning this update transaction."
+        ANY_FAIL=1
+        FATAL_TRANSACTION=1
+        SUMMARY_LINES+=("❌ $name — rollback failed; no commits will be pushed")
+        return 1
+    fi
+}
+
+# Record a failed input update consistently for ordinary and package-gated
+# groups.
+record_group_update_failure() {
+    local name="$1"
+    local glog="$2"
+    local reason="${3:-flake update failed}"
+    log "❌ [$name] $reason; reverting."
+    ANY_FAIL=1
+    local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+    if [ -n "$artifact" ]; then
+        SUMMARY_LINES+=("❌ $name — $reason: $(triage "$glog") (artifact: $artifact)")
+    else
+        SUMMARY_LINES+=("❌ $name — $reason: $(triage "$glog")")
+    fi
+    restore_group_state "$name" "$glog" || true
+}
+
+finish_updated_group() {
+    local name="$1"
+    local inputs="$2"
+    local glog="$3"
+
+    if git diff --quiet -- flake.lock; then
+        log "➖ [$name] no changes."
+        SUMMARY_LINES+=("➖ $name — no changes")
+        return 0
+    fi
+
+    log "🚧 [$name] flake check + build (all hosts)..."
+    if FULL_CHECK=1 nix flake check --impure --print-build-logs >>"$glog" 2>&1 \
+        && ./scripts/populate_cache.sh >>"$glog" 2>&1; then
+        local commit_failed=0
+        git add flake.lock || commit_failed=1
+        if ! git diff --quiet -- nix/overlay.nix; then
+            git add nix/overlay.nix || commit_failed=1
+        fi
+        if [ "$commit_failed" -ne 0 ] || ! git commit -q -m "rolling: $name ($DATE)" >>"$glog" 2>&1; then
+            log "❌ [$name] commit failed; reverting group."
+            ANY_FAIL=1
+            restore_group_state "$name" "$glog" || true
+            local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+            if [ -n "$artifact" ]; then
+                SUMMARY_LINES+=("❌ $name — commit failed (artifact: $artifact)")
+            else
+                SUMMARY_LINES+=("❌ $name — commit failed")
+            fi
+            return 1
+        fi
+        log "✅ [$name] passed."
+        ANY_COMMIT=1
+        SUMMARY_LINES+=("✅ $name — ${inputs// /, }")
+        return 0
+    else
+        log "❌ [$name] build failed; reverting group."
+        ANY_FAIL=1
+        local t; t="$(triage "$glog")"
+        local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+        restore_group_state "$name" "$glog" || true
+        if [ -n "$artifact" ]; then
+            SUMMARY_LINES+=("❌ $name — $t (artifact: $artifact)")
+        else
+            SUMMARY_LINES+=("❌ $name — $t")
+        fi
+        return 1
+    fi
+}
+
+# Run one ordinary group as an isolated transaction. Never aborts the script
+# (call with || true).
 try_group() {
     local name="$1"; shift
     local inputs="$*"
+
+    [ "$FATAL_TRANSACTION" -eq 0 ] || return 1
 
     if [ -n "$ONLY_GROUP" ] && [ "$ONLY_GROUP" != "$name" ]; then
         return 0
@@ -399,48 +494,86 @@ try_group() {
     local glog="$WORK_DIR/${name}.build.log"
     # shellcheck disable=SC2086  # $inputs is a space-separated list of input names, splitting is intended
     if ! nix flake update $inputs >"$glog" 2>&1; then
-        log "❌ [$name] 'nix flake update' failed; reverting."
-        ANY_FAIL=1
-        local artifact; artifact="$(persist_group_failure "$name" "$glog")"
-        if [ -n "$artifact" ]; then
-            SUMMARY_LINES+=("❌ $name — flake update failed: $(triage "$glog") (artifact: $artifact)")
-        else
-            SUMMARY_LINES+=("❌ $name — flake update failed: $(triage "$glog")")
-        fi
-        git checkout -- flake.lock 2>/dev/null || true
+        record_group_update_failure "$name" "$glog"
+        return 1
+    fi
+
+    finish_updated_group "$name" "$inputs" "$glog"
+}
+
+# MongoDB has its own nixpkgs input because the unfree package is not available
+# from the public cache and takes hours to compile. Probe the latest lock, but
+# retain the current pin unless the selected MongoDB source, version, patches,
+# or available series changed. Selection follows the upstream UniFi module.
+# Attribute removal/rename is a loud failed group, never a silent freeze.
+try_mongodb_group() {
+    local name="mongodb"
+    local inputs="$GROUP_MONGODB"
+    local glog="$WORK_DIR/${name}.build.log"
+    local current_fingerprint candidate_fingerprint
+    local current_fingerprint_ok=1
+
+    [ "$FATAL_TRANSACTION" -eq 0 ] || return 1
+
+    if [ -n "$ONLY_GROUP" ] && [ "$ONLY_GROUP" != "$name" ]; then
+        return 0
+    fi
+
+    if ! current_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+        # A new upstream UniFi requirement may not exist in the old isolated
+        # pin. Still advance the MongoDB input and let the candidate satisfy it.
+        current_fingerprint_ok=0
+        printf 'current MongoDB package fingerprint could not be evaluated; probing candidate\n' >>"$glog"
+    fi
+
+    log "🔄 [$name] probing latest package definition: $inputs"
+    if ! nix flake update "$inputs" >>"$glog" 2>&1; then
+        record_group_update_failure "$name" "$glog"
         return 1
     fi
 
     if git diff --quiet -- flake.lock; then
-        log "➖ [$name] no changes."
-        SUMMARY_LINES+=("➖ $name — no changes")
+        if [ "$current_fingerprint_ok" -ne 1 ]; then
+            printf 'MongoDB input did not move and the current requirement remains unsatisfied\n' >>"$glog"
+            record_group_update_failure "$name" "$glog" "current requirement unsatisfied"
+            return 1
+        fi
+        log "➖ [$name] no input changes."
+        SUMMARY_LINES+=("➖ $name — no input changes")
         return 0
     fi
 
-    log "🚧 [$name] flake check + build (all hosts)..."
-    if FULL_CHECK=1 nix flake check --impure --print-build-logs >>"$glog" 2>&1 \
-        && ./scripts/populate_cache.sh >>"$glog" 2>&1; then
-        log "✅ [$name] passed."
-        git add flake.lock
-        git add nix/overlay.nix 2>/dev/null || true
-        git commit -q -m "rolling: $name ($DATE)"
-        ANY_COMMIT=1
-        SUMMARY_LINES+=("✅ $name — ${inputs// /, }")
-        return 0
-    else
-        log "❌ [$name] build failed; reverting group."
-        ANY_FAIL=1
-        local t; t="$(triage "$glog")"
-        local artifact; artifact="$(persist_group_failure "$name" "$glog")"
-        git checkout -- flake.lock 2>/dev/null || true
-        git checkout -- nix/overlay.nix 2>/dev/null || true
-        if [ -n "$artifact" ]; then
-            SUMMARY_LINES+=("❌ $name — $t (artifact: $artifact)")
-        else
-            SUMMARY_LINES+=("❌ $name — $t")
+    if ! candidate_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+        # The newest isolated pin may already have removed the series required
+        # by old core while newest core simultaneously moves UniFi to a new
+        # series. Probe that compatibility boundary atomically instead of
+        # deadlocking old-core/new-pin and new-core/old-pin on each other.
+        printf 'candidate does not satisfy current core; probing core and MongoDB together\n' >>"$glog"
+        # shellcheck disable=SC2086  # GROUP_CORE is an intentional input list
+        if ! nix flake update $GROUP_CORE >>"$glog" 2>&1; then
+            record_group_update_failure "$name" "$glog" "combined core/MongoDB update failed"
+            return 1
         fi
-        return 1
+        if ! candidate_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+            printf 'combined core/MongoDB candidate could not be evaluated\n' >>"$glog"
+            record_group_update_failure "$name" "$glog" "candidate package evaluation failed"
+            return 1
+        fi
+        inputs="$GROUP_MONGODB $GROUP_CORE"
+        printf 'combined core/MongoDB migration candidate is evaluable\n' >>"$glog"
     fi
+
+    if [ "$current_fingerprint_ok" -eq 1 ] && [ "$current_fingerprint" = "$candidate_fingerprint" ]; then
+        if ! restore_group_state "$name" "$glog"; then
+            return 1
+        fi
+        log "➖ [$name] nixpkgs moved, but the selected MongoDB package is unchanged."
+        SUMMARY_LINES+=("➖ $name — selected package unchanged; pin retained")
+        return 0
+    fi
+
+    log "📦 [$name] package changed: $current_fingerprint -> $candidate_fingerprint"
+    finish_updated_group "$name" "$inputs" "$glog"
 }
 
 # Send ONE bundled Gotify with the whole night's per-group results.
@@ -557,7 +690,7 @@ DATE=$(date +%F)
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
+NAMED=" $GROUP_CORE $GROUP_MONGODB $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
@@ -566,12 +699,14 @@ for inp in $ALL_INPUTS; do
     esac
 done
 log "   core: $GROUP_CORE"
+log "   mongodb: $GROUP_MONGODB (upstream-series aware)"
 log "   yt-dlp: $GROUP_YTDLP"
 log "   llm : $GROUP_LLM"
 log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
 
 # --- Run each group as its own transaction ---------------------------------
+try_mongodb_group || true
 # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
 try_group core $GROUP_CORE || true
 # shellcheck disable=SC2086
@@ -584,6 +719,16 @@ try_group nvchad $GROUP_NVCHAD || true
 try_group rest $GROUP_REST || true
 
 # --- Finalise: hash baselines, single push, single notification ------------
+if [ "$FATAL_TRANSACTION" -eq 1 ]; then
+    send_rca_notification || send_summary_notification
+    log "===== summary ====="
+    for line in "${SUMMARY_LINES[@]:-}"; do
+        [ -n "$line" ] && log "$line"
+    done
+    log "🔴 Aborted: rollback failed; no commits were pushed or deployed."
+    exit 1
+fi
+
 if [ "$ANY_COMMIT" -eq 1 ]; then
     if [ -x ./scripts/hash-capture.sh ]; then
         log "📊 Capturing hash baselines (final state)..."

@@ -462,7 +462,7 @@ Fatal non-group failures preserve the temporary clone and scrub the remote URL
 back to a tokenless form before printing the recovery path. Treat preserved
 workdirs as sensitive until inspected.
 
-### Rolling updater build envelope and yt-dlp tip metadata
+### Rolling updater build envelope, MongoDB isolation, and yt-dlp metadata
 
 **Status (2026-07-31): active on doc1 after signed deployment.** The
 nightly updater runs with `max-jobs = 1` and `cores = 1`. Both limits are
@@ -473,6 +473,27 @@ doc1's 24 GiB RAM plus swap despite `max-jobs = 1`. This envelope applies only
 to `rolling-flake-update.service`; interactive and ordinary fleet builds retain
 their normal concurrency. Revisit it only after doc1's memory changes or a
 measured nightly runtime problem justifies a bounded higher value. See PR #95.
+
+MongoDB is not allowed to churn with every `core` nixpkgs update. Its package
+comes from the independent `mongodb-nixpkgs` input, initially aligned to the
+last known-good fleet pin. The selected MongoDB series is not locally frozen:
+the helper evaluates the current upstream UniFi module's default and requests
+the matching series from the isolated package set. When upstream eventually
+migrates UniFi away from MongoDB 7.0, the selection follows that migration.
+
+The updater reserves `mongodb-nixpkgs` from `rest` and probes it as a dedicated
+`mongodb` group before `core`, so a newly available series is pinned before an
+updated UniFi module can require it. It fingerprints the selected package's
+version, upstream source, patch contents, and the available MongoDB series. If
+latest unstable only changes unrelated content or builder dependencies, the
+candidate lock is reverted without building. A source, patch, version, selected-series,
+or newly available-series change runs the normal full check/build/commit
+transaction. Missing upstream requirements fail visibly while retaining the
+last known-good pin. If latest MongoDB has already removed the series required
+by current core while latest core moves UniFi to a replacement series, the
+preflight evaluates and accepts those two input groups as one compatibility
+transaction; neither incompatible half can be landed alone. This avoids repeated
+uncacheable compiles without freezing a future upstream UniFi/MongoDB migration.
 
 The dedicated `yt-dlp` group advances `yt-dlp-src` independently at upstream git
 tip. A group result of “no changes” means the source revision did not move; it
