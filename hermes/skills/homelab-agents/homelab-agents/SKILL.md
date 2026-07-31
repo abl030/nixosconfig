@@ -13,7 +13,7 @@ This skill is the Hermes-side routing layer for the Claude-style subagents track
 
 ## Routing
 
-- Firewall, DNS, DHCP, NAT, VPN, WireGuard, pfSense system config → load/use `pfsense`; use MCP toolset `mcp-pfsense`.
+- Firewall, DNS, DHCP, NAT, VPN, WireGuard, pfSense system config → load/use `pfsense`; the configured `pfsense` MCP loads globally.
 - UniFi switches, APs, WLANs, VLAN-only networks, port profiles, clients → load/use `unifi`; use MCP toolset `mcp-unifi`.
 - Home Assistant entities, automations, dashboards, media playback → load/use `homeassistant`; use MCP toolset `mcp-homeassistant`.
 - Grafana UI / browser dashboard verification → load/use `playwright`; use MCP toolset `mcp-playwright` once the wrapper is healthy.
@@ -27,13 +27,13 @@ This skill is the Hermes-side routing layer for the Claude-style subagents track
 Direct session:
 
 ```sh
-hermes --tui --skills homelab-agents,pfsense --toolsets mcp-pfsense,skills,terminal,file
+hermes --tui --skills homelab-agents,pfsense
 ```
 
 Delegation from a parent Hermes session:
 
 ```text
-delegate_task(goal="...", context="Load/follow the pfsense skill from nixosconfig Hermes external skills.", toolsets=["mcp-pfsense", "terminal", "file"])
+delegate_task(goal="...", context="Load/follow the pfsense skill from nixosconfig Hermes external skills.")
 ```
 
 Use `/agents` in the TUI to watch delegated subagents live.

@@ -13,10 +13,13 @@ metadata:
 Migrated from `nixosconfig/.claude/agents/pfsense.md` so this homelab agent prompt is tracked in git and usable by Hermes.
 
 Hermes integration notes:
-- This agent expects the Hermes MCP server/toolset `mcp-pfsense`.
+- This agent expects the configured Hermes MCP server `pfsense`. It is enabled
+  globally; do not pass `-t mcp-pfsense`, which is not a Hermes toolset name.
 - Source Claude MCP wrapper: `./scripts/mcp-pfsense.sh`.
 - Start a fresh Hermes session after MCP config changes; in TUI use `/reload-mcp` if available.
-- For a narrowly-scoped run, start Hermes with `--toolsets mcp-pfsense,skills,terminal,file` or delegate with `toolsets=["mcp-pfsense"]`.
+- For a narrowly-scoped run, preload this skill and let the configured
+  `pfsense` MCP load normally; restrict only ordinary built-in toolsets if
+  needed.
 
 ---
 
@@ -52,58 +55,21 @@ A clean diff (only your intended objects changed) = done. An unexpected diff = f
 
 ## Fast Paths (common recurring operations)
 
-These are pre-investigated recipes for operations the user runs frequently. Run the calls verbatim — **do not** re-discover IDs, re-read the rule list, or perform drift audits. The infrastructure (rules, kill switches) is already in place; only the alias contents change.
+For the temporary workstation IP-reset operation, load the dedicated
+`temporary-us-vpn` skill. It is the only fast path for putting epimetheus
+(`192.168.1.5`) or framework (`192.168.1.37`) on the US VPN and rolling the
+host back. Its fixed preflight prevents topology rediscovery and stale-ID
+damage.
 
-### Toggle epimetheus (192.168.1.5) on/off the Europe VPN (tun_wg0/AirVPN_SG gateway)
+Do not reuse the old `MV_VPN_SG_IPS` recipe. That alias's rules are now ids
+37/38, remain disabled, and point at the historically named `AirVPN_SG`
+gateway, which is the Netherlands tunnel. It cannot satisfy a request for a
+US IP.
 
-Used to temporarily reset the user's apparent public IP. Exit is currently Oslo, Norway (exit IP 146.70.219.2). Typical cycle: enable → wait ~5 min → disable. **No Nix sync required** — `MV_VPN_SG_IPS` is not mirrored to Nix (only the NZ `MV_VPN_IPS` is). No drift audit needed for EU-only operations.
-
-Note: the alias and rules are still named `MV_VPN_SG_IPS` / `AirVPN_SG` internally (renaming would require touching all policy routing rules — deferred). The tunnel is functionally Europe/Norway as of 2026-06-23.
-
-**Rules 21 (pass via SG) and 22 (kill switch) are kept disabled while the alias is empty.** This is a deliberate safety posture: an enabled kill switch with a transient/empty alias can interact badly during apply, and leaving them off when unused means a stray alias entry can never accidentally block traffic. The toggle therefore flips the rule state too, not just the alias contents.
-
-**Enable (epi → SG)** — alias first, then enable rules in order (pass before kill switch), then apply:
-```
-mcp__pfsense__pfsense_update_firewall_alias  id=14  address=["192.168.1.5"]  detail=["epimetheus"]  confirm=true
-mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=false  confirm=true
-mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=false  confirm=true
-mcp__pfsense__pfsense_firewall_apply  confirm=true
-```
-
-**Disable (epi → direct WAN)** — kill switch off first (so an empty alias never co-exists with an enabled block rule), then pass rule, then empty alias, then apply:
-```
-mcp__pfsense__pfsense_update_firewall_rule    id=22  disabled=true  confirm=true
-mcp__pfsense__pfsense_update_firewall_rule    id=21  disabled=true  confirm=true
-mcp__pfsense__pfsense_update_firewall_alias   id=14  address=[]  detail=[]  confirm=true
-mcp__pfsense__pfsense_firewall_apply  confirm=true
-```
-
-If `pfsense_firewall_apply` returns `applied: false, pending_subsystems: [...]`, call it once more. Routing takes effect on table reload regardless of the API response.
-
-**Verification:** ask the user to run `curl -s ipinfo.io/json | jq .country` from epi — should return `"SG"` when enabled, `"AU"` when disabled. The alias state alone is not proof; rule state matters too.
-
-### Stable IDs for the fast paths
-
-| id | object | use |
-|----|--------|-----|
-| 9  | alias `MV_VPN_IPS` | NZ VPN list (Nix-mirrored — see sync contract below) |
-| 14 | alias `MV_VPN_SG_IPS` | SG VPN list (epi toggle, no Nix mirror) |
-| 15 | alias `DHCP_Dynamic` | Untrusted DHCP range (.100-.254) |
-| 21 | LAN rule | pass `MV_VPN_SG_IPS` → AirVPN_SG gateway |
-| 22 | LAN rule | block `MV_VPN_SG_IPS` (SG kill switch) |
-| 27 | LAN rule | pass `192.168.1.17` (NZBGet) → AirVPN_SG (Europe), per-host, ABOVE the MV_VPN_IPS rule |
-| 28 | LAN rule | block `192.168.1.17` (NZBGet Europe kill switch) |
-
-NZBGet-on-Europe (2026-06-23): the user wanted the usenet **downloader** (.17) exiting Europe (faster)
-while everything else stays on NZ. Done with the per-host pair above (ids 27/28) placed ABOVE the
-`MV_VPN_IPS → AirVPN (NZ)` pass rule — `.17` first-matches Europe; all other MV_VPN_IPS hosts fall
-through to NZ. `.17` stays in the `MV_VPN_IPS` alias (no alias edit → **no Nix sync**). Verified exit
-146.70.219.2 (Oslo, NO) from inside the nzbget container. To move qbt/slskd later, their inbound
-port-forwards must move from opt5 (NZ) to opt1 (EU) too — not just the egress gateway.
-
-Note: alias IDs shifted on 2026-06-05 when pfB_DoH_v4 was added and DoH_Providers retired. The MV_VPN_SG_IPS fast-path update_alias call now uses id=14 (was 15). Always verify IDs before operations.
-
-If a fast-path operation fails because an ID has shifted, fall back to discovery — then update this table.
+Current stable objects (verified 2026-07-31): alias 9 `MV_VPN_IPS`; LAN pass
+rule 35 via `AIRVPN_US_PREFERRED`; LAN kill-switch rule 36. The dedicated skill
+must verify these identities live before every write rather than searching for
+replacement IDs.
 
 ## Cross-repo sync contract: MV_VPN_IPS ↔ Nix
 

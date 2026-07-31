@@ -22,7 +22,7 @@ So future `hermes config ...`, `hermes mcp ...`, and skill-dir changes that edit
 The config declares MCP servers using the existing repo wrappers:
 
 - `nixos` → `uvx mcp-nixos` (small/default CLI toolset `mcp-nixos`)
-- `pfsense` → `scripts/mcp-pfsense.sh` (`mcp-pfsense`, opt-in)
+- `pfsense` → `scripts/mcp-pfsense.sh` (configured global MCP server)
 - `unifi` → `scripts/mcp-unifi.sh` (`mcp-unifi`, opt-in)
 - `homeassistant` → `scripts/mcp-homeassistant.sh` (`mcp-homeassistant`, opt-in)
 - `playwright` → `scripts/mcp-playwright.sh` (`mcp-playwright`, opt-in)
@@ -35,7 +35,7 @@ The config declares MCP servers using the existing repo wrappers:
 hermes --tui
 
 # Direct pfSense-focused session
-hermes --tui --skills homelab-agents,pfsense --toolsets mcp-pfsense,skills,terminal,file
+hermes --tui --skills homelab-agents,pfsense
 
 # Direct UniFi-focused session
 hermes --tui --skills homelab-agents,unifi --toolsets mcp-unifi,skills,terminal,file
