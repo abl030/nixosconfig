@@ -306,11 +306,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1785473817,
-        "narHash": "sha256-MmepZYoiKo7SftGgEkLNOvqyA+6w9wUtxRL2UBLgfXk=",
+        "lastModified": 1785507475,
+        "narHash": "sha256-Y+f6l4sO6nKEkadrpVtD4qY+sdJubJrFuMslOkg8ChE=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "dbe14424ed192b83993e5655629b0dd5714f3355",
+        "rev": "126ff7071b6b755055879648f4e859b3187d0fac",
         "type": "github"
       },
       "original": {
@@ -364,11 +364,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1785448594,
-        "narHash": "sha256-6N2XtF9PFD3rlwIH2ZQCd+0FszzD4YJJ2jV2/a546wo=",
+        "lastModified": 1785510331,
+        "narHash": "sha256-d/AR1r5guAk52ZWM0sAd3O8Fd2jQbyGwxU+e6flTiUk=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "e5c08ae7c52d4e1066c430fa9ce8abdda241db69",
+        "rev": "06544a68599a0e0721760af442000204e57e3937",
         "type": "github"
       },
       "original": {
