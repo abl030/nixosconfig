@@ -3,11 +3,17 @@
 # dual-NIC device-inform quirk: docs/wiki/services/unifi-controller.md
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
 }: let
   cfg = config.homelab.services.unifiController;
+  mongodb = import ../../../nix/mongodb-package.nix {
+    nixpkgs = inputs.mongodb-nixpkgs;
+    upstreamNixpkgs = inputs.nixpkgs;
+    system = pkgs.stdenv.hostPlatform.system;
+  };
 in {
   options.homelab.services.unifiController = {
     enable = lib.mkEnableOption "UniFi Network controller";
@@ -38,9 +44,9 @@ in {
 
     mongodbPackage = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.mongodb-7_0;
-      defaultText = lib.literalExpression "pkgs.mongodb-7_0";
-      description = "MongoDB package used by the upstream UniFi module.";
+      default = mongodb.package;
+      defaultText = lib.literalExpression "mongodb-nixpkgs package matching the upstream UniFi MongoDB series";
+      description = "Isolated MongoDB package matching the series selected by the upstream UniFi module.";
     };
   };
 
