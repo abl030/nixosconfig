@@ -81,7 +81,7 @@
     group = "discogs-import-coordinator";
     shell = pkgs.bashInteractive;
     openssh.authorizedKeys.keys = [
-      ''restrict,from="192.168.1.35",command="/run/current-system/sw/bin/sudo --non-interactive /run/current-system/sw/bin/systemctl start discogs-import.service" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp doc2-discogs-import''
+      ''restrict,from="192.168.1.35",command="/run/wrappers/bin/sudo --non-interactive /run/current-system/sw/bin/systemctl start discogs-import.service" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPv9MVIv00FafaGR/mPE3nW565bycshuwxlh3vhT+bZp doc2-discogs-import''
     ];
   };
 
