@@ -49,6 +49,7 @@ from dataclasses import dataclass
 from html import unescape
 from pathlib import Path
 from urllib import request
+from urllib.error import HTTPError, URLError
 
 BASE = "https://winetitles.com.au"
 UA = "Mozilla/5.0 (X11; Linux x86_64) gwm-archiver/1.0"
@@ -88,8 +89,17 @@ def http_get(url: str, referer: str | None = None) -> str:
     req = request.Request(url)
     if referer:
         req.add_header("Referer", referer)
-    with OPENER.open(req, timeout=60) as r:
-        return r.read().decode("utf-8", errors="replace")
+    for attempt in range(3):
+        try:
+            with OPENER.open(req, timeout=60) as r:
+                return r.read().decode("utf-8", errors="replace")
+        except HTTPError:
+            raise
+        except URLError:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+    raise AssertionError("unreachable")
 
 
 def http_post_stream(url: str, data: dict, dest: Path,
