@@ -12,7 +12,6 @@
     pkgs.gnomeExtensions.blur-my-shell
     pkgs.gnomeExtensions.tray-icons-reloaded
     pkgs.gnomeExtensions.user-themes
-    pkgs.dracula-theme
     pkgs.gnomeExtensions.freon
     pkgs.gnomeExtensions.just-perfection
     pkgs.gnomeExtensions.caffeine
