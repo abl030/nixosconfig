@@ -169,6 +169,20 @@ in {
     config.environment.etc."systemd/logind.conf".source
   ];
 
+  # systemd-nspawn registers with machined while its container units start. During
+  # a switch that also replaces systemd, a container can therefore D-Bus-activate
+  # systemd-machined.service before switch-to-configuration reaches the enabled
+  # socket. systemd then refuses to start the socket behind an already-active
+  # service, making an otherwise healthy switch fail. Make the socket an ordered
+  # service prerequisite so every machined activation path establishes the
+  # listener first on hosts that actually run declarative containers. This must
+  # be a drop-in: the full unit comes from systemd.
+  systemd.services.systemd-machined = lib.mkIf (config.containers != {}) {
+    overrideStrategy = "asDropin";
+    requires = ["systemd-machined.socket"];
+    after = ["systemd-machined.socket"];
+  };
+
   # ---------------------------------------------------------
   # 4. HOMELAB "BATTERIES INCLUDED" DEFAULTS
   # ---------------------------------------------------------
