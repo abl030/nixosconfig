@@ -16,7 +16,8 @@
 #   - log/    (jellyfin --logdir)
 #   - ts/     (homelab.tailscaleShare.jellyfin state — root-owned TS state,
 #              caddy state owned by tailscale-share-caddy)
-# Cache stays local at /var/cache/jellyfin (regenerable, not worth virtiofs).
+# Cache is regenerable but shares dataRoot's filesystem so Jellyfin's startup
+# free-space guard cannot take the service down when a small host root fills.
 #
 # Why root-owned parent: systemd-tmpfiles refuses ("unsafe path transition")
 # to create mixed-owner children inside a jellyfin-owned parent, so we keep
@@ -257,7 +258,7 @@ in {
             "${cfg.dataRoot}/data"."d".mode = lib.mkForce "0750";
             "${cfg.dataRoot}/config"."d".mode = lib.mkForce "0750";
             "${cfg.dataRoot}/log"."d".mode = lib.mkForce "0750";
-            "/var/cache/jellyfin"."d".mode = lib.mkForce "0750";
+            "${cfg.dataRoot}/cache"."d".mode = lib.mkForce "0750";
           };
         };
 
@@ -295,7 +296,9 @@ in {
         dataDir = "${cfg.dataRoot}/data";
         configDir = "${cfg.dataRoot}/config";
         logDir = "${cfg.dataRoot}/log";
-        # cacheDir stays default /var/cache/jellyfin — regenerable, not on virtiofs
+        # Jellyfin 10.11 refuses to start when cacheDir has <2 GiB free. Keep
+        # this beside the service state instead of on small host root filesystems.
+        cacheDir = "${cfg.dataRoot}/cache";
 
         # Open 8096 + 8920 + 7359/udp + 1900/udp on all interfaces for
         # LAN clients (auto-discovery, DLNA) and the LAN nginx upstream.
