@@ -445,6 +445,21 @@
             touch $out
           '';
 
+          # Timer-driven cleanup commands must resolve to real executables in
+          # the evaluated host closure. lib.getExe' does not validate that an
+          # arbitrary package actually provides the requested binary.
+          audiobookshelfCacheCleanupCheck = let
+            command = self.nixosConfigurations.doc2.config.systemd.services.audiobookshelf-cache-cleanup.serviceConfig.ExecStart;
+            executable = builtins.head (lib.splitString " " command);
+          in
+            pkgs.runCommand "audiobookshelf-cache-cleanup-executable" {} ''
+              if [ ! -x ${lib.escapeShellArg executable} ]; then
+                echo "Audiobookshelf cleanup ExecStart is not executable: ${executable}"
+                exit 1
+              fi
+              touch $out
+            '';
+
           # Per-service container network isolation (#232). Standalone OCI
           # containers must NOT share the default podman bridge (where every
           # container can L3-reach + DNS-resolve every other on 10.88.0.0/16, a
@@ -1622,7 +1637,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
