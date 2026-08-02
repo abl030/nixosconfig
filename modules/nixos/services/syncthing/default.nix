@@ -70,6 +70,14 @@ in {
       };
     };
 
+    # Requisite fails immediately when activation starts both units together
+    # after a package upgrade. Requires plus the existing After ordering waits
+    # for Syncthing instead, avoiding a switch-to-configuration failure.
+    systemd.services.syncthing-init = {
+      requisite = lib.mkForce [];
+      requires = ["syncthing.service"];
+    };
+
     # SOPS secrets for Syncthing keys
     sops.secrets.syncthing-cert = {
       sopsFile = config.homelab.secrets.sopsFile "syncthing-cert.pem";
