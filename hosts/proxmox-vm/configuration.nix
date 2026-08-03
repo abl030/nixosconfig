@@ -176,6 +176,8 @@
       pushDeployHosts = ["servarr" "igpu" "caddy"];
     };
     services = {
+      beets.enable = true;
+
       # Immich moved to doc2 (2026-02-25)
       immich.enable = false;
 

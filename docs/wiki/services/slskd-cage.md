@@ -273,7 +273,7 @@ ssh doc2 'systemctl is-active microvm@slskd.service microvm-virtiofsd@slskd.serv
 ssh doc2 'sudo journalctl -u microvm@slskd -b --no-pager | tail -100'
 ssh doc2 'readlink -f /var/lib/microvms/slskd/current; readlink -f /var/lib/microvms/slskd/booted'
 ssh doc2 'curl -fsS http://192.168.21.2:5030/health'
-ssh doc2 'grep -E "^(host_url|download_dir)" /var/lib/cratedigger/config.ini'
+ssh doc2 'sudo systemctl show cratedigger -p ExecStart --value'
 
 # The only admitted host-to-guest socket is the API. Verify the Soulseek TCP
 # listener from the USA forward/logs, not by widening the LAN exception.

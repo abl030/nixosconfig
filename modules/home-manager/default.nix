@@ -15,6 +15,5 @@
     ./services/git.nix
     ./services/git-hooks.nix
     ./services/pdf.nix
-    ./services/beets.nix
   ];
 }

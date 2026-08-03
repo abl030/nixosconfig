@@ -23,7 +23,7 @@
 # Debugging:
 #   journalctl -u cratedigger -f              — watch a run in real time
 #   sudo systemctl start cratedigger          — trigger a run now
-#   sudo cat /var/lib/cratedigger/config.ini  — verify rendered config
+#   sudo cratedigger-check-beets-config --role main  — verify admitted Beets runtime
 #   curl -s 192.168.21.2:5030/api/v0/searches -H @/tmp/slskd-api-header | jq
 #                                         — check slskd search queue
 #
@@ -56,32 +56,24 @@
   metadataGateYoutubeStartInhibitor = "${metadataGateStateDir}/inhibit-cratedigger-youtube-ingest.service";
 
   processingDir = "${cfg.dataDir}/processing";
-  beetsDbDir = "${cfg.dataDir}/beets-db";
+  beetsRuntime = config.homelab.services.beets.runtime;
+  beetsDbDir = builtins.dirOf beetsRuntime.expectedLibrary;
   musicRoot = "/mnt/virtio/Music";
   stagingRoot = "${musicRoot}/Incoming";
-  beetsLibraryRoot = "${musicRoot}/Beets";
+  beetsLibraryRoot = beetsRuntime.expectedDirectory;
   redownloadTrackingDir = "${musicRoot}/Re-download";
   slskdDownloadDir = cfg.downloadDir;
 
-  # #257: the cratedigger app units run as ROOT and inherited the host's
-  # entire /mnt tree RW — including /mnt/backup/pfsense (the pfSense ZFS
-  # backups), /mnt/appdata, /mnt/mum, /mnt/mirrors. The pipeline's real scope
-  # is three paths: its virtiofs state/backups dir, the shared music tree
-  # (beets library + Incoming + Re-download), and the slskd download staging
+  # #257 found that the Cratedigger app units inherited the host's entire /mnt
+  # tree RW. They now run non-root and receive a private /mnt containing only
+  # the explicit per-unit binds below. The pipeline's real scope is its
+  # virtiofs state, the shared music subtrees it needs, and slskd download staging
   # (cfg.downloadDir — on doc2 /mnt/virtio/music/slskd, lowercase, distinct
-  # from the capital-M /mnt/virtio/Music beets tree). Blank /mnt and bind
-  # back exactly those. This is the single
-  # biggest blast-radius reduction in the #257 audit (root + everything → a
-  # root process confined to its own music pipeline). NOT applied to the
-  # gate/secrets/db-migrate/temp-clean oneshots — they touch only /run, /tmp,
-  # or the DB container over TCP. The two timer-driven units intentionally
-  # retain this broad private /mnt view; #663 narrows the four upstream-hardened
-  # long-running units below. See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
-  timerDrivenMusicBinds = [cfg.dataDir musicRoot slskdDownloadDir];
-  timerDrivenMusicSandboxUnits = [
-    "cratedigger"
-    "cratedigger-unfindable"
-  ];
+  # from the capital-M /mnt/virtio/Music Beets tree). The main timer-driven
+  # unit is narrowed here too; unfindable receives no /mnt bind. This private
+  # view is not applied to gate/secrets/db-migrate/temp-clean oneshots, which
+  # touch only /run, /tmp, or the DB container over TCP. See
+  # docs/wiki/infrastructure/systemd-sandbox-mnt.md.
   # A writable BindPaths mount remains writable even when an upstream module
   # enables ProtectSystem=strict or names a narrower ReadWritePaths list. Keep
   # this authority table explicit so the downstream overlay cannot reopen a
@@ -91,6 +83,14 @@
   # database directory as read-only authority.
   # See docs/wiki/infrastructure/systemd-sandbox-mnt.md.
   upstreamHardenedMntSandboxes = {
+    cratedigger = {
+      writable = [processingDir stagingRoot redownloadTrackingDir slskdDownloadDir];
+      readOnly = [beetsDbDir musicRoot];
+    };
+    cratedigger-unfindable = {
+      writable = [];
+      readOnly = [];
+    };
     cratedigger-web = {
       writable = [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
       readOnly = [musicRoot];
@@ -129,6 +129,8 @@
     "cratedigger-import-preview-worker.service"
     "cratedigger-youtube-ingest.service"
   ];
+  mountListContains = path: paths:
+    builtins.elem path paths || builtins.elem "-${path}" paths;
 
   shellArray = values: lib.concatMapStringsSep " " lib.escapeShellArg values;
   metadataGateTool = pkgs.writeShellApplication {
@@ -608,34 +610,48 @@ in {
     # negative assertion is the known-bad broad-parent case.
     assertions = [
       {
-        assertion = config.services.cratedigger.beets.config.library == "${beetsDbDir}/beets-library.db";
-        message = "cratedigger must use the dedicated beets DB parent";
+        assertion = config.services.cratedigger.beets.runtime == beetsRuntime;
+        message = "cratedigger must consume the one deployment-owned Beets runtime capability";
       }
       {
         assertion =
-          config.systemd.services.cratedigger-web.serviceConfig.BindPaths
-          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir];
-        message = "cratedigger-web must bind only its reviewed writable Music subtrees";
+          upstreamHardenedMntSandboxes.cratedigger.writable
+          == [processingDir stagingRoot redownloadTrackingDir slskdDownloadDir];
+        message = "the main pipeline must bind only its processing, staging, tracking, and slskd write roots";
       }
       {
-        assertion = config.systemd.services.cratedigger-web.serviceConfig.BindReadOnlyPaths == [musicRoot];
-        message = "cratedigger-web must see the broad Music root read-only";
-      }
-      {
-        assertion =
-          config.systemd.services.cratedigger-importer.serviceConfig.BindPaths
-          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir];
-        message = "cratedigger-importer must bind only its reviewed writable Music subtrees";
-      }
-      {
-        assertion = config.systemd.services.cratedigger-importer.serviceConfig.BindReadOnlyPaths == [musicRoot];
-        message = "cratedigger-importer must see the broad Music root read-only";
+        assertion = upstreamHardenedMntSandboxes.cratedigger.readOnly == [beetsDbDir musicRoot];
+        message = "the main pipeline must see Beets authority only through read-only mounts";
       }
       {
         assertion =
-          config.systemd.services.cratedigger-import-preview-worker.serviceConfig.BindReadOnlyPaths
-          == [beetsDbDir musicRoot];
-        message = "cratedigger preview must see the canonical Beets DB and Music root read-only";
+          upstreamHardenedMntSandboxes.cratedigger-web.writable
+          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot slskdDownloadDir]
+          && upstreamHardenedMntSandboxes.cratedigger-importer.writable
+          == [processingDir beetsDbDir beetsLibraryRoot stagingRoot redownloadTrackingDir slskdDownloadDir]
+          && upstreamHardenedMntSandboxes.cratedigger-import-preview-worker.writable
+          == [processingDir slskdDownloadDir];
+        message = "web, importer, and preview must retain only their reviewed writable Music subtrees";
+      }
+      {
+        assertion =
+          lib.all
+          (unit:
+            !(mountListContains
+              beetsRuntime.expectedStateFile
+              (config.systemd.services.${unit}.serviceConfig.BindPaths or []))
+            && mountListContains
+            beetsRuntime.expectedStateFile
+            (config.systemd.services.${unit}.serviceConfig.BindReadOnlyPaths or []))
+          ["cratedigger" "cratedigger-web" "cratedigger-import-preview-worker"];
+        message = "main, web, and preview must receive the Beets state file read-only and never writable";
+      }
+      {
+        assertion =
+          mountListContains
+          beetsRuntime.expectedStateFile
+          (config.systemd.services.cratedigger-importer.serviceConfig.BindPaths or []);
+        message = "the importer alone must receive the writable Beets state-file bind";
       }
       {
         assertion =
@@ -788,27 +804,11 @@ in {
         "d ${metadataGateStateDir} 0700 root root -"
         "d ${metadataGateHoldDir} 0700 root root -"
         "d ${liveWorldAuditDebtStateDir} 0700 root root -"
-        # #570: keep the library subtrees setgid + group-writable + group `users`
-        # so new album dirs inherit the group and gid-100 consumers (Jellyfin)
-        # can write NFO/art alongside media. Existing subtree ownership is fixed
-        # by a one-time operator chgrp/chmod during the deploy window.
-        #
-        # The DB, rollback journals, import log and harness mutation audit live
-        # in beetsDbDir, never beside unrelated Music-root content. Keep the
-        # broad parent root:root 0755; only explicit pipeline subtrees carry
-        # the group write authority.
+        # The system-level Beets module is the sole declarative owner of the
+        # catalog parent, catalog file, and library root. Cratedigger retains
+        # only its validation staging directory here.
         "d /mnt/virtio/Music 0755 root root -"
-        "d ${beetsDbDir} 2775 cratedigger users -"
-        "d /mnt/virtio/Music/Beets 2775 cratedigger users -"
         "d /mnt/virtio/Music/Incoming 2775 cratedigger users -"
-        # NOTE: the discogs token (/var/lib/cratedigger/secrets/discogs-token,
-        # root:root 0400) CANNOT be managed by tmpfiles — systemd-tmpfiles
-        # refuses the "unsafe path transition" from the cratedigger-owned
-        # /var/lib/cratedigger into the root-owned secrets/ subdir. The
-        # non-root service reads it via a durable one-time operator chown to
-        # `root:cratedigger-ops 0440` (matches the out-of-band-secret pattern
-        # noted on beets.package.discogsTokenFile below; migrate to sops-nix
-        # with owner=cratedigger when convenient).
       ];
 
       services = lib.mkMerge [
@@ -964,15 +964,6 @@ in {
             };
           };
         }
-        # #257's timer-driven scope remains broad; #663 gives the four
-        # long-running units their least-privilege /mnt mount sets.
-        (lib.genAttrs timerDrivenMusicSandboxUnits (_: {
-          unitConfig.RequiresMountsFor = timerDrivenMusicBinds;
-          serviceConfig = {
-            TemporaryFileSystem = "/mnt";
-            BindPaths = timerDrivenMusicBinds;
-          };
-        }))
         (lib.mapAttrs (_: sandbox: {
             unitConfig.RequiresMountsFor = sandbox.writable ++ (sandbox.readOnly or []);
             serviceConfig =
@@ -1038,8 +1029,8 @@ in {
       # of supplementary groups, not a redefinition. `music-import` is
       # LOAD-BEARING: slskd's download dir is 770 slskd:music-import, so
       # without it a non-root cratedigger can't read/reap in-flight
-      # downloads. The upstream discogsOperatorGroup setting below adds
-      # `cratedigger-ops`, which also grants /run/cratedigger-secrets access.
+      # downloads. The system-level Beets owner separately adds
+      # `cratedigger-ops` for its runtime secret and state capabilities.
       users.cratedigger.extraGroups = ["music-import"];
     };
 
@@ -1122,32 +1113,11 @@ in {
       # HTTP 421 before the request reaches CT 102.
       discogs.apiBase = cfg.metadataGate.discogsApiBase;
 
-      # Module-owned beets (replaces the Home Manager beets): build-time
-      # mirror patches + the Discogs token via the *File pattern. The token
-      # file is root-owned under /var/lib (extracted from the old
-      # ~/.config/beets/secrets.yaml during the cutover window). The upstream
-      # module renders its include at 0440 for the explicit operator group so
-      # pipeline-cli and the service load the same noninteractive config.
-      # #495-era refactor (cratedigger commit 604da00) consolidated the beets
-      # option surface under services.cratedigger.beets.*: the package/mirror
-      # knobs moved to beets.package.*, the config.ini [Beets] directory to
-      # beets.config.directory, and the validation gate to beets.validation.*.
+      # Cratedigger consumes the system Beets owner's one package/config/path
+      # capability. Secret rendering, host-local state, shared storage, and
+      # the plain operator CLI remain outside the application module.
       beets = {
-        package = {
-          # One origin owns the gate, web/API, and beets consumer paths so a
-          # healthy direct probe cannot mask a stale consumer URL again.
-          discogsMirrorUrl = cfg.metadataGate.discogsApiBase;
-          lrclibUrl = "http://192.168.1.43:3300/api";
-          discogsTokenFile = "/var/lib/cratedigger/secrets/discogs-token";
-          discogsOperatorGroup = "cratedigger-ops";
-        };
-
-        # Absolute path to the beets library root. Beets stores file paths in
-        # its SQLite DB as relative to this root; consumers that absolutize
-        # (cleanup_disambiguation_orphans, trigger_plex_scan) read this from
-        # config.ini. Matches `directory:` in ~/.config/beets/config.yaml.
-        config.directory = "/mnt/virtio/Music/Beets";
-        config.library = "${beetsDbDir}/beets-library.db";
+        runtime = beetsRuntime;
 
         validation = {
           enable = true;

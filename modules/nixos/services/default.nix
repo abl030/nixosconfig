@@ -32,6 +32,7 @@
     ./audiobookshelf.nix
     ./atuin.nix
     ./beancount.nix
+    ./beets.nix
     ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix

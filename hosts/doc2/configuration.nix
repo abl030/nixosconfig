@@ -188,6 +188,10 @@
         dataDir = "/mnt/virtio/atuin";
       };
       beancount.enable = true;
+      beets = {
+        enable = true;
+        manageSharedStorage = true;
+      };
       cratedigger = {
         enable = true;
         downloadDir = "/mnt/virtio/music/slskd";

@@ -1,9 +1,9 @@
 # Cratedigger
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-03
 **Status:** active on `doc2`
-**Owner:** `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
-**Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498)
+**Owner:** `modules/nixos/services/beets.nix`, `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
+**Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498), [Cratedigger #759](https://github.com/abl030/cratedigger/issues/759)
 
 Cratedigger is the local Soulseek download pipeline and request UI behind
 `music.ablz.au`. It is intentionally coupled to exactly two local metadata APIs:
@@ -127,27 +127,43 @@ local metadata probes pass. The dependency watchdog can clear only the
 `dependency` hold; manual, Discogs import, and MusicBrainz maintenance holds are
 released only by their owner.
 
-## Runtime Config Convergence
+## Runtime and Beets ownership
 
-`/var/lib/cratedigger/config.ini` is mutable secret-bearing runtime state, not a
-Nix-store config file. The upstream Cratedigger NixOS module owns a dedicated
-`cratedigger-config-render.service` oneshot that renders it during boot and each
-system convergence, independently of application `ExecCondition` gates.
-Application units retain fail-fast render fallbacks, so none can successfully
-start against a missing or stale file.
+Cratedigger's complete non-secret runtime configuration is an immutable
+Nix-store input. Runtime secrets remain separate `*File` capabilities, and the
+applications enforce the same startup contract themselves before creating
+locks, listeners, database handles, or job state. Only `cratedigger.service`,
+which owns the singleton pipeline lock, may clear `.cratedigger.lock`.
 
-Only `cratedigger.service`, which owns the singleton pipeline lock, uses the
-pipeline pre-start wrapper that may clear `.cratedigger.lock`. Web, importer,
-preview, unfindable, YouTube ingest, and the deployment renderer are render-only
-and must never remove or recreate that lock. This is pinned by the upstream
-module VM: every application unit is held, the independent renderer materializes
-a non-default config, and a renderer restart repairs a corrupted file while
-preserving both lock inode and contents.
+`modules/nixos/services/beets.nix` is the one system-level owner of Beets on
+doc1 and doc2. It instantiates the Beets package from Cratedigger's admitted
+Python package set and exports one six-field runtime capability to the upstream
+module:
 
-This fixes the 2026-07-19 deployment incident where systemd evaluated the
-metadata gate's `ExecCondition` before application `ExecStartPre`, leaving the
-old localhost slskd URL in mutable state even though the evaluated Nix template
-already contained `http://192.168.21.2:5030`.
+- the exact Beets package;
+- an immutable Nix-store `BEETSDIR`;
+- `/mnt/virtio/cratedigger/beets-db/beets-library.db`;
+- `/mnt/virtio/Music/Beets`;
+- the host-local `/var/lib/beets/state.pickle`; and
+- the fixed-schema `/run/beets/secrets.yaml` include.
+
+The plain `beet` command uses that same package and `BEETSDIR`; Home Manager no
+longer installs or shadows Beets. The sops source is a scalar encrypted only to
+doc1, doc2, the editor key, and break-glass. A root readiness unit atomically
+encodes it as exactly `discogs.user_token`, mode `root:cratedigger-ops 0440`,
+and provisions the state file as `root:cratedigger-ops 0660`. The token and
+mutable state never enter the Nix store or shared library storage.
+
+Doc2 alone manages shared catalog permissions: numeric owner/group `963:100`,
+setgid `2775` catalog parent and library root, and `0664` database. Doc1 is a
+consumer through GID 100 and must not declare the service UID or chown shared
+storage. Neither deployment copies, moves, recreates, or runs `beet move` on
+the canonical catalog during convergence.
+
+The standalone `cratedigger-check-beets-config` command is deployment evidence
+and diagnosis, not a service, timer, `ExecStartPre`, or persistent wrapper.
+Every application performs one role-aware check at startup; hard failures are
+redacted and fail closed, while endpoint drift remains a warning.
 
 MusicBrainz maintenance uses the `musicbrainz-maintenance` hold. MusicBrainz now
 runs in dedicated CT 100, so an operator enters this hold on doc2 before a
@@ -183,24 +199,29 @@ public proxy health when deciding whether Cratedigger may use metadata APIs.
 - Cratedigger runtime/notifier secrets are readable by root and the dedicated
   `cratedigger-ops` operator group only, not the broad `users` group and not the
   network-exposed `slskd` service.
-- Cratedigger still runs as root because it writes across slskd download state,
-  Beets staging/import paths, and media library paths.
+- Cratedigger runs as the non-root `cratedigger` user. The `users` group grants
+  shared media access; `music-import` grants the slskd staging boundary; and
+  `cratedigger-ops` grants only runtime secret/state access.
 - Slskd and cratedigger share the bounded `music-import` group. The upstream
   zero-umask behavior is patched in the Nix source input so imported library
   directories settle at `0775`, not `0777`.
 
 ## `/mnt` sandbox boundary
 
-Every Cratedigger app unit gets a private empty `/mnt`. The timer-driven
-`cratedigger` and `cratedigger-unfindable` units retain the established writable
-`dataDir`, Music root, and slskd download binds. The four long-running units are
-narrower: web/importer see Music read-only and write only `dataDir/processing`,
-`dataDir/beets-db`, `Music/Beets`, `Music/Incoming`, and slskd (the importer
-also writes the `Music/Re-download` tracking parent); preview writes processing
-and slskd but sees Music read-only; YouTube ingest writes only `Music/Incoming`.
-This is deliberate preparation for upstream
-`ProtectSystem=strict`: a writable `BindPaths` mount itself grants write access,
-so a narrower upstream `ReadWritePaths` cannot revoke it.
+Every Cratedigger app unit gets a private empty `/mnt`. The main pipeline writes
+only processing, Incoming, Re-download tracking, and slskd; it sees the Beets
+catalog/library read-only. Unfindable receives no `/mnt` bind. Web/importer see
+Music read-only and write only processing, the catalog parent, the library,
+Incoming, and slskd (the importer also writes Re-download); preview writes
+processing and slskd but sees the catalog and Music read-only; YouTube ingest
+writes only Incoming.
+
+The host-local Beets pickle is a separate capability despite the shared
+`cratedigger-ops` group. Main, web, and preview receive an explicit read-only
+bind; importer alone receives a writable bind because Beets updates state during
+imports. The immutable `BEETSDIR` is read-only everywhere. A writable
+`BindPaths` mount itself grants authority, so the downstream bind table and the
+upstream `ReadWritePaths` table are both evaluated and asserted.
 
 The metadata-gate `ExecCondition` for web/importer/preview/YouTube ingest is a
 fixed Nix-store command prefixed with systemd `+`, with only
