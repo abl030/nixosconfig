@@ -1,6 +1,46 @@
 # doc2 nested Cloud Hypervisor kernel panics — 2026-07-22
 
-**Status:** Mitigation and independent capture/recovery deployed after the second incident. The root-cause statement below is a falsifiable, high-confidence hypothesis, not a proven upstream code-level cause.
+**Status:** The two-vCPU queue-count mitigation failed on 2026-08-03. The recurring nested AMD KVM/Cloud Hypervisor boundary remains the leading hypothesis, but the exact first corrupting function is unproven. Dedicated netconsole and doc2 kdump are now the evidence plan.
+
+## 2026-08-03 recurrence: queue-count mitigation falsified
+
+At `2026-08-03 15:53:31.529 AWST`, doc2 panicked again while slskd's Cloud Hypervisor process had the
+deployed two-vCPU/four-queue topology (`qp0` and `qp1` only). A Soulseek download had begun about 15
+seconds earlier, which is a useful trigger clue but not proof that the download or networking code was
+the first corruptor.
+
+Netconsole captured:
+
+```text
+BUG: unable to handle page fault for address: ffffffff81001280
+#PF: supervisor instruction fetch in kernel mode
+CPU: 0 PID: 0 Comm: swapper/0
+RIP: 0010:0xffffffff81001280
+Call Trace:
+ <#DF>
+ </#DF>
+WARNING: stack recursion on stack type 5
+Kernel panic - not syncing: Fatal exception in interrupt
+```
+
+Against the running Linux 6.18.41 `vmlinux`, `0xffffffff81001280` is the link-time/unrelocated address
+of `asm_exc_page_fault`; the boot's KASLR offset was `0x1e800000`. Entering the handler through that bad
+address recursively faulted and reached double-fault context. The same distinctive RIP survived the
+2026-07-22 panic, strongly supporting recurrence of one corruption class. The double fault destroyed
+the original stack, so this proves the terminal mechanism but not the first bad write or exact kernel
+subsystem.
+
+Resource telemetry contradicts load exhaustion: CPU busy was roughly 4–6%, load `0.89`, memory
+available roughly 55%, swap use 0.27%, I/O pressure below 1%, and OOM kills zero. QEMU, virtiofsd,
+Proxmox storage and the host remained alive. The separate Beets/LRCLIB exception ended 51.5 seconds
+before the panic and is not evidence of kernel causation.
+
+The old queue-count prediction below is retained as historical reasoning but is now falsified. The
+preferred workload mitigation is to remove slskd from nested Cloud Hypervisor—use QEMU or move the cage
+outside nested AMD virtualization. Capture is independently improved with prom UDP/6667 dedicated to
+doc2, source-filtered timestamped records, doc2 kdump with `panic_on_oops=1`, expanded panic output,
+and host-side QMP/vCPU/thread evidence before any watchdog reset. See
+[fleet-crash-capture.md](fleet-crash-capture.md).
 
 ## Impact and timeline
 
@@ -18,7 +58,7 @@
 
 - A manual `qm reset 114` restored doc2. There was no host OOM, Proxmox storage/ZFS/NVMe error, MCE, or QEMU process exit around either incident.
 
-## RCA hypothesis
+## Historical 2026-07-22 RCA hypothesis
 
 The most likely failure boundary is the nested Cloud Hypervisor networking/KVM path used by the new slskd microVM on AMD, specifically the queue-pair topology created by four guest vCPUs.
 
@@ -33,11 +73,13 @@ Evidence:
 
 This does **not** prove whether the defect is in Linux 6.18 KVM/SVM, Cloud Hypervisor's multiqueue event path, QEMU's nested-virtualization exposure, or a specific interaction among them. The surviving console did not contain the earlier call trace, and pstore was empty after reset.
 
-### Falsifiable prediction
+### Falsified prediction
 
-Reducing slskd to two vCPUs removes `qp2`/`qp3` and matches qbt's proven queue topology. If doc2 panics again while the live slskd command has only `qp0`/`qp1`, this queue-count hypothesis is weakened and the next mitigation is to replace Cloud Hypervisor for slskd with QEMU or move the cage out of nested AMD virtualization.
+Reducing slskd to two vCPUs removed `qp2`/`qp3`, but doc2 panicked again on 2026-08-03 while the live
+slskd command had only `qp0`/`qp1`. The queue-count-specific hypothesis is therefore weakened; merely
+removing queue pairs is not a sufficient mitigation.
 
-## Mitigation and recovery design
+## Historical mitigation and current recovery design
 
 ### 1. Remove the implicated queue topology
 
@@ -54,35 +96,44 @@ Live thread inventory must contain `qp0` and `qp1`, with no `qp2` or `qp3`.
 
 Doc2 boots with `panic=30`, so a kernel panic reboots the guest after 30 seconds. This does not depend on systemd, networking, QGA, or doc2's co-located monitoring stack.
 
-A separate watchdog runs on doc1 once per minute. It acts only when all of these are true:
+A separate watchdog runs on doc1 once per minute. Evidence capture begins when all of these are true:
 
 - Proxmox is reachable and reports VM 114 running.
 - VM uptime is at least ten minutes.
-- doc2 TCP/22 is unavailable.
-- Proxmox QGA ping is unavailable.
-- Both failures persist for ten consecutive checks. The original five-minute
-  threshold reset doc2 during a clean reboot while Kopia consumed its 4m30s stop
+- TCP/22 is unavailable on both doc2 LAN addresses.
+- That dual-path TCP failure persists for ten consecutive checks before capture-only diagnostics. The original
+  five-minute threshold reset doc2 during a clean reboot while Kopia consumed its 4m30s stop
   timeout; ten minutes keeps that normal shutdown inside the no-action window.
 - No automated reset occurred in the previous fifteen minutes.
 
-Before resetting, it saves under `/var/lib/doc2-recovery/incidents/<UTC timestamp>/`:
+Before any action, it saves under `/var/lib/doc2-recovery/incidents/<UTC timestamp>/`:
 
 - `qm status --verbose`
 - `qm config`
 - recent Proxmox kernel and VM/QEMU logs
+- the dedicated prom netconsole tail and one hour of Proxmox RRD
+- QMP status, all-vCPU registers and host-side QEMU thread stacks
+- SysRq task/blocked-task dumps and in-guest D-state stacks when QGA is alive
 - a VGA `screendump` as `console.ppm`
 
-It then issues one `qm reset 114`. Failure to reach Proxmox never causes an action. A stopped VM is never started or reset.
+Live QGA makes this capture-only: the VM is never reset. A reset is issued only after both TCP/22 and
+QGA have failed for 25 consecutive checks. That threshold outlasts the bounded 15-minute kdump writer
+and its service margin. Both paths and VM running state are rechecked after evidence collection, so a
+recovery or lifecycle transition during capture cancels it.
+Failure to reach Proxmox never causes an action. A stopped VM is never started or reset.
 
 ### 3. Preserve panic text outside doc2
 
 After networking is online, doc2 loads `netconsole` with fixed inventory values:
 
 ```text
-6665@192.168.1.35/ens18 -> 6666@192.168.1.29/bc:24:11:a4:f8:32
+6665@192.168.1.35/ens18 -> 6667@192.168.1.12/9c:6b:00:95:f5:51
 ```
 
-Doc1 receives the datagrams through a systemd UDP socket and writes them to its persistent journal as `SYSLOG_IDENTIFIER=doc2-netconsole`. Its firewall accepts UDP/6666 only from doc2's `192.168.1.35` and drops other sources. This removes the prior evidence gap where doc2's journal stopped with the machine.
+Prom receives the datagrams in a dedicated hardened service, accepts only doc2's two LAN source
+addresses, timestamps each packet and writes `/var/log/doc2-netconsole/kernel.log`. Proxmox firewall
+rules limit UDP/6667 to those sources. This is source attribution/filtering rather than authentication;
+a same-LAN sender can spoof plaintext UDP. This is separate from the issue-51 UDP/6666 lab receiver.
 
 ## Verification
 
@@ -93,16 +144,17 @@ Non-destructive checks:
 ssh doc2 'pid=$(systemctl show microvm@slskd.service -p MainPID --value); tr "\0" " " </proc/$pid/cmdline; for f in /proc/$pid/task/*/comm; do cat "$f"; done'
 
 # Panic timeout and sender
-ssh doc2 'grep -o "panic=30" /proc/cmdline; systemctl is-active doc2-netconsole-sender; lsmod | grep ^netconsole'
+ssh doc2 'grep -o "panic=30" /proc/cmdline; systemctl is-active crash-capture-netconsole; lsmod | grep ^netconsole'
 
 # Receiver and healthy watchdog probe
-systemctl is-active doc2-netconsole.socket doc2-recovery.timer
+ssh root@prom 'systemctl is-active doc2-netconsole-receiver; ss -lunp | grep :6667'
+systemctl is-active doc2-netconsole-prom-sync.service doc2-recovery.timer
 sudo systemctl start doc2-recovery.service
 journalctl -u doc2-recovery.service -n 20 --no-pager
 
 # End-to-end netconsole transport without causing a fault
-ssh root@prom "qm guest exec 114 -- /run/current-system/sw/bin/bash -c 'echo DOC2-NETCONSOLE-TEST-20260722 > /dev/kmsg'"
-journalctl -t doc2-netconsole --since '2 minutes ago' --no-pager
+ssh root@prom "qm guest exec 114 -- /run/current-system/sw/bin/bash -c \"echo '<2>DOC2-NETCONSOLE-TEST' > /dev/kmsg\""
+ssh root@prom 'tail -n 5 /var/log/doc2-netconsole/kernel.log'
 ```
 
 Do not test automated reset by taking doc2 offline in production. The safety gates are evaluated from generated service/script content, and the normal healthy invocation must leave the failure counter at zero.
@@ -111,8 +163,9 @@ Do not test automated reset by taking doc2 offline in production. The safety gat
 
 - Revert the mitigation commit and redeploy doc1/doc2 through the signed fleet path.
 - Immediate runtime disable without changing history:
-  - doc1: `sudo systemctl stop doc2-recovery.timer doc2-netconsole.socket`
-  - doc2 sender: stop `doc2-netconsole-sender.service` through the Proxmox console.
+  - doc1: `sudo systemctl stop doc2-recovery.timer`
+  - prom receiver: `ssh root@prom 'systemctl disable --now doc2-netconsole-receiver'`
+  - doc2 sender: stop `crash-capture-netconsole.service` through the Proxmox console.
 - `panic=30` only changes panic behavior; it does not reboot a healthy system.
 
 ## Revisit conditions

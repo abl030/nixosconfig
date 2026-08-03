@@ -195,21 +195,23 @@ at least one week (not before 2026-08-03). Runtime evidence is recorded in
 
 - **Not a fleet-wide virtiofs indictment.** Single-nest virtiofs on doc1/doc2/igpu is not implicated by
   this incident; the outer daemon was never restarted and never erred.
-- **Not the doc1 panic.** That remains unexplained — no stack through fuse/virtiofs was ever captured,
-  and doc1 runs `panic_on_oops=0` / `kexec_crash_loaded=0`, so kdump was never armed. Re-run that
-  experiment **only** in VM 951, which already has `crashkernel=512M`, `kexec_crash_loaded=1`, a serial
-  console and `softlockup_panic=1`.
+- **Not the doc1 panic.** That remains unexplained — no stack through fuse/virtiofs was ever captured.
+  At incident time doc1 ran `panic_on_oops=0` / `kexec_crash_loaded=0`; kdump is now armed separately
+  under [fleet-crash-capture.md](fleet-crash-capture.md). Re-run the nested-virtiofs experiment **only**
+  in VM 951, which already has `crashkernel=512M`, `kexec_crash_loaded=1`, a serial console and
+  `softlockup_panic=1`.
 - **Not the doc2 tty wedge.** Its preserved `doc2-ps.json` shows 64 of 65 D-state tasks in `tty_open`
   and **zero** in any FUSE path. Different problem, TTY layer, still uncaptured — the recovery module
   only collected WCHAN, which names the layer but never the lock holder. `sysrq-t`/`sysrq-w` and
   `/proc/<pid>/stack` capture has since been added to `doc2-recovery` (driven over QGA, which stayed
   responsive throughout the wedge while SSH was dead).
 
-  Note on netconsole, corrected 2026-07-25: doc1's `doc2-netconsole.socket` showing `0B in` is **not**
-  a fault. doc2 boots `loglevel=4`, so only KERN_ERR and above reach any console; routine INFO records
-  are filtered by design and the fleet's kernels are simply quiet. Verified end-to-end by emitting
-  `<2>` (crit) on doc2 and observing it arrive on doc1. Oops/panic output is EMERG/ALERT/CRIT and is
-  carried, as is sysrq output (`__handle_sysrq` raises `console_loglevel` for its duration).
+  Note on netconsole, revised 2026-08-03: a quiet dedicated prom receiver on UDP/6667 is **not** a
+  fault. doc2 boots `loglevel=4`, so only KERN_ERR and above reach any console; routine INFO records
+  are filtered by design and the fleet's kernels are simply quiet. Verified end-to-end by sending a
+  synthetic datagram from doc2 and observing its source-labelled timestamped record on prom. Oops/panic
+  output is EMERG/ALERT/CRIT and is carried, as is sysrq output (`__handle_sysrq` raises
+  `console_loglevel` for its duration).
 
 ## When to revisit
 

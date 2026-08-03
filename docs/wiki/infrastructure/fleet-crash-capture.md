@@ -1,7 +1,7 @@
 # Fleet crash capture (netconsole standard, kdump opt-in)
 
-**Date researched:** 2026-07-25
-**Status:** netconsole generalised fleet-wide; kdump implemented but opt-in and not yet enabled anywhere
+**Date researched:** 2026-07-25; revised 2026-08-03 after the second doc2 panic
+**Status:** netconsole fleet-wide; doc1 and doc2 kdump-enabled; doc2 uses a dedicated source-filtered prom receiver
 **Module:** `modules/nixos/services/crash-capture.nix` (`homelab.crashCapture.*`)
 **Issue:** [#51](https://git.ablz.au/abl030/nixosconfig/issues/51)
 **Related:** [doc2-kernel-panic-2026-07-22.md](doc2-kernel-panic-2026-07-22.md),
@@ -37,8 +37,16 @@ rebooting in 30 seconds.
 
 `homelab.crashCapture.kdump` therefore adds a `crash-capture-save-vmcore` service
 (`WantedBy=rescue.target emergency.target`, `ConditionPathExists=/proc/vmcore`) which writes the kernel
-log first (small, high value, survives a full disk), then the gzipped vmcore **only if it fits in half
-the free space**, prunes to `keepDumps`, and reboots. Availability is preserved.
+log first, preallocates `minimumFreeGiB` as a real non-sparse reserve, then streams a gzip-compressed
+vmcore. A raw-RAM-size preflight is deliberately not used: doc2 has 30 GB RAM but only 55 GB free,
+while zero and free pages compress well. ENOSPC cannot consume the held reserve; interrupted streams are
+retained with a `.partial` suffix and never presented as completed dumps. Compression has a 15-minute
+deadline, after which the script records the reason, releases the reserve, syncs and reboots. Each dump
+also retains the exact unstripped `vmlinux`, module closure and kernel identity/hash context required for
+analysis. A 20-minute whole-service deadline, bounded TERM/KILL escalation and `FailureAction=reboot-force`
+prevent the capture kernel remaining in rescue mode after any script, storage or compression failure.
+Retention selects the newest `keepDumps` crash timestamps and deletes every older generation as a set,
+so completed, partial and skipped artifacts cannot each consume an independent quota.
 
 `makedumpfile` is **not packaged in nixpkgs** (checked 2026-07-25), so dumps cannot be filtered down to
 non-free pages; a raw gzip of guest RAM is the best available. This is why the free-space guard exists
@@ -55,7 +63,7 @@ Verified 2026-07-25 — unit present on `proxmox-vm`, `doc2`, `servarr`; absent 
 
 ## The loglevel gotcha (cost me an hour; read this before declaring netconsole broken)
 
-doc1's `doc2-netconsole.socket` reporting `IP: 0B in` is **normal**, not a fault. The fleet boots
+The dedicated prom receiver showing no packets on a healthy system is **normal**, not a fault. The fleet boots
 `loglevel=4`, so `console_loglevel = 4` and only messages with level < 4 (emerg/alert/crit/err) reach
 *any* console, netconsole included. Routine INFO chatter is filtered by design, and a healthy quiet
 kernel sends nothing for weeks.
@@ -65,16 +73,18 @@ Test delivery properly — an INFO-level marker will be silently dropped and pro
 ```sh
 # on the sending host — <2> is KERN_CRIT, which passes the loglevel=4 filter
 ssh doc2 "echo '<2>netconsole-test-$(date +%s)' | sudo tee /dev/kmsg"
-# on the collector (doc1)
-sudo journalctl -t doc2-netconsole --since '-2 min'
+# on prom
+ssh root@prom 'tail -n 5 /var/log/doc2-netconsole/kernel.log'
 ```
 
-Verified working end-to-end on 2026-07-25: the crit marker arrived; an INFO marker sent moments earlier
-did not, and `tcpdump -i ens18 'udp port 6666'` showed zero packets for it.
+The old UDP/6666 kernel sender was verified with this method on 2026-07-25. The dedicated UDP/6667
+route, firewall, receiver filtering and persistence were verified with a harmless userspace datagram on
+2026-08-03; the boot-time kernel sender still requires the documented post-deployment reboot and
+KERN_CRIT acceptance check.
 
 What this means for crash capture: **oops and panic output is EMERG/ALERT/CRIT and is carried.** So is
 sysrq output — `__handle_sysrq()` raises `console_loglevel` to default for the duration of the handler,
-which is why the `doc2-recovery` sysrq task dumps also reach doc1.
+which is why the `doc2-recovery` sysrq task dumps also reach prom.
 
 ## Design notes
 
@@ -83,8 +93,29 @@ which is why the `doc2-recovery` sysrq task dumps also reach doc1.
 - **The source interface is discovered at start**, via `ip -4 route get <collector>`, so hosts with
   different NIC names need no per-host configuration. doc2's old sender hardcoded `ens18`.
 - **`oopsOnly` is left off** so sysrq task dumps travel too, not just oopses.
-- doc1 is the collector and correctly starts no sender for itself (the script detects that its source
-  address is the collector address and exits cleanly).
+- **doc2 uses prom UDP/6667 exclusively.** UDP/6666 remains the issue-51 lab listener. The prior shared
+  port silently mixed doc2's 2026-08-03 panic into `/var/log/vm951-netconsole.log` under the wrong
+  production label. `doc2-netconsole-prom-sync.service` on doc1 installs a source-filtered, hardened
+  receiver on prom, which timestamps and prefixes every logical line into
+  `/var/log/doc2-netconsole/kernel.log`, records its effective receive buffer and kernel-reported UDP
+  queue drops, and rejects sources other than doc2's two LAN addresses. The existing source-restricted
+  Proxmox firewall rule is still required and is checked by the sync service.
+- **Source filtering is attribution, not authentication.** Plain UDP permits same-LAN spoofing; the
+  receiver allow-list and Proxmox firewall prevent accidental cross-talk but do not cryptographically
+  authenticate the sender.
+- **The receiver is independent of doc2 and doc1 at crash time.** prom owns the process, log and disk.
+  doc1 only reconciles the receiver files during activation/boot using its existing scoped prom key.
+- This dedicated labelled receiver is doc2-specific; other fleet senders retain their separately
+  configured collectors. Kdump remains an independent second evidence tier.
+
+Prom's non-NixOS firewall invariant is persisted in `/etc/pve/nodes/prom/host.fw`:
+
+```text
+IN ACCEPT -source 192.168.1.35,192.168.1.36 -p udp -dport 6667 -log nolog
+```
+
+Keep the old doc2 UDP/6666 rule only through sender migration; remove it after live UDP/6667 acceptance.
+The issue-51 VM951 UDP/6666 rules and receiver remain independent.
 
 ## Enabling kdump on a host
 
@@ -104,6 +135,50 @@ dmesg | grep -i crashkernel          # must not say "reservation failed"
 
 Do **not** enable on `servarr` at the default size without thought: it has 3 GB of RAM, so 256M is
 ~8% of the host.
+
+## 2026-08-03 doc2 recurrence and capture corrections
+
+The recurrence proved that the sender worked but the collector topology did not. doc2 panicked at
+`15:53:31.529 AWST` with a recursive page fault/double fault at the same unrelocated
+`asm_exc_page_fault` address as the 2026-07-22 panic. Its packets reached prom only because the
+issue-51 lab's broad `vm951-netconsole-recv` socat process happened to own UDP/6666. The panic was
+therefore found later in `/var/log/vm951-netconsole.log`, mixed with multiple lab guests and lacking
+reliable production source attribution. The first fault's stack had already been destroyed by the double fault.
+
+The recovery watchdog separately reached its sustained-failure threshold, but `for key in w t`
+overwrote the SSH identity variable. Every later prom command used `ssh -i w` or `ssh -i t`, so SysRq,
+post-failure evidence and `qm reset` all failed. The corrected watchdog:
+
+1. keeps `ssh_key` immutable and uses `sysrq_key` for trigger iteration;
+2. captures QMP status, all-vCPU registers, Proxmox RRD, QEMU host-thread stacks and the dedicated
+   netconsole tail without guest cooperation;
+3. treats sustained TCP/22 loss on both doc2 LAN addresses with live QGA as a capture-only condition,
+   collecting SysRq task stacks but never resetting;
+4. resets only after both TCP/22 paths and QGA are unavailable for 25 consecutive one-minute checks, safely
+   outlasting the crash-dump service's 15-minute compression deadline plus its five-minute margin, then
+   rechecks both paths, VM uptime/state, and the receiver/firewall after evidence collection so recovery
+   or a VM transition cancels the reset;
+5. resets its counters after any observation gap, so stale evidence cannot authorize a later reset; and
+6. allows ten minutes for the expanded evidence transaction before systemd times it out.
+
+Incident bundles live under `/var/lib/doc2-recovery/incidents/<UTC>/` on doc1. The watchdog retains the
+newest 20 directories; archive any case that must be kept longer before further experiments.
+
+doc2 now reserves 512 MiB for kdump, sets `panic_on_oops=1` through the crash-capture module, and sets
+`panic_print=63`. This is intentional: the next first oops should enter the capture kernel before a
+secondary exception destroys its stack. After the required reboot, acceptance is:
+
+```sh
+ssh doc2 'cat /sys/kernel/kexec_crash_loaded; sysctl kernel.panic_on_oops kernel.panic_print'
+# Expected: 1, 1, 63
+
+ssh root@prom 'systemctl is-active doc2-netconsole-receiver; ss -lunp | grep :6667'
+ssh doc2 "echo '<2>doc2-netconsole-acceptance-$(date +%s)' | sudo tee /dev/kmsg"
+ssh root@prom 'tail -n 5 /var/log/doc2-netconsole/kernel.log'
+```
+
+A deliberate SysRq crash is not part of routine deployment. If explicitly authorized later, it is the
+only end-to-end proof of crash-kernel boot, vmcore persistence and automatic return to service.
 
 ## When to revisit
 
