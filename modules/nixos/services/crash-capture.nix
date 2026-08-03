@@ -90,47 +90,160 @@
   # dump, prune old ones, then reboot, so kdump never costs availability.
   saveScript = pkgs.writeShellApplication {
     name = "crash-capture-save-vmcore";
-    # writeShellApplication pins PATH to exactly these: dmesg comes from
-    # util-linux and the df parser needs awk, both easy to omit and only
-    # discoverable at crash time, which is the worst moment to find out.
-    runtimeInputs = with pkgs; [coreutils gzip systemd findutils util-linux gawk kexec-tools];
+    runtimeInputs = with pkgs; [coreutils gzip systemd findutils util-linux gawk kexec-tools gnutar];
     text = ''
       set -uo pipefail
       dir=${lib.escapeShellArg cfg.kdump.dumpDir}
       keep=${toString cfg.kdump.keepDumps}
+      minimum_free_gib=${toString cfg.kdump.minimumFreeGiB}
+      max_dump_seconds=${toString (cfg.kdump.maxDumpMinutes * 60)}
+      configured_vmlinux=${lib.escapeShellArg "${config.boot.kernelPackages.kernel.dev}/vmlinux"}
+      configured_modules=${lib.escapeShellArg config.system.modulesTree}
+      stamp=""
+      target=""
+      partial=""
+      reserve="$dir/.vmcore-reserve"
+
+      # Invoked transitively by the EXIT/signal trap.
+      # shellcheck disable=SC2329
+      cleanup() {
+        if [ -n "$target" ]; then
+          if [ -s "$target.tmp" ]; then
+            mv "$target.tmp" "$partial"
+          else
+            rm -f "$target.tmp"
+          fi
+        fi
+        if [ -n "$stamp" ]; then
+          rm -f "$dir/vmlinux-$stamp.gz.tmp" \
+            "$dir/kernel-modules-$stamp.tar.gz.tmp"
+        fi
+        rm -f "$reserve"
+      }
+      # Installed as the EXIT trap immediately below.
+      # shellcheck disable=SC2329
+      reboot_after_capture() {
+        trap - EXIT HUP INT TERM
+        set +e
+        cleanup
+        sync
+        # The crash kernel must never remain stranded in rescue mode. The unit's
+        # FailureAction=reboot-force is the final fallback if both commands return.
+        if timeout 5 systemctl --force reboot; then
+          sleep 1
+        else
+          timeout 5 reboot -f || true
+        fi
+        exit 1
+      }
+      trap reboot_after_capture EXIT
+      trap 'exit 1' HUP INT TERM
+
       mkdir -p "$dir"
       stamp=$(date -u +%Y%m%dT%H%M%SZ)
+      target="$dir/vmcore-$stamp.gz"
+      partial="$target.partial"
+
+      # A reset during an earlier capture can leave incomplete state. The reserve
+      # is real allocated space, not a sparse file, so releasing it always leaves
+      # minimumFreeGiB available even if gzip reaches ENOSPC.
+      for stale in "$dir"/vmcore-*.tmp; do
+        [ -e "$stale" ] || continue
+        if [ -s "$stale" ]; then
+          mv "$stale" "''${stale%.tmp}.partial"
+        else
+          rm -f "$stale"
+        fi
+      done
+      rm -f "$reserve"
+
+      prune_generations() {
+        local limit=$1
+        { find "$dir" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null \
+          | grep -oE '[0-9]{8}T[0-9]{6}Z' || true; } | sort -ru \
+          | tail -n "+$((limit + 1))" \
+          | while IFS= read -r old_stamp; do
+              find "$dir" -maxdepth 1 -type f -name "*-$old_stamp.*" -delete
+            done
+      }
+      # Make room before beginning the new transaction, while retaining enough
+      # prior contexts to satisfy keepDumps once this one completes.
+      prune_generations "$((keep - 1))"
 
       # The crashed kernel's log buffer is the high-value part and is tiny; write
       # it first so a full-disk failure on the vmcore still leaves the backtrace.
-      #
-      # It must come from vmcore-dmesg(8), which reads the log out of the DEAD
-      # kernel's memory via /proc/vmcore. Plain `dmesg` here reads the *capture*
-      # kernel's own freshly-booted ring buffer and silently produces an empty
-      # file — verified on doc1's 2026-07-25 sysrq test, which wrote 0 bytes.
       vmcore-dmesg /proc/vmcore > "$dir/dmesg-$stamp.txt" 2>"$dir/dmesg-$stamp.err" \
         || echo "vmcore-dmesg failed; see .err and the vmcore itself" \
              >> "$dir/dmesg-$stamp.err"
 
-      avail=$(df -Pk "$dir" | awk 'NR==2{print $4}')
+      {
+        printf 'captured_utc=%s\n' "$(date -u --iso-8601=seconds)"
+        printf 'configured_vmlinux=%s\n' "$configured_vmlinux"
+        printf 'configured_modules=%s\n' "$configured_modules"
+        printf 'capture_kernel_uname='; uname -a
+        printf 'capture_kernel_cmdline='; cat /proc/cmdline
+        printf 'current_system='; readlink -f /run/current-system 2>/dev/null || true
+        sha256sum "$configured_vmlinux" 2>/dev/null || true
+      } > "$dir/kernel-context-$stamp.txt"
+
       core=$(stat -Lc %s /proc/vmcore 2>/dev/null || echo 0)
-      # gzip on mostly-free guest memory typically lands well under half, but
-      # refuse rather than fill the root filesystem and wedge the host on boot.
-      if [ "$core" -gt 0 ] && [ "$((core / 1024))" -lt "$((avail / 2))" ]; then
-        gzip -1 -c /proc/vmcore > "$dir/vmcore-$stamp.gz" || \
-          rm -f "$dir/vmcore-$stamp.gz"
-      else
-        echo "crash-capture: skipping vmcore (size=$core avail_kb=$avail)" \
+      if [ "$core" -le 0 ]; then
+        echo "crash-capture: /proc/vmcore had zero size" > "$dir/vmcore-$stamp.skipped"
+      elif ! fallocate -l "''${minimum_free_gib}G" "$reserve"; then
+        echo "crash-capture: vmcore skipped reason=reserve-allocation-failed reserve_gib=$minimum_free_gib" \
           > "$dir/vmcore-$stamp.skipped"
+      else
+        # Preserve the exact unstripped image and module closure alongside the
+        # vmcore. Referencing these store paths also keeps them in the generation
+        # closure so routine Nix garbage collection cannot orphan the dump.
+        if gzip -1 -c "$configured_vmlinux" > "$dir/vmlinux-$stamp.gz.tmp" \
+          2> "$dir/vmlinux-$stamp.err"; then
+          mv "$dir/vmlinux-$stamp.gz.tmp" "$dir/vmlinux-$stamp.gz"
+        else
+          rm -f "$dir/vmlinux-$stamp.gz.tmp"
+        fi
+        if tar -C "$configured_modules" -czf "$dir/kernel-modules-$stamp.tar.gz.tmp" . \
+          2> "$dir/kernel-modules-$stamp.err"; then
+          mv "$dir/kernel-modules-$stamp.tar.gz.tmp" "$dir/kernel-modules-$stamp.tar.gz"
+        else
+          rm -f "$dir/kernel-modules-$stamp.tar.gz.tmp"
+        fi
+
+        # A separate process group lets the deadline terminate gzip and any
+        # descendants before waiting; a TERM-resistant helper cannot strand us.
+        setsid gzip -1 -c /proc/vmcore > "$target.tmp" &
+        gzip_pid=$!
+        started=$SECONDS
+        abort_reason=""
+        while kill -0 "$gzip_pid" 2>/dev/null; do
+          if [ "$((SECONDS - started))" -ge "$max_dump_seconds" ]; then
+            abort_reason="deadline-exceeded"
+            kill -- "-$gzip_pid" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+              kill -0 "$gzip_pid" 2>/dev/null || break
+              sleep 0.1
+            done
+            kill -KILL -- "-$gzip_pid" 2>/dev/null || true
+            break
+          fi
+          sleep 1
+        done
+        if wait "$gzip_pid" && [ -z "$abort_reason" ]; then
+          mv "$target.tmp" "$target"
+        else
+          [ -n "$abort_reason" ] || abort_reason="write-failed"
+          if [ -s "$target.tmp" ]; then
+            mv "$target.tmp" "$partial"
+          else
+            rm -f "$target.tmp"
+          fi
+          echo "crash-capture: vmcore aborted reason=$abort_reason max_dump_seconds=$max_dump_seconds partial=$partial" \
+            > "$dir/vmcore-$stamp.skipped"
+        fi
       fi
 
-      # Keep only the newest $keep dumps.
-      find "$dir" -maxdepth 1 -name 'vmcore-*.gz' -printf '%T@ %p\n' 2>/dev/null \
-        | sort -rn | tail -n "+$((keep + 1))" | cut -d' ' -f2- \
-        | xargs -r rm -f
-
-      sync
-      systemctl --force reboot
+      prune_generations "$keep"
+      exit 0
     '';
   };
 in {
@@ -206,7 +319,19 @@ in {
       keepDumps = lib.mkOption {
         type = lib.types.ints.positive;
         default = 2;
-        description = "Number of compressed vmcores retained before pruning.";
+        description = "Number of crash artifact generations retained before pruning each older set atomically.";
+      };
+
+      minimumFreeGiB = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 8;
+        description = "Preallocated filesystem reserve held throughout vmcore compression.";
+      };
+
+      maxDumpMinutes = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 15;
+        description = "Hard deadline for vmcore compression before partial output is retained and the host reboots.";
       };
     };
   };
@@ -271,12 +396,22 @@ in {
 
       systemd.services.crash-capture-save-vmcore = {
         description = "Persist vmcore after a kernel crash, then reboot";
-        unitConfig.ConditionPathExists = "/proc/vmcore";
+        unitConfig = {
+          ConditionPathExists = "/proc/vmcore";
+          FailureAction = "reboot-force";
+          RequiresMountsFor = cfg.kdump.dumpDir;
+        };
         after = ["local-fs.target"];
         wantedBy = ["rescue.target" "emergency.target"];
         serviceConfig = {
           Type = "oneshot";
           ExecStart = lib.getExe saveScript;
+          # Bound the entire crash-kernel transaction. The script's compression
+          # deadline leaves five minutes for symbols, cleanup and reboot.
+          TimeoutStartSec = "${toString (cfg.kdump.maxDumpMinutes + 5)}min";
+          TimeoutStopSec = "30s";
+          KillMode = "control-group";
+          SendSIGKILL = true;
         };
       };
 

@@ -41,10 +41,28 @@
   # of those dependencies.
   # See docs/wiki/infrastructure/doc2-kernel-panic-2026-07-22.md and
   # docs/wiki/infrastructure/fleet-crash-capture.md.
-  homelab.crashCapture.netconsole = {
-    collectorAddress = "192.168.1.12";
-    collectorMac = "9c:6b:00:95:f5:51";
+  homelab.crashCapture = {
+    netconsole = {
+      collectorAddress = "192.168.1.12";
+      collectorMac = "9c:6b:00:95:f5:51";
+      # Dedicated prom receiver. UDP/6666 belongs to the issue-51 lab receiver;
+      # sharing it hid the 2026-08-03 panic in vm951-netconsole.log.
+      collectorPort = 6667;
+    };
+
+    # The 2026-08-03 double fault destroyed the initiating stack before the
+    # terminal panic reached netconsole. Preserve the dead kernel so crash(8)
+    # can inspect the first fault rather than only its recursive aftermath.
+    kdump = {
+      enable = true;
+      reservedMemory = "512M";
+    };
   };
+
+  # Include tasks, memory, timers, locks, ftrace and all-CPU backtraces in any
+  # panic that still has enough kernel state to print them. kdump remains the
+  # primary path when the text trace itself is damaged.
+  boot.kernel.sysctl."kernel.panic_print" = 63;
 
   homelab = {
     ssh = {

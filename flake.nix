@@ -460,6 +460,82 @@
               touch $out
             '';
 
+          # Keep the doc2 crash evidence path structurally independent of the
+          # guest and lock the SSH-identity regression that broke the 2026-08-03
+          # automatic reset. Generated scripts are checked, not only Nix source,
+          # so interpolation/shadowing mistakes cannot hide behind evaluation.
+          doc2CrashCaptureCheck = let
+            doc2 = self.nixosConfigurations.doc2.config;
+            observer = self.nixosConfigurations.proxmox-vm.config;
+            recovery = observer.systemd.services.doc2-recovery.serviceConfig.ExecStart;
+            receiverSync = observer.systemd.services.doc2-netconsole-prom-sync.serviceConfig.ExecStart;
+            saveVmcore = doc2.systemd.services.crash-capture-save-vmcore.serviceConfig.ExecStart;
+            dumpMount = doc2.systemd.services.crash-capture-save-vmcore.unitConfig.RequiresMountsFor;
+            dumpFailureAction = doc2.systemd.services.crash-capture-save-vmcore.unitConfig.FailureAction;
+            dumpTimeout = doc2.systemd.services.crash-capture-save-vmcore.serviceConfig.TimeoutStartSec;
+            hasStaleDoc1Socket = observer.systemd.sockets ? doc2-netconsole;
+          in
+            pkgs.runCommand "doc2-crash-capture-invariants" {} ''
+              recovery=${lib.escapeShellArg recovery}
+              receiver_sync=${lib.escapeShellArg receiverSync}
+              save_vmcore=${lib.escapeShellArg saveVmcore}
+
+              ${pkgs.gnugrep}/bin/grep -F 'ssh -i "$ssh_key"' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'IdentitiesOnly=yes' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'StrictHostKeyChecking=yes' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'for sysrq_key in w t' "$recovery" >/dev/null
+              if ${pkgs.gnugrep}/bin/grep -F 'ssh -i "$key"' "$recovery" >/dev/null; then
+                echo "recovery script still permits the sysrq loop to overwrite its SSH identity"
+                exit 1
+              fi
+              ${pkgs.gnugrep}/bin/grep -F 'info registers -a' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'qm pending $vmid' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'qm showcmd $vmid --pretty' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'captured-qga-only' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'recovered-during-capture' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'consecutive-dual-failures' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'last-observation' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'doc2_secondary_address' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'final_vm_pid' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'receiver-unhealthy' "$recovery" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'mktemp -d /run/doc2-netconsole-sync.XXXXXX' "$receiver_sync" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'StrictHostKeyChecking=yes' "$receiver_sync" >/dev/null
+              if ${pkgs.gnugrep}/bin/grep -F '/tmp/doc2-netconsole-' "$receiver_sync" >/dev/null; then
+                echo "receiver sync still stages privileged artifacts under shared /tmp"
+                exit 1
+              fi
+              ${pkgs.gnugrep}/bin/grep -F 'fallocate -l "${"$"}{minimum_free_gib}G"' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'deadline-exceeded' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'configured_vmlinux=' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'kernel-modules-' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'partial="$target.partial"' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'prune_generations' "$save_vmcore" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'kill -KILL -- "-$gzip_pid"' "$save_vmcore" >/dev/null
+              if ${pkgs.gnugrep}/bin/grep -F 'df -P' "$save_vmcore" >/dev/null; then
+                echo "vmcore writer regressed to a polling-only free-space guard"
+                exit 1
+              fi
+
+              test ${toString doc2.homelab.crashCapture.netconsole.collectorPort} -eq 6667
+              test ${lib.boolToString doc2.homelab.crashCapture.kdump.enable} = true
+              test ${toString doc2.homelab.crashCapture.kdump.maxDumpMinutes} -eq 15
+              test ${lib.escapeShellArg dumpMount} = /var/crash
+              test ${lib.escapeShellArg dumpFailureAction} = reboot-force
+              test ${lib.escapeShellArg dumpTimeout} = 20min
+              test ${toString observer.homelab.services.doc2Recovery.captureFailureThreshold} -eq 10
+              test ${toString observer.homelab.services.doc2Recovery.resetFailureThreshold} -eq 25
+              test ${toString doc2.boot.kernel.sysctl."kernel.panic_on_oops"} -eq 1
+              test ${toString doc2.boot.kernel.sysctl."kernel.panic_print"} -eq 63
+              test ${lib.boolToString hasStaleDoc1Socket} = false
+              if ${pkgs.gnugrep}/bin/grep -F 'copytruncate' ${./modules/nixos/services/doc2-recovery.nix} >/dev/null; then
+                echo "netconsole rotation must use rename plus receiver reopen"
+                exit 1
+              fi
+              ${pkgs.gnugrep}/bin/grep -F 'SO_RXQ_OVFL' ${./modules/nixos/services/doc2-recovery.nix} >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'LogsDirectoryMode=0700' ${./modules/nixos/services/doc2-recovery.nix} >/dev/null
+              touch $out
+            '';
+
           # Per-service container network isolation (#232). Standalone OCI
           # containers must NOT share the default podman bridge (where every
           # container can L3-reach + DNS-resolve every other on 10.88.0.0/16, a
@@ -1670,7 +1746,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
