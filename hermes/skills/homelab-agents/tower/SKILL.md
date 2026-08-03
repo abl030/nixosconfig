@@ -40,21 +40,29 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
 ## ⚠️ Operational gotchas (learned the hard way — read before poking)
 
 1. **Hard NFS mounts hang forever.** tower mounts the Plex **music** library from prom over
-   NFSv3 (`192.168.1.12:/nvmeprom/containers/Music` → `/mnt/remotes/192.168.1.12_Music`,
+   NFS (`192.168.1.12:/nvmeprom/containers/Music` → `/mnt/remotes/192.168.1.12_Music`,
    `ro,hard`). When prom is down, **any** access to that path — even `ls /mnt/remotes/` — blocks
    indefinitely and will hang your whole SSH command. **Always `timeout`-wrap anything that
    might touch a network mount**, and never blindly `ls` a mount parent. If music is missing,
    suspect **prom is down** first, not tower.
-2. **A wedged host half-answers.** A hung hypervisor (e.g. prom) still completes TCP SYN-ACK
+2. **UD checks disabled remotes and Docker can capture the pre-mount path.** Unassigned Devices
+   health-checks every configured remote, even entries without auto-mount. Its NFS check runs an
+   unbounded `showmount -e`, so a retired server that accepts TCP 2049 but stalls RPC can delay every
+   later mount and leave their UI state stale/offline. Remove retired entries. Unraid may start Plex
+   before UD mounts Music; because Docker's bind is `rprivate`, mounting NFS later does not repair the
+   container view. Compare host and container filesystem types with bounded `stat -f -c %T` calls;
+   if host is `nfs` but `/prom_music` is `tmpfs`, restart Plex. The persistent boot guard and incident
+   details are in `docs/wiki/services/plex-media-dmz.md` and `scripts/tower-plex-music-guard.sh`.
+3. **A wedged host half-answers.** A hung hypervisor (e.g. prom) still completes TCP SYN-ACK
    in-kernel while ICMP and userspace RPC/NFS stall — so "port 2049 open" does NOT mean NFS is
    healthy, and `ping` failing while TCP "works" is the signature of a wedged peer, not a
    firewall/ACL. Don't chase a config ghost when the server is just down.
-3. **Unraid root is tmpfs; persistence is the flash.** `/etc`, `/root`, most of `/` are rebuilt
+4. **Unraid root is tmpfs; persistence is the flash.** `/etc`, `/root`, most of `/` are rebuilt
    every boot. Durable config lives on **`/boot`** (the USB flash): `/boot/config/`, `ident.cfg`,
    `/boot/config/go`, `/boot/config/plugins/`, `/boot/config/ssh/`. A live `/etc` edit will NOT
    survive a reboot — change the flash source. Treat `/boot` as fragile: a bad edit can break boot.
-4. Unraid is **root-only** for management (no useful non-root shell). That's expected.
-5. **tower RAM is TIGHT — do not over-allocate VMs (2026-06-22).** 30 GiB total, routinely ~20 GiB used (array/shfs + ZFS ARC + Plex + containers + VMs). A Linux guest **fills its whole RAM allocation with page cache under I/O**, so the qemu RSS on the host grows to the allocation — a 6 GiB VM under load = ~6 GiB host RSS. The `servarr` VM was allocated **6 GiB**, hit heavy NFS I/O, and the host **OOM-killer shot the qemu process** (`avahi-daemon invoked oom-killer … Killed process … qemu-system-x86`), which also starved Plex. Its real working set is **~1.3 GiB**, so it was **capped to 4 GiB** (`virsh setmaxmem servarr 4194304 --config; virsh setmem …`). **Size VMs to working-set + a little, not generously**, and `free -h` before starting one. No swap on tower → OOM is instant death, not slowdown.
+5. Unraid is **root-only** for management (no useful non-root shell). That's expected.
+6. **tower RAM is TIGHT — do not over-allocate VMs (2026-06-22).** 30 GiB total, routinely ~20 GiB used (array/shfs + ZFS ARC + Plex + containers + VMs). A Linux guest **fills its whole RAM allocation with page cache under I/O**, so the qemu RSS on the host grows to the allocation — a 6 GiB VM under load = ~6 GiB host RSS. The `servarr` VM was allocated **6 GiB**, hit heavy NFS I/O, and the host **OOM-killer shot the qemu process** (`avahi-daemon invoked oom-killer … Killed process … qemu-system-x86`), which also starved Plex. Its real working set is **~1.3 GiB**, so it was **capped to 4 GiB** (`virsh setmaxmem servarr 4194304 --config; virsh setmem …`). **Size VMs to working-set + a little, not generously**, and `free -h` before starting one. No swap on tower → OOM is instant death, not slowdown.
 
 ## Command vocabulary
 

@@ -91,6 +91,16 @@ moment the network object existed — **no per-port change needed**.
   - `UMASK=022` (was `000`).
   - **Unchanged:** both media mounts `:ro`, `/config` rw, `/dev/dri` (GPU transcode), PUID 99 / PGID 100,
     cpuset.
+- The prom music share is the only configured Unassigned Devices remote. A retired non-auto-mount
+  NFS entry was removed on 2026-08-03 because UD health-checks every configured server serially;
+  its unbounded `showmount -e` stalled remote-share startup even though that share was disabled.
+- `/boot/config/custom/plex-music-guard.sh` is installed from
+  `scripts/tower-plex-music-guard.sh` and launched in the background by the marker
+  `PLEX-MUSIC-GUARD` in `/boot/config/go` via
+  `/bin/bash /boot/config/custom/plex-music-guard.sh &` (`/boot` is mounted `noexec`). It waits until
+  the host path is actually NFS, then checks
+  the running container's `/prom_music` filesystem. If Docker captured the pre-mount tmpfs view, it
+  restarts Plex once and verifies that `/prom_music` is now NFS.
 
 ### Plex application
 
@@ -136,6 +146,14 @@ today.)
 - **User-confirmed:** local direct play, **casting**, remote/family access (off-net), and
   `plex.ablz.au` all working.
 
+Post-reboot recovery was re-verified on 2026-08-03 after Unassigned Devices mounted Music late:
+
+- host `/mnt/remotes/192.168.1.12_Music` reported `nfs`;
+- the pre-recovery Plex bind incorrectly reported `tmpfs` because Docker started first;
+- after the guarded restart, container `/prom_music` reported `nfs` and exposed 4,094 top-level
+  entries;
+- UD's live status contained only the prom NFS server and marked it online.
+
 ## Rollback (≈2 min, fully reversible)
 
 1. tower: revert `my-binhex-plexpass.xml` to `Network=host`, drop the extra params, `UMASK=000`,
@@ -156,6 +174,13 @@ today.)
   egress catch-all, or its gateway override black-holes the stream.
 - **Moving Plex off `--net=host` instantly kills the old `WAN:11338 → tower:32400` path** (nothing
   binds `:32400` on tower's host IP anymore) — flip the NAT target in the same maintenance window.
+- **Unraid starts Docker before UD remote mounts.** A later host mount does not update an existing
+  Docker bind because the template uses `rprivate` propagation. Compare both sides with bounded
+  probes: `timeout 5 stat -f -c %T /mnt/remotes/192.168.1.12_Music/Beets` on tower and
+  `docker exec binhex-plexpass timeout 5 stat -f -c %T /prom_music`. Both must say `nfs`.
+- **A disabled UD remote can still block all status checks.** The plugin probes every entry in
+  `samba_mount.cfg`; TCP 2049 may accept while its unbounded `showmount -e` hangs. Remove retired
+  entries rather than keeping them with auto-mount off. Do not patch the third-party plugin in tmpfs.
 - **cad has no passwordless sudo** — reload Caddy via the admin API, not `systemctl`.
 
 ## When to revisit
