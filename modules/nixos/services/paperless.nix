@@ -218,7 +218,12 @@ in {
     };
 
     homelab = {
-      nfsWatchdog.paperless-web.path = "/mnt/data";
+      nfsWatchdog = {
+        paperless-web.path = "/mnt/data";
+        # The web watchdog cannot recover a consumer stranded in start-limit-hit
+        # after the shared NFS path returns.
+        paperless-consumer.path = "/mnt/data";
+      };
 
       localProxy.hosts = [
         {
