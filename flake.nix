@@ -1614,9 +1614,12 @@
           cratediggerTipCanaryCheck = let
             systemd = self.nixosConfigurations.proxmox-vm.config.systemd;
             service = systemd.services.cratedigger-beets-tip-canary;
+            dailyService = systemd.services.cratedigger-daily-checks;
             notifier = systemd.services.cratedigger-beets-tip-canary-notify-failure.serviceConfig.ExecStart;
             timer = systemd.timers.cratedigger-beets-tip-canary.timerConfig;
             dailyTimer = systemd.timers.cratedigger-daily-checks.timerConfig;
+            dailyPath = lib.concatStringsSep ":" (map toString dailyService.path);
+            tipPath = lib.concatStringsSep ":" (map toString service.path);
           in
             pkgs.runCommand "cratedigger-tip-canary" {
               nativeBuildInputs = [pkgs.gnugrep];
@@ -1629,6 +1632,13 @@
               grep -q 'cratedigger-beets-tip-canary.service' ${notifier}
               test '${service.environment.CRATEDIGGER_AUTOMATION_STATE_DIR}' = '/var/lib/cratedigger-daily-checks'
               test '${service.serviceConfig.StateDirectory}' = 'cratedigger-daily-checks'
+              test '${dailyService.environment.GH_CONFIG_DIR}' != '${service.environment.GH_CONFIG_DIR}'
+              test '${dailyService.environment.XDG_RUNTIME_DIR}' != '${service.environment.XDG_RUNTIME_DIR}'
+              test '${dailyService.serviceConfig.RuntimeDirectory}' != '${service.serviceConfig.RuntimeDirectory}'
+              test '${dailyService.serviceConfig.TimeoutStartSec}' = '17h'
+              test '${service.serviceConfig.TimeoutStartSec}' = '17h'
+              case '${dailyPath}' in *util-linux*) ;; *) echo "daily candidate lacks flock" >&2; exit 1 ;; esac
+              case '${tipPath}' in *util-linux*) ;; *) echo "tip candidate lacks flock" >&2; exit 1 ;; esac
               test '${timer.OnCalendar}' = '*-*-* 18:05:00 Australia/Perth'
               test '${timer.OnCalendar}' != '${dailyTimer.OnCalendar}'
               touch "$out"

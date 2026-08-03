@@ -9,24 +9,31 @@
   runner = "${inputs.cratedigger-src}/scripts/daily_flake_update.sh";
   tipRunner = "${inputs.cratedigger-src}/scripts/daily_beets_tip_update.sh";
   stateDir = "/var/lib/cratedigger-daily-checks";
-  ghConfigDir = "${stateDir}/gh";
+  dailyGhConfigDir = "${stateDir}/daily-gh";
+  tipGhConfigDir = "${stateDir}/beets-tip-gh";
+  dailyRuntimeDir = "/run/cratedigger-daily-checks";
+  tipRuntimeDir = "/run/cratedigger-beets-tip-canary";
+  timeoutStartSec = "17h";
   ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
-  prepareGhConfig = pkgs.writeShellApplication {
-    name = "cratedigger-daily-prepare-gh-config";
-    runtimeInputs = [pkgs.coreutils];
-    text = ''
-      set -euo pipefail
+  prepareGhConfig = name: configDir:
+    pkgs.writeShellApplication {
+      inherit name;
+      runtimeInputs = [pkgs.coreutils];
+      text = ''
+        set -euo pipefail
 
-      # gh currently migrates hosts.yml before serving git's credential
-      # helper. Keep the operator's credential source read-only and refresh a
-      # service-private copy that gh may safely rewrite.
-      install -d -m 0700 ${lib.escapeShellArg ghConfigDir}
-      install -m 0600 ${lib.escapeShellArg ghHostsFile} \
-        ${lib.escapeShellArg "${ghConfigDir}/hosts.yml"}
-    '';
-  };
+        # gh currently migrates hosts.yml before serving git's credential
+        # helper. Keep the operator's credential source read-only and refresh a
+        # service-private copy that gh may safely rewrite before flock runs.
+        install -d -m 0700 ${lib.escapeShellArg configDir}
+        install -m 0600 ${lib.escapeShellArg ghHostsFile} \
+          ${lib.escapeShellArg "${configDir}/hosts.yml"}
+      '';
+    };
+  prepareDailyGhConfig = prepareGhConfig "cratedigger-daily-prepare-gh-config" dailyGhConfigDir;
+  prepareTipGhConfig = prepareGhConfig "cratedigger-beets-tip-prepare-gh-config" tipGhConfigDir;
 
   liveWorldAudit = pkgs.writeShellApplication {
     name = "cratedigger-daily-live-world-audit";
@@ -217,7 +224,7 @@ in {
       {
         assertion =
           config.systemd.services.cratedigger-daily-checks.environment.GH_CONFIG_DIR
-          == ghConfigDir;
+          == dailyGhConfigDir;
         message = "cratedigger daily checks must give gh a private writable config directory";
       }
       {
@@ -231,6 +238,32 @@ in {
           config.systemd.services.cratedigger-beets-tip-canary.environment.CRATEDIGGER_AUTOMATION_STATE_DIR
           == stateDir;
         message = "Beets tip canary must share the Cratedigger daily-checks serialization state";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-daily-checks.environment.GH_CONFIG_DIR
+          != config.systemd.services.cratedigger-beets-tip-canary.environment.GH_CONFIG_DIR;
+        message = "daily and tip candidates must not race on a writable gh config directory";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-daily-checks.environment.XDG_RUNTIME_DIR
+          != config.systemd.services.cratedigger-beets-tip-canary.environment.XDG_RUNTIME_DIR;
+        message = "daily and tip candidates must not share a runtime directory";
+      }
+      {
+        assertion =
+          config.systemd.services.cratedigger-daily-checks.serviceConfig.TimeoutStartSec
+          == timeoutStartSec
+          && config.systemd.services.cratedigger-beets-tip-canary.serviceConfig.TimeoutStartSec
+          == timeoutStartSec;
+        message = "daily and tip candidates must budget peer lock wait plus their own run window";
+      }
+      {
+        assertion =
+          lib.elem pkgs.util-linux config.systemd.services.cratedigger-daily-checks.path
+          && lib.elem pkgs.util-linux config.systemd.services.cratedigger-beets-tip-canary.path;
+        message = "daily and tip candidates must provide flock through util-linux";
       }
       {
         assertion =
@@ -273,13 +306,14 @@ in {
           pkgs.nodejs
           pkgs.openssh
           pkgs.pyright
+          pkgs.util-linux
         ];
 
         environment = {
           HOME = "/home/abl030";
-          GH_CONFIG_DIR = ghConfigDir;
+          GH_CONFIG_DIR = dailyGhConfigDir;
           XDG_CACHE_HOME = "${stateDir}/cache";
-          XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
+          XDG_RUNTIME_DIR = dailyRuntimeDir;
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.43:5200";
           # ProtectHome hides the user's nix.conf, so enable the client-side
@@ -294,7 +328,7 @@ in {
           Type = "oneshot";
           User = "abl030";
           Group = "users";
-          ExecStartPre = "${prepareGhConfig}/bin/cratedigger-daily-prepare-gh-config";
+          ExecStartPre = "${prepareDailyGhConfig}/bin/cratedigger-daily-prepare-gh-config";
           ExecStart = "${pkgs.bash}/bin/bash ${runner}";
           # Always run against doc2's deployed revision after the candidate
           # runner exits. The "+" prefix keeps the fleet SSH identity out of
@@ -302,7 +336,8 @@ in {
           # already committed/pushed before this begins, while this command's
           # nonzero status still makes the same unit and alert path red.
           ExecStopPost = "+${liveWorldAudit}/bin/cratedigger-daily-live-world-audit";
-          TimeoutStartSec = "12h";
+          # 4h maximum tip-peer lock wait + 12h own Nixpkgs candidate + 1h buffer.
+          TimeoutStartSec = timeoutStartSec;
           TimeoutStopSec = "5min";
 
           StateDirectory = "cratedigger-daily-checks";
@@ -356,13 +391,14 @@ in {
           pkgs.nix
           pkgs.nodejs
           pkgs.pyright
+          pkgs.util-linux
         ];
 
         environment = {
           HOME = "/home/abl030";
-          GH_CONFIG_DIR = ghConfigDir;
+          GH_CONFIG_DIR = tipGhConfigDir;
           XDG_CACHE_HOME = "${stateDir}/beets-tip-cache";
-          XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
+          XDG_RUNTIME_DIR = tipRuntimeDir;
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           NIX_CONFIG = "experimental-features = nix-command flakes";
           NIX_PATH = "nixpkgs=${pkgs.path}";
@@ -372,13 +408,14 @@ in {
           Type = "oneshot";
           User = "abl030";
           Group = "users";
-          ExecStartPre = "${prepareGhConfig}/bin/cratedigger-daily-prepare-gh-config";
+          ExecStartPre = "${prepareTipGhConfig}/bin/cratedigger-beets-tip-prepare-gh-config";
           ExecStart = "${pkgs.bash}/bin/bash ${tipRunner}";
-          TimeoutStartSec = "4h";
+          # 12h maximum daily-peer lock wait + 4h own tip candidate + 1h buffer.
+          TimeoutStartSec = timeoutStartSec;
 
           StateDirectory = "cratedigger-daily-checks";
           StateDirectoryMode = "0700";
-          RuntimeDirectory = "cratedigger-daily-checks";
+          RuntimeDirectory = "cratedigger-beets-tip-canary";
           RuntimeDirectoryMode = "0700";
           UMask = "0077";
 
