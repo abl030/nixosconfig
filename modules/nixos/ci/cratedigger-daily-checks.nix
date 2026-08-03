@@ -15,6 +15,29 @@
   tipRuntimeDir = "/run/cratedigger-beets-tip-canary";
   timeoutStartSec = "17h";
   ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
+  dailyCandidatePath = [
+    pkgs.bash
+    pkgs.coreutils
+    pkgs.gh
+    pkgs.git
+    pkgs.jq
+    pkgs.nix
+    pkgs.nodejs
+    pkgs.openssh
+    pkgs.pyright
+    pkgs.util-linux
+  ];
+  tipCandidatePath = [
+    pkgs.bash
+    pkgs.coreutils
+    pkgs.gh
+    pkgs.git
+    pkgs.nix
+    pkgs.nodejs
+    pkgs.pyright
+    pkgs.util-linux
+  ];
+  candidateEnvironmentPath = path: "${config.security.wrapperDir}:${lib.makeBinPath path}";
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
   prepareGhConfig = name: configDir:
@@ -267,6 +290,16 @@ in {
       }
       {
         assertion =
+          config.systemd.services.cratedigger-daily-checks.environment.PATH
+          == candidateEnvironmentPath dailyCandidatePath
+          && config.systemd.services.cratedigger-beets-tip-canary.environment.PATH
+          == candidateEnvironmentPath tipCandidatePath
+          && !config.systemd.services.cratedigger-daily-checks.serviceConfig.NoNewPrivileges
+          && !config.systemd.services.cratedigger-beets-tip-canary.serviceConfig.NoNewPrivileges;
+        message = "candidate suites must be able to execute NixOS subordinate-ID wrappers";
+      }
+      {
+        assertion =
           config.systemd.timers.cratedigger-beets-tip-canary.timerConfig.OnCalendar
           != config.systemd.timers.cratedigger-daily-checks.timerConfig.OnCalendar;
         message = "Beets tip canary must be staggered from the Nixpkgs candidate timer";
@@ -296,18 +329,7 @@ in {
         after = ["network-online.target"];
         unitConfig.OnFailure = ["cratedigger-daily-checks-notify-failure.service"];
 
-        path = [
-          pkgs.bash
-          pkgs.coreutils
-          pkgs.gh
-          pkgs.git
-          pkgs.jq
-          pkgs.nix
-          pkgs.nodejs
-          pkgs.openssh
-          pkgs.pyright
-          pkgs.util-linux
-        ];
+        path = dailyCandidatePath;
 
         environment = {
           HOME = "/home/abl030";
@@ -316,6 +338,9 @@ in {
           XDG_RUNTIME_DIR = dailyRuntimeDir;
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.43:5200";
+          # The Beets authority fixtures use unshare --map-auto. NixOS exposes
+          # the setuid newuidmap/newgidmap helpers only through wrapperDir.
+          PATH = lib.mkForce (candidateEnvironmentPath dailyCandidatePath);
           # ProtectHome hides the user's nix.conf, so enable the client-side
           # flake commands and classic nix-shell lookup explicitly inside this
           # sandboxed unit. Node is also explicit in path because run_tests.sh
@@ -355,7 +380,9 @@ in {
             "-/run/credentials"
             "-/run/secrets"
           ];
-          NoNewPrivileges = true;
+          # newuidmap/newgidmap must acquire their NixOS wrapper privileges to
+          # install only this user's configured subordinate-ID ranges.
+          NoNewPrivileges = false;
           PrivateDevices = true;
           PrivateTmp = true;
           ProtectControlGroups = true;
@@ -363,8 +390,8 @@ in {
           ProtectKernelTunables = true;
           ProtectSystem = "strict";
           # The candidate suite asserts the production beets tree's setgid
-          # contract (02775). This non-root, NoNewPrivileges service must be
-          # able to exercise that invariant rather than strip the bit first.
+          # contract (02775). This non-root service must be able to exercise
+          # that invariant rather than strip the bit first.
           RestrictSUIDSGID = false;
           TemporaryFileSystem = "/mnt";
 
@@ -383,16 +410,7 @@ in {
         after = ["network-online.target"];
         unitConfig.OnFailure = ["cratedigger-beets-tip-canary-notify-failure.service"];
 
-        path = [
-          pkgs.bash
-          pkgs.coreutils
-          pkgs.gh
-          pkgs.git
-          pkgs.nix
-          pkgs.nodejs
-          pkgs.pyright
-          pkgs.util-linux
-        ];
+        path = tipCandidatePath;
 
         environment = {
           HOME = "/home/abl030";
@@ -402,6 +420,7 @@ in {
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           NIX_CONFIG = "experimental-features = nix-command flakes";
           NIX_PATH = "nixpkgs=${pkgs.path}";
+          PATH = lib.mkForce (candidateEnvironmentPath tipCandidatePath);
         };
 
         serviceConfig = {
@@ -428,7 +447,9 @@ in {
             "-/run/credentials"
             "-/run/secrets"
           ];
-          NoNewPrivileges = true;
+          # newuidmap/newgidmap must acquire their NixOS wrapper privileges to
+          # install only this user's configured subordinate-ID ranges.
+          NoNewPrivileges = false;
           PrivateDevices = true;
           PrivateTmp = true;
           ProtectControlGroups = true;
