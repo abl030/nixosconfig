@@ -39,6 +39,16 @@ daily gate therefore fixes `/run`'s size ceiling at 12 GiB: the queue must fail
 before starting if that capacity invariant cannot be represented, rather than
 running for minutes and cascading into misleading `ENOSPC` target failures.
 
+`cratedigger-beets-tip-canary.service` is a separate daily oneshot at 18:05
+AWST, outside the Nixpkgs candidate's twelve-hour window. It shares the daily
+checks state directory, GitHub credentials, and runner flock, but invokes only
+`scripts/daily_beets_tip_update.sh`: that runner advances only `beets-tip` and
+tests its build, disposable boundary contract, and tip-backed Pyright before a
+lock-only candidate push. A failed tip canary reaches the same RCA-first,
+Gotify-fallback negative-alert path and does not block the Nixpkgs candidate.
+It never supplies, selects, or changes the deployment-owned production Beets
+runtime capability.
+
 Failure notifications are deliberately summaries, not raw journal tails. They
 report lock disposition, every stage result, the generated-fuzz outcome, unique
 Pyright errors, deterministic failed-test IDs with their rerun command, and a

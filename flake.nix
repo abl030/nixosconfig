@@ -1611,6 +1611,29 @@
               touch "$out"
             '';
 
+          cratediggerTipCanaryCheck = let
+            systemd = self.nixosConfigurations.proxmox-vm.config.systemd;
+            service = systemd.services.cratedigger-beets-tip-canary;
+            notifier = systemd.services.cratedigger-beets-tip-canary-notify-failure.serviceConfig.ExecStart;
+            timer = systemd.timers.cratedigger-beets-tip-canary.timerConfig;
+            dailyTimer = systemd.timers.cratedigger-daily-checks.timerConfig;
+          in
+            pkgs.runCommand "cratedigger-tip-canary" {
+              nativeBuildInputs = [pkgs.gnugrep];
+            } ''
+              case '${service.serviceConfig.ExecStart}' in
+                *'/scripts/daily_beets_tip_update.sh') ;;
+                *) echo "Beets tip canary must run only the tip candidate" >&2; exit 1 ;;
+              esac
+              grep -q 'MONITOR_INVOCATION_ID' ${notifier}
+              grep -q 'cratedigger-beets-tip-canary.service' ${notifier}
+              test '${service.environment.CRATEDIGGER_AUTOMATION_STATE_DIR}' = '/var/lib/cratedigger-daily-checks'
+              test '${service.serviceConfig.StateDirectory}' = 'cratedigger-daily-checks'
+              test '${timer.OnCalendar}' = '*-*-* 18:05:00 Australia/Perth'
+              test '${timer.OnCalendar}' != '${dailyTimer.OnCalendar}'
+              touch "$out"
+            '';
+
           ytDlpTipVersionCheck = let
             ytDlp = self.nixosConfigurations.proxmox-vm.pkgs.yt-dlp;
             shortRev = builtins.substring 0 7 inputs.yt-dlp-src.rev;
@@ -1637,7 +1660,7 @@
             touch $out
           '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

@@ -7,6 +7,7 @@
 }: let
   cfg = config.homelab.ci.cratediggerDailyChecks;
   runner = "${inputs.cratedigger-src}/scripts/daily_flake_update.sh";
+  tipRunner = "${inputs.cratedigger-src}/scripts/daily_beets_tip_update.sh";
   stateDir = "/var/lib/cratedigger-daily-checks";
   ghConfigDir = "${stateDir}/gh";
   ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
@@ -147,6 +148,42 @@
       "Cratedigger daily unstable checks failed on ${config.networking.hostName}" \
       "$message" 5
   '';
+
+  notifyTipFailure = pkgs.writeShellScript "cratedigger-beets-tip-canary-notify-failure" ''
+        set -euo pipefail
+        ${sendNegativeAlert}
+        invocation_id="''${MONITOR_INVOCATION_ID:-unavailable}"
+        if [[ "$invocation_id" == unavailable ]]; then
+          journal=(
+            ${pkgs.systemd}/bin/journalctl
+            -u cratedigger-beets-tip-canary.service
+            -n 500
+            --no-pager
+            -o cat
+          )
+        else
+          journal=(
+            ${pkgs.systemd}/bin/journalctl
+            -u cratedigger-beets-tip-canary.service
+            "_SYSTEMD_INVOCATION_ID=$invocation_id"
+            --no-pager
+            -o cat
+          )
+        fi
+        message="$("''${journal[@]}" 2>/dev/null \
+          | ${pkgs.gnugrep}/bin/grep -E 'beets tip canary|beetsTip|error:|failed|fatal:' \
+          | ${pkgs.coreutils}/bin/tail -n 80 || true)"
+        if [[ -z "$message" ]]; then
+          message="The tip canary stopped without a classified error line."
+        fi
+        message="$message
+
+    Full journal:
+    journalctl -u cratedigger-beets-tip-canary.service _SYSTEMD_INVOCATION_ID=$invocation_id --no-pager"
+        send_negative_alert \
+          "Cratedigger Beets tip canary failed on ${config.networking.hostName}" \
+          "$message" 5
+  '';
 in {
   options.homelab.ci.cratediggerDailyChecks.enable =
     lib.mkEnableOption "daily Cratedigger compatibility checks against current nixpkgs unstable";
@@ -168,6 +205,10 @@ in {
         message = "cratedigger-src must provide scripts/daily_flake_update.sh";
       }
       {
+        assertion = builtins.pathExists tipRunner;
+        message = "cratedigger-src must provide scripts/daily_beets_tip_update.sh";
+      }
+      {
         assertion =
           config.systemd.services.cratedigger-daily-checks.serviceConfig.RestrictSUIDSGID
           == false;
@@ -185,6 +226,18 @@ in {
           config.systemd.services.cratedigger-daily-checks.serviceConfig.BindReadOnlyPaths;
         message = "cratedigger daily checks must retain the read-only operator GitHub credential source";
       }
+      {
+        assertion =
+          config.systemd.services.cratedigger-beets-tip-canary.environment.CRATEDIGGER_AUTOMATION_STATE_DIR
+          == stateDir;
+        message = "Beets tip canary must share the Cratedigger daily-checks serialization state";
+      }
+      {
+        assertion =
+          config.systemd.timers.cratedigger-beets-tip-canary.timerConfig.OnCalendar
+          != config.systemd.timers.cratedigger-daily-checks.timerConfig.OnCalendar;
+        message = "Beets tip canary must be staggered from the Nixpkgs candidate timer";
+      }
     ];
 
     systemd.services = {
@@ -193,6 +246,14 @@ in {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = notifyFailure;
+        };
+      };
+
+      cratedigger-beets-tip-canary-notify-failure = {
+        description = "Send Cratedigger Beets tip-canary failures to RCA, with Gotify fallback";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = notifyTipFailure;
         };
       };
 
@@ -277,6 +338,74 @@ in {
           SyslogIdentifier = "cratedigger-daily-checks";
         };
       };
+
+      # This has no deployment authority: it advances only the checks-only
+      # upstream tip lock in a disposable checkout. The production Beets
+      # package remains supplied by services.cratedigger.beets.runtime.package.
+      cratedigger-beets-tip-canary = {
+        description = "Check Cratedigger against upstream Beets tip";
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
+        unitConfig.OnFailure = ["cratedigger-beets-tip-canary-notify-failure.service"];
+
+        path = [
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.gh
+          pkgs.git
+          pkgs.nix
+          pkgs.nodejs
+          pkgs.pyright
+        ];
+
+        environment = {
+          HOME = "/home/abl030";
+          GH_CONFIG_DIR = ghConfigDir;
+          XDG_CACHE_HOME = "${stateDir}/beets-tip-cache";
+          XDG_RUNTIME_DIR = "/run/cratedigger-daily-checks";
+          CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
+          NIX_CONFIG = "experimental-features = nix-command flakes";
+          NIX_PATH = "nixpkgs=${pkgs.path}";
+        };
+
+        serviceConfig = {
+          Type = "oneshot";
+          User = "abl030";
+          Group = "users";
+          ExecStartPre = "${prepareGhConfig}/bin/cratedigger-daily-prepare-gh-config";
+          ExecStart = "${pkgs.bash}/bin/bash ${tipRunner}";
+          TimeoutStartSec = "4h";
+
+          StateDirectory = "cratedigger-daily-checks";
+          StateDirectoryMode = "0700";
+          RuntimeDirectory = "cratedigger-daily-checks";
+          RuntimeDirectoryMode = "0700";
+          UMask = "0077";
+
+          BindReadOnlyPaths = [
+            ghHostsFile
+            "/home/abl030/.gitconfig"
+            "/home/abl030/.ssh/id_ed25519_git_sign"
+          ];
+          InaccessiblePaths = [
+            "-/run/credentials"
+            "-/run/secrets"
+          ];
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateTmp = true;
+          ProtectControlGroups = true;
+          ProtectHome = "tmpfs";
+          ProtectKernelTunables = true;
+          ProtectSystem = "strict";
+          RestrictSUIDSGID = false;
+          TemporaryFileSystem = "/mnt";
+
+          StandardOutput = "journal";
+          StandardError = "journal";
+          SyslogIdentifier = "cratedigger-beets-tip-canary";
+        };
+      };
     };
 
     systemd.timers.cratedigger-daily-checks = {
@@ -284,6 +413,19 @@ in {
       wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = "*-*-* 05:05:00 Australia/Perth";
+        Persistent = true;
+        AccuracySec = "1min";
+      };
+    };
+
+    systemd.timers.cratedigger-beets-tip-canary = {
+      description = "Run Cratedigger upstream Beets tip canary daily";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        # The Nixpkgs candidate can use its full 12-hour window from 05:05.
+        # Keep the independent tip runner outside that window; both runners
+        # additionally flock the shared state directory before mutating a lock.
+        OnCalendar = "*-*-* 18:05:00 Australia/Perth";
         Persistent = true;
         AccuracySec = "1min";
       };
