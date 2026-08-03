@@ -47,7 +47,8 @@
       # Re-export the scanner drop directory from tower with the older,
       # Brother-compatible standalone Samba policy at \\192.168.1.6\Scans.
       # /mnt/scans is CT 108 mp0, narrowly bind-mounted by prom from
-      # /mnt/tower-data/Life/Meg and Andy/Scans (tower's NFS export).
+      # the dedicated /mnt/tower-scans NFS mount. Keep it independent of
+      # /mnt/tower-data so scanner recovery cannot disrupt igpu CT 107.
       scannerSamba.enable = true;
     };
 
