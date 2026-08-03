@@ -297,11 +297,11 @@
     "grafana-dashboards-rfmoz": {
       "flake": false,
       "locked": {
-        "lastModified": 1783612709,
-        "narHash": "sha256-D5IopOcigSsVKp9E/Ui04//u3jrVj0Vq2ogoQTHifjo=",
+        "lastModified": 1785765572,
+        "narHash": "sha256-xupkcAW8rSlZGSwUoI2KXLXC8Ig4hbog2n2PDoMnYPA=",
         "owner": "rfmoz",
         "repo": "grafana-dashboards",
-        "rev": "64922f75ef232e8fc62519d3d3e2908a02c7229a",
+        "rev": "27aaf9d90dd0080c784e6d25eec25cd58d6e1d7d",
         "type": "github"
       },
       "original": {
@@ -324,11 +324,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1785688992,
-        "narHash": "sha256-KBjB06qTwpK3I74gnknQUiWzNLe9PdV1SM3QZH6R48U=",
+        "lastModified": 1785770252,
+        "narHash": "sha256-5CnGbc4mgdPv/NZYuDXTyZ9S8OTcQvWleOjWNHUJJaQ=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "06b4f64c31d1ba20006c5ef8dea446af9b9b7c45",
+        "rev": "128ca2efd559042116abd818455f31b0d6c90292",
         "type": "github"
       },
       "original": {
@@ -909,11 +909,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1785622189,
-        "narHash": "sha256-Czimf1oNdfIHuMQCmJFnUhiLP3fOsycRc4T+TUFMcNU=",
+        "lastModified": 1785708576,
+        "narHash": "sha256-uDzYpcdM9ueEvd5QiLI4ippFtYOoh06wJMdYFfOHc20=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "ead1e225f591ead21aa7d2cef576f37cd6ed3603",
+        "rev": "da80f7ed8050e1a479c37a864671d2a1452a050c",
         "type": "github"
       },
       "original": {
