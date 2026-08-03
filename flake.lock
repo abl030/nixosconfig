@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "beets-tip": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785553066,
+        "narHash": "sha256-5RUonI2t60IKfeE9GIsxR3idLc4VeIdgSl0WxI2hpgU=",
+        "owner": "beetbox",
+        "repo": "beets",
+        "rev": "efc89702604237391a66e2a737cd272943544641",
+        "type": "github"
+      },
+      "original": {
+        "owner": "beetbox",
+        "ref": "master",
+        "repo": "beets",
+        "type": "github"
+      }
+    },
     "cellar-manager": {
       "flake": false,
       "locked": {
@@ -92,16 +109,17 @@
     },
     "cratedigger-src": {
       "inputs": {
+        "beets-tip": "beets-tip",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1785731404,
-        "narHash": "sha256-LuafqXS2U1Ezv+AfabjqZKcOa9cG73ANeyRdciQxegI=",
+        "lastModified": 1785732837,
+        "narHash": "sha256-LdsIoCEUmgphfC6wAAxqdRyujtLBPh2+8jMt8Kw2eMg=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "3fdf27489475a98375b90e658ba920be12772d36",
+        "rev": "46a7ec384f072374a50c711dc278e4dd4c404150",
         "type": "github"
       },
       "original": {
