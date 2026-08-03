@@ -24,8 +24,7 @@ only HTTP 200.
 ## Cratedigger Boundary
 
 Discogs import is part of the cratedigger maintenance boundary. Cratedigger owns
-that coordination policy from doc2 through
-`cratedigger-discogs-import-remote.service`:
+that coordination policy from doc2 through `discogs-import.service`:
 
 1. Enters the `discogs-import` hold with `cratedigger-metadata-gate`.
 2. Uses doc2's machine key through a restricted forced-command SSH boundary to

@@ -23,7 +23,8 @@
 # Debugging:
 #   journalctl -u cratedigger -f              — watch a run in real time
 #   sudo systemctl start cratedigger          — trigger a run now
-#   sudo cratedigger-check-beets-config --role main  — verify admitted Beets runtime
+#   sudo -u cratedigger cratedigger-check-beets-config --role importer
+#                                               — verify the host mutation contract
 #   curl -s 192.168.21.2:5030/api/v0/searches -H @/tmp/slskd-api-header | jq
 #                                         — check slskd search queue
 #

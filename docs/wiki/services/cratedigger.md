@@ -65,12 +65,14 @@ the same RCA/Gotify path. The initial state is an explicit one-time rollout
 action and must never be regenerated to recover a failing daily gate. See
 [Cratedigger #910](https://github.com/abl030/cratedigger/issues/910).
 
-The #910 rollout authority is exactly the twice-observed 658-member cohort:
-420 `current_evidence_missing` and 238
-`evidence_fingerprint_mismatch`. Initialization must stop if a fresh strict
-audit differs from those code counts, contains another code, or has duplicate
-members. After initialization, deleting or replacing the state to admit a red
-result is forbidden; investigate the reported new/changed members instead.
+The one-time #910 initialization authority was the twice-observed 658-member
+cohort: 420 `current_evidence_missing` and 238
+`evidence_fingerprint_mismatch`. That historical count is not a current target:
+the tracked state shrinks as members converge. Initialization had to stop if a
+fresh strict audit differed from those code counts, contained another code, or
+had duplicate members. Now that initialization is complete, deleting,
+replacing, or regenerating the state to admit a red result is forbidden;
+investigate the reported new/changed members instead.
 
 ## Metadata Gate
 
@@ -247,11 +249,12 @@ import, and beets validation — `FORCE-IMPORT FAILED ... ImportError: cannot
 import name 'get_path_formats' from 'beets.ui'`. The preview worker was
 unaffected (it never opens the beets library).
 
-Fix: `modules/nixos/services/cratedigger-beets2-library-api.patch` adapts the
+The initial stopgap was
+`modules/nixos/services/cratedigger-beets2-library-api.patch`, which adapted the
 harness to the 2.x API (drop the `beets.ui` import, pass only `(library,
-directory)`; config-derived path formats/replacements are preserved). This is a
-homelab stopgap — upstream the same change to `github:abl030/cratedigger` and
-drop the patch.
+directory)`; config-derived path formats/replacements are preserved). The
+resolution below records when that retired patch was upstreamed and removed;
+the path no longer exists in the active module tree.
 
 **Resolution (same day).** The patch above fixed only breakage #1 (the harness
 crashed at import). Once it landed, force-imports ran again but *upgrade*
