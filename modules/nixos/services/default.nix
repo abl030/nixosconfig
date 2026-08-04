@@ -28,6 +28,7 @@
     ./syncthing
     ./immich.nix
     ./gotify-server.nix
+    ./ntfy.nix
     ./tautulli.nix
     ./audiobookshelf.nix
     ./atuin.nix

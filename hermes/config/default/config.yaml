@@ -47,6 +47,20 @@ platform_toolsets:
     - session_search
     - memory
     - todo
+  ntfy:
+    - browser
+    - code_execution
+    - delegation
+    - file
+    - memory
+    - session_search
+    - skills
+    - terminal
+    - todo
+    - tts
+    - vision
+    - web
+    - mcp-nixos
 known_plugin_toolsets:
   cli:
     - spotify
@@ -99,6 +113,10 @@ mcp_servers:
     timeout: 300
     connect_timeout: 60
 platforms:
+  ntfy:
+    enabled: true
+    extra:
+      markdown: true
   webhook:
     enabled: true
     extra:
