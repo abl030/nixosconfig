@@ -69,6 +69,24 @@
     mode = "0400";
   };
 
+  # Authenticated self-hosted ntfy channel for two-way Hermes access and
+  # completion pings. The same encrypted source provisions ntfy on doc2;
+  # only those two hosts can decrypt it.
+  sops.secrets."hermes/ntfy-env" = {
+    sopsFile = config.homelab.secrets.sopsFile "ntfy.env";
+    format = "dotenv";
+    owner = "abl030";
+    mode = "0400";
+  };
+
+  # The gateway's primary unit is installed under ~/.config/systemd/user by
+  # Hermes. Force NixOS to emit only a drop-in so systemd merges the SOPS
+  # environment into that mutable unit instead of shadowing it.
+  systemd.user.services.hermes-gateway = {
+    overrideStrategy = "asDropin";
+    serviceConfig.EnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
+  };
+
   homelab = {
     # doc1 is the fleet's netconsole collector for everyone else, so it cannot be
     # its own — and doc2 is a bad choice too, because it wedged during the same

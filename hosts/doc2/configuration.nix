@@ -193,6 +193,7 @@
         enable = true;
         dataDir = "/mnt/virtio/gotify";
       };
+      ntfy.enable = true;
       tautulli = {
         enable = true;
         dataDir = "/mnt/virtio/tautulli";
