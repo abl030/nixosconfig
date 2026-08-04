@@ -11,7 +11,7 @@ display:
   tool_progress: all
 tts:
   use_gateway: false
-_config_version: 32
+_config_version: 33
 session_reset:
   mode: none
 image_gen:
@@ -48,19 +48,12 @@ platform_toolsets:
     - memory
     - todo
   ntfy:
-    - browser
-    - code_execution
-    - delegation
-    - file
     - memory
+    - no_mcp
     - session_search
     - skills
-    - terminal
     - todo
-    - tts
-    - vision
     - web
-    - mcp-nixos
 known_plugin_toolsets:
   cli:
     - spotify
@@ -112,6 +105,9 @@ mcp_servers:
     enabled: false
     timeout: 300
     connect_timeout: 60
+plugins:
+  enabled:
+    - platforms/ntfy
 platforms:
   ntfy:
     enabled: true

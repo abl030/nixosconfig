@@ -23,13 +23,13 @@ in {
 
   config = lib.mkIf cfg.enable {
     sops.secrets."ntfy/env" = {
-      sopsFile = config.homelab.secrets.sopsFile "ntfy.env";
+      sopsFile = config.homelab.secrets.sopsFile "ntfy-server.env";
       format = "dotenv";
       mode = "0400";
     };
 
     # Upstream NixOS module. Authentication users, ACLs and tokens are
-    # declaratively provisioned from the shared doc1/doc2 SOPS secret.
+    # declaratively provisioned from a doc2-only SOPS secret.
     services.ntfy-sh = {
       enable = true;
       environmentFile = config.sops.secrets."ntfy/env".path;

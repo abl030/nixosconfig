@@ -70,10 +70,10 @@
   };
 
   # Authenticated self-hosted ntfy channel for two-way Hermes access and
-  # completion pings. The same encrypted source provisions ntfy on doc2;
-  # only those two hosts can decrypt it.
+  # completion pings. This gateway-only file excludes server provisioning and
+  # operator credentials.
   sops.secrets."hermes/ntfy-env" = {
-    sopsFile = config.homelab.secrets.sopsFile "ntfy.env";
+    sopsFile = config.homelab.secrets.sopsFile "hosts/proxmox-vm/ntfy-gateway.env";
     format = "dotenv";
     owner = "abl030";
     mode = "0400";
