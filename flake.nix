@@ -1760,8 +1760,11 @@
               assert loaded is not None and loaded.enabled, "ntfy-platform plugin is not enabled"
               assert "ntfy" in {entry.name for entry in platform_registry.plugin_entries()}
 
-              effective = set(_get_platform_tools(load_config(), "ntfy"))
-              forbidden = {
+              config = load_config()
+              effective = set(_get_platform_tools(config, "ntfy"))
+              cli_effective = set(_get_platform_tools(config, "cli"))
+              assert effective == cli_effective, sorted(effective ^ cli_effective)
+              required = {
                   "browser",
                   "code_execution",
                   "computer_use",
@@ -1774,7 +1777,7 @@
                   "terminal",
                   "unifi",
               }
-              assert effective.isdisjoint(forbidden), sorted(effective & forbidden)
+              assert required <= effective, sorted(required - effective)
             '';
           in
             pkgs.runCommand "ai-portability" {} ''
@@ -1787,7 +1790,11 @@
               ${pkgs.yq-go}/bin/yq -o=json \
                 ${./.}/hermes/config/default/config.yaml \
                 | ${pkgs.jq}/bin/jq -e \
-                  '.platform_toolsets.ntfy == ["memory", "no_mcp", "session_search", "skills", "todo", "web"]' >/dev/null
+                  '.platform_toolsets.ntfy == .platform_toolsets.cli' >/dev/null
+              ${pkgs.yq-go}/bin/yq -o=json \
+                ${./.}/hermes/config/default/config.yaml \
+                | ${pkgs.jq}/bin/jq -e \
+                  '.known_plugin_toolsets.ntfy == .known_plugin_toolsets.cli' >/dev/null
               hermes_python="$(${pkgs.gnugrep}/bin/grep '^export HERMES_PYTHON=' \
                 ${pkgs.hermes-agent}/bin/hermes | ${pkgs.coreutils}/bin/cut -d"'" -f2)"
               test -x "$hermes_python"
