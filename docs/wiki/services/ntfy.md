@@ -45,9 +45,14 @@ agent transcript:
 
 ```bash
 cd ~/nixosconfig
-sops -d --extract '["NTFY_PHONE_PASSWORD"]' \
-  secrets/hosts/proxmox-vm/ntfy-phone-password.env
+password=$(sops -d --extract '["NTFY_PHONE_PASSWORD"]' \
+  secrets/hosts/proxmox-vm/ntfy-phone-password.env)
+printf '%s\n' "$password"
 ```
+
+The explicit `printf` terminates the value with a newline. Without it, shells
+such as zsh may display a trailing `%` marker for an unterminated line; that
+marker is not part of the password and must not be copied.
 
 Subscribe to topic `hermes`. Sending a message to that topic starts or resumes a
 Hermes conversation; replies arrive as push notifications. The URL resolves to
