@@ -29,30 +29,21 @@ cron and completion notifications.
   environment directly rather than its wrapper, so the variable is required
   for runtime discovery of the bundled ntfy adapter.
 - Credentials never enter tracked `config.yaml` or mutable `~/.hermes/.env`.
-- The phone password is retained separately in the doc1-only encrypted
-  `secrets/hosts/proxmox-vm/ntfy-phone-password.env`; it is not loaded into
-  either service process. Never paste it into docs, tickets, or transcripts.
-- The ntfy phone channel intentionally omits terminal, filesystem, code
-  execution, delegation, browser, and all MCP/infrastructure-control toolsets.
-  A lost phone credential therefore does not become remote shell access to
-  doc1.
+- The phone password is not retained in the repository or loaded into either
+  service process. ntfy stores only its one-way password hash. The configured
+  phone keeps the sole usable copy; losing it requires an explicit credential
+  rotation.
+- The ntfy phone channel intentionally has the same effective tools as the CLI,
+  including terminal, filesystem, browser, delegation, and infrastructure MCP
+  access. Treat the phone credential as full operator access to doc1 and the
+  wider homelab.
 
 ## Phone setup
 
 Install the ntfy Android app, add `https://ntfy.ablz.au` as a server, and log in
-as `abl030`. Retrieve the password locally on doc1 without printing it into an
-agent transcript:
-
-```bash
-cd ~/nixosconfig
-password=$(sops -d --extract '["NTFY_PHONE_PASSWORD"]' \
-  secrets/hosts/proxmox-vm/ntfy-phone-password.env)
-printf '%s\n' "$password"
-```
-
-The explicit `printf` terminates the value with a newline. Without it, shells
-such as zsh may display a trailing `%` marker for an unterminated line; that
-marker is not part of the password and must not be copied.
+as `abl030` with the provisioned operator password. The plaintext is
+deliberately not recoverable from the repository; the configured phone is the
+credential holder.
 
 Subscribe to topic `hermes`. Sending a message to that topic starts or resumes a
 Hermes conversation; replies arrive as push notifications. The URL resolves to
