@@ -17,7 +17,13 @@ Previously ran on igpu as a rootless podman compose stack. Migrated April 2026 b
 
 ## Architecture
 
-All four services via upstream nixpkgs modules (`services.{grafana,loki,tempo,mimir}`). One wrapper module at `modules/nixos/services/loki-server.nix` providing `homelab.services.loki.{enable,dataDir,*Port,retentionHours}`.
+All four services use upstream nixpkgs modules (`services.{grafana,loki,tempo,mimir}`). One wrapper module at `modules/nixos/services/loki-server.nix` provides `homelab.services.loki.{enable,dataDir,*Port,retentionHours}`.
+
+Fleet hosts keep journald only as a local diagnostic buffer. The base profile
+sets `SystemMaxUse=1G`, `SystemKeepFree=2G`, and `MaxRetentionSec=7day`.
+Journald's upstream percentage-based default was technically bounded but grew
+with root-disk expansion; fixed limits are appropriate because Alloy already
+ships the authoritative analysis stream to Loki with a local WAL.
 
 ```
                                       ┌──────────────┐

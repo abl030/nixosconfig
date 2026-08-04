@@ -1,8 +1,8 @@
 # Cratedigger
 
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-04
 **Status:** active on `doc2`
-**Owner:** `modules/nixos/services/beets.nix`, `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`
+**Owner:** `modules/nixos/services/beets.nix`, `modules/nixos/services/cratedigger.nix`, `modules/nixos/ci/cratedigger-daily-checks.nix`, `modules/nixos/ci/cratedigger-12h-report.nix`
 **Issue:** #228, [Cratedigger #498](https://github.com/abl030/cratedigger/issues/498), [Cratedigger #759](https://github.com/abl030/cratedigger/issues/759)
 
 Cratedigger is the local Soulseek download pipeline and request UI behind
@@ -58,6 +58,35 @@ Pyright errors, deterministic failed-test IDs with their rerun command, and a
 bounded live-world result. Progress lines and passing-test noise are excluded.
 The message includes the exact `_SYSTEMD_INVOCATION_ID` command for retrieving
 the complete journal when deeper diagnosis is needed.
+
+## Twelve-hour operational reports
+
+Doc1 runs `cratedigger-12h-report.service` at 00:10 and 12:10 AWST. The
+collector divides history at exact Perth midnight/noon boundaries and stores
+the last completed boundary under `/var/lib/cratedigger-12h-report`. A missed
+timer therefore backfills discrete windows after recovery instead of silently
+stretching, overlapping, or dropping a reporting interval. The cursor advances
+only after synchronous Hermes analysis and any required notification succeed.
+
+Each window paginates bounded Loki marker streams for every `cratedigger*` unit
+on doc2. Pagination stalls, excess signature counts, and incomplete PR lookups
+fail the window without advancing its cursor. Expected pressing/title and
+media-validation rejections are excluded; remaining lines are normalized into
+signatures with count, first/last time, affected unit, and one bounded sample.
+The complete analysis input is capped at 60 KiB and includes current open
+Cratedigger GitHub and nixosconfig Forgejo PRs so the analyst does not propose
+duplicate remediation.
+
+The hardened service invokes Hermes synchronously as `abl030` through a tracked
+runner that forces an empty tool list, skips mutable rules and memory, rejects
+mutable platform and environment-hint overrides, and aborts at agent
+construction if Hermes exposes any tool. Untrusted log text
+therefore cannot invoke skill mutation, shell, file, web, delegation, or code
+execution. The tracked `cratedigger-report` skill is embedded in the Nix
+closure; successful non-silent output is grammar-checked, capped at 700 UTF-8
+bytes, and then delivered through the configured `ntfy` target. Its user-facing
+result is a numbered failure/action list; raw logs, healthy-state detail, and
+all-clear notifications stay out of the digest.
 
 The same unit always finishes with doc2's deployed strict
 `pipeline-cli audit world --json`, after both successful and failed candidate

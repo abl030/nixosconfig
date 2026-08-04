@@ -31,6 +31,7 @@
     mode = "0400";
   };
 
+
   # Immich API key, so the doc1 agent can read photos the operator points it at.
   # This is the "send the agent a photo" channel: snap it on the phone, paste the
   # photos.ablz.au link, the agent pulls the asset over the API and looks at it.
@@ -176,6 +177,10 @@
     nixCaches.profile = "server";
 
     ci.cratediggerDailyChecks.enable = true;
+    ci.cratedigger12hReport = {
+      enable = true;
+      notificationEnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
+    };
 
     ci.rollingFlakeUpdate = {
       enable = true;

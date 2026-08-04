@@ -76,6 +76,16 @@ in {
   # Reasonable default for most servers/desktops (SSDs/VirtIO)
   services.fstrim.enable = lib.mkDefault true;
 
+  # Journald's upstream default is bounded to a percentage of the filesystem,
+  # but that cap grows whenever a constrained root disk is expanded. Alloy
+  # already ships the fleet journal to Loki, so keep only a fixed local
+  # diagnostic buffer instead of using root capacity as retention policy.
+  services.journald.extraConfig = lib.mkDefault ''
+    SystemMaxUse=1G
+    SystemKeepFree=2G
+    MaxRetentionSec=7day
+  '';
+
   # Standard Networking
   networking.networkmanager.enable = lib.mkDefault true;
 
