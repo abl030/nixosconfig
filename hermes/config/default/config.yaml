@@ -9,6 +9,11 @@ browser:
   use_gateway: false
 display:
   tool_progress: all
+  platforms:
+    ntfy:
+      long_running_notifications: false
+      tool_progress: false
+      interim_assistant_messages: true
 tts:
   use_gateway: false
 _config_version: 33
@@ -133,5 +138,5 @@ platforms:
       port: 8644
       secret: alert-bridge-rca
 approvals:
-  mode: "off"
+  mode: 'off'
   destructive_slash_confirm: false

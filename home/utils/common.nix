@@ -1,12 +1,28 @@
 {
   config,
+  hostname,
   lib,
   pkgs,
   ...
 }: let
+  aiGotifyNotify = pkgs.writeShellApplication {
+    name = "ai-gotify-notify";
+    bashOptions = [];
+    runtimeInputs = [pkgs.coreutils pkgs.curl pkgs.jq pkgs.systemd];
+    text = builtins.readFile ../ai-gotify-notify.sh;
+  };
+  aiNotificationInstructions = pkgs.writeText "ai-notification-instructions.md" (
+    builtins.readFile ../ai-notification-instructions.md
+  );
   codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON {
     analytics.enabled = false;
-    features.memories = true;
+    features =
+      {
+        memories = true;
+      }
+      // lib.optionalAttrs (hostname == "proxmox-vm") {
+        hooks = true;
+      };
     memories = {
       generate_memories = true;
       use_memories = true;
@@ -18,6 +34,11 @@
     "mcp_servers.mcp-nixos" = {
       command = "uvx";
       args = ["mcp-nixos"];
+    };
+    __root__ = lib.optionalAttrs (hostname == "proxmox-vm") {
+      # The native completion callback runs outside Codex's network sandbox and
+      # publishes only explicit semantic markers from the final response.
+      notify = ["${aiGotifyNotify}/bin/ai-gotify-notify" "codex-notify"];
     };
   });
 in {
@@ -68,48 +89,73 @@ in {
       "$CODEX_CONFIG" ${codexManagedSettings}
   '';
 
-  home.packages = [
-    pkgs.yt-dlp
-    pkgs.deno
-    pkgs.fastfetch
-    pkgs.wakeonlan
-    pkgs.htop
-    pkgs.btop
-    pkgs.nmap
-    pkgs.television
-    pkgs.wget
-    pkgs.pciutils
-    pkgs.fish
-    pkgs.unzip
-    pkgs.nvd
-    pkgs.speedtest-cli
-    pkgs.lazydocker
-    pkgs.bind.dnsutils
-    pkgs.lazygit
-    pkgs.gnome-disk-utility
-    pkgs.ansible
-    pkgs.tldr
-    pkgs.wl-clipboard
-    pkgs.tigervnc
-    pkgs.statix
-    pkgs.deadnix
-    pkgs.alejandra
-    # pkgs.codex now provided by programs.codex.package (see above)
-    pkgs.exiftool
+  # One shared semantic policy for both clients. Keep their global instruction
+  # files mutable because Codex plugins and users may maintain unrelated blocks.
+  # Claude's old elapsed-time hooks are removed surgically; permission and MCP
+  # elicitation notifications replace them. idle_prompt is intentionally omitted
+  # because it fires after ordinary completed turns and recreates the noise this
+  # policy is designed to avoid.
+  home.activation.aiAgentNotifications = lib.mkIf (hostname == "proxmox-vm") (lib.hm.dag.entryAfter ["claudeConfig" "codexConfig"] ''
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-markdown-block.py} \
+      "${config.home.homeDirectory}/.claude/CLAUDE.md" \
+      "HOMELAB AI NOTIFICATIONS" ${aiNotificationInstructions}
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-markdown-block.py} \
+      "${config.home.homeDirectory}/.codex/AGENTS.md" \
+      "HOMELAB AI NOTIFICATIONS" ${aiNotificationInstructions}
 
-    # Rust Utils
-    pkgs.fzf
-    pkgs.lsd
-    pkgs.zoxide
-    pkgs.broot
-    pkgs.ripgrep
-    pkgs.ripgrep-all
+    CODEX_HOOKS="${config.home.homeDirectory}/.codex/hooks.json"
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-codex-notification-hooks.py} \
+      "$CODEX_HOOKS" "${aiGotifyNotify}/bin/ai-gotify-notify codex-permission"
 
-    # pkgs.toybox
-    # pkgs.zip
-    # pkgs.busybox
-    # inputs.fzf-preview.packages.${pkgs.system}.default
-  ];
+    SETTINGS="${config.home.homeDirectory}/.claude/settings.json"
+    run ${pkgs.python3}/bin/python3 ${../../scripts/merge-claude-notification-hooks.py} \
+      "$SETTINGS" "${aiGotifyNotify}/bin/ai-gotify-notify claude-request"
+  '');
+
+  home.packages =
+    (lib.optional (hostname == "proxmox-vm") aiGotifyNotify)
+    ++ [
+      pkgs.yt-dlp
+      pkgs.deno
+      pkgs.fastfetch
+      pkgs.wakeonlan
+      pkgs.htop
+      pkgs.btop
+      pkgs.nmap
+      pkgs.television
+      pkgs.wget
+      pkgs.pciutils
+      pkgs.fish
+      pkgs.unzip
+      pkgs.nvd
+      pkgs.speedtest-cli
+      pkgs.lazydocker
+      pkgs.bind.dnsutils
+      pkgs.lazygit
+      pkgs.gnome-disk-utility
+      pkgs.ansible
+      pkgs.tldr
+      pkgs.wl-clipboard
+      pkgs.tigervnc
+      pkgs.statix
+      pkgs.deadnix
+      pkgs.alejandra
+      # pkgs.codex now provided by programs.codex.package (see above)
+      pkgs.exiftool
+
+      # Rust Utils
+      pkgs.fzf
+      pkgs.lsd
+      pkgs.zoxide
+      pkgs.broot
+      pkgs.ripgrep
+      pkgs.ripgrep-all
+
+      # pkgs.toybox
+      # pkgs.zip
+      # pkgs.busybox
+      # inputs.fzf-preview.packages.${pkgs.system}.default
+    ];
   imports = [
     # ../ssh/ssh.nix
   ];
