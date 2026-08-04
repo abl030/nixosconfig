@@ -712,6 +712,14 @@
                 $grep -q "$bg" "$f" || { echo "MISSING break-glass key: hosts/$h/$(basename "$f")"; fail=1; }
               done
             done
+            f=${./secrets/ntfy-server.env}
+            for k in $allhosts; do
+              [ "$k" = "$doc2" ] && continue
+              if $grep -q "$k" "$f"; then echo "LEAK: ntfy-server.env is encrypted to a non-doc2 host key"; fail=1; fi
+            done
+            $grep -q "$doc2" "$f" || { echo "MISSING doc2 key: ntfy-server.env"; fail=1; }
+            $grep -q "$ed" "$f" || { echo "MISSING editor key: ntfy-server.env"; fail=1; }
+            $grep -q "$bg" "$f" || { echo "MISSING break-glass key: ntfy-server.env"; fail=1; }
             if [ $fail -ne 0 ]; then
               echo ""
               echo "sops recipient scope violated (#234): every secrets/hosts/<H>/ secret"
@@ -1740,11 +1748,56 @@
           # broken, a generated Codex adapter drifts, a skill is undiscoverable,
           # or always-loaded context grows past its explicit budget.
           # See docs/wiki/claude-code/poly-ai-shared-surfaces.md.
-          aiPortabilityCheck = pkgs.runCommand "ai-portability" {} ''
-            ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
-            ${pkgs.python3}/bin/python3 ${./.}/scripts/merge-toml-settings.py --self-test
-            touch $out
-          '';
+          aiPortabilityCheck = let
+            ntfyRuntimeCheck = pkgs.writeText "check-hermes-ntfy-runtime.py" ''
+              from gateway.platform_registry import platform_registry
+              from hermes_cli.config import load_config
+              from hermes_cli.plugins import discover_plugins, get_plugin_manager
+              from hermes_cli.tools_config import _get_platform_tools
+
+              discover_plugins(force=True)
+              loaded = get_plugin_manager()._plugins.get("ntfy-platform")
+              assert loaded is not None and loaded.enabled, "ntfy-platform plugin is not enabled"
+              assert "ntfy" in {entry.name for entry in platform_registry.plugin_entries()}
+
+              effective = set(_get_platform_tools(load_config(), "ntfy"))
+              forbidden = {
+                  "browser",
+                  "code_execution",
+                  "computer_use",
+                  "delegation",
+                  "file",
+                  "homeassistant",
+                  "nixos",
+                  "pfsense",
+                  "playwright",
+                  "terminal",
+                  "unifi",
+              }
+              assert effective.isdisjoint(forbidden), sorted(effective & forbidden)
+            '';
+          in
+            pkgs.runCommand "ai-portability" {} ''
+              ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
+              ${pkgs.python3}/bin/python3 ${./.}/scripts/merge-toml-settings.py --self-test
+              ${pkgs.yq-go}/bin/yq -o=json \
+                ${./.}/hermes/config/default/config.yaml \
+                | ${pkgs.jq}/bin/jq -e \
+                  '.plugins.enabled | contains(["platforms/ntfy"])' >/dev/null
+              ${pkgs.yq-go}/bin/yq -o=json \
+                ${./.}/hermes/config/default/config.yaml \
+                | ${pkgs.jq}/bin/jq -e \
+                  '.platform_toolsets.ntfy == ["memory", "no_mcp", "session_search", "skills", "todo", "web"]' >/dev/null
+              hermes_python="$(${pkgs.gnugrep}/bin/grep '^export HERMES_PYTHON=' \
+                ${pkgs.hermes-agent}/bin/hermes | ${pkgs.coreutils}/bin/cut -d"'" -f2)"
+              test -x "$hermes_python"
+              export HERMES_HOME="$TMPDIR/hermes-home"
+              export HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins
+              mkdir -p "$HERMES_HOME"
+              cp ${./.}/hermes/config/default/config.yaml "$HERMES_HOME/config.yaml"
+              "$hermes_python" ${ntfyRuntimeCheck}
+              touch $out
+            '';
         in
           {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (

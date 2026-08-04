@@ -19,14 +19,18 @@ cron and completion notifications.
 - Anonymous access is denied globally.
 - One non-admin user has read/write access only to the `hermes` topic.
 - The server provisions the bcrypt password hash, topic ACL, and Hermes token
-  from `secrets/ntfy.env`.
-- That SOPS file is decryptable only by doc1, doc2, the editor key, and the cold
-  break-glass key.
-- Hermes receives the same secret through a systemd user-unit EnvironmentFile;
-  credentials never enter tracked `config.yaml` or the mutable `~/.hermes/.env`.
+  from doc2-only `secrets/ntfy-server.env`.
+- Hermes receives only its endpoint, topic, allowlist, and bearer token from
+  doc1-only `secrets/hosts/proxmox-vm/ntfy-gateway.env` through a systemd
+  user-unit EnvironmentFile. Server provisioning values never enter Hermes.
+- Credentials never enter tracked `config.yaml` or mutable `~/.hermes/.env`.
 - The phone password is retained separately in the doc1-only encrypted
   `secrets/hosts/proxmox-vm/ntfy-phone-password.env`; it is not loaded into
   either service process. Never paste it into docs, tickets, or transcripts.
+- The ntfy phone channel intentionally omits terminal, filesystem, code
+  execution, delegation, browser, and all MCP/infrastructure-control toolsets.
+  A lost phone credential therefore does not become remote shell access to
+  doc1.
 
 ## Phone setup
 
