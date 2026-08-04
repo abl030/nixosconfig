@@ -13,6 +13,8 @@
   tipGhConfigDir = "${stateDir}/beets-tip-gh";
   dailyRuntimeDir = "/run/cratedigger-daily-checks";
   tipRuntimeDir = "/run/cratedigger-beets-tip-canary";
+  dailyWrapperDir = "${dailyRuntimeDir}/wrappers";
+  tipWrapperDir = "${tipRuntimeDir}/wrappers";
   timeoutStartSec = "17h";
   ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
   dailyCandidatePath = [
@@ -37,7 +39,11 @@
     pkgs.pyright
     pkgs.util-linux
   ];
-  candidateEnvironmentPath = path: "${config.security.wrapperDir}:${lib.makeBinPath path}";
+  candidateEnvironmentPath = wrapperDir: path: "${wrapperDir}:${lib.makeBinPath path}";
+  candidateWrapperBinds = wrapperDir: [
+    "${config.security.wrapperDir}/newuidmap:${wrapperDir}/newuidmap"
+    "${config.security.wrapperDir}/newgidmap:${wrapperDir}/newgidmap"
+  ];
   sendNegativeAlert = import ../lib/negative-alert.nix {inherit config lib pkgs;};
 
   prepareGhConfig = name: configDir:
@@ -291,12 +297,20 @@ in {
       {
         assertion =
           config.systemd.services.cratedigger-daily-checks.environment.PATH
-          == candidateEnvironmentPath dailyCandidatePath
+          == candidateEnvironmentPath dailyWrapperDir dailyCandidatePath
           && config.systemd.services.cratedigger-beets-tip-canary.environment.PATH
-          == candidateEnvironmentPath tipCandidatePath
+          == candidateEnvironmentPath tipWrapperDir tipCandidatePath
+          && lib.elem "/run/wrappers" config.systemd.services.cratedigger-daily-checks.serviceConfig.InaccessiblePaths
+          && lib.elem "/run/wrappers" config.systemd.services.cratedigger-beets-tip-canary.serviceConfig.InaccessiblePaths
+          && lib.all
+          (bind: lib.elem bind config.systemd.services.cratedigger-daily-checks.serviceConfig.BindReadOnlyPaths)
+          (candidateWrapperBinds dailyWrapperDir)
+          && lib.all
+          (bind: lib.elem bind config.systemd.services.cratedigger-beets-tip-canary.serviceConfig.BindReadOnlyPaths)
+          (candidateWrapperBinds tipWrapperDir)
           && !config.systemd.services.cratedigger-daily-checks.serviceConfig.NoNewPrivileges
           && !config.systemd.services.cratedigger-beets-tip-canary.serviceConfig.NoNewPrivileges;
-        message = "candidate suites must be able to execute NixOS subordinate-ID wrappers";
+        message = "candidate suites must expose only the subordinate-ID wrappers";
       }
       {
         assertion =
@@ -340,7 +354,7 @@ in {
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.43:5200";
           # The Beets authority fixtures use unshare --map-auto. NixOS exposes
           # the setuid newuidmap/newgidmap helpers only through wrapperDir.
-          PATH = lib.mkForce (candidateEnvironmentPath dailyCandidatePath);
+          PATH = lib.mkForce (candidateEnvironmentPath dailyWrapperDir dailyCandidatePath);
           # ProtectHome hides the user's nix.conf, so enable the client-side
           # flake commands and classic nix-shell lookup explicitly inside this
           # sandboxed unit. Node is also explicit in path because run_tests.sh
@@ -375,13 +389,17 @@ in {
             ghHostsFile
             "/home/abl030/.gitconfig"
             "/home/abl030/.ssh/id_ed25519_git_sign"
-          ];
+          ] ++ candidateWrapperBinds dailyWrapperDir;
           InaccessiblePaths = [
             "-/run/credentials"
             "-/run/secrets"
+            "/run/wrappers"
           ];
           # newuidmap/newgidmap must acquire their NixOS wrapper privileges to
-          # install only this user's configured subordinate-ID ranges.
+          # install only this user's configured subordinate-ID ranges. Hide the
+          # host wrapper directory and bind only those two helpers into the
+          # service-private runtime directory; in particular, do not expose the
+          # host's passwordless sudo wrapper while NoNewPrivileges is disabled.
           NoNewPrivileges = false;
           PrivateDevices = true;
           PrivateTmp = true;
@@ -420,7 +438,7 @@ in {
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           NIX_CONFIG = "experimental-features = nix-command flakes";
           NIX_PATH = "nixpkgs=${pkgs.path}";
-          PATH = lib.mkForce (candidateEnvironmentPath tipCandidatePath);
+          PATH = lib.mkForce (candidateEnvironmentPath tipWrapperDir tipCandidatePath);
         };
 
         serviceConfig = {
@@ -442,13 +460,15 @@ in {
             ghHostsFile
             "/home/abl030/.gitconfig"
             "/home/abl030/.ssh/id_ed25519_git_sign"
-          ];
+          ] ++ candidateWrapperBinds tipWrapperDir;
           InaccessiblePaths = [
             "-/run/credentials"
             "-/run/secrets"
+            "/run/wrappers"
           ];
           # newuidmap/newgidmap must acquire their NixOS wrapper privileges to
-          # install only this user's configured subordinate-ID ranges.
+          # install only this user's configured subordinate-ID ranges. Hide all
+          # other host wrappers while NoNewPrivileges is disabled.
           NoNewPrivileges = false;
           PrivateDevices = true;
           PrivateTmp = true;
