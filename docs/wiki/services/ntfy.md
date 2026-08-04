@@ -15,7 +15,8 @@ cron and completion notifications.
 ## Security model
 
 - The ntfy backend listens only on doc2 loopback and is exposed through the
-  existing HTTPS `homelab.localProxy` path.
+  existing HTTPS `homelab.localProxy` path. nginx buffering is disabled for
+  this vhost so streaming `/json` events reach Hermes immediately.
 - Anonymous access is denied globally.
 - One non-admin user has read/write access only to the `hermes` topic.
 - The server provisions the bcrypt password hash, topic ACL, and Hermes token
@@ -23,6 +24,10 @@ cron and completion notifications.
 - Hermes receives only its endpoint, topic, allowlist, and bearer token from
   doc1-only `secrets/hosts/proxmox-vm/ntfy-gateway.env` through a systemd
   user-unit EnvironmentFile. Server provisioning values never enter Hermes.
+- The same user-unit drop-in exports `HERMES_BUNDLED_PLUGINS` from the pinned
+  Hermes package. The mutable gateway unit launches the package's Python
+  environment directly rather than its wrapper, so the variable is required
+  for runtime discovery of the bundled ntfy adapter.
 - Credentials never enter tracked `config.yaml` or mutable `~/.hermes/.env`.
 - The phone password is retained separately in the doc1-only encrypted
   `secrets/hosts/proxmox-vm/ntfy-phone-password.env`; it is not loaded into

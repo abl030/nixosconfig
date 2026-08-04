@@ -84,7 +84,10 @@
   # environment into that mutable unit instead of shadowing it.
   systemd.user.services.hermes-gateway = {
     overrideStrategy = "asDropin";
-    serviceConfig.EnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
+    serviceConfig = {
+      Environment = "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins";
+      EnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
+    };
   };
 
   homelab = {

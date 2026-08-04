@@ -45,6 +45,16 @@ in {
       };
     };
 
+    # ntfy's /json endpoint is an indefinite HTTP response. nginx's default
+    # response buffering prevents Hermes from seeing events until the stream
+    # closes, while the adapter intentionally reconnects if no keepalive data
+    # arrives within 90 seconds. Forward each event immediately and keep the
+    # upstream read open beyond that interval.
+    services.nginx.virtualHosts.${cfg.fqdn}.locations."/".extraConfig = lib.mkAfter ''
+      proxy_buffering off;
+      proxy_read_timeout 3600s;
+    '';
+
     homelab = {
       localProxy.hosts = [
         {
