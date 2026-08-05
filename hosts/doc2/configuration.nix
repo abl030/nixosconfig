@@ -664,6 +664,12 @@
     stateVersion = "25.05";
   };
 
+  # Keep the headless operator account's user manager alive between short-lived
+  # SSH sessions. Otherwise logind can stop user@1000.service while
+  # switch-to-configuration is reloading its units, leaving a stale
+  # /run/user/1000/bus socket and making an otherwise successful deployment exit 4.
+  users.users.abl030.linger = true;
+
   # Indexer recovery (2026-06-25): mailsearch-index is a long bootstrap oneshot
   # (hours). `restartIfChanged = false` means a deploy never touches a running
   # instance, so if it wedges on a pathological message the bastion otherwise has
