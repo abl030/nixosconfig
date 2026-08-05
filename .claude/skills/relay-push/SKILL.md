@@ -1,7 +1,6 @@
 ---
 name: relay-push
-description: Land a dev box's local commits onto Forgejo master by relaying them through the doc1 bastion. Dev boxes (epi, framework) hold NO push token by design — doc1 is the sole writer. The skill fetches the dev box's commits over SSH, verifies each is signed by a hosts.nix key, rebases them onto current master, security-reviews every diff against least-privilege, then pushes ONLY after the human says "go". Trigger phrases include "pull commits from epi", "pull from framework", "land epi's commits", "push epi's work", "relay epi", "get epi's commits up", "push the dev box commits", "gated push".
-version: 1.0.0
+description: Land a dev box's signed nixosconfig commits through the doc1 Forgejo bastion. Use for epi/framework review-gated relays and for an explicitly unlocked WSL-to-doc1 agent relay, including "pull commits from WSL", "land WSL's commits", "push the dev box commits", or "gated push".
 ---
 
 # Relay Push — land a dev box's commits through doc1
@@ -13,11 +12,20 @@ defence). So the write credential lives ONLY on doc1, and the human reviewing a
 diff before approving the push is the real security gate. Full rationale +
 the FIDO-touch endgame: `docs/wiki/infrastructure/dev-box-gated-push.md`.
 
-**Where this runs:** doc1 (`hostname` == `proxmox-vm`) ONLY. doc1 is the only
-host that holds the Forgejo push token AND can SSH into siblings (bastion).
+**Where this runs:** relay commands run on doc1 (`hostname` == `proxmox-vm`).
+An agent on WSL may drive those commands over `ssh doc1` after the user unlocks
+the Windows-backed SSH key. doc1 remains the only host with Forgejo credentials.
 
-**The hard rule:** NEVER push before the human explicitly says "go". The whole
-point is a human reviews the diff. An auto-relay would buy zero security.
+**Authorization modes:**
+
+- Epi/framework and ordinary relays remain review-gated: never push before the
+  human reviews the summary and explicitly says "go".
+- For cellar-manager work from WSL, a user-initiated interactive `ssh doc1`
+  unlock is the human-presence gate when the user has asked the agent to own the
+  deployment. Require a subsequent `ssh -o BatchMode=yes doc1 hostname` to print
+  `proxmox-vm`. Then complete the in-scope PR/merge/deploy workflow without a
+  second routine approval. Still inspect every diff, signature, and check; the
+  unlock does not authorize unrelated changes.
 
 ---
 
@@ -124,15 +132,29 @@ nix flake check        # eval + repo checks (sops scope, signers, bastion role, 
 ```
 Warm cache on doc1 makes this tolerable. At minimum the change must evaluate.
 
-## 8. STOP — summarise and ask for "go"
+## 8. Apply the authorization gate
 
 Present: source host, # commits, files touched, per-commit message-vs-diff verdict,
 signature/attribution, security-review result, FF status, flake-check result.
-Then ask the human to approve. **Do not push yet.**
 
-## 9. On "go" — push from doc1, verify, clean up
+- In the ordinary review-gated mode, stop and ask for "go". **Do not push yet.**
+- In the explicitly unlocked WSL cellar-manager mode, record that BatchMode SSH
+  succeeded and continue without another prompt.
+
+## 9. Publish from doc1, verify, clean up
+
+For an ordinary relay after "go", use the direct-master flow below. For the
+unlocked WSL cellar-manager mode, push `relay/<host>` as a Forgejo feature
+branch, open a pull request against `master`, wait for checks, merge it through
+the Forgejo REST API using `Do = "fast-forward-only"`, and only then
+fast-forward doc1's local `master`. This preserves the doc1 SSH signature;
+never create an unsigned server-side merge commit. If master moved, replay and
+re-sign onto the new tip before retrying. The API
+credential and procedure are documented in
+`.claude/memory/forgejo-issue-token-doc1.md`; never copy the credential to WSL.
 
 ```bash
+# Ordinary review-gated mode only:
 git -C ~/nixosconfig -c "http.extraHeader=Authorization: token $(cat /run/secrets/forgejo/nixbot-token)" \
   push origin relay/<host>:master
 git fetch origin master
@@ -162,8 +184,9 @@ use the **service-deploy** skill / `fleet-deploy <host>` (see CLAUDE.md).
 
 ## Notes / exceptions
 
-- **wsl** keeps its own push token (USB FIDO can't pass into WSL) — it doesn't
-  need relaying, though you can relay it like any sibling if you prefer.
+- **wsl** holds no Forgejo push token. Its interactive exception is an unlocked
+  Windows-backed SSH path to doc1, which lets the local agent drive the reviewed
+  PR and deployment while all Forgejo credentials remain on doc1.
 - **doc1** is the one unattended writer (the 23:00 bot). It never relays.
 - **Break-glass:** if a future FIDO-touch key is lost, this relay IS the fallback
   path — doc1's token still works.

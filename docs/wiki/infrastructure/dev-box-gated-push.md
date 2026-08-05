@@ -1,9 +1,11 @@
 # Dev-box gated push (and the FIDO-touch endgame)
 
-- **Date:** 2026-06-21
-- **Status:** interim model LIVE (relay through doc1); FIDO-touch model PLANNED (no hardware yet)
+- **Date:** 2026-08-05
+- **Status:** relay through doc1 LIVE; WSL interactive-unlock delegation LIVE;
+  FIDO-touch model PLANNED (no hardware yet)
 - **Related:** signed-fleet-deploys (#235), sibling lockdown (forgejo#2), `.claude/skills/relay-push/`
-- **Supersedes the direction of:** the "dev boxes may hold a plaintext Forgejo write token" stance (that was only ever wsl; do NOT extend it)
+- **Supersedes the direction of:** the "dev boxes may hold a plaintext Forgejo
+  write token" stance. WSL now relays through doc1 too.
 
 ## The problem
 
@@ -47,7 +49,8 @@ comes only from a **human reading the diff** before it can deploy.
 - To land a dev box's work: on doc1, run the **`relay-push`** skill — it fetches
   the box's commits over SSH, inspects each commit (message-vs-diff), verifies
   signatures + attribution, security-reviews against least-privilege, rebases onto
-  current master, and pushes **only after the human says "go".**
+  current master, and publishes only after the applicable human gate: explicit
+  "go" for ordinary relays, or the interactive WSL SSH unlock described below.
 - The human-reads-the-diff step is the gate. First real run (2026-06-21) it
   immediately earned its keep: a commit labelled "add fix-displays command" showed
   a 1062-line diff against master. That was a **staleness mirage** (the box was 8
@@ -56,7 +59,16 @@ comes only from a **human reading the diff** before it can deploy.
   distinguishes "mislabelled/dangerous" from "just stale". Always inspect
   per-commit, never the range diff against master.
 
-Cost: the human has to be at doc1 to approve. Accepted for now.
+For cellar-manager work on WSL, the user can deliberately unlock WSL's
+Windows-backed SSH key by connecting to doc1 once. A successful subsequent
+BatchMode connection is the human-presence gate for that requested deployment.
+The WSL agent may then drive doc1's review, Forgejo PR/merge, and
+`fleet-deploy wsl` without a second routine "go" prompt. WSL still receives no
+Forgejo token; the authorization is bounded to the requested change, and doc1
+retains the credential and deploy surfaces.
+
+Cost: epi/framework still require an explicit diff approval. WSL requires the
+user to be present to unlock SSH to doc1 once per agent work session.
 
 ## Endgame (PLANNED): FIDO touch-on-push
 
@@ -90,8 +102,9 @@ user's pocket, not on disk.
 - **doc1** stays token-based — the 23:00 rolling bot is unattended and can't touch
   a key. doc1 is the one trusted unattended writer, protected differently
   (locked, key-only SSH, bastion).
-- **wsl** can't reach a USB FIDO device without ugly passthrough, so it keeps a
-  token / relay posture. Known carve-out.
+- **wsl** can't reach a USB FIDO device without ugly passthrough, so it uses the
+  interactive SSH-unlock relay posture described above and holds no Forgejo
+  token. Known carve-out.
 - **doc1's token is the break-glass** for a lost/broken FIDO key — you fall back
   to the `relay-push` path until a replacement arrives. No lockout, so a single
   key is acceptable (a backup key is optional, not required).

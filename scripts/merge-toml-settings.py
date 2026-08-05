@@ -10,10 +10,10 @@ import os
 import re
 import stat
 import tempfile
-import tomllib
 from pathlib import Path
 from typing import Any
 
+import tomllib
 
 TABLE_RE = re.compile(r"^\s*\[\[?([^]]+)\]\]?\s*(?:#.*)?$")
 
@@ -28,7 +28,10 @@ def toml_value(value: Any) -> str:
     if isinstance(value, list):
         return "[" + ", ".join(toml_value(item) for item in value) + "]"
     if isinstance(value, dict):
-        entries = [f"{json.dumps(str(key))} = {toml_value(item)}" for key, item in value.items()]
+        entries = [
+            f"{json.dumps(str(key))} = {toml_value(item)}"
+            for key, item in value.items()
+        ]
         return "{ " + ", ".join(entries) + " }"
     raise ValueError(f"unsupported TOML value: {value!r}")
 
@@ -50,9 +53,40 @@ def table_bounds(lines: list[str], section: str) -> tuple[int, int] | None:
     return None if start is None else (start, len(lines))
 
 
-def merge_text(text: str, settings: dict[str, dict[str, Any]]) -> str:
+def remove_tables(lines: list[str], sections: list[str]) -> None:
+    """Remove exact TOML tables and their descendant tables."""
+    headers: list[tuple[int, str]] = []
+    for index, line in enumerate(lines):
+        match = TABLE_RE.match(line.rstrip("\n"))
+        if match:
+            headers.append((index, match.group(1)))
+
+    ranges = []
+    for position, (start, name) in enumerate(headers):
+        if any(
+            name == section or name.startswith(f"{section}.") for section in sections
+        ):
+            end = (
+                headers[position + 1][0] if position + 1 < len(headers) else len(lines)
+            )
+            ranges.append((start, end))
+
+    for start, end in reversed(ranges):
+        del lines[start:end]
+
+
+def merge_text(text: str, settings: dict[str, Any]) -> str:
     lines = text.splitlines(keepends=True)
+    remove_sections = settings.get("__remove_sections__", [])
+    if not isinstance(remove_sections, list) or not all(
+        isinstance(section, str) for section in remove_sections
+    ):
+        raise ValueError("section '__remove_sections__' must contain a string list")
+    remove_tables(lines, remove_sections)
+
     for section, values in settings.items():
+        if section == "__remove_sections__":
+            continue
         if not isinstance(values, dict):
             raise ValueError(f"section {section!r} must contain an object")
         bounds = table_bounds(lines, section)
@@ -82,7 +116,9 @@ def merge_file(config_path: Path, settings_path: Path) -> bool:
     if not isinstance(settings, dict):
         raise ValueError("managed settings must be a JSON object")
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = config_path.with_name(f".{config_path.name}.homelab-managed-settings.lock")
+    lock_path = config_path.with_name(
+        f".{config_path.name}.homelab-managed-settings.lock"
+    )
     with lock_path.open("a+") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if config_path.is_symlink():
@@ -103,15 +139,21 @@ def merge_file(config_path: Path, settings_path: Path) -> bool:
                 and existing_notify[1] == "codex-notify"
             )
             if not managed:
-                raise ValueError("refusing to replace unrelated top-level Codex notify command")
+                raise ValueError(
+                    "refusing to replace unrelated top-level Codex notify command"
+                )
 
         merged = merge_text(original, settings)
         tomllib.loads(merged)
         if merged == original:
             return False
 
-        mode = stat.S_IMODE(config_path.stat().st_mode) if config_path.exists() else 0o600
-        descriptor, temporary = tempfile.mkstemp(prefix=f".{config_path.name}.", dir=config_path.parent)
+        mode = (
+            stat.S_IMODE(config_path.stat().st_mode) if config_path.exists() else 0o600
+        )
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{config_path.name}.", dir=config_path.parent
+        )
         try:
             with os.fdopen(descriptor, "w") as handle:
                 handle.write(merged)
@@ -134,21 +176,33 @@ def merge_file(config_path: Path, settings_path: Path) -> bool:
 
 
 def self_test() -> None:
-    source = "# keep me\nmodel = \"test\"\n\n[features]\nother = true\n\n[tail]\nvalue = 1\n"
+    source = (
+        '# keep me\nmodel = "test"\n\n[features]\nother = true\n\n[tail]\nvalue = 1\n'
+    )
     settings = {
-        "__root__": {"notify": ["/nix/store/test/bin/ai-gotify-notify", "codex-notify"]},
+        "__root__": {
+            "notify": ["/nix/store/test/bin/ai-gotify-notify", "codex-notify"]
+        },
         "features": {"memories": True},
         "memories": {
             "generate_memories": True,
             "use_memories": True,
             "disable_on_external_context": True,
         },
+        "__remove_sections__": ["mcp_servers.vinsight"],
     }
+    source += (
+        '\n[mcp_servers.vinsight]\ncommand = "old-launcher"\n'
+        '\n[mcp_servers.vinsight.tools.write]\napproval_mode = "prompt"\n'
+        '\n[mcp_servers.keep]\ncommand = "keep-me"\n'
+    )
     merged = merge_text(source, settings)
     parsed = tomllib.loads(merged)
     assert parsed["notify"][-1] == "codex-notify"
     assert parsed["features"] == {"other": True, "memories": True}
     assert parsed["memories"]["disable_on_external_context"] is True
+    assert "vinsight" not in parsed["mcp_servers"]
+    assert parsed["mcp_servers"]["keep"]["command"] == "keep-me"
     assert "# keep me" in merged and parsed["tail"]["value"] == 1
     assert merge_text(merged, settings) == merged
     no_final_newline = merge_text("[features]", {"features": {"memories": True}})
@@ -171,7 +225,10 @@ def self_test() -> None:
             'notify = ["/nix/store/old/bin/ai-gotify-notify", "codex-notify"]\n'
         )
         assert merge_file(config, managed)
-        assert tomllib.loads(config.read_text())["notify"] == settings["__root__"]["notify"]
+        assert (
+            tomllib.loads(config.read_text())["notify"]
+            == settings["__root__"]["notify"]
+        )
 
 
 def main() -> None:

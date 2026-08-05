@@ -14,11 +14,6 @@
   aiNotificationInstructions = pkgs.writeText "ai-notification-instructions.md" (
     builtins.readFile ../ai-notification-instructions.md
   );
-  vinsightMcpLauncher = pkgs.writeShellApplication {
-    name = "vinsight-mcp-launcher";
-    runtimeInputs = [pkgs.vinsight-mcp];
-    text = builtins.readFile ../../scripts/mcp-vinsight.sh;
-  };
   codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON (
     {
       analytics.enabled = false;
@@ -41,15 +36,13 @@
         command = "uvx";
         args = ["mcp-nixos"];
       };
+      __remove_sections__ = lib.optionals (hostname == "wsl") [
+        "mcp_servers.vinsight"
+      ];
     }
-    // lib.optionalAttrs (hostname == "wsl") {
-      "mcp_servers.vinsight" = {
-        command = "${vinsightMcpLauncher}/bin/vinsight-mcp-launcher";
-        args = [];
-        env = {
-          VINSIGHT_READ_ONLY = "false";
-          VINSIGHT_MODULES = "wine,production,vineyard,stock,inventory,settings,contacts";
-        };
+    // lib.optionalAttrs (builtins.elem hostname ["proxmox-vm" "wsl"]) {
+      "projects.\"${config.home.homeDirectory}/cellar-manager\"" = {
+        trust_level = "trusted";
       };
     }
     // {
@@ -100,8 +93,10 @@ in {
   #   * [mcp_servers.mcp-nixos]      — the same shared mcp-nixos Claude gets, so
   #     codex also has live nixpkgs/option lookups (avoids the native
   #     enableMcpIntegration path, which would seize the whole file).
-  #   * [mcp_servers.vinsight]       — WSL only; starts the packaged server via
-  #     the host-scoped SOPS environment file and preserves unrelated MCPs.
+  #   * [projects."~/cellar-manager"] — trust the owned repo so Codex loads its
+  #     repo-scoped Vinsight MCP configuration on doc1 and WSL.
+  #   * WSL's retired global Vinsight table is removed exactly; other MCP and
+  #     runtime-owned tables remain untouched.
   home.activation.codexConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
     CODEX_CONFIG="${config.home.homeDirectory}/.codex/config.toml"
     run mkdir -p "$(dirname "$CODEX_CONFIG")"
