@@ -20,11 +20,11 @@
     "cellar-manager": {
       "flake": false,
       "locked": {
-        "lastModified": 1784693103,
-        "narHash": "sha256-dFL+Q0SFm3c3RzFVmP2OMwLSTi25VrC3m8p4rgMqG1s=",
+        "lastModified": 1785923134,
+        "narHash": "sha256-J1x7EFJwue8bLLvRWfNVxebKedWIOVQgM5xBOLX37IU=",
         "owner": "abl030",
         "repo": "cellar-manager",
-        "rev": "9f0ccb3b3fe6e8c19dd7bdf07d9aabb22c1db620",
+        "rev": "5c40e21e5915d32539f514faee8a80e92b93f2f1",
         "type": "github"
       },
       "original": {
