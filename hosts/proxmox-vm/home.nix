@@ -4,7 +4,10 @@
     ../../home/utils/common.nix
   ];
 
-  home.packages = [pkgs.officecli];
+  home.packages = [
+    pkgs.officecli
+    (pkgs.python3.withPackages (pythonPackages: [pythonPackages.openpyxl]))
+  ];
 
   # doc1 is the sole writer to Forgejo master. Audit-gate pushes (so a policy
   # violation can't reach master and break overnight's rolling-flake-update),
