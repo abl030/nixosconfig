@@ -153,6 +153,13 @@
     }
   )
 
+  # Office document CLI, pinned because upstream distributes release binaries.
+  (
+    _final: prev: {
+      officecli = prev.callPackage ./pkgs/officecli.nix {};
+    }
+  )
+
   # netavark / aardvark-dns pin — last-known-good 1.17.x (nixpkgs rev 4a29d733,
   # 2026-05-21). nixpkgs bumped these to 2.0.0 (~2026-06-23); netavark 2.0.0
   # removed iptables support (nftables-only) and stopped installing the port-53

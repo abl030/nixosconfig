@@ -1,8 +1,10 @@
-{...}: {
+{pkgs, ...}: {
   imports = [
     ../../home/home.nix
     ../../home/utils/common.nix
   ];
+
+  home.packages = [pkgs.officecli];
 
   # doc1 is the sole writer to Forgejo master. Audit-gate pushes (so a policy
   # violation can't reach master and break overnight's rolling-flake-update),
