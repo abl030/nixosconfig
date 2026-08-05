@@ -391,10 +391,12 @@ in {
           # systemd's runtime-directory bind otherwise hides the private mount.
           # Numeric ownership matches doc1's established operator identity and is
           # required because tmpfs is otherwise root:root despite User=abl030.
-          # A tmpfs size is a ceiling, not an eager reservation.
+          # The explicit inode ceiling exceeds the old shared /run ceiling; the
+          # tmpfs default (409,600) exhausted first at only 12.76 GB used.
+          # Size and inode limits are ceilings, not eager reservations.
           TemporaryFileSystem = [
             "/mnt"
-            "${dailyScratchDir}:rw,size=16G,mode=0700,uid=1000,gid=100"
+            "${dailyScratchDir}:rw,size=16G,nr_inodes=1048576,mode=0700,uid=1000,gid=100"
           ];
 
           StandardOutput = "journal";
