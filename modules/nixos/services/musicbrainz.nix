@@ -460,6 +460,71 @@
     fi
   '';
 
+  # Post-replication Valkey flush — works around a musicbrainz-server cache
+  # bug that turns replicated merges into PERMANENT WS/2 404s.
+  #
+  # Mechanism (traced against the deployed tag, 2026-08-05):
+  #   1. `GIDEntityCache::_create_cache_entries` re-writes `MB:<type>:<gid>`
+  #      -> entity id with NO TTL, clobbering the TTL'd write that
+  #      `EntityCache::_create_cache_entries` just made (Valkey.pm's
+  #      `set_multi` appends `EX` only `if defined $exptime`). Valkey runs
+  #      maxmemory=0 / noeviction, so that key is immortal.
+  #   2. `Data/Release.pm` applies `GIDRedirect` BEFORE `GIDEntityCache`, so
+  #      the cache's `around get_by_gid` is outermost. On a hit it calls
+  #      `get_by_id($id)` and returns — the `GIDRedirect` layer, the only
+  #      code that reads `*_gid_redirect`, never runs.
+  #   3. Invalidation exists only in the application merge path
+  #      (`GIDRedirect::_delete_and_redirect_gids`). Replication applies raw
+  #      SQL to PostgreSQL; the Perl model never executes, so nothing
+  #      invalidates.
+  #
+  # Net effect: an MBID looked up while it was still canonical, and merged
+  # upstream afterwards, 404s here forever — while PostgreSQL holds the
+  # correct redirect row and public MB answers 301. Measured 2026-08-05:
+  # 31 poisoned MBIDs (27 recording, 2 artist, 1 release, 1 release-group)
+  # accumulated in the 8 days since the valkey container was created. The
+  # selection is adversarial rather than random: the poisoned set is exactly
+  # "MBIDs our own consumers resolved while they were still current".
+  #
+  # The cache is disposable (no volume mounts, appendonly no), so the fix is
+  # to restore the missing invalidation by flushing after each replication
+  # run. Cost is one cold cache per day at the replication timer.
+  #
+  # Speaks RESP over /dev/tcp instead of `podman exec … valkey-cli` so the
+  # flush cannot depend on what the upstream image happens to ship; the
+  # container address is resolved at runtime because podman reassigns it on
+  # recreation. Deliberately NOT `systemctl restart
+  # podman-musicbrainz-valkey-1`: the MB app unit has Requires= on valkey, so
+  # a systemd restart stops the WS/2 API and does not bring it back.
+  #
+  # Fails the unit loudly on any problem — a silently unflushed cache
+  # reintroduces the exact bug this exists to prevent.
+  valkeyFlushScript = pkgs.writeShellScript "musicbrainz-valkey-flush" ''
+    set -euo pipefail
+
+    ip=$(${pkgs.podman}/bin/podman inspect musicbrainz-valkey-1 \
+      --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+    if [ -z "$ip" ]; then
+      echo "[mb-valkey-flush] could not resolve musicbrainz-valkey-1 address" >&2
+      exit 1
+    fi
+
+    exec 3<>/dev/tcp/"$ip"/6379
+    printf 'FLUSHALL\r\n' >&3
+    if ! read -t 30 -r reply <&3; then
+      echo "[mb-valkey-flush] no reply from valkey at $ip" >&2
+      exit 1
+    fi
+    case "$reply" in
+      "+OK"*) ;;
+      *)
+        echo "[mb-valkey-flush] FLUSHALL returned: $reply" >&2
+        exit 1
+        ;;
+    esac
+    echo "[mb-valkey-flush] gid cache flushed after replication"
+  '';
+
   # Web /ws/2 readiness probe. Runs in its own non-destructive unit
   # (musicbrainz-ready.service) — a failure pages via errorPattern but never
   # tears down containers, so it is safe to be patient. The MB web cold start
@@ -965,6 +1030,12 @@ in {
                 # tens of minutes; a multi-day gap recovers in one run.
                 TimeoutStartSec = "14400s";
                 ExecStart = replicationScript;
+                # Replication writes raw SQL behind the MB app's back, so the
+                # app's own gid-cache invalidation never runs. See
+                # valkeyFlushScript for the full mechanism. ExecStartPost only
+                # fires when ExecStart succeeded, which is exactly when new
+                # rows may have landed.
+                ExecStartPost = valkeyFlushScript;
               };
             };
 
