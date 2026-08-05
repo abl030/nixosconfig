@@ -98,39 +98,9 @@
       fi
 
       if ! summary="$(
-        ${pkgs.jq}/bin/jq -ce '
-          if (
-            (.status == "clean" or .status == "tracked_debt" or .status == "unrecognized_violations")
-            and (.strict_status == "clean" or .strict_status == "violations")
-            and ([.strict_violations, .approved_total, .known_remaining,
-                  .newly_converged, .converged_total, .new_members,
-                  .changed_members, .growth] | all(type == "number"))
-            and (.state_updated | type) == "boolean"
-            and (.by_code | type) == "array"
-            and (.by_code | all(
-              (.code | type) == "string"
-              and ([.approved, .current, .known_remaining,
-                    .newly_converged, .new_members, .changed_members]
-                   | all(type == "number"))
-            ))
-          )
-          then {
-            status,
-            strict_status,
-            strict_violations,
-            approved_total,
-            known_remaining,
-            newly_converged,
-            converged_total,
-            new_members,
-            changed_members,
-            growth,
-            state_updated,
-            by_code
-          }
-          else error("invalid tracked world-audit report")
-          end
-        ' <<<"$audit_json"
+        ${pkgs.jq}/bin/jq -ce \
+          -f ${./scripts/cratedigger-world-audit-protocol.jq} \
+          <<<"$audit_json"
       )"; then
         echo "live world audit: invalid tracked JSON report (remote exit $audit_status)" >&2
         exit 1
@@ -385,11 +355,13 @@ in {
           RuntimeDirectoryMode = "0700";
           UMask = "0077";
 
-          BindReadOnlyPaths = [
-            ghHostsFile
-            "/home/abl030/.gitconfig"
-            "/home/abl030/.ssh/id_ed25519_git_sign"
-          ] ++ candidateWrapperBinds dailyWrapperDir;
+          BindReadOnlyPaths =
+            [
+              ghHostsFile
+              "/home/abl030/.gitconfig"
+              "/home/abl030/.ssh/id_ed25519_git_sign"
+            ]
+            ++ candidateWrapperBinds dailyWrapperDir;
           InaccessiblePaths = [
             "-/run/credentials"
             "-/run/secrets"
@@ -456,11 +428,13 @@ in {
           RuntimeDirectoryMode = "0700";
           UMask = "0077";
 
-          BindReadOnlyPaths = [
-            ghHostsFile
-            "/home/abl030/.gitconfig"
-            "/home/abl030/.ssh/id_ed25519_git_sign"
-          ] ++ candidateWrapperBinds tipWrapperDir;
+          BindReadOnlyPaths =
+            [
+              ghHostsFile
+              "/home/abl030/.gitconfig"
+              "/home/abl030/.ssh/id_ed25519_git_sign"
+            ]
+            ++ candidateWrapperBinds tipWrapperDir;
           InaccessiblePaths = [
             "-/run/credentials"
             "-/run/secrets"
