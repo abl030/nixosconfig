@@ -1683,10 +1683,12 @@
             notifier = self.nixosConfigurations.proxmox-vm.config.systemd.services.cratedigger-daily-checks-notify-failure.serviceConfig.ExecStart;
           in
             pkgs.runCommand "cratedigger-daily-summary" {
-              nativeBuildInputs = [pkgs.gnugrep pkgs.python3];
+              nativeBuildInputs = [pkgs.gnugrep pkgs.jq pkgs.python3];
             } ''
               CRATEDIGGER_DAILY_SUMMARY=${./modules/nixos/ci/scripts/cratedigger-daily-summary.py} \
                 python3 ${./nix/checks/test_cratedigger_daily_summary.py}
+              CRATEDIGGER_WORLD_AUDIT_PROTOCOL=${./modules/nixos/ci/scripts/cratedigger-world-audit-protocol.jq} \
+                python3 ${./nix/checks/test_cratedigger_world_audit_protocol.py}
               grep -q 'MONITOR_INVOCATION_ID' ${notifier}
               if grep -q 'systemctl show' ${notifier}; then
                 echo "Cratedigger notifier must use the OnFailure invocation ID" >&2
