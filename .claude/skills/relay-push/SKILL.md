@@ -46,6 +46,18 @@ the Tailscale IP can both time out while the **LAN IP works**. Tailscale status
 may also show stale/duplicate nodes (e.g. an offline `epimetheus-vm` next to the
 live `epimetheus`). Find the live address, prefer LAN.
 
+**wsl is the exception — it is NOT on the tailnet.** `tailscale status` has no
+`wsl` node at all, so the lookup below returns nothing and reads as "doc1 can't
+reach wsl" (mis-diagnosed exactly that way on 2026-08-05). doc1 reaches it as
+the plain SSH-config alias, and the repo lives under the `nixos` user:
+
+```bash
+ssh -o BatchMode=yes wsl hostname                 # prints: wsl
+git fetch "ssh://wsl/home/nixos/nixosconfig" <branch>:refs/incoming/wsl
+```
+
+For every other host, use the Tailscale/LAN lookup:
+
 ```bash
 tailscale status | grep -i <host>          # find the ACTIVE node + its IPs
 # try in order until one answers, e.g. epi: LAN 192.168.1.5 worked when ts timed out
