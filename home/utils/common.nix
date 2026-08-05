@@ -14,33 +14,52 @@
   aiNotificationInstructions = pkgs.writeText "ai-notification-instructions.md" (
     builtins.readFile ../ai-notification-instructions.md
   );
-  codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON {
-    analytics.enabled = false;
-    features =
-      {
-        memories = true;
-      }
-      // lib.optionalAttrs (hostname == "proxmox-vm") {
-        hooks = true;
+  vinsightMcpLauncher = pkgs.writeShellApplication {
+    name = "vinsight-mcp-launcher";
+    runtimeInputs = [pkgs.vinsight-mcp];
+    text = builtins.readFile ../../scripts/mcp-vinsight.sh;
+  };
+  codexManagedSettings = pkgs.writeText "codex-managed-settings.json" (builtins.toJSON (
+    {
+      analytics.enabled = false;
+      features =
+        {
+          memories = true;
+        }
+        // lib.optionalAttrs (hostname == "proxmox-vm") {
+          hooks = true;
+        };
+      memories = {
+        generate_memories = true;
+        use_memories = true;
+        # Exclude sessions that actually used MCP/web/tool-search context. This
+        # keeps mail, firewall, HA, and other sensitive external data out of the
+        # generated local recall store while preserving memory for code work.
+        disable_on_external_context = true;
       };
-    memories = {
-      generate_memories = true;
-      use_memories = true;
-      # Exclude sessions that actually used MCP/web/tool-search context. This
-      # keeps mail, firewall, HA, and other sensitive external data out of the
-      # generated local recall store while preserving memory for code work.
-      disable_on_external_context = true;
-    };
-    "mcp_servers.mcp-nixos" = {
-      command = "uvx";
-      args = ["mcp-nixos"];
-    };
-    __root__ = lib.optionalAttrs (hostname == "proxmox-vm") {
-      # The native completion callback runs outside Codex's network sandbox and
-      # publishes only explicit semantic markers from the final response.
-      notify = ["${aiGotifyNotify}/bin/ai-gotify-notify" "codex-notify"];
-    };
-  });
+      "mcp_servers.mcp-nixos" = {
+        command = "uvx";
+        args = ["mcp-nixos"];
+      };
+    }
+    // lib.optionalAttrs (hostname == "wsl") {
+      "mcp_servers.vinsight" = {
+        command = "${vinsightMcpLauncher}/bin/vinsight-mcp-launcher";
+        args = [];
+        env = {
+          VINSIGHT_READ_ONLY = "false";
+          VINSIGHT_MODULES = "wine,production,vineyard,stock,inventory,settings,contacts";
+        };
+      };
+    }
+    // {
+      __root__ = lib.optionalAttrs (hostname == "proxmox-vm") {
+        # The native completion callback runs outside Codex's network sandbox and
+        # publishes only explicit semantic markers from the final response.
+        notify = ["${aiGotifyNotify}/bin/ai-gotify-notify" "codex-notify"];
+      };
+    }
+  ));
 in {
   # ---------------------------------------------------------
   # CODEX CLI  (native programs.codex — see issue #261)
@@ -81,6 +100,8 @@ in {
   #   * [mcp_servers.mcp-nixos]      — the same shared mcp-nixos Claude gets, so
   #     codex also has live nixpkgs/option lookups (avoids the native
   #     enableMcpIntegration path, which would seize the whole file).
+  #   * [mcp_servers.vinsight]       — WSL only; starts the packaged server via
+  #     the host-scoped SOPS environment file and preserves unrelated MCPs.
   home.activation.codexConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
     CODEX_CONFIG="${config.home.homeDirectory}/.codex/config.toml"
     run mkdir -p "$(dirname "$CODEX_CONFIG")"

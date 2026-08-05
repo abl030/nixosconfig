@@ -72,8 +72,9 @@ in {
   # Agent View bypasses — see above); the `claudeConfig` activation mirrors
   # mcp-nixos into ~/.claude.json user scope for Claude instead, so keep this
   # list and that activation in sync. The noisy subagent-only servers
-  # (unifi/pfsense/playwright/HA) stay scoped to .claude/agents/, and vinsight
-  # is per-repo via that repo's .mcp.json.
+  # (unifi/pfsense/playwright/HA) stay scoped to .claude/agents/. Vinsight is
+  # registered for WSL Codex in home/utils/common.nix; Claude projects may
+  # still opt into it through their own .mcp.json.
   programs.mcp = {
     enable = lib.mkDefault true;
     servers.mcp-nixos = lib.mkDefault {
@@ -201,7 +202,7 @@ in {
     # Kept available even though most are subagent-only (see .claude/agents/).
     pkgs.unifi-mcp
     pkgs.pfsense-mcp
-    pkgs.vinsight-mcp # installed but registered per-repo, not globally
+    pkgs.vinsight-mcp # WSL Codex registration is managed in home/utils/common.nix
     pkgs.playwright-mcp
     pkgs.nodejs
     pkgs.sox # Claude Code /voice mode
