@@ -1,7 +1,7 @@
 # Push-deploy — activate doc1-built closures on hosts that can't rebuild locally
 
 **Researched / built:** 2026-07-01
-**Status:** LIVE on `servarr` + `igpu` (forgejo#10)
+**Status:** LIVE on `servarr`, `igpu`, `caddy`, `musicbrainz`, and `discogs` (forgejo#10)
 **Code:** `modules/nixos/autoupdate/push-deploy.nix` (target side),
 `scripts/push_deploy.sh` + `modules/nixos/ci/rolling-flake-update.nix` (doc1 side)
 
@@ -75,7 +75,10 @@ exit 1, the file never appears.
 
 ## doc1 side
 
-`homelab.ci.rollingFlakeUpdate.pushDeployHosts = ["servarr" "igpu"]` (on doc1). After
+`homelab.ci.rollingFlakeUpdate.pushDeployHosts` lists every host whose target-side
+`homelab.update.pushDeploy.enable` receiver is enabled. The flake's
+`pushDeployEnrollmentCheck` requires those sets to be identical, preventing a new
+receiver from being silently omitted from nightly activation. After
 each nightly run (post Forgejo-push, and on no-op nights so a host that missed a night
 catches up), `scripts/rolling_flake_update.sh` calls `scripts/push_deploy.sh`, which for
 each host: resolves the populate_cache GC root (`~/.cache/nix-ci-results/<host>-system`
