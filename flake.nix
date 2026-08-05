@@ -330,6 +330,35 @@
                 touch $out
               '')
             self.homeConfigurations;
+          pushDeployEnabledHosts = lib.sort builtins.lessThan (
+            lib.attrNames (
+              lib.filterAttrs
+              (_name: cfg: cfg.config.homelab.update.pushDeploy.enable)
+              self.nixosConfigurations
+            )
+          );
+          pushDeployConfiguredHosts = lib.sort builtins.lessThan self.nixosConfigurations.proxmox-vm.config.homelab.ci.rollingFlakeUpdate.pushDeployHosts;
+          pushDeployMissingHosts = lib.filter (name: !(lib.elem name pushDeployConfiguredHosts)) pushDeployEnabledHosts;
+          pushDeployUnexpectedHosts = lib.filter (name: !(lib.elem name pushDeployEnabledHosts)) pushDeployConfiguredHosts;
+          pushDeployDuplicateHosts = lib.unique (lib.filter (name: lib.count (candidate: candidate == name) pushDeployConfiguredHosts > 1) pushDeployConfiguredHosts);
+          # Sender/receiver enrollment invariant: enabling a target-side
+          # push-activate receiver without adding it to doc1's nightly sender
+          # silently strands the host on its bootstrap generation. The metadata
+          # LXCs exposed this gap because their local auto-upgrade is deliberately
+          # disabled and the nightly summary only covered configured senders.
+          pushDeployEnrollmentCheck = pkgs.runCommand "push-deploy-enrollment-invariant" {} ''
+            if [ -n "${lib.concatStringsSep " " pushDeployMissingHosts}" ] || [ -n "${lib.concatStringsSep " " pushDeployUnexpectedHosts}" ] || [ -n "${lib.concatStringsSep " " pushDeployDuplicateHosts}" ]; then
+              echo "PUSH-DEPLOY ENROLLMENT INVARIANT VIOLATED:"
+              echo "  receiver enabled but not sent: ${lib.concatStringsSep " " pushDeployMissingHosts}"
+              echo "  sender configured without receiver: ${lib.concatStringsSep " " pushDeployUnexpectedHosts}"
+              echo "  duplicate sender entries: ${lib.concatStringsSep " " pushDeployDuplicateHosts}"
+              echo "Every homelab.update.pushDeploy.enable host must be listed exactly once"
+              echo "in doc1 homelab.ci.rollingFlakeUpdate.pushDeployHosts."
+              exit 1
+            fi
+            echo "Push-deploy enrollment OK: ${lib.concatStringsSep " " pushDeployConfiguredHosts}"
+            touch $out
+          '';
           # Lightweight text-based check: every service module declaring
           # `homelab.localProxy.hosts` must also declare
           # `homelab.monitoring.errorPatterns` (or an explicit empty list
@@ -1812,7 +1841,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
