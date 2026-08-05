@@ -1706,6 +1706,7 @@
             dailyTimer = systemd.timers.cratedigger-daily-checks.timerConfig;
             dailyPath = lib.concatStringsSep ":" (map toString dailyService.path);
             tipPath = lib.concatStringsSep ":" (map toString service.path);
+            dailyTmpfs = lib.toList dailyService.serviceConfig.TemporaryFileSystem;
           in
             pkgs.runCommand "cratedigger-tip-canary" {
               nativeBuildInputs = [pkgs.gnugrep];
@@ -1723,6 +1724,9 @@
               test '${dailyService.serviceConfig.RuntimeDirectory}' != '${service.serviceConfig.RuntimeDirectory}'
               test '${dailyService.serviceConfig.TimeoutStartSec}' = '17h'
               test '${service.serviceConfig.TimeoutStartSec}' = '17h'
+              test '${toString (builtins.length dailyTmpfs)}' = '2'
+              test '${toString (lib.count (entry: entry == "/mnt") dailyTmpfs)}' = '1'
+              test '${toString (lib.count (entry: entry == "/run/cratedigger-daily-checks/scratch:rw,size=16G,mode=0700,uid=1000,gid=100") dailyTmpfs)}' = '1'
               case '${dailyPath}' in *util-linux*) ;; *) echo "daily candidate lacks flock" >&2; exit 1 ;; esac
               case '${tipPath}' in *util-linux*) ;; *) echo "tip candidate lacks flock" >&2; exit 1 ;; esac
               test '${timer.OnCalendar}' = '*-*-* 18:05:00 Australia/Perth'

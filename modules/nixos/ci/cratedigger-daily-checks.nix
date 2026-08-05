@@ -12,6 +12,7 @@
   dailyGhConfigDir = "${stateDir}/daily-gh";
   tipGhConfigDir = "${stateDir}/beets-tip-gh";
   dailyRuntimeDir = "/run/cratedigger-daily-checks";
+  dailyScratchDir = "${dailyRuntimeDir}/scratch";
   tipRuntimeDir = "/run/cratedigger-beets-tip-canary";
   dailyWrapperDir = "${dailyRuntimeDir}/wrappers";
   tipWrapperDir = "${tipRuntimeDir}/wrappers";
@@ -319,7 +320,7 @@ in {
           HOME = "/home/abl030";
           GH_CONFIG_DIR = dailyGhConfigDir;
           XDG_CACHE_HOME = "${stateDir}/cache";
-          XDG_RUNTIME_DIR = dailyRuntimeDir;
+          XDG_RUNTIME_DIR = dailyScratchDir;
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           CRATEDIGGER_MIRROR_URL = "http://192.168.1.43:5200";
           # The Beets authority fixtures use unshare --map-auto. NixOS exposes
@@ -383,7 +384,18 @@ in {
           # contract (02775). This non-root service must be able to exercise
           # that invariant rather than strip the bit first.
           RestrictSUIDSGID = false;
-          TemporaryFileSystem = "/mnt";
+          # Production-depth PostgreSQL fuzz targets can collectively exceed the
+          # host's 12 GiB shared /run tmpfs. Keep test scratch RAM-backed, but
+          # isolate it from host runtime state and cap it at half of this 32 GiB
+          # host's RAM. Mount a child rather than RuntimeDirectory itself:
+          # systemd's runtime-directory bind otherwise hides the private mount.
+          # Numeric ownership matches doc1's established operator identity and is
+          # required because tmpfs is otherwise root:root despite User=abl030.
+          # A tmpfs size is a ceiling, not an eager reservation.
+          TemporaryFileSystem = [
+            "/mnt"
+            "${dailyScratchDir}:rw,size=16G,mode=0700,uid=1000,gid=100"
+          ];
 
           StandardOutput = "journal";
           StandardError = "journal";
