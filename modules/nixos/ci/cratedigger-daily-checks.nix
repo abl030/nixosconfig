@@ -391,12 +391,16 @@ in {
           # systemd's runtime-directory bind otherwise hides the private mount.
           # Numeric ownership matches doc1's established operator identity and is
           # required because tmpfs is otherwise root:root despite User=abl030.
-          # The explicit inode ceiling exceeds the old shared /run ceiling; the
-          # tmpfs default (409,600) exhausted first at only 12.76 GB used.
+          # The explicit inode ceiling exceeds both the old shared /run ceiling
+          # and the first private ceiling: 1,048,576 inodes still exhausted at
+          # 985,571 sampled used while 3.32 GiB remained under the byte ceiling.
+          # Ten million was exercised by the 60-worker/24-PostgreSQL fuzz
+          # scheduler; it remains only a ceiling, leaving metadata allocation
+          # proportional to actual files.
           # Size and inode limits are ceilings, not eager reservations.
           TemporaryFileSystem = [
             "/mnt"
-            "${dailyScratchDir}:rw,size=16G,nr_inodes=1048576,mode=0700,uid=1000,gid=100"
+            "${dailyScratchDir}:rw,size=16G,nr_inodes=10000000,mode=0700,uid=1000,gid=100"
           ];
 
           StandardOutput = "journal";
