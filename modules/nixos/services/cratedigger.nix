@@ -919,6 +919,15 @@ in {
             serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
           };
 
+          # Same shape as cratedigger-unfindable: a daily timer-driven oneshot
+          # that reaches the pipeline DB over TCP and therefore needs the
+          # pgpass credential. Deliberately not a metadata-gate guarded unit
+          # (that list covers the ordinary producers only, and is pinned by an
+          # assertion above).
+          cratedigger-canonical-reconcile = {
+            serviceConfig.EnvironmentFile = lib.mkAfter [config.sops.secrets."cratedigger-pgpass".path];
+          };
+
           cratedigger-youtube-ingest = {
             unitConfig.ConditionPathExists = "!${metadataGateYoutubeStartInhibitor}";
             serviceConfig = {
