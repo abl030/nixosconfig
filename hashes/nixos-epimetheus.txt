@@ -1,1 +1,1 @@
-/nix/store/zbq11lz5011dl6ihkgcdnrm039basr0r-nixos-system-epimetheus-26.11.20260806.70ce234
+/nix/store/0ymyamw1miyd3kymd86l1kjg4s9qv66w-nixos-system-epimetheus-26.11.20260806.70ce234
