@@ -7,6 +7,25 @@
   cfg = config.homelab.podman;
 
   podmanBin = "${config.virtualisation.podman.package}/bin/podman";
+  podmanVersion = config.virtualisation.podman.package.version;
+  netavarkVersion = pkgs.netavark.version;
+  aardvarkVersion = pkgs.aardvark-dns.version;
+  buildahVersion = pkgs.buildah.version;
+  skopeoVersion = pkgs.skopeo.version;
+  graphRoot = config.virtualisation.containers.storage.settings.storage.graphroot;
+
+  databaseBackendGuardPackage = pkgs.writeShellScript "podman-database-backend-guard" ''
+    if [ "$#" -ne 1 ]; then
+      echo "usage: podman-database-backend-guard GRAPH_ROOT" >&2
+      exit 2
+    fi
+    bolt_db="$1/libpod/bolt_state.db"
+    if [ -e "$bolt_db" ]; then
+      echo "ERROR: Podman BoltDB state remains at $bolt_db" >&2
+      echo "Run 'podman system migrate --migrate-db' under Podman 5, then retry activation." >&2
+      exit 1
+    fi
+  '';
 
   # OCI container attr-names that get a dedicated, isolated network (#232). We
   # derive them from the registry: only entries that are real per-container
@@ -17,6 +36,11 @@
   isolatedNames =
     map (e: lib.removeSuffix ".service" (lib.removePrefix "podman-" e.unit))
     (lib.filter (e: e.isolate && e.image != null && lib.hasPrefix "podman-" e.unit) cfg.containers);
+
+  lifecycleServiceNames =
+    ["podman" "podman-prune"]
+    ++ lib.optional (cfg.containers != []) "podman-update-containers"
+    ++ map (entry: lib.removeSuffix ".service" entry.unit) cfg.containers;
 
   containerType = lib.types.submodule {
     options = {
@@ -143,9 +167,43 @@ in {
       internal = true;
       description = "Registry of container units for the update timer. Set image to enable smart pull-compare updates.";
     };
+
+    databaseBackendGuardPackage = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      internal = true;
+      description = "Executable BoltDB pre-activation guard used by the cutover invariant test.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = lib.versions.major podmanVersion == "6";
+        message = "homelab.podman requires Podman 6.x during the #13 cutover; got ${podmanVersion}";
+      }
+      {
+        assertion = lib.versionAtLeast netavarkVersion "2.1" && lib.versionOlder netavarkVersion "3";
+        message = "Podman 6 requires Netavark >=2.1 and <3; got ${netavarkVersion}";
+      }
+      {
+        assertion = lib.versionAtLeast aardvarkVersion "2" && lib.versionOlder aardvarkVersion "3";
+        message = "Podman 6 requires Aardvark DNS 2.x; got ${aardvarkVersion}";
+      }
+      {
+        assertion = lib.versionAtLeast buildahVersion "1.44";
+        message = "Podman 6 requires Buildah >=1.44; got ${buildahVersion}";
+      }
+      {
+        assertion = lib.versionAtLeast skopeoVersion "1.23";
+        message = "Podman 6 requires Skopeo >=1.23; got ${skopeoVersion}";
+      }
+      {
+        assertion = config.networking.nftables.enable;
+        message = "Podman 6 / Netavark 2 requires networking.nftables.enable = true";
+      }
+    ];
+
     virtualisation.podman = {
       enable = true;
       defaultNetwork.settings.dns_enabled = true;
@@ -157,6 +215,15 @@ in {
     };
 
     virtualisation.oci-containers.backend = "podman";
+
+    # Podman 6 removed BoltDB support. Refuse the activation before the new
+    # generation can stop or replace containers; migrate with the still-running
+    # Podman 5 generation (`podman system migrate --migrate-db`) and retry.
+    homelab.podman.databaseBackendGuardPackage = databaseBackendGuardPackage;
+    system.activationScripts.podmanDatabaseBackendGuard = {
+      deps = ["specialfs"];
+      text = "${databaseBackendGuardPackage} ${lib.escapeShellArg graphRoot}";
+    };
 
     # Per-container network isolation (#232). Each registered standalone OCI
     # container gets its OWN bridge (`isolated-<name>`) instead of sharing the
@@ -173,16 +240,25 @@ in {
     });
 
     # Allow DNS from containers on the default podman bridge. Isolated bridges
-    # do NOT need an equivalent rule — netavark/aardvark answers external DNS on
-    # them without a host firewall opening (verified under netavark 1.x).
-    # NB: netavark 2.0.0 (nftables-only) broke container *name* resolution on
-    # this iptables-nft fleet — pinned back to 1.17.x in nix/overlay.nix. Forward
-    # path: Forgejo #13 / docs/wiki/infrastructure/netavark-2.0-dns-regression.md
+    # do not need an equivalent host-firewall opening. Podman 6 + Netavark 2 use
+    # native nftables fleet-wide; the package and backend lockstep is asserted
+    # above so a future partial update cannot recreate #13.
+    networking.nftables.enable = true;
     networking.firewall.interfaces.podman0.allowedUDPPorts = [53];
 
     systemd = {
-      services =
+      services = lib.mkMerge [
         {
+          podman-database-backend-guard = {
+            description = "Refuse Podman 6 startup while legacy BoltDB state remains";
+            unitConfig.RequiresMountsFor = [graphRoot];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = "${databaseBackendGuardPackage} ${lib.escapeShellArg graphRoot}";
+            };
+          };
+
           podman-update-containers = lib.mkIf (cfg.containers != []) {
             description = "Pull and restart OCI containers";
             serviceConfig = {
@@ -191,15 +267,20 @@ in {
             };
           };
         }
+        (lib.genAttrs lifecycleServiceNames (_: {
+          requires = ["podman-database-backend-guard.service"];
+          after = ["podman-database-backend-guard.service"];
+        }))
         # Create each isolated network just before its container starts.
         # `--ignore` makes it idempotent (no-op if it already exists); mkBefore
         # sequences it ahead of the unit's podman-rm/pull/run ExecStartPres.
-        // lib.listToAttrs (map (name: {
+        (lib.listToAttrs (map (name: {
             name = "podman-${name}";
             value.serviceConfig.ExecStartPre =
               lib.mkBefore ["${podmanBin} network create isolated-${name} --ignore"];
           })
-          isolatedNames);
+          isolatedNames))
+      ];
 
       timers.podman-update-containers = lib.mkIf (cfg.containers != []) {
         description = "Daily OCI container update timer";

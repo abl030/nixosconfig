@@ -565,6 +565,113 @@
               touch $out
             '';
 
+          # Podman 6 cutover invariant (#13/#136). Every rootful Podman host must
+          # move as one transaction: Podman 6, the Netavark/Aardvark 2.x line that
+          # contains missing-netns teardown, native nftables, no legacy firewall
+          # commands, and a pre-activation BoltDB refusal.
+          podman6CutoverCheck = let
+            rootfulPodmanHosts = lib.filterAttrs (_: cfg: cfg.config.virtualisation.podman.enable) self.nixosConfigurations;
+            checkHost = name: cfg: let
+              host = cfg.config;
+              podmanVersion = cfg.pkgs.podman.version;
+              netavarkVersion = cfg.pkgs.netavark.version;
+              aardvarkVersion = cfg.pkgs.aardvark-dns.version;
+              buildahVersion = cfg.pkgs.buildah.version;
+              skopeoVersion = cfg.pkgs.skopeo.version;
+              legacyFirewall = host.networking.firewall.extraCommands;
+              podman = cfg.pkgs.podman;
+              buildah = cfg.pkgs.buildah;
+              guardPackage = host.homelab.podman.databaseBackendGuardPackage;
+              activationGuard = host.system.activationScripts.podmanDatabaseBackendGuard;
+              guard = activationGuard.text or "";
+              guardUnit = "podman-database-backend-guard.service";
+              lifecycleServiceNames =
+                ["podman" "podman-prune"]
+                ++ lib.optional (host.homelab.podman.containers != []) "podman-update-containers"
+                ++ map (entry: lib.removeSuffix ".service" entry.unit) host.homelab.podman.containers;
+              lifecycleGuarded =
+                lib.all (
+                  serviceName:
+                    lib.elem guardUnit host.systemd.services.${serviceName}.requires
+                    && lib.elem guardUnit host.systemd.services.${serviceName}.after
+                )
+                lifecycleServiceNames;
+              guardReachable = serviceName: let
+                visit = seen: name:
+                  if lib.elem name seen || !(builtins.hasAttr name host.systemd.services)
+                  then false
+                  else let
+                    requiredUnits = host.systemd.services.${name}.requires or [];
+                    requiredServices = map (unit: lib.removeSuffix ".service" unit) requiredUnits;
+                  in
+                    lib.elem guardUnit requiredUnits
+                    || lib.any (visit ([name] ++ seen)) requiredServices;
+              in
+                visit [] serviceName;
+              podmanServiceNames = lib.filter (
+                serviceName:
+                  serviceName
+                  != "podman-database-backend-guard"
+                  && !(lib.hasSuffix "-nfs-watchdog" serviceName)
+                  && (serviceName == "podman" || lib.hasPrefix "podman-" serviceName)
+              ) (builtins.attrNames host.systemd.services);
+              allPodmanServicesGuarded = lib.all guardReachable podmanServiceNames;
+              bootGuardExec = host.systemd.services.podman-database-backend-guard.serviceConfig.ExecStart;
+              bootGuardMounts = host.systemd.services.podman-database-backend-guard.unitConfig.RequiresMountsFor;
+              graphRoot = host.virtualisation.containers.storage.settings.storage.graphroot;
+            in ''
+              echo 'Checking Podman 6 cutover invariants on ${name}'
+              test '${lib.versions.major podmanVersion}' = 6
+              test '${lib.boolToString (lib.versionAtLeast netavarkVersion "2.1")}' = true
+              test '${lib.boolToString (lib.versionOlder netavarkVersion "3")}' = true
+              test '${lib.boolToString (lib.versionAtLeast aardvarkVersion "2")}' = true
+              test '${lib.boolToString (lib.versionOlder aardvarkVersion "3")}' = true
+              test '${lib.boolToString (lib.versionAtLeast buildahVersion "1.44")}' = true
+              test '${lib.boolToString (lib.versionAtLeast skopeoVersion "1.23")}' = true
+              test '${lib.boolToString host.networking.nftables.enable}' = true
+              test '${lib.boolToString lifecycleGuarded}' = true
+              test '${lib.boolToString allPodmanServicesGuarded}' = true
+              test '${lib.boolToString (lib.elem "specialfs" activationGuard.deps)}' = true
+              test '${lib.boolToString (lib.elem graphRoot bootGuardMounts)}' = true
+              test ${lib.escapeShellArg bootGuardExec} = ${lib.escapeShellArg "${guardPackage} ${graphRoot}"}
+              test -z ${lib.escapeShellArg legacyFirewall}
+              test "$(${pkgs.coreutils}/bin/readlink -f ${podman}/libexec/podman/netavark)" = '${cfg.pkgs.netavark}/bin/netavark'
+              test "$(${pkgs.coreutils}/bin/readlink -f ${podman}/libexec/podman/aardvark-dns)" = '${cfg.pkgs.aardvark-dns}/bin/aardvark-dns'
+              helper=$(${pkgs.binutils}/bin/strings ${buildah}/bin/buildah \
+                | ${pkgs.gnugrep}/bin/grep -o '/nix/store/[^ ]*-buildah-helper-binary-wrapper-[^/]*/bin' \
+                | ${pkgs.coreutils}/bin/head -n 1)
+              test "$(${pkgs.coreutils}/bin/readlink -f "$helper/netavark")" = '${cfg.pkgs.netavark}/bin/netavark'
+              test "$(${pkgs.coreutils}/bin/readlink -f "$helper/aardvark-dns")" = '${cfg.pkgs.aardvark-dns}/bin/aardvark-dns'
+              guard=${lib.escapeShellArg guard}
+              test -n "$guard"
+              printf '%s' "$guard" | ${pkgs.gnugrep}/bin/grep -F '${guardPackage}' >/dev/null
+              graph_root="$TMPDIR/${name}-graph-root"
+              mkdir -p "$graph_root/libpod"
+              ${guardPackage} "$graph_root"
+              touch "$graph_root/libpod/bolt_state.db"
+              if ${guardPackage} "$graph_root"; then
+                echo 'BoltDB guard accepted bolt_state.db on ${name}' >&2
+                exit 1
+              fi
+            '';
+          in
+            pkgs.runCommand "podman6-cutover-invariants" {} ''
+              set -euo pipefail
+              for source in \
+                ${self}/modules/nixos/homelab/podman.nix \
+                ${self}/modules/nixos/services/loki.nix \
+                ${self}/modules/nixos/services/mailsearch.nix \
+                ${self}/modules/nixos/services/musicbrainz.nix
+              do
+                if ${pkgs.gnugrep}/bin/grep -Eq '(^|[[:space:]])(ip6?tables|extra(Stop)?Commands)[[:space:]=]' "$source"; then
+                  echo "legacy firewall command reintroduced in $source" >&2
+                  exit 1
+                fi
+              done
+              ${lib.concatStringsSep "\n" (lib.mapAttrsToList checkHost rootfulPodmanHosts)}
+              touch $out
+            '';
+
           # Per-service container network isolation (#232). Standalone OCI
           # containers must NOT share the default podman bridge (where every
           # container can L3-reach + DNS-resolve every other on 10.88.0.0/16, a
@@ -1841,7 +1948,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

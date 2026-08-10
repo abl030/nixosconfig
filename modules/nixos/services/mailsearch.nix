@@ -296,16 +296,11 @@
     ];
 
     # When serving an off-host indexer, open embedPort ONLY to listed sources.
-    # iptables (the fleet firewall backend) — mirrors loki.nix's syslog pattern.
+    # Native nftables rule; mirrors loki.nix's source-scoped syslog pattern.
     networking.firewall = lib.mkIf (cfg.embed.allowFrom != []) {
-      extraCommands =
+      extraInputRules =
         lib.concatMapStringsSep "\n" (ip: ''
-          iptables -I nixos-fw 1 -p tcp --dport ${toString cfg.embedPort} -s ${ip} -j nixos-fw-accept
-        '')
-        cfg.embed.allowFrom;
-      extraStopCommands =
-        lib.concatMapStringsSep "\n" (ip: ''
-          iptables -D nixos-fw -p tcp --dport ${toString cfg.embedPort} -s ${ip} -j nixos-fw-accept 2>/dev/null || true
+          ip saddr ${ip} tcp dport ${toString cfg.embedPort} accept
         '')
         cfg.embed.allowFrom;
     };

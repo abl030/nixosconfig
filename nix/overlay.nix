@@ -153,26 +153,52 @@
     }
   )
 
-  # netavark / aardvark-dns pin — last-known-good 1.17.x (nixpkgs rev 4a29d733,
-  # 2026-05-21). nixpkgs bumped these to 2.0.0 (~2026-06-23); netavark 2.0.0
-  # removed iptables support (nftables-only) and stopped installing the port-53
-  # DNAT rule that steers container DNS to aardvark. Symptom: aardvark listens on
-  # the bridge gateway with correct records, container-to-container traffic BY IP
-  # works, but name lookups time out (`i/o timeout`). Every rootful-podman
-  # service that resolves a sibling by name (immich/paperless DBs, the MusicBrainz
-  # web stack → cratedigger) breaks on its NEXT reboot. doc2 hit it first
-  # (incident 2026-06-25). Pin both back together (they are version-paired) until
-  # upstream netavark 2.x applies the rules reliably. fetchTarball is sha256-pinned
-  # so the nightly flake update can't drag it forward. Forward path / remove-the-pin
-  # tracked in Forgejo #13. See docs/wiki/infrastructure/netavark-2.0-dns-regression.md
+  # Temporary Podman 6 cutover (#13/#136). nixpkgs still carries Podman 5 and
+  # Netavark 1.x even though the fleet needs Podman 6's synchronized networking
+  # API and Netavark 2.1's missing-netns teardown fix. Keep the override surgical:
+  # current nixpkgs already has compatible Buildah/Skopeo/Aardvark releases.
+  # The version guard makes this a no-op as soon as nixpkgs ships Podman 6; remove
+  # the block after the unmodified package set passes the Podman cutover check.
   (
-    _final: prev: let
-      goodPkgs = import (builtins.fetchTarball {
-        url = "https://github.com/NixOS/nixpkgs/archive/4a29d733e8a7d5b824c3d8c958a946a9867b3eb2.tar.gz";
-        sha256 = "1xgk8ph3k64719xmh1pwsq04c60rjirrvlk0yy39zkganh4l1qkz";
-      }) {inherit (prev.stdenv.hostPlatform) system;};
+    final: prev: let
+      podmanNeedsOverride = prev.lib.versions.major prev.podman.version == "5";
+      netavarkNeedsOverride = prev.lib.versionOlder prev.netavark.version "2.1";
+      netavark =
+        if netavarkNeedsOverride
+        then
+          prev.netavark.overrideAttrs (_old: rec {
+            version = "2.1.0";
+            src = prev.fetchFromGitHub {
+              owner = "containers";
+              repo = "netavark";
+              tag = "v${version}";
+              hash = "sha256-nTmbPKTIne4iIrX5KPWTkFc+SD1Th9/sOciAzThin9M=";
+            };
+            cargoDeps = prev.rustPlatform.fetchCargoVendor {
+              inherit src;
+              hash = "sha256-6ZYVQVLm9b71s5FPgTSzDmscEVLE9ZxKCg+4R+0hkUk=";
+            };
+          })
+        else prev.netavark;
+      podmanBase = prev.podman.override {
+        inherit netavark;
+        inherit (final) aardvark-dns;
+      };
     in {
-      inherit (goodPkgs) netavark aardvark-dns;
+      inherit netavark;
+      podman =
+        if podmanNeedsOverride
+        then
+          podmanBase.overrideAttrs (_old: rec {
+            version = "6.0.2";
+            src = prev.fetchFromGitHub {
+              owner = "podman-container-tools";
+              repo = "podman";
+              tag = "v${version}";
+              hash = "sha256-hFUXo0q4KpH5YfnpfwKqfdOWe5rqXANjlUf/guZ3LTY=";
+            };
+          })
+        else prev.podman;
     }
   )
 ]

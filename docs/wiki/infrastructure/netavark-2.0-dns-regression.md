@@ -1,8 +1,8 @@
-# netavark 2.0.0 broke rootful-podman container DNS (pinned to 1.17.x)
+# Podman/Netavark cutover after the 2.0 DNS regression
 
 - **Date:** 2026-06-25
-- **Status:** WORKED AROUND (pin to 1.17.x). Upstream regression in netavark 2.0.0. Forward path / remove-the-pin work tracked in **Forgejo issue #13**.
-- **Scope:** fleet-wide latent — every rootful-podman host (doc2, doc1, igpu, …). doc2 hit it first because it rebooted on the nightly auto-update.
+- **Status:** CUTOVER PREPARED (2026-08-11). Podman 6.0.2 and Netavark 2.1.0 are temporarily overlaid; the compatible Aardvark 2.1.0 remains sourced from the rolling nixpkgs input. Deployment remains staged under **Forgejo issue #13**.
+- **Scope:** every evaluated rootful-Podman host: doc2, igpu, and musicbrainz. doc2 hit the original regression first because it rebooted on the nightly auto-update.
 
 ## Symptom
 
@@ -41,9 +41,9 @@ aardvark-dns however.").
 Confirmed on the box: `nft list table inet netavark` had no port-53 DNAT chain for the
 container subnets; IP connectivity worked; only name resolution failed.
 
-## Fix (the pin)
+## Original mitigation (superseded 2026-08-11)
 
-`nix/overlay.nix` pins both packages back to the last-known-good **1.17.x** from a fixed
+`nix/overlay.nix` originally pinned both packages back to the last-known-good **1.17.x** from a fixed
 nixpkgs rev:
 
 - rev `4a29d733e8a7d5b824c3d8c958a946a9867b3eb2` (2026-05-21) → **netavark 1.17.2 / aardvark-dns 1.17.1**
@@ -52,10 +52,10 @@ nixpkgs rev:
 - `builtins.fetchTarball` is `sha256`-pinned so the nightly `nix flake update` cannot drag it
   forward. Both are pinned **together** (they are version-paired).
 
-This is the upstream-recommended remedy. It is durable, not a band-aid: it holds the working
-version until 2.x is verified, then the overlay block is deleted.
+This was the upstream-recommended immediate remedy. The Podman 6 cutover below replaces it;
+the 1.17.x package-set pin is no longer present.
 
-### Activating the new netavark on an already-broken host
+### Historical 1.17.x activation procedure
 
 A `switch` puts the new binaries in the generation but the **running** aardvark 2.0.0 keeps
 going. To take effect, podman must re-run netavark: either reboot, or
@@ -74,26 +74,35 @@ podman exec <c> getent hosts <sibling>
 ss -ulnp | grep ':53'            # aardvark listeners
 ```
 
-## Forward path (Forgejo #13)
+## Forward path (Forgejo #13, revised 2026-08-11)
 
-The fleet runs `networking.nftables.enable = false` → host firewall is **iptables-nft**
-(`iptables v1.8.13 (nf_tables)`, no `nft` CLI). netavark 1.17.x spoke iptables and coexisted;
-netavark 2.0.0 speaks native nftables and its rules don't land alongside the host's
-iptables-nft ruleset. So "ride netavark 2.x" most likely requires migrating podman hosts to
-`networking.nftables.enable = true` (native nftables) — a real change that rewrites the whole
-firewall on each box (tailscale TCP/53 DNS forwarding, podman port openings, service ports).
-**Open question:** is 2.0.0 broken because it *needs* a native-nftables host, or is it a 2.0.0
-bug that fails regardless (open upstream issues #942/#1057 suggest nft-rule-application is a
-rough edge)? The one-host experiment in #13 answers it: flip `nftables.enable = true` +
-un-pin on a single recoverable host, reboot, test `getent hosts` from a container.
+Waiting for the distro package set was dropped after nixpkgs stayed on Podman 5.8 while its
+networking packages repeatedly moved out of lockstep. The fleet now carries a bounded,
+temporary overlay:
 
-## When to revisit / remove the pin
+- Podman **6.0.2** from the exact source/hash in nixpkgs PR #536860.
+- Netavark **2.1.0**, including the missing-netns teardown repair needed for stale host-port
+  ownership (#136), built from fixed source and Cargo-vendor hashes.
+- Aardvark DNS **2.1.0**, Buildah **1.45.0**, and Skopeo **1.24.0** from the rolling fleet
+  nixpkgs input. Evaluation assertions keep the supported major-version boundary intact.
+- Native nftables is enabled structurally by `homelab.podman`. The Loki, mailsearch, and
+  MusicBrainz source-scoped firewall rules are native nftables rules; no rootful host retains
+  legacy `networking.firewall.extraCommands`.
+- Activation fails before container replacement if the configured graph root still contains
+  `libpod/bolt_state.db`. Live journals confirmed SQLite on doc2, igpu, and musicbrainz before
+  the change was authored.
 
-Remove the `netavark`/`aardvark-dns` overlay block in `nix/overlay.nix` once the one-host test
-(see #13) proves a netavark ≥ 2.x reliably installs the DNS DNAT rules on this fleet
-(unpinned + rebooted + `getent hosts <sibling>` resolves from inside a container). Until then,
-keep it — and note any podman host that has **not** rebooted since the 2.0.0 bump is still
-running aardvark 1.x and is unaffected until its next reboot; the pin protects it then.
+The flake check discovers every evaluated rootful-Podman host dynamically and requires the
+whole transaction: Podman 6.x, Netavark >=2.1,<3, Aardvark 2.x, native nftables, no legacy
+firewall commands, and the BoltDB activation guard.
+
+## When to remove the temporary overlay
+
+Remove only the Podman/Netavark override block when the fleet's ordinary nixpkgs input, with
+no local package override, satisfies the same `podman6CutoverCheck` and the exact unmodified
+Podman package plus all three rootful host closures realize successfully. Keep the native
+nftables configuration, firewall translations, compatibility assertions, and BoltDB guard;
+they are cutover invariants rather than package-pin baggage.
 
 ## Related
 

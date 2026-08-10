@@ -779,12 +779,10 @@ in {
       networking.firewall = {
         allowedTCPPorts = [cfg.webPort cfg.lrclibPort];
         # Native PostgreSQL is reachable only from loopback and the rootful
-        # Podman bridges. This fleet still uses the iptables firewall backend;
-        # extraInputRules is nftables-only and would be silently ignored.
-        # `podman+` is iptables' interface-prefix syntax. Do not expose the
-        # database on eth0/LAN.
-        extraCommands = lib.optionalString nativeDatabase ''
-          iptables -I nixos-fw 1 -i podman+ -p tcp --dport 5432 -j nixos-fw-accept
+        # Podman bridges. The wildcard matches netavark-created podman bridge
+        # interfaces without exposing the database on eth0/LAN.
+        extraInputRules = lib.optionalString nativeDatabase ''
+          iifname "podman*" tcp dport 5432 accept
         '';
       };
 

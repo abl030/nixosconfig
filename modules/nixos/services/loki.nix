@@ -586,17 +586,10 @@ in {
     (lib.mkIf cfg.enable {
       networking.firewall = lib.mkMerge [
         (lib.mkIf (syslogCfg.enable && syslogCfg.sources != []) {
-          extraCommands =
+          extraInputRules =
             lib.concatMapStringsSep "\n" (src: ''
-              iptables  -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-              iptables  -I nixos-fw 1 -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept
-              ip6tables -I nixos-fw 1 -p udp --dport ${toString syslogCfg.port} -s ::1 -j nixos-fw-accept 2>/dev/null || true
-            '')
-            syslogCfg.sources;
-          extraStopCommands =
-            lib.concatMapStringsSep "\n" (src: ''
-              iptables  -D nixos-fw -p udp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
-              iptables  -D nixos-fw -p tcp --dport ${toString syslogCfg.port} -s ${src.ip} -j nixos-fw-accept 2>/dev/null || true
+              ip saddr ${src.ip} udp dport ${toString syslogCfg.port} accept
+              ip saddr ${src.ip} tcp dport ${toString syslogCfg.port} accept
             '')
             syslogCfg.sources;
         })
