@@ -40,6 +40,13 @@ in {
 
     # Override DynamicUser: assign the static seerr user.
     systemd.services.seerr = {
+      # TMDB's CloudFront path takes roughly 320 ms to establish from doc2.
+      # Node's 250 ms family-selection attempt timeout abandons every IPv4
+      # address before it connects (IPv6 is unavailable), leaving Seerr's UI
+      # full of "movie not found" placeholders. Keep Happy Eyeballs enabled but
+      # allow enough time for the viable family to establish a connection.
+      environment.NODE_OPTIONS = "--network-family-autoselection-attempt-timeout=1500";
+
       # Order after the virtiofs mount and pull it in, so the fail-loud
       # BindPaths below can't race the mount at boot.
       unitConfig.RequiresMountsFor = [cfg.dataDir];
