@@ -77,6 +77,17 @@ in {
     };
     services.prowlarr.enable = true;
 
+    # Track stable releases. NixOS owns package updates, so mark the mechanism as
+    # external; Servarr parses this enum case-sensitively (nixpkgs uses "external").
+    systemd.services.radarr.environment = {
+      RADARR__UPDATE__BRANCH = "master";
+      RADARR__UPDATE__MECHANISM = lib.mkForce "External";
+    };
+    systemd.services.sonarr.environment = {
+      SONARR__UPDATE__BRANCH = "main";
+      SONARR__UPDATE__MECHANISM = lib.mkForce "External";
+    };
+
     homelab = {
       # LAN-wide *.ablz.au via this host's nginx + ACME. Loopback upstreams for the
       # *arr trio; qbt.ablz.au proxies into the DMZ microVM (see qbtUpstream).
