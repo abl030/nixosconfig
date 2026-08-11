@@ -289,6 +289,8 @@ in {
       # successful key fetch. That benign startup message caused the
       # 2026-05-21 false-positive flap (regex matched container restarts
       # from podman auto-update, not real auth loss).
+      # Keep 401 on word boundaries: without them, DERP IPv6 addresses such
+      # as 2401:c080:... match the status code and page during network loss.
       #
       # Belt-and-suspenders: window=10m + default threshold (2) means
       # "fire only if 3+ real failures land within 10 min" — a genuine
@@ -305,7 +307,7 @@ in {
         lib.mapAttrsToList (name: _: {
           name = "tailscale-share ${name} logged out";
           unit = "podman-ts-${name}.service";
-          pattern = "(?i)control:.*(401|unauthorized)|key (expired|rejected|invalid)|auth.*rejected|control: logout";
+          pattern = "(?i)control:.*(\\b401\\b|unauthorized)|key (expired|rejected|invalid)|auth.*rejected|control: logout";
           severity = "warning";
           window = "10m";
           summary = "tailscale sidecar for ${name} lost its auth — share is offline";
