@@ -44,7 +44,13 @@
       "desktop.ini"
       "cratedigger.json"
     ];
-    plugins = "musicbrainz discogs fetchart embedart lyrics lastgenre scrub info missing duplicates edit fromfilename ftintitle the inline permissions";
+    # mbsync is REQUIRED by lib/beets_config_contract.py (cratedigger #1059).
+    # It is how a MusicBrainz release merge is followed on the library side:
+    # the import seam runs `beet mbsync -M` at exactly one album to move
+    # mb_albumid onto the survivor before rekeying the request. Without it
+    # every merged request silently never converges, so the contract refuses
+    # startup rather than saying nothing.
+    plugins = "musicbrainz mbsync discogs fetchart embedart lyrics lastgenre scrub info missing duplicates edit fromfilename ftintitle the inline permissions";
     import = {
       copy = false;
       autotag = true;
