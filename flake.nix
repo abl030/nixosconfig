@@ -579,6 +579,7 @@
               buildahVersion = cfg.pkgs.buildah.version;
               skopeoVersion = cfg.pkgs.skopeo.version;
               legacyFirewall = host.networking.firewall.extraCommands;
+              nativeFirewall = host.networking.firewall.extraInputRules;
               podman = cfg.pkgs.podman;
               buildah = cfg.pkgs.buildah;
               guardPackage = host.homelab.podman.databaseBackendGuardPackage;
@@ -629,6 +630,7 @@
               test '${lib.boolToString (lib.versionAtLeast buildahVersion "1.44")}' = true
               test '${lib.boolToString (lib.versionAtLeast skopeoVersion "1.23")}' = true
               test '${lib.boolToString host.networking.nftables.enable}' = true
+              test '${lib.boolToString (lib.hasInfix ''iifname "podman*" meta l4proto { tcp, udp } th dport 53 accept'' nativeFirewall)}' = true
               test '${lib.boolToString lifecycleGuarded}' = true
               test '${lib.boolToString allPodmanServicesGuarded}' = true
               test '${lib.boolToString (lib.elem "specialfs" activationGuard.deps)}' = true

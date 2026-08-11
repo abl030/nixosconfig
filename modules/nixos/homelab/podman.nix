@@ -239,12 +239,15 @@ in {
       extraOptions = ["--network=isolated-${name}"];
     });
 
-    # Allow DNS from containers on the default podman bridge. Isolated bridges
-    # do not need an equivalent host-firewall opening. Podman 6 + Netavark 2 use
-    # native nftables fleet-wide; the package and backend lockstep is asserted
-    # above so a future partial update cannot recreate #13.
+    # Aardvark DNS listens on the host-side address of every Netavark bridge.
+    # NixOS' nftables input chain is independently drop-by-default, so Netavark's
+    # own accept chain cannot authorize these packets by itself. Match every
+    # Podman bridge (default, isolated, and bespoke) rather than hard-coding
+    # podman0: bridge numbering is not stable across hosts or network recreation.
     networking.nftables.enable = true;
-    networking.firewall.interfaces.podman0.allowedUDPPorts = [53];
+    networking.firewall.extraInputRules = ''
+      iifname "podman*" meta l4proto { tcp, udp } th dport 53 accept
+    '';
 
     systemd = {
       services = lib.mkMerge [
