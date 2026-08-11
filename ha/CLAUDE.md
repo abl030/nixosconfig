@@ -74,7 +74,7 @@ When you research something non-trivial (API quirks, integration gotchas, archit
 
 ## Package & Config Files (mirror of `/config/` on HAOS)
 
-YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files in `/config/` on the Home Assistant Operating System host (`192.168.1.20`). The repo is the **source of truth** — live HA config must never drift from these files.
+YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files in `/config/` on the Home Assistant Operating System host (`192.168.1.20`). The repo is the **source of truth** — live HA config must never drift from these files. Home Assistant's HTTP server settings are the deliberate exception: since Core 2026.8 they are UI-managed under **Settings > System > Network** and persisted in `/config/.storage/http`; do not restore an `http:` block to `configuration.yaml`.
 
 ### File inventory
 
@@ -95,6 +95,8 @@ YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files i
 | `ha/energy/savings_and_roi.yaml` | `/config/savings_and_roi.yaml` | package — tariff-weighted solar savings, ROI vs $91k install (2024-03-03), auto-stamped achieved date |
 
 `/config/secrets.yaml` is intentionally NOT mirrored — it stays only on HAOS.
+
+The UI-managed HTTP settings must retain `use_x_forwarded_for: true` and trusted proxy `192.168.1.6/32` for the Caddy reverse proxy.
 
 ### Deploying (repo → HA)
 

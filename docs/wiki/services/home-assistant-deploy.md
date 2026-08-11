@@ -1,7 +1,7 @@
 # Home Assistant — Topology, SSH access, and YAML deploy procedure
 
 **Researched:** 2026-05-25
-**Status:** Working — deploy via SSH + tar-pipe, reload via MCP service call.
+**Status:** Working — deploy via SSH + tar-pipe, reload via MCP service call. HTTP server settings migrated from YAML to the UI on 2026-08-11.
 
 ## Topology
 
@@ -30,7 +30,7 @@ ssh abl030@192.168.1.20 'id; sudo ls /config | head -5'
 - **Top-level `!include`s**: `automations.yaml`, `scripts.yaml`, `scenes.yaml`.
 - **`secrets.yaml`** — sensitive, NOT mirrored to the repo.
 
-All mirrored in `ha/` (root + `ha/energy/`). See `ha/CLAUDE.md` for the table.
+All mirrored in `ha/` (root + `ha/energy/`). See `ha/CLAUDE.md` for the table. HTTP server settings are the deliberate exception: Home Assistant Core 2026.8 imported them into `/config/.storage/http`, and they are now managed under **Settings > System > Network**. Keep `use_x_forwarded_for` enabled and `192.168.1.6/32` trusted for Caddy; do not add the deprecated `http:` YAML block back.
 
 ## Deploy procedure
 
