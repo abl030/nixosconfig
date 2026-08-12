@@ -10,7 +10,7 @@
     # MongoDB is expensive, unfree, and absent from the public binary cache.
     # Keep MongoDB independent from routine fleet nixpkgs churn. Selection still
     # follows the upstream UniFi module's required MongoDB series.
-    mongodb-nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    mongodb-nixpkgs.url = "github:NixOS/nixpkgs/05988b07fb05cbcb50be6bce197b4b5f75b5e61b";
 
     # We add these explicitly so we can force others to follow them
     flake-parts.url = "github:hercules-ci/flake-parts";
