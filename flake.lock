@@ -3,11 +3,11 @@
     "beets-tip": {
       "flake": false,
       "locked": {
-        "lastModified": 1785891765,
-        "narHash": "sha256-MAOwURe/B2Q72Kh1RdZPNYuI82el3xuXt4ZHPRtABv0=",
+        "lastModified": 1786405466,
+        "narHash": "sha256-8hSfKEuQvuapdPR9vfVPTbuzcWUsLjRLVCHy6zMtRvo=",
         "owner": "beetbox",
         "repo": "beets",
-        "rev": "74c2d98ee5c30d6dd6d4ffd4e6389984827a9f02",
+        "rev": "dc1709e14849adfec7208c53196dc2b01b5f3fd9",
         "type": "github"
       },
       "original": {
@@ -115,11 +115,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786501762,
-        "narHash": "sha256-c/vAvONFqNyEieGGUhHO0vKoqMf7mzDY7BEp1vPO+nU=",
+        "lastModified": 1786530865,
+        "narHash": "sha256-dQggddoRBCA+I1OAVl0SjprdwVTvUZcM7o7qFZymJWM=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "618ec20fb37460c194bf25ec865a979269a3793f",
+        "rev": "c476f924b748b9a80ad7cd452204351d1fc80cdd",
         "type": "github"
       },
       "original": {
