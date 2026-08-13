@@ -632,3 +632,51 @@ missing runtime dependency, the derivation builds fine, and the failure only app
 under the unit's sanitised environment — not in an interactive rehearsal. Any shell
 builtin invoked through a *sub-shell* (`bash -c`, `sh -c`) needs its interpreter
 declared explicitly.
+
+### Deploy attempt 2026-08-13 13:01 — second runtime defect, same review blind spot
+
+With `bash` declared, the readiness gate passed on the first try — and immediately
+exposed the next bug. `unifi-mongodb-setup` failed with:
+
+```
+unifi-mongodb: failed to ensure the UniFi application role (mongosh exited 13)
+could not ensure the application role: APP_USER is not defined
+```
+
+`mongosh_script` bound **one** credential pair — `root` *or* `app` — but
+`ensureRoleJs` needs **all four**: it authenticates as ROOT and then
+creates/updates the APP user. The call site passed `root`, so `APP_USER` and
+`APP_PASS` were never defined.
+
+**This produced the exact same operator-visible message as PR #144's failure**
+("failed to ensure the UniFi application role") for a completely unrelated cause.
+That collision is worth remembering: the message names the *step*, not the *fault*.
+Always read the line beneath it — the module preserves mongosh's own diagnostic
+(defect 3 of the original seven), which is what made this a two-minute diagnosis
+instead of another race-condition hunt.
+
+Fixed by adding a `both` mode. `root` and `app` remain separate rather than always
+emitting all four, so a script needing one identity never carries the other in its
+stdin. Call sites were then audited mechanically against the variables each JS body
+actually references:
+
+| JS body | needs | call mode |
+|---|---|---|
+| `readinessJs` | ROOT_USER, ROOT_PASS | `root` |
+| `ensureRoleJs` | all four | `both` |
+| `appCountsJs` | APP_USER, APP_PASS | `app` |
+| `countsJs` | none (unauthenticated `--eval`) | n/a |
+
+**Why the rehearsal missed both defects.** The doc1 rehearsal exercised the
+*restore wrapper* and hand-run `mongosh` sessions, never `unifi-mongodb-setup`
+itself as a systemd unit. Both bugs live exclusively in that unit's own runtime
+envelope: one in its PATH, one in its argument plumbing. Neither is visible to
+`nix flake check`, shellcheck, or a `nix build` — all of which passed on both
+broken revisions.
+
+**Practice change adopted here:** the fixed script was `nix copy`'d to doc2 and run
+directly against the live container *before* being committed, which proved
+`exit 0`, "role provisioned", and the exact intended grant set
+(`dbOwner` on `ace`/`ace_stat`/`ace_audit`/`ace_restore` + `clusterMonitor`) with
+the APP credential authenticating. Do that for any unit that cannot be rehearsed
+end-to-end off-box — building it is not the same as running it.
