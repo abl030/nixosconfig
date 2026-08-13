@@ -383,7 +383,16 @@
   # ---------------------------------------------------------------------------
   mongoSetup = pkgs.writeShellApplication {
     name = "unifi-mongodb-setup";
-    runtimeInputs = [pkgs.coreutils config.virtualisation.podman.package];
+    # pkgs.bash is REQUIRED, not incidental: the readiness gate probes the
+    # published socket with `timeout 2 bash -c 'exec 3<>/dev/tcp/...'`, and
+    # /dev/tcp is a bash builtin with no coreutils equivalent. A systemd unit's
+    # PATH is only `systemd.services.<name>.path` (coreutils, findutils,
+    # gnugrep, gnused, systemd) plus these runtimeInputs — it does NOT include
+    # bash. Without this the probe exits 127 on every iteration and the unit
+    # always fails after startupTimeoutSeconds with the misleading message
+    # "published port 127.0.0.1:<port> is not accepting connections", even
+    # though the port is fine. Measured on doc2, 2026-08-13 (forgejo #142).
+    runtimeInputs = [pkgs.bash pkgs.coreutils config.virtualisation.podman.package];
     text = ''
       ${assertAlnum}
 
@@ -627,7 +636,11 @@
   # ---------------------------------------------------------------------------
   verifyScript = pkgs.writeShellApplication {
     name = "unifi-mongodb-verify";
-    runtimeInputs = [pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.diffutils pkgs.curl pkgs.systemd pkgs.iproute2 config.virtualisation.podman.package];
+    # gawk: the loopback-only assertion pipes `ss` through awk. It happens to
+    # resolve interactively (this script is in systemPackages, and
+    # writeShellApplication appends the ambient PATH), but that is luck rather
+    # than design — same defect class as the missing bash above.
+    runtimeInputs = [pkgs.coreutils pkgs.gawk pkgs.gnugrep pkgs.gnused pkgs.diffutils pkgs.curl pkgs.systemd pkgs.iproute2 config.virtualisation.podman.package];
     text = ''
       ${assertAlnum}
 
