@@ -709,14 +709,57 @@
       check "access control enforced and the root credential authenticates" "$rc"
       [ "$rc" -eq 0 ] || echo "        $(redact "$probe_out")"
 
+      # Comparing live counts against the frozen pre-migration snapshot is only a
+      # valid assertion while the controller is STOPPED — which is exactly the
+      # window the migration itself already checks. Once UniFi is running it
+      # writes continuously: `alert`, `network_offline`, `time_machine_*` and
+      # `stat_hourly` grow within seconds, and `stat_5minutes` is TTL-rotated
+      # *downwards*. The original check therefore reported FAIL on every
+      # healthy post-cutover run — measured on doc2, 2026-08-13 (#142), where the
+      # only deltas were exactly those five churning collections while all
+      # identity collections were exact.
+      #
+      # So: strict equality before the controller starts; afterwards assert the
+      # two things that must still hold — no migrated namespace has vanished,
+      # and every identity/config collection still matches exactly.
       if [ -f ${lib.escapeShellArg sourceCounts} ]; then
         rc=0
         restored="$(mongosh_script app ${lib.escapeShellArg appCountsJs} \
           | ${podmanBin} exec -i ${containerName} mongosh --quiet --norc 2>&1 | parse_counts)" || rc=1
-        if [ "$rc" -eq 0 ]; then
+        if [ "$rc" -ne 0 ]; then
+          check "migrated collections readable as the application role" "$rc"
+        elif ! systemctl is-active --quiet unifi.service; then
           printf '%s\n' "$restored" | diff -q ${lib.escapeShellArg sourceCounts} - >/dev/null 2>&1 || rc=1
+          check "every migrated collection count matches the pre-migration source (controller stopped)" "$rc"
+        else
+          live="$(mktemp)"; src_names="$(mktemp)"; live_names="$(mktemp)"
+          printf '%s\n' "$restored" > "$live"
+          cut -d= -f1 ${lib.escapeShellArg sourceCounts} | sort > "$src_names"
+          cut -d= -f1 "$live" | sort > "$live_names"
+
+          lost="$(comm -23 "$src_names" "$live_names")"
+          if [ -n "$lost" ]; then
+            rc=1
+            echo "        migrated namespaces missing from the live database:" >&2
+            printf '%s\n' "$lost" | head -20 | sed 's/^/          /' >&2
+          fi
+          check "every migrated namespace still present ($(wc -l < "$src_names") collections)" "$rc"
+
+          rc=0
+          drifted=""
+          for coll in ${lib.concatStringsSep " " (map (c: lib.escapeShellArg "${mcfg.databaseName}.${c}") mcfg.identityCollections)}; do
+            want="$(grep -E "^$coll=" ${lib.escapeShellArg sourceCounts} | cut -d= -f2 || true)"
+            got="$(grep -E "^$coll=" "$live" | cut -d= -f2 || true)"
+            [ -n "$want" ] || continue
+            if [ "$want" != "$got" ]; then
+              rc=1
+              drifted="$drifted $coll(source=$want live=''${got:-absent})"
+            fi
+          done
+          check "identity/config collection counts unchanged since the migration" "$rc"
+          [ "$rc" -eq 0 ] || echo "        drifted:$drifted" >&2
+          rm -f "$live" "$src_names" "$live_names"
         fi
-        check "every migrated collection count still matches the pre-migration source" "$rc"
       fi
 
       rc=0
@@ -976,6 +1019,45 @@ in {
         type = lib.types.int;
         default = 2015;
         description = "Fixed non-root GID that mongod runs as, and that owns the dbpath.";
+      };
+
+      identityCollections = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "admin"
+          "device"
+          "site"
+          "user"
+          "wlanconf"
+          "networkconf"
+          "setting"
+          "portconf"
+          "account"
+          "apgroup"
+          "usergroup"
+          "dpigroup"
+          "firewallrule"
+          "firewallgroup"
+          "portforward"
+          "routing"
+          "dynamicdns"
+          "heatmap"
+          "map"
+          "tag"
+        ];
+        description = ''
+          Collections in the primary database that hold CONFIGURATION and
+          identity rather than telemetry. `unifi-mongodb-verify` asserts these
+          still match the pre-migration snapshot exactly even while the
+          controller is live.
+
+          Everything else UniFi writes — `alert`, `event`, `network_offline`,
+          `time_machine_*`, and the whole `_stat` database — churns constantly,
+          and `stat_5minutes` is TTL-rotated *downwards*, so a strict
+          all-collection equality check can only hold while UniFi is stopped.
+          Names that do not exist in the snapshot are skipped, so this list is
+          safe to keep broad across controller versions.
+        '';
       };
 
       startupTimeoutSeconds = lib.mkOption {

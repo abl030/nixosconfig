@@ -717,3 +717,84 @@ as the **only** instance (`UNIFI_MIGRATE_FORCE` already had one).
 
 **If you hit "RESTORE MISMATCH", read the line above it before believing it.** A
 genuine mismatch prints a `diff -u` body; this one printed a shell error.
+
+### Cutover completed 2026-08-13 13:14 — and a fourth defect, in the acceptance check itself
+
+The migration succeeded on `c2f1eb0c`: 103 collections verified identical, marker
+written, `system.properties.pre-external-mongodb` preserved byte-for-byte, and the
+controller cut over cleanly. UniFi's own log records the switch:
+
+```
+12:52:36 <launcher> INFO mongo - Connected to database (v7.0.37@mongodb://localhost:27117, journal enabled)
+13:14:17 <launcher> INFO mongo - Connected to database (v7.0.40@mongodb://…@127.0.0.1:27117/ace?authSource=admin, journal enabled)
+```
+
+`unifi-mongodb-verify` then reported **one FAIL**: *"every migrated collection count
+still matches the pre-migration source"*. It was a false alarm, and the check itself
+was wrong.
+
+That assertion compares a **live** database against a **frozen** snapshot. It can
+only hold in the instant between the restore and the controller starting — which is
+precisely when nobody runs it. Once UniFi is up it writes continuously. The measured
+deltas, minutes after cutover, were exclusively:
+
+| Collection | Source | Live | Why |
+|---|---|---|---|
+| `ace.alert` | 2193 | 2194 | new alert |
+| `ace.network_offline` | 35 | 36 | controller restart recorded |
+| `ace_stat.stat_hourly` | 10754 | 10773 | new hourly rollups |
+| `ace_stat.stat_5minutes` | 4254 | **4194** | TTL rotation — counts *down* |
+| `ace.time_machine_*` (×4) | — | +1 each | controller recording its own restart |
+
+Every identity/config collection was exact: admin 1 · device 5 · site 3 · user 139 ·
+wlanconf 5 · networkconf 7 · setting 70 · portconf 2 · account 0 · apgroup 2.
+
+**Fixed** by making the check state-aware. With `unifi` stopped it keeps the strict
+all-collection equality (the migration-window invariant). With `unifi` live it
+asserts the two things that must still hold:
+
+1. **no migrated namespace has vanished** — all 103 still present;
+2. **every identity/config collection still matches exactly** — the list is the new
+   `homelab.services.unifiController.mongodb.identityCollections` option, and names
+   absent from the snapshot are skipped so it stays safe across controller versions.
+
+`stat_5minutes` counting *downwards* is the detail that rules out the tempting
+"assert counts only ever grow" shortcut.
+
+### Post-cutover acceptance, 2026-08-13
+
+- `unifi-mongodb-verify`: **12/12 PASS**
+- Controller `up:true`, 10.5.54, uuid `2fe6342f-…` unchanged
+- **No native `mongod` process**; MongoDB is the container only
+- **Loopback only** — nothing listening on 27117/27017 on `192.168.1.35`, `.36` or the
+  tailnet address; connections to all three refused. Rootful podman publishes via
+  netavark **nftables DNAT**, so `ss` shows no listening socket at all — the DNAT rule
+  is the mechanism; don't read an empty `ss` as "broken"
+- **All 5 devices informing**: `last_seen` advanced +53–60 s for every device across a
+  90 s window
+- **`ace.admin` carried exactly** — `_id`, `name`, `email` and the `x_shadow` hash are
+  byte-identical to the pre-migration record, so the existing credential still logs in
+- Deep write-path probe: **success** (authenticated insert → read → delete as the
+  application role)
+- Zero failed units; **zero MongoDB packages and zero `mongod` binaries** in the running
+  closure
+
+### Known issue — UniFi logs the database URI, credential included
+
+UniFi writes its connection string to `/var/log/unifi/server.log` **with the
+application password in cleartext**. This is upstream behaviour and unavoidable from
+the module: the controller has no `*_FILE` indirection and requires the credential
+inline in `db.mongo.uri`.
+
+Exposure, measured: the value appears in **exactly one file**, `server.log`, mode
+`0600 unifi:unifi` — the *same* trust boundary as `system.properties`, which must
+hold it anyway. It is **not** in the systemd journal, **not** in `podman inspect`
+argv, **not** in the Nix store or the running closure, and `server.log` is **not**
+shipped anywhere off-box.
+
+**Consequence to remember:** the follow-up idea of shipping `server.log` to Loki
+(noted next to the module's `errorPatterns`) would turn a contained credential at
+rest into a credential in the central log store. Scrub `mongodb://[^@]*@` at the
+scrape stage before doing that. Blast radius is already bounded — the role is
+non-root, loopback-only, and holds `dbOwner` on the four UniFi databases plus
+`clusterMonitor` and nothing else; rotation is one `sops` edit plus a deploy.
