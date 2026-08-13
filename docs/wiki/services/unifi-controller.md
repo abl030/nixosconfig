@@ -397,14 +397,18 @@ stopping the unit kills the very server being dumped.
 ```bash
 # On doc2. Scratch paths only; the live controller keeps running throughout.
 IMG=docker.io/library/mongo@sha256:444d798458e5aa40f3667230a9c631974fa169c32ae4a2d924658ac72b753122
-sudo install -d -m 0700 /mnt/virtio/unifi-precheck
+# Own the scratch by the SAME fixed uid the migration runs mongod/mongodump as.
+# NOT root-owned 0700 — see the entrypoint note below.
+sudo install -d -o 2015 -g 2015 -m 0750 /mnt/virtio/unifi-precheck
 
 # 1. The digest resolves and is the MongoDB we think it is.
 sudo podman pull "$IMG"
 sudo podman inspect --format '{{.Config.Env}}' "$IMG" | tr ' ' '\n' | grep MONGO_VERSION   # 7.0.40
 
 # 2. Dump the LIVE embedded DB, read-only, WITHOUT stopping unifi.
-sudo podman run --rm --network=host -v /mnt/virtio/unifi-precheck:/out:rw "$IMG" \
+sudo podman run --rm --network=host --user 2015:2015 \
+  --security-opt=no-new-privileges --cap-drop=all \
+  -v /mnt/virtio/unifi-precheck:/out:rw "$IMG" \
   mongodump --host 127.0.0.1 --port 27117 --archive=/out/precheck.archive
 
 # 3. Load it into a throwaway hardened 7.0.40 and compare counts. The dump directory
@@ -425,8 +429,41 @@ sudo podman rm -f mongo-shadow
 sudo rm -rf /mnt/virtio/unifi-precheck
 ```
 
+**Why every step passes `--user 2015:2015` (measured on doc2, 2026-08-13).** The official
+image's `docker-entrypoint.sh` drops privileges for **any** argv[0] matching `mongo*`, not
+just `mongod`:
+
+```sh
+if [[ "$originalArgOne" == mongo* ]] && [ "$(id -u)" = '0' ]; then   # line 12
+        ...
+        exec gosu mongodb "$BASH_SOURCE" "$@"
+fi
+```
+
+So a rootful `podman run … mongodump` still executes as the image's `mongodb` user (uid
+999) and **cannot write into a root-owned `0700` scratch dir** — the first form of this
+runbook failed exactly there with `Failed: open /out/precheck.archive: permission denied`,
+while a plain `sh -c` in the same image stayed uid 0 and wrote fine. Passing `--user`
+explicitly makes `id -u` non-zero, skips the `gosu` branch entirely, and matches the
+identity the real migration uses. The migration unit was never affected: it always passes
+`--user=${uid}:${gid}` and chowns its scratch to the same uid.
+
 Record those numbers. **`admin` must be ≥ 1** — that is the record whose absence deadlocked
 the first attempt.
+
+**Result of this pre-check against production, 2026-08-13 12:34 AWST** (live controller
+never stopped; scratch removed afterwards; `system.properties` checksum unchanged):
+
+| Measure | Value |
+|---|---|
+| Image actually pulled and run | `sha256:444d7984…`, `MONGO_VERSION=7.0.40`, `db.version()` = **7.0.40** |
+| Restored into the 7.0.40 shadow | `ace` 92 + `ace_stat` 10 + `ace_audit` 1 = **103 collections**, **132,745 documents** |
+| Live source at the same moment | 103 collections, 132,750 documents (stats accrue between reads) |
+| Identity collections | device 5 · site 3 · wlanconf 5 · networkconf 7 · user 139 · **admin 1** · setting 70 · portconf 2 |
+| Databases a full embedded dump carries | `ace`, `ace_audit`, `ace_stat`, **`admin`**, `config`, `local` — which is why the migration's `--nsInclude` is load-bearing, not cosmetic |
+
+That closes the "rehearsal used 7.0.37, not the 7.0.40 image" uncertainty: the official
+7.0.40 image reads and round-trips this network's own 7.0.37-written data.
 
 > Do **not** use the controller `uuid` as an acceptance check. It lives in
 > `system.properties` **on disk** and survives regardless of what the database contains, so
