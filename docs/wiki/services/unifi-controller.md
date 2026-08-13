@@ -680,3 +680,40 @@ directly against the live container *before* being committed, which proved
 (`dbOwner` on `ace`/`ace_stat`/`ace_audit`/`ace_restore` + `clusterMonitor`) with
 the APP credential authenticating. Do that for any unit that cannot be rehearsed
 end-to-end off-box — building it is not the same as running it.
+
+### Migration attempt 2026-08-13 13:08 — third defect: a spurious "RESTORE MISMATCH"
+
+`unifi-mongodb-migrate` ran the whole pipeline correctly and then failed on its own
+verification step:
+
+```
+unifi-mongodb-migrate/bin/unifi-mongodb-migrate: line 215: TMPDIR: unbound variable
+unifi-mongodb-migrate: RESTORE MISMATCH (source vs target):
+```
+
+**The restore was perfect.** The comparison was what broke. The step is:
+
+```bash
+if ! printf '%s\n' "$restored" | diff -u "$sourceCounts" - > "$TMPDIR/counts.diff" 2>&1; then
+```
+
+systemd's `PrivateTmp=` gives a unit a *private* `/tmp` but does **not export
+`TMPDIR`**, and `writeShellApplication` sets `set -o nounset`. So expanding
+`$TMPDIR` aborted that very line — and because the abort makes `if !` true, the
+script reported a mismatch that did not exist, then died on line 217 expanding
+`$TMPDIR` again.
+
+Verified by hand immediately afterwards, comparing the container's contents against
+the migration's own `source-counts.txt`: **all 103 collection counts identical.**
+
+**Fail-closed held perfectly.** Marker not written, `system.properties`
+byte-for-byte identical, `unifi` still gated off, legacy dbpath untouched. The
+failure mode was a false negative, which is the safe direction.
+
+Fixed with a script-owned `mktemp` file and a trap that cleans it up alongside the
+throwaway container. An audit of all five scripts for the same class — an
+environment variable referenced without a `:-` default under `set -u` — found this
+as the **only** instance (`UNIFI_MIGRATE_FORCE` already had one).
+
+**If you hit "RESTORE MISMATCH", read the line above it before believing it.** A
+genuine mismatch prints a `diff -u` body; this one printed a shell error.

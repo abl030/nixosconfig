@@ -630,9 +630,17 @@
       # regardless, so it proves nothing at all about the database.
       restored="$(target_counts)"
       [ -n "$restored" ] || fail "could not read the restored data back as the application role."
-      if ! printf '%s\n' "$restored" | diff -u ${lib.escapeShellArg sourceCounts} - > "$TMPDIR/counts.diff" 2>&1; then
+      # Own temp file rather than "$TMPDIR/...": systemd's PrivateTmp= gives the
+      # unit a private /tmp but does NOT export TMPDIR, and writeShellApplication
+      # sets `set -o nounset`. Referencing $TMPDIR therefore aborted this very
+      # line, which — because the abort makes the `if !` true — reported a
+      # spurious "RESTORE MISMATCH" for a restore that was in fact perfect (all
+      # 103 collection counts identical). Measured on doc2, 2026-08-13 (#142).
+      counts_diff="$(mktemp)"
+      trap 'cleanup_source; rm -f "$counts_diff"' EXIT
+      if ! printf '%s\n' "$restored" | diff -u ${lib.escapeShellArg sourceCounts} - > "$counts_diff" 2>&1; then
         echo "unifi-mongodb-migrate: RESTORE MISMATCH (source vs target):" >&2
-        head -50 "$TMPDIR/counts.diff" >&2
+        head -50 "$counts_diff" >&2
         fail "collection counts differ; the marker was NOT written and UniFi stays gated off."
       fi
       echo "unifi-mongodb-migrate: verified $(wc -l < ${lib.escapeShellArg sourceCounts}) collections, counts identical"
