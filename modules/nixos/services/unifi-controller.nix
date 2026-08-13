@@ -414,7 +414,7 @@
         # DNATs it to the container's bridge address, which the image's
         # initialisation mongod — bound to the container's own loopback —
         # cannot answer, so this alone already excludes the transient server.
-        if ! timeout 2 bash -c 'exec 3<>/dev/tcp/127.0.0.1/${toString mcfg.port}' 2>/dev/null; then
+        if ! timeout 2 ${lib.getExe pkgs.bash} -c 'exec 3<>/dev/tcp/127.0.0.1/${toString mcfg.port}' 2>/dev/null; then
           detail="published port 127.0.0.1:${toString mcfg.port} is not accepting connections"
           sleep 1
           continue
