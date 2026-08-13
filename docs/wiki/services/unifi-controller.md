@@ -569,3 +569,66 @@ fresh one through the authenticated API before any disruptive work.
 
 Related: [nixos-service-modules.md](../nixos-service-modules.md) (localProxy `https`),
 [prom-hypervisor.md](../infrastructure/prom-hypervisor.md).
+
+### Deploy attempt 2026-08-13 12:44 — rolled back on a missing runtime dependency
+
+The first deploy of this design (merge `b066b1fb`, doc2 generation 1431) was rolled
+back at 12:52 AWST. **No data was at risk and nothing needed repairing**: the failure
+was the fail-closed path working exactly as designed.
+
+`unifi-mongodb-setup.service` failed after its full 180 s budget with:
+
+```
+unifi-mongodb: authenticated mongod did not become ready within 180s
+unifi-mongodb: last state: published port 127.0.0.1:27117 is not accepting connections
+```
+
+**The message was accurate but the diagnosis it suggests is wrong — the port was
+fine.** The readiness gate's first condition probes the published socket with
+`timeout 2 bash -c 'exec 3<>/dev/tcp/127.0.0.1/27117'`. `/dev/tcp` is a **bash
+builtin** with no coreutils equivalent, and a systemd unit's `PATH` is only
+`systemd.services.<name>.path` (coreutils, findutils, gnugrep, gnused, systemd)
+plus the script's `runtimeInputs` — **it does not include bash**. `mongoSetup`'s
+`runtimeInputs` were `[coreutils podman]`, so `timeout` exited **127** ("bash: No
+such file or directory") on every one of the 180 iterations, and the gate could
+never pass no matter how healthy MongoDB was.
+
+Measured on doc2 with the unit's exact PATH:
+
+| Build | probe against an OPEN port | probe against a CLOSED port |
+|---|---|---|
+| as merged | **127** (bash not found — always fails) | 127 |
+| with `pkgs.bash` added | **0** | 1 |
+
+Everything else worked on the first try and was verified live before the rollback:
+the container ran the digest-pinned image, the entrypoint's initdb created the root
+user (`admin.system.users` count 1), the root credential authenticated, access
+control was genuinely enforced (`listDatabases` → `Unauthorized`), and the published
+loopback socket accepted connections from the host.
+
+An audit of all five shipped scripts for the same defect class found exactly one
+other instance: `unifi-mongodb-verify`'s loopback-only assertion pipes `ss` through
+`awk` without `pkgs.gawk` in `runtimeInputs`. That one resolves *interactively*
+— it is in `systemPackages` and `writeShellApplication` appends the ambient `PATH`
+— so it would have passed by luck, not by design. Both are fixed.
+
+**Rollback behaved exactly as documented** and is now production-tested:
+`unifi-mongodb-rollback --generation 1430 --yes` stopped `unifi`, took the
+"no pre-migration copy" branch (correct — the deploy never wrote
+`system.properties`), asserted no external-DB keys survived, switched generation and
+polled `/status` until `up:true`. Post-rollback the controller was healthy on
+generation 1430 with 103 collections / 132,797 documents and the exact baseline
+identity counts (admin 1 · device 5 · site 3 · user 139 · wlanconf 5 ·
+networkconf 7 · setting 70 · portconf 2), zero failed units, and the embedded
+`mongod` owning `127.0.0.1:27117` again.
+
+`system.properties` came back with **all 10 operator/UniFi `key=value` pairs
+identical**; the only delta in the whole file was the `#<date>` comment line UniFi
+itself rewrites on every start.
+
+**Lesson worth generalising:** `writeShellApplication` + `runtimeInputs` is not a
+substitute for thinking about a *systemd unit's* PATH. Shellcheck cannot see a
+missing runtime dependency, the derivation builds fine, and the failure only appears
+under the unit's sanitised environment — not in an interactive rehearsal. Any shell
+builtin invoked through a *sub-shell* (`bash -c`, `sh -c`) needs its interpreter
+declared explicitly.
