@@ -688,8 +688,6 @@ create a dedicated shared network (musicbrainz is the in-tree example).
 We never pin images — `:latest` + auto-pull stays on fleet-wide by explicit
 policy (issue #232 TIER-4 is **WONTFIX**; do not propose a `:latest`/`:master`
 CI gate or digest pinning, see `.claude/memory/feedback-no-image-pinning.md`).
-The one durability-driven exception (UniFi's MongoDB) is described under
-[Image trust](#image-trust) and is not a precedent for anything else.
 The compensating control for a compromised auto-pulled image is to shrink its
 runtime authority. So **every** `virtualisation.oci-containers.containers.<name>`
 must prepend `config.homelab.podman.hardenOptions` to its `extraOptions`:
@@ -1007,27 +1005,6 @@ pattern), `ssh/default.nix` (bastion door, key-only + `from=`-pinned).
 > knowingly; the mitigation is runtime hardening (`hardenOptions`), not pinning.
 > The items below are therefore about *containing* an untrusted image, not
 > freezing it.
->
-> **The one exception on record (forgejo #142, 2026-08-12): UniFi's MongoDB.**
-> `unifi-controller.nix` pins `docker.io/library/mongo` by digest. This is not a
-> supply-chain argument — it is a **data-durability** one, which is a different
-> policy question:
->
-> - MongoDB's major version is coupled to the installed UniFi release.
-> - MongoDB **refuses to start on a dbpath written by a newer major version, and
->   has no downgrade path**.
->
-> So an auto-pulled `:latest` would silently roll the database to MongoDB 8 one
-> night and leave an un-downgradable dbpath — data loss, not a compromised image.
-> Runtime hardening cannot mitigate that, so the usual compensating control does
-> not apply. Same family as the schema-coupled `mb-solr` carve-out below.
->
-> **This does not reopen the debate.** Do not propose pinning anything else, and
-> do not add a `:latest` CI gate. The bar for another exception is the same:
-> *auto-updating this image can destroy persistent state in a way hardening
-> cannot contain* — which in practice means a database engine with a one-way
-> on-disk format. A pinned image MUST carry an `IMAGE-PIN-OK:` marker comment
-> stating the durability argument and how it gets un-pinned.
 
 - **Personal Dockerhub repos** (`docker.io/<personal-handle>/...`) — single
   author, no signing. We run them anyway (auto-pull stays on), so the runtime
@@ -1189,10 +1166,7 @@ Before submitting a new service module:
       ever runs as host UID 1000 / `abl030`"
 - [ ] OCI containers prepend `config.homelab.podman.hardenOptions` to
       `extraOptions` and `--cap-add` back only the minimal set (see Container
-      runtime hardening). Do NOT pin image tags — auto-pull stays on (policy).
-      The sole exception is a database engine whose on-disk format is one-way
-      (UniFi's MongoDB, #142); it carries an `IMAGE-PIN-OK:` marker — see
-      "Image trust"
+      runtime hardening). Do NOT pin image tags — auto-pull stays on (policy)
 - [ ] OCI container registered in `homelab.podman.containers` (gives auto network
       isolation + auto-update; enforced by `containerNetworkAuditCheck`). Do NOT
       add `--network` yourself; bespoke models need a `CONTAINER-NETWORK-OK` marker

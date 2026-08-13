@@ -10,13 +10,11 @@ set -Eeuo pipefail
 #
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
-# Group order is fixed: core, yt-dlp tip, llm, nvchad (independently maintained
-# and prone to breaking flake-output changes), and rest. Rest is computed as all
-# inputs minus the named groups, so new inputs still fall into it automatically.
-#
-# The package-change-gated MongoDB preflight group was removed with forgejo #142
-# — UniFi's MongoDB is now a digest-pinned official container, so no flake input
-# builds MongoDB and there is nothing left for a preflight to gate.
+# Group order is fixed: package-change-gated MongoDB first so a newly available
+# series is pinned before core can make UniFi require it; then core, yt-dlp tip,
+# llm, nvchad (independently maintained and prone to breaking flake-output
+# changes), and rest. Rest is computed as all inputs minus the named groups, so
+# new inputs still fall into it automatically.
 
 # --- Configuration ---------------------------------------------------------
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
@@ -42,9 +40,14 @@ FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
 # Group membership (space-separated input names). Core and LLM are configurable
-# from the Nix module. yt-dlp and NvChad are hardcoded isolation boundaries.
+# from the Nix module. MongoDB, yt-dlp, and NvChad are hardcoded isolation
+# boundaries.
 GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
+# Deliberately not configurable: MongoDB is unfree and expensive to build. The
+# independent MongoDB package set advances only on material package input
+# changes, not builder-only nixpkgs churn.
+GROUP_MONGODB="mongodb-nixpkgs"
 # Deliberately not configurable: upstream yt-dlp tip must advance even when an
 # unrelated rest input fails.
 GROUP_YTDLP="yt-dlp-src"
@@ -498,6 +501,81 @@ try_group() {
     finish_updated_group "$name" "$inputs" "$glog"
 }
 
+# MongoDB has its own nixpkgs input because the unfree package is not available
+# from the public cache and takes hours to compile. Probe the latest lock, but
+# retain the current pin unless the selected MongoDB source, version, patches,
+# or available series changed. Selection follows the upstream UniFi module.
+# Attribute removal/rename is a loud failed group, never a silent freeze.
+try_mongodb_group() {
+    local name="mongodb"
+    local inputs="$GROUP_MONGODB"
+    local glog="$WORK_DIR/${name}.build.log"
+    local current_fingerprint candidate_fingerprint
+    local current_fingerprint_ok=1
+
+    [ "$FATAL_TRANSACTION" -eq 0 ] || return 1
+
+    if [ -n "$ONLY_GROUP" ] && [ "$ONLY_GROUP" != "$name" ]; then
+        return 0
+    fi
+
+    if ! current_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+        # A new upstream UniFi requirement may not exist in the old isolated
+        # pin. Still advance the MongoDB input and let the candidate satisfy it.
+        current_fingerprint_ok=0
+        printf 'current MongoDB package fingerprint could not be evaluated; probing candidate\n' >>"$glog"
+    fi
+
+    log "🔄 [$name] probing latest package definition: $inputs"
+    if ! nix flake update "$inputs" >>"$glog" 2>&1; then
+        record_group_update_failure "$name" "$glog"
+        return 1
+    fi
+
+    if git diff --quiet -- flake.lock; then
+        if [ "$current_fingerprint_ok" -ne 1 ]; then
+            printf 'MongoDB input did not move and the current requirement remains unsatisfied\n' >>"$glog"
+            record_group_update_failure "$name" "$glog" "current requirement unsatisfied"
+            return 1
+        fi
+        log "➖ [$name] no input changes."
+        SUMMARY_LINES+=("➖ $name — no input changes")
+        return 0
+    fi
+
+    if ! candidate_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+        # The newest isolated pin may already have removed the series required
+        # by old core while newest core simultaneously moves UniFi to a new
+        # series. Probe that compatibility boundary atomically instead of
+        # deadlocking old-core/new-pin and new-core/old-pin on each other.
+        printf 'candidate does not satisfy current core; probing core and MongoDB together\n' >>"$glog"
+        # shellcheck disable=SC2086  # GROUP_CORE is an intentional input list
+        if ! nix flake update $GROUP_CORE >>"$glog" 2>&1; then
+            record_group_update_failure "$name" "$glog" "combined core/MongoDB update failed"
+            return 1
+        fi
+        if ! candidate_fingerprint="$(nix eval --json .#lib.mongodbPackageFingerprint 2>>"$glog" | jq -Sc .)"; then
+            printf 'combined core/MongoDB candidate could not be evaluated\n' >>"$glog"
+            record_group_update_failure "$name" "$glog" "candidate package evaluation failed"
+            return 1
+        fi
+        inputs="$GROUP_MONGODB $GROUP_CORE"
+        printf 'combined core/MongoDB migration candidate is evaluable\n' >>"$glog"
+    fi
+
+    if [ "$current_fingerprint_ok" -eq 1 ] && [ "$current_fingerprint" = "$candidate_fingerprint" ]; then
+        if ! restore_group_state "$name" "$glog"; then
+            return 1
+        fi
+        log "➖ [$name] nixpkgs moved, but the selected MongoDB package is unchanged."
+        SUMMARY_LINES+=("➖ $name — selected package unchanged; pin retained")
+        return 0
+    fi
+
+    log "📦 [$name] package changed: $current_fingerprint -> $candidate_fingerprint"
+    finish_updated_group "$name" "$inputs" "$glog"
+}
+
 # Send ONE bundled Gotify with the whole night's per-group results.
 send_summary_notification() {
     [ -z "$GOTIFY_URL" ] && return 0
@@ -612,7 +690,7 @@ DATE=$(date +%F)
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
+NAMED=" $GROUP_CORE $GROUP_MONGODB $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
@@ -621,12 +699,14 @@ for inp in $ALL_INPUTS; do
     esac
 done
 log "   core: $GROUP_CORE"
+log "   mongodb: $GROUP_MONGODB (upstream-series aware)"
 log "   yt-dlp: $GROUP_YTDLP"
 log "   llm : $GROUP_LLM"
 log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
 
 # --- Run each group as its own transaction ---------------------------------
+try_mongodb_group || true
 # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
 try_group core $GROUP_CORE || true
 # shellcheck disable=SC2086

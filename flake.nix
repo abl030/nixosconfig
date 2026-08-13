@@ -7,10 +7,10 @@
     # use the following for unstable:
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-    # (No dedicated MongoDB input any more — forgejo #142. UniFi's MongoDB is a
-    # digest-pinned official container managed in
-    # modules/nixos/services/unifi-controller.nix, so nothing in the fleet
-    # builds MongoDB from source.)
+    # MongoDB is expensive, unfree, and absent from the public binary cache.
+    # Keep MongoDB independent from routine fleet nixpkgs churn. Selection still
+    # follows the upstream UniFi module's required MongoDB series.
+    mongodb-nixpkgs.url = "github:NixOS/nixpkgs/05988b07fb05cbcb50be6bce197b4b5f75b5e61b";
 
     # We add these explicitly so we can force others to follow them
     flake-parts.url = "github:hercules-ci/flake-parts";
@@ -277,6 +277,11 @@
 
         hosts = import ./hosts.nix;
         signing = import ./nix/fleet-signing.nix {inherit lib;};
+        mongodb = import ./nix/mongodb-package.nix {
+          nixpkgs = inputs.mongodb-nixpkgs;
+          upstreamNixpkgs = inputs.nixpkgs;
+          inherit system;
+        };
 
         # Import the Configuration Factory Library
         # Pass self as flake-root to match what nix/lib.nix expects
@@ -285,6 +290,8 @@
           flake-root = self;
         };
       in {
+        lib.mongodbPackageFingerprint = mongodb.fingerprint;
+
         nixosConfigurations =
           lib.mapAttrs
           (hostname: cfg: mylib.mkNixosSystem hostname cfg hosts)
@@ -1325,6 +1332,13 @@
             } ''
               set -euo pipefail
 
+              mongodb_line="$(grep -n '^try_mongodb_group || true$' ${./scripts/rolling_flake_update.sh} | cut -d: -f1)"
+              core_line="$(grep -n '^try_group core \$GROUP_CORE || true$' ${./scripts/rolling_flake_update.sh} | cut -d: -f1)"
+              if [ -z "$mongodb_line" ] || [ -z "$core_line" ] || [ "$mongodb_line" -ge "$core_line" ]; then
+                echo "MongoDB preflight must run before the core update group" >&2
+                exit 1
+              fi
+
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               git config --global init.defaultBranch master
@@ -1336,7 +1350,7 @@
               #!${pkgs.bash}/bin/bash
               set -euo pipefail
               if [ "$#" -eq 3 ] && [ "$1" = "flake" ] && [ "$2" = "metadata" ] && [ "$3" = "--json" ]; then
-                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","yt-dlp-src":"yt-dlp-src","other-input":"other-input"}}}}}\n'
+                printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","mongodb-nixpkgs":"mongodb-nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","yt-dlp-src":"yt-dlp-src","other-input":"other-input"}}}}}\n'
                 exit 0
               fi
               echo "unexpected nix invocation in signing fixture: $*" >&2
@@ -1524,6 +1538,7 @@
                 RFU_REQUIRE_SIGNED_BASE=1 \
                 RFU_GROUP_NVCHAD=other-input \
                 RFU_GROUP_YTDLP=other-input \
+                RFU_GROUP_MONGODB=other-input \
                 RFU_GIT_SIGNING_KEY="$TMPDIR/bot" \
                 RFU_ALLOWED_SIGNERS_FILE="$allowed" \
                 RFU_BASE_ANCHOR_FILE="$anchor_file" \
@@ -1576,6 +1591,7 @@
               run_update "$valid_remote" "$allowed_all" "$valid_anchor" | tee "$TMPDIR/valid-update.log"
               grep -F '[nix-rolling]    nvchad: nvchad4nix' "$TMPDIR/valid-update.log"
               grep -F '[nix-rolling]    yt-dlp: yt-dlp-src' "$TMPDIR/valid-update.log"
+              grep -F '[nix-rolling]    mongodb: mongodb-nixpkgs (upstream-series aware)' "$TMPDIR/valid-update.log"
               grep -F '[nix-rolling]    rest: other-input' "$TMPDIR/valid-update.log"
               if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F nvchad4nix; then
                 echo "nvchad4nix leaked into the rest update group" >&2
@@ -1583,6 +1599,10 @@
               fi
               if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F yt-dlp-src; then
                 echo "yt-dlp-src leaked into the rest update group" >&2
+                exit 1
+              fi
+              if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F mongodb-nixpkgs; then
+                echo "mongodb-nixpkgs leaked into the rest update group" >&2
                 exit 1
               fi
               git clone -q "$valid_remote" "$TMPDIR/valid-inspect"
@@ -1687,6 +1707,51 @@
 
               touch $out
             '';
+
+          # MongoDB update gating must ignore a changed derivation/output caused
+          # only by builder churn, but react to package and series changes.
+          # The known-bad assertions qualify both sides of that boundary.
+          mongodbIsolationCheck = let
+            mkFingerprint = import ./nix/mongodb-fingerprint.nix;
+            basePackage = {
+              name = "mongodb-7.0.37";
+              version = "7.0.37";
+              src = ./nix/mongodb-package.nix;
+              patches = [./nix/mongodb-fingerprint.nix];
+              outPath = "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-mongodb-7.0.37";
+            };
+            base = mkFingerprint {
+              packageAttr = "mongodb-7_0";
+              package = basePackage;
+              availableSeries = ["mongodb-6_0" "mongodb-7_0"];
+            };
+            builderOnly = mkFingerprint {
+              packageAttr = "mongodb-7_0";
+              package = basePackage // {outPath = "/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-mongodb-7.0.37";};
+              availableSeries = ["mongodb-6_0" "mongodb-7_0"];
+            };
+            versionChanged = mkFingerprint {
+              packageAttr = "mongodb-7_0";
+              package =
+                basePackage
+                // {
+                  name = "mongodb-7.0.38";
+                  version = "7.0.38";
+                };
+              availableSeries = ["mongodb-6_0" "mongodb-7_0"];
+            };
+            seriesChanged = mkFingerprint {
+              packageAttr = "mongodb-8_0";
+              package = basePackage;
+              availableSeries = ["mongodb-6_0" "mongodb-7_0" "mongodb-8_0"];
+            };
+          in
+            assert base == builderOnly;
+            assert base != versionChanged;
+            assert base != seriesChanged;
+              pkgs.runCommand "mongodb-isolation" {} ''
+                touch $out
+              '';
 
           # Credential-to-argv ratchet (#49). Audit both authored source and the
           # evaluated systemd contracts. The unit text catches changes hidden by
@@ -1885,7 +1950,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck mongodbIsolationCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

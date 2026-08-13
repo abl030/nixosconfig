@@ -395,6 +395,22 @@
         "type": "github"
       }
     },
+    "mongodb-nixpkgs": {
+      "locked": {
+        "lastModified": 1783475452,
+        "narHash": "sha256-3S92fSuv32mjJz2Qb2F4405c21J55F4NIphz5K6hxco=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "05988b07fb05cbcb50be6bce197b4b5f75b5e61b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "05988b07fb05cbcb50be6bce197b4b5f75b5e61b",
+        "type": "github"
+      }
+    },
     "musicbrainz-docker": {
       "flake": false,
       "locked": {
@@ -688,6 +704,7 @@
         "home-manager": "home-manager",
         "lrclib-src": "lrclib-src",
         "microvm": "microvm",
+        "mongodb-nixpkgs": "mongodb-nixpkgs",
         "musicbrainz-docker": "musicbrainz-docker",
         "netwatch": "netwatch",
         "nixos-hardware": "nixos-hardware",
