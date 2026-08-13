@@ -186,13 +186,17 @@
   #      anchored `^` match silently drops the first row.
   mongoshHelpers = ''
     mongosh_script() {
-      # $1 = root|app, $2 = JS body. Emits the script on stdout.
+      # $1 = root|app, $2 = JS body. Emits one IIFE on stdout. Stdin-fed
+      # mongosh is a REPL: top-level `var` declarations sent as one input line
+      # are not reliably visible to the following input line. Keep credentials
+      # and their consumer in the same lexical scope instead.
       if [ "$1" = "root" ]; then
-        printf 'var ROOT_USER = "%s", ROOT_PASS = "%s";\n' "$root_user" "$root_pass"
+        printf '(function (ROOT_USER, ROOT_PASS) {\n%s\n})("%s", "%s");\n' \
+          "$2" "$root_user" "$root_pass"
       else
-        printf 'var APP_USER = "%s", APP_PASS = "%s";\n' "$app_user" "$app_pass"
+        printf '(function (APP_USER, APP_PASS) {\n%s\n})("%s", "%s");\n' \
+          "$2" "$app_user" "$app_pass"
       fi
-      printf '%s\n' "$2"
     }
 
     parse_counts() {
