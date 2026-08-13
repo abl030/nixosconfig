@@ -186,12 +186,25 @@
   #      anchored `^` match silently drops the first row.
   mongoshHelpers = ''
     mongosh_script() {
-      # $1 = root|app, $2 = JS body. Emits the script on stdout.
-      if [ "$1" = "root" ]; then
-        printf 'var ROOT_USER = "%s", ROOT_PASS = "%s";\n' "$root_user" "$root_pass"
-      else
-        printf 'var APP_USER = "%s", APP_PASS = "%s";\n' "$app_user" "$app_pass"
-      fi
+      # $1 = root|app|both, $2 = JS body. Emits the script on stdout.
+      #
+      # `both` exists because ensureRoleJs genuinely needs all four bindings: it
+      # authenticates as ROOT and then creates/updates the APP user. Binding
+      # only one pair made it die on `APP_USER is not defined` — which the
+      # module reported as the generic "failed to ensure the UniFi application
+      # role", the same *message* PR #144 failed with for an entirely different
+      # reason. Measured on doc2, 2026-08-13 (forgejo #142).
+      #
+      # root/app stay separate rather than always emitting all four, so a script
+      # that only needs one identity never has the other in its stdin.
+      case "$1" in
+        root|both)
+          printf 'var ROOT_USER = "%s", ROOT_PASS = "%s";\n' "$root_user" "$root_pass" ;;
+      esac
+      case "$1" in
+        app|both)
+          printf 'var APP_USER = "%s", APP_PASS = "%s";\n' "$app_user" "$app_pass" ;;
+      esac
       printf '%s\n' "$2"
     }
 
@@ -450,9 +463,9 @@
         exit 1
       fi
 
-      # 2. Application role.
+      # 2. Application role. `both`: authenticates as ROOT, creates the APP user.
       rc=0
-      run_mongosh root ${lib.escapeShellArg ensureRoleJs} || rc=$?
+      run_mongosh both ${lib.escapeShellArg ensureRoleJs} || rc=$?
       if [ "$rc" -ne 0 ]; then
         echo "unifi-mongodb: failed to ensure the UniFi application role (mongosh exited $rc)" >&2
         echo "unifi-mongodb: $(redact "$MONGOSH_OUT")" >&2
