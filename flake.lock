@@ -35,17 +35,17 @@
     },
     "claude-code-nix": {
       "inputs": {
-        "flake-utils": "flake-utils",
         "nixpkgs": [
           "nixpkgs"
-        ]
+        ],
+        "systems": "systems"
       },
       "locked": {
-        "lastModified": 1786159714,
-        "narHash": "sha256-Rm3yXcjHmoebdRA35SVy/AM9PsckDPPJkY+xGodiIHQ=",
+        "lastModified": 1786613016,
+        "narHash": "sha256-Zd4bPorBTGauL8Ic2HhpDChPqHFQiE5FweZYIpKZad4=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "9bf9ac959eaee3b06d6ef13f18a711ae64a581b4",
+        "rev": "1582287f11168341744b7e5a44996dd96bcf66e1",
         "type": "github"
       },
       "original": {
@@ -57,11 +57,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1786003199,
-        "narHash": "sha256-C5qlQTHLzuW2IKiLsPbTXPqX9Po0TEYvFRmi8h6vxYI=",
+        "lastModified": 1786609878,
+        "narHash": "sha256-/E1/SDHvS+Aw94+EWZJLpxGplN46PwWlTY3So4h9qCo=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "0a2957852e2034d04eb01120fd7da6ed5307dc56",
+        "rev": "a27aa2afa21d9a44d393dc3d73b068eab2bfeddf",
         "type": "github"
       },
       "original": {
@@ -88,7 +88,7 @@
     },
     "codex-cli-nix": {
       "inputs": {
-        "flake-utils": "flake-utils_2",
+        "flake-utils": "flake-utils",
         "nixpkgs": [
           "nixpkgs"
         ]
@@ -200,7 +200,7 @@
     },
     "flake-utils": {
       "inputs": {
-        "systems": "systems"
+        "systems": "systems_2"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -218,24 +218,6 @@
     },
     "flake-utils_2": {
       "inputs": {
-        "systems": "systems_2"
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "flake-utils_3": {
-      "inputs": {
         "systems": "systems_3"
       },
       "locked": {
@@ -252,7 +234,7 @@
         "type": "github"
       }
     },
-    "flake-utils_4": {
+    "flake-utils_3": {
       "inputs": {
         "systems": "systems_7"
       },
@@ -681,7 +663,7 @@
         "discogs-src": "discogs-src",
         "disko": "disko",
         "flake-parts": "flake-parts",
-        "flake-utils": "flake-utils_3",
+        "flake-utils": "flake-utils_2",
         "fzf-preview": "fzf-preview",
         "grafana-dashboards-rfmoz": "grafana-dashboards-rfmoz",
         "hermes-agent": "hermes-agent",
@@ -952,7 +934,7 @@
     },
     "vinsight-mcp": {
       "inputs": {
-        "flake-utils": "flake-utils_4",
+        "flake-utils": "flake-utils_3",
         "nixpkgs": [
           "nixpkgs"
         ]
