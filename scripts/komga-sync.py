@@ -28,7 +28,9 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import OrderedDict
 from pathlib import Path
@@ -223,6 +225,19 @@ def book_title(side: dict) -> str:
 # Komga interactions
 
 
+def library_ids_for_sidecars(sidecars: list[Path], libraries: list[dict]) -> list[str]:
+    """Return Komga libraries whose filesystem roots contain sidecars."""
+    ids: list[str] = []
+    for library in libraries:
+        root = urllib.parse.urlparse(str(library.get("root", "")))
+        if root.scheme != "file":
+            continue
+        library_root = Path(urllib.request.url2pathname(root.path))
+        if any(sidecar.is_relative_to(library_root) for sidecar in sidecars):
+            ids.append(str(library["id"]))
+    return ids
+
+
 def stem_for(sidecar: Path) -> str:
     """Filename stem to match a Komga book against (no .json/.pdf extension)."""
     return sidecar.stem
@@ -261,6 +276,43 @@ def _load_book_cache() -> None:
         page += 1
     log(f"  cached {total_loaded} books from Komga")
     _book_cache_loaded = True
+
+
+def _reload_book_cache() -> None:
+    global _book_cache_loaded
+    _book_cache.clear()
+    _book_cache_loaded = False
+    _load_book_cache()
+
+
+def refresh_book_index(
+    sidecars: list[Path],
+    libraries: list[dict],
+    *,
+    attempts: int = 30,
+    delay: float = 1,
+) -> list[Path]:
+    """Scan relevant libraries and wait for every sidecar PDF to be indexed."""
+    for library_id in library_ids_for_sidecars(sidecars, libraries):
+        status, _ = http("POST", f"/api/v1/libraries/{library_id}/scan")
+        if status != 202:
+            message = f"library scan request failed for {library_id}: {status}"
+            log(f"WARN  {message}")
+            raise RuntimeError(message)
+
+    missing = sidecars
+    for attempt in range(attempts):
+        _reload_book_cache()
+        missing = [
+            sidecar
+            for sidecar in sidecars
+            if str(sidecar.with_suffix(".pdf")) not in _book_cache
+        ]
+        if not missing:
+            return []
+        if attempt + 1 < attempts:
+            time.sleep(delay)
+    return missing
 
 
 def find_book_id(url_path: str) -> str | None:
@@ -460,8 +512,8 @@ def main() -> int:
         return 1
 
     # Sanity-check Komga reachability.
-    status, _ = get("/api/v1/libraries")
-    if status != 200:
+    status, libraries = get("/api/v1/libraries")
+    if status != 200 or not isinstance(libraries, list):
         log(f"Komga unreachable: GET /api/v1/libraries -> {status}")
         return 1
 
@@ -469,6 +521,11 @@ def main() -> int:
 
     sidecars = find_sidecars(SIDECAR_ROOT)
     log(f"Found {len(sidecars)} sidecars under {SIDECAR_ROOT}")
+    if not DRY_RUN:
+        missing = refresh_book_index(sidecars, libraries)
+        if missing:
+            log(f"ERR  {len(missing)} sidecar PDFs still absent after library scan")
+            return 1
 
     ok_books = skip_books = err_books = 0
     series_seen: dict[tuple[str, str], str] = {}  # (kind, year) -> seriesId

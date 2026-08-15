@@ -5,7 +5,8 @@
 **Module:** `modules/nixos/services/komga-sync.nix`
 **Script:** `scripts/komga-sync.py`
 **Secret:** `secrets/hosts/doc2/komga-sync.env` — `KOMGA_API_KEY`
-**Schedule:** `*-*-* 04:15:00 Australia/Perth` + 15 min jitter
+**Schedule:** `*-*-* 04:15:00 Australia/Perth` + 15 min jitter. If the
+weekly archiver is still running, systemd holds the sync until it exits.
 
 ## Why this exists
 
@@ -56,6 +57,9 @@ future indexers.
 * Lists all books once at startup, caches by file URL (the `url` field
   on Komga's book object is the filesystem path — stable across title
   rewrites).
+* Requests a scan of every Komga library containing sidecars, then reloads
+  the book cache until newly archived PDFs appear. This avoids depending on
+  Komga's unrelated daily scan time.
 * GETs current metadata before PATCHing; only PATCHes when something
   actually changes.
 * Series syncs are also diff-then-PATCH.

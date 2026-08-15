@@ -48,9 +48,8 @@ in {
     onCalendar = lib.mkOption {
       type = lib.types.str;
       default = "*-*-* 04:15:00 Australia/Perth";
-      # Slots in 45 min after gwm-archiver's weekly Sun 03:30 run so any
-      # freshly-downloaded issue plus the Komga DAILY library scan have
-      # time to settle.
+      # After= below holds a Sunday run until an active archiver finishes;
+      # the sync then requests and waits for the required Komga scans.
       description = "Systemd OnCalendar expression for the sync.";
     };
   };
@@ -79,7 +78,7 @@ in {
 
     systemd.services.komga-sync = {
       description = "Sync Komga book/series metadata from JSON sidecars";
-      after = ["network-online.target" "mnt-magazines.mount"];
+      after = ["network-online.target" "mnt-magazines.mount" "gwm-archiver.service"];
       wants = ["network-online.target" "mnt-magazines.mount"];
 
       unitConfig.OnFailure = ["komga-sync-notify-failure.service"];
