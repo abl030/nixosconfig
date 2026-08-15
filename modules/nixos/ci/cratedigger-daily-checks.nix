@@ -14,6 +14,7 @@
   dailyRuntimeDir = "/run/cratedigger-daily-checks";
   dailyScratchDir = "${dailyRuntimeDir}/scratch";
   tipRuntimeDir = "/run/cratedigger-beets-tip-canary";
+  tipScratchDir = "${tipRuntimeDir}/scratch";
   dailyWrapperDir = "${dailyRuntimeDir}/wrappers";
   tipWrapperDir = "${tipRuntimeDir}/wrappers";
   timeoutStartSec = "17h";
@@ -424,7 +425,7 @@ in {
           HOME = "/home/abl030";
           GH_CONFIG_DIR = tipGhConfigDir;
           XDG_CACHE_HOME = "${stateDir}/beets-tip-cache";
-          XDG_RUNTIME_DIR = tipRuntimeDir;
+          XDG_RUNTIME_DIR = tipScratchDir;
           CRATEDIGGER_AUTOMATION_STATE_DIR = stateDir;
           NIX_CONFIG = "experimental-features = nix-command flakes";
           NIX_PATH = "nixpkgs=${pkgs.path}";
@@ -469,7 +470,21 @@ in {
           ProtectKernelTunables = true;
           ProtectSystem = "strict";
           RestrictSUIDSGID = false;
-          TemporaryFileSystem = "/mnt";
+          # The tip canary now runs the whole deterministic suite, not three
+          # targeted nix builds, so it needs the same RAM-backed private
+          # scratch the Nixpkgs candidate has: the suite allocates roughly a
+          # dozen ephemeral PostgreSQL clusters, and XDG_RUNTIME_DIR is what
+          # scripts/test_tmpfs.sh roots TMPDIR under. Without this the
+          # clusters land on the host's shared 12 GiB /run alongside live
+          # runtime state. Same ceiling and shape as the Nixpkgs unit; the
+          # two never overlap (a shared flock plus a 13h timer stagger), and
+          # a tmpfs ceiling is not an eager reservation. Mount a child rather
+          # than RuntimeDirectory itself, or systemd's runtime-directory bind
+          # hides the private mount.
+          TemporaryFileSystem = [
+            "/mnt"
+            "${tipScratchDir}:rw,size=16G,nr_inodes=10000000,mode=0700,uid=1000,gid=100"
+          ];
 
           StandardOutput = "journal";
           StandardError = "journal";
