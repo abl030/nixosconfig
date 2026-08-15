@@ -1,0 +1,298 @@
+From 50ce16c17f63d257c564420719a7909ae83fb323 Mon Sep 17 00:00:00 2001
+From: abl030 <abl030@gmail.com>
+Date: Sat, 15 Aug 2026 10:00:17 +0800
+Subject: [PATCH] truncate path segments to the filesystem name limit
+
+---
+ src/slskd/Common/FileSafety.cs                |  86 ++++++++-
+ .../FileSafety/TruncatePathSegmentTests.cs    | 167 ++++++++++++++++++
+ 2 files changed, 252 insertions(+), 1 deletion(-)
+ create mode 100644 tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
+
+diff --git a/src/slskd/Common/FileSafety.cs b/src/slskd/Common/FileSafety.cs
+index 6a6dea2..5668960 100644
+--- a/src/slskd/Common/FileSafety.cs
++++ b/src/slskd/Common/FileSafety.cs
+@@ -35,6 +35,8 @@ namespace slskd;
+ using System;
+ using System.IO;
+ using System.Linq;
++using System.Security.Cryptography;
++using System.Text;
+ using System.Text.RegularExpressions;
+ 
+ /// <summary>
+@@ -42,6 +44,22 @@ using System.Text.RegularExpressions;
+ /// </summary>
+ public static class FileSafety
+ {
++    /// <summary>
++    ///     The maximum length of a single path segment (a filename or directory name).
++    /// </summary>
++    /// <remarks>
++    ///     Unix filesystems (ext4, xfs, btrfs, zfs, tmpfs) cap a single name at 255 <b>bytes</b> of UTF-8,
++    ///     while Windows caps it at 255 UTF-16 code units. Names that are not plain ASCII therefore overflow
++    ///     well before they look long: a CJK name breaks at ~85 characters, and combining marks cost ~2 bytes
++    ///     each while rendering as nothing at all.
++    /// </remarks>
++    public const int MaxPathSegmentLength = 255;
++
++    /// <summary>
++    ///     The longest file extension that will be preserved when a segment is truncated.
++    /// </summary>
++    private const int MaxPreservedExtensionLength = 16;
++
+     /// <summary>
+     ///     Invalid filename characters on Unix-like operating systems (Linux, OSX, FreeBSD, etc).
+     /// </summary>
+@@ -424,7 +442,73 @@ public static class FileSafety
+             return replacement.ToString();
+         }
+ 
+-        return sanitized;
++        // a remote peer can name a directory or file anything it likes, including something longer than the
++        // local filesystem will accept; without this the write fails with 'the path is too long, or a component
++        // of the specified path is too long' and no transfer from that folder can ever succeed
++        return TruncatePathSegment(sanitized, os);
++    }
++
++    /// <summary>
++    ///     Truncates the specified <paramref name="segment"/> to <see cref="MaxPathSegmentLength"/>, if it exceeds
++    ///     it, appending a short digest of the original so that distinct names remain distinct.
++    /// </summary>
++    /// <remarks>
++    ///     Truncation happens on a whole-character boundary; splitting a multi-byte character mid-sequence would
++    ///     corrupt the name. The digest is derived from the full segment, so the result is deterministic and stable
++    ///     across retries, which keeps partially-downloaded files resuming to the same path.
++    /// </remarks>
++    /// <param name="segment">The path segment.</param>
++    /// <param name="os">An optional operating system override, for testing.</param>
++    /// <returns>The truncated path segment.</returns>
++    public static string TruncatePathSegment(string segment, OperatingSystem? os = null)
++    {
++        if (string.IsNullOrEmpty(segment))
++        {
++            return segment;
++        }
++
++        os ??= Compute.OperatingSystem();
++
++        // Windows counts UTF-16 code units, Unix filesystems count UTF-8 bytes
++        var windows = os.Value == OperatingSystem.Windows;
++
++        int Measure(string s) => windows ? s.Length : Encoding.UTF8.GetByteCount(s);
++
++        if (Measure(segment) <= MaxPathSegmentLength)
++        {
++            return segment;
++        }
++
++        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(segment)))[..8].ToLowerInvariant();
++        var suffix = $"~{digest}";
++
++        // keep the extension, if there is a plausible one, so the truncated file is still recognizable
++        var extension = string.Empty;
++        var lastDot = segment.LastIndexOf('.');
++
++        if (lastDot > 0 && Measure(segment[lastDot..]) <= MaxPreservedExtensionLength)
++        {
++            extension = segment[lastDot..];
++        }
++
++        var budget = MaxPathSegmentLength - Measure(suffix) - Measure(extension);
++        var builder = new StringBuilder();
++        var used = 0;
++
++        foreach (var rune in segment.EnumerateRunes())
++        {
++            var size = windows ? rune.Utf16SequenceLength : rune.Utf8SequenceLength;
++
++            if (used + size > budget)
++            {
++                break;
++            }
++
++            builder.Append(rune.ToString());
++            used += size;
++        }
++
++        return builder.Append(suffix).Append(extension).ToString();
+     }
+ 
+     /// <summary>
+diff --git a/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs b/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
+new file mode 100644
+index 0000000..1b551d2
+--- /dev/null
++++ b/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
+@@ -0,0 +1,167 @@
++using System.Linq;
++using System.Text;
++
++namespace slskd.Tests.Unit.Common;
++
++using Xunit;
++
++public partial class FileSafetyTests
++{
++    public class TruncatePathSegmentTests
++    {
++        /// <summary>
++        ///     A real Soulseek directory name composed largely of combining marks: it renders as roughly
++        ///     40 glyphs, but is 211 characters and 379 UTF-8 bytes, so it exceeds a 255 byte name limit
++        ///     while being nowhere near 255 characters.
++        /// </summary>
++        private static string CombiningMarkDirectory =>
++            "ʕ" + string.Concat(Enumerable.Repeat("͡", 10)) + "(" +
++            string.Concat(Enumerable.Repeat("̸̢̛̼̞̭̋ͅ", 25)) + ")";
++
++        [Theory]
++        [InlineData(null)]
++        [InlineData("")]
++        public void Returns_Input_Given_Null_Or_Empty(string input)
++        {
++            Assert.Equal(input, FileSafety.TruncatePathSegment(input));
++        }
++
++        [Theory]
++        [InlineData("foo")]
++        [InlineData("a longer but still perfectly ordinary directory name (2026) [FLAC]")]
++        public void Returns_Input_Unchanged_When_Within_Limit(string input)
++        {
++            Assert.Equal(input, FileSafety.TruncatePathSegment(input, OperatingSystem.Linux));
++        }
++
++        [Fact]
++        public void Returns_Input_Unchanged_At_Exactly_The_Limit()
++        {
++            var input = new string('a', FileSafety.MaxPathSegmentLength);
++
++            Assert.Equal(input, FileSafety.TruncatePathSegment(input, OperatingSystem.Linux));
++        }
++
++        [Fact]
++        public void Truncates_Ascii_Segment_Exceeding_The_Limit()
++        {
++            var input = new string('a', FileSafety.MaxPathSegmentLength + 1);
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            Assert.NotEqual(input, result);
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.MaxPathSegmentLength);
++        }
++
++        [Fact]
++        public void Truncates_Segment_That_Exceeds_Byte_Limit_But_Not_Character_Limit()
++        {
++            // 128 CJK characters: 128 characters, but 384 UTF-8 bytes
++            var input = string.Concat(Enumerable.Repeat("中", 128));
++
++            Assert.True(input.Length < FileSafety.MaxPathSegmentLength);
++            Assert.True(Encoding.UTF8.GetByteCount(input) > FileSafety.MaxPathSegmentLength);
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.MaxPathSegmentLength);
++        }
++
++        [Fact]
++        public void Truncates_Combining_Mark_Directory_Name()
++        {
++            var input = CombiningMarkDirectory;
++
++            Assert.True(Encoding.UTF8.GetByteCount(input) > FileSafety.MaxPathSegmentLength);
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.MaxPathSegmentLength);
++        }
++
++        [Fact]
++        public void Does_Not_Split_A_Multi_Byte_Character()
++        {
++            var input = string.Concat(Enumerable.Repeat("中", 128));
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            // a name cut mid-sequence would not survive a UTF-8 round trip intact
++            Assert.Equal(result, Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(result)));
++            Assert.DoesNotContain('�', result);
++        }
++
++        [Fact]
++        public void Is_Deterministic()
++        {
++            var input = CombiningMarkDirectory;
++
++            Assert.Equal(
++                FileSafety.TruncatePathSegment(input, OperatingSystem.Linux),
++                FileSafety.TruncatePathSegment(input, OperatingSystem.Linux));
++        }
++
++        [Fact]
++        public void Is_Idempotent()
++        {
++            var once = FileSafety.TruncatePathSegment(CombiningMarkDirectory, OperatingSystem.Linux);
++            var twice = FileSafety.TruncatePathSegment(once, OperatingSystem.Linux);
++
++            Assert.Equal(once, twice);
++        }
++
++        [Fact]
++        public void Distinguishes_Long_Segments_Sharing_A_Prefix()
++        {
++            var prefix = new string('a', FileSafety.MaxPathSegmentLength + 1);
++
++            var first = FileSafety.TruncatePathSegment(prefix + "one", OperatingSystem.Linux);
++            var second = FileSafety.TruncatePathSegment(prefix + "two", OperatingSystem.Linux);
++
++            Assert.NotEqual(first, second);
++        }
++
++        [Fact]
++        public void Preserves_A_Short_Extension()
++        {
++            var input = new string('a', FileSafety.MaxPathSegmentLength + 1) + ".flac";
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            Assert.EndsWith(".flac", result);
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.MaxPathSegmentLength);
++        }
++
++        [Fact]
++        public void Uses_Utf16_Code_Units_On_Windows()
++        {
++            // 128 CJK characters is over the byte limit but under the UTF-16 code unit limit
++            var input = string.Concat(Enumerable.Repeat("中", 128));
++
++            Assert.Equal(input, FileSafety.TruncatePathSegment(input, OperatingSystem.Windows));
++            Assert.NotEqual(input, FileSafety.TruncatePathSegment(input, OperatingSystem.Linux));
++        }
++
++        [Fact]
++        public void Is_Applied_By_SanitizePathSegment()
++        {
++            var input = string.Concat(Enumerable.Repeat("中", 128));
++
++            var result = FileSafety.SanitizePathSegment(input, os: OperatingSystem.Linux);
++
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.MaxPathSegmentLength);
++        }
++
++        [Fact]
++        public void Is_Applied_To_Every_Segment_By_SanitizePath()
++        {
++            var segment = string.Concat(Enumerable.Repeat("中", 128));
++
++            var result = FileSafety.SanitizePath($"{segment}/{segment}", os: OperatingSystem.Linux);
++
++            Assert.All(
++                result.Split('/'),
++                s => Assert.True(Encoding.UTF8.GetByteCount(s) <= FileSafety.MaxPathSegmentLength));
++        }
++    }
++}
+-- 
+2.55.0
+

@@ -97,6 +97,25 @@
     }
   )
 
+  # slskd overlay: truncate local path segments to the filesystem's name limit.
+  #
+  # slskd sanitizes remote path segments for invalid characters but never for length
+  # (FileSafety.SanitizePathSegment), so a peer directory name longer than 255 bytes makes every
+  # download from that folder fail permanently with "the path is too long, or a component of the
+  # specified path is too long". The limit is bytes on Unix, so names heavy in combining marks or
+  # CJK overflow while still looking short. Reported upstream as slskd/slskd#1818.
+  #
+  # Deliberately unguarded by version: if upstream lands a fix or reworks FileSafety, the patch
+  # stops applying and the build fails loudly. That is the signal to drop this block, which is
+  # better than silently carrying a stale delta behind a version check.
+  (
+    _final: prev: {
+      slskd = prev.slskd.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [./pkgs/slskd-truncate-path-segments.patch];
+      });
+    }
+  )
+
   # vinsight-mcp overlay: MCP server for Vinsight winery API
   (
     final: _prev: {
