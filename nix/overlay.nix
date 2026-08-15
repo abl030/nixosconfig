@@ -105,6 +105,13 @@
   # specified path is too long". The limit is bytes on Unix, so names heavy in combining marks or
   # CJK overflow while still looking short. Reported upstream as slskd/slskd#1818.
   #
+  # Truncation stops 24 bytes short of the cap. FileService.MoveFile resolves a destination
+  # collision by appending "_{DateTime.UtcNow.Ticks}" (19 bytes) before the extension, so a name
+  # truncated to exactly 255 overflows the moment that suffix is applied. Because truncation is
+  # deterministic, a re-download collides at a byte-identical name every time; the move then throws
+  # and the completed file is stranded in the incomplete directory with no completion event, which
+  # is how this was found.
+  #
   # Deliberately unguarded by version: if upstream lands a fix or reworks FileSafety, the patch
   # stops applying and the build fails loudly. That is the signal to drop this block, which is
   # better than silently carrying a stale delta behind a version check.

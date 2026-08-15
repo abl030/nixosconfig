@@ -1,16 +1,5 @@
-From 50ce16c17f63d257c564420719a7909ae83fb323 Mon Sep 17 00:00:00 2001
-From: abl030 <abl030@gmail.com>
-Date: Sat, 15 Aug 2026 10:00:17 +0800
-Subject: [PATCH] truncate path segments to the filesystem name limit
-
----
- src/slskd/Common/FileSafety.cs                |  86 ++++++++-
- .../FileSafety/TruncatePathSegmentTests.cs    | 167 ++++++++++++++++++
- 2 files changed, 252 insertions(+), 1 deletion(-)
- create mode 100644 tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
-
 diff --git a/src/slskd/Common/FileSafety.cs b/src/slskd/Common/FileSafety.cs
-index 6a6dea2..5668960 100644
+index 6a6dea2..c8b0e65 100644
 --- a/src/slskd/Common/FileSafety.cs
 +++ b/src/slskd/Common/FileSafety.cs
 @@ -35,6 +35,8 @@ namespace slskd;
@@ -22,7 +11,7 @@ index 6a6dea2..5668960 100644
  using System.Text.RegularExpressions;
  
  /// <summary>
-@@ -42,6 +44,22 @@ using System.Text.RegularExpressions;
+@@ -42,6 +44,42 @@ using System.Text.RegularExpressions;
  /// </summary>
  public static class FileSafety
  {
@@ -38,6 +27,26 @@ index 6a6dea2..5668960 100644
 +    public const int MaxPathSegmentLength = 255;
 +
 +    /// <summary>
++    ///     Bytes held back from <see cref="MaxPathSegmentLength"/> so a truncated name still has room
++    ///     to grow downstream.
++    /// </summary>
++    /// <remarks>
++    ///     <see cref="Files.FileService.MoveFile"/> resolves a destination collision by appending
++    ///     <c>_{DateTime.UtcNow.Ticks}</c> — an 18-digit value, so 19 bytes — before the extension. A name
++    ///     truncated to exactly the cap would overflow the moment that suffix is applied, and because
++    ///     truncation is deterministic, a re-download of the same remote file collides at a byte-identical
++    ///     name every time. The move then throws, the transfer never finalizes, and the completed file is
++    ///     stranded in the incomplete directory with no completion event.
++    /// </remarks>
++    public const int CollisionSuffixReserve = 24;
++
++    /// <summary>
++    ///     The effective cap applied to a truncated segment, leaving <see cref="CollisionSuffixReserve"/>
++    ///     bytes of headroom.
++    /// </summary>
++    public const int TruncatedSegmentLength = MaxPathSegmentLength - CollisionSuffixReserve;
++
++    /// <summary>
 +    ///     The longest file extension that will be preserved when a segment is truncated.
 +    /// </summary>
 +    private const int MaxPreservedExtensionLength = 16;
@@ -45,7 +54,7 @@ index 6a6dea2..5668960 100644
      /// <summary>
      ///     Invalid filename characters on Unix-like operating systems (Linux, OSX, FreeBSD, etc).
      /// </summary>
-@@ -424,7 +442,73 @@ public static class FileSafety
+@@ -424,7 +462,73 @@ public static class FileSafety
              return replacement.ToString();
          }
  
@@ -82,7 +91,7 @@ index 6a6dea2..5668960 100644
 +
 +        int Measure(string s) => windows ? s.Length : Encoding.UTF8.GetByteCount(s);
 +
-+        if (Measure(segment) <= MaxPathSegmentLength)
++        if (Measure(segment) <= TruncatedSegmentLength)
 +        {
 +            return segment;
 +        }
@@ -99,7 +108,7 @@ index 6a6dea2..5668960 100644
 +            extension = segment[lastDot..];
 +        }
 +
-+        var budget = MaxPathSegmentLength - Measure(suffix) - Measure(extension);
++        var budget = TruncatedSegmentLength - Measure(suffix) - Measure(extension);
 +        var builder = new StringBuilder();
 +        var used = 0;
 +
@@ -122,10 +131,10 @@ index 6a6dea2..5668960 100644
      /// <summary>
 diff --git a/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs b/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
 new file mode 100644
-index 0000000..1b551d2
+index 0000000..bf23a43
 --- /dev/null
 +++ b/tests/slskd.Tests.Unit/Common/FileSafety/TruncatePathSegmentTests.cs
-@@ -0,0 +1,167 @@
+@@ -0,0 +1,203 @@
 +using System.Linq;
 +using System.Text;
 +
@@ -163,11 +172,47 @@ index 0000000..1b551d2
 +        }
 +
 +        [Fact]
-+        public void Returns_Input_Unchanged_At_Exactly_The_Limit()
++        public void Returns_Input_Unchanged_At_Exactly_The_Truncated_Limit()
 +        {
-+            var input = new string('a', FileSafety.MaxPathSegmentLength);
++            var input = new string('a', FileSafety.TruncatedSegmentLength);
 +
 +            Assert.Equal(input, FileSafety.TruncatePathSegment(input, OperatingSystem.Linux));
++        }
++
++        [Fact]
++        public void Truncates_A_Name_That_Fits_The_Cap_But_Not_The_Reserve()
++        {
++            // between TruncatedSegmentLength and MaxPathSegmentLength: legal on its own,
++            // but leaves no room for MoveFile's collision suffix
++            var input = new string('a', FileSafety.MaxPathSegmentLength);
++
++            var result = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            Assert.NotEqual(input, result);
++            Assert.True(Encoding.UTF8.GetByteCount(result) <= FileSafety.TruncatedSegmentLength);
++        }
++
++        /// <summary>
++        ///     slskd resolves a destination collision in <c>FileService.MoveFile</c> by appending
++        ///     <c>_{DateTime.UtcNow.Ticks}</c> before the extension. Truncation must leave room for it,
++        ///     or the move throws and the completed file is stranded in the incomplete directory.
++        /// </summary>
++        [Theory]
++        [InlineData("中")]
++        [InlineData("a")]
++        public void Leaves_Room_For_The_Collision_Rename_Suffix(string fill)
++        {
++            var input = string.Concat(Enumerable.Repeat(fill, 400)) + ".flac";
++
++            var truncated = FileSafety.TruncatePathSegment(input, OperatingSystem.Linux);
++
++            // reproduce MoveFile's rename: "{name-without-extension}_{Ticks}{extension}"
++            var stem = truncated[..truncated.LastIndexOf('.')];
++            var renamed = $"{stem}_{long.MaxValue}.flac";
++
++            Assert.True(
++                Encoding.UTF8.GetByteCount(renamed) <= FileSafety.MaxPathSegmentLength,
++                $"renamed to {Encoding.UTF8.GetByteCount(renamed)} bytes, over the cap");
 +        }
 +
 +        [Fact]
@@ -293,6 +338,3 @@ index 0000000..1b551d2
 +        }
 +    }
 +}
--- 
-2.55.0
-
