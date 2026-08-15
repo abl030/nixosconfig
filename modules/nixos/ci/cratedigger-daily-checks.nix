@@ -19,7 +19,15 @@
   tipWrapperDir = "${tipRuntimeDir}/wrappers";
   timeoutStartSec = "17h";
   ghHostsFile = "/home/abl030/.config/gh/hosts.yml";
-  dailyCandidatePath = [
+  # ONE list for both candidate units: they run the same suite, so they need
+  # the same tools. The tip canary used to run three targeted nix builds and
+  # carried a shorter list; when it started running the whole suite, the
+  # missing jq and openssh failed 17 deploy-tooling targets
+  # (tests.test_deploy_pin_script drives scripts/pin_nixosconfig.sh, which
+  # shells out to jq, and tests.test_deploy_cycle_verifier drives
+  # scripts/verify_cratedigger_cycle.sh, which needs both). Keeping the lists
+  # separate is what let the two drift apart in the first place.
+  candidatePath = [
     pkgs.bash
     pkgs.coreutils
     pkgs.gh
@@ -31,16 +39,8 @@
     pkgs.pyright
     pkgs.util-linux
   ];
-  tipCandidatePath = [
-    pkgs.bash
-    pkgs.coreutils
-    pkgs.gh
-    pkgs.git
-    pkgs.nix
-    pkgs.nodejs
-    pkgs.pyright
-    pkgs.util-linux
-  ];
+  dailyCandidatePath = candidatePath;
+  tipCandidatePath = candidatePath;
   candidateEnvironmentPath = wrapperDir: path: "${wrapperDir}:${lib.makeBinPath path}";
   candidateWrapperBinds = wrapperDir: [
     "${config.security.wrapperDir}/newuidmap:${wrapperDir}/newuidmap"
