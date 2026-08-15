@@ -353,8 +353,61 @@
         fi
       }
 
+      # Issue #1161. True while a NixOS switch is running: the fleet path
+      # (nixos-upgrade.service wraps fetch+build+switch) and a break-glass
+      # manual `nixos-rebuild switch`, which runs switch-to-configuration
+      # under the transient nixos-rebuild-switch-to-configuration.service.
+      switch_in_flight() {
+        local unit
+        for unit in nixos-upgrade.service \
+          nixos-rebuild-switch-to-configuration.service; do
+          if systemctl is-active --quiet "$unit"; then
+            return 0
+          fi
+        done
+        return 1
+      }
+
       watchdog() {
         if check; then
+          # Issue #1161: never RESUME during a switch. resume_if_clear ends in
+          # `systemctl --no-block start "''${resume_units[@]}"`. Five of those
+          # six units pull in cratedigger-db-migrate.service -- web, importer,
+          # preview-worker and youtube-ingest via Requires=, and
+          # cratedigger.service via Wants=, which enqueues a start job just
+          # the same -- so that call also starts the migrate unit. While
+          # switch-to-configuration's stop transaction is still draining -- the
+          # importer's #1089 graceful drain routinely takes seconds -- the
+          # migrate unit's own stop job is still QUEUED behind those
+          # dependents, and a start job in the default `replace` mode replaces
+          # it. RemainAfterExit leaves the unit active(exited) throughout, so
+          # the replacement start is a silent -EALREADY no-op and the switch's
+          # migration never runs. On 2026-08-14 this timer fired at 15:26:45.96
+          # inside a switch and migration 078 was skipped; the pipeline then
+          # hard-failed every cycle for ~4 minutes.
+          #
+          # This start also lands BEFORE switch-to-configuration's
+          # daemon-reload, so it can bring the guarded units up on stale unit
+          # definitions, which the switch's own start phase then leaves alone
+          # because they are already active.
+          #
+          # Upstream cratedigger now also ships stopIfChanged = false on the
+          # migrate unit, so the migration itself can no longer be swallowed.
+          # This guard keeps the reconciler out of the switch window entirely.
+          # It NARROWS the race rather than eliminating it: a switch that
+          # begins immediately after this check still overlaps. The explicit
+          # `resume-if-clear` subcommand is deliberately NOT guarded -- that
+          # one is operator/deploy intent, not an unattended timer.
+          #
+          # Only the resume (start) direction is guarded. The hold path below
+          # still runs during a switch: stopping guarded units when the
+          # metadata APIs are actually unhealthy is the safe direction, and
+          # the switch is stopping them anyway.
+          if switch_in_flight; then
+            echo "nixos switch in flight; deferring cratedigger gate resume" >&2
+            return 0
+          fi
+
           # Reconcile unconditionally when probes are healthy. resume_if_clear
           # is idempotent (systemctl start on a running unit is a no-op) and
           # still honours active holds, so this self-heals the stuck-stopped
