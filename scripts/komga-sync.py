@@ -8,6 +8,11 @@ matching book in Komga by filename, and PATCHes book + series metadata with the
 sidecar's title / TOC / authors / keywords / release date / issue URL. Every
 field is locked so a later library refresh does not stomp the sync.
 
+Before writing anything it runs the pre-scan discoverability gate: libraries
+holding a freshly-archived PDF that Komga has not indexed yet get scanned, and
+the run waits (boundedly) for just those books. Anything still unresolvable is
+reported without blocking the rest of the archive.
+
 The script is idempotent: it GETs current metadata first and only PATCHes when
 something actually changed.
 
@@ -28,16 +33,29 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 KOMGA_URL = os.environ.get("KOMGA_URL", "https://magazines.ablz.au").rstrip("/")
 API_KEY = os.environ.get("KOMGA_API_KEY", "")
 SIDECAR_ROOT = Path(os.environ.get("SIDECAR_ROOT", "/mnt/data/Media/Magazines"))
 DRY_RUN = os.environ.get("DRY_RUN", "0") not in ("", "0", "false", "False")
+
+# A Komga library scan is asynchronous. Wait out a realistic scan of a growing
+# archive while leaving the rest of the unit's 20 min TimeoutStartSec for the
+# metadata pass itself (modules/nixos/services/komga-sync.nix). Each poll costs
+# a full book-list pagination, so back off rather than re-listing every second.
+SCAN_WAIT_SECONDS = 600.0
+SCAN_POLL_SECONDS = 5.0
+SCAN_POLL_MAX_SECONDS = 60.0
+SCAN_POLL_BACKOFF = 1.5
+SCAN_REQUEST_ATTEMPTS = 3
+SCAN_REQUEST_RETRY_SECONDS = 5.0
 
 # Komga book-tag limits are not documented; cap defensively to keep the UI fast.
 MAX_TAGS_PER_BOOK = 60
@@ -219,13 +237,79 @@ def book_title(side: dict) -> str:
     return title or side.get("pdf_filename") or "Untitled"
 
 
+def load_sidecar(sidecar: Path) -> dict | None:
+    """Parse a sidecar, or None when it is unreadable / not a JSON object."""
+    try:
+        side = json.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        log(f"  warn: unreadable sidecar {sidecar}: {e}")
+        return None
+    return side if isinstance(side, dict) else None
+
+
+def pdf_path_for(sidecar: Path, side: dict | None = None) -> Path:
+    """Filesystem path of the PDF a sidecar describes.
+
+    Shared by the pre-scan discoverability gate and sync_book so both ask
+    Komga about exactly the same file. Honours `pdf_filename` when the
+    archiver recorded one (always a bare basename), else assumes
+    <stem>.pdf next to the sidecar. Pass `side` when already parsed.
+    """
+    if side is None:
+        side = load_sidecar(sidecar) or {}
+    name = Path(str(side.get("pdf_filename") or "")).name
+    return sidecar.with_name(name or f"{sidecar.stem}.pdf")
+
+
 # ---------------------------------------------------------------------------
 # Komga interactions
 
 
-def stem_for(sidecar: Path) -> str:
-    """Filename stem to match a Komga book against (no .json/.pdf extension)."""
-    return sidecar.stem
+def library_root(library: dict) -> Path | None:
+    """Filesystem root of a Komga library, or None if it cannot be mapped.
+
+    Live Komga reports a bare absolute path (`/mnt/magazines/GAW`); other
+    versions/deployments report a `file:` URI. Accept both, reject anything
+    else loudly rather than silently matching no libraries.
+    """
+    raw = str(library.get("root") or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("file:"):
+        parsed = urllib.parse.urlparse(raw)
+        if parsed.netloc not in ("", "localhost"):
+            return None
+        raw = urllib.request.url2pathname(parsed.path)
+    return Path(raw) if raw.startswith("/") else None
+
+
+def map_sidecars_to_libraries(
+    sidecars: list[Path], libraries: list[dict]
+) -> tuple[dict[Path, str], list[Path]]:
+    """Return ({sidecar: library-id}, [sidecars under no configured root])."""
+    roots: list[tuple[Path, str]] = []
+    for library in libraries:
+        root, lid = library_root(library), library.get("id")
+        if root is None or not lid:
+            log(
+                f"WARN  ignoring Komga library {library.get('name') or lid!r}: "
+                f"unusable root {library.get('root')!r}"
+            )
+            continue
+        roots.append((root, str(lid)))
+    # Deepest root first so a library nested inside another one still wins.
+    roots.sort(key=lambda entry: len(entry[0].parts), reverse=True)
+
+    mapped: dict[Path, str] = {}
+    unmapped: list[Path] = []
+    for sidecar in sidecars:
+        for root, lid in roots:
+            if sidecar.is_relative_to(root):
+                mapped[sidecar] = lid
+                break
+        else:
+            unmapped.append(sidecar)
+    return mapped, unmapped
 
 
 _book_cache: dict[str, str] = {}
@@ -261,6 +345,108 @@ def _load_book_cache() -> None:
         page += 1
     log(f"  cached {total_loaded} books from Komga")
     _book_cache_loaded = True
+
+
+def _reload_book_cache() -> None:
+    global _book_cache_loaded
+    _book_cache.clear()
+    _book_cache_loaded = False
+    _load_book_cache()
+
+
+class IndexGate(NamedTuple):
+    """Outcome of making sidecar PDFs discoverable before metadata is written."""
+
+    missing: list[Path]  # PDFs Komga still does not know about
+    unmapped: list[Path]  # sidecars under no configured library root
+    scan_errors: list[str]  # library scans we never managed to request
+
+
+def request_scan(
+    library_id: str,
+    *,
+    attempts: int = SCAN_REQUEST_ATTEMPTS,
+    retry_delay: float = SCAN_REQUEST_RETRY_SECONDS,
+    sleep=time.sleep,
+) -> str | None:
+    """Ask Komga to scan one library.
+
+    Returns None once accepted, or a message when every attempt failed —
+    a refused scan must not abort the run, it just means the books it would
+    have indexed stay missing (see the exit codes in the module docstring).
+    """
+    error = ""
+    for attempt in range(1, attempts + 1):
+        status, _ = http("POST", f"/api/v1/libraries/{library_id}/scan")
+        if 200 <= status < 300:
+            return None
+        error = f"library scan request for {library_id} returned {status}"
+        log(f"WARN  {error} (attempt {attempt}/{attempts})")
+        if attempt < attempts:
+            sleep(retry_delay)
+    return error
+
+
+def refresh_book_index(
+    sidecars: list[Path],
+    libraries: list[dict],
+    *,
+    timeout: float = SCAN_WAIT_SECONDS,
+    delay: float = SCAN_POLL_SECONDS,
+    max_delay: float = SCAN_POLL_MAX_SECONDS,
+    sleep=time.sleep,
+    monotonic=time.monotonic,
+) -> IndexGate:
+    """Make newly-arrived sidecar PDFs discoverable before metadata is written.
+
+    Establishes the pre-scan index, scans only the libraries that actually
+    hold a currently-missing PDF, then waits (bounded) for just those books.
+    Never aborts the run: whatever is still absent is reported so the caller
+    can still reconcile every other sidecar.
+    """
+    _load_book_cache()
+    pdf_paths = {sidecar: str(pdf_path_for(sidecar)) for sidecar in sidecars}
+    mapped, unmapped = map_sidecars_to_libraries(sidecars, libraries)
+    for sidecar in unmapped[:5]:
+        log(f"ERR  {sidecar}: under no configured Komga library root")
+    if len(unmapped) > 5:
+        log(f"ERR  ... and {len(unmapped) - 5} more sidecars under no library root")
+
+    pending = [s for s in sidecars if pdf_paths[s] not in _book_cache]
+    if not pending:
+        return IndexGate(missing=[], unmapped=unmapped, scan_errors=[])
+
+    wanted: list[str] = []
+    for sidecar in pending:
+        library_id = mapped.get(sidecar)
+        if library_id is not None and library_id not in wanted:
+            wanted.append(library_id)
+    log(f"  {len(pending)} PDF(s) not in the index; requesting {len(wanted)} scan(s)")
+
+    scan_errors: list[str] = []
+    scanned: set[str] = set()
+    for library_id in wanted:
+        error = request_scan(library_id, sleep=sleep)
+        if error:
+            scan_errors.append(error)
+            log(f"ERR  {error}")
+            continue
+        scanned.add(library_id)
+
+    # Only wait on books a scan was actually accepted for — anything else is
+    # already known-missing and waiting on it just burns the unit's timeout.
+    waiting = [s for s in pending if mapped.get(s) in scanned]
+    if waiting:
+        log(f"  waiting up to {timeout:.0f}s for {len(waiting)} new PDF(s) to index")
+    deadline = monotonic() + timeout
+    while waiting and monotonic() < deadline:
+        sleep(min(delay, max(0.0, deadline - monotonic())))
+        _reload_book_cache()
+        waiting = [s for s in waiting if pdf_paths[s] not in _book_cache]
+        delay = min(max_delay, delay * SCAN_POLL_BACKOFF)
+
+    missing = [s for s in pending if pdf_paths[s] not in _book_cache]
+    return IndexGate(missing=missing, unmapped=unmapped, scan_errors=scan_errors)
 
 
 def find_book_id(url_path: str) -> str | None:
@@ -332,16 +518,11 @@ def attach_locks(payload: dict) -> dict:
 
 def sync_book(sidecar: Path, kind: str) -> tuple[str, str | None]:
     """Return ("ok"|"skip"|"err", "<book-id-or-msg>")."""
-    try:
-        side = json.loads(sidecar.read_text(encoding="utf-8"))
-    except Exception as e:
-        return "err", f"{sidecar}: bad json ({e})"
+    side = load_sidecar(sidecar)
+    if side is None:
+        return "err", f"{sidecar}: unreadable or malformed JSON sidecar"
 
-    pdf_name = side.get("pdf_filename")
-    if not pdf_name:
-        # Fallback: assume <stem>.pdf next to the sidecar.
-        pdf_name = f"{sidecar.stem}.pdf"
-    pdf_path_on_komga = str(sidecar.with_name(pdf_name))
+    pdf_path_on_komga = str(pdf_path_for(sidecar, side))
 
     book_id = find_book_id(pdf_path_on_komga)
     if not book_id:
@@ -420,12 +601,17 @@ def sync_series(series_id: str, year: str, kind: str) -> tuple[str, str]:
 
 
 def find_sidecars(root: Path) -> list[Path]:
-    out: list[Path] = []
-    for p in sorted(root.rglob("*.json")):
-        # Heuristic: sidecar must have a matching .pdf next to it.
-        if p.with_suffix(".pdf").is_file():
-            out.append(p)
-    return out
+    """Every sidecar under `root` whose PDF is actually on disk.
+
+    Uses the same `pdf_path_for` derivation as the pre-scan gate and
+    sync_book, so all three agree on which file a sidecar describes: a
+    sidecar naming a differently-stemmed `pdf_filename` is discovered
+    instead of skipped, and one naming an absent PDF is skipped instead
+    of failing later with `no book matches`. `pdf_path_for` keeps the
+    lookup to a bare basename beside the sidecar, so a `pdf_filename`
+    carrying directory components can never widen the search.
+    """
+    return [p for p in sorted(root.rglob("*.json")) if pdf_path_for(p).is_file()]
 
 
 YEAR_RE = re.compile(r"/(?P<kind>GAW|WVJ)/(?P<year>\d{4})/")
@@ -460,8 +646,8 @@ def main() -> int:
         return 1
 
     # Sanity-check Komga reachability.
-    status, _ = get("/api/v1/libraries")
-    if status != 200:
+    status, libraries = get("/api/v1/libraries")
+    if status != 200 or not isinstance(libraries, list):
         log(f"Komga unreachable: GET /api/v1/libraries -> {status}")
         return 1
 
@@ -469,6 +655,24 @@ def main() -> int:
 
     sidecars = find_sidecars(SIDECAR_ROOT)
     log(f"Found {len(sidecars)} sidecars under {SIDECAR_ROOT}")
+
+    # Make new arrivals discoverable first, but never let one unindexable PDF
+    # stop the historical archive from being reconciled — the still-missing
+    # books simply fail their own sync below and set the exit code.
+    err_index = 0
+    if not DRY_RUN:
+        gate = refresh_book_index(sidecars, libraries)
+        err_index = len(gate.scan_errors)
+        if gate.unmapped:
+            log(
+                f"ERR  {len(gate.unmapped)} sidecar(s) under no configured Komga "
+                "library root — check the library roots in Komga"
+            )
+        if gate.missing:
+            log(
+                f"ERR  {len(gate.missing)} sidecar PDF(s) still absent after the "
+                "library scan; syncing everything else"
+            )
 
     ok_books = skip_books = err_books = 0
     series_seen: dict[tuple[str, str], str] = {}  # (kind, year) -> seriesId
@@ -520,7 +724,7 @@ def main() -> int:
 
     log(f"series sync: ok={ok_series} skip={skip_series} err={err_series}")
 
-    return 2 if (err_books or err_series) else 0
+    return 2 if (err_books or err_series or err_index) else 0
 
 
 if __name__ == "__main__":
