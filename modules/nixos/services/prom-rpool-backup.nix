@@ -318,6 +318,10 @@ in {
       documentation = ["file:///run/current-system/etc/nixos/docs/wiki/infrastructure/prom-rpool-backup-restore.md"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
+      # This timer-driven oneshot can run for hours. Activation must not stop or
+      # restart an in-flight send; the timer will use the new script next run.
+      restartIfChanged = false;
+      stopIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${backupScript}/bin/prom-rpool-backup";
