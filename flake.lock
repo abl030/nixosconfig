@@ -77,11 +77,11 @@
     "claude-plugin-compound-engineering": {
       "flake": false,
       "locked": {
-        "lastModified": 1786776541,
-        "narHash": "sha256-X/lsBBbZZzQRBhQswlBdsEQcb5avmQvyOw2N1kjvq/c=",
+        "lastModified": 1786865311,
+        "narHash": "sha256-w2Rt+ubzL2Ut/qciSnChn1HY5BYRxaGYFMU8kz/zdls=",
         "owner": "EveryInc",
         "repo": "compound-engineering-plugin",
-        "rev": "72bae536f64417335cb24c2ccc9ea0f8eb4ceaa1",
+        "rev": "57e586d66194585757ffa30a23dcd0f4ec0210a4",
         "type": "github"
       },
       "original": {
