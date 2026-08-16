@@ -1,6 +1,6 @@
 # Magazine archive system (overview)
 
-**Date written:** 2026-05-23 · **Updated:** 2026-06-07
+**Date written:** 2026-05-23 · **Updated:** 2026-08-16
 **Status:** ✅ fully automated end-to-end — download → convert → metadata → serve.
 
 This is the breadcrumb hub for the whole wine-magazine archive pipeline. Each
@@ -33,19 +33,33 @@ TOC instead of horrible multi-column raster scroll.
 
 ## Daily flow (no human action needed)
 
-1. **Sun 03:30 AWST** — `gwm-archiver.service` wakes on doc2, walks winetitles,
-   downloads any new GAW issue as PDF + sidecar. Gotify pings if new. On a new
-   download its OnSuccess hook **WOLs epi + triggers `marker-convert`** (see 4).
+1. **Sun ~03:30 AWST (+ timer jitter)** — `gwm-archiver.service` wakes on doc2,
+   walks winetitles, downloads any new GAW issue as PDF + sidecar. Gotify pings
+   if new. On a new download its OnSuccess hook **WOLs epi + triggers
+   `marker-convert`** (see 2).
 2. **epi `marker-convert.service`** (woken by the trigger; holds its own sleep
    inhibitor so it can't suspend mid-run) — converts the new PDF to EPUB
    (~20 min), drops it beside the PDF, then `POST`s a Komga rescan. Weekly
    RTC-wake timer is the safety net if the WOL is missed.
-3. **Komga scan** (immediate from step 2's POST, plus a DAILY auto-scan) —
-   indexes the new PDF *and* EPUB as book entries under the year-series. The
-   EPUB carries native OPF metadata (title/series/tags) from the post-processor.
-4. **Mon–Sat 04:29 AWST** — `komga-sync.service` walks the JSON sidecars,
-   PATCHes the PDF book's metadata via REST (title, summary as markdown TOC,
+3. **Komga scan** — indexes the PDF *and* EPUB as book entries under the
+   year-series; the EPUB carries native OPF metadata (title/series/tags) from
+   the post-processor. **Neither scan trigger is reliable for a fresh PDF:**
+   Komga's own periodic scan runs at **03:08 daily — before the archiver**, so
+   it never sees that morning's download, and step 2's `POST` only lands
+   ~20+ min later and only if epi actually woke. A just-downloaded PDF is
+   routinely on disk but absent from Komga's index.
+4. **Daily 04:15–04:30 AWST** (`*-*-* 04:15` + 15 min jitter) —
+   `komga-sync.service` runs its **pre-scan discoverability gate first**: it
+   diffs the sidecars on disk against Komga's book index, requests a scan for
+   *only* the libraries holding an unindexed PDF, and waits up to 10 min for
+   just those books. That gate — not step 3's timing — is what guarantees a new
+   issue is indexed before it is written to. It then walks the JSON sidecars and
+   PATCHes each PDF book's metadata via REST (title, summary as markdown TOC,
    tags, links). Idempotent; the EPUB needs no PATCH (OPF is native).
+   Nothing new to index means no scan is requested at all, and a PDF that never
+   appears is logged `ERR` with exit 2 **without** blocking the rest of the
+   ~138-sidecar archive.
+   Details: [komga-sync.md](./komga-sync.md#pre-scan-discoverability-gate).
 
 ## Where stuff lives
 
@@ -137,6 +151,11 @@ tail -F /tmp/marker-batch.log
   when there were no new issues to match. Fixed with `{ grep -E ... || true; }`.
 * **2026-05-23, `pdfunite` produced exiftool-unwritable PDFs** — used qpdf
   instead. See [gwm-archiver.md](./gwm-archiver.md) §"PDF metadata embedding".
+* **2026-08-16, `komga-sync` failed with `no book matches`** — the archiver
+  downloaded GAW #751 at 04:01, ~53 min *after* Komga's 03:08 periodic scan, so
+  the PDF was on disk but unindexed when the sync ran at 04:17. Fixed by the
+  pre-scan discoverability gate in step 4 above (Forgejo PR #157); see
+  [komga-sync.md](./komga-sync.md#pre-scan-discoverability-gate).
 * **2026-05-23, Marker `--disable_ocr` not as fast as hoped** — flag is real
   but Marker's `Recognizing Text` model still runs (it's a non-OCR text
   recognition step that fires regardless). Saves ~30%, not 50-66%. See

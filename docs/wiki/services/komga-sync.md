@@ -122,8 +122,13 @@ The ordering is kept as cheap insurance; the gate is what actually upholds
 After the first run our titles became "Grapegrower & Winemaker May 2026
 (#748)" — search by `04_GW_APR_2026-WEB` returns nothing. The script
 **lists all books in a library once, caches by `url` field** (which IS
-the filesystem path and IS stable) and looks up sidecars by filename
-stem against that cache. Don't switch to `?search=` lookups.
+the filesystem path and IS stable) and looks up each sidecar by the PDF
+path it names (`pdf_filename`, else `<stem>.pdf`) against that cache.
+Sidecar discovery, the pre-scan gate and the metadata write all share the
+one `pdf_path_for()` derivation — which is deliberately basename-only, so
+a `pdf_filename` carrying directory components stays beside its sidecar —
+and therefore cannot disagree about which file a sidecar describes.
+Don't switch to `?search=` lookups.
 
 ### 2. Komga lowercases genres / tags on store
 

@@ -601,12 +601,17 @@ def sync_series(series_id: str, year: str, kind: str) -> tuple[str, str]:
 
 
 def find_sidecars(root: Path) -> list[Path]:
-    out: list[Path] = []
-    for p in sorted(root.rglob("*.json")):
-        # Heuristic: sidecar must have a matching .pdf next to it.
-        if p.with_suffix(".pdf").is_file():
-            out.append(p)
-    return out
+    """Every sidecar under `root` whose PDF is actually on disk.
+
+    Uses the same `pdf_path_for` derivation as the pre-scan gate and
+    sync_book, so all three agree on which file a sidecar describes: a
+    sidecar naming a differently-stemmed `pdf_filename` is discovered
+    instead of skipped, and one naming an absent PDF is skipped instead
+    of failing later with `no book matches`. `pdf_path_for` keeps the
+    lookup to a bare basename beside the sidecar, so a `pdf_filename`
+    carrying directory components can never widen the search.
+    """
+    return [p for p in sorted(root.rglob("*.json")) if pdf_path_for(p).is_file()]
 
 
 YEAR_RE = re.compile(r"/(?P<kind>GAW|WVJ)/(?P<year>\d{4})/")

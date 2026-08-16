@@ -136,6 +136,38 @@ class LibraryMappingTests(KomgaSyncTestCase):
             self.assertEqual(mapped, {})
             self.assertEqual(unmapped, [sidecar])
 
+    def test_rejects_a_root_that_is_not_a_local_filesystem_path(self):
+        """Only this machine's filesystem counts — we scan by local path."""
+        self.assertIsNone(
+            komga_sync.library_root({"root": "file://nas.lan/mnt/magazines/GAW"})
+        )
+        self.assertIsNone(komga_sync.library_root({"root": "smb://nas.lan/magazines"}))
+        self.assertIsNone(komga_sync.library_root({"root": "mnt/magazines/GAW"}))
+
+    def test_accepts_the_local_spellings_of_a_file_uri_root(self):
+        for raw in (
+            "file:///mnt/magazines/GAW",
+            "file:/mnt/magazines/GAW",
+            "file://localhost/mnt/magazines/GAW",
+        ):
+            with self.subTest(root=raw):
+                self.assertEqual(
+                    komga_sync.library_root({"root": raw}), Path("/mnt/magazines/GAW")
+                )
+
+    def test_sidecar_under_a_remote_file_uri_root_is_unmapped_not_matched(self):
+        """The path matches, the host does not. Report it, never scan it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sidecar = make_sidecar(root, "GAW/2026/08.json")
+
+            mapped, unmapped = komga_sync.map_sidecars_to_libraries(
+                [sidecar],
+                [{"id": "gaw", "name": "GAW", "root": f"file://nas.lan{root}/GAW"}],
+            )
+            self.assertEqual(mapped, {})
+            self.assertEqual(unmapped, [sidecar])
+
 
 class PdfPathTests(KomgaSyncTestCase):
     def test_pdf_path_derivation_honours_pdf_filename(self):
@@ -190,6 +222,88 @@ class PdfPathTests(KomgaSyncTestCase):
                 str(sidecar.with_name("08_GW_AUG_2026-WEB.pdf"))
             )
             self.assertIn("08_GW_AUG_2026-WEB.pdf", msg)
+
+
+class SidecarParsingTests(KomgaSyncTestCase):
+    def test_valid_json_that_is_not_an_object_is_rejected(self):
+        """Parses fine, but carries none of the fields the sync reads."""
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "08.json"
+            for payload in ('["08_GW_AUG_2026-WEB.pdf"]', '"08.pdf"', "42", "null"):
+                with self.subTest(payload=payload):
+                    sidecar.write_text(payload)
+                    self.assertIsNone(komga_sync.load_sidecar(sidecar))
+
+    def test_non_object_sidecar_falls_back_to_the_stem_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "08.json"
+            sidecar.write_text('["08_GW_AUG_2026-WEB.pdf"]')
+            self.assertEqual(
+                komga_sync.pdf_path_for(sidecar), sidecar.with_suffix(".pdf")
+            )
+
+    def test_sync_book_reports_a_non_object_sidecar_without_asking_komga(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sidecar = Path(tmp) / "08.json"
+            sidecar.write_text("[]")
+
+            with mock.patch.object(komga_sync, "find_book_id") as find_book_id:
+                result, msg = komga_sync.sync_book(sidecar, "GAW")
+
+            self.assertEqual(result, "err")
+            self.assertIn("malformed", msg)
+            find_book_id.assert_not_called()
+
+
+class FindSidecarsTests(KomgaSyncTestCase):
+    def test_finds_a_sidecar_whose_pdf_filename_differs_from_its_stem(self):
+        """Discovery must agree with the file the gate and sync ask Komga for."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sidecar = make_sidecar(
+                root, "GAW/2026/08.json", {"pdf_filename": "08_GW_AUG_2026-WEB.pdf"}
+            )
+            sidecar.with_name("08_GW_AUG_2026-WEB.pdf").write_bytes(b"pdf")
+
+            self.assertEqual(komga_sync.find_sidecars(root), [sidecar])
+
+    def test_skips_a_sidecar_whose_named_pdf_is_absent(self):
+        """A same-stem PDF is not the file this sidecar describes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sidecar = make_sidecar(
+                root, "GAW/2026/08.json", {"pdf_filename": "gone.pdf"}
+            )
+            sidecar.with_suffix(".pdf").write_bytes(b"pdf")
+
+            self.assertEqual(komga_sync.find_sidecars(root), [])
+
+    def test_a_traversing_pdf_filename_stays_beside_the_sidecar(self):
+        """Basename-only: `../../outside.pdf` must not reach out of the year dir."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "outside.pdf").write_bytes(b"pdf")
+            make_sidecar(
+                root, "GAW/2026/08.json", {"pdf_filename": "../../outside.pdf"}
+            )
+
+            self.assertEqual(komga_sync.find_sidecars(root), [])
+
+    def test_keeps_the_live_layout_and_malformed_sidecars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Every live sidecar is <stem>.json beside <stem>.pdf.
+            plain = make_sidecar(root, "GAW/2026/07.json", {"issue_number": 750})
+            plain.with_suffix(".pdf").write_bytes(b"pdf")
+            # Malformed JSON keeps the stem fallback, so main() still reports it
+            # as an error instead of silently dropping the issue.
+            broken = root / "GAW/2026/08.json"
+            broken.write_text("{ this is not json")
+            broken.with_suffix(".pdf").write_bytes(b"pdf")
+            # A JSON file with no PDF beside it is not a sidecar.
+            make_sidecar(root, "GAW/2026/notes.json", {"note": "hi"})
+
+            self.assertEqual(komga_sync.find_sidecars(root), [plain, broken])
 
 
 class RefreshBookIndexTests(KomgaSyncTestCase):
