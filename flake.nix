@@ -60,6 +60,11 @@
     };
 
     # --- 4. Applications & Extensions ---
+    bdday = {
+      url = "git+https://git.ablz.au/abl030/bdday";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
@@ -466,6 +471,83 @@
             echo "All unit-authoring service modules set NoNewPrivileges or are marked."
             touch $out
           '';
+
+          # Evaluated contract for the LAN-only bdday service. Keep this focused
+          # check alongside the global source audits: it proves the generated
+          # unit/vhost and the host-assignment boundary, not merely module text.
+          bddayIntegrationCheck = let
+            doc1 = self.nixosConfigurations.proxmox-vm.config;
+            bddayPackage = inputs.bdday.packages.${system}.default;
+            bddayCfg = doc1.homelab.services.bdday;
+            service = doc1.systemd.services.bdday.serviceConfig;
+            unit = doc1.systemd.units."bdday.service".unit;
+            nginxConfig = doc1.environment.etc."nginx/nginx.conf".source;
+            proxy = lib.findFirst (entry: entry.host == bddayCfg.fqdn) null doc1.homelab.localProxy.hosts;
+            monitor = lib.findFirst (entry: entry.url == "https://${bddayCfg.fqdn}/healthz") null doc1.homelab.monitoring.monitors;
+            errorPattern = lib.findFirst (entry: entry.unit == "bdday.service") null doc1.homelab.monitoring.errorPatterns;
+            unrelatedEnabled = lib.filter (
+              name: self.nixosConfigurations.${name}.config.homelab.services.bdday.enable
+            ) (lib.remove "proxmox-vm" (lib.attrNames self.nixosConfigurations));
+            firewallText = lib.concatStringsSep "\n" [
+              doc1.networking.firewall.extraCommands
+              doc1.networking.firewall.extraInputRules
+            ];
+            expectedExecStart = "${bddayPackage}/bin/bdday serve --listen 127.0.0.1:${toString bddayCfg.port}";
+          in
+            pkgs.runCommand "bdday-integration" {} ''
+              set -euo pipefail
+
+              test '${lib.boolToString bddayCfg.enable}' = true
+              test '${lib.boolToString (bddayCfg.package == bddayPackage)}' = true
+              test ${lib.escapeShellArg bddayCfg.fqdn} = bd.ablz.au
+              test ${toString bddayCfg.port} -eq 8849
+              test ${lib.escapeShellArg service.ExecStart} = ${lib.escapeShellArg expectedExecStart}
+              test -x ${bddayPackage}/bin/bdday
+
+              test '${lib.boolToString service.DynamicUser}' = true
+              test '${lib.boolToString service.NoNewPrivileges}' = true
+              test ${lib.escapeShellArg service.ProtectSystem} = strict
+              test '${lib.boolToString service.ProtectHome}' = true
+              test '${lib.boolToString service.PrivateTmp}' = true
+              test '${lib.boolToString service.PrivateDevices}' = true
+              test -z ${lib.escapeShellArg service.CapabilityBoundingSet}
+              test -z ${lib.escapeShellArg service.AmbientCapabilities}
+              test '${lib.boolToString service.RestrictNamespaces}' = true
+              test '${lib.boolToString service.LockPersonality}' = true
+              test ${lib.escapeShellArg service.SystemCallArchitectures} = native
+              test '${lib.boolToString (service.RestrictAddressFamilies == ["AF_INET" "AF_INET6"])}' = true
+              test ${lib.escapeShellArg service.IPAddressDeny} = any
+              test ${lib.escapeShellArg service.IPAddressAllow} = localhost
+
+              test '${lib.boolToString (proxy != null)}' = true
+              test ${lib.escapeShellArg proxy.upstreamHost} = 127.0.0.1
+              test ${toString proxy.port} -eq 8849
+              test '${lib.boolToString (!proxy.tailscaleOnly)}' = true
+              test '${lib.boolToString (lib.hasPrefix "192.168." doc1.homelab.localProxy.localIp)}' = true
+              test ${lib.escapeShellArg doc1.services.nginx.virtualHosts.${bddayCfg.fqdn}.locations."/".proxyPass} = http://127.0.0.1:8849
+              test ${lib.escapeShellArg doc1.services.nginx.virtualHosts.${bddayCfg.fqdn}.useACMEHost} = bd.ablz.au
+              test '${lib.boolToString (builtins.hasAttr bddayCfg.fqdn doc1.security.acme.certs)}' = true
+              ${pkgs.gnugrep}/bin/grep -F '"proxied":false' ${./modules/nixos/services/local_proxy.nix} >/dev/null
+
+              test '${lib.boolToString (monitor != null)}' = true
+              test ${lib.escapeShellArg monitor.name} = 'Biodynamic day dashboard'
+              test '${lib.boolToString (errorPattern != null)}' = true
+              test ${lib.escapeShellArg errorPattern.pattern} = 'panicked at|fatal runtime error'
+              test ${toString errorPattern.threshold} -eq 0
+
+              test '${lib.boolToString (!(lib.elem bddayCfg.port doc1.networking.firewall.allowedTCPPorts))}' = true
+              test '${lib.boolToString (!(lib.elem bddayCfg.port doc1.networking.firewall.allowedUDPPorts))}' = true
+              test '${lib.boolToString (!(lib.hasInfix (toString bddayCfg.port) firewallText))}' = true
+              test -z ${lib.escapeShellArg (lib.concatStringsSep " " unrelatedEnabled)}
+
+              ${pkgs.gnugrep}/bin/grep -F "ExecStart=${expectedExecStart}" ${unit}/bdday.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'DynamicUser=true' ${unit}/bdday.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'IPAddressDeny=any' ${unit}/bdday.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'IPAddressAllow=localhost' ${unit}/bdday.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'server_name bd.ablz.au;' ${nginxConfig} >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'proxy_pass http://127.0.0.1:8849;' ${nginxConfig} >/dev/null
+              touch $out
+            '';
 
           # Timer-driven cleanup commands must resolve to real executables in
           # the evaluated host closure. lib.getExe' does not validate that an
@@ -1885,7 +1967,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
