@@ -1,5 +1,25 @@
 {
   "nodes": {
+    "bdday": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1786871237,
+        "narHash": "sha256-T0xfrJ3TAES5d5IKc9+qfARdYuPoTuJmC1KECeTOKac=",
+        "ref": "refs/heads/master",
+        "rev": "d290ce6e20b1979acde5efa1fbef3771d7607f85",
+        "revCount": 4,
+        "type": "git",
+        "url": "https://git.ablz.au/abl030/bdday"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://git.ablz.au/abl030/bdday"
+      }
+    },
     "beets-tip": {
       "flake": false,
       "locked": {
@@ -690,6 +710,7 @@
     },
     "root": {
       "inputs": {
+        "bdday": "bdday",
         "cellar-manager": "cellar-manager",
         "claude-code-nix": "claude-code-nix",
         "claude-plugin-compound-engineering": "claude-plugin-compound-engineering",
