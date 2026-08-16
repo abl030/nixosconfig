@@ -61,8 +61,7 @@
 
     # --- 4. Applications & Extensions ---
     bdday = {
-      # Preview the exact signed orbit/sky candidate while independent review runs.
-      url = "git+https://git.ablz.au/abl030/bdday?ref=refs/heads/feat/orbit-sky-intuition";
+      url = "git+https://git.ablz.au/abl030/bdday";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
