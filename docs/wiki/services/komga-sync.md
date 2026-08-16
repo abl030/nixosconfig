@@ -1,12 +1,14 @@
 # komga-sync — JSON sidecar → Komga REST metadata
 
 **Date written:** 2026-05-23
+**Updated:** 2026-08-16 — pre-scan discoverability gate (Forgejo PR #157)
 **Status:** ✅ deployed daily on doc2 at 04:29 AWST
 **Module:** `modules/nixos/services/komga-sync.nix`
 **Script:** `scripts/komga-sync.py`
 **Secret:** `secrets/hosts/doc2/komga-sync.env` — `KOMGA_API_KEY`
-**Schedule:** `*-*-* 04:15:00 Australia/Perth` + 15 min jitter. If the
-weekly archiver is still running, systemd holds the sync until it exits.
+**Schedule:** `*-*-* 04:15:00 Australia/Perth` + 15 min jitter. Overlap with
+the weekly `gwm-archiver` run is handled by the sync itself — see
+[Pre-scan discoverability gate](#pre-scan-discoverability-gate).
 
 ## Why this exists
 
@@ -57,9 +59,9 @@ future indexers.
 * Lists all books once at startup, caches by file URL (the `url` field
   on Komga's book object is the filesystem path — stable across title
   rewrites).
-* Requests a scan of every Komga library containing sidecars, then reloads
-  the book cache until newly archived PDFs appear. This avoids depending on
-  Komga's unrelated daily scan time.
+* Runs the [pre-scan discoverability gate](#pre-scan-discoverability-gate)
+  before writing anything, so a PDF the archiver downloaded minutes ago is
+  already indexed. This avoids depending on Komga's unrelated daily scan time.
 * GETs current metadata before PATCHing; only PATCHes when something
   actually changes.
 * Series syncs are also diff-then-PATCH.
@@ -73,6 +75,45 @@ Smoke test on 2026-05-23:
 first run:  135 books patched, 19 series patched, 0 errors
 second run: 0 patches, 135 books skipped, 19 series skipped, 0 errors, exit 0
 ```
+
+## Pre-scan discoverability gate
+
+**Added 2026-08-16** (Forgejo PR #157) after the sync failed with
+`no book matches` on GAW #751: `gwm-archiver` downloaded it at 04:01, nearly
+an hour after Komga's own daily library scan at 03:08, so the file was on
+disk but not in Komga's index when the sync ran at 04:17.
+
+`refresh_book_index()` in `komga-sync.py` runs before any metadata write:
+
+1. Load the pre-scan book index (one full paginated listing).
+2. Map each sidecar to the library whose root contains it. Live Komga
+   reports **bare absolute roots** (`/mnt/magazines/GAW`); `file:` URIs are
+   accepted too. An unusable root, or a sidecar under no library root at
+   all, is logged as `ERR` rather than silently matching nothing.
+3. Request a scan **only** for the libraries that hold a PDF the index is
+   missing. A run where nothing new arrived requests no scans at all.
+4. Wait only for those new books, polling on a 5 s → 60 s backoff for at
+   most 10 minutes: half the unit's 20 min `TimeoutStartSec`, and ~15
+   listings instead of one per second.
+
+The gate never aborts the run. A PDF that never appears, a scan Komga
+refuses (3 attempts), or a sidecar outside every library root is logged as
+`ERR`, and anything that leaves a book unresolved sets exit code 2 — but
+**every other sidecar is still reconciled**. One stuck new issue must not
+stop 135 historical books from syncing.
+
+### Why `After=gwm-archiver.service` is not the fix
+
+The unit still orders itself after the archiver, but that is best-effort:
+
+* systemd honours `After=` while the archiver's start job is pending — most
+  of a `Type=oneshot` run — but the archiver's timer jitters across an hour,
+  so it can equally start *after* `komga-sync` has already begun.
+* Even perfect ordering would not help. The archiver finishing says nothing
+  about Komga having **indexed** what it wrote.
+
+The ordering is kept as cheap insurance; the gate is what actually upholds
+"indexed before written to".
 
 ## Two gotchas we hit
 

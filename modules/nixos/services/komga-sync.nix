@@ -48,8 +48,8 @@ in {
     onCalendar = lib.mkOption {
       type = lib.types.str;
       default = "*-*-* 04:15:00 Australia/Perth";
-      # After= below holds a Sunday run until an active archiver finishes;
-      # the sync then requests and waits for the required Komga scans.
+      # Overlapping with the weekly archiver is tolerated rather than
+      # prevented — the sync scans for its own PDFs. See after= below.
       description = "Systemd OnCalendar expression for the sync.";
     };
   };
@@ -78,6 +78,12 @@ in {
 
     systemd.services.komga-sync = {
       description = "Sync Komga book/series metadata from JSON sidecars";
+      # gwm-archiver ordering is best-effort and deliberately not a Wants=:
+      # After= only defers this unit while the archiver's start job is still
+      # pending, which covers most of a oneshot run but not an archiver that
+      # its 1 h of timer jitter starts after this unit — and it can never make
+      # Komga index what the archiver just wrote. The scan-and-wait gate in
+      # komga-sync.py is the actual guarantee; see the wiki page above.
       after = ["network-online.target" "mnt-magazines.mount" "gwm-archiver.service"];
       wants = ["network-online.target" "mnt-magazines.mount"];
 
