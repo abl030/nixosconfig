@@ -61,7 +61,8 @@
 
     # --- 4. Applications & Extensions ---
     bdday = {
-      url = "git+https://git.ablz.au/abl030/bdday";
+      # Temporary exact signed preview while independent review runs.
+      url = "git+https://git.ablz.au/abl030/bdday?ref=refs/heads/feat/earth-rotation-cullen";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

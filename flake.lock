@@ -7,15 +7,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1786881612,
-        "narHash": "sha256-LFFtzfUheGFVZ06DnkAyc/tOyvFkhMbq3Oc88SCD6rY=",
-        "ref": "refs/heads/master",
-        "rev": "5208cef1c831a3d22a3c15dbbf80e648669f797e",
-        "revCount": 11,
+        "lastModified": 1786884565,
+        "narHash": "sha256-XLMj8aC7dtQb0fSEE5kdinR1f+HaV3OoctRHqjJRTL4=",
+        "ref": "refs/heads/feat/earth-rotation-cullen",
+        "rev": "9639a0440c2ac99b2d4a24bfb15a6b320bc8bf24",
+        "revCount": 12,
         "type": "git",
         "url": "https://git.ablz.au/abl030/bdday"
       },
       "original": {
+        "ref": "refs/heads/feat/earth-rotation-cullen",
         "type": "git",
         "url": "https://git.ablz.au/abl030/bdday"
       }
