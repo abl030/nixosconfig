@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786879428,
-        "narHash": "sha256-gFBQcMT5esBRtcSniwFJf6jAfnF2PeKigJN3jHTVRDs=",
+        "lastModified": 1786880244,
+        "narHash": "sha256-2/9b2XRC5iJW4mGT/JBQYv7U3ByKOXMPbSD2ktjeSQk=",
         "ref": "refs/heads/master",
-        "rev": "0325fe4498e63b59583d87f10f0a43dd08df555d",
-        "revCount": 7,
+        "rev": "a503de39026b5ed34f041115dbdfe1dfce0cfe86",
+        "revCount": 9,
         "type": "git",
         "url": "https://git.ablz.au/abl030/bdday"
       },
