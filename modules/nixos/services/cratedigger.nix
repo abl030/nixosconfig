@@ -879,6 +879,24 @@ in {
             ];
             after = ["sysinit-reactivation.target"];
             restartTriggers = [config.sops.secrets."soularr/env".path];
+            # cratedigger#1172 item 4. This unit carries the exact #1161 shape:
+            # RemainAfterExit plus Before= five workers, so on a switch its stop
+            # job queues behind theirs (reverse After=). With the NixOS default
+            # it lands in switch-to-configuration's stop AND start lists, and
+            # any concurrent `systemctl start` (job mode replace) can replace
+            # that still-queued stop; the replacement start then hits
+            # unit_start()'s -EALREADY, so ExecStart never forks and systemd
+            # logs nothing at all. That silently leaves the per-key secret files
+            # under /run/cratedigger-secrets stale after a sops rotation.
+            #
+            # It is not exposed today only because the second ingredient is
+            # missing -- nothing Requires=/Wants= it besides multi-user.target,
+            # and it is absent from the deploy hold's resume_units/guarded_units
+            # -- not because the first is. stopIfChanged = false routes it to
+            # the restart list, whose JOB_RESTART absorbs a concurrent
+            # JOB_START. Fail-closed hygiene; the same applies to any future
+            # RemainAfterExit oneshot ordered before the workers.
+            stopIfChanged = false;
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
