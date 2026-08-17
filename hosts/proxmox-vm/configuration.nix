@@ -301,6 +301,11 @@
       ExecStart = "${pkgs.tmux}/bin/tmux new-session -d -s 0";
       ExecStop = "${pkgs.tmux}/bin/tmux kill-server";
       Restart = "on-failure";
+      # tmux owns every pane's scrollback. Keep pathological agent output inside
+      # this interactive scope instead of allowing it to exhaust the whole host.
+      MemoryHigh = "12G";
+      MemoryMax = "16G";
+      MemorySwapMax = "4G";
     };
   };
 
