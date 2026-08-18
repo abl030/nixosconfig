@@ -137,11 +137,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787007467,
-        "narHash": "sha256-5K4dYOD5j+r/eCsYcHNjBXo/jjgmmXmRtAxx7hX5rh0=",
+        "lastModified": 1787031612,
+        "narHash": "sha256-8FAzz7h5eZCNAiamylQ9L4nqq4jOKayt038wvwUmtbE=",
         "owner": "abl030",
         "repo": "cratedigger",
-        "rev": "f22bcf4b272ef59cb280e7a771001bdf69362579",
+        "rev": "792aa8832a56ec5dce997ff4e46f309afc14218f",
         "type": "github"
       },
       "original": {
