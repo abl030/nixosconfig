@@ -1013,11 +1013,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786845279,
-        "narHash": "sha256-MhRic4eOUmRO4cRJtMJ29LY6O5vcgP19fzo8zGa29LQ=",
+        "lastModified": 1787055010,
+        "narHash": "sha256-s4Egvjfwj6F4iCN0y+Ax5xAg5Cuh+0qGMtBQe3NlBck=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "874af899e7da61d616c82a823a6865070ee4745d",
+        "rev": "5d5b634d8e6b41dc2891847a5ea7a5a3f569a28c",
         "type": "github"
       },
       "original": {
