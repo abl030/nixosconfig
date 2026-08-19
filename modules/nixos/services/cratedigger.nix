@@ -1169,6 +1169,21 @@ in {
       group = "users";
       processingDir = "${cfg.dataDir}/processing";
 
+      # Manual local-import lane (cratedigger #1176). The upstream option
+      # deliberately has no default: an installation that does not set these
+      # has no local-import surface at all, so enabling it is a conscious act.
+      # The root is broad because every Cratedigger-owned tree beneath it
+      # (processing, staging, the slskd download dir, the Beets library and
+      # its DB directory) is refused at execution authority regardless, so
+      # breadth costs nothing there — pointing the lane at our own state is
+      # the realistic operator typo, and that is where it is caught. The lane
+      # only ever READS this tree: it copies into private 0700 scratch and
+      # never mutates, moves, or deletes the operator's folder.
+      localImport = {
+        enable = true;
+        dir = "/mnt/virtio";
+      };
+
       # config.ini is world-readable (0644) since issue #117 — it contains
       # only *_file paths, no secrets. The raw secrets live under
       # /run/cratedigger-secrets (group-readable by `cratedigger-ops`, see the
