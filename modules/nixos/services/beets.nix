@@ -102,7 +102,15 @@
       maxwidth = 500;
       quality = 75;
       high_resolution = false;
-      sources = ["coverart" "itunes" "amazon" "albumart" "cover_art_url" "filesystem"];
+      # Identity-first ordering (cratedigger#1200). Exact-release sources
+      # come first: `coverart` keys on the MBID, `cover_art_url` on the exact
+      # Discogs release id. `itunes` matches on exact album-title string
+      # equality, so two different pressings sharing a title collide onto one
+      # image -- it must never outrank a pressing-exact source. `filesystem`
+      # stays last so small legacy art cannot shadow a good remote fetch.
+      # cratedigger's beets-config contract warns at startup if this order
+      # regresses.
+      sources = ["coverart" "cover_art_url" "itunes" "amazon" "albumart" "filesystem"];
     };
     embedart.auto = true;
     scrub.auto = true;
