@@ -387,8 +387,9 @@ in {
           RestrictSUIDSGID = false;
           # Production-depth PostgreSQL fuzz targets can collectively exceed the
           # host's 12 GiB shared /run tmpfs. Keep test scratch RAM-backed, but
-          # isolate it from host runtime state and cap it at half of this 32 GiB
-          # host's RAM. Mount a child rather than RuntimeDirectory itself:
+          # isolate it from host runtime state and cap it at 20 GiB on this
+          # 32 GiB host with 16 GiB swap. Mount a child rather than
+          # RuntimeDirectory itself:
           # systemd's runtime-directory bind otherwise hides the private mount.
           # Numeric ownership matches doc1's established operator identity and is
           # required because tmpfs is otherwise root:root despite User=abl030.
@@ -398,10 +399,13 @@ in {
           # Ten million was exercised by the 60-worker/24-PostgreSQL fuzz
           # scheduler; it remains only a ceiling, leaving metadata allocation
           # proportional to actual files.
+          # The 16 GiB byte ceiling was then exhausted by the expanded 4,586
+          # target corpus while the host retained swap headroom. Keep the tested
+          # multicore scheduler and add a bounded 4 GiB of byte headroom.
           # Size and inode limits are ceilings, not eager reservations.
           TemporaryFileSystem = [
             "/mnt"
-            "${dailyScratchDir}:rw,size=16G,nr_inodes=10000000,mode=0700,uid=1000,gid=100"
+            "${dailyScratchDir}:rw,size=20G,nr_inodes=10000000,mode=0700,uid=1000,gid=100"
           ];
 
           StandardOutput = "journal";
