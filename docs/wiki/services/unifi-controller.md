@@ -120,9 +120,10 @@ and self-correct to `.35` on their next **reboot** (guided by `system_ip` + opti
 reboot reliably does. If tidiness matters, reboot the stragglers (brief AP/switch blip);
 otherwise leave them.
 
-## VTech camera lag and Fixed AP pin (2026-08-10)
+## VTech camera lag and mistaken Fixed AP pin (2026-08-10)
 
-A VTech camera/display pair (`192.168.1.7` and `.8`) developed persistent video lag
+A VTech display/camera pair (`192.168.1.7` / `a4:97:5c:04:67:1f` and
+`.8` / `a4:97:5c:04:67:20`, respectively) developed persistent video lag
 while both devices still reported a good connection. Their WAN and AirVPN egress had
 been intentionally blocked for years; that policy was not the local-stream bottleneck:
 both addresses are on the same untagged LAN, so camera-to-display traffic is bridged at
@@ -131,39 +132,42 @@ RX/TX errors and, as expected, no VTech entries among 8,066 routed states.
 
 The live UniFi evidence isolated the fault to the Living Room 2.4 GHz radio:
 
-- Camera `.7` was associated with Living Room on channel 11 at -65 dBm despite being
-  physically underneath the Master Bedroom AP. Its retry rate was 32.7% and it had
+- Display `.7` was associated with Living Room on channel 11 at -65 dBm. Its retry rate
+  was 32.7% and it had
   several 22–41 second associations/reconnects immediately before capture.
-- Display `.8` was on the same AP/BSSID at -41 dBm but still showed 34.4% retries.
+- Camera `.8` was on the same AP/BSSID at -41 dBm but still showed 34.4% retries.
 - The Living Room radio showed 35.2% retries and 38% utilization. Master Bedroom on
   channel 6 and Hallway on channel 1 showed 0% retries and only 7–8% utilization.
 - Living Room's wired uplink was clean at 1 Gb/s full duplex with no errors or drops.
 
 This is normal client-directed Wi-Fi selection rather than the controller assigning the
-best AP. The camera had used Master Bedroom before but strongly preferred/stuck to Living
-Room. Minimum RSSI and 802.11r were disabled; 802.11v BSS transition guidance was already
-enabled. Enabling 802.11r was rejected as the fix: it reduces authentication time for
+best AP. Session history showed `.7` had used all three APs but strongly preferred/stuck
+to Living Room. Minimum RSSI and 802.11r were disabled; 802.11v BSS transition guidance
+was already enabled. Enabling 802.11r was rejected as the fix: it reduces authentication time for
 clients that choose to roam, does not force AP selection, applies to the whole WLAN, and
 can break legacy IoT supplicants.
 
-The narrow remediation was UniFi **Fixed AP** on only the camera client:
+The endpoint roles were incorrectly inferred from directional traffic, so a UniFi
+**Fixed AP** lock intended for the stationary camera was actually placed on the display:
 
-- Client: `.7`, MAC `a4:97:5c:04:67:1f`
+- Client: display `.7`, MAC `a4:97:5c:04:67:1f`
 - Fixed AP: Master Bedroom, MAC `fc:ec:da:10:b5:4a`
 - Controller fields: `fixed_ap_enabled=true` and `fixed_ap_mac=<Master Bedroom MAC>`
-- No WLAN, 802.11r, minimum-RSSI, or display-client settings changed.
+- No WLAN, 802.11r, minimum-RSSI, or other-client settings changed.
 
-The camera disconnected from Living Room, then reassociated with Master Bedroom without
+The display disconnected from Living Room, then reassociated with Master Bedroom without
 a forced kick. Initial post-change verification at 20:14 AWST showed channel 6, -54 dBm,
 72.2/72.1 Mb/s PHY, 4.6% retries, CCQ 99.1%, and zero drops. A later sample remained
 pinned and online at -52 dBm with 13.4% retries, CCQ 97.4%, and zero drops—still materially
 better than the approximately 33% retry rate on Living Room. User-visible VTech latency
 still needs observation before calling the application symptom resolved.
 
-**Trade-off / rollback:** a Fixed AP client may not fail over while Master Bedroom is
-offline. To revert, clear Fixed AP for the camera in the UniFi client settings (equivalent
-to setting `fixed_ap_enabled=false`); do not enable global minimum RSSI or 802.11r as a
-substitute.
+**Correction / rollback (2026-08-19):** when the display was at the Hallway end of the
+house, it repeatedly attempted another AP but was rejected with `disallowed by
+Lock-to-AP`. Clearing `fixed_ap_enabled=false` restored service and let `.7` join Hallway.
+Directional traffic is not sufficient proof of durable endpoint identity; verify the
+physical MAC before applying a persistent per-client lock. Do not enable global minimum
+RSSI or 802.11r as a substitute.
 
 ## External MongoDB container (#142)
 
