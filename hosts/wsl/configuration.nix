@@ -120,11 +120,6 @@
         # The current doc1 chain is leaf → YE2 → Root YE → ISRG Root X2 → X1;
         # nginx defaults to verify depth 1, which rejects it before X1 is read.
         proxy_ssl_verify_depth 4;
-        proxy_set_header Host bd.ablz.au;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-Port 443;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
     };
   };

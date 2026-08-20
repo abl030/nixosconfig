@@ -567,7 +567,7 @@
               test ${lib.escapeShellArg bdVhost.locations."/".proxyPass} = https://192.168.1.29:443
               test '${lib.boolToString bdIsLocalProxyHost}' = false
               case ${lib.escapeShellArg bdVhost.locations."/".extraConfig} in
-                *'proxy_ssl_server_name on;'*'proxy_ssl_name bd.ablz.au;'*'proxy_ssl_verify on;'*'proxy_ssl_trusted_certificate '*';'*'proxy_ssl_verify_depth 4;'*'proxy_set_header Host bd.ablz.au;'*) ;;
+                *'proxy_ssl_server_name on;'*'proxy_ssl_name bd.ablz.au;'*'proxy_ssl_verify on;'*'proxy_ssl_trusted_certificate '*';'*'proxy_ssl_verify_depth 4;'*) ;;
                 *) echo "bd proxy is missing its upstream TLS or Host boundary" >&2; exit 1 ;;
               esac
 
