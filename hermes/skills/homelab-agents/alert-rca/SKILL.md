@@ -72,8 +72,11 @@ config files, or anything that changes system state. This is READ-ONLY.
 
 ### 4. Check nixosconfig for the relevant config
 
-The nixosconfig repo is at /home/abl030/nixosconfig. Search for the service
-config, look at recent commits, check if a config change caused the alert:
+The operator's primary nixosconfig checkout is at `/home/abl030/nixosconfig`.
+Treat it as strictly read-only and operator-owned: never switch branches, reset,
+clean, rebase, pull, stash, commit, or edit files there. Read-only searches and
+history inspection are allowed. Search for the service config, look at recent
+commits, and check whether a config change caused the alert:
 - `grep -r <service> modules/nixos/services/`
 - `git log --oneline -20 -- <relevant file>`
 - `git diff HEAD~5 -- <relevant file>` (recent changes)
@@ -110,13 +113,30 @@ operator-disposition preflight:
 This prevents unattended retries from reopening the same workaround every time a
 nightly update encounters an unchanged upstream failure.
 
-### 1. Create a branch
+### 1. Create an isolated worktree and branch
+
+Always make fixes in a dedicated worktree based on current `origin/master`, even
+when the primary checkout appears clean. Never create or check out the RCA branch
+in `/home/abl030/nixosconfig`.
 
 ```bash
 cd /home/abl030/nixosconfig
 git fetch origin
-git checkout -b fix/<short-description> origin/master
+worktree_root=/home/abl030/.cache/hermes/worktrees
+mkdir -p "$worktree_root"
+worktree=$(mktemp -d "$worktree_root/alert-rca-XXXXXX")
+rmdir "$worktree"
+branch=fix/<short-description>
+git worktree add -b "$branch" "$worktree" origin/master
+cd "$worktree"
 ```
+
+Use `git -C "$worktree" ...` or remain inside `$worktree` for every edit,
+verification, commit, and push. Before committing, require that
+`git -C /home/abl030/nixosconfig status --short --branch` is byte-for-byte
+unchanged from the status captured before creating the worktree. If it changed,
+stop, preserve the worktree, report the checkout-safety failure in Gotify, and do
+not try to repair the primary checkout.
 
 ### 2. Make the fix
 
@@ -165,6 +185,11 @@ print(json.dumps({
 ```
 
 Extract `html_url` from the response — this goes in the Gotify message.
+
+After the pushed branch and PR have both been verified, remove only the dedicated
+RCA worktree with `git -C /home/abl030/nixosconfig worktree remove "$worktree"`.
+Keep the remote branch for the PR. If any step fails, preserve the worktree for
+manual inspection; never compensate by resetting or cleaning the primary checkout.
 
 ## Gotify Delivery
 
@@ -220,7 +245,7 @@ you found and push that to Gotify. Don't burn tokens spiraling.
 ## Safety Rules
 
 1. READ-ONLY on all remote hosts. No service restarts, no deploys, no writes.
-2. Only nixosconfig repo writes (branch + commit + push + PR). Never push to master directly.
+2. Only nixosconfig repo writes (isolated worktree + branch + commit + push + PR). Never edit or switch the primary checkout, and never push to master directly.
 3. Never include secrets/tokens in the Gotify message or PR body.
 4. If the alert is a security incident (intrusion, unauthorized access), do NOT investigate further — push to Gotify "SECURITY ALERT — investigate manually" and stop.
 5. The PR is a suggestion for the human to review and merge. Do not merge it yourself.
