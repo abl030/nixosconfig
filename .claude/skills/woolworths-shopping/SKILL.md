@@ -60,6 +60,29 @@ wants** (per bulb, per egg, per roll) and state the assumption. Watch for pack
 size differing from loose size: pre-packed produce is often smaller, so cheaper
 per-item is not automatically cheaper per kilo.
 
+## The search returns things that are not the thing
+
+Search matches names, so a query returns adjacent products, processed versions,
+and Everyday Market marketplace junk. Real examples, all top-of-list:
+
+- "celery" → Campbell's *Cream of Celery soup* ($1.95) and *celery salt* were
+  cheaper than any actual celery.
+- "ice cream cake" → silicone cake *moulds*, decorating spoons, birthday cards.
+- "brisket" → BBQ rub, potato chips, protein bars, wood pellets.
+- "Woolworths Ice Cream Mud Cake" is a **tub of ice cream**, not a cake.
+
+**The SAP category is the reliable discriminator**, and `detail` prints it:
+
+| Looks similar | Category tells you |
+|---|---|
+| ice cream cake vs tub | `ICE CREAM DESSERTS` vs `ICE CREAM / TAKE HOME` |
+| pre-packed vs loose produce | `GARLIC P/P` vs `GARLIC LOOSE` |
+| slow-cook cut vs roasting cut | `BEEF SLOW COOK CASE READY` vs `ROAST CASE READY` |
+| whole piece vs pre-cut | name carries "Steak"; check `detail` |
+
+When the cheapest row looks too cheap, it is usually not the product. Check
+before adding, not after.
+
 ## Don't waste his time
 
 Every run pays **~11s of Akamai warm-up** plus browser start. Six separate
