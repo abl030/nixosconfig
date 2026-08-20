@@ -60,6 +60,27 @@ wants** (per bulb, per egg, per roll) and state the assumption. Watch for pack
 size differing from loose size: pre-packed produce is often smaller, so cheaper
 per-item is not automatically cheaper per kilo.
 
+## Search broad, then narrow yourself
+
+**A precise query is a filtered query, and the filter is not yours.** Searching
+the exact phrase `"whole peeled tomatoes"` returned **4** products, no house
+brand among them, and made a $3.50/kg tin look like the cheapest available.
+Searching `"canned tomatoes"` returned **36**, including a Woolworths tin at
+$2.75/kg - **21% cheaper**. He caught it, not us: *"really, those toms are
+cheaper than woolies home brand?"*
+
+So: **search the category, not the product.** "canned tomatoes" not "whole
+peeled tomatoes"; "celery" not "celery sticks"; "milk" or "full cream milk"
+rather than a brand and size. Then filter by reading, where the rejects are
+visible and countable.
+
+If the house brand is absent from a result set for a staple, the query is too
+narrow - Woolworths almost always has one, and it is usually the LUC winner.
+Treat its absence as a bug in the search, not a fact about the shelf.
+
+Woolworths names variants predictably, which helps once the set is wide enough:
+`Diced ...` vs `... Peeled ...` is the diced/whole pair.
+
 ## The search returns things that are not the thing
 
 Search matches names, so a query returns adjacent products, processed versions,
