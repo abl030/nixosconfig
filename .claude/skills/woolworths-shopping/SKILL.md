@@ -14,6 +14,24 @@ follows along and pays.
 > the tool. **Read that file at the start of every shopping session**; it is the
 > real standing brief and the place to append anything new we learn.
 
+## Start from past shops
+
+Once an order has been **collected**, `/api/v3/ui/pastshops` populates and
+becomes the best source for what he actually buys. Read it before asking him
+anything: propose a repeat basket, then ask only about the deltas.
+
+Two caveats:
+
+- It stays empty until fulfilment, so it is **not** a check for "did the order
+  go through" — right after checkout it still returns `History: []`. Read
+  `/shop/myaccount/myorders` for that (the `orders` command does), and note that
+  an empty trolley proves nothing because a `clear` looks identical.
+- Order line items are collapsed behind a "See all items" control on the order
+  details page; `orderdetail.mjs` clicks through it.
+
+`PREFERENCES.md` is for the *why* — rules, traps, substitution bans. Don't
+re-list there what past shops already knows.
+
 ## The deal
 
 He says what he wants in plain English. We search, **judge**, and put it in.
