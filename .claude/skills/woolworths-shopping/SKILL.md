@@ -140,6 +140,33 @@ Every run pays **~11s of Akamai warm-up** plus browser start. Six separate
 - Batch writes: `set 141203=1 120847=1 151548=2` in a single call.
 - Use `detail <code> <code>` for several products at once.
 
+## The session expires silently — this is the dangerous one
+
+The auth cookies stay in the jar and the site just stops honouring them. Nothing
+errors. Every command keeps working, against an **anonymous trolley at a
+different store**, with different stockcodes *and different prices*.
+
+It has already bitten once: three items went into a throwaway cart while the
+real trolley sat untouched, and the store price difference (Odd Bunch carrots
+$1.60/kg vs $1.33, navel oranges $3.17/kg vs $2.63) looked exactly like a
+mid-session price drop and was nearly reported as one.
+
+The tool now checks identity before every command, **refuses writes** when
+logged out, and warns on reads. Do not work around that guard.
+
+Recovery, when it fires:
+
+1. `node woolies.mjs login` **on a machine with a display** — it cannot be done
+   over SSH, so this needs him.
+2. `rsync -a ~/.cache/woolies-profile/ doc1:~/.cache/woolies-profile/`
+
+His real trolley is **server-side on the account** and survives the logout, so
+reassure him rather than rebuilding it from scratch. Confirm with `cart` after
+re-login before assuming anything was lost.
+
+If prices look like they moved mid-session, suspect the session before
+believing the prices.
+
 ## Hard rules
 
 - **Never check out.** Building the trolley is where it stops. He pays.
