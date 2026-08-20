@@ -64,9 +64,9 @@ local address is the Tailscale address and the remote address is in
 
 The aliases and the Windows `:2222` host key pin are generated for the fleet by
 `modules/home-manager/services/ssh.nix` and
-`modules/nixos/services/ssh/default.nix`. Tailnet policy permits this port only
-from the existing management sources (`doc1` and `framework`), alongside the
-existing WSL `:22` grant. See
+`modules/nixos/services/ssh/default.nix`. Tailnet policy permits Windows `:2222`
+only from `doc1`; the existing WSL `:22` grant remains available to `doc1` and
+`framework`. See
 [`windows-fleet-ssh-access.md`](windows-fleet-ssh-access.md) for the generic
 fleet-key installation procedure.
 

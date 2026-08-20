@@ -146,10 +146,11 @@
     //     standing sync mesh is exactly the reach cullen-isolation removes).
     // The Cullen LAN route stays exact-/32 only: client dashboard+inverters,
     // HA inverters, no broad work-subnet access.
-    // :22 is the tailnet-only Windows portproxy to WSL; :2222 is the
-    // tailnet-only Windows OpenSSH listener. Both remain limited to the same
-    // existing management sources.
-    { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22", "tcp:2222"] },
+    // :22 is the tailnet-only Windows portproxy to WSL and remains reachable
+    // from the established WSL-management sources. :2222 is the independent
+    // Windows OpenSSH listener and is deliberately doc1-only.
+    { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
+    { "src": ["doc1"], "dst": ["tag:cullen"], "ip": ["tcp:2222"] },
     // cullen → doc1 SSH: remote wsl admin reaches the bastion ONLY (NOT
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
     { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
