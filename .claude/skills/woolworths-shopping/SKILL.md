@@ -104,6 +104,32 @@ and Everyday Market marketplace junk. Real examples, all top-of-list:
 When the cheapest row looks too cheap, it is usually not the product. Check
 before adding, not after.
 
+## Filter by category, not by hoping the name is clean
+
+`--cat=<category>` matches `sapcategoryname` **exactly**. Fresh fruit is
+`FRUIT`, so `--cat=fruit` gives fruit and not fruit straps. Without it,
+"berries" and "grapes" return Fanta, Gatorade, Roll-Ups and bin deodoriser.
+
+Match exactly, not by substring: substring-matching the segment name too still
+caught `FRUIT SNACKS` and `FRUIT STRAPS`. Use `detail` to learn a category name
+before filtering on it.
+
+## Specials: the API flag lies
+
+The search request takes `IsSpecial: true`, and it is a **hint, not a filter**.
+It cheerfully returns full-price items - Woolworths Onion Brown Bag and Cherry
+Tomatoes both came back with no special on them.
+
+`--specials` therefore filters client-side on each product's `IsOnSpecial`
+field, which is authoritative.
+
+**Before reporting "nothing is on special", run a control.** Sixteen fruit
+queries returned zero, which looks exactly like a broken filter. Re-running
+against `tomatoes`, `chocolate` and `beef` returned rows that all carried real
+was-prices, proving the mechanism worked and the fruit result was real. A
+negative finding needs a positive control or it is just a bug you have not
+noticed yet.
+
 ## Don't waste his time
 
 Every run pays **~11s of Akamai warm-up** plus browser start. Six separate
