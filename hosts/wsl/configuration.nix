@@ -86,6 +86,12 @@
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;
+    # Cullen-LAN clients resolve bd.ablz.au to the Windows host, whose existing
+    # :443 portproxy reaches this nginx. Keep doc1 as the only bdday authority:
+    # this vhost terminates TLS locally and proxies over the existing routed
+    # HTTPS path to doc1. It is deliberately NOT a localProxy host, which would
+    # take ownership of bd.ablz.au's public Cloudflare A record from doc1.
+    nginx.enable = true;
     # cullen-dashboard syncs Vinsight via /run/secrets/mcp/vinsight.env. Base
     # default is OFF fleet-wide (#234 scoped MCP creds to doc1). WSL is the host
     # that actually runs the dashboard, so it opts in to vinsight ONLY — none of
@@ -94,6 +100,26 @@
     mcp = {
       enable = true;
       vinsight.enable = true;
+    };
+  };
+
+  security.acme.certs."bd.ablz.au" = {domain = "bd.ablz.au";};
+  services.nginx.virtualHosts."bd.ablz.au" = {
+    useACMEHost = "bd.ablz.au";
+    onlySSL = true;
+    locations."/" = {
+      proxyPass = "https://192.168.1.29:443";
+      extraConfig = ''
+        proxy_ssl_server_name on;
+        proxy_ssl_name bd.ablz.au;
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
+        proxy_set_header Host bd.ablz.au;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      '';
     };
   };
 
