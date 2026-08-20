@@ -29,6 +29,10 @@ Always confirm destructive operations (deleting networks, changing device config
 
 ## Context Maintenance
 
+### Fixed AP field-name pitfall
+
+For per-client AP locks, the effective controller boolean is `fixed_ap_enabled`, paired with `fixed_ap_mac`. To clear a lock, update the client with `fixed_ap_enabled=false`, then verify both the read-back value and a successful association to another AP. Sending `fixed_ap=false` can return `rc: ok` while doing nothing; a retained `fixed_ap_mac` alone does not mean the lock remains enabled.
+
 The reference data below is a snapshot and WILL drift. **Always query live state before acting.**
 
 - Before modifying any section (devices, networks, WLANs, port profiles), fetch the current config from UniFi first — do NOT rely solely on what's written below.
