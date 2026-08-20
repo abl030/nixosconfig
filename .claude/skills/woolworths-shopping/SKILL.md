@@ -154,11 +154,30 @@ mid-session price drop and was nearly reported as one.
 The tool now checks identity before every command, **refuses writes** when
 logged out, and warns on reads. Do not work around that guard.
 
-Recovery, when it fires:
+**Recovery — do it yourself, don't hand him a chore.** The login window can be
+put on his desktop from doc1 over SSH:
 
-1. `node woolies.mjs login` **on a machine with a display** — it cannot be done
-   over SSH, so this needs him.
-2. `rsync -a ~/.cache/woolies-profile/ doc1:~/.cache/woolies-profile/`
+```bash
+scp woolies.mjs framework:~/woolies-poc/
+ssh framework 'cd ~/woolies-poc && WAYLAND_DISPLAY=wayland-0 \
+  XDG_RUNTIME_DIR=/run/user/1000 nohup node woolies.mjs login > login.log 2>&1 &'
+# tell him the window is up; poll login.log for "Detected sign-in"
+rm -rf ~/.cache/woolies-profile
+rsync -a framework:~/.cache/woolies-profile/ ~/.cache/woolies-profile/
+```
+
+Two things make that work:
+
+- **Wayland, not X.** `--ozone-platform=wayland` is set automatically for headed
+  launches when `WAYLAND_DISPLAY` is set. X11/XWayland rejects an SSH session
+  with *"Authorization required, but no authorization protocol specified"* -
+  no Xauthority cookie. Wayland authorises by socket ownership instead.
+- **`login` polls** for a detected sign-in rather than waiting on stdin, since
+  there's no TTY at the SSH end. It closes cleanly on success, which is what
+  flushes cookies to disk.
+
+He only has to type his password. Delete the local profile before rsyncing so
+stale files can't survive.
 
 His real trolley is **server-side on the account** and survives the logout, so
 reassure him rather than rebuilding it from scratch. Confirm with `cart` after
