@@ -113,7 +113,7 @@
         proxy_ssl_server_name on;
         proxy_ssl_name bd.ablz.au;
         proxy_ssl_verify on;
-        proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-bundle.crt;
         proxy_set_header Host bd.ablz.au;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto https;
