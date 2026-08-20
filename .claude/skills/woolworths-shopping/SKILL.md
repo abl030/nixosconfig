@@ -36,6 +36,40 @@ than the house-brand 2L. Check per item.
 State the comparison when it's interesting, not for every trivial line. Always
 report what actually landed in the cart.
 
+## Keep the brief current
+
+He asked for this explicitly: **when something is hard, slow, or surprising,
+write it down before moving on.** Method and tool lessons go in this file;
+anything about him or his products goes in `PREFERENCES.md`. A shop that
+teaches nothing new is the goal, and it only gets there if each one records
+what it learned.
+
+## Comparing when the units don't match
+
+Woolworths prices some lines per kg and others "each", which makes them
+uncomparable as listed - a 3-bulb garlic bag priced Each can't be read against
+loose garlic priced per kg. `compare` folds `CupMeasure` variants to a common
+**$/kg** and infers weight from `PackageSize` when the site states one.
+
+- `~` before a $/kg figure means we inferred it, the site didn't publish it.
+- `?` means count-based with no stated weight - genuinely not comparable by
+  weight. Say so rather than inventing a number.
+
+When a `?` matters, fall back to **price per unit of the thing he actually
+wants** (per bulb, per egg, per roll) and state the assumption. Watch for pack
+size differing from loose size: pre-packed produce is often smaller, so cheaper
+per-item is not automatically cheaper per kilo.
+
+## Don't waste his time
+
+Every run pays **~11s of Akamai warm-up** plus browser start. Six separate
+`compare` calls is minutes of waiting.
+
+- Batch searches with `multi "beef chuck" "beef blade roast" "beef brisket"` -
+  one session, one warm-up.
+- Batch writes: `set 141203=1 120847=1 151548=2` in a single call.
+- Use `detail <code> <code>` for several products at once.
+
 ## Hard rules
 
 - **Never check out.** Building the trolley is where it stops. He pays.
@@ -56,14 +90,21 @@ already logged in. If it logs out, `login` must run on a machine with a display
 
 ```bash
 cd ~/woolies-poc
-node woolies.mjs compare "full cream milk"   # every in-stock option by unit cost
-node woolies.mjs set 151548=2 151547=0       # exact stockcodes; qty 0 removes
-node woolies.mjs cart                        # show trolley
-node woolies.mjs clear                       # empty trolley
+node woolies.mjs compare "full cream milk"        # in-stock options, cheapest $/kg first
+node woolies.mjs multi "beef chuck" "brisket"     # several searches, ONE warm-up
+node woolies.mjs detail 141203 764567             # whole piece or steaks? real weight range?
+node woolies.mjs set 151548=2 151547=0            # exact stockcodes; qty 0 removes
+node woolies.mjs cart                             # show trolley
+node woolies.mjs clear                            # empty trolley
 ```
 
-Each run costs ~11s of Akamai warm-up, so batch several `set` pairs into one
-call rather than one call per item.
+`detail` is worth a call before committing to anything where the search row is
+ambiguous - it exposes the description, the SAP category, the real weight range
+and whether a cut is a whole piece or pre-cut.
+
+`cart` prints Woolworths' own `Totals` block alongside our line sum. If the two
+disagree, ours is wrong - `SalePrice` is a line total, not a unit price, and
+multiplying it by quantity once reported $47.60 on a $37.30 trolley.
 
 ## Gotchas
 
