@@ -113,7 +113,10 @@
         proxy_ssl_server_name on;
         proxy_ssl_name bd.ablz.au;
         proxy_ssl_verify on;
-        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-bundle.crt;
+        # doc1's current Let’s Encrypt YE2 chain terminates at ISRG Root X1,
+        # absent from WSL's generated CA bundle. Pin the public CA root (not
+        # doc1's leaf) so upstream TLS remains verified across leaf rotation.
+        proxy_ssl_trusted_certificate ${./isrg-root-x1.pem};
         proxy_set_header Host bd.ablz.au;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto https;

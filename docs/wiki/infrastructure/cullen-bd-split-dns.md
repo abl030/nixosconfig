@@ -26,6 +26,13 @@ The WSL vhost connects to the numeric doc1 address, rather than resolving
 preserves `Host: bd.ablz.au`, verifies the upstream certificate, and explicitly
 sets TLS SNI to `bd.ablz.au`.
 
+The proxy trusts the public ISRG Root X1 anchor at
+`hosts/wsl/isrg-root-x1.pem` (official SHA-256 fingerprint
+`96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6`,
+valid through 2035). WSL's generated CA bundle did not contain that root while
+doc1 served the current YE2 chain. This trusts the issuing public CA rather
+than pinning a rotating doc1 leaf certificate.
+
 Do **not** put this hostname in `homelab.localProxy.hosts` on WSL: that module's
 DNS synchroniser would claim the public Cloudflare A record and take it away
 from doc1. The vhost instead declares its own DNS-01 ACME certificate; WSL
