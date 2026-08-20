@@ -114,6 +114,33 @@ Match exactly, not by substring: substring-matching the segment name too still
 caught `FRUIT SNACKS` and `FRUIT STRAPS`. Use `detail` to learn a category name
 before filtering on it.
 
+## Price is not the price: multibuys and per-kilo units
+
+Two things make the `Price` field a liar. Both change which product is cheapest.
+
+**Multibuys are invisible.** A "2 for $5" never touches `Price`, `WasPrice` or
+`IsOnSpecial`. It lives in `CentreTag.MultibuyData` as
+`{Quantity, Price, CupTag}`. `compare` now prints
+`[MULTIBUY 2 for $5.00 = $2.50 ea, -29%]` per row and counts them in the footer.
+Say so when one applies and whether taking it is worth it — buying two of
+something he wanted one of is only a saving if he'll use both.
+
+**Loose produce is priced per kilo, not per pack.** Check `unit` and
+`minQty` in `detail`:
+
+| | unit | minQty | listed | what 200g costs |
+|---|---|---|---|---|
+| Mushrooms Cups **Loose** | `KG` | 0.2 | $11.50 | **$2.30** |
+| Mushrooms Button **Punnet** 200g | `Each` | 1 | $4.50 | $4.50 |
+
+The loose row's $11.50 is a **per-kilo** rate, so reading it as a pack price
+makes it look eight times dearer when it is actually half. `unit=KG` items take
+fractional quantities: `set 143109=0.2` is 200g.
+
+Loose is routinely far cheaper than the punnet. Always compare both, and if the
+loose version is a slightly different variety (cups vs button), flag it rather
+than silently substituting.
+
 ## Specials: the API flag lies
 
 The search request takes `IsSpecial: true`, and it is a **hint, not a filter**.
