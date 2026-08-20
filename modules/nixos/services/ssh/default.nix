@@ -193,7 +193,16 @@ in {
           publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
         };
       };
+
+      windowsLaptopKnownHost = {
+        "laptop-btibh4ie-windows-ed25519" = {
+          # The WSL VM owns laptop-btibh4ie's default SSH host key at :22.
+          # Pin Windows separately at its non-default, tailnet-only port.
+          hostNames = ["[laptop-btibh4ie]:2222"];
+          publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHcm6G6ZFNJ0DXFb+ObmRSge7ZuEu81G2CeygW2tDG8";
+        };
+      };
     in
-      fleetKnownHosts // githubKnownHosts;
+      fleetKnownHosts // githubKnownHosts // windowsLaptopKnownHost;
   };
 }

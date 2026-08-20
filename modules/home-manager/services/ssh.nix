@@ -97,6 +97,15 @@ in {
             };
           };
 
+          # The Windows host owns the Tailscale identity for WSL. Its :22
+          # portproxy remains the WSL entrypoint (`ssh wsl`); Windows OpenSSH
+          # is independently pinned to tailnet-only :2222.
+          "wsl-laptop" = {
+            hostname = "laptop-btibh4ie";
+            user = "abl030";
+            port = 2222;
+          };
+
           # Global Defaults (merged at the end)
           "*" =
             {
