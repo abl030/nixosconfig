@@ -4,6 +4,12 @@
 **Script:** `tools/windows/Setup-FleetSSH.ps1`
 **First real use:** `CULLENW-POS4` (Cullen site POS terminal, `192.168.100.67`)
 
+> **Cullen WSL laptop exception:** `laptop-btibh4ie` deliberately keeps
+> Tailscale `:22` as its WSL portproxy and exposes Windows OpenSSH only at its
+> tailnet address on `:2222`. Its durable two-door topology and aliases are
+> documented in [WSL Tailscale SSH](wsl-tailscale-ssh.md); do not apply this
+> generic document's port-22 persistence model to that laptop.
+
 ---
 
 ## ⚡ The one-liner

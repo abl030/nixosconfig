@@ -1,6 +1,6 @@
 # SSH into the WSL VM over Tailscale (Windows portproxy bridge)
 
-**Date:** 2026-06-06 · **Status:** working · **Host:** `wsl` (distro `NixOS` on `laptop-btibh4ie`)
+**Date:** 2026-06-06 · **Status:** working, dual entrypoints verified 2026-08-20 · **Host:** `wsl` (distro `NixOS` on `laptop-btibh4ie`)
 
 ## Problem
 
@@ -45,6 +45,31 @@ SYSTEM cannot see a per-user WSL distro, so `wsl.exe -d NixOS` fails as SYSTEM.
 The task runs as `abl030`; "highest privileges" lets it run `netsh` / firewall
 cmdlets silently (the account is a local admin), no UAC prompt.
 
+## Two intentional tailnet SSH entrypoints
+
+The Windows host owns the one Tailscale identity, but the WSL and Windows
+administration surfaces are deliberately separate:
+
+| Command | Destination | Transport |
+|---|---|---|
+| `ssh wsl` | NixOS WSL (`nixos`) | `laptop-btibh4ie:22` portproxy → WSL `:22` |
+| `ssh wsl-laptop` | Windows (`LAPTOP-BTIBH4IE\\abl030`) | Windows OpenSSH at `laptop-btibh4ie:2222` |
+
+`:22` remains owned by the `WSL-Tailscale-Portproxy` task. Windows OpenSSH
+instead has `Port 2222` and `ListenAddress 100.75.246.114` in
+`C:\ProgramData\ssh\sshd_config`; it is delayed-automatic and depends on the
+Windows `Tailscale` service. Its firewall rule permits TCP 2222 only when the
+local address is the Tailscale address and the remote address is in
+`100.64.0.0/10`. It must not listen on a LAN or public address.
+
+The aliases and the Windows `:2222` host key pin are generated for the fleet by
+`modules/home-manager/services/ssh.nix` and
+`modules/nixos/services/ssh/default.nix`. Tailnet policy permits this port only
+from the existing management sources (`doc1` and `framework`), alongside the
+existing WSL `:22` grant. See
+[`windows-fleet-ssh-access.md`](windows-fleet-ssh-access.md) for the generic
+fleet-key installation procedure.
+
 ## Verify
 
 ```powershell
@@ -52,7 +77,16 @@ netsh interface portproxy show v4tov4          # expect 100.75.246.114:22 -> <ws
 Get-ScheduledTaskInfo -TaskName 'WSL-Tailscale-Portproxy'   # LastTaskResult = 0
 ```
 
-From another tailnet device: `ssh nixos@100.75.246.114` (or by MagicDNS name).
+From a fleet host:
+
+```bash
+ssh wsl          # NixOS WSL
+ssh wsl-laptop   # Windows host
+```
+
+The expected listening boundary is `100.75.246.114:22` for the WSL portproxy
+and `100.75.246.114:2222` for Windows OpenSSH; neither Windows SSH endpoint may
+be reachable on the laptop's LAN addresses.
 
 ## Limitations / footguns
 
