@@ -411,3 +411,108 @@
     target:
       entity_id: input_boolean.aircon_morning_cycle
   mode: single
+- id: '1787200000001'
+  alias: 'Auto-update: Home Assistant Core'
+  description: 'Unattended Core update at 05:00, deliberately after prom''s nightly
+    PBS snapshot of VM 116 (~03:47) so the most recent whole-VM image is pre-update.
+    Takes its own pre-update backup too. Holds back monthly x.y.0 releases until an
+    x.y.1+ patch exists - delete the hold_zero_release condition for full yolo. See
+    docs/wiki/services/home-assistant-auto-update.md'
+  triggers:
+  - trigger: time
+    at: '05:00:00'
+  conditions:
+  - condition: state
+    entity_id: update.home_assistant_core_update
+    state: 'on'
+  - alias: hold_zero_release
+    condition: template
+    value_template: "{{ (state_attr('update.home_assistant_core_update', 'latest_version')
+      or '0.0.0').split('.') | last != '0' }}"
+  actions:
+  - action: notify.gotify_battery
+    data:
+      title: HA Core auto-update
+      message: "{{ state_attr('update.home_assistant_core_update', 'installed_version')
+        }} -> {{ state_attr('update.home_assistant_core_update', 'latest_version') }}.
+        Pre-update backup running; HA will restart."
+  - action: update.install
+    target:
+      entity_id: update.home_assistant_core_update
+    data:
+      backup: true
+  mode: single
+- id: '1787200000002'
+  alias: 'Auto-update: Home Assistant OS'
+  description: 'Unattended HAOS update, Sundays 05:30. Reboots the VM, so weekly
+    rather than nightly - a bad OS build has a smaller blast radius on a schedule
+    you can predict. Takes a pre-update backup.'
+  triggers:
+  - trigger: time
+    at: '05:30:00'
+  conditions:
+  - condition: time
+    weekday:
+    - sun
+  - condition: state
+    entity_id: update.home_assistant_operating_system_update
+    state: 'on'
+  actions:
+  - action: notify.gotify_battery
+    data:
+      title: HA OS auto-update
+      message: "{{ state_attr('update.home_assistant_operating_system_update', 'installed_version')
+        }} -> {{ state_attr('update.home_assistant_operating_system_update', 'latest_version')
+        }}. Pre-update backup running; the VM will reboot."
+  - action: update.install
+    target:
+      entity_id: update.home_assistant_operating_system_update
+    data:
+      backup: true
+  mode: single
+- id: '1787200000003'
+  alias: 'Auto-update: HACS integrations and cards'
+  description: 'Daily 05:45. These update entities do not support pre-update backups
+    (no BACKUP supported_feature), so the 02:00 automatic backup is the net. Downloaded
+    integration code only becomes active on the next HA restart; frontend cards apply
+    on browser reload. Extend the expand() list when you add a HACS item.'
+  triggers:
+  - trigger: time
+    at: '05:45:00'
+  conditions: []
+  actions:
+  - variables:
+      pending: "{{ expand('update.hacs_update', 'update.apexcharts_card_update',
+        'update.proxmox_ve_update', 'update.sma_devices_plus_update')
+        | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}"
+  - condition: template
+    value_template: '{{ pending | count > 0 }}'
+  - action: update.install
+    target:
+      entity_id: '{{ pending }}'
+  - action: notify.gotify_battery
+    data:
+      title: HACS auto-update
+      message: "Updated {{ pending | join(', ') }}. Integration changes load on the
+        next HA restart."
+  mode: single
+- id: '1787200000004'
+  alias: 'Auto-update: report versions after restart'
+  description: 'Confirms HA actually came back after an unattended update. Fires two
+    minutes after start so integrations have settled. This is the in-band signal;
+    the out-of-band one is the Uptime Kuma monitor on home.ablz.au.'
+  triggers:
+  - trigger: homeassistant
+    event: start
+  conditions: []
+  actions:
+  - delay:
+      minutes: 2
+  - action: notify.gotify_battery
+    data:
+      title: Home Assistant is back up
+      message: "Core {{ state_attr('update.home_assistant_core_update', 'installed_version')
+        }} / OS {{ state_attr('update.home_assistant_operating_system_update', 'installed_version')
+        }} / Supervisor {{ state_attr('update.home_assistant_supervisor_update', 'installed_version')
+        }}."
+  mode: single

@@ -136,7 +136,9 @@ Manual re-run from doc1: `sudo systemctl start containers-backup.service`
 
 Doc2's kopia-mum instance backs up `/mnt/backup/vm-backups/containers` (a lazy NFS mount of tower's `VMBackups` share) to mum's Synology. The encrypted `.tar.gz.age` files are backed up as opaque blobs — kopia deduplicates and retains per its snapshot policy.
 
-**Prerequisite (tower Unraid):** enable NFS export of the `VMBackups` share, read-only, scoped to `192.168.1.35` and `192.168.1.36` (doc2's two NICs). See Settings → NFS → enable shares, then `VMBackups` share → NFS export → RO, `192.168.1.35/32 192.168.1.36/32`.
+**Prerequisite (tower Unraid):** the `VMBackups` share is NFS-exported, scoped. As of **2026-08-21** the rule is genuinely enforced in `/boot/config/shares/VMBackups.cfg` — `192.168.1.35` and `192.168.1.36` (doc2's two NICs) **ro**, plus `192.168.1.20` (HAOS backup mount) **rw**.
+
+> Until 2026-08-21 this paragraph described an intent, not reality: the share was actually exported `*(rw,...)`, i.e. read-write to any host that could reach tower's NFS. It was tightened while wiring up Home Assistant's backups. Note that `/etc/exports` on Unraid is *generated* — edit `shareSecurityNFS` / `shareHostListNFS` in the share `.cfg` for persistence, then mirror into `/etc/exports` and `exportfs -ra` to apply live. Full detail and the verification steps: [home-assistant-auto-update.md](../services/home-assistant-auto-update.md).
 
 The NFS mount on doc2 is lazy (`x-systemd.automount`, `nofail`) — a temporarily down tower doesn't block doc2 boot or activation. A missed kopia backup due to tower being offline just means that week's snapshot isn't offsite; the next kopia run catches it.
 

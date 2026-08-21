@@ -120,6 +120,8 @@ ssh abl030@192.168.1.20 'sudo ha core check'
 - Drift check before any edit: `md5sum` the repo file and `ssh abl030@192.168.1.20 sudo md5sum /config/<file>` — they must match.
 - `ha core check` returns "unauthorized: missing or invalid API token" until `ha auth` is configured — workaround is the MCP `ha_call_service(homeassistant.check_config)`.
 - **Full wiki entry**: `docs/wiki/services/home-assistant-deploy.md` — covers SSH setup, tar-over-ssh (scp's SFTP is disabled), reload vs restart matrix, and the gotchas worth keeping for next session.
+- **HA updates itself** (Core, OS, add-ons, HACS) as of 2026-08-21. The four `Auto-update: *` automations in `automations.yaml` are part of that; don't delete them casually, and read `docs/wiki/services/home-assistant-auto-update.md` before changing the backup mount, the Kuma monitor, or tower's `VMBackups` NFS export. ESPHome *device* firmware is deliberately excluded.
+- The whole Supervisor API is reachable over the HA websocket (`{"type":"supervisor/api",...}`) with a long-lived token — use that instead of the `ha` CLI, which is unauthenticated, or `/api/hassio/...`, which 401s.
 
 ## Dashboard Management
 

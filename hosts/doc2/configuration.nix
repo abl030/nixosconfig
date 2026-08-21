@@ -410,6 +410,12 @@
               # encrypted .tar.gz.age files offsite to mum's Synology.
               # Requires: tower VMBackups NFS export scoped to 192.168.1.35/36 (doc2).
               "/mnt/backup/vm-backups/containers"
+              # Home Assistant's nightly automatic backups (02:00, keep 7).
+              # HAOS writes them itself over a Supervisor NFS backup mount
+              # (192.168.1.20 is the only rw entry in tower's VMBackups export);
+              # kopia-mum is what actually gets them off the LAN.
+              # Full architecture: docs/wiki/services/home-assistant-auto-update.md
+              "/mnt/backup/vm-backups/homeassistant"
             ];
             # Calibration encodes are regenerable scratch data. A 693 GiB run
             # monopolized Kopia's single scheduled upload queue for >13h on
@@ -461,6 +467,19 @@
         url = "https://cullenwines.com.au";
         maxretries = 10;
       }
+      # Home Assistant is not a NixOS flake host (HAOS on prom VM 116), so it
+      # had no monitor at all until 2026-08-21. It now auto-updates Core, OS,
+      # add-ons and HACS unattended, and this is the only out-of-band signal
+      # that an unattended update failed to come back up — the in-band one
+      # (the "report versions after restart" automation) cannot fire if HA is
+      # the thing that is down. /manifest.json is served by HA itself with no
+      # auth, so a 200 proves HA's HTTP stack is up, not just the caddy edge.
+      # See docs/wiki/services/home-assistant-auto-update.md.
+      {
+        name = "Home Assistant";
+        url = "https://home.ablz.au/manifest.json";
+        maxretries = 3;
+      }
     ];
 
     # See modules/nixos/services/tailscale-share.nix.
@@ -497,11 +516,20 @@
   };
 
   # VM backup archives — read-only NFS mount of tower's VMBackups share.
-  # Kopia-mum walks /mnt/backup/vm-backups/containers to ship the age-encrypted
-  # .tar.gz.age files written by containers-backup.service on doc1 to mum's Synology.
+  # Kopia-mum walks /mnt/backup/vm-backups/{containers,homeassistant} to ship the
+  # age-encrypted .tar.gz.age files (written by containers-backup.service on doc1)
+  # and HA's nightly backups to mum's Synology.
   # Automount (lazy): only attached when kopia accesses it; nofail so a down tower
-  # doesn't block boot or activation. Tower side: enable NFS export for the
-  # VMBackups share, scoped read-only to 192.168.1.35 and 192.168.1.36 (doc2 NICs).
+  # doesn't block boot or activation.
+  #
+  # Tower side (2026-08-21): the VMBackups export was `*(rw)` — world-writable to
+  # anything that could reach tower's NFS — despite this comment previously claiming
+  # it was scoped. It is now genuinely scoped in /boot/config/shares/VMBackups.cfg:
+  #   192.168.1.35 ro, 192.168.1.36 ro  (doc2's two NICs, this mount)
+  #   192.168.1.20 rw                   (HAOS Supervisor backup mount)
+  # Nothing else reaches that share over NFS — doc1's containers-backup and
+  # prom-rpool-backup use SSH, and the PBS VM uses virtiofs passthrough.
+  # See docs/wiki/services/home-assistant-auto-update.md.
   fileSystems."/mnt/backup/vm-backups" = {
     device = "192.168.1.2:/mnt/user/VMBackups";
     fsType = "nfs";

@@ -115,6 +115,13 @@ The MCP `ha_call_service(homeassistant.restart)` works but doesn't return until 
 ### 5. `ha core check` fails without API token
 The `ha` CLI on HAOS needs `ha auth` configured before `ha core check` will work. Workaround above (use the MCP `check_config` service call instead).
 
+Two better workarounds found 2026-08-21, both usable with an ordinary long-lived access token and no `ha auth`:
+
+- **Config validation over REST:** `POST /api/config/core/check_config` returns `{"result":"valid","errors":null,"warnings":null}`.
+- **The whole Supervisor API over the websocket:** `{"type":"supervisor/api","endpoint":"/addons","method":"get"}`. `SUPERVISOR_TOKEN` is not in the SSH add-on's environment and the REST proxy at `/api/hassio/...` 401s for long-lived tokens, but the websocket command works.
+
+See [home-assistant-auto-update.md](home-assistant-auto-update.md) for both, plus the backup-schedule commands (websocket-only).
+
 ### 6. Daily utility-meter values must be sampled before midnight
 Solar/cost accumulators that read `sensor.daily_*` values must run just before midnight, not just after. The daily utility meters can reset around midnight; a `00:00:xx` automation may append a reset-time partial value or nothing at all. Use a `23:59:xx` trigger and stamp `today`, with an idempotent `last_accumulated < today` guard.
 
