@@ -69,6 +69,10 @@
   liveWorldAudit = pkgs.writeShellApplication {
     name = "cratedigger-daily-live-world-audit";
     runtimeInputs = [
+      # coreutils supplies `sleep`, used by the retry below. It resolves via
+      # the unit's own PATH today, but that list is maintained for the test
+      # suite, not for this wrapper; declare what we actually use.
+      pkgs.coreutils
       pkgs.jq
       pkgs.openssh
     ];
@@ -78,47 +82,76 @@
       echo ""
       echo "=== live world audit ==="
 
-      audit_status=0
-      if audit_json="$(
-        ${pkgs.openssh}/bin/ssh \
-          -F /dev/null \
-          -T \
-          -o BatchMode=yes \
-          -o ConnectTimeout=30 \
-          -o GlobalKnownHostsFile=/etc/ssh/ssh_known_hosts \
-          -o UserKnownHostsFile=/dev/null \
-          -o StrictHostKeyChecking=yes \
-          -o IdentitiesOnly=yes \
-          -i ${lib.escapeShellArg config.sops.secrets."ssh_key_abl030".path} \
-          abl030@doc2 \
-          sudo --non-interactive \
-          /run/current-system/sw/bin/cratedigger-live-world-audit-tracked
-      )"; then
-        audit_status=0
-      else
-        audit_status=$?
-      fi
+      # One attempt: ssh + jq protocol + PASS/FAIL decision. Defined once so
+      # the retry below cannot drift from the first attempt. Returns 0 on
+      # PASS, 1 on anything else.
+      run_live_world_audit() {
+        local attempt="$1"
+        local audit_status=0
+        local audit_json
+        if audit_json="$(
+          ${pkgs.openssh}/bin/ssh \
+            -F /dev/null \
+            -T \
+            -o BatchMode=yes \
+            -o ConnectTimeout=30 \
+            -o GlobalKnownHostsFile=/etc/ssh/ssh_known_hosts \
+            -o UserKnownHostsFile=/dev/null \
+            -o StrictHostKeyChecking=yes \
+            -o IdentitiesOnly=yes \
+            -i ${lib.escapeShellArg config.sops.secrets."ssh_key_abl030".path} \
+            abl030@doc2 \
+            sudo --non-interactive \
+            /run/current-system/sw/bin/cratedigger-live-world-audit-tracked
+        )"; then
+          audit_status=0
+        else
+          audit_status=$?
+        fi
 
-      if ! summary="$(
-        ${pkgs.jq}/bin/jq -ce \
-          -f ${./scripts/cratedigger-world-audit-protocol.jq} \
-          <<<"$audit_json"
-      )"; then
-        echo "live world audit: invalid tracked JSON report (remote exit $audit_status)" >&2
-        exit 1
-      fi
+        local summary
+        if ! summary="$(
+          ${pkgs.jq}/bin/jq -ce \
+            -f ${./scripts/cratedigger-world-audit-protocol.jq} \
+            <<<"$audit_json"
+        )"; then
+          echo "live world audit: invalid tracked JSON report (remote exit $audit_status) [$attempt]" >&2
+          return 1
+        fi
 
-      echo "$summary"
-      summary_status="$(${pkgs.jq}/bin/jq -r '.status' <<<"$summary")"
-      if ((audit_status == 0)) && [[ "$summary_status" =~ ^(clean|tracked_debt)$ ]]; then
-        echo "PASS live world audit: known debt is stable or shrinking"
+        echo "$summary"
+        local summary_status
+        summary_status="$(${pkgs.jq}/bin/jq -r '.status' <<<"$summary")"
+        if ((audit_status == 0)) && [[ "$summary_status" =~ ^(clean|tracked_debt)$ ]]; then
+          echo "PASS live world audit: known debt is stable or shrinking [$attempt]"
+          return 0
+        fi
+        if ((audit_status == 1)) && [[ "$summary_status" == unrecognized_violations ]]; then
+          echo "FAIL live world audit: new or changed violations (exit $audit_status) [$attempt]" >&2
+          return 1
+        fi
+        echo "live world audit: exit/status protocol mismatch (remote exit $audit_status) [$attempt]" >&2
+        return 1
+      }
+
+      # The audit reads a live world while the pipeline runs back-to-back
+      # cycles all day, so an album caught mid-materialization reports new
+      # violations that are gone a minute later (observed 2026-08-21: 21 new
+      # members, clean on re-run). Retry once on ANY non-PASS -- not just a
+      # bucket filter, since that incident also moved a bucket-B code -- and
+      # let the second attempt decide. A genuine defect fails both. Both
+      # attempts' summaries are printed either way: this removes a false
+      # page, it does not hide data.
+      if run_live_world_audit "attempt 1"; then
         exit 0
       fi
-      if ((audit_status == 1)) && [[ "$summary_status" == unrecognized_violations ]]; then
-        echo "FAIL live world audit: new or changed violations (exit $audit_status)" >&2
-        exit 1
+
+      echo "live world audit: attempt 1 was not a PASS; retrying once in 60s" >&2
+      sleep 60
+
+      if run_live_world_audit "attempt 2"; then
+        exit 0
       fi
-      echo "live world audit: exit/status protocol mismatch (remote exit $audit_status)" >&2
       exit 1
     '';
   };
@@ -349,7 +382,13 @@ in {
           ExecStopPost = "+${liveWorldAudit}/bin/cratedigger-daily-live-world-audit";
           # 4h maximum tip-peer lock wait + 12h own Nixpkgs candidate + 1h buffer.
           TimeoutStartSec = timeoutStartSec;
-          TimeoutStopSec = "5min";
+          # systemd bounds the whole stop sequence, including ExecStopPost,
+          # by this ceiling. ExecStopPost is the live world audit, which now
+          # runs twice on its retry path (audit + 60s sleep + audit) -- and a
+          # busy world is exactly when the audit is slowest, so size for that
+          # path rather than the ~34s quiet single run. A ceiling costs
+          # nothing on the happy path; this unit runs once daily.
+          TimeoutStopSec = "15min";
 
           StateDirectory = "cratedigger-daily-checks";
           StateDirectoryMode = "0700";

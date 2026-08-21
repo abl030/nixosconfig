@@ -7,7 +7,7 @@ if (
   )
   and ([.strict_violations, .approved_total, .known_remaining,
         .newly_converged, .converged_total, .new_members,
-        .changed_members, .growth] | all(type == "number"))
+        .changed_members, .growth, .non_gating_violations] | all(type == "number"))
   and (.state_updated | type) == "boolean"
   and (.by_code | type) == "array"
   and (.by_code | all(
@@ -15,6 +15,11 @@ if (
     and ([.approved, .current, .known_remaining,
           .newly_converged, .new_members, .changed_members]
          | all(type == "number"))
+  ))
+  and (.non_gating_by_code | type) == "array"
+  and (.non_gating_by_code | all(
+    (.code | type) == "string"
+    and (.count | type) == "number"
   ))
 )
 then {
@@ -29,7 +34,9 @@ then {
   changed_members,
   growth,
   state_updated,
-  by_code
+  by_code,
+  non_gating_violations,
+  non_gating_by_code
 }
 else error("invalid tracked world-audit report")
 end

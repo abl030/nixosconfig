@@ -27,6 +27,10 @@ def report(strict_status: str) -> dict[str, object]:
         "changed_members": 0,
         "growth": 0,
         "state_updated": False,
+        "non_gating_violations": 2,
+        "non_gating_by_code": [
+            {"code": "evidence_fingerprint_mismatch", "count": 2},
+        ],
         "by_code": [
             {
                 "code": "current_evidence_missing",
