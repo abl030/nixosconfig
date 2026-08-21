@@ -48,30 +48,45 @@
   mode: restart
 - id: '1722840909529'
   alias: Aircon_Off_11pm
-  description: ''
+  description: 'Hard stop: turn the aircon off every day at 11pm and clear the automated
+    morning-cycle marker.'
   triggers:
-  - platform: time
+  - trigger: time
     at: '23:00:00'
   conditions: []
   actions:
-  - action: climate.turn_off
-    target:
-      entity_id: climate.living_room_aircon
-  mode: single
-- id: '1722841776503'
-  alias: Aircon_22degrees_6am
-  description: ''
-  triggers:
-  - at: 06:00:00
-    trigger: time
-  conditions: []
-  actions:
-  - data:
-      qos: '0'
+  - action: mqtt.publish
+    data:
+      qos: 0
       retain: false
       topic: zigbee2mqtt/IR_Blaster/set
-      payload: '{"ir_code_to_send": "A84BlQHgCQMLU2LIDawGzgH8BM4BQAHAI0APQAtAAUAHQAPAE0AHQAPAE0AL4AMDQBdAA0ATQAfgGwPAK8AHwDNAD0ADwA/AB+ALE8Ab4AsHQC/AA8AfwA9ABwE3i+EBB8AfQAdAG0AH4AMDwBNAB0ADQBtAB+AHA0AXQANAF0AH4AMDAs4BlSABQAXgCQNAL0ABwBtAAeAHE8Ab4BUHAZUBQDcBlQHgCQPgAxdAC0ADQCfhCwdAAUAfQAFAI8ADwBNAB0ADQBdAB+AHA0AXQANAF0AH4DsD4ANL4A8LQGdAG0ADwAtAB+AXAwLOAZUgAUAF4AEDQENAAwLOAZUgAUAF4BEDQAHAH0AB4AELAJUgAUAFAM5gAUBPQANADwCVYAFAB+ARA0ArQAPgEyPgHxvAR8AHwDdAD0ADQA8BzgHgBQUBlQHgBxEAziABBZUB/ASVAUAHAM4gAeADBYAXAc4B4AMHB/wEzgH8BM4B"}'
-    action: mqtt.publish
+      payload: '{"ir_code_to_send":"BcwBkwH8AYAD4AELC1tiug2sBswB/ATMAYAXgAfAD0AB4AcTQBtAA0AXQAcC/AT8IANAB4ADQBdAA0APQAdAAUAHQANAAUAH4AcDwCvAB8AfQA9AA8APwAfgCxPAG+AHB0ABQC/AA8AfwA9ABwEsi+EVB8AzQAFAL0APQAdAA+ADC0APwANAF0ADQA9AB+AfA8AvQAHAM8ATwA/gCwdAAeADF0ABQDdAAeADF0ALQBdAB0ADQAtAA0AL4R8HQCvAM0AHQAPAE0AL4AMDQBdAA0ATQAfgCwNAAeALF+AbE+AHV0ABQDdAF8ADwA9AB+AvA0BLQDvAB0AL4BMDQAHAH0ABwAvAB0BHQAPAD+AXB0ArQAPgFyfgAx9AAcAPQAHAC8BHwAdAFwPMAZMBQA9AAwKTAcwgAeAJBYABgBfAAUAv4AcBQBNAA0ABQAdAAwvMAcwBzAHMAZMBzAE="}'
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.aircon_morning_cycle
+  mode: single
+- id: '1722841776503'
+  alias: Aircon_On_Cold_Morning_6am
+  description: At 6am, turn the aircon on only when the live IMARGA43 outside temperature
+    is below 12C. No daytime re-on.
+  triggers:
+  - trigger: time
+    at: 06:00:00
+  conditions:
+  - condition: numeric_state
+    entity_id: weather.imarga43
+    attribute: temperature
+    below: 12
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: 0
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send":"A84BlQHgCQMLU2LIDawGzgH8BM4BQAHAI0APQAtAAUAHQAPAE0AHQAPAE0AL4AMDQBdAA0ATQAfgGwPAK8AHwDNAD0ADwA/AB+ALE8Ab4AsHQC/AA8AfwA9ABwE3i+EBB8AfQAdAG0AH4AMDwBNAB0ADQBtAB+AHA0AXQANAF0AH4AMDAs4BlSABQAXgCQNAL0ABwBtAAeAHE8Ab4BUHAZUBQDcBlQHgCQPgAxdAC0ADQCfhCwdAAUAfQAFAI8ADwBNAB0ADQBdAB+AHA0AXQANAF0AH4DsD4ANL4A8LQGdAG0ADwAtAB+AXAwLOAZUgAUAF4AEDQENAAwLOAZUgAUAF4BEDQAHAH0AB4AELAJUgAUAFAM5gAUBPQANADwCVYAFAB+ARA0ArQAPgEyPgHxvAR8AHwDdAD0ADQA8BzgHgBQUBlQHgBxEAziABBZUB/ASVAUAHAM4gAeADBYAXAc4B4AMHB/wEzgH8BM4B"}'
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.aircon_morning_cycle
   mode: single
 - id: '1722855691871'
   alias: Amp_Casting_TurnOFF
@@ -359,4 +374,40 @@
       title: "\U0001F697 Garage Door"
       message: Garage door is now {{ 'open' if trigger.to_state.state == 'on' else
         'closed' }}
+  mode: single
+- id: '1785886439568'
+  alias: Aircon_Off_Outside_Above_20
+  description: If an automated morning cycle is active, turn the aircon off after
+    the live outside temperature stays above 20C for 10 minutes. Also recovers safely
+    after an HA restart.
+  triggers:
+  - trigger: numeric_state
+    entity_id: weather.imarga43
+    attribute: temperature
+    above: 20
+    for:
+      minutes: 10
+  - trigger: homeassistant
+    event: start
+  conditions:
+  - condition: state
+    entity_id: input_boolean.aircon_morning_cycle
+    state: 'on'
+  - condition: numeric_state
+    entity_id: weather.imarga43
+    attribute: temperature
+    above: 20
+  - condition: time
+    after: 06:00:00
+    before: '23:00:00'
+  actions:
+  - action: mqtt.publish
+    data:
+      qos: 0
+      retain: false
+      topic: zigbee2mqtt/IR_Blaster/set
+      payload: '{"ir_code_to_send":"BcwBkwH8AYAD4AELC1tiug2sBswB/ATMAYAXgAfAD0AB4AcTQBtAA0AXQAcC/AT8IANAB4ADQBdAA0APQAdAAUAHQANAAUAH4AcDwCvAB8AfQA9AA8APwAfgCxPAG+AHB0ABQC/AA8AfwA9ABwEsi+EVB8AzQAFAL0APQAdAA+ADC0APwANAF0ADQA9AB+AfA8AvQAHAM8ATwA/gCwdAAeADF0ABQDdAAeADF0ALQBdAB0ADQAtAA0AL4R8HQCvAM0AHQAPAE0AL4AMDQBdAA0ATQAfgCwNAAeALF+AbE+AHV0ABQDdAF8ADwA9AB+AvA0BLQDvAB0AL4BMDQAHAH0ABwAvAB0BHQAPAD+AXB0ArQAPgFyfgAx9AAcAPQAHAC8BHwAdAFwPMAZMBQA9AAwKTAcwgAeAJBYABgBfAAUAv4AcBQBNAA0ABQAdAAwvMAcwBzAHMAZMBzAE="}'
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.aircon_morning_cycle
   mode: single
