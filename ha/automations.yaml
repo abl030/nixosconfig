@@ -213,60 +213,6 @@
     entity_id: 526e1c789e88f4b940bc2ffed93eb3e6
     domain: switch
   mode: single
-- id: start_vm_101_with_epi_on_switch
-  alias: Start VM 101 with Epi On Switch
-  description: ''
-  triggers:
-  - entity_id: sensor.epi_on_switch_action
-    to: single
-    trigger: state
-  conditions: []
-  actions:
-  - data:
-      node: epi
-      vmid: 101
-    action: proxmoxve.start_vm
-  mode: single
-- id: start_vm_101_with_epi_on_switch
-  alias: Start VM 101 with Epi On Switch
-  description: ''
-  triggers:
-  - entity_id: sensor.epi_on_switch_action
-    to: single
-    trigger: state
-  conditions: []
-  actions:
-  - data:
-      node: epi
-      vmid: 101
-    action: proxmoxve.start_vm
-  mode: single
-- id: start_vm_101_with_epi_on_switch
-  alias: Start VM 101 with Epi On Switch
-  description: ''
-  triggers:
-  - entity_id: sensor.epi_on_switch_action
-    to: single
-    trigger: state
-  actions:
-  - data:
-      node: epi
-      vmid: 101
-    action: proxmoxve.start_vm
-  mode: single
-- id: start_vm_101_with_epi_on_switch
-  alias: Start VM 101 with Epi On Switch
-  description: ''
-  triggers:
-  - entity_id: sensor.epi_on_switch_action
-    to: single
-    trigger: state
-  actions:
-  - data:
-      node: epi
-      vmid: 101
-    action: proxmoxve.start_vm
-  mode: single
 - id: '1751634890648'
   alias: Epi_On
   description: ''
@@ -483,7 +429,7 @@
   actions:
   - variables:
       pending: "{{ expand('update.hacs_update', 'update.apexcharts_card_update',
-        'update.proxmox_ve_update', 'update.sma_devices_plus_update')
+        'update.sma_devices_plus_update')
         | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}"
   - condition: template
     value_template: '{{ pending | count > 0 }}'
