@@ -55,6 +55,20 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
 - **ZFS**: `zpool status`, `zpool list`, `zfs list` (Unraid 7 ships ZFS).
 - **Storage layout**: `/mnt/user/<share>` = array shares (shfs FUSE over the disks);
   `/mnt/disks/` = Unassigned Devices; `/mnt/remotes/` = remote (NFS/SMB) mounts.
+- **NFS exports are GENERATED — never hand-edit `/etc/exports` alone.** Per-share rules live in
+  `/boot/config/shares/<Share>.cfg` (`shareSecurityNFS="private"` + `shareHostListNFS="ip(opts) ip(opts)"`).
+  Edit the `.cfg` for persistence, mirror into `/etc/exports`, then `exportfs -ra` to apply live.
+  An `/etc/exports`-only edit is lost on array restart. **Unraid has no `python3`** — use sed/awk in
+  anything you pipe over. Copy rule syntax from an already-scoped share (`magazines.cfg`) rather
+  than inventing it.
+- **`VMBackups` is deliberately scoped (2026-08-21) — do not widen it back to `*`.** Rule:
+  `192.168.1.35` ro + `192.168.1.36` ro (doc2's NICs, kopia-mum) and `192.168.1.20` rw (HAOS
+  writes its nightly backups there). Nothing else needs NFS on it: doc1's `containers-backup` and
+  `prom-rpool-backup` write over **SSH**, and the PBS VM reaches `VMBackups/proxmox` via
+  **virtiofs passthrough** (`virsh dumpxml PBS`), not NFS. It was `*(rw)` — world-writable — until
+  it was tightened. See `docs/wiki/services/home-assistant-auto-update.md`.
+  Known remaining gap: `/mnt/user/appdata` has an empty rule, which `exportfs` warns about and
+  treats as `*`.
 - **System health**: `uptime`, `free -h`, `df -h` (skip network mounts: `df -hl`),
   `cat /etc/unraid-version`, `sensors` if present.
 - **Tailscale (Unraid plugin)**: `tailscale status`, `tailscale debug prefs`. Config:

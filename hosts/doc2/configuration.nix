@@ -406,9 +406,11 @@
               "/mnt/backup/pfsense"
               # VM backup archives from prom — age-encrypted weekly tarballs of
               # nvmeprom/containers written by containers-backup.service on doc1.
-              # Tower exposes VMBackups as a read-only NFS share; we ship the
-              # encrypted .tar.gz.age files offsite to mum's Synology.
-              # Requires: tower VMBackups NFS export scoped to 192.168.1.35/36 (doc2).
+              # Tower exports VMBackups to doc2 read-only (HAOS gets the only rw
+              # entry); we ship the encrypted .tar.gz.age files offsite to mum's
+              # Synology. Requires: tower VMBackups NFS export scoped to
+              # 192.168.1.35/36 ro — see the fileSystems entry below for the
+              # full rule and why nothing else needs NFS on that share.
               "/mnt/backup/vm-backups/containers"
               # Home Assistant's nightly automatic backups (02:00, keep 7).
               # HAOS writes them itself over a Supervisor NFS backup mount

@@ -13,7 +13,7 @@ Two kopia server instances run on doc2, each backing up to a different destinati
 | Instance | Sources | Destination | Purpose |
 |---|---|---|---|
 | **photos** | `/mnt/data/Life/Photos/library` + `/mnt/data/Life` (excluding the `Photos/*` derivatives, the already-covered library, and `Tech/Backups/UnraidUSB`) | Wasabi S3 (`kopiaphotos` bucket, ap-southeast-2) | Immutable, jurisdictional offsite for irreplaceable personal data — photo originals + the rest of `/Life` (incl. immich DB dumps in `Photos/backups`) |
-| **mum** | `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`, `/mnt/virtio/Music` (the beets library, excluding regenerable `calibration-tmp` scratch data), `/mnt/backup/pfsense` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything irreplaceable + the curated music library |
+| **mum** | `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`, `/mnt/magazines`, `/mnt/virtio/Music` (the beets library, excluding regenerable `calibration-tmp` scratch data), `/mnt/backup/pfsense`, `/mnt/backup/vm-backups/containers`, `/mnt/backup/vm-backups/homeassistant` | Mum's Synology NFS (over Tailscale, mounted at `/mnt/mum`) | Family-grade offsite for everything irreplaceable, the curated music library, and the appliance/VM config dumps |
 
 `/mnt/data/Life` is deliberately backed up to **both** repos — Synology (mum) for the full family-grade copy, Wasabi (photos) for the immutable, jurisdictionally-separate copy. The photos copy excludes the regenerable immich derivatives and dedupes the photo library against its own source, so nothing re-uploads. See the [2026-06-07 brainstorm](../../brainstorms/2026-06-07-backup-coverage-widening-requirements.md) and [#237](https://github.com/abl030/nixosconfig/issues/237).
 
@@ -142,8 +142,13 @@ The photos repo carries **two** sources (both `root@kopia`, daily at 06:00 — a
 Mum's repo backs up a deliberately-chosen set, NOT all of `/mnt/data` (which would include video media we don't ship offsite):
 
 - `/mnt/data/Life`, `/mnt/data/Media/Books`, `/mnt/data/Media/Music`
+- `/mnt/magazines` — the wine-magazine archive on its dedicated single-disk share. Synology copy alongside the photos-repo (Wasabi) one.
 - `/mnt/virtio/Music` — the curated ~505 GiB beets library (its own ZFS dataset on prom, a virtiofs submount). Synology-only (re-downloadable → not worth per-GB Wasabi). Added 2026-06-07; walks ~100k files, which is why the [virtiofsd fd fix (#267)](../infrastructure/virtiofsd-fd-exhaustion.md) is a prerequisite.
 - `/mnt/backup/pfsense` — the pfSense ZFS replica (see [pfsense-backup.md](../infrastructure/pfsense-backup.md)).
+- `/mnt/backup/vm-backups/containers` — age-encrypted weekly tarballs of `nvmeprom/containers`, written to tower over SSH by `containers-backup.service` on doc1 (see [containers-backup-restore.md](../infrastructure/containers-backup-restore.md)).
+- `/mnt/backup/vm-backups/homeassistant` — Home Assistant's nightly automatic backups (02:00, keep 7). HAOS writes them itself over a Supervisor NFS backup mount; kopia-mum is the leg that gets them off the LAN. Added 2026-08-21 (see [home-assistant-auto-update.md](home-assistant-auto-update.md)).
+
+> Both `/mnt/backup/vm-backups/*` sources come from the same lazy read-only NFS mount of tower's `VMBackups` share. A down tower means a missed snapshot, not a failed activation.
 
 Each is its own kopia source with its own policy. Verify runs at 2% sample (vs photos at 5%) because the data volume is larger.
 

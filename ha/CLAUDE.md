@@ -189,10 +189,12 @@ Live audio fingerprinting service for RTRFM 92.1. Runs on doc2.
 - **Track history queries**: Read the wiki entry for API endpoints (`/tracklist?date=...&show=...`)
 
 ## System Overview
-- HA 2026.2.3, Home Assistant OS, URL: https://home.ablz.au
+- HA Core 2026.8.2 on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
 - Location: <TOWN> WA (AWST UTC+8), metric units, AUD
-- 991 entities, 25 domains, 196 services, 6 areas (Bathroom, Bedroom, Cullen Wines, Kitchen, Living Room, Garage)
-- 30 integrations (2 in setup_retry: proxmoxve, music_assistant)
+- 1115 entities, 29 domains, 276 services, 210 loaded components, 6 areas (Bathroom, Bedroom, Cullen Wines, Garage, Kitchen, Living Room)
+- 33 config entries / 28 integrations. Not loaded: `zha`, `smlight` (Zigbee runs through Zigbee2MQTT on tower, not ZHA); `proxmoxve` in `setup_retry`.
+- Counts are a **2026-08-21 snapshot** — re-query live before relying on one.
+- **HA updates itself unattended** since 2026-08-21: Core daily 05:00 (holds back monthly `x.y.0` until a patch exists), OS Sundays 05:30, all 7 add-ons, HACS daily 05:45. ESPHome *device* firmware is deliberately manual. Nightly backup 02:00 → tower → kopia-mum → Mum's Synology. Do not disable the four `Auto-update: *` automations without reading `docs/wiki/services/home-assistant-auto-update.md`.
 
 ## Key Systems (use ha_search_entities/ha_get_states to query details)
 
