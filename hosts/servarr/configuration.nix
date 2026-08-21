@@ -46,8 +46,8 @@
   # strands the virtiofsd handle the qbt cage holds open into /media/data/Media/Temp,
   # which surfaces in the guest as ESTALE ("Stale file handle") and silently ERRORS
   # live torrents. This box used to hand-roll an inline automount mount (the laptop
-  # pattern from nfs.nix) and hit exactly that. appdata=false: the only NFS consumer
-  # here is the *arr library + qbt scratch. See the NFS-must-be-static gotcha in
+  # pattern from nfs.nix) and hit exactly that. The only NFS consumer here is the
+  # *arr library + qbt scratch. See the NFS-must-be-static gotcha in
   # docs/wiki/services/servarr-and-qbt-cage.md.
 
   # The media group + the *arr stack (Radarr/Sonarr/Prowlarr) + the qbt reverse-proxy
@@ -64,14 +64,13 @@
 
     # The media library mount — server pattern, static, no automount (see the long
     # rationale above the /media/data comment). mountPoint=/media/data keeps the path
-    # the *arr config + qbt virtiofs share + hardlink layout bake in; appdata=false
-    # (not needed here); networkdWaitOnline=false because NetworkManager owns this
+    # the *arr config + qbt virtiofs share + hardlink layout bake in;
+    # networkdWaitOnline=false because NetworkManager owns this
     # box's LAN and provides network-online — networkd here only runs the IP-less qbt
     # DMZ cage, which never reaches "online" (qbt-microvm.nix disables its wait-online).
     mounts.nfsLocal = {
       enable = true;
       mountPoint = "/media/data";
-      appdata = false;
       networkdWaitOnline = false;
     };
 

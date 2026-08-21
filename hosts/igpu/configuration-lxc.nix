@@ -99,7 +99,8 @@
     mounts = {
       fuse.enable = true;
       # nfsLocal is DROPPED: an unprivileged CT cannot mount NFS. The tower exports
-      # are mounted on prom and bind-mounted in (mp1 /mnt/data, mp2 /mnt/appdata).
+      # are mounted on prom and bind-mounted in (mp4 /mnt/data). The former
+      # mp5 /mnt/appdata bind was retired with tower's appdata export 2026-08-21.
       nfsLocal.enable = false;
     };
 

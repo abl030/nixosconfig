@@ -1,4 +1,4 @@
-# Resilient STATIC NFS mounts for the local network (the tower data/appdata exports).
+# Resilient STATIC NFS mounts for the local network (the tower data export).
 # Uses network-online.target instead of Tailscale.
 #
 # This is the SERVER mount pattern (doc2, servarr): a static mount that is NEVER an
@@ -51,15 +51,6 @@ in {
       '';
     };
 
-    appdata = mkOption {
-      type = types.bool;
-      default = true;
-      description = ''
-        Also mount the tower appdata export at /mnt/appdata. Disable on hosts
-        whose only NFS consumer is the media library (e.g. servarr).
-      '';
-    };
-
     networkdWaitOnline = mkOption {
       type = types.bool;
       default = true;
@@ -84,16 +75,13 @@ in {
       kernelModules = lib.mkOrder 1600 ["nfs"];
     };
 
+    # tower's appdata export was retired 2026-08-21 — it was a temporary bridge
+    # while services moved off tower, nothing consumed it any more, and the
+    # export itself was unscoped. Do not reintroduce a /mnt/appdata mount here.
     fileSystems.${cfg.mountPoint} = {
       device = "192.168.1.2:/mnt/user/data/";
       fsType = "nfs";
       options = baseOpts ++ lib.optional cfg.readOnly "ro";
-    };
-
-    fileSystems."/mnt/appdata" = mkIf cfg.appdata {
-      device = "192.168.1.2:/mnt/user/appdata/";
-      fsType = "nfs";
-      options = baseOpts;
     };
   };
 }

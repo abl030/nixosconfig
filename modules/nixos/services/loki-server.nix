@@ -200,7 +200,7 @@ in {
       services = {
         # Grafana admin creds injected via env so they never hit the Nix store.
         # #257: grafana inherited doc2's whole /mnt/* tree (incl.
-        # /mnt/backup/pfsense, /mnt/appdata, /mnt/mum). Its only legit /mnt
+        # /mnt/backup/pfsense, /mnt/mum). Its only legit /mnt
         # path is its own data dir on virtiofs (= cfg.dataDir/grafana, also
         # its WorkingDirectory). Blank /mnt and bind only that. Done here
         # rather than in alerting.nix because this module owns the dataDir.

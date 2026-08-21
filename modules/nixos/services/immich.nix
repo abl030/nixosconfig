@@ -174,7 +174,7 @@ in {
         requires = ["container@immich-db.service"];
         restartTriggers = [config.systemd.units."container@immich-db.service".unit];
         # #257: immich-server inherited doc2's whole /mnt tree (incl.
-        # /mnt/backup/pfsense, /mnt/appdata, /mnt/mum). Its only legit /mnt
+        # /mnt/backup/pfsense, /mnt/mum). Its only legit /mnt
         # path is the photo library (mediaLocation); the DB is reached over
         # TCP via the immich-db nspawn container, so a private /mnt namespace
         # doesn't affect it. Blank /mnt, bind only the library. NOT adding

@@ -27,7 +27,7 @@
   # Per-unit sandbox: replace /mnt with an empty tmpfs and bind only the three
   # paths paperless actually needs. This narrows paperless's visible filesystem
   # to its own data (cf. anti-pattern: paperless used to see all of /mnt/data,
-  # /mnt/appdata, /mnt/mum, /mnt/mirrors, /mnt/virtio — ro but every byte
+  # /mnt/mum, /mnt/mirrors, /mnt/virtio — ro but every byte
   # readable). BindPaths fails loudly if a source isn't bindable
   # (status=226/NAMESPACE), so a missing/stale NFS path will surface as a
   # failed unit + the unit's existing errorPattern alert, not silent

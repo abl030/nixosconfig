@@ -97,7 +97,7 @@
   # resume hook. ExecStop-on-target-stop did not reliably run on wake and left the
   # automount triggers dead.
   powerManagement.resumeCommands = ''
-    /run/current-system/systemd/bin/systemctl restart mnt-data.automount mnt-appdata.automount mnt-Music.automount || true
+    /run/current-system/systemd/bin/systemctl restart mnt-data.automount mnt-Music.automount || true
   '';
 
   services = {
@@ -231,7 +231,7 @@
 
             # 2. Stop the now-detached automount triggers so nothing re-mounts
             #    during suspend.
-            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-appdata.automount mnt-Music.automount"
+            "-${pkgs.systemd}/bin/systemctl stop mnt-data.automount mnt-Music.automount"
           ];
         };
       };
@@ -298,11 +298,5 @@
     "timeo=30"
     "retrans=2"
   ];
-  fileSystems."/mnt/appdata".options = [
-    "soft"
-    "timeo=30"
-    "retrans=2"
-  ];
-
   # 2. THE CIRCUIT BREAKER SERVICE
 }

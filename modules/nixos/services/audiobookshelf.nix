@@ -59,7 +59,7 @@ in {
       services = {
         # Override upstream service to use custom data dir (virtiofs).
         # #257: ABS shipped no sandboxing and inherited the host's entire
-        # /mnt/* tree RW — including /mnt/backup/pfsense, /mnt/appdata,
+        # /mnt/* tree RW — including /mnt/backup/pfsense,
         # /mnt/mum. Blank /mnt and bind back only its virtiofs state dir plus
         # the declared NFS library folders (rw — ABS embeds metadata into
         # audio files). RequiresMountsFor orders the fail-loud binds after

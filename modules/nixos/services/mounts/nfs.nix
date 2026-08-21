@@ -1,5 +1,5 @@
 # NFS mounts to Unraid tower
-# Mounts /mnt/data and /mnt/appdata with automount on access
+# Mounts /mnt/data with automount on access
 {
   config,
   lib,
@@ -68,12 +68,6 @@ in {
         subnet route.
       '';
     };
-
-    appdata = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Whether to mount /mnt/appdata. Disable for hosts that don't need it.";
-    };
   };
 
   config = mkIf cfg.enable {
@@ -107,19 +101,7 @@ in {
         ++ serverRequires;
     };
 
-    fileSystems."/mnt/appdata" = mkIf cfg.appdata {
-      device = "${serverAddr}:/mnt/user/appdata";
-      fsType = "nfs";
-      options =
-        [
-          "x-systemd.automount"
-          "noauto"
-          "_netdev"
-          "x-systemd.idle-timeout=300"
-          "noatime"
-          "nfsvers=4.2"
-        ]
-        ++ serverRequires;
-    };
+    # tower's appdata export was retired 2026-08-21 — a temporary bridge while
+    # services moved off tower, with no remaining consumers. Do not reintroduce.
   };
 }
