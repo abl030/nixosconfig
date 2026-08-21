@@ -168,6 +168,32 @@ After the #254 freshness probe caught 12 weeks of silent backup loss, we made `i
    - If the source isn't already registered in the daemon, `POST /api/v1/sources/upload` to create + trigger the initial snapshot.
 3. Logs a WARNING for any registered source NOT in `inst.sources` — orphan detection. We never auto-remove; cleanup is manual via the kopia CLI (see below).
 
+### Gotcha: the daily full-maintenance window blocks reconciliation (found 2026-08-21)
+
+`kopia-mum` runs **full maintenance daily at ~10:43**, and on the current 2.4 TB mum repo it holds the repository **write** lock for **1h09m–2h38m** (observed 2026-08-16 → 08-20). While it holds that lock:
+
+- **Reads still work** — `GET /api/v1/sources` returns instantly, so the daemon looks perfectly healthy.
+- **Every write hangs** — the reconciler's `PUT /api/v1/policy` and `POST /api/v1/sources/upload` block until curl's 30s `--max-time` fires, logging `curl: (28) Operation timed out … with 0 bytes received` and `(policy update failed for <path>)` for **every** source in turn.
+
+So a `fleet-deploy doc2` that lands between ~10:43 and ~13:20 will appear to succeed — no failed units, `nixos-version` shows the new revision — while **silently failing to register any newly added kopia source**. This is exactly what happened when `/mnt/backup/vm-backups/homeassistant` was added: the deploy ran at 11:12, mid-maintenance, and the source did not register.
+
+`kopia-mum-source-sync.service` has **no timer** (`TriggeredBy` is empty) — it only runs on activation. It will not retry on its own.
+
+**If you add a kopia source, check afterwards:**
+
+```bash
+# on doc2 — is the new path registered?
+sudo systemctl status kopia-mum-source-sync.service        # "policy update failed" = you hit the window
+# creds via curl --config - so they never reach argv:
+#   printf 'user = "%s:%s"\n' "$u" "$p" | curl --config - -fsS \
+#     http://127.0.0.1:51516/api/v1/sources
+```
+
+**Recovery:** wait for `Finished full maintenance` in `journalctl -u kopia-mum.service`, then
+`sudo systemctl start kopia-mum-source-sync.service` and re-check the source list.
+
+Prefer deploying outside ~10:40–13:30 when the change touches `inst.sources`.
+
 **Idempotent.** Re-running on unrelated rebuilds is cheap (~50ms per source). `restartTriggers` are keyed off the JSON-encoded `(sources, snapshotScheduleHour, snapshotScheduleMinute)` so any change re-runs the reconcile.
 
 ### Cleaning up orphan sources

@@ -218,7 +218,19 @@ hand-edit `/config/.storage/backup` — HA holds it in memory and rewrites it.
 `automatic_backups_configured` stays `false` until the UI onboarding flow is
 completed; it does not gate the schedule. Trust `next_automatic_backup` instead.
 
-### 3. `check_config` has a REST endpoint
+### 3. Adding the kopia source needs a deploy outside the maintenance window
+
+The `fleet-deploy doc2` that shipped `/mnt/backup/vm-backups/homeassistant` ran at 11:12 —
+straight into kopia-mum's daily full-maintenance window (~10:43, holds the repo **write** lock
+for 1–2.5 h). Reads kept working so nothing looked wrong: no failed units, correct revision,
+`GET /api/v1/sources` instant. But every write hung, and the new source **did not register**.
+`kopia-mum-source-sync.service` has no timer, so it does not retry.
+
+Recovery is `sudo systemctl start kopia-mum-source-sync.service` once
+`Finished full maintenance` appears in `journalctl -u kopia-mum.service`. Full detail in
+[kopia.md](kopia.md#gotcha-the-daily-full-maintenance-window-blocks-reconciliation-found-2026-08-21).
+
+### 4. `check_config` has a REST endpoint
 
 `POST /api/config/core/check_config` returns
 `{"result":"valid","errors":null,"warnings":null}`. This is a better pre-reload gate
