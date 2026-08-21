@@ -43,10 +43,14 @@ prom runs a PBS snapshot job (`backup-712b47c2-f5a9`) at 03:00 covering VMs 104,
 114 and 116; VM 116's snapshot actually starts around 03:47. Updating at 05:00
 means the most recent whole-VM image is always a **pre-update** one.
 
-Note the limit of that particular net: the job is `prune-backups keep-last=1`, so
-the *next* night's 03:00 run captures the post-update state and prunes the good
-copy. PBS buys roughly 22 hours, not a week. The seven-day HA backup retention
-below is the net that actually spans a weekend.
+That job originally ran `prune-backups keep-last=1`, which bought roughly 22 hours:
+the *next* night's 03:00 run captured the post-update state and pruned the last good
+copy. It was changed to **`keep-daily=7`** on 2026-08-21, so the whole-VM images now
+span a weekend too.
+
+Keep an eye on space: the `PBS_Tower` datastore's underlying array was at **87.7%
+used (1.84 TiB free)** when that changed. PBS deduplicates, so six extra dailies of
+three VMs cost only their changed chunks — but it is not free.
 
 ### Why Core holds back `x.y.0`
 
@@ -77,7 +81,7 @@ HA automatic backup  (daily 02:00, keep 7, database + all add-ons, ~1.1 GB each)
 ```
 
 Plus, independently: prom's nightly PBS snapshot of the whole VM 116 to
-`PBS_Tower` (keep-last=1).
+`PBS_Tower` (`keep-daily=7` since 2026-08-21).
 
 ### Why the local agent was dropped
 
@@ -117,6 +121,11 @@ it is just a Gotify channel. Worth renaming one day, but renaming breaks every
 existing automation that references it.
 
 ## Tower NFS export — tightened 2026-08-21
+
+> The full tower export inventory, the Unraid "`/etc/exports` is generated" gotcha,
+> and the later retirement of the `appdata` export now live in
+> [tower-nfs-exports.md](../infrastructure/tower-nfs-exports.md). This section keeps
+> the VMBackups detail because it is what the HA backup chain depends on.
 
 Adding HA as an NFS client prompted an audit of that share. It was exported
 `*(rw,sec=sys,insecure,anongid=100,anonuid=99,all_squash)` — **read-write to any
@@ -237,15 +246,32 @@ Recovery is `sudo systemctl start kopia-mum-source-sync.service` once
 than the `homeassistant.check_config` service (which only raises a persistent
 notification) and it works where `ha core check` does not.
 
-## Pre-existing issues noticed, not fixed here
+## Pre-existing issues noticed
 
-Both predate this work and are visible in `ha/automations.yaml`:
+All predate this work.
 
-- Four automations share the id `start_vm_101_with_epi_on_switch` (all aliased
-  "Start VM 101 with Epi On Switch"). Duplicate ids mean HA can only address one.
+**Resolved 2026-08-21:**
+
+- The four automations sharing the id `start_vm_101_with_epi_on_switch` are gone.
+  They all called `proxmoxve.start_vm` against a VM on epi, and the HACS ProxmoxVE
+  integration behind them was stuck in `setup_retry` ("Connection is unreachable to
+  host 192.168.1.5"). The integration was removed entirely — config entry, HACS
+  repo `514096198`, and `/config/custom_components/proxmoxve`.
+- tower's `/mnt/user/appdata` export (empty rule → treated as `*`) was retired
+  along with every fleet consumer. See
+  [tower-nfs-exports.md](../infrastructure/tower-nfs-exports.md).
+
+**Still open:**
+
+- `Epi_On` / `Epi_Off` also depended on ProxmoxVE — they press
+  `button.qemu_epimetheus_101_start` / `_shutdown` on the "QEMU epimetheus-vm (101)"
+  device it owned. They had already been dead for as long as the integration failed
+  to load. They were **left in place** rather than silently deleted, because the
+  Zigbee button (`0xa4c1384adb4c272d`) that drove them still exists and the
+  "single-press starts epi" capability is probably worth rebuilding — wake-on-LAN
+  being the natural replacement.
 - `Outside Lights All` and `Outside lights off` still use the legacy
   `trigger:`/`action:` keys rather than `triggers:`/`actions:`.
-
-Also: tower's `/mnt/user/appdata` export has an empty rule, which `exportfs` warns
-about and treats as `*`. Same class of problem as the VMBackups one, not touched
-here.
+- tower's `/mnt/user/domains` export is still `*(ro)` — world-readable VM disk
+  images, with no NixOS consumer found. See
+  [tower-nfs-exports.md](../infrastructure/tower-nfs-exports.md).

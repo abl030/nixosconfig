@@ -67,8 +67,14 @@ flash persistence map + rollback: `docs/wiki/infrastructure/tower-unraid-fleet-s
   `prom-rpool-backup` write over **SSH**, and the PBS VM reaches `VMBackups/proxmox` via
   **virtiofs passthrough** (`virsh dumpxml PBS`), not NFS. It was `*(rw)` — world-writable — until
   it was tightened. See `docs/wiki/services/home-assistant-auto-update.md`.
-  Known remaining gap: `/mnt/user/appdata` has an empty rule, which `exportfs` warns about and
-  treats as `*`.
+- **`appdata` was retired 2026-08-21** — a temporary bridge while services moved off tower,
+  with no consumers left. Unshared on tower and removed from doc1, doc2, prom (and its
+  igpu CT bind) and framework. tower's local Docker use of `/mnt/user/appdata` is
+  unaffected. Do not re-export it.
+- **Known remaining gap: `/mnt/user/domains` is exported `*(ro)`** — world-readable VM disk
+  images, with no NixOS consumer found. Left alone in case a non-NixOS box uses it, but it
+  is the obvious next candidate for scoping. Full inventory:
+  `docs/wiki/infrastructure/tower-nfs-exports.md`.
 - **System health**: `uptime`, `free -h`, `df -h` (skip network mounts: `df -hl`),
   `cat /etc/unraid-version`, `sensors` if present.
 - **Tailscale (Unraid plugin)**: `tailscale status`, `tailscale debug prefs`. Config:
