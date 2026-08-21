@@ -24,6 +24,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [virtiofs-database-state-exit](infrastructure/virtiofs-database-state-exit.md) — VM, virtiofs, and same-filesystem LXC database-I/O measurements; live doc2 inventory; LXC prototype, backup, and migration gates (#53)
 - [igpu-io-pressure-tuning](infrastructure/igpu-io-pressure-tuning.md) — why the igpu LXC shows I/O PSI (Jellyfin keyframe/trickplay scans on raidz1), ranked reversible levers, `dropcacheonclose=false`, and what's NOT worth it (special vdev/L2ARC/SLOG/cgroup throttling)
 - [nfs-over-tailscale](infrastructure/nfs-over-tailscale.md) — Tailscale readiness gap, `tailscale-wait.service`, LAN-vs-tailnet routing for tower NFS
+- [tower-nfs-exports](infrastructure/tower-nfs-exports.md) — tower's NFS export inventory and who really consumes each; scoping `VMBackups`, retiring `appdata`, the still-world-readable `domains` export, and the Unraid "`/etc/exports` is generated" gotcha
 - [pfsense-dns-resolver](infrastructure/pfsense-dns-resolver.md) — pfSense as the fleet DNS resolver: tunables, restart commands, ntopng/pfBlockerNG/kea2unbound footguns
 - [pfsense-backup](infrastructure/pfsense-backup.md) — ACB + ZFS-pull-to-prom + dual-Kopia off-site architecture, restore procedures incl. VM-on-prom emergency play
 - [dns-saturation-incident-2026-05-22](infrastructure/dns-saturation-incident-2026-05-22.md) — RCA: chronic unbound TCP/53 saturation surfaced via `rolling-flake-update`; subagent → research debugging-loop pattern
