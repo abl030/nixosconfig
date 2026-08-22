@@ -148,8 +148,12 @@
       }
 
       # A. The incident fingerprint: a SIGKILL whose target was a systemd user
-      #    manager, which reports comm="systemd".
-      manager_kills="$(events 'ocomm="systemd"' | tail -c 3000)"
+      #    manager, which reports comm="systemd". `ausearch -i` prints ocomm
+      #    UNQUOTED (ocomm=systemd) while the raw log quotes it
+      #    (ocomm="systemd"), so the quotes must be optional — matching only
+      #    the quoted form silently never fires against the interpreted dump,
+      #    which is what happened on the 2026-08-23 capture.
+      manager_kills="$(events 'ocomm="?systemd"?' | tail -c 3000)"
 
       # B. kill(-1, SIGKILL) reaches EVERY process the sender is permitted to
       #    signal. From a sandboxed builder that is contained by its PID

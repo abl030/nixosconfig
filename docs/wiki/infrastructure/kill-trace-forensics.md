@@ -203,9 +203,73 @@ this module is a no-op on LXC guests such as igpu.
 - Both deploys left `user@1000.service` at its pre-deploy `MainPID` (313827),
   with tmux and hermes untouched.
 
-## Still open
+## Resolved on first fire: 2026-08-23 07:29:33
 
-The 2026-08-22 event itself remains unattributed — the trap was armed after the
-fact. It will be attributed on recurrence. Related known gap: the durable tmux
-server survives the idle reaper but not its own container; see
-[tmux-durable-idle-reap.md](tmux-durable-idle-reap.md).
+The trap sprang less than 14 hours after deploy and named the killer outright.
+
+```
+OBJ_PID   opid=1285 oauid=abl030 ouid=abl030 oses=1 ocomm=systemd
+SYSCALL   a0=0x505 a1=SIGKILL ppid=1285 pid=2604483 auid=abl030 ses=1
+          comm=python3.14 exe=/nix/store/...-python3-3.14.7/bin/python3.14
+PROCTITLE .../python3 /home/abl030/cratedigger/.claude/worktrees/1241-compl…
+```
+
+`a0=0x505` is 1285, `ocomm=systemd` — the user manager. The sender's `ppid`
+is **also** 1285: it killed its own parent.
+
+The source is a cratedigger test fixture,
+`tests/test_parallel_test_runner.py`, which writes a throwaway test whose body
+is:
+
+```python
+def test_worker_dies(self):
+    os.kill(os.getppid(), signal.SIGKILL)
+```
+
+The fixture's intent is documented and reasonable — kill the
+`ProcessPoolExecutor` worker to reproduce the `BrokenProcessPool` shape an OOM
+produces. The bug is that `os.getppid()` is evaluated **at kill time**, not at
+spawn time, and the fixture deliberately runs `count` of these concurrently
+(`--jobs count`, default 2), each killing a worker.
+
+The moment one instance's own pool worker exits first, that instance is
+orphaned — and `systemd --user` sets `PR_SET_CHILD_SUBREAPER`, so orphans in a
+user session reparent to the **user manager**, not to PID 1. `os.getppid()`
+then returns 1285 and the fixture SIGKILLs the manager, taking the whole user
+session — tmux server, every agent, hermes, dbus — with it.
+
+The audit trail captures both halves of the race 64 ms apart:
+
+```
+07:29:33.521  pid=2604461 → opid=2604049 ocomm="python3.14"   (real pool worker)
+07:29:33.585  pid=2604483 → opid=1285    ocomm="systemd"      (reparented!)
+07:29:33      user@1000.service: Main process exited, code=killed, status=9/KILL
+```
+
+This is also the explanation for the original 2026-08-22 incident: same host,
+same agent workload, manager PID 1296 that boot. Both were `.claude/worktrees`
+cratedigger sessions running the suite.
+
+**Fix belongs in cratedigger, not here**: the fixture must target a PID
+captured at spawn time, or refuse to fire when its parent is not the expected
+pool worker (compare `/proc/<ppid>/cmdline`). Until then, any run of that
+fixture can end the user session.
+
+### What this run taught the module
+
+The prime-suspect section did **not** fire, even though `ocomm=systemd` was
+right there. `ausearch -i` prints `ocomm` UNQUOTED while the raw log quotes it,
+and the matcher only accepted the quoted form — so the headline finding landed
+in the "other senders" bucket instead. Fixed by making the quotes optional;
+re-running the corrected matcher against this capture surfaces exactly the one
+fatal event.
+
+Also worth knowing: the page came through Gotify, not the RCA webhook. The
+capture logged `curl: (7) Failed to connect to 127.0.0.1:8644` — the RCA
+endpoint is hermes, which runs *inside* `user@1000.service` and had just been
+killed. **The primary alert path is guaranteed dead for exactly this class of
+event**, so the Gotify fallback in `negative-alert.nix` is what makes the trap
+useful, not a nicety.
+
+Related known gap: the durable tmux server survives the idle reaper but not its
+own container; see [tmux-durable-idle-reap.md](tmux-durable-idle-reap.md).
