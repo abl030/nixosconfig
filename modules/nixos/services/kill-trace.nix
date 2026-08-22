@@ -258,7 +258,14 @@ in {
       admin_space_left_action = "SYSLOG";
       disk_full_action = "ROTATE";
       disk_error_action = "SYSLOG";
+      # INCREMENTAL_ASYNC is worthless without a flush frequency and auditd
+      # refuses to start on the combination outright:
+      #   Error - incremental flushing chosen, but 0 selected for freq
+      #   status=6/NOTCONFIGURED
+      # `freq` has no NixOS default, so it must be set explicitly alongside
+      # any INCREMENTAL* flush mode. 50 is the stock distribution pairing.
       flush = "INCREMENTAL_ASYNC";
+      freq = 50;
     };
 
     systemd.tmpfiles.rules = [
