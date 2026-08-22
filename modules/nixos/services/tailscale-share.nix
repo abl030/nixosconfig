@@ -40,7 +40,7 @@
       echo "tailscale-share-dns-sync-${name}: waiting for tailscale online..."
       max_wait=120
       count=0
-      while ! ${config.virtualisation.podman.package}/bin/podman exec ts-${name} tailscale ip -4 &>/dev/null 2>&1; do
+      while ! timeout 10 ${config.virtualisation.podman.package}/bin/podman exec ts-${name} tailscale ip -4 &>/dev/null 2>&1; do
         count=$((count + 1))
         if [ "$count" -ge "$max_wait" ]; then
           echo "tailscale-share-dns-sync-${name}: timed out waiting for tailscale" >&2
@@ -518,6 +518,15 @@ in {
             Type = "oneshot";
             RemainAfterExit = true;
             NoNewPrivileges = true; # curl-only Cloudflare DNS upsert; no setuid (#232)
+            # This oneshot is WantedBy multi-user.target, so the target — and
+            # therefore switch-to-configuration — waits for it to FINISH. A node
+            # with authKeySecret = null sits at NeedsLogin until a human visits
+            # the auth URL, and each `podman exec` probe can itself hang, so the
+            # in-script max_wait was not a real bound: a new share node wedged a
+            # doc2 switch for 27 minutes (2026-08-22). Bound it here so an
+            # unauthenticated node degrades to "no DNS record yet" instead of
+            # stalling the whole activation.
+            TimeoutStartSec = "5min";
             ExecStart = mkDnsSyncScript name cfg;
           };
         };
