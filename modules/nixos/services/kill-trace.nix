@@ -132,11 +132,36 @@
       journalctl -b -k -n 2000 --no-pager >"$dir/kernel.txt" 2>&1
 
       # --- 6. Distil something a human can act on ---------------------------
-      # The SYSCALL records carry the sender identity. auid/ses are the prize:
-      # they name the login session behind the kill, or 4294967295 ("unset")
-      # for something with no login ancestry, i.e. a system service.
-      senders="$(grep -E '^type=SYSCALL' "$dir/audit-sigkill-interpreted.txt" 2>/dev/null | tail -n 25)"
-      targets="$(grep -E '^type=OBJ_PID' "$dir/audit-sigkill-interpreted.txt" 2>/dev/null | tail -n 25)"
+      # `ausearch -i` emits one EVENT per `----` block, holding the SYSCALL
+      # record (sender pid/ppid/comm/exe/uid, plus auid and ses naming the
+      # LOGIN SESSION behind the kill), the OBJ_PID record (target pid and
+      # comm) and a decoded PROCTITLE — the sender's full command line.
+      # Grepping single lines would split that triple apart, so slice the dump
+      # by event instead.
+      #
+      # Measured noise floor on doc1: ~6 records/min while nix is building,
+      # essentially all nix-daemon tearing down build sandboxes. Those are
+      # dropped from the summary but kept in full in the dumps alongside.
+      events() {
+        awk -v want="$1" 'BEGIN { RS = "----" } $0 ~ want { printf "%s----\n", $0 }' \
+          "$dir/audit-sigkill-interpreted.txt" 2>/dev/null
+      }
+
+      # A. The incident fingerprint: a SIGKILL whose target was a systemd user
+      #    manager, which reports comm="systemd".
+      manager_kills="$(events 'ocomm="systemd"' | tail -c 3000)"
+
+      # B. kill(-1, SIGKILL) reaches EVERY process the sender is permitted to
+      #    signal. From a sandboxed builder that is contained by its PID
+      #    namespace; from a logged-in uid it also reaps that uid's own
+      #    `systemd --user`, which is exactly the 2026-08-22 signature. a0 is
+      #    the raw first argument, so -1 renders as ffffffff.
+      sweep_kills="$(grep -E '^type=SYSCALL' "$dir/audit-sigkill-raw.txt" 2>/dev/null \
+        | grep -F 'a0=ffffffff' | grep -v 'comm="nix-daemon"' | tail -n 10)"
+
+      # C. Everything else, with the build-sandbox noise removed.
+      other_kills="$(grep -E '^type=SYSCALL' "$dir/audit-sigkill-interpreted.txt" 2>/dev/null \
+        | grep -v 'comm="nix-daemon"' | tail -n 15)"
 
       {
         echo "kill-trace capture"
@@ -145,19 +170,28 @@
         echo "  when:    $stamp"
         echo "  dir:     $dir"
         echo
-        if [ -n "$senders" ]; then
-          echo "SIGKILL senders seen in the audit window:"
-          echo "$senders"
-        else
+        if [ -z "$manager_kills$sweep_kills$other_kills" ]; then
           echo "No SIGKILL syscall records in the audit window."
-          echo "If the unit still died by signal 9, the sender was the kernel"
-          echo "(OOM/cgroup) rather than a process — see memory-and-oom.txt."
+          echo "If the unit still died by signal 9 the sender was the KERNEL"
+          echo "(OOM / cgroup), not a process — see memory-and-oom.txt."
+        else
+          if [ -n "$manager_kills" ]; then
+            echo "== SIGKILL aimed at a systemd user manager (prime suspect) =="
+            echo "$manager_kills"
+            echo
+          fi
+          if [ -n "$sweep_kills" ]; then
+            echo "== kill(-1) sweeps: hit every process of the sender's uid =="
+            echo "$sweep_kills"
+            echo
+          fi
+          if [ -n "$other_kills" ]; then
+            echo "== other SIGKILL senders in the window (build noise removed) =="
+            echo "$other_kills"
+          fi
         fi
         echo
-        if [ -n "$targets" ]; then
-          echo "Signal targets (OBJ_PID):"
-          echo "$targets"
-        fi
+        echo "Full records: $dir/audit-sigkill-interpreted.txt"
       } >"$dir/summary.txt" 2>&1
 
       # --- 7. Page, so the trap is known to have sprung ---------------------
