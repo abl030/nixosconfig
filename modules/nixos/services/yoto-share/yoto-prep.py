@@ -123,6 +123,34 @@ def build_segments(info: dict, duration: float) -> list[Segment]:
     return out
 
 
+def merge_segments(segments: list[Segment], bytes_per_sec: float) -> list[Segment]:
+    """Glue consecutive chapters into the longest Yoto-legal tracks.
+
+    A browser downloads one file per tap, so a 15-chapter card is 15 taps (or a
+    zip the phone then has to extract). Merging chapters up to the 58 min /
+    95 MB track ceiling turns a typical card into ~5 files, which is tappable
+    directly and needs no zip at all. The trade is coarser skip points on the
+    card itself.
+    """
+    out: list[Segment] = []
+    cur: Segment | None = None
+    for seg in segments:
+        if cur is None:
+            cur = Segment(seg.title, seg.start, seg.end)
+            continue
+        combined = (cur.end - cur.start) + seg.duration
+        contiguous = abs(seg.start - cur.end) < 1.0
+        if (contiguous and combined <= TRACK_SECONDS
+                and combined * bytes_per_sec <= TRACK_BYTES):
+            cur.end = seg.end
+        else:
+            out.append(cur)
+            cur = Segment(seg.title, seg.start, seg.end)
+    if cur is not None:
+        out.append(cur)
+    return out
+
+
 def _split_evenly(segments: list[Segment], n: int) -> list[list[Segment]]:
     """Cut the (ordered) segment list into n contiguous, near-equal cards.
 
@@ -244,7 +272,7 @@ def cut(src: str, seg: Segment, dest: str, ext: str, passthrough: bool,
 
 
 def prep_book(src: str, library: str, out_root: str, make_zip: bool,
-              force: bool, dry_run: bool) -> dict:
+              force: bool, dry_run: bool, merge: bool = False) -> dict:
     book_dir = os.path.dirname(src)
     rel = os.path.relpath(book_dir, library)
     book = safe_name(os.path.basename(book_dir))
@@ -266,10 +294,13 @@ def prep_book(src: str, library: str, out_root: str, make_zip: bool,
         info["_bytes_per_sec"] = 128_000 / 8
 
     segments = build_segments(info, duration)
+    if merge:
+        segments = merge_segments(segments, info["_bytes_per_sec"])
     cards = pack_cards(segments, info["_bytes_per_sec"])
 
     manifest_path = os.path.join(dest_root, MANIFEST)
     stamp = {"src": src, "size": size, "mtime": int(os.path.getmtime(src)),
+             "merge": merge,
              "cards": len(cards), "tracks": len(segments)}
     if not force and os.path.exists(manifest_path):
         try:
@@ -401,6 +432,10 @@ def main() -> int:
     ap.add_argument("--out",
                     default=os.environ.get("YOTO_OUT", "/mnt/data/Media/Books/Yoto"))
     ap.add_argument("--no-zip", action="store_true", help="Skip per-card zips.")
+    ap.add_argument("--merge-chapters", action="store_true",
+                    help="Glue chapters into the longest Yoto-legal tracks "
+                         "(~5 files per card instead of ~15), so a phone can "
+                         "tap each file directly instead of unzipping.")
     ap.add_argument("--force", action="store_true", help="Re-prep already-done books.")
     ap.add_argument("--dry-run", action="store_true", help="Show the plan only.")
     ap.add_argument("--jobs", type=int, default=3, help="Books to process in parallel.")
@@ -429,7 +464,8 @@ def main() -> int:
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {
             pool.submit(prep_book, src, args.library, args.out,
-                        not args.no_zip, args.force, args.dry_run): src
+                        not args.no_zip, args.force, args.dry_run,
+                        args.merge_chapters): src
             for src in sources
         }
         for done in concurrent.futures.as_completed(futures):
