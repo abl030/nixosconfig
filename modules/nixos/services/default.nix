@@ -44,6 +44,7 @@
     ./mealie.nix
     ./stirlingpdf.nix
     ./webdav.nix
+    ./yoto-share.nix
     ./smokeping.nix
     ./uptime-kuma.nix
     ./jdownloader2.nix

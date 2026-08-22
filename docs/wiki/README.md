@@ -47,6 +47,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [home-assistant-auto-update](services/home-assistant-auto-update.md) — unattended Core/OS/add-on/HACS updates, the backup chain that makes them safe, and tower's scoped `VMBackups` NFS export
 - [indoor-water-meter](services/indoor-water-meter.md) — ESPHome GPIO27 reed-pulse water meter; bench-test evidence, persistence, calibration, and recovery
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
+- [yoto-share](services/yoto-share.md) — `yoto.ablz.au` login-less tailnet file drop on doc2 for Yoto MYO cards; `yoto-prep` chapter-splitting, Yoto's per-track/per-card limits, and the access model
 
 ### Claude Code
 

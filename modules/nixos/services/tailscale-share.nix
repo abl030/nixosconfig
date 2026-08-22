@@ -87,6 +87,28 @@
       fi
     '';
 
+  # Site body: either a reverse proxy (the default) or a read-only browsable
+  # static file share. The file-server mode exists so a tailnet peer can pull
+  # raw FILES onto a phone — a media app's own downloader stashes them inside
+  # its private sandbox, where a file-picker (e.g. Yoto's uploader) can't see
+  # them. See docs/wiki/services/yoto-share.md.
+  mkSiteBody = cfg:
+    if cfg.serveDir == null
+    then "reverse_proxy ${cfg.upstream}"
+    else
+      lib.concatStringsSep "\n  " [
+        "root * /srv"
+        # Android Chrome renders audio inline in a media viewer instead of
+        # saving it, which strands the file where a file-picker can't reach.
+        # Content-Disposition forces a real download into /sdcard/Download.
+        "@download path ${lib.concatMapStringsSep " " (e: "*.${e}") cfg.downloadExtensions}"
+        "header @download Content-Disposition attachment"
+        # Bookkeeping the peer should never see or download.
+        "file_server browse {"
+        "  hide .yoto-prep.json *.partial"
+        "}"
+      ];
+
   # Generate a Caddyfile for one instance.
   # Uses CLOUDFLARE_DNS_API_TOKEN from the caddy container's environment.
   mkCaddyFile = name: cfg:
@@ -111,7 +133,7 @@
             propagation_delay 30s
             propagation_timeout -1
           }
-          reverse_proxy ${cfg.upstream}
+          ${mkSiteBody cfg}
         }
       '';
     };
@@ -140,12 +162,46 @@ in {
         };
 
         upstream = lib.mkOption {
-          type = lib.types.str;
+          type = lib.types.nullOr lib.types.str;
+          default = null;
           description = ''
             Local upstream URL to reverse-proxy. MUST use http://host.docker.internal:<port>
             — NOT 127.0.0.1. The caddy container shares the tailscale container's network
             namespace; 127.0.0.1 is the container loopback, not the host.
             Also set firewallPorts to open the port on the podman0 bridge.
+
+            Mutually exclusive with serveDir: an instance is either a reverse
+            proxy or a static file share.
+          '';
+        };
+
+        serveDir = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            Serve this host directory as a read-only, browsable static file
+            listing instead of reverse-proxying an upstream. The directory is
+            bind-mounted into the caddy container read-only, and the container
+            has no upload path — the share is strictly pull.
+
+            Use this when a tailnet peer needs the FILES rather than an app UI
+            (e.g. downloading audio on a phone so a file-picker upload flow can
+            see it).
+
+            NOTE: unlike the proxied services, a bare file listing has no
+            application login of its own. Which tailnet peers the node is
+            shared with IS the access control, so point serveDir at a curated
+            directory rather than a whole media tree.
+          '';
+        };
+
+        downloadExtensions = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = ["mp3" "m4a" "m4b" "aac" "flac" "ogg" "wav" "zip" "png" "jpg" "jpeg"];
+          description = ''
+            File extensions served with Content-Disposition: attachment in
+            serveDir mode. Mobile browsers otherwise open audio and images in an
+            inline viewer, which never writes the file to the download folder.
           '';
         };
 
@@ -158,6 +214,27 @@ in {
           type = lib.types.str;
           default = name;
           description = "Tailscale node hostname (defaults to the attrset key).";
+        };
+
+        tags = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          example = ["tag:share"];
+          description = ''
+            Tailscale ACL tags this node advertises. The tailnet is default-DENY
+            (tailscale/acl.hujson) and the share grants are written against
+            `tag:share`, so an UNTAGGED share node is reachable only from doc1
+            (the sole node with unrestricted egress) — it looks healthy from the
+            bastion while being unreachable for every device that actually needs
+            it, including inter-tailnet shared-in users.
+
+            Default [] leaves TS_EXTRA_ARGS untouched, so nodes tagged by hand in
+            the admin console (overseer, audiobookshelf, jellyfin) are unaffected.
+
+            NOTE: changing an existing node's tags replaces user ownership with
+            tag ownership, which forces re-authentication — the container will
+            print a fresh login URL in `podman logs ts-<name>`.
+          '';
         };
 
         authKeySecret = lib.mkOption {
@@ -353,7 +430,11 @@ in {
             TS_STATE_DIR = "/var/lib/tailscale";
             TS_HOSTNAME = cfg.hostname;
             # Do not accept routes from other nodes — pinhole only
-            TS_EXTRA_ARGS = "--accept-routes=false";
+            TS_EXTRA_ARGS = lib.concatStringsSep " " (
+              ["--accept-routes=false"]
+              ++ lib.optional (cfg.tags != [])
+              "--advertise-tags=${lib.concatStringsSep "," cfg.tags}"
+            );
           };
           # Secret file format: TS_AUTHKEY=tskey-auth-...
           # Keep this on the tailscale sidecar only; caddy has no TS state or auth key.
@@ -383,11 +464,15 @@ in {
           # Reuse the existing acme/cloudflare sops secret (CLOUDFLARE_DNS_API_TOKEN=...).
           # Keep this on caddy/DNS sync only; tailscale has no Cloudflare token or cert state.
           environmentFiles = [config.sops.secrets."acme/cloudflare".path];
-          volumes = [
-            "${toString (mkCaddyFile name cfg)}:/etc/caddy/Caddyfile:ro"
-            "${cfg.dataDir}/caddy-data:/data"
-            "${cfg.dataDir}/caddy-config:/config"
-          ];
+          volumes =
+            [
+              "${toString (mkCaddyFile name cfg)}:/etc/caddy/Caddyfile:ro"
+              "${cfg.dataDir}/caddy-data:/data"
+              "${cfg.dataDir}/caddy-config:/config"
+            ]
+            # Read-only: the file share is pull-only, caddy must never be able
+            # to write back into the media tree.
+            ++ lib.optional (cfg.serveDir != null) "${cfg.serveDir}:/srv:ro";
           extraOptions = [
             "--user=${caddyRunAs}"
             "--security-opt=no-new-privileges"
@@ -403,8 +488,25 @@ in {
       })
       instances);
 
+    # An instance is a reverse proxy OR a static file share, never both and
+    # never neither — a Caddyfile with no site body would start and 404 every
+    # request, which looks like a working share until someone tries to use it.
+    assertions =
+      lib.mapAttrsToList (name: cfg: {
+        assertion = (cfg.upstream == null) != (cfg.serveDir == null);
+        message = "homelab.tailscaleShare.${name}: set exactly one of `upstream` (reverse proxy) or `serveDir` (static file share).";
+      })
+      instances;
+
     # Systemd service overrides + DNS sync
     systemd.services = lib.mkMerge (lib.mapAttrsToList (name: cfg: {
+        # A serveDir on NFS that isn't mounted yet would have caddy serve the
+        # bare mountpoint — an empty listing that reads as "the books vanished".
+        # Fail loud instead by ordering the container after the mount.
+        "podman-caddy-${name}" = lib.mkIf (cfg.serveDir != null) {
+          unitConfig.RequiresMountsFor = [cfg.serveDir];
+        };
+
         # DNS sync: wait for tailscale online, upsert Cloudflare A record
         "tailscale-share-dns-sync-${name}" = {
           description = "Sync Cloudflare DNS for ${name} tailscale share (${cfg.fqdn})";

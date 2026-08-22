@@ -5,7 +5,7 @@
 - Forgejo is the write/deploy root; GitHub is read-only. doc1 push authentication: [push recipe](forgejo-push-from-doc1.md).
 - Dev boxes have no push token; relay through doc1 with human review: [threat model](../../docs/wiki/infrastructure/dev-box-gated-push.md).
 - Every deployed commit must be SSH-signed by a key trusted in `hosts.nix`: [signed deploys](../../docs/wiki/infrastructure/signed-fleet-deploys.md).
-- Deploy locked fleet hosts from doc1 with `fleet-deploy`; deploy doc1 locally with `sudo fleet-update`: [runbook](../../docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md).
+- Always finish work live — never hand back a stranded branch: [always deploy](feedback-always-deploy-to-done.md); `fleet-deploy <host>` from doc1, `sudo fleet-update` on doc1: [runbook](../../docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md).
 - doc2 and servarr deliberately override the locked role with full passwordless sudo; igpu and wsl remain narrowly locked: [servarr exception](servarr-nfs-static-and-sudo.md).
 - Never run `npm install` inside a Nix-managed Claude or Codex installation.
 - Never flush pfSense firewall states after a rule change: [pfSense safety](feedback_pfsense_no_state_flush.md).
