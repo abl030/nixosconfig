@@ -142,7 +142,6 @@ in {
           (lib.escapeShellArg cfg.shareDir)
           "--addr 10.88.0.1:${toString cfg.webdav.port}"
           "--read-only"
-          "--name ${lib.escapeShellArg "Yoto Audiobooks"}"
         ];
         Restart = "on-failure";
         RestartSec = 5;
