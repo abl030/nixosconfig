@@ -304,6 +304,18 @@
     };
   };
 
+  # The tmux unit above survives the idle reaper but NOT its own container:
+  # everything in user@1000.service dies with the manager. On 2026-08-22 the
+  # manager took an unattributed SIGKILL and the durable server, every claude
+  # process and hermes went with it — the journal proved it was neither the idle
+  # reaper nor the OOM killer, but PID 1 never records who signalled it. Arm the
+  # audit trail so the next occurrence names its sender. doc1 only: this is the
+  # host that actually hit it, and the interactive one worth the audit volume.
+  homelab.killTrace = {
+    enable = true;
+    watchedUnits = ["user@1000.service"];
+  };
+
   # Keep GitHub as a read-only mirror/fallback of the Forgejo write root (#235).
   # Forgejo's built-in push-mirror API would require storing a GitHub PAT there;
   # this uses a repo-scoped GitHub deploy key on doc1 instead. The mirror prunes

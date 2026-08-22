@@ -75,5 +75,6 @@
     ./containers-backup.nix
     ./doc2-recovery.nix
     ./crash-capture.nix
+    ./kill-trace.nix
   ];
 }
