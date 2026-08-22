@@ -18,6 +18,29 @@ Rips source media into Yoto-compatible audio tracks, extracts per-track icon fra
 
 If a season/album exceeds the per-card cap, split evenly across cards. **Runtime is usually the binding constraint, not size.**
 
+## Audiobooks — use `yoto-prep`, do not hand-roll
+
+For anything from the Audiobookshelf library, there is already a tool. Run it
+on doc2 (or from a checkout: `modules/nixos/services/yoto-share/yoto-prep.py`):
+
+```bash
+yoto-prep --dry-run "J.K. Rowling/Harry Potter"   # show the card plan
+yoto-prep "Enid Blyton/Famous Five"               # prep a whole series
+```
+
+It chapter-splits the `.m4b`, packs tracks into the fewest cards that fit,
+zips each card, and builds the artwork — publishing to
+`/mnt/data/Media/Books/Yoto`, which is served at `https://yoto.ablz.au`.
+Full detail: `docs/wiki/services/yoto-share.md`.
+
+Two things to know before touching audiobooks by hand:
+
+- Library books are **single-file `.m4b`, often 8+ hours / 400+ MB**. That is
+  4× the per-track size cap — the source file cannot be uploaded to Yoto at
+  all. Splitting is mandatory, not an optimisation.
+- Source codecs there are already MP3 or AAC, so split with **`-c copy`**.
+  Re-encoding an audiobook is pure loss for no benefit.
+
 ## Typical source locations
 
 - TV shows: `/mnt/data/Media/TV Shows/<Show>/Season N/` — files named `SxxExx - Title <QUALITY>.mkv`

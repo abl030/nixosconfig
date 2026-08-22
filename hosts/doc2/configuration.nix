@@ -202,6 +202,11 @@
         enable = true;
         dataDir = "/mnt/virtio/audiobookshelf";
       };
+      # Companion to ABS: chapter-splits books into Yoto-legal tracks and
+      # serves them as a browsable tailnet file drop, because the ABS app
+      # downloads into private app storage a file-picker can't reach and a
+      # single-file .m4b busts Yoto's 60min/100MB per-track cap anyway.
+      yotoShare.enable = true;
       atuin = {
         enable = true;
         dataDir = "/mnt/virtio/atuin";
