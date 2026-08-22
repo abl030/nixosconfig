@@ -139,6 +139,33 @@ systemctl --user status tmux
 journalctl -k -u systemd-logind --since -2h | grep -i "is idle, stopping"
 ```
 
+## Known gap: the unit survives the reaper, not its own container
+
+**2026-08-22.** `user@1000.service` on doc1 took an unattributed SIGKILL
+(`Main process exited, code=killed, status=9/KILL`). Everything inside the
+manager died with it — including this durable tmux server, which is *by design*
+inside `user@1000.service`. The very move that puts the server beyond the
+idle reaper's reach also makes the user manager a single point of failure for
+it. Symptomatically this is indistinguishable from the reap this page
+describes: a pane vanishes while you are away. The distinguishing evidence is
+that logind logs `is idle, stopping` for a real reap, and logs nothing here.
+
+Two consequences worth knowing:
+
+- **The unit fails permanently once any other server owns the socket.** After
+  the manager died, a hand-typed `tmux` created a replacement server holding
+  session name `0`. `ExecStart=tmux new-session -d -s 0` then fails
+  `duplicate session: 0`, retries into `start-limit-hit`, and stays failed —
+  so the *next* server is an ordinary in-scope one again, silently unprotected.
+  Recovering means killing the ad-hoc server (or renaming its session `0`) and
+  `systemctl --user reset-failed tmux && systemctl --user start tmux`. Note
+  that `new-session -A` would stop the unit failing but would **not** fix the
+  cgroup: the server only lands in `user@.service` if this unit is the one that
+  creates it.
+- **A manager death is now attributable.** `homelab.killTrace` audits every
+  SIGKILL syscall and snapshots forensics when `user@1000.service` fails — see
+  [kill-trace-forensics.md](kill-trace-forensics.md).
+
 ## When to revisit
 
 - **Other interactive hosts** (`framework`, `epi`) also carry `linger=true` and
