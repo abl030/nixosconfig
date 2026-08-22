@@ -1,1 +1,1 @@
-/nix/store/p8sqsvpjldivmssyf275xd2wy4pq0bsk-nixos-system-servarr-26.11.20260819.afe3d8a
+/nix/store/rsqd93bz927q2r36ydy7p6fngyjcb9w0-nixos-system-servarr-26.11.20260820.391b592

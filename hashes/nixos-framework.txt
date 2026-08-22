@@ -1,1 +1,1 @@
-/nix/store/diyna93davwl8n1zfchj6f3ja2i8bzi9-nixos-system-framework-26.11.20260819.afe3d8a
+/nix/store/b2qbk3xlhaay3k5qyqn5q7w3r24p50mf-nixos-system-framework-26.11.20260820.391b592
