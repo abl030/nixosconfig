@@ -84,6 +84,12 @@ in {
         inherit (cfg) fqdn dataDir;
         serveDir = cfg.shareDir;
         hostname = "yoto";
+        # Same access as the audiobookshelf/overseer/jellyfin shares. The
+        # default-deny tailnet grants tag:share inbound 443 from tag:client,
+        # tag:server (Kuma health checks) and autogroup:shared (inter-tailnet
+        # peers) — so no bespoke ACL rule is needed, and share->fleet egress
+        # stays denied. Untagged, only doc1 could reach it.
+        tags = ["tag:share"];
         # First run logs a login URL in `podman logs ts-yoto`; state then
         # persists under dataDir/ts-state. Matches the audiobookshelf share.
         authKeySecret = null;

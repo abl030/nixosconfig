@@ -216,6 +216,27 @@ in {
           description = "Tailscale node hostname (defaults to the attrset key).";
         };
 
+        tags = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          example = ["tag:share"];
+          description = ''
+            Tailscale ACL tags this node advertises. The tailnet is default-DENY
+            (tailscale/acl.hujson) and the share grants are written against
+            `tag:share`, so an UNTAGGED share node is reachable only from doc1
+            (the sole node with unrestricted egress) — it looks healthy from the
+            bastion while being unreachable for every device that actually needs
+            it, including inter-tailnet shared-in users.
+
+            Default [] leaves TS_EXTRA_ARGS untouched, so nodes tagged by hand in
+            the admin console (overseer, audiobookshelf, jellyfin) are unaffected.
+
+            NOTE: changing an existing node's tags replaces user ownership with
+            tag ownership, which forces re-authentication — the container will
+            print a fresh login URL in `podman logs ts-<name>`.
+          '';
+        };
+
         authKeySecret = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = "${name}-tailscale-authkey.env";
@@ -409,7 +430,11 @@ in {
             TS_STATE_DIR = "/var/lib/tailscale";
             TS_HOSTNAME = cfg.hostname;
             # Do not accept routes from other nodes — pinhole only
-            TS_EXTRA_ARGS = "--accept-routes=false";
+            TS_EXTRA_ARGS = lib.concatStringsSep " " (
+              ["--accept-routes=false"]
+              ++ lib.optional (cfg.tags != [])
+              "--advertise-tags=${lib.concatStringsSep "," cfg.tags}"
+            );
           };
           # Secret file format: TS_AUTHKEY=tskey-auth-...
           # Keep this on the tailscale sidecar only; caddy has no TS state or auth key.
