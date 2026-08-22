@@ -51,6 +51,42 @@ a chapter that is *just* under the limit from crossing it.
 
 ## Access model — read this before adding anything
 
+### The node MUST carry `tag:share`
+
+The tailnet is **default-DENY** and every share grant in `tailscale/acl.hujson`
+is written against `tag:share`. A share node that is *untagged* matches no
+grant except doc1's unrestricted-egress rule.
+
+That failure mode is genuinely nasty, so know it: the share verifies
+**perfectly from doc1** — 200, valid cert, correct headers — while being
+unreachable from every device that actually needs it. Nothing looks broken.
+
+It bites because `authKeySecret = null` means an interactive first-run login,
+which makes the node **user-owned** (`abl030@`) rather than tag-owned.
+overseer / audiobookshelf / jellyfin were tagged by hand in the admin console;
+`yoto` is tagged declaratively via `homelab.tailscaleShare.<name>.tags`.
+
+Observed 2026-08-22 before the fix:
+
+| From | Tag | Result |
+|---|---|---|
+| doc1 | (unrestricted egress) | 200 |
+| framework | `tag:client` | **HTTP 000 — blocked** |
+
+With `tag:share` the existing grants give inbound 443 from `tag:client`,
+`tag:server` (Kuma health checks) and `autogroup:shared` (inter-tailnet peers),
+while share→fleet egress stays denied. **No bespoke ACL rule is needed** — and
+adding one would punch a hole in the default-deny model for no gain.
+
+Verified after tagging: framework → 200, doc2 → 200, doc1 → 200, and
+`ts-yoto` → doc1:443 still refused.
+
+Changing an existing node's tags replaces user ownership with tag ownership.
+That can force re-authentication (`podman logs ts-yoto` prints a fresh login
+URL), though an admin-owned tag was accepted here without one.
+
+### No login on the share itself
+
 The share has **no login**. `homelab.tailscaleShare` normally fronts an app
 that authenticates its own users (Overseerr, ABS); a bare Caddy `file_server`
 has nothing equivalent. Deliberate decision, 2026-08-22: the access control is
@@ -184,6 +220,9 @@ Failure modes worth catching:
 
 - If Yoto changes its limits, they are constants at the top of `yoto-prep.py`
   (`TRACK_SECONDS`, `TRACK_BYTES`, `CARD_*`).
+- Any NEW `tailscaleShare` instance must set `tags = ["tag:share"]`, or it will
+  be silently reachable only from doc1. Test from a `tag:client` node, never
+  from doc1 alone.
 - If the share ever needs per-peer scoping or a login, the file-server mode
   would need a real auth story — at that point prefer a second `serveDir`
   instance with its own node over bolting auth onto this one.
