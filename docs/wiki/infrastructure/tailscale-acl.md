@@ -66,7 +66,7 @@ meter (`192.168.100.89/32`, encrypted ESPHome API on TCP 6053 and authenticated 
 | `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress; Cullen dashboard + inverter `/32`s only |
 | `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
 | `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` plus the indoor water-meter `/32` on encrypted ESPHome API `:6053` and authenticated OTA `:3232`. hermes → `pfsense:53` only (and inbound `:22` from servers) |
-| `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), `192.168.1.35:8050` (Gotify), `192.168.1.2:2049` (tower NFS), Syncthing mesh. Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
+| `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), exact `yoto:443` share access, `192.168.1.35:8050` (Gotify), and `192.168.1.2:2049` (tower NFS). Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
 | `framework` | `tag:cullen:22` (Cullen dev path, in addition to `doc1`) |
 | `autogroup:shared` | `tag:share:443` (inter-tailnet shares, e.g. overseer shared to ali@) |
 
