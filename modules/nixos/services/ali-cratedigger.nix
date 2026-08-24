@@ -179,9 +179,13 @@ in {
       "d ${dataRoot}/state 0700 ${toString aliUid} ${toString aliGid} -"
       "d /var/lib/ali-cratedigger 0755 root root -"
       "d /var/lib/ali-cratedigger/postgresql 0750 ${toString config.ids.uids.postgres} ${toString config.ids.gids.postgres} -"
-      "d /mnt/data/Media/Yoto 2755 ${toString aliUid} ${toString aliGid} -"
-      "d /mnt/data/Media/Yoto/Books 2755 ${toString aliUid} ${toString aliGid} -"
-      "d ${library} 2775 ${toString aliUid} ${toString aliGid} -"
+      # tower exports /mnt/data with all_squash, anonuid=99,anongid=100.
+      # Requesting the container UID here makes systemd-tmpfiles fail with
+      # EPERM; server-side writes from any client identity are checked as this
+      # anonymous owner instead.
+      "d /mnt/data/Media/Yoto 2755 99 100 -"
+      "d /mnt/data/Media/Yoto/Books 2755 99 100 -"
+      "d ${library} 2775 99 100 -"
     ];
 
     containers.ali-cratedigger = {
@@ -242,7 +246,9 @@ in {
           "d ${dataRoot}/processing 0700 cratedigger ali-music -"
           "d ${dataRoot}/staging 2775 cratedigger ali-music -"
           "d ${dataRoot}/state 0700 cratedigger ali-music -"
-          "d ${library} 2775 cratedigger ali-music -"
+          # The bind-mounted NFS library is all-squash; match its server-side
+          # anonymous identity for the same reason as the host tmpfiles rules.
+          "d ${library} 2775 99 100 -"
           "d /var/lib/beets-ali 0750 root cratedigger-ops -"
           "d /run/beets-ali 0750 root cratedigger-ops -"
         ];

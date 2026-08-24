@@ -1894,6 +1894,7 @@
             share = doc2.homelab.tailscaleShare.ali-music;
             yoto = doc2.homelab.services.yotoShare;
             firewallPorts = doc2.networking.firewall.interfaces.podman0.allowedTCPPorts;
+            tmpfilesRules = doc2.systemd.tmpfiles.rules;
           in
             assert lib.assertMsg container.autoStart "Ali Cratedigger container must autostart";
             assert lib.assertMsg (!container.privateNetwork) "Ali Cratedigger requires the host network namespace for the private podman bridge gateway";
@@ -1907,6 +1908,9 @@
             assert lib.assertMsg (share.tags == ["tag:share"]) "Ali's node must retain the default-deny share tag";
             assert lib.assertMsg (builtins.elem 18088 firewallPorts) "Ali's gateway must be admitted on podman0";
             assert lib.assertMsg (yoto.shareDir == "/mnt/data/Media/Yoto" && yoto.booksDir == "/mnt/data/Media/Yoto/Books") "Yoto must publish separate Books and Music roots";
+            assert lib.assertMsg (builtins.elem "d /mnt/data/Media/Yoto 2755 99 100 -" tmpfilesRules) "The all-squash NFS Yoto root must retain the server's anonymous identity";
+            assert lib.assertMsg (builtins.elem "d /mnt/data/Media/Yoto/Books 2755 99 100 -" tmpfilesRules) "The all-squash NFS Books root must retain the server's anonymous identity";
+            assert lib.assertMsg (builtins.elem "d /mnt/data/Media/Yoto/Music 2775 99 100 -" tmpfilesRules) "The all-squash NFS Music root must retain the writable anonymous identity";
               pkgs.runCommand "ali-cratedigger-integration" {
                 nativeBuildInputs = [pkgs.gnugrep];
               } ''
@@ -1923,6 +1927,8 @@
                 postgres_prep=$(grep -o '/nix/store/[^ ]*-postgresql-pre-start' ${container.path}/etc/systemd/system/postgresql.service)
                 postgres_config=$(grep -o '"/nix/store/[^"]*-postgresql.conf/postgresql.conf"' "$postgres_prep/bin/postgresql-pre-start" | tr -d '"')
                 grep -q "^listen_addresses = 'localhost'" "$postgres_config"
+                container_etc=$(readlink -f ${container.path}/etc)
+                grep -q '^d /mnt/data/Media/Yoto/Music 2775 99 100 -$' "$container_etc/tmpfiles.d/00-nixos.conf"
                 grep -q 'After=.*ali-beets-catalog-ready.service' ${container.path}/etc/systemd/system/cratedigger.service
                 grep -q '127.0.0.1:18088' ${container.path}/etc/nginx/nginx.conf
                 grep -q '10.88.0.1:18088' ${container.path}/etc/nginx/nginx.conf
