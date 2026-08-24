@@ -103,6 +103,28 @@ The work laptop (`tag:cullen`) is deliberately granted HTTPS only to the pinned
 `ali-music` and `yoto` nodes. It does not receive tag-wide access to other share
 sidecars.
 
+### Plex
+
+Plex on tower publishes the finished catalog as the separate music library
+`Ali Music`. No prom-to-tower NFS export is involved: doc2's
+`/mnt/data/Media/Yoto/Music` is already backed by tower's
+`/mnt/user/data/Media/Yoto/Music`, and Plex's existing read-only `/media3` bind
+sees it at `/media3/Yoto/Music`.
+
+The library uses the Plex Music scanner/agent, prefers embedded Beets metadata
+and local artwork, and disables sonic analysis. Its visibility is `Exclude from
+home screen`, so it does not add recommendations to the owner's feed. This is a
+server-wide library preference, so Ali browses it as a library rather than
+receiving its hubs on Home.
+
+Plex library access is explicit rather than `allLibraries`: Ali's Plex account
+`ali.barre` receives `Ali Music`; every other shared or managed user retains
+exactly their pre-existing section list and does not receive it. The Plex server
+owner remains able to administer and browse every server library, as required by
+Plex; the owner cannot be denied a single owned section. Verify both the section
+permission list and the scan result after changing Plex libraries, because a
+user with `allLibraries` would inherit future sections automatically.
+
 ## Operations
 
 ```bash
