@@ -1,6 +1,6 @@
 # tailscaleShare
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-08-24
 **Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up; "logged out" alert pattern narrowed 2026-05-22 (see [lgtm-stack.md](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap))
 **Owner:** `modules/nixos/services/tailscale-share.nix`
 **Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)
@@ -68,6 +68,9 @@ on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = f
 |---|---|---|---|
 | Overseerr | `doc2` | `overseer.ablz.au` | `/mnt/virtio/tailscale-share/overseerr` |
 | Audiobookshelf | `doc2` | `audiobooks.ablz.au` | `/mnt/virtio/tailscale-share/audiobookshelf` |
+| Ali Cratedigger | `doc2` | `ali-music.ablz.au` | `/mnt/virtio/tailscale-share/ali-music` |
+| Yoto | `doc2` | `yoto.ablz.au` | `/mnt/virtio/tailscale-share/yoto` |
+| Yoto WebDAV | `doc2` | `yotodav.ablz.au` | `/mnt/virtio/tailscale-share/yotodav` |
 | Jellyfin | `igpu` | `jellyfinn.ablz.au` | `/mnt/virtio/jellyfin/ts` |
 
 The Overseerr share state was moved on 2026-05-14 from `/mnt/virtio/overseerr/ts` because `/mnt/virtio/overseerr` is owned by `seerr`. Keeping share state there would let a compromised Overseerr process rename or replace the sidecar state directory.
@@ -183,6 +186,8 @@ The narrowed pattern (committed `modules/nixos/services/tailscale-share.nix:260-
 ## Operational notes
 
 - Do not put a share `dataDir` under an upstream service-owned directory. Use a root-owned parent so the upstream app cannot replace sidecar state.
+- Share sidecars set `TS_AUTH_ONCE=true` because `TS_STATE_DIR` is persistent. This preserves the enrolled identity when Podman replaces a container instead of forcing another interactive login.
+- A first-run interactive login (`authKeySecret = null`) must complete before containerboot's login attempt times out. If it enters a one-minute restart loop, stop the generated Caddy/Tailscale units, run `tailscaled` against the same persistent `ts-state` mount, complete one manual `tailscale up`, then restore the generated units. Do not delete `ts-state` or expose the upstream as a workaround.
 - Do not enable Caddy admin, Caddy reload sockets, or Tailscale access to Caddy state unless the threat model is rewritten first.
 - `NET_ADMIN` remains scoped to the Tailscale sidecar for `/dev/net/tun`; Caddy should not have it.
 - Image pinning remains separate Tier 4 work in issue #232.

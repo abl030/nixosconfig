@@ -1,7 +1,7 @@
 # Ali Cratedigger — isolated Yoto music acquisition
 
 **Last updated:** 2026-08-24
-**Status:** deployment ready; first Tailscale login and share still required
+**Status:** deployed; Tailscale node enrolled; external share acceptance still required
 **Owner:** `modules/nixos/services/ali-cratedigger.nix`
 **Application URL:** `https://ali-music.ablz.au`
 **Download URL:** `https://yoto.ablz.au/Music/`
@@ -98,6 +98,10 @@ podman logs ts-ali-music
 Open the printed login URL, confirm the node is tagged `tag:share`, then share
 `ali-music` with Ali's tailnet account. The existing `yoto` node must remain
 shared with her so she can download the finished ZIPs.
+
+The work laptop (`tag:cullen`) is deliberately granted HTTPS only to the pinned
+`ali-music` and `yoto` nodes. It does not receive tag-wide access to other share
+sidecars.
 
 ## Operations
 

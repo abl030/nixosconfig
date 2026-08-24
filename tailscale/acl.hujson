@@ -51,6 +51,8 @@
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
     "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
     "yoto":          "100.125.110.111", // read-only Yoto file share; exact Cullen-laptop pinhole
+    "ali-music":     "100.121.236.12",  // Ali Cratedigger; exact Cullen-laptop HTTPS pinhole
+    "yotodav":       "100.125.63.39",   // Yoto WebDAV; negative test keeps Cullen off other shares
   },
 
   // -------------------------------------------------------------------- grants
@@ -156,9 +158,10 @@
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
     { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
     { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
-    // Work laptop → Yoto's read-only HTTPS share. Pin the exact share node rather
-    // than granting tag:cullen access to every tag:share service.
+    // Work laptop → the two intended Yoto/music HTTPS shares. Pin each exact
+    // share node rather than granting tag:cullen access to every tag:share service.
     { "src": ["tag:cullen"], "dst": ["yoto"], "ip": ["tcp:443"] },
+    { "src": ["tag:cullen"], "dst": ["ali-music"], "ip": ["tcp:443"] },
     // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
     { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
@@ -277,7 +280,7 @@
     // route. forgejo#4: syncthing(22000) is now DENIED (wsl left the mesh).
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:80", "tag:server:443", "tag:client:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:443", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:80", "yotodav:443", "tag:server:443", "tag:client:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.111:3389"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
     // cullen → doc1 RCA webhook (8644) for negative alert routing.
     { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },

@@ -1892,6 +1892,7 @@
             container = doc2.containers.ali-cratedigger;
             containerService = doc2.systemd.services."container@ali-cratedigger";
             share = doc2.homelab.tailscaleShare.ali-music;
+            shareContainer = doc2.virtualisation.oci-containers.containers."ts-ali-music";
             yoto = doc2.homelab.services.yotoShare;
             firewallPorts = doc2.networking.firewall.interfaces.podman0.allowedTCPPorts;
             tmpfilesRules = doc2.systemd.tmpfiles.rules;
@@ -1906,6 +1907,7 @@
             assert lib.assertMsg (builtins.elem "beets-runtime-ready.service" containerService.partOf && builtins.elem "cratedigger-secrets-split.service" containerService.partOf) "Ali's container must restart when a bound secret producer restarts";
             assert lib.assertMsg (share.upstream == "http://host.docker.internal:18088") "Ali's share must reach only the private bridge gateway";
             assert lib.assertMsg (share.tags == ["tag:share"]) "Ali's node must retain the default-deny share tag";
+            assert lib.assertMsg (shareContainer.environment.TS_AUTH_ONCE == "true") "Persistent Tailscale shares must preserve their authenticated identity across restarts";
             assert lib.assertMsg (builtins.elem 18088 firewallPorts) "Ali's gateway must be admitted on podman0";
             assert lib.assertMsg (yoto.shareDir == "/mnt/data/Media/Yoto" && yoto.booksDir == "/mnt/data/Media/Yoto/Books") "Yoto must publish separate Books and Music roots";
             assert lib.assertMsg (builtins.elem "d /mnt/data/Media/Yoto 2755 99 100 -" tmpfilesRules) "The all-squash NFS Yoto root must retain the server's anonymous identity";

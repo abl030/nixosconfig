@@ -429,6 +429,9 @@ in {
           environment = {
             TS_STATE_DIR = "/var/lib/tailscale";
             TS_HOSTNAME = cfg.hostname;
+            # Every share persists TS_STATE_DIR. Reuse that authenticated identity
+            # instead of forcing a fresh login during each container replacement.
+            TS_AUTH_ONCE = "true";
             # Do not accept routes from other nodes — pinhole only
             TS_EXTRA_ARGS = lib.concatStringsSep " " (
               ["--accept-routes=false"]
