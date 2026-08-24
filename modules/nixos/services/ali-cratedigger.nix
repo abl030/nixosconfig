@@ -23,6 +23,7 @@
   beetsSecretInclude = "${beetsSecretDir}/secrets.yaml";
   slskdDownloadDir = "/mnt/virtio/music/slskd";
   slskdSecretSource = "/run/cratedigger-secrets/SOULARR_SLSKD_API_KEY";
+  plexTokenSource = "/run/cratedigger-secrets/PLEX_TOKEN";
 
   gatewayPort = 18088;
   aliUid = 960;
@@ -210,6 +211,10 @@ in {
         };
         ${slskdSecretSource} = {
           hostPath = slskdSecretSource;
+          isReadOnly = true;
+        };
+        ${plexTokenSource} = {
+          hostPath = plexTokenSource;
           isReadOnly = true;
         };
         ${beetsSecretDir} = {
@@ -434,6 +439,13 @@ in {
             inherit gatewayPort;
             gatewayAddresses = ["127.0.0.1" "10.88.0.1"];
             enableInsecure = true;
+          };
+          notifiers.plex = {
+            enable = true;
+            url = "https://plex.ablz.au";
+            tokenFile = plexTokenSource;
+            librarySectionId = 6;
+            pathMap = "${library}:/media3/Yoto/Music";
           };
           healthCheck.enable = false;
         };

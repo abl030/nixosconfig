@@ -125,6 +125,15 @@ Plex; the owner cannot be denied a single owned section. Verify both the section
 permission list and the scan result after changing Plex libraries, because a
 user with `allLibraries` would inherit future sections automatically.
 
+Ali's importer notifies Plex section 6 after a successful Beets import. It maps
+the publication path `/mnt/data/Media/Yoto/Music` to Plex's read-only view at
+`/media3/Yoto/Music`, allowing a narrow album-path refresh instead of rescanning
+unrelated libraries. The container mounts the existing runtime Plex token at
+`/run/cratedigger-secrets/PLEX_TOKEN`, read-only; no token is stored in Nix or in
+the container's persistent state. `container@ali-cratedigger.service` is part of
+the token producer's restart lifecycle so token replacement cannot leave the
+single-file bind pinned to a stale inode.
+
 ## Operations
 
 ```bash

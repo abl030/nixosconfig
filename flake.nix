@@ -1902,6 +1902,8 @@
             assert lib.assertMsg (container.bindMounts."/mnt/virtio/music/slskd".hostPath == "/mnt/virtio/music/slskd") "Ali Cratedigger must share only the canonical slskd handoff";
             assert lib.assertMsg (container.bindMounts."/mnt/data/Media/Yoto/Music".hostPath == "/mnt/data/Media/Yoto/Music") "Ali's Beets library must be the Yoto Music publication tree";
             assert lib.assertMsg (container.bindMounts."/var/lib/postgresql".hostPath == "/var/lib/ali-cratedigger/postgresql") "Ali's PostgreSQL state must be independently persisted";
+            assert lib.assertMsg (container.bindMounts."/run/cratedigger-secrets/PLEX_TOKEN".hostPath == "/run/cratedigger-secrets/PLEX_TOKEN") "Ali's notifier must consume the existing runtime Plex token";
+            assert lib.assertMsg container.bindMounts."/run/cratedigger-secrets/PLEX_TOKEN".isReadOnly "Ali's Plex token must be mounted read-only";
             assert lib.assertMsg container.bindMounts."/run/beets".isReadOnly "Ali's Beets secret directory must be mounted read-only";
             assert lib.assertMsg (builtins.elem "beets-runtime-ready.service" containerService.requires && builtins.elem "cratedigger-secrets-split.service" containerService.requires) "Ali's container must require its rendered secrets";
             assert lib.assertMsg (builtins.elem "beets-runtime-ready.service" containerService.partOf && builtins.elem "cratedigger-secrets-split.service" containerService.partOf) "Ali's container must restart when a bound secret producer restarts";
@@ -1932,6 +1934,15 @@
                 container_etc=$(readlink -f ${container.path}/etc)
                 grep -q '^d /mnt/data/Media/Yoto/Music 2775 99 100 -$' "$container_etc/tmpfiles.d/00-nixos.conf"
                 grep -q 'After=.*ali-beets-catalog-ready.service' ${container.path}/etc/systemd/system/cratedigger.service
+                importer_unit=${container.path}/etc/systemd/system/cratedigger-importer.service
+                importer=$(grep -o '/nix/store/[^ ]*-cratedigger-importer/bin/cratedigger-importer' "$importer_unit")
+                test -n "$importer"
+                config_file=$(grep -o '/nix/store/[^" ]*-cratedigger-config.ini' "$importer" | head -n1)
+                test -n "$config_file"
+                grep -q '^url = https://plex.ablz.au$' "$config_file"
+                grep -q '^token_file = /run/cratedigger-secrets/PLEX_TOKEN$' "$config_file"
+                grep -q '^library_section_id = 6$' "$config_file"
+                grep -q '^path_map = /mnt/data/Media/Yoto/Music:/media3/Yoto/Music$' "$config_file"
                 grep -q '127.0.0.1:18088' ${container.path}/etc/nginx/nginx.conf
                 grep -q '10.88.0.1:18088' ${container.path}/etc/nginx/nginx.conf
                 if grep -q '0.0.0.0:18088' ${container.path}/etc/nginx/nginx.conf; then
