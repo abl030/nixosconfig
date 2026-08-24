@@ -1,6 +1,6 @@
-# Yoto share — audiobooks as Yoto MYO cards
+# Yoto share — books and music for Yoto MYO cards
 
-**Last updated:** 2026-08-22
+**Last updated:** 2026-08-24
 **Status:** working
 **Owner:** `modules/nixos/services/yoto-share.nix` (+ `modules/nixos/services/yoto-share/yoto-prep.py`), file-server mode in `modules/nixos/services/tailscale-share.nix`
 **Issue:** none — feature request from a family tailnet peer
@@ -46,7 +46,10 @@ a chapter that is *just* under the limit from crossing it.
 
 - **Host:** doc2 (same host as Audiobookshelf)
 - **Source library:** `/mnt/data/Media/Books/Audiobooks` (NFS from tower)
-- **Published tree:** `/mnt/data/Media/Books/Yoto`
+- **Published tree:** `/mnt/data/Media/Yoto`
+- **Prepared books:** `/mnt/data/Media/Yoto/Books`
+- **Ali's music:** `/mnt/data/Media/Yoto/Music` (owned by her isolated
+  Cratedigger/Beets instance; see `docs/wiki/services/ali-cratedigger.md`)
 - **FQDN:** `https://yoto.ablz.au`, on its own tailscale node `yoto`
 
 ## Access model — read this before adding anything
@@ -95,9 +98,9 @@ has nothing equivalent. Deliberate decision, 2026-08-22: the access control is
 
 The consequences to keep in mind:
 
-- `serveDir` points at the curated `Yoto/` tree, **never** at the audiobook
-  library or any parent of it. Anything placed in that directory is readable by
-  every peer the node is shared with.
+- `serveDir` points at the curated `Media/Yoto/` publication tree, **never** at
+  either source library or a parent of them. Anything placed there is readable
+  by every peer the node is shared with.
 - The bind mount is `:ro` and Caddy has no upload route, so the share is
   strictly pull. A peer cannot write into the media tree.
 - The node is a pinhole: its own tailscale identity, `--accept-routes=false`,
@@ -143,8 +146,9 @@ source file and it re-preps automatically.
 
 ```
 Yoto/
-  README.txt                              <- instructions for the peer
-  Enid Blyton/The Secret Seven/1 - The Secret Seven/
+  Books/
+    README.txt                            <- instructions for the peer
+    Enid Blyton/The Secret Seven/1 - The Secret Seven/
       1 - The Secret Seven.zip            <- one tap on the phone
       Card A/01 - Plans for an S. S. Meeting.m4a
       Card A/02 - The Secret Seven Society.m4a
@@ -152,6 +156,10 @@ Yoto/
       _artwork/cover.png
       _artwork/icon.png
       .yoto-prep.json                     <- hidden from the listing
+  Music/
+    Artist/2026 - Album/
+      01 Song.mp3
+      2026 - Album.zip                    <- one tap for Ali
 ```
 
 One `Card X/` folder = one Yoto card, already within all three per-card limits.

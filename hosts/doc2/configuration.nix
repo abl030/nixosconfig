@@ -221,6 +221,7 @@
         downloadDir = "/mnt/virtio/music/slskd";
         metadataGate.remoteDiscogsImportHost = "192.168.1.44";
       };
+      aliCratedigger.enable = true;
       paperless = {
         enable = true;
         dataDir = "/mnt/virtio/paperless";
@@ -393,6 +394,10 @@
               "/mnt/data/Life"
               "/mnt/data/Media/Books"
               "/mnt/data/Media/Music"
+              # Prepared Yoto books plus Ali's low-volume music library. The
+              # books used to ride under Media/Books/Yoto; keep the new
+              # top-level Books/Music tree covered after the migration.
+              "/mnt/data/Media/Yoto"
               # Wine-magazine archive on its dedicated single-disk share.
               # Synology offsite copy alongside the photos-repo (Wasabi) one.
               "/mnt/magazines"
@@ -402,6 +407,8 @@
               # ~100k files — relies on the #267 virtiofsd fd fix to avoid ENFILE.
               # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
               "/mnt/virtio/Music"
+              # Ali's independent PostgreSQL, Beets DB, and Cratedigger state.
+              "/mnt/virtio/ali-cratedigger"
               # pfSense ZFS backup, read-only NFS mount from prom. (Replaces
               # the earlier virtiofs share at /mnt/pfsense-backup — virtiofs
               # does not cross ZFS-submount boundaries reliably, so the

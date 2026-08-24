@@ -39,7 +39,7 @@
     makeWrapper ${yotoPrepScript}/bin/yoto-prep $out/bin/yoto-prep \
       --prefix PATH : ${lib.makeBinPath [pkgs.ffmpeg]} \
       --set-default YOTO_LIBRARY ${lib.escapeShellArg cfg.libraryDir} \
-      --set-default YOTO_OUT ${lib.escapeShellArg cfg.shareDir}
+      --set-default YOTO_OUT ${lib.escapeShellArg cfg.booksDir}
   '';
 in {
   options.homelab.services.yotoShare = {
@@ -53,13 +53,19 @@ in {
 
     shareDir = lib.mkOption {
       type = lib.types.str;
-      default = "/mnt/data/Media/Books/Yoto";
+      default = "/mnt/data/Media/Yoto";
       description = ''
-        Directory of prepared, Yoto-ready books served read-only to the
-        tailnet. Deliberately a curated staging tree, NOT the audiobook
-        library itself: the share has no login, so its contents are exactly
-        what any peer the node is shared with can download.
+        Curated top-level tree served read-only to the tailnet. It contains
+        Books and Music, not either canonical source library: the share has no
+        login, so its contents are exactly what any shared peer can download.
       '';
+    };
+
+    booksDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.shareDir}/Books";
+      defaultText = lib.literalExpression ''"''${config.homelab.services.yotoShare.shareDir}/Books"'';
+      description = "Prepared Yoto audiobook output beneath the published top-level tree.";
     };
 
     libraryDir = lib.mkOption {

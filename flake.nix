@@ -1878,6 +1878,61 @@
               touch "$out"
             '';
 
+          aliYotoZipCheck =
+            pkgs.runCommand "ali-yoto-zip" {
+              nativeBuildInputs = [pkgs.python3];
+            } ''
+              ALI_YOTO_ZIP=${./modules/nixos/services/ali-cratedigger/zip-albums.py} \
+                python3 ${./nix/checks/test_ali_yoto_zip.py}
+              touch "$out"
+            '';
+
+          aliCratediggerIntegrationCheck = let
+            doc2 = self.nixosConfigurations.doc2.config;
+            container = doc2.containers.ali-cratedigger;
+            containerService = doc2.systemd.services."container@ali-cratedigger";
+            share = doc2.homelab.tailscaleShare.ali-music;
+            yoto = doc2.homelab.services.yotoShare;
+            firewallPorts = doc2.networking.firewall.interfaces.podman0.allowedTCPPorts;
+          in
+            assert lib.assertMsg container.autoStart "Ali Cratedigger container must autostart";
+            assert lib.assertMsg (!container.privateNetwork) "Ali Cratedigger requires the host network namespace for the private podman bridge gateway";
+            assert lib.assertMsg (container.bindMounts."/mnt/virtio/music/slskd".hostPath == "/mnt/virtio/music/slskd") "Ali Cratedigger must share only the canonical slskd handoff";
+            assert lib.assertMsg (container.bindMounts."/mnt/data/Media/Yoto/Music".hostPath == "/mnt/data/Media/Yoto/Music") "Ali's Beets library must be the Yoto Music publication tree";
+            assert lib.assertMsg (container.bindMounts."/var/lib/postgresql".hostPath == "/var/lib/ali-cratedigger/postgresql") "Ali's PostgreSQL state must be independently persisted";
+            assert lib.assertMsg container.bindMounts."/run/beets".isReadOnly "Ali's Beets secret directory must be mounted read-only";
+            assert lib.assertMsg (builtins.elem "beets-runtime-ready.service" containerService.requires && builtins.elem "cratedigger-secrets-split.service" containerService.requires) "Ali's container must require its rendered secrets";
+            assert lib.assertMsg (builtins.elem "beets-runtime-ready.service" containerService.partOf && builtins.elem "cratedigger-secrets-split.service" containerService.partOf) "Ali's container must restart when a bound secret producer restarts";
+            assert lib.assertMsg (share.upstream == "http://host.docker.internal:18088") "Ali's share must reach only the private bridge gateway";
+            assert lib.assertMsg (share.tags == ["tag:share"]) "Ali's node must retain the default-deny share tag";
+            assert lib.assertMsg (builtins.elem 18088 firewallPorts) "Ali's gateway must be admitted on podman0";
+            assert lib.assertMsg (yoto.shareDir == "/mnt/data/Media/Yoto" && yoto.booksDir == "/mnt/data/Media/Yoto/Books") "Yoto must publish separate Books and Music roots";
+              pkgs.runCommand "ali-cratedigger-integration" {
+                nativeBuildInputs = [pkgs.gnugrep];
+              } ''
+                test -e ${container.path}/etc/systemd/system/cratedigger.service
+                test -e ${container.path}/etc/systemd/system/cratedigger-web.service
+                test -e ${container.path}/etc/systemd/system/ali-yoto-zip.service
+                beets_dir=$(grep -o '/nix/store/[^" ]*-ali-beets-config' ${container.path}/etc/systemd/system/ali-beets-catalog-ready.service)
+                test -n "$beets_dir"
+                grep -q '^library: /mnt/virtio/ali-cratedigger/beets-db/beets-library.db' "$beets_dir/config.yaml"
+                redis_prep=$(grep -o '/nix/store/[^ ]*-redis-cratedigger-prep-conf' ${container.path}/etc/systemd/system/redis-cratedigger.service)
+                redis_config=$(grep -o '"/nix/store/[^"]*-redis.conf"' "$redis_prep" | tr -d '"')
+                grep -q '^bind 127.0.0.1' "$redis_config"
+                grep -q '^port 6380' "$redis_config"
+                postgres_prep=$(grep -o '/nix/store/[^ ]*-postgresql-pre-start' ${container.path}/etc/systemd/system/postgresql.service)
+                postgres_config=$(grep -o '"/nix/store/[^"]*-postgresql.conf/postgresql.conf"' "$postgres_prep/bin/postgresql-pre-start" | tr -d '"')
+                grep -q "^listen_addresses = 'localhost'" "$postgres_config"
+                grep -q 'After=.*ali-beets-catalog-ready.service' ${container.path}/etc/systemd/system/cratedigger.service
+                grep -q '127.0.0.1:18088' ${container.path}/etc/nginx/nginx.conf
+                grep -q '10.88.0.1:18088' ${container.path}/etc/nginx/nginx.conf
+                if grep -q '0.0.0.0:18088' ${container.path}/etc/nginx/nginx.conf; then
+                  echo 'Ali gateway widened beyond loopback and podman0' >&2
+                  exit 1
+                fi
+                touch "$out"
+              '';
+
           cratediggerTipCanaryCheck = let
             systemd = self.nixosConfigurations.proxmox-vm.config.systemd;
             service = systemd.services.cratedigger-beets-tip-canary;
@@ -1993,7 +2048,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

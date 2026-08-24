@@ -39,6 +39,7 @@
     ./unifi-controller.nix
     ./msn-history-viewer.nix
     ./cratedigger.nix
+    ./ali-cratedigger.nix
     ./discogs.nix
     ./paperless.nix
     ./mealie.nix
