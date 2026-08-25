@@ -249,9 +249,15 @@
     };
   };
 
-  boot.kernel.sysctl = {
-    # Allow rootless containers to use ping (required by smokeping/fping).
-    "net.ipv4.ping_group_range" = "0 2147483647";
+  boot = {
+    # Track the newest kernel carried by nixpkgs-unstable rather than the
+    # package set's conservative default kernel.
+    kernelPackages = pkgs.linuxPackages_latest;
+
+    kernel.sysctl = {
+      # Allow rootless containers to use ping (required by smokeping/fping).
+      "net.ipv4.ping_group_range" = "0 2147483647";
+    };
   };
 
   # VM Specifics
