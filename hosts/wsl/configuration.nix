@@ -82,7 +82,13 @@
           mountPoint = "/mnt/z";
         };
       };
-      opsSync.enable = true;
+      opsSync = {
+        enable = true;
+        # Z: is a Windows user-session mapping and can remain remembered but
+        # disconnected after a Windows/WSL restart. The reconnect preflight
+        # restores this declared mapping with the existing Windows credential.
+        sourceWindowsShare = "\\\\192.168.100.201\\Data";
+      };
       nfsMusic.enable = false;
     };
     services.cullen-dashboard.enable = true;

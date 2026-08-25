@@ -575,6 +575,32 @@
               touch $out
             '';
 
+          # WSL's mapped Z: drive can remain remembered but disconnected after
+          # a Windows/WSL restart. The nightly sync must repair that Windows-side
+          # mapping before treating its source as unavailable.
+          wslOpsSyncSourceReconnectCheck = let
+            wsl = self.nixosConfigurations.wsl.config;
+            reconnect = wsl.systemd.services.ops-sync-source-reconnect.serviceConfig.ExecStart;
+          in
+            pkgs.runCommand "wsl-ops-sync-source-reconnect" {} ''
+              reconnect=${lib.escapeShellArg reconnect}
+              test ${lib.escapeShellArg wsl.homelab.mounts.opsSync.sourceWindowsShare} = '\\192.168.100.201\Data'
+              test ${lib.escapeShellArg wsl.systemd.services.ops-sync-source-reconnect.serviceConfig.User} = nixos
+              test '${lib.boolToString (lib.elem "mnt-z.automount" wsl.systemd.services.ops-sync.wants)}' = true
+              ${pkgs.gnugrep}/bin/grep -F 'share_b64="$(printf' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'WSLENV=OPS_SYNC_SHARE_B64' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F '[Convert]::FromBase64String($env:OPS_SYNC_SHARE_B64)' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F '$mapping = Get-SmbMapping -LocalPath "Z:"' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F '$mapping.RemotePath -eq $ExpectedShare' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'net.exe" use Z: /delete /y' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'Start-Process -FilePath "$env:SystemRoot\System32\net.exe"' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F '@("use", "Z:", $ExpectedShare, "/persistent:yes")' "$reconnect" >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'Test-Path -LiteralPath "Z:\Operations & Production"' "$reconnect" >/dev/null
+              ops_sync=${lib.escapeShellArg wsl.systemd.services.ops-sync.serviceConfig.ExecStart}
+              ${pkgs.gnugrep}/bin/grep -F 'systemctl reset-failed mnt-z.mount' "$ops_sync" >/dev/null
+              touch $out
+            '';
+
           # Timer-driven cleanup commands must resolve to real executables in
           # the evaluated host closure. lib.getExe' does not validate that an
           # arbitrary package actually provides the requested binary.
@@ -2067,7 +2093,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
