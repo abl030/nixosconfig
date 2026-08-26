@@ -1237,7 +1237,7 @@ in {
         lib.listToAttrs (map (probe: let
             slug = probeSlug probe.name;
             urlFile = "/var/lib/homelab/monitoring/push-urls/${slug}.url";
-            probeRunner = pkgs.writeShellScript "deep-probe-${slug}-runner" ''
+            probeBody = pkgs.writeShellScript "deep-probe-${slug}-body" ''
               set -uo pipefail
 
               url_file=${lib.escapeShellArg urlFile}
@@ -1284,6 +1284,40 @@ in {
               fi
               exit 0
             '';
+            lockDirectory = "deep-probe-${slug}-lock";
+            regularRunner = pkgs.writeShellScript "deep-probe-${slug}-runner" ''
+              set -eu
+              exec 9>"''${RUNTIME_DIRECTORY}/execution.lock"
+              if [ "''${POST_MAINTENANCE_DEEP_PROBE:-0}" = 1 ]; then
+                # The longest probe may use its full 300s start timeout, then
+                # systemd may need the explicit 90s stop timeout to SIGKILL its
+                # control group. Eight minutes leaves 90s of additional margin.
+                if ! ${pkgs.util-linux}/bin/flock -w 480 9; then
+                  echo "[post-maintenance-deep-probe] ${probe.name}: timed out waiting for the active probe" >&2
+                  exit 1
+                fi
+              elif ! ${pkgs.util-linux}/bin/flock -n 9; then
+                # The post-maintenance invocation owns the shared execution
+                # boundary and will emit the heartbeat. Do not create a failed
+                # ordinary timer invocation while it is running.
+                echo "[deep-probe] ${probe.name}: post-maintenance invocation already running; skipping duplicate"
+                exit 0
+              fi
+              exec ${probeBody}
+            '';
+            commonServiceConfig = {
+              Type = "oneshot";
+              # Default-on; a probe needing privilege can override via
+              # probe.serviceConfig (the // merge below wins). (#232)
+              NoNewPrivileges = true;
+              RuntimeDirectory = lockDirectory;
+              RuntimeDirectoryMode = "0700";
+              RuntimeDirectoryPreserve = true;
+              # Make the upper bound used by the post-maintenance lock wait
+              # explicit, including TERM-ignoring descendants inheriting fd 9.
+              KillMode = "control-group";
+              TimeoutStopSec = "90s";
+            };
           in {
             name = "deep-probe-${slug}";
             value = {
@@ -1297,46 +1331,74 @@ in {
               restartIfChanged = false;
               stopIfChanged = false;
               serviceConfig =
-                {
-                  Type = "oneshot";
-                  # Default-on; a probe needing privilege can override via
-                  # probe.serviceConfig (the // merge below wins). (#232)
-                  NoNewPrivileges = true;
-                  ExecStart = probeRunner;
+                commonServiceConfig
+                // probe.serviceConfig
+                // {
+                  ExecStart = regularRunner;
                   TimeoutStartSec = probe.timeout;
-                }
-                // probe.serviceConfig;
+                };
+            };
+          })
+          cfg.deepProbes)
+        // lib.listToAttrs (map (probe: let
+            slug = probeSlug probe.name;
+            ordinaryService = config.systemd.services."deep-probe-${slug}";
+            ordinaryConfig = ordinaryService.serviceConfig;
+            ordinaryRunner = ordinaryConfig.ExecStart;
+            ordinaryEnvironment = lib.toList (ordinaryConfig.Environment or []);
+          in {
+            name = "post-maintenance-deep-probe-${slug}";
+            value = {
+              description = "Reliable post-maintenance deep probe: ${probe.name}";
+              after = ["network-online.target" "homelab-monitoring-sync.service"];
+              wants = ["network-online.target"];
+              restartIfChanged = false;
+              stopIfChanged = false;
+              serviceConfig =
+                ordinaryConfig
+                // probe.serviceConfig
+                // {
+                  ExecStart = ordinaryRunner;
+                  Environment = ordinaryEnvironment ++ ["POST_MAINTENANCE_DEEP_PROBE=1"];
+                  # 8m lock wait + 5m probe + curl retry overhead and margin.
+                  TimeoutStartSec = "15m";
+                };
             };
           })
           cfg.deepProbes)
       );
 
-    systemd.timers = lib.listToAttrs (map (probe: let
-        slug = probeSlug probe.name;
-      in {
-        name = "deep-probe-${slug}";
-        value = {
-          description = "Deep write-path probe timer: ${probe.name}";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnBootSec = "2m";
-            OnUnitActiveSec = probe.interval;
-            # Kuma records otherwise-successful pushes as maintenance heartbeats
-            # (status=3), which do not seed the post-maintenance freshness window.
-            # Force every deep probe immediately after the fleet-wide nightly
-            # maintenance window ends at 05:30 so a healthy low-cadence probe
-            # cannot false-page while waiting for its next interval run.
-            OnCalendar = "*-*-* 05:31:00 Australia/Perth";
-            # Keep the timer punctual: OnUnitActiveSec already counts from probe
-            # completion (so each push lands runtime+jitter past Kuma's deadline);
-            # 1s accuracy minimises the extra jitter on top. The real guard against
-            # boundary-race flaps is intervalSecs headroom over the cadence — see
-            # the intervalSecs option doc below and the 2026-06-05 RCA in lgtm-stack.md.
-            AccuracySec = "1s";
-            Unit = "deep-probe-${slug}.service";
+    systemd.timers =
+      lib.listToAttrs (map (probe: let
+          slug = probeSlug probe.name;
+        in {
+          name = "deep-probe-${slug}";
+          value = {
+            description = "Deep write-path probe timer: ${probe.name}";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnBootSec = "2m";
+              OnUnitActiveSec = probe.interval;
+              AccuracySec = "1s";
+              Unit = "deep-probe-${slug}.service";
+            };
           };
-        };
-      })
-      cfg.deepProbes);
+        })
+        cfg.deepProbes)
+      // lib.listToAttrs (map (probe: let
+          slug = probeSlug probe.name;
+        in {
+          name = "post-maintenance-deep-probe-${slug}";
+          value = {
+            description = "Post-maintenance deep probe timer: ${probe.name}";
+            wantedBy = ["timers.target"];
+            timerConfig = {
+              OnCalendar = "*-*-* 05:31:00 Australia/Perth";
+              AccuracySec = "1s";
+              Unit = "post-maintenance-deep-probe-${slug}.service";
+            };
+          };
+        })
+        cfg.deepProbes);
   };
 }

@@ -122,13 +122,6 @@ in `/home/abl030/nixosconfig`.
 ```bash
 cd /home/abl030/nixosconfig
 git fetch origin
-primary_status_baseline=$(mktemp)
-primary_status_current=$(mktemp)
-git status --short --branch >"$primary_status_baseline"
-assert_primary_checkout_unchanged() {
-  git -C /home/abl030/nixosconfig status --short --branch >"$primary_status_current"
-  cmp -s "$primary_status_baseline" "$primary_status_current"
-}
 worktree_root=/home/abl030/.cache/hermes/worktrees
 mkdir -p "$worktree_root"
 worktree=$(mktemp -d "$worktree_root/alert-rca-XXXXXX")
@@ -136,18 +129,21 @@ rmdir "$worktree"
 branch=fix/<short-description>
 git worktree add -b "$branch" "$worktree" origin/master
 cd "$worktree"
+git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --git-path primary-status-baseline)"
 ```
 
 Use `git -C "$worktree" ...` or remain inside `$worktree` for every edit,
-verification, commit, and push. Fetch **before** capturing the primary-checkout
-baseline: fetching can legitimately change the branch's `[behind N]` annotation,
-so a pre-fetch baseline creates a false checkout-safety failure. Run
-`assert_primary_checkout_unchanged` before committing and again after the branch
-and PR have been verified. The helper uses `cmp -s` for a byte-for-byte
-comparison, including the branch header. If either comparison fails, stop,
+verification, commit, and push. Fetch **before** creating the worktree, then capture
+the primary status only **after** entering it: fetching can legitimately change the
+branch's `[behind N]` annotation, while `git rev-parse --git-path` stores the
+baseline in this worktree's administrative Git directory. That path survives
+separate tool calls without relying on a temporary variable or shell function.
+
+Execute the exact `status | cmp` command below immediately before committing and
+again after the Forgejo PR readback. If either command returns non-zero, stop,
 preserve the worktree, report the checkout-safety failure in Gotify, and do not
-try to repair the primary checkout. Remove both temporary status files only
-after the final comparison passes.
+repair, reset, or clean the primary checkout. Remove the administrative baseline
+only after the final comparison passes.
 
 ### 2. Make the fix
 
@@ -162,8 +158,11 @@ root cause. Do not refactor or touch unrelated code.
 
 ### 4. Commit and sign
 
-doc1 signs automatically (gpg.format=ssh, commit.gpgsign=true). Verify:
+doc1 signs automatically (gpg.format=ssh, commit.gpgsign=true). Run the
+checkout comparison as its own executable command immediately before commit, then
+verify the signature:
 ```bash
+git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -
 git add <file>
 git commit -m "fix: <short description of the fix>"
 git log -1 --format=%G?  # must print 'G'
@@ -195,13 +194,21 @@ print(json.dumps({
 ")"
 ```
 
-Extract `html_url` from the response — this goes in the Gotify message.
+Extract `<number>` and `html_url` from the response, then read the PR back and
+execute the second checkout comparison in the RCA worktree as separate commands:
 
-After the pushed branch and PR have both been verified, remove only the dedicated
-RCA worktree with `git -C /home/abl030/nixosconfig worktree remove "$worktree"`,
-but only after the final byte-for-byte primary-status comparison described above.
-Keep the remote branch for the PR. If any step fails, preserve the worktree for
-manual inspection; never compensate by resetting or cleaning the primary checkout.
+```bash
+curl -fsS "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"
+git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -
+rm "$(git rev-parse --git-path primary-status-baseline)"
+```
+
+Only after the readback confirms the expected open PR, branch, base, and head SHA
+and the comparison succeeds does `html_url` go in the Gotify message. Remove only
+the dedicated RCA worktree with
+`git -C /home/abl030/nixosconfig worktree remove "$worktree"`. Keep the remote
+branch for the PR. If any step fails, preserve the worktree for manual inspection;
+never compensate by resetting or cleaning the primary checkout.
 
 ## Gotify Delivery
 
