@@ -1,1 +1,1 @@
-/nix/store/qqpy1iirizsaavhsbiabnkx65dq32i4c-nixos-system-discogs-lxc-proxmox-26.11.20260822.174eb78
+/nix/store/7kl04wxjrv5g358h4m0a5vlmlxhdc336-nixos-system-discogs-lxc-proxmox-26.11.20260825.ac6b216
