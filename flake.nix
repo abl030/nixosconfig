@@ -2030,12 +2030,171 @@
               touch "$out"
             '';
 
+          # Every generated deep probe gets a separate calendar coordinator.
+          # The ordinary interval timer must remain unchanged while the calendar
+          # path waits boundedly for overlap and then starts/waits for the probe.
+          postMaintenanceDeepProbeCheck = let
+            probeSlug = name:
+              lib.toLower (builtins.replaceStrings
+                ["/" " " "(" ")" "—" "[" "]"]
+                ["-" "-" "" "" "-" "" ""]
+                name);
+            probeCases = lib.concatMap (hostName: let
+              host = self.nixosConfigurations.${hostName}.config;
+            in
+              map (probe: let
+                slug = probeSlug probe.name;
+              in {
+                inherit hostName probe slug;
+                timer = host.systemd.timers."deep-probe-${slug}".timerConfig;
+                coordinatorTimer = host.systemd.timers."post-maintenance-deep-probe-${slug}".timerConfig;
+                probeService = host.systemd.services."deep-probe-${slug}".serviceConfig;
+                coordinatorService = host.systemd.services."post-maintenance-deep-probe-${slug}".serviceConfig;
+              })
+              host.homelab.monitoring.deepProbes)
+            (lib.attrNames self.nixosConfigurations);
+          in
+            assert probeCases != [];
+            assert lib.all (probeCase: lib.elem probeCase.probe.timeout ["60s" "300s"]) probeCases;
+            assert lib.all (probeCase:
+              builtins.removeAttrs probeCase.coordinatorService ["Environment" "TimeoutStartSec"]
+              == builtins.removeAttrs probeCase.probeService ["Environment" "TimeoutStartSec"])
+            probeCases;
+            assert lib.all (probeCase:
+              (probeCase.coordinatorService.Environment or [])
+              == (probeCase.probeService.Environment or []) ++ ["POST_MAINTENANCE_DEEP_PROBE=1"])
+            probeCases;
+              pkgs.runCommand "post-maintenance-deep-probe-coordinators" {
+                nativeBuildInputs = [pkgs.coreutils pkgs.gnugrep pkgs.util-linux];
+              } ''
+                ${lib.concatMapStringsSep "\n" (probeCase: ''
+                    test '${probeCase.timer.OnBootSec}' = '2m'
+                    test '${probeCase.timer.OnUnitActiveSec}' = '${probeCase.probe.interval}'
+                    test '${probeCase.timer.AccuracySec}' = '1s'
+                    test '${probeCase.timer.Unit}' = 'deep-probe-${probeCase.slug}.service'
+                    test '${probeCase.coordinatorTimer.OnCalendar}' = '*-*-* 05:31:00 Australia/Perth'
+                    test '${probeCase.coordinatorTimer.AccuracySec}' = '1s'
+                    test '${probeCase.coordinatorTimer.Unit}' = 'post-maintenance-deep-probe-${probeCase.slug}.service'
+                    test '${probeCase.coordinatorTimer.Unit}' != '${probeCase.timer.Unit}'
+                    test '${probeCase.probeService.Type}' = 'oneshot'
+                    test '${probeCase.coordinatorService.Type}' = 'oneshot'
+                    test '${probeCase.coordinatorService.ExecStart}' = '${probeCase.probeService.ExecStart}'
+                    test '${probeCase.coordinatorService.RuntimeDirectory}' = '${probeCase.probeService.RuntimeDirectory}'
+                    test -n '${probeCase.probeService.RuntimeDirectory}'
+                    test '${lib.boolToString probeCase.probeService.RuntimeDirectoryPreserve}' = 'true'
+                    test '${lib.boolToString probeCase.coordinatorService.RuntimeDirectoryPreserve}' = 'true'
+                    test '${probeCase.probeService.TimeoutStartSec}' = '${probeCase.probe.timeout}'
+                    test '${probeCase.probeService.TimeoutStopSec}' = '90s'
+                    test '${probeCase.coordinatorService.TimeoutStopSec}' = '90s'
+                    test '${probeCase.probeService.KillMode}' = 'control-group'
+                    test '${probeCase.coordinatorService.KillMode}' = 'control-group'
+                    test '${lib.boolToString probeCase.coordinatorService.NoNewPrivileges}' = 'true'
+                    test '${probeCase.coordinatorService.TimeoutStartSec}' = '15m'
+                    runner=${lib.escapeShellArg probeCase.probeService.ExecStart}
+                    ${pkgs.gnugrep}/bin/grep -F 'POST_MAINTENANCE_DEEP_PROBE' "$runner" >/dev/null
+                    ${pkgs.gnugrep}/bin/grep -F 'flock -w 480 9' "$runner" >/dev/null
+                    ${pkgs.gnugrep}/bin/grep -F 'flock -n 9' "$runner" >/dev/null
+                    ${pkgs.gnugrep}/bin/grep -F 'RUNTIME_DIRECTORY}/execution.lock' "$runner" >/dev/null
+                    printf '%s\n' ${lib.escapeShellArg (toString (probeCase.coordinatorService.Environment or []))} | ${pkgs.gnugrep}/bin/grep -F 'POST_MAINTENANCE_DEEP_PROBE=1' >/dev/null
+                    if printf '%s\n' ${lib.escapeShellArg (toString (probeCase.probeService.Environment or []))} | ${pkgs.gnugrep}/bin/grep -F 'POST_MAINTENANCE_DEEP_PROBE=1' >/dev/null; then
+                      echo 'ordinary probe unexpectedly carries post-maintenance mode' >&2
+                      exit 1
+                    fi
+                  '')
+                  probeCases}
+
+                # Model a TERM-ignoring probe descendant that inherits fd 9. The
+                # waiter must remain blocked after TERM, then acquire the lock
+                # after the whole control group is KILLed at the explicit bound.
+                lock="$TMPDIR/inherited-fd.lock"
+                ready="$TMPDIR/holder-ready"
+                acquired="$TMPDIR/waiter-acquired"
+                cat > "$TMPDIR/holder" <<'EOF'
+                #!/bin/sh
+                exec 9>"$1"
+                flock 9
+                trap : TERM
+                touch "$2"
+                while :; do sleep 1; done
+                EOF
+                chmod +x "$TMPDIR/holder"
+                setsid "$TMPDIR/holder" "$lock" "$ready" &
+                holder=$!
+                for _ in $(seq 1 50); do
+                  test -e "$ready" && break
+                  sleep 0.1
+                done
+                test -e "$ready"
+                (
+                  exec 9>"$lock"
+                  flock -w 10 9
+                  touch "$acquired"
+                ) &
+                waiter=$!
+                kill -TERM -- "-$holder"
+                sleep 1
+                test ! -e "$acquired"
+                kill -KILL -- "-$holder"
+                wait "$holder" 2>/dev/null || true
+                wait "$waiter"
+                test -e "$acquired"
+                touch "$out"
+              '';
+
           # Claude Code and Codex share authored instructions, skills, agents,
           # MCP declarations, and durable memory. Fail closed when a symlink is
           # broken, a generated Codex adapter drifts, a skill is undiscoverable,
           # or always-loaded context grows past its explicit budget.
           # See docs/wiki/claude-code/poly-ai-shared-surfaces.md.
           aiPortabilityCheck = let
+            rcaCheckoutSafetyCheck = pkgs.writeText "check-rca-checkout-safety.py" ''
+              import pathlib
+              import sys
+
+              FETCH = "git fetch origin"
+              WORKTREE = 'git worktree add -b "$branch" "$worktree" origin/master'
+              CAPTURE = 'git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --git-path primary-status-baseline)"'
+              COMPARE = 'git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -'
+              COMMIT_PREFIX = "git commit "
+              READBACK_PREFIX = 'curl -fsS "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"'
+
+              def validate(text: str) -> None:
+                  lines = [line.strip() for line in text.splitlines()]
+                  assert lines.count(FETCH) == 1, "require exactly one fetch command"
+                  assert lines.count(WORKTREE) == 1, "require exact worktree-add command"
+                  assert lines.count(CAPTURE) == 1, "require exact administrative-git-path baseline capture"
+                  assert lines.count(COMPARE) == 2, "require exactly two executable baseline compares"
+                  fetch = lines.index(FETCH)
+                  worktree = lines.index(WORKTREE)
+                  capture = lines.index(CAPTURE)
+                  compares = [index for index, line in enumerate(lines) if line == COMPARE]
+                  commit = next(index for index, line in enumerate(lines) if line.startswith(COMMIT_PREFIX))
+                  readback = next(index for index, line in enumerate(lines) if line.startswith(READBACK_PREFIX))
+                  assert fetch < worktree < capture < compares[0] < commit < readback < compares[1], "checkout gates are out of order"
+
+              def self_test() -> None:
+                  fixture = "\n".join([FETCH, WORKTREE, CAPTURE, COMPARE, "git commit -m fix", READBACK_PREFIX, COMPARE])
+                  validate(fixture)
+                  lines = fixture.splitlines()
+                  for compare_index in (3, 6):
+                      for replacement in (None, "Verify the primary checkout is unchanged."):
+                          mutant = lines.copy()
+                          if replacement is None:
+                              del mutant[compare_index]
+                          else:
+                              mutant[compare_index] = replacement
+                          try:
+                              validate("\n".join(mutant))
+                          except (AssertionError, StopIteration):
+                              pass
+                          else:
+                              raise AssertionError("compare-removal/prose mutant unexpectedly passed")
+
+              if sys.argv[1:] == ["--self-test"]:
+                  self_test()
+              else:
+                  validate(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+            '';
             ntfyRuntimeCheck = pkgs.writeText "check-hermes-ntfy-runtime.py" ''
               from gateway.platform_registry import platform_registry
               from hermes_cli.config import load_config
@@ -2071,11 +2230,8 @@
               ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
               ${pkgs.python3}/bin/python3 ${./.}/scripts/merge-toml-settings.py --self-test
               alert_rca_skill=${./.}/hermes/skills/homelab-agents/alert-rca/SKILL.md
-              fetch_line="$(${pkgs.gnugrep}/bin/grep -n -m1 '^git fetch origin$' "$alert_rca_skill" | ${pkgs.coreutils}/bin/cut -d: -f1)"
-              baseline_line="$(${pkgs.gnugrep}/bin/grep -n -m1 '^primary_status_baseline=' "$alert_rca_skill" | ${pkgs.coreutils}/bin/cut -d: -f1)"
-              test -n "$fetch_line" -a -n "$baseline_line" -a "$fetch_line" -lt "$baseline_line"
-              test "$(${pkgs.gnugrep}/bin/grep -c 'assert_primary_checkout_unchanged' "$alert_rca_skill")" -ge 2
-              ${pkgs.gnugrep}/bin/grep -q 'cmp -s "$primary_status_baseline" "$primary_status_current"' "$alert_rca_skill"
+              ${pkgs.python3}/bin/python3 ${rcaCheckoutSafetyCheck} --self-test
+              ${pkgs.python3}/bin/python3 ${rcaCheckoutSafetyCheck} "$alert_rca_skill"
               ${pkgs.yq-go}/bin/yq -o=json \
                 ${./.}/hermes/config/default/config.yaml \
                 | ${pkgs.jq}/bin/jq -e \
@@ -2099,7 +2255,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}
