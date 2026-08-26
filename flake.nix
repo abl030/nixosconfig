@@ -2070,6 +2070,12 @@
             pkgs.runCommand "ai-portability" {} ''
               ${pkgs.python3}/bin/python3 ${./.}/scripts/generate-ai-adapters.py --check
               ${pkgs.python3}/bin/python3 ${./.}/scripts/merge-toml-settings.py --self-test
+              alert_rca_skill=${./.}/hermes/skills/homelab-agents/alert-rca/SKILL.md
+              fetch_line="$(${pkgs.gnugrep}/bin/grep -n -m1 '^git fetch origin$' "$alert_rca_skill" | ${pkgs.coreutils}/bin/cut -d: -f1)"
+              baseline_line="$(${pkgs.gnugrep}/bin/grep -n -m1 '^primary_status_baseline=' "$alert_rca_skill" | ${pkgs.coreutils}/bin/cut -d: -f1)"
+              test -n "$fetch_line" -a -n "$baseline_line" -a "$fetch_line" -lt "$baseline_line"
+              test "$(${pkgs.gnugrep}/bin/grep -c 'assert_primary_checkout_unchanged' "$alert_rca_skill")" -ge 2
+              ${pkgs.gnugrep}/bin/grep -q 'cmp -s "$primary_status_baseline" "$primary_status_current"' "$alert_rca_skill"
               ${pkgs.yq-go}/bin/yq -o=json \
                 ${./.}/hermes/config/default/config.yaml \
                 | ${pkgs.jq}/bin/jq -e \
