@@ -122,6 +122,13 @@ in `/home/abl030/nixosconfig`.
 ```bash
 cd /home/abl030/nixosconfig
 git fetch origin
+primary_status_baseline=$(mktemp)
+primary_status_current=$(mktemp)
+git status --short --branch >"$primary_status_baseline"
+assert_primary_checkout_unchanged() {
+  git -C /home/abl030/nixosconfig status --short --branch >"$primary_status_current"
+  cmp -s "$primary_status_baseline" "$primary_status_current"
+}
 worktree_root=/home/abl030/.cache/hermes/worktrees
 mkdir -p "$worktree_root"
 worktree=$(mktemp -d "$worktree_root/alert-rca-XXXXXX")
@@ -132,11 +139,15 @@ cd "$worktree"
 ```
 
 Use `git -C "$worktree" ...` or remain inside `$worktree` for every edit,
-verification, commit, and push. Before committing, require that
-`git -C /home/abl030/nixosconfig status --short --branch` is byte-for-byte
-unchanged from the status captured before creating the worktree. If it changed,
-stop, preserve the worktree, report the checkout-safety failure in Gotify, and do
-not try to repair the primary checkout.
+verification, commit, and push. Fetch **before** capturing the primary-checkout
+baseline: fetching can legitimately change the branch's `[behind N]` annotation,
+so a pre-fetch baseline creates a false checkout-safety failure. Run
+`assert_primary_checkout_unchanged` before committing and again after the branch
+and PR have been verified. The helper uses `cmp -s` for a byte-for-byte
+comparison, including the branch header. If either comparison fails, stop,
+preserve the worktree, report the checkout-safety failure in Gotify, and do not
+try to repair the primary checkout. Remove both temporary status files only
+after the final comparison passes.
 
 ### 2. Make the fix
 
@@ -187,7 +198,8 @@ print(json.dumps({
 Extract `html_url` from the response — this goes in the Gotify message.
 
 After the pushed branch and PR have both been verified, remove only the dedicated
-RCA worktree with `git -C /home/abl030/nixosconfig worktree remove "$worktree"`.
+RCA worktree with `git -C /home/abl030/nixosconfig worktree remove "$worktree"`,
+but only after the final byte-for-byte primary-status comparison described above.
 Keep the remote branch for the PR. If any step fails, preserve the worktree for
 manual inspection; never compensate by resetting or cleaning the primary checkout.
 

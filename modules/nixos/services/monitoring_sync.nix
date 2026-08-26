@@ -1321,6 +1321,12 @@ in {
           timerConfig = {
             OnBootSec = "2m";
             OnUnitActiveSec = probe.interval;
+            # Kuma records otherwise-successful pushes as maintenance heartbeats
+            # (status=3), which do not seed the post-maintenance freshness window.
+            # Force every deep probe immediately after the fleet-wide nightly
+            # maintenance window ends at 05:30 so a healthy low-cadence probe
+            # cannot false-page while waiting for its next interval run.
+            OnCalendar = "*-*-* 05:31:00 Australia/Perth";
             # Keep the timer punctual: OnUnitActiveSec already counts from probe
             # completion (so each push lands runtime+jitter past Kuma's deadline);
             # 1s accuracy minimises the extra jitter on top. The real guard against
