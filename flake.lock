@@ -1035,11 +1035,11 @@
     "yt-dlp-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1787675427,
-        "narHash": "sha256-Dh8MnxNVCHUbgcFnXlhajuourB1HL95lKkXYUps5lTw=",
+        "lastModified": 1787787854,
+        "narHash": "sha256-4FFg4vAC1YFUfkDOzc+URHiH7ggwa03FFLOGTNsfZR0=",
         "owner": "yt-dlp",
         "repo": "yt-dlp",
-        "rev": "66f49765d5a46c7be1c2c414f245c71530c4a2fd",
+        "rev": "94eba4c156af080e87caf10cf8ffbea03bd17407",
         "type": "github"
       },
       "original": {
