@@ -329,11 +329,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1787758807,
-        "narHash": "sha256-75N8Pb6vFH/mqu2U3tGiFy91wiZCJG4dor2fYg+nmNQ=",
+        "lastModified": 1787843370,
+        "narHash": "sha256-XwPULCMkr/0nDemxerFeXuyDMkAN5qnHOVZ+ooUrhsc=",
         "owner": "nousresearch",
         "repo": "hermes-agent",
-        "rev": "9aa7530f7b53699e2c6d648ded8f6300503b3dc7",
+        "rev": "42ac29eacc4d743ed2df7db0f886b99111d9e68b",
         "type": "github"
       },
       "original": {
@@ -425,11 +425,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1787551247,
-        "narHash": "sha256-ogq7JBsR2aJko074/LQOIPcectSXnq2YshD2TG0PP5A=",
+        "lastModified": 1787834973,
+        "narHash": "sha256-bY2y5jQ17MQxt1N/jc8luDB98Pyf+FRY2igGWeXnS28=",
         "owner": "astro",
         "repo": "microvm.nix",
-        "rev": "ad098ef4658203b3bbc39523ca3f72ece1553e24",
+        "rev": "ea57aebfb6016d9f091af7576a97dcf1aaa71fa1",
         "type": "github"
       },
       "original": {
@@ -953,11 +953,11 @@
     "trackerslist": {
       "flake": false,
       "locked": {
-        "lastModified": 1787695776,
-        "narHash": "sha256-yqvlmoiB+/YaUG3FwG5tyC1aqdBIWEWFZUcXPw7c7t4=",
+        "lastModified": 1787782191,
+        "narHash": "sha256-YublzocOkxFZQz672KFShj63xJNs/9EWQuxrxqOQmsg=",
         "owner": "ngosang",
         "repo": "trackerslist",
-        "rev": "489dc9b6e9d5a8463ec0976c000f7cf68df9ed6f",
+        "rev": "31bd8e4a6d80b16b82ec2452a98c5e76357cf1dd",
         "type": "github"
       },
       "original": {
