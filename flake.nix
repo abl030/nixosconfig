@@ -65,6 +65,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    mrnews = {
+      url = "git+https://git.ablz.au/abl030/mrnews";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     #NVCHAD is best chad.
     nvchad4nix = {
       url = "github:nix-community/nix4nvchad";
@@ -546,6 +551,81 @@
               ${pkgs.gnugrep}/bin/grep -F 'IPAddressAllow=localhost' ${unit}/bdday.service >/dev/null
               ${pkgs.gnugrep}/bin/grep -F 'server_name bd.ablz.au;' ${nginxConfig} >/dev/null
               ${pkgs.gnugrep}/bin/grep -F 'proxy_pass http://127.0.0.1:8849;' ${nginxConfig} >/dev/null
+              touch $out
+            '';
+
+          # Evaluated contract for the private Hugo site: immutable site
+          # package, loopback-only static server, and LAN/tailnet HTTPS ingress.
+          mrnewsIntegrationCheck = let
+            doc1 = self.nixosConfigurations.proxmox-vm.config;
+            sitePackage = inputs.mrnews.packages.${system}.default;
+            mrnewsCfg = doc1.homelab.services.mrnews;
+            service = doc1.systemd.services.mrnews.serviceConfig;
+            unit = doc1.systemd.units."mrnews.service".unit;
+            nginxConfig = doc1.environment.etc."nginx/nginx.conf".source;
+            proxy = lib.findFirst (entry: entry.host == mrnewsCfg.fqdn) null doc1.homelab.localProxy.hosts;
+            monitor = lib.findFirst (entry: entry.url == "https://${mrnewsCfg.fqdn}/") null doc1.homelab.monitoring.monitors;
+            unrelatedEnabled = lib.filter (
+              name: self.nixosConfigurations.${name}.config.homelab.services.mrnews.enable
+            ) (lib.remove "proxmox-vm" (lib.attrNames self.nixosConfigurations));
+            firewallText = lib.concatStringsSep "\n" [
+              doc1.networking.firewall.extraCommands
+              doc1.networking.firewall.extraInputRules
+            ];
+            expectedExecStart = lib.concatStringsSep " " [
+              "${pkgs.static-web-server}/bin/static-web-server"
+              "--host 127.0.0.1"
+              "--port ${toString mrnewsCfg.port}"
+              "--root ${sitePackage}"
+              "--log-level warn"
+            ];
+          in
+            pkgs.runCommand "mrnews-integration" {} ''
+              set -euo pipefail
+
+              test '${lib.boolToString mrnewsCfg.enable}' = true
+              test '${lib.boolToString (mrnewsCfg.package == sitePackage)}' = true
+              test ${lib.escapeShellArg mrnewsCfg.fqdn} = mrnews.ablz.au
+              test ${toString mrnewsCfg.port} -eq 8850
+              test ${lib.escapeShellArg service.ExecStart} = ${lib.escapeShellArg expectedExecStart}
+              test -s ${sitePackage}/index.html
+              test -s ${sitePackage}/index.xml
+
+              test '${lib.boolToString service.DynamicUser}' = true
+              test '${lib.boolToString service.NoNewPrivileges}' = true
+              test ${lib.escapeShellArg service.ProtectSystem} = strict
+              test '${lib.boolToString service.ProtectHome}' = true
+              test '${lib.boolToString service.PrivateTmp}' = true
+              test '${lib.boolToString service.PrivateDevices}' = true
+              test -z ${lib.escapeShellArg service.CapabilityBoundingSet}
+              test -z ${lib.escapeShellArg service.AmbientCapabilities}
+              test '${lib.boolToString service.RestrictNamespaces}' = true
+              test ${lib.escapeShellArg service.IPAddressDeny} = any
+              test ${lib.escapeShellArg service.IPAddressAllow} = localhost
+
+              test '${lib.boolToString (proxy != null)}' = true
+              test ${lib.escapeShellArg proxy.upstreamHost} = 127.0.0.1
+              test ${toString proxy.port} -eq 8850
+              test '${lib.boolToString (!proxy.tailscaleOnly)}' = true
+              test '${lib.boolToString (lib.hasPrefix "192.168." doc1.homelab.localProxy.localIp)}' = true
+              test ${lib.escapeShellArg doc1.services.nginx.virtualHosts.${mrnewsCfg.fqdn}.locations."/".proxyPass} = http://127.0.0.1:8850
+              test ${lib.escapeShellArg doc1.services.nginx.virtualHosts.${mrnewsCfg.fqdn}.useACMEHost} = mrnews.ablz.au
+              test '${lib.boolToString (builtins.hasAttr mrnewsCfg.fqdn doc1.security.acme.certs)}' = true
+              ${pkgs.gnugrep}/bin/grep -F '"proxied":false' ${./modules/nixos/services/local_proxy.nix} >/dev/null
+
+              test '${lib.boolToString (monitor != null)}' = true
+              test ${lib.escapeShellArg monitor.name} = 'Margaret River News'
+              test '${lib.boolToString (!(lib.elem mrnewsCfg.port doc1.networking.firewall.allowedTCPPorts))}' = true
+              test '${lib.boolToString (!(lib.elem mrnewsCfg.port doc1.networking.firewall.allowedUDPPorts))}' = true
+              test '${lib.boolToString (!(lib.hasInfix (toString mrnewsCfg.port) firewallText))}' = true
+              test -z ${lib.escapeShellArg (lib.concatStringsSep " " unrelatedEnabled)}
+
+              ${pkgs.gnugrep}/bin/grep -F "ExecStart=${expectedExecStart}" ${unit}/mrnews.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'DynamicUser=true' ${unit}/mrnews.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'IPAddressDeny=any' ${unit}/mrnews.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'IPAddressAllow=localhost' ${unit}/mrnews.service >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'server_name mrnews.ablz.au;' ${nginxConfig} >/dev/null
+              ${pkgs.gnugrep}/bin/grep -F 'proxy_pass http://127.0.0.1:8850;' ${nginxConfig} >/dev/null
               touch $out
             '';
 
@@ -2255,7 +2335,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck mrnewsIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

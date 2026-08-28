@@ -38,6 +38,7 @@
     ./byparr.nix
     ./unifi-controller.nix
     ./msn-history-viewer.nix
+    ./mrnews.nix
     ./cratedigger.nix
     ./ali-cratedigger.nix
     ./discogs.nix
