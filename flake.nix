@@ -577,6 +577,7 @@
               "--host 127.0.0.1"
               "--port ${toString mrnewsCfg.port}"
               "--root ${sitePackage}"
+              "--cache-control-headers false"
               "--log-level warn"
             ];
           in

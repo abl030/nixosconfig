@@ -41,6 +41,10 @@ in {
           "--host 127.0.0.1"
           "--port ${toString cfg.port}"
           "--root ${cfg.package}"
+          # The site is replaced atomically at the same URLs. The server's
+          # default one-day cache otherwise leaves open browser tabs on the old
+          # home page after a news deployment.
+          "--cache-control-headers false"
           "--log-level warn"
         ];
 
