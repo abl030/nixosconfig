@@ -446,11 +446,11 @@
         "papermod": "papermod"
       },
       "locked": {
-        "lastModified": 1787896880,
-        "narHash": "sha256-UF1Ltz3BWLnvLGVar+F5MSpxty8K5HqTStrJqRlrHaI=",
+        "lastModified": 1787966074,
+        "narHash": "sha256-YjXuV16wuCZlO+/woZJWAZx61N34njPgjjfRP4QwHw8=",
         "ref": "refs/heads/master",
-        "rev": "e12269113d71c560f4b1bf68e5c88add8a86233b",
-        "revCount": 7,
+        "rev": "0b7b8419665f4e7c36e6c0e325583ee63c070052",
+        "revCount": 8,
         "type": "git",
         "url": "https://git.ablz.au/abl030/mrnews"
       },
