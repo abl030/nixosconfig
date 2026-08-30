@@ -587,14 +587,13 @@
         The Linux OOM killer ran on a fleet host within the last 5 minutes.
         Check the matched log line (delivered via alert-bridge) for the
         process that died, or query Grafana Explore:
-          {source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)"
+          {source="journald", transport="kernel"} |~ "(?i)^(out of memory:|oom-kill:|memory cgroup out of memory:)"
       '';
-      # Regex covers:
-      #   - "Out of memory: Killed process ..." (classic kernel oom_kill)
-      #   - "oom-kill:" / "oom_reaper:" (newer kernels)
-      #   - "Memory cgroup out of memory" (cgroup OOM)
-      logql = ''sum(count_over_time({source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)" [5m]))'';
-      lokiLines = ''{source="journald", transport="kernel"} |~ "(?i)(out of memory|oom[-_](kill|reaper)|memory cgroup out of memory)"'';
+      # Match only complete OOM event prefixes, not symbols such as oom_reaper
+      # and oom_kill_process that appear in unrelated SysRq task dumps.
+      # Covers classic global OOMs, newer oom-kill records, and cgroup OOMs.
+      logql = ''sum(count_over_time({source="journald", transport="kernel"} |~ "(?i)^(out of memory:|oom-kill:|memory cgroup out of memory:)" [5m]))'';
+      lokiLines = ''{source="journald", transport="kernel"} |~ "(?i)^(out of memory:|oom-kill:|memory cgroup out of memory:)"'';
     })
   ];
 
