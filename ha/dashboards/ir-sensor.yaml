@@ -333,7 +333,7 @@ views:
         - **Projected annual savings**: ${{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) | round(0) }} (rolling monthly estimate)
         - **Years to ROI**: {{ states('sensor.battery_140kwh_years_to_roi') }} years
         - **ROI date**: {{ states('sensor.battery_140kwh_roi_date') }}
-        - **Projection refreshed**: {{ states('input_datetime.battery_140kwh_projection_last_refreshed') }}
+        - **Projection refreshed**: {{ 'awaiting first month-end' if states('input_datetime.battery_140kwh_projection_last_refreshed') == '1970-01-01' else states('input_datetime.battery_140kwh_projection_last_refreshed') }}
     - type: custom:apexcharts-card
       chart_type: radialBar
       header:
