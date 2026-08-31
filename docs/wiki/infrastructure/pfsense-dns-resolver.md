@@ -13,6 +13,22 @@ pfSense (`192.168.1.1` on LAN, `100.123.61.111` on Tailscale — **same physical
 
 If pfSense's unbound stops answering, **the whole fleet loses non-MagicDNS resolution within seconds** — including build sandboxes, package fetches, and any service that hits public hostnames.
 
+## Client-specific content blocks: `s-a55` (2026-08-31)
+
+Unbound custom options assign two tags to Andy's phone only: `no_youtube` and `no_news`.
+
+- Tailscale IPv4: `100.102.60.123/32`
+- Tailscale IPv6: `fd7a:115c:a1e0::5301:3c7b/128`
+- Home LAN fallback: `192.168.1.38/32`
+
+The `no_youtube` zones are `youtube.com`, `youtu.be`, `googlevideo.com`, `ytimg.com`, `youtubei.googleapis.com`, `youtube.googleapis.com`, and `youtube-nocookie.com`. The `no_news` zones are `news.google.com`, `news.google.com.au`, `abc.net.au`, and `news.com.au`. Tagged zones return NXDOMAIN, including all subdomains beneath each zone. Other clients remain untagged and resolve them normally through the existing pfBlockerNG/Unbound path.
+
+The tailnet has two global resolver addresses for this same pfSense appliance: `100.123.61.111` and `192.168.1.1`. This matters for client identity. A phone query sent directly to `100.123.61.111` reaches Unbound with source `100.102.60.123` and is blocked. A query sent to `192.168.1.1` through tower's subnet route is SNATed, loses the phone identity, and resolves normally. Tailscale may race global resolvers, so the Unbound rules alone are not sufficient.
+
+Every blocked zone therefore has a split-DNS route to **only** `100.123.61.111`. This preserves both global resolvers for all other traffic while ensuring filtered queries arrive over the identity-preserving tailnet path. Do not remove the LAN global resolver merely to make a block work, and do not tag tower's SNAT address (that would affect unrelated tailnet clients). Direct phone probes on 2026-08-31 proved the distinction: `@100.123.61.111 youtube.com` returned NXDOMAIN; `@192.168.1.1 youtube.com` returned A records.
+
+Applied through the Tailscale split-DNS API: all eleven zones map exclusively to `100.123.61.111`, and API readback matched the complete intended map. The persistent doc1 OAuth credential at `/run/secrets/tailscale-acl/oauth` now has `policy_file` plus DNS read/write scope and is the canonical credential for future split-DNS maintenance; an idempotent write plus full readback verified that scope live on 2026-08-31. Do not mint temporary DNS credentials unless the persistent client is revoked or rejected by the API. End-to-end phone verification through Tailscale's `100.100.100.100` stub returned NXDOMAIN for all four news zones and confirmed the existing YouTube block still worked; untagged control requests resolved all targets. Previously cached records/connections can continue until their TTL or application connection expires.
+
 ## Management plane: LAN-only (2026-06-07)
 
 pfSense's admin surfaces are reachable **only from the LAN** (`192.168.1.0/24`) — not over Tailscale, the IoT/Docker VLANs, or WAN. Tightened on 2026-06-07 as part of the least-privilege work in [#239](https://github.com/abl030/nixosconfig/issues/239): pfSense is a non-NixOS member of the open tailnet mesh with no container-hardening fallback, so locking its admin plane is the compensating control.

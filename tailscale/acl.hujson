@@ -3,7 +3,7 @@
 // Model: five role tags on a default-DENY tailnet, authored in the modern
 // `grants` syntax (classic `acls` are frozen upstream). Applied self-hosted from
 // doc1 (the bastion) via gitops-pusher (modules/nixos/services/tailscale/acl-apply.nix)
-// using a `policy_file`-scoped OAuth client held in sops on doc1 only.
+// using the doc1 OAuth client held in sops (`policy_file` + DNS read/write).
 //
 //   tag:server  full mesh; the fleet's service VMs + pfSense + tower + legacy VMs
 //   tag:client  trusted personal/admin devices; full tailnet + non-Cullen routes

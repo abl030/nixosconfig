@@ -111,8 +111,8 @@ The policy is pushed to Tailscale CONTROL by [`gitops-pusher`](https://pkgs.tail
 (nixpkgs `tailscale-gitops-pusher`), driven by
 [`modules/nixos/services/tailscale/acl-apply.nix`](../../../modules/nixos/services/tailscale/acl-apply.nix).
 
-**Why doc1 (the bastion), not doc2** (the plan originally said doc2): the `policy_file` OAuth
-credential can rewrite the *entire tailnet trust boundary*. doc1 is already maximally
+**Why doc1 (the bastion), not doc2** (the plan originally said doc2): the Tailscale control OAuth
+credential can rewrite the *entire tailnet trust boundary and DNS configuration*. doc1 is already maximally
 privileged (fleet SSH key, passwordless sudo, the pfSense/UniFi/HA control creds since #234),
 so a doc1 compromise is already game-over — adding ACL-write there expands its blast radius by
 ~nil. doc2 runs a large surface of internet-facing services; putting the crown-jewel
@@ -124,11 +124,11 @@ fleet-control creds on the one hardened, audited host.
   `wantedBy multi-user.target`, deliberately, so a transient Tailscale-API failure can never
   fail doc1's nightly `fleet-update`. Apply is idempotent (no-op when CONTROL's checksum already
   matches). `OnFailure` → Gotify (a 401 = expired/revoked credential).
-- **Credential:** `policy_file`-scoped OAuth client, sops at
+- **Credential:** OAuth client with `policy_file` and DNS read/write scope, sops at
   `secrets/hosts/proxmox-vm/tailscale-acl-oauth.env` (`TS_OAUTH_ID` + `TS_OAUTH_SECRET`),
   auto-scoped to doc1 + editor + break-glass by the existing `^hosts/proxmox-vm/` rule. No
   `IPAddressAllow` pin (api.tailscale.com is CDN-fronted with rotating IPs — a static allowlist
-  would be an outage source); containment is least-scope OAuth + the dedicated user + fs sandbox.
+  would be an outage source); containment is bounded control scope + the dedicated user + fs sandbox.
 
 ### Manual apply / validate (from doc1)
 ```sh
@@ -143,9 +143,20 @@ before `apply`. The committed `acl.hujson` MUST match what's applied, or the dai
 your manual change.
 
 ### Credential lifecycle
-- **Create:** Tailscale admin → Settings → OAuth clients → grant **`policy_file` Write** only.
+- **Create:** Tailscale admin → Settings → OAuth clients → grant **`policy_file` Write** and
+  **DNS Read/Write**. Keep device administration out of this persistent credential.
 - **Rotate:** create a new client → re-sops the env file → redeploy doc1 → delete the old client.
 - **Revoke** (suspected doc1 compromise): delete the client in the console (instant), then re-key.
+
+### DNS control from doc1
+
+The same persistent credential is the canonical path for Tailscale DNS and split-DNS API changes.
+Its deployed environment file is `/run/secrets/tailscale-acl/oauth` (root-readable; never print or
+copy its values). Source it under `sudo`, mint a short-lived access token, read current DNS state,
+apply the narrow PATCH, and read back the complete target. Verified 2026-08-31 with an idempotent
+PATCH to `/api/v2/tailnet/-/dns/split-dns` returning HTTP 200 and an unchanged eleven-entry map.
+Do not ask the operator to mint a temporary DNS credential unless this persistent client is
+revoked or the live API explicitly rejects its DNS scope.
 
 ## Tagging nodes
 

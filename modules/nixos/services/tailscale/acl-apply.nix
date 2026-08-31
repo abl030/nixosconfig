@@ -1,10 +1,13 @@
 # Self-hosted Tailscale ACL apply (issue #239, unit U4).
 #
 # Validates + pushes tailscale/acl.hujson to Tailscale CONTROL via gitops-pusher
-# (ETag/checksum-guarded), using a `policy_file`-scoped OAuth client held in sops.
+# (ETag/checksum-guarded), using the doc1 Tailscale control OAuth client held in
+# sops. The same credential has `policy_file` and DNS read/write scope so Hermes
+# can durably manage split-DNS without minting temporary admin credentials.
 #
 # WHY doc1 (the bastion), not doc2:
-#   The OAuth credential can rewrite the ENTIRE tailnet trust boundary. doc1 is
+#   The OAuth credential can rewrite the ENTIRE tailnet trust boundary and DNS
+#   configuration. doc1 is
 #   already maximally privileged (fleet SSH key, passwordless sudo, fleet-deploy,
 #   the pfSense/UniFi/HA control creds since #234), so a doc1 compromise is
 #   already game-over — adding ACL-write there expands its blast radius by ~nil.
@@ -31,7 +34,8 @@
 #   the activation hook is what makes "apply on deploy" actually happen.
 #
 # CREDENTIAL LIFECYCLE:
-#   Create a `policy_file`-scoped OAuth client in the Tailscale admin console
+#   Create an OAuth client with `policy_file` and DNS read/write scope in the
+#   Tailscale admin console
 #   (Settings -> OAuth clients / Trust credentials). Store id+secret in
 #   secrets/hosts/proxmox-vm/tailscale-acl-oauth.env (auto-scoped to doc1 + editor
 #   + break-glass by the existing ^hosts/proxmox-vm/ rule). Rotation: create a new
@@ -111,8 +115,9 @@ in {
     };
     users.groups.tailscale-acl-apply = {};
 
-    # policy_file-scoped OAuth client (TS_OAUTH_ID / TS_OAUTH_SECRET). Auto-scoped
-    # to doc1 + editor + break-glass by the existing ^hosts/proxmox-vm/ sops rule.
+    # Tailscale control OAuth client (TS_OAUTH_ID / TS_OAUTH_SECRET), scoped for
+    # policy_file and DNS read/write. Auto-scoped to doc1 + editor + break-glass
+    # by the existing ^hosts/proxmox-vm/ sops rule.
     sops.secrets."tailscale-acl/oauth" = {
       sopsFile = config.homelab.secrets.sopsFile "tailscale-acl-oauth.env";
       format = "dotenv";

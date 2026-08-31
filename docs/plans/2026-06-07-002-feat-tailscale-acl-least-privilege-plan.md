@@ -165,8 +165,7 @@ flowchart TD
   - **Share caveat (R7):** the ACL cannot name shared-in users (other tailnet); 443-only is sidecar-enforced. The ACL's share job is solely "no `tag:share`→fleet path."
 - **Patterns to follow:** reference via `builtins.path` from U4; HuJSON (comments + trailing commas).
 - **Test scenarios:**
-  - `gitops-pusher test` / `POST /acl/validate` returns `{}` for the **final** (allow-all-removed) policy with all accept+deny assertions passing — this is the real grant-correctness gate, independent of allow-all.
-  - `tailscale debug policy-file tailscale/acl.hujson` reports valid HuJSON.
+  - `gitops-pusher test` / `POST /acl/validate` returns `{}` for the **final** (allow-all-removed) policy with all accept+deny assertions passing — this is the real grant-correctness and HuJSON-parse gate, independent of allow-all. (`tailscale debug policy-file` was later removed from the installed CLI and must not be used.)
   - The allow-all rule is present and clearly marked for U7 removal.
 
 ### U4. Self-hosted apply mechanism on doc2 (`gitops-pusher` + sops `policy_file` secret)
