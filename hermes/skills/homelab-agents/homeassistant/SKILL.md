@@ -134,7 +134,7 @@ Base path: `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skill
 
 **Media**: Google Cast (5 active players: andys_cast, kitchen, home_group, kitchen_home, kitchen_tv). Music Assistant in setup_retry. 18 unavailable MA players.
 
-**Climate**: 1x Daikin aircon via ESPHome IR blaster (climate.living_room_aircon). Automations: off at 11pm, 22C at 6am.
+**Climate**: Living-room sensor (moved from a bedroom) is `sensor.living_room_temperature` / `sensor.living_room_humidity`, device name `Living Room Sensor`. 1x Daikin aircon via mounted ESPHome IR climate controller (`climate.living_room_aircon`). Automations: heat at 6am when below 20C, cool at 25C, stop at 22C, hard off at 11pm.
 
 **Zigbee (Z2M v2.9.1)**: Coordinator SLZB-06P7. 3x Tuya outside light switches, 5x wine fridge temp/humidity sensors, 1x garage door tilt, 2x buttons (Epi VM start, outside lights).
 
