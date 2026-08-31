@@ -36,8 +36,8 @@ views:
     - entity: sensor.imarga43_dewpoint
   - type: entities
     entities:
-    - entity: sensor.sensor_masterbedroom_humidity
-    - entity: sensor.sensor_masterbedroom_temperature
+    - entity: sensor.living_room_humidity
+    - entity: sensor.living_room_temperature
   - title: History
     type: history-graph
     hours_to_show: 15
@@ -63,7 +63,7 @@ views:
     show_name: true
     show_state: true
     show_icon: true
-    entity: sensor.sensor_masterbedroom_temperature
+    entity: sensor.living_room_temperature
 - title: Dental Hub
   path: dental-hub
   icon: mdi:toothbrush-electric
