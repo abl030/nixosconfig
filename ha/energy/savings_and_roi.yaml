@@ -380,12 +380,13 @@ template:
           {% set cost = states('input_number.solar_install_cost_aud') | float(91000) %}
           {{ [cum - cost, 0] | max | round(2) }}
 
-  # Snapshot only after both nightly accumulator helpers have changed. Keeping
-  # this off their state triggers prevents Recorder from capturing the brief
-  # numerator-new/denominator-old spike between the two service calls.
+  # Snapshot only on the completion event emitted after both nightly
+  # accumulator helpers have changed. Keeping this off their state triggers
+  # prevents Recorder from capturing the brief numerator-new/denominator-old
+  # spike between the two service calls.
   - trigger:
-      - platform: time
-        at: "23:59:59"
+      - platform: event
+        event_type: solar_savings_accumulated
       - platform: homeassistant
         event: start
     sensor:
@@ -454,6 +455,7 @@ automation:
               entity_id: input_datetime.solar_savings_last_accumulated
             data:
               date: "{{ now().strftime('%Y-%m-%d') }}"
+          - event: solar_savings_accumulated
 
   # Refresh the battery ROI projection from each completed month's modeled
   # savings. The existing 12-month LTS value is the baseline; each month this
