@@ -48,45 +48,34 @@
   mode: restart
 - id: '1722840909529'
   alias: Aircon_Off_11pm
-  description: 'Hard stop: turn the aircon off every day at 11pm and clear the automated
-    morning-cycle marker.'
+  description: 'Hard stop: turn the living-room aircon off every day at 11pm.'
   triggers:
   - trigger: time
     at: '23:00:00'
   conditions: []
   actions:
-  - action: mqtt.publish
-    data:
-      qos: 0
-      retain: false
-      topic: zigbee2mqtt/IR_Blaster/set
-      payload: '{"ir_code_to_send":"BcwBkwH8AYAD4AELC1tiug2sBswB/ATMAYAXgAfAD0AB4AcTQBtAA0AXQAcC/AT8IANAB4ADQBdAA0APQAdAAUAHQANAAUAH4AcDwCvAB8AfQA9AA8APwAfgCxPAG+AHB0ABQC/AA8AfwA9ABwEsi+EVB8AzQAFAL0APQAdAA+ADC0APwANAF0ADQA9AB+AfA8AvQAHAM8ATwA/gCwdAAeADF0ABQDdAAeADF0ALQBdAB0ADQAtAA0AL4R8HQCvAM0AHQAPAE0AL4AMDQBdAA0ATQAfgCwNAAeALF+AbE+AHV0ABQDdAF8ADwA9AB+AvA0BLQDvAB0AL4BMDQAHAH0ABwAvAB0BHQAPAD+AXB0ArQAPgFyfgAx9AAcAPQAHAC8BHwAdAFwPMAZMBQA9AAwKTAcwgAeAJBYABgBfAAUAv4AcBQBNAA0ABQAdAAwvMAcwBzAHMAZMBzAE="}'
-  - action: input_boolean.turn_off
+  - action: climate.turn_off
     target:
-      entity_id: input_boolean.aircon_morning_cycle
+      entity_id: climate.living_room_aircon
   mode: single
 - id: '1722841776503'
-  alias: Aircon_On_Cold_Morning_6am
-  description: At 6am, turn the aircon on only when the live IMARGA43 outside temperature
-    is below 12C. No daytime re-on.
+  alias: Aircon_Heat_Cold_Morning_6am
+  description: At 6am, if the living-room sensor is below 20C, heat to 22C using the
+    mounted living-room climate controller.
   triggers:
   - trigger: time
     at: 06:00:00
   conditions:
   - condition: numeric_state
-    entity_id: weather.imarga43
-    attribute: temperature
-    below: 12
+    entity_id: sensor.living_room_temperature
+    below: 20
   actions:
-  - action: mqtt.publish
-    data:
-      qos: 0
-      retain: false
-      topic: zigbee2mqtt/IR_Blaster/set
-      payload: '{"ir_code_to_send":"A84BlQHgCQMLU2LIDawGzgH8BM4BQAHAI0APQAtAAUAHQAPAE0AHQAPAE0AL4AMDQBdAA0ATQAfgGwPAK8AHwDNAD0ADwA/AB+ALE8Ab4AsHQC/AA8AfwA9ABwE3i+EBB8AfQAdAG0AH4AMDwBNAB0ADQBtAB+AHA0AXQANAF0AH4AMDAs4BlSABQAXgCQNAL0ABwBtAAeAHE8Ab4BUHAZUBQDcBlQHgCQPgAxdAC0ADQCfhCwdAAUAfQAFAI8ADwBNAB0ADQBdAB+AHA0AXQANAF0AH4DsD4ANL4A8LQGdAG0ADwAtAB+AXAwLOAZUgAUAF4AEDQENAAwLOAZUgAUAF4BEDQAHAH0AB4AELAJUgAUAFAM5gAUBPQANADwCVYAFAB+ARA0ArQAPgEyPgHxvAR8AHwDdAD0ADQA8BzgHgBQUBlQHgBxEAziABBZUB/ASVAUAHAM4gAeADBYAXAc4B4AMHB/wEzgH8BM4B"}'
-  - action: input_boolean.turn_on
+  - action: climate.set_temperature
     target:
-      entity_id: input_boolean.aircon_morning_cycle
+      entity_id: climate.living_room_aircon
+    data:
+      hvac_mode: heat
+      temperature: 22
   mode: single
 - id: '1722855691871'
   alias: Amp_Casting_TurnOFF
@@ -322,66 +311,104 @@
         'closed' }}
   mode: single
 - id: '1785886439568'
-  alias: Aircon_Off_Outside_Above_20
-  description: If an automated morning cycle is active, turn the aircon off after
-    the live outside temperature stays above 20C for 10 minutes. Also recovers safely
-    after an HA restart.
+  alias: Aircon_Living_Room_Temperature_Control
+  description: During the day, cool when the living room reaches 25C; stop cooling
+    or morning heating when the room reaches 22C. Uses the mounted living-room climate
+    controller.
   triggers:
   - trigger: numeric_state
-    entity_id: weather.imarga43
-    attribute: temperature
-    above: 20
-    for:
-      minutes: 10
+    entity_id: sensor.living_room_temperature
+    above: 24.9
+    id: start_cooling
+  - trigger: numeric_state
+    entity_id: sensor.living_room_temperature
+    above: 21.9
+    id: stop_heating
+  - trigger: numeric_state
+    entity_id: sensor.living_room_temperature
+    below: 22.1
+    id: stop_cooling
   - trigger: homeassistant
     event: start
-  conditions:
-  - condition: state
-    entity_id: input_boolean.aircon_morning_cycle
-    state: 'on'
-  - condition: numeric_state
-    entity_id: weather.imarga43
-    attribute: temperature
-    above: 20
-  - condition: time
-    after: 06:00:00
-    before: '23:00:00'
+    id: recover
+  conditions: []
   actions:
-  - action: mqtt.publish
-    data:
-      qos: 0
-      retain: false
-      topic: zigbee2mqtt/IR_Blaster/set
-      payload: '{"ir_code_to_send":"BcwBkwH8AYAD4AELC1tiug2sBswB/ATMAYAXgAfAD0AB4AcTQBtAA0AXQAcC/AT8IANAB4ADQBdAA0APQAdAAUAHQANAAUAH4AcDwCvAB8AfQA9AA8APwAfgCxPAG+AHB0ABQC/AA8AfwA9ABwEsi+EVB8AzQAFAL0APQAdAA+ADC0APwANAF0ADQA9AB+AfA8AvQAHAM8ATwA/gCwdAAeADF0ABQDdAAeADF0ALQBdAB0ADQAtAA0AL4R8HQCvAM0AHQAPAE0AL4AMDQBdAA0ATQAfgCwNAAeALF+AbE+AHV0ABQDdAF8ADwA9AB+AvA0BLQDvAB0AL4BMDQAHAH0ABwAvAB0BHQAPAD+AXB0ArQAPgFyfgAx9AAcAPQAHAC8BHwAdAFwPMAZMBQA9AAwKTAcwgAeAJBYABgBfAAUAv4AcBQBNAA0ABQAdAAwvMAcwBzAHMAZMBzAE="}'
-  - action: input_boolean.turn_off
-    target:
-      entity_id: input_boolean.aircon_morning_cycle
-  mode: single
+  - choose:
+    - conditions:
+      - condition: trigger
+        id:
+        - start_cooling
+        - recover
+      - condition: numeric_state
+        entity_id: sensor.living_room_temperature
+        above: 24.9
+      - condition: time
+        after: 06:00:00
+        before: '23:00:00'
+      sequence:
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.living_room_aircon
+        data:
+          hvac_mode: cool
+          temperature: 22
+    - conditions:
+      - condition: trigger
+        id:
+        - stop_heating
+        - recover
+      - condition: state
+        entity_id: climate.living_room_aircon
+        state: heat
+      - condition: numeric_state
+        entity_id: sensor.living_room_temperature
+        above: 21.9
+      sequence:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.living_room_aircon
+    - conditions:
+      - condition: trigger
+        id:
+        - stop_cooling
+        - recover
+      - condition: state
+        entity_id: climate.living_room_aircon
+        state: cool
+      - condition: numeric_state
+        entity_id: sensor.living_room_temperature
+        below: 22.1
+      sequence:
+      - action: climate.turn_off
+        target:
+          entity_id: climate.living_room_aircon
+  mode: queued
+  max: 10
 - id: '1787200000001'
   alias: 'Auto-update: Home Assistant Core'
-  description: 'Unattended Core update at 05:00, deliberately after prom''s nightly
+  description: Unattended Core update at 05:00, deliberately after prom's nightly
     PBS snapshot of VM 116 (~03:47) so the most recent whole-VM image is pre-update.
     Takes its own pre-update backup too. Holds back monthly x.y.0 releases until an
     x.y.1+ patch exists - delete the hold_zero_release condition for full yolo. See
-    docs/wiki/services/home-assistant-auto-update.md'
+    docs/wiki/services/home-assistant-auto-update.md
   triggers:
   - trigger: time
-    at: '05:00:00'
+    at: 05:00:00
   conditions:
   - condition: state
     entity_id: update.home_assistant_core_update
     state: 'on'
   - alias: hold_zero_release
     condition: template
-    value_template: "{{ (state_attr('update.home_assistant_core_update', 'latest_version')
-      or '0.0.0').split('.') | last != '0' }}"
+    value_template: '{{ (state_attr(''update.home_assistant_core_update'', ''latest_version'')
+      or ''0.0.0'').split(''.'') | last != ''0'' }}'
   actions:
   - action: notify.gotify_battery
     data:
       title: HA Core auto-update
-      message: "{{ state_attr('update.home_assistant_core_update', 'installed_version')
-        }} -> {{ state_attr('update.home_assistant_core_update', 'latest_version') }}.
-        Pre-update backup running; HA will restart."
+      message: '{{ state_attr(''update.home_assistant_core_update'', ''installed_version'')
+        }} -> {{ state_attr(''update.home_assistant_core_update'', ''latest_version'')
+        }}. Pre-update backup running; HA will restart.'
   - action: update.install
     target:
       entity_id: update.home_assistant_core_update
@@ -390,12 +417,12 @@
   mode: single
 - id: '1787200000002'
   alias: 'Auto-update: Home Assistant OS'
-  description: 'Unattended HAOS update, Sundays 05:30. Reboots the VM, so weekly
-    rather than nightly - a bad OS build has a smaller blast radius on a schedule
-    you can predict. Takes a pre-update backup.'
+  description: Unattended HAOS update, Sundays 05:30. Reboots the VM, so weekly rather
+    than nightly - a bad OS build has a smaller blast radius on a schedule you can
+    predict. Takes a pre-update backup.
   triggers:
   - trigger: time
-    at: '05:30:00'
+    at: 05:30:00
   conditions:
   - condition: time
     weekday:
@@ -407,9 +434,9 @@
   - action: notify.gotify_battery
     data:
       title: HA OS auto-update
-      message: "{{ state_attr('update.home_assistant_operating_system_update', 'installed_version')
-        }} -> {{ state_attr('update.home_assistant_operating_system_update', 'latest_version')
-        }}. Pre-update backup running; the VM will reboot."
+      message: '{{ state_attr(''update.home_assistant_operating_system_update'', ''installed_version'')
+        }} -> {{ state_attr(''update.home_assistant_operating_system_update'', ''latest_version'')
+        }}. Pre-update backup running; the VM will reboot.'
   - action: update.install
     target:
       entity_id: update.home_assistant_operating_system_update
@@ -418,19 +445,19 @@
   mode: single
 - id: '1787200000003'
   alias: 'Auto-update: HACS integrations and cards'
-  description: 'Daily 05:45. These update entities do not support pre-update backups
+  description: Daily 05:45. These update entities do not support pre-update backups
     (no BACKUP supported_feature), so the 02:00 automatic backup is the net. Downloaded
     integration code only becomes active on the next HA restart; frontend cards apply
-    on browser reload. Extend the expand() list when you add a HACS item.'
+    on browser reload. Extend the expand() list when you add a HACS item.
   triggers:
   - trigger: time
-    at: '05:45:00'
+    at: 05:45:00
   conditions: []
   actions:
   - variables:
-      pending: "{{ expand('update.hacs_update', 'update.apexcharts_card_update',
-        'update.sma_devices_plus_update')
-        | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}"
+      pending: '{{ expand(''update.hacs_update'', ''update.apexcharts_card_update'',
+        ''update.sma_devices_plus_update'') | selectattr(''state'', ''eq'', ''on'')
+        | map(attribute=''entity_id'') | list }}'
   - condition: template
     value_template: '{{ pending | count > 0 }}'
   - action: update.install
@@ -439,14 +466,14 @@
   - action: notify.gotify_battery
     data:
       title: HACS auto-update
-      message: "Updated {{ pending | join(', ') }}. Integration changes load on the
-        next HA restart."
+      message: Updated {{ pending | join(', ') }}. Integration changes load on the
+        next HA restart.
   mode: single
 - id: '1787200000004'
   alias: 'Auto-update: report versions after restart'
-  description: 'Confirms HA actually came back after an unattended update. Fires two
+  description: Confirms HA actually came back after an unattended update. Fires two
     minutes after start so integrations have settled. This is the in-band signal;
-    the out-of-band one is the Uptime Kuma monitor on home.ablz.au.'
+    the out-of-band one is the Uptime Kuma monitor on home.ablz.au.
   triggers:
   - trigger: homeassistant
     event: start
@@ -457,8 +484,8 @@
   - action: notify.gotify_battery
     data:
       title: Home Assistant is back up
-      message: "Core {{ state_attr('update.home_assistant_core_update', 'installed_version')
+      message: Core {{ state_attr('update.home_assistant_core_update', 'installed_version')
         }} / OS {{ state_attr('update.home_assistant_operating_system_update', 'installed_version')
         }} / Supervisor {{ state_attr('update.home_assistant_supervisor_update', 'installed_version')
-        }}."
+        }}.
   mode: single
