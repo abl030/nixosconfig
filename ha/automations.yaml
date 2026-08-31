@@ -345,10 +345,14 @@
   mode: single
 - id: '1785886439568'
   alias: Aircon_Living_Room_Temperature_Control
-  description: During the day, cool when the living room reaches 25C; stop cooling
-    or morning heating when the room reaches 22C. Uses the mounted living-room climate
+  description: During the day, heat when the living room falls below 20C or cool
+    when it reaches 25C; stop either mode at 22C. Uses the mounted living-room climate
     controller.
   triggers:
+  - trigger: numeric_state
+    entity_id: sensor.living_room_temperature
+    below: 20
+    id: start_heating
   - trigger: numeric_state
     entity_id: sensor.living_room_temperature
     above: 24.9
@@ -367,6 +371,24 @@
   conditions: []
   actions:
   - choose:
+    - conditions:
+      - condition: trigger
+        id:
+        - start_heating
+        - recover
+      - condition: numeric_state
+        entity_id: sensor.living_room_temperature
+        below: 20
+      - condition: time
+        after: 06:00:00
+        before: '23:00:00'
+      sequence:
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.living_room_aircon
+        data:
+          hvac_mode: heat
+          temperature: 22
     - conditions:
       - condition: trigger
         id:
