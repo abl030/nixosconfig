@@ -60,8 +60,8 @@
   mode: single
 - id: '1722841776503'
   alias: Aircon_Heat_Cold_Morning_6am
-  description: At 6am, if the living-room sensor is below 20C, heat to 22C using the
-    mounted living-room climate controller.
+  description: At 6am, if the living-room sensor is below 20C, heat to 22C with
+    maximum fan and full swing for the pre-wake period.
   triggers:
   - trigger: time
     at: 06:00:00
@@ -76,6 +76,39 @@
     data:
       hvac_mode: heat
       temperature: 22
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.living_room_aircon
+    data:
+      fan_mode: high
+  - action: climate.set_swing_mode
+    target:
+      entity_id: climate.living_room_aircon
+    data:
+      swing_mode: both
+  mode: single
+- id: aircon_morning_airflow_7am
+  alias: Aircon_Morning_Airflow_7am
+  description: At 7am, if morning heating is still running, return the fan to auto
+    and retain vertical swing for occupied-room comfort.
+  triggers:
+  - trigger: time
+    at: 07:00:00
+  conditions:
+  - condition: state
+    entity_id: climate.living_room_aircon
+    state: heat
+  actions:
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.living_room_aircon
+    data:
+      fan_mode: auto
+  - action: climate.set_swing_mode
+    target:
+      entity_id: climate.living_room_aircon
+    data:
+      swing_mode: vertical
   mode: single
 - id: '1722855691871'
   alias: Amp_Casting_TurnOFF
