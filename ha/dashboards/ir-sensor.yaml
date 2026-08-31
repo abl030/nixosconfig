@@ -330,9 +330,10 @@ views:
       content: |
         ### 💰 Hypothetical ROI (if installed today)
         - **Install cost assumed**: $140,000
-        - **Projected annual savings**: ${{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) | round(0) }} (12-mo LTS avg)
+        - **Projected annual savings**: ${{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) | round(0) }} (rolling monthly estimate)
         - **Years to ROI**: {{ states('sensor.battery_140kwh_years_to_roi') }} years
         - **ROI date**: {{ states('sensor.battery_140kwh_roi_date') }}
+        - **Projection refreshed**: {{ states('input_datetime.battery_140kwh_projection_last_refreshed') }}
     - type: custom:apexcharts-card
       chart_type: radialBar
       header:

@@ -106,8 +106,8 @@ input_number:
     mode: box
     unit_of_measurement: AUD
     icon: mdi:battery-charging-100
-  # Set once by backfill from LTS (last 12 months of potential_daily_savings_140kwh).
-  # No initial so persists across restarts after seeded.
+  # Seeded from the last 12 months of LTS, then refreshed after each completed
+  # month. No initial so the rolling projection persists across restarts.
   battery_140kwh_projected_annual_savings:
     name: 140kWh Battery Projected Annual Savings
     min: 0
@@ -146,6 +146,11 @@ input_datetime:
     has_date: true
     has_time: false
     icon: mdi:calendar-check
+  battery_140kwh_projection_last_refreshed:
+    name: 140kWh Battery Projection Last Refreshed
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-refresh
 
 # input_boolean.solar_estimate_seeded was removed — its persistence was unreliable
 # (same `initial:` reset issue). The seed automation now gates on
@@ -346,19 +351,6 @@ template:
           {% set roi = states('input_datetime.solar_roi_achieved_date') %}
           {% if roi != '1970-01-01' and roi not in ['unknown', 'unavailable'] %}achieved{% else %}projecting{% endif %}
 
-      # Lifetime daily rate: measured cumulative / days counted.
-      # Used to project the estimated ROI date.
-      - name: Solar Avg Daily Savings Lifetime
-        unique_id: solar_avg_daily_savings_lifetime
-        device_class: monetary
-        unit_of_measurement: AUD
-        icon: mdi:chart-bell-curve
-        availability: "{{ states('input_number.solar_savings_count_days') | int(0) > 0 }}"
-        state: >
-          {% set act = states('input_number.solar_cumulative_savings_actual') | float(0) %}
-          {% set d = states('input_number.solar_savings_count_days') | int(0) %}
-          {{ (act / d) | round(2) if d > 0 else 0 }}
-
       - name: Solar Estimated ROI Date
         unique_id: solar_estimated_roi_date
         icon: mdi:calendar-end
@@ -387,6 +379,26 @@ template:
           {% set cum = states('sensor.solar_cumulative_savings') | float(0) %}
           {% set cost = states('input_number.solar_install_cost_aud') | float(91000) %}
           {{ [cum - cost, 0] | max | round(2) }}
+
+  # Snapshot only after both nightly accumulator helpers have changed. Keeping
+  # this off their state triggers prevents Recorder from capturing the brief
+  # numerator-new/denominator-old spike between the two service calls.
+  - trigger:
+      - platform: time
+        at: "23:59:59"
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: Solar Avg Daily Savings Lifetime
+        unique_id: solar_avg_daily_savings_lifetime
+        device_class: monetary
+        unit_of_measurement: AUD
+        icon: mdi:chart-bell-curve
+        availability: "{{ states('input_number.solar_savings_count_days') | int(0) > 0 }}"
+        state: >
+          {% set act = states('input_number.solar_cumulative_savings_actual') | float(0) %}
+          {% set d = states('input_number.solar_savings_count_days') | int(0) %}
+          {{ (act / d) | round(2) if d > 0 else 0 }}
 
 automation:
   # Sync the new consumed-energy utility meter to the current tariff.
@@ -442,6 +454,41 @@ automation:
               entity_id: input_datetime.solar_savings_last_accumulated
             data:
               date: "{{ now().strftime('%Y-%m-%d') }}"
+
+  # Refresh the battery ROI projection from each completed month's modeled
+  # savings. The existing 12-month LTS value is the baseline; each month this
+  # replaces one twelfth of that estimate with the latest full month. This is a
+  # stable rolling estimate without annualising a single noisy day or week.
+  - alias: Refresh 140kWh Battery ROI Projection
+    id: refresh_battery_140kwh_roi_projection
+    description: "Refresh the 140kWh projected annual savings after each completed month."
+    mode: single
+    trigger:
+      - platform: time
+        at: "23:59:57"
+    condition:
+      - condition: template
+        value_template: "{{ (now() + timedelta(days=1)).day == 1 }}"
+      - condition: numeric_state
+        entity_id: input_number.battery_140kwh_projected_annual_savings
+        above: 0
+      - condition: numeric_state
+        entity_id: sensor.potential_monthly_savings_140kwh
+        above: 0
+    action:
+      - variables:
+          previous_annual: "{{ states('input_number.battery_140kwh_projected_annual_savings') | float(0) }}"
+          completed_month: "{{ states('sensor.potential_monthly_savings_140kwh') | float(0) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.battery_140kwh_projected_annual_savings
+        data:
+          value: "{{ ((previous_annual | float(0)) * 11 / 12 + (completed_month | float(0))) | round(2) }}"
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.battery_140kwh_projection_last_refreshed
+        data:
+          date: "{{ now().strftime('%Y-%m-%d') }}"
 
   # One-time seed of the pre-deploy estimate after 7 days of measured data.
   # Gated on pre_deploy_estimate being 0 (not yet seeded) — this is naturally
