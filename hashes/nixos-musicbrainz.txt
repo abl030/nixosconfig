@@ -1,1 +1,1 @@
-/nix/store/zmn16vvv7jfpm998z17caj4awy3p9zf1-nixos-system-musicbrainz-lxc-proxmox-26.11.20260825.ac6b216
+/nix/store/6imn2680bcsxxsasarra89ybrlz7g0kp-nixos-system-musicbrainz-lxc-proxmox-26.11.20260825.ac6b216

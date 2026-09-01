@@ -1,1 +1,1 @@
-/nix/store/bv5dl6fdgv1vlsgzrj70ny1j704553vs-nixos-system-wsl-26.11.20260825.ac6b216
+/nix/store/l2q0nm7d468p79pb79zfd5gmam0hg7gl-nixos-system-wsl-26.11.20260825.ac6b216
