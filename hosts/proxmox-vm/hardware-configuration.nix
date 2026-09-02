@@ -31,17 +31,16 @@
   #     options = [ "fmask=0022" "dmask=0022" ];
   #   };
 
-  # 16 GiB swapfile on the ext4 root (mirrors doc2's pattern). doc1 is
-  # balloonable (NOT pinned) and ran with ZERO swap, so a prom balloon-inflate
-  # during a nix-build anon spike (~11.5 G observed) had no cushion and could
-  # hard-OOM. Disk swap gives real off-RAM capacity that survives a balloon
-  # squeeze (zram would just compress the RAM the balloon is reclaiming). doc1
-  # reboots cleanly, so the igpu shutdown-deadlock concern (which drove igpu to
-  # zram) does not apply here. See Forgejo #12 (fleet RAM audit).
+  # 24 GiB swapfile on the ext4 root. doc1 is balloonable and its 2026-09-02
+  # rolling update exhausted the previous 16 GiB while nix-daemon reached
+  # ~19.7 GiB RSS. This is bounded emergency capacity, not permission to hide
+  # recurring daemon growth behind unlimited swap. Disk swap survives a balloon
+  # squeeze; zram would only compress RAM the balloon is reclaiming. See
+  # Forgejo #12 (fleet RAM audit).
   swapDevices = [
     {
       device = "/var/lib/swapfile";
-      size = 16 * 1024; # 16 GiB in MiB
+      size = 24 * 1024; # 24 GiB in MiB
     }
   ];
 
