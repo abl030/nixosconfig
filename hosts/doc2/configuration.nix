@@ -150,8 +150,11 @@
     syncthing = {
       enable = true;
       isolated = true;
+      guiAddress = "127.0.0.1:8384";
       openDefaultPorts = false;
+      openTailscaleGui = false;
       openTailscaleDataPort = true;
+      requiredMountsFor = ["/mnt/data"];
       extraDevices.work-laptop = {
         id = "JKM5WVM-LHKKORH-6URSCJK-W3A2UMO-6JMZTDR-PI6Z7HF-KOUHJY3-M6MKKAX";
         name = "work-laptop";
@@ -163,6 +166,7 @@
         type = "sendreceive";
       };
       options = {
+        listenAddresses = ["tcp://0.0.0.0:22000"];
         globalAnnounceEnabled = false;
         localAnnounceEnabled = false;
         relaysEnabled = false;

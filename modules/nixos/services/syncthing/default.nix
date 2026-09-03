@@ -72,6 +72,16 @@ in {
       default = false;
       description = "Open only TCP 22000 on tailscale0 for direct synchronization.";
     };
+    openTailscaleGui = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Open the Syncthing GUI port on tailscale0.";
+    };
+    requiredMountsFor = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Mount points which must exist before Syncthing starts.";
+    };
     extraDevices = lib.mkOption {
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
       default = {};
@@ -135,8 +145,7 @@ in {
 
     # Never let a shared-storage folder fall through to the underlying root
     # filesystem when its real mount is unavailable.
-    systemd.services.syncthing.unitConfig.RequiresMountsFor =
-      map (folder: folder.path) (lib.attrValues cfg.extraFolders);
+    systemd.services.syncthing.unitConfig.RequiresMountsFor = cfg.requiredMountsFor;
 
     # SOPS secrets for Syncthing keys
     sops.secrets.syncthing-cert = {
@@ -152,6 +161,7 @@ in {
 
     # The GUI and optional direct data listener are reachable via Tailscale only.
     networking.firewall.interfaces.tailscale0.allowedTCPPorts =
-      [8384] ++ lib.optional cfg.openTailscaleDataPort 22000;
+      lib.optional cfg.openTailscaleGui 8384
+      ++ lib.optional cfg.openTailscaleDataPort 22000;
   };
 }
