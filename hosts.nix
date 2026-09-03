@@ -214,8 +214,9 @@ in {
     # on `hostConfig ? syncthingDeviceId`) and drops wsl as a peer from every other
     # member's device list (built from hosts WITH an id). Cullen-isolation (#239)
     # wants the least standing reach into the fleet; a full-copy sync mesh is the
-    # opposite, and can't hold the whole NAS anyway. Home NAS access is the
-    # on-demand NFS mount in hosts/wsl/data-mounts.nix, not Syncthing.
+    # opposite, and can't hold the whole NAS anyway. Wider home NAS access stays
+    # behind hosts/wsl/data-mounts.nix. The native Windows Syncthing client
+    # independently receives only doc2's Scans folder.
     # Windows host LAN IP at the Cullen office. Cloudflare A records for
     # services exposed via homelab.localProxy point here; Windows then
     # port-forwards 443 into the WSL VM's eth0.

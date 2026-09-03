@@ -143,10 +143,32 @@
       gcDates = "04:30";
     };
 
-    # Rootful podman for OCI containers, native NixOS services for the rest
-    # No CI, no cache server, no github runner — that stays on doc1
-    # No syncthing — this is a headless appliance
-    syncthing.enable = false;
+    # Rootful podman for OCI containers, native NixOS services for the rest.
+    # Syncthing is deliberately isolated from the fleet conversation-archive
+    # mesh: it serves only the scanner drop directory to the Cullen laptop over
+    # one direct Tailscale connection.
+    syncthing = {
+      enable = true;
+      isolated = true;
+      openDefaultPorts = false;
+      openTailscaleDataPort = true;
+      extraDevices.work-laptop = {
+        id = "JKM5WVM-LHKKORH-6URSCJK-W3A2UMO-6JMZTDR-PI6Z7HF-KOUHJY3-M6MKKAX";
+        name = "work-laptop";
+      };
+      extraFolders.meg-andy-scans = {
+        id = "meg-andy-scans";
+        path = "/mnt/data/Life/Meg and Andy/Scans";
+        devices = ["work-laptop"];
+        type = "sendreceive";
+      };
+      options = {
+        globalAnnounceEnabled = false;
+        localAnnounceEnabled = false;
+        relaysEnabled = false;
+        natEnabled = false;
+      };
+    };
 
     # Services
     services = {
