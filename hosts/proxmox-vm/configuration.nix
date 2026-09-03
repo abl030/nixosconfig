@@ -85,7 +85,10 @@
   systemd.user.services.hermes-gateway = {
     overrideStrategy = "asDropin";
     serviceConfig = {
-      Environment = "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins";
+      Environment = [
+        "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins"
+        "PYTHONPATH=${pkgs.hermes-agent.hermesStateStoreModules}/${pkgs.python312.sitePackages}"
+      ];
       EnvironmentFile = config.sops.secrets."hermes/ntfy-env".path;
     };
   };
