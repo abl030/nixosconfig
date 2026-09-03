@@ -98,9 +98,15 @@
         '';
       };
     in {
-      hermes-agent = inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
-        extraPythonPackages = [stateStoreModules];
-      };
+      hermes-agent =
+        (inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
+          extraPythonPackages = [stateStoreModules];
+        }).overrideAttrs
+        (old: {
+          passthru =
+            (old.passthru or {})
+            // {hermesStateStoreModules = stateStoreModules;};
+        });
     }
   )
 
