@@ -2332,6 +2332,7 @@
               export HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins
               mkdir -p "$HERMES_HOME"
               cp ${./.}/hermes/config/default/config.yaml "$HERMES_HOME/config.yaml"
+              ${pkgs.hermes-agent}/bin/hermes sessions list --limit 1
               "$hermes_python" ${ntfyRuntimeCheck}
               touch $out
             '';

@@ -70,9 +70,37 @@
   # Hermes Agent CLI: use the full upstream package output with optional
   # integrations included. This is only a package; the gateway service remains
   # disabled unless a host explicitly enables it.
+  #
+  # Upstream's pyproject.toml module list currently omits these two imported
+  # state-store modules, so the built wheel cannot open state.db. Keep this
+  # narrow supplement until upstream ships both modules in its Python package.
   (
-    final: _prev: {
-      hermes-agent = inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default;
+    final: _prev: let
+      stateStoreModules = final.python312Packages.buildPythonPackage {
+        pname = "hermes-agent-state-store-modules";
+        version = "${inputs.hermes-agent.lastModifiedDate or "unstable"}";
+        format = "other";
+        dontUnpack = true;
+        installPhase = ''
+          mkdir -p "$out/${final.python312.sitePackages}"
+          copied=0
+          for module in hermes_state_holders hermes_state_registry; do
+            if ! grep -q "\"$module\"" ${inputs.hermes-agent}/pyproject.toml; then
+              cp "${inputs.hermes-agent}/$module.py" "$out/${final.python312.sitePackages}/"
+              copied=1
+            fi
+          done
+
+          if [[ $copied -eq 0 ]]; then
+            echo "Upstream now packages both state-store modules; remove this supplement." >&2
+            exit 1
+          fi
+        '';
+      };
+    in {
+      hermes-agent = inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
+        extraPythonPackages = [stateStoreModules];
+      };
     }
   )
 
