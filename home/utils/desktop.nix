@@ -38,6 +38,7 @@
   ];
 
   imports = [
+    ../games/museum-madness.nix
     ../terminals/ghostty/ghostty.nix
     ../utils/vscode.nix
   ];
