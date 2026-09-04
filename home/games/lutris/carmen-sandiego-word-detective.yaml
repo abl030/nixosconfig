@@ -1,0 +1,54 @@
+game_slug: carmen-sandiego-word-detective
+version: "CD + Windows 95 (local)"
+slug: carmen-sandiego-word-detective-cd-windows-95-local
+installer_slug: carmen-sandiego-word-detective-cd-windows-95-local
+name: Carmen Sandiego Word Detective
+year: 1997
+runner: linux
+description: >-
+  Carmen Sandiego Word Detective installed into the pinned Windows 95 OSR2.5
+  DOSBox Pure Unleashed image.
+notes: |
+  This installer uses DOSBox Pure Unleashed with the working CDN Windows 95
+  OSR2.5 image. The CDN image is used instead of the official 2Go URL because
+  that URL currently returns HTTP 403.
+
+  After the image boots, open My Computer, open drive E:, and install the game.
+  Choose Express Setup for both the QuickTime and DirectX installers.
+
+  Press Ctrl+F12 to open the DOSBox Pure Unleashed menu.
+script:
+  files:
+    - os_img:
+        filename: WIN95_OSR25_DBP.7z
+        url: https://lutris.nyc3.cdn.digitaloceanspaces.com/games/Windows_95/WIN95_OSR25_DBP.7z
+        checksum: "sha256:1d6718c08407fcaf6a8c8cee9f567401f7e3cea15a7c2a9cd851839ca7671426"
+    - dbpu_file:
+        filename: dosbox-pure-unleashed.tar.xz
+        url: https://github.com/legluondunet/mlls-tools/raw/5ed13e300e2ae636817839d741f49c5049d6b139/DOSBox/dosbox-pure-unleashed.tar.xz
+        checksum: "sha256:4b4cdbdb284c16bc172c37ef7b6d6f56baccc82490b4dbde7c14e8ea51a8f37d"
+    - dbpu_save:
+        filename: Carmen Sandiego Word Detective.pure.zip
+        url: https://github.com/legluondunet/MyLittleLutrisScripts/raw/89ab1505c1fd1de8ffc1aadfe55a3e155f15130d/Windows%2095/DOSBox-pure.pure.zip
+        checksum: "sha256:43d2a404d66672b2621e1605b697ee32d3f0cc79373bd79fdca1c6b572a5da53"
+    - game_cd:
+        filename: Carmen Sandiego Word Detective.iso
+        url: https://archive.org/download/carmen-sandiego-word-detective/Carmen%20Sandiego%20-%20Word%20Detective.iso
+        checksum: "sha1:eebecb83cd68d6d94793b6fe32f5431cef25db35"
+  game:
+    args: '"$GAMEDIR/CD/Carmen Sandiego Word Detective.iso"'
+    exe: $GAMEDIR/DOSBoxPure_x86_64
+    working_dir: $GAMEDIR
+  installer:
+    - extract:
+        dst: $GAMEDIR
+        file: dbpu_file
+    - extract:
+        dst: $GAMEDIR/system
+        src: os_img
+    - merge:
+        dst: $GAMEDIR/saves
+        src: dbpu_save
+    - merge:
+        dst: $GAMEDIR/CD
+        src: game_cd

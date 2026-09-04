@@ -39,6 +39,7 @@
 
   imports = [
     ../games/museum-madness.nix
+    ../games/carmen-sandiego-win95.nix
     ../terminals/ghostty/ghostty.nix
     ../utils/vscode.nix
   ];
