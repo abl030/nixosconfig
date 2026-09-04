@@ -37,6 +37,50 @@ version-controlled. A from-scratch VM rebuild loses it → re-run the bootstrap
 (Codex login + model pick). The only repo-managed secret is
 `secrets/hosts/hermes/hermes.env` (Telegram bot token + allowlisted user IDs).
 
+## 2026-09-04 — sessions silently stopped persisting on doc1
+
+This incident affected the git-tracked Hermes CLI/gateway installation on
+`proxmox-vm` (doc1), not the separate containerized `hermes` VM described above.
+The doc1 reboot exposed the loss, but did not cause it: `state.db` had stopped
+receiving sessions around midday on 2026-09-03, hours before the reboot, while
+agent logs showed later conversations continuing normally.
+
+**Root cause:** upstream Hermes 0.21.0 used an explicit `py-modules` manifest in
+`pyproject.toml` but omitted `hermes_state_holders.py` and
+`hermes_state_registry.py`. The wheel and Nix derivation therefore built
+successfully, while `hermes_state.py` failed only when a runtime path initialized
+`SessionDB`. Hermes caught that failure and continued without SQLite indexing,
+logging that the session “will NOT be indexed”. The CLI wrapper and gateway also
+had different import environments: the CLI inherited wrapper `PYTHONPATH`, while
+the mutable gateway unit executed the sealed `HERMES_PYTHON` directly.
+
+**Local repair:** [PR #195](https://git.ablz.au/abl030/nixosconfig/pulls/195)
+adds the two omitted modules to the wrapped package and a CLI session-store smoke
+test. [PR #196](https://git.ablz.au/abl030/nixosconfig/pulls/196) exposes the same
+supplement through package `passthru`, injects its site-packages path into the
+doc1 gateway systemd drop-in, and tests the direct gateway interpreter. The
+supplement copies only modules still absent from upstream and deliberately fails
+when upstream packages both, forcing removal of the workaround. Signed revision
+`8a6574f8ade8620d07c4c17f35fdfddc268de8a3` was deployed to doc1 and the gateway
+was restarted.
+
+**Verification:** `hermes sessions list` opened the existing 845-session database;
+`hermes doctor` reported SQLite and `state.db` healthy; the restarted gateway's
+live environment contained the supplemental `PYTHONPATH`; and a temporary
+`SessionDB` create/write/read using the gateway's exact interpreter passed. Full
+`nix flake check` and `nixos-rebuild dry-build --flake .#proxmox-vm` also passed.
+
+**Recovery limit:** the 845 older sessions remained intact. Conversations created
+while SessionDB initialization was failing were never inserted into SQLite, so
+only partial evidence remains in logs and complete transcripts cannot be
+recovered. Start a fresh Hermes process/session after applying the repair; an
+already-running process that disabled persistence at startup does not heal
+itself.
+
+Upstream reports: [#101147](https://github.com/NousResearch/hermes-agent/issues/101147),
+[#102358](https://github.com/NousResearch/hermes-agent/issues/102358), and
+[#100561](https://github.com/NousResearch/hermes-agent/issues/100561).
+
 ## ⚠️ The data-dir ownership gotcha (locked the agent out of /opt/data)
 
 **Symptom (2026-06-14):** `sudo podman exec -it hermes hermes` (the interactive
