@@ -130,7 +130,14 @@ in {
           INITIAL_COMMIT = "never";
         };
         time.DEFAULT_UI_LOCATION = "Australia/Perth";
-        session.COOKIE_SECURE = true;
+        security.LOGIN_REMEMBER_DAYS = 31;
+        session = {
+          COOKIE_SECURE = true;
+          # Keep sessions across service restarts; browser persistence remains
+          # opt-in through the 31-day "Remember me" cookie.
+          PROVIDER = "file";
+          PROVIDER_CONFIG = "${cfg.dataDir}/data/sessions";
+        };
         log.LEVEL = "Info";
       };
     };
