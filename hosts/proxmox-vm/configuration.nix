@@ -84,6 +84,9 @@
   # environment into that mutable unit instead of shadowing it.
   systemd.user.services.hermes-gateway = {
     overrideStrategy = "asDropin";
+    # The mutable gateway unit is merged with this drop-in. Keep its runtime
+    # shell/tool surface available for cron jobs and spawned agent commands.
+    path = with pkgs; [bash git nix python3];
     serviceConfig = {
       Environment = [
         "HERMES_BUNDLED_PLUGINS=${pkgs.hermes-agent}/share/hermes-agent/plugins"
