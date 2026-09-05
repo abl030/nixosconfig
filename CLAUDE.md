@@ -42,10 +42,12 @@ On doc1, Forgejo push authentication uses the `abl030`-owned 0400 nixbot token a
 HTTP header, never in argv or the remote URL:
 
 ```bash
-export GIT_CONFIG_COUNT=1 \
-  GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
-  GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
-git push origin HEAD:master
+./scripts/forgejo-auth.sh git-push \
+  --repo "$PWD" --remote origin \
+  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --token-file /run/secrets/forgejo/nixbot-token \
+  --refspec HEAD:master
 ```
 
 Dev boxes (`epimetheus`, `framework`) intentionally hold no Forgejo push token.

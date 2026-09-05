@@ -1558,6 +1558,11 @@
               exit 99
               EOF
               chmod +x "$TMPDIR/bin/nix"
+              cp ${./nix/checks/rolling-auth-git-fixture.sh} "$TMPDIR/bin/git"
+              chmod +x "$TMPDIR/bin/git"
+              patchShebangs "$TMPDIR/bin/git"
+              export FIXTURE_REAL_GIT=${pkgs.git}/bin/git
+              printf '%040d' 0 > "$TMPDIR/dummy-token"
               export PATH="$TMPDIR/bin:$PATH"
 
               make_key() {
@@ -1735,7 +1740,10 @@
                 local allowed="$2"
                 local anchor_file="$3"
                 REPO_DIR="$TMPDIR/local-source" \
-                RFU_REMOTE_URL="file://$remote" \
+                FIXTURE_REMOTE="$remote" \
+                RFU_REMOTE_URL="https://git.ablz.au/abl030/nixosconfig.git" \
+                RFU_FORGEJO_AUTH=${forgejoAuthHelper} \
+                RFU_PUSH_TOKEN_FILE="$TMPDIR/dummy-token" \
                 RFU_REQUIRE_SIGNED_BASE=1 \
                 RFU_GROUP_NVCHAD=other-input \
                 RFU_GROUP_YTDLP=other-input \
@@ -1755,7 +1763,7 @@
                   exit 97
                 fi
               done
-              exec ${pkgs.git}/bin/git "$@"
+              exec ${pkgs.bash}/bin/bash ${./nix/checks/rolling-auth-git-fixture.sh} "$@"
               EOF
               chmod +x "$TMPDIR/rolling-fail-rev-list-bin/git"
 
@@ -1765,7 +1773,7 @@
               if [ "$1" = checkout ] && [ "''${2:-}" = -- ] && [ "''${3:-}" = flake.lock ]; then
                 exit 42
               fi
-              exec ${pkgs.git}/bin/git "$@"
+              exec ${pkgs.bash}/bin/bash ${./nix/checks/rolling-auth-git-fixture.sh} "$@"
               EOF
               chmod +x "$TMPDIR/rolling-fail-rollback-bin/git"
 
@@ -1948,6 +1956,69 @@
                 echo "Discogs must not receive its PostgreSQL password through the environment" >&2
                 exit 1
               fi
+              touch "$out"
+            '';
+
+          # Forgejo auth ratchet (#28). Keep the credential grammar in one
+          # executable boundary and patrol every authored updater/runbook surface
+          # that can push or call the Forgejo API. The helper itself is checked
+          # behaviorally by test_forgejo_auth.py; consumers are denied raw
+          # git -c/curl-header/URL/tracing variants by the source audit.
+          forgejoAuthHelper = self.nixosConfigurations.proxmox-vm.config.systemd.services.rolling-flake-update.environment.RFU_FORGEJO_AUTH;
+          forgejoAuthSourceFiles = [
+            ./scripts
+            ./modules/nixos/ci/rolling-flake-update.nix
+            ./.claude
+            ./hermes/skills
+            ./CLAUDE.md
+            ./docs/wiki
+            ./docs/plans/2026-06-10-001-feat-signed-fleet-deploys-forgejo-cutover-plan.md
+          ];
+          forgejoAuthSourceCheck =
+            pkgs.runCommand "forgejo-auth-source-ratchet" {
+              nativeBuildInputs = [pkgs.python3 pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.git pkgs.curl pkgs.openssl pkgs.jq];
+            } ''
+              set -euo pipefail
+              export PYTHONDONTWRITEBYTECODE=1
+              FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+                python3 ${./nix/checks/test_forgejo_auth.py} || exit 1
+              FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+              RFU_SOURCE=${./scripts/rolling_flake_update.sh} \
+              SNAPSHOT_SOURCE=${./hermes/skills/homelab-agents/brain-backup/scripts/brain-snapshot.sh} \
+                python3 ${./nix/checks/test_forgejo_auth_real.py} || exit 1
+              FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+              FORGEJO_AUTH_BEHAVIOR_TEST=${./nix/checks/test_forgejo_auth.py} \
+              FORGEJO_AUTH_REAL_TEST=${./nix/checks/test_forgejo_auth_real.py} \
+                python3 ${./nix/checks/test_forgejo_auth_mutants.py} || exit 1
+              FORGEJO_AUTH_SOURCE_AUDIT=${./nix/checks/forgejo-auth-source-audit.py} \
+              FORGEJO_AUTH_SOURCE_EXCLUDE=${./scripts}/forgejo-auth.sh \
+              FORGEJO_AUTH_SOURCE_PATHS=${lib.escapeShellArg (lib.concatStringsSep ":" (map toString forgejoAuthSourceFiles))} \
+                python3 ${./nix/checks/test_forgejo_auth_source_audit.py} || exit 1
+              bash -n ${./scripts/forgejo-auth.sh} || exit 1
+              grep -q 'set +x' ${./scripts/forgejo-auth.sh}
+              grep -q 'GIT_CONFIG_COUNT' ${./scripts/forgejo-auth.sh}
+              grep -q 'RFU_FORGEJO_AUTH' ${./modules/nixos/ci/rolling-flake-update.nix}
+              touch "$out"
+            '';
+
+          # The updater is read into its own immutable store script, so the
+          # helper must be packaged separately and wired through the realized
+          # unit environment; a sibling lookup in the updater store directory is
+          # not a valid deployment contract.
+          rollingFlakeUpdatePackagingCheck = let
+            service = self.nixosConfigurations.proxmox-vm.config.systemd.services.rolling-flake-update;
+            helper = service.environment.RFU_FORGEJO_AUTH;
+            wrapper = service.serviceConfig.ExecStart;
+          in
+            pkgs.runCommand "rolling-flake-update-forgejo-auth-packaging" {
+              nativeBuildInputs = [pkgs.gnugrep];
+            } ''
+              case ${lib.escapeShellArg helper} in /nix/store/*) ;; *) echo "helper is not immutable" >&2; exit 1 ;; esac
+              test -x ${lib.escapeShellArg helper}
+              ${pkgs.gnugrep}/bin/grep -q 'set +x' ${lib.escapeShellArg helper}
+              ${pkgs.gnugrep}/bin/grep -q 'GIT_CONFIG_COUNT' ${lib.escapeShellArg helper}
+              test -x ${lib.escapeShellArg wrapper}
+              ${pkgs.gnugrep}/bin/grep -q 'rolling-flake-update.sh' ${lib.escapeShellArg wrapper}
               touch "$out"
             '';
 
@@ -2230,6 +2301,7 @@
           aiPortabilityCheck = let
             rcaCheckoutSafetyCheck = pkgs.writeText "check-rca-checkout-safety.py" ''
               import pathlib
+              import re
               import sys
 
               FETCH = "git fetch origin"
@@ -2237,24 +2309,25 @@
               CAPTURE = 'git -C /home/abl030/nixosconfig status --short --branch >"$(git rev-parse --git-path primary-status-baseline)"'
               COMPARE = 'git -C /home/abl030/nixosconfig status --short --branch | cmp -s "$(git rev-parse --git-path primary-status-baseline)" -'
               COMMIT_PREFIX = "git commit "
-              READBACK_PREFIX = 'curl -fsS "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"'
+              READBACK = '"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method GET --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<number>"'
 
               def validate(text: str) -> None:
-                  lines = [line.strip() for line in text.splitlines()]
+                  lines = [line.strip() for line in re.sub(r"\\\n\s*", "", text).splitlines()]
                   assert lines.count(FETCH) == 1, "require exactly one fetch command"
                   assert lines.count(WORKTREE) == 1, "require exact worktree-add command"
                   assert lines.count(CAPTURE) == 1, "require exact administrative-git-path baseline capture"
                   assert lines.count(COMPARE) == 2, "require exactly two executable baseline compares"
+                  assert lines.count(READBACK) == 1, "require exact authenticated PR readback"
                   fetch = lines.index(FETCH)
                   worktree = lines.index(WORKTREE)
                   capture = lines.index(CAPTURE)
                   compares = [index for index, line in enumerate(lines) if line == COMPARE]
                   commit = next(index for index, line in enumerate(lines) if line.startswith(COMMIT_PREFIX))
-                  readback = next(index for index, line in enumerate(lines) if line.startswith(READBACK_PREFIX))
+                  readback = lines.index(READBACK)
                   assert fetch < worktree < capture < compares[0] < commit < readback < compares[1], "checkout gates are out of order"
 
               def self_test() -> None:
-                  fixture = "\n".join([FETCH, WORKTREE, CAPTURE, COMPARE, "git commit -m fix", READBACK_PREFIX, COMPARE])
+                  fixture = "\n".join([FETCH, WORKTREE, CAPTURE, COMPARE, "git commit -m fix", READBACK, COMPARE])
                   validate(fixture)
                   lines = fixture.splitlines()
                   for compare_index in (3, 6):
@@ -2270,6 +2343,13 @@
                               pass
                           else:
                               raise AssertionError("compare-removal/prose mutant unexpectedly passed")
+                  for replacement in ("", READBACK.replace("--method GET", "--method POST"), "Read the PR back."):
+                      try:
+                          validate(fixture.replace(READBACK, replacement))
+                      except AssertionError:
+                          pass
+                      else:
+                          raise AssertionError("readback-removal/mutation mutant unexpectedly passed")
 
               if sys.argv[1:] == ["--self-test"]:
                   self_test()
@@ -2341,7 +2421,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck mrnewsIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck mrnewsIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck forgejoAuthSourceCheck rollingFlakeUpdatePackagingCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

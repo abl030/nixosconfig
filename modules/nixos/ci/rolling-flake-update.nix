@@ -48,6 +48,11 @@
     - Do not include markdown headers, preamble, or sign-off.
   '';
   triagePromptFile = pkgs.writeText "rolling-flake-update-triage-prompt" triageSystemPrompt;
+  forgejoAuthScript = pkgs.writeTextFile {
+    name = "forgejo-auth.sh";
+    executable = true;
+    text = lib.replaceStrings ["#!/usr/bin/env -S bash -p"] ["#!${pkgs.bash}/bin/bash -p"] (builtins.readFile ../../../scripts/forgejo-auth.sh);
+  };
   updaterScript = pkgs.writeTextFile {
     name = "rolling-flake-update.sh";
     executable = true;
@@ -82,18 +87,12 @@ in {
       '';
     };
 
-    tokenFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      description = "Deprecated GitHub-push PAT (token-in-URL). Unused since the Forgejo cutover; use pushTokenFile.";
-    };
-
     pushTokenFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
       description = ''
         File containing the Forgejo push token (nixbot). Sent as an
-        `Authorization` header on push only — never embedded in the
+        `Authorization` header on push and exact ref readback — never embedded in the
         remote URL, so it cannot leak into logs, the saved remote, or failure
         artifacts. Clone stays anonymous (public repo).
       '';
@@ -237,6 +236,7 @@ in {
             REPO_DIR = cfg.repoDir;
             BASE_BRANCH = "master";
             RFU_REMOTE_URL = cfg.remoteUrl;
+            RFU_FORGEJO_AUTH = "${forgejoAuthScript}";
             RFU_GIT_SIGNING_KEY = cfg.signingKeyFile;
             RFU_ALLOWED_SIGNERS_FILE = cfg.allowedSignersFile;
             RFU_BASE_ANCHOR_FILE = cfg.baseAnchorFile;
@@ -260,9 +260,6 @@ in {
           }
           // lib.optionalAttrs (gotifyUrl != null) {
             GOTIFY_URL = gotifyUrl;
-          }
-          // lib.optionalAttrs (cfg.tokenFile != null) {
-            GH_TOKEN_FILE = "${cfg.tokenFile}";
           }
           // lib.optionalAttrs (cfg.pushTokenFile != null) {
             RFU_PUSH_TOKEN_FILE = "${cfg.pushTokenFile}";

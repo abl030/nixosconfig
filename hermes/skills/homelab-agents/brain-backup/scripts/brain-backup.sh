@@ -10,6 +10,8 @@ set -euo pipefail
 
 BRAIN="${HERMES_HOME:-$HOME/.hermes}"
 TOKEN_FILE="$HOME/.config/hermes-brain/token"
+FORGEJO_AUTH="${FORGEJO_AUTH_HELPER:-${NIXOSCONFIG_DIR:-$HOME/nixosconfig}/scripts/forgejo-auth.sh}"
+REMOTE_URL="https://git.ablz.au/abl030/hermes-brain.git"
 SCAN_MIN_LEN=32
 
 die() { printf 'brain-backup: FATAL: %s\n' "$*" >&2; exit 1; }
@@ -17,6 +19,7 @@ note() { printf 'brain-backup: %s\n' "$*"; }
 
 [ -d "$BRAIN/.git" ] || die "$BRAIN is not a git repository"
 [ -r "$TOKEN_FILE" ] || die "push token unreadable at $TOKEN_FILE"
+[ -x "$FORGEJO_AUTH" ] || die "Forgejo authentication helper is not executable at $FORGEJO_AUTH"
 cd "$BRAIN"
 
 # The deny-by-default posture is load-bearing. If it is gone, so is our
@@ -101,10 +104,12 @@ git commit -q -m "brain: sync $(date -u +%Y-%m-%dT%H:%M:%SZ)
 ${count} path(s): memories, SOUL, and agent-authored skills.
 Bundled skills, credentials, and runtime state excluded by policy."
 
-GIT_CONFIG_COUNT=1 \
-GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
-GIT_CONFIG_VALUE_0="Authorization: token $(cat "$TOKEN_FILE")" \
-git push -q origin main
+"$FORGEJO_AUTH" git-push \
+  --repo "$PWD" --remote origin \
+  --expected-fetch-url "$REMOTE_URL" \
+  --expected-push-url "$REMOTE_URL" \
+  --token-file "$TOKEN_FILE" \
+  --refspec main --quiet
 
 note "pushed ${count} path(s) to abl030/hermes-brain"
 

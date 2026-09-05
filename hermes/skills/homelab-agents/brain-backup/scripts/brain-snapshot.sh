@@ -8,6 +8,7 @@ BRAIN="${HERMES_HOME:-$HOME/.hermes}"
 TOKEN_FILE="$HOME/.config/hermes-brain/token"
 IDENTITY_FILE="$HOME/.config/sops/age/keys.txt"
 REMOTE="https://git.ablz.au/abl030/hermes-brain.git"
+FORGEJO_AUTH="${FORGEJO_AUTH_HELPER:-${NIXOSCONFIG_DIR:-$HOME/nixosconfig}/scripts/forgejo-auth.sh}"
 RECIPIENTS=(
   "age1y6nasu9gplutapjne4yv0uhzrwee6ayf2mygwhphf3nty6x5xddqy4zl4h" # break-glass
   "age17uw7vxe8x3nmg0lu5j33qlh8pxr538jlqhhjngmexdc0macccg8sc8rw63" # doc1 editor
@@ -21,6 +22,7 @@ for command in sqlite3 zstd age git sha256sum flock; do
 done
 [ -r "$BRAIN/state.db" ] || die "session database unreadable at $BRAIN/state.db"
 [ -r "$TOKEN_FILE" ] || die "push token unreadable at $TOKEN_FILE"
+[ -x "$FORGEJO_AUTH" ] || die "Forgejo authentication helper is not executable at $FORGEJO_AUTH"
 [ -r "$IDENTITY_FILE" ] || die "age identity unreadable at $IDENTITY_FILE"
 
 lock="${XDG_RUNTIME_DIR:-/tmp}/hermes-brain-snapshot.lock"
@@ -98,12 +100,16 @@ git -C "$repo" commit -q -m "snapshot: sessions $timestamp"
 commit=$(git -C "$repo" rev-parse HEAD)
 git -C "$repo" remote add origin "$REMOTE"
 
-token=$(<"$TOKEN_FILE")
-export GIT_CONFIG_COUNT=1
-export GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader"
-export GIT_CONFIG_VALUE_0="Authorization: token $token"
-git -C "$repo" push -q --force origin HEAD:refs/heads/snapshots
-remote_commit=$(git -C "$repo" ls-remote origin refs/heads/snapshots | cut -f1)
+"$FORGEJO_AUTH" git-push \
+  --repo "$repo" --remote origin \
+  --expected-fetch-url "$REMOTE" \
+  --expected-push-url "$REMOTE" \
+  --token-file "$TOKEN_FILE" \
+  --refspec HEAD:refs/heads/snapshots --force --quiet
+remote_commit=$("$FORGEJO_AUTH" git-ls-remote \
+  --repo "$repo" --remote origin \
+  --expected-fetch-url "$REMOTE" --expected-push-url "$REMOTE" \
+  --token-file "$TOKEN_FILE" --ref refs/heads/snapshots | cut -f1)
 [ "$remote_commit" = "$commit" ] || die "remote snapshot ref does not match uploaded commit"
 
 note "pushed encrypted snapshot: $sessions sessions, $messages messages, $((encrypted_bytes / 1024 / 1024)) MiB"

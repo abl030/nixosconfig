@@ -123,7 +123,7 @@ to; throwaway random passwords, they auth via token, not password):
 | Account | Purpose | Token |
 |---|---|---|
 | `nixbot` | nightly rolling-flake-update bot push | `nixbot-push` (`write:repository`) → `secrets/hosts/proxmox-vm/forgejo-nixbot-token` |
-| `abl030` | interactive Hermes control plane | `hermes-agent-admin-doc1-20260729` (`all`) → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` → `/run/secrets/forgejo/hermes-token` |
+| `abl030` | interactive Hermes control plane | persistent `all`-scope admin token → `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` → `/run/secrets/forgejo/hermes-token` |
 | `doc1-writer` | interactive dev push from doc1 | per-machine, issued in U9 |
 | `epimetheus-writer` | dev push from epimetheus | per-machine, issued in U9 |
 | `framework-writer` | dev push from framework | per-machine, issued in U9 |
@@ -131,6 +131,36 @@ to; throwaway random passwords, they auth via token, not password):
 
 All five are **write collaborators** on `nixosconfig`. Personal `abl030` is the
 owner but is not used for ordinary pushes.
+
+All authenticated Git and REST examples for this repository use
+`scripts/forgejo-auth.sh`. The boundary keeps the existing token ownership and
+scopes (`nixbot` push token at `/run/secrets/forgejo/nixbot-token`; `abl030`
+all-scope API token at `/run/secrets/forgejo/hermes-token`), validates the exact
+Forgejo destination before reading either file, and suppresses Git/curl tracing
+in the short-lived child. Callers retain responsibility for verifying a pushed
+remote ref SHA.
+
+Issue #28 boundary contract (2026-09-05, source/test verification; not a deployment
+receipt): invoke the helper as an executable, not a sourced shell library. It
+accepts one 40-byte hexadecimal token ending at EOF or with one final LF; other
+contents fail closed. Startup debug hooks and inherited Git command-scope config
+are cleared before credentials are opened. Git Trace2 targets are explicitly
+disabled, including targets enabled in global/system config. This does not claim
+containment of malicious same-UID executables or concurrent checkout replacement.
+
+For a private repository, use `git-ls-remote` with the same `--repo`, `--remote`,
+`--expected-fetch-url`, `--expected-push-url`, and `--token-file` arguments as
+`git-push`, plus `--ref refs/heads/<branch>`. Compare the returned full SHA in the
+caller; authentication exists only in that child. The rolling updater checks
+readback before advancing its signed-base anchor. Its deployed helper and Bash
+interpreter are immutable store inputs, not files from the mutable checkout.
+
+REST `--body` and `--body-stdin` require one JSON value and send literal data;
+`@filename` is not a file-inclusion shortcut. REST accepts only 2xx success and
+does not follow redirects; Git redirects are also disabled. Tests use dummy
+tokens and loopback-only TLS. The source ratchet covers all `scripts/`, hidden
+`.claude/`, Hermes skills, and the wiki, with only the exact helper path exempted
+from the consumer grammar (the helper is exercised behaviorally).
 
 **Branch protection on `master`:** push restricted to the five writer accounts
 (`enable_push_whitelist`); force-push and deletion blocked for everyone (verified:
