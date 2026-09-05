@@ -19,13 +19,15 @@ set -Eeuo pipefail
 # builds MongoDB and there is nothing left for a preflight to gate.
 
 # --- Configuration ---------------------------------------------------------
+SCRIPT_DIR="$(CDPATH=; cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_REPO_DIR="${REPO_DIR:-/home/abl030/nixosconfig}"
 BRANCH="${BASE_BRANCH:-master}"
 REMOTE_URL_OVERRIDE="${RFU_REMOTE_URL:-}"
-# Forgejo push token (nixbot). Sent as an Authorization header on push only, not
-# embedded in the remote URL. Falls back to the legacy GH_TOKEN_FILE name.
-PUSH_TOKEN_FILE="${RFU_PUSH_TOKEN_FILE:-${GH_TOKEN_FILE:-}}"
-PUSH_TOKEN=""
+# Forgejo authentication is owned by one executable boundary. It validates the
+# remote URL set before opening the token file and passes auth only to a
+# short-lived child. Nix packages the helper separately and injects its path.
+FORGEJO_AUTH_HELPER="${RFU_FORGEJO_AUTH:-$SCRIPT_DIR/forgejo-auth.sh}"
+PUSH_TOKEN_FILE="${RFU_PUSH_TOKEN_FILE:-}"
 GIT_USER_NAME="${GIT_USER_NAME:-nix bot}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-acme@ablz.au}"
 GIT_SIGNING_KEY="${RFU_GIT_SIGNING_KEY:-}"
@@ -275,20 +277,19 @@ persist_group_failure() {
 
 # shellcheck disable=SC2329  # Invoked indirectly from cleanup_work_dir through the EXIT trap.
 redacted_remote_url() {
-    printf '%s\n' "$1" | sed -E 's#^(https?://)[^/@]+@#\1redacted@#'
+    printf '%s\n' "$1" | sed -E 's#^(https?://)[^/@]+(:[^/@]*)?@#\1redacted@#'
 }
 
 push_with_retries() {
     local attempt rc
-    local -a auth=()
-    # Apply the push token as a header, scoped to this invocation only. Empty
-    # token (e.g. dry-run, or anonymous) falls through to an unauthenticated
-    # push, which fails loudly rather than leaking anything.
-    if [ -n "${PUSH_TOKEN:-}" ]; then
-        auth=(-c "http.extraHeader=Authorization: token ${PUSH_TOKEN}")
-    fi
     for attempt in 1 2 3; do
-        if git "${auth[@]}" push origin "$BRANCH"; then
+        if "$FORGEJO_AUTH_HELPER" git-push \
+            --repo "$PWD" \
+            --remote origin \
+            --expected-fetch-url "$REMOTE_URL" \
+            --expected-push-url "$REMOTE_URL" \
+            --token-file "$PUSH_TOKEN_FILE" \
+            --refspec "$BRANCH"; then
             return 0
         fi
         log "⚠️  push attempt $attempt failed."
@@ -309,6 +310,23 @@ push_with_retries() {
     done
     SUMMARY_LINES+=("❌ push — gave up; our commits are preserved in the workdir")
     return 1
+}
+
+# Keep the push transport and the caller's authoritative ref check separate:
+# the helper preserves git's exit status, while the updater verifies the exact
+# branch tip before advancing its durable base anchor.
+verify_remote_push() {
+    local expected actual
+    expected="$(git rev-parse HEAD)"
+    actual="$("$FORGEJO_AUTH_HELPER" git-ls-remote \
+        --repo "$PWD" --remote origin \
+        --expected-fetch-url "$REMOTE_URL" --expected-push-url "$REMOTE_URL" \
+        --token-file "$PUSH_TOKEN_FILE" --ref "refs/heads/$BRANCH" | awk 'NR == 1 { print $1 }')" || return 1
+    if [ "$actual" != "$expected" ]; then
+        log "❌ push — remote $BRANCH did not advance to ${expected:0:12}"
+        return 1
+    fi
+    log "✅ push — verified origin/$BRANCH at ${expected:0:12}"
 }
 
 # Condition-safe range verification. verify_commit_range relies on `set -e` to
@@ -576,6 +594,11 @@ log "📂 Working in temp dir: $WORK_DIR"
 trap cleanup_work_dir EXIT
 trap fatal_error ERR
 
+if [ ! -x "$FORGEJO_AUTH_HELPER" ]; then
+    log "❌ Forgejo authentication helper is missing or not executable: $FORGEJO_AUTH_HELPER"
+    false
+fi
+
 if [ ! -d "$LOCAL_REPO_DIR/.git" ]; then
     log "❌ Could not find local repo at $LOCAL_REPO_DIR to determine remote."
     false
@@ -586,7 +609,11 @@ if [ -n "$REMOTE_URL_OVERRIDE" ]; then
 else
     REMOTE_URL=$(git -C "$LOCAL_REPO_DIR" remote get-url origin)
 fi
-log "⬇️  Cloning from: $REMOTE_URL"
+if ! "$FORGEJO_AUTH_HELPER" validate-git-url --url "$REMOTE_URL"; then
+    log "❌ Refusing a non-Forgejo or credential-bearing clone URL."
+    false
+fi
+log "⬇️  Cloning from: $(redacted_remote_url "$REMOTE_URL")"
 git clone --single-branch --branch "$BRANCH" "$REMOTE_URL" "$WORK_DIR/repo"
 cd "$WORK_DIR/repo"
 
@@ -594,12 +621,8 @@ git config user.name "$GIT_USER_NAME"
 git config user.email "$GIT_USER_EMAIL"
 configure_git_signing
 
-# Read the Forgejo push token (clone was anonymous — public repo). The token is
-# applied per-push via http.extraHeader, NOT written into the remote URL, so it
-# never appears in `git remote -v`, logs, or preserved failure workdirs.
-if [ -n "${PUSH_TOKEN_FILE:-}" ] && [ -r "${PUSH_TOKEN_FILE}" ]; then
-    PUSH_TOKEN="$(tr -d '\r\n' <"${PUSH_TOKEN_FILE}")"
-fi
+# The helper reads PUSH_TOKEN_FILE only after validating the cloned remote's
+# complete fetch and push URL sets. No token is retained in this updater shell.
 
 if signed_base_required; then
     log "🔏 Verifying fetched base commit before updating..."
@@ -681,6 +704,7 @@ if [ "$ANY_COMMIT" -eq 1 ]; then
     else
         log "🚀 Pushing $(git rev-list --count origin/"$BRANCH"..HEAD) commit(s) to origin/$BRANCH..."
         push_with_retries
+        verify_remote_push
         write_base_anchor
     fi
 else

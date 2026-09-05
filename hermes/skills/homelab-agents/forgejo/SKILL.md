@@ -18,16 +18,21 @@ mirror; its issue tracker is not authoritative.
 - API base: `https://git.ablz.au/api/v1`
 - Repository: `abl030/nixosconfig`
 - Token file: `/run/secrets/forgejo/hermes-token`
-- Pre-deploy fallback on doc1: decrypt
-  `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` with `sops` directly
-  into the same short-lived shell variable. Do not write plaintext to disk.
+- Pre-deploy fallback on doc1: if `/run/secrets/forgejo/hermes-token` is not yet
+  present, decrypt `secrets/hosts/proxmox-vm/forgejo-hermes-token.yaml` into a
+  mode-0600 temporary file, pass that file only to `scripts/forgejo-auth.sh`, and
+  remove it with a trap. Never put plaintext in a shell variable, argv, URL, or
+  persistent file.
 - Identity: Forgejo administrator `abl030`.
 - Token scope: `all`; use it for repository, pull-request, issue, user, and
   instance administration without minting ephemeral API tokens.
 
-Never print, interpolate into a URL, or persist the token. Read it into a
-short-lived shell variable and send it only in Forgejo's token-authentication
-header. Use mode-0600 `mktemp` files for request/response bodies and remove them
+Never print, interpolate into a URL, or persist the token. Do not read it into a
+shell variable. Invoke the checked-in `scripts/forgejo-auth.sh` boundary with
+`--token-file /run/secrets/forgejo/hermes-token`; it validates the Forgejo API
+URL before opening the doc1-only all-scope token and supplies curl's header via
+stdin config with tracing disabled. Use mode-0600 `mktemp` files for request or
+response bodies when a workflow needs durable intermediates, and remove them
 with a trap.
 
 ## Workflow
@@ -57,7 +62,9 @@ with a trap.
   merge policy and verify the resulting commit independently.
 - Repository, collaborator, branch-protection, user, and instance operations use
   the corresponding `/admin` or repository endpoints with this same token.
-- Keep the token out of argv by feeding curl authentication through stdin config.
+- Keep the token out of argv by using the executable boundary's curl config
+  stream, for example:
+  `./scripts/forgejo-auth.sh rest --token-file /run/secrets/forgejo/hermes-token --method GET --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues"`.
 
 ## Quality bar
 

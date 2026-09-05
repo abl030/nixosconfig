@@ -167,16 +167,23 @@ credential and procedure are documented in
 
 ```bash
 # Ordinary review-gated mode only:
-git -C ~/nixosconfig -c "http.extraHeader=Authorization: token $(cat /run/secrets/forgejo/nixbot-token)" \
-  push origin relay/<host>:master
+./scripts/forgejo-auth.sh git-push \
+  --repo ~/nixosconfig --remote origin \
+  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --token-file /run/secrets/forgejo/nixbot-token \
+  --refspec relay/<host>:master
+# The helper preserves git's exit status; verify the remote ref after success.
 git fetch origin master
 git rev-parse --short HEAD origin/master           # confirm tip moved to our commit
 # tidy doc1's local state + temp refs
 git switch master && git merge --ff-only relay/<host> && git branch -D relay/<host>
 git update-ref -d refs/incoming/<host>
 ```
-Never echo the token. The `-c http.extraHeader` form is the same mechanism the
-rolling-flake-update bot uses (header on push only, never in the saved remote).
+Never echo the token. The checked-in helper owns the header handoff, rejects
+credential-bearing or ambiguous remotes before reading the file, disables Git
+Trace2/curl verbosity for the child, and preserves the caller's remote-SHA
+verification step.
 
 ## 10. Tell the dev box to resync
 

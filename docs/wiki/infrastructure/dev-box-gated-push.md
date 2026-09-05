@@ -46,6 +46,9 @@ comes only from a **human reading the diff** before it can deploy.
 - Dev boxes hold **no** push token. They commit locally; they cannot push.
 - doc1 is the **sole writer** to Forgejo master (it holds the nixbot token at
   `/run/secrets/forgejo/nixbot-token`) and is the bastion that can SSH into siblings.
+  The publish step uses `scripts/forgejo-auth.sh`, which validates the exact
+  credential-free fetch/push remote set before opening that token and disables
+  Git/curl tracing in the authenticated child.
 - To land a dev box's work: on doc1, run the **`relay-push`** skill — it fetches
   the box's commits over SSH, inspects each commit (message-vs-diff), verifies
   signatures + attribution, security-reviews against least-privilege, rebases onto

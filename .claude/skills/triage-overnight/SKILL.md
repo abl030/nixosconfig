@@ -177,13 +177,14 @@ not to re-derive the fix from scratch.
 Find them two ways (they agree):
 
 ```bash
-TOKEN=$(cat /run/secrets/forgejo/nixbot-token)   # doc1 only; 0400 abl030
+FORGEJO_AUTH=./scripts/forgejo-auth.sh
+FORGEJO_TOKEN_FILE=/run/secrets/forgejo/hermes-token
 # 1. RCA Gotify bodies carry the link — grep the Step 1b `gotify-triage msg` output
 #    for "PR: https://git.ablz.au/.../pulls/<N>".
-# 2. List open PRs directly (authoritative):
-curl -sG "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls" \
-  -H "Authorization: token $TOKEN" \
-  --data-urlencode "state=open" --data-urlencode "limit=20" \
+# 2. List open PRs directly (authoritative). The helper validates the API URL
+#    before opening the doc1-only all-scope Hermes token:
+"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method GET \
+  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls?state=open&limit=20" \
   | jq -r '.[] | "#\(.number) [\(.user.login)] \(.title)\n  \(.head.ref) -> \(.base.ref) | mergeable=\(.mergeable) draft=\(.draft) | updated \(.updated_at)"'
 ```
 
@@ -193,8 +194,8 @@ PRs are usually human WIP — mention them once, don't review them unless asked.
 **Review each candidate PR — do NOT trust the diff alone:**
 
 ```bash
-curl -sG "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<N>.diff" \
-  -H "Authorization: token $TOKEN"
+"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method GET \
+  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/pulls/<N>.diff"
 git fetch origin "refs/pull/<N>/head:pr<N>"      # local ref to inspect + sign-check
 git log -1 --format='%G? %an | %s' pr<N>          # MUST be G — see Step 4 caveat
 ```
@@ -274,23 +275,27 @@ git merge --ff-only pr<N>
 git cherry-pick pr<N> [pr<M> ...]
 git log -1 --format='%G?'                  # confirm G BEFORE pushing
 
-# Push to master with the nixbot token header (doc1 has no https cred otherwise):
-export GIT_CONFIG_COUNT=1 \
-  GIT_CONFIG_KEY_0="http.https://git.ablz.au.extraHeader" \
-  GIT_CONFIG_VALUE_0="Authorization: token $(cat /run/secrets/forgejo/nixbot-token)"
-git push origin HEAD:master
+# Push to master through the shared boundary. The dedicated nixbot token is
+# opened only after the helper has verified the exact fetch/push remotes:
+./scripts/forgejo-auth.sh git-push \
+  --repo "$PWD" --remote origin \
+  --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --expected-push-url "https://git.ablz.au/abl030/nixosconfig.git" \
+  --token-file /run/secrets/forgejo/nixbot-token \
+  --refspec HEAD:master
+# Verify the remote branch SHA after the helper returns success.
 ```
 
 If a cherry-pick changed the SHA the PR won't auto-close — close it via API with a
 pointer to the landed commit (PRs are issues in Forgejo's REST API):
 
 ```bash
-curl -s -X POST "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>/comments" \
-  -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"body":"Merged to master as <sha> (signed), deployed to <host>."}'
-curl -s -X PATCH "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>" \
-  -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"state":"closed"}'
+"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method POST \
+  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>/comments" \
+  --body '{"body":"Merged to master as <sha> (signed), deployed to <host>."}'
+"$FORGEJO_AUTH" rest --token-file "$FORGEJO_TOKEN_FILE" --method PATCH \
+  --url "https://git.ablz.au/api/v1/repos/abl030/nixosconfig/issues/<N>" \
+  --body '{"state":"closed"}'
 ```
 
 **Deploy the affected host.** Find it (`grep -rln '<svc>.enable' hosts/`), then from
