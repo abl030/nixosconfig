@@ -1959,6 +1959,38 @@
               touch "$out"
             '';
 
+          # Exercise the exact UniFi package's bundled Logback jars and prove
+          # the generated file is selected by the realized JVM command. The
+          # harness writes only fake credentials to an isolated temporary log
+          # directory; it never reads the controller's persistent data.
+          unifiLogbackRedactionCheck = let
+            doc2 = self.nixosConfigurations.doc2.config;
+            unifi = doc2.services.unifi;
+            service = doc2.systemd.services.unifi.serviceConfig;
+            logbackPrefix = "-Dlogback.configurationFile=";
+            logbackOption = lib.findFirst (option: lib.hasPrefix logbackPrefix option) null unifi.extraJvmOptions;
+            logbackConfig = assert lib.assertMsg (logbackOption != null) "UniFi must select the Nix-managed redacted Logback configuration";
+              builtins.substring
+              (builtins.stringLength logbackPrefix)
+              (builtins.stringLength logbackOption - builtins.stringLength logbackPrefix)
+              logbackOption;
+          in
+            assert lib.assertMsg (unifi.extraJvmOptions != []) "UniFi Logback redaction must not be disabled by an empty JVM option list";
+            assert lib.assertMsg (lib.hasInfix "-Dlogback.configurationFile=" service.ExecStart) "realized unifi.service must pass a Logback configuration to Java";
+              pkgs.runCommand "unifi-logback-redaction" {
+                nativeBuildInputs = [pkgs.python3];
+              } ''
+                set -euo pipefail
+                test -r ${lib.escapeShellArg logbackConfig}
+                test -r ${lib.escapeShellArg "${unifi.unifiPackage}/lib/ace.jar"}
+                test -x ${lib.escapeShellArg "${unifi.jrePackage}/bin/java"}
+                ${pkgs.python3}/bin/python3 ${./nix/checks/test_unifi_logback_redaction.py} \
+                  ${lib.escapeShellArg (toString unifi.unifiPackage)} \
+                  ${lib.escapeShellArg (toString unifi.jrePackage)} \
+                  ${lib.escapeShellArg logbackConfig}
+                touch "$out"
+              '';
+
           # Forgejo auth ratchet (#28). Keep the credential grammar in one
           # executable boundary and patrol every authored updater/runbook surface
           # that can push or call the Forgejo API. The helper itself is checked
@@ -2421,7 +2453,7 @@
               touch $out
             '';
         in
-          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck mrnewsIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck forgejoAuthSourceCheck rollingFlakeUpdatePackagingCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
+          {inherit errorPatternsCheck hostBindAuditCheck podman6CutoverCheck containerNetworkAuditCheck unitHardeningAuditCheck bddayIntegrationCheck mrnewsIntegrationCheck cullenBdProxyCheck wslOpsSyncSourceReconnectCheck audiobookshelfCacheCleanupCheck doc2CrashCaptureCheck onLanMatcherCheck bastionInvariantCheck fleetBastionRoleCheck pushDeployEnrollmentCheck sopsRecipientScopeCheck allowedSignersCheck fleetUpdateCheck rollingFlakeUpdateSigningCheck secretArgvAuditCheck unifiLogbackRedactionCheck forgejoAuthSourceCheck rollingFlakeUpdatePackagingCheck nixpkgsFollowsCheck cratediggerDailySummaryCheck aliYotoZipCheck aliCratediggerIntegrationCheck cratediggerTipCanaryCheck ytDlpTipVersionCheck postMaintenanceDeepProbeCheck aiPortabilityCheck;}
           // (
             if !fullCheck
             then {}

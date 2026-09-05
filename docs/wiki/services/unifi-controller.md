@@ -1,12 +1,13 @@
 # UniFi Network Controller (on doc2)
 
-**Date:** 2026-08-13 · **Status:** ⚠️ **production runs native UniFi + embedded MongoDB.**
-The first external-MongoDB cutover (PR #144) was merged, deployed, failed and was rolled
-back on 2026-08-13; master was reverted by `c2c2789b`. This page documents the **second**
-attempt — see [External MongoDB container](#external-mongodb-container-142) ·
+**Date:** 2026-09-05 · **Status:** ✅ **production runs native UniFi + an external MongoDB 7 container.**
+The first external-MongoDB cutover (PR #144) was merged, deployed, failed and rolled
+back on 2026-08-13; master was reverted by `c2c2789b`. The second, contents-first
+cutover is now the production state. This page retains the migration design and
+rollback evidence — see [External MongoDB container](#external-mongodb-container-142) ·
 **Module:** `modules/nixos/services/unifi-controller.nix` · **Issue:** forgejo #142
 
-The UniFi Network controller (v10.5.54) runs on **doc2** as a standard
+The UniFi Network controller (v10.6.101) runs on **doc2** as a standard
 `homelab.localProxy` service module. It was **migrated off the caddy LXC** (CT 108,
 `192.168.1.6`) on 2026-07-02/03 because that placement violated the module rules three
 ways: hand-rolled `services.caddy` reverse proxy, `openFirewall` 0.0.0.0 bind, and state
@@ -14,12 +15,11 @@ stranded on the LXC's **unbacked-up root disk** (`/var/lib/unifi`, not `/mnt/vir
 
 - **UI:** `https://unifi.ablz.au` → doc2 nginx (localProxy, `https`+`insecureSkipVerify`) → controller `:8443`.
 - **State:** `/mnt/virtio/unifi` (portable, backed up), bind-mounted over `/var/lib/unifi`.
-- **MongoDB (target state, not yet live):** a dedicated, digest-pinned **official MongoDB 7
+- **MongoDB (production):** a dedicated, digest-pinned **official MongoDB 7
   container** (`docker.io/library/mongo`, 7.0.40), loopback-only on `127.0.0.1:27117`, with
-  its dbpath at `/mnt/virtio/unifi-mongodb`. The controller itself stays native NixOS.
-  **Today production still runs the embedded nixpkgs `mongodb-7.0.37`** on
-  `/mnt/virtio/unifi/data/db`; the `mongodb-nixpkgs` input stays pinned at 7.0.37 until the
-  migration lands.
+  its dbpath at `/mnt/virtio/unifi-mongodb`. The controller itself stays native NixOS;
+  the old embedded database was migrated by logical dump/restore under the same
+  namespaces.
 - **msn-history-viewer** moved in the same migration → a hardened `static-web-server`
   sandbox on doc2 (`msn.ablz.au`). See its module; it's a stateless static site.
 - **caddy LXC** now runs the *legacy-edge* Caddy for appliance FQDNs only (apollo, plex,
@@ -171,10 +171,11 @@ RSSI or 802.11r as a substitute.
 
 ## External MongoDB container (#142)
 
-**Status: production still runs the embedded MongoDB.** The first cutover (PR #144, merged
-as `31214c3c`, deployed to doc2 as generation 1428) failed and was rolled back to
-`15e4b5c9` / generation 1427 on 2026-08-13; master was reverted by `c2c2789b`. This
-section is the corrected, second design. Read all of it before deploying doc2.
+**Status: production runs native UniFi against the external MongoDB container.** The first
+cutover (PR #144, merged as `31214c3c`, deployed to doc2 as generation 1428) failed and was
+rolled back to `15e4b5c9` / generation 1427 on 2026-08-13; master was reverted by
+`c2c2789b`. The second, contents-first design below is the deployed state. Read all of it
+before performing a future rollback or re-migration.
 
 ### Why the database moves at all
 
@@ -354,12 +355,13 @@ Diagnostics are no longer swallowed by `>/dev/null` (defect 3): the last failure
 reported, with every credential value scrubbed out by bash parameter expansion — putting a
 secret in `sed`'s argv would defeat the point.
 
-### Deploying is now non-destructive (defect 4, fixed at the root)
+### Pre-migration deploy behavior (historical; defect 4 fixed at the root)
 
-`unifi-mongodb-setup` **only writes `system.properties` once the migration marker exists.**
-Deploying this module therefore mutates **no** persistent UniFi state: the controller stops
-(the gate), MongoDB starts, the role is provisioned, and `system.properties` still selects
-the embedded database. Rolling back before the migration is a **pure generation switch**.
+During the migration window, `unifi-mongodb-setup` **only wrote `system.properties` once the
+migration marker existed**. Deploying that migration design therefore mutated **no**
+persistent UniFi state: the controller stopped (the gate), MongoDB started, the role was
+provisioned, and `system.properties` still selected the embedded database. Rolling back
+before the migration was a **pure generation switch**.
 
 In the first attempt `system.properties` was rewritten at deploy time in the *persistent*
 data dir, so a generation rollback would silently have left the embedded controller
@@ -367,18 +369,19 @@ pointing at the **empty** external database. When the renderer does eventually r
 first copies the file to `system.properties.pre-external-mongodb` — once, never
 overwritten — which is what makes rollback an exact restore.
 
-### The migration gate (why UniFi will not start yet)
+### The migration gate (historical pre-cutover state)
 
-`unifi.service` has an `ExecCondition` that **refuses to start** while legacy embedded state
-exists at `/mnt/virtio/unifi/data/db` and `/mnt/virtio/unifi/migrated-to-external-mongodb`
-is absent. Starting anyway would bring the controller up against an **empty** database — an
-unadopted, factory-looking controller. Staying down is loud (the Kuma monitor pages) and
-completely reversible; coming up empty is neither.
+Before the contents-first migration, `unifi.service` refused to start while legacy embedded
+state existed at `/mnt/virtio/unifi/data/db` and
+`/mnt/virtio/unifi/migrated-to-external-mongodb` was absent. Starting then would have brought
+the controller up against an **empty** database — an unadopted, factory-looking controller.
+The marker and external `system.properties` are now present in production, so this gate is
+satisfied. A future re-migration must preserve that fail-closed ordering.
 
-So: **deploying doc2 from this commit takes the UniFi UI down** until the migration is run.
-Everything else on doc2 is unaffected. Plan a window — it is one command long.
+### Preconditions (historical; cutover completed)
 
-### Preconditions
+The following records the completed 2026-08-13 cutover. Do not rerun these commands against
+production without a new migration plan and fresh backups.
 
 - Production healthy on the native-Mongo generation; note the generation number
   (`nix-env --list-generations -p /nix/var/nix/profiles/system | tail -3`).
@@ -391,7 +394,7 @@ Everything else on doc2 is unaffected. Plan a window — it is one command long.
   `/mnt/virtio/unifi-cutover-backup/`, doc1 `~/unifi-cutover-2026-08-13/`, and
   `nvmeprom/containers@pre-unifi-mongo-cutover-20260813`.
 
-### Pre-deploy validation (touches nothing live)
+### Pre-deploy validation (historical; touches nothing live)
 
 Runs against the **live** controller without stopping it. `mongodump` is a logical read: it
 does not modify the dbpath, and the first attempt's instruction to `systemctl stop unifi`
@@ -473,7 +476,7 @@ That closes the "rehearsal used 7.0.37, not the 7.0.40 image" uncertainty: the o
 > `system.properties` **on disk** and survives regardless of what the database contains, so
 > a matching uuid proves nothing about the restore. Use record counts.
 
-### Cutover
+### Cutover (completed; historical commands)
 
 ```bash
 # --- 1. Deploy. UniFi will NOT start (gate). MongoDB will. -------------------
@@ -783,22 +786,30 @@ asserts the two things that must still hold:
 - Zero failed units; **zero MongoDB packages and zero `mongod` binaries** in the running
   closure
 
-### Known issue — UniFi logs the database URI, credential included
+### MongoDB URI logging (redacted before local file writes)
 
-UniFi writes its connection string to `/var/log/unifi/server.log` **with the
-application password in cleartext**. This is upstream behaviour and unavoidable from
-the module: the controller has no `*_FILE` indirection and requires the credential
-inline in `db.mongo.uri`.
+UniFi's bundled Logback configuration formats diagnostic messages that can contain its
+MongoDB connection URI. The Nix module now derives the complete upstream `logback.xml`
+from the exact installed `ace.jar`, replaces the shared message pattern with a Logback
+`%replace(%message %ex)` composite, and passes the resulting credential-free store file
+through `-Dlogback.configurationFile`. The explicit `%ex` is intentional: Logback otherwise
+adds an implicit throwable suffix after `%message`, which would bypass message-only
+redaction and leak a URI in exception output.
 
-Exposure, measured: the value appears in **exactly one file**, `server.log`, mode
-`0600 unifi:unifi` — the *same* trust boundary as `system.properties`, which must
-hold it anyway. It is **not** in the systemd journal, **not** in `podman inspect`
-argv, **not** in the Nix store or the running closure, and `server.log` is **not**
-shipped anywhere off-box.
+The redaction matches `mongodb://` and `mongodb+srv://` userinfo spans through `@`, leaving
+the scheme, destination, ordinary diagnostic text, exception class and stack frames intact.
+All upstream file appenders using `${logPattern}` therefore redact before their local write;
+the remote `AnalyticsAppender` is still ERROR-only and is not a file sink. The explicit
+configuration property is required because both `logback.xml` and `logback-test.xml` are
+embedded in `ace.jar`; the `unifiLogbackRedactionCheck` flake check runs the real UniFi
+package's Logback/SLF4J libraries with fake message and exception URIs and verifies both
+halves of the contract.
 
-**Consequence to remember:** the follow-up idea of shipping `server.log` to Loki
-(noted next to the module's `errorPatterns`) would turn a contained credential at
-rest into a credential in the central log store. Scrub `mongodb://[^@]*@` at the
-scrape stage before doing that. Blast radius is already bounded — the role is
-non-root, loopback-only, and holds `dbOwner` on the four UniFi databases plus
-`clusterMonitor` and nothing else; rotation is one `sops` edit plus a deploy.
+This prevents new writes; it does not rewrite existing files. The pre-redaction
+`server.log` and rotated files must receive one bounded scrub **after** the deployed
+configuration has been verified. The safe proposal is a same-length `pwrite` mask of only
+the URI userinfo spans, performed on each active/rotated file with no plaintext backup;
+that preserves the active file descriptor, append offsets, inode and metadata. Do not add
+`server.log` as an Alloy/Loki source until that scrub and the post-deploy no-match check
+are complete. The current configuration has no Alloy file source, and prior journal/Loki
+checks found no URI leak.

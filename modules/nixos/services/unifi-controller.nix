@@ -132,6 +132,35 @@
 
   podmanBin = lib.getExe' config.virtualisation.podman.package "podman";
 
+  # UniFi's launcher lets Logback select an explicit configuration file through
+  # the standard `logback.configurationFile` system property. Keep the complete
+  # upstream configuration, but patch its shared pattern at build time so the
+  # application and all of its file appenders redact MongoDB URI userinfo before
+  # any local appender writes it. The source jar is read-only; this produces only
+  # the credential-free XML in the Nix store.
+  unifiLogbackConfig =
+    pkgs.runCommand "unifi-logback-redacted.xml" {
+      nativeBuildInputs = [pkgs.python3];
+    } ''
+      python3 - ${lib.escapeShellArg "${config.services.unifi.unifiPackage}/lib/ace.jar"} "$out" <<'PY'
+      from pathlib import Path
+      from zipfile import ZipFile
+      import sys
+
+      source, destination = map(Path, sys.argv[1:])
+      pattern = r"%replace(%message %ex){'(?i)(mongodb(?:\+srv)?://)[^\s/@]*@','$1REDACTED@'}%n"
+      original = " - %message%n"
+
+      with ZipFile(source) as jar:
+          configuration = jar.read("logback.xml").decode("utf-8")
+
+      if configuration.count(original) != 1:
+          raise SystemExit("unexpected UniFi logback.xml pattern")
+
+      destination.write_text(configuration.replace(original, " - " + pattern, 1), encoding="utf-8")
+      PY
+    '';
+
   # ---------------------------------------------------------------------------
   # Shared shell fragments
   # ---------------------------------------------------------------------------
@@ -1090,7 +1119,10 @@ in {
       openFirewall = true;
       inherit (cfg) maximumJavaHeapSize;
       mongodbPackage = mongodbAbsent;
-      extraJvmOptions = ["-XX:+UseParallelGC"];
+      extraJvmOptions = [
+        "-XX:+UseParallelGC"
+        "-Dlogback.configurationFile=${unifiLogbackConfig}"
+      ];
     };
 
     # Dedicated, fixed, non-root identity for mongod. Fixed so the on-disk
@@ -1223,7 +1255,7 @@ in {
           }
         ];
 
-        # NOTE: UniFi logs app-level detail to /var/lib/unifi/logs/server.log (a
+        # NOTE: UniFi logs app-level detail to /var/log/unifi/server.log (a
         # file), not the journal — so these journal patterns only catch what hits
         # stderr: JVM/process fatals. That's the critical class (process down);
         # richer app-log alerting would need server.log shipped to Loki (follow-up).
