@@ -24,10 +24,13 @@ cron and completion notifications.
 - Hermes receives only its endpoint, topic, allowlist, and bearer token from
   doc1-only `secrets/hosts/proxmox-vm/ntfy-gateway.env` through a systemd
   user-unit EnvironmentFile. Server provisioning values never enter Hermes.
-- The same user-unit drop-in exports `HERMES_BUNDLED_PLUGINS` from the pinned
-  Hermes package. The mutable gateway unit launches the package's Python
-  environment directly rather than its wrapper, so the variable is required
-  for runtime discovery of the bundled ntfy adapter.
+- The same user-unit drop-in resets `ExecStart` to the deployed Hermes wrapper
+  and `ExecStopPost` to that package's Python cleanup module. It also aligns
+  `VIRTUAL_ENV`, bundled plugins and state-store modules with that package.
+  The mutable installer unit must not select an older core after upgrades.
+- The gateway PATH includes the existing Nix system and operator package
+  profiles, including `uvx` and the executables used by the MCP wrappers.
+  Merely providing bash/git/nix/python is insufficient for MCP discovery.
 - Credentials never enter tracked `config.yaml` or mutable `~/.hermes/.env`.
 - The phone password is not retained in the repository or loaded into either
   service process. ntfy stores only its one-way password hash. The configured
