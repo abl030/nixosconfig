@@ -19,6 +19,74 @@
     parts = lib.splitString "." self.nixosConfigurations.doc2.config.services.mongodb.package.version;
   in "${builtins.elemAt parts 0}.${builtins.elemAt parts 1}.${toString (builtins.fromJSON (builtins.elemAt parts 2) + 1)}";
 
+  # Inspect the locked nixpkgs module set, never doc2's mongodbAbsent override.
+  # No local modules, overlays or package config enter this independent system.
+  # See docs/wiki/services/unifi-mongodb80-native.md (upstream migration trigger).
+  upstreamSystem = lib.nixosSystem {
+    inherit (pkgs.stdenv.hostPlatform) system;
+    modules = [{nixpkgs.config.allowUnfree = true;}];
+  };
+  mongodb80UpstreamPolicy = nativeSeries: option:
+    if nativeSeries != "8.0"
+    then true
+    else let
+      probe = builtins.tryEval (let
+        metadata = {
+          hasDefault = option ? default;
+          definitionCount = builtins.length (option.definitions or []);
+          version = option.default.version or null;
+        };
+      in
+        builtins.deepSeq metadata metadata);
+      fail = message: throw "MongoDB 8.0 upstream guard: ${message}";
+      candidate =
+        if !probe.success
+        then fail "could not inspect nixpkgs services.unifi.mongodbPackage; inspect its upstream module before proceeding"
+        else if !probe.value.hasDefault || probe.value.definitionCount != 1
+        then fail "services.unifi.mongodbPackage has no unambiguous upstream default; inspect its upstream module before proceeding"
+        else probe.value.version;
+      # Numeric major/minor, not lexical ordering (8.10 must be newer than 8.0).
+      parts =
+        if builtins.isString candidate
+        then builtins.match "(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?" candidate
+        else null;
+    in
+      if parts == null
+      then fail "upstream UniFi mongodbPackage has no usable numeric major.minor[.patch] version; inspect its upstream default before proceeding"
+      else let
+        major = builtins.fromJSON (builtins.elemAt parts 0);
+        minor = builtins.fromJSON (builtins.elemAt parts 1);
+      in
+        assert lib.assertMsg (!(major > 8 || (major == 8 && minor > 0)))
+        "MongoDB 8.0 upstream guard: nixpkgs UniFi default mongodbPackage is ${candidate} (>8.0) while native MongoDB remains on 8.0; deliberate migration is required and this check will not auto-upgrade it."; true;
+  mongodb80UpstreamGuard = let
+    nativeSeries = self.nixosConfigurations.doc2.config.services.mongodb.package.passthru.mongodbSeries or null;
+    # Missing/throwing options fail actionably; force metadata, not derivations.
+    option = upstreamSystem.options.services.unifi.mongodbPackage or (throw "upstream option missing");
+    fixture = version: {
+      default = {inherit version;};
+      definitions = [null];
+    };
+    accepts = series: value: (builtins.tryEval (mongodb80UpstreamPolicy series value)).success;
+  in
+    assert lib.all (version: accepts "8.0" (fixture version)) ["7.0.40" "8.0" "8.0.99" "7.10.0"];
+    assert lib.all (version: !(accepts "8.0" (fixture version))) ["8.2" "8.10" "9.0" "10.0" "invalid" "8" "8.x" "8.0.bad" "08.0" null 80];
+    assert !(accepts "8.0" {});
+    assert !(accepts "8.0" ((fixture "8.0") // {definitions = [];}));
+    assert !(accepts "8.0" ((fixture "8.0") // {definitions = [null null];}));
+    assert !(accepts "8.0" (throw "unreadable upstream option"));
+    assert !(accepts "8.0" (fixture (throw "unreadable upstream version")));
+    assert accepts "8.0" {
+      default = {
+        version = "8.0";
+        drvPath = throw "must not force MongoDB derivation";
+      };
+      definitions = [(throw "must only count definitions")];
+    };
+    assert lib.all (series: accepts series (throw "inactive probe must stay lazy")) [null "8.2" "9.0"];
+    assert mongodb80UpstreamPolicy nativeSeries option;
+      pkgs.runCommand "unifi-mongodb80-upstream-guard" {} "touch $out";
+
   mongodb80FixtureArchive =
     pkgs.runCommand "mongodb80-updater-fixture-archive" {
       nativeBuildInputs = [pkgs.gnutar];
@@ -173,6 +241,7 @@ in {
     mongodb80EolCheck
     mongodb80UpdaterCheck
     mongodb80IntegrationCheck
+    mongodb80UpstreamGuard
     unifiLogbackRedactionCheck
     ;
 }

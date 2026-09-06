@@ -90,6 +90,27 @@ nightly updater surfaces the failure through its normal failed-run notification;
 if it never runs, no new check magically occurs. There is no build-time wallclock,
 `builtins.currentTime`, second timer, EOL shutdown, or automatic database change.
 
+## Upstream migration trigger (2026-09-06)
+
+`mongodb80UpstreamGuard` in `nix/checks/unifi.nix` inspects the locked nixpkgs
+NixOS UniFi module's `mongodbPackage` option default, using an independent
+`lib.nixosSystem` with no local modules, overlays or inherited package config.
+It does not inspect our `mongodbAbsent` override or the generic MongoDB package.
+While the native package exposes `passthru.mongodbSeries = "8.0"`, an upstream
+default beyond 8.0 rejects evaluation with a deliberate-migration prompt. Missing,
+ambiguous, throwing or malformed defaults fail closed. Embedded regression cases
+exercise numeric boundaries (including 8.10 and later majors), invalid metadata,
+inactive-series laziness and non-forcing of package derivations.
+
+The ordinary check set includes this guard; the existing rolling updater's core
+transaction runs `FULL_CHECK=1 nix flake check` against its freshly cloned Forgejo
+candidate after moving nixpkgs/Home Manager. A rejection rolls that group back
+through the existing failure path; it does not automatically bump MongoDB or FCV.
+No-change groups skip this gate, unlike the separate live-date EOL preflight.
+The deployed updater script is store-backed, but the checked flake is read from
+the fresh clone: this check-only source change needs no updater activation or
+database deployment. Completion evidence is attached to closed Forgejo #156.
+
 ## FCV finalization evidence (2026-09-06)
 
 - User accepted the retained proven7 recovery point and explicitly authorized
