@@ -1,8 +1,9 @@
 # UniFi: native MongoDB 8.0
 
-Date: 2026-09-05. Status: tested implementation, NOT deployed. Parent owns
-independent review, signed release and the production maintenance window.
-Related: [controller history](unifi-controller.md), Forgejo #142.
+Date: 2026-09-06. Status: production data migrated to native 8.0.29; FCV remains
+7.0 for burn-in. Signed release [PR #206](https://git.ablz.au/abl030/nixosconfig/pulls/206).
+Related: [controller history](unifi-controller.md), Forgejo #142 and
+[acceptance/closeout #156](https://git.ablz.au/abl030/nixosconfig/issues/156).
 
 ## Contract and evidence
 
@@ -63,7 +64,68 @@ failures, and reset/checkout poisoning with later-group and finalization denial.
 No real git commit or push occurs. Fixture executables resolve Bash rather than
 assuming `/bin/bash` exists on NixOS.
 
-## Operator cutover (not run during implementation)
+## Production migration evidence (2026-09-06)
+
+- Signed candidate `6cc45e3f115b19f888aa3b1bba41bdd4d84ffb75`, release merge
+  `a8d3db8c53099db1ef5052c0dc83f18ed3bf7624`. Every signature verified `G`;
+  the two-parent Forgejo merge tree exactly matched the tested candidate.
+  Full flake check and doc2/doc1 toplevel builds passed with one job/two cores.
+- Before publication, doc2 `nixos-upgrade.service`/timer and doc1
+  `rolling-flake-update.service`/timer were narrowly runtime-masked and checked
+  inactive. Only doc2's deploy service was released for `fleet-deploy doc2`.
+  Runtime mask links alone are insufficient after NixOS activation: activation
+  can start a timer despite a surviving link; check its actual state too.
+- Writes stopped at 00:26:27 UTC. Fresh paired cold database/controller backup:
+  `/mnt/virtio/unifi-pre-native-20260906T002618Z` on doc2. It retains the rooted
+  mongosh client, old system closure GC root, and exported official 7.0.40 image.
+  Separate authenticated 7.0.40 restore at
+  `/mnt/virtio/unifi-mongodb/restore-test-20260906T002618Z` passed stable FCV7,
+  collection equality, business counts and application insert/read/delete;
+  the rehearsal container was then stopped/removed before 8.0 started.
+- Restricted off-host recovery directory on doc1:
+  `/home/abl030/unifi-mongodb80-release-20260906/unifi-pre-native-20260906T002618Z`
+  (0700; files 0600). Both transferred archives passed checksum verification:
+  `recovery.tar` SHA-256
+  `9d23ab197c8e6d9aaa75cd40ca44184092b27323641edf11e348062a82001774`;
+  `mongo7-image.tar` SHA-256
+  `5bd0dd807f6b8662cc485d56882685ce81771280dc24028ea3241ee5770f1866`.
+  These are the current recovery artifacts, not the August legacy copy.
+- Doc2 switched successfully and advanced its anchor at 08:28:53 AWST.
+  Native executable is the official-binary `mongodb-ce-8.0.29` store output;
+  UID/GID2015, zero capability masks, NoNewPrivs1, authenticated loopback
+  127.0.0.1:27117. Old MongoDB container/unit are absent. Root authentication,
+  app `clusterMonitor`/four database-owner roles, and writes passed. Stored
+  business counts match the cold restore: sites3, devices5, WLANs5, networks7,
+  admins1 (API-visible sites are a different population).
+- Controlled database/setup/controller restart at 00:33:56–00:34:09 UTC
+  retained data. Fresh authenticated UniFi 10.6.101 login/API showed all five
+  adopted devices connected with advancing `last_seen` after reconciliation.
+  Real connection events at 08:28:46 and 08:34:02 AWST contain `REDACTED@`;
+  local logs contain neither database password nor raw MongoDB URI userinfo.
+- Live acceptance found that UniFi rewrites URI colons with Java
+  `Properties.store()` escaping. The verifier now accepts the original and
+  escaped equivalent, retaining the loopback/port guard. Its generated-command
+  regression reproduced the old failure and passes both positives plus ten
+  wrong-port/host/scheme/auth negatives. This does not change daemon or renderer.
+- Fresh application backup completed at 08:36:20 AWST:
+  `/mnt/virtio/unifi/data/backup/10.6.101.unf`, 23,659,248 bytes. Restricted
+  off-host copy `~/unifi-mongodb80-release-20260906/post-native-10.6.101.unf`
+  on doc1 has matching SHA-256
+  `7760282485f4c64ab01bf803f7b32b029941aa6dc80f889ea13dff00c363562f`.
+  The actual 10.6.101 frontend uses `cmd/backup` with `async-backup`, `days=-1`;
+  generic MCP `generate-backup` was unsupported and `cmd/system backup` did
+  not produce a new artifact. Existing API `autobackup=false` was not changed.
+- Doc1 was activated through `sudo fleet-update --rev a8d3db8c...`, not merely
+  a source merge. Its live rolling wrapper contains the mandatory `mongodb80`
+  transaction; the timer is scheduled for 23:00 AWST. No extra nightly updater
+  job was started. Exact final verifier revision/maintenance release receipts
+  are recorded in #156 and `/tmp/mongodb80-release-report.md` on doc1.
+
+Keep FCV7 until a separately approved burn-in acceptance and NEW recovery point.
+Neither migration closeout nor automatic patch updates authorize FCV8. Retain
+the cold backup, restored test data, old image and closure through that decision.
+
+## Reusable operator cutover
 
 Keep automatic doc2 updates from racing this maintenance window using the
 existing fleet maintenance procedure. Do not release this change into an
@@ -78,7 +140,8 @@ rollback, August embedded copy, live filesystem copy, or image-only downgrade.
 ### 1. Preflight and fresh offline backup
 
 Before running the block, set `REVIEWED_FLAKE` to the absolute path of the
-reviewed, signed checkout on doc2. It must contain this candidate; do not use an
+reviewed, signed, root-owned checkout on doc2 (root Nix rejects another user's
+Git worktree). It must contain this candidate; do not use an
 unversioned remote branch. Building the standalone shell below does not activate
 the native database configuration. Its backup-local GC root keeps the client
 available across deployment and recovery; retain that link with the backup.
