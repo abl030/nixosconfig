@@ -1,7 +1,8 @@
 # UniFi: native MongoDB 8.0
 
-Date: 2026-09-06. Status: production data migrated to native 8.0.29; FCV remains
-7.0 for burn-in. Signed release [PR #206](https://git.ablz.au/abl030/nixosconfig/pulls/206).
+Date: 2026-09-06. Status: production native 8.0.29, stable **FCV 8.0**;
+operator explicitly ended burn-in. Signed original release
+[PR #206](https://git.ablz.au/abl030/nixosconfig/pulls/206).
 Related: [controller history](unifi-controller.md), Forgejo #142 and
 [acceptance/closeout #156](https://git.ablz.au/abl030/nixosconfig/issues/156).
 
@@ -64,7 +65,67 @@ failures, and reset/checkout poisoning with later-group and finalization denial.
 No real git commit or push occurs. Fixture executables resolve Bash rather than
 assuming `/bin/bash` exists on NixOS.
 
-## Production migration evidence (2026-09-06)
+## EOL enforcement
+
+`nix/lib/mongodb80-eol.nix` owns the sole production deadline, **2029-10-31**.
+The [official MongoDB Server lifecycle table](https://www.mongodb.com/legal/support-policy/lifecycles)
+was verified on 2026-09-06. It is published under Enterprise Advanced; we adopt
+that date as our Community retirement policy, not a commercial support entitlement.
+The guard fails starting **2029-11-01 UTC**, and names each enabled native
+`services.mongodb` consumer whose package is still 8.0. Disabled consumers and
+other series do not retain this gate. Future migration still replaces the
+separate existing 8.0 package/integration contract as part of its reviewed change.
+
+`mongodb80EolCheck` evaluates the pure policy using the signed
+`fleet/freshness.json` date, with eight before/on/after/disabled/other-series/
+empty/malformed-date tests. An archived source date is not today's clock:
+`check_mongodb80_eol` in the existing rolling updater supplies the live UTC date
+to the **same** policy before any group, even on no-change runs, and again after
+the builds before heartbeat/signing/push. Failure is fatal, not a skipped group;
+it cannot emit a new green heartbeat. Existing signing fixtures exercise both
+fatal positions and deny heartbeat/push/deploy after rejection.
+
+These are evaluation/update checks, not continuous runtime expiry. The existing
+nightly updater surfaces the failure through its normal failed-run notification;
+if it never runs, no new check magically occurs. There is no build-time wallclock,
+`builtins.currentTime`, second timer, EOL shutdown, or automatic database change.
+
+## FCV finalization evidence (2026-09-06)
+
+- User accepted the retained proven7 recovery point and explicitly authorized
+  FCV8.0. Live preflight: native8.0.29, stableFCV7, full native verifier passed,
+  fresh controller10.6.101 login and all five adopted devices connected.
+- Both retained7 archives were rehashed successfully on doc2 and doc1. A **new
+  stopped-data paired backup** was taken with current native8.0.29/FCV7 before
+  the irreversible feature change. Writes stopped01:09:01 UTC; MongoDB and
+  controller restarted01:09:25 UTC. No inconsistent live tar was used.
+- New recovery directory on doc2:
+  `/mnt/virtio/unifi-pre-fcv8-20260906T010900Z`; restricted off-host copy on doc1:
+  `/home/abl030/unifi-mongodb80-release-20260906/unifi-pre-fcv8-20260906T010900Z`.
+  `recovery.tar` SHA-256
+  `8f5473025c79050a33703a538cb9103397e3e330d60c4e968b34fe0f57a04c01`
+  passed independently at both locations (directories0700/archive0600).
+  The native system closure is GC-rooted beside the backup.
+- At01:10:22 UTC the explicit authenticated mongosh stdin operator command
+  `setFeatureCompatibilityVersion:"8.0",confirm:true` completed. Readback was
+  `{version:"8.0"}` with **no targetVersion**, on server8.0.29. Credentials were
+  read only in-memory from the established scoped secret files, not argv/env.
+- Full `unifi-mongodb-verify` passed afterward, including authenticated writes,
+  loopback-only listener, private properties and controller status. A fresh API
+  login confirmed10.6.101 and five connected/adopted devices with advancing
+  `last_seen`. Receipts: `/tmp/mongodb80-finalize-{preflight,cold-backup,fcv,api-fcv8}.log`
+  on doc1; final checkpoint `/tmp/mongodb80-finalize-report.md`.
+
+The new pre-FCV backup contains **8-written data**, not a MongoDB7 restore point.
+Recover it only with the retained native8 closure. It has not had a separate
+restore rehearsal; the earlier cold7 backup below is the proven7 restore point.
+FCV8 is never toggled by restart/setup/update automation. On an FCV command or
+acceptance failure, preserve native8 and investigate; never blindly switch to7.
+Any restore loses writes after its recovery point. Restoring the retained7
+backup specifically loses all writes since00:26:27 UTC; FCV is not a downgrade
+guarantee, and7 must never open8-written data. Keep both backups restricted.
+
+## Original production migration evidence (2026-09-06, FCV7 burn-in phase)
 
 - Signed candidate `6cc45e3f115b19f888aa3b1bba41bdd4d84ffb75`, release merge
   `a8d3db8c53099db1ef5052c0dc83f18ed3bf7624`. Every signature verified `G`;

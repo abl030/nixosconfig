@@ -3,6 +3,15 @@
   lib,
   pkgs,
 }: let
+  mongodb80EolCheck = assert import ../lib/mongodb80-eol.nix {
+    date = builtins.substring 0 10 (builtins.fromJSON (builtins.readFile ../../fleet/freshness.json)).timestamp;
+    configurations = self.nixosConfigurations;
+  };
+  assert builtins.isString (import ./test-mongodb80-eol.nix);
+    pkgs.runCommand "mongodb80-eol" {} ''
+      touch "$out"
+    '';
+
   # The MongoDB package is a binary-only 8.0 series contract. Exercise
   # both the fail-closed updater fixture and the evaluated native service
   # boundary; the latter is independent of the package's own source text.
@@ -161,6 +170,7 @@
       '';
 in {
   inherit
+    mongodb80EolCheck
     mongodb80UpdaterCheck
     mongodb80IntegrationCheck
     unifiLogbackRedactionCheck

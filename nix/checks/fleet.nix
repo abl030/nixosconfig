@@ -605,6 +605,23 @@
         printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","yt-dlp-src":"yt-dlp-src","other-input":"other-input"}}}}}\n'
         exit 0
       fi
+      if [ "$#" -eq 4 ] && [ "$1" = eval ] && [ "$2" = --impure ] && [ "$3" = --expr ]; then
+        # The real pure policy has separate boundary tests. Here exercise the
+        # updater's fatal ordering, including no-change and midnight-crossing runs.
+        printf '%s' "$4" | grep -F 'import ./nix/lib/mongodb80-eol.nix' >/dev/null
+        printf '%s' "$4" | grep -F "date = \"$(date -u +%F)\";" >/dev/null
+        if [ -n "''${EOL_FIXTURE_COUNT_FILE:-}" ]; then
+          count=0
+          [ ! -f "$EOL_FIXTURE_COUNT_FILE" ] || count=$(cat "$EOL_FIXTURE_COUNT_FILE")
+          count=$((count + 1))
+          printf '%s\n' "$count" > "$EOL_FIXTURE_COUNT_FILE"
+          if [ "$count" -eq "$EOL_FIXTURE_FAIL_CALL" ]; then
+            echo 'MongoDB 8.0 EOL VIOLATION fixture' >&2
+            exit 42
+          fi
+        fi
+        exit 0
+      fi
       echo "unexpected nix invocation in signing fixture: $*" >&2
       exit 99
       EOF
@@ -863,6 +880,26 @@
       git -C "$TMPDIR/valid-inspect" -c "gpg.ssh.allowedSignersFile=$allowed_all" verify-commit HEAD
       test "$(git -C "$TMPDIR/valid-inspect" log --format=%s -1)" = "rolling: freshness heartbeat ($(date +%F))"
       test "$(cat "$valid_anchor")" = "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+
+      for fail_call in 1 2; do
+        eol_remote="$(make_signed_remote "eol-$fail_call" "$TMPDIR/human")"
+        eol_before="$(git --git-dir="$eol_remote" rev-parse refs/heads/master)"
+        printf '%s\n' "$eol_before" > "$TMPDIR/eol-$fail_call-anchor"
+        if EOL_FIXTURE_COUNT_FILE="$TMPDIR/eol-$fail_call-count" EOL_FIXTURE_FAIL_CALL="$fail_call" \
+          run_update "$eol_remote" "$allowed_all" "$TMPDIR/eol-$fail_call-anchor" \
+          >"$TMPDIR/eol-$fail_call.log" 2>&1; then
+          echo "rolling update ignored EOL failure at gate $fail_call" >&2
+          exit 1
+        fi
+        grep -F 'MongoDB 8.0 EOL VIOLATION' "$TMPDIR/eol-$fail_call.log"
+        test "$(cat "$TMPDIR/eol-$fail_call-count")" = "$fail_call"
+        test "$(git --git-dir="$eol_remote" rev-parse refs/heads/master)" = "$eol_before"
+        test "$(cat "$TMPDIR/eol-$fail_call-anchor")" = "$eol_before"
+        if grep -E 'Writing signed freshness heartbeat|Pushing |Running push-deploy' "$TMPDIR/eol-$fail_call.log"; then
+          echo 'EOL failure escaped into freshness/push/deploy' >&2
+          exit 1
+        fi
+      done
 
       rev_list_fail_remote="$(make_signed_remote rev-list-fail "$TMPDIR/human")"
       rev_list_fail_before="$(git --git-dir="$rev_list_fail_remote" rev-parse refs/heads/master)"

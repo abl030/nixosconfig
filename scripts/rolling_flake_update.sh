@@ -223,6 +223,19 @@ verify_new_commits() {
     done <<<"$revisions"
 }
 
+# Use the same pure policy as the flake check, but today's UTC date rather
+# than yesterday's signed heartbeat. No build-time clock or cached verdict.
+check_mongodb80_eol() {
+    local today
+    today=$(date -u +%F)
+    nix eval --impure --expr '
+      let flake = builtins.getFlake (toString ./.);
+      in import ./nix/lib/mongodb80-eol.nix {
+        date = "'"$today"'";
+        configurations = flake.nixosConfigurations;
+      }' >/dev/null
+}
+
 write_heartbeat() {
     local previous_epoch=0
     local now_epoch heartbeat_epoch timestamp tmp status failed_count summary_count
@@ -659,6 +672,10 @@ fi
 
 DATE=$(date +%F)
 
+# Fatal (not a fail-isolated group): even a no-change run must check the live
+# date before updates. A stale source heartbeat cannot keep this green.
+check_mongodb80_eol
+
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
@@ -713,6 +730,9 @@ if [ "$ANY_COMMIT" -eq 1 ]; then
         fi
     fi
 fi
+
+# Recheck after potentially long builds, before issuing freshness or pushing.
+check_mongodb80_eol
 
 if [ "$SKIP_HEARTBEAT" != "1" ]; then
     log "💓 Writing signed freshness heartbeat..."
