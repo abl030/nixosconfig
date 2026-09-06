@@ -194,6 +194,17 @@
     }
   )
 
+  # MongoDB 8.0 for UniFi: official precompiled Ubuntu 24.04 binary, repackaged
+  # with autoPatchelfHook. The package is deliberately separate from nixpkgs'
+  # source-built `mongodb-7_0`/`mongodb`; only the native UniFi service consumes
+  # it. `scripts/update_mongodb80.sh` advances patch releases transactionally
+  # through the signed rolling updater and refuses series changes.
+  (
+    final: _prev: {
+      mongodb80 = final.callPackage ./pkgs/mongodb80.nix {};
+    }
+  )
+
   # netwatch overlay: real-time network diagnostics TUI from upstream flake
   (
     final: _prev: {

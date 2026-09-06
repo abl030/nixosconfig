@@ -10,13 +10,14 @@ set -Eeuo pipefail
 #
 # See design + rationale: GitHub issue #260, and #259 for the deadlock this fixes.
 #
-# Group order is fixed: core, yt-dlp tip, llm, nvchad (independently maintained
-# and prone to breaking flake-output changes), and rest. Rest is computed as all
-# inputs minus the named groups, so new inputs still fall into it automatically.
+# Group order is fixed: MongoDB 8.0 binary patch, core, yt-dlp tip, llm,
+# nvchad (independently maintained and prone to breaking flake-output changes),
+# and rest. Rest is computed as all inputs minus the named groups, so new inputs
+# still fall into it automatically.
 #
-# The package-change-gated MongoDB preflight group was removed with forgejo #142
-# — UniFi's MongoDB is now a digest-pinned official container, so no flake input
-# builds MongoDB and there is nothing left for a preflight to gate.
+# MongoDB is a package-file transaction rather than a flake input. Its updater
+# reads the official Community release page, prefetches and verifies the exact
+# Ubuntu 24.04 archive, and changes only the protected 8.0 patch series.
 
 # --- Configuration ---------------------------------------------------------
 SCRIPT_DIR="$(CDPATH=; cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,9 +45,13 @@ FAILURE_DIR="${RFU_FAILURE_DIR:-${STATE_DIR:+$STATE_DIR/failures}}"
 TAG="nix-rolling"
 
 # Group membership (space-separated input names). Core and LLM are configurable
-# from the Nix module. yt-dlp and NvChad are hardcoded isolation boundaries.
+# from the Nix module. MongoDB, yt-dlp, and NvChad are hardcoded isolation
+# boundaries.
 GROUP_CORE="${RFU_GROUP_CORE:-nixpkgs home-manager}"
 GROUP_LLM="${RFU_GROUP_LLM:-claude-code-nix codex-cli-nix claude-plugin-compound-engineering claude-plugin-ha-skills}"
+# Deliberately not configurable: MongoDB's package-file update must never be
+# folded into the ordinary flake-input groups or silently cross series.
+GROUP_MONGODB80="mongodb80"
 # Deliberately not configurable: upstream yt-dlp tip must advance even when an
 # unrelated rest input fails.
 GROUP_YTDLP="yt-dlp-src"
@@ -410,9 +415,19 @@ restore_group_state() {
     local name="$1"
     local glog="$2"
     local restore_failed=0
+    local path
 
-    git reset -q -- flake.lock nix/overlay.nix >>"$glog" 2>&1 || restore_failed=1
-    git checkout -- flake.lock nix/overlay.nix >>"$glog" 2>&1 || restore_failed=1
+    # Keep every transaction-owned path in this list. Each command is checked
+    # explicitly because this function is called from a conditional context
+    # where Bash's errexit is suppressed.
+    for path in flake.lock nix/overlay.nix nix/pkgs/mongodb80.nix; do
+        if ! git reset -q -- "$path" >>"$glog" 2>&1; then
+            restore_failed=1
+        fi
+        if ! git checkout -- "$path" >>"$glog" 2>&1; then
+            restore_failed=1
+        fi
+    done
     if [ "$restore_failed" -ne 0 ]; then
         log "🛑 [$name] rollback failed; poisoning this update transaction."
         ANY_FAIL=1
@@ -443,8 +458,10 @@ finish_updated_group() {
     local name="$1"
     local inputs="$2"
     local glog="$3"
+    local changed_paths="${4:-flake.lock nix/overlay.nix}"
 
-    if git diff --quiet -- flake.lock; then
+    # shellcheck disable=SC2086  # changed_paths is a deliberate path list
+    if git diff --quiet -- $changed_paths; then
         log "➖ [$name] no changes."
         SUMMARY_LINES+=("➖ $name — no changes")
         return 0
@@ -454,9 +471,9 @@ finish_updated_group() {
     if FULL_CHECK=1 nix flake check --impure --print-build-logs >>"$glog" 2>&1 \
         && ./scripts/populate_cache.sh >>"$glog" 2>&1; then
         local commit_failed=0
-        git add flake.lock || commit_failed=1
-        if ! git diff --quiet -- nix/overlay.nix; then
-            git add nix/overlay.nix || commit_failed=1
+        # shellcheck disable=SC2086  # changed_paths is a deliberate path list
+        if ! git add -- $changed_paths; then
+            commit_failed=1
         fi
         if [ "$commit_failed" -ne 0 ] || ! git commit -q -m "rolling: $name ($DATE)" >>"$glog" 2>&1; then
             log "❌ [$name] commit failed; reverting group."
@@ -507,13 +524,23 @@ try_group() {
 
     log "🔄 [$name] updating: $inputs"
     local glog="$WORK_DIR/${name}.build.log"
+
+    if [ "$name" = "$GROUP_MONGODB80" ]; then
+        if ! ./scripts/update_mongodb80.sh >"$glog" 2>&1; then
+            record_group_update_failure "$name" "$glog" "official MongoDB 8.0 patch update failed"
+            return 1
+        fi
+        finish_updated_group "$name" "$inputs" "$glog" "nix/pkgs/mongodb80.nix"
+        return $?
+    fi
+
     # shellcheck disable=SC2086  # $inputs is a space-separated list of input names, splitting is intended
     if ! nix flake update $inputs >"$glog" 2>&1; then
         record_group_update_failure "$name" "$glog"
         return 1
     fi
 
-    finish_updated_group "$name" "$inputs" "$glog"
+    finish_updated_group "$name" "$inputs" "$glog" "flake.lock nix/overlay.nix"
 }
 
 # Send ONE bundled Gotify with the whole night's per-group results.
@@ -635,14 +662,15 @@ DATE=$(date +%F)
 # Compute the "rest" group = all top-level inputs minus the named groups.
 log "🧮 Computing input groups..."
 ALL_INPUTS=$(nix flake metadata --json | jq -r '.locks as $l | ($l.nodes[$l.root].inputs // {}) | keys[]')
-NAMED=" $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
+NAMED=" $GROUP_MONGODB80 $GROUP_CORE $GROUP_YTDLP $GROUP_LLM $GROUP_NVCHAD "
 GROUP_REST=""
 for inp in $ALL_INPUTS; do
     case "$NAMED" in
-        *" $inp "*) ;;                       # already in core/llm
+        *" $inp "*) ;;                       # already in an isolated group
         *) GROUP_REST="$GROUP_REST $inp" ;;
     esac
 done
+log "   mongodb80: $GROUP_MONGODB80"
 log "   core: $GROUP_CORE"
 log "   yt-dlp: $GROUP_YTDLP"
 log "   llm : $GROUP_LLM"
@@ -650,6 +678,9 @@ log "   nvchad: $GROUP_NVCHAD"
 log "   rest:$GROUP_REST"
 
 # --- Run each group as its own transaction ---------------------------------
+# MongoDB is first so its package candidate is independently verified before
+# the core lock moves; a core failure cannot discard a good binary patch.
+try_group mongodb80 $GROUP_MONGODB80 || true
 # shellcheck disable=SC2086  # group vars are space-separated input lists; splitting into args is intended
 try_group core $GROUP_CORE || true
 # shellcheck disable=SC2086
