@@ -1,1 +1,1 @@
-/nix/store/vd5j56vc993vpagvs5d3887dlvxnhb1a-nixos-system-proxmox-vm-26.11.20260903.9b9402b
+/nix/store/3r7c4h22843yhim16pdbl07r6vhci0ha-nixos-system-proxmox-vm-26.11.20260904.17de0b9
