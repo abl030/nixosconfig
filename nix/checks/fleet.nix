@@ -1,0 +1,1041 @@
+{
+  self,
+  lib,
+  pkgs,
+  hosts,
+  signing,
+}: let
+  pushDeployEnabledHosts = lib.sort builtins.lessThan (
+    lib.attrNames (
+      lib.filterAttrs
+      (_name: cfg: cfg.config.homelab.update.pushDeploy.enable)
+      self.nixosConfigurations
+    )
+  );
+
+  pushDeployConfiguredHosts = lib.sort builtins.lessThan self.nixosConfigurations.proxmox-vm.config.homelab.ci.rollingFlakeUpdate.pushDeployHosts;
+
+  pushDeployMissingHosts = lib.filter (name: !(lib.elem name pushDeployConfiguredHosts)) pushDeployEnabledHosts;
+
+  pushDeployUnexpectedHosts = lib.filter (name: !(lib.elem name pushDeployEnabledHosts)) pushDeployConfiguredHosts;
+
+  pushDeployDuplicateHosts = lib.unique (lib.filter (name: lib.count (candidate: candidate == name) pushDeployConfiguredHosts > 1) pushDeployConfiguredHosts);
+
+  # Sender/receiver enrollment invariant: enabling a target-side
+  # push-activate receiver without adding it to doc1's nightly sender
+  # silently strands the host on its bootstrap generation. The metadata
+  # LXCs exposed this gap because their local auto-upgrade is deliberately
+  # disabled and the nightly summary only covered configured senders.
+  pushDeployEnrollmentCheck = pkgs.runCommand "push-deploy-enrollment-invariant" {} ''
+    if [ -n "${lib.concatStringsSep " " pushDeployMissingHosts}" ] || [ -n "${lib.concatStringsSep " " pushDeployUnexpectedHosts}" ] || [ -n "${lib.concatStringsSep " " pushDeployDuplicateHosts}" ]; then
+      echo "PUSH-DEPLOY ENROLLMENT INVARIANT VIOLATED:"
+      echo "  receiver enabled but not sent: ${lib.concatStringsSep " " pushDeployMissingHosts}"
+      echo "  sender configured without receiver: ${lib.concatStringsSep " " pushDeployUnexpectedHosts}"
+      echo "  duplicate sender entries: ${lib.concatStringsSep " " pushDeployDuplicateHosts}"
+      echo "Every homelab.update.pushDeploy.enable host must be listed exactly once"
+      echo "in doc1 homelab.ci.rollingFlakeUpdate.pushDeployHosts."
+      exit 1
+    fi
+    echo "Push-deploy enrollment OK: ${lib.concatStringsSep " " pushDeployConfiguredHosts}"
+    touch $out
+  '';
+
+  # Pin the home-LAN detection (`on_lan`) in subnet-priority.nix. That
+  # function decides whether the roaming-laptop rule `to 192.168.1.0/24
+  # lookup main` is installed; it regressed twice (address-presence
+  # matching a foreign/container 192.168.1.x), so this locks the current
+  # gateway-MAC behaviour: home iff `ip neigh show 192.168.1.1` resolves
+  # to pfSense's LAN MAC. The MAC and pattern below MUST stay in sync
+  # with homeGatewayMac in modules/nixos/services/tailscale/subnet-priority.nix.
+  onLanMatcherCheck = pkgs.runCommand "on-lan-matcher" {} ''
+                mac="64:62:66:21:dd:cc"
+                matches() { printf '%s\n' "$1" | ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac"; }
+                fail=0
+                # Should be ON-LAN (home gateway resolves to pfSense MAC):
+                for good in \
+                  "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:dd:cc REACHABLE" \
+                  "192.168.1.1 dev wlp1s0 lladdr 64:62:66:21:DD:CC STALE" ; do
+                  if ! matches "$good"; then echo "FAIL: expected on_lan match: $good"; fail=1; fi
+                done
+                # Should be OFF-LAN. Fixtures are plausible `ip neigh show
+                # 192.168.1.1` outputs (the IP is already scoped by that command):
+                # a foreign gateway with a different MAC, or an unresolved entry.
+                while IFS= read -r bad; do
+                  if matches "$bad"; then echo "FAIL: expected on_lan NON-match: $bad"; fail=1; fi
+                done <<'EOF'
+    192.168.1.1 dev wlp1s0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+    192.168.1.1 dev wlp1s0 FAILED
+    EOF
+                # (empty neighbour table — nothing piped — must also be non-match)
+                if ${pkgs.gnugrep}/bin/grep -qi "lladdr $mac" </dev/null; then
+                  echo "FAIL: empty neigh table matched"; fail=1
+                fi
+                if [ $fail -ne 0 ]; then
+                  echo ""
+                  echo "on_lan gateway-MAC detection regressed. Keep this check in"
+                  echo "sync with homeGatewayMac in subnet-priority.nix. See"
+                  echo "docs/wiki/infrastructure/tailscale-lan-priority.md."
+                  exit 1
+                fi
+                echo "on_lan gateway-MAC matcher behaves as specified."
+                touch $out
+  '';
+
+  # Bastion invariant (#270): EXACTLY ONE host may hold the fleet identity
+  # private key — i.e. exactly one `deployIdentity = true` in the tree (the
+  # doc1 bastion; the module default is false). A future copy-paste that
+  # re-sets it true on a second host would silently re-spread the fleet
+  # skeleton key and undo the whole keyless-siblings model; 0 holders means
+  # nothing can reach the siblings. Either way, fail the build first.
+  bastionInvariantCheck = pkgs.runCommand "bastion-deployIdentity-invariant" {} ''
+    matches=$(${pkgs.gnugrep}/bin/grep -rnE "deployIdentity = true" ${../../hosts} ${../../modules} || true)
+    count=$(printf '%s' "$matches" | ${pkgs.gnugrep}/bin/grep -c . || true)
+    if [ "$count" != "1" ]; then
+      echo "BASTION INVARIANT VIOLATED (#270): expected exactly ONE host with"
+      echo "deployIdentity = true (the doc1 bastion), found $count:"
+      printf '%s\n' "$matches"
+      echo ""
+      echo "Only the doc1 bastion may hold the fleet identity private key."
+      echo "See issue #270 and modules/nixos/services/ssh/default.nix."
+      exit 1
+    fi
+    echo "Bastion invariant OK: exactly one deployIdentity=true (the doc1 bastion)."
+    touch $out
+  '';
+
+  # Fleet role invariant (forgejo#2): EXACTLY ONE host may be the bastion
+  # — i.e. exactly one `role = "bastion"` in the tree (doc1). Every other
+  # host defaults to role = "locked" (no passwordless sudo, GTFOBins
+  # gated off, accepts the deploy trigger). A copy-paste that sets a
+  # second "bastion" would silently re-spread passwordless root; 0 means
+  # nothing has the deploy key + wrapper. Either way, fail the build.
+  # Mirrors bastionInvariantCheck (deployIdentity); the two move together.
+  fleetBastionRoleCheck = pkgs.runCommand "fleet-deploy-role-invariant" {} ''
+    # Match the ASSIGNMENT only — `... role = "bastion";` — and never a
+    # comment line (the model is described in comments all over the tree).
+    # `[^#]*` can't cross a `#`, so any `# … role = "bastion"` is skipped.
+    matches=$(${pkgs.gnugrep}/bin/grep -rnE '^[[:space:]]*[^#]*role = "bastion";' ${../../hosts} ${../../modules} || true)
+    count=$(printf '%s' "$matches" | ${pkgs.gnugrep}/bin/grep -c . || true)
+    if [ "$count" != "1" ]; then
+      echo "FLEET BASTION ROLE INVARIANT VIOLATED (forgejo#2): expected exactly"
+      echo "ONE host with homelab.fleetDeploy.role = \"bastion\" (doc1), found $count:"
+      printf '%s\n' "$matches"
+      echo ""
+      echo "Only the doc1 bastion may be unlocked; every other host defaults to"
+      echo "role = \"locked\". See modules/nixos/services/fleet-deploy.nix."
+      exit 1
+    fi
+    echo "Fleet role invariant OK: exactly one role=\"bastion\" (the doc1 bastion)."
+    touch $out
+  '';
+
+  # Signed fleet deploy trust anchor (#235): hosts.nix is the single
+  # source of truth for commit-signing principals, and every closure
+  # renders it to /etc/fleet-update/allowed_signers. Keep this in the
+  # always-run tier so WSL and ordinary evals catch drift before
+  # verification enforcement depends on it.
+  allowedSignersCheck = let
+    validationFile = pkgs.writeText "allowed-signers-validation-errors" (lib.concatStringsSep "\n" (signing.validationErrors hosts));
+    allowedSignersFile = pkgs.writeText "fleet-update-allowed_signers" (signing.allowedSignersText hosts);
+  in
+    pkgs.runCommand "fleet-update-allowed-signers" {} ''
+      fail=0
+
+      if [ -s ${validationFile} ]; then
+        echo "fleet signing hosts.nix validation failed:"
+        cat ${validationFile}
+        fail=1
+      fi
+
+      if ! ${pkgs.gnugrep}/bin/grep -q '^"nix bot <acme@ablz.au>" namespaces="git" ssh-ed25519 ' ${allowedSignersFile}; then
+        echo "missing correctly quoted nix bot signing principal"
+        fail=1
+      fi
+
+      tmp="$(${pkgs.coreutils}/bin/mktemp -d)"
+      trap '${pkgs.coreutils}/bin/rm -rf "$tmp"' EXIT
+      printf 'fixture' > "$tmp/msg"
+      ${pkgs.openssh}/bin/ssh-keygen -q -t ed25519 -N "" -C fixture -f "$tmp/key"
+      ${pkgs.openssh}/bin/ssh-keygen -Y sign -f "$tmp/key" -n git "$tmp/msg" >/dev/null
+      printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(${pkgs.coreutils}/bin/cat "$tmp/key.pub")" > "$tmp/allowed"
+      if ! ${pkgs.openssh}/bin/ssh-keygen -Y verify -f "$tmp/allowed" -I 'nix bot <acme@ablz.au>' -n git -s "$tmp/msg.sig" < "$tmp/msg" >/dev/null; then
+        echo "OpenSSH rejected whitespace principal allowed_signers quoting"
+        fail=1
+      fi
+
+      if [ $fail -ne 0 ]; then
+        echo ""
+        echo "Fix hosts.nix signingKeys / _signingPrincipals or the allowed_signers renderer."
+        exit 1
+      fi
+
+      echo "fleet-update allowed_signers OK:"
+      cat ${allowedSignersFile}
+      touch $out
+    '';
+
+  fleetUpdateCheck =
+    pkgs.runCommand "fleet-update-verifier" {
+      nativeBuildInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.git
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.jq
+        pkgs.openssh
+      ];
+    } ''
+      set -euo pipefail
+
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME" "$TMPDIR/bin"
+      git config --global init.defaultBranch master
+
+      cat > "$TMPDIR/bin/nixos-rebuild" <<EOF
+      #!${pkgs.bash}/bin/bash
+      set -euo pipefail
+      printf '%s\n' "\$*" >> "$TMPDIR/rebuilds"
+      exit 0
+      EOF
+      chmod +x "$TMPDIR/bin/nixos-rebuild"
+
+      make_key() {
+        local name="$1"
+        ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMPDIR/$name"
+      }
+
+      signed_commit() {
+        local repo="$1"
+        local key="$2"
+        local message="$3"
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$key" \
+          commit -q -S -m "$message"
+      }
+
+      forgejo_signed_commit() {
+        local repo="$1"
+        local key="$2"
+        local message="$3"
+        git -C "$repo" \
+          -c user.name="Forgejo Merge" \
+          -c user.email="forgejo-merge@ablz.au" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$key" \
+          commit -q -S -m "$message"
+      }
+
+      unsigned_commit() {
+        local repo="$1"
+        local message="$2"
+        git -C "$repo" \
+          -c user.name="fixture attacker" \
+          -c user.email="attacker@example.invalid" \
+          commit -q -m "$message"
+      }
+
+      write_heartbeat() {
+        local repo="$1"
+        local key="$2"
+        local epoch="$3"
+        local status="$4"
+        mkdir -p "$repo/fleet"
+        jq -n \
+          --argjson epoch "$epoch" \
+          --arg timestamp "$(date -u -d "@$epoch" '+%Y-%m-%dT%H:%M:%SZ')" \
+          --arg actor "nix bot <acme@ablz.au>" \
+          --arg host "fixture-host" \
+          --arg status "$status" \
+          '{epoch: $epoch, timestamp: $timestamp, actor: $actor, host: $host, status: $status, failed_groups: 0, summary_lines: 1}' \
+          > "$repo/fleet/freshness.json"
+        git -C "$repo" add fleet/freshness.json
+        signed_commit "$repo" "$key" "fixture freshness heartbeat"
+      }
+
+      make_linear_remote() {
+        local name="$1"
+        local human_key="$2"
+        local bot_key="$3"
+        local heartbeat_epoch="$4"
+        local heartbeat_status="$5"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local base target
+
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        printf 'base\n' > "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        signed_commit "$repo" "$human_key" "fixture signed base"
+        base="$(git -C "$repo" rev-parse HEAD)"
+
+        printf 'target\n' >> "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        signed_commit "$repo" "$human_key" "fixture signed target"
+        write_heartbeat "$repo" "$bot_key" "$heartbeat_epoch" "$heartbeat_status"
+        target="$(git -C "$repo" rev-parse HEAD)"
+
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s %s\n' "$remote" "$base" "$target"
+      }
+
+      make_unsigned_tip_remote() {
+        local name="$1"
+        local key="$2"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local base target
+
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        printf 'base\n' > "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        signed_commit "$repo" "$key" "fixture signed base"
+        base="$(git -C "$repo" rev-parse HEAD)"
+
+        printf 'unsigned\n' >> "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        unsigned_commit "$repo" "fixture unsigned target"
+        target="$(git -C "$repo" rev-parse HEAD)"
+
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s %s\n' "$remote" "$base" "$target"
+      }
+
+      make_signed_merge_unsigned_parent_remote() {
+        local name="$1"
+        local key="$2"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local base target
+
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        printf 'base\n' > "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        signed_commit "$repo" "$key" "fixture signed base"
+        base="$(git -C "$repo" rev-parse HEAD)"
+
+        git -C "$repo" checkout -q -b unsigned-side
+        printf 'side\n' > "$repo/side.txt"
+        git -C "$repo" add side.txt
+        unsigned_commit "$repo" "fixture unsigned side"
+        git -C "$repo" checkout -q master
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$key" \
+          merge -q --no-ff -S unsigned-side -m "fixture signed merge"
+        target="$(git -C "$repo" rev-parse HEAD)"
+
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s %s\n' "$remote" "$base" "$target"
+      }
+
+      make_forgejo_merge_remote() {
+        local name="$1"
+        local human_key="$2"
+        local forgejo_key="$3"
+        local mode="$4"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local base target
+
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        printf 'base\n' > "$repo/flake.nix"
+        git -C "$repo" add flake.nix
+        signed_commit "$repo" "$human_key" "fixture signed base"
+        base="$(git -C "$repo" rev-parse HEAD)"
+
+        case "$mode" in
+          one-parent)
+            printf 'forged\n' > "$repo/forged.txt"
+            git -C "$repo" add forged.txt
+            forgejo_signed_commit "$repo" "$forgejo_key" "fixture forbidden Forgejo linear commit"
+            ;;
+          valid|altered-tree|wrong-identity|unsigned-parent)
+            git -C "$repo" checkout -q -b signed-side
+            printf 'side\n' > "$repo/side.txt"
+            git -C "$repo" add side.txt
+            if [ "$mode" = unsigned-parent ]; then
+              unsigned_commit "$repo" "fixture unsigned side"
+            else
+              signed_commit "$repo" "$human_key" "fixture signed side"
+            fi
+            git -C "$repo" checkout -q master
+            git -C "$repo" \
+              -c user.name="Forgejo Merge" \
+              -c user.email="forgejo-merge@ablz.au" \
+              merge -q --no-ff --no-commit signed-side
+            if [ "$mode" = altered-tree ]; then
+              printf 'not present in either signed parent\n' > "$repo/injected.txt"
+              git -C "$repo" add injected.txt
+            fi
+            if [ "$mode" = wrong-identity ]; then
+              git -C "$repo" \
+                -c user.name="fixture attacker" \
+                -c user.email="attacker@example.invalid" \
+                -c gpg.format=ssh \
+                -c user.signingkey="$forgejo_key" \
+                commit -q -S -m "fixture wrong-identity Forgejo merge"
+            else
+              forgejo_signed_commit "$repo" "$forgejo_key" "fixture Forgejo merge"
+            fi
+            ;;
+          *)
+            echo "unknown Forgejo fixture mode: $mode" >&2
+            exit 1
+            ;;
+        esac
+
+        target="$(git -C "$repo" rev-parse HEAD)"
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s %s\n' "$remote" "$base" "$target"
+      }
+
+      run_fleet() {
+        local name="$1"
+        local remote="$2"
+        local current="$3"
+        shift 3
+        FLEET_UPDATE_STATE_DIR="$TMPDIR/state-$name" \
+        FLEET_UPDATE_REPO_DIR="$TMPDIR/state-$name/repo" \
+        FLEET_UPDATE_ALLOWED_SIGNERS_FILE="$TMPDIR/allowed" \
+        FLEET_UPDATE_LAST_VERIFIED_REV_FILE="$TMPDIR/$name-anchor" \
+        FLEET_UPDATE_ORIGINS="github=file://$remote" \
+        FLEET_UPDATE_WRITE_ROOT=github \
+        FLEET_UPDATE_CURRENT_REV="$current" \
+        FLEET_UPDATE_HOSTNAME=fixture-host \
+        FLEET_UPDATE_NOW=2000000100 \
+        FLEET_UPDATE_FRESHNESS_MAX_AGE_SECONDS=1000 \
+        FLEET_UPDATE_REBUILD_BIN="$TMPDIR/bin/nixos-rebuild" \
+        FLEET_UPDATE_REBUILD_FLAGS="--no-write-lock-file -L" \
+        FLEET_UPDATE_SKIP_PREFLIGHT=1 \
+        FLEET_UPDATE_SUCCESS_TIMESTAMP_FILE="$TMPDIR/$name-success" \
+        FLEET_UPDATE_FAILURE_LOG="$TMPDIR/$name-failure.log" \
+        ${pkgs.bash}/bin/bash ${../../modules/nixos/autoupdate/fleet-update.sh} "$@"
+      }
+
+      run_probe() {
+        local remote="$1"
+        FLEET_UPDATE_ORIGINS="github=file://$remote" \
+        ${pkgs.bash}/bin/bash ${../../modules/nixos/autoupdate/fleet-update.sh} --probe-origins
+      }
+
+      mkdir -p "$TMPDIR/fail-rev-list-bin"
+      cat > "$TMPDIR/fail-rev-list-bin/git" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      for arg in "$@"; do
+        if [ "$arg" = rev-list ]; then
+          exit 97
+        fi
+      done
+      exec ${pkgs.git}/bin/git "$@"
+      EOF
+      chmod +x "$TMPDIR/fail-rev-list-bin/git"
+
+      make_key human
+      make_key bot
+      make_key forgejo
+      {
+        printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
+        printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+        printf 'forgejo-merge@doc2 namespaces="git" %s\n' "$(cat "$TMPDIR/forgejo.pub")"
+      } > "$TMPDIR/allowed"
+
+      read -r linear_remote linear_base linear_target < <(make_linear_remote linear "$TMPDIR/human" "$TMPDIR/bot" 2000000000 green)
+      : > "$TMPDIR/rebuilds"
+      run_fleet linear "$linear_remote" "$linear_base"
+      test "$(cat "$TMPDIR/linear-anchor")" = "$linear_target"
+      grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+      test "$(jq -r '.heartbeat_epoch' "$TMPDIR/state-linear/last-verified-freshness")" = "2000000000"
+      test "$(cat "$TMPDIR/state-linear/highest-seen-heartbeat")" = "2000000000"
+      test -s "$TMPDIR/state-linear/last-source-contact"
+
+      : > "$TMPDIR/rebuilds"
+      run_fleet noop "$linear_remote" "$linear_target"
+      test ! -s "$TMPDIR/rebuilds"
+      test "$(jq -r '.heartbeat_epoch' "$TMPDIR/state-noop/last-verified-freshness")" = "2000000000"
+
+      : > "$TMPDIR/rebuilds"
+      run_fleet stale "$linear_remote" "$linear_target" --rev "$linear_base"
+      test ! -s "$TMPDIR/rebuilds"
+      test ! -e "$TMPDIR/state-stale/last-verified-freshness"
+
+      read -r stale_heartbeat_remote stale_heartbeat_base _stale_heartbeat_target < <(make_linear_remote stale-heartbeat "$TMPDIR/human" "$TMPDIR/bot" 1999998000 green)
+      if ! run_fleet stale-heartbeat "$stale_heartbeat_remote" "$stale_heartbeat_base" 2>"$TMPDIR/stale-heartbeat.log"; then
+        cat "$TMPDIR/stale-heartbeat.log" >&2
+        exit 1
+      fi
+      grep -q "FLEET-FRESHNESS FAIL heartbeat stale" "$TMPDIR/stale-heartbeat.log"
+      test ! -e "$TMPDIR/state-stale-heartbeat/last-verified-freshness"
+
+      mkdir -p "$TMPDIR/state-replay"
+      printf '2000000100\n' > "$TMPDIR/state-replay/highest-seen-heartbeat"
+      if ! run_fleet replay "$linear_remote" "$linear_base" 2>"$TMPDIR/replay.log"; then
+        cat "$TMPDIR/replay.log" >&2
+        exit 1
+      fi
+      grep -q "FLEET-FRESHNESS FAIL heartbeat moved backward" "$TMPDIR/replay.log"
+      test "$(cat "$TMPDIR/state-replay/highest-seen-heartbeat")" = "2000000100"
+      test ! -e "$TMPDIR/state-replay/last-verified-freshness"
+
+      read -r human_heartbeat_remote human_heartbeat_base _human_heartbeat_target < <(make_linear_remote human-heartbeat "$TMPDIR/human" "$TMPDIR/human" 2000000000 green)
+      if ! run_fleet human-heartbeat "$human_heartbeat_remote" "$human_heartbeat_base" 2>"$TMPDIR/human-heartbeat.log"; then
+        cat "$TMPDIR/human-heartbeat.log" >&2
+        exit 1
+      fi
+      grep -q "FLEET-FRESHNESS FAIL fleet/freshness.json last changed by untrusted" "$TMPDIR/human-heartbeat.log"
+      test ! -e "$TMPDIR/state-human-heartbeat/last-verified-freshness"
+
+      read -r partial_remote partial_base _partial_target < <(make_linear_remote partial "$TMPDIR/human" "$TMPDIR/bot" 2000000000 partial_failure)
+      if ! run_fleet partial "$partial_remote" "$partial_base" 2>"$TMPDIR/partial.log"; then
+        cat "$TMPDIR/partial.log" >&2
+        exit 1
+      fi
+      grep -q "FLEET-FRESHNESS FAIL heartbeat status is 'partial_failure'" "$TMPDIR/partial.log"
+      test ! -e "$TMPDIR/state-partial/last-verified-freshness"
+
+      read -r unsigned_remote unsigned_base _unsigned_target < <(make_unsigned_tip_remote unsigned "$TMPDIR/human")
+      if run_fleet unsigned "$unsigned_remote" "$unsigned_base"; then
+        echo "unsigned target was accepted" >&2
+        exit 1
+      fi
+
+      read -r merge_remote merge_base _merge_target < <(make_signed_merge_unsigned_parent_remote signed-merge "$TMPDIR/human")
+      if run_fleet signed-merge "$merge_remote" "$merge_base"; then
+        echo "signed merge with unsigned parent was accepted" >&2
+        exit 1
+      fi
+
+      read -r forgejo_valid_remote forgejo_valid_base forgejo_valid_target < <(make_forgejo_merge_remote forgejo-valid "$TMPDIR/human" "$TMPDIR/forgejo" valid)
+      : > "$TMPDIR/rebuilds"
+      run_fleet forgejo-valid "$forgejo_valid_remote" "$forgejo_valid_base"
+      grep -q "rev=$forgejo_valid_target#fixture-host" "$TMPDIR/rebuilds"
+
+      read -r forgejo_linear_remote forgejo_linear_base _forgejo_linear_target < <(make_forgejo_merge_remote forgejo-linear "$TMPDIR/human" "$TMPDIR/forgejo" one-parent)
+      if run_fleet forgejo-linear "$forgejo_linear_remote" "$forgejo_linear_base"; then
+        echo "Forgejo merge signer was accepted on a one-parent commit" >&2
+        exit 1
+      fi
+
+      read -r forgejo_altered_remote forgejo_altered_base _forgejo_altered_target < <(make_forgejo_merge_remote forgejo-altered "$TMPDIR/human" "$TMPDIR/forgejo" altered-tree)
+      if run_fleet forgejo-altered "$forgejo_altered_remote" "$forgejo_altered_base"; then
+        echo "Forgejo merge signer was accepted with a non-deterministic merge tree" >&2
+        exit 1
+      fi
+
+      read -r forgejo_identity_remote forgejo_identity_base _forgejo_identity_target < <(make_forgejo_merge_remote forgejo-identity "$TMPDIR/human" "$TMPDIR/forgejo" wrong-identity)
+      if run_fleet forgejo-identity "$forgejo_identity_remote" "$forgejo_identity_base"; then
+        echo "Forgejo merge signer was accepted with a forged committer identity" >&2
+        exit 1
+      fi
+
+      read -r forgejo_unsigned_remote forgejo_unsigned_base _forgejo_unsigned_target < <(make_forgejo_merge_remote forgejo-unsigned "$TMPDIR/human" "$TMPDIR/forgejo" unsigned-parent)
+      if run_fleet forgejo-unsigned "$forgejo_unsigned_remote" "$forgejo_unsigned_base"; then
+        echo "Forgejo merge signer was accepted over an unsigned parent" >&2
+        exit 1
+      fi
+
+      if run_fleet no-anchor "$linear_remote" "not-a-sha"; then
+        echo "missing anchor was accepted without --accept-new-root" >&2
+        exit 1
+      fi
+
+      : > "$TMPDIR/rebuilds"
+      run_fleet accept-root "$linear_remote" "not-a-sha" --accept-new-root "$linear_base"
+      test "$(cat "$TMPDIR/accept-root-anchor")" = "$linear_target"
+      grep -q "rev=$linear_target#fixture-host" "$TMPDIR/rebuilds"
+
+      if run_fleet forgejo-accept-root "$forgejo_valid_remote" "not-a-sha" --accept-new-root "$forgejo_valid_target"; then
+        echo "Forgejo merge signer was accepted as a new trust root without verifying parent histories" >&2
+        exit 1
+      fi
+
+      if PATH="$TMPDIR/fail-rev-list-bin:$PATH" run_fleet rev-list-failure "$linear_remote" "$linear_base" 2>"$TMPDIR/rev-list-failure.log"; then
+        echo "failed rev-list was accepted by the deployment verifier" >&2
+        exit 1
+      fi
+
+      if run_fleet bad-branch "$linear_remote" "$linear_base" --branch test-branch; then
+        echo "non-master branch was accepted without override" >&2
+        exit 1
+      fi
+
+      run_probe "$linear_remote"
+      if run_probe "$TMPDIR/missing.git"; then
+        echo "missing origin probe succeeded" >&2
+        exit 1
+      fi
+
+      touch $out
+    '';
+
+  rollingFlakeUpdateSigningCheck =
+    pkgs.runCommand "rolling-flake-update-signing" {
+      nativeBuildInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.git
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.jq
+        pkgs.openssh
+      ];
+    } ''
+      set -euo pipefail
+
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      git config --global init.defaultBranch master
+      mkdir "$TMPDIR/local-source"
+      git -C "$TMPDIR/local-source" init -q -b master
+
+      mkdir -p "$TMPDIR/bin"
+      cat > "$TMPDIR/bin/nix" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      set -euo pipefail
+      if [ "$#" -eq 3 ] && [ "$1" = "flake" ] && [ "$2" = "metadata" ] && [ "$3" = "--json" ]; then
+        printf '{"locks":{"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"nixpkgs","home-manager":"home-manager","claude-code-nix":"claude-code-nix","nvchad4nix":"nvchad4nix","yt-dlp-src":"yt-dlp-src","other-input":"other-input"}}}}}\n'
+        exit 0
+      fi
+      echo "unexpected nix invocation in signing fixture: $*" >&2
+      exit 99
+      EOF
+      chmod +x "$TMPDIR/bin/nix"
+      cp ${./rolling-auth-git-fixture.sh} "$TMPDIR/bin/git"
+      chmod +x "$TMPDIR/bin/git"
+      patchShebangs "$TMPDIR/bin/git"
+      export FIXTURE_REAL_GIT=${pkgs.git}/bin/git
+      printf '%040d' 0 > "$TMPDIR/dummy-token"
+      export PATH="$TMPDIR/bin:$PATH"
+
+      make_key() {
+        local name="$1"
+        ssh-keygen -q -t ed25519 -N "" -C "$name" -f "$TMPDIR/$name"
+      }
+
+      make_signed_remote() {
+        local name="$1"
+        local signer_key="$2"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local anchor
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        cat > "$repo/flake.nix" <<'EOF'
+      {
+        description = "rolling flake update signing fixture";
+        outputs = { self }: {};
+      }
+      EOF
+        git -C "$repo" add flake.nix
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$signer_key" \
+          commit -q -S -m "fixture signed base"
+        git clone -q --bare "$repo" "$remote"
+        printf '%s\n' "$remote"
+      }
+
+      make_unsigned_remote() {
+        local name="$1"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        cat > "$repo/flake.nix" <<'EOF'
+      {
+        description = "rolling flake update signing fixture";
+        outputs = { self }: {};
+      }
+      EOF
+        git -C "$repo" add flake.nix
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          commit -q -m "fixture unsigned base"
+        git clone -q --bare "$repo" "$remote"
+        printf '%s\n' "$remote"
+      }
+
+      make_signed_merge_unsigned_parent_remote() {
+        local name="$1"
+        local signer_key="$2"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        cat > "$repo/flake.nix" <<'EOF'
+      {
+        description = "rolling flake update signing fixture";
+        outputs = { self }: {};
+      }
+      EOF
+        git -C "$repo" add flake.nix
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$signer_key" \
+          commit -q -S -m "fixture signed anchor"
+        anchor="$(git -C "$repo" rev-parse HEAD)"
+        git -C "$repo" checkout -q -b unsigned-side
+        printf 'unsigned side\n' > "$repo/unsigned.txt"
+        git -C "$repo" add unsigned.txt
+        git -C "$repo" \
+          -c user.name="fixture attacker" \
+          -c user.email="attacker@example.invalid" \
+          commit -q -m "fixture unsigned side"
+        git -C "$repo" checkout -q master
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$signer_key" \
+          merge -q --no-ff -S unsigned-side -m "fixture signed merge"
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s\n' "$remote" "$anchor"
+      }
+
+      make_forgejo_remote() {
+        local name="$1"
+        local human_key="$2"
+        local forgejo_key="$3"
+        local mode="$4"
+        local repo="$TMPDIR/$name-src"
+        local remote="$TMPDIR/$name.git"
+        local anchor
+
+        mkdir "$repo"
+        git -C "$repo" init -q -b master
+        cat > "$repo/flake.nix" <<'EOF'
+      {
+        description = "rolling flake update Forgejo fixture";
+        outputs = { self }: {};
+      }
+      EOF
+        git -C "$repo" add flake.nix
+        git -C "$repo" \
+          -c user.name="fixture human" \
+          -c user.email="fixture@example.invalid" \
+          -c gpg.format=ssh \
+          -c user.signingkey="$human_key" \
+          commit -q -S -m "fixture signed anchor"
+        anchor="$(git -C "$repo" rev-parse HEAD)"
+
+        case "$mode" in
+          one-parent)
+            printf 'forged\n' > "$repo/forged.txt"
+            git -C "$repo" add forged.txt
+            ;;
+          valid|altered-tree|wrong-identity|unsigned-parent)
+            git -C "$repo" checkout -q -b signed-side
+            printf 'side\n' > "$repo/side.txt"
+            git -C "$repo" add side.txt
+            if [ "$mode" = unsigned-parent ]; then
+              git -C "$repo" \
+                -c user.name="fixture attacker" \
+                -c user.email="attacker@example.invalid" \
+                commit -q -m "fixture unsigned side"
+            else
+              git -C "$repo" \
+                -c user.name="fixture human" \
+                -c user.email="fixture@example.invalid" \
+                -c gpg.format=ssh \
+                -c user.signingkey="$human_key" \
+                commit -q -S -m "fixture signed side"
+            fi
+            git -C "$repo" checkout -q master
+            git -C "$repo" \
+              -c user.name="Forgejo Merge" \
+              -c user.email="forgejo-merge@ablz.au" \
+              merge -q --no-ff --no-commit signed-side
+            if [ "$mode" = altered-tree ]; then
+              printf 'not in either parent\n' > "$repo/injected.txt"
+              git -C "$repo" add injected.txt
+            fi
+            ;;
+          *) exit 1 ;;
+        esac
+
+        if [ "$mode" = wrong-identity ]; then
+          git -C "$repo" \
+            -c user.name="fixture attacker" \
+            -c user.email="attacker@example.invalid" \
+            -c gpg.format=ssh \
+            -c user.signingkey="$forgejo_key" \
+            commit -q -S -m "fixture wrong-identity Forgejo commit"
+        else
+          git -C "$repo" \
+            -c user.name="Forgejo Merge" \
+            -c user.email="forgejo-merge@ablz.au" \
+            -c gpg.format=ssh \
+            -c user.signingkey="$forgejo_key" \
+            commit -q -S -m "fixture Forgejo commit"
+        fi
+        git clone -q --bare "$repo" "$remote"
+        printf '%s %s\n' "$remote" "$anchor"
+      }
+
+      run_update() {
+        local remote="$1"
+        local allowed="$2"
+        local anchor_file="$3"
+        REPO_DIR="$TMPDIR/local-source" \
+        FIXTURE_REMOTE="$remote" \
+        RFU_REMOTE_URL="https://git.ablz.au/abl030/nixosconfig.git" \
+        RFU_FORGEJO_AUTH=${forgejoAuthHelper} \
+        RFU_PUSH_TOKEN_FILE="$TMPDIR/dummy-token" \
+        RFU_REQUIRE_SIGNED_BASE=1 \
+        RFU_GROUP_NVCHAD=other-input \
+        RFU_GROUP_YTDLP=other-input \
+        RFU_GIT_SIGNING_KEY="$TMPDIR/bot" \
+        RFU_ALLOWED_SIGNERS_FILE="$allowed" \
+        RFU_BASE_ANCHOR_FILE="$anchor_file" \
+        RFU_FAILURE_DIR="$TMPDIR/failures" \
+        ONLY_GROUP="''${ONLY_GROUP_OVERRIDE:-none}" \
+        ${pkgs.bash}/bin/bash ${../../scripts/rolling_flake_update.sh}
+      }
+
+      mkdir -p "$TMPDIR/rolling-fail-rev-list-bin"
+      cat > "$TMPDIR/rolling-fail-rev-list-bin/git" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      for arg in "$@"; do
+        if [ "$arg" = rev-list ]; then
+          exit 97
+        fi
+      done
+      exec ${pkgs.bash}/bin/bash ${./rolling-auth-git-fixture.sh} "$@"
+      EOF
+      chmod +x "$TMPDIR/rolling-fail-rev-list-bin/git"
+
+      mkdir -p "$TMPDIR/rolling-fail-rollback-bin"
+      cat > "$TMPDIR/rolling-fail-rollback-bin/git" <<'EOF'
+      #!${pkgs.bash}/bin/bash
+      if [ "$1" = checkout ] && [ "''${2:-}" = -- ] && [ "''${3:-}" = flake.lock ]; then
+        exit 42
+      fi
+      exec ${pkgs.bash}/bin/bash ${./rolling-auth-git-fixture.sh} "$@"
+      EOF
+      chmod +x "$TMPDIR/rolling-fail-rollback-bin/git"
+
+      make_key human
+      make_key bot
+      make_key other
+      make_key forgejo
+
+      allowed_all="$TMPDIR/allowed-all"
+      {
+        printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")"
+        printf '"nix bot <acme@ablz.au>" namespaces="git" %s\n' "$(cat "$TMPDIR/bot.pub")"
+        printf 'forgejo-merge@doc2 namespaces="git" %s\n' "$(cat "$TMPDIR/forgejo.pub")"
+      } > "$allowed_all"
+
+      allowed_human_only="$TMPDIR/allowed-human-only"
+      printf 'fixture-human namespaces="git" %s\n' "$(cat "$TMPDIR/human.pub")" > "$allowed_human_only"
+
+      valid_remote="$(make_signed_remote valid "$TMPDIR/human")"
+      valid_anchor="$TMPDIR/valid-anchor"
+      valid_before="$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$valid_before" > "$valid_anchor"
+      run_update "$valid_remote" "$allowed_all" "$valid_anchor" | tee "$TMPDIR/valid-update.log"
+      grep -F '[nix-rolling]    nvchad: nvchad4nix' "$TMPDIR/valid-update.log"
+      grep -F '[nix-rolling]    yt-dlp: yt-dlp-src' "$TMPDIR/valid-update.log"
+      grep -F '[nix-rolling]    rest: other-input' "$TMPDIR/valid-update.log"
+      if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F nvchad4nix; then
+        echo "nvchad4nix leaked into the rest update group" >&2
+        exit 1
+      fi
+      if grep -F '[nix-rolling]    rest:' "$TMPDIR/valid-update.log" | grep -F yt-dlp-src; then
+        echo "yt-dlp-src leaked into the rest update group" >&2
+        exit 1
+      fi
+      git clone -q "$valid_remote" "$TMPDIR/valid-inspect"
+      git -C "$TMPDIR/valid-inspect" -c "gpg.ssh.allowedSignersFile=$allowed_all" verify-commit HEAD
+      test "$(git -C "$TMPDIR/valid-inspect" log --format=%s -1)" = "rolling: freshness heartbeat ($(date +%F))"
+      test "$(cat "$valid_anchor")" = "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)"
+
+      rev_list_fail_remote="$(make_signed_remote rev-list-fail "$TMPDIR/human")"
+      rev_list_fail_before="$(git --git-dir="$rev_list_fail_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$rev_list_fail_before" > "$TMPDIR/rev-list-fail-anchor"
+      if PATH="$TMPDIR/rolling-fail-rev-list-bin:$PATH" run_update "$rev_list_fail_remote" "$allowed_all" "$TMPDIR/rev-list-fail-anchor"; then
+        echo "rolling update accepted a failed rev-list" >&2
+        exit 1
+      fi
+
+      rollback_fail_remote="$(make_signed_remote rollback-fail "$TMPDIR/human")"
+      rollback_fail_before="$(git --git-dir="$rollback_fail_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$rollback_fail_before" > "$TMPDIR/rollback-fail-anchor"
+      if ONLY_GROUP_OVERRIDE=core PATH="$TMPDIR/rolling-fail-rollback-bin:$PATH" \
+        run_update "$rollback_fail_remote" "$allowed_all" "$TMPDIR/rollback-fail-anchor" \
+        >"$TMPDIR/rollback-fail.log" 2>&1; then
+        echo "rolling update accepted a failed group rollback" >&2
+        exit 1
+      fi
+      grep -F 'rollback failed; poisoning this update transaction' "$TMPDIR/rollback-fail.log"
+      grep -F 'no commits were pushed or deployed' "$TMPDIR/rollback-fail.log"
+      test "$(git --git-dir="$rollback_fail_remote" rev-parse refs/heads/master)" = "$rollback_fail_before"
+
+      git --git-dir="$valid_remote" update-ref refs/heads/master "$valid_before"
+      if run_update "$valid_remote" "$allowed_all" "$valid_anchor"; then
+        echo "signed replay base was accepted" >&2
+        exit 1
+      fi
+      test "$(git --git-dir="$valid_remote" rev-parse refs/heads/master)" = "$valid_before"
+
+      unsigned_remote="$(make_unsigned_remote unsigned)"
+      unsigned_before="$(git --git-dir="$unsigned_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$unsigned_before" > "$TMPDIR/unsigned-anchor"
+      if run_update "$unsigned_remote" "$allowed_all" "$TMPDIR/unsigned-anchor"; then
+        echo "unsigned base was accepted" >&2
+        exit 1
+      fi
+      test "$(git --git-dir="$unsigned_remote" rev-parse refs/heads/master)" = "$unsigned_before"
+
+      read -r merge_remote merge_anchor < <(make_signed_merge_unsigned_parent_remote signed-merge "$TMPDIR/human")
+      printf '%s\n' "$merge_anchor" > "$TMPDIR/merge-anchor"
+      merge_before="$(git --git-dir="$merge_remote" rev-parse refs/heads/master)"
+      if run_update "$merge_remote" "$allowed_all" "$TMPDIR/merge-anchor"; then
+        echo "signed merge with unsigned parent was accepted" >&2
+        exit 1
+      fi
+      test "$(git --git-dir="$merge_remote" rev-parse refs/heads/master)" = "$merge_before"
+
+      read -r forgejo_valid_remote forgejo_valid_anchor < <(make_forgejo_remote forgejo-valid "$TMPDIR/human" "$TMPDIR/forgejo" valid)
+      printf '%s\n' "$forgejo_valid_anchor" > "$TMPDIR/forgejo-valid-anchor"
+      run_update "$forgejo_valid_remote" "$allowed_all" "$TMPDIR/forgejo-valid-anchor"
+
+      read -r forgejo_linear_remote forgejo_linear_anchor < <(make_forgejo_remote forgejo-linear "$TMPDIR/human" "$TMPDIR/forgejo" one-parent)
+      printf '%s\n' "$forgejo_linear_anchor" > "$TMPDIR/forgejo-linear-anchor"
+      if run_update "$forgejo_linear_remote" "$allowed_all" "$TMPDIR/forgejo-linear-anchor"; then
+        echo "rolling updater accepted Forgejo merge signer on a one-parent commit" >&2
+        exit 1
+      fi
+
+      read -r forgejo_altered_remote forgejo_altered_anchor < <(make_forgejo_remote forgejo-altered "$TMPDIR/human" "$TMPDIR/forgejo" altered-tree)
+      printf '%s\n' "$forgejo_altered_anchor" > "$TMPDIR/forgejo-altered-anchor"
+      if run_update "$forgejo_altered_remote" "$allowed_all" "$TMPDIR/forgejo-altered-anchor"; then
+        echo "rolling updater accepted a non-deterministic Forgejo merge tree" >&2
+        exit 1
+      fi
+
+      read -r forgejo_identity_remote forgejo_identity_anchor < <(make_forgejo_remote forgejo-identity "$TMPDIR/human" "$TMPDIR/forgejo" wrong-identity)
+      printf '%s\n' "$forgejo_identity_anchor" > "$TMPDIR/forgejo-identity-anchor"
+      if run_update "$forgejo_identity_remote" "$allowed_all" "$TMPDIR/forgejo-identity-anchor"; then
+        echo "rolling updater accepted a forged Forgejo committer identity" >&2
+        exit 1
+      fi
+
+      read -r forgejo_unsigned_remote forgejo_unsigned_anchor < <(make_forgejo_remote forgejo-unsigned "$TMPDIR/human" "$TMPDIR/forgejo" unsigned-parent)
+      printf '%s\n' "$forgejo_unsigned_anchor" > "$TMPDIR/forgejo-unsigned-anchor"
+      if run_update "$forgejo_unsigned_remote" "$allowed_all" "$TMPDIR/forgejo-unsigned-anchor"; then
+        echo "rolling updater accepted a Forgejo merge over an unsigned parent" >&2
+        exit 1
+      fi
+
+      wrong_bot_remote="$(make_signed_remote wrong-bot "$TMPDIR/human")"
+      wrong_bot_before="$(git --git-dir="$wrong_bot_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$wrong_bot_before" > "$TMPDIR/wrong-bot-anchor"
+      if run_update "$wrong_bot_remote" "$allowed_human_only" "$TMPDIR/wrong-bot-anchor"; then
+        echo "bot commit verified against an allowed_signers file without the bot key" >&2
+        exit 1
+      fi
+      test "$(git --git-dir="$wrong_bot_remote" rev-parse refs/heads/master)" = "$wrong_bot_before"
+
+      missing_allowed_remote="$(make_signed_remote missing-allowed "$TMPDIR/human")"
+      missing_allowed_before="$(git --git-dir="$missing_allowed_remote" rev-parse refs/heads/master)"
+      printf '%s\n' "$missing_allowed_before" > "$TMPDIR/missing-allowed-anchor"
+      if run_update "$missing_allowed_remote" "$TMPDIR/does-not-exist" "$TMPDIR/missing-allowed-anchor"; then
+        echo "missing allowed_signers file was accepted" >&2
+        exit 1
+      fi
+
+      touch $out
+    '';
+
+  # Forgejo auth ratchet (#28). Keep the credential grammar in one
+  # executable boundary and patrol every authored updater/runbook surface
+  # that can push or call the Forgejo API. The helper itself is checked
+  # behaviorally by test_forgejo_auth.py; consumers are denied raw
+  # git -c/curl-header/URL/tracing variants by the source audit.
+  forgejoAuthHelper = self.nixosConfigurations.proxmox-vm.config.systemd.services.rolling-flake-update.environment.RFU_FORGEJO_AUTH;
+
+  forgejoAuthSourceFiles = [
+    ../../scripts
+    ../../modules/nixos/ci/rolling-flake-update.nix
+    ../../.claude
+    ../../hermes/skills
+    ../../CLAUDE.md
+    ../../docs/wiki
+    ../../docs/plans/2026-06-10-001-feat-signed-fleet-deploys-forgejo-cutover-plan.md
+  ];
+
+  forgejoAuthSourceCheck =
+    pkgs.runCommand "forgejo-auth-source-ratchet" {
+      nativeBuildInputs = [pkgs.python3 pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.git pkgs.curl pkgs.openssl pkgs.jq];
+    } ''
+      set -euo pipefail
+      export PYTHONDONTWRITEBYTECODE=1
+      FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+        python3 ${./test_forgejo_auth.py} || exit 1
+      FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+      RFU_SOURCE=${../../scripts/rolling_flake_update.sh} \
+      SNAPSHOT_SOURCE=${../../hermes/skills/homelab-agents/brain-backup/scripts/brain-snapshot.sh} \
+        python3 ${./test_forgejo_auth_real.py} || exit 1
+      FORGEJO_AUTH_HELPER=${forgejoAuthHelper} \
+      FORGEJO_AUTH_BEHAVIOR_TEST=${./test_forgejo_auth.py} \
+      FORGEJO_AUTH_REAL_TEST=${./test_forgejo_auth_real.py} \
+        python3 ${./test_forgejo_auth_mutants.py} || exit 1
+      FORGEJO_AUTH_SOURCE_AUDIT=${./forgejo-auth-source-audit.py} \
+      FORGEJO_AUTH_SOURCE_EXCLUDE=${../../scripts}/forgejo-auth.sh \
+      FORGEJO_AUTH_SOURCE_PATHS=${lib.escapeShellArg (lib.concatStringsSep ":" (map toString forgejoAuthSourceFiles))} \
+        python3 ${./test_forgejo_auth_source_audit.py} || exit 1
+      bash -n ${../../scripts/forgejo-auth.sh} || exit 1
+      grep -q 'set +x' ${../../scripts/forgejo-auth.sh}
+      grep -q 'GIT_CONFIG_COUNT' ${../../scripts/forgejo-auth.sh}
+      grep -q 'RFU_FORGEJO_AUTH' ${../../modules/nixos/ci/rolling-flake-update.nix}
+      touch "$out"
+    '';
+
+  # The updater is read into its own immutable store script, so the
+  # helper must be packaged separately and wired through the realized
+  # unit environment; a sibling lookup in the updater store directory is
+  # not a valid deployment contract.
+  rollingFlakeUpdatePackagingCheck = let
+    service = self.nixosConfigurations.proxmox-vm.config.systemd.services.rolling-flake-update;
+    helper = service.environment.RFU_FORGEJO_AUTH;
+    wrapper = service.serviceConfig.ExecStart;
+  in
+    pkgs.runCommand "rolling-flake-update-forgejo-auth-packaging" {
+      nativeBuildInputs = [pkgs.gnugrep];
+    } ''
+      case ${lib.escapeShellArg helper} in /nix/store/*) ;; *) echo "helper is not immutable" >&2; exit 1 ;; esac
+      test -x ${lib.escapeShellArg helper}
+      ${pkgs.gnugrep}/bin/grep -q 'set +x' ${lib.escapeShellArg helper}
+      ${pkgs.gnugrep}/bin/grep -q 'GIT_CONFIG_COUNT' ${lib.escapeShellArg helper}
+      test -x ${lib.escapeShellArg wrapper}
+      ${pkgs.gnugrep}/bin/grep -q 'rolling-flake-update.sh' ${lib.escapeShellArg wrapper}
+      touch "$out"
+    '';
+in {
+  inherit
+    pushDeployEnrollmentCheck
+    onLanMatcherCheck
+    bastionInvariantCheck
+    fleetBastionRoleCheck
+    allowedSignersCheck
+    fleetUpdateCheck
+    rollingFlakeUpdateSigningCheck
+    forgejoAuthSourceCheck
+    rollingFlakeUpdatePackagingCheck
+    ;
+}
