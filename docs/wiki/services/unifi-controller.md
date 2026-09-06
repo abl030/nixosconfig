@@ -1,8 +1,8 @@
 # UniFi Network Controller (on doc2)
 
-**Date:** 2026-09-05 · **Status:** implementation selects native UniFi + native MongoDB 8.0; production migration is pending parent review and operator cutover.
-Production still uses the external MongoDB 7.0.40 container; the old migration
-instructions below are historical context, not the native cutover procedure.
+**Date:** 2026-09-06 · **Status:** production UniFi 10.6.101 uses native official-binary MongoDB 8.0.29; FCV7 retained for burn-in. Fresh backup/restore and live migration evidence are in the native runbook and Forgejo #156.
+The old embedded/container migration instructions below are historical context,
+not the native cutover or current rollback procedure.
 For the authoritative native package, patch-update, migration and rollback runbook,
 see [Native MongoDB 8.0](unifi-mongodb80-native.md).
 
@@ -14,10 +14,10 @@ stranded on the LXC's **unbacked-up root disk** (`/var/lib/unifi`, not `/mnt/vir
 
 - **UI:** `https://unifi.ablz.au` → doc2 nginx (localProxy, `https`+`insecureSkipVerify`) → controller `:8443`.
 - **State:** `/mnt/virtio/unifi` (portable, backed up), bind-mounted over `/var/lib/unifi`.
-- **MongoDB (target):** native NixOS `services.mongodb` using the official precompiled
+- **MongoDB:** native NixOS `services.mongodb` using the official precompiled
   MongoDB Community 8.0 package, loopback-only on `127.0.0.1:27117`, with its dbpath at
-  `/mnt/virtio/unifi-mongodb/db`. The old external 7.0 container is replaced only after
-  the backup/FCV/burn-in ceremony in [Native MongoDB 8.0](unifi-mongodb80-native.md).
+  `/mnt/virtio/unifi-mongodb/db`. The 7.0 container is retired; fresh recovery
+  artifacts and FCV7 burn-in are documented in [Native MongoDB 8.0](unifi-mongodb80-native.md).
 - **msn-history-viewer** moved in the same migration → a hardened
   `static-web-server` sandbox on doc2 (`msn.ablz.au`). See its module; it's a stateless static site.
 - **caddy LXC** now runs the *legacy-edge* Caddy for appliance FQDNs only (apollo, plex,

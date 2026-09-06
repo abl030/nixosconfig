@@ -438,7 +438,9 @@
 
       rc=0
       grep -q '^db\.mongo\.local=false$' ${lib.escapeShellArg systemProperties} 2>/dev/null || rc=1
-      grep -q '^db\.mongo\.uri=mongodb://.*@127\.0\.0\.1:${toString mcfg.port}/' ${lib.escapeShellArg systemProperties} 2>/dev/null || rc=1
+      # UniFi rewrites this file with Java Properties.store(), escaping colons.
+      # Accept both the renderer's initial URI and that equivalent stored form.
+      grep -Eq '^db\.mongo\.uri=mongodb\\?://.*@127\.0\.0\.1\\?:${toString mcfg.port}/' ${lib.escapeShellArg systemProperties} 2>/dev/null || rc=1
       grep -q '^unifi\.db\.name=${mcfg.databaseName}$' ${lib.escapeShellArg systemProperties} 2>/dev/null || rc=1
       check "system.properties selects native localhost MongoDB" "$rc"
 

@@ -101,12 +101,13 @@
     assert lib.assertMsg (lib.all (entry: !(lib.hasPrefix "UNIFI_MONGO_PASSWORD=" entry)) probe.serviceConfig.Environment) "deep probe must use a password file, not a password environment value";
     assert lib.assertMsg (!(builtins.elem 27117 doc2.networking.firewall.allowedTCPPorts) && !(builtins.elem 27117 doc2.networking.firewall.allowedUDPPorts) && !(lib.hasInfix "27117" firewallText)) "MongoDB port must not be opened in the firewall";
       pkgs.runCommand "mongodb80-native-integration" {
-        nativeBuildInputs = [pkgs.gnugrep];
+        nativeBuildInputs = [pkgs.gnugrep pkgs.python3];
       } ''
         set -euo pipefail
         test -x ${mongoPackage}/bin/mongod
         test -x ${mongoPackage}/bin/mongos
         test -x ${verifier}/bin/unifi-mongodb-verify
+        python3 ${./test_unifi_mongodb_properties.py} ${verifier}/bin/unifi-mongodb-verify
         test -x ${probePackage}/bin/check-unifi-mongodb
         test ! -e ${unifi.mongodbPackage}/bin/mongod
         ${pkgs.gnugrep}/bin/grep -F 'ExecStart=${mongoPackage}/bin/mongod' ${mongoUnitArtifact}/mongodb.service >/dev/null
