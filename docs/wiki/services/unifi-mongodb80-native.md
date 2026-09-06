@@ -1,0 +1,262 @@
+# UniFi: native MongoDB 8.0
+
+Date: 2026-09-05. Status: tested implementation, NOT deployed. Parent owns
+independent review, signed release and the production maintenance window.
+Related: [controller history](unifi-controller.md), Forgejo #142.
+
+## Contract and evidence
+
+`pkgs.mongodb80` repackages the official Ubuntu 24.04 x86_64 MongoDB **8.0.29**
+archive with autoPatchelfHook; `dontBuild = true`, no MongoDB compilation.
+The [official releases page](https://www.mongodb.com/try/download/community-edition/releases)
+and archive checksum were checked on the date above:
+`sha256-yJe+lr3aAy3jiIH2Gt2YNIrbACK9l2amlWFglRuW7QA=`.
+The small dedicated derivation avoids inheriting nixpkgs mongodb-ce's 8.2
+version-dependent metadata. It uses the same vendor-binary packaging approach.
+
+The existing signed rolling updater runs `scripts/update_mongodb80.sh` as an
+independent transaction: select only stable 8.0.x, reject downgrade, verify the
+official archive checksum and layout, run the existing full check/cache gate,
+then sign and push. Failure restores the package file. No second timer and no
+automatic 8.2/8.3 selection. HTTPS plus a checksum from the same vendor detects
+corruption; it is not independent protection against a compromised vendor.
+
+Native `services.mongodb` uses UID/GID 2015, existing
+`/mnt/virtio/unifi-mongodb/db`, authenticated TCP 127.0.0.1:27117, and no daemon
+capabilities. Empty state is rejected, not bootstrapped. Root secrets stay 0400
+root-only; app secrets are 0400 for the dedicated probe identity. The bounded
+root setup unit provisions roles and writes 0600 unifi-owned properties.
+UniFi's empty embedded MongoDB substitute, historical migration marker and
+message/throwable Logback redaction remain. The marker is NOT a fresh backup.
+
+[MongoDB's 8.0 standalone upgrade guide](https://www.mongodb.com/docs/v8.0/release-notes/8.0-upgrade-standalone/)
+requires 7.0 with FCV 7.0 and recommends burn-in before FCV 8.0.
+[Community binary downgrade is unsupported](https://www.mongodb.com/docs/v8.0/release-notes/8.0-downgrade/):
+FCV 7.0 does not make an 8.0-written dbpath safe to open with 7.0.
+
+The isolated regression `nix/checks/test_unifi_mongodb_native.py` exercised real
+7.0.40 and 8.0.29 vendor binaries: cold backup restored into a separate path,
+authenticated readback, upgrade retaining FCV 7.0, generated role setup,
+application insert/read/delete, failed credentials, renderer and restart.
+This is NOT a production-data restore or a UniFi/device end-to-end test.
+
+Additional code-validation evidence (2026-09-06): the opt-in
+`nix/checks/test_unifi_mongodb_systemd.py` realizes the actual doc2-generated
+daemon/setup/renderer with fixture paths using
+`nix/checks/unifi-mongodb-systemd-fixture.nix`. Run from the checkout with
+`python3 nix/checks/test_unifi_mongodb_systemd.py --receipt-dir /tmp/mongodb80-systemd-receipts`.
+It requires noninteractive sudo, uses only temporary task units and private
+loopback networking, and removes synthetic data/credentials in cleanup. It
+does not create host accounts or alter production services: the daemon uses
+the existing nobody identity; renderer/probe identities are synthetic, with
+unit-private NSS binds and no host nscd access. Nix is bounded to one job/two
+cores. Real tests cover empty-state refusal, privilege drop, private properties,
+idempotent provisioning, read-only controller parent/writable data, hidden
+sibling storage, root-only symlink denial and restart. This privileged test is
+manual, not an automatic flake build action.
+
+`nix/checks/test_rolling_mongodb80_transaction.py` is included in
+`mongodb80UpdaterCheck`. It extracts the actual transaction functions and fatal
+finalization guard; only updater/build/git/notification boundaries are mocked.
+Nine cases cover success/no-change, update/check/cache-build/stage/commit
+failures, and reset/checkout poisoning with later-group and finalization denial.
+No real git commit or push occurs. Fixture executables resolve Bash rather than
+assuming `/bin/bash` exists on NixOS.
+
+## Operator cutover (not run during implementation)
+
+Keep automatic doc2 updates from racing this maintenance window using the
+existing fleet maintenance procedure. Do not release this change into an
+unattended deploy before the backup/restore steps below. Reserve space for the
+cold backup, restore rehearsal, and possible quarantine. Keep the current
+7.0.40 image and pre-upgrade NixOS closure until rollback expires.
+
+The following blocks run in the SAME root Bash session on doc2, without xtrace.
+They deliberately stop writes before copying. No broad shared-dataset ZFS
+rollback, August embedded copy, live filesystem copy, or image-only downgrade.
+
+### 1. Preflight and fresh offline backup
+
+Before running the block, set `REVIEWED_FLAKE` to the absolute path of the
+reviewed, signed checkout on doc2. It must contain this candidate; do not use an
+unversioned remote branch. Building the standalone shell below does not activate
+the native database configuration. Its backup-local GC root keeps the client
+available across deployment and recovery; retain that link with the backup.
+
+```bash
+set -euo pipefail
+umask 077
+base=/mnt/virtio/unifi-mongodb
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+backup=/mnt/virtio/unifi-pre-native-$stamp
+install -d -m 0700 "$backup"
+test -n "${REVIEWED_FLAKE:?Set the reviewed signed flake checkout path}"
+nix build "${REVIEWED_FLAKE}#nixosConfigurations.doc2.pkgs.mongosh" \
+  --out-link "$backup/mongosh-client" --max-jobs 1 --cores 2
+mongosh_bin="$backup/mongosh-client/bin/mongosh"
+test -x "$mongosh_bin"
+"$mongosh_bin" --version
+readlink -f /run/current-system > "$backup/system-path"
+podman inspect --format '{{.Image}}' unifi-mongodb > "$backup/mongo7-image"
+image=$(< "$backup/mongo7-image")
+port=27117
+mongo_root() {
+  {
+    printf '%s\n' 'const fs = require("fs");'
+    printf '%s\n' 'const s = n => fs.readFileSync("/run/secrets/unifi-mongodb/" + n,"utf8").trim();'
+    printf '%s\n' 'const admin = db.getSiblingDB("admin"); if (!admin.auth(s("root-username"),s("root-password"))) quit(11);'
+    cat
+  } | "$mongosh_bin" --quiet --norc --host 127.0.0.1 --port "$port" --file /dev/stdin
+}
+check7() {
+  mongo_root <<'JS'
+if (db.version() !== "7.0.40") throw Error("expected running 7.0.40");
+const f = admin.runCommand({getParameter:1,featureCompatibilityVersion:1});
+if (f.ok !== 1 || f.featureCompatibilityVersion.version !== "7.0" || f.featureCompatibilityVersion.targetVersion) throw Error("FCV must be stable 7.0");
+for (const n of ["ace","ace_stat","ace_audit"]) print(n + " collections=" + db.getSiblingDB(n).getCollectionNames().sort().join(","));
+if (db.getSiblingDB("ace").getCollectionNames().length === 0) throw Error("missing UniFi data");
+print("7.0_VERSION_FCV_AUTH_OK");
+JS
+}
+require_inactive() {
+  local state
+  state=$(systemctl show --property=ActiveState --value "$1") || return 1
+  if [ "$state" != inactive ]; then
+    printf 'Expected inactive service: %s (state=%s)\n' "$1" "$state" >&2
+    return 1
+  fi
+}
+require_container_stopped() {
+  local running
+  # A successful query with no row includes the normal post-stop removal case.
+  running=$(podman ps --all --filter 'name=^unifi-mongodb$' \
+    --format '{{.State}}') || return 1
+  case "$running" in
+    ''|exited|stopped) return 0 ;;
+    *) printf 'Unexpected MongoDB container state: %s\n' "$running" >&2; return 1 ;;
+  esac
+}
+systemctl is-active --quiet unifi.service
+systemctl is-active --quiet podman-unifi-mongodb.service
+systemctl stop unifi.service
+require_inactive unifi.service
+check7 > "$backup/preflight.txt"
+systemctl stop podman-unifi-mongodb.service
+require_inactive podman-unifi-mongodb.service
+# Stop failure must not be ignored; confirm the container is not running.
+require_container_stopped
+test -s "$base/db/storage.bson"
+cp -a --reflink=auto "$base/db" "$backup/db"
+cp -a --reflink=auto /mnt/virtio/unifi "$backup/unifi"
+# Independent archival copy; transfer to restricted off-host storage and verify.
+tar -C "$backup" -cpf "$backup/recovery.tar" db unifi system-path mongo7-image
+(cd "$backup"; sha256sum recovery.tar > recovery.tar.sha256)
+```
+
+Record the backup path. Transfer `recovery.tar` plus its checksum to the
+operator's approved restricted off-host backup destination and verify with
+`sha256sum -c recovery.tar.sha256` there before continuing. The archive contains
+controller credentials: never put it in public storage or source control.
+If FCV preflight fails, stop here; resolve the existing 7.0 state separately.
+
+### 2. Demonstrate restore BEFORE any 8.0 start
+
+```bash
+restore="$base/restore-test-$stamp"
+test ! -e "$restore"
+cp -a --reflink=auto "$backup/db" "$restore"
+chown -R 2015:2015 "$restore"
+podman run -d --name unifi-mongo7-restore-test --pull=never \
+  --network=host --user=2015:2015 --cap-drop=all \
+  --security-opt=no-new-privileges --read-only --tmpfs /tmp \
+  --entrypoint mongod -v "$restore:/data/db:rw" \
+  "$image" --dbpath /data/db --auth --bind_ip 127.0.0.1 --port 27118 --nounixsocket
+port=27118
+for _ in {1..30}; do
+  if check7 > "$backup/restore-readback.txt" 2>/dev/null; then break; fi
+  sleep 1
+done
+check7 > "$backup/restore-readback.txt"
+cmp "$backup/preflight.txt" "$backup/restore-readback.txt"
+mongo_root <<'JS'
+if (!admin.auth(s("app-username"),s("app-password"))) throw Error("app auth failed");
+const c = db.getSiblingDB("ace").getCollection("_rollback_probe"), id = new ObjectId();
+c.insertOne({_id:id});
+if (!c.findOne({_id:id}) || c.deleteOne({_id:id}).deletedCount !== 1) throw Error("app write/read/delete failed");
+print("RESTORE_APP_WRITE_OK");
+JS
+podman stop --time 60 unifi-mongo7-restore-test
+podman rm unifi-mongo7-restore-test
+# Keep restore-test and immutable backup until acceptance; no broad rm command.
+port=27117
+```
+
+On any failure, stop the rehearsal container and leave production on 7.0; do
+not start 8.0. Also inspect representative site/device counts in the restored
+`ace` database against the live baseline. Collection-list equality and a probe
+alone are not full business-data acceptance.
+
+### 3. Cut over and verify
+
+After independent review/release and successful restore, from doc1 run
+`fleet-deploy doc2`. It is asynchronous: wait for completion and verify the
+running revision equals the reviewed signed release before health acceptance.
+There is no `--target-host` or local worktree deployment.
+
+On doc2:
+
+```bash
+systemctl is-active mongodb.service unifi-mongodb-setup.service unifi.service
+unifi-mongodb-verify
+mongo_root <<'JS'
+if (!db.version().startsWith("8.0.")) throw Error("wrong version");
+const f = admin.runCommand({getParameter:1,featureCompatibilityVersion:1});
+if (f.ok !== 1 || f.featureCompatibilityVersion.version !== "7.0") throw Error("FCV changed unexpectedly");
+print("NATIVE_8_FCV_7_OK");
+JS
+```
+
+Verify admin login, expected sites/devices, advancing device last_seen, normal
+backups, a controlled restart, and useful redacted logs. Do not print properties
+or secret files. Leave FCV 7.0 through the agreed burn-in. Only after acceptance
+and a NEW recovery point, explicitly run `mongo_root` with
+`if (admin.runCommand({setFeatureCompatibilityVersion:"8.0",confirm:true}).ok !== 1) throw Error("FCV change failed");`
+and read back `getParameter:1,featureCompatibilityVersion:1`. No service or
+updater changes FCV automatically.
+
+## Recovery: restore fresh 7.0 data, THEN the old service definition
+
+Use the exact backup path recorded above (restore variables/functions from
+preflight if reconnecting). This loses writes since that recovery point; retain
+the 8.0 quarantine for incident analysis. Stop automatic deployment first.
+
+```bash
+systemctl stop unifi.service mongodb.service
+systemctl mask --runtime mongodb.service unifi.service
+require_inactive mongodb.service
+require_inactive unifi.service
+(cd "$backup"; sha256sum -c recovery.tar.sha256)
+test ! -e "$base/db-8-quarantine-$stamp"
+mv "$base/db" "$base/db-8-quarantine-$stamp"
+cp -a --reflink=auto "$backup/db" "$base/db"
+chown -R 2015:2015 "$base/db"
+# Preserve the controller mount's root; restore its contents, not the mount.
+cp -a --reflink=auto /mnt/virtio/unifi "$backup/unifi-after-failure"
+find /mnt/virtio/unifi -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cp -a "$backup/unifi/." /mnt/virtio/unifi/
+previous=$(< "$backup/system-path")
+test -x "$previous/bin/switch-to-configuration"
+# Explicit break-glass configuration activation is permitted ONLY after restore.
+"$previous/bin/switch-to-configuration" switch
+systemctl start podman-unifi-mongodb.service
+port=27117
+check7
+systemctl unmask --runtime unifi.service
+systemctl start unifi.service
+systemctl is-active podman-unifi-mongodb.service unifi.service
+```
+
+Recheck app writes, login and device check-in. Keep native MongoDB runtime-masked
+until a new approved attempt, and reconcile the fleet source to the reviewed
+7.0 configuration before automatic updates resume. Merely switching generation
+or image without restoring the fresh 7.0 backup is never rollback.

@@ -1,11 +1,10 @@
 # UniFi Network Controller (on doc2)
 
-**Date:** 2026-09-05 · **Status:** ✅ **production runs native UniFi + an external MongoDB 7 container.**
-The first external-MongoDB cutover (PR #144) was merged, deployed, failed and rolled
-back on 2026-08-13; master was reverted by `c2c2789b`. The second, contents-first
-cutover is now the production state. This page retains the migration design and
-rollback evidence — see [External MongoDB container](#external-mongodb-container-142) ·
-**Module:** `modules/nixos/services/unifi-controller.nix` · **Issue:** forgejo #142
+**Date:** 2026-09-05 · **Status:** implementation selects native UniFi + native MongoDB 8.0; production migration is pending parent review and operator cutover.
+Production still uses the external MongoDB 7.0.40 container; the old migration
+instructions below are historical context, not the native cutover procedure.
+For the authoritative native package, patch-update, migration and rollback runbook,
+see [Native MongoDB 8.0](unifi-mongodb80-native.md).
 
 The UniFi Network controller (v10.6.101) runs on **doc2** as a standard
 `homelab.localProxy` service module. It was **migrated off the caddy LXC** (CT 108,
@@ -15,13 +14,12 @@ stranded on the LXC's **unbacked-up root disk** (`/var/lib/unifi`, not `/mnt/vir
 
 - **UI:** `https://unifi.ablz.au` → doc2 nginx (localProxy, `https`+`insecureSkipVerify`) → controller `:8443`.
 - **State:** `/mnt/virtio/unifi` (portable, backed up), bind-mounted over `/var/lib/unifi`.
-- **MongoDB (production):** a dedicated, digest-pinned **official MongoDB 7
-  container** (`docker.io/library/mongo`, 7.0.40), loopback-only on `127.0.0.1:27117`, with
-  its dbpath at `/mnt/virtio/unifi-mongodb`. The controller itself stays native NixOS;
-  the old embedded database was migrated by logical dump/restore under the same
-  namespaces.
-- **msn-history-viewer** moved in the same migration → a hardened `static-web-server`
-  sandbox on doc2 (`msn.ablz.au`). See its module; it's a stateless static site.
+- **MongoDB (target):** native NixOS `services.mongodb` using the official precompiled
+  MongoDB Community 8.0 package, loopback-only on `127.0.0.1:27117`, with its dbpath at
+  `/mnt/virtio/unifi-mongodb/db`. The old external 7.0 container is replaced only after
+  the backup/FCV/burn-in ceremony in [Native MongoDB 8.0](unifi-mongodb80-native.md).
+- **msn-history-viewer** moved in the same migration → a hardened
+  `static-web-server` sandbox on doc2 (`msn.ablz.au`). See its module; it's a stateless static site.
 - **caddy LXC** now runs the *legacy-edge* Caddy for appliance FQDNs only (apollo, plex,
   pihole, cockpit, brother, …) — `modules/nixos/services/legacy-edge-caddy.nix`.
 
@@ -169,9 +167,14 @@ Directional traffic is not sufficient proof of durable endpoint identity; verify
 physical MAC before applying a persistent per-client lock. Do not enable global minimum
 RSSI or 802.11r as a substitute.
 
-## External MongoDB container (#142)
+## External MongoDB container (#142) — current production, historical migration
 
-**Status: production runs native UniFi against the external MongoDB container.** The first
+> The remainder of this section records the 2026-08-13 7.0 container migration
+> and its defects for archaeology. **Do not run these container cutover commands
+> for the native 8.0 work.** Use [Native MongoDB 8.0](unifi-mongodb80-native.md),
+> especially its backup-first rollback rules.
+
+**Historical status: production ran native UniFi against the external MongoDB container during this cutover.** The first
 cutover (PR #144, merged as `31214c3c`, deployed to doc2 as generation 1428) failed and was
 rolled back to `15e4b5c9` / generation 1427 on 2026-08-13; master was reverted by
 `c2c2789b`. The second, contents-first design below is the deployed state. Read all of it
