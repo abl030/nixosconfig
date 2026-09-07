@@ -157,6 +157,31 @@
     }
   )
 
+  # gnome-shell overlay: guard a NULL deref in the bundled libgvc that kills the
+  # whole Wayland session. pipewire-pulse can hand the pulse client a card with
+  # zero profiles, libpulse then leaves pa_card_info.active_profile NULL, and
+  # update_card() dereferenced it unconditionally. On epi that killed ~2 of every
+  # 8 graphical boots; the visible symptom is worse than a crash, because
+  # gnome-shell's OnFailure unit then sets disable-user-extensions and the
+  # session comes back with the taskbar silently missing.
+  #
+  # Upgrading does not help: gnome-shell 50.2, 50.4 and main all pin the same
+  # vulnerable gvc commit (libgvc has no releases; it is a meson wrap-git
+  # subproject, expanded into the release tarball by `meson dist`).
+  #
+  # Deliberately byte-identical to upstream MR !38 and unguarded by version, per
+  # the slskd precedent above: when !38 merges the patch stops applying and the
+  # build fails loudly, which is the signal to delete this block.
+  # homelab.services.upstreamPatchWatch gives us earlier, gentler warning.
+  # See docs/wiki/infrastructure/epi-gnome-libgvc-segfault.md.
+  (
+    _final: prev: {
+      gnome-shell = prev.gnome-shell.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [./pkgs/gnome-shell-libgvc-null-active-profile.patch];
+      });
+    }
+  )
+
   # vinsight-mcp overlay: MCP server for Vinsight winery API
   (
     final: _prev: {

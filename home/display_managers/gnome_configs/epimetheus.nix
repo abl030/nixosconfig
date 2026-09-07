@@ -99,7 +99,12 @@ with lib.hm.gvariant; {
 
     "org/gnome/shell" = {
       command-history = ["r"];
-      enabled-extensions = ["drive-menu@gnome-shell-extensions.gcampax.github.com" "blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "windowsNavigator@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us"];
+      # drive-menu@ and windowsNavigator@ removed 2026-09-07: both were listed
+      # here (and in live dconf) but are not installed, so GNOME silently
+      # skipped them on every startup. This file is currently dormant — the
+      # import in ../gnome.nix is commented out — but a stale list in a file
+      # that exists to be re-enabled is a trap.
+      enabled-extensions = ["blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us"];
       favorite-apps = ["org.kde.dolphin.desktop" "firefox.desktop" "google-chrome.desktop"];
     };
 

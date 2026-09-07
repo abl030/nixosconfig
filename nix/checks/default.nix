@@ -43,6 +43,7 @@ in
   // import ./services.nix {inherit self inputs lib pkgs system;}
   // import ./unifi.nix {inherit self lib pkgs;}
   // import ./repository.nix {inherit pkgs;}
+  // import ./gnome-shell-libgvc.nix {inherit pkgs;}
   // (
     if !fullCheck
     then {}

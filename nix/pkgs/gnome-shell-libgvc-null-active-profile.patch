@@ -1,0 +1,41 @@
+libgvc: don't dereference a NULL active_profile in update_card()
+
+pipewire-pulse can serialize a card to the pulse client before its
+SPA_PARAM_EnumProfile params have landed, producing a card with
+n_profiles == 0. libpulse resolves pa_card_info.active_profile by matching
+the active profile name against the profiles array, so with no profiles the
+field stays NULL — and update_card() dereferenced it unconditionally,
+killing the whole Wayland session.
+
+On epimetheus this fired on ~2 of 8 graphical boots. pipewire logs
+"card N port 0 profiles inconsistent (0 < M)" 0.5-2.2 ms before the fault,
+and the kernel reports "segfault at 0", i.e. a literal NULL deref.
+
+The guarded call was always a no-op in this case anyway:
+gvc_mixer_card_set_profile() opens with
+g_return_val_if_fail (card->priv->profiles != NULL, FALSE), and with zero
+profiles that list is NULL. The crash happened purely because the argument
+is evaluated before the callee's guard runs.
+
+This is upstream MR !38 verbatim, against issue #47:
+  https://gitlab.gnome.org/GNOME/libgnome-volume-control/-/issues/47
+  https://gitlab.gnome.org/GNOME/libgnome-volume-control/-/merge_requests/38
+
+Kept byte-identical to upstream on purpose. When !38 merges, this stops
+applying and the build fails loudly — that is the signal to delete it,
+rather than silently carrying a stale delta behind a version check.
+homelab.services.upstreamPatchWatch also pings Gotify when the MR changes
+state, so we hear about it before a build breaks.
+
+--- a/subprojects/gvc/gvc-mixer-control.c
++++ b/subprojects/gvc/gvc-mixer-control.c
+@@ -2646,7 +2646,8 @@
+         gvc_mixer_card_set_profiles (card, profile_list);
+         gvc_mixer_card_set_name (card, pa_proplist_gets (info->proplist, "device.description"));
+         gvc_mixer_card_set_icon_name (card, pa_proplist_gets (info->proplist, "device.icon_name"));
+-        gvc_mixer_card_set_profile (card, info->active_profile->name);
++        if (info->active_profile != NULL)
++                gvc_mixer_card_set_profile (card, info->active_profile->name);
+
+         if (is_new) {
+                 g_hash_table_insert (control->priv->cards,
