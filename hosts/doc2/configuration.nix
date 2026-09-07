@@ -187,6 +187,20 @@
       alerting = {
         enable = true;
         vpnGatewayAlert.enable = true;
+        # epi's CPU fan. It stalled unnoticed until 2026-09-07 because the
+        # board's fans were invisible to lm-sensors at all (the in-tree it87
+        # rejects its IT8686E); the box sat at Tjmax, throttled to 562 MHz.
+        # Now that it87 exports fan1, alert on it actually stopping.
+        # Only fans that should be turning belong here — see the option docs
+        # and docs/wiki/infrastructure/epi-thermals.md.
+        fanStallAlert.fans = [
+          {
+            host = "epimetheus";
+            chip = "platform_it87_2624";
+            sensor = "fan1";
+            label = "CPU fan";
+          }
+        ];
       };
       # pfSense ZFS backup chain — doc2 hosts the receiver natively on its
       # own local ZFS pool (pfsensebackup, backed by a zvol passthrough from

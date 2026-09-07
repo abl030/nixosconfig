@@ -889,6 +889,119 @@
     }
   ];
 
+  # Fan-stall alerts. Motivated by epi (2026-09-07): its CPU fan stalled and
+  # nothing noticed, because lm-sensors could not see the board's fans at all
+  # until the out-of-tree it87 driver landed. The box sat at 105.9 C throttled
+  # to its 562 MHz floor for an unknown number of weeks.
+  #
+  # Deliberately an explicit per-fan list rather than a blanket
+  # `node_hwmon_fan_rpm == 0`. Plenty of channels legitimately read zero
+  # forever — unpopulated headers, and GPU fans with zero-RPM idle modes — so
+  # a blanket rule pages constantly and gets muted, which is worse than no
+  # alert. Name the fans that are supposed to be turning.
+  # See docs/wiki/infrastructure/epi-thermals.md.
+  fanStallAlerts = lib.optionals cfg.fanStallAlert.enable (map (fan: {
+      uid = "homelab-fan-stall-${fan.host}-${fan.sensor}";
+      title = "${fan.host} ${fan.label} stopped";
+      condition = "C";
+      "for" = cfg.fanStallAlert.forDuration;
+      # A host that is down or not scraping is covered by the reboot and
+      # log-ingestion-silence alerts; don't double-page from here.
+      noDataState = "OK";
+      execErrState = "OK";
+      data = [
+        {
+          refId = "A";
+          queryType = "";
+          relativeTimeRange = {
+            from = 600;
+            to = 0;
+          };
+          datasourceUid = "Prometheus";
+          model = {
+            refId = "A";
+            datasource = {
+              type = "prometheus";
+              uid = "Prometheus";
+            };
+            expr = ''node_hwmon_fan_rpm{host="${fan.host}",chip="${fan.chip}",sensor="${fan.sensor}"}'';
+            instant = true;
+            intervalMs = 60000;
+            maxDataPoints = 43200;
+          };
+        }
+        {
+          refId = "B";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "B";
+            type = "reduce";
+            expression = "A";
+            reducer = "last";
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+        {
+          refId = "C";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "C";
+            type = "threshold";
+            expression = "B";
+            conditions = [
+              {
+                evaluator = {
+                  params = [fan.minRpm];
+                  type = "lt";
+                };
+                operator.type = "and";
+                query.params = ["C"];
+                reducer = {
+                  params = [];
+                  type = "last";
+                };
+                type = "query";
+              }
+            ];
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+      ];
+      annotations = {
+        summary = "${fan.host}: ${fan.label} below ${toString fan.minRpm} RPM";
+        description = ''
+          ${fan.label} on ${fan.host} (${fan.chip}/${fan.sensor}) has read
+          under ${toString fan.minRpm} RPM for ${cfg.fanStallAlert.forDuration}.
+          Treat as a stalled or disconnected fan and check the host's
+          temperatures now — the CPU will throttle to protect itself, so the
+          symptom is silent slowness rather than a crash. epi ran for weeks at
+          Tjmax this way before anyone noticed (2026-09-07).
+        '';
+      };
+      labels = {
+        severity = "critical";
+        category = "thermal";
+        inherit (fan) host;
+      };
+    })
+    cfg.fanStallAlert.fans);
+
   rules = {
     apiVersion = 1;
     # Grafana's alert provisioning does not prune rules that disappear from the
@@ -985,6 +1098,15 @@
           folder = "Homelab";
           interval = "1m";
           rules = diskAlerts;
+        }
+      ]
+      ++ lib.optionals (fanStallAlerts != []) [
+        {
+          orgId = 1;
+          name = "fan-stall";
+          folder = "Homelab";
+          interval = "1m";
+          rules = fanStallAlerts;
         }
       ]
       ++ lib.optionals (ingestionSilenceAlerts != []) [
@@ -1213,6 +1335,78 @@ in {
             doc2 = {};  # use defaults
           }
         '';
+      };
+    };
+
+    fanStallAlert = {
+      enable = lib.mkEnableOption "Alert when a named fan stops turning" // {default = true;};
+
+      forDuration = lib.mkOption {
+        type = lib.types.str;
+        default = "5m";
+        description = ''
+          How long the fan must read below its threshold before firing. 5m
+          rides through a missed scrape or a brief PWM dip without pinging,
+          and costs nothing in practice: a CPU throttles itself long before a
+          stalled fan becomes dangerous, so the alert is about noticing at
+          all rather than reacting within seconds.
+        '';
+      };
+
+      fans = lib.mkOption {
+        default = [];
+        description = ''
+          Fans that are expected to be turning. Explicit rather than a blanket
+          `node_hwmon_fan_rpm == 0` because unpopulated headers and zero-RPM
+          idle GPU fans read zero forever — a blanket rule pages constantly
+          and gets muted.
+
+          Find the labels with:
+            curl -s localhost:9100/metrics | grep node_hwmon_fan_rpm
+        '';
+        example = lib.literalExpression ''
+          [
+            {
+              host = "epimetheus";
+              chip = "platform_it87_2624";
+              sensor = "fan1";
+              label = "CPU fan";
+            }
+          ]
+        '';
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            host = lib.mkOption {
+              type = lib.types.str;
+              description = "Value of the `host` label in node_exporter metrics.";
+            };
+            chip = lib.mkOption {
+              type = lib.types.str;
+              description = ''
+                Value of the `chip` label, e.g. `platform_it87_2624`. The
+                numeric suffix is the Super I/O EC base address in decimal
+                (2624 = 0x0a40), so it is stable across reboots.
+              '';
+            };
+            sensor = lib.mkOption {
+              type = lib.types.str;
+              description = "Value of the `sensor` label, e.g. `fan1`.";
+            };
+            label = lib.mkOption {
+              type = lib.types.str;
+              default = "fan";
+              description = "Human name used in the alert title and body, e.g. \"CPU fan\".";
+            };
+            minRpm = lib.mkOption {
+              type = lib.types.int;
+              default = 100;
+              description = ''
+                Fire when RPM drops below this. 100 is comfortably under any
+                real fan's minimum while staying clear of a stopped fan's 0.
+              '';
+            };
+          };
+        });
       };
     };
 

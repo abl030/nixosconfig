@@ -1,6 +1,8 @@
 # epi thermals — fan telemetry (it87/IT8686E) and the 2026-09-07 cooler fault
 
-**Status:** driver landed 2026-09-07; hardware fix in progress by the owner.
+**Status:** RESOLVED 2026-09-07. Driver landed, hardware fixed, verified. The
+CPU fan was mounted backwards; turning it around took the box from 105.9 °C at
+540 MHz to 74 °C at 4425 MHz. Fan RPM is now exported and alerted on.
 **Host:** epimetheus — Gigabyte B450 I AORUS PRO WIFI, Ryzen 7 5700X, Arc A310,
 in a **Dan A4-SFX** (7.2 L sandwich, no case-fan mounts by design).
 
@@ -104,12 +106,35 @@ turning 2454 rpm, which manual mode only reached at **100 %** duty. In auto mode
 conclude "the BIOS is only asking for 43 %" from that register; cross-check
 against actual RPM.
 
-### Verifying the hardware fix
+### Outcome (2026-09-07, same evening)
+
+The owner turned the CPU fan around and repasted. Measured before/after, same
+`marker-convert` workload:
+
+| | before | after |
+|---|---|---|
+| Tctl under load | **105.9 °C** | **74.0 °C** |
+| all-core clock | 540 MHz (the 562 MHz floor) | **4425 MHz** |
+| Tctl idle | 75.9 °C | 47.8 °C |
+| CPU fan | 2463 rpm, 100 % duty, still losing | 2410 rpm on the BIOS curve |
+| NVMe | 74.8 °C | 43.9 °C |
+
+Roughly **8x** the sustained CPU, from turning one fan around. That confirms
+diagnosis (1): the cooler was inhaling its own exhaust, and the die-to-heatsink
+path was fine all along. Note the fan now sits at ~27 % duty at idle with
+headroom to spare, where before it was pinned at 100 % and still losing.
+
+The lesson worth keeping: temperature being *insensitive to fan speed* looked
+like a contact problem, but it was actually a hot-intake problem. Both present
+that way. What discriminated them was the board sensors — 55–75 °C interior air
+meant the fan had nothing cold to push.
+
+### Verifying a future hardware fix
 
 Boot with the fan on the BIOS curve and read idle temperature:
 
-- **Under ~45 °C idle** → fixed.
-- **Still 70 °C+ idle** → remaining problem is contact/paste, not airflow.
+- **Under ~45 °C idle** → airflow was the problem.
+- **Still 70 °C+ idle** → it is contact/paste, not airflow.
 
 A measurement rig is on the box at `~/stress-logs/` (`thermal-monitor.sh` — 5 s
 CSV, journal mirror, fsynced; `fan-sweep.sh` — PWM dose-response;
@@ -118,11 +143,20 @@ CSV, journal mirror, fsynced; `fan-sweep.sh` — PWM dose-response;
 
 ## Follow-ups
 
-- Cap PPT/cTDP in BIOS. An L9a in an A4 cannot dissipate 88 W; capping it would
-  likely *raise* sustained throughput versus thrashing against Tjmax at 540 MHz.
-- Alert on CPU fan RPM now that `node_hwmon_fan_rpm` will actually carry it.
-- `marker-convert` has `Nice=19`/`CPUWeight=20` but no `CPUQuota`, so nothing
-  bounds its heat output. Consider a quota or fewer workers on this chassis.
-- doc2 Mimir cannot answer long-range queries: `err-mimir-bucket-index-too-old`,
-  bucket index last updated 2026-08-26. Compactor likely wedged. This blocked the
-  "has it always run this hot?" question during diagnosis.
+- **DONE** — alert on CPU fan RPM. `homelab.services.alerting.fanStallAlert` in
+  `modules/nixos/services/alerting.nix`, enabled for epi's `fan1` in
+  `hosts/doc2/configuration.nix`. Deliberately an explicit per-fan list: a
+  blanket `node_hwmon_fan_rpm == 0` fires forever on empty headers and
+  zero-RPM-idle GPU fans, gets muted, and is then worse than no alert.
+- **WON'T DO** — capping PPT/cTDP in BIOS, and adding a `CPUQuota` to
+  `marker-convert`. Both were sensible while the cooler could not dissipate
+  65 W. With airflow fixed the box boosts to 4.4 GHz at 74 °C, so throttling it
+  would cost performance for no thermal benefit. Revisit only if temps regress.
+- **OPEN (Forgejo #211)** — the secondary/exhaust fan fitted below the PSU does
+  not turn. Every non-CPU PWM channel was driven to 255 with all tachs still
+  reading 0, so it is a connection or fan fault, not a curve problem. Once it
+  runs, add it to `fanStallAlert.fans` too.
+- **OPEN** — doc2 Mimir cannot answer long-range queries:
+  `err-mimir-bucket-index-too-old`, bucket index last updated 2026-08-26.
+  Compactor likely wedged. This blocked the "has it always run this hot?"
+  question during diagnosis, which is exactly when history was most useful.
