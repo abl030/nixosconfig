@@ -83,7 +83,18 @@
 
   # Generate extra scrape blocks for additional targets
   extraScrapeBlocks = lib.concatMapStringsSep "\n" (target: let
-    hasRelabels = target.labelRewrites != {};
+    hasKeep = target.keepMetricsRegex != null;
+    hasRelabels = target.labelRewrites != {} || hasKeep;
+    # Drop everything whose __name__ doesn't match, before remote_write. Some
+    # exporters (Mimir's own /metrics is ~4200 series) are worth scraping for a
+    # handful of numbers and not worth storing whole.
+    keepRule = lib.optionalString hasKeep ''
+      rule {
+        source_labels = ["__name__"]
+        regex         = "${target.keepMetricsRegex}"
+        action        = "keep"
+      }
+    '';
     # Emit one rule per source-label per raw-value. Each rule matches the
     # exact raw value and rewrites the label to the friendly value.
     # Alloy/prom relabel regexes are anchored — use ^...$ to avoid partial
@@ -130,7 +141,7 @@
 
       prometheus.relabel "${target.job}" {
         forward_to = [prometheus.remote_write.mimir.receiver]
-      ${relabelRules}
+      ${keepRule}${relabelRules}
       }
     '')
   cfg.extraScrapeTargets;
@@ -379,6 +390,21 @@ in {
               being scraped.
             '';
           };
+          keepMetricsRegex = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              If set, keep only metrics whose `__name__` matches this regex
+              and drop the rest before remote_write. Alloy anchors relabel
+              regexes, so `foo|bar` matches exactly those two names.
+
+              For exporters where you want a handful of numbers out of a very
+              large surface — Mimir's own /metrics is ~4200 series — this is
+              the difference between a few series a minute and all of them.
+            '';
+            example = "cortex_bucket_index_last_successful_update_timestamp_seconds";
+          };
+
           labelRewrites = lib.mkOption {
             type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
             default = {};

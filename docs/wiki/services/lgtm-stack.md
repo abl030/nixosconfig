@@ -694,6 +694,67 @@ This trap is latent in any errorPattern of the form `level=(error|warn).*<text>`
 
 Prefer **structural anchors** (`msg="X"`, `caller=Y.go`, `unit="Z.service"`) over free-floating regex anchors (`level=error.*X`). Structural anchors fail to match scheduler echoes because the echo's structure embeds the pattern in a *different field* (the query argument), not the field the pattern claims to scope to.
 
+## Mimir needs xattrs on its blocks filesystem (2026-08-26 → 2026-09-07)
+
+**Symptom:** any query older than what the ingesters hold fails with
+
+```
+the bucket index is too old. It was last updated at 2026-08-26T20:37:47Z,
+which exceeds the maximum allowed staleness period of 1h0m0s
+(err-mimir-bucket-index-too-old)
+```
+
+Instant queries and the last few hours keep working, so dashboards look fine.
+It surfaced only when someone asked a historical question 12 days later.
+
+**Cause:** the nightly `nixos-upgrade` on 2026-08-26 bumped **Mimir 3.1.4 →
+3.2.0**. 3.2.0's filesystem object-store backend writes a
+`user.thanos.objstore.sha256sum` extended attribute on every object it uploads.
+`/mnt/virtio` is virtiofs, and PVE only passes `--xattr` to virtiofsd when the
+device has `expose-xattr=1` — which doc2's `containers` share did not. Every
+write therefore returned `EOPNOTSUPP`, 67 seconds after the new binary started:
+
+```
+caller=blocks_cleaner.go:257 level=error component=cleaner
+  err="... upload bucket index: xattr.Set
+  /mnt/virtio/loki/mimir/blocks/anonymous/bucket-index.json.gz.swap
+  user.thanos.objstore.sha256sum: operation not supported"
+```
+
+The backing ZFS dataset already had `xattr=sa`; virtiofsd was hiding a
+capability the pool underneath had all along. There is no Mimir flag to disable
+the checksum — upstream states the filesystem provider requires xattr support.
+
+**Fix**, on prom (not in this repo — `/etc/pve/qemu-server/114.conf`):
+
+```sh
+qm set 114 --virtiofs0 dirid=containers,expose-xattr=1
+qm reboot 114     # virtiofsd is forked at VM start; a guest reboot won't re-fork it
+```
+
+Prefer the per-device flag over appending `--xattr` to prom's `/usr/libexec/
+virtiofsd` dpkg-divert wrapper (from the fd-exhaustion fix) — the wrapper would
+apply to every virtiofsd on the host, including doc1, igpu and the media shares.
+
+**No metrics were lost.** TSDB retention is measured from *upload* time, and
+nothing ever uploaded, so all 12 days stayed on the ingester's disk and drained
+once writes worked. Partial blocks left by the looping compactor get cleaned up
+by the blocks-cleaner on its normal delay.
+
+**Why nothing noticed:** Mimir's `/ready` returns 200 throughout, so the Kuma
+probe cannot see this class of failure. That gap is now covered by
+`homelab.services.alerting.mimirWriteStallAlert`, which fires when
+`cortex_bucket_index_last_successful_update_timestamp_seconds` goes an hour
+stale — the same threshold at which Mimir starts rejecting queries, so it fires
+exactly when the failure becomes user-visible. It depends on doc2 scraping
+Mimir's own `/metrics` via `homelab.loki.extraScrapeTargets`; that target uses
+`keepMetricsRegex` because Mimir exposes ~4200 series and we want five of them.
+
+Generalisable lesson: a health endpoint that only checks *liveness* cannot see a
+broken *write* path. Both this and the epi fan fault
+(`docs/wiki/infrastructure/epi-thermals.md`) ran for weeks because the thing
+that was broken was not the thing being probed.
+
 ## When to revisit
 
 - When someone wires an OTEL-native app → Tempo receivers come alive. Add source restriction for 4317/4318.

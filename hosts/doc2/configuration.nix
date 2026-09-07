@@ -89,6 +89,20 @@
         ];
       };
       pfsenseExporter.enable = true;
+      # Scrape Mimir's own metrics so we can alert on it silently failing to
+      # write. It did exactly that for 12 days from 2026-08-26: the 3.1.4 ->
+      # 3.2.0 bump started writing a sha256sum xattr on every uploaded object,
+      # /mnt/virtio (virtiofs) had xattrs disabled, every write returned
+      # EOPNOTSUPP, and nothing noticed because /ready returns 200 throughout.
+      # Kept to a handful of names — Mimir's full surface is ~4200 series.
+      extraScrapeTargets = [
+        {
+          job = "mimir";
+          address = "localhost:9009";
+          instance = "doc2";
+          keepMetricsRegex = "cortex_bucket_index_last_successful_update_timestamp_seconds|cortex_ingester_shipper_upload_failures_total|cortex_ingester_shipper_last_successful_upload_timestamp_seconds|cortex_compactor_runs_completed_total|cortex_compactor_runs_failed_total";
+        }
+      ];
       ntopngExporter = {
         # Disabled 2026-06-25: ntopng was turned off on pfSense, so the exporter
         # had nothing to scrape and was crash-looping (status=2/INVALIDARGUMENT,

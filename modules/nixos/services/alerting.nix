@@ -1002,6 +1002,126 @@
     })
     cfg.fanStallAlert.fans);
 
+  # Mimir silently failing to write. On 2026-08-26 the nightly bumped Mimir
+  # 3.1.4 -> 3.2.0; 3.2.0 writes a `user.thanos.objstore.sha256sum` xattr on
+  # every uploaded object, /mnt/virtio (virtiofs) had xattrs disabled, and every
+  # write returned EOPNOTSUPP. Nothing shipped or compacted for 12 days.
+  #
+  # It went unnoticed because Mimir's /ready returns 200 throughout — the Kuma
+  # probe cannot see this class of failure, and the symptom (long-range queries
+  # failing with err-mimir-bucket-index-too-old) only shows up when someone asks
+  # a historical question. This is the direct precursor and would have fired
+  # within the hour.
+  #
+  # Bootstrap note: this alerts on Mimir using Mimir. That works because the
+  # signal is ingester-fresh — the failure mode is the *write* path to object
+  # storage, while recent-range reads keep working. A total Mimir outage is
+  # covered by the Kuma probe and the log-ingestion-silence alerts instead.
+  mimirWriteStallAlerts = lib.optionals cfg.mimirWriteStallAlert.enable [
+    {
+      uid = "homelab-mimir-bucket-index-stale";
+      title = "Mimir bucket index is stale";
+      condition = "C";
+      "for" = "10m";
+      noDataState = "OK";
+      execErrState = "OK";
+      data = [
+        {
+          refId = "A";
+          queryType = "";
+          relativeTimeRange = {
+            from = 600;
+            to = 0;
+          };
+          datasourceUid = "Prometheus";
+          model = {
+            refId = "A";
+            datasource = {
+              type = "prometheus";
+              uid = "Prometheus";
+            };
+            expr = ''time() - cortex_bucket_index_last_successful_update_timestamp_seconds'';
+            instant = true;
+            intervalMs = 60000;
+            maxDataPoints = 43200;
+          };
+        }
+        {
+          refId = "B";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "B";
+            type = "reduce";
+            expression = "A";
+            reducer = "last";
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+        {
+          refId = "C";
+          queryType = "";
+          relativeTimeRange = {
+            from = 0;
+            to = 0;
+          };
+          datasourceUid = "__expr__";
+          model = {
+            refId = "C";
+            type = "threshold";
+            expression = "B";
+            conditions = [
+              {
+                evaluator = {
+                  params = [cfg.mimirWriteStallAlert.stalenessSeconds];
+                  type = "gt";
+                };
+                operator.type = "and";
+                query.params = ["C"];
+                reducer = {
+                  params = [];
+                  type = "last";
+                };
+                type = "query";
+              }
+            ];
+            datasource = {
+              type = "__expr__";
+              uid = "__expr__";
+            };
+          };
+        }
+      ];
+      annotations = {
+        summary = "Mimir has not written its bucket index for over ${toString cfg.mimirWriteStallAlert.stalenessSeconds}s";
+        description = ''
+          Mimir's compactor/shipper is not writing to object storage. Recent
+          queries keep working from ingesters, so this is invisible until
+          someone asks for history and gets err-mimir-bucket-index-too-old.
+
+          Check: journalctl -u mimir -n 100 on the LGTM host, and
+          `cortex_ingester_shipper_upload_failures_total`. The 2026-08-26
+          instance was an xattr-unsupported filesystem under the blocks store
+          after a version bump — see docs/wiki/services/lgtm-stack.md.
+
+          Metrics are not lost while this is broken; unshipped blocks stay on
+          the ingester's disk and drain once writes work again.
+        '';
+      };
+      labels = {
+        severity = "warning";
+        category = "observability";
+      };
+    }
+  ];
+
   rules = {
     apiVersion = 1;
     # Grafana's alert provisioning does not prune rules that disappear from the
@@ -1107,6 +1227,15 @@
           folder = "Homelab";
           interval = "1m";
           rules = fanStallAlerts;
+        }
+      ]
+      ++ lib.optionals (mimirWriteStallAlerts != []) [
+        {
+          orgId = 1;
+          name = "observability-self";
+          folder = "Homelab";
+          interval = "1m";
+          rules = mimirWriteStallAlerts;
         }
       ]
       ++ lib.optionals (ingestionSilenceAlerts != []) [
@@ -1334,6 +1463,26 @@ in {
             tower = { window = "5m"; forDuration = "1m"; };
             doc2 = {};  # use defaults
           }
+        '';
+      };
+    };
+
+    mimirWriteStallAlert = {
+      enable = lib.mkEnableOption "Alert when Mimir stops writing its bucket index" // {default = true;};
+
+      stalenessSeconds = lib.mkOption {
+        type = lib.types.int;
+        default = 3600;
+        description = ''
+          Fire when the bucket index has not been written for this long. 3600
+          matches Mimir's own `-blocks-storage.bucket-store.bucket-index
+          .max-stale-period`, i.e. the point at which it starts rejecting
+          long-range queries — so the alert fires exactly when the failure
+          becomes user-visible, not before.
+
+          Requires the LGTM host to scrape Mimir's own /metrics; see
+          `homelab.loki.extraScrapeTargets` on that host. Without it this rule
+          sits on no data forever and quietly protects nothing.
         '';
       };
     };
