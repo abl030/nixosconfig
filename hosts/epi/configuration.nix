@@ -35,7 +35,6 @@
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;
-      secure = false;
       inhibitors.enable = true;
     };
     hyprland.enable = false; # Kept available, just disabled
@@ -162,10 +161,12 @@
     # disabled — gnome-keyring's secret service is unaffected.
     gnome.gcr-ssh-agent.enable = false;
 
-    displayManager.autoLogin = {
-      enable = true;
-      user = "abl030";
-    };
+    # Autologin deliberately OFF (2026-09-08). It made physical access a
+    # single factor: power on, get a live session with a gnome-keyring already
+    # unlocked and an ssh-agent that can reach the doc1 bastion. GDM asking for
+    # a password is the only thing standing between "someone is alone with this
+    # box" and the fleet.
+    displayManager.autoLogin.enable = false;
 
     # Hyprland/SDDM xrandr setup (kept for swap-back)
     # xserver.displayManager.setupCommands = ''

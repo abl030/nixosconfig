@@ -139,7 +139,6 @@
 
     ssh = {
       enable = true;
-      secure = false;
     };
     tailscale.enable = true; # needs the CT's dev1 = /dev/net/tun
     mdnsReflector = {

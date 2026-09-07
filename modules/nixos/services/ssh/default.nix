@@ -24,6 +24,28 @@ in {
       default = true;
       description = "If true, disable password auth and root login. Set false for new installs or internal VMs.";
     };
+    tailnetOnly = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        If true, do not open port 22 on the host firewall, so sshd is reachable
+        over the tailnet only and not on any physical interface.
+
+        For roaming laptops this is the difference between "key-only sshd on
+        airport wifi" and "not listening to that network at all". Defence in
+        depth, not a replacement for `secure` — keep both on.
+
+        Implemented as a firewall rule rather than by binding the Tailscale IP
+        in `listenAddresses`. Binding a specific address means sshd must start
+        *after* tailscale0 exists or it fails to bind, which turns a dropped
+        tailnet into a host you cannot ssh to even from the console's own
+        network. The firewall approach has no such ordering dependency.
+
+        Note this leaves nothing listening on the LAN either — recovery is
+        physical console, or bring the tailnet back.
+      '';
+    };
+
     deployIdentity = lib.mkOption {
       type = lib.types.bool;
       # Keyless by default (#270): the fleet identity private key lives ONLY on
@@ -45,7 +67,7 @@ in {
       enable = true;
       ports = [22];
       # Be careful here. You can lock yourself out of a host if tailscale is down.
-      openFirewall = true;
+      openFirewall = !cfg.tailnetOnly;
 
       # Authorization is 100% declarative from hosts.nix (#270). sshd reads ONLY
       # /etc/ssh/authorized_keys.d/%u (rendered from authorizedKeys), NEVER the
@@ -57,6 +79,9 @@ in {
       # BIND-ALL-INTERFACES-OK: sshd is the bastion/proxyjump door — key-only
       # (secure mode) and `from=`-pinned to tailnet/LAN. Binding all interfaces
       # is intentional; the auth + source pinning are the controls, not the bind.
+      # `tailnetOnly` narrows *reachability* at the firewall for hosts that live
+      # on untrusted networks; the bind stays 0.0.0.0 deliberately (see the
+      # option description for why binding the Tailscale IP is the worse option).
       listenAddresses = [
         {
           addr = "0.0.0.0";
@@ -110,6 +135,17 @@ in {
         ];
       };
     };
+
+    # 1b. Tailnet pinhole for tailnetOnly hosts.
+    #
+    # Belt and braces across both netfilter modes. With
+    # homelab.tailscale.netfilterMode = "on" (the roaming-workstation setting)
+    # tailscaled already blanket-accepts tailscale0 ahead of nixos-fw, so this
+    # is redundant; with "off" nixos-fw is the real gate and this pinhole is
+    # what keeps ssh reachable at all. Declaring it unconditionally means
+    # flipping netfilterMode later cannot silently lock the host away.
+    networking.firewall.interfaces."tailscale0".allowedTCPPorts =
+      lib.mkIf cfg.tailnetOnly [22];
 
     # 2. Authorized Keys (Sourced from hosts.nix)
     users.users.${user}.openssh.authorizedKeys.keys = authorizedKeys;

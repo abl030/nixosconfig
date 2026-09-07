@@ -54,7 +54,6 @@
 
     ssh = {
       enable = true;
-      secure = false;
     };
     tailscale.enable = true;
     nixCaches = {

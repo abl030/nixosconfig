@@ -76,7 +76,6 @@
     };
     ssh = {
       enable = true;
-      secure = false;
     };
     # Syslog receiver moved to doc2 with the LGTM stack (#208).
     tailscale.enable = true;

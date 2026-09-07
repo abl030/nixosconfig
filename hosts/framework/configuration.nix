@@ -29,7 +29,11 @@
     rdpInhibitor.enable = true;
     ssh = {
       enable = true;
-      secure = false;
+      # Roams onto untrusted networks (hotel, airport, conference wifi), so it
+      # gets both controls: key-only auth, and not listening on the physical
+      # NIC at all. Reached via doc1 as the jump host, which is the point of
+      # the bastion model — no sibling holds a fleet-trusted key.
+      tailnetOnly = true;
       inhibitors.enable = true;
     };
     tailscale = {
