@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   ...
@@ -85,6 +86,23 @@
     ];
     blacklistedKernelModules = ["xe"];
     initrd.kernelModules = ["i915"];
+
+    # Motherboard fan/temp telemetry. The B450 I AORUS PRO WIFI carries two ITE
+    # Super I/O chips and the in-tree it87 rejects the primary one --
+    # "it87: Unsupported chip (DEVID=0x8686)" -- which is the IT8686E that owns
+    # CPU_FAN. Result: lm-sensors reports no motherboard fan at all, so a
+    # stalled CPU fan cooks the machine silently (2026-09-07: 105.9 C under
+    # load before anyone noticed). The out-of-tree driver knows it8686.
+    #
+    # ignore_resource_conflict is required because the IT8686E's environment
+    # controller sits at I/O 0x0a40, which the DSDT reserves as PNP0C02
+    # motherboard resources; the driver refuses to attach otherwise.
+    # See docs/wiki/infrastructure/epi-thermals.md.
+    extraModulePackages = [config.boot.kernelPackages.it87];
+    kernelModules = ["it87"];
+    extraModprobeConfig = ''
+      options it87 ignore_resource_conflict=1
+    '';
 
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;

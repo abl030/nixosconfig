@@ -34,6 +34,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [systemd-mount-ordering-cycles](infrastructure/systemd-mount-ordering-cycles.md) — why bind mounts on NFS need `_netdev`; cycle topology and latency-bomb properties
 - [netavark-2.0-dns-regression](infrastructure/netavark-2.0-dns-regression.md) — netavark 2.0.0 (nftables-only) broke rootful-podman container DNS on reboot; pinned to 1.17.x; forward path to native nftables (Forgejo #13)
 - [framework-hibernate-ttm-oops-2026-07-09](infrastructure/framework-hibernate-ttm-oops-2026-07-09.md) — "failed hibernate resume" RCA: restore actually succeeded, then kernel 7.1.3 amdgpu/TTM NULL-deref froze the compositor; wifi-card swap exonerated; evidence-only subagent verification pattern
+- [epi-thermals](infrastructure/epi-thermals.md) — why lm-sensors saw no motherboard fan on epi (in-tree `it87` rejects the IT8686E, `ignore_resource_conflict` for the ACPI-reserved EC at `0x0a40`), hand EC register map, and the 2026-09-07 A4-SFX cooler fault (105.9 °C, reversed fan)
 
 ### Services
 
