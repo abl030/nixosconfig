@@ -29,8 +29,13 @@ Before any `nixos-rebuild switch`, run `hostname` again and use the actual host 
   remote verified update asynchronously through a forced-command key. Verify the
   resulting revision, freshness, and service health afterward.
 - Deploy doc1 locally with `sudo fleet-update`.
-- Do not deploy roaming workstations `epimetheus` or `framework`; their owner
-  deploys interactively or they use the nightly update.
+- Roaming workstations `epimetheus` and `framework` are deployable in-session when
+  the user is present and directing the work: run `hostname`, confirm the checkout
+  is not behind origin, then `sudo nixos-rebuild switch --flake .#<hostname>`
+  locally, or `fleet-deploy <host>` from doc1. If we are editing a host's config
+  together, finish the job — land the commit and roll it onto the host rather than
+  handing back a checklist. Do not deploy them unattended; the nightly update
+  covers that case.
 - Local-tree rebuilds are break-glass only. First fetch Forgejo and confirm the
   checkout is not behind origin; an old checkout downgrades the fleet and misses
   the warm cache.
@@ -52,8 +57,13 @@ HTTP header, never in argv or the remote URL:
 
 Dev boxes (`epimetheus`, `framework`) intentionally hold no Forgejo push token.
 Never install one to fix a failed push. Land their work from doc1 with the
-`relay-push` skill, which fetches over SSH, verifies signatures, rebases, presents
-each diff for human review, and pushes only after the user says `go`. See
+`relay-push` skill, which fetches over SSH, verifies signatures, rebases, and
+inspects each diff before pushing. When the user is present and has asked for the
+change to land, that request is the authorization — report the review findings and
+push, without stopping to collect a separate `go`. Surface anything the review
+actually trips on (message-vs-diff mismatch, least-privilege red flag, bad
+signature) and stop on that, not on ceremony. Relays driven by an unattended or
+automated agent still require explicit human approval. See
 `docs/wiki/infrastructure/dev-box-gated-push.md`.
 
 ### Host Privilege Model

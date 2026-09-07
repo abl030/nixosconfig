@@ -52,8 +52,11 @@ comes only from a **human reading the diff** before it can deploy.
 - To land a dev box's work: on doc1, run the **`relay-push`** skill — it fetches
   the box's commits over SSH, inspects each commit (message-vs-diff), verifies
   signatures + attribution, security-reviews against least-privilege, rebases onto
-  current master, and publishes only after the applicable human gate: explicit
-  "go" for ordinary relays, or the interactive WSL SSH unlock described below.
+  current master, and publishes. The human gate is the user asking for the change
+  to land while present in-session (or the interactive WSL SSH unlock described
+  below); the agent does not stop to collect a separate "go" on top of that. It
+  does stop when a check actually trips. An unattended or automated relay, with no
+  human in the loop, still needs explicit approval before the push.
 - The human-reads-the-diff step is the gate. First real run (2026-06-21) it
   immediately earned its keep: a commit labelled "add fix-displays command" showed
   a 1062-line diff against master. That was a **staleness mirage** (the box was 8
@@ -70,8 +73,12 @@ The WSL agent may then drive doc1's review, Forgejo PR/merge, and
 Forgejo token; the authorization is bounded to the requested change, and doc1
 retains the credential and deploy surfaces.
 
-Cost: epi/framework still require an explicit diff approval. WSL requires the
-user to be present to unlock SSH to doc1 once per agent work session.
+Cost: the security property retained is that no dev box holds a Forgejo push
+token, and no relay happens without a human driving it. What was dropped
+(2026-09-07) is the extra "go" prompt on top of a request the user had already
+made — it was pure ceremony during interactive work and trained the user to type
+"go" reflexively, which is worse than useless as a review gate. WSL still requires
+the user to be present to unlock SSH to doc1 once per agent work session.
 
 ## Endgame (PLANNED): FIDO touch-on-push
 

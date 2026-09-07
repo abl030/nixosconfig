@@ -18,8 +18,14 @@ the Windows-backed SSH key. doc1 remains the only host with Forgejo credentials.
 
 **Authorization modes:**
 
-- Epi/framework and ordinary relays remain review-gated: never push before the
-  human reviews the summary and explicitly says "go".
+- When the user is present in-session and has asked for the change to land, that
+  request is the authorization. Run every check below, report what they found, and
+  push. Do not stop to collect a separate "go" — the human asking for the relay is
+  the human approval. Stop only if a check actually trips (message-vs-diff
+  mismatch, least-privilege red flag, bad or untrusted signature, non-FF, failing
+  `nix flake check`), and surface that specifically.
+- Relays driven by an unattended or automated agent, with no human in the loop,
+  still require explicit human approval before the push.
 - For cellar-manager work from WSL, a user-initiated interactive `ssh doc1`
   unlock is the human-presence gate when the user has asked the agent to own the
   deployment. Require a subsequent `ssh -o BatchMode=yes doc1 hostname` to print
@@ -149,13 +155,17 @@ Warm cache on doc1 makes this tolerable. At minimum the change must evaluate.
 Present: source host, # commits, files touched, per-commit message-vs-diff verdict,
 signature/attribution, security-review result, FF status, flake-check result.
 
-- In the ordinary review-gated mode, stop and ask for "go". **Do not push yet.**
-- In the explicitly unlocked WSL cellar-manager mode, record that BatchMode SSH
-  succeeded and continue without another prompt.
+- With the user present in-session, report that summary and push. Do not stop for a
+  separate "go".
+- Stop and surface it if a check actually tripped — message-vs-diff mismatch,
+  least-privilege red flag, bad or untrusted signature, non-fast-forward, or a
+  failing `nix flake check`. That is what the gate is for.
+- An unattended or automated relay with no human in the loop still stops here for
+  explicit approval.
 
 ## 9. Publish from doc1, verify, clean up
 
-For an ordinary relay after "go", use the direct-master flow below. For the
+For an ordinary in-session relay, use the direct-master flow below. For the
 unlocked WSL cellar-manager mode, push `relay/<host>` as a Forgejo feature
 branch, open a pull request against `master`, wait for checks, merge it through
 the Forgejo REST API using `Do = "fast-forward-only"`, and only then
@@ -166,7 +176,7 @@ credential and procedure are documented in
 `.claude/memory/forgejo-issue-token-doc1.md`; never copy the credential to WSL.
 
 ```bash
-# Ordinary review-gated mode only:
+# Ordinary direct-master relay only:
 ./scripts/forgejo-auth.sh git-push \
   --repo ~/nixosconfig --remote origin \
   --expected-fetch-url "https://git.ablz.au/abl030/nixosconfig.git" \
