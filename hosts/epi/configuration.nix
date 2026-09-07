@@ -80,8 +80,16 @@
       "i915.force_probe=56a6"
       "i915.enable_guc=3"
       "nvme_core.default_ps_max_latency_us=0"
+      # Connector names must match what the display is actually plugged into.
+      # The trailing `e` force-enables the connector, so pointing one of these
+      # at an empty port does not fail quietly — it fabricates a phantom
+      # 640x480 "Unknown Display" with no EDID that GNOME then lays out
+      # alongside the real screens. That is what `video=DP-3:...e` was doing
+      # from 2026-09-07, after the 32" moved to DP-1.
+      # Cross-check with: for c in /sys/class/drm/card1-*/; do
+      #   echo "$c $(cat $c/status)"; done   and an EDID read per connector.
       "video=HDMI-A-2:1920x1080@75e"
-      "video=DP-3:2560x1440@144e"
+      "video=DP-1:2560x1440@144e"
       "video=HDMI-A-3:1920x1080@60e"
     ];
     blacklistedKernelModules = ["xe"];
@@ -163,7 +171,7 @@
     # xserver.displayManager.setupCommands = ''
     #   ${pkgs.xorg.xrandr}/bin/xrandr --auto
     #   ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1920x1080 --rotate right --pos 0x0
-    #   ${pkgs.xorg.xrandr}/bin/xrandr --output DP-3 --mode 2560x1440 --primary --pos 1080x0
+    #   ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --mode 2560x1440 --primary --pos 1080x0
     #   ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-3 --mode 1920x1080 --pos 3640x0
     # '';
 

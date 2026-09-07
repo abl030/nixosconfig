@@ -14,13 +14,21 @@
   # live D-Bus apply alone is all this command needs.
   #
   # Layout mirrors hosts/epi/monitors.xml:
-  #   DP-3    2560x1440  primary, centre   (x 1080, y 187)
+  #   DP-1    2560x1440@144  primary, centre (x 1080, y 187)  PHL 328M6F 32"
   #   HDMI-2  1920x1080  portrait (rot right = transform 270), left (x 0, y 0)
   #   HDMI-3  1920x1080  right             (x 3640, y 351)
   # gdctl ships with mutter; pkgs.mutter matches the running GNOME session.
+  #
+  # 2026-09-07: the 32" moved DP-3 -> DP-1 (same panel, verified by EDID
+  # serial 0x0000188c). mutter matches monitors.xml on connector AND
+  # vendor/product/serial, so a connector rename silently stops the golden
+  # layout matching and it falls back to side-by-side — exactly the state this
+  # command exists to undo. The connector name is also in
+  # hosts/epi/monitors.xml and in the `video=` kernelParams in
+  # configuration.nix; all three must agree.
   fix-displays = pkgs.writeShellScriptBin "fix-displays" ''
     exec ${pkgs.mutter}/bin/gdctl set \
-      -L -x 1080 -y 187 -p    -M DP-3   -m 2560x1440@59.951 \
+      -L -x 1080 -y 187 -p    -M DP-1   -m 2560x1440@143.912 \
       -L -x 0    -y 0   -t 270 -M HDMI-2 -m 1920x1080@74.973 \
       -L -x 3640 -y 351       -M HDMI-3 -m 1920x1080@60.000
   '';

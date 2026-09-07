@@ -18,16 +18,16 @@
     #   enable = true;
     #   settings = {
     #     workspaces = [1 2 3 4];
-    #     physicalMonitors = ["HDMI-A-2" "DP-3" "HDMI-A-3"];
-    #     primaryMonitor = "DP-3";
+    #     physicalMonitors = ["HDMI-A-2" "DP-1" "HDMI-A-3"];
+    #     primaryMonitor = "DP-1";
     #     workspaceMaps = {
     #       "1" = "HDMI-A-2";
-    #       "2" = "DP-3";
+    #       "2" = "DP-1";
     #       "3" = "HDMI-A-3";
     #     };
     #     restoreCommands = ''
     #       hyprctl keyword monitor HDMI-A-2,1920x1080@75,0x0,1,transform,3
-    #       hyprctl keyword monitor DP-3,2560x1440@144,1080x0,1
+    #       hyprctl keyword monitor DP-1,2560x1440@144,1080x0,1
     #       hyprctl keyword monitor HDMI-A-3,1920x1080@60,3640x0,1
     #     '';
     #   };
@@ -57,13 +57,13 @@
   # --- Hyprland monitor config (disabled, kept for swap-back) ---
   # wayland.windowManager.hyprland.settings.monitor = lib.mkForce [
   #   "HDMI-A-2, 1920x1080@75, 0x0, 1, transform, 3"
-  #   "DP-3, 2560x1440@144, 1080x0, 1"
+  #   "DP-1, 2560x1440@144, 1080x0, 1"
   #   "HDMI-A-3, 1920x1080@60, 3640x0, 1"
   #   ", preferred, auto, 1"
   # ];
   # wayland.windowManager.hyprland.settings.workspace = [
   #   "1, monitor:HDMI-A-2"
-  #   "2, monitor:DP-3"
+  #   "2, monitor:DP-1"
   #   "3, monitor:HDMI-A-3"
   # ];
 }
