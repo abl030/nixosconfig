@@ -33,18 +33,21 @@ views:
     content: '## ☀️ {{ states(''sensor.sunscreen'') }}
 
 
-      {{ state_attr(''sensor.sunscreen'', ''headline'') }}'
+      {{ state_attr(''sensor.sunscreen'', ''headline'') }}
+
+
+      *{{ state_attr(''sensor.sunscreen'', ''spf_note'') }}*'
   - type: horizontal-stack
     cards:
     - type: tile
       entity: sensor.uv_index
       name: UV now
     - type: tile
-      entity: sensor.peak_uv_today
-      name: Peak today
-    - type: tile
       entity: sensor.time_to_sunburn
-      name: Burn time
+      name: Bare skin
+    - type: tile
+      entity: sensor.time_to_sunburn_spf_50
+      name: SPF 50
   - type: tile
     entity: climate.living_room_aircon
     name: Living Room Aircon

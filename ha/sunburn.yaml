@@ -19,12 +19,36 @@
 #     only knob.
 #   * Low-UV smoothstep: UV below 1 does nothing, ramping to full weight at
 #     UV 3. Without this, dawn and dusk fake up a burn that never happens.
-#   * Trapezoid integration across the hourly forecast, so a rising or falling
-#     UV curve is handled honestly rather than assuming UV is flat.
+#   * Trapezoid integration across the hourly forecast. EVERY number this
+#     package reports is integrated over the real UV curve — there is no
+#     "assume UV stays at its peak" shortcut, because that badly understates
+#     how long you actually last as the sun drops. "At worst today" is a real
+#     minimum over every remaining start time, not the UV peak: on a long
+#     exposure, heading out mid-morning into the rising limb burns you sooner
+#     than heading out at noon into the falling one.
+#   * Sunscreen. Two effects, both real and independent:
+#       - Under-application. Labelled SPF assumes 2 mg/cm^2; people apply about
+#         half that, and effective SPF goes as SPF^(applied fraction). So a
+#         real coat of SPF 50 behaves like SPF ~7 (50 ** 0.5). Half-rate is the
+#         generous end of the 25-50% range reported in the literature.
+#       - Wash/rub-off. Full strength for an hour, then decaying linearly to
+#         bare skin over the following six (the sunburntimer "profuse
+#         sweating" profile — swimming, or a hot beach day).
+#     Model a perfect 2 mg/cm^2 coat instead and SPF 50 tops out at 23-73% of
+#     a burn dose over a whole day even at UV 16 — it never burns anyone here,
+#     and the number tells you nothing. Verified, not assumed.
 #
-# Data source is met.no via the built-in `weather.forecast_home` entity, whose
-# hourly forecast already carries `uv_index` (cloud-adjusted). No external API,
-# no API key. See docs/wiki/services/home-assistant-sunburn.md.
+#   * Cloud. met.no's only UV field is `ultraviolet_index_clear_sky` — verified
+#     against api.met.no, and HA surfaces it unchanged as `uv_index`. So we
+#     apply the cloud knock-down ourselves from the `cloud_coverage` in the
+#     same forecast entry: CMF = 1 - 0.7 * C^3. That curve is deliberately flat
+#     for broken cloud (which barely dents UV, and can even scatter more of it
+#     your way) and bottoms out near a third at full overcast. Open-Meteo is no
+#     escape: its `uv_index` and `uv_index_clear_sky` came back identical for
+#     every hour tested here, including an 88%-cloud morning.
+#
+# Data source is met.no via the built-in `weather.forecast_home` entity. No
+# external API, no API key. See docs/wiki/services/home-assistant-sunburn.md.
 
 template:
   - triggers:
@@ -43,13 +67,64 @@ template:
         response_variable: fc
       - variables:
           burn: >-
+            {#- damage %/minute for bare skin at UV index u -#}
             {%- macro rate(u, med) -%}
               {%- set x = [[(u - 1.0) / 2.0, 0] | max, 1] | min -%}
               {{- 120.0 * u * x * x * (3 - 2 * x) / med -}}
             {%- endmacro -%}
+            {#- effective SPF `hours` after application, decaying with sweat -#}
+            {%- macro spf_at(spf, hours, sw_start, sw_dur) -%}
+              {%- if spf <= 1 or sw_dur <= 0 or hours <= sw_start -%}{{- spf -}}
+              {%- elif hours >= sw_start + sw_dur -%}1
+              {%- else -%}{{- [spf * (1 - (hours - sw_start) / sw_dur), 1] | max -}}
+              {%- endif -%}
+            {%- endmacro -%}
+            {#- minutes of continuous exposure from t_start until 100% dose.
+                Returns '' if the dose never gets there before t_end. -#}
+            {%- macro burn_after(times, uvs, t_start, t_end, med, spf, sw_start, sw_dur) -%}
+              {%- set ns = namespace(dose=0.0, out='') -%}
+              {%- for i in range((times | count) - 1) -%}
+                {%- if ns.out == '' and times[i + 1] > t_start and times[i] < t_end -%}
+                  {%- set t0 = times[i] -%}
+                  {%- set t1 = times[i + 1] -%}
+                  {%- set s = [t0, t_start] | max -%}
+                  {%- set f = [t1, t_end] | min -%}
+                  {%- set span = t1 - t0 -%}
+                  {%- set mins = (f - s) / 60 -%}
+                  {%- if mins > 0 and span > 0 -%}
+                    {%- set u0 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((s - t0) / span) -%}
+                    {%- set u1 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((f - t0) / span) -%}
+                    {%- set p0 = spf_at(spf, (s - t_start) / 3600, sw_start, sw_dur) | float(1) -%}
+                    {%- set p1 = spf_at(spf, (f - t_start) / 3600, sw_start, sw_dur) | float(1) -%}
+                    {%- set r = 0.5 * ((rate(u0, med) | float(0)) / p0
+                                     + (rate(u1, med) | float(0)) / p1) -%}
+                    {%- if r > 0 and (ns.dose + r * mins) >= 100 -%}
+                      {%- set ns.out = ((s - t_start) / 60) + ((100 - ns.dose) / r) -%}
+                    {%- endif -%}
+                    {%- set ns.dose = ns.dose + r * mins -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {{- ns.out -}}
+            {%- endmacro -%}
+            {#- shortest bare-skin burn time over every start time left today -#}
+            {%- macro worst_burn(times, uvs, t_from, t_end, med) -%}
+              {%- set ns = namespace(best='') -%}
+              {%- for i in range(times | count) -%}
+                {%- if times[i] >= t_from and times[i] < t_end -%}
+                  {%- set r = burn_after(times, uvs, times[i], t_end, med, 1, 0, 0) | trim -%}
+                  {%- if r != '' and (ns.best == '' or (r | float) < ns.best) -%}
+                    {%- set ns.best = r | float -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {{- ns.best -}}
+            {%- endmacro -%}
             {%- macro pretty(m) -%}
               {%- if m is none -%}won't burn
-              {%- elif m >= 120 -%}{{ (m / 60) | round(1) }} h
+              {%- elif m >= 120 -%}
+                {%- set h = ((m / 30) | round | int) / 2 -%}
+                {%- if h == h | int -%}{{ h | int }} h{%- else -%}{{ h }} h{%- endif -%}
               {%- elif m >= 15 -%}{{ ((m / 5) | round | int) * 5 }} min
               {%- else -%}{{ m | round | int }} min
               {%- endif -%}
@@ -67,16 +142,25 @@ template:
               {%- set times = [t_now] + (fh | map(attribute='datetime')
                                             | map('as_datetime')
                                             | map('as_timestamp') | list) -%}
-              {%- set uvs = [fh[0].uv_index | float(0)] + (fh | map(attribute='uv_index')
-                                                             | map('float', 0) | list) -%}
-              {%- set ns = namespace(dose=0.0, burn=none, peak=0.0, peak_at='', tmr=0.0) -%}
-              {#- highest UV still to come today, and tomorrow's peak for the evening card -#}
+              {#- met.no only publishes ultraviolet_index_clear_sky, so knock it
+                  down for cloud ourselves: CMF = 1 - 0.7 * C^3. Broken cloud
+                  barely dents UV (it can even scatter more your way), full
+                  overcast leaves about a third. -#}
+              {%- set cl = namespace(uv=[]) -%}
               {%- for e in fh -%}
-                {%- set dt = e.datetime | as_datetime | as_local -%}
-                {%- set u = e.uv_index | float(0) -%}
+                {%- set c = (e.cloud_coverage | default(0, true) | float(0)) / 100 -%}
+                {%- set cl.uv = cl.uv + [(e.uv_index | float(0)) * (1 - 0.7 * c * c * c)] -%}
+              {%- endfor -%}
+              {%- set uvs = [cl.uv[0]] + cl.uv -%}
+              {%- set ns = namespace(peak=0.0, peak_clear=0.0, peak_at='', tmr=0.0) -%}
+              {#- highest UV still to come today, and tomorrow's peak for the evening card -#}
+              {%- for i in range(fh | count) -%}
+                {%- set dt = fh[i].datetime | as_datetime | as_local -%}
+                {%- set u = cl.uv[i] -%}
                 {%- if dt.date() == d_today -%}
                   {%- if u > ns.peak -%}
                     {%- set ns.peak = u -%}
+                    {%- set ns.peak_clear = fh[i].uv_index | float(0) -%}
                     {%- set h12 = 12 if dt.hour % 12 == 0 else dt.hour % 12 -%}
                     {%- set ns.peak_at = h12 ~ ('am' if dt.hour < 12 else 'pm') -%}
                   {%- endif -%}
@@ -84,37 +168,27 @@ template:
                   {%- set ns.tmr = u -%}
                 {%- endif -%}
               {%- endfor -%}
-              {#- integrate the dose forward from now to midnight -#}
-              {%- for i in range((times | count) - 1) -%}
-                {%- if ns.burn is none and times[i + 1] > t_now and times[i] < t_end -%}
-                  {%- set t0 = times[i] -%}
-                  {%- set t1 = times[i + 1] -%}
-                  {%- set s = [t0, t_now] | max -%}
-                  {%- set f = [t1, t_end] | min -%}
-                  {%- set span = t1 - t0 -%}
-                  {%- set mins = (f - s) / 60 -%}
-                  {%- if mins > 0 and span > 0 -%}
-                    {%- set u0 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((s - t0) / span) -%}
-                    {%- set u1 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((f - t0) / span) -%}
-                    {%- set r = 0.5 * ((rate(u0, med) | float(0)) + (rate(u1, med) | float(0))) -%}
-                    {%- if r > 0 and (ns.dose + r * mins) >= 100 -%}
-                      {%- set ns.burn = ((s - t_now) / 60) + ((100 - ns.dose) / r) -%}
-                    {%- endif -%}
-                    {%- set ns.dose = ns.dose + r * mins -%}
-                  {%- endif -%}
-                {%- endif -%}
-              {%- endfor -%}
-              {%- set pr = rate(ns.peak, med) | float(0) -%}
-              {%- set peak_burn = (100 / pr) if pr > 0 else none -%}
+              {#- three integrated answers: bare skin from now, bare skin at the
+                  worst start time left today, and one real coat of SPF 50 -#}
+              {%- set spf_eff = 50 ** 0.5 -%}
+              {%- set r_now = burn_after(times, uvs, t_now, t_end, med, 1, 0, 0) | trim -%}
+              {%- set r_worst = worst_burn(times, uvs, t_now, t_end, med) | trim -%}
+              {%- set r_spf = burn_after(times, uvs, t_now, t_end, med, spf_eff, 1, 6) | trim -%}
+              {%- set b_now = none if r_now == '' else r_now | float -%}
+              {%- set b_worst = none if r_worst == '' else r_worst | float -%}
+              {%- set b_spf = none if r_spf == '' else r_spf | float -%}
               {{ {
                    'ok': true,
                    'uv_now': uvs[0] | round(1),
                    'peak': ns.peak | round(1),
+                   'peak_clear': ns.peak_clear | round(1),
                    'peak_at': ns.peak_at,
-                   'peak_burn_min': (peak_burn | round | int) if peak_burn is not none else none,
-                   'peak_burn_text': pretty(peak_burn) | string | trim,
-                   'burn_min': (ns.burn | round | int) if ns.burn is not none else none,
-                   'burn_text': pretty(ns.burn) | string | trim,
+                   'burn_min': (b_now | round | int) if b_now is not none else none,
+                   'burn_text': pretty(b_now) | string | trim,
+                   'worst_min': (b_worst | round | int) if b_worst is not none else none,
+                   'worst_text': pretty(b_worst) | string | trim,
+                   'spf50_min': (b_spf | round | int) if b_spf is not none else none,
+                   'spf50_text': pretty(b_spf) | string | trim,
                    'tomorrow_peak': ns.tmr | round(1),
                    'med': med,
                  } }}
@@ -125,14 +199,14 @@ template:
         unique_id: sunburn_advice
         availability: "{{ burn is mapping and burn.ok }}"
         state: >-
-          {%- if burn.peak < 1 or burn.peak_burn_min >= 60 -%}No sunscreen needed
-          {%- elif burn.peak_burn_min >= 30 -%}Only for a long stint
+          {%- if burn.worst_min is none or burn.worst_min >= 60 -%}No sunscreen needed
+          {%- elif burn.worst_min >= 30 -%}Only for a long stint
           {%- else -%}Lather up
           {%- endif -%}
         icon: >-
           {%- if burn.peak < 1 and is_state('sun.sun', 'below_horizon') -%}mdi:weather-night
-          {%- elif burn.peak < 1 or burn.peak_burn_min >= 60 -%}mdi:weather-sunny
-          {%- elif burn.peak_burn_min >= 30 -%}mdi:sunglasses
+          {%- elif burn.worst_min is none or burn.worst_min >= 60 -%}mdi:weather-sunny
+          {%- elif burn.worst_min >= 30 -%}mdi:sunglasses
           {%- else -%}mdi:lotion-plus
           {%- endif -%}
         attributes:
@@ -145,26 +219,29 @@ template:
               {%- endif -%}
               {%- if burn.tomorrow_peak >= 1 %} Tomorrow peaks at {{ burn.tomorrow_peak }}.{% endif -%}
             {%- else -%}
+              {%- set peaks = "UV peaks at " ~ burn.peak ~ " around " ~ burn.peak_at
+                              ~ (" (cloud cutting it back from " ~ burn.peak_clear ~ ")"
+                                 if burn.peak_clear > burn.peak * 1.1 else "") -%}
               {%- if burn.burn_min is none -%}
-                {%- set now_clause = "You won't burn today from here." -%}
+                {{ peaks }}. Bare skin won't burn today.
               {%- else -%}
-                {%- set now_clause = "Straight out the door now, you'd have about "
-                                     ~ burn.burn_text ~ " before you'd redden." -%}
+                {{ peaks }}. Bare skin has about {{ burn.burn_text }} from now{% if burn.worst_min is not none and burn.worst_min < burn.burn_min and burn.worst_text != burn.burn_text %}, {{ burn.worst_text }} at worst today{% endif %}.
               {%- endif -%}
-              {%- if burn.peak_burn_min >= 60 -%}
-                {%- set tail = "No need for sunscreen." -%}
-              {%- elif burn.peak_burn_min >= 30 -%}
-                {%- set tail = "Fine for a quick trip; lather up if you'll be out longer." -%}
-              {%- else -%}
-                {%- set tail = "Lather up — and a hat." -%}
-              {%- endif -%}
-              UV peaks at {{ burn.peak }} around {{ burn.peak_at }}, when bare skin would burn in about {{ burn.peak_burn_text }}. {{ now_clause }} {{ tail }}
+            {%- endif -%}
+          spf_note: >-
+            {%- if burn.peak < 1 -%}
+              Nothing to protect against.
+            {%- elif burn.spf50_min is none -%}
+              One coat of SPF 50 sees you through the rest of the day.
+            {%- else -%}
+              SPF 50, one realistic coat and no top-ups: about {{ burn.spf50_text }}. Reapply before then and it's a non-issue.
             {%- endif -%}
           uv_now: "{{ burn.uv_now }}"
           peak_uv: "{{ burn.peak }}"
           peak_at: "{{ burn.peak_at }}"
           burn_minutes: "{{ burn.burn_min }}"
-          peak_burn_minutes: "{{ burn.peak_burn_min }}"
+          worst_burn_minutes: "{{ burn.worst_min }}"
+          spf50_minutes: "{{ burn.spf50_min }}"
           tomorrow_peak_uv: "{{ burn.tomorrow_peak }}"
           skin_type: "Fitzpatrick II (MED {{ burn.med }} J/m²)"
 
@@ -189,3 +266,9 @@ template:
         availability: "{{ burn is mapping and burn.ok }}"
         state: "{{ burn.burn_text }}"
         icon: mdi:timer-sand
+
+      - name: "Time to Sunburn SPF 50"
+        unique_id: sunburn_time_to_burn_spf50
+        availability: "{{ burn is mapping and burn.ok }}"
+        state: "{{ burn.spf50_text }}"
+        icon: mdi:lotion-outline
