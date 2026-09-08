@@ -175,6 +175,30 @@ in {
     authorizedKeys = fleetKeys;
   };
 
+  # GPU image-generation appliance, VM 123 on prom. A VM, not an LXC, because
+  # the GTX 1080 is bound to vfio-pci for passthrough — and because Proxmox then
+  # refuses to start it while an apollo-* gaming VM holds the same PCI device,
+  # which is the mutual exclusion we want. Off by default (onboot 0), LAN-only.
+  # Rationale: hosts/imagegen-gpu/configuration.nix, findings:
+  # docs/wiki/services/imagegen-gpu.md.
+  # Consumes no sops secrets: privateFlakeAuth + atuinCredentials are both off,
+  # so there is deliberately no secrets/hosts/imagegen-gpu/ directory.
+  imagegen-gpu = {
+    configurationFile = ./hosts/imagegen-gpu/configuration.nix;
+    homeFile = ./hosts/imagegen-gpu/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "imagegen-gpu";
+    localIp = "192.168.1.45";
+    sshHostName = "192.168.1.45";
+    sshAlias = "imagegen-gpu";
+    privateFlakeAuth = false;
+    atuinCredentials = false;
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO32AQ2bg3vePEdkbP5Nfhc1ROZyhaTx6b/cKALJOSYJ root@imagegen-gpu";
+    authorizedKeys = fleetKeys;
+  };
+
   framework = {
     configurationFile = ./hosts/framework/configuration.nix;
     homeFile = ./hosts/framework/home.nix;
