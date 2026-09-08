@@ -177,13 +177,30 @@
         case "$line" in
           "" | \#*) continue ;;
         esac
+
+        # Split on the first "::" if present. Tolerant of missing spaces, so
+        # "in/x.jpg ::make it grey" works the same as "in/x.jpg :: make it grey".
+        case "$line" in
+          *"::"*)
+            jobInput=$(printf '%s' "''${line%%::*}" | sed 's/[[:space:]]*$//')
+            jobPrompt=$(printf '%s' "''${line#*::}" | sed 's/^[[:space:]]*//')
+            ;;
+          *)
+            jobInput=""
+            jobPrompt="$line"
+            ;;
+        esac
+
+        # An unfilled template line ("in/photo1.jpg ::") is not a job yet. Skip
+        # it AND leave it in the queue, so the watcher does not quietly eat the
+        # template two minutes after it is written, before it can be filled in.
+        if [ -z "''${jobPrompt//[[:space:]]/}" ]; then
+          continue
+        fi
+
         n=$((n + 1))
         spec=$(printf '%s/job-%04d' "$tmp" "$n")
-        if printf '%s' "$line" | grep -q ' :: '; then
-          printf '%s\n%s\n' "''${line%% :: *}" "''${line#* :: }" > "$spec"
-        else
-          printf '\n%s\n' "$line" > "$spec"
-        fi
+        printf '%s\n%s\n' "$jobInput" "$jobPrompt" > "$spec"
       done < "$PENDING"
 
       if [ "$n" -eq 0 ]; then
@@ -195,9 +212,10 @@
       # record of what was asked for rather than losing it.
       mkdir -p "$ARCHIVE"
       cp "$PENDING" "$ARCHIVE/$(date +%F-%H%M%S).txt"
-      # Consume the jobs but keep the comment header, so the file on the share
-      # stays self-documenting instead of emptying itself after the first run.
-      grep '^#' "$PENDING" > "$PENDING.tmp" 2>/dev/null || true
+      # Consume only the filled-in jobs. Keep the comment header (so the file
+      # stays self-documenting) and any still-blank template lines (so they are
+      # there to fill in next time).
+      grep -E '^#|::[[:space:]]*$' "$PENDING" > "$PENDING.tmp" 2>/dev/null || true
       mv "$PENDING.tmp" "$PENDING"
 
       echo "imagegen: $n job(s), $PARALLEL at a time, $THREADS threads each"
@@ -371,6 +389,24 @@ in {
         units;
     }
   ];
+
+  # Watch the queue so the share IS the interface: drop a photo in in/, add a
+  # line to queue.txt from any machine, and it starts on its own. No ssh.
+  #
+  # Polling, not a systemd .path unit: queue.txt lives on the tower NFS mount
+  # and is edited from *other* NFS clients, so inotify here would never fire.
+  # Two minutes is nothing against a ~20 minute job, and a poll that finds an
+  # empty queue exits in milliseconds.
+  systemd.timers.imagegen-watch = {
+    description = "Poll the imagegen queue for new jobs";
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnBootSec = "1min";
+      OnUnitActiveSec = "2min";
+      AccuracySec = "30s";
+      Unit = "imagegen-batch.service";
+    };
+  };
 
   # stable-diffusion.cpp is the CLI half and the reason this host exists: ggml
   # with GGUF k-quants, which on CPU is far faster and far leaner than torch
