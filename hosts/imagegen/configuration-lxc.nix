@@ -48,10 +48,21 @@
     name = "imagegen-batch";
     runtimeInputs = with pkgs; [stable-diffusion-cpp coreutils findutils gnused gnugrep util-linux];
     text = ''
-      QUEUE=/var/lib/imagegen/queue
-      PENDING="$QUEUE/pending.txt"
       MODELS=/var/lib/imagegen/models
       OUT=/mnt/out
+
+      # The job queue lives on the tower share, NOT inside the container, so
+      # jobs can be added from any machine on the LAN while this box is switched
+      # off — which is its normal state. Starting the container drains whatever
+      # is sitting there.
+      PENDING="$OUT/queue.txt"
+      ARCHIVE="$OUT/queue-done"
+
+      # Settings deliberately stay INSIDE the container. The queue is parsed as
+      # data, but settings.env is *sourced* — anything that can write it gets
+      # arbitrary shell execution here, so it must not live on a share that
+      # every LAN client can write.
+      QUEUE=/var/lib/imagegen/queue
 
       STEPS=8
       WIDTH=1024
@@ -173,9 +184,12 @@
 
       # Archive the queue before draining it, so a crash mid-run leaves a
       # record of what was asked for rather than losing it.
-      mkdir -p "$QUEUE/done"
-      cp "$PENDING" "$QUEUE/done/$(date +%F-%H%M%S).txt"
-      : > "$PENDING"
+      mkdir -p "$ARCHIVE"
+      cp "$PENDING" "$ARCHIVE/$(date +%F-%H%M%S).txt"
+      # Consume the jobs but keep the comment header, so the file on the share
+      # stays self-documenting instead of emptying itself after the first run.
+      grep '^#' "$PENDING" > "$PENDING.tmp" 2>/dev/null || true
+      mv "$PENDING.tmp" "$PENDING"
 
       echo "imagegen: $n job(s), $PARALLEL at a time, $THREADS threads each"
       find "$tmp" -name 'job-*' -print0 \
@@ -306,6 +320,38 @@ in {
       ExecStart = "${imagegenBatch}/bin/imagegen-batch";
     };
   };
+
+  # Narrow, host-local exception to the locked-role default (passworded sudo).
+  # abl030 may start and stop exactly the two image-generation units and nothing
+  # else — these are literal command matches, so no shell, no wildcards, and no
+  # general `systemctl`.
+  #
+  # Blast radius: the ability to start or stop image generation on a host that
+  # holds no secrets, has no tailnet membership, and exposes nothing beyond the
+  # LAN. It cannot edit units (that needs a fleet deploy) or touch any other
+  # service. Rollback: delete this block and redeploy.
+  #
+  # Why it earns its keep: without it every run needs a root command on prom,
+  # which makes the ordinary workflow require hypervisor access.
+  security.sudo.extraRules = lib.mkAfter [
+    {
+      users = ["abl030"];
+      commands = let
+        systemctl = "/run/current-system/sw/bin/systemctl";
+        verbs = ["start" "stop" "restart" "status"];
+        units = ["imagegen-batch" "comfyui"];
+      in
+        lib.concatMap (
+          unit:
+            map (verb: {
+              command = "${systemctl} ${verb} ${unit}";
+              options = ["NOPASSWD"];
+            })
+            verbs
+        )
+        units;
+    }
+  ];
 
   # stable-diffusion.cpp is the CLI half and the reason this host exists: ggml
   # with GGUF k-quants, which on CPU is far faster and far leaner than torch
