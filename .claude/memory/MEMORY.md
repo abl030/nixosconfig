@@ -7,8 +7,8 @@
 - Every deployed commit must be SSH-signed by a key trusted in `hosts.nix`: [signed deploys](../../docs/wiki/infrastructure/signed-fleet-deploys.md).
 - Always finish work live — never hand back a stranded branch: [always deploy](feedback-always-deploy-to-done.md); `fleet-deploy <host>` from doc1, `sudo fleet-update` on doc1: [runbook](../../docs/wiki/infrastructure/fleet-deploy-and-sibling-lockdown.md).
 - doc2 and servarr deliberately override the locked role with full passwordless sudo; igpu and wsl remain narrowly locked: [servarr exception](servarr-nfs-static-and-sudo.md).
-- Never run `npm install` inside a Nix-managed Claude or Codex installation.
-- Never flush pfSense firewall states after a rule change: [pfSense safety](feedback_pfsense_no_state_flush.md).
+- Never run `npm install` in a Nix-managed Claude/Codex install; never flush pfSense states after a rule change: [pfSense safety](feedback_pfsense_no_state_flush.md).
+- prom's image-gen hosts are mutually exclusive and a cgroup cap only protects the host if set *below* real headroom: [imagegen exclusivity](imagegen-exclusive-cpu-gpu.md).
 - Never pin container images or add a `:latest` CI gate (sole carve-out: UniFi's MongoDB, #142): [image policy](feedback-no-image-pinning.md).
 - SOPS secrets are host-scoped plus editor and break-glass recipients; re-key from inside `secrets/`: [recipient model](sops-recipient-model.md).
 - Hermes' brain (memories, SOUL, authored skills) backs up to private `abl030/hermes-brain`; `~/.hermes` denies git by default: [brain backup](hermes-brain-backup.md).
