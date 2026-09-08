@@ -84,6 +84,17 @@ if ($Uninstall) {
         Remove-Item $InstalledScript -Force
         Write-Output "Removed $InstalledScript"
     }
+    # PowerShell has already read this file into memory, so removing the
+    # installed copy of the installer while it runs is safe. Tolerate failure -
+    # it must never block the rest of the teardown.
+    $selfCopy = Join-Path $InstallDir 'Install-BdDayWallpaper.ps1'
+    if (Test-Path $selfCopy) {
+        try { Remove-Item $selfCopy -Force; Write-Output "Removed $selfCopy" }
+        catch { Write-Warning "Could not remove $selfCopy : $($_.Exception.Message)" }
+    }
+    if ((Test-Path $InstallDir) -and -not (Get-ChildItem $InstallDir -Force)) {
+        try { Remove-Item $InstallDir -Force; Write-Output "Removed empty $InstallDir" } catch { }
+    }
     Write-Output 'Done. State and log left under %LOCALAPPDATA%\bdday-wallpaper.'
     exit 0
 }
@@ -100,6 +111,15 @@ if (-not (Test-Path $InstallDir)) {
 }
 Copy-Item -Path $SourceScript -Destination $InstalledScript -Force
 Write-Output "Installed $InstalledScript"
+
+# Install a copy of THIS script beside the payload, so removal is self-contained
+# on the machine and does not require fetching the repo again. Without this,
+# the documented "-Uninstall" has nothing to run.
+$InstalledInstaller = Join-Path $InstallDir 'Install-BdDayWallpaper.ps1'
+if ($PSCommandPath -and ($PSCommandPath -ne $InstalledInstaller)) {
+    Copy-Item -Path $PSCommandPath -Destination $InstalledInstaller -Force
+    Write-Output "Installed $InstalledInstaller"
+}
 
 $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>

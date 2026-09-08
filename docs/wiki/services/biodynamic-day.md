@@ -114,6 +114,15 @@ to that long. Ingresses are 2-3 days apart, so this is deliberate.
 The work laptop (`laptop-btibh4ie`, the Windows host that also carries the WSL
 VM) renders the same data as its desktop wallpaper.
 
+**Where the day comes from:** the API, on every single run — the script holds no
+ephemeris and no cached calendar. Each run fetches
+`https://bd.ablz.au/v1/day/<today>?at=<now>` and reads
+`ingress.next.from_day_type`, exactly like the Home Assistant sensors above. If
+`bdday` is unreachable the script logs the failure, exits non-zero, and leaves
+the existing wallpaper untouched. From the Cullen network this resolves through
+the split-DNS path; from home or over the tailnet it resolves straight to doc1
+(`192.168.1.29`). Both were observed working.
+
 - Payload: [`tools/windows/Set-BdDayWallpaper.ps1`](../../../tools/windows/Set-BdDayWallpaper.ps1)
 - Installer: [`tools/windows/Install-BdDayWallpaper.ps1`](../../../tools/windows/Install-BdDayWallpaper.ps1)
 - Installed to `C:\Users\abl030\bdday-wallpaper\`, state under
@@ -158,25 +167,80 @@ right session is the log line recording `[1920x1080]` rather than `[1024x768]`.
   This is also why the wallpaper carries an absolute changeover time and no
   live countdown.
 
-### Operating it
+### Removing it
+
+**One command, from doc1, no repo checkout needed.** The installer keeps a copy
+of itself next to the payload precisely so that removal is self-contained:
+
+```bash
+ssh wsl-laptop
+powershell -ExecutionPolicy Bypass -File C:\Users\abl030\bdday-wallpaper\Install-BdDayWallpaper.ps1 -Uninstall
+```
+
+That restores the original wallpaper, unregisters both scheduled tasks, deletes
+both scripts, and removes `C:\Users\abl030\bdday-wallpaper\`. It deliberately
+leaves `%LOCALAPPDATA%\bdday-wallpaper\` (the log, the recorded original, the
+last rendered PNG) so a removal can still be audited afterwards; delete that
+directory too for a completely clean slate.
+
+Verified end-to-end on 2026-09-08 — uninstalled and reinstalled on the live
+laptop. Expected output:
+
+```
+Restoring the original wallpaper in the interactive session...
+Restore task result = 0 (0 = success)
+Unregistered scheduled task 'BdDay-Wallpaper'.
+Unregistered scheduled task 'BdDay-Wallpaper-Restore'.
+Removed C:\Users\abl030\bdday-wallpaper\Set-BdDayWallpaper.ps1
+Removed C:\Users\abl030\bdday-wallpaper\Install-BdDayWallpaper.ps1
+Removed empty C:\Users\abl030\bdday-wallpaper
+```
+
+Rollback works *remotely* only because the installer also registers a
+triggerless on-demand `BdDay-Wallpaper-Restore` task. Starting that task runs
+the restore inside the interactive session; calling the script with `-Restore`
+directly over SSH would update the registry but never repaint the live desktop.
+
+The pre-existing wallpaper (`Dynabook_Option6.png`, style 10) is recorded once
+in `original-wallpaper.txt` and never re-captured, so reinstall/uninstall cycles
+cannot cause it to "remember" one of our own images as the original.
+
+#### If the installer is missing
+
+Everything above is just three primitives, so removal never depends on any file
+being present:
+
+```powershell
+Start-ScheduledTask -TaskName BdDay-Wallpaper-Restore   # repaint the original
+Unregister-ScheduledTask -TaskName BdDay-Wallpaper -Confirm:$false
+Unregister-ScheduledTask -TaskName BdDay-Wallpaper-Restore -Confirm:$false
+Remove-Item C:\Users\abl030\bdday-wallpaper -Recurse -Force
+```
+
+If even the restore task is gone, set any wallpaper by hand — the original path
+is the first line of
+`%LOCALAPPDATA%\bdday-wallpaper\original-wallpaper.txt` (`path|style`).
+
+### Pausing instead of removing
+
+```powershell
+Disable-ScheduledTask -TaskName BdDay-Wallpaper    # freeze on the current image
+Enable-ScheduledTask  -TaskName BdDay-Wallpaper
+```
+
+### Other operations
 
 ```powershell
 # preview any day type without touching the desktop (safe over SSH)
-powershell -File .\Set-BdDayWallpaper.ps1 -RenderOnly C:\Temp\x.png -PreviewType Flower
+powershell -File C:\Users\abl030\bdday-wallpaper\Set-BdDayWallpaper.ps1 `
+  -RenderOnly C:\Temp\x.png -PreviewType Flower
 
 # force a redraw now
 Start-ScheduledTask -TaskName BdDay-Wallpaper
 
-# roll back: restores the wallpaper recorded before first use, then removes
-# both tasks and the installed script
-powershell -File .\Install-BdDayWallpaper.ps1 -Uninstall
+# what has it been doing?
+Get-Content "$env:LOCALAPPDATA\bdday-wallpaper\bdday-wallpaper.log" -Tail 20
 ```
-
-Rollback works remotely because the installer also registers a triggerless
-on-demand `BdDay-Wallpaper-Restore` task; starting *that* runs the restore in
-the interactive session, which a direct `-Restore` call over SSH could not do.
-The pre-existing wallpaper (`Dynabook_Option6.png`, style 10) is recorded once
-in `original-wallpaper.txt` and never re-captured.
 
 ## Quick checks
 

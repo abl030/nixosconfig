@@ -18,6 +18,16 @@
     Runs entirely as the ordinary user. It needs no elevation: it writes only
     under %LOCALAPPDATA% and HKCU.
 
+    TO REMOVE ALL OF THIS, run the installer sitting next to this file:
+        powershell -ExecutionPolicy Bypass `
+          -File C:\Users\abl030\bdday-wallpaper\Install-BdDayWallpaper.ps1 -Uninstall
+    It restores the original wallpaper, unregisters both scheduled tasks
+    (BdDay-Wallpaper and BdDay-Wallpaper-Restore) and deletes these scripts.
+    To pause instead: Disable-ScheduledTask -TaskName BdDay-Wallpaper.
+    Full notes: docs/wiki/services/biodynamic-day.md in the nixosconfig repo.
+
+    The day type is NOT computed here - it comes from the API on every run.
+
     API semantics (see docs/wiki/services/biodynamic-day.md): the top-level
     `day_type` is a WHOLE-DAY descriptor and reads e.g. "Fruit/Leaf" on a
     transition day, so it is not the current type. `ingress.next` is the
