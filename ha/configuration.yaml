@@ -18,6 +18,7 @@ homeassistant:
     bedtime: !include bedtime.yaml
     savings_and_roi: !include savings_and_roi.yaml
     water_meter: !include water_meter.yaml
+    sunburn: !include sunburn.yaml
     biodynamic_day: !include biodynamic_day.yaml
 
 automation: !include automations.yaml

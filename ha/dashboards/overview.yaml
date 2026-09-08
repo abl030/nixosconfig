@@ -1,5 +1,5 @@
 # Overview Dashboard
-# url_path: default
+# url_path: lovelace
 # title: Overview
 
 views:
@@ -19,6 +19,32 @@ views:
     entity: sensor.garage_door_tilt_battery
     name: Garage Door Battery
     icon: mdi:battery
+  - type: horizontal-stack
+    cards:
+    - type: tile
+      entity: sensor.living_room_temperature
+      name: Living Room Temperature
+      icon: mdi:thermometer
+    - type: tile
+      entity: sensor.imarga43_temperature
+      name: Outside Temperature
+      icon: mdi:thermometer-lines
+  - type: markdown
+    content: '## ☀️ {{ states(''sensor.sunscreen'') }}
+
+
+      {{ state_attr(''sensor.sunscreen'', ''headline'') }}'
+  - type: horizontal-stack
+    cards:
+    - type: tile
+      entity: sensor.uv_index
+      name: UV now
+    - type: tile
+      entity: sensor.peak_uv_today
+      name: Peak today
+    - type: tile
+      entity: sensor.time_to_sunburn
+      name: Burn time
   - type: tile
     entity: climate.living_room_aircon
     name: Living Room Aircon
@@ -30,7 +56,7 @@ views:
       - heat
       - fan_only
       - dry
-      - "off"
+      - 'off'
     - type: target-temperature
   - type: tile
     entity: media_player.kitchen
@@ -39,7 +65,7 @@ views:
     features:
     - type: media-player-playback
     - type: media-player-volume-slider
-  - type: "custom:rtrfm-now-playing-card"
+  - type: custom:rtrfm-now-playing-card
     url: https://rtrfm.ablz.au/now-playing
     refresh_seconds: 90
   - type: button

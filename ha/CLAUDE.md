@@ -86,6 +86,7 @@ YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files i
 | `ha/scenes.yaml` | `/config/scenes.yaml` | `scene: !include` (currently empty) |
 | `ha/oral_b_package.yaml` | `/config/oral_b_package.yaml` | package |
 | `ha/bedtime.yaml` | `/config/bedtime.yaml` | package — defines `sensor.{andy,meg}_bedtime_hour_daily` |
+| `ha/sunburn.yaml` | `/config/sunburn.yaml` | package — "do we need sunscreen today"; see `docs/wiki/services/home-assistant-sunburn.md` |
 | `ha/energy/solar_analytics.yaml` | `/config/solar_analytics.yaml` | package |
 | `ha/energy/energy_tariffs.yaml` | `/config/energy_tariffs.yaml` | package |
 | `ha/energy/energy_tarrif_2.yaml` | `/config/energy_tarrif_2.yaml` | package |
@@ -191,7 +192,7 @@ Live audio fingerprinting service for RTRFM 92.1. Runs on doc2.
 - **Track history queries**: Read the wiki entry for API endpoints (`/tracklist?date=...&show=...`)
 
 ## System Overview
-- HA Core 2026.8.2 on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
+- HA Core 2026.9.1 (verified live 2026-09-08) on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
 - Location: <TOWN> WA (AWST UTC+8), metric units, AUD
 - 1115 entities, 29 domains, 276 services, 210 loaded components, 6 areas (Bathroom, Bedroom, Cullen Wines, Garage, Kitchen, Living Room)
 - 33 config entries / 28 integrations. Not loaded: `zha`, `smlight` (Zigbee runs through Zigbee2MQTT on tower, not ZHA); `proxmoxve` in `setup_retry`.

@@ -89,7 +89,8 @@ ssh abl030@192.168.1.20 'sudo ha core check'
 | Automations | `reload_all` |
 | **Statistics platform sensors** | **Full restart required** — `ha_call_service(homeassistant.restart)`. `reload_all` does NOT register new statistics platform entities. |
 | Dashboard YAML | No restart — `ha_config_set_dashboard(url_path, config)` via MCP (dashboards live in `.storage/`, not in `/config/*.yaml`). |
-| New domains / new package files | Full restart |
+| New domains | Full restart |
+| New package file, domains already loaded | `reload_all` is enough — verified 2026-09-08 with `sunburn.yaml` (four `template:` sensors registered, no restart). Verify the entities exist afterwards and restart only if they don't. See [home-assistant-sunburn.md](home-assistant-sunburn.md). |
 
 ### Drift check (any time)
 

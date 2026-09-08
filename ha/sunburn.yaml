@@ -1,0 +1,191 @@
+# Sunburn / sunscreen advisory
+#
+# Answers one question on the Overview dashboard: "if we go out in the sun
+# today, do we need to lather up?"
+#
+# Model (after github.com/jondcallahan/sunburntimer, reimplemented in Jinja —
+# no code taken, just the physics):
+#   * UV index -> erythemal dose. Damage accrues at  120 * UVI / MED  % per
+#     minute, where MED (Minimal Erythemal Dose, J/m^2) is the dose that just
+#     reddens skin. 100% = sunburn.
+#   * MED by Fitzpatrick skin type:
+#       I   200   always burns, never tans
+#       II  250   usually burns, tans with difficulty   <-- our default
+#       III 350   sometimes mild burns, tans to olive
+#       IV  450   rarely burns, tans easily
+#       V   600   very rarely burns
+#       VI 1000   never burns
+#     To retune for a different household, change `med` below. That is the
+#     only knob.
+#   * Low-UV smoothstep: UV below 1 does nothing, ramping to full weight at
+#     UV 3. Without this, dawn and dusk fake up a burn that never happens.
+#   * Trapezoid integration across the hourly forecast, so a rising or falling
+#     UV curve is handled honestly rather than assuming UV is flat.
+#
+# Data source is met.no via the built-in `weather.forecast_home` entity, whose
+# hourly forecast already carries `uv_index` (cloud-adjusted). No external API,
+# no API key. See docs/wiki/services/home-assistant-sunburn.md.
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+      - trigger: time_pattern
+        minutes: "/15"
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home
+        data:
+          type: hourly
+        response_variable: fc
+      - variables:
+          burn: >-
+            {%- macro rate(u, med) -%}
+              {%- set x = [[(u - 1.0) / 2.0, 0] | max, 1] | min -%}
+              {{- 120.0 * u * x * x * (3 - 2 * x) / med -}}
+            {%- endmacro -%}
+            {%- macro pretty(m) -%}
+              {%- if m is none -%}won't burn
+              {%- elif m >= 120 -%}{{ (m / 60) | round(1) }} h
+              {%- elif m >= 15 -%}{{ ((m / 5) | round | int) * 5 }} min
+              {%- else -%}{{ m | round | int }} min
+              {%- endif -%}
+            {%- endmacro -%}
+            {%- set med = 250 -%}
+            {%- set fh = (fc['weather.forecast_home'].forecast | default([], true))
+                         | selectattr('uv_index', 'defined') | list -%}
+            {%- if fh | count < 2 -%}
+              {{ {'ok': false} }}
+            {%- else -%}
+              {%- set t_now = now().timestamp() -%}
+              {%- set t_end = now().replace(hour=0, minute=0, second=0,
+                                            microsecond=0).timestamp() + 86400 -%}
+              {%- set d_today = now().date() -%}
+              {%- set times = [t_now] + (fh | map(attribute='datetime')
+                                            | map('as_datetime')
+                                            | map('as_timestamp') | list) -%}
+              {%- set uvs = [fh[0].uv_index | float(0)] + (fh | map(attribute='uv_index')
+                                                             | map('float', 0) | list) -%}
+              {%- set ns = namespace(dose=0.0, burn=none, peak=0.0, peak_at='', tmr=0.0) -%}
+              {#- highest UV still to come today, and tomorrow's peak for the evening card -#}
+              {%- for e in fh -%}
+                {%- set dt = e.datetime | as_datetime | as_local -%}
+                {%- set u = e.uv_index | float(0) -%}
+                {%- if dt.date() == d_today -%}
+                  {%- if u > ns.peak -%}
+                    {%- set ns.peak = u -%}
+                    {%- set h12 = 12 if dt.hour % 12 == 0 else dt.hour % 12 -%}
+                    {%- set ns.peak_at = h12 ~ ('am' if dt.hour < 12 else 'pm') -%}
+                  {%- endif -%}
+                {%- elif (dt.date() - d_today).days == 1 and u > ns.tmr -%}
+                  {%- set ns.tmr = u -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {#- integrate the dose forward from now to midnight -#}
+              {%- for i in range((times | count) - 1) -%}
+                {%- if ns.burn is none and times[i + 1] > t_now and times[i] < t_end -%}
+                  {%- set t0 = times[i] -%}
+                  {%- set t1 = times[i + 1] -%}
+                  {%- set s = [t0, t_now] | max -%}
+                  {%- set f = [t1, t_end] | min -%}
+                  {%- set span = t1 - t0 -%}
+                  {%- set mins = (f - s) / 60 -%}
+                  {%- if mins > 0 and span > 0 -%}
+                    {%- set u0 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((s - t0) / span) -%}
+                    {%- set u1 = uvs[i] + (uvs[i + 1] - uvs[i]) * ((f - t0) / span) -%}
+                    {%- set r = 0.5 * ((rate(u0, med) | float(0)) + (rate(u1, med) | float(0))) -%}
+                    {%- if r > 0 and (ns.dose + r * mins) >= 100 -%}
+                      {%- set ns.burn = ((s - t_now) / 60) + ((100 - ns.dose) / r) -%}
+                    {%- endif -%}
+                    {%- set ns.dose = ns.dose + r * mins -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- set pr = rate(ns.peak, med) | float(0) -%}
+              {%- set peak_burn = (100 / pr) if pr > 0 else none -%}
+              {{ {
+                   'ok': true,
+                   'uv_now': uvs[0] | round(1),
+                   'peak': ns.peak | round(1),
+                   'peak_at': ns.peak_at,
+                   'peak_burn_min': (peak_burn | round | int) if peak_burn is not none else none,
+                   'peak_burn_text': pretty(peak_burn) | string | trim,
+                   'burn_min': (ns.burn | round | int) if ns.burn is not none else none,
+                   'burn_text': pretty(ns.burn) | string | trim,
+                   'tomorrow_peak': ns.tmr | round(1),
+                   'med': med,
+                 } }}
+            {%- endif -%}
+
+    sensor:
+      - name: "Sunscreen"
+        unique_id: sunburn_advice
+        availability: "{{ burn is mapping and burn.ok }}"
+        state: >-
+          {%- if burn.peak < 1 or burn.peak_burn_min >= 60 -%}No sunscreen needed
+          {%- elif burn.peak_burn_min >= 30 -%}Only for a long stint
+          {%- else -%}Lather up
+          {%- endif -%}
+        icon: >-
+          {%- if burn.peak < 1 and is_state('sun.sun', 'below_horizon') -%}mdi:weather-night
+          {%- elif burn.peak < 1 or burn.peak_burn_min >= 60 -%}mdi:weather-sunny
+          {%- elif burn.peak_burn_min >= 30 -%}mdi:sunglasses
+          {%- else -%}mdi:lotion-plus
+          {%- endif -%}
+        attributes:
+          headline: >-
+            {%- if burn.peak < 1 -%}
+              {%- if is_state('sun.sun', 'below_horizon') -%}
+                UV is done for the day.
+              {%- else -%}
+                UV stays under 1 from here — nothing to think about.
+              {%- endif -%}
+              {%- if burn.tomorrow_peak >= 1 %} Tomorrow peaks at {{ burn.tomorrow_peak }}.{% endif -%}
+            {%- else -%}
+              {%- if burn.burn_min is none -%}
+                {%- set now_clause = "You won't burn today from here." -%}
+              {%- else -%}
+                {%- set now_clause = "Straight out the door now, you'd have about "
+                                     ~ burn.burn_text ~ " before you'd redden." -%}
+              {%- endif -%}
+              {%- if burn.peak_burn_min >= 60 -%}
+                {%- set tail = "No need for sunscreen." -%}
+              {%- elif burn.peak_burn_min >= 30 -%}
+                {%- set tail = "Fine for a quick trip; lather up if you'll be out longer." -%}
+              {%- else -%}
+                {%- set tail = "Lather up — and a hat." -%}
+              {%- endif -%}
+              UV peaks at {{ burn.peak }} around {{ burn.peak_at }}, when bare skin would burn in about {{ burn.peak_burn_text }}. {{ now_clause }} {{ tail }}
+            {%- endif -%}
+          uv_now: "{{ burn.uv_now }}"
+          peak_uv: "{{ burn.peak }}"
+          peak_at: "{{ burn.peak_at }}"
+          burn_minutes: "{{ burn.burn_min }}"
+          peak_burn_minutes: "{{ burn.peak_burn_min }}"
+          tomorrow_peak_uv: "{{ burn.tomorrow_peak }}"
+          skin_type: "Fitzpatrick II (MED {{ burn.med }} J/m²)"
+
+      - name: "UV Index"
+        unique_id: sunburn_uv_index_now
+        availability: "{{ burn is mapping and burn.ok }}"
+        state: "{{ burn.uv_now }}"
+        unit_of_measurement: "UVI"
+        state_class: measurement
+        icon: mdi:sun-wireless
+
+      - name: "Peak UV Today"
+        unique_id: sunburn_uv_peak_today
+        availability: "{{ burn is mapping and burn.ok }}"
+        state: "{{ burn.peak }}"
+        unit_of_measurement: "UVI"
+        state_class: measurement
+        icon: mdi:white-balance-sunny
+
+      - name: "Time to Sunburn"
+        unique_id: sunburn_time_to_burn
+        availability: "{{ burn is mapping and burn.ok }}"
+        state: "{{ burn.burn_text }}"
+        icon: mdi:timer-sand
