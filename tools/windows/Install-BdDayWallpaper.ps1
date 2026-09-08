@@ -50,6 +50,14 @@ $RestoreTaskName = 'BdDay-Wallpaper-Restore'
 $InstallDir = Join-Path $env:USERPROFILE 'bdday-wallpaper'
 $InstalledScript = Join-Path $InstallDir 'Set-BdDayWallpaper.ps1'
 
+# Both tasks launch through this rather than powershell.exe directly. Task
+# Scheduler running a console-subsystem program in the interactive session
+# creates a console host window before -WindowStyle Hidden can apply; on
+# Windows 11 that host is Windows Terminal, which ignores the hidden style
+# outright and flashes on screen for ~0.5s every run. wscript.exe is
+# GUI-subsystem and starts the child hidden from the outset.
+$InstalledLauncher = Join-Path $InstallDir 'Start-BdDayWallpaper.vbs'
+
 # NOT "$env:USERDOMAIN\$env:USERNAME". On this workgroup-joined laptop
 # USERDOMAIN is "WORKGROUP", and Register-ScheduledTask then fails with
 # "No mapping between account names and security IDs was done" (0x80070534).
@@ -80,9 +88,11 @@ if ($Uninstall) {
             Write-Output "Scheduled task '$t' was not registered."
         }
     }
-    if (Test-Path $InstalledScript) {
-        Remove-Item $InstalledScript -Force
-        Write-Output "Removed $InstalledScript"
+    foreach ($f in @($InstalledScript, $InstalledLauncher)) {
+        if (Test-Path $f) {
+            Remove-Item $f -Force
+            Write-Output "Removed $f"
+        }
     }
     # PowerShell has already read this file into memory, so removing the
     # installed copy of the installer while it runs is safe. Tolerate failure -
@@ -120,6 +130,15 @@ if ($PSCommandPath -and ($PSCommandPath -ne $InstalledInstaller)) {
     Copy-Item -Path $PSCommandPath -Destination $InstalledInstaller -Force
     Write-Output "Installed $InstalledInstaller"
 }
+
+$sourceLauncher = Join-Path (Split-Path $SourceScript -Parent) 'Start-BdDayWallpaper.vbs'
+if (-not (Test-Path $sourceLauncher)) {
+    throw "Launcher not found next to the payload: $sourceLauncher (it is what keeps the console window from flashing)"
+}
+if ($sourceLauncher -ne $InstalledLauncher) {
+    Copy-Item -Path $sourceLauncher -Destination $InstalledLauncher -Force
+}
+Write-Output "Installed $InstalledLauncher"
 
 $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
@@ -181,8 +200,8 @@ $xml = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$InstalledScript"</Arguments>
+      <Command>wscript.exe</Command>
+      <Arguments>"$InstalledLauncher"</Arguments>
     </Exec>
   </Actions>
 </Task>
@@ -223,8 +242,8 @@ $restoreXml = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$InstalledScript" -Restore</Arguments>
+      <Command>wscript.exe</Command>
+      <Arguments>"$InstalledLauncher" -Restore</Arguments>
     </Exec>
   </Actions>
 </Task>

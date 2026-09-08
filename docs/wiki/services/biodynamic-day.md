@@ -124,6 +124,8 @@ the split-DNS path; from home or over the tailnet it resolves straight to doc1
 (`192.168.1.29`). Both were observed working.
 
 - Payload: [`tools/windows/Set-BdDayWallpaper.ps1`](../../../tools/windows/Set-BdDayWallpaper.ps1)
+- Launcher: [`tools/windows/Start-BdDayWallpaper.vbs`](../../../tools/windows/Start-BdDayWallpaper.vbs)
+  — both tasks run *this*, not `powershell.exe`; see "The console flash" below
 - Installer: [`tools/windows/Install-BdDayWallpaper.ps1`](../../../tools/windows/Install-BdDayWallpaper.ps1)
 - Installed to `C:\Users\abl030\bdday-wallpaper\`, state under
   `%LOCALAPPDATA%\bdday-wallpaper\` (rendered PNG, recorded original, log).
@@ -144,6 +146,40 @@ session, at logon, on session unlock, and every 15 minutes. It runs at
 `LeastPrivilege`: setting a wallpaper needs no elevation, and the script writes
 only under `%LOCALAPPDATA%` and `HKCU`. Confirmation that it really ran in the
 right session is the log line recording `[1920x1080]` rather than `[1024x768]`.
+
+### The console flash (fixed 2026-09-08)
+
+The first deployment ran the task action as
+`powershell.exe -WindowStyle Hidden -File ...`, and a console window flashed on
+screen for about half a second on every run — every 15 minutes, plus at logon
+and unlock.
+
+**Cause.** `powershell.exe` is a console-subsystem program, so Windows creates
+a console host window as part of launching it. `-WindowStyle Hidden` can only
+hide that window *after* the process is already up, which is one frame too
+late. On Windows 11 the host is Windows Terminal (window class
+`CASCADIA_HOSTING_WINDOW_CLASS`), which ignores the hidden window style
+outright. Measured rather than guessed: a detector polling `EnumWindows` inside
+the interactive session saw the Terminal window in 94 of 2022 polls (~0.56s).
+
+**Fix.** Both tasks now launch `wscript.exe "Start-BdDayWallpaper.vbs"`.
+`wscript.exe` is GUI-subsystem so it creates no console of its own, and
+`WshShell.Run(cmd, 0, True)` starts PowerShell hidden from the outset instead
+of hiding it afterwards. `bWaitOnReturn = True` keeps the task's
+`LastTaskResult` meaningful, and the launcher forwards its arguments so the
+rollback task can pass `-Restore` straight through.
+
+**`conhost.exe --headless` was tried and rejected.** It also suppresses the
+window, but it does not propagate the child's exit code — a deliberate
+`exit 42` came back as `0` — which would make every failure look like a success
+in `LastTaskResult`.
+
+If you must verify the fix, the detector has to run *inside* the interactive
+session (a scheduled task). `EnumWindows` only sees windows on the caller's own
+window station, so checking over SSH reports a false "clean" no matter what.
+
+> Note: any window enumeration must ignore windows present before the trigger,
+> or the detector's own console will be reported as the flash.
 
 ### Gotchas that cost time
 
@@ -192,6 +228,7 @@ Restore task result = 0 (0 = success)
 Unregistered scheduled task 'BdDay-Wallpaper'.
 Unregistered scheduled task 'BdDay-Wallpaper-Restore'.
 Removed C:\Users\abl030\bdday-wallpaper\Set-BdDayWallpaper.ps1
+Removed C:\Users\abl030\bdday-wallpaper\Start-BdDayWallpaper.vbs
 Removed C:\Users\abl030\bdday-wallpaper\Install-BdDayWallpaper.ps1
 Removed empty C:\Users\abl030\bdday-wallpaper
 ```
