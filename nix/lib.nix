@@ -90,7 +90,8 @@ in {
         {
           home.username = cfg.user;
           home.homeDirectory = cfg.homeDirectory;
-          nixpkgs.overlays = overlays;
+          # pkgs already carries the central overlays from nix/pkgs.nix.
+          # Reapplying them duplicates additive overrides (including patches).
         }
       ];
     };

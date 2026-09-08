@@ -44,6 +44,7 @@ in
   // import ./unifi.nix {inherit self lib pkgs;}
   // import ./repository.nix {inherit pkgs;}
   // import ./gnome-shell-libgvc.nix {inherit pkgs;}
+  // import ./rolling-runtime.nix {inherit self lib pkgs;}
   // (
     if !fullCheck
     then {}

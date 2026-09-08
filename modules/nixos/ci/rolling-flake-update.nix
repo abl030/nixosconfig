@@ -212,7 +212,7 @@ in {
         # curl/gawk/gnused/gnugrep/tar are used by scripts/rolling_flake_update.sh
         # for official MongoDB archive verification, triage, and the bundled
         # Gotify notification.
-        path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep pkgs.gnutar];
+        path = [pkgs.git pkgs.gh pkgs.jq pkgs.nix pkgs.coreutils pkgs.openssh pkgs.bash pkgs.claude-code pkgs.curl pkgs.gawk pkgs.gnused pkgs.gnugrep pkgs.gnutar pkgs.gzip];
 
         serviceConfig = {
           Type = "oneshot";
