@@ -857,6 +857,7 @@ homelab.tailscaleShare.<name> = {
   upstream    = "http://host.docker.internal:5055"; # NEVER use 127.0.0.1 — see below
   dataDir     = "/mnt/virtio/overseerr/ts";       # tailscale state + caddy certs
   hostname    = "overseer";                       # tailscale node name (default: attrset key)
+  publishIpv6 = true;                             # also AAAA → tailscale IPv6; needed when a sharee's tailnet remaps our IPv4
   firewallPorts = [5055];                         # ports to open on podman0 bridge
   monitorName = "Overseerr (Tailnet)";             # optional friendly Kuma name
   monitorPath = "/api/v1/status";                  # optional health endpoint, default "/"
@@ -867,7 +868,7 @@ homelab.tailscaleShare.<name> = {
 
 - `ts-<name>` OCI container — tailscale, joins tailnet with dedicated identity, persists state to `dataDir/ts-state/`
 - `caddy-<name>` OCI container — caddy-cloudflare image, shares ts's network namespace, handles HTTPS + ACME via Cloudflare DNS challenge, certs in `dataDir/caddy-data/`. Its Caddy admin API is disabled because the shared loopback is reachable from `ts-<name>`.
-- `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP
+- `tailscale-share-dns-sync-<name>` systemd oneshot — waits for tailscale online, upserts Cloudflare A record pointing `fqdn` → tailscale IP (and an AAAA record with `publishIpv6`; see `docs/wiki/services/tailscale-share.md` → *Sharee-side IPv4 remapping*)
 - `homelab.monitoring.monitors` entry — Uptime Kuma checks the tailscale-served HTTPS URL itself, not just the LAN/localProxy URL
 - sops secret `tailscale-share/<name>/authkey` — sourced from `secrets/hosts/<hostname>/<name>-tailscale-authkey.env`
   unless `authKeySecret = null`, which uses Tailscale's interactive first-run login URL and persists the resulting node state.

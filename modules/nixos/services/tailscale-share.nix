@@ -14,7 +14,8 @@
   caddyRunAs = "${toString caddyUid}:${toString caddyGid}";
 
   # Generate a Cloudflare DNS sync script for one instance.
-  # After the tailscale container is online, queries its IP and upserts the A record.
+  # After the tailscale container is online, queries its IP and upserts the A
+  # record, plus an AAAA record when publishIpv6 is set.
   mkDnsSyncScript = name: cfg:
     pkgs.writeShellScript "tailscale-share-dns-sync-${name}" ''
       set -euo pipefail
@@ -23,6 +24,11 @@
       zone_name="ablz.au"
       fqdn="${cfg.fqdn}"
       ttl=60
+      publish_ipv6=${
+        if cfg.publishIpv6
+        then "1"
+        else "0"
+      }
 
       # Extract token from the shared acme/cloudflare sops secret
       token_file=${lib.escapeShellArg config.sops.secrets."acme/cloudflare".path}
@@ -61,29 +67,67 @@
         exit 1
       fi
 
-      # Look for an existing A record
-      records_resp=$(${pkgs.curl}/bin/curl -fsS -H "$auth_header" -H "$content_header" \
-        "$api/zones/$zone_id/dns_records?type=A&name=$fqdn")
-      record_id=$(printf '%s' "$records_resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""')
+      # Find the id of the existing record of one type for $fqdn ("" if none).
+      find_record() {
+        local type="$1" records_resp
+        records_resp=$(${pkgs.curl}/bin/curl -fsS -H "$auth_header" -H "$content_header" \
+          "$api/zones/$zone_id/dns_records?type=$type&name=$fqdn")
+        printf '%s' "$records_resp" | ${pkgs.jq}/bin/jq -r '.result[0].id // ""'
+      }
 
-      payload=$(${pkgs.jq}/bin/jq -n \
-        --arg fqdn "$fqdn" --arg content "$ts_ip" --argjson ttl "$ttl" \
-        '{type:"A",name:$fqdn,content:$content,ttl:$ttl,proxied:false}')
+      # upsert_record TYPE CONTENT: create or update the $fqdn record of that type.
+      upsert_record() {
+        local type="$1" content="$2" record_id payload resp
+        record_id=$(find_record "$type")
 
-      if [[ -n "$record_id" ]]; then
-        resp=$(${pkgs.curl}/bin/curl -fsS -X PUT -H "$auth_header" -H "$content_header" \
-          --data "$payload" "$api/zones/$zone_id/dns_records/$record_id")
-        if ! printf '%s' "$resp" | ${pkgs.jq}/bin/jq -e '.success' >/dev/null 2>&1; then
-          echo "tailscale-share-dns-sync-${name}: PUT failed: $resp" >&2; exit 1
+        payload=$(${pkgs.jq}/bin/jq -n \
+          --arg type "$type" --arg fqdn "$fqdn" --arg content "$content" --argjson ttl "$ttl" \
+          '{type:$type,name:$fqdn,content:$content,ttl:$ttl,proxied:false}')
+
+        if [[ -n "$record_id" ]]; then
+          resp=$(${pkgs.curl}/bin/curl -fsS -X PUT -H "$auth_header" -H "$content_header" \
+            --data "$payload" "$api/zones/$zone_id/dns_records/$record_id")
+          if ! printf '%s' "$resp" | ${pkgs.jq}/bin/jq -e '.success' >/dev/null 2>&1; then
+            echo "tailscale-share-dns-sync-${name}: PUT $type failed: $resp" >&2; exit 1
+          fi
+          echo "tailscale-share-dns-sync-${name}: updated $fqdn $type -> $content"
+        else
+          resp=$(${pkgs.curl}/bin/curl -fsS -X POST -H "$auth_header" -H "$content_header" \
+            --data "$payload" "$api/zones/$zone_id/dns_records")
+          if ! printf '%s' "$resp" | ${pkgs.jq}/bin/jq -e '.success' >/dev/null 2>&1; then
+            echo "tailscale-share-dns-sync-${name}: POST $type failed: $resp" >&2; exit 1
+          fi
+          echo "tailscale-share-dns-sync-${name}: created $fqdn $type -> $content"
         fi
-        echo "tailscale-share-dns-sync-${name}: updated $fqdn -> $ts_ip"
+      }
+
+      upsert_record A "$ts_ip"
+
+      # Tailscale re-addresses a shared node's IPv4 inside a recipient tailnet
+      # when the original 100.x is already taken there, so the A record above
+      # can point that sharee at the wrong machine. The Tailscale IPv6 is never
+      # remapped, so publishIpv6 adds an AAAA their devices can actually use.
+      # See docs/wiki/services/tailscale-share.md ("Sharee-side IPv4 remapping").
+      if [[ "$publish_ipv6" == 1 ]]; then
+        ts_ip6=$(${config.virtualisation.podman.package}/bin/podman exec ts-${name} tailscale ip -6 | ${pkgs.coreutils}/bin/tr -d '\r\n' || true)
+        if [[ -z "$ts_ip6" ]]; then
+          echo "tailscale-share-dns-sync-${name}: node has no tailscale IPv6, skipping AAAA" >&2
+        else
+          echo "tailscale-share-dns-sync-${name}: tailscale IPv6 is $ts_ip6"
+          upsert_record AAAA "$ts_ip6"
+        fi
       else
-        resp=$(${pkgs.curl}/bin/curl -fsS -X POST -H "$auth_header" -H "$content_header" \
-          --data "$payload" "$api/zones/$zone_id/dns_records")
-        if ! printf '%s' "$resp" | ${pkgs.jq}/bin/jq -e '.success' >/dev/null 2>&1; then
-          echo "tailscale-share-dns-sync-${name}: POST failed: $resp" >&2; exit 1
+        # publishIpv6 is authoritative: turning it off retires the AAAA record
+        # instead of leaving a stale one behind.
+        record_id=$(find_record AAAA)
+        if [[ -n "$record_id" ]]; then
+          resp=$(${pkgs.curl}/bin/curl -fsS -X DELETE -H "$auth_header" -H "$content_header" \
+            "$api/zones/$zone_id/dns_records/$record_id")
+          if ! printf '%s' "$resp" | ${pkgs.jq}/bin/jq -e '.success' >/dev/null 2>&1; then
+            echo "tailscale-share-dns-sync-${name}: DELETE AAAA failed: $resp" >&2; exit 1
+          fi
+          echo "tailscale-share-dns-sync-${name}: removed stale $fqdn AAAA record"
         fi
-        echo "tailscale-share-dns-sync-${name}: created $fqdn -> $ts_ip"
       fi
     '';
 
@@ -216,6 +260,23 @@ in {
           description = "Tailscale node hostname (defaults to the attrset key).";
         };
 
+        publishIpv6 = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Also publish an AAAA record carrying the node's Tailscale IPv6.
+
+            Tailscale gives a shared node a NEW 100.x IPv4 inside a recipient
+            tailnet whenever its home address is already taken there (kb/1084);
+            the sidecar then masquerades per peer, so the tunnel works but the
+            A record resolves to the wrong machine for that sharee alone. The
+            Tailscale IPv6 is never remapped, so an AAAA record gives those
+            devices a working path (Happy Eyeballs prefers it). Seen live on
+            the overseer share on 2026-09-08. When false, an existing AAAA
+            record is removed. See docs/wiki/services/tailscale-share.md.
+          '';
+        };
+
         tags = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [];
@@ -300,6 +361,7 @@ in {
       - A dedicated tailscale container with its own node identity and IP
       - A Caddy container sharing that network namespace (pinhole, not the whole VM)
       - A Cloudflare DNS A record synced to the tailscale IP on startup
+        (plus an AAAA record when publishIpv6 is set)
       - ACME certs via Cloudflare DNS challenge
       - A Uptime Kuma monitor for the tailscale-served HTTPS URL
 

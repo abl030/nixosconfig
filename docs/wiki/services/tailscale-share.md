@@ -1,6 +1,6 @@
 # tailscaleShare
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-09-08
 **Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up; "logged out" alert pattern narrowed 2026-05-22 (see [lgtm-stack.md](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap))
 **Owner:** `modules/nixos/services/tailscale-share.nix`
 **Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)
@@ -11,7 +11,7 @@
 
 - a dedicated Tailscale sidecar node and IP
 - a Caddy sidecar sharing that network namespace
-- a repo-owned FQDN and Cloudflare DNS A record
+- a repo-owned FQDN and Cloudflare DNS A record (plus an AAAA record with `publishIpv6`)
 - Caddy-managed ACME certs through the Cloudflare DNS challenge
 - a Uptime Kuma monitor for the tailnet-served HTTPS URL
 
@@ -74,6 +74,41 @@ on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = f
 | Jellyfin | `igpu` | `jellyfinn.ablz.au` | `/mnt/virtio/jellyfin/ts` |
 
 The Overseerr share state was moved on 2026-05-14 from `/mnt/virtio/overseerr/ts` because `/mnt/virtio/overseerr` is owned by `seerr`. Keeping share state there would let a compromised Overseerr process rename or replace the sidecar state directory.
+
+## Sharee-side IPv4 remapping and `publishIpv6` (2026-09-08)
+
+**Symptom:** a friend the `overseer` node was shared with saw it in their
+Tailscale console as `100.70.211.50`, while it is `100.70.211.51` on tail13796.
+`overseer.ablz.au` worked for every other sharee (e.g. the sister's tailnet) and
+failed only for that one.
+
+**Cause:** Tailscale assigns a shared machine a *new* IPv4 in the recipient
+tailnet when its home address is already in use there
+([kb/1084](https://tailscale.com/kb/1084/sharing): "a shared machine is assigned a
+new IP address in the recipient's tailnet"). The sidecar then masquerades per
+peer. Confirmed live from `podman exec ts-overseerr tailscale debug netmap`:
+two sharee peers carried `SelfNodeV4MasqAddrForThisPeer: 100.70.211.50`, the
+other sharees had no masquerade entry and still see `.51`. So "it works for my
+sister" is luck of the address draw, not proof the A-record design is sound.
+
+The tunnel itself is fine. What breaks is our DNS: the sync oneshot publishes
+`tailscale ip -4`, which is the *home*-tailnet address. A remapped sharee
+resolves the FQDN to whatever `.51` is in *their* tailnet. Hitting the
+recipient-side IP directly does not help either — Caddy only serves the FQDN
+and HTTP redirects back to it.
+
+**Fix:** `SelfNodeV6MasqAddrForThisPeer` was empty for every peer, i.e. the
+Tailscale IPv6 (`fd7a:115c:a1e0::/48`) is the same in every tailnet, and the
+Caddy sidecar answers on it (verified from doc1 with
+`curl -6 --resolve overseer.ablz.au:443:[fd7a:…]`, same `307 /login` as IPv4).
+`publishIpv6 = true` makes the dns-sync oneshot also upsert an AAAA record from
+`tailscale ip -6`. Dual-stack clients prefer the AAAA (Happy Eyeballs); the A
+record stays for IPv4-only clients and for sharees who were not remapped.
+Setting it back to `false` deletes the AAAA record rather than stranding it.
+
+Enabled on `overseerr` first as a trial. If the remapped sharee can reach the
+share, turn it on for the remaining instances. Diagnose a new report of
+"wrong IP in my console" with the netmap dump above before touching anything.
 
 ## Verification Evidence
 

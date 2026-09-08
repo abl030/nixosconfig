@@ -559,6 +559,9 @@
       # Overseerr process must not be able to rename or replace TS/Caddy state.
       dataDir = "/mnt/virtio/tailscale-share/overseerr";
       hostname = "overseer";
+      # A sharee's tailnet re-addressed this node (100.70.211.50 there, .51
+      # here), so the A record alone fails for them. Trial of the AAAA path.
+      publishIpv6 = true;
       firewallPorts = [5055];
       monitorName = "Overseerr (Tailnet)";
       monitorPath = "/api/v1/status";
