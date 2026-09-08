@@ -96,6 +96,15 @@
         local -a args
         input=$(sed -n 1p "$spec")
         prompt=$(sed -n 2p "$spec")
+
+        # A template line left as "in/photo1.jpg ::" with nothing after it is a
+        # half-filled job, not a request to edit with an empty prompt. Skip it
+        # rather than burning ~20 minutes producing a no-op.
+        if [ -z "''${prompt//[[:space:]]/}" ]; then
+          echo "imagegen: skipping job with an empty prompt (input='$input')" >&2
+          return 0
+        fi
+
         day=$(date +%F)
         mkdir -p "$OUT/$day"
         slug=$(printf '%s' "$prompt" | tr -c '[:alnum:]' '-' | tr -s '-' | cut -c1-60)
