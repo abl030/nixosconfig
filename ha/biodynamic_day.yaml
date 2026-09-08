@@ -1,0 +1,60 @@
+# Cullen biodynamic ("moon day") calendar — glanceable dashboard data.
+#
+# Source: the stateless `bdday` service on doc1, served at https://bd.ablz.au.
+#   Service module: modules/nixos/services/bdday.nix
+#   LAN/Cullen split-DNS: docs/wiki/infrastructure/cullen-bd-split-dns.md
+#   Consumer notes:  docs/wiki/services/biodynamic-day.md
+#
+# API shape, verified 2026-09-08 against source_revision 5fb42f68 — read this
+# before "simplifying" the templates below:
+#
+#   * The top-level `day_type` is a WHOLE-DAY descriptor. On a day that
+#     contains an ingress it reads "Fruit/Leaf" for every value of `at`, so it
+#     is NOT the type currently in force and must not be used here.
+#   * `ingress.next` IS moment-relative. `from_day_type`/`from_sign` are the
+#     type and sign in force at `at`, and `.at`/`.to_day_type`/`.to_sign` are
+#     the next changeover. Everything below reads from `ingress.next` only.
+#   * `ingress.within_day` is the day's own ingress whether or not it has
+#     already passed, so it is also unsuitable as a "next change".
+#   * Timestamps carry nanosecond precision (9 fractional digits). Home
+#     Assistant's parser truncates to microseconds cleanly; `as_datetime`
+#     handles them, which is why the timestamp sensor needs no pre-munging.
+#
+# The endpoint has no "today"/"now" alias (/v1/day/today returns 400), so the
+# selected moment is templated into the URL on every poll.
+
+rest:
+  - resource_template: >-
+      https://bd.ablz.au/v1/day/{{ now().strftime('%Y-%m-%d') }}?at={{ now().strftime('%H:%M') }}
+    # Ingresses are ~2-3 days apart, so the banner only needs to be accurate to
+    # the minute-ish. Five minutes keeps the changeover visibly prompt while
+    # staying trivial load on a loopback service.
+    scan_interval: 300
+    timeout: 15
+    sensor:
+      - name: Biodynamic Day
+        unique_id: biodynamic_day
+        # `from_day_type` = the type in force at the requested moment.
+        value_template: "{{ value_json.ingress.next.from_day_type }}"
+        icon: >-
+          {{ {'Root': 'mdi:carrot',
+              'Leaf': 'mdi:leaf',
+              'Flower': 'mdi:flower',
+              'Fruit': 'mdi:fruit-cherries'}.get(value_json.ingress.next.from_day_type, 'mdi:sprout') }}
+        json_attributes_path: "$.ingress.next"
+        json_attributes:
+          - at
+          - from_day_type
+          - from_sign
+          - to_day_type
+          - to_sign
+
+      - name: Biodynamic Day Next Change
+        unique_id: biodynamic_day_next_change
+        device_class: timestamp
+        value_template: "{{ value_json.ingress.next.at }}"
+        icon: mdi:clock-start
+        json_attributes_path: "$.ingress.next"
+        json_attributes:
+          - to_day_type
+          - to_sign

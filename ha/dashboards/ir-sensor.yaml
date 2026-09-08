@@ -6,6 +6,26 @@ views:
 - path: default_view
   title: Home
   cards:
+  # Cullen biodynamic "moon day" banner. Backed by ha/biodynamic_day.yaml, which
+  # documents why the current type is read from `ingress.next.from_day_type`
+  # rather than the API's whole-day `day_type`. See also
+  # docs/wiki/services/biodynamic-day.md.
+  - type: markdown
+    content: |-
+      {%- set s = 'sensor.biodynamic_day' -%}
+      {%- set n = 'sensor.biodynamic_day_next_change' -%}
+      {%- if states(s) in ['unknown', 'unavailable', 'None', ''] -%}
+      ## <ha-icon icon="mdi:cloud-question-outline"></ha-icon> Moon day unavailable
+
+      Cannot reach bd.ablz.au right now.
+      {%- else -%}
+      {%- set ch = states(n) | as_datetime | as_local -%}
+      {%- set days = (ch.date() - now().date()).days -%}
+      {%- set when = 'today' if days == 0 else ('tomorrow' if days == 1 else ch.strftime('%a %-d %b')) -%}
+      ## <ha-icon icon="{{ state_attr(s, 'icon') }}"></ha-icon> {{ states(s) }} day &nbsp;·&nbsp; {{ state_attr(s, 'from_sign') }}
+
+      Changes to **{{ state_attr(s, 'to_day_type') }}** ({{ state_attr(s, 'to_sign') }}) {{ when }} at {{ ch.strftime('%-I:%M %p') | lower }} &nbsp;·&nbsp; in {{ time_until(states(n) | as_datetime) }}
+      {%- endif -%}
   - type: entities
     entities:
     - person.andy_barrett_lennard
@@ -49,6 +69,19 @@ views:
     - sensor.stp_25_50_pv_gen_meter_2_bankb
     - sensor.stp_25_50_pv_gen_meter
   badges:
+  # Masonry renders badges as a full-width strip above every card, so the moon
+  # day stays glanceable at the very top of the view on desktop too.
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: sensor.biodynamic_day
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    name: Next
+    entity: sensor.biodynamic_day_next_change
   - type: entity
     show_name: false
     show_state: true

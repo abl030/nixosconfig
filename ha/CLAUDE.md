@@ -93,6 +93,8 @@ YAML files at `ha/` root and under `ha/energy/` mirror the corresponding files i
 | `ha/energy/energy_tarrif_2_battery.yaml` | `/config/energy_tarrif_2_battery.yaml` | package |
 | `ha/energy/infinite_battery.yaml` | `/config/infinite_battery.yaml` | package |
 | `ha/energy/savings_and_roi.yaml` | `/config/savings_and_roi.yaml` | package — tariff-weighted solar savings, ROI vs $91k install (2024-03-03), auto-stamped achieved date |
+| `ha/water_meter.yaml` | `/config/water_meter.yaml` | package — indoor water meter |
+| `ha/biodynamic_day.yaml` | `/config/biodynamic_day.yaml` | package — `sensor.biodynamic_day{,_next_change}` from `bd.ablz.au`; read its header before editing, and see `docs/wiki/services/biodynamic-day.md` |
 
 `/config/secrets.yaml` is intentionally NOT mirrored — it stays only on HAOS.
 
