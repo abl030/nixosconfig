@@ -180,6 +180,11 @@
         n=$((n + 1))
         spec=$(printf '%s/job-%04d' "$tmp" "$n")
         if printf '%s' "$line" | grep -q ' :: '; then
+          # Qwen editing has a much larger working set than generation. Two
+          # edits exhausted CT 110's 24 GiB ceiling; serialize the entire
+          # mixed batch so an edit cannot overlap another model instance.
+          # This also caps a settings.env PARALLEL override for edit batches.
+          PARALLEL=1
           printf '%s\n%s\n' "''${line%% :: *}" "''${line#* :: }" > "$spec"
         else
           printf '\n%s\n' "$line" > "$spec"
