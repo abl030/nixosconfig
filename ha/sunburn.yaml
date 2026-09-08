@@ -238,6 +238,7 @@ template:
             {%- endif -%}
           uv_now: "{{ burn.uv_now }}"
           peak_uv: "{{ burn.peak }}"
+          peak_uv_clear_sky: "{{ burn.peak_clear }}"
           peak_at: "{{ burn.peak_at }}"
           burn_minutes: "{{ burn.burn_min }}"
           worst_burn_minutes: "{{ burn.worst_min }}"
