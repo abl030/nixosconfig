@@ -291,7 +291,12 @@ in {
   # directory there so its results land beside the batch runner's. The upstream
   # unit is heavily sandboxed (ProtectSystem=strict), so /mnt/out has to be an
   # explicit BindPaths entry or the symlink below dangles at runtime.
-  systemd.services.comfyui.serviceConfig.BindPaths = ["/mnt/out"];
+  systemd.services.comfyui.serviceConfig = {
+    BindPaths = ["/mnt/out"];
+    # Same reason as imagegen-batch: its renders are opened and deleted from
+    # other machines over NFS, so they must not be written read-only.
+    UMask = "0000";
+  };
 
   systemd.tmpfiles.settings."20-imagegen" = {
     "/var/lib/imagegen/queue".d = {
@@ -326,6 +331,11 @@ in {
       # Never let image generation starve interactive work on prom.
       Nice = 10;
       IOSchedulingClass = "idle";
+      # Results land on the tower share and get opened, edited and deleted from
+      # other machines. NFS squashes every writer to the same uid, so the mode
+      # bits are the only thing standing in the way — default 0644 output is
+      # read-only to everyone else. Write them world-writable.
+      UMask = "0000";
       ExecStart = "${imagegenBatch}/bin/imagegen-batch";
     };
   };
