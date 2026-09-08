@@ -58,3 +58,31 @@ rest:
         json_attributes:
           - to_day_type
           - to_sign
+
+# Pre-formatted changeover string for the dashboard badge.
+#
+# The `ir-sensor` view is masonry, where a card is confined to one ~330px
+# column and so can never span the view. Badges are the only element masonry
+# renders as a full-width strip above every card, which makes them the actual
+# "top banner" — so the badge has to carry the wording rather than just deferring
+# to the timestamp sensor.
+#
+# A `device_class: timestamp` badge renders calendar-relative ("Tomorrow") and
+# would sit next to other badges on this view rendering duration-relative
+# ("In 20 hours"). This states the wall-clock time instead, which is what was
+# actually wanted, and keeps the row internally consistent.
+#
+# `now()` makes Home Assistant re-render this every minute, so the today ->
+# tomorrow rollover happens on its own without another API poll.
+template:
+  - sensor:
+      - name: Biodynamic Day Change Summary
+        unique_id: biodynamic_day_change_summary
+        icon: mdi:clock-start
+        availability: "{{ has_value('sensor.biodynamic_day_next_change') }}"
+        state: >-
+          {% set n = 'sensor.biodynamic_day_next_change' %}
+          {% set ch = states(n) | as_datetime | as_local %}
+          {% set days = (ch.date() - now().date()).days %}
+          {% set when = 'today' if days == 0 else ('tomorrow' if days == 1 else ch.strftime('%a %-d %b')) %}
+          {{ state_attr(n, 'to_day_type') }} {{ when }} at {{ ch.strftime('%-I:%M %p') | lower }}

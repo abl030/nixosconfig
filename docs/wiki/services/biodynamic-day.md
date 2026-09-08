@@ -109,6 +109,75 @@ the badges are what makes it glanceable at the very top on desktop.
 Because the poll interval is 5 minutes, the banner can lag a changeover by up
 to that long. Ingresses are 2-3 days apart, so this is deliberate.
 
+## Windows wallpaper on the Cullen laptop
+
+The work laptop (`laptop-btibh4ie`, the Windows host that also carries the WSL
+VM) renders the same data as its desktop wallpaper.
+
+- Payload: [`tools/windows/Set-BdDayWallpaper.ps1`](../../../tools/windows/Set-BdDayWallpaper.ps1)
+- Installer: [`tools/windows/Install-BdDayWallpaper.ps1`](../../../tools/windows/Install-BdDayWallpaper.ps1)
+- Installed to `C:\Users\abl030\bdday-wallpaper\`, state under
+  `%LOCALAPPDATA%\bdday-wallpaper\` (rendered PNG, recorded original, log).
+- Deployed 2026-09-08 over `ssh wsl-laptop` (Windows OpenSSH on :2222 — see
+  [wsl-tailscale-ssh.md](../infrastructure/wsl-tailscale-ssh.md)). The repo is
+  the source of truth; copy with `scp` and re-run the installer.
+
+### Why a scheduled task and not just SSH
+
+**An SSH session cannot set the visible wallpaper.** It gets its own
+non-interactive window station, so `SystemParametersInfo` there does not reach
+the logged-on desktop, and `[System.Windows.Forms.Screen]` reports a
+placeholder 1024x768 rather than the real display. Both symptoms were observed
+directly.
+
+The task therefore runs with an `InteractiveToken` principal in the user's own
+session, at logon, on session unlock, and every 15 minutes. It runs at
+`LeastPrivilege`: setting a wallpaper needs no elevation, and the script writes
+only under `%LOCALAPPDATA%` and `HKCU`. Confirmation that it really ran in the
+right session is the log line recording `[1920x1080]` rather than `[1024x768]`.
+
+### Gotchas that cost time
+
+- **`$env:USERDOMAIN` is `WORKGROUP` on this laptop.** Building the task
+  principal as `$env:USERDOMAIN\$env:USERNAME` makes `Register-ScheduledTask`
+  fail with *"No mapping between account names and security IDs was done"*
+  (`0x80070534`). Use
+  `[System.Security.Principal.WindowsIdentity]::GetCurrent().Name`, which
+  yields `LAPTOP-BTIBH4IE\abl030`.
+- **Windows caches the wallpaper by path**, so the script alternates between
+  `wallpaper-a.png` and `wallpaper-b.png` to guarantee a redraw.
+- **PowerShell 5.1 reads a BOM-less `.ps1` as ANSI**, so any non-ASCII glyph
+  (the middle-dot separator) is built from a code point in code rather than
+  typed as a literal.
+- **GDI+ renders colour emoji as monochrome tofu**, and Windows has no MDI
+  font, so the four day-type icons are drawn as GDI+ vector paths. They scale
+  to any resolution and take their colour from the day's palette.
+- The script re-applies only when the rendered content actually changes (type,
+  sign, element, changeover wording, or resolution). A re-run inside the same
+  day is a verified no-op, so the desktop does not flicker every 15 minutes.
+  This is also why the wallpaper carries an absolute changeover time and no
+  live countdown.
+
+### Operating it
+
+```powershell
+# preview any day type without touching the desktop (safe over SSH)
+powershell -File .\Set-BdDayWallpaper.ps1 -RenderOnly C:\Temp\x.png -PreviewType Flower
+
+# force a redraw now
+Start-ScheduledTask -TaskName BdDay-Wallpaper
+
+# roll back: restores the wallpaper recorded before first use, then removes
+# both tasks and the installed script
+powershell -File .\Install-BdDayWallpaper.ps1 -Uninstall
+```
+
+Rollback works remotely because the installer also registers a triggerless
+on-demand `BdDay-Wallpaper-Restore` task; starting *that* runs the restore in
+the interactive session, which a direct `-Restore` call over SSH could not do.
+The pre-existing wallpaper (`Dynabook_Option6.png`, style 10) is recorded once
+in `original-wallpaper.txt` and never re-captured.
+
 ## Quick checks
 
 ```bash

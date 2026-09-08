@@ -69,19 +69,23 @@ views:
     - sensor.stp_25_50_pv_gen_meter_2_bankb
     - sensor.stp_25_50_pv_gen_meter
   badges:
-  # Masonry renders badges as a full-width strip above every card, so the moon
-  # day stays glanceable at the very top of the view on desktop too.
+  # This pair IS the top banner. Masonry confines a card to a single ~330px
+  # column, so the markdown card below cannot span the view; badges are the only
+  # full-width strip masonry renders above every card. Between them they read
+  # "Leaf · Cancer" and "Fruit tomorrow at 5:43 pm".
   - type: entity
     show_name: false
     show_state: true
     show_icon: true
     entity: sensor.biodynamic_day
+    state_content:
+    - state
+    - from_sign
   - type: entity
-    show_name: true
+    show_name: false
     show_state: true
     show_icon: true
-    name: Next
-    entity: sensor.biodynamic_day_next_change
+    entity: sensor.biodynamic_day_change_summary
   - type: entity
     show_name: false
     show_state: true
