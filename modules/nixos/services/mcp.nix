@@ -221,8 +221,14 @@ in {
     # cleared on reboot), required on persistent /run so a disabled sibling
     # never keeps decrypted infra-control tokens on disk.
     (lib.mkIf (!cfg.enable) {
+      # Ordered after sops so the purge runs once /run/secrets is populated,
+      # not before it. On a host that consumes no secrets there is no such
+      # script to order against (and nothing to purge either), so the dep has
+      # to be conditional — see homelab.secrets.hasSetupSecrets.
       system.activationScripts.mcp-purge =
-        lib.stringAfter ["setupSecrets"] "rm -rf /run/secrets/mcp";
+        lib.stringAfter
+        (lib.optional config.homelab.secrets.hasSetupSecrets "setupSecrets")
+        "rm -rf /run/secrets/mcp";
     })
   ];
 }

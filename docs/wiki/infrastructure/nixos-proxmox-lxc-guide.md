@@ -145,6 +145,43 @@ cd secrets && for f in $(grep -rl <OLD_age> .); do sops updatekeys -y "${f#./}";
 the push audit fails. (ACME/Let's Encrypt certs only provision *after* this re-key — until
 then nginx serves a minica fallback, which self-heals.)
 
+#### A host that consumes NO secrets
+
+An appliance can legitimately need none — set `privateFlakeAuth = false` and
+`atuinCredentials = false` in its `hosts.nix` entry (drops `nix-netrc`, `atuin-session`,
+`atuin-key`) and give it no service secrets. Then **create no `secrets/hosts/<h>/`
+directory at all**: `sopsRecipientScopeCheck` only walks directories that exist, so an
+absent one needs no rule and no entry in the check's `case` list. `imagegen` is the
+reference for this shape.
+
+Watch for one trap, hit on `imagegen` (2026-09-08). sops-nix defines the `setupSecrets`
+activation script **only** when the host has at least one non-`neededForUsers` secret:
+
+```nix
+setupSecrets = lib.mkIf (regularSecrets != { } && !cfg.useSystemdActivation) (...)
+```
+
+so on a zero-secret host it does not exist, and any activation script declaring
+`deps = ["setupSecrets"]` fails the whole evaluation with a bare, context-free
+`error: attribute 'setupSecrets' missing` — no module or option name in the trace. Two
+fleet modules did exactly that (`mcp-purge` in `services/mcp.nix`, which runs on hosts
+where MCP is *disabled*, and `purgeFleetKeyOnKeylessHost` in `services/ssh/default.nix`).
+Both now gate the dependency on **`config.homelab.secrets.hasSetupSecrets`**
+(`modules/nixos/common/secrets.nix`), which mirrors sops-nix's own condition. Use that
+predicate for any new activation script that wants to order after sops.
+
+To find the offender when this bites again — the trace names only
+`system.activationScripts.script` — introspect the snippets' deps directly, remembering to
+drop `script` itself since evaluating it is what fails:
+
+```nix
+let
+  flake = builtins.getFlake "/path/to/repo";
+  scripts = builtins.removeAttrs
+    flake.nixosConfigurations.<h>.config.system.activationScripts ["script"];
+in builtins.mapAttrs (_: v: v.deps or []) scripts
+```
+
 ### 8. Deploy (bootstrap)
 
 A fresh **locked** CT can't fetch Forgejo (its baked `nix-netrc` is encrypted to the old

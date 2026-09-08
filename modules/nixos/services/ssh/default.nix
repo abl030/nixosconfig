@@ -172,7 +172,10 @@ in {
     #      link behind. Drop it ONLY if it is a broken symlink, so we never
     #      delete a real personal key a user might place there later.
     system.activationScripts.purgeFleetKeyOnKeylessHost = lib.mkIf (!cfg.deployIdentity) {
-      deps = ["setupSecrets" "users"];
+      # Order after sops only when sops actually has an activation script to
+      # run — a host that consumes no secrets has none, and hard-coding the
+      # dependency there fails evaluation. See homelab.secrets.hasSetupSecrets.
+      deps = ["users"] ++ lib.optional config.homelab.secrets.hasSetupSecrets "setupSecrets";
       text = ''
         ${pkgs.coreutils}/bin/rm -f /root/.ssh/id_ed25519
         u="${homeDirectory}/.ssh/id_ed25519"

@@ -28,6 +28,22 @@ in {
       readOnly = true;
       description = "Resolve a secret file path with host/user fallbacks.";
     };
+    hasSetupSecrets = lib.mkOption {
+      type = lib.types.bool;
+      readOnly = true;
+      description = ''
+        Whether sops-nix defines the `setupSecrets` activation script here.
+
+        It only does so when at least one secret is not `neededForUsers` and
+        systemd activation is off. A host that consumes no secrets at all — an
+        appliance like imagegen, with privateFlakeAuth and atuinCredentials
+        both false — therefore has no such script, and any activation script
+        that unconditionally declares `deps = ["setupSecrets"]` fails to
+        evaluate with `attribute 'setupSecrets' missing`.
+
+        Gate the dependency on this instead of assuming the script exists.
+      '';
+    };
   };
 
   config = let
@@ -53,6 +69,12 @@ in {
     homelab.secrets = {
       inherit hostDir userDir;
       sopsFile = resolve;
+      # Mirrors sops-nix's own gate for the script (modules/sops/default.nix:
+      # `setupSecrets = mkIf (regularSecrets != {} && !useSystemdActivation)`,
+      # where regularSecrets drops the neededForUsers ones).
+      hasSetupSecrets =
+        !config.sops.useSystemdActivation
+        && lib.any (s: !s.neededForUsers) (lib.attrValues config.sops.secrets);
     };
   };
 }
