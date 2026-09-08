@@ -109,11 +109,12 @@ encoder via `--llm`, not qwen2vl — that is Qwen-Image's encoder.
 Z-Image Turbo, 24 cores of prom's 9950X, `--diffusion-fa`, seed 42, same prompt.
 Measured 2026-09-08 on an otherwise-quiet box.
 
-| Config | Wall | Per step | VAE decode |
-|---|---|---|---|
-| Q4_K, 512x512, 4 steps | 283s | 58.9 s/it | 43.8s |
-| **Q8_0, 512x512, 4 steps** | **187s** | **35.1 s/it** | 43.6s |
-| Q4_K, 512x512, 4 steps, 12 threads | 335s | 70.1 s/it | 53.1s |
+| Config | Wall | Per step | VAE decode | Peak RAM |
+|---|---|---|---|---|
+| Q4_K, 512x512, 4 steps | 283s | 58.9 s/it | 43.8s | |
+| **Q8_0, 512x512, 4 steps** | **187s** | **35.1 s/it** | 43.6s | |
+| Q4_K, 512x512, 4 steps, 12 threads | 335s | 70.1 s/it | 53.1s | |
+| **Q8_0, 1024x1024, 8 steps** | **1818s (30.3 min)** | 205.2 s/it | 184.2s | 17.9 GB |
 
 Two results worth internalising, both counterintuitive:
 
@@ -126,8 +127,44 @@ bound. **Two concurrent jobs at 12 threads beat one at 24** for batch throughput
 (~21 vs ~13 images/hour), which is why `imagegen-batch` defaults to `PARALLEL=2`,
 `THREADS=12`.
 
-Scaling to 1024x1024 (4x the latent tokens) puts Z-Image Turbo at roughly **30–40 min**
-for an 8-step image. Editing with the 20B Qwen-Image-Edit is far heavier — see below.
+### Editing — the primary use case
+
+**Qwen-Image-Edit-2509** (20B, Q4_K_S) + the **Lightning 4-step LoRA**, reference image
+passed with `-r`:
+
+| Config | Wall | Per step | Peak RAM |
+|---|---|---|---|
+| 512x512, 4 steps, Lightning | **1038s (17.3 min)** | 225.8 s/it | **23.05 GB** |
+
+Verified good output, not noise: "replace the wooden table with a marble kitchen counter"
+preserved the apple, its lighting and its angle, and changed only the surface.
+
+Two things this pins down:
+
+**The Lightning LoRA is not optional.** Stock Qwen-Image-Edit wants 20–40 steps, which at
+226 s/step is 75 minutes to 2.5 hours *per image*. Distilled to 4 steps it is 17 minutes.
+`--cfg-scale 1` goes with it — the distillation expects no classifier-free guidance.
+
+**23.05 GB peak against a 24 GiB ceiling is the real memory constraint of this host**, and
+it is why the [exclusivity rule](#exclusivity-with-imagegen-gpu--and-the-oom-that-taught-us)
+exists. It fit with 11% to spare and `memory.events` reported `oom_kill 0`. Editing at
+1024x1024 (4x the latent tokens) will **not** fit in 24 GiB — raise the ceiling first, with
+the GPU VM stopped, or edit at 512.
+
+### Versus the GPU
+
+The GTX 1080 sibling ([`imagegen-gpu.md`](./imagegen-gpu.md)) is 12–30x faster at
+generation, but 8 GB of VRAM cannot hold the 20B editor at all. The split that matters:
+
+| Task | CPU (CT 110) | GPU (VM 123) |
+|---|---|---|
+| Generate 1024x1024 | 30.3 min | **79.5s** |
+| Edit 512x512 | **17.3 min**, Qwen-Image-Edit 2509 Q4_K_S — the best open editor | 2.1 min, but only FLUX.1-Kontext **Q3_K_M**, the weakest of the three at an aggressive quant |
+| Edit 1024x1024 | needs >24 GiB | 9.9 min, same quality caveat |
+
+So: **generate on the GPU, edit on the CPU when the result matters.** The only thing that
+gets both is a 12–16 GB card — every GPU failure was an allocation failure, never a speed
+one.
 
 ## Exclusivity with imagegen-gpu — and the OOM that taught us
 
