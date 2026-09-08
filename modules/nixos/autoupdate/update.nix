@@ -100,7 +100,7 @@ in {
       '';
     };
     diagnose = {
-      enable = lib.mkEnableOption "Run claude -p on nixos-upgrade failure and route the diagnosis through Hermes RCA first, with Gotify fallback. Requires one-time interactive `sudo -u abl030 --login claude` per host.";
+      enable = lib.mkEnableOption "On nixos-upgrade failure, ship the raw failure context (HEAD diff, failed units, coredumps, log tail) to Hermes RCA; only if that webhook is unreachable, run claude -p locally and page Gotify with its verdict. The fallback needs a one-time interactive `sudo -u abl030 --login claude` per host.";
     };
   };
 
@@ -205,6 +205,26 @@ in {
 
       $rebuild_log_block"
 
+      ${sendNegativeAlert}
+      title="nixos-upgrade failed on ${config.networking.hostName}"
+
+      # Normal path: hand the raw context to the Hermes RCA agent. It has the
+      # repo, Loki and the fleet docs, and it opens the fix PR; a one-shot
+      # verdict from here would only be a misleading prior for it to argue
+      # against (it misread two nights running before this reorder).
+      if send_rca_alert "$title" "## nixos-upgrade failed on ${config.networking.hostName}
+      source: $log_source
+
+      $prompt
+
+      Investigate read-only. Check our own modules, overlays and checks before blaming nixpkgs. Tell the user once: what failed, classification (upstream | actionable | transient), and the concrete fix." 8; then
+        echo "[Diagnose] raw failure context (source=$log_source) delivered to Hermes RCA; local claude triage skipped."
+        exit 0
+      fi
+
+      # Fallback: Hermes is unreachable, so the direct Gotify page has to carry
+      # a verdict of its own. Only now spend the local claude -p call.
+      echo "[Diagnose] Hermes RCA unreachable; running local claude triage for the Gotify fallback."
       summary="$(printf '%s' "$prompt" | ${pkgs.coreutils}/bin/timeout 600 ${pkgs.claude-code}/bin/claude -p \
         --system-prompt ${lib.escapeShellArg diagnoseSystemPrompt} \
         --model opus \
@@ -223,8 +243,7 @@ in {
       printf '%s\n' "$summary"
       echo "[Diagnose] === end diagnosis ==="
 
-      ${sendNegativeAlert}
-      send_negative_alert "nixos-upgrade failed on ${config.networking.hostName}" "$summary" 8
+      send_gotify_alert "$title" "$summary" 8
     '';
 
     smartUpgrade = pkgs.writeShellScriptBin "smart-nixos-upgrade" ''
@@ -484,7 +503,7 @@ in {
     };
 
     systemd.services.nixos-upgrade-diagnose = lib.mkIf cfg.diagnose.enable {
-      description = "Triage the last nixos-upgrade failure via claude -p and notify Gotify";
+      description = "Ship the last nixos-upgrade failure to Hermes RCA; claude -p + Gotify only as fallback";
       serviceConfig = {
         Type = "oneshot";
         User = diagnoseUser;

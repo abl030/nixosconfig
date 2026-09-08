@@ -23,22 +23,28 @@
     then rollingSecret
     else "alert-bridge-rca";
 in ''
-  send_negative_alert() {
+  # Hermes alert-RCA delivery. Returns curl's status (non-zero when the webhook
+  # is unreachable) so a caller can decide what the fallback page should say.
+  send_rca_alert() {
     local title="$1"
     local message="$2"
     local priority="''${3:-5}"
 
     local payload
     payload="$(${pkgs.python3}/bin/python3 -c 'import json,sys; print(json.dumps({"title": sys.argv[1], "message": sys.argv[2], "priority": int(sys.argv[3])}))' "$title" "$message" "$priority")"
-    if ${pkgs.curl}/bin/curl -fsS --max-time 20 -X POST "${rcaWebhookUrl}" \
+    ${pkgs.curl}/bin/curl -fsS --max-time 20 -X POST "${rcaWebhookUrl}" \
       -H "Content-Type: application/json" \
       -H "X-Gitlab-Token: ${rcaWebhookSecret}" \
-      --data-binary "$payload" >/dev/null; then
-      return 0
-    fi
+      --data-binary "$payload" >/dev/null
+  }
 
-    # Fallback only: if Hermes/RCA is down, keep the old direct page path so
-    # negative alerts do not disappear silently.
+  # Direct Gotify page. Fallback only: if Hermes/RCA is down, keep the old
+  # direct page path so negative alerts do not disappear silently.
+  send_gotify_alert() {
+    local title="$1"
+    local message="$2"
+    local priority="''${3:-5}"
+
     local token_file="${
     if gotifyTokenFile != null
     then gotifyTokenFile
@@ -63,5 +69,12 @@ in ''
       --data-urlencode "title=$title" \
       --data-urlencode "message=$message" \
       --data-urlencode "priority=$priority" >/dev/null || true
+  }
+
+  # RCA first, direct Gotify only when that delivery fails; same body to both.
+  # A caller that wants a different fallback body (nixos-upgrade-diagnose runs
+  # its local claude triage only on that path) uses the two halves directly.
+  send_negative_alert() {
+    send_rca_alert "$@" || send_gotify_alert "$@"
   }
 ''

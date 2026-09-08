@@ -10,9 +10,9 @@ When the nightly `nixos-upgrade.service` fails on any NixOS host:
 
 1. `smart-nixos-upgrade` (in `modules/nixos/autoupdate/update.nix`) copies the failure log to `/var/lib/nixos-upgrade/last-failure.log` and exits non-zero. **Does not** post to Gotify itself when `diagnose.enable = true` — the diagnose unit owns the notification.
 2. systemd `OnFailure=` triggers `nixos-upgrade-diagnose.service`, which runs as the host's interactive user (`hostConfig.user`, usually `abl030`).
-3. The diagnose script feeds a recent `git diff HEAD~1 HEAD` + the last 200 log lines into `claude -p --model haiku --allowedTools ""` with a tight system prompt asking for `Classification / Summary / Fix`.
-4. The structured diagnosis is printed to stdout (journal → Loki) **and** posted to Gotify as the failure ping you'd otherwise have got.
-5. If `claude` is unauthenticated, times out, or returns empty, the script falls back to the raw log tail in Gotify — exactly the pre-diagnose behaviour. No host is worse off than before.
+3. The diagnose script assembles the raw failure context (`git log -1 --stat` + `git diff HEAD~1 HEAD`, failed system and user units, recent coredumps, the last 200 log lines) and POSTs it to the Hermes alert-RCA webhook via `send_rca_alert` from `modules/nixos/lib/negative-alert.nix`. Hermes investigates with repo access, pushes one Gotify with the RCA, and opens a signed fix PR when the cause is mechanical.
+4. Only if that webhook is unreachable does the script run `claude -p --model opus --allowedTools WebFetch` locally with `diagnoseSystemPrompt` and page Gotify directly with its `Classification / Summary / Fix / Evidence` verdict. The journal (→ Loki) says which path ran: `delivered to Hermes RCA` versus `=== diagnosis for <host> ===`.
+5. If the fallback `claude` is unauthenticated, times out, or returns empty, the page carries the raw log tail — exactly the pre-diagnose behaviour. No host is worse off than before.
 
 The `triage-overnight` skill (`.claude/skills/triage-overnight/SKILL.md`) is the morning ritual: queries Loki for both this unit and `rolling-flake-update.service`, summarises diagnoses, proposes fixes.
 
@@ -90,3 +90,19 @@ time, just unreadable.**
 **Look for in Loki:** `{unit="nixos-upgrade-diagnose.service"} |~ "source="`
 gives you the route each diagnosis took. `source=perm-error` should now be
 unreachable — if it ever fires, smartUpgrade regressed the mode again.
+
+## 2026-09-09 — Hermes first; claude -p is fallback-only
+
+Until this date the unit ran `claude -p` first and handed that verdict to Hermes, which
+then did the real RCA. On 2026-09-07 and 2026-09-08 the one-shot triage classified both
+real root causes (our gnome-shell overlay applied twice by standalone Home Manager; gzip
+missing from the rolling updater's PATH) as "upstream, wait for nixpkgs", and Hermes had
+to argue against its own input to reach the right answer (Forgejo PR #213). The order is
+now: raw context → Hermes RCA; local `claude -p` → direct Gotify only when the webhook
+fails. The same reorder was applied to `scripts/rolling_flake_update.sh`: failed groups
+send their last 40 build-log lines plus the artifact path to Hermes, and the per-group
+claude triage runs only for the Gotify fallback (`triaged_summary_lines`).
+
+Consequence for the `triage-overnight` skill: on a normal night the journal carries no
+`**Classification**` block. The diagnosis arrives as Hermes' Gotify RCA and, when the fix
+is mechanical, a Forgejo PR; the journal line records which path was taken.

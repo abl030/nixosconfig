@@ -31,8 +31,8 @@ This keeps the chat conversational while the user is deciding (often while drivi
 
 Four things to check every morning:
 
-1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → claude triage → Gotify.
-2. **`nixos-upgrade.service`** on every NixOS host between 01:00 and 02:00 local. Pulls the latest flake and rebuilds. On failure → `nixos-upgrade-diagnose.service` runs claude -p → Gotify.
+1. **`rolling-flake-update.service`** on `proxmox-vm` (doc1) at 23:00 AWST (15:00 UTC). Updates flake inputs, builds, pushes if green. On failure → raw log excerpts + artifact paths → Hermes RCA (one Gotify RCA, fix PR when mechanical); the in-run claude triage runs only if the Hermes webhook is down.
+2. **`nixos-upgrade.service`** on every NixOS host between 01:00 and 02:00 local. Pulls the latest flake and rebuilds. On failure → `nixos-upgrade-diagnose.service` ships the raw context to Hermes RCA; claude -p → Gotify only if Hermes is unreachable.
 3. **Gotify pings** on doc2. Picks up the long tail — watchdogs, alert-bridge, Grafana alerts, Domain-Monitor, Kuma — that isn't a nightly job but did wake the phone overnight.
 4. **Auto-generated RCA fix PRs** on Forgejo. When an overnight alert's root cause has a mechanical fix, the RCA pipeline opens a PR with the patch (see Step 1c). These are candidate fixes already written for you — your job is to **review each and recommend merge / hold / changes**, then (on the user's go) merge and deploy.
 
@@ -312,6 +312,7 @@ stream). doc1 itself: `sudo fleet-update`. See CLAUDE.md deploy rules — never
 
 ## Failure modes to recognise
 
+- **`delivered to Hermes RCA` in the diagnose journal line** (normal since 2026-09-09) → no `**Classification**` block will appear in Loki for that host. The diagnosis is Hermes' Gotify RCA and, when mechanical, a Forgejo PR (Step 1c). Only the fallback path (Hermes webhook down) prints a local claude verdict to the journal; the same holds for the rolling summary lines.
 - **`claude triage unavailable`** appears in the Loki output → the host has not been bootstrapped (no `~/.claude.json` for the service user yet), or the claude OAuth token expired, or the network was down at triage time. The raw log tail is included instead. Tell the user the host needs a one-time `sudo -u <user> --login claude` bootstrap if the message has fired more than once.
 - **No Loki results for a host that you know failed** → the diagnose unit itself failed to start. Query `{host="<h>"} |~ "nixos-upgrade-diagnose"` to find the systemd-level error.
 - **rolling-flake-update fires `transient` repeatedly** → flake-update is rate-limited or hitting upstream throttling. Check the actual `rolling_flake_update.sh` output, not just claude's summary.

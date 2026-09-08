@@ -28,9 +28,12 @@
     then config.sops.secrets."deploy-trigger/key".path
     else "";
 
-  # Per-group failure triage prompt. The script (scripts/rolling_flake_update.sh)
-  # runs this against each FAILED group's build log and bundles the summaries into
-  # one Gotify notification. Kept as a file so the multi-line prompt survives env.
+  # Per-group failure triage prompt for the Gotify FALLBACK only. The script
+  # (scripts/rolling_flake_update.sh) ships raw build-log excerpts plus artifact
+  # paths to the Hermes RCA webhook first; it runs this one-shot claude triage
+  # against each failed group's log only when that webhook is unreachable, so
+  # the direct Gotify page still carries a verdict. Kept as a file so the
+  # multi-line prompt survives env.
   triageSystemPrompt = ''
     You are triaging a NixOS rolling flake update build failure.
     You receive the last 200 lines of build log via stdin.

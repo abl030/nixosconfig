@@ -401,10 +401,13 @@ ANY_FAIL=0
 ANY_COMMIT=0
 FATAL_TRANSACTION=0
 
-# Triage a failed group's build log via headless Claude. Uses opus: this is one
-# of the two diagnosis paths (with nixos-upgrade) where an accurate, actionable
-# verdict on a nightly build failure is worth the cost — everything else on the
-# fleet defaults to haiku. Falls back to a sanitised log tail. Echoes a summary.
+# Fallback-only triage of a failed group's build log via headless Claude. The
+# normal path ships raw log excerpts plus artifact paths to the Hermes RCA agent
+# (it has the repo and opens fix PRs); this one-shot verdict is produced only
+# when that webhook is unreachable, so the direct Gotify page still says
+# something useful. Uses opus for the same reason nixos-upgrade's fallback
+# does — everything else on the fleet defaults to haiku. Falls back to a
+# sanitised log tail. Echoes a summary.
 triage() {
     local logf="$1"
     local out=""
@@ -420,6 +423,40 @@ triage() {
         out="(claude triage unavailable) $(tail -n 15 "$logf" | sed 's/[[:cntrl:]]/ /g' | tr '\n' ' ')"
     fi
     echo "$out"
+}
+
+# Failed groups and their build logs, in failure order. $WORK_DIR outlives the
+# notification step (the EXIT trap removes it), so the raw log can be excerpted
+# for Hermes or triaged for the Gotify fallback without re-reading the artifact.
+FAILED_GROUP_NAMES=()
+FAILED_GROUP_LOGS=()
+
+# Sanitised tail of a build log for a notification body.
+log_excerpt() {
+    local logf="$1"
+    local lines="${2:-40}"
+    tail -n "$lines" "$logf" 2>/dev/null | sed 's/[[:cntrl:]]/ /g'
+}
+
+# SUMMARY_LINES with the fallback claude verdict appended to every failed group
+# whose build log is still on disk. Only the Gotify fallback pays for this.
+triaged_summary_lines() {
+    local line name i
+    for line in "${SUMMARY_LINES[@]}"; do
+        case "$line" in
+            "❌ "*)
+                name="${line#❌ }"
+                name="${name%% —*}"
+                for i in "${!FAILED_GROUP_NAMES[@]}"; do
+                    if [ "${FAILED_GROUP_NAMES[$i]}" = "$name" ]; then
+                        line="$line — $(triage "${FAILED_GROUP_LOGS[$i]}")"
+                        break
+                    fi
+                done
+                ;;
+        esac
+        printf '%s\n' "$line"
+    done
 }
 
 # A failed rollback poisons the whole temporary transaction. Later groups must
@@ -459,10 +496,12 @@ record_group_update_failure() {
     log "❌ [$name] $reason; reverting."
     ANY_FAIL=1
     local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+    FAILED_GROUP_NAMES+=("$name")
+    FAILED_GROUP_LOGS+=("$glog")
     if [ -n "$artifact" ]; then
-        SUMMARY_LINES+=("❌ $name — $reason: $(triage "$glog") (artifact: $artifact)")
+        SUMMARY_LINES+=("❌ $name — $reason (artifact: $artifact)")
     else
-        SUMMARY_LINES+=("❌ $name — $reason: $(triage "$glog")")
+        SUMMARY_LINES+=("❌ $name — $reason")
     fi
     restore_group_state "$name" "$glog" || true
 }
@@ -507,13 +546,14 @@ finish_updated_group() {
     else
         log "❌ [$name] build failed; reverting group."
         ANY_FAIL=1
-        local t; t="$(triage "$glog")"
         local artifact; artifact="$(persist_group_failure "$name" "$glog")"
+        FAILED_GROUP_NAMES+=("$name")
+        FAILED_GROUP_LOGS+=("$glog")
         restore_group_state "$name" "$glog" || true
         if [ -n "$artifact" ]; then
-            SUMMARY_LINES+=("❌ $name — $t (artifact: $artifact)")
+            SUMMARY_LINES+=("❌ $name — build failed (artifact: $artifact)")
         else
-            SUMMARY_LINES+=("❌ $name — $t")
+            SUMMARY_LINES+=("❌ $name — build failed")
         fi
         return 1
     fi
@@ -556,7 +596,9 @@ try_group() {
     finish_updated_group "$name" "$inputs" "$glog" "flake.lock nix/overlay.nix"
 }
 
-# Send ONE bundled Gotify with the whole night's per-group results.
+# Send ONE bundled Gotify with the whole night's per-group results. This is the
+# fallback when Hermes RCA is unreachable, so each failed group's line gets the
+# local claude verdict appended here — the phone page has to stand on its own.
 send_summary_notification() {
     [ -z "$GOTIFY_URL" ] && return 0
     [ -z "$GOTIFY_TOKEN_FILE" ] && return 0
@@ -567,7 +609,7 @@ send_summary_notification() {
     local nfail ntotal body
     ntotal=${#SUMMARY_LINES[@]}
     nfail=$(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true)
-    body="$(printf '%s\n' "${SUMMARY_LINES[@]}")"
+    body="$(triaged_summary_lines)"
 
     curl -fsS -X POST "${GOTIFY_URL}/message?token=$token" \
         -F "title=rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}" \
@@ -584,9 +626,19 @@ send_rca_notification() {
     ntotal=${#SUMMARY_LINES[@]}
     nfail=$(printf '%s\n' "${SUMMARY_LINES[@]}" | grep -c '^❌' || true)
     body="$(printf '%s\n' "${SUMMARY_LINES[@]}")"
+    # Raw evidence for the agent. It has the repo and the artifact directories,
+    # but the excerpt lets it start from the actual error rather than from a
+    # pre-chewed one-shot verdict it would then have to argue against.
+    local excerpts="" i
+    for i in "${!FAILED_GROUP_NAMES[@]}"; do
+        excerpts="${excerpts}
+### ${FAILED_GROUP_NAMES[$i]} — last 40 build-log lines
+$(log_excerpt "${FAILED_GROUP_LOGS[$i]}" 40)
+"
+    done
     payload="$(jq -n \
         --arg title "rolling flake update: ${nfail}/${ntotal} groups failed on ${RFU_HOSTNAME}" \
-        --arg message "## Rolling flake update failed\nhost: ${RFU_HOSTNAME}\nfailed_groups: ${nfail}/${ntotal}\n\n${body}\n\nInvestigate read-only. Tell the user once: failing package/input, classification, and whether there is anything to do locally." \
+        --arg message "## Rolling flake update failed\nhost: ${RFU_HOSTNAME}\nfailed_groups: ${nfail}/${ntotal}\n\n${body}\n${excerpts}\nInvestigate read-only, starting from the excerpts and the artifact directories (build.log, head-rev.txt). Check our own overlays, checks and service PATHs before blaming nixpkgs. Tell the user once: failing package/input, classification, and whether there is anything to do locally." \
         '{title: $title, message: $message, priority: 8}')"
 
     curl -fsS -X POST "$RCA_WEBHOOK_URL" \
