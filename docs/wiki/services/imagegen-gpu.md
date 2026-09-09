@@ -28,7 +28,7 @@ at Q3_K_M is the editor here. **Whatever quality that gives is the quality.**
 - **VM:** 123 on prom, `q35` + OVMF, 8 cores, **12 GiB RAM**, 200 GiB on `nvmeprom`
 - **GPU:** `hostpci0: 0000:01:00,pcie=1` — the whole IOMMU group 13 (GP104 + its HDMI audio function)
 - **Models:** `/var/lib/imagegen/models` on the root filesystem (re-downloadable; not backed up)
-- **Network:** LAN-only, `192.168.1.45`. sshd, plus nginx on 443 fronting ComfyUI (published on loopback only) with a real ACME cert; the `imagegen.ablz.au` A record points at the LAN IP. No tailscale. ComfyUI has no auth — it must never get a public path.
+- **Network:** LAN `192.168.1.45` (sshd, deploys) and tailnet `100.96.55.109` as **`tag:imagegen`**. nginx fronts ComfyUI (published on loopback only) with a real ACME cert and **binds the tailnet address only** (`tailscaleOnly`); the `imagegen.ablz.au` A record points there. Nothing listens on the LAN address. ComfyUI has no auth of its own, so **the tailnet ACL is the access control**: `tag:imagegen:443` is granted to exactly `framework`, `epimetheus`, `s-a55` (phone) and `cullen` (laptop) — not tag:client-wide, not tag:server — and the node has zero outbound grants. doc1 also reaches it via the bastion's pre-existing `dst: *` grant. Verified 2026-09-09: Cullen laptop 200, doc2 refused, LAN address dead.
 - **Share:** `192.168.1.2:/mnt/user/data/Life/Temp/imagegen` mounted at `/mnt/out` — `in/` is ComfyUI's input picker, `comfyui/` its output, both world-writable.
 - **Container:** `podman-comfyui` (`yanwk/comfyui-boot:cu126-slim`, GPU via CDI), data in `/var/lib/comfyui`; module `modules/nixos/services/comfyui-gpu.nix`.
 
@@ -210,7 +210,8 @@ one.
 
 ### The UI (what the user actually uses)
 
-**https://imagegen.ablz.au** — ComfyUI, from any machine on the LAN. Photos to edit go
+**https://imagegen.ablz.au** — ComfyUI, from framework, epimetheus, the phone or the Cullen
+laptop (tailnet only; the name resolves to the node's tailnet IP). Photos to edit go
 in `/mnt/data/Life/Temp/imagegen/in/` (the input picker reads it); renders land in
 `/mnt/data/Life/Temp/imagegen/comfyui/`. Two saved workflows in the Workflows menu:
 **Generate** (Z-Image Turbo) and **Edit** (FLUX.1-Kontext) — pick one, drop a photo or type

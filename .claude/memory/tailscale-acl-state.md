@@ -14,10 +14,17 @@ doc1→cullen:22 deploy, `ssh wsl` → wsl DNS+git+tower-NFS, static accept+deny
 **Owner still to live-verify device-to-device (Sunshine/RDP/Syncthing), overseer-from-phone,
 ali@'s overseer share** — paths a server vantage can't test.
 
+**tag:imagegen** (2026-09-09) = imagegen-gpu VM 123 (`100.96.55.109`): ComfyUI has no auth, so
+the ACL is the auth — `:443` granted to exactly framework/epimetheus/s-a55/cullen, zero egress;
+nginx binds the tailnet IP only (`tailscaleOnly`). doc1 also reaches it via its bastion `dst:*`.
+Adding a device = add it to that grant's src AND an accept test. The node joined via an
+interactive `tailscale up --advertise-tags=tag:imagegen` (admin clicks the login URL); there is
+no OAuth client that can mint tagged auth keys — share sidecars use pre-minted keys.
+
 tag:cullen = laptop-btibh4ie (Cullen laptop): strictest — out = pfSense:53 DNS + tcp:443 to
-an **exact /32 list** (.4 .29 .35 .33 .6, and .45 imagegen-gpu since 2026-09-09 — NOT the
-whole /24: a new LAN service on :443 is unreachable from the laptop until its /32 is added
-to that grant AND the matching accept test) + .35:8050 + tower NFS (192.168.1.2:2049);
+an **exact /32 list** (.4 .29 .35 .33 .6 — NOT the whole /24: a new LAN service on :443 is
+unreachable from the laptop until its /32 is added to that grant AND the matching accept
+test; imagegen is reached via tag:imagegen instead) + .35:8050 + tower NFS (192.168.1.2:2049);
 in = doc1/framework→:22. NOT client↔client, NOT broad fleet/exit. wsl keeps NFS now; Syncthing-only
 is "future us" (forgejo#4). client↔client is a blanket `tag:client→tag:client:*`.
 

@@ -170,6 +170,10 @@ in {
     homeDirectory = "/home/abl030";
     hostname = "imagegen-gpu";
     localIp = "192.168.1.45";
+    # tag:imagegen node. The ComfyUI vhost is tailscaleOnly: nginx binds this
+    # address and the imagegen.ablz.au record points here, so the ACL's
+    # four-device grant is the UI's entire access control.
+    tailscaleIp = "100.96.55.109";
     sshHostName = "192.168.1.45";
     sshAlias = "imagegen-gpu";
     privateFlakeAuth = false;

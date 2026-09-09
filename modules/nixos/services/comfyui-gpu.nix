@@ -103,7 +103,19 @@ in {
     fqdn = lib.mkOption {
       type = lib.types.str;
       default = "imagegen.ablz.au";
-      description = "Name served by the local proxy with a real certificate, resolving to the LAN IP.";
+      description = "Name served by the local proxy with a real certificate.";
+    };
+
+    tailscaleOnly = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Bind the vhost to the host's tailnet address only and point its DNS
+        record there, so the UI is reachable solely through the tailnet ACL.
+        Requires homelab.localProxy.tailscaleIp (hosts.nix tailscaleIp).
+        This is the intended posture: ComfyUI has no authentication, so the
+        ACL grant list is the whole access control.
+      '';
     };
 
     workflows = lib.mkOption {
@@ -227,6 +239,7 @@ in {
         websocket = true;
         # Photo uploads for editing.
         maxBodySize = "0";
+        inherit (cfg) tailscaleOnly;
       }
     ];
   };

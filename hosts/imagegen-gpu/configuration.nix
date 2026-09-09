@@ -179,6 +179,10 @@
   homelab.services.comfyuiGpu = {
     enable = true;
     fqdn = "imagegen.ablz.au";
+    # nginx binds the tailnet address only and the A record points there: the
+    # tailnet ACL (tag:imagegen, four named devices) is the whole access control.
+    # Nothing listens on the LAN address.
+    tailscaleOnly = true;
     # The two things the UI offers: pick one from the Workflows menu. Both are
     # the stock ComfyUI templates with the loaders swapped for ComfyUI-GGUF
     # ones pointing at our files; Edit also bypasses the ~1 MP upscale so a
@@ -234,9 +238,11 @@
     # No log or metric shipping to the LGTM stack from this host (user request,
     # 2026-09-09). Nothing here is fleet-critical, and ComfyUI is chatty.
     loki.enable = false;
-    # No tailnet membership: nothing here is worth reaching remotely, and the
-    # GPU is shared with the gaming VMs. Reach it from the LAN, or via doc1.
-    tailscale.enable = false;
+    # On the tailnet as tag:imagegen so the ACL can be the UI's access control
+    # (ComfyUI has none of its own). netfilterMode stays "off" (module default):
+    # the tailnet reaches this box only through nginx:443, and the ACL decides
+    # which four devices get that far. No outbound tailnet grants at all.
+    tailscale.enable = true;
     gotify.enable = false;
     monitoring.deployOperatorApiKey = false;
     update = {
