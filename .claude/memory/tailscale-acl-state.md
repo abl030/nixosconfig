@@ -14,9 +14,11 @@ doc1→cullen:22 deploy, `ssh wsl` → wsl DNS+git+tower-NFS, static accept+deny
 **Owner still to live-verify device-to-device (Sunshine/RDP/Syncthing), overseer-from-phone,
 ali@'s overseer share** — paths a server vantage can't test.
 
-tag:cullen = laptop-btibh4ie (Cullen laptop): strictest — out = pfSense:53 DNS +
-192.168.1.0/24:{443,8050} mgmt + tower NFS (192.168.1.2:2049) + Syncthing mesh; in =
-doc1/framework→:22. NOT client↔client, NOT broad fleet/exit. wsl keeps NFS now; Syncthing-only
+tag:cullen = laptop-btibh4ie (Cullen laptop): strictest — out = pfSense:53 DNS + tcp:443 to
+an **exact /32 list** (.4 .29 .35 .33 .6, and .45 imagegen-gpu since 2026-09-09 — NOT the
+whole /24: a new LAN service on :443 is unreachable from the laptop until its /32 is added
+to that grant AND the matching accept test) + .35:8050 + tower NFS (192.168.1.2:2049);
+in = doc1/framework→:22. NOT client↔client, NOT broad fleet/exit. wsl keeps NFS now; Syncthing-only
 is "future us" (forgejo#4). client↔client is a blanket `tag:client→tag:client:*`.
 
 REVERT if anything breaks: re-add `{src:["*"],dst:["*"],ip:["*"]}` to acl.hujson grants +
