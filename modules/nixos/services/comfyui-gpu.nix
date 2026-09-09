@@ -230,6 +230,26 @@ in {
       }
     ];
 
+    # Deliberately empty HERE, and not because Kuma covers it. homelab.monitoring.*
+    # is consumed only on the LGTM host: alerting.nix reads
+    # config.homelab.monitoring.errorPatterns of the machine running Grafana,
+    # and monitoring_sync does the same for Kuma monitors. A block declared in
+    # this module lands in imagegen-gpu's config, where nothing ever reads it --
+    # it would satisfy nix/checks/security.nix's grep while alerting nobody.
+    #
+    # The real coverage for this service is declared host-scoped
+    # (host = "imagegen-gpu", unit = "podman-comfyui.service") in
+    # hosts/doc2/configuration.nix: two errorPatterns plus a json-query Kuma
+    # monitor on /system_stats that asserts devices[0].type == "cuda", i.e.
+    # that torch actually found the card and did not fall back to CPU. See
+    # docs/wiki/services/imagegen-gpu.md "Monitoring".
+    #
+    # Authoring note for anyone tempted to add patterns: this image prints
+    # "[ERROR] [ComfyUI-Manager] PyTorch is not installed" on EVERY healthy
+    # start (Manager probes a venv that is not the one torch lives in), so a
+    # naive "[ERROR]" match pages on each reboot.
+    homelab.monitoring.errorPatterns = [];
+
     homelab.localProxy.hosts = [
       {
         host = cfg.fqdn;

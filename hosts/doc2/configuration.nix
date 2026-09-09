@@ -557,6 +557,76 @@
         url = "https://home.ablz.au/manifest.json";
         maxretries = 3;
       }
+      # ComfyUI on imagegen-gpu (VM 123). Declared HERE rather than in
+      # comfyui-gpu.nix because homelab.monitoring.* is only read on this host;
+      # a monitor in that module would land in imagegen-gpu's config and never
+      # be synced. json-query rather than plain HTTP on purpose: /system_stats
+      # returns 200 with devices[0].type = "cpu" when torch imports but cannot
+      # see the card (wrong CUDA line, driver gone, GPU handed to a gaming VM
+      # mid-flight), which is the "up but useless" state the module header
+      # warns about. Verified 2026-09-09 from the tailnet: type = "cuda",
+      # name = "cuda:0 NVIDIA GeForce GTX 1080 : cudaMallocAsync".
+      #
+      # KNOWN PAGE: prom's imagegen-exclusive hookscript shuts VM 123 down when
+      # a gaming VM starts, and restart afterwards is manual. This monitor will
+      # therefore go DOWN ~10 min into a gaming session and stay DOWN until 123
+      # is started again -- which is also the only signal that it was forgotten.
+      # maxretries = 10 mirrors the Cullen Wines budget above.
+      {
+        name = "ComfyUI (imagegen GPU)";
+        url = "https://imagegen.ablz.au/system_stats";
+        type = "json-query";
+        jsonPath = "devices[0].type";
+        expectedValue = "cuda";
+        maxretries = 10;
+      }
+    ];
+
+    # Log-line rules for ComfyUI on imagegen-gpu. Same reason as the monitor
+    # above: alerting.nix compiles config.homelab.monitoring.errorPatterns of
+    # THIS host, so cross-host rules are declared here with an explicit host
+    # filter. Both regexes were checked against 7 days / 5 healthy starts of
+    # the real container log on 2026-09-09: zero matches for the first, and the
+    # second's only hits were two user-side bad model files (a GGUF llama.cpp
+    # rejected, a state_dict mismatch) -- exactly what the default threshold
+    # exists to keep from paging. Selectors are scoped to unit + container, so
+    # Grafana's own scheduler echo (grafana.service on doc2) cannot self-match.
+    monitoring.errorPatterns = [
+      {
+        name = "ComfyUI GPU unusable";
+        host = "imagegen-gpu";
+        unit = "podman-comfyui.service";
+        container = "comfyui";
+        # Startup prints "Device: cuda:0 ..." when healthy and "Device: cpu"
+        # when torch cannot see the card (capital D; the benign per-model
+        # "load device: cpu" lines are lowercase and do not match). The rest
+        # are the driver-init and wrong-CUDA-line signatures -- "no kernel
+        # image is available" is precisely what the cu130 wheels would do on
+        # this Pascal card: import fine, die at the first launch.
+        pattern = "Device: cpu|Torch not compiled with CUDA|No CUDA GPUs are available|CUDA driver initialization failed|Found no NVIDIA driver|no kernel image is available for execution";
+        severity = "critical";
+        summary = "ComfyUI is running without its GPU";
+        # Single-shot: each of these is printed once at start or at the first
+        # kernel launch, then the service either limps on CPU or the graph
+        # fails. The default 3-in-5m bar would never be reached.
+        threshold = 0;
+      }
+      {
+        name = "ComfyUI workflows failing";
+        host = "imagegen-gpu";
+        unit = "podman-comfyui.service";
+        container = "comfyui";
+        # "!!! Exception during processing" is ComfyUI's stable prefix for a
+        # node failing inside execution.py; the CUDA arms catch the runtime
+        # side of a VRAM or driver problem on an 8 GB card that already runs
+        # LOW_VRAM. One line per failed run, so a bad experiment (the two
+        # real hits so far) stays under the default threshold; a service that
+        # fails every run crosses it within a few attempts.
+        pattern = "!!! Exception during processing|CUDA out of memory|OutOfMemoryError|CUDA error:";
+        severity = "warning";
+        summary = "ComfyUI workflows are failing repeatedly";
+        window = "10m";
+      }
     ];
 
     # See modules/nixos/services/tailscale-share.nix.
