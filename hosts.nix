@@ -155,26 +155,6 @@ in {
     authorizedKeys = fleetKeys;
   };
 
-  # CPU image-generation appliance, CT 110 on prom. Off by default (onboot 0)
-  # and LAN-only — see hosts/imagegen/configuration-lxc.nix for the rationale.
-  # Consumes no sops secrets: privateFlakeAuth + atuinCredentials are both off,
-  # so there is deliberately no secrets/hosts/imagegen/ directory.
-  imagegen = {
-    configurationFile = ./hosts/imagegen/configuration-lxc.nix;
-    homeFile = ./hosts/imagegen/home.nix;
-    user = "abl030";
-    homeDirectory = "/home/abl030";
-    hostname = "imagegen";
-    localIp = "192.168.1.37";
-    sshHostName = "192.168.1.37";
-    sshAlias = "imagegen";
-    privateFlakeAuth = false;
-    atuinCredentials = false;
-    sshKeyName = "ssh_key_abl030";
-    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICUJGo1w4LelQJ+bQrXV8YbLH2IA0QF42RwCB/aT62ma root@imagegen";
-    authorizedKeys = fleetKeys;
-  };
-
   # GPU image-generation appliance, VM 123 on prom. A VM, not an LXC, because
   # the GTX 1080 is bound to vfio-pci for passthrough — and because Proxmox then
   # refuses to start it while an apollo-* gaming VM holds the same PCI device,

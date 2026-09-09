@@ -1,29 +1,33 @@
 ---
 name: imagegen-exclusive-cpu-gpu
-description: imagegen CPU LXC (CT 110) and imagegen-gpu VM (VM 123) on prom must never run at the same time
+description: prom's GTX 1080 has one owner at a time (imagegen-gpu VM 123 vs the gaming VMs), and a cgroup memory cap only protects the host when set below real headroom
 metadata:
   type: project
 ---
 
-The two image-generation hosts on prom are **mutually exclusive — only one runs
-at a time**. CT 110 (`imagegen`, CPU) and VM 123 (`imagegen-gpu`, GTX 1080) must
-never be running simultaneously.
+**Current state (2026-09-09):** image generation lives ONLY on **VM 123
+`imagegen-gpu`** (GTX 1080, ComfyUI at https://imagegen.ablz.au, normally on,
+`onboot 1`). The CPU container CT 110 was **retired and destroyed** — a
+20–30 minute all-cores job made the whole hypervisor sluggish, and the user
+chose GPU speed over the 20B editor's quality.
 
-**Why:** prom has 123 GB and **no swap**, and doc1 + doc2 hold ~64 GB resident
-(Proxmox backs virtiofs-enabled VMs with `memory-backend-memfd`, so their RAM is
-pinned, not reclaimable). On 2026-09-08 both image hosts ran at once — the CPU
-container peaked at 22.9 GB against a 24 GB ceiling while the GPU VM held 12 GB —
-and prom's **global** OOM killer fired and killed doc1's kvm process, rebooting
-the bastion. The container never hit its own cgroup limit (`memory.events`
-showed `oom_kill 0`); the host ran out first.
+**GPU ownership:** the 1080 is passed through, so exactly one VM can hold it.
+A prom hookscript (`local:snippets/imagegen-exclusive.sh`, wired to gaming VMs
+117/120/121) shuts 123 down before a gaming VM starts. Start 123 again after
+gaming. Do not add a second GPU consumer without extending that script.
 
-The lesson generalises: **a cgroup ceiling only protects the host when it is set
-below the host's real headroom.** Setting a container's `memory.max` equal to
-what `free` reports as available leaves nothing for the host, and the global OOM
-killer then picks the largest RSS process — which on prom is always doc1 or doc2,
-never the offender.
+**The lesson that outlives the container.** On 2026-09-08 CT 110 (24 GB cgroup
+cap) and VM 123 (12 GB) ran at once on prom (123 GB, **no swap**, doc1+doc2 pin
+~64 GB via memory-backend-memfd). The container peaked at 22.9 GB, prom's
+*global* OOM killer fired and killed doc1's kvm process — the bastion rebooted.
+The container never hit its own limit (`memory.events` showed `oom_kill 0`);
+the host ran out first.
 
-**How to apply:** keep both off by default (`onboot 0`). Starting either one
-stops the other — enforced by a Proxmox `pre-start` hookscript wired to both, so
-it is automatic rather than a thing to remember. Before raising either one's
-memory, check `free -g` on prom *and* subtract the other's allocation.
+**Why:** a cgroup ceiling only protects the host when it is set *below* the
+host's real headroom. Sizing `memory.max` to whatever `free` reports as
+available leaves nothing for the host, and the global killer picks the largest
+RSS process — on prom always doc1 or doc2, never the offender.
+
+**How to apply:** before giving any guest on prom more memory, check `free -g`
+*and* subtract every other guest's allocation. Prefer a hookscript interlock
+over a rule anyone has to remember. See `docs/wiki/services/imagegen-gpu.md`.

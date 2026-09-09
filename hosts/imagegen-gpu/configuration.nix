@@ -11,16 +11,22 @@
 # claims the same PCI device, so this host can never steal the GPU out from
 # under a running apollo-* gaming VM. That is the whole reason for the VM shape.
 #
-# Deliberately OFF by default:
-#   - the VM is created with `--onboot 0`   -> `qm start 123` on prom
-# It also costs ~12 GiB of prom's RAM while running (KVM pins its allocation,
-# unlike the CT's cgroup ceiling), and prom has no swap, so leave it stopped.
+# Normally ON (`onboot 1`): this is the image box now — the CPU sibling was
+# retired on 2026-09-09 because a 20-30 minute all-cores job made the whole
+# hypervisor sluggish. It costs ~12 GiB of prom's RAM while running (KVM pins
+# its allocation; prom has no swap), which is the price of a UI that is just
+# there. To game: start the gaming VM — a prom hookscript
+# (local:snippets/imagegen-exclusive.sh, wired to VMs 117/120/121) shuts this
+# one down first so the card is free; start it again afterwards.
 #
-# LAN-only by design: no tailscale, no reverse proxy, no ACME, no public edge,
-# and no listening service beyond sshd. The CLI is the whole interface.
+# Serves ComfyUI at https://imagegen.ablz.au through the fleet's nginx/ACME
+# local proxy. Not public: the A record and the nginx bind are the LAN IP, and
+# ComfyUI has no authentication, so it must never get a public path. No
+# tailnet membership either.
 #
-# Consumes no sops secrets (privateFlakeAuth + atuinCredentials are false in
-# hosts.nix), so there is deliberately no secrets/hosts/imagegen-gpu/ directory.
+# The only sops secret it consumes is the shared acme-cloudflare.env (for the
+# certificate); privateFlakeAuth + atuinCredentials are false in hosts.nix and
+# there is deliberately no secrets/hosts/imagegen-gpu/ directory.
 {
   config,
   inputs,
@@ -161,10 +167,67 @@
     defaultGateway = "192.168.1.1";
     nameservers = ["192.168.1.1"];
     firewall.enable = true;
-    # sshd only. There is no web UI here on purpose — the CPU sibling learned
-    # that lesson with ComfyUI, and this host has nothing to serve.
+    # sshd. homelab.nginx (pulled in by the local proxy) opens 80/443 itself;
+    # ComfyUI's own port is published on loopback only and never opened here.
     firewall.allowedTCPPorts = [22];
+    # Podman 6 / Netavark 2 (homelab.podman) require nftables.
+    nftables.enable = true;
   };
+
+  # The UI. See modules/nixos/services/comfyui-gpu.nix for why it is a
+  # container and why the image line is cu126.
+  homelab.services.comfyuiGpu = {
+    enable = true;
+    fqdn = "imagegen.ablz.au";
+    # The two things the UI offers: pick one from the Workflows menu. Both are
+    # the stock ComfyUI templates with the loaders swapped for ComfyUI-GGUF
+    # ones pointing at our files; Edit also bypasses the ~1 MP upscale so a
+    # photo comes back at its own size (and loads the unet nearly whole).
+    workflows = {
+      "Generate - Z-Image Turbo.json" = ./workflows/generate-z-image-turbo.json;
+      "Edit - FLUX Kontext.json" = ./workflows/edit-flux-kontext.json;
+    };
+  };
+
+  # The tower share that is the user-facing side of this: photos to edit go in
+  # in/, renders land in comfyui/. Same share the CPU sibling used, so nothing
+  # moved for the user. A VM can mount NFS directly (an unprivileged CT could
+  # not) — options mirror doc2's vm-backups mount, but rw.
+  fileSystems."/mnt/out" = {
+    device = "192.168.1.2:/mnt/user/data/Life/Temp/imagegen";
+    fsType = "nfs";
+    options = [
+      "x-systemd.automount"
+      "noauto"
+      "nofail"
+      "_netdev"
+      "x-systemd.requires=network-online.target"
+      "x-systemd.after=network-online.target"
+      "x-systemd.mount-timeout=30s"
+      "noatime"
+      "nfsvers=4.2"
+      "rw"
+    ];
+  };
+
+  # sops bootstrap for the one secret this host decrypts (the ACME token): the
+  # age key is derived from the SSH host key on first activation, exactly as
+  # the LXC hosts do it (hosts/caddy/configuration-lxc.nix).
+  sops.age = {
+    keyFile = "/var/lib/sops-nix/key.txt";
+    sshKeyPaths = ["/etc/ssh/ssh_host_ed25519_key"];
+  };
+  system.activationScripts.sopsAgeKey = {
+    deps = ["specialfs"];
+    text = ''
+      if [ ! -s /var/lib/sops-nix/key.txt ]; then
+        install -d -m 0700 /var/lib/sops-nix
+        ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/key.txt
+        chmod 600 /var/lib/sops-nix/key.txt
+      fi
+    '';
+  };
+  system.activationScripts.setupSecrets.deps = lib.mkBefore ["sopsAgeKey"];
 
   homelab = {
     ssh.enable = true;

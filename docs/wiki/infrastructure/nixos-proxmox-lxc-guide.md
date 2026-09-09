@@ -151,8 +151,9 @@ An appliance can legitimately need none — set `privateFlakeAuth = false` and
 `atuinCredentials = false` in its `hosts.nix` entry (drops `nix-netrc`, `atuin-session`,
 `atuin-key`) and give it no service secrets. Then **create no `secrets/hosts/<h>/`
 directory at all**: `sopsRecipientScopeCheck` only walks directories that exist, so an
-absent one needs no rule and no entry in the check's `case` list. `imagegen` is the
-reference for this shape.
+absent one needs no rule and no entry in the check's `case` list. `imagegen` (CT 110,
+since retired — see `docs/wiki/services/imagegen.md`) was the reference for this shape;
+`hosts/musicbrainz/` is the closest surviving example.
 
 Watch for one trap, hit on `imagegen` (2026-09-08). sops-nix defines the `setupSecrets`
 activation script **only** when the host has at least one non-`neededForUsers` secret:

@@ -30,6 +30,7 @@
     ./gotify-server.nix
     ./ntfy.nix
     ./tautulli.nix
+    ./comfyui-gpu.nix
     ./audiobookshelf.nix
     ./atuin.nix
     ./beancount.nix

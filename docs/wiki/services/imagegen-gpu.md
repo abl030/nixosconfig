@@ -1,29 +1,36 @@
 # imagegen-gpu — GPU image generation on the GTX 1080
 
-**Last updated:** 2026-09-08
-**Status:** working, off by default
-**Owner:** `hosts/imagegen-gpu/configuration.nix`
-**Host:** `imagegen-gpu` — VM 123 on prom, `192.168.1.45`, `onboot 0`
-**Sibling:** `imagegen` (CT 110, CPU — `hosts/imagegen/configuration-lxc.nix`) — the baseline this page compares against
+**Last updated:** 2026-09-09
+**Status:** working, normally on — **the** image box since the CPU sibling was retired
+**Owner:** `hosts/imagegen-gpu/configuration.nix` + `modules/nixos/services/comfyui-gpu.nix`
+**Host:** `imagegen-gpu` — VM 123 on prom, `192.168.1.45`, `onboot 1`
+**UI:** https://imagegen.ablz.au (ComfyUI, LAN-only, no auth — never expose publicly)
+**Former sibling:** `imagegen` (CT 110, CPU) — retired and destroyed 2026-09-09; its numbers and lessons are kept in [`imagegen.md`](./imagegen.md) and remain the baseline the benchmarks below compare against
 
 ## What this is
 
-Phase 2 of local image generation. Phase 1 (`imagegen`, CT 110) runs
-stable-diffusion.cpp on prom's 9950X. This host runs *the same binary* against
-the GTX 1080 that normally belongs to the `apollo-*` gaming VMs, so the two
-numbers are directly comparable: same model, same prompt, same seed, same
-`--cfg-scale`.
+The house's image box: **ComfyUI at https://imagegen.ablz.au**, on the GTX 1080 that
+otherwise belongs to the `apollo-*` gaming VMs. Two saved workflows — **Generate**
+(Z-Image Turbo, ~2.5 min at 1024² including model load) and **Edit** (FLUX.1-Kontext,
+**~21 min** for a 1024×683 photo) — read from and write to the tower share so nothing
+needs ssh. Editing through the UI is roughly twice as slow as the `sd-cli` path below;
+the reasons and what was tried are under "Measured through ComfyUI".
 
-The question it was built to answer was not "is a GPU faster" (obviously) but
-**"can an 8 GB Pascal card do the thing the user actually wants, which is
-editing existing photos?"**. Short answer: **partly — see the verdict.**
+It started as "Phase 2" of a CPU-vs-GPU comparison against `imagegen` (CT 110,
+stable-diffusion.cpp on prom's 9950X). The comparison answered its own question — see
+the benchmarks below — and then the CPU box was retired because a 20–30 minute all-cores
+job made the whole hypervisor sluggish. The 8 GB card cannot hold the best open editor
+(Qwen-Image-Edit, 20B); the user chose speed and a single box over that, so FLUX.1-Kontext
+at Q3_K_M is the editor here. **Whatever quality that gives is the quality.**
 
 ## Where it lives
 
 - **VM:** 123 on prom, `q35` + OVMF, 8 cores, **12 GiB RAM**, 200 GiB on `nvmeprom`
 - **GPU:** `hostpci0: 0000:01:00,pcie=1` — the whole IOMMU group 13 (GP104 + its HDMI audio function)
 - **Models:** `/var/lib/imagegen/models` on the root filesystem (re-downloadable; not backed up)
-- **Network:** LAN-only, `192.168.1.45`, sshd the only listening service. No tailscale, no reverse proxy, no web UI.
+- **Network:** LAN-only, `192.168.1.45`. sshd, plus nginx on 443 fronting ComfyUI (published on loopback only) with a real ACME cert; the `imagegen.ablz.au` A record points at the LAN IP. No tailscale. ComfyUI has no auth — it must never get a public path.
+- **Share:** `192.168.1.2:/mnt/user/data/Life/Temp/imagegen` mounted at `/mnt/out` — `in/` is ComfyUI's input picker, `comfyui/` its output, both world-writable.
+- **Container:** `podman-comfyui` (`yanwk/comfyui-boot:cu126-slim`, GPU via CDI), data in `/var/lib/comfyui`; module `modules/nixos/services/comfyui-gpu.nix`.
 
 ### Mutual exclusion with the gaming VMs is free
 
@@ -201,8 +208,88 @@ one.
 
 ## Operating it
 
+### The UI (what the user actually uses)
+
+**https://imagegen.ablz.au** — ComfyUI, from any machine on the LAN. Photos to edit go
+in `/mnt/data/Life/Temp/imagegen/in/` (the input picker reads it); renders land in
+`/mnt/data/Life/Temp/imagegen/comfyui/`. Two saved workflows in the Workflows menu:
+**Generate** (Z-Image Turbo) and **Edit** (FLUX.1-Kontext) — pick one, drop a photo or type
+a prompt, Queue.
+
+The VM is normally on (`onboot 1`). **To game:** start the gaming VM — prom's
+`local:snippets/imagegen-exclusive.sh` hookscript (wired to VMs 117/120/121) shuts this
+one down first so the card is free. `qm start 123` on prom when you are done.
+
+Why a container and not `services.comfyui`: this host pins `cudaCapabilities = ["6.1"]`,
+so nixpkgs' ComfyUI would mean compiling CUDA torch for Pascal locally — an uncached,
+multi-hour, all-cores build on prom, the exact load this host exists to avoid. The
+`yanwk/comfyui-boot` image ships prebuilt wheels; **the `cu126` line is load-bearing**
+(CUDA 12.6 still carries sm_61; `cu130` dropped Pascal and fails at first kernel launch).
+Details: `modules/nixos/services/comfyui-gpu.nix`.
+
+GGUF weights load through the ComfyUI-GGUF custom node, which a declarative pre-start
+script inside the container installs on every boot. Models come from the flat
+`/var/lib/imagegen/models` via `--extra-model-paths-config`, so the same files serve
+`sd-cli` below.
+
+### Measured through ComfyUI (2026-09-09)
+
+Same models and seed as the CLI benchmarks, driven through the API so the numbers are
+what the UI gets. `--disable-dynamic-vram --lowvram`, `--umask=0000`.
+
+| Job | Wall | Notes |
+|---|---|---|
+| Generate, Z-Image Turbo Q8_0, 1024², 8 steps | **160 s** | includes first model load; sd-cli sampling alone was 80 s |
+| Edit, Kontext Q3_K_M, 1024×683 photo at native size, 20 steps | **1290 s (21.5 min)** | unet 4.8 GB resident, 354 MB offloaded |
+| Edit, same, via the stock ~1 MP `FluxKontextImageScale` upscale | 34 min 37 s | unet only 3.4 GB resident, 1.7 GB shuttled over PCIe every step |
+
+Where the time goes, and what did **not** help — so nobody re-runs these experiments:
+
+- The unet loading *partially* is ComfyUI reserving VRAM for Flux's sampling activations
+  at that latent size (Pascal has no flash attention, so the estimate is big). It is not
+  the text encoder's fault: with the encoder on the CPU the usable figure was identical.
+  `--lowvram` alone is a no-op under ComfyUI 0.34's dynamic VRAM manager (its own `--help`
+  says so); `--disable-smart-memory` changed nothing either. `--disable-dynamic-vram`
+  restores evict-then-load and makes `--lowvram` mean what it says.
+- Feeding the photo in at its **own size** instead of the template's ~1 MP upscale is the
+  single biggest lever (1.7 GB → 354 MB offloaded, 34 → 21 min). The saved Edit workflow
+  bypasses `FluxKontextImageScale` for that reason; un-bypass it if you want a bigger output.
+- The rest is Pascal doing fp32 math on weights ComfyUI-GGUF dequantises on the fly.
+  `sd-cli` does the same edit in ~10 min at 1024² because ggml keeps the weights quantised
+  and fuses the dequant; it is still installed for anyone who prefers ssh to waiting.
+- The next knob is **steps** (KSampler widget in the Edit workflow): 20 → 14 is ~30 %
+  faster and Kontext dev is usually fine there. Not changed by default — quality was the
+  user's call.
+
+### Model files: two GGUF dialects, and only one works in ComfyUI
+
+This cost an hour. `/var/lib/imagegen/models` holds GGUFs from two converters that share
+a file extension and nothing else:
+
+| File | Converter | `sd-cli` | ComfyUI-GGUF |
+|---|---|---|---|
+| `z_image_turbo-Q4_K.gguf`, `-Q8_0.gguf` (leejet) | stable-diffusion.cpp | ✓ | ✗ `size mismatch for x_pad_token` |
+| `t5xxl-Q4_K.gguf`, `-Q8_0.gguf` (leejet) | stable-diffusion.cpp | ✓ | ✗ `incompatible with llama.cpp` |
+| `flux1-kontext-dev-Q3_K_M.gguf` (unsloth) | city96 / llama.cpp | ✓ | ✓ |
+| `qwen3-4b-Q4_K_M.gguf` (unsloth) | llama.cpp | ✓ | ✓ |
+| **`z_image_turbo-comfy-z-image-turbo-Q8_0.gguf`** (unsloth) | llama.cpp | untested | ✓ |
+| **`t5xxl-comfy-t5-v1_1-xxl-encoder-Q5_K_M.gguf`** (city96) | llama.cpp | untested | ✓ |
+
+ComfyUI-GGUF (city96) reads llama.cpp-style tensor layouts; leejet's converter squeezes
+some tensors and names T5 differently, and ComfyUI either rejects the file or loads it "in
+compatibility mode 'sd.cpp'" and then fails on a shape. The saved workflows use the
+`-comfy-` files. When adding a model for the UI, take it from **unsloth**, **city96** or
+**QuantStack**, not from a `*-GGUF` repo published for stable-diffusion.cpp.
+
+The VAE (`ae.safetensors`) and `clip_l.safetensors` are plain safetensors and work in both.
+
+Every model type in `extra_model_paths.yaml` points at the same flat directory, so every
+file appears in every loader's dropdown; the saved workflows pre-select the right ones.
+
+### The CLI (benchmarks, scripting)
+
 ```bash
-# on prom — starting this stops CT 110 (hookscript), and needs the gaming VMs stopped
+# on prom, if it is off:
 qm start 123
 ssh abl030@192.168.1.45
 

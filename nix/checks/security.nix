@@ -177,7 +177,8 @@
     servarr=age1tdnkggnfqkav7zxw5r3ty4d8r0tavk34p8aclzmkdtzjp69smpusudf2k4
     musicbrainz=age1cde5nfss8lkstnpe5qjq357hw253lk5sedtpznulnq5gllsc33lsll5rrl
     discogs=age12u5yjh0wff8y2tdfx5yzewrpqnhadlrafhmmmctsy37vnu8mgdlsz2p7wc
-    allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $servarr $musicbrainz $discogs"
+    imagegengpu=age19smw6a5ay9he8e82maght65wrh368ef7jakxpf937hwh4h4esqaqswe457
+    allhosts="$doc1 $doc2 $igpu $epi $fw $wsl $servarr $musicbrainz $discogs $imagegengpu"
     fail=0
     for d in ${../../secrets/hosts}/*/; do
       h=$(basename "$d")
