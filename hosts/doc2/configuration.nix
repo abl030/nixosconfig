@@ -214,6 +214,15 @@
             sensor = "fan1";
             label = "CPU fan";
           }
+          # The exhaust fan below the PSU (Forgejo #211). Fitted 2026-09-07,
+          # confirmed turning 2026-09-09 at ~1150 rpm once it had a working
+          # extension cable. Same chip, second tach channel.
+          {
+            host = "epimetheus";
+            chip = "platform_it87_2624";
+            sensor = "fan2";
+            label = "exhaust fan";
+          }
         ];
       };
       # pfSense ZFS backup chain — doc2 hosts the receiver natively on its
