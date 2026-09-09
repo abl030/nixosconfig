@@ -204,7 +204,7 @@
       # with its deploy key; the host's forced-command key realises the doc1-signed
       # closure from the cache and switch-to-configuration's it. These hosts each
       # set homelab.update.pushDeploy.enable = true.
-      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs"];
+      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs" "imagegen-gpu"];
     };
     services = {
       beets.enable = true;

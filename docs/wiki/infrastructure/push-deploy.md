@@ -1,7 +1,7 @@
 # Push-deploy — activate doc1-built closures on hosts that can't rebuild locally
 
 **Researched / built:** 2026-07-01
-**Status:** LIVE on `servarr`, `igpu`, `caddy`, `musicbrainz`, and `discogs` (forgejo#10)
+**Status:** LIVE on `servarr`, `igpu`, `caddy`, `musicbrainz`, `discogs`, and `imagegen-gpu` (forgejo#10)
 **Code:** `modules/nixos/autoupdate/push-deploy.nix` (target side),
 `scripts/push_deploy.sh` + `modules/nixos/ci/rolling-flake-update.nix` (doc1 side)
 
