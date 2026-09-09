@@ -22,11 +22,13 @@
   # ONE list for both candidate units: they run the same suite, so they need
   # the same tools. The tip canary used to run three targeted nix builds and
   # carried a shorter list; when it started running the whole suite, the
-  # missing jq and openssh failed 17 deploy-tooling targets
-  # (tests.test_deploy_pin_script drives scripts/pin_nixosconfig.sh, which
-  # shells out to jq, and tests.test_deploy_cycle_verifier drives
-  # scripts/verify_cratedigger_cycle.sh, which needs both). Keeping the lists
-  # separate is what let the two drift apart in the first place.
+  # missing jq and openssh failed 17 deploy-tooling targets (at the time,
+  # tests.test_deploy_pin_script drove scripts/pin_nixosconfig.sh, which
+  # shelled out to jq, and tests.test_deploy_cycle_verifier drove
+  # scripts/verify_cratedigger_cycle.sh, which needed both; since
+  # cratedigger #1378 those are tests.test_deploy driving scripts/deploy.sh,
+  # which needs jq, git and ssh-keygen). Keeping the lists separate is what
+  # let the two drift apart in the first place.
   candidatePath = [
     pkgs.bash
     pkgs.coreutils
