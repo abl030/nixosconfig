@@ -1133,6 +1133,12 @@
         inherit uid;
       }) [
         "homelab-err-6bce2be0d07f947b" # Audiobookshelf namespace failure
+        # ComfyUI (imagegen-gpu): declared for ~12 minutes on 2026-09-09 and
+        # withdrawn -- the appliance is ephemeral and unmonitored by design.
+        # Without these entries Grafana keeps evaluating the orphaned rules from
+        # its DB; "workflows failing" would page on three bad model files.
+        "homelab-err-393dad003de513e2" # ComfyUI GPU unusable
+        "homelab-err-c8b3e699a952ab9c" # ComfyUI workflows failing
         "homelab-err-06aa974947672f73" # Cratedigger importer namespace failure
         "homelab-err-a0a027172d357965" # Cratedigger web namespace failure
         "homelab-err-ce7ed950f3e6daff" # Fava namespace failure
