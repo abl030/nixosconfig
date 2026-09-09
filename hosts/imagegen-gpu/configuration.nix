@@ -231,6 +231,9 @@
 
   homelab = {
     ssh.enable = true;
+    # No log or metric shipping to the LGTM stack from this host (user request,
+    # 2026-09-09). Nothing here is fleet-critical, and ComfyUI is chatty.
+    loki.enable = false;
     # No tailnet membership: nothing here is worth reaching remotely, and the
     # GPU is shared with the gaming VMs. Reach it from the LAN, or via doc1.
     tailscale.enable = false;
