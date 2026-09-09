@@ -380,46 +380,11 @@ works with no new port and no new credential is **doc1 as a relay** — doc1 see
 prom's pool over virtiofs (`/mnt/virtio` == `/nvmeprom/containers`) and already
 has SSH to the VM. That ran at ~470 MB/s.
 
-## Monitoring (added 2026-09-09)
+## Monitoring
 
-Nothing about this service is monitored from its own module, and that is
-deliberate. `homelab.monitoring.*` is consumed only on the LGTM host: doc2's
-`alerting.nix` compiles `config.homelab.monitoring.errorPatterns` of **doc2**,
-and `monitoring_sync` syncs `monitoring.monitors` of **doc2**. A block declared
-in `comfyui-gpu.nix` lands in imagegen-gpu's own config, where nothing reads it.
-It would pass `nix/checks/security.nix`'s grep and alert nobody — which is how
-the module sat with zero coverage until the check caught it. The module carries
-an empty `errorPatterns = []` with this rationale; the real rules live in
-`hosts/doc2/configuration.nix`, scoped `host = "imagegen-gpu"`.
-
-**What is watched, and why each shape:**
-
-| signal | where | catches |
-|---|---|---|
-| Kuma json-query on `/system_stats`, `devices[0].type == "cuda"` | doc2 `monitoring.monitors` | The "up but useless" state: HTTP answers 200 while torch has fallen back to CPU (wrong CUDA line, driver gone, card handed to a gaming VM). Plain HTTP cannot see this. Verified from the tailnet: `type = cuda`, `name = cuda:0 NVIDIA GeForce GTX 1080 : cudaMallocAsync`. |
-| `ComfyUI GPU unusable` (critical, `threshold = 0`) | doc2 `monitoring.errorPatterns` | `Device: cpu` at start, driver-init failures, and `no kernel image is available` — the exact signature the cu130 wheels would produce on this Pascal card. Single-shot lines, hence `threshold = 0`. |
-| `ComfyUI workflows failing` (warning, default threshold, 10m window) | doc2 `monitoring.errorPatterns` | `!!! Exception during processing` and CUDA runtime/OOM arms. One line per failed run, so a bad experiment stays under the 3-in-window bar. |
-
-**Calibration evidence (2026-09-09):** both regexes were run over 7 days / 5
-healthy container starts in Loki. The GPU pattern matched **zero** lines while
-the healthy `Device: cuda:0` line matched 5 through the same query path (the
-control that makes the zero meaningful). The workflow pattern's only two hits
-were user-side model errors — `This gguf file is incompatible with llama.cpp!
-(/models/t5xxl-Q4_K.gguf)` and `Error(s) in loading state_dict for NextDiT` —
-which is precisely what the default threshold is for.
-
-**Noise to never match:** this image logs
-`[ERROR] [ComfyUI-Manager] PyTorch is not installed` on every healthy start
-(Manager probes a venv other than the one torch is in). A naive `[ERROR]`
-pattern pages on each reboot. Likewise `You need pytorch with cu130 or higher`
-is a WARNING on every start and is intentional — cu126 is the last line that
-still carries sm_61.
-
-**Known page you should expect:** prom's `imagegen-exclusive.sh` hookscript
-shuts VM 123 down when a gaming VM (117/120/121) starts, and starting it again
-afterwards is manual. The Kuma monitor therefore goes DOWN about 10 minutes into
-a gaming session (`maxretries = 10`) and stays DOWN until 123 is restarted. That
-second half is the useful part — it is the only signal that imagegen was left
-off after a game night. If the first half becomes annoying, the fix belongs in
-the hookscript (pause the monitor when it stops 123), not in a longer retry
-budget that would also delay real outages.
+None, by design. This is an ephemeral appliance — the prom hookscript shuts it
+down whenever a gaming VM wants the card, and the tailnet ACL keeps the vhost
+off `tag:server` (so a Kuma probe from doc2 cannot connect anyway). The module
+carries `homelab.monitoring.errorPatterns = []` to satisfy the coverage check.
+Don't add a Kuma monitor for it: one was tried on 2026-09-09 and sat Pending
+on connect timeouts until removed.
