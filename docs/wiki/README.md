@@ -57,3 +57,4 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [auto-memory-directory](claude-code/auto-memory-directory.md) — persistent memory layout
 - [skills-in-subagents](claude-code/skills-in-subagents.md) — skill availability inside spawned subagents
 - [playwright-subagent](claude-code/playwright-subagent.md) — headed/headless browser automation via CDP-attach Chrome
+- [handsfree-android-voice-input](claude-code/handsfree-android-voice-input.md) — phone push-to-talk into an agent pane: Dictate keyboard + `whisper.ablz.au` config, Termux/tmux MVP result, and why Bluetooth headset media buttons can't own PTT (implementation on unmerged `feat/handsfree-agent-voice-input`)
