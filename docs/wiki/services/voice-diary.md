@@ -85,32 +85,49 @@ personal diary entries; they should not leave the fleet.
 - **Local time, deliberately.** Names use local wall-clock, not UTC — an evening
   Perth recording is the previous day in UTC and would file under the wrong date.
 
-## Finishing the transport
+## The transport
 
-The pipeline works on any directory; Syncthing is just how files get there. To
-finish it:
+The doc2 side is **done and deployed** (`extraDevices.phone` +
+`extraFolders.voice-recordings`, `type = "receiveonly"`). `type` is not a
+preference — anything else risks deleting the recordings on the phone.
 
-1. On the phone, get the Syncthing **device ID** (Settings → Show device ID).
-   Note the official Android app was **discontinued in Dec 2024** — prefer
-   Syncthing-Fork (`com.github.catfriend1.syncthingandroid`).
-2. Grant Syncthing **All files access**, or it cannot see `/storage/emulated/0/Recordings`.
-3. Add to doc2's `homelab.syncthing`:
+### Phone side (Syncthing-Fork)
 
-```nix
-extraDevices.phone = {
-  id = "<device-id-from-the-phone>";
-  name = "phone";
-};
-extraFolders.voice-recordings = {
-  id = "voice-recordings";
-  path = "/mnt/data/Life/Andy/VoiceRecordings";
-  devices = ["phone"];
-  type = "receiveonly";   # REQUIRED - see decision 2 above
-};
+The official Android Syncthing app was **discontinued in Dec 2024**; use
+Syncthing-Fork (`com.github.catfriend1.syncthingandroid`).
+
+1. Grant it **All files access**, or it cannot see
+   `/storage/emulated/0/Recordings`.
+2. Add doc2 as a remote device:
+   - **ID** `G4LBKVT-MLMRAAA-YS6R2LB-LUHD2YJ-HI2GBM7-ONFQDE6-NIWXOMG-ZQDDGA2`
+   - **Address** `tcp://100.87.177.120:22000` — must be explicit. This
+     Syncthing instance runs isolated with global and local announce, relays
+     and NAT traversal all disabled, so nothing will be discovered
+     automatically. The phone dials doc2; doc2 never initiates. Requires
+     Tailscale up on the phone.
+3. Add the folder:
+   - **Folder ID** `voice-recordings` — must match *exactly*, it is the join key.
+   - **Path** `/storage/emulated/0/Recordings`
+   - **Type** Send Only, so the phone never accepts changes back.
+
+### Expect "local additions" if you stage files by hand
+
+A receive-only folder counts any locally-created file as a local change. Test
+files dropped into `dropDir` directly show up as `receiveOnlyChangedFiles` and
+will sit there. Check with:
+
+```bash
+key=$(grep -o "<apikey>[^<]*</apikey>" /home/abl030/.config/syncthing/config.xml | sed 's/<[^>]*>//g')
+curl -sS -H "X-API-Key: $key" "http://127.0.0.1:8384/rest/db/status?folder=voice-recordings"
 ```
 
-`type = "receiveonly"` is not a preference. Anything else risks deleting the
-recordings on the phone.
+Clearing them is safe — a receive-only folder never sends, so deleting on doc2
+cannot reach the phone. Delete the files and POST `/rest/db/scan?folder=...`.
+Do **not** use "Revert Local Changes" as a reflex without checking what it will
+revert.
+
+Note the config lives at `/home/abl030/.config/syncthing/config.xml`, not
+`/var/lib/syncthing`.
 
 ## Recorder settings
 
