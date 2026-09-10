@@ -101,9 +101,9 @@
       hermes-agent =
         (inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
           extraPythonPackages = [stateStoreModules];
-          # The upstream scope probe assumes /bin/true, absent on NixOS.
-          # Patch the Python source (not just the outer CLI wrapper), so cron
-          # workers and the gateway's sealed interpreter share the same fix.
+          # Older upstream scope probes assume /bin/true, absent on NixOS.
+          # Keep the current lock working while accepting upstream's /bin/sh fix.
+          # Remove this override once the rolling lock includes that fix.
           callPackage = path: args:
             final.callPackage path (
               args
@@ -112,8 +112,12 @@
                   name = "hermes-python-portable-scope-probe";
                   src = args.pythonSrc;
                   postPatch = ''
-                    substituteInPlace tools/process_registry.py \
-                      --replace-fail 'probe_unit, "/bin/true"' 'probe_unit, "${final.coreutils}/bin/true"'
+                    if grep -Fq '_systemd_scope_argv(binary, probe_unit, "/bin/sh", "-c", "exit 0"),' tools/process_registry.py; then
+                      echo "Upstream supplies the NixOS-compatible scope probe; no patch needed."
+                    else
+                      substituteInPlace tools/process_registry.py \
+                        --replace-fail 'probe_unit, "/bin/true"' 'probe_unit, "${final.coreutils}/bin/true"'
+                    fi
                   '';
                 };
               }
