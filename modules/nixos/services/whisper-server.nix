@@ -184,6 +184,26 @@
 
   pkg = pkgs.whisper-cpp-vulkan;
 
+  # Silero VAD model for whisper.cpp's built-in voice-activity detection.
+  # Pinned via fetchurl rather than downloaded in preStart because the ggml
+  # downloader bundled with whisper-cpp predates VAD models — it only knows
+  # the ggerganov/whisper.cpp repo, and the VAD weights live under
+  # ggml-org/whisper-vad. See docs/wiki/services/whisper-vad-long-audio.md.
+  vadModel = pkgs.fetchurl {
+    url = "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin";
+    hash = "sha256-KZQNmNQrkfvQXOSJ8+z3xy8KQvAn5IdZGaKPtMBOos8=";
+  };
+
+  vadArgs = lib.optionals cfg.vad.enable [
+    "--vad"
+    "--vad-model"
+    "${vadModel}"
+    "--vad-threshold"
+    (toString cfg.vad.threshold)
+    "--vad-max-speech-duration-s"
+    (toString cfg.vad.maxSpeechDurationSeconds)
+  ];
+
   mkBackendService = name: let
     bport = backendPort name;
     mfile = modelFile name;
@@ -225,6 +245,7 @@
           "--tmp-dir"
           "/tmp"
         ]
+        ++ vadArgs
         ++ cfg.extraArgs);
 
       Restart = "on-failure";
@@ -337,6 +358,35 @@ in {
       default = [];
       example = ["--language" "en" "--no-fallback"];
       description = "Extra command-line flags passed to every whisper-server backend.";
+    };
+
+    vad = {
+      enable =
+        lib.mkEnableOption "Silero voice-activity detection"
+        // {default = true;};
+
+      threshold = lib.mkOption {
+        type = lib.types.float;
+        default = 0.5;
+        description = ''
+          Speech-probability threshold (0.0–1.0). Lower keeps more marginal
+          audio; raise it if noisy input produces spurious segments. Car-cabin
+          recordings have a continuous noise floor, so leave headroom before
+          raising this — see the wiki page for measured behaviour.
+        '';
+      };
+
+      maxSpeechDurationSeconds = lib.mkOption {
+        type = lib.types.int;
+        default = 30;
+        description = ''
+          Auto-split any speech run longer than this many seconds. This is the
+          anti-loop control: whisper.cpp degenerates into a repetition loop on
+          long single-pass decodes (a 17-minute recording lost its last ~90s to
+          a stutter), and capping the run length prevents the decoder reaching
+          that state. See docs/wiki/services/whisper-vad-long-audio.md.
+        '';
+      };
     };
   };
 

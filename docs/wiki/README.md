@@ -42,6 +42,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [brother-scanner-smb](services/brother-scanner-smb.md) — Brother scanner compatibility share at `\\192.168.1.6\Scans`; caddy LXC Samba, narrow tower-backed CT mount, credential recovery and verification
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
+- [whisper-vad-long-audio](services/whisper-vad-long-audio.md) — why long single-pass transcription degenerates into a repetition loop, why the audio isn't at fault, why chunking and silence-splitting both fail on car audio, and the Silero VAD fix on igpu
 - [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime
 - [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
 - [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
