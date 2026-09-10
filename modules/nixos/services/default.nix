@@ -70,6 +70,7 @@
     ./rtrfm-nowplaying
     ./claude-voice.nix
     ./whisper-server.nix
+    ./voice-diary.nix
     ./cullen-dashboard.nix
     ./gwm-archiver.nix
     ./komga.nix

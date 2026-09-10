@@ -475,6 +475,11 @@ in {
         inherit (cfg) port;
         tailscaleOnly = true;
         maxBodySize = "100M";
+        # Long-form transcription holds the request open for minutes: ~4 min for
+        # a 17-minute recording even with VAD. nginx's default 60s returned a
+        # hard 504 while the backend kept working. See
+        # docs/wiki/services/whisper-vad-long-audio.md.
+        proxyTimeout = "1800s";
       }
     ];
 

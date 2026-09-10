@@ -294,6 +294,18 @@
         dataDir = "/mnt/virtio/mealie";
       };
       stirlingpdf.enable = true;
+
+      # Car voice-diary ingest. Syncthing replicates the phone's recordings
+      # into dropDir (receive-only — the phone holds the only other copy), and
+      # this transcribes each new one into a dated audio+transcript pair for
+      # manual filing into the Zettelkasten diary.
+      # See docs/wiki/services/voice-diary.md.
+      voiceDiary = {
+        enable = true;
+        dropDir = "/mnt/data/Life/Andy/VoiceRecordings";
+        inboxDir = "/mnt/data/Life/Zet/Projects/Diary/Inbox";
+      };
+
       webdav.enable = true;
       smokeping.enable = true;
       uptime-kuma = {

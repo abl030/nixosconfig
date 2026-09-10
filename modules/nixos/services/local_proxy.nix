@@ -251,6 +251,13 @@
         if entry.maxBodySize or null != null
         then "client_max_body_size ${entry.maxBodySize};"
         else "";
+      proxyTimeoutConfig =
+        if entry.proxyTimeout or null != null
+        then ''
+          proxy_read_timeout ${entry.proxyTimeout};
+          proxy_send_timeout ${entry.proxyTimeout};
+        ''
+        else "";
       # HTTPS upstream (e.g. UniFi's self-signed :8443). Default is a plain
       # http upstream, so existing entries are unaffected.
       upstreamScheme =
@@ -281,6 +288,7 @@
             proxyPass = "${upstreamScheme}://${entry.upstreamHost}:${toString entry.port}";
             extraConfig = ''
               ${maxBodySizeConfig}
+              ${proxyTimeoutConfig}
               ${websocketConfig}
               ${upstreamTlsConfig}
               proxy_set_header X-Forwarded-Proto https;
@@ -371,6 +379,21 @@ in {
             type = lib.types.nullOr lib.types.str;
             default = null;
             description = "Nginx client_max_body_size for this host (e.g., \"0\" for unlimited, \"50G\"). Null uses nginx default (1m).";
+          };
+          proxyTimeout = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            example = "900s";
+            description = ''
+              Nginx proxy_read_timeout / proxy_send_timeout for this host. Null
+              uses nginx's default of 60s.
+
+              Needed by upstreams that legitimately hold a request open for
+              minutes. Whisper is the motivating case: a 17-minute recording
+              takes ~4 minutes to transcribe, and the default 60s produced a
+              hard 504 while the backend kept working — the client just never
+              saw the result. See docs/wiki/services/whisper-vad-long-audio.md.
+            '';
           };
           tailscaleOnly = lib.mkOption {
             type = lib.types.bool;
