@@ -1,9 +1,8 @@
 # Whisper VAD for long-form audio
 
 Date: 2026-09-10
-Status: implemented; deploy to igpu and end-to-end verification pending at time
-of writing. The regression case is a real 16m49s car recording — see
-"How to verify" below.
+Status: **deployed to igpu and verified end-to-end** on 2026-09-10 against two
+real car recordings (16m49s and 5m04s) plus a 25s short clip. Results below.
 Related: `modules/nixos/services/whisper-server.nix`, [lgtm-stack](lgtm-stack.md)
 
 ## Problem
@@ -115,6 +114,50 @@ Pass criteria:
    of total lines, not near zero.
 3. **Short clips still work** — send a 15–25s clip too. VAD must not swallow
    brief input, because the Dictate phone keyboard depends on this same endpoint.
+
+## Verified results (2026-09-10)
+
+| | 16m49s drive | 5m04s | 25s clip |
+|---|---|---|---|
+| time | 230s | 64s | 6s |
+| words | 2562 | 697 | 16 |
+| lines capitalised | 240/344 | 68/99 | 1/2 |
+| lines punctuated | 231/344 | 67/99 | 1/2 |
+| max repeated line | 2 | 1 | 1 |
+
+Against the pre-VAD baseline for the same 16m49s recording (453 lines, 2934
+words): `And then, uh.` went **15 → 0**, `photo of dad` went **11 → 1**, and the
+tail now ends naturally on "See you later." instead of 36 lines of stutter.
+
+**The 25s clip is the guard against fixing this by breaking something else.**
+The Dictate phone keyboard posts 1–3s clips to this same endpoint, so VAD
+swallowing short input would be a regression. It transcribed correctly.
+
+### Word count dropped — that is expected, not lost speech
+
+2934 → 2562 words looks alarming. It is not content loss; it is whisper no
+longer hallucinating filler over non-speech audio:
+
+| filler | pre-VAD | post-VAD |
+|---|---|---|
+| `Um.` | 1 | 0 |
+| `Yeah.` | 8 | 0 |
+| `And, uh.` | 2 | 0 |
+| `And then, uh.` | 15 | 0 |
+
+Content was checked term-by-term and survives: Harriet 5→5, Churchview 2→2,
+Stirlings 1→1, Langtons 1→1, Stu 11→11, barrel 5→5, margin 6→6.
+
+**Beware spelling drift when checking this way.** Two names appeared to vanish
+(Vanya 9→0, Galinda 3→0) but the passage was fully intact — whisper had spelled
+them "Vania" and "Glinda" on the second run. Proper nouns it has never seen are
+guesses and will vary between runs, so grep for the *surrounding passage*, not
+the name, before concluding anything is missing.
+
+### VAD is also faster
+
+230s vs 343s for the same recording — about 33% quicker, because non-speech is
+never fed to the decoder. Roughly 4.4× realtime, up from 3.5×.
 
 ## When to revisit
 
