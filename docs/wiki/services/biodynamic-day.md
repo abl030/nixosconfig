@@ -1,6 +1,6 @@
 # Biodynamic ("moon day") calendar — consuming the `bdday` API
 
-**Researched:** 2026-09-08
+**Researched:** 2026-09-08 · **Updated:** 2026-09-10 (zodiac zero-point — see below)
 **Status:** Working — Home Assistant banner deployed on the `ir-sensor` dashboard.
 **Service:** `bdday` on doc1, `https://bd.ablz.au` — see
 [`modules/nixos/services/bdday.nix`](../../../modules/nixos/services/bdday.nix)
@@ -24,6 +24,42 @@ There is **no** `today`/`now` alias — `/v1/day/today` returns HTTP 400, and
 `/v1/now`, `/v1/day`, `/v1/today`, `/openapi.json` all 404. Any consumer must
 template the current date and time into the URL itself. Times are AWST
 (UTC+8), matching the service's fixed Wilyabrup/Cullen locality.
+
+## Which zodiac, and why the wall calendar looked wrong (2026-09-10)
+
+Cullen works from a printed *Antipodean Astro Calendar* (Brian Keats). Until
+2026-09-10 the service disagreed with it, and there were **two** independent
+reasons stacked on top of each other.
+
+**1. The printed calendar is AEST (UTC+10). Cullen is AWST (UTC+8).** Subtract
+two hours from every printed time. Confirmed twice off the September sheet: the
+printed equinox "23rd @ 10:05" is `2026-09-23T00:05Z`, and the printed New Moon
+of 13:26 on the 11th is 11:26 AWST, which is exactly where the service's own
+`is_waxing` flips. The ephemeris was never the problem.
+
+**2. The service was on the wrong sidereal zodiac.** It used Lahiri (the Indian
+convention); Keats is built on **Fagan/Bradley** (the Western one). Those differ
+by a fixed **0.8835°**, which the Moon covers in 80–110 minutes, so every
+changeover ran that much early — and the ones printed near midnight landed on
+the *previous day*. This was a zero-point difference, not drift: measured at all
+thirteen September boundaries the offset was a flat +0.88°, and the wall-clock
+gap breathed in step with perigee and apogee exactly as a constant longitude
+offset must.
+
+`bdday` now defaults to Fagan/Bradley, so **the API and the wall calendar agree**
+(printed time minus two hours). Evidence kept as fixtures in the bdday repo:
+September 2026 14/14 and December 2026 13/13, all to under a minute, December
+transcribed and checked blind with nothing fitted to it.
+
+Consumer-visible: `meta.algorithm` is now `sidereal-30deg-fagan-bradley`
+(was `sidereal-30deg-lahiri`). The response shape did not change, so
+`meta.schema_version` is still `"1"`. Lahiri remains selectable in-process as
+`Ayanamsa::Lahiri` and is what the repo's 148-date Astro-Seek corpus is pinned
+to; it is not reachable over HTTP.
+
+> If a future sheet ever disagrees again, check the timezone first, then measure
+> the offset in **degrees** rather than minutes — a constant degree offset means
+> the zodiac, a varying one means the ephemeris.
 
 ## The one thing that will trip you up
 
@@ -290,6 +326,11 @@ curl -fsS "https://bd.ablz.au/v1/day/$(date +%F)?at=$(date +%H:%M)" \
 # Does Home Assistant agree?
 curl -fsS -H "Authorization: Bearer $HA_TOKEN" \
   https://home.ablz.au/api/states/sensor.biodynamic_day | jq '.state, .attributes'
+
+# Does it still agree with the wall calendar? Add two hours to compare with
+# what is printed on the sheet, and check the zodiac is the expected one.
+curl -fsS "https://bd.ablz.au/v1/day/$(date +%F)?at=12:00" \
+  | jq '{algorithm: .meta.algorithm, changes_at: .ingress.next.at}'
 ```
 
 ## When to revisit
@@ -300,3 +341,6 @@ curl -fsS -H "Authorization: Bearer $HA_TOKEN" \
   over `ingress.next.from_day_type` and simplify the templates.
 - `meta.schema_version` is currently `"1"`; a bump is the signal to re-verify
   the table above.
+- If `meta.algorithm` ever stops reading `sidereal-30deg-fagan-bradley`, the
+  service has drifted off the printed calendar again — re-read the zodiac
+  section above before changing anything downstream.
