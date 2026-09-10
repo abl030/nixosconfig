@@ -173,11 +173,33 @@
         id = "JKM5WVM-LHKKORH-6URSCJK-W3A2UMO-6JMZTDR-PI6Z7HF-KOUHJY3-M6MKKAX";
         name = "work-laptop";
       };
+      # Andy's phone (Syncthing-Fork). Delivers car voice recordings for
+      # homelab.services.voiceDiary. Announce/relays are off on this instance,
+      # so the phone dials doc2 explicitly at tcp://100.87.177.120:22000 over
+      # the tailnet; doc2 never initiates.
+      extraDevices.phone = {
+        id = "TMJNBBK-BKWLK2T-QGKMH2M-3VIM2TK-PGIEST7-GEZKIZH-DEKCKFL-MM7JRAZ";
+        name = "phone";
+      };
       extraFolders.meg-andy-scans = {
         id = "meg-andy-scans";
         path = "/mnt/data/Life/Meg and Andy/Scans";
         devices = ["work-laptop"];
         type = "sendreceive";
+      };
+      # RECEIVE-ONLY IS A DATA-SAFETY REQUIREMENT, NOT A PREFERENCE.
+      # The phone holds the only other copy of these recordings. Under
+      # sendreceive, anything that removed or altered a file on doc2 —
+      # a stray cleanup, a bug in the ingest, a hand-run rm — would
+      # propagate back and destroy the original on the phone. Receive-only
+      # makes doc2 a strict replica: it accepts changes and never sends
+      # them. voice-diary additionally binds this path read-only.
+      # See docs/wiki/services/voice-diary.md.
+      extraFolders.voice-recordings = {
+        id = "voice-recordings";
+        path = "/mnt/data/Life/Andy/VoiceRecordings";
+        devices = ["phone"];
+        type = "receiveonly";
       };
       options = {
         listenAddresses = ["tcp://0.0.0.0:22000"];
