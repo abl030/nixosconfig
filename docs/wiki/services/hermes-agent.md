@@ -81,6 +81,27 @@ Upstream reports: [#101147](https://github.com/NousResearch/hermes-agent/issues/
 [#102358](https://github.com/NousResearch/hermes-agent/issues/102358), and
 [#100561](https://github.com/NousResearch/hermes-agent/issues/100561).
 
+## 2026-09-10 — cron dispatch rejected on NixOS
+
+The doc1 scheduler recorded due MR News jobs but rejected dispatch before their
+agent launchers ran. Hermes's restart-safe worker scope probe invoked
+`/bin/true`, which does not exist on NixOS, and misreported the resulting ENOENT
+as unavailable `systemd-run --user --scope`. Running the same scope command with
+NixOS's real `true` executable succeeded. This was not a source-access denial or
+an editorial no-update decision.
+
+The package overlay patches the filtered Python source to use the coreutils
+store executable. It reaches the sealed interpreter as well as the CLI, retains
+restart survival and memory accounting, and changes no agent tools or prompts.
+The exact replacement deliberately fails when upstream changes the probe; remove
+this compatibility patch when the pinned upstream source uses a portable probe.
+
+Runtime regression: run `scripts/check-hermes-scope-probe.py` using the packaged
+Hermes interpreter on the user bus, then exercise a one-shot job through the live
+gateway scheduler. A CLI-only manual cron run is insufficient because it need
+not use the supervised-gateway dispatch path. Finally rerun overdue MR News jobs
+and inspect source-access evidence and live article URLs, not just `last_status`.
+
 ## ⚠️ The data-dir ownership gotcha (locked the agent out of /opt/data)
 
 **Symptom (2026-06-14):** `sudo podman exec -it hermes hermes` (the interactive

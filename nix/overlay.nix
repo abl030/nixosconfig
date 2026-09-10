@@ -101,6 +101,23 @@
       hermes-agent =
         (inputs.hermes-agent.packages.${final.stdenv.hostPlatform.system}.default.override {
           extraPythonPackages = [stateStoreModules];
+          # The upstream scope probe assumes /bin/true, absent on NixOS.
+          # Patch the Python source (not just the outer CLI wrapper), so cron
+          # workers and the gateway's sealed interpreter share the same fix.
+          callPackage = path: args:
+            final.callPackage path (
+              args
+              // final.lib.optionalAttrs (builtins.baseNameOf (toString path) == "python.nix") {
+                pythonSrc = final.applyPatches {
+                  name = "hermes-python-portable-scope-probe";
+                  src = args.pythonSrc;
+                  postPatch = ''
+                    substituteInPlace tools/process_registry.py \
+                      --replace-fail 'probe_unit, "/bin/true"' 'probe_unit, "${final.coreutils}/bin/true"'
+                  '';
+                };
+              }
+            );
         }).overrideAttrs
         (old: {
           passthru =
