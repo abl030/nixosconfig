@@ -1,8 +1,11 @@
 # Voice diary — car recordings to dated transcripts
 
 Date: 2026-09-10
-Status: pipeline built and verified on doc2. **Syncthing pairing is the one
-remaining manual step** — see "Finishing the transport" below.
+Status: **deployed and verified end-to-end on doc2** (2026-09-10) against four
+real car recordings — 4 transcribed, 0 failed, ~22 min of audio in 5m05s, with
+an idempotent re-run doing nothing and the drop directory untouched.
+**Syncthing pairing is the one remaining manual step** — see "Finishing the
+transport" below.
 Related: [whisper-vad-long-audio](whisper-vad-long-audio.md),
 `modules/nixos/services/voice-diary.nix`, `scripts/voice-diary-ingest.py`
 
@@ -119,6 +122,25 @@ Easy Voice Recorder, on the phone:
   apps and a long recording with the screen off is a prime target.
 - Turn the gain down slightly — the first real recording clipped 1,240 samples
   at 0 dB.
+
+## Verified run (2026-09-10)
+
+Four real recordings staged into `dropDir`, one `systemctl start`:
+
+| stamp | audio | words |
+|---|---|---|
+| `2026-09-10_155257` | 25s | 16 |
+| `2026-09-10_155341` | 15s | 23 |
+| `2026-09-10_155921` | 5m04s | 697 |
+| `2026-09-10_161758` | 16m49s | 2552 |
+
+`done: 4 transcribed, 0 failed, 4 seen` in 5m05s wall clock, 203ms CPU on doc2
+(the work is on igpu's GPU). Immediate re-run: `0 transcribed, 4 seen`. Drop
+directory still held the four originals under their phone names.
+
+The proxy timeout was verified against the case that previously failed: the
+16m49s recording POSTed to `https://whisper.ablz.au` returned **HTTP 200 in
+229s**, where before the change it was a hard **504 at 60.05s**.
 
 ## Testing without a phone
 

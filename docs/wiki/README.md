@@ -43,6 +43,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
 - [whisper-vad-long-audio](services/whisper-vad-long-audio.md) — why long single-pass transcription degenerates into a repetition loop, why the audio isn't at fault, why chunking and silence-splitting both fail on car audio, and the Silero VAD fix on igpu
+- [voice-diary](services/voice-diary.md) — car voice notes → dated transcript pairs: phone/Syncthing/timer pipeline on doc2, why a timer and not a `systemd.path` unit on NFS, why the drop dir is read-only (the phone holds the only other copy), and why no AI is in the loop
 - [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime
 - [tdarr-node](services/tdarr-node.md) — tdarr worker node on igpu, OCI container with `/dev/dri`
 - [amp-casting-automations](services/amp-casting-automations.md) — Home Assistant casting automations
