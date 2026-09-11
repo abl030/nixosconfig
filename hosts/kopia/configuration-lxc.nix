@@ -94,6 +94,18 @@
     pushDeploy.enable = true;
   };
 
+  # The pfSense backup watchdog runs HERE, not on doc2, because it needs to
+  # see the replicated tree: it checks run freshness AND a content canary that
+  # proves the ZFS child datasets are actually traversable — the exact failure
+  # that produced 298-byte snapshots historically. doc2 still does the pulling
+  # and pushes its status JSON to prom after each run; both paths below are
+  # bind mounts from prom.
+  homelab.services.pfsenseBackupWatchdog = {
+    enable = true;
+    statusFile = "/mnt/backup/pfsense-status/.syncoid-status.json";
+    canaryFile = "/mnt/backup/pfsense/ROOT/default/cf/conf/config.xml";
+  };
+
   homelab.services = {
     kopia = {
       enable = true;

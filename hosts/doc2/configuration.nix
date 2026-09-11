@@ -22,7 +22,8 @@
       };
     };
     supportedFilesystems = ["zfs"];
-    zfs.extraPools = ["pfsensebackup"];
+    # pfsensebackup pool REMOVED 2026-09-11 (forgejo#218) — the replica lives
+    # on prom now, where the kopia LXC can read it. Nothing imports it here.
     # A kernel panic must not leave this service appliance frozen indefinitely.
     # The independent doc1 watchdog still captures the console before resetting
     # failures that do not reach the kernel's own reboot path.
@@ -269,11 +270,19 @@
         # That account has no sudo by design; its zfs rights come from
         # `zfs allow` on the one dataset instead.
         noPrivilegeElevation = true;
+        # The replicated tree no longer exists on doc2, so the status JSON
+        # cannot live in it any more. Keep a local copy for journald/debugging
+        # and push one to prom, where the watchdog now runs beside the tree.
+        mountpoint = "/var/lib/syncoid-pfsense";
+        statusPushTarget = "syncoid-recv@192.168.1.12:/nvmeprom/backup/pfsense-status/.syncoid-status.json";
       };
-      # Watchdog over the syncoid status file in /mnt/backup/pfsense/.
-      # Logs "PFSENSE-BACKUP FAIL" on stale/failed/missing-canary;
-      # routes through homelab.monitoring.errorPatterns → Gotify.
-      pfsenseBackupWatchdog.enable = true;
+      # Watchdog MOVED to the kopia LXC on 2026-09-11 (forgejo#218). It checks
+      # two things — run freshness and a content canary inside the replicated
+      # tree — and that tree now lives on prom, so only the CT can see the
+      # canary. doc2 pushes its status JSON there after each run; the CT does
+      # the checking. Leaving it enabled here would fail on canary-missing
+      # forever. See hosts/kopia/configuration-lxc.nix.
+      pfsenseBackupWatchdog.enable = false;
       # claude-p summary bridge in front of Gotify. When enabled,
       # alerting.nix automatically points Grafana's webhook at the
       # bridge (127.0.0.1:9876) instead of Gotify, and the bridge

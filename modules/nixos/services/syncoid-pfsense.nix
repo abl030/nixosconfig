@@ -44,6 +44,7 @@
       # rights deliberately has no sudo, so that prefix dies with "sudo: a
       # terminal is required to read the password".
       NO_PRIV="${lib.optionalString cfg.noPrivilegeElevation "1"}"
+      STATUS_PUSH="${cfg.statusPushTarget}"
       MOUNTPOINT="${cfg.mountpoint}"
       STATUS_FILE="$MOUNTPOINT/.syncoid-status.json"
       WRAPPER_BENIGN_RE='Cowardly refusing to destroy your existing target'
@@ -115,6 +116,23 @@
           ok: $ok, last_error: $last_error}' > "$STATUS_FILE"
       chmod 644 "$STATUS_FILE"
 
+      # With a REMOTE target the replicated tree no longer exists on this host,
+      # so the watchdog has to run where the tree is. Ship the status JSON there
+      # too, otherwise that watchdog can see the canary but never the freshness.
+      # Uses the same key and account as the replication itself.
+      if [ -n "$STATUS_PUSH" ]; then
+        if ssh -i "$KEY" -o StrictHostKeyChecking=accept-new \
+             -o UserKnownHostsFile=/var/lib/syncoid-pfsense/known_hosts \
+             "''${STATUS_PUSH%%:*}" "cat > ''${STATUS_PUSH#*:}" < "$STATUS_FILE"; then
+          logger -t syncoid-pfsense "status pushed to $STATUS_PUSH"
+        else
+          # Not fatal: replication itself already succeeded or failed on its own
+          # merits. But say so loudly — a stale remote status file is exactly
+          # what the watchdog would otherwise misread as a failed backup.
+          logger -t syncoid-pfsense "WARNING could not push status to $STATUS_PUSH"
+        fi
+      fi
+
       logger -t syncoid-pfsense "end pull rc=$RC duration=''${DURATION}s"
       exit "$RC"
     '';
@@ -133,6 +151,13 @@ in {
       type = lib.types.str;
       default = "pfsensebackup";
       description = "syncoid target: a bare dataset receives locally, a user@host:dataset spec receives remotely.";
+    };
+
+    statusPushTarget = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "syncoid-recv@192.168.1.12:/nvmeprom/backup/pfsense-status/.syncoid-status.json";
+      description = "user@host:/path to copy the status JSON to after each run. Needed when the target is remote: the watchdog must run where the replicated tree is, and that host cannot otherwise see run freshness. Empty disables the push.";
     };
 
     noPrivilegeElevation = lib.mkOption {
