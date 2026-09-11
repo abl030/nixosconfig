@@ -2,7 +2,16 @@
 
 **Date built:** 2026-05-23
 **Major rearchitect:** 2026-05-26 (moved off prom virtiofs/NFS to native ZFS on doc2)
-**Status:** Live. Daily syncoid pull from pfSense → doc2 at 03:00 AWST.
+**Status:** Live. Daily syncoid pull from pfSense at 03:00 AWST, received on
+**prom** since 2026-09-11 (was doc2). doc2 still does the pulling; only the
+receive end moved, so kopia — now in its own LXC on prom — reads a LIVE copy
+rather than a frozen replica. See docs/wiki/services/kopia-lxc.md and
+forgejo#218.
+
+**Correction (2026-09-11):** the snapshots taken while this ran on doc2 were
+materially incomplete — 1,278 files / 1.1 GB, where the same tree snapshots as
+53,863 files / 6.3 GB from the LXC. The 'moved off prom to doc2' rearchitect
+below fixed the 298-byte case but not the whole submount problem.
 **Related:** [pfsense-dns-resolver](pfsense-dns-resolver.md), [dns-saturation-incident-2026-05-22](dns-saturation-incident-2026-05-22.md).
 
 ## TL;DR

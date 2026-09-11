@@ -40,6 +40,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 ### Services
 
 - [brother-scanner-smb](services/brother-scanner-smb.md) — Brother scanner compatibility share at `\\192.168.1.6\Scans`; caddy LXC Samba, narrow tower-backed CT mount, credential recovery and verification
+- [kopia-lxc](services/kopia-lxc.md) — kopia split off doc2 into CT 111: why an LXC beats a VM here (plain bind vs rbind, measured), the unprivileged-idmap problem that stops a container reading a uid-1000 repo, the bindfs fix, and the storage/mount table
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
 - [jellyfin-mergerfs-metadata-ownership](services/jellyfin-mergerfs-metadata-ownership.md) — why the mergerfs RW metadata branches must keep gid `users` + setgid AND an owner inside igpu's LXC idmap; the 2026-09-10 root:root reset that unmounted the Music library, why prom's guard had never run, and the repair recipe
