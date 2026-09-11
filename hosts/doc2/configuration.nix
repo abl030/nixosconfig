@@ -649,30 +649,8 @@
   # 8-char hex required for ZFS. Stable across rebuilds.
   networking.hostId = "deadbe14";
 
-  # Boot-race fix (B'): pfsensebackup lives on `vdb`, a zvol passed through from
-  # prom's nvmeprom. That virtio disk attaches LATE and can *flicker* during early
-  # boot — observed 2026-06-05: device visible to `zpool import` at T+46s, then
-  # MISSING again for ~20s while the stock import ran, which then gave up
-  # ("Pool ... in state MISSING ... no such pool available"). Because the stock
-  # unit is a oneshot with no retry (Type=oneshot forbids Restart=), the pool
-  # never imported, /mnt/backup/pfsense stayed empty, and the watchdog paged
-  # hourly until a manual `zpool import` (the nightly auto-update reboot retriggers
-  # this every time).
-  #
-  # The original guard (2026-05-29) only waited for the pool to become *visible*
-  # then handed off to the stock ~20s import, which lost the flicker race. This
-  # version imports the pool *itself*, retrying every 3s for up to ~3min so it
-  # rides straight through the late-attach + flicker; the stock ExecStart then
-  # sees the pool already imported and is a no-op. Runs once at boot, no
-  # forever-timer. A genuinely absent device still fails the unit after the cap
-  # (real signal — the pool isn't boot-critical, / is on vda), and the hourly
-  # pfSense-backup watchdog remains the backstop. TimeoutStartSec is raised to
-  # cover the retry window (default 90s would kill it mid-loop).
-  # See docs/wiki/infrastructure/pfsense-backup.md.
-  systemd.services.zfs-import-pfsensebackup.serviceConfig = {
-    ExecStartPre = "${pkgs.bash}/bin/bash -c 'for _ in $(seq 1 60); do ${pkgs.zfs}/bin/zpool list pfsensebackup >/dev/null 2>&1 && exit 0; ${pkgs.zfs}/bin/zpool import pfsensebackup 2>/dev/null && exit 0; sleep 3; done; exit 0'";
-    TimeoutStartSec = "210s";
-  };
+  # The retired pfsensebackup pool must not have a service override here:
+  # without boot.zfs.extraPools it creates an orphan unit with no ExecStart.
 
   # No tmpfiles rules for virtiofs directories — they already exist on
   # persistent ZFS storage (nvmeprom/containers) shared between VMs.
