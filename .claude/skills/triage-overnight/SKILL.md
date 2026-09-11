@@ -149,6 +149,16 @@ what `gotify-triage` is for — Loki won't have them.
 - App 8 (HA) — garage door, doorbell, presence pings. Not infra.
 - Priority < 5 — informational; ignore unless the user explicitly asks.
 - Duplicate Kuma flaps within the same 5-minute window — count, don't list.
+- **AirVPN gateway up/down for a SINGLE endpoint** (`[warning] AirVPN <region>
+  gateway failure` and its `[recovered]` twin, plus the pfSense dpinger alarms
+  and "Restarting OpenVPN tunnels/interfaces" churn behind them). The AirVPN
+  endpoints are individually unreliable and are deliberately configured to back
+  each other up; the failover works and is the design, not an incident. Do not
+  diagnose, do not open an issue, do not report it in the morning summary.
+  **The one exception worth escalating: BOTH gateways down at the same time.**
+  That is when the protected cohorts stop failing over and their kill-switch
+  rules block traffic instead, so it is a real outage. Operator decision,
+  2026-09-11.
 
 For everything else, cross-reference with Loki / journalctl to find the actual root cause. The Gotify message title is alert-bridge's pattern-matched summary, often correct in spirit but misleading in framing (e.g. an alert titled "NFS watchdog tripped" may actually reflect a config error that took the service down, not an NFS blip). **Always trace each ping back to the underlying journal lines on the source host before reporting.**
 
