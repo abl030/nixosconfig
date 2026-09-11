@@ -266,6 +266,9 @@
         # well; that account there is receive-only, source-pinned to doc2, and
         # has ZFS rights delegated on this one dataset and nothing else.
         target = "syncoid-recv@192.168.1.12:nvmeprom/backup/pfsense";
+        # That account has no sudo by design; its zfs rights come from
+        # `zfs allow` on the one dataset instead.
+        noPrivilegeElevation = true;
       };
       # Watchdog over the syncoid status file in /mnt/backup/pfsense/.
       # Logs "PFSENSE-BACKUP FAIL" on stale/failed/missing-canary;

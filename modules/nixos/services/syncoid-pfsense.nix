@@ -39,6 +39,11 @@
       KEY="${sshKey}"
       SOURCE="${cfg.source}"
       TARGET="${cfg.target}"
+      # syncoid prefixes REMOTE zfs calls with sudo whenever the far-side
+      # user is not root. A receive-only account with delegated `zfs allow`
+      # rights deliberately has no sudo, so that prefix dies with "sudo: a
+      # terminal is required to read the password".
+      NO_PRIV="${lib.optionalString cfg.noPrivilegeElevation "1"}"
       MOUNTPOINT="${cfg.mountpoint}"
       STATUS_FILE="$MOUNTPOINT/.syncoid-status.json"
       WRAPPER_BENIGN_RE='Cowardly refusing to destroy your existing target'
@@ -61,6 +66,7 @@
       syncoid --recursive \
         "''${EXCLUDE_ARGS[@]}" \
         --sshkey="$KEY" \
+        ''${NO_PRIV:+--no-privilege-elevation} \
         --sshoption=StrictHostKeyChecking=accept-new \
         --sshoption=UserKnownHostsFile=/var/lib/syncoid-pfsense/known_hosts \
         "$SOURCE" "$TARGET" 2>&1 | tee "$TMPOUT" | logger -t syncoid-pfsense
@@ -126,7 +132,13 @@ in {
     target = lib.mkOption {
       type = lib.types.str;
       default = "pfsensebackup";
-      description = "Local ZFS dataset to receive into (typically a pool name).";
+      description = "syncoid target: a bare dataset receives locally, a user@host:dataset spec receives remotely.";
+    };
+
+    noPrivilegeElevation = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Pass --no-privilege-elevation. Required when the TARGET is a remote NON-root user holding delegated zfs allow rights; the flag removes syncoid sudo prefix, it grants nothing.";
     };
 
     mountpoint = lib.mkOption {
