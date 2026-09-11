@@ -123,6 +123,26 @@ in {
     authorizedKeys = fleetKeys;
   };
 
+  # kopia — the backup service, split off doc2 (forgejo#218). Unprivileged LXC
+  # CT 111 on prom. Its sources are bind-mounted from prom (an unprivileged CT
+  # cannot mount NFS), and the pfSense tree uses a raw rbind so ZFS child
+  # datasets are actually traversable. See hosts/kopia/configuration-lxc.nix.
+  kopia = {
+    configurationFile = ./hosts/kopia/configuration-lxc.nix;
+    homeFile = ./hosts/kopia/home.nix;
+    user = "abl030";
+    homeDirectory = "/home/abl030";
+    hostname = "kopia";
+    localIp = "192.168.1.46";
+    sshHostName = "192.168.1.46";
+    sshAlias = "kopia";
+    privateFlakeAuth = false;
+    atuinCredentials = false;
+    sshKeyName = "ssh_key_abl030";
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHGF1Mo2rk+htyr2y6R//0iLOn+oMldf2ZqXwdXf9vno root@kopia";
+    authorizedKeys = fleetKeys;
+  };
+
   musicbrainz = {
     configurationFile = ./hosts/musicbrainz/configuration-lxc.nix;
     homeFile = ./hosts/musicbrainz/home.nix;
