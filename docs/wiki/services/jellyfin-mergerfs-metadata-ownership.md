@@ -164,11 +164,58 @@ ssh root@prom 'pct exec 107 -- /run/current-system/sw/bin/systemctl \
 
 Then confirm the mount is populated **before** any Jellyfin library scan runs.
 
-## The writer is still unknown — this is a repair, not a cure
+## The writer: igpu's own mount-point tmpfiles rules (found 2026-09-11)
 
-Both resets (2026-09-10 03:53:41, 2026-09-11 08:59:04) changed all three
-directories plus `/nvmeprom/containers/Music` within the same few milliseconds,
-non-recursively, at the exact second doc2 activated a new generation.
+`modules/nixos/services/mounts/fuse.nix` created the mergerfs mount points with
+an enforced mode and owner:
+
+```nix
+"d /mnt/fuse/Media/Movies 0755 root root -"   # and TV_Shows, Music, Music_RW
+```
+
+**Once a union is mounted, a tmpfiles chown/chmod of the mount point passes
+straight through mergerfs onto its RW branch.** The mapping is exact, and it is
+exactly the set of directories that kept breaking:
+
+| mount-point rule | RW branch it actually rewrites |
+| --- | --- |
+| `/mnt/fuse/Media/Movies` | `/mnt/virtio/media_metadata/Movies` |
+| `/mnt/fuse/Media/TV_Shows` | `/mnt/virtio/media_metadata/TV Shows` |
+| `/mnt/fuse/Media/Music` | `/mnt/virtio/media_metadata/Music` |
+| `/mnt/fuse/Media/Music_RW` | `/mnt/virtio/Music` |
+
+Proof: an igpu activation at 09:27:49 on 2026-09-11 left all four owned by host
+`100000:100000`. That is **container** root (uid 0 plus the 100000 idmap offset),
+not host root, so the writer was inside the container. prom and doc2 were never
+involved in that instance.
+
+Why it looked intermittent: a running union never re-checks its branches. The
+chown lands on **every** igpu rebuild, but the failure only surfaces when a union
+restarts and re-runs `test -w`. Music restarted during the 2026-09-10 upgrade,
+which is why Music alone went down while Movies and TV kept serving with the same
+broken ownership underneath them.
+
+### The fix
+
+Mount points only need to exist. Mode and owner are now `-`:
+
+```nix
+"d /mnt/fuse/Media/Movies - - - -"
+```
+
+Enforcing a mode on a mount point is meaningless while it is mounted, and
+actively harmful here because of the passthrough.
+
+## Still open: an earlier host-root writer
+
+The mechanism above is confirmed for 2026-09-11 09:27:49. It does **not**
+explain the two earlier resets:
+
+2026-09-10 03:53:41 and 2026-09-11 08:59:04 both left the directories owned by
+host `0:0` — real host root, not container root. Something with unmapped root
+also writes these, and the mount-point passthrough cannot produce `0:0` from
+inside the container. Treat the passthrough as the primary cause and this as a
+second, rarer one.
 
 Ruled out so far:
 

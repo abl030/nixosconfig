@@ -53,10 +53,38 @@ in {
       tmpfiles.rules = lib.mkOrder 1600 [
         "d /mnt/fuse 0755 root root -"
         "d /mnt/fuse/Media 0755 root root -"
-        "d /mnt/fuse/Media/Movies 0755 root root -"
-        "d /mnt/fuse/Media/TV_Shows 0755 root root -"
-        "d /mnt/fuse/Media/Music 0755 root root -"
-        "d /mnt/fuse/Media/Music_RW 0755 root root -"
+
+        # These four are mergerfs MOUNT POINTS, so mode/owner are deliberately
+        # "-" (create if absent, never touch what is already there).
+        #
+        # They used to be `0755 root root`, which is the bug that repeatedly
+        # unmounted the Jellyfin music library. Once a union is mounted, a
+        # tmpfiles chown/chmod of the mount point is passed straight THROUGH
+        # mergerfs onto its RW branch. The mapping is exact:
+        #
+        #   /mnt/fuse/Media/Movies    -> /mnt/virtio/media_metadata/Movies
+        #   /mnt/fuse/Media/TV_Shows  -> /mnt/virtio/media_metadata/TV Shows
+        #   /mnt/fuse/Media/Music     -> /mnt/virtio/media_metadata/Music
+        #   /mnt/fuse/Media/Music_RW  -> /mnt/virtio/Music
+        #
+        # ...which is precisely the set of directories that kept reverting to
+        # root-owned 0755 and breaking `fuse-mergerfs-music`'s `test -w`
+        # ExecStartPre. Confirmed 2026-09-11: an igpu activation at 09:27:49 left
+        # all four owned by host 100000:100000, i.e. CONTAINER root, not host
+        # root — so the writer was inside this container, not on prom or doc2.
+        #
+        # It looked intermittent only because a RUNNING union never re-checks:
+        # the chown lands on every rebuild, but the failure surfaces solely when
+        # a union restarts. Music restarted during the 2026-09-10 upgrade and so
+        # was the only one to go down.
+        #
+        # Mount points need to exist, nothing more. Enforcing a mode on one is
+        # meaningless while it is mounted and actively harmful because of the
+        # passthrough. See docs/wiki/services/jellyfin-mergerfs-metadata-ownership.md
+        "d /mnt/fuse/Media/Movies - - - -"
+        "d /mnt/fuse/Media/TV_Shows - - - -"
+        "d /mnt/fuse/Media/Music - - - -"
+        "d /mnt/fuse/Media/Music_RW - - - -"
 
         # NOTE: the ownership guard for the RW metadata branches
         # (/mnt/virtio/media_metadata/{Movies,TV Shows,Music}) deliberately does
