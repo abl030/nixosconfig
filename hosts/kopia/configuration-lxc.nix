@@ -75,6 +75,20 @@
 
   # Deployed via push-deploy from doc1; a CT cannot arm the realtime timer.
   system.autoUpgrade.enable = lib.mkForce false;
+
+  # This CT is deliberately NOT on the tailnet. prom holds the only tailnet
+  # identity involved here (tag:backup-egress, one grant to the Synology), and
+  # the CT reaches the repository through prom's bind mount. Leaving the
+  # fleet-wide default on just leaves three failed units.
+  homelab.tailscale.enable = lib.mkForce false;
+
+  # No NFS client either. Every NFS share is mounted by prom and bind-mounted
+  # in, so the CT needs no nfs-utils, no rpcbind and no rpc_pipefs — and an
+  # unprivileged container cannot mount rpc_pipefs anyway ("permission denied"),
+  # which would otherwise fail every activation. The kopia module opts into
+  # mumNfs whenever an instance references /mnt/mum; force it off, because here
+  # /mnt/mum is a bind, not an NFS mount this host makes.
+  homelab.mounts.mumNfs.enable = lib.mkForce false;
   homelab.update = {
     enable = false;
     pushDeploy.enable = true;
