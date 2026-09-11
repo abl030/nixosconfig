@@ -234,18 +234,21 @@
     lib.any (s: lib.hasPrefix "/mnt/mum" s) (inst.sources ++ inst.repositoryMounts))
   (lib.attrValues cfg.instances);
 
-  # Build mount dependencies for an instance
-  mountDepsFor = inst: let
-    allPaths = inst.sources ++ inst.repositoryMounts;
-    hasMntData = lib.any (s: lib.hasPrefix "/mnt/data" s) allPaths;
-    hasMntMum = lib.any (s: lib.hasPrefix "/mnt/mum" s) allPaths;
-    hasMntVirtio = lib.any (s: lib.hasPrefix "/mnt/virtio" s) allPaths;
-    hasMntMagazines = lib.any (s: lib.hasPrefix "/mnt/magazines" s) allPaths;
-  in
-    lib.optional hasMntData "mnt-data.mount"
-    ++ lib.optional hasMntMum "mnt-mum.automount"
-    ++ lib.optional hasMntVirtio "mnt-virtio.mount"
-    ++ lib.optional hasMntMagazines "mnt-magazines.mount";
+  # Every path an instance touches, for RequiresMountsFor.
+  #
+  # This used to be a hardcoded prefix table mapping /mnt/data -> mnt-data.mount,
+  # /mnt/mum -> mnt-mum.automount, /mnt/virtio -> mnt-virtio.mount and so on.
+  # That encoded ONE host's mount topology (doc2's), and broke the moment kopia
+  # moved to its own LXC on 2026-09-11: there /mnt/mum is a plain bind (so
+  # mnt-mum.automount does not exist) and /mnt/virtio is not a mount at all —
+  # only its children are, bind-mounted individually for least privilege. The
+  # units stayed `inactive` forever with no log line, because a Requires= on a
+  # non-existent unit is not a startup failure.
+  #
+  # RequiresMountsFor asks systemd to resolve the actual mount unit backing each
+  # path, whatever it happens to be, so the module no longer needs to know how
+  # any particular host arranges its storage.
+  mountPathsFor = inst: inst.sources ++ inst.repositoryMounts;
 
   instanceModule = lib.types.submodule {
     options = {
@@ -416,8 +419,8 @@ in {
       (lib.mapAttrs' (name: inst:
         lib.nameValuePair "kopia-${name}" {
           description = "Kopia backup server (${name})";
-          after = ["network-online.target"] ++ mountDepsFor inst;
-          requires = mountDepsFor inst;
+          after = ["network-online.target"];
+          unitConfig.RequiresMountsFor = mountPathsFor inst;
           wants = ["network-online.target"];
           wantedBy = ["multi-user.target"];
 
