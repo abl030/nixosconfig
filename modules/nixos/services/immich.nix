@@ -278,6 +278,10 @@ in {
           name = "Immich sync write-path";
           command = "${pkgs.callPackage ./probes/check-immich-sync.nix {}}/bin/check-immich-sync";
           interval = "15m";
+          # The probe writes to Immich's Postgres over the nspawn veth. A
+          # rebuild that restarts the container would otherwise fail this
+          # probe mid-switch and fail the whole switch. See `requiresUnit`.
+          requiresUnit = ["container@immich-db.service"];
           # Kuma monitor interval MUST exceed the 15m probe cadence: OnUnitActiveSec
           # counts from probe completion, so each push lands interval+runtime+jitter
           # later. Equal values made on-time pushes chronically race Kuma's deadline

@@ -64,7 +64,14 @@
 
     [new]
     tags=
-    ignore=Mailstore;export-staging;.uidvalidity;.mbsyncstate
+    # .mbsyncstate alone is NOT enough: notmuch's new.ignore matches exact
+    # basenames, and mbsync also writes .mbsyncstate.lock/.journal/.new.
+    # Those are created and deleted mid-sync, so `notmuch new` would stat
+    # one, then fail to open it, and exit 75/TEMPFAIL — failing the unit and
+    # leaving doc2 showing a failed unit until the next 5-minute run.
+    # Benign and self-recovering, but it is exactly the noise that makes a
+    # failed-unit list worthless. (2026-09-11)
+    ignore=Mailstore;export-staging;.uidvalidity;.mbsyncstate;.mbsyncstate.lock;.mbsyncstate.journal;.mbsyncstate.new
 
     [maildir]
     synchronize_flags=false
@@ -683,6 +690,11 @@ in {
       homelab.monitoring.deepProbes = [
         {
           name = "Mailsearch index write-path";
+          # Deliberately NOT given `requiresUnit`. Its health leg is an HTTP
+          # call to the embedding server, which runs on IGPU, not here — a
+          # cross-host dependency that `systemctl is-active` cannot express.
+          # A local unit name would be a lie. The remaining exposure is the
+          # notmuch leg during a doc2 rebuild, which does not stop for a switch.
           command = "${pkgs.callPackage ./probes/check-mailsearch.nix {}}/bin/check-mailsearch";
           # 15m push cadence with a 2400 + 20*60 = 3600s Kuma window
           # (intervalSecs + maxretries*retryInterval). 15m cadence shrinks a

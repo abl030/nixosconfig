@@ -694,6 +694,10 @@ in {
           in [
             {
               name = "Kopia ${name} freshness";
+              # Both kopia probes call the repo server's HTTP API, so a
+              # rebuild restarting kopia-${name}.service would fail them
+              # mid-switch and fail the switch. See `requiresUnit`.
+              requiresUnit = ["kopia-${name}.service"];
               command = "${pkgs.callPackage ./probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh";
               interval = "1h";
               intervalSecs = 4500;
@@ -704,6 +708,10 @@ in {
             }
             {
               name = "Kopia ${name} Backup";
+              # Both kopia probes call the repo server's HTTP API, so a
+              # rebuild restarting kopia-${name}.service would fail them
+              # mid-switch and fail the switch. See `requiresUnit`.
+              requiresUnit = ["kopia-${name}.service"];
               command = "${pkgs.callPackage ./probes/check-kopia-backup-errors.nix {}}/bin/check-kopia-backup-errors";
               interval = "1h";
               intervalSecs = 4500;
