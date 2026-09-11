@@ -21,6 +21,8 @@
 #
 # Env vars (set by modules/nixos/ci/rolling-flake-update.nix):
 #   RFU_PUSH_DEPLOY_HOST_MAP  comma-separated "name:addr" pairs (addr = ssh host)
+#   RFU_PUSH_DEPLOY_OPTIONAL  comma-separated host names that are EXPECTED to be
+#                             powered off; unreachable => skip, not fail
 #   RFU_CI_RESULTS_DIR        dir of populate_cache.sh GC-root symlinks
 #   RFU_DEPLOY_KEY            path to doc1's deploy-trigger private key
 #
@@ -31,6 +33,7 @@ TAG="push-deploy"
 HOST_MAP="${RFU_PUSH_DEPLOY_HOST_MAP:-}"
 CI_RESULTS_DIR="${RFU_CI_RESULTS_DIR:-/home/abl030/.cache/nix-ci-results}"
 DEPLOY_KEY="${RFU_DEPLOY_KEY:-}"
+OPTIONAL_HOSTS="${RFU_PUSH_DEPLOY_OPTIONAL:-}"
 
 # Poll budget: 3s between reads, up to 100 reads (~5 min) — a cold cache pull plus
 # switch fits comfortably; a real failure surfaces well before the ceiling.
@@ -59,11 +62,38 @@ poll_state() {
         2>/dev/null || echo "sshfail "
 }
 
+# Is this host allowed to be absent? (RFU_PUSH_DEPLOY_OPTIONAL)
+is_optional() {
+    case ",${OPTIONAL_HOSTS}," in
+        *",$1,"*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Cheap liveness probe: can we open a TCP connection to sshd at all?
+# Deliberately NOT an ssh handshake — we only need to tell "powered off" apart
+# from "up but broken". A trigger failure on a host that IS up must still count
+# as a real failure.
+host_reachable() {
+    # shellcheck disable=SC2016  # $1 is the INNER bash's positional arg, passed
+    # after the `_` placeholder; expanding it here would defeat the quoting.
+    timeout 6 bash -c 'exec 3<>"/dev/tcp/$1/22"' _ "$1" 2>/dev/null
+}
+
 push_deploy_host() {
     local entry="$1"
     # Entry format: "name:addr"
     local name="${entry%%:*}"
     local addr="${entry#*:}"
+
+    # A host marked optional is expected to be powered off (e.g. imagegen-gpu,
+    # whose GPU has one owner at a time). Skipping keeps the nightly run green
+    # instead of paging for a machine that is off on purpose. If it IS up we
+    # deploy it normally and any later failure still fails.
+    if is_optional "$name" && ! host_reachable "$addr"; then
+        log "[$name] unreachable and marked optional — skipping (expected to be powered off)"
+        return 0
+    fi
 
     local gc_root="$CI_RESULTS_DIR/${name}-system"
     if [ ! -L "$gc_root" ]; then

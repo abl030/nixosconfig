@@ -4,7 +4,18 @@
   pkgs,
 }: let
   gotifyTokenFile = lib.attrByPath ["sops" "secrets" "gotify/token" "path"] null config;
-  gotifyUrl = config.homelab.gotify.endpoint or "";
+  # `homelab.gotify.endpoint` is a readOnly option with NO default, defined only
+  # when `homelab.gotify.enable` is true. `or ""` does NOT protect us: the
+  # attribute exists on every host, so `or` never fires, and forcing its value
+  # on a host with gotify disabled throws "accessed but has no value defined".
+  # Gate on `enable` instead, which is what the `or ""` was always reaching for.
+  # (Hit 2026-09-11 enabling homelab.update on imagegen-gpu, which has gotify
+  # disabled because it deliberately carries no sops secrets. Such a host simply
+  # cannot ping — it holds no token — so an empty URL is the correct outcome.)
+  gotifyUrl =
+    if config.homelab.gotify.enable
+    then config.homelab.gotify.endpoint
+    else "";
 
   bridgeUrl = config.homelab.services.alertBridge.rcaWebhookUrl or null;
   rollingUrl = config.homelab.ci.rollingFlakeUpdate.rcaWebhookUrl or null;

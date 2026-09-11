@@ -202,6 +202,29 @@ in {
         `homelab.update.pushDeploy.enable = true`.
       '';
     };
+
+    pushDeployOptionalHosts = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = ["imagegen-gpu"];
+      description = ''
+        Subset of `pushDeployHosts` that is EXPECTED to be powered off much of
+        the time. When one of these is unreachable the nightly run logs a skip
+        and stays green, instead of reporting a deploy failure and paging.
+
+        Only unreachability is forgiven. If the host answers on SSH, it is
+        deployed and any failure after that is a real failure, exactly as for
+        every other host. Hosts NOT listed here still hard-fail when
+        unreachable, which is what you want for a host that should always be
+        up.
+
+        2026-09-11: imagegen-gpu (VM 123) is powered off by default because the
+        GTX 1080 has one owner at a time, so enrolling it in push-deploy made
+        the rolling run report a failed deploy EVERY night for a host that was
+        off on purpose. Such a host should also carry a boot-time catch-up
+        update so it self-heals when it is actually started.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -259,6 +282,7 @@ in {
             # Push-deploy (forgejo#10): comma-separated "name:addr" pairs (empty
             # ⇒ the script skips the step), the GC-root dir, and doc1's deploy key.
             RFU_PUSH_DEPLOY_HOST_MAP = pushDeployHostMap;
+            RFU_PUSH_DEPLOY_OPTIONAL = lib.concatStringsSep "," (cfg.pushDeployOptionalHosts or []);
             RFU_CI_RESULTS_DIR = "/home/abl030/.cache/nix-ci-results";
             RFU_DEPLOY_KEY = deployKeyPath;
           }

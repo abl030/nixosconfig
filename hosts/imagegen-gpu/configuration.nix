@@ -246,14 +246,33 @@
     gotify.enable = false;
     monitoring.deployOperatorApiKey = false;
     update = {
-      # The VM is normally powered off, so a nightly upgrade timer would either
-      # never fire or fire at the worst moment. Deploy it explicitly.
-      enable = false;
+      # History: this was `enable = false` with "deploy it explicitly", and then
+      # the host was enrolled in the nightly push-deploy anyway (2026-09-09) —
+      # i.e. exactly the automatic path that comment rejected. A VM that is
+      # powered off by design then reported a FAILED deploy every night.
+      #
+      # Resolution (2026-09-11): doc1 marks this host optional for push-deploy
+      # (`pushDeployOptionalHosts`), so its absence is a logged skip rather than
+      # a failure; and the host now catches itself up shortly after it is
+      # actually booted (see the timer override below). That matches how the
+      # machine is really used: off most of the time, started deliberately.
+      enable = true;
       wakeOnUpdate = false;
       trim = lib.mkForce false;
       pushDeploy.enable = true;
     };
   };
+
+  # Boot catch-up instead of a nightly cadence.
+  #
+  # `persistent = false` is deliberate. With the upstream default (true) the
+  # missed nightly window fires the upgrade the instant the timer starts, and a
+  # cold host frequently still has DNS and the tailnet reconverging, so the
+  # flake fetch times out and pages for what is really a startup race (the same
+  # post-resume race the roaming laptops hit). OnBootSec replaces that scramble
+  # with a deterministic settle before the update runs.
+  system.autoUpgrade.persistent = false;
+  systemd.timers.nixos-upgrade.timerConfig.OnBootSec = "5min";
 
   # Model weights and outputs. Kept on the root filesystem (grown to the real
   # disk size at boot) rather than a second virtio disk, so there is one thing
