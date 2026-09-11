@@ -252,7 +252,21 @@
       # prom's nvmeprom). syncoid pulls directly from pfSense; sanoid prunes;
       # kopia-mum walks the local mount tree.
       # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
-      syncoidPfsense.enable = true;
+      syncoidPfsense = {
+        enable = true;
+        # Target moved to prom on 2026-09-11 (forgejo#218). kopia now runs in
+        # its own LXC on prom and reads this tree through a bindfs view, so the
+        # replica has to be THERE and live — otherwise kopia keeps backing up a
+        # frozen copy, which is the silently-stale-source failure this whole
+        # migration exists to avoid.
+        #
+        # doc2 still does the pulling (it holds the pfSense key and the
+        # watchdog), it just lands the stream on prom. syncoid accepts only one
+        # --sshkey for both ends, so the pfSense key authenticates to prom as
+        # well; that account there is receive-only, source-pinned to doc2, and
+        # has ZFS rights delegated on this one dataset and nothing else.
+        target = "syncoid-recv@192.168.1.12:nvmeprom/backup/pfsense";
+      };
       # Watchdog over the syncoid status file in /mnt/backup/pfsense/.
       # Logs "PFSENSE-BACKUP FAIL" on stale/failed/missing-canary;
       # routes through homelab.monitoring.errorPatterns → Gotify.
