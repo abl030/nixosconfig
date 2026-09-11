@@ -1,1 +1,1 @@
-/nix/store/2jk8s3xicj6vb6wbx4cy7nxkid2nxa6n-nixos-system-doc2-26.11.20260910.d5dfd8e
+/nix/store/ck5hk6i23h4pxlhvja3akpn3da04xpm2-nixos-system-doc2-26.11.20260910.aff8a0b

@@ -1,1 +1,1 @@
-/nix/store/kfclz3vzrb5av4mzwclakj7m280a28qc-nixos-system-imagegen-gpu-26.11.20260910.d5dfd8e
+/nix/store/c3z5gdklvkrsklvv7rq99yq4r0al7y8m-nixos-system-imagegen-gpu-26.11.20260910.aff8a0b
