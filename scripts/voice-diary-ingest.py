@@ -160,6 +160,12 @@ def tidy(raw: str) -> str:
             cur, cur_words = [], 0
     if cur:
         paras.append(" ".join(cur))
+
+    # The remainder can leave a stranded one-liner ("See you later.") as its own
+    # paragraph. Fold a short tail back into the paragraph above it.
+    if len(paras) > 1 and len(paras[-1].split()) < 25:
+        paras[-2] = f"{paras[-2]} {paras.pop()}"
+
     return "\n\n".join(paras)
 
 
