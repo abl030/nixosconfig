@@ -134,6 +134,16 @@ def tidy(raw: str) -> str:
         recent = recent[-DEDUPE_WINDOW:]
 
     text = re.sub(r"\s+", " ", " ".join(kept)).strip()
+
+    # whisper occasionally emits a stray space before punctuation or a
+    # contraction ("friendships ." / "she 's bought it"), an artefact of how
+    # segments are joined. Cosmetic, but it is the kind of thing that makes a
+    # transcript read as machine output.
+    text = re.sub(r"\s+([,.!?;:])", r"\1", text)
+    text = re.sub(r"\s+('(?:s|t|re|ve|ll|d|m)\b)", r"\1", text, flags=re.IGNORECASE)
+    # "do n't" splits before the n, so the rule above misses it.
+    text = re.sub(r"\s+(n't\b)", r"\1", text, flags=re.IGNORECASE)
+
     text = fix_names(text)
 
     # Group whole sentences until the paragraph reaches WORDS_PER_PARAGRAPH, so
