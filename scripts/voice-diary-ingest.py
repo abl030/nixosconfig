@@ -50,6 +50,12 @@ DROP_DIR = Path(os.environ["VOICE_DIARY_DROP_DIR"])
 INBOX_DIR = Path(os.environ["VOICE_DIARY_INBOX_DIR"])
 WHISPER_URL = os.environ["VOICE_DIARY_WHISPER_URL"]
 MODEL = os.environ.get("VOICE_DIARY_MODEL", "large")
+# Sent per-request rather than set as a whisper-server flag on purpose: the
+# same endpoint serves the Dictate phone keyboard, and a diary-specific
+# vocabulary should not bias that. Verified honoured by the server — adding it
+# corrected "Vania" to "Vanya" on a real recording. It does NOT fix every name
+# (see NAME_FIXES), so treat it as a nudge, not a guarantee.
+PROMPT = os.environ.get("VOICE_DIARY_PROMPT", "").strip()
 TIMEOUT = int(os.environ.get("VOICE_DIARY_TIMEOUT", "3600"))
 MIN_AGE = int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
 
@@ -58,7 +64,27 @@ MIN_AGE = int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
 # this is the belt-and-braces pass. See the wiki page for the measured
 # before/after.
 DEDUPE_WINDOW = 12
-SENTENCES_PER_PARAGRAPH = 5
+
+# Paragraphs are grouped by WORD COUNT, not sentence count. Grouping by
+# sentences looks fine until the speaker is hesitant: false starts ("so I think
+# where I finished was, I was just, yeah, that's right") become many very short
+# sentences, and a fixed 5-per-paragraph then yields stubby, staccato
+# paragraphs. Measured on two real recordings: a fluent one averaged 55 words
+# per paragraph, a hesitant one only 39, from the same rule. Word-count
+# grouping keeps the page even regardless of speaking style.
+WORDS_PER_PARAGRAPH = 70
+
+# Names whisper cannot get right from audio alone. Prompt seeding helps some
+# (it fixed Vania -> Vanya) but cannot reach others: "Gerlinde" is acoustically
+# closer to "Galinda"/"Glinda" and the model returns those however it is
+# primed. For a small, fixed cast of family and colleagues a substitution is
+# simply more reliable than coaxing the decoder. Keys are matched
+# case-insensitively on whole words only.
+NAME_FIXES = {
+    r"Ga?linda|Gelinda|Gerlinda": "Gerlinde",
+    r"Dak(?:y|ie|ey)|Dacky|Dackie": "Dacre",
+    r"Vania|Vanja": "Vanya",
+}
 
 
 def log(msg: str) -> None:
@@ -108,12 +134,30 @@ def tidy(raw: str) -> str:
         recent = recent[-DEDUPE_WINDOW:]
 
     text = re.sub(r"\s+", " ", " ".join(kept)).strip()
+    text = fix_names(text)
+
+    # Group whole sentences until the paragraph reaches WORDS_PER_PARAGRAPH, so
+    # paragraph length tracks content rather than the speaker's fluency.
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
-    paras = [
-        " ".join(sentences[i : i + SENTENCES_PER_PARAGRAPH])
-        for i in range(0, len(sentences), SENTENCES_PER_PARAGRAPH)
-    ]
+    paras: list[str] = []
+    cur: list[str] = []
+    cur_words = 0
+    for s in sentences:
+        cur.append(s)
+        cur_words += len(s.split())
+        if cur_words >= WORDS_PER_PARAGRAPH:
+            paras.append(" ".join(cur))
+            cur, cur_words = [], 0
+    if cur:
+        paras.append(" ".join(cur))
     return "\n\n".join(paras)
+
+
+def fix_names(text: str) -> str:
+    """Apply the fixed-cast name corrections (see NAME_FIXES)."""
+    for pattern, correct in NAME_FIXES.items():
+        text = re.sub(rf"\b(?:{pattern})\b", correct, text, flags=re.IGNORECASE)
+    return text
 
 
 def transcribe(path: Path) -> str:
@@ -121,8 +165,12 @@ def transcribe(path: Path) -> str:
     boundary = f"----voicediary{uuid.uuid4().hex}"
     ctype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
+    fields = [("model", MODEL), ("response_format", "json")]
+    if PROMPT:
+        fields.append(("prompt", PROMPT))
+
     head = []
-    for field, value in (("model", MODEL), ("response_format", "json")):
+    for field, value in fields:
         head.append(
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="{field}"\r\n\r\n'

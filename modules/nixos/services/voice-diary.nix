@@ -95,6 +95,26 @@ in {
       description = "whisper-server model alias (see homelab.services.whisper-server.models).";
     };
 
+    prompt = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "This is a spoken diary. People mentioned: Meg, Harriet.";
+      description = ''
+        Vocabulary hint sent with each transcription request, to bias whisper
+        toward recurring names.
+
+        Sent per-request rather than configured as a whisper-server flag on
+        purpose: the same endpoint serves the Dictate phone keyboard, and a
+        diary-specific vocabulary should not bias that.
+
+        It is a nudge, not a guarantee. Measured on a real recording it
+        corrected "Vania" to "Vanya", but could not reach "Gerlinde" — the
+        audio is acoustically closer to "Galinda" and the model returns that
+        however it is primed. Names whisper cannot reach this way are fixed
+        deterministically by NAME_FIXES in scripts/voice-diary-ingest.py.
+      '';
+    };
+
     onCalendar = lib.mkOption {
       type = lib.types.str;
       default = "*:0/10";
@@ -140,6 +160,7 @@ in {
         VOICE_DIARY_INBOX_DIR = cfg.inboxDir;
         VOICE_DIARY_WHISPER_URL = cfg.whisperUrl;
         VOICE_DIARY_MODEL = cfg.model;
+        VOICE_DIARY_PROMPT = cfg.prompt;
         VOICE_DIARY_TIMEOUT = toString cfg.timeoutSeconds;
         VOICE_DIARY_MIN_AGE = toString cfg.minAgeSeconds;
       };

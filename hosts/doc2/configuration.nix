@@ -343,6 +343,10 @@
         enable = true;
         dropDir = "/mnt/data/Life/Andy/VoiceRecordings";
         inboxDir = "/mnt/data/Life/Zet/Projects/Diary/Inbox";
+        # Recurring names, to bias whisper. Natural sentences work better than
+        # a bare word list. Names this cannot reach (Gerlinde, Dacre) are
+        # corrected deterministically in the ingest script instead.
+        prompt = "This is Andy's spoken diary. He is a winemaker at Cullen. People he mentions: his wife Meg, his children Harriet, Primrose and Dacre, his colleagues Vanya and Gerlinde, and his friends Stu, Ryan White and Nia. Places: Churchview, Stirlings, Langtons, the LIA.";
       };
 
       webdav.enable = true;
