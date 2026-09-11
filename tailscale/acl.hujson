@@ -37,6 +37,10 @@
     // tag:client-wide, not tag:server (no Kuma), no LAN path (nginx binds the
     // tailnet IP only). Zero egress into the fleet.
     "tag:imagegen": ["autogroup:admin"],
+    // prom (the Proxmox hypervisor). Named for the ONE capability it is
+    // permitted, not for what the node is, so the name itself resists scope
+    // creep: anything wanting a second grant should be questioned, not added.
+    "tag:backup-egress": ["autogroup:admin"],
   },
 
   // --------------------------------------------------------------------- hosts
@@ -197,6 +201,24 @@
     // outbound grants at all: it needs nothing from the fleet over the tailnet.
     { "src": ["framework", "epimetheus", "s-a55", "cullen"], "dst": ["tag:imagegen"], "ip": ["tcp:443"] },
 
+    // === tag:backup-egress — prom, the Proxmox hypervisor =================
+    // prom joins the tailnet for EXACTLY one reason: mum's Synology is reachable
+    // only over Tailscale, an unprivileged LXC cannot mount NFS itself, so prom
+    // mounts it and bind-mounts it into the kopia container.
+    //
+    // prom owns every VM and container in the fleet, so it gets the narrowest
+    // posture on the tailnet:
+    //   - ONE egress grant, below: kerrynas tcp:2049 and nothing else.
+    //   - ZERO inbound grants. Nothing on the tailnet may reach prom; it is
+    //     administered over the LAN exactly as before.
+    //   - No exit node, no subnet routes advertised or accepted, no Tailscale
+    //     SSH, shields-up set on the node itself as defence in depth.
+    // NFSv4.0 only (confirmed `vers=4.0` on the live mount), so no rpcbind.
+    //
+    // If this tag ever needs a second grant, treat that as a signal to reconsider
+    // whether the hypervisor belongs on the tailnet at all.
+    { "src": ["tag:backup-egress"], "dst": ["kerrynas"], "ip": ["tcp:2049"] },
+
     // === tag:edge — remote / isolated nodes ================================
     // homeassistant, raspberrypi (dad's), kerrynas (mum's).
     // No implicit fleet access; egress enumerated per-node; inbound only what is
@@ -320,6 +342,17 @@
     // — fixes `ssh epi` over the tailnet) and any server/share port, beyond the
     // old server-mesh + cullen/rpi :22.
     { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "tag:client:22", "tag:server:443", "tag:share:443"] },
+    // backup-egress (prom): exactly one reachable endpoint, and nothing else —
+    // not the fleet, not DNS, not the home LAN, not even the rest of kerrynas.
+    { "src": "tag:backup-egress", "proto": "tcp",
+      "accept": ["kerrynas:2049"],
+      "deny": ["tag:server:22", "tag:server:443", "tag:client:22", "tag:share:443",
+               "doc1:22", "doc2:443", "pfsense:53", "kerrynas:22", "kerrynas:5000",
+               "192.168.1.2:2049", "cullen:22"] },
+    // ...and nothing on the tailnet may reach prom.
+    { "src": "tag:client", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "tag:server", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "tag:edge",   "proto": "tcp", "deny": ["tag:backup-egress:22"] },
     // edge / share isolation: no path into the fleet.
     { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
