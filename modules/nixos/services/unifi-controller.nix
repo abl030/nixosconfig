@@ -679,6 +679,10 @@ in {
             command = "${pkgs.callPackage ./probes/check-unifi-mongodb.nix {}}/bin/check-unifi-mongodb";
             interval = "5m";
             intervalSecs = 450;
+            # Activation stops mongodb.service; without this the probe fires
+            # mid-switch, gets ECONNREFUSED, and fails the whole rebuild.
+            # (2026-09-11 doc2 false "nixos-upgrade failed" page.)
+            requiresUnit = ["mongodb.service"];
             serviceConfig = {
               User = "unifi-mongodb-probe";
               Group = "unifi-mongodb-probe";

@@ -853,6 +853,33 @@ in {
               for SOPS-managed secrets, RuntimeDirectory for state.
             '';
           };
+          requiresUnit = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [];
+            example = ["mongodb.service"];
+            description = ''
+              Units the probed write-path depends on. While ANY of them is
+              not active the probe run is SKIPPED (systemd `ExecCondition`),
+              not failed.
+
+              Why: the probe timer fires on its own cadence and knows nothing
+              about `nixos-rebuild`. On 2026-09-11 the UniFi probe fired at
+              04:55:11 while activation had `mongodb.service` deliberately
+              stopped, got ECONNREFUSED, and entered `failed`.
+              switch-to-configuration counts units that failed during the
+              switch and exited 4, so a SUCCESSFUL doc2 upgrade paged as a
+              failed one. Seven probe timers on doc2 arm the same trap on
+              every rebuild that restarts something probed.
+
+              This hides nothing. The Kuma heartbeat is the verdict, and a
+              skipped probe pushes no heartbeat — so a genuinely dead
+              dependency still flips the monitor DOWN on its normal schedule
+              (`intervalSecs + maxretries * retryInterval`). All that is
+              suppressed is the systemd `failed` state that poisons an
+              unrelated rebuild. A probe that fails while its dependency IS
+              active still fails loudly, exactly as before.
+            '';
+          };
         };
       }));
       default = [];
@@ -1336,6 +1363,13 @@ in {
                 // {
                   ExecStart = regularRunner;
                   TimeoutStartSec = probe.timeout;
+                }
+                # Skip (not fail) while a declared dependency is down — see
+                # the `requiresUnit` option for the rebuild-race rationale.
+                // lib.optionalAttrs (probe.requiresUnit != []) {
+                  ExecCondition =
+                    map (u: "${pkgs.systemd}/bin/systemctl is-active --quiet ${u}")
+                    probe.requiresUnit;
                 };
             };
           })
