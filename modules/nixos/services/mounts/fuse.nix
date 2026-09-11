@@ -58,32 +58,21 @@ in {
         "d /mnt/fuse/Media/Music 0755 root root -"
         "d /mnt/fuse/Media/Music_RW 0755 root root -"
 
-        # Ownership guard for the mergerfs RW metadata branches (prom virtiofs).
-        # These are the branches the unions write NFO/LRC/artwork into, and
-        # fuse-mergerfs-music hard-fails its ExecStartPre (`test -w`) if they
-        # lose group write.
+        # NOTE: the ownership guard for the RW metadata branches
+        # (/mnt/virtio/media_metadata/{Movies,TV Shows,Music}) deliberately does
+        # NOT live here. It cannot work from igpu.
         #
-        # 2026-09-10: all three were reset to host root:root 0755, which this
-        # unprivileged CT sees as nobody:nogroup, so group `users` lost write.
-        # The Music union stayed down for a day and its mount went empty, which
-        # is the dangerous shape for Jellyfin (an empty-but-readable library is
-        # a prune candidate). Cause never identified. A tmpfiles rule on prom
-        # was meant to cover this but had NEVER run: it was written weeks after
-        # prom's last boot and prom boots ~10-weekly. The guard belongs here
-        # instead, because igpu re-runs tmpfiles on every rebuild (nightly).
+        # When those directories are reset to host root:root (observed twice on
+        # 2026-09-10 and 2026-09-11, both at the instant doc2 activated), host
+        # uid 0 is OUTSIDE this unprivileged CT's idmap. Chown is then refused
+        # with EPERM no matter what capabilities the container holds, so igpu
+        # can MAINTAIN correct ownership but can never RESTORE it — which is the
+        # only case that matters. Verified empirically from inside CT 107.
         #
-        # `z` (adjust existing), NOT `d`: `d` would CREATE these paths if the
-        # virtiofs mount were late, shadowing the real mount.
-        #
-        # The owner MUST stay inside this CT's idmap (host 165534 = container
-        # `nobody`). Host root is unmapped here and is unchownable from inside
-        # the container, which is exactly why the container could not
-        # self-heal. Group 100 (`users`) + setgid is what actually grants the
-        # write, and matches every directory already below these.
-        # See docs/wiki/services/jellyfin-mergerfs-metadata-ownership.md
-        "z /mnt/virtio/media_metadata/Movies 2775 nobody users -"
-        "z /mnt/virtio/media_metadata/TV\\x20Shows 2775 nobody users -"
-        "z /mnt/virtio/media_metadata/Music 2775 nobody users -"
+        # The guard therefore lives on doc2 (hosts/doc2/configuration.nix),
+        # which mounts the same virtiofs WITHOUT idmapping and so holds real
+        # root on these paths. See
+        # docs/wiki/services/jellyfin-mergerfs-metadata-ownership.md
       ];
 
       # NNP-OK: these are mergerfs/FUSE mount units. Mounting a FUSE filesystem

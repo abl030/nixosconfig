@@ -1,9 +1,9 @@
 # Jellyfin mergerfs metadata-branch ownership (igpu)
 
-**Status:** resolved, guarded
-**Date:** 2026-09-11
-**Hosts:** igpu (CT 107, unprivileged LXC on prom), prom (hypervisor)
-**Code:** `modules/nixos/services/mounts/fuse.nix`
+**Status:** repaired and guarded; the writer is still UNIDENTIFIED
+**Date:** 2026-09-11 (guard relocated same day after it failed in practice)
+**Hosts:** igpu (CT 107, unprivileged LXC on prom), doc2, prom (hypervisor)
+**Code:** `hosts/doc2/configuration.nix` (the guard), `modules/nixos/services/mounts/fuse.nix` (the unions)
 
 ## What this page is about
 
@@ -67,7 +67,7 @@ same run Jellyfin deleted 414 rows for files it could not find. **An
 empty-but-readable library directory is the dangerous shape** — it looks mounted
 and simply appears to contain nothing. Repair the mount before letting a scan run.
 
-## Why the guard is on igpu, not prom
+## Why prom's own guard never worked
 
 prom already had `/etc/tmpfiles.d/media-metadata-music.conf`:
 
@@ -81,9 +81,11 @@ alone, and targeted owner `root`.
 
 Two lessons:
 
-1. **Cadence.** prom boots roughly every ten weeks. igpu re-runs tmpfiles on
-   every `nixos-rebuild`, i.e. nightly. The guard belongs where it actually runs.
-2. **The owner must be inside the container's id map.** Verified empirically from
+1. **Cadence.** prom boots roughly every ten weeks, so a boot-only rule there is
+   close to inert. doc2 and igpu both re-run tmpfiles on every `nixos-rebuild`,
+   i.e. nightly. A guard belongs where it actually runs.
+2. **The owner must be inside the container's id map**, so that igpu keeps
+   working normally against it. Verified empirically from
    inside CT 107 with chown calls that set the ids to their existing values, so
    nothing changed but the permission check still applied:
 
@@ -92,19 +94,39 @@ Two lessons:
    | `media_metadata/Music` (then host root) | unmapped | refused, `EPERM` |
    | `media_metadata/Music/Beets` (host 165534) | mapped | succeeded |
 
-   With owner `root` the container can never maintain the invariant — which is
-   exactly why it could not self-heal. Owner host 165534 = container `nobody` is
-   inside the map and is what every directory below already uses.
+   With owner `root` the container can never touch the invariant at all — which
+   is exactly why it could not self-heal. Owner host 165534 = container `nobody`
+   is inside the map and is what every directory below already uses.
 
-## The guard
+   This same table is why the guard could not simply be placed on igpu either;
+   see the next section.
 
-In `modules/nixos/services/mounts/fuse.nix`:
+## The guard lives on doc2, and here is why it moved
+
+It was first placed on igpu, next to the unions. **That was wrong, and it failed
+within the hour.** It is now in `hosts/doc2/configuration.nix`:
 
 ```nix
-"z /mnt/virtio/media_metadata/Movies 2775 nobody users -"
-"z /mnt/virtio/media_metadata/TV\\x20Shows 2775 nobody users -"
-"z /mnt/virtio/media_metadata/Music 2775 nobody users -"
+"z /mnt/virtio/media_metadata/Movies 2775 165534 100 -"
+"z /mnt/virtio/media_metadata/TV\\x20Shows 2775 165534 100 -"
+"z /mnt/virtio/media_metadata/Music 2775 165534 100 -"
 ```
+
+The reason is the idmap asymmetry above. A guard on igpu can only **maintain**
+correct ownership; it can never **restore** it, because the broken state is
+precisely "owned by host root", which is outside igpu's map and unchownable from
+inside the container. The only case the guard exists for is the one it cannot
+handle.
+
+doc2 mounts the same virtiofs **without** idmapping, so doc2's root is the
+hypervisor's root on these paths and can chown them back. doc2 also rebuilds
+nightly. `165534` is the host uid for container `nobody` (65534 plus the 100000
+offset), i.e. an owner inside igpu's map so igpu keeps working normally.
+
+This was proven the hard way: the igpu guard was deployed at 09:0x on
+2026-09-11, and the directories were already root-owned from 08:59:04, so the
+`z` rules silently failed with EPERM and the wrong ownership survived the
+deploy.
 
 - **`z`, not `d`.** `z` adjusts an existing path and never creates one. A `d`
   rule would create these directories if the virtiofs mount were late, shadowing
@@ -142,9 +164,29 @@ ssh root@prom 'pct exec 107 -- /run/current-system/sw/bin/systemctl \
 
 Then confirm the mount is populated **before** any Jellyfin library scan runs.
 
-If the guard is in place and this still recurs, the guard is being undone by
-something with unmapped root on those paths between rebuilds. doc2 is the first
-place to look.
+## The writer is still unknown — this is a repair, not a cure
+
+Both resets (2026-09-10 03:53:41, 2026-09-11 08:59:04) changed all three
+directories plus `/nvmeprom/containers/Music` within the same few milliseconds,
+non-recursively, at the exact second doc2 activated a new generation.
+
+Ruled out so far:
+
+- cron on prom (none), an NFS export of the dataset (not exported)
+- prom's own tmpfiles rule (it had never run; now deleted)
+- **doc2's tmpfiles** — `systemd-tmpfiles --create --dry-run` on doc2 touches
+  `/mnt/virtio/Music`, `/mnt/virtio/Music/Incoming`, `/mnt/virtio/Music/Beets`
+  and `/mnt/virtio/music/slskd*`, and never `media_metadata`
+- sudo on doc2 in the window (no entries)
+
+Note the partial explanation: `/nvmeprom/containers/Music` becoming `root:root
+0755` **is** accounted for — that is cratedigger's `d /mnt/virtio/Music 0755 root
+root` rule on doc2. The three `media_metadata` children are not.
+
+So the guard repairs the damage on doc2's next activation, but if the unknown
+writer runs *after* tmpfiles within the same activation it still wins. If this
+recurs with the guard in place, that ordering is the answer, and the next step is
+to bisect doc2's activation with a watch on the directories' ctime.
 
 ## Related
 

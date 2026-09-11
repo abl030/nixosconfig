@@ -629,6 +629,37 @@
     options = ["rw" "relatime"];
   };
 
+  # Ownership guard for igpu's mergerfs RW metadata branches.
+  #
+  # These directories belong to the Jellyfin unions on igpu, not to doc2 — but
+  # the guard has to live HERE, because doc2 is the only host that can actually
+  # repair them. doc2 mounts this virtiofs WITHOUT idmapping, so doc2's root is
+  # the hypervisor's root on these paths. igpu is an unprivileged container
+  # whose idmap starts at host uid 100000, so once these are reset to host
+  # root:root they are outside its map and chown is refused with EPERM there —
+  # igpu can maintain correct ownership but never restore it.
+  #
+  # Twice now (2026-09-10 03:53, 2026-09-11 08:59) all three were reset to
+  # root:root 0755 at the exact second doc2 activated a new generation. What
+  # does it is STILL UNIDENTIFIED: doc2's own tmpfiles is ruled out by
+  # `systemd-tmpfiles --create --dry-run`, which touches /mnt/virtio/Music but
+  # never media_metadata. Until that is found this is a repair, not a cure — if
+  # the unknown writer runs AFTER tmpfiles during activation it will still win,
+  # and the symptom is fuse-mergerfs-music failing its `test -w` ExecStartPre on
+  # igpu, leaving the Jellyfin music library an empty directory.
+  #
+  # 165534 = host uid for container `nobody` (65534 + the 100000 idmap offset),
+  # i.e. an owner INSIDE igpu's map. gid 100 (`users`) + setgid is what actually
+  # grants the write and matches every directory already below these.
+  # `z` adjusts an existing path and never creates one: `d` would create these
+  # if the virtiofs mount were late, shadowing the real mount.
+  # See docs/wiki/services/jellyfin-mergerfs-metadata-ownership.md
+  systemd.tmpfiles.rules = [
+    "z /mnt/virtio/media_metadata/Movies 2775 165534 100 -"
+    "z /mnt/virtio/media_metadata/TV\\x20Shows 2775 165534 100 -"
+    "z /mnt/virtio/media_metadata/Music 2775 165534 100 -"
+  ];
+
   # VM backup archives — read-only NFS mount of tower's VMBackups share.
   # Kopia-mum walks /mnt/backup/vm-backups/{containers,homeassistant} to ship the
   # age-encrypted .tar.gz.age files (written by containers-backup.service on doc1)
