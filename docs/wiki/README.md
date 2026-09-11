@@ -42,6 +42,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [brother-scanner-smb](services/brother-scanner-smb.md) — Brother scanner compatibility share at `\\192.168.1.6\Scans`; caddy LXC Samba, narrow tower-backed CT mount, credential recovery and verification
 - [lgtm-stack](services/lgtm-stack.md) — Loki + Grafana + Tempo + Mimir on doc2
 - [jellyfin](services/jellyfin.md) — native NixOS jellyfin on igpu, VAAPI transcoding, LAN + tailnet FQDNs
+- [jellyfin-mergerfs-metadata-ownership](services/jellyfin-mergerfs-metadata-ownership.md) — why the mergerfs RW metadata branches must keep gid `users` + setgid AND an owner inside igpu's LXC idmap; the 2026-09-10 root:root reset that unmounted the Music library, why prom's guard had never run, and the repair recipe
 - [whisper-vad-long-audio](services/whisper-vad-long-audio.md) — why long single-pass transcription degenerates into a repetition loop, why the audio isn't at fault, why chunking and silence-splitting both fail on car audio, and the Silero VAD fix on igpu
 - [voice-diary](services/voice-diary.md) — car voice notes → dated transcript pairs: phone/Syncthing/timer pipeline on doc2, why a timer and not a `systemd.path` unit on NFS, why the drop dir is read-only (the phone holds the only other copy), and why no AI is in the loop
 - [youtarr](services/youtarr.md) — Youtarr OCI app on doc2, MariaDB nspawn migration, least-privilege runtime
