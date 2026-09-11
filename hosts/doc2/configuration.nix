@@ -430,119 +430,17 @@
         };
       };
 
-      kopia = {
-        enable = true;
-        dataDir = "/mnt/virtio/kopia";
-        instances = {
-          photos = {
-            port = 51515;
-            configDir = "/mnt/virtio/kopia/photos";
-            sources = [
-              "/mnt/data/Life/Photos/library"
-              # /mnt/data/Life joins the photos repo as a second source so it
-              # dedupes against the photo blobs already here — the 314 GiB
-              # library is never re-uploaded and incurs no fresh 90-day lock.
-              # The regenerable/duplicate Photos subdirs and the high-churn
-              # Unraid USB backup are dropped via sourceExcludes below;
-              # Photos/backups (immich DB dumps) rides along into Wasabi.
-              # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
-              "/mnt/data/Life"
-              # Wine-magazine archive (PDFs + EPUBs + JSON sidecars, ~2.6 GB)
-              # on its dedicated single-disk share. Expensive to regenerate
-              # (Marker ML conversion + sidecars; pre-2017 issues are 0-byte /
-              # unrecoverable server-side), so it earns an offsite copy.
-              "/mnt/magazines"
-              # pfSense backup is intentionally NOT in kopia-photos: those
-              # snapshots will live in a dedicated Wasabi bucket better
-              # suited to small high-churn appliance backups. Existing
-              # 298-byte snapshots in this repo will be `kopia snapshot
-              # delete`d and age out under the 90-day Object Lock window.
-              # See docs/wiki/infrastructure/pfsense-backup.md.
-            ];
-            # Anchored to the /mnt/data/Life source root. library is its own
-            # source above; thumbs/encoded-video/upload are immich-regenerable;
-            # UnraidUSB is a 4 GiB monthly full-rewrite that's re-creatable.
-            # Photos/backups (immich DB) and Photos/profile are NOT excluded.
-            sourceExcludes = {
-              "/mnt/data/Life" = [
-                "/Photos/library"
-                "/Photos/thumbs"
-                "/Photos/encoded-video"
-                "/Photos/upload"
-                "/Tech/Backups/UnraidUSB"
-              ];
-            };
-            proxyHost = "kopiaphotos.ablz.au";
-            # Match container identity so existing snapshot policies/schedules work
-            overrideHostname = "kopia";
-            overrideUsername = "root";
-            runAsRoot = true;
-          };
-          mum = {
-            port = 51516;
-            configDir = "/mnt/virtio/kopia/mum";
-            # Three deliberately-narrow subdirs — NOT all of /mnt/data
-            # (which would include video media we don't ship offsite).
-            # The 2026-02-26 migration silently dropped these from the
-            # daemon schedule for 12 weeks (#254); the reconciler in
-            # the new module + this declarative list (#255) keeps them
-            # synced going forward.
-            sources = [
-              "/mnt/data/Life"
-              "/mnt/data/Media/Books"
-              "/mnt/data/Media/Music"
-              # Prepared Yoto books plus Ali's low-volume music library. The
-              # books used to ride under Media/Books/Yoto; keep the new
-              # top-level Books/Music tree covered after the migration.
-              "/mnt/data/Media/Yoto"
-              # Wine-magazine archive on its dedicated single-disk share.
-              # Synology offsite copy alongside the photos-repo (Wasabi) one.
-              "/mnt/magazines"
-              # Curated beets music library — its own ZFS dataset on prom
-              # (nvmeprom/containers/Music), a virtiofs submount under /mnt/virtio.
-              # Synology-only (re-downloadable; not worth per-GB Wasabi). Walks
-              # ~100k files — relies on the #267 virtiofsd fd fix to avoid ENFILE.
-              # See docs/brainstorms/2026-06-07-backup-coverage-widening-requirements.md.
-              "/mnt/virtio/Music"
-              # Ali's independent PostgreSQL, Beets DB, and Cratedigger state.
-              "/mnt/virtio/ali-cratedigger"
-              # pfSense ZFS backup, read-only NFS mount from prom. (Replaces
-              # the earlier virtiofs share at /mnt/pfsense-backup — virtiofs
-              # does not cross ZFS-submount boundaries reliably, so the
-              # 12 child datasets that hold the actual 1.83 GB of data were
-              # invisible to kopia and snapshots came in at 298 bytes.)
-              # Full architecture: docs/wiki/infrastructure/pfsense-backup.md
-              "/mnt/backup/pfsense"
-              # VM backup archives from prom — age-encrypted weekly tarballs of
-              # nvmeprom/containers written by containers-backup.service on doc1.
-              # Tower exports VMBackups to doc2 read-only (HAOS gets the only rw
-              # entry); we ship the encrypted .tar.gz.age files offsite to mum's
-              # Synology. Requires: tower VMBackups NFS export scoped to
-              # 192.168.1.35/36 ro — see the fileSystems entry below for the
-              # full rule and why nothing else needs NFS on that share.
-              "/mnt/backup/vm-backups/containers"
-              # Home Assistant's nightly automatic backups (02:00, keep 7).
-              # HAOS writes them itself over a Supervisor NFS backup mount
-              # (192.168.1.20 is the only rw entry in tower's VMBackups export);
-              # kopia-mum is what actually gets them off the LAN.
-              # Full architecture: docs/wiki/services/home-assistant-auto-update.md
-              "/mnt/backup/vm-backups/homeassistant"
-            ];
-            # Calibration encodes are regenerable scratch data. A 693 GiB run
-            # monopolized Kopia's single scheduled upload queue for >13h on
-            # 2026-07-27, preventing the other six daily sources from running.
-            sourceExcludes = {
-              "/mnt/virtio/Music" = ["/calibration-tmp"];
-            };
-            repositoryMounts = ["/mnt/mum"];
-            proxyHost = "kopiamum.ablz.au";
-            verifyPercent = 2;
-            overrideHostname = "kopia";
-            overrideUsername = "root";
-            runAsRoot = true;
-          };
-        };
-      };
+      # kopia MOVED to its own LXC (CT 111, hosts/kopia/) on 2026-09-11.
+      #
+      # It lived here until a stray kopia process wedged doc2's kernel-update
+      # reboot: systemd-shutdown blocked forever on a process it could not reap,
+      # which also held /mnt/virtio busy. doc2 carries most services plus the
+      # whole LGTM stack AND Gotify, so kopia taking doc2 down also silenced the
+      # alert path. Its verify legitimately runs 05:30-12:00 daily against a
+      # ~45 Mbit/s offsite link, so any reboot in that window killed it mid-flight.
+      #
+      # See forgejo#218, hosts/kopia/configuration-lxc.nix, and
+      # docs/wiki/services/kopia.md.
     };
 
     # Per-service tailscale shares — each gets its own dedicated tailscale node

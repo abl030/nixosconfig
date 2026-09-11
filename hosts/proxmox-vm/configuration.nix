@@ -204,7 +204,7 @@
       # with its deploy key; the host's forced-command key realises the doc1-signed
       # closure from the cache and switch-to-configuration's it. These hosts each
       # set homelab.update.pushDeploy.enable = true.
-      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs" "imagegen-gpu"];
+      pushDeployHosts = ["servarr" "igpu" "caddy" "musicbrainz" "discogs" "imagegen-gpu" "kopia"];
 
       # imagegen-gpu (VM 123) is powered off by default — the GTX 1080 has one
       # owner at a time — so an unreachable trigger is EXPECTED, not a failure.

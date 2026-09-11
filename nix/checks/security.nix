@@ -234,20 +234,23 @@
   # detector before the real files are scanned.
   secretArgvAuditCheck = let
     discogsSystemd = self.nixosConfigurations.discogs.config.systemd;
-    doc2Systemd = self.nixosConfigurations.doc2.config.systemd;
+    # kopia moved off doc2 to its own LXC on 2026-09-11 (forgejo#218); these
+    # units live on the `kopia` host now. Repointed rather than dropped — the
+    # kopia curl/credential paths are exactly what this ratchet exists to guard.
+    kopiaSystemd = self.nixosConfigurations.kopia.config.systemd;
     renderedContracts = pkgs.writeText "secret-argv-rendered-contracts" (lib.concatStringsSep "\n" [
       discogsSystemd.units."discogs-api.service".text
       discogsSystemd.units."discogs-import.service".text
-      doc2Systemd.services."kopia-mum".script
-      doc2Systemd.services."kopia-photos".script
+      kopiaSystemd.services."kopia-mum".script
+      kopiaSystemd.services."kopia-photos".script
     ]);
     renderedKopiaExecutables = [
-      doc2Systemd.services."kopia-mum-source-sync".serviceConfig.ExecStart
-      doc2Systemd.services."kopia-photos-source-sync".serviceConfig.ExecStart
-      doc2Systemd.services."deep-probe-kopia-mum-freshness".serviceConfig.ExecStart
-      doc2Systemd.services."deep-probe-kopia-mum-backup".serviceConfig.ExecStart
-      doc2Systemd.services."deep-probe-kopia-photos-freshness".serviceConfig.ExecStart
-      doc2Systemd.services."deep-probe-kopia-photos-backup".serviceConfig.ExecStart
+      kopiaSystemd.services."kopia-mum-source-sync".serviceConfig.ExecStart
+      kopiaSystemd.services."kopia-photos-source-sync".serviceConfig.ExecStart
+      kopiaSystemd.services."deep-probe-kopia-mum-freshness".serviceConfig.ExecStart
+      kopiaSystemd.services."deep-probe-kopia-mum-backup".serviceConfig.ExecStart
+      kopiaSystemd.services."deep-probe-kopia-photos-freshness".serviceConfig.ExecStart
+      kopiaSystemd.services."deep-probe-kopia-photos-backup".serviceConfig.ExecStart
       "${pkgs.callPackage ../../modules/nixos/services/probes/check-kopia-fresh.nix {}}/bin/check-kopia-fresh"
       "${pkgs.callPackage ../../modules/nixos/services/probes/check-kopia-backup-errors.nix {}}/bin/check-kopia-backup-errors"
     ];
