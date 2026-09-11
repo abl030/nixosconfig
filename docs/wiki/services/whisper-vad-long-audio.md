@@ -44,6 +44,28 @@ length. The failure is in the decoder, not the recording.
 Client-side chunking therefore trades a repetition loop for unpredictable
 punctuation/casing loss, and cannot be made boundary-aware for noisy input.
 
+### Correction (2026-09-11): chunk size was probably not the cause
+
+The table above is accurate about *what happened*, but the original conclusion
+— that chunk **size** drove the all-lowercase, unpunctuated output — is likely
+wrong. Later work on a different recording found a better explanation:
+
+- Whisper drops into that lowercase/unpunctuated mode on stretches of **low
+  local SNR**. A minute measured at 6.4 dB SNR produced exactly it; a minute of
+  the same recording at 20.3 dB did not.
+- The chunks that came back degraded were most likely the ones containing poor
+  audio, not the ones that happened to be long.
+
+There is a second trap here. Cutting that bad minute out and transcribing it
+**alone** reproduced the degraded output — but the same audio inside the
+full-file VAD run transcribed correctly, punctuation and all. **An excerpt is
+not a faithful test of how the pipeline handles that audio.** Compare whole
+files, or you will chase a defect the real path does not have.
+
+None of this changes the fix: VAD solves the loop, and chunking remains the
+wrong tool. It changes what to blame when punctuation degrades — look at the
+audio's local SNR, not at segment length.
+
 ## The fix
 
 whisper.cpp 1.9.2 ships built-in Silero VAD. Enabled by default in the module:

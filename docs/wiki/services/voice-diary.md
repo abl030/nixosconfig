@@ -1,11 +1,15 @@
 # Voice diary — car recordings to dated transcripts
 
-Date: 2026-09-10
-Status: **deployed and verified end-to-end on doc2** (2026-09-10) against four
-real car recordings — 4 transcribed, 0 failed, ~22 min of audio in 5m05s, with
-an idempotent re-run doing nothing and the drop directory untouched.
-**Syncthing pairing is the one remaining manual step** — see "Finishing the
-transport" below.
+Date: 2026-09-10, quality tuning 2026-09-11
+Status: **live end to end.** Syncthing is paired and delivering from the phone;
+recordings transcribe unattended into the inbox. Verified 2026-09-10 against
+four real recordings (4 transcribed, 0 failed, ~22 min of audio in 5m05s,
+idempotent re-run, drop directory untouched), and again 2026-09-11 after a
+round of transcript-quality tuning.
+
+Tweaking quality is the ongoing activity here — start at
+"Tuning transcript quality", and read "Measured findings" before changing
+decoder settings, because several obvious ideas were tested and rejected.
 Related: [whisper-vad-long-audio](whisper-vad-long-audio.md),
 `modules/nixos/services/voice-diary.nix`, `scripts/voice-diary-ingest.py`
 
@@ -84,6 +88,11 @@ personal diary entries; they should not leave the fleet.
   Voice Recorder's `.evr_recently_deleted_*` tombstones.
 - **Local time, deliberately.** Names use local wall-clock, not UTC — an evening
   Perth recording is the previous day in UTC and would file under the wrong date.
+- **The transcript is cleaned, not rewritten.** The ingest de-duplicates
+  stutter loops, strips whisper's stray spaces before punctuation
+  (`friendships .`, `she 's`, `do n't`), applies `NAME_FIXES`, and reflows into
+  paragraphs. It never paraphrases, summarises or reorders — the words stay the
+  user's own.
 
 ## The transport
 
@@ -170,6 +179,106 @@ journalctl -u voice-diary -n 20 --no-pager
 
 The unit is a `oneshot`; the timer only decides when it runs.
 
+## Tuning transcript quality
+
+This is the part that gets fiddled with. Three knobs, in the order they are
+usually wanted.
+
+### Names — `NAME_FIXES` in `scripts/voice-diary-ingest.py`
+
+A dict of `regex -> correct spelling`, applied to whole words,
+case-insensitively, after transcription. Add a line and redeploy:
+
+```python
+NAME_FIXES = {
+    r"Ga?linda|Gelinda|Gerlinda": "Gerlinde",
+    r"Dak(?:y|ie|ey)|Dacky|Dackie": "Dacre",
+    r"Vania|Vanja": "Vanya",
+}
+```
+
+**Prefer this over the prompt for a name that matters.** Prompting is a nudge;
+this is deterministic.
+
+### Vocabulary hint — `homelab.services.voiceDiary.prompt`
+
+A sentence-form hint sent with every request. Helps whisper toward names it can
+plausibly hear, and is sent **per-request** so the Dictate phone keyboard —
+which shares this endpoint — does not inherit diary vocabulary.
+
+### Paragraph length — `WORDS_PER_PARAGRAPH`
+
+Currently 70, which yields 65–71 word paragraphs in practice.
+
+## Measured findings — read before re-deriving these
+
+Dated 2026-09-11, from two real recordings.
+
+**Prompting cannot fix every name.** Adding a vocabulary prompt genuinely works
+— it corrected "Vania" to "Vanya". But it could **not** reach "Gerlinde",
+whether as a word list or as natural sentences: the audio is acoustically
+closer to "Galinda"/"Glinda" and the decoder returns those however it is
+primed. That is why `NAME_FIXES` exists. Don't spend another afternoon on
+prompt wording for a name in that class.
+
+**Beam search was tested and rejected.** `--beam-size` defaults to `-1`
+(greedy), which looks like an easy win. Passing `beam_size=5` changed the
+output by *one word* on a real test clip and corrected no names. Not worth the
+extra latency on hardware shared with the Dictate keyboard. Re-test only with a
+proper multi-recording comparison, not a hunch.
+
+**Paragraphs must be grouped by word count, not sentence count.** The original
+rule was 5 sentences per paragraph. It reads fine on fluent speech and badly on
+hesitant speech: false starts ("so I think where I finished was, I was just,
+yeah, that's right") become many very short sentences. Same code, two real
+recordings: **55.5 words per paragraph fluent, 38.9 hesitant.** Word-count
+grouping gives 65–71 on both.
+
+**A transcript that "reads worse" is often not a transcription problem.** The
+recording that prompted all of the above was acoustically *better* than the one
+before it — 16.9 dB SNR against 8.7, noise floor 11 dB quieter, comparable
+words-per-minute. The perceived drop was paragraph shape plus hesitant speech.
+Measure before changing decoder settings.
+
+### How to measure a recording
+
+Whole-file averages hide the problem; car audio varies a lot within one drive.
+Per-minute is what correlates with error clusters.
+
+```bash
+# Overall level and clipping
+ffmpeg -hide_banner -i rec.m4a -af volumedetect -f null - 2>&1 | grep -E "mean_volume|max_volume|histogram_0db"
+# Speech-gated loudness (ignores gaps, so it is speech level not noise)
+ffmpeg -hide_banner -i rec.m4a -af ebur128=framelog=quiet -f null - 2>&1 | grep -A6 "Integrated"
+```
+
+For SNR, take short-window RMS and read percentiles: p10 is the cabin noise
+floor (road noise never stops, so the quietest windows *are* the floor, not
+silence) and p90 is speech. One real drive ranged 6.4–20.3 dB SNR minute to
+minute while averaging 16.9.
+
+**Do not "verify" a fix by transcribing a cut-out clip.** A 60-second excerpt
+of a bad minute came back as lowercase with no punctuation, which looked like a
+smoking gun — but the same audio inside the full-file VAD run transcribed
+correctly. Cutting audio out of context changes the result. Compare whole files.
+
+## Re-transcribing an existing entry
+
+The transcript is the idempotency marker, so deleting it and running the unit
+regenerates it from the audio already in the inbox.
+
+```bash
+systemctl is-active voice-diary        # MUST be inactive first
+rm "/mnt/data/Life/Zet/Projects/Diary/Inbox/<stamp>.md"
+sudo systemctl start voice-diary.service
+```
+
+**Check the unit is idle before deleting.** Starting it while a run is in
+progress cancels the in-flight job, and it will sit with the transcripts
+deleted until the next timer tick regenerates them. Nothing is lost — the audio
+is the source of truth and the drop directory is untouched — but it is a
+confusing ten minutes.
+
 ## When to revisit
 
 - **Whisper is the bottleneck, and it is shared.** A long recording blocks the
@@ -179,3 +288,9 @@ The unit is a `oneshot`; the timer only decides when it runs.
   hard-504s a real recording. See [whisper-vad-long-audio](whisper-vad-long-audio.md).
 - If the inbox grows faster than it is filed, that is the signal to add the
   local instruct model for titles/summaries — not to automate the filing.
+- The drop folder is receive-only, so **deleting a recording on the phone does
+  not remove it from doc2**. That is the safe direction, but the replica grows
+  forever and will eventually want manual pruning.
+- `NAME_FIXES` is a fixed cast. If the diary starts covering a much wider set
+  of people, a substitution list stops scaling and the local instruct model
+  becomes the better answer for name resolution.
