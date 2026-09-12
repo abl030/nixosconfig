@@ -40,11 +40,16 @@
     switch-applications-backward = ["<Shift><Super>Tab"];
   };
 
-  # AATWS window-switcher preview size (stock GNOME is a fixed 128px). Tune
-  # live with `gsettings set org.gnome.shell.extensions.advanced-alt-tab-window-switcher
-  # win-switcher-popup-preview-size N` or the extension's prefs dialog.
+  # AATWS switcher tuning, settled live via its prefs dialog / gsettings
+  # (schema lives in the extension dir; pass --schemadir). Values are the
+  # non-default keys from `dconf dump /org/gnome/shell/extensions/advanced-alt-tab-window-switcher/`.
   dconf.settings."org/gnome/shell/extensions/advanced-alt-tab-window-switcher" = {
-    win-switcher-popup-preview-size = 256;
+    win-switcher-popup-preview-size = 256; # stock GNOME is a fixed 128px
+    # Window list filter: 1 all workspaces+monitors, 2 current workspace on all
+    # monitors, 3 current monitor only (AATWS default). Both monitors, one ws.
+    win-switcher-popup-filter = 2;
+    switcher-popup-timeout = 0; # show the popup immediately (default 100ms)
+    switcher-popup-tooltip-label-scale = 117;
   };
 
   imports = [
