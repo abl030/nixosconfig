@@ -69,14 +69,34 @@ MIN_AGE = int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
 # before/after.
 DEDUPE_WINDOW = 12
 
-# Paragraphs are grouped by WORD COUNT, not sentence count. Grouping by
-# sentences looks fine until the speaker is hesitant: false starts ("so I think
-# where I finished was, I was just, yeah, that's right") become many very short
-# sentences, and a fixed 5-per-paragraph then yields stubby, staccato
-# paragraphs. Measured on two real recordings: a fluent one averaged 55 words
-# per paragraph, a hesitant one only 39, from the same rule. Word-count
-# grouping keeps the page even regardless of speaking style.
-WORDS_PER_PARAGRAPH = 70
+# Paragraph breaking is a hybrid: break where the SPEAKER changes subject, and
+# fall back to a size cap so nothing runs away.
+#
+# Two earlier rules both read badly. Grouping by sentence count (5 per
+# paragraph) collapsed on hesitant speech, where false starts become many tiny
+# sentences — 55 words per paragraph fluent vs 39 hesitant from identical code.
+# Grouping purely by word count fixed the evenness but broke mid-thought, and at
+# 70 words every paragraph was about two lines in a wide editor: 32 stubby
+# blocks for one entry, which reads worse than the problem it replaced.
+#
+# Measured over four real entries (821 sentences), the speaker marks his own
+# topic shifts. Crucially "so" (1 sentence in 8) and "and then" (1 in 22) are
+# verbal tics, NOT boundaries — breaking on those would be even choppier. The
+# real markers below are rare (~7 per entry), so they cannot carry the job
+# alone; MAX_WORDS handles the stretches between them.
+TOPIC_MARKERS = [
+    "anyway", "so anyway", "but anyway", "right", "all right", "alright",
+    "okay so", "okay", "ok", "now", "what else", "oh", "moving on",
+    "the other thing", "also", "next",
+]
+# `(?:\s|$)` not `\s` — a bare "Right." is its own sentence with nothing after
+# it, and requiring trailing whitespace silently skipped exactly those.
+TOPIC_MARKER_RE = re.compile(
+    rf"^(?:{'|'.join(re.escape(m) for m in TOPIC_MARKERS)})\b[,.]?(?:\s|$)",
+    re.IGNORECASE,
+)
+MIN_WORDS_BEFORE_BREAK = 60  # ignore a marker this early; avoids stub paragraphs
+MAX_WORDS_PER_PARAGRAPH = 200  # force a break regardless; avoids walls of text
 
 # Names whisper cannot get right from audio alone. Prompt seeding helps some
 # (it fixed Vania -> Vanya) but cannot reach others: "Gerlinde" is acoustically
@@ -150,18 +170,22 @@ def tidy(raw: str) -> str:
 
     text = fix_names(text)
 
-    # Group whole sentences until the paragraph reaches WORDS_PER_PARAGRAPH, so
-    # paragraph length tracks content rather than the speaker's fluency.
+    # Break before a sentence that opens a new subject, once the current
+    # paragraph has enough substance to stand alone; otherwise break on size.
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
     paras: list[str] = []
     cur: list[str] = []
     cur_words = 0
     for s in sentences:
-        cur.append(s)
-        cur_words += len(s.split())
-        if cur_words >= WORDS_PER_PARAGRAPH:
+        starts_topic = bool(TOPIC_MARKER_RE.match(s))
+        if cur and (
+            (starts_topic and cur_words >= MIN_WORDS_BEFORE_BREAK)
+            or cur_words >= MAX_WORDS_PER_PARAGRAPH
+        ):
             paras.append(" ".join(cur))
             cur, cur_words = [], 0
+        cur.append(s)
+        cur_words += len(s.split())
     if cur:
         paras.append(" ".join(cur))
 
