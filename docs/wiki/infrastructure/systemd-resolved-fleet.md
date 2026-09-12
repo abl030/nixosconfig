@@ -94,6 +94,55 @@ SSH alias). **Lesson: diagnose resolution with `getent`/`resolvectl query`, not
 
 ## When to revisit
 
+### 2026-09-13: serve stale answers during resolver interruptions
+
+**Status:** configured fleet-wide in `modules/nixos/profiles/base.nix` as
+`services.resolved.settings.Resolve.StaleRetentionSec = lib.mkDefault "1h"`.
+This applies where resolved is enabled; WSL still uses its Windows resolver.
+
+The GWM archiver and Outlook archival on doc2 both failed DNS at 04:38 AWST.
+Loki's pfSense logs establish an Unbound startup at 04:38:27, with pfBlockerNG
+Python initialization finishing and service ready at 04:38:58. Another reload
+at 04:41:36–04:42:07 followed a `kea2unbound` lease-include repair. The first
+restart overlapped the 04:15 pfBlockerNG cron (firewall phase ended 04:41:12),
+but logs did not expose its initiating command, so that trigger remains an
+inference. No matching OOM or queue-overflow evidence was found.
+
+Live Unbound settings already had prefetch and serve-expired enabled, with
+86400-second stale retention and an 1800ms upstream wait. That cache cannot
+answer while Unbound itself is unavailable. Tailscale's upstream addresses
+`100.123.61.111` and `192.168.1.1` both reach that same pfSense appliance.
+
+Winetitles uses the same hostname for issue pages, login and PDF downloads.
+Its A records were observed with a 300-second TTL. doc2 had active resolved
+caching (148583 hits / 57014 misses when inspected), but default zero stale
+retention. A warm hostname can need an upstream lookup once its TTL expires;
+changing URL paths does not create distinct DNS names. The historical cache
+entry was not captured, so its exact state at the failure is unknown.
+
+One-hour retention **does not extend normal TTLs or delay successful address
+updates**. Resolved first tries upstream; only after failure can it return a
+previously cached expired answer, at most one hour beyond its TTL. NXDOMAIN
+remains a valid upstream response. Cold names and longer outages still require
+application retries. No public resolver bypass or new listening socket is added.
+See [upstream resolved.conf documentation](https://github.com/systemd/systemd/blob/main/man/resolved.conf.xml)
+for `StaleRetentionSec` semantics. Normal TLS/SSH peer verification still applies.
+
+An isolated instance of the fleet's systemd 261.2 resolver was tested with a
+one-second-TTL DNS responder: normal expiry picked up a changed IP, upstream
+packet loss caused a stale answer only after an attempted refresh, and restored
+upstream service immediately supplied a third IP. No production DNS was blocked.
+An explicit SERVFAIL response did **not** use the stale entry in this version
+(it replaced it with a short failure-cache entry), so application retries remain
+necessary when a forwarding resolver returns SERVFAIL instead of timing out.
+
+Revisit after a further pfSense reload failure: check resolved's stale-response
+counters, cache contents and application retry logs. Do not infer resolver
+redundancy from two addresses belonging to one appliance. Rollback is to set
+`StaleRetentionSec = "0"` and deploy the signed change through the fleet path.
+
+### Other triggers
+
 - A host that genuinely should not run resolved (new NM-less / self-managed-resolv
   host) needs the same explicit `services.resolved.enable = false;` WSL uses.
 - If pfSense ever drops the `:53` NAT redirect, pin `services.resolved.fallbackDns`

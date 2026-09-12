@@ -5,6 +5,34 @@
   pkgs,
   system,
 }: let
+  gwmArchiverCheck = let
+    doc2 = self.nixosConfigurations.doc2.config;
+    current = doc2.systemd.services.gwm-archiver;
+    backfill = doc2.systemd.services.gwm-archiver-backfill;
+    pickup = name: "gwm-archiver-notify-success@${name}.service";
+    script = doc2.systemd.services."gwm-archiver-notify-success@".serviceConfig.ExecStart;
+  in
+    assert lib.elem (pickup "gwm-archiver") current.unitConfig.OnFailure;
+    assert lib.elem (pickup "gwm-archiver") current.unitConfig.OnSuccess;
+    assert lib.elem (pickup "gwm-archiver-backfill") backfill.unitConfig.OnFailure;
+    assert lib.elem "ARCHIVE_MODE=current" current.serviceConfig.Environment;
+    assert lib.elem "ARCHIVE_MODE=backfill" backfill.serviceConfig.Environment;
+    assert doc2.systemd.timers.gwm-archiver.timerConfig.OnCalendar == "Sun *-*-* 03:30:00 Australia/Perth";
+    assert doc2.systemd.timers.gwm-archiver-backfill.timerConfig.OnCalendar == "Sun *-*-* 05:30:00 Australia/Perth";
+    assert lib.all (host: !host.config.services.resolved.enable || host.config.services.resolved.settings.Resolve.StaleRetentionSec == "1h") (builtins.attrValues self.nixosConfigurations);
+      pkgs.runCommand "gwm-archiver-resilience" {
+        nativeBuildInputs = [pkgs.python3 pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.shellcheck];
+        GWM_PICKUP_SCRIPT = script;
+      } ''
+        mkdir -p scripts tests
+        cp ${../../scripts/gwm-archiver.py} scripts/gwm-archiver.py
+        cp ${../../tests/test_gwm_archiver.py} tests/test_gwm_archiver.py
+        cp ${../../tests/test_gwm_archiver_hooks.py} tests/test_gwm_archiver_hooks.py
+        shellcheck "$GWM_PICKUP_SCRIPT"
+        python3 -m unittest discover -s tests -p 'test_gwm_archiver*.py' -v
+        touch "$out"
+      '';
+
   # Evaluated contract for the LAN-only bdday service. Keep this focused
   # check alongside the global source audits: it proves the generated
   # unit/vhost and the host-assignment boundary, not merely module text.
@@ -666,6 +694,7 @@
       '';
 in {
   inherit
+    gwmArchiverCheck
     bddayIntegrationCheck
     mrnewsIntegrationCheck
     cullenBdProxyCheck

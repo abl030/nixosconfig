@@ -1,4 +1,4 @@
-# Grapegrower & Winemaker weekly archiver (winetitles.com.au).
+# Grapegrower & Winemaker weekly pickup and separate weekly archive recovery.
 # See docs/wiki/services/gwm-archiver.md for the WordPress download flow,
 # slug -> year/month math, qpdf-vs-pdfunite gotcha, OnSuccess/OnFailure
 # wiring. Top-level overview at docs/wiki/services/magazines.md.
@@ -47,9 +47,9 @@
   notifyFailure = pkgs.writeShellScript "gwm-archiver-notify-failure" ''
     set -euo pipefail
     ${sendNegativeAlert}
-    message="$(journalctl -u gwm-archiver.service -n 50 --no-pager 2>/dev/null \
+    message="$(journalctl "_SYSTEMD_INVOCATION_ID=$MONITOR_INVOCATION_ID" -n 50 --no-pager 2>/dev/null \
                  | sed 's/[[:cntrl:]]/ /g')"
-    send_negative_alert "gwm-archiver failed on ${config.networking.hostName}" "$message" 7
+    send_negative_alert "$MONITOR_UNIT failed on ${config.networking.hostName}" "$message" 7
   '';
 
   tc = cfg.triggerConvert;
@@ -84,29 +84,74 @@
     fi
   '';
 
-  # OnSuccess=: scan the run's journal for "NEW_ISSUE:" lines emitted by the
-  # script when a fresh PDF was downloaded or synthesised. If any, push a
-  # single low-priority Gotify with the summary AND wake+trigger the EPUB
-  # conversion host. Silent / no-op on weeks with nothing new.
+  # Run on either outcome: a later failure cannot suppress completed issues.
+  # Template instances keep MONITOR_* context separate for current/backfill.
   notifySuccess = pkgs.writeShellScript "gwm-archiver-notify-success" ''
-    ${readGotifyToken}
-    # Window matches the unit's TimeoutStartSec ceiling so we don't drag in
-    # an earlier run's lines if two runs happened within an hour. `|| true`
-    # on the grep so the empty-result case (a no-op week) isn't propagated
-    # to a unit-level failure under set -eu / pipefail in readGotifyToken.
-    new_lines="$(journalctl -u gwm-archiver.service --since='-45min' --no-pager 2>/dev/null \
+    set -euo pipefail
+    new_lines="$(journalctl "_SYSTEMD_INVOCATION_ID=$MONITOR_INVOCATION_ID" --no-pager -o cat 2>/dev/null \
                    | { grep -E 'NEW_ISSUE:' || true; } \
-                   | sed 's/^[^]]*\] //; s/[[:cntrl:]]/ /g')"
+                   | sed 's/[[:cntrl:]]/ /g')"
     if [ -z "$new_lines" ]; then
       exit 0
     fi
+    # Conversion must not depend on Gotify credentials or availability.
+    ${triggerConvertSnippet}
+    ${readGotifyToken}
     count="$(printf '%s\n' "$new_lines" | wc -l | tr -d ' ')"
-    ${pkgs.curl}/bin/curl -fsS -X POST "${gotifyUrl}/message?token=$token" \
-      -F "title=GWM archiver picked up $count new issue(s) on ${config.networking.hostName}" \
+    ${pkgs.curl}/bin/curl -fsS --connect-timeout 10 --max-time 30 -X POST "${gotifyUrl}/message?token=$token" \
+      -F "title=GWM archiver picked up $count issue(s) on ${config.networking.hostName}" \
       -F "message=$new_lines" \
       -F "priority=4" >/dev/null || true
-    ${triggerConvertSnippet}
   '';
+
+  mkArchiveService = mode: let
+    name =
+      if mode == "current"
+      then "gwm-archiver"
+      else "gwm-archiver-backfill";
+    pickup = "gwm-archiver-notify-success@${name}.service";
+  in {
+    description = "Archive Grapegrower & Winemaker PDFs (${mode})";
+    after = ["network-online.target"];
+    wants = ["network-online.target"];
+    unitConfig = {
+      OnFailure = ["gwm-archiver-notify-failure@${name}.service" pickup];
+      OnSuccess = [pickup];
+      RequiresMountsFor = [cfg.outDir];
+    };
+    path = with pkgs; [python3 qpdf poppler-utils exiftool];
+    serviceConfig = {
+      Type = "oneshot";
+      User = cfg.user;
+      Group = cfg.group;
+      EnvironmentFile = config.sops.secrets."gwm-archiver/env".path;
+      Environment = [
+        "OUT_ROOT=${cfg.outDir}"
+        "SLEEP_SECS=${toString cfg.sleepSecs}"
+        "ARCHIVE_MODE=${mode}"
+      ];
+      ExecStart = "${pkgs.python3}/bin/python3 -u ${archiveScript}";
+      TimeoutStartSec = "45min";
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      # Hide unrelated host data; fail explicitly if the archive cannot bind.
+      TemporaryFileSystem = ["/mnt"];
+      BindPaths = [cfg.outDir];
+      ProtectHome = true;
+      PrivateTmp = true;
+      PrivateDevices = true;
+      ProtectKernelTunables = true;
+      ProtectControlGroups = true;
+      RestrictSUIDSGID = true;
+      RestrictNamespaces = true;
+      LockPersonality = true;
+      MemoryDenyWriteExecute = true;
+      SystemCallArchitectures = "native";
+      StandardOutput = "journal";
+      StandardError = "journal";
+      SyslogIdentifier = name;
+    };
+  };
 in {
   options.homelab.services.gwm-archiver = {
     enable = lib.mkEnableOption "Grapegrower & Winemaker PDF archiver (winetitles.com.au)";
@@ -174,9 +219,8 @@ in {
       type = lib.types.str;
       default = "Sun *-*-* 03:30:00 Australia/Perth";
       description = ''
-        Systemd OnCalendar expression. Default: weekly Sunday 03:30 AWST.
-        The script is idempotent; running more often is safe but wasteful
-        (~30 min of dead-archive probes per run).
+        Weekly current-issue check at 03:30 AWST. Completed issues are local
+        skips; the missing pre-July-2017 archive has a separate weekly timer.
       '';
     };
 
@@ -218,85 +262,45 @@ in {
 
     # Notification units run as root (no User=) so they can read the
     # shared homelab gotify/token (mode 0400, root-owned).
-    systemd.services.gwm-archiver-notify-failure = {
+    systemd.services."gwm-archiver-notify-failure@" = {
       description = "Send gwm-archiver failures to RCA, with Gotify fallback";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
         ExecStart = notifyFailure;
       };
     };
 
-    systemd.services.gwm-archiver-notify-success = {
-      description = "Notify Gotify on gwm-archiver successful new-issue pickup";
+    systemd.services."gwm-archiver-notify-success@" = {
+      description = "Deliver completed GWM issues regardless of sweep outcome";
       serviceConfig = {
         Type = "oneshot";
+        NoNewPrivileges = true;
         ExecStart = notifySuccess;
       };
     };
 
-    systemd.services.gwm-archiver = {
-      description = "Archive Grapegrower & Winemaker PDFs from winetitles.com.au";
-      after = ["network-online.target"];
-      wants = ["network-online.target"];
-
-      unitConfig = {
-        OnFailure = ["gwm-archiver-notify-failure.service"];
-        OnSuccess = ["gwm-archiver-notify-success.service"];
-        # Guarantee the dedicated magazines mount is up before the
-        # ProtectSystem=strict namespace bind resolves cfg.outDir — pulls in
-        # mnt-magazines.mount so the bind never races an unmounted share.
-        RequiresMountsFor = [cfg.outDir];
-      };
-
-      # Tools the script shells out to: qpdf (merge), pdfinfo (page counts),
-      # exiftool (write PDF metadata). Python stdlib does the rest.
-      path = with pkgs; [python3 qpdf poppler-utils exiftool];
-
-      serviceConfig = {
-        Type = "oneshot";
-        User = cfg.user;
-        Group = cfg.group;
-        # EnvironmentFile supplies WT_USER + WT_PASS — see secrets/gwm-archiver.env.
-        EnvironmentFile = config.sops.secrets."gwm-archiver/env".path;
-        Environment = [
-          "OUT_ROOT=${cfg.outDir}"
-          "SLEEP_SECS=${toString cfg.sleepSecs}"
-        ];
-        ExecStart = "${pkgs.python3}/bin/python3 -u ${archiveScript}";
-
-        # ~32 min is a comfortable ceiling: ~21 min for the 150 dead-issue
-        # fail-fast probes + ~5 min for any actually-new issue.
-        TimeoutStartSec = "45min";
-
-        # Hardening — script needs network + writes to cfg.outDir only.
-        NoNewPrivileges = true;
-        ProtectSystem = "strict";
-        ReadWritePaths = [cfg.outDir];
-        ProtectHome = true;
-        PrivateTmp = true;
-        PrivateDevices = true;
-        ProtectKernelTunables = true;
-        ProtectControlGroups = true;
-        RestrictSUIDSGID = true;
-        RestrictNamespaces = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        SystemCallArchitectures = "native";
-
-        StandardOutput = "journal";
-        StandardError = "journal";
-        SyslogIdentifier = "gwm-archiver";
-      };
-    };
+    systemd.services.gwm-archiver = mkArchiveService "current";
+    systemd.services.gwm-archiver-backfill = mkArchiveService "backfill";
 
     systemd.timers.gwm-archiver = {
-      description = "Weekly GWM archive sweep";
+      description = "Weekly GWM current-issue pickup";
       wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = cfg.onCalendar;
         Persistent = true;
         # Spread the wakeup across an hour so multiple hosts don't all
-        # hammer winetitles at the same second on Sundays.
+        # hammer winetitles at the same second.
+        RandomizedDelaySec = "1h";
+      };
+    };
+
+    systemd.timers.gwm-archiver-backfill = {
+      description = "Weekly recovery of missing pre-July-2017 GWM issues";
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "Sun *-*-* 05:30:00 Australia/Perth";
+        Persistent = true;
         RandomizedDelaySec = "1h";
       };
     };
@@ -305,8 +309,8 @@ in {
     # which on a oneshot would re-fire the run. The dedicated single-disk
     # /mnt/magazines share has stable inodes, so the shfs-union ESTALE that
     # used to fail the namespace bind should no longer occur; if the mount is
-    # genuinely down at the weekly trigger, RequiresMountsFor holds the unit
+    # genuinely down at a timer trigger, RequiresMountsFor holds the unit
     # until it's up (or the run fails, OnFailure pings Gotify, and the
-    # following week's timer picks up cleanly once it recovers).
+    # next timer picks up cleanly once it recovers).
   };
 }

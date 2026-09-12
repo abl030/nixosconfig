@@ -5,7 +5,7 @@
 **Script:** `scripts/gwm-archiver.py`
 **Secret:** `secrets/hosts/doc2/gwm-archiver.env` — `WT_USER` + `WT_PASS`
 **Output:** `/mnt/magazines/GAW/<YYYY>/<MM>_<basename>.{pdf,json}` (dedicated single-disk NFS share — moved off `/mnt/data` 2026-06-28 to escape the shfs-union ESTALE that failed this service's namespace bind; see [../infrastructure/unraid-nfs-shfs-estale.md](../infrastructure/unraid-nfs-shfs-estale.md))
-**Schedule:** weekly, Sun 03:30 AWST + 1 h jitter
+**Schedule:** current issues Sunday 03:30 AWST + 1 h jitter; pre-July-2017 recovery Sunday 05:30 AWST + 1 h jitter
 
 > 📂 Part of the magazine archive system. Start at
 > [magazines.md](./magazines.md) for the overall picture.
@@ -18,6 +18,14 @@ Weekly oneshot that walks `https://winetitles.com.au/gwm/articles/` while
 logged in as our subscriber account, downloads every issue's FULL ISSUE PDF,
 and writes a JSON sidecar with the table of contents (per-article title,
 author, keywords, page numbers).
+
+`gwm-archiver.service` handles issues #642 onward, newest first. The separate
+`gwm-archiver-backfill.service` rechecks the publisher's missing pre-July-2017
+files weekly. It cannot delay or suppress the current service's epi handoff.
+Both use the same script and credentials, with `ARCHIVE_MODE=current|backfill`.
+Their issue ranges do not overlap, so simultaneous runs do not write the same
+artifacts. Missing PDFs in the current range are failures; empty publisher files
+in the historical recovery range remain ordinary `no-pdf` results.
 
 Where a FULL ISSUE PDF isn't published but per-article PDFs are, the script
 **synthesises** a full-issue PDF by downloading every article PDF and merging
@@ -96,29 +104,66 @@ dictionary. JSON sidecar carries the full structured TOC.
   issue at ~9 s of probe time (1 issue page + 2 article pages + 2 tmp.php
   POSTs + sleeps).
 
-A no-op weekly run takes ~24 minutes wall clock, ~3 s CPU, ~38 MB inbound
-traffic — almost entirely the 149 dead-issue probes. If you'd rather skip
-the probes, you could add an explicit lower-bound floor to `list_issues()`,
-but the cost is low and the auto-heal is worth it.
+The historical recovery run takes ~24 minutes wall clock, ~3 s CPU, ~38 MB
+inbound traffic. The weekly current run only logs in, fetches the index and skips
+completed local issues, unless something new needs downloading.
 
-## Notifications — `OnSuccess=` + `OnFailure=` siblings
+## Delivery and notifications
 
 The Python script doesn't talk to Gotify itself. Instead it prints a
 `NEW_ISSUE:` marker line to stderr for any newly-downloaded issue, and the
-module wires two sibling systemd units:
+module wires template handlers, separately instantiated for each archiver:
 
-* `gwm-archiver-notify-success.service` — `OnSuccess=`, runs as root, greps
-  the last 45 minutes of the main service's journal for `NEW_ISSUE:` lines.
-  If any, posts a priority-4 Gotify push with the summary. Silent on no-op
-  weeks. **Note:** the grep must be `{ grep -E … || true; }` to swallow the
-  empty-match exit-1 under `set -euo pipefail`, otherwise the unit fails on
-  no-op weeks.
-* `gwm-archiver-notify-failure.service` — `OnFailure=`, dumps the last 50
-  journal lines at priority 7.
+* `gwm-archiver-notify-success@<unit>.service` runs on **both success and
+  failure**, selecting only `MONITOR_INVOCATION_ID` from the triggering run.
+  Completed PDFs and resumed sidecars emit `NEW_ISSUE:`; those cause WOL and
+  the forced-command SSH trigger on epi, then a priority-4 Gotify notification.
+  A later failure, missing Gotify token, or unreachable Gotify cannot suppress
+  the conversion trigger. No marker means no wake or notification. There is no
+  time-window search that can replay an earlier run's downloads.
+* `gwm-archiver-notify-failure@<unit>.service` sends the failed invocation's
+  last 50 journal lines through RCA, with Gotify fallback.
 
 Both helpers read the shared `gotify/token` (mode 0400, root-owned) directly
 because they run without a `User=`. Same pattern as `rtrfm-nowplaying` and
 `kopia`.
+
+## DNS interruption, 2026-09-13
+
+**Status:** fixed in the service and fleet resolver configuration. At 04:38:47
+AWST, issue #497 failed DNS. The sweep still reached #492 and finished with
+111 complete, 148 no-PDF and one error. No new issue was missed that night, but
+the former success-only handler would have suppressed conversion if a new PDF
+had been obtained earlier in that run.
+
+pfSense Unbound initialized at 04:38:27 and became ready at 04:38:58 after
+loading pfBlockerNG. Both doc2's publisher request and Outlook archival timed
+out during that interruption. See the resolver investigation in
+[systemd-resolved-fleet.md](../infrastructure/systemd-resolved-fleet.md).
+
+All HTTP paths now share four bounded attempts, with 5/15/30-second backoff:
+login, index and article GETs, full-issue POST downloads and article POST
+downloads. They retry transient DNS/connection/read failures and HTTP
+408/429/500/502/503/504. Ordinary 4xx responses, nonexistent hostnames and TLS
+certificate failures are not retried. These POSTs log in or retrieve existing
+documents; they do not create publisher content.
+
+Interrupted transfers discard `.part` bytes before retrying and check declared
+Content-Length before publication. Exhausted TOC lookups leave the PDF for a
+later sidecar retry instead of permanently publishing incomplete metadata.
+Network errors during synthesis are not misclassified as missing publisher
+files. The archive processes have `/mnt` hidden except for their explicit
+archive bind, and publisher-provided filenames are reduced to a basename.
+
+Validation: `nix build .#checks.x86_64-linux.gwmArchiverCheck --no-link` exercises
+the HTTP/sweep contracts and the evaluated notification script with fake
+journal/network tools. The check also verifies both outcome hooks and fleet
+stale-answer configuration.
+
+Operational checks: `systemctl start gwm-archiver`, inspect its summary and
+`gwm-archiver-notify-success@gwm-archiver.service`; inspect the independent
+`gwm-archiver-backfill.timer` for historical recovery. Rollback is a signed
+revert deployed through `fleet-update`/`fleet-deploy`; existing PDFs are retained.
 
 ## First-run audit (2026-05-23)
 

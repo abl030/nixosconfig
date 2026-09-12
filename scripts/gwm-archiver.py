@@ -18,8 +18,8 @@ Output layout (idempotent):
   <OUT_ROOT>/<YYYY>/<MM>_<basename>.pdf
   <OUT_ROOT>/<YYYY>/<MM>_<basename>.json
 
-A weekly run on a fresh archive does nothing; on the day a new issue ships, it
-adds exactly one PDF + JSON sidecar.
+The weekly current-issue run skips the missing pre-July-2017 archive. A separate
+weekly backfill run re-probes those publisher gaps.
 
 Env:
   WT_USER, WT_PASS   (required)  winetitles.com.au credentials
@@ -27,6 +27,7 @@ Env:
   SLEEP_SECS         (default 1.0)  delay between site fetches
   LIMIT              (default 0 = unlimited)  stop after N successful issues
   DRY_RUN            (default 0 = off)  report intended actions, no writes
+  ARCHIVE_MODE       (default current)  current or backfill (pre-July-2017)
 
 Notifications (failure + new-issue) are wired by the systemd unit, not the
 script — see modules/nixos/services/gwm-archiver.nix.
@@ -37,19 +38,24 @@ Runtime deps: python3.10+, qpdf, poppler-utils (pdfinfo), exiftool.
 from __future__ import annotations
 
 import http.cookiejar
+import http.client
 import json
 import os
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import time
 import urllib.parse
 from dataclasses import dataclass
+from collections.abc import Callable
 from html import unescape
 from pathlib import Path
 from urllib import request
 from urllib.error import HTTPError, URLError
+from typing import TypeVar
 
 BASE = "https://winetitles.com.au"
 UA = "Mozilla/5.0 (X11; Linux x86_64) gwm-archiver/1.0"
@@ -64,6 +70,12 @@ MONTH_TITLES = [m.capitalize() for m in MONTHS]
 ANCHOR_N = 748
 ANCHOR_YEAR = 2026
 ANCHOR_MONTH = 5  # 1=Jan ... 12=Dec
+
+# The publisher's missing pre-July-2017 files are a separate weekly best-effort
+# sweep. Keep new-issue delivery independent of that long tail.
+FIRST_AVAILABLE_ISSUE = 642
+RETRY_DELAYS = (5, 15, 30)
+T = TypeVar("T")
 
 
 # ---------------------------------------------------------------- date math --
@@ -85,21 +97,68 @@ OPENER = request.build_opener(request.HTTPCookieProcessor(JAR))
 OPENER.addheaders = [("User-Agent", UA), ("Accept-Encoding", "identity")]
 
 
+def retry_request(operation: Callable[[], T], url: str) -> T:
+    """Replay a read-only site operation, including interrupted PDF bodies."""
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        try:
+            return operation()
+        except (URLError, TimeoutError, ConnectionError,
+                http.client.IncompleteRead, http.client.RemoteDisconnected) as error:
+            if isinstance(error, HTTPError):
+                error.close()
+                if error.code not in (408, 429, 500, 502, 503, 504):
+                    raise
+            elif isinstance(error, URLError):
+                if isinstance(error.reason, ssl.SSLCertVerificationError):
+                    raise
+                if (isinstance(error.reason, socket.gaierror)
+                        and error.reason.errno != socket.EAI_AGAIN):
+                    raise
+            if attempt == len(RETRY_DELAYS):
+                raise
+            delay = RETRY_DELAYS[attempt]
+            print(f"WARN: {url}: {error}; retry in {delay}s "
+                  f"({attempt + 2}/{len(RETRY_DELAYS) + 1})", file=sys.stderr,
+                  flush=True)
+            time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
 def http_get(url: str, referer: str | None = None) -> str:
     req = request.Request(url)
     if referer:
         req.add_header("Referer", referer)
-    for attempt in range(3):
+
+    def fetch() -> str:
+        with OPENER.open(req, timeout=60) as r:
+            return r.read().decode("utf-8", errors="replace")
+
+    return retry_request(fetch, url)
+
+
+def download_request(req: request.Request, dest: Path) -> tuple[int, str]:
+    """Publish only a complete response; restart partial transfers from byte 0."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".part")
+
+    def fetch() -> tuple[int, str]:
+        n = 0
         try:
-            with OPENER.open(req, timeout=60) as r:
-                return r.read().decode("utf-8", errors="replace")
-        except HTTPError:
-            raise
-        except URLError:
-            if attempt == 2:
-                raise
-            time.sleep(2 ** attempt)
-    raise AssertionError("unreachable")
+            with OPENER.open(req, timeout=300) as r, tmp.open("wb") as f:
+                cd = r.headers.get("Content-Disposition", "") or ""
+                expected = r.headers.get("Content-Length")
+                while chunk := r.read(64 * 1024):
+                    f.write(chunk)
+                    n += len(chunk)
+                if expected is not None and n != int(expected):
+                    raise http.client.IncompleteRead(b"", max(0, int(expected) - n))
+            if n:
+                tmp.replace(dest)
+            return n, cd
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    return retry_request(fetch, req.full_url)
 
 
 def http_post_stream(url: str, data: dict, dest: Path,
@@ -108,20 +167,7 @@ def http_post_stream(url: str, data: dict, dest: Path,
     req = request.Request(url, data=body, method="POST")
     if referer:
         req.add_header("Referer", referer)
-    n = 0
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    with OPENER.open(req, timeout=300) as r, tmp.open("wb") as f:
-        while True:
-            chunk = r.read(64 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
-            n += len(chunk)
-    if n == 0:
-        tmp.unlink(missing_ok=True)
-        return 0
-    tmp.rename(dest)
+    n, _ = download_request(req, dest)
     return n
 
 
@@ -141,8 +187,11 @@ def login(user: str, pwd: str) -> None:
         "log": user, "pwd": pwd, "wp-submit": "Log In",
         "redirect_to": f"{BASE}/gwm/", "testcookie": "1",
     }).encode()
-    with OPENER.open(request.Request(f"{BASE}/wp-login.php", data=body), timeout=60) as r:
-        r.read()
+    def authenticate() -> None:
+        with OPENER.open(request.Request(f"{BASE}/wp-login.php", data=body), timeout=60) as r:
+            r.read()
+
+    retry_request(authenticate, f"{BASE}/wp-login.php")
     if not any(c.name.startswith("wordpress_logged_in_") for c in JAR):
         sys.exit("ERROR: login failed (no wordpress_logged_in_* cookie)")
 
@@ -264,7 +313,8 @@ def embed_pdf_metadata(pdf_path: Path, title: str, keywords: list[str],
 
 def filename_from_cd(cd: str, fallback: str) -> str:
     m = re.search(r'filename="([^"]+)"', cd)
-    return m.group(1) if m else fallback
+    name = Path(m.group(1).replace("\\", "/")).name if m else ""
+    return name if name not in ("", ".", "..") else fallback
 
 
 # ------------------------------------------------------------- per-issue op --
@@ -296,30 +346,20 @@ def download_full_issue(issue: Issue, out_root: Path, sleep_s: float) -> Path | 
         return None
     docid, dockey, _ = scrape_form(f"{BASE}/gwm/articles/{issue.slug}/{full}/")
     year_dir = out_root / str(issue.year)
-    staging = year_dir / f"{issue.month:02d}_DOWNLOADING_{issue.num}.pdf"
+    # Do not use a .pdf suffix for staging: a crash before the final rename
+    # must not make existing_artifacts() accept an unfinished publication.
+    staging = year_dir / f"{issue.month:02d}_DOWNLOADING_{issue.num}.download"
     # Need the Content-Disposition filename, so do a manual request to read headers.
     body = urllib.parse.urlencode({"docid": docid, "dockey": dockey}).encode()
     req = request.Request(f"{BASE}/wp-content/uploads/tmp.php",
                           data=body, method="POST")
     req.add_header("Referer", f"{BASE}/gwm/articles/{issue.slug}/{full}/")
-    staging.parent.mkdir(parents=True, exist_ok=True)
-    tmp = staging.with_suffix(staging.suffix + ".part")
-    n = 0
-    cd = ""
-    with OPENER.open(req, timeout=300) as r, tmp.open("wb") as f:
-        cd = r.headers.get("Content-Disposition", "") or ""
-        while True:
-            chunk = r.read(64 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
-            n += len(chunk)
+    n, cd = download_request(req, staging)
     if n == 0:
-        tmp.unlink(missing_ok=True)
         return None
     orig = filename_from_cd(cd, f"GWM_{issue.num}.pdf")
     final = year_dir / f"{issue.month:02d}_{orig}"
-    tmp.rename(final)
+    staging.replace(final)
     time.sleep(sleep_s)
     return final
 
@@ -352,7 +392,7 @@ def synthesise_from_articles(issue: Issue, out_root: Path,
         a_url = f"{BASE}/gwm/articles/{issue.slug}/{aslug}/"
         try:
             docid, dockey, meta = scrape_form(a_url)
-        except Exception as e:
+        except RuntimeError as e:
             records.append({"order": idx, "slug": aslug, "url": a_url, "_error": str(e)})
             empties_in_a_row += 1
             if not parts and empties_in_a_row >= empty_fail_fast:
@@ -405,14 +445,13 @@ def build_sidecar_for_native(issue: Issue, pdf_path: Path,
     articles = []
     for idx, aslug in enumerate(article_slugs, 1):
         a_url = f"{BASE}/gwm/articles/{issue.slug}/{aslug}/"
-        try:
-            html = http_get(a_url)
-            meta = parse_article_meta(html)
-            meta["url"] = a_url
-            meta["order"] = idx
-            articles.append(meta)
-        except Exception as e:
-            articles.append({"order": idx, "url": a_url, "_error": str(e)})
+        # A transient lookup failure must not permanently mark a partial TOC
+        # complete. Keep the PDF and resume its sidecar on the next run.
+        html = http_get(a_url)
+        meta = parse_article_meta(html)
+        meta["url"] = a_url
+        meta["order"] = idx
+        articles.append(meta)
         time.sleep(sleep_s)
 
     return {
@@ -527,6 +566,9 @@ def main() -> int:
     sleep_s = float(os.environ.get("SLEEP_SECS", "1.0"))
     limit = int(os.environ.get("LIMIT", "0")) or None
     dry_run = os.environ.get("DRY_RUN", "0") == "1"
+    mode = os.environ.get("ARCHIVE_MODE", "current")
+    if mode not in ("current", "backfill"):
+        sys.exit("ERROR: ARCHIVE_MODE must be current or backfill")
 
     for tool in ("qpdf", "pdfinfo", "exiftool"):
         if not shutil.which(tool):
@@ -537,6 +579,10 @@ def main() -> int:
 
     print("-> listing issues ...", file=sys.stderr)
     all_issues = list_issues()
+    if not all_issues:
+        raise RuntimeError("archive index contains no magazine issues")
+    all_issues = [(num, slug) for num, slug in all_issues
+                  if (num < FIRST_AVAILABLE_ISSUE) == (mode == "backfill")]
     print(f"   {len(all_issues)} issues listed", file=sys.stderr)
     if dry_run:
         print("   (DRY_RUN: no PDFs will be downloaded, no files written)",
@@ -551,15 +597,19 @@ def main() -> int:
         issue = Issue(num=num, slug=slug, year=year, month=month)
         try:
             r = process_issue(issue, out_root, sleep_s, dry_run)
+            if r["status"] == "no-pdf" and mode == "current":
+                r = {"status": "error", "error": "available-era issue has no PDF"}
         except Exception as e:
             r = {"status": "error", "error": str(e)}
         status = r.get("status", "?")
         counts[status] = counts.get(status, 0) + 1
         if status not in ("skip-complete",):
             # "NEW_ISSUE:" is the marker the systemd OnSuccess hook greps for.
-            tag = ("NEW_ISSUE: " if status in ("downloaded", "synthesised") else "")
+            tag = ("NEW_ISSUE: " if status in
+                   ("downloaded", "synthesised", "sidecar-only") else "")
             print(f"   {tag}#{num} {slug}: {r}", file=sys.stderr, flush=True)
-            n_done += 1
+            if status in ("downloaded", "synthesised", "sidecar-only", "would-process"):
+                n_done += 1
         # Drop cached HTML for the issue we just processed; large archive walks
         # would otherwise hold a few hundred pages in RAM.
         _ISSUE_HTML_CACHE.pop(slug, None)

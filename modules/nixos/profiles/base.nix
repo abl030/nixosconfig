@@ -91,6 +91,10 @@ in {
   # See docs/wiki/infrastructure/systemd-resolved-fleet.md (incl. the pfSense
   # :53 lockdown+redirect and the dig-vs-getent diagnosis gotcha).
   services.resolved.enable = lib.mkDefault true;
+  # Survive pfSense's ~30s Unbound reloads using previously cached answers.
+  # Normal TTLs and successful refreshes still win; stale data is used only
+  # after upstream failure. See systemd-resolved-fleet.md in docs/wiki/infrastructure.
+  services.resolved.settings.Resolve.StaleRetentionSec = lib.mkDefault "1h";
   networking.networkmanager.dns = lib.mkDefault "systemd-resolved";
 
   # ---------------------------------------------------------
