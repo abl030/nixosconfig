@@ -188,14 +188,15 @@
         devices = ["work-laptop"];
         type = "sendreceive";
       };
-      # RECEIVE-ONLY IS A DATA-SAFETY REQUIREMENT, NOT A PREFERENCE.
-      # The phone holds the only other copy of these recordings. Under
-      # sendreceive, anything that removed or altered a file on doc2 —
-      # a stray cleanup, a bug in the ingest, a hand-run rm — would
-      # propagate back and destroy the original on the phone. Receive-only
-      # makes doc2 a strict replica: it accepts changes and never sends
-      # them. voice-diary additionally binds this path read-only.
-      # See docs/wiki/services/voice-diary.md.
+      # RECEIVE-ONLY IS A DATA-SAFETY REQUIREMENT, NOT A PREFERENCE — but be
+      # clear about which direction it protects. This folder is transient
+      # staging that mirrors the phone: deletions arriving FROM the phone are
+      # expected to remove files here, and the durable copy is the pair
+      # voice-diary writes into the Diary Inbox. What receive-only prevents is
+      # doc2 SENDING its local changes — so a stray cleanup, an ingest bug or a
+      # hand-run rm here cannot propagate back and destroy an original on the
+      # phone that has not been archived yet. voice-diary additionally binds
+      # this path read-only. See docs/wiki/services/voice-diary.md.
       extraFolders.voice-recordings = {
         id = "voice-recordings";
         path = "/mnt/data/Life/Andy/VoiceRecordings";
@@ -343,10 +344,11 @@
       };
       stirlingpdf.enable = true;
 
-      # Car voice-diary ingest. Syncthing replicates the phone's recordings
-      # into dropDir (receive-only — the phone holds the only other copy), and
-      # this transcribes each new one into a dated audio+transcript pair for
-      # manual filing into the Zettelkasten diary.
+      # Car voice-diary ingest. Syncthing mirrors the phone's recordings into
+      # dropDir (transient staging — deleting on the phone clears it), and this
+      # transcribes each new one into a dated audio+transcript pair in the
+      # inbox, which is the durable archive, for manual filing into the
+      # Zettelkasten diary.
       # See docs/wiki/services/voice-diary.md.
       voiceDiary = {
         enable = true;

@@ -26,10 +26,15 @@ party.
 phone (Easy Voice Recorder)
   -> /storage/emulated/0/Recordings
   -> Syncthing (receive-only on the doc2 side)
-  -> /mnt/data/Life/Andy/VoiceRecordings        [dropDir, read-only to the unit]
+  -> /mnt/data/Life/Andy/VoiceRecordings   [dropDir — TRANSIENT staging,
+                                            mirrors the phone, read-only to
+                                            the unit. Deleting on the phone
+                                            clears this.]
   -> voice-diary.timer (every 10 min, scans)
   -> whisper.ablz.au  (igpu, Silero VAD, ~4.4x realtime)
-  -> /mnt/data/Life/Zet/Projects/Diary/Inbox    [inboxDir]
+  -> /mnt/data/Life/Zet/Projects/Diary/Inbox   [inboxDir — THE ARCHIVE.
+                                                Nothing here is ever deleted
+                                                by the pipeline. Back this up.]
        2026-09-10_161703.m4a
        2026-09-10_161703.md
 ```
@@ -49,14 +54,36 @@ diary entry has no latency requirement, and whisper-server processes one request
 at a time, so a tighter loop would just compete with the Dictate phone keyboard
 for the same backend.
 
-### 2. The drop directory is read-only, and that is a data-safety property
+### 2. The drop directory is transient staging; the inbox is the archive
 
-The doc2 side of the Syncthing folder must be **receive-only**, and the unit
-binds `dropDir` with `BindReadOnlyPaths`. The phone holds the only other copy of
-these recordings. If doc2 ever deleted or rewrote a file there, Syncthing would
-faithfully propagate that back and destroy the original on the phone. The ingest
-copies out and never removes; the read-only bind means a future bug in the
-script cannot change that.
+This is the part that is easy to get backwards — an earlier version of this page
+had it exactly wrong, so read carefully.
+
+**The drop directory is not an archive.** It is a staging area that mirrors
+whatever is currently on the phone. Delete a recording on the phone and it
+**does** disappear from doc2, and that is intended: the phone is the remote
+control for what sits in staging.
+
+**The durable copy is the inbox.** The ingest copies the audio in beside its
+transcript, and nothing in the pipeline ever deletes from there. That pair is
+the thing to back up and the thing to keep.
+
+**What receive-only actually buys**, then, is one direction only: doc2 never
+*sends* its local changes to the phone. A bug in the ingest, a stray `rm`, a
+half-finished cleanup on doc2 — none of it can reach the phone and destroy an
+original that has not been archived yet. It does **not** stop deletions coming
+*from* the phone; nothing should, because that is the desired behaviour.
+
+The unit additionally binds `dropDir` with `BindReadOnlyPaths` so the ingest
+cannot write there even by accident. It copies out and never removes.
+
+A wrinkle worth knowing: Easy Voice Recorder does not hard-delete. It moves
+files to `.evr_recently_deleted_*` tombstones, which Syncthing faithfully
+replicates, so "deleted" recordings linger on doc2 under dotted names (the
+ingest skips dotted paths, so they are inert). Emptying EVR's trash on the phone
+is what actually clears them. Do **not** delete them on doc2 instead: in a
+receive-only folder a local delete registers as a local change and Syncthing
+will offer to restore it.
 
 `BindPaths`/`BindReadOnlyPaths` rather than `ReadWritePaths` also because the
 sources are NFS-backed: bind mounts fail loudly with `status=226/NAMESPACE`,
@@ -288,9 +315,10 @@ confusing ten minutes.
   hard-504s a real recording. See [whisper-vad-long-audio](whisper-vad-long-audio.md).
 - If the inbox grows faster than it is filed, that is the signal to add the
   local instruct model for titles/summaries — not to automate the filing.
-- The drop folder is receive-only, so **deleting a recording on the phone does
-  not remove it from doc2**. That is the safe direction, but the replica grows
-  forever and will eventually want manual pruning.
+- **The inbox is what needs backing up**, not the drop folder. Staging mirrors
+  the phone and is expected to empty; the inbox is the archive and grows at
+  about 0.70 MB per minute of audio (≈7 GB/year for a commute each way on
+  weekdays — negligible against tower, which had 1.6 TB free in Sep 2026).
 - `NAME_FIXES` is a fixed cast. If the diary starts covering a much wider set
   of people, a substitution list stops scaling and the local instruct model
   becomes the better answer for name resolution.

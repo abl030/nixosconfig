@@ -14,11 +14,15 @@
 #      systemd.path unit would silently never fire. A periodic scan is the only
 #      reliable trigger.
 #
-#   2. THE DROP DIRECTORY IS READ-ONLY TO US, BY DESIGN. It is the doc2 side of
-#      a receive-only Syncthing folder holding the ONLY copy of the user's
-#      recordings besides the phone. Deleting there would propagate back and
-#      destroy them on the phone. The ingest script copies out and never
-#      removes; the bind mount below is read-only so a future bug cannot.
+#   2. THE DROP DIRECTORY IS TRANSIENT STAGING, NOT AN ARCHIVE. It mirrors
+#      whatever is on the phone: delete a recording there and it disappears
+#      here too, which is intended. The durable copy is the inbox pair the
+#      ingest writes, and nothing in this pipeline deletes from the inbox.
+#      Receive-only therefore buys exactly one thing — doc2 never *sends* its
+#      local changes, so a bug here cannot destroy an original on the phone
+#      that has not been archived yet. It does not, and should not, block
+#      deletions arriving from the phone. The bind below is read-only so the
+#      ingest cannot write to staging even by accident.
 #
 #   3. NO AI IN THE LOOP. Filing is deterministic — the date comes from the
 #      recording's mtime and the name sorts chronologically. Summarising or
@@ -65,9 +69,13 @@ in {
       type = lib.types.str;
       example = "/mnt/data/Life/Andy/VoiceRecordings";
       description = ''
-        Directory Syncthing replicates the phone's recordings into. Bound
-        READ-ONLY into the unit: this is the doc2 replica of a receive-only
-        folder, and a delete here would propagate back to the phone.
+        Directory Syncthing replicates the phone's recordings into. Transient
+        staging, not an archive — it mirrors the phone, so deleting a recording
+        there removes it here too. The durable copy is the pair written to
+        `inboxDir`.
+
+        Bound READ-ONLY into the unit so the ingest cannot write to staging
+        even by accident.
       '';
     };
 

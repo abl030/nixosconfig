@@ -7,9 +7,13 @@ date-prefixed audio + transcript pair into an inbox directory.
 
 Design notes — see docs/wiki/services/voice-diary.md:
 
-* The drop directory is a Syncthing **receive-only** folder. This script must
-  NEVER delete or modify anything in it: a delete here would propagate back and
-  destroy the recordings on the phone. Files are copied out, never moved.
+* The drop directory is transient staging, not an archive — it mirrors the
+  phone, so a recording deleted there is expected to vanish here too. The
+  durable copy is the pair this script writes to the inbox. Files are therefore
+  copied out, never moved, and this script must never delete or modify anything
+  in the drop directory: Syncthing is receive-only in the sense that doc2 never
+  *sends* changes, so a write here could not reach the phone — but it could
+  destroy a recording that has not been archived yet.
 * Idempotency is by output existence, not a state database. If the target .md
   already exists the source is skipped, so a re-run after a crash is safe and
   the timer can fire as often as it likes.
