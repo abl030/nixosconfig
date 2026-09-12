@@ -50,8 +50,18 @@ from pathlib import Path
 
 AUDIO_SUFFIXES = {".m4a", ".mp3", ".wav", ".ogg", ".opus", ".aac", ".flac", ".mp4"}
 
-DROP_DIR = Path(os.environ["VOICE_DIARY_DROP_DIR"])
 INBOX_DIR = Path(os.environ["VOICE_DIARY_INBOX_DIR"])
+
+# --from-inbox: transcribe the inbox's OWN archived audio instead of staging.
+#
+# Recovery mode. The normal source is the Syncthing drop directory, which
+# mirrors the phone — so once a recording is deleted there (or Easy Voice
+# Recorder turns it into a dotted tombstone), deleting its .md leaves nothing
+# to regenerate from. The inbox keeps the audio, with mtimes preserved by
+# copy2, so pointing the scan at the inbox reproduces byte-identical stamps and
+# refills the gaps. Entries whose .md still exists are skipped as usual.
+FROM_INBOX = "--from-inbox" in sys.argv
+DROP_DIR = INBOX_DIR if FROM_INBOX else Path(os.environ["VOICE_DIARY_DROP_DIR"])
 WHISPER_URL = os.environ["VOICE_DIARY_WHISPER_URL"]
 MODEL = os.environ.get("VOICE_DIARY_MODEL", "large")
 # Sent per-request rather than set as a whisper-server flag on purpose: the
@@ -61,7 +71,9 @@ MODEL = os.environ.get("VOICE_DIARY_MODEL", "large")
 # (see NAME_FIXES), so treat it as a nudge, not a guarantee.
 PROMPT = os.environ.get("VOICE_DIARY_PROMPT", "").strip()
 TIMEOUT = int(os.environ.get("VOICE_DIARY_TIMEOUT", "3600"))
-MIN_AGE = int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
+# Archived audio is by definition settled, so the still-syncing guard is only
+# meaningful against staging.
+MIN_AGE = 0 if FROM_INBOX else int(os.environ.get("VOICE_DIARY_MIN_AGE", "60"))
 
 # Loop/stutter de-duplication window. whisper can repeat a segment several
 # times when a decode degenerates; VAD on the server side prevents most of it,
@@ -265,6 +277,14 @@ def process(src: Path) -> bool:
     if target_md.exists():
         return False
 
+    # In recovery mode the source IS the archived audio, so the stamp derived
+    # from its mtime must reproduce its own filename. If it does not, something
+    # has rewritten the mtime, and transcribing would silently duplicate the
+    # recording under a second name instead of refilling the gap. Refuse.
+    if FROM_INBOX and src.stem != stamp:
+        log(f"SKIP {src.name}: mtime maps to '{stamp}', which would duplicate it")
+        return False
+
     age = time.time() - src.stat().st_mtime
     if age < MIN_AGE:
         log(f"skip (still settling, {int(age)}s old): {src.name}")
@@ -302,6 +322,8 @@ def process(src: Path) -> bool:
 
 
 def main() -> int:
+    if FROM_INBOX:
+        log(f"RECOVERY MODE: sourcing archived audio from {INBOX_DIR}")
     if not DROP_DIR.is_dir():
         log(f"drop dir missing: {DROP_DIR}")
         return 1

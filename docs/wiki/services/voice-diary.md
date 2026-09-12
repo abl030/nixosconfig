@@ -291,20 +291,44 @@ correctly. Cutting audio out of context changes the result. Compare whole files.
 
 ## Re-transcribing an existing entry
 
-The transcript is the idempotency marker, so deleting it and running the unit
-regenerates it from the audio already in the inbox.
+This is the normal way to adopt a tidying or formatting change: delete the
+transcripts and rebuild them. The transcript is the idempotency marker, so a
+missing `.md` is what triggers a rebuild.
+
+**Use `voice-diary-recover`, not the service.**
 
 ```bash
-systemctl is-active voice-diary        # MUST be inactive first
-rm "/mnt/data/Life/Zet/Projects/Diary/Inbox/<stamp>.md"
-sudo systemctl start voice-diary.service
+systemctl is-active voice-diary                 # must be inactive first
+rm "/mnt/data/Life/Zet/Projects/Diary/Inbox/<stamp>.md"    # or several
+voice-diary-recover
 ```
 
-**Check the unit is idle before deleting.** Starting it while a run is in
-progress cancels the in-flight job, and it will sit with the transcripts
-deleted until the next timer tick regenerates them. Nothing is lost — the audio
-is the source of truth and the drop directory is untouched — but it is a
-confusing ten minutes.
+### Why not just start the service
+
+Because **the service reads from staging, not from the inbox** — and staging
+mirrors the phone. An earlier version of this page got that wrong and it caused
+a real incident: transcripts were deleted to re-run them through improved
+formatting, but the corresponding recordings had since been deleted on the phone
+(Easy Voice Recorder had turned them into dotted tombstones), so staging no
+longer held them. The service found nothing to rebuild from and the entries
+stayed deleted.
+
+Nothing was lost, because the inbox keeps its own copy of the audio — but
+recovery meant pointing the ingest at the inbox by hand. `voice-diary-recover`
+is that operation, made supported.
+
+It scans the inbox's archived audio instead of staging, which works because
+stamps derive from mtime and the ingest preserves it on copy, so a rebuild
+reproduces byte-identical filenames. Transcripts that still exist are skipped,
+so it is safe to run at any time — it only fills gaps. If an archived file's
+mtime ever disagreed with its own filename it refuses that file rather than
+duplicating the recording under a second name.
+
+### Also check the unit is idle
+
+Starting the service while a run is in progress cancels the in-flight job, and
+it will sit with transcripts deleted until the next timer tick. Not destructive,
+but a confusing ten minutes.
 
 ## When to revisit
 

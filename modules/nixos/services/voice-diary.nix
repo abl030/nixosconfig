@@ -48,7 +48,30 @@
 
   ingest = pkgs.writeShellScript "voice-diary-ingest" ''
     set -euo pipefail
-    exec ${pkgs.python3}/bin/python3 ${ingestScript}
+    exec ${pkgs.python3}/bin/python3 ${ingestScript} "$@"
+  '';
+
+  # Recovery command, on PATH as `voice-diary-recover`.
+  #
+  # The service sources from the Syncthing drop directory, which mirrors the
+  # phone. Once a recording is gone from there, deleting its transcript leaves
+  # nothing to regenerate from — the archived audio in the inbox is then the
+  # only copy. This re-derives missing transcripts from that archive, which
+  # works because stamps come from mtime and the ingest preserves it.
+  #
+  # Wanted whenever transcripts are deleted to re-run them through improved
+  # tidying, which is the normal way to adopt a formatting change.
+  recover = pkgs.writeShellScriptBin "voice-diary-recover" ''
+    set -euo pipefail
+    export VOICE_DIARY_INBOX_DIR=${lib.escapeShellArg cfg.inboxDir}
+    export VOICE_DIARY_DROP_DIR=${lib.escapeShellArg cfg.dropDir}
+    export VOICE_DIARY_WHISPER_URL=${lib.escapeShellArg cfg.whisperUrl}
+    export VOICE_DIARY_MODEL=${lib.escapeShellArg cfg.model}
+    export VOICE_DIARY_PROMPT=${lib.escapeShellArg cfg.prompt}
+    export VOICE_DIARY_TIMEOUT=${toString cfg.timeoutSeconds}
+    echo "Regenerating any missing transcripts from the inbox archive."
+    echo "Existing transcripts are left alone; delete a .md to force its rebuild."
+    exec ${pkgs.python3}/bin/python3 ${ingestScript} --from-inbox "$@"
   '';
 in {
   options.homelab.services.voiceDiary = {
@@ -157,6 +180,9 @@ in {
         message = "voiceDiary.dropDir and inboxDir must differ — the inbox is written to and the drop dir must stay read-only.";
       }
     ];
+
+    # `voice-diary-recover` on PATH for the human-run rebuild path.
+    environment.systemPackages = [recover];
 
     systemd.services.voice-diary = {
       description = "Transcribe new phone voice recordings into the diary inbox";
