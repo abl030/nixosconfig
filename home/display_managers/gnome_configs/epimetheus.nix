@@ -107,7 +107,7 @@ with lib.hm.gvariant; {
       # skipped them on every startup. This file is currently dormant — the
       # import in ../gnome.nix is commented out — but a stale list in a file
       # that exists to be re-enabled is a trap.
-      enabled-extensions = ["blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us"];
+      enabled-extensions = ["blur-my-shell@aunetx" "dash-to-panel@jderose9.github.com" "system-monitor@gnome-shell-extensions.gcampax.github.com" "user-theme@gnome-shell-extensions.gcampax.github.com" "just-perfection-desktop@just-perfection" "grand-theft-focus@zalckos.github.com" "caffeine@patapon.info" "allowlockedremotedesktop@kamens.us" "advanced-alt-tab@G-dH.github.com"];
       favorite-apps = ["org.kde.dolphin.desktop" "firefox.desktop" "google-chrome.desktop"];
     };
 

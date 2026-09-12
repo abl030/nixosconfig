@@ -21,6 +21,11 @@
     pkgs.gnomeExtensions.paperwm
     pkgs.gnomeExtensions.allow-locked-remote-desktop
     pkgs.gnomeExtensions.system-monitor
+    # AATWS replaces the stock Alt+Tab/Super+Tab popups. Chosen because Just
+    # Perfection's "Alt Tab Window Preview Size" has been a no-op since GNOME 45
+    # made altTab.js's WINDOW_PREVIEW_SIZE a read-only module const (upstream
+    # issue jrahmatzadeh/just-perfection#240, open since 2024-02).
+    pkgs.gnomeExtensions.advanced-alttab-window-switcher
   ];
 
   # Alt+Tab switches *windows*, not grouped applications, so several Firefox
@@ -33,6 +38,13 @@
     switch-windows-backward = ["<Shift><Alt>Tab"];
     switch-applications = ["<Super>Tab"];
     switch-applications-backward = ["<Shift><Super>Tab"];
+  };
+
+  # AATWS window-switcher preview size (stock GNOME is a fixed 128px). Tune
+  # live with `gsettings set org.gnome.shell.extensions.advanced-alt-tab-window-switcher
+  # win-switcher-popup-preview-size N` or the extension's prefs dialog.
+  dconf.settings."org/gnome/shell/extensions/advanced-alt-tab-window-switcher" = {
+    win-switcher-popup-preview-size = 256;
   };
 
   imports = [
