@@ -23,6 +23,18 @@
     pkgs.gnomeExtensions.system-monitor
   ];
 
+  # Alt+Tab switches *windows*, not grouped applications, so several Firefox
+  # windows are each their own Alt+Tab entry (no mouse trip into the app
+  # drop-down). Super+Tab keeps the grouped application switcher. The per-host
+  # ./gnome_configs/*.nix dconf dumps are dormant (import below is commented
+  # out), so this is the live source of truth for these bindings.
+  dconf.settings."org/gnome/desktop/wm/keybindings" = {
+    switch-windows = ["<Alt>Tab"];
+    switch-windows-backward = ["<Shift><Alt>Tab"];
+    switch-applications = ["<Super>Tab"];
+    switch-applications-backward = ["<Shift><Super>Tab"];
+  };
+
   imports = [
     # ./gnome_configs/${hostname}.nix
   ];

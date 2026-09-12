@@ -64,8 +64,11 @@ with lib.hm.gvariant; {
       move-to-workspace-left = ["<Super><Shift>Page_Up" "<Super><Shift><Alt>Left" "<Control><Shift><Alt>Left"];
       move-to-workspace-right = ["<Super><Shift>Page_Down" "<Super><Shift><Alt>Right" "<Control><Shift><Alt>Right"];
       move-to-workspace-up = ["<Control><Shift><Alt>Up"];
-      switch-applications = ["<Super>Tab" "<Alt>Tab"];
-      switch-applications-backward = ["<Shift><Super>Tab" "<Shift><Alt>Tab"];
+      # Alt+Tab is bound to switch-windows in ../gnome.nix (windows, not apps).
+      switch-applications = ["<Super>Tab"];
+      switch-applications-backward = ["<Shift><Super>Tab"];
+      switch-windows = ["<Alt>Tab"];
+      switch-windows-backward = ["<Shift><Alt>Tab"];
       switch-group = ["<Super>Above_Tab" "<Alt>Above_Tab"];
       switch-group-backward = ["<Shift><Super>Above_Tab" "<Shift><Alt>Above_Tab"];
       switch-panels = ["<Control><Alt>Tab"];
