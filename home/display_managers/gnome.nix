@@ -28,6 +28,20 @@
     pkgs.gnomeExtensions.advanced-alttab-window-switcher
   ];
 
+  # Shared baseline from epi's live session. Home Manager reapplies this list
+  # at activation; extensions remain editable in GNOME between activations.
+  dconf.settings."org/gnome/shell".enabled-extensions = [
+    "blur-my-shell@aunetx"
+    "dash-to-panel@jderose9.github.com"
+    "system-monitor@gnome-shell-extensions.gcampax.github.com"
+    "user-theme@gnome-shell-extensions.gcampax.github.com"
+    "just-perfection-desktop@just-perfection"
+    "grand-theft-focus@zalckos.github.com"
+    "caffeine@patapon.info"
+    "allowlockedremotedesktop@kamens.us"
+    "advanced-alt-tab@G-dH.github.com"
+  ];
+
   # Alt+Tab switches *windows*, not grouped applications, so several Firefox
   # windows are each their own Alt+Tab entry (no mouse trip into the app
   # drop-down). Super+Tab keeps the grouped application switcher. The per-host
