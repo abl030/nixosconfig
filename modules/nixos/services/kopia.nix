@@ -172,20 +172,19 @@
 
       start_epoch=$(date +%s)
       exit_code=0
-      output=$(${pkgs.kopia}/bin/kopia snapshot verify \
+      output_file="$RUNTIME_DIRECTORY/output.log"
+      ${pkgs.kopia}/bin/kopia snapshot verify \
         --config-file=${inst.configDir}/repository.config \
         --verify-files-percent=${toString inst.verifyPercent} \
-        --parallel=2 2>&1) \
+        --parallel=2 2>&1 | ${pkgs.coreutils}/bin/tee "$output_file" \
         || exit_code=$?
       end_epoch=$(date +%s)
-
-      echo "$output"
 
       elapsed=$((end_epoch - start_epoch))
       elapsed_min=$((elapsed / 60))
 
       # Extract the "Finished processing" summary line from kopia output
-      finished_line=$(echo "$output" | ${pkgs.gnugrep}/bin/grep -i '^Finished processing' | tail -1 || true)
+      finished_line=$(${pkgs.gnugrep}/bin/grep -i '^Finished processing' "$output_file" | tail -1 || true)
 
       # Parse "Read N files (X.Y MB/GB/TB)" from the finished line
       read_amount=""
@@ -221,12 +220,9 @@
         echo "$bandwidth_msg"
       fi
 
-      if [ "$exit_code" -ne 0 ]; then
-        ${sendNegativeAlert}
-        message="Verify exited with code $exit_code. Check journalctl -u kopia-verify-${name}."
-        send_negative_alert "kopia-verify failed: ${name} on ${config.networking.hostName}" "$message" 8
-        exit "$exit_code"
-      fi
+      # systemd's separate OnFailure handler also covers timeouts/signals that
+      # kill this wrapper before it can report. Keep progress visible meanwhile.
+      exit "$exit_code"
     '';
 
   # Check if any instance references /mnt/mum
@@ -319,6 +315,12 @@
         type = lib.types.int;
         default = 5;
         description = "Percentage of files to verify in daily snapshot verify.";
+      };
+
+      verifySchedule = lib.mkOption {
+        type = lib.types.str;
+        default = "*-*-* 05:30:00";
+        description = "systemd calendar for sampled verification; stagger it from snapshots and full maintenance.";
       };
 
       overrideHostname = lib.mkOption {
@@ -476,6 +478,7 @@ in {
             description = "Kopia snapshot verify for ${name}";
             after = ["kopia-${name}.service"];
             requires = ["kopia-${name}.service"];
+            unitConfig.OnFailure = ["kopia-verify-${name}-notify-failure.service"];
             environment.HOME = cfg.dataDir;
             # The verify is a long oneshot (killed runs have exceeded 2h) whose
             # ExecStart derivation changes on every rebuild. With the default
@@ -491,6 +494,9 @@ in {
               # from deploys. Bound a genuinely hung verify: well under the 24h
               # timer cadence, well over observed runtimes.
               TimeoutStartSec = "12h";
+              RuntimeDirectory = "kopia-verify-${name}";
+              RuntimeDirectoryMode = "0700";
+              NoNewPrivileges = true;
               User =
                 if inst.runAsRoot
                 then "root"
@@ -504,6 +510,31 @@ in {
             };
           })
         cfg.instances
+        // (lib.mapAttrs' (name: _inst:
+          lib.nameValuePair "kopia-verify-${name}-notify-failure" {
+            description = "Report failed Kopia verification (${name}), including systemd timeouts";
+            script = ''
+              set -euo pipefail
+              ${sendNegativeAlert}
+              message="Verification failed: result=''${MONITOR_SERVICE_RESULT:-unknown}, code=''${MONITOR_EXIT_CODE:-unknown}, status=''${MONITOR_EXIT_STATUS:-unknown}. Check journalctl -u kopia-verify-${name}.service."
+              send_negative_alert "kopia-verify failed: ${name} on ${config.networking.hostName}" "$message" 8
+            '';
+            serviceConfig = {
+              Type = "oneshot";
+              TimeoutStartSec = "60s";
+              # The fallback token is 0400 and owned by this user. Notification
+              # needs no repository access or root capabilities.
+              User = config.homelab.gotify.user;
+              NoNewPrivileges = true;
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              CapabilityBoundingSet = "";
+              RestrictSUIDSGID = true;
+            };
+          })
+        cfg.instances)
         // (lib.mapAttrs' (name: inst:
           lib.nameValuePair "kopia-${name}-source-sync" {
             description = "Reconcile kopia ${name} declared sources with the daemon";
@@ -541,19 +572,12 @@ in {
           })
         cfg.instances));
 
-    systemd.timers = lib.mapAttrs' (name: _inst:
+    systemd.timers = lib.mapAttrs' (name: inst:
       lib.nameValuePair "kopia-verify-${name}" {
         description = "Daily Kopia verify for ${name}";
         wantedBy = ["timers.target"];
         timerConfig = {
-          # 05:30 sits well after doc2's nixos-upgrade window closes
-          # (updateDates="04:00" + randomizedDelaySec=60min → window
-          # nominally ends 05:00). An upgrade that fires at 04:59 still
-          # needs time to actually run — verify after upgrade so we
-          # also catch any post-upgrade breakage; the 30min gap absorbs
-          # the upgrade's runtime plus any tailscale/kopia cascade
-          # settling.
-          OnCalendar = "*-*-* 05:30:00";
+          OnCalendar = inst.verifySchedule;
           Persistent = true;
           Unit = "kopia-verify-${name}.service";
         };

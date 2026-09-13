@@ -19,18 +19,18 @@
 # datasets (they appear empty), but a RECURSIVE bind does. That distinction is
 # the whole reason the old prom-hosted pfSense backup "worked" while producing
 # 298-byte snapshots — virtiofs and NFS both fail to cross submounts. Proxmox's
-# own `mp:` entries use `mount -o bind` (PVE/LXC.pm:2060), so the pfsense tree
-# gets a raw `lxc.mount.entry ... rbind` instead. See
+# own `mp:` entries use `mount -o bind` (PVE/LXC.pm:2060). A prom-side bindfs
+# view translates pfSense ownership and exposes its child datasets. See
 # docs/wiki/infrastructure/pfsense-backup.md.
 #
 # MOUNTS (all provided by prom; an unprivileged CT cannot mount NFS itself)
-#   /mnt/data                 <- prom /mnt/tower-data          (tower NFS)
+#   /mnt/data                 <- prom /mnt/tower-data          (tower NFS, RO)
 #   /mnt/magazines            <- prom /mnt/tower-magazines     (tower NFS, RO)
 #   /mnt/backup/vm-backups    <- prom /mnt/tower-vmbackups     (tower NFS, RO)
-#   /mnt/mum                  <- prom /mnt/mum                 (Synology, tailscale)
-#   /mnt/virtio/Music         <- prom nvmeprom/containers/Music
-#   /mnt/virtio/ali-cratedigger <- prom nvmeprom/containers/ali-cratedigger
-#   /mnt/backup/pfsense       <- prom nvmeprom/backup/pfsense  (RBIND — child datasets)
+#   /mnt/mum                  <- prom /mnt/mum-ct              (bindfs, RW)
+#   /mnt/virtio/Music         <- prom /mnt/kopia-sources/music   (bindfs, RO)
+#   /mnt/virtio/ali-cratedigger <- prom /mnt/kopia-sources/ali-cratedigger (bindfs, RO)
+#   /mnt/backup/pfsense       <- prom /nvmeprom/backup/pfsense-ct (bindfs, RO)
 #   /mnt/virtio/kopia         <- prom nvmeprom/containers/kopia (dataDir + cache)
 #
 # The in-container paths are deliberately IDENTICAL to doc2's. kopia identifies a
@@ -158,6 +158,9 @@
         mum = {
           port = 51516;
           configDir = "/mnt/virtio/kopia/mum";
+          # Keep the long sampled read outside 06:00 snapshots and the
+          # mid-morning full-maintenance window. See the 2026-09-13 RCA.
+          verifySchedule = "*-*-* 18:00:00";
           # Three deliberately-narrow subdirs — NOT all of /mnt/data
           # (which would include video media we don't ship offsite).
           # The 2026-02-26 migration silently dropped these from the

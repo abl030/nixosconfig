@@ -46,10 +46,23 @@ pkgs.writeShellApplication {
 
     # --max-time 250s mirrors check-kopia-fresh.nix: sits under the deepProbe's
     # TimeoutStartSec=300s and absorbs kopia's full-maintenance repository lock.
-    sources=$(kopia_curl -sS --max-time 250 --connect-timeout 5 "$base/api/v1/sources")
-    rc=$?
-    if [ "$rc" -ne 0 ]; then
-      echo "[probe] curl exit $rc fetching $base/api/v1/sources" >&2
+    if ! sources=$(kopia_curl -fsS --max-time 250 --connect-timeout 5 "$base/api/v1/sources"); then
+      echo "[probe] unable to fetch $base/api/v1/sources" >&2
+      exit 1
+    fi
+
+    # Unknown responses must never become a healthy heartbeat. The sources
+    # and history endpoints have DIFFERENT shapes; see the 2026-09-13 RCA.
+    if ! printf '%s' "$sources" | jq -e '
+      def count_ok: type == "number" and . >= 0 and . == floor;
+      (.sources | type == "array" and length > 0) and
+      all(.sources[];
+        (.source.host | type == "string" and length > 0) and
+        (.source.userName | type == "string" and length > 0) and
+        (.source.path | type == "string" and startswith("/")) and
+        (.lastSnapshot.stats.errorCount | count_ok))
+    ' >/dev/null; then
+      echo "[probe] invalid or empty sources response; backup health unknown" >&2
       exit 1
     fi
 
@@ -57,7 +70,7 @@ pkgs.writeShellApplication {
     # history lookup. Tab-separated host\tuserName\tpath per source.
     bad=$(printf '%s' "$sources" | jq -r '
       .sources[]
-      | select((.lastSnapshot.stats.errorCount // 0) > 0)
+      | select(.lastSnapshot.stats.errorCount > 0)
       | [.source.host, .source.userName, .source.path] | @tsv')
 
     if [ -z "$bad" ]; then
@@ -68,25 +81,37 @@ pkgs.writeShellApplication {
     while IFS=$'\t' read -r shost suser spath; do
       [ -z "$spath" ] && continue
 
-      hist=$(kopia_curl -sS --max-time 250 --connect-timeout 5 -G \
+      if ! hist=$(kopia_curl -fsS --max-time 250 --connect-timeout 5 -G \
         --data-urlencode "host=$shost" \
         --data-urlencode "userName=$suser" \
         --data-urlencode "path=$spath" \
-        "$base/api/v1/snapshots")
-      hrc=$?
-      if [ "$hrc" -ne 0 ]; then
-        echo "[probe] curl exit $hrc fetching snapshot history for $spath" >&2
+        "$base/api/v1/snapshots"); then
+        echo "[probe] unable to fetch snapshot history for $spath" >&2
         exit 1
       fi
 
-      # Verdict over the two most recent snapshots (errorCount null => 0):
+      if ! printf '%s' "$hist" | jq -e '
+        def count_ok: type == "number" and . >= 0 and . == floor;
+        (.snapshots | type == "array" and length > 0) and
+        all(.snapshots[];
+          (.endTime | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T")) and
+          (.summary.numFailed | count_ok))
+      ' >/dev/null; then
+        echo "[probe] invalid or empty snapshot history for $spath; backup health unknown" >&2
+        exit 1
+      fi
+
+      # History exposes summary.numFailed, not the sources endpoint's
+      # lastSnapshot.stats.errorCount. Defaulting the absent stats to zero
+      # used to hide every consecutive-error case (2026-09-13 RCA).
+      # Verdict over the two most recent snapshots:
       #   both   - last TWO snapshots errored        -> sustained, page
       #   one    - last errored, previous was clean   -> transient, don't page
       #   single - only one snapshot exists           -> can't be consecutive
       verdict=$(printf '%s' "$hist" | jq -r '
-        [ .snapshots[]? ] | sort_by(.endTime) | .[-2:] as $last2
+        .snapshots | sort_by(.endTime) | .[-2:] as $last2
         | if ($last2 | length) < 2 then "single"
-          elif ($last2 | all(.[]; (.stats.errorCount // 0) > 0)) then "both"
+          elif ($last2 | all(.[]; .summary.numFailed > 0)) then "both"
           else "one" end')
 
       case "$verdict" in
@@ -101,6 +126,7 @@ pkgs.writeShellApplication {
           ;;
         *)
           echo "[probe] $spath: unexpected verdict from jq: $verdict" >&2
+          exit 1
           ;;
       esac
     done <<< "$bad"

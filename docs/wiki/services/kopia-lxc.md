@@ -99,12 +99,12 @@ had magazines rw.
 
 | in the CT | from prom | notes |
 | --- | --- | --- |
-| `/mnt/data` | `/mnt/tower-data` | tower NFS |
+| `/mnt/data` | `/mnt/tower-data` | tower NFS, **ro** |
 | `/mnt/magazines` | `/mnt/tower-magazines` | tower NFS, **ro** |
 | `/mnt/backup/vm-backups` | `/mnt/tower-vmbackups` | tower NFS, **ro** |
-| `/mnt/mum` | `/mnt/mum-ct` | **bindfs** over the Synology |
-| `/mnt/virtio/Music` | `nvmeprom/containers/Music` | |
-| `/mnt/virtio/ali-cratedigger` | `nvmeprom/containers/ali-cratedigger` | |
+| `/mnt/mum` | `/mnt/mum-ct` | concurrent **bindfs** over the Synology, rw |
+| `/mnt/virtio/Music` | `/mnt/kopia-sources/music` | ownership-translating **bindfs**, ro |
+| `/mnt/virtio/ali-cratedigger` | `/mnt/kopia-sources/ali-cratedigger` | ownership-translating **bindfs**, ro |
 | `/mnt/virtio/kopia` | `nvmeprom/containers/kopia` | dataDir, owned 100000 |
 | `/mnt/backup/pfsense` | `/nvmeprom/backup/pfsense-ct` | **bindfs**, ro |
 
@@ -113,6 +113,58 @@ source on hostname+username+path, and both instances pin
 `overrideHostname="kopia"` / `overrideUsername="root"`, so the existing history,
 policies and schedules matched instead of forking. Proof: the reconciler reported
 `declared=10 missing=0 orphans=0`, every source "ALREADY registered".
+
+### Maintaining the prom-side views
+
+The authored fstab entries are in
+[`hosts/kopia/prom-mounts.fstab`](../../../hosts/kopia/prom-mounts.fstab).
+The CT startup dependency is
+[`hosts/kopia/prom-container-mounts.conf`](../../../hosts/kopia/prom-container-mounts.conf),
+installed as `/etc/systemd/system/pve-container@111.service.d/kopia-mounts.conf`.
+Prom is not a NixOS host: these two files require an explicit prom-side install,
+in addition to deploying the flake to the CT. Preserve unrelated fstab entries.
+
+Music and Ali's views run as prom root to read the existing private files, but
+present them only as container root (UID/GID 100000), with `ro` and `go=`.
+Their underlying production ownership/modes remain unchanged. CT mount entries
+`mp0`, `mp1`, `mp2`, `mp4`, `mp5`, `mp7` and `mp8` all use `ro=1`.
+Only repository `mp3` and Kopia's own state `mp6` are writable.
+
+Bindfs concurrency uses **uniform forced ownership**, never caller-dependent
+`mirror` rules. The repository still creates files as NAS owner `1000:100`;
+no new network grants, NAS recipients or credential copies are needed.
+The source views cannot create, alter or delete files. See the
+[upstream concurrency caveat](https://bindfs.org/docs/bindfs.1.html#BUGS).
+
+For an install or rollback:
+
+1. Check both repositories' source/task status and verify services. Wait for
+   active backup/maintenance work to finish before stopping CT 111.
+2. Back up `/etc/fstab`, `/etc/pve/lxc/111.conf`, and any existing
+   `pve-container@111.service.d/kopia-mounts.conf` into a dated root-only
+   directory on prom. Record the old `/run/current-system` in the CT.
+3. Shut down CT 111 cleanly. Unmount the old bindfs views, leaving the actual
+   Synology NFS mount and production ZFS datasets mounted.
+4. Replace only the four target-view entries from `prom-mounts.fstab`; install
+   the container drop-in. Create `/mnt/kopia-sources` as `0700 root:root` and
+   its two mountpoints. Run `systemctl daemon-reload` and start each view's
+   mount unit. `RequiresMountsFor` makes a failed view prevent container startup
+   instead of exposing an empty source directory.
+5. Set the source mappings with `pct set 111`:
+   `--mp0 /mnt/tower-data,mp=/mnt/data,ro=1`,
+   `--mp4 /mnt/kopia-sources/music,mp=/mnt/virtio/Music,ro=1`, and
+   `--mp5 /mnt/kopia-sources/ali-cratedigger,mp=/mnt/virtio/ali-cratedigger,ro=1`.
+6. Start CT 111, verify the mounts' ro/rw flags, translated reads, unchanged
+   original file modes and repository marker. Deploy the signed Kopia closure
+   through the [push-deploy path](../infrastructure/push-deploy.md).
+7. Run fresh snapshots of the affected sources. Require zero errors and restore
+   formerly unreadable canaries to a temporary location for hash comparison.
+
+Rollback: stop CT 111, restore the backed-up fstab, container config and drop-in
+(remove the new drop-in if none existed), unmount the changed views, run
+`systemctl daemon-reload`, mount the original views and start CT 111. This
+restores the previous mapping without altering source data or repository blobs;
+it also restores the old permission problem, so use it only for recovery.
 
 ## Gotchas worth remembering
 

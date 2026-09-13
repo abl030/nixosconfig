@@ -1,0 +1,7 @@
+# Managed Kopia views on prom. Install with the procedure in kopia-lxc.md.
+# Uniform ownership (no per-caller mirror rules) permits concurrent bindfs work.
+# Source views are read-only in both bindfs and CT111's mp entries.
+/mnt/mum /mnt/mum-ct fuse.bindfs force-user=100000,force-group=100000,create-for-user=1000,create-for-group=100,perms=u=rwX,allow_other,multithreaded,nodev,nosuid,nofail,_netdev,x-systemd.requires=mnt-mum.mount,x-systemd.after=mnt-mum.mount 0 0
+/nvmeprom/backup/pfsense /nvmeprom/backup/pfsense-ct fuse.bindfs force-user=100000,force-group=100000,perms=u=rX,allow_other,ro,nodev,nosuid,nofail,x-systemd.requires=zfs-mount.service 0 0
+/nvmeprom/containers/Music /mnt/kopia-sources/music fuse.bindfs force-user=100000,force-group=100000,perms=u=rX:go=,allow_other,ro,multithreaded,nodev,nosuid,nofail,x-systemd.requires=zfs-mount.service 0 0
+/nvmeprom/containers/ali-cratedigger /mnt/kopia-sources/ali-cratedigger fuse.bindfs force-user=100000,force-group=100000,perms=u=rX:go=,allow_other,ro,multithreaded,nodev,nosuid,nofail,x-systemd.requires=zfs-mount.service 0 0

@@ -5,6 +5,37 @@
   pkgs,
   system,
 }: let
+  kopiaVerificationCheck = let
+    host = self.nixosConfigurations.kopia.config;
+    verify = host.systemd.services.kopia-verify-mum;
+    notify = host.systemd.services.kopia-verify-mum-notify-failure;
+  in
+    assert lib.elem "kopia-verify-mum-notify-failure.service" verify.unitConfig.OnFailure;
+    assert verify.serviceConfig.TimeoutStartSec == "12h";
+    assert notify.serviceConfig.NoNewPrivileges;
+    assert notify.serviceConfig.User == host.homelab.gotify.user;
+    assert host.systemd.timers.kopia-verify-mum.timerConfig.OnCalendar == "*-*-* 18:00:00";
+      pkgs.runCommand "kopia-verification" {
+        nativeBuildInputs = [pkgs.python3 pkgs.shellcheck];
+        KOPIA_VERIFY_SCRIPT = verify.serviceConfig.ExecStart;
+        KOPIA_REAL_BIN = "${pkgs.kopia}/bin/kopia";
+        KOPIA_NOTIFY_SCRIPT = notify.serviceConfig.ExecStart;
+        KOPIA_CURL_BIN = "${pkgs.curl}/bin/curl";
+      } ''
+        shellcheck "$KOPIA_VERIFY_SCRIPT"
+        python3 ${./test_kopia_verify.py} -v
+        touch "$out"
+      '';
+
+  kopiaBackupProbeCheck =
+    pkgs.runCommand "kopia-backup-probe" {
+      nativeBuildInputs = [pkgs.python3];
+      KOPIA_BACKUP_PROBE = "${pkgs.callPackage ../../modules/nixos/services/probes/check-kopia-backup-errors.nix {}}/bin/check-kopia-backup-errors";
+    } ''
+      python3 ${./test_kopia_backup_probe.py} -v
+      touch "$out"
+    '';
+
   gwmArchiverCheck = let
     doc2 = self.nixosConfigurations.doc2.config;
     current = doc2.systemd.services.gwm-archiver;
@@ -696,6 +727,8 @@
       '';
 in {
   inherit
+    kopiaBackupProbeCheck
+    kopiaVerificationCheck
     gwmArchiverCheck
     bddayIntegrationCheck
     mrnewsIntegrationCheck
