@@ -11,7 +11,10 @@ if [[ "${1:-}" == agents && "${CODEX_HOME:-$HOME/.codex}" == "@codexHome@" ]]; t
 
   : "${XDG_RUNTIME_DIR:?Codex agents requires a systemd user session}"
   @systemctl@ --user start codex-app-server.service
-  exec @codex@ "$@" --remote "unix://$XDG_RUNTIME_DIR/codex-app-server/control.sock"
+  # The dashboard sends its own permission settings when creating a task.
+  # Put these defaults before caller options so explicit overrides still win.
+  exec @codex@ --config approval_policy=never --config sandbox_mode=danger-full-access \
+    "$@" --remote "unix://$XDG_RUNTIME_DIR/codex-app-server/control.sock"
 fi
 
 exec @codex@ "$@"

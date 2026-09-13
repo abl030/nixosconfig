@@ -20,11 +20,14 @@ explicit `--remote`, help, alternate `CODEX_HOME`, and all other commands. It
 recognizes the usual `codex agents [options]` form; leading global flags are
 passed directly to upstream.
 
-The shared server starts with the user's requested YOLO defaults:
+The shared server and dashboard launcher use the user's requested YOLO defaults:
 `approval_policy=never` and `sandbox_mode=danger-full-access`. New dashboard
 tasks therefore run without Codex's filesystem/network sandbox or approval
-prompts. Existing threads retain their saved permissions. These defaults are
-arguments on this service, so ordinary CLI sessions keep their own settings.
+prompts. Both sides need these defaults: Codex 0.154.0's dashboard explicitly
+sends its client permission settings when creating a task, overriding the
+server's defaults. The launcher puts defaults before caller arguments so an
+explicit `-c` override still wins. Existing threads retain their saved
+permissions, and ordinary CLI sessions keep their own settings.
 
 The dashboard manages tasks created on this shared server. Existing ordinary
 CLI sessions use their own servers, so their live status is not shared with the
@@ -59,7 +62,7 @@ fleet deployment. The user's Codex configuration and history are not replaced.
 Validation on doc1: the wrapped dashboard created a task on the systemd user
 server, ran a shell command successfully, found `git` and `uvx` on PATH, and
 used the launching repository as its working directory. Socket ownership and
-0700/0600 permissions were checked live. `codexAgentsWrapperCheck` covers 11
+0700/0600 permissions were checked live. `codexAgentsWrapperCheck` covers 12
 routing and startup-failure cases; Nix lint, `nix flake check`, and the doc1
 system build passed.
 

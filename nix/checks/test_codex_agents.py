@@ -41,13 +41,15 @@ with tempfile.TemporaryDirectory() as directory:
         actual = [json.loads(line) for line in calls.read_text().splitlines()]
         start = [["systemctl", "--user", "start", "codex-app-server.service"]]
         remote = ["--remote", f"unix://{root}/codex-app-server/control.sock"]
-        expected = start + [["codex", *args, *remote]] if managed else [["codex", *args]]
+        defaults = ["--config", "approval_policy=never", "--config", "sandbox_mode=danger-full-access"]
+        expected = start + [["codex", *defaults, *args, *remote]] if managed else [["codex", *args]]
         if exit_code:
             expected = start
         assert actual == expected, (actual, expected)
 
     run(["agents"], managed=True)
     run(["agents", "-c", 'model="example model"', "--no-alt-screen"], managed=True)
+    run(["agents", "-c", "approval_policy=on-request", "-c", "sandbox_mode=workspace-write"], managed=True)
     run(["agents", "--remote", "unix:///chosen/socket"])
     run(["agents", "--remote=unix:///chosen/socket"])
     run(["agents", "--help"])
@@ -58,4 +60,4 @@ with tempfile.TemporaryDirectory() as directory:
     run([])
     run(["agents"], overrides={"CODEX_TEST_START_FAILURE": "7"}, exit_code=7)
 
-print("Codex dashboard routing: 11 cases passed")
+print("Codex dashboard routing: 12 cases passed")
