@@ -40,7 +40,9 @@ in {
     Unit.Description = "Codex local agent dashboard server";
     Service = {
       Type = "exec";
-      ExecStart = "${pkgs.codex}/bin/codex app-server --listen unix://%t/codex-app-server/control.sock";
+      # User-requested YOLO defaults for new dashboard tasks. Existing threads
+      # retain their saved permissions; ordinary CLI sessions are independent.
+      ExecStart = "${pkgs.codex}/bin/codex app-server --config approval_policy=never --config sandbox_mode=danger-full-access --listen unix://%t/codex-app-server/control.sock";
       ExecStartPost = "${ready}";
       WorkingDirectory = config.home.homeDirectory;
       Environment = ["CODEX_HOME=${codexHome}"];

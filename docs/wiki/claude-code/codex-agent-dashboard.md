@@ -20,6 +20,12 @@ explicit `--remote`, help, alternate `CODEX_HOME`, and all other commands. It
 recognizes the usual `codex agents [options]` form; leading global flags are
 passed directly to upstream.
 
+The shared server starts with the user's requested YOLO defaults:
+`approval_policy=never` and `sandbox_mode=danger-full-access`. New dashboard
+tasks therefore run without Codex's filesystem/network sandbox or approval
+prompts. Existing threads retain their saved permissions. These defaults are
+arguments on this service, so ordinary CLI sessions keep their own settings.
+
 The dashboard manages tasks created on this shared server. Existing ordinary
 CLI sessions use their own servers, so their live status is not shared with the
 dashboard. To deliberately share an interactive chat, use:
