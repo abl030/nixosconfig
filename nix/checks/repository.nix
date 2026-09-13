@@ -1,4 +1,13 @@
 {pkgs}: let
+  codexAgentsWrapperCheck =
+    pkgs.runCommand "codex-agents-wrapper-check" {
+      nativeBuildInputs = [pkgs.bash pkgs.python3 pkgs.shellcheck];
+    } ''
+      shellcheck --shell=bash ${../../home/codex-agents.sh}
+      python3 ${./test_codex_agents.py} ${../../home/codex-agents.sh}
+      touch $out
+    '';
+
   # Every flake input must FOLLOW the fleet nixpkgs, never carry its own.
   # A duplicate nixpkgs node in flake.lock drifts stale on its own (the
   # rolling-flake-update only advances the ROOT pin), bloats every closure
@@ -144,6 +153,7 @@
     '';
 in {
   inherit
+    codexAgentsWrapperCheck
     nixpkgsFollowsCheck
     aiPortabilityCheck
     ;

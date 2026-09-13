@@ -74,8 +74,7 @@ in {
   # the repository instead; see docs/wiki/claude-code/poly-ai-shared-surfaces.md.
   programs.codex = {
     enable = true;
-    # Sadjow's fast-updating community flake (via overlay).
-    package = pkgs.codex;
+    # The package and local agent dashboard service live in codex-agents.nix.
     # Shared one-and-only skill source (also used by programs.claude-code).
     skills.talk-to-me = ../../.claude/skills/talk-to-me;
   };
@@ -173,6 +172,7 @@ in {
       # inputs.fzf-preview.packages.${pkgs.system}.default
     ];
   imports = [
+    ./codex-agents.nix
     # ../ssh/ssh.nix
   ];
 
