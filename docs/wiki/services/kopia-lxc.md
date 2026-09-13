@@ -6,6 +6,11 @@
 **Hosts:** kopia (CT 111 on prom), prom, doc2
 **Code:** `hosts/kopia/configuration-lxc.nix`, `modules/nixos/services/kopia.nix`
 
+**2026-09-13 follow-up:** [Post-migration outage RCA](kopia-mum-outages-2026-09-13.md)
+found repository contention through the single-threaded bindfs view, unreadable
+Music/Ali Cratedigger source entries, and a monitor schema bug that hides repeated
+snapshot errors. The migration is live; backup completeness still needs those fixes.
+
 ## Why it moved off doc2
 
 On 2026-09-11 doc2 wedged during an automatic kernel-update reboot.
