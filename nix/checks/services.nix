@@ -12,9 +12,11 @@
     pickup = name: "gwm-archiver-notify-success@${name}.service";
     script = doc2.systemd.services."gwm-archiver-notify-success@".serviceConfig.ExecStart;
   in
-    assert lib.elem (pickup "gwm-archiver") current.unitConfig.OnFailure;
+    assert lib.elem (pickup "gwm-archiver-failed") current.unitConfig.OnFailure;
     assert lib.elem (pickup "gwm-archiver") current.unitConfig.OnSuccess;
-    assert lib.elem (pickup "gwm-archiver-backfill") backfill.unitConfig.OnFailure;
+    assert lib.elem (pickup "gwm-archiver-backfill-failed") backfill.unitConfig.OnFailure;
+    assert lib.intersectLists current.unitConfig.OnSuccess current.unitConfig.OnFailure == [];
+    assert lib.intersectLists backfill.unitConfig.OnSuccess backfill.unitConfig.OnFailure == [];
     assert lib.elem "ARCHIVE_MODE=current" current.serviceConfig.Environment;
     assert lib.elem "ARCHIVE_MODE=backfill" backfill.serviceConfig.Environment;
     assert doc2.systemd.timers.gwm-archiver.timerConfig.OnCalendar == "Sun *-*-* 03:30:00 Australia/Perth";

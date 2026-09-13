@@ -115,7 +115,9 @@
     after = ["network-online.target"];
     wants = ["network-online.target"];
     unitConfig = {
-      OnFailure = ["gwm-archiver-notify-failure@${name}.service" pickup];
+      # systemd counts even the SAME source twice when a handler is on both
+      # outcome edges, and drops MONITOR_*. Use distinct instances per edge.
+      OnFailure = ["gwm-archiver-notify-failure@${name}.service" "gwm-archiver-notify-success@${name}-failed.service"];
       OnSuccess = [pickup];
       RequiresMountsFor = [cfg.outDir];
     };

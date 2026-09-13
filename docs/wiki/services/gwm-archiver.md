@@ -114,8 +114,11 @@ The Python script doesn't talk to Gotify itself. Instead it prints a
 `NEW_ISSUE:` marker line to stderr for any newly-downloaded issue, and the
 module wires template handlers, separately instantiated for each archiver:
 
-* `gwm-archiver-notify-success@<unit>.service` runs on **both success and
-  failure**, selecting only `MONITOR_INVOCATION_ID` from the triggering run.
+* `gwm-archiver-notify-success@<unit>.service` runs on success; the same script
+  runs as `gwm-archiver-notify-success@<unit>-failed.service` on failure. Each
+  selects only `MONITOR_INVOCATION_ID` from the triggering run. Distinct
+  instances are essential: systemd 261.2 counts a source referenced via both
+  outcome edges twice and withholds `MONITOR_*`, even if it is the same unit.
   Completed PDFs and resumed sidecars emit `NEW_ISSUE:`; those cause WOL and
   the forced-command SSH trigger on epi, then a priority-4 Gotify notification.
   A later failure, missing Gotify token, or unreachable Gotify cannot suppress
