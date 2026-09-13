@@ -1,16 +1,17 @@
 # Kopia Mum outages after the LXC migration
 
 **Date:** 2026-09-13
-**Status:** RCA complete; remediation not applied. HTTP recovered and today's verification completed; two sources still have repeated permission errors.
+**Status:** Remediation deployed and verified with clean replacement snapshots and matching restored files. Next full daily cycle remains to be observed.
 **Related:** [Forgejo #218](https://git.ablz.au/abl030/nixosconfig/issues/218), [LXC migration](kopia-lxc.md)
 **Hosts:** kopia (CT 111), prom (repository mount), doc2 (Kuma/Gotify)
 
 The evidence points to our storage integration and monitoring, with no evidence
 of a sustained offsite network outage. The strongest explanation for the slow
 repository is overlapping verification, snapshots and maintenance through the
-new single-threaded bindfs view. Its exact contribution has not been isolated
-with a before/after configuration experiment. The source-permission regression
-and the monitoring schema bug below are directly proven.
+new single-threaded bindfs view. A subsequent controlled directory-listing
+comparison confirmed that concurrency improves this path; the effect on a full
+daily cycle remains to be measured. The source-permission regression and the
+monitoring schema bug below are directly proven.
 
 All times below are **AWST (UTC+8)**. Gotify/Kuma database times and Kopia's
 on-disk debug logs are UTC; the journal renders local time.
@@ -65,8 +66,9 @@ NAS latency spikes or packet loss. There is no basis here for blaming Mum's ISP.
 The live path is CT `/mnt/mum` → prom `/mnt/mum-ct` → bindfs → prom `/mnt/mum`
 → NFSv4 over Tailscale → Synology USB share.
 
-Prom's `/etc/fstab` gives bindfs `force-user=100000,force-group=100000`, creates
-files as `1000:100`, and does not enable multithreading. The running bindfs
+At the incident, prom's `/etc/fstab` gave bindfs
+`force-user=100000,force-group=100000`, created files as `1000:100`, and did not
+enable multithreading. The running bindfs
 1.14.7 process had **one thread**; its FUSE connection (`0:333`) had 10–11
 requests waiting. Verification uses two workers; maintenance and snapshots
 share the same view. Ordinary remote latency therefore delays other queued
@@ -91,7 +93,7 @@ file-creation semantics, followed by a measured comparison.
 
 CT root maps to prom UID/GID `100000`, not prom root. The destination and
 pfSense source received ownership-translating bindfs views during migration;
-Music and Ali Cratedigger are plain binds.
+Music and Ali Cratedigger initially received plain binds.
 
 The live sources API and snapshot history show:
 
@@ -107,13 +109,14 @@ that is snapshot evidence, not a restore test.
 
 ## Definite monitor bug: wrong history field
 
-`modules/nixos/services/probes/check-kopia-backup-errors.nix` correctly detects
+During the incident,
+`modules/nixos/services/probes/check-kopia-backup-errors.nix` correctly detected
 the source's latest errors using `.lastSnapshot.stats.errorCount`. It then
-fetches `/api/v1/snapshots` and incorrectly uses `.stats.errorCount` again.
+fetched `/api/v1/snapshots` and incorrectly used `.stats.errorCount` again.
 
-The live history response has **`.summary.numFailed`**, with no `stats` field.
-The probe defaults the absent field to zero, concludes that the previous
-snapshot was clean, and sends an UP heartbeat despite consecutive failures.
+The history response has **`.summary.numFailed`**, with no `stats` field.
+The old probe defaulted the absent field to zero, concluded that the previous
+snapshot was clean, and sent an UP heartbeat despite consecutive failures.
 Evaluating both expressions against the last two live snapshots produced:
 
 | Source | Existing predicate: both failed | Actual `summary.numFailed`: both failed |
@@ -123,13 +126,13 @@ Evaluating both expressions against the last two live snapshots produced:
 
 This explains the misleading `last snapshot errored but previous was clean`
 journal messages. The shared probe is also used by Kopia photos; the schema bug
-affects its ability to detect future consecutive errors too. Photos had no
+also prevented it from detecting consecutive errors. Photos had no
 corresponding incident in this investigation.
 
-The verify wrapper has a separate reporting gap: it captures all command output
-in a shell variable and sends its failure notification after the command
-returns. systemd's 12-hour kill terminates that wrapper before it reports. The
-unit has no `OnFailure`, and its specific error-pattern rule does not match
+The old verify wrapper had a separate reporting gap: it captured all command
+output in a shell variable and sent its failure notification after the command
+returned. systemd's 12-hour kill terminated that wrapper before it reported. The
+unit had no `OnFailure`, and its specific error-pattern rule did not match
 `start operation timed out`. There was no Kopia verification-failure Gotify
 message for the Sep 12 timeout in the inspected messages.
 
@@ -149,8 +152,75 @@ message for the Sep 12 timeout in the inspected messages.
    progress in the journal. Keep genuine stale/error alerts effective; simply
    extending alert grace periods does not fix backup omissions or contention.
 
-No restarts, mount changes, snapshot triggers or service/config fixes were made
-as part of this RCA. Repository changes only record these findings.
+The initial RCA was read-only. The user then authorized remediation, recorded
+below.
+
+## Remediation and live proof, September 13
+
+Signed code commit `f76bf6786a69413d7de2aa54e48e5e5c5307394a` was pushed to
+Forgejo and deployed through the signed-cache push-deploy receiver. The CT's
+running `configurationRevision` matches it. The active system is
+`/nix/store/gsdzpd000ym3p2mcaridhrsz118gn4kq-nixos-system-kopia-lxc-proxmox-26.11.20260910.aff8a0b`.
+
+- The shared error probe now validates both API response shapes, reads history
+  failures from `summary.numFailed`, and fails on malformed/unknown responses.
+  Before the replacement snapshots, the deployed executable correctly exited
+  1 and named both sources with consecutive errors.
+- Music and Ali now have private, read-only ownership-translating bindfs views.
+  All **331 previously failing entries** were readable from the CT after the
+  change. All 331 original ownership/mode tuples matched the saved baseline;
+  write-open attempts through the source views were rejected. Every source
+  mount is read-only. No production chmod/chown was needed.
+- The destination view now uses `multithreaded` with fixed presented ownership
+  `100000:100000` and fixed creation ownership `1000:100`. A bounded local
+  concurrency test checked 100 creations and 1,000 reads/stat operations:
+  correct underlying ownership, expected presented ownership, and denial to an
+  unrelated UID. The live destination process used seven threads during the
+  new snapshot. New source views also use concurrency, `nodev` and `nosuid`.
+- A pre-change read-only A/B on the same **96 repository directories / 54,397
+  entries**, with eight clients, took **33.482 s single-threaded, 2.179 s
+  concurrent, 3.894 s concurrent, 7.175 s single-threaded**. The cold first pass
+  exaggerates the gain; even the warm comparison favors concurrency. These are
+  directory-listing measurements, not a claimed speedup for an entire backup.
+- Mum verification now starts at **18:00 AWST**, separated from the 06:00
+  snapshot schedule. Output streams into the journal. An independent systemd
+  `OnFailure` handler reports timeout and exit context. A one-second synthetic
+  timeout triggered a copy of the deployed handler under its unchanged sandbox
+  and produced `result=timeout, code=killed, status=TERM`, priority 8. Only curl
+  was intercepted; no test notification was delivered. Temporary units and
+  files were removed.
+- Full `nix flake check` passed, including **13 probe cases and three verifier
+  cases**. Formatting, deadnix, statix and shellcheck checks passed for the
+  touched code/scripts.
+
+Prom's root-only rollback/evidence directory is
+`/root/kopia-mount-change-20260913T071350Z`. It contains the previous fstab, CT
+config, old system path, original source metadata and restore-canary hashes.
+The original deployment had no CT mount dependency drop-in. Authored mount
+files and rollback steps are linked from [the LXC guide](kopia-lxc.md).
+
+Replacement snapshots and restores completed successfully:
+
+| Source | Snapshot finished (AWST) | Errors | Content size | Snapshot ID |
+| --- | --- | --- | --- | --- |
+| Music | 15:29:30 | **0** (previously 329) | 475,454,366,279 bytes | `c5cd6d0c5731da8d306efd0d1b293f78` |
+| Ali Cratedigger | 15:30:26 | **0** (previously 2) | 956,810 bytes | `25247135d36526a295a2922fe0021f28` |
+
+Music's first pass re-hashed 109,774 files in 4m14s because the presented metadata
+changed. Its snapshot contains about **6.30 GB more content** than the previous
+incomplete one. A formerly unreadable 737,283-byte Music file and an 18-byte file
+inside Ali's previously inaccessible `state` directory were restored from these
+exact snapshot roots into private temporary directories. Both SHA-256 hashes
+matched the pre-change originals, whose hashes and timestamps were also checked
+again. Restore targets were removed. The detailed receipt is
+`snapshot-restore-proof.json` in the root-only evidence directory above.
+
+The corrected error probe changed from exit **1 before** these snapshots to exit
+**0 after** them. All four actual deep-probe units then completed successfully
+and delivered new Kuma heartbeats at **15:31:32**. All six Kopia monitors were UP;
+both HTTPS endpoints returned their expected authentication response (401), and
+the CT had no failed units. The sources API remained responsive during the new
+snapshot (observed calls 19–23 ms).
 
 ## Evidence locations and revisit condition
 
@@ -169,6 +239,8 @@ as part of this RCA. Repository changes only record these findings.
   `/proc/<pid>/stack`, `/sys/fs/fuse/connections/333/waiting` on prom. IDs are
   specific to this investigation and must be rediscovered after remounts.
 
-Revisit after the parser and source-access fixes, then after one complete daily
-backup/verify/maintenance cycle. Successful sampled verification alone cannot
-prove that unreadable source files were included.
+Revisit after the next complete daily backup/verify/maintenance cycle: confirm
+completion times, bounded API latency and absence of probe timeouts. The new
+18:00 verification had not yet started when remediation was verified. The
+canary restores prove those selected files; they are not a full repository
+restore or evidence of future-cycle stability.

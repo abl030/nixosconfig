@@ -9,7 +9,10 @@
 **2026-09-13 follow-up:** [Post-migration outage RCA](kopia-mum-outages-2026-09-13.md)
 found repository contention through the single-threaded bindfs view, unreadable
 Music/Ali Cratedigger source entries, and a monitor schema bug that hides repeated
-snapshot errors. The migration is live; backup completeness still needs those fixes.
+snapshot errors. All three fixes are deployed: replacement Music/Ali snapshots
+have zero errors, and previously unreadable files were restored with matching
+hashes. Mum verification now runs at 18:00 and reports systemd timeouts. The next
+full daily cycle remains to be observed; see the RCA's remediation receipt.
 
 ## Why it moved off doc2
 
@@ -23,7 +26,7 @@ Three things this buys:
 
 - **Blast radius.** A wedged kopia wedges kopia. `pct stop 111` is cheap and
   touches nothing else.
-- **Reboot independence.** kopia's verify legitimately runs 05:30–12:00 daily
+- **Reboot independence.** kopia's verify previously ran 05:30–12:00 daily
   (2.7 TB of objects over a ~45 Mbit/s offsite link). Any doc2 reboot in that
   window killed it mid-flight.
 - **No virtiofs.** Every path is a plain bind from prom.
@@ -76,7 +79,7 @@ nothing in the repository is modified:
 /mnt/mum  /mnt/mum-ct  fuse.bindfs
   force-user=100000,force-group=100000,      # appear as the CT's root
   create-for-user=1000,create-for-group=100, # writes land as the repo owner
-  perms=u=rwX,allow_other,nofail,_netdev,
+  perms=u=rwX,allow_other,multithreaded,nodev,nosuid,nofail,_netdev,
   x-systemd.requires=mnt-mum.mount           # else it mirrors an EMPTY dir
 ```
 
