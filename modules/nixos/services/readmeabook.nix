@@ -53,7 +53,8 @@ in {
       (map (p: "d ${cfg.dataDir}/${p} 0750 readmeabook readmeabook - -") ["config" "cache" "redis" "downloads"])
       ++ ["d ${cfg.dataDir} 0755 root root - -" "d ${cfg.dataDir}/database 0755 root root - -" "d ${cfg.dataDir}/database/postgres 0755 root root - -"]
       # Match the NAS all_squash identity without changing application UID.
-      ++ map (p: "d ${p} 2775 99 users - -") [library torrents usenet];
+      # The mixed-owner completed path is provisioned on tower; see the wiki.
+      ++ map (p: "d ${p} 2775 99 users - -") [library torrents];
     networking.firewall.allowedTCPPorts = [cfg.port];
     virtualisation.oci-containers.containers.readmeabook = {
       inherit image;

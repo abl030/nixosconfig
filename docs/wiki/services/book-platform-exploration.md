@@ -1,6 +1,6 @@
 # Book platform exploration
 
-Date: 2026-09-14. Status: parallel evaluation; no winner selected and no migration
+Updated: 2026-09-15. Status: parallel evaluation; no winner selected and no migration
 authorized. Host: doc2. The user explicitly wants time to explore all candidates.
 
 ## What we are trying to improve
@@ -161,13 +161,13 @@ after this deployment.
 | ReadMeABook | v1.2.2 | ABS scan imported **214 items**; remote Red Rising search works. Homepage refresh was triggered. |
 | Chaptarr | 0.9.911.0, develop | Remote metadata search works; copied Red Rising EPUB/audio were scanned into the catalog. |
 
-These are library/UI trials. New acquisition pipelines are not yet enabled or
-proven. Chaptarr and Bookkeep have no download clients/indexers configured.
-ReadMeABook has Prowlarr configured and a **disabled** qBittorrent placeholder;
-its `/downloads` and `/media` are isolated trial storage, not the production
-download-client paths. Wire and test paths, categories, credentials and final
-reader import before enabling a chosen candidate's downloader. Existing
-acquisition continues through Shelfarr.
+Chaptarr and Bookkeep remain library/UI trials with no download clients/indexers
+configured. On 2026-09-15 the user preferred ReadMeABook's interface and asked to
+improve confident matches and connect both download clients. ReadMeABook now uses
+Prowlarr, qBittorrent and NZBGet with its own categories and ABS output subtree
+(details below). Shelfarr remains available. A fresh ReadMeABook acquisition has
+not yet been exercised; connection and filesystem checks are not evidence that
+a particular release will download and import successfully.
 
 ### Booklore and OPDS
 
@@ -215,10 +215,80 @@ The completed ABS inventory scan imported 214 entries using the read-only
 `trial-readmeabook` account. Both trial ABS accounts can access only the selected
 audiobook library and cannot change metadata or files.
 
-Red Rising search still reports `isAvailable=false`, despite the ABS entry being
-present. That entry has neither ASIN nor ISBN; the reviewed ReadMeABook matcher
-depends on ASIN/work identity. This is a concrete false-negative case to evaluate,
-not proof that the ABS scan failed. Original ABS metadata was left unchanged.
+The initial Red Rising false negative was caused by its missing ASIN. On
+2026-09-15, a full scan again read all 214 ABS items successfully; 196 had ASINs
+and 18 did not. The user authorized confident metadata matches, then explicitly
+asked to leave uncertain recordings for later rather than force matches.
+
+Three ASIN-only updates were applied in ABS. Other metadata and audio files were
+preserved; each update was re-read and compared with its saved metadata:
+
+| ABS title | Verified ASIN | Local duration | Audible duration / narrator |
+| --- | --- | --- | --- |
+| Red Rising | [B00I2VWW5U](https://www.audible.com/pd/B00I2VWW5U) | 16h 12m 24s | 16h 12m, Tim Gerard Reynolds |
+| Golden Son | [B00R6S1RCY](https://www.audible.com/pd/B00R6S1RCY) | 19h 4m 27s | 19h 3m, Tim Gerard Reynolds |
+| Forward the Foundation | [B005WWT30E](https://www.audible.com/pd/B005WWT30E) | 16h 7m 39s | 16h 10m, Larry McKeever |
+
+ReadMeABook's next inventory scan picked up the changes. Red Rising and Golden
+Son search results now return `isAvailable=true`, while their different
+dramatized adaptations remain unavailable. The remaining 15 include older
+Foundation narrations, the Celeste Ciulla Ancillary Justice, a duration-mismatched
+Carnegie recording, podcasts/course/meditation collections, Realm of Numbers and
+an uncertain Cursed Child recording. Missing ASIN does not mean missing audio.
+Do not assign a modern narrator's ASIN merely because the title matches.
+
+Before-state and applied-ID records are root-only on doc2 under
+`/mnt/virtio/readmeabook/metadata-backups/2026-09-15/`. To undo a match, use the
+saved item ID and `PATCH /api/items/<id>/media` with its previous
+`metadata.asin` (null for these three), then run ReadMeABook's Library Scan job.
+ABS control credentials stay on doc1; the ReadMeABook account remains read-only.
+
+### ReadMeABook downloading
+
+Both client tests passed **from ReadMeABook**: qBittorrent v5.2.3 and NZBGet
+v26.3. Its Prowlarr test found ten enabled indexers spanning torrents and usenet.
+Each enabled client uses category `readmeabook`, TLS verification, and a relative
+custom download path under `/downloads`; remote path mapping is unnecessary.
+
+| Purpose | Host path | ReadMeABook path / client custom path |
+| --- | --- | --- |
+| qBittorrent | `/mnt/data/Media/Temp/readmeabook` | `/downloads/readmeabook` / `readmeabook` |
+| NZBGet | `/mnt/data/Media/Temp/completed/readmeabook` | `/downloads/completed/readmeabook` / `completed/readmeabook` |
+| ABS output | `/mnt/data/Media/Books/Audiobooks/ReadMeABook` | `/media` |
+
+Only these category directories and the new output subtree are exposed to the
+app. Unlike Shelfarr's copy-only import, ReadMeABook's metadata tagger writes
+temporary siblings beside downloads before copying to the library, so its own
+category mounts are writable. Original torrent bytes are preserved for seeding.
+The application keeps UID 2024 and uses GID 100 for the NAS permission model.
+Deep probes exercise writes as that UID in both download roots and `/media`.
+They pass an explicit UID:GID to Podman: a numeric UID alone otherwise gives an
+exec process GID 0, which would not test the application's real permissions.
+
+On a fresh NAS, provision the NZBGet leaf on tower before enabling the mount:
+
+```sh
+ssh root@tower 'install -d -m 2775 -o 99 -g 100 /mnt/user/data/Media/Temp/completed/readmeabook'
+```
+
+The initial switch hit systemd-tmpfiles' unsafe-path check because `Temp` and
+`Temp/completed` have different existing owners. Provisioning only the leaf
+resolved startup; parent ownership was preserved. The module manages the other
+two leaf directories and requires the existing mounts before starting.
+
+qBittorrent uses the existing trusted servarr proxy route. NZBGet uses its existing
+restricted control account; administrative credentials were not given to
+ReadMeABook. Its category was provisioned on tower so the app does not need to
+rewrite NZBGet configuration. The prior file is retained at
+`/mnt/user/appdata/nzbget/nzbget.conf.before-readmeabook-20260915`; NZBGet was
+restarted to load the added category. Category names are operational separation,
+not an API authorization boundary.
+
+ABS indexes the output subtree within the existing AudioBooks library. Its
+filesystem watcher/hourly scan provides discovery; immediate API-triggered scans
+remain off because ABS requires an admin role for that endpoint. The next
+evaluation step is one deliberately chosen request, checking the release, actual
+files, ABS import and final availability together.
 
 ### Chaptarr sample import
 
@@ -231,8 +301,9 @@ automatic acquisition. The full original collection is visible only under
 The scan created Pierce Brown catalog records for both formats. It assigned 47
 audio files to Red Rising, 81 to Golden Son, and one EPUB to the ebook Red Rising
 record. The 80 catalog records include author metadata for books without files;
-they are not 80 owned books. Inspect the split audio assignment against file tags
-and actual content before accepting its ownership display. Only copied files
+they are not 80 owned books. The 2026-09-15 ABS audit confirmed that the source
+download is a two-book bundle with separate Red Rising and Golden Son folders,
+so this split is consistent with the actual source layout. Only copied files
 were used, so this trial cannot reorganize the original ABS library.
 
 ### Deployment lessons

@@ -19,6 +19,8 @@ def main() -> None:
         "bookkeep": (2023, "/app/data", "/health"),
         "readmeabook": (2024, "/app/config", "/api/health"),
     }[app]
+    # Numeric --user alone leaves podman exec in GID 0. Match the real app group.
+    gid = 100 if app in {"booklore", "readmeabook"} else uid
     with urllib.request.urlopen(f"http://127.0.0.1:{port}{endpoint}", timeout=15) as response:
         assert response.status == 200
     writable_paths = [state]
@@ -26,7 +28,7 @@ def main() -> None:
         writable_paths += ["/downloads/readmeabook", "/downloads/completed/readmeabook", "/media"]
     for writable_path in writable_paths:
         subprocess.run(
-            ["podman", "exec", "--user", str(uid), app, "sh", "-c",
+            ["podman", "exec", "--user", f"{uid}:{gid}", app, "sh", "-c",
              'set -eu; p=$(mktemp "$1/.homelab-probe.XXXXXX"); trap \'rm -f "$p"\' EXIT; printf probe > "$p"; test "$(cat "$p")" = probe',
              "probe", writable_path],
             check=True, timeout=15,
