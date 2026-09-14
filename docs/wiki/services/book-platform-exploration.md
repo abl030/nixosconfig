@@ -145,6 +145,15 @@ Anonymous requests to protected APIs returned 401/403 in all four apps. Their
 ports were reachable on the LAN address and not on doc2's tailnet address;
 existing-library mounts were confirmed read-only in the running containers.
 
+The follow-up HTTPS deployment `3be5e9468acee2ddbbfa21ed438c6b3cb644d8de`
+was verified running on doc2 at 19:56 AWST. All four authoritative DNS records
+pointed to `192.168.1.35`, unproxied and owned by `managed-by:doc2`. Normal LAN DNS,
+trusted TLS and health endpoints passed without resolver overrides. Authenticated
+API reads passed through all four names, and Bookkeep returned 280 ebooks after
+its Booklore URL was changed to HTTPS. The OPDS feed and exact Red Rising EPUB
+download also passed through `booklore.ablz.au`. All four deep probes passed
+after this deployment.
+
 | Application | Observed version | What is usable now |
 | --- | --- | --- |
 | Booklore | v2.3.1 | Existing library indexed: **280 ebooks**; browser catalog and authenticated OPDS download verified. |
