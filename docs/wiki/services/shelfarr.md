@@ -1,7 +1,7 @@
 # Shelfarr audiobook requests
 
-Date: 2026-09-14. Host: doc2. Application and integrations deployed and verified;
-the dedicated Tailscale node still needs its first interactive authentication.
+Date: 2026-09-14. Host: doc2. Application, integrations and Tailscale HTTPS access
+deployed and verified at `https://shelfarr.ablz.au`.
 
 Shelfarr connects Prowlarr, qBittorrent, NZBGet and the existing ABS AudioBooks
 library. Source: <https://github.com/Pedro-Revez-Silva/shelfarr>. The upstream OCI
@@ -90,17 +90,18 @@ The first switch exposed a probe startup race: OCI readiness preceded the queue
 workers registering. The probe now allows 30 seconds for those heartbeats within
 its existing 45-second outer timeout. The first switch installed revision
 `a769db5c`, but the deployment wrapper reported failure while Tailscale enrollment
-was pending. Re-run the verified deployment after enrollment to deploy the probe
-startup fix and obtain a successful fleet-update receipt.
+was pending. The startup fix is in `d8a46a11`; the subsequent verified deployment
+includes it.
 
-Enrollment is held open in temporary container `shelfarr-enrol`, using the same
-`ts-state` as the final sidecar. Its daemon uses userspace networking and no
-capabilities. The generated Caddy/Tailscale units are stopped while it owns that
-state. After the browser login, stop/remove `shelfarr-enrol`, then run
-`fleet-deploy doc2` and start the generated sidecars/DNS sync if needed. Never run
-both Tailscale daemons against the state directory at once. Verify the public
-FQDN, both DNS address families, the final app's four integration connections,
-and the deep probe before calling the service complete.
+Enrollment completed on 2026-09-14. A temporary `shelfarr-enrol` container held
+the interactive login open against the same `ts-state`, avoiding containerboot's
+one-minute authentication timeout. It was stopped and removed before restoring
+the generated sidecars. Never run two Tailscale daemons against that state at once.
+The managed `ts-shelfarr` retained the enrolled identity with `tag:share`:
+IPv4 `100.118.169.64`, IPv6 `fd7a:115c:a1e0::a83a:a942`. Authoritative public DNS
+publishes both records. TLS verification and `/up` returned HTTP 200 over both
+address families from doc1 and doc2. Administrator login and settings pages work
+through the actual HTTPS hostname; anonymous API requests return HTTP 401.
 
 Use `fleet-deploy doc2` from doc1 after a signed Forgejo push. Verify the active
 revision and `podman-shelfarr`, `podman-ts-shelfarr`, `podman-caddy-shelfarr`,
