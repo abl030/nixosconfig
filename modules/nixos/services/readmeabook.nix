@@ -8,6 +8,9 @@
   cfg = config.homelab.services.readmeabook;
   image = "ghcr.io/kikootwo/readmeabook:latest";
   lan = config.homelab.localProxy.localIp;
+  library = "/mnt/data/Media/Books/Audiobooks/ReadMeABook";
+  torrents = "/mnt/data/Media/Temp/readmeabook";
+  usenet = "/mnt/data/Media/Temp/completed/readmeabook";
   dbSecret = config.sops.secrets.readmeabook-env.path;
   db = import ../lib/mk-pg-container.nix {
     inherit pkgs;
@@ -38,6 +41,7 @@ in {
       isSystemUser = true;
       uid = 2024;
       group = "readmeabook";
+      extraGroups = ["users"];
     };
     sops.secrets.readmeabook-env = {
       sopsFile = config.homelab.secrets.sopsFile "readmeabook.env";
@@ -45,7 +49,11 @@ in {
       mode = "0400";
     };
     containers.readmeabook-db = db.containerConfig;
-    systemd.tmpfiles.rules = (map (p: "d ${cfg.dataDir}/${p} 0750 readmeabook readmeabook - -") ["config" "cache" "redis" "media" "downloads"]) ++ ["d ${cfg.dataDir} 0755 root root - -" "d ${cfg.dataDir}/database 0755 root root - -" "d ${cfg.dataDir}/database/postgres 0755 root root - -"];
+    systemd.tmpfiles.rules =
+      (map (p: "d ${cfg.dataDir}/${p} 0750 readmeabook readmeabook - -") ["config" "cache" "redis" "downloads"])
+      ++ ["d ${cfg.dataDir} 0755 root root - -" "d ${cfg.dataDir}/database 0755 root root - -" "d ${cfg.dataDir}/database/postgres 0755 root root - -"]
+      # Match the NAS all_squash identity without changing application UID.
+      ++ map (p: "d ${p} 2775 99 users - -") [library torrents usenet];
     networking.firewall.allowedTCPPorts = [cfg.port];
     virtualisation.oci-containers.containers.readmeabook = {
       inherit image;
@@ -53,11 +61,21 @@ in {
       environmentFiles = [dbSecret];
       environment = {
         PUID = "2024";
-        PGID = "2024";
+        PGID = "100";
         TZ = "Australia/Perth";
         PUBLIC_URL = "https://${cfg.fqdn}";
       };
-      volumes = ["${cfg.dataDir}/config:/app/config" "${cfg.dataDir}/cache:/app/cache" "${cfg.dataDir}/redis:/var/lib/redis" "${cfg.dataDir}/media:/media" "${cfg.dataDir}/downloads:/downloads"];
+      volumes = [
+        "${cfg.dataDir}/config:/app/config"
+        "${cfg.dataDir}/cache:/app/cache"
+        "${cfg.dataDir}/redis:/var/lib/redis"
+        "${cfg.dataDir}/downloads:/downloads"
+        "${library}:/media"
+        # The tagger writes temporary siblings then copies to /media, preserving
+        # seeding originals. Only this application's categories are writable.
+        "${torrents}:/downloads/readmeabook"
+        "${usenet}:/downloads/completed/readmeabook"
+      ];
       # Unified image remaps users, starts Redis, then drops the app to PUID.
       # PostgreSQL is external and isolated in its own nspawn container.
       extraOptions = config.homelab.podman.hardenOptions ++ ["--cap-add=CHOWN" "--cap-add=SETUID" "--cap-add=SETGID" "--cap-add=DAC_OVERRIDE" "--cap-add=FOWNER" "--cap-add=KILL" "--memory=2g" "--pids-limit=384"];
@@ -66,10 +84,10 @@ in {
       after = ["container@readmeabook-db.service"];
       requires = ["container@readmeabook-db.service"];
       restartTriggers = [config.systemd.units."container@readmeabook-db.service".unit dbSecret];
-      unitConfig.RequiresMountsFor = [cfg.dataDir];
+      unitConfig.RequiresMountsFor = [cfg.dataDir library torrents usenet];
       serviceConfig = {
         TemporaryFileSystem = "/mnt";
-        BindPaths = [cfg.dataDir];
+        BindPaths = [cfg.dataDir library torrents usenet];
       };
     };
     homelab.podman.containers = [
@@ -85,6 +103,7 @@ in {
         websocket = true;
       }
     ];
+    homelab.nfsWatchdog.podman-readmeabook.path = library;
     homelab.monitoring = {
       monitors = [
         {

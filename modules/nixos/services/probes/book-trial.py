@@ -21,12 +21,16 @@ def main() -> None:
     }[app]
     with urllib.request.urlopen(f"http://127.0.0.1:{port}{endpoint}", timeout=15) as response:
         assert response.status == 200
-    subprocess.run(
-        ["podman", "exec", "--user", str(uid), app, "sh", "-c",
-         'set -eu; p=$(mktemp "$1/.homelab-probe.XXXXXX"); trap \'rm -f "$p"\' EXIT; printf probe > "$p"; test "$(cat "$p")" = probe',
-         "probe", state],
-        check=True, timeout=15,
-    )
+    writable_paths = [state]
+    if app == "readmeabook":
+        writable_paths += ["/downloads/readmeabook", "/downloads/completed/readmeabook", "/media"]
+    for writable_path in writable_paths:
+        subprocess.run(
+            ["podman", "exec", "--user", str(uid), app, "sh", "-c",
+             'set -eu; p=$(mktemp "$1/.homelab-probe.XXXXXX"); trap \'rm -f "$p"\' EXIT; printf probe > "$p"; test "$(cat "$p")" = probe',
+             "probe", writable_path],
+            check=True, timeout=15,
+        )
     if app == "chaptarr":
         # Read/write transaction uses the actual SQLite catalog, never another DB.
         # Drop privileges before opening it so root cannot mask filesystem failures.
