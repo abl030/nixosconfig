@@ -57,6 +57,13 @@ could attempt NAS SSH authentication. It still has no network grant into the fle
 To revoke this access, remove `tcp:22` from the `dadnas-proxy` grant, restore its
 deny test, and deploy the signed policy correction through doc1's fleet update.
 
+Verified at 07:54 AWST: signed commit `e9c90fd1` is running on doc1, the deployed
+policy file and live control-plane policy match, and `nix flake check` plus the
+server-side policy tests passed. Doc1's proxy reached NAS port 22 and received
+`connection was refused`; DSM SSH was not yet accepting connections. The HTTPS
+login remained HTTP 200. Personal-device SSH deny tests passed; Framework was
+unreachable for a separate live negative probe. No NAS login was attempted.
+
 ## State and recovery
 
 Persistent login state is `/var/lib/dadnas-tailnet` (systemd DynamicUser stores it
