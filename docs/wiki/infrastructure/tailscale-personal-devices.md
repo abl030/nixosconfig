@@ -1,7 +1,7 @@
 # Personal Tailscale devices and access levels
 
 - Date: 2026-09-14
-- Status: policy deployed; Cullen and phone user-owned; Epimetheus reauthentication pending
+- Status: policy deployed; Cullen, phone and Epimetheus user-owned; Framework login pending
 - Source: `tailscale/acl.hujson`, applied by doc1's `tailscale-acl-apply.service`
 - Related: [tailnet policy](tailscale-acl.md), [Dad NAS](../services/dadnas.md),
   [Cullen SSH](wsl-tailscale-ssh.md)
@@ -100,6 +100,21 @@ Termux SSH refused connections, so a NAS fetch from the phone itself was not
 verified remotely. Epimetheus was subsequently woken at the user's request and
 its user-login flow started over LAN SSH, preserving its existing preferences.
 Framework and the old Epimetheus VM remain offline with their legacy tags.
+
+Epimetheus completed reauthentication at 14:17 AWST, retaining its node ID and
+both addresses. Its owner is `abl030@gmail.com`, with no tags. DNS, doc1 SSH,
+Syncthing in both directions, and Cullen's IPv4 SSH connection passed. Its
+existing preferences were preserved, including `accept-routes=false` and
+`netfilter-mode=on`. Cullen's IPv6 port-22 connection timed out; its existing
+Windows portproxy is bound to IPv4, so this was not changed by the migration.
+
+Dad NAS initially answered only over IPv6 from Epimetheus. IPv4 SYNs left its
+Tailscale interface without replies. Restarting Epimetheus's `tailscaled` over
+the independent LAN SSH connection cleared the failure immediately. Both NAS
+ports (5000 and 5252) then repeatedly returned HTTP 200 over IPv4 and IPv6, with
+the DSM and Tailscale page titles verified. No ACL or NAS-side change was made.
+The local reconnect is a useful recovery step for this post-reauthentication
+symptom; the exact cause of the stale IPv4 path was not established.
 
 Policy tests cover each role member's IPv4 and IPv6, incoming client access,
 Cullen isolation, Shelfarr IPv6, NAS web ports, and unlisted addresses. Match
