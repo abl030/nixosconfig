@@ -135,6 +135,12 @@ read-only open. The next timer run succeeded without any permission changes.
 The reader now allows up to 30 seconds for CANTOPEN/BUSY startup errors, keeps
 read-only access, and fails schema errors immediately. Nine behavior tests cover
 these boundaries, retry/scan persistence, duplicate handling and unsafe paths.
+Verified deployment `f9849f5e` completed on doc2 at 14:30:24 AWST. The deployed
+importer and storage probe hashes matched the reviewed source; the bridge timer,
+authenticated Calibre access, storage probe and Shelfarr HTTPS endpoint passed.
+Calibre returned to 281 books after cleanup; Komga marked both fixture records
+deleted. The bridge's sandbox also denied reads of both Shelfarr encryption-key
+files while allowing its read-only book query.
 
 ### What ABS synchronization displays
 
