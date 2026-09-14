@@ -1,15 +1,17 @@
 // Tailscale ACL — repo-authoritative tailnet policy (issue #239).
 //
-// Model: five role tags on a default-DENY tailnet, authored in the modern
+// Model: infrastructure tags and personal-device IP sets on a default-DENY tailnet,
+// so personal devices keep user ownership and can consume incoming NAS shares.
+// See docs/wiki/infrastructure/tailscale-personal-devices.md. Authored in the modern
 // `grants` syntax (classic `acls` are frozen upstream). Applied self-hosted from
 // doc1 (the bastion) via gitops-pusher (modules/nixos/services/tailscale/acl-apply.nix)
 // using the doc1 OAuth client held in sops (`policy_file` + DNS read/write).
 //
 //   tag:server  full mesh; the fleet's service VMs + pfSense + tower + legacy VMs
-//   tag:client  trusted personal/admin devices; full tailnet + non-Cullen routes
+//   ipset:trusted-clients  named personal/admin devices; tailnet + non-Cullen routes
 //   tag:share   inbound-443 share sidecars (own devices + inter-tailnet shares)
 //   tag:edge    remote/isolated nodes; no implicit fleet access, enumerated egress only
-//   tag:cullen  the Cullen-site laptop (laptop-btibh4ie/wsl) — strictest: a minimal
+//   ipset:cullen  the Cullen-site laptop (laptop-btibh4ie/wsl) — strictest: a minimal
 //               management plane plus direct Syncthing to doc2; nothing else
 //
 // Plan: docs/plans/2026-06-07-002-feat-tailscale-acl-least-privilege-plan.md
@@ -28,6 +30,7 @@
   // Who may apply each tag. autogroup:admin = the tailnet admins (abl030).
   "tagOwners": {
     "tag:server": ["autogroup:admin"],
+    // Legacy identities during reauthentication only; these tags grant no access.
     "tag:client": ["autogroup:admin"],
     "tag:share":  ["autogroup:admin"],
     "tag:edge":   ["autogroup:admin"],
@@ -51,9 +54,14 @@
     "doc2":          "100.87.177.120", // GWM archiver host; triggers EPUB conversion on epi
     "dadnas-proxy":  "100.93.176.58",  // user-owned userspace connection on doc1; never tag this node
     "dadnas":        "100.103.36.101", // Dad's shared-in zarepath NAS, recipient-side address
+    "dadnas-v6":     "fd7a:115c:a1e0:ab12:4843:cd96:6267:2466",
     "epimetheus":    "100.115.114.53", // conversion workstation, normally asleep
+    "epimetheus-v6": "fd7a:115c:a1e0::e633:7235",
+    "epimetheus-vm": "100.127.127.81", // existing trusted member; offline since 2025-12-05
+    "epimetheus-vm-v6": "fd7a:115c:a1e0::4033:7f51",
     "pfsense":       "100.123.61.111", // recursive DNS resolver for the whole fleet
     "framework":     "100.78.17.73",   // dev workstation; reaches cullen for Cullen-side work
+    "framework-v6":  "fd7a:115c:a1e0::2101:114e",
     "cullen":        "100.75.246.114", // laptop-btibh4ie (Windows) — wsl SSH jump + Cullen route
     "cullen-v6":     "fd7a:115c:a1e0::1a33:f672", // same laptop; IPv6 policy-test source
     "homeassistant": "100.106.165.120", // edge node allowed to reach the Cullen inverters
@@ -61,13 +69,27 @@
     "kerrynas":      "100.100.237.21",  // mum's Synology — offsite kopia/NFS backup target
     "caddy":         "100.96.32.96",   // edge-proxy LXC (CT 108) — legacy proxies to mum's gear + Cullen solar
     "rpi":           "100.88.30.54",   // dad's raspberrypi (tag:edge) — doc1 diagnostic path
-    "s-a55":         "100.102.60.123",  // the phone — test-only: a non-deployer client (asserts it can't reach cullen)
+    "s-a55":         "100.102.60.123", // phone, trusted personal client
+    "s-a55-v6":      "fd7a:115c:a1e0::5301:3c7b",
     "yoto":          "100.125.110.111", // read-only Yoto file share; exact Cullen-laptop pinhole
     "ali-music":     "100.121.236.12",  // Ali Cratedigger; exact Cullen-laptop HTTPS pinhole
     "shelfarr":      "100.118.169.64",  // audiobook requests; exact Cullen-laptop HTTPS pinhole
     "shelfarr-v6":   "fd7a:115c:a1e0::a83a:a942", // same sidecar, published AAAA address
     "yotodav":       "100.125.63.39",   // Yoto WebDAV; negative test keeps Cullen off other shares
     "imagegen":      "100.96.55.109",  // imagegen-gpu VM (tag:imagegen) — ComfyUI, four-device :443 grant
+  },
+
+  // -------------------------------------------------------------------- ipsets
+  // Membership is explicit and independent of device ownership. Include both
+  // addresses; never substitute an account-wide grant for these access levels.
+  "ipsets": {
+    "ipset:trusted-clients": [
+      "host:framework", "host:framework-v6",
+      "host:epimetheus", "host:epimetheus-v6",
+      "host:epimetheus-vm", "host:epimetheus-vm-v6",
+      "host:s-a55", "host:s-a55-v6",
+    ],
+    "ipset:cullen": ["host:cullen", "host:cullen-v6"],
   },
 
   // -------------------------------------------------------------------- grants
@@ -96,7 +118,7 @@
     // caddy (edge-proxy LXC, pinned by IP) → its tailnet-crossing legacy proxy
     // upstreams, enumerated: mumnas.ablz.au → kerrynas DSM (tcp:5000),
     // mumrouter.ablz.au → mum's router via kerrynas's 192.168.4.0/23 route, and
-    // the two Cullen solar dashboards (same /32:443 pinholes tag:client + HA
+    // the two Cullen solar dashboards (same /32:443 pinholes ipset:trusted-clients + HA
     // get; .140 stays outside). Re-pin the IP here if caddy is ever re-keyed.
     { "src": ["caddy"], "dst": ["kerrynas"], "ip": ["tcp:5000"] },
     { "src": ["caddy"], "dst": ["192.168.4.1/32"], "ip": ["tcp:80"] },
@@ -107,25 +129,29 @@
     // writer, deploy-trigger + ACL-OAuth + sops-editor keys) — a compromise is
     // a fleet takeover regardless, so unrestricted egress adds no blast radius.
     // It also makes the stepping-stone model actually work: doc1 must reach
-    // EVERY node (e.g. `ssh epi`, a tag:client node — the server mesh alone does
+    // EVERY node (e.g. `ssh epi`, a trusted client — the server mesh alone does
     // not permit server→client). INBOUND to doc1 is unchanged: it stays
     // tag:server (full server mesh + client→server). Egress only; dst ["*"] =
     // all tailnet nodes, NOT autogroup:internet (doc1 has its own WAN). doc1 is
     // pinned by IP in `hosts` above, so this is exactly that one node.
     { "src": ["doc1"], "dst": ["*"], "ip": ["*"] },
 
-    // === tag:client — trusted personal/admin devices =======================
+    // Incoming share consumption additionally requires user ownership and Dad's
+    // sharing policy. Only DSM and the requested Tailscale web UI are exposed.
+    { "src": ["ipset:trusted-clients", "ipset:cullen"], "dst": ["dadnas", "dadnas-v6"], "ip": ["tcp:5000", "tcp:5252"] },
+
+    // === ipset:trusted-clients — trusted personal/admin devices =======================
     // framework, epimetheus, epimetheus-vm, s-a55 (phone). These are trusted
     // operator devices, so they get full tailnet access and approved non-Cullen
     // subnet-route access. The Cullen work subnet is deliberately not broadly
     // included: only the dashboard host and inverter /32s below are open.
-    // (laptop-btibh4ie is deliberately tag:cullen, not tag:client.)
-    { "src": ["tag:client"], "dst": ["tag:server", "tag:client", "tag:share", "tag:edge", "tag:cullen"], "ip": ["*"] },
-    { "src": ["tag:client"], "dst": ["192.168.0.0/23", "192.168.2.0/24", "192.168.4.0/23"], "ip": ["*"] },
-    { "src": ["tag:client"], "dst": ["192.168.100.128/32", "192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
+    // (laptop-btibh4ie is deliberately ipset:cullen, not ipset:trusted-clients.)
+    { "src": ["ipset:trusted-clients"], "dst": ["tag:server", "ipset:trusted-clients", "tag:share", "tag:edge", "ipset:cullen"], "ip": ["*"] },
+    { "src": ["ipset:trusted-clients"], "dst": ["192.168.0.0/23", "192.168.2.0/24", "192.168.4.0/23"], "ip": ["*"] },
+    { "src": ["ipset:trusted-clients"], "dst": ["192.168.100.128/32", "192.168.100.139/32", "192.168.100.133/32"], "ip": ["tcp:443"] },
 
     // Clients may use an approved exit node (tower) for full internet egress.
-    { "src": ["tag:client"], "dst": ["autogroup:internet"], "ip": ["*"] },
+    { "src": ["ipset:trusted-clients"], "dst": ["autogroup:internet"], "ip": ["*"] },
 
     // === tag:share — share sidecars (inbound 443) =========================
     // overseer, jellyfin-1, audiobookshelf, hermes-ui. Reached over the tailnet
@@ -134,7 +160,7 @@
     // egress into the fleet (share→fleet stays denied — see the deny tests).
     // tag:server included so Uptime Kuma (on doc2) can health-check the share
     // services over the tailnet (overseer.ablz.au → the share node's 100.x:443).
-    { "src": ["tag:client", "tag:server"], "dst": ["tag:share"], "ip": ["tcp:443"] },
+    { "src": ["ipset:trusted-clients", "tag:server"], "dst": ["tag:share"], "ip": ["tcp:443"] },
     // External shared-in users (accounts we've shared nodes with) reach whatever
     // is shared to them on 443. The node-share mechanism limits WHO sees WHICH
     // node (ali only sees overseer); this grant just lets the 443 through. New
@@ -145,18 +171,18 @@
     // Participants: epi, framework (client), and doc1 (server). It's a mesh;
     // either peer may initiate. One symmetric grant on the syncthing ports
     // (tcp/udp 22000 data, udp 21027 discovery). doc2's separate listener is
-    // not part of this grant; it has one exact tag:cullen → doc2 rule below.
-    // forgejo#4: tag:cullen was REMOVED from this mesh — wsl no longer runs
+    // not part of this grant; it has one exact ipset:cullen → doc2 rule below.
+    // forgejo#4: ipset:cullen was REMOVED from this mesh — wsl no longer runs
     // syncthing (its syncthingDeviceId was dropped from hosts.nix). This closes
     // cullen's peer-to-peer mesh path into the fleet. The later narrow doc2 rule
     // does not restore mesh membership or expose any other NAS directory.
-    { "src": ["tag:client", "tag:server"], "dst": ["tag:client", "tag:server"], "ip": ["tcp:22000", "udp:22000", "udp:21027"] },
+    { "src": ["ipset:trusted-clients", "tag:server"], "dst": ["ipset:trusted-clients", "tag:server"], "ip": ["tcp:22000", "udp:22000", "udp:21027"] },
 
-    // === tag:cullen — the Cullen-site laptop (laptop-btibh4ie / wsl) ========
-    // Strictest tag. A compromise here must not pivot into the fleet, and the
+    // === ipset:cullen — the Cullen-site laptop (laptop-btibh4ie / wsl) ========
+    // Restricted device set. A compromise here must not pivot into the fleet, and the
     // fleet must not roam the Cullen LAN. wsl is still a MANAGED NixOS host, so it
     // gets a MINIMAL outbound management plane (not zero, or it can't auto-update).
-    //   IN : trusted tag:client devices get full access by design; doc1 (server)
+    //   IN : trusted ipset:trusted-clients devices get full access by design; doc1 (server)
     //        gets deploy SSH only.
     //   OUT: interactive SSH to doc1 ONLY (the bastion — hop to siblings from
     //        there; restored 2026-06-22, the flip had dropped wsl's old shell path);
@@ -171,44 +197,44 @@
     // HA inverters, no broad work-subnet access.
     // :22 is the tailnet-only Windows portproxy to WSL and remains reachable
     // from the established WSL-management sources. :2222 is the independent
-    // Windows OpenSSH listener and is deliberately doc1-only.
-    { "src": ["doc1", "framework"], "dst": ["tag:cullen"], "ip": ["tcp:22"] },
-    { "src": ["doc1"], "dst": ["tag:cullen"], "ip": ["tcp:2222"] },
+    // Windows OpenSSH listener; doc1 and the trusted-client rule can reach it.
+    { "src": ["doc1", "framework"], "dst": ["ipset:cullen"], "ip": ["tcp:22"] },
+    { "src": ["doc1"], "dst": ["ipset:cullen"], "ip": ["tcp:2222"] },
     // cullen → doc1 SSH: remote wsl admin reaches the bastion ONLY (NOT
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
-    { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
-    { "src": ["tag:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
+    { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
+    { "src": ["ipset:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
     // Work laptop → the intended Yoto/music/audiobook-request HTTPS shares. Pin each exact
-    // share node rather than granting tag:cullen access to every tag:share service.
-    { "src": ["tag:cullen"], "dst": ["yoto"], "ip": ["tcp:443"] },
-    { "src": ["tag:cullen"], "dst": ["ali-music"], "ip": ["tcp:443"] },
-    { "src": ["tag:cullen"], "dst": ["shelfarr", "shelfarr-v6"], "ip": ["tcp:443"] },
+    // share node rather than granting ipset:cullen access to every tag:share service.
+    { "src": ["ipset:cullen"], "dst": ["yoto"], "ip": ["tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["ali-music"], "ip": ["tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["shelfarr", "shelfarr-v6"], "ip": ["tcp:443"] },
     // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
-    { "src": ["tag:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
+    { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
     // them over tower's 192.168.0.0/23 route (added 2026-06-23, the servarr .4 cutover).
-    { "src": ["tag:cullen"], "dst": ["192.168.1.4/32", "192.168.1.29/32", "192.168.1.35/32", "192.168.1.33/32", "192.168.1.6/32"], "ip": ["tcp:443"] },
-    { "src": ["tag:cullen"], "dst": ["192.168.1.35/32"], "ip": ["tcp:8050"] },
+    { "src": ["ipset:cullen"], "dst": ["192.168.1.4/32", "192.168.1.29/32", "192.168.1.35/32", "192.168.1.33/32", "192.168.1.6/32"], "ip": ["tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["192.168.1.35/32"], "ip": ["tcp:8050"] },
     // Cullen laptop → isolated doc2 Syncthing listener for meg-andy-scans.
     // No discovery, relay, reverse-initiation, or access to another peer.
-    { "src": ["tag:cullen"], "dst": ["doc2"], "ip": ["tcp:22000"] },
+    { "src": ["ipset:cullen"], "dst": ["doc2"], "ip": ["tcp:22000"] },
     // wsl mounts tower's NFS export (/mnt/user/data, NFSv4.2 → tcp:2049 only) via
     // tower's 192.168.0.0/23 route. This is the CHOSEN transport (#4): an
     // on-demand, self-unmounting mount (hosts/wsl/data-mounts.nix), not Syncthing.
-    { "src": ["tag:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
+    { "src": ["ipset:cullen"], "dst": ["192.168.1.2/32"], "ip": ["tcp:2049"] },
     // Apollo gaming VM (.111, "Gaming-106"): Moonlight/Artemis game streaming from
     // the Cullen laptop over tower's 192.168.0.0/23 route. Sunshine/Apollo protocol:
     // pairing+launch+control TCP (47984 HTTPS, 47989 HTTP, 48010 RTSP) + web UI 47990,
     // and the video/audio/control/mic UDP range 47998-48010. Matches the pfSense
     // tailnet-IN allowlist for .111; mDNS 5353 omitted (multicast doesn't route — add
     // the host by IP in Moonlight). See docs/wiki/services/apollo-gaming-vm.md.
-    { "src": ["tag:cullen"], "dst": ["192.168.1.111/32"], "ip": ["tcp:47984", "tcp:47989", "tcp:47990", "tcp:48010", "udp:47998-48010"] },
+    { "src": ["ipset:cullen"], "dst": ["192.168.1.111/32"], "ip": ["tcp:47984", "tcp:47989", "tcp:47990", "tcp:48010", "udp:47998-48010"] },
 
     // === tag:imagegen — ComfyUI on the GTX 1080 VM (imagegen.ablz.au) =======
     // The UI has no authentication, so this grant is the whole access control:
     // exactly the owner's four devices, tcp:443 to nginx, which binds the
     // tailnet IP only (no LAN listener, no Cloudflare record on a LAN IP).
-    // Deliberately NOT tag:client (other trusted devices) and NOT tag:server
+    // Deliberately NOT ipset:trusted-clients (other trusted devices) and NOT tag:server
     // (no Kuma probe — the host is off during gaming anyway). The node has no
     // outbound grants at all: it needs nothing from the fleet over the tailnet.
     { "src": ["framework", "epimetheus", "s-a55", "cullen"], "dst": ["tag:imagegen"], "ip": ["tcp:443"] },
@@ -251,7 +277,7 @@
     // DHCP lease and reserve it when the work DHCP server is next administered.
     { "src": ["homeassistant"], "dst": ["water-meter"], "ip": ["tcp:6053", "tcp:3232"] },
     // doc1 (bastion) → dad's raspberrypi: SSH admin only. doc1 logs into the pi
-    // (key-only) for management; dad's-LAN access otherwise rides the tag:client
+    // (key-only) for management; dad's-LAN access otherwise rides the ipset:trusted-clients
     // subnet route (192.168.2.0/24), so doc1 needs just :22 to the rpi node.
     { "src": ["doc1"], "dst": ["rpi"], "ip": ["tcp:22"] },
 
@@ -298,11 +324,12 @@
   ],
 
   // -------------------------------------------------------------- autoApprovers
-  // Pre-approve advertised subnet routes + exit nodes by tag (NOT retroactive).
+  // Infrastructure routes/exit nodes auto-approve by tag; Cullen uses manual approval.
   "autoApprovers": {
     "routes": {
       "192.168.0.0/23":   ["tag:server"], // tower → home LAN
-      "192.168.100.0/24": ["tag:cullen"], // laptop-btibh4ie → Cullen site
+      // Cullen 192.168.100.0/24 is manually approved on laptop-btibh4ie only.
+      // autoApprovers cannot select IP sets; do not delegate this to every user device.
       "192.168.2.0/24":   ["tag:edge"],   // raspberrypi → dad's LAN
       "192.168.4.0/23":   ["tag:edge"],   // kerrynas → mum's LAN
     },
@@ -317,38 +344,52 @@
   // on-wire reachability is verified live post-flip.
   "tests": [
     // DNS preserved (the #1 lockout risk), both protocols.
-    { "src": "tag:client", "proto": "tcp", "accept": ["pfsense:53"] },
-    { "src": "tag:client", "proto": "udp", "accept": ["pfsense:53"] },
+    { "src": "framework", "proto": "tcp", "accept": ["pfsense:53"] },
+    { "src": "epimetheus", "proto": "tcp", "accept": ["pfsense:53"] },
+    { "src": "epimetheus-vm", "proto": "tcp", "accept": ["pfsense:53"] },
+    { "src": "s-a55", "proto": "tcp", "accept": ["pfsense:53"] },
+    { "src": "framework", "proto": "udp", "accept": ["pfsense:53"] },
+    { "src": "epimetheus", "proto": "udp", "accept": ["pfsense:53"] },
+    { "src": "epimetheus-vm", "proto": "udp", "accept": ["pfsense:53"] },
+    { "src": "s-a55", "proto": "udp", "accept": ["pfsense:53"] },
     // client: trusted personal/admin devices get full tailnet + selected route access.
-    { "src": "tag:client", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "tag:client:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "framework", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework:22000", "epimetheus:22000", "epimetheus-vm:22000", "s-a55:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "framework-v6", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework-v6:22000", "epimetheus-v6:22000", "epimetheus-vm-v6:22000", "s-a55-v6:22000", "tag:share:443"] },
+    { "src": "epimetheus", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework:22000", "epimetheus:22000", "epimetheus-vm:22000", "s-a55:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "epimetheus-v6", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework-v6:22000", "epimetheus-v6:22000", "epimetheus-vm-v6:22000", "s-a55-v6:22000", "tag:share:443"] },
+    { "src": "epimetheus-vm", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework:22000", "epimetheus:22000", "epimetheus-vm:22000", "s-a55:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "epimetheus-vm-v6", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework-v6:22000", "epimetheus-v6:22000", "epimetheus-vm-v6:22000", "s-a55-v6:22000", "tag:share:443"] },
+    { "src": "s-a55", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework:22000", "epimetheus:22000", "epimetheus-vm:22000", "s-a55:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
+    { "src": "s-a55-v6", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework-v6:22000", "epimetheus-v6:22000", "epimetheus-vm-v6:22000", "s-a55-v6:22000", "tag:share:443"] },
     // server mesh sanity + server → share (Kuma health-checks).
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // GWM post-download conversion trigger: exact doc2 → epimetheus SSH only.
     { "src": "doc2", "proto": "tcp", "accept": ["epimetheus:22"] },
-    // Dad NAS: fixed DSM relay; no extra fleet access or direct Cullen backend access.
+    // Dad NAS: fixed DSM relay; personal clients get only the two requested web ports.
     { "src": "dadnas-proxy", "proto": "tcp", "accept": ["dadnas:5000"], "deny": ["dadnas:22", "dadnas:5001", "doc1:22", "doc2:443", "192.168.1.2:2049"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["192.168.1.6:443"], "deny": ["dadnas:5000", "192.168.1.29:15000"] },
-    // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
+    { "src": "cullen", "proto": "tcp", "accept": ["192.168.1.6:443"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001", "192.168.1.29:15000"] },
+    // cullen: deploy/dev SSH in (doc1 and trusted clients); out = SSH to doc1 (bastion),
     // DNS, exact mgmt endpoints, tower NFS(2049). doc1:22 is cullen's SOLE tailnet
     // :22 path — it still reaches NO other fleet tailnet IP and no broad home-LAN
-    // route. forgejo#4: syncthing(22000) is now DENIED (wsl left the mesh).
+    // route. Syncthing has an exact doc2:22000 exception; the broad server mesh is denied.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:443", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:80", "yotodav:443", "tag:server:443", "tag:client:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:443", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:80", "yotodav:443", "tag:server:443", "framework:443", "epimetheus:443", "epimetheus-vm:443", "s-a55:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
+    { "src": "cullen-v6", "proto": "tcp", "deny": ["tag:server:443", "framework-v6:443", "epimetheus-v6:443", "epimetheus-vm-v6:443", "s-a55-v6:443", "tag:server:22000"] },
     // Shelfarr's published IPv4/IPv6 HTTPS addresses; no management or alternate web ports.
     { "src": "cullen", "proto": "tcp", "accept": ["shelfarr:443"], "deny": ["shelfarr:22", "shelfarr:80", "shelfarr:5056"] },
     { "src": "cullen-v6", "proto": "tcp", "accept": ["shelfarr-v6:443"], "deny": ["shelfarr-v6:22", "shelfarr-v6:80", "shelfarr-v6:5056"] },
     // imagegen: exactly the four listed devices reach ComfyUI on :443; every other
     // vantage — servers, share sidecars, the LAN address — is denied. (tag:imagegen
     // has no outbound grants; the "deny" on its own src proves it stays that way.)
-    { "src": "framework",    "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "epimetheus",   "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "s-a55",        "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "cullen",       "proto": "tcp", "accept": ["tag:imagegen:443"] },
-    { "src": "tag:server",   "proto": "tcp", "deny":   ["tag:imagegen:443"] },
-    { "src": "tag:share",    "proto": "tcp", "deny":   ["tag:imagegen:443"] },
-    { "src": "tag:edge",     "proto": "tcp", "deny":   ["tag:imagegen:443"] },
-    { "src": "tag:imagegen", "proto": "tcp", "deny":   ["tag:server:22", "tag:server:443", "tag:client:443", "pfsense:53", "192.168.1.2:2049"] },
+    { "src": "framework", "proto": "tcp", "accept": ["tag:imagegen:443"] },
+    { "src": "epimetheus", "proto": "tcp", "accept": ["tag:imagegen:443"] },
+    { "src": "s-a55", "proto": "tcp", "accept": ["tag:imagegen:443"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["tag:imagegen:443"] },
+    { "src": "tag:server", "proto": "tcp", "deny": ["tag:imagegen:443"] },
+    { "src": "tag:share", "proto": "tcp", "deny": ["tag:imagegen:443"] },
+    { "src": "tag:edge", "proto": "tcp", "deny": ["tag:imagegen:443"] },
+    { "src": "tag:imagegen", "proto": "tcp", "deny": ["tag:server:22", "tag:server:443", "framework:443", "framework-v6:443", "epimetheus:443", "epimetheus-v6:443", "epimetheus-vm:443", "epimetheus-vm-v6:443", "s-a55:443", "s-a55-v6:443", "pfsense:53", "192.168.1.2:2049"] },
     { "src": "cullen", "proto": "udp", "accept": ["pfsense:53", "192.168.1.111:47998"] },
     // cullen → doc1 RCA webhook (8644) for negative alert routing.
     { "src": "cullen", "proto": "tcp", "accept": ["doc1:8644"] },
@@ -356,28 +397,56 @@
     { "src": "s-a55", "proto": "tcp", "accept": ["cullen:22", "cullen:443"] },
     // doc1 → rpi diagnostic path.
     { "src": "doc1", "proto": "tcp", "accept": ["rpi:22"] },
-    // doc1 (bastion) unrestricted egress: now reaches tag:client (e.g. framework
+    // doc1 (bastion) unrestricted egress: reaches trusted clients (e.g. framework
     // — fixes `ssh epi` over the tailnet) and any server/share port, beyond the
     // old server-mesh + cullen/rpi :22.
-    { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "tag:client:22", "tag:server:443", "tag:share:443"] },
+    { "src": "doc1", "proto": "tcp", "accept": ["framework:22", "epimetheus:22", "epimetheus-vm:22", "s-a55:22", "tag:server:443", "tag:share:443"] },
     // backup-egress (prom): exactly one reachable endpoint, and nothing else —
     // not the fleet, not DNS, not the home LAN, not even the rest of kerrynas.
     { "src": "tag:backup-egress", "proto": "tcp",
       "accept": ["kerrynas:2049"],
-      "deny": ["tag:server:22", "tag:server:443", "tag:client:22", "tag:share:443",
+      "deny": ["tag:server:22", "tag:server:443", "framework:22", "framework-v6:22", "epimetheus:22", "epimetheus-v6:22", "epimetheus-vm:22", "epimetheus-vm-v6:22", "s-a55:22", "s-a55-v6:22", "tag:share:443",
                "doc1:22", "doc2:443", "pfsense:53", "kerrynas:22", "kerrynas:5000",
                "192.168.1.2:2049", "cullen:22"] },
     // ...and nothing on the tailnet may reach prom.
-    { "src": "tag:client", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "framework", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "framework-v6", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "epimetheus", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "epimetheus-v6", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "epimetheus-vm", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "epimetheus-vm-v6", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "s-a55", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
+    { "src": "s-a55-v6", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
     { "src": "tag:server", "proto": "tcp", "deny": ["tag:backup-egress:22", "tag:backup-egress:8006"] },
-    { "src": "tag:edge",   "proto": "tcp", "deny": ["tag:backup-egress:22"] },
+    { "src": "tag:edge", "proto": "tcp", "deny": ["tag:backup-egress:22"] },
     // edge / share isolation: no path into the fleet.
-    { "src": "tag:edge",  "proto": "tcp", "deny": ["tag:server:443"] },
+    { "src": "tag:edge", "proto": "tcp", "deny": ["tag:server:443"] },
     { "src": "tag:share", "proto": "tcp", "deny": ["tag:server:443"] },
     // HA → inverters + encrypted ESPHome API only; adjacent Cullen IP and the
     // water-meter captive-portal port remain denied.
     { "src": "homeassistant", "proto": "tcp", "accept": ["192.168.100.139:443", "water-meter:6053", "water-meter:3232"], "deny": ["192.168.100.140:443", "192.168.100.90:6053", "water-meter:80"] },
     // caddy edge proxy → mum's DSM/router + Cullen solar dashboards, nothing wider.
     { "src": "caddy", "proto": "tcp", "accept": ["kerrynas:5000", "192.168.4.1:80", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443", "kerrynas:22"] },
+    // Every personal identity gets Dad's web ports, with no adjacent-port grant.
+    { "src": "framework", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
+    { "src": "framework-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },
+    { "src": "epimetheus", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
+    { "src": "epimetheus-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },
+    { "src": "epimetheus-vm", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
+    { "src": "epimetheus-vm-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },
+    { "src": "s-a55", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
+    { "src": "s-a55-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["dadnas:5000", "dadnas:5252"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001"] },
+    { "src": "cullen-v6", "proto": "tcp", "accept": ["dadnas-v6:5000", "dadnas-v6:5252"], "deny": ["dadnas-v6:22", "dadnas-v6:5001"] },
+    // Incoming mesh/dev paths survive removal of client/Cullen tags, in IPv6 too.
+    { "src": "tag:server", "proto": "tcp", "accept": ["framework-v6:22000", "s-a55-v6:22000"] },
+    { "src": "s-a55-v6", "proto": "tcp", "accept": ["cullen-v6:22", "cullen-v6:443"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc2:22000"], "deny": ["framework:22", "s-a55:8022", "192.168.100.140:443", "203.0.113.1:443"] },
+    { "src": "cullen-v6", "proto": "tcp", "deny": ["framework-v6:22", "s-a55-v6:8022", "[2001:db8::1]:443"] },
+    { "src": "framework", "proto": "tcp", "accept": ["203.0.113.1:443"] },
+    { "src": "framework-v6", "proto": "tcp", "accept": ["[2001:db8::1]:443"] },
+    // A newly enrolled device gets no role just by belonging to Andrew's account.
+    { "src": "100.64.255.254", "proto": "tcp", "deny": ["doc1:22", "framework:22", "cullen:22", "shelfarr:443", "dadnas:5252", "192.168.1.1:443"] },
+    { "src": "fd7a:115c:a1e0::ffff:fffe", "proto": "tcp", "deny": ["framework-v6:22", "cullen-v6:22", "shelfarr-v6:443", "dadnas-v6:5252"] },
   ],
 }

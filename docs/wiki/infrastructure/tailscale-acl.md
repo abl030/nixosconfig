@@ -1,5 +1,9 @@
 # Tailscale ACL — the fleet's tailnet trust boundary
 
+- **2026-09-14 update:** personal access levels now use `ipset:trusted-clients` and
+  `ipset:cullen`; infrastructure keeps its tags. The older client/Cullen tag model
+  below is historical. See [personal devices](tailscale-personal-devices.md) for
+  current membership, ownership migration, and manual Cullen route approval.
 - **Date:** 2026-06-21 (updated 2026-07-27)
 - **Status:** ✅ **Default-deny LIVE** (flipped 2026-06-21). 5-tag `grants` policy; all
   20 nodes tagged; 6 stale nodes culled. Route-grant hardening landed 2026-06-22:

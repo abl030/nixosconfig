@@ -28,9 +28,12 @@ write access beyond Tailscale state. Only Unix sockets may be opened by each
 relay worker. Caddy receives no Tailscale credentials.
 
 The Cullen laptop reaches the same HTTPS URL using its existing exact
-`192.168.1.6:443` route grant. It receives no direct access to the NAS's other
-ports or doc1's relay port. DSM still requires its own login. The upstream HTTP
-traffic crosses Dad's connection inside the encrypted Tailscale tunnel.
+`192.168.1.6:443` route grant. The [personal-device policy](../infrastructure/tailscale-personal-devices.md)
+also permits trusted clients and Cullen directly to NAS TCP 5000 and 5252 once
+reauthenticated as the share recipient. Port 5252 is the Tailscale web interface;
+the shared recipient receives `canManageNode:false`, not ownership of Dad's NAS.
+Other NAS ports and doc1's relay port remain denied to Cullen. DSM requires its
+own login. Upstream HTTP crosses Dad's connection inside the Tailscale tunnel.
 
 ## State and recovery
 
