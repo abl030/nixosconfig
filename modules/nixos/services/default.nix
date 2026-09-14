@@ -35,6 +35,10 @@
     ./audiobookshelf.nix
     ./shelfarr.nix
     ./shelfarr-calibre.nix
+    ./chaptarr.nix
+    ./booklore.nix
+    ./bookkeep.nix
+    ./readmeabook.nix
     ./atuin.nix
     ./beancount.nix
     ./beets.nix

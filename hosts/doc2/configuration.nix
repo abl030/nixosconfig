@@ -319,6 +319,12 @@
         dataDir = "/mnt/virtio/shelfarr";
         calibre.enable = true;
       };
+      # Parallel LAN-only evaluations; production Shelfarr remains available.
+      # docs/wiki/services/book-platform-exploration.md
+      chaptarr.enable = true;
+      booklore.enable = true;
+      bookkeep.enable = true;
+      readmeabook.enable = true;
       # Companion to ABS: chapter-splits books into Yoto-legal tracks and
       # serves them as a browsable tailnet file drop, because the ABS app
       # downloads into private app storage a file-picker can't reach and a
