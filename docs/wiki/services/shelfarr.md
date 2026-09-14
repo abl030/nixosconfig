@@ -13,6 +13,8 @@ image uses `latest`, with the normal fleet update and recovery machinery.
   sidecars. The node advertises `tag:share`; DNS publishes its Tailscale A/AAAA
   addresses. There is no LAN proxy or public application listener.
 - The application binds host loopback and the Podman bridge on port 5056.
+- Cullen's laptop (`tag:cullen`) has an exact TCP 443 grant to this sidecar's
+  IPv4 and IPv6 addresses in `tailscale/acl.hujson`; other share access is unchanged.
 - Initial administrator: `abl030`. Recover the initial password with
   `ssh doc2 'sudo cat /run/secrets/shelfarr/admin-password'`, then change it in
   Profile. This recovery secret is not updated by later profile changes.
