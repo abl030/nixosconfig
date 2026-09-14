@@ -89,3 +89,22 @@ immediately. Verify the active executable contains `DAYS=14`, the unit completes
 successfully, disk usage falls, and both cache endpoints still answer. To return
 to 45-day retention, revert the host setting and deploy through the same path;
 already-pruned cache files will be fetched on demand.
+
+### Live verification
+
+Signed commit `81a6fcf91196cde40f00bdfaf908ae2077be7291` deployed successfully
+through `fleet-update`; the running configuration revision matched it. The
+active prune script contained `DAYS=14` and completed successfully at 06:47 AWST.
+The mirror fell from **106.49 GiB to 44.18 GiB**, freeing **62.31 GiB**.
+Root then had **256 GiB available**, with **307 GiB used (55%)**.
+
+A 7,715-byte expired NAR was confirmed absent after pruning, then fetched over
+HTTPS. Its SHA-256 matched the original and nginx cached it again. The local
+Nix cache and Forgejo also answered, the daily prune timer remained active,
+and systemd reported no failed services. Formatting, deadnix, statix, and the
+full `nix flake check` passed for the configuration change.
+
+The deploy reported an existing stale rolling-update heartbeat. Freshness
+reporting is advisory under the current fleet policy; signature/ancestry
+verification and activation succeeded. No freshness marker was altered to
+suppress that report.
