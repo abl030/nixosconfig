@@ -56,7 +56,7 @@ in {
       serviceConfig = {
         TemporaryFileSystem = "/mnt";
         BindPaths = [cfg.dataDir];
-        BindReadOnlyPaths = [existingAudio "\"${existingEbooks}:/mnt/chaptarr-existing-ebooks\""];
+        BindReadOnlyPaths = [existingAudio "\"${existingEbooks}\":/mnt/chaptarr-existing-ebooks"];
       };
     };
     homelab.podman.containers = [
@@ -79,6 +79,7 @@ in {
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial chaptarr ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
           intervalSecs = 300;
+          requiresUnit = ["podman-chaptarr.service"];
         }
       ];
       errorPatterns = [

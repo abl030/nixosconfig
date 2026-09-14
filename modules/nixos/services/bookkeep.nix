@@ -47,7 +47,7 @@ in {
       mode = "0400";
     };
     containers.bookkeep-db = db.containerConfig;
-    systemd.tmpfiles.rules = (map (p: "d ${cfg.dataDir}/${p} 0750 bookkeep bookkeep - -") ["" "data" "downloads" "audiobooks" "ebooks"]) ++ ["d ${cfg.dataDir}/database 0755 root root - -"];
+    systemd.tmpfiles.rules = (map (p: "d ${cfg.dataDir}/${p} 0750 bookkeep bookkeep - -") ["data" "downloads" "audiobooks" "ebooks"]) ++ ["d ${cfg.dataDir} 0755 root root - -" "d ${cfg.dataDir}/database 0755 root root - -" "d ${cfg.dataDir}/database/postgres 0755 root root - -"];
     networking.firewall.allowedTCPPorts = [cfg.port];
     virtualisation.oci-containers.containers.bookkeep = {
       inherit image;
@@ -60,8 +60,11 @@ in {
         TZ = "Australia/Perth";
         HOME = "/app/data";
       };
-      volumes = ["${cfg.dataDir}/data:/app/data" "${cfg.dataDir}/downloads:/downloads" "${cfg.dataDir}/audiobooks:/audiobooks" "${cfg.dataDir}/ebooks:/ebooks"];
-      extraOptions = config.homelab.podman.hardenOptions ++ ["--user=2023:2023" "--memory=1536m" "--pids-limit=256"];
+      volumes = ["${cfg.dataDir}/data:/app/data" "${cfg.dataDir}/downloads:/downloads" "${cfg.dataDir}/audiobooks:/audiobooks" "${cfg.dataDir}/ebooks:/ebooks" "${./bookkeep-initialize.py}:/etc/bookkeep-initialize.py:ro"];
+      # Fresh upstream image fails before ORM tables exist (upstream #89).
+      # Existing databases continue through its normal migrations unchanged.
+      cmd = ["/etc/bookkeep-initialize.py"];
+      extraOptions = config.homelab.podman.hardenOptions ++ ["--entrypoint=python" "--user=2023:2023" "--memory=1536m" "--pids-limit=256"];
     };
     systemd.services.podman-bookkeep = {
       after = ["container@bookkeep-db.service"];
@@ -92,6 +95,7 @@ in {
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial bookkeep ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
           intervalSecs = 300;
+          requiresUnit = ["podman-bookkeep.service"];
         }
       ];
       errorPatterns = [

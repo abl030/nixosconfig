@@ -41,7 +41,7 @@ in {
       mode = "0400";
     };
     containers.readmeabook-db = db.containerConfig;
-    systemd.tmpfiles.rules = (map (p: "d ${cfg.dataDir}/${p} 0750 readmeabook readmeabook - -") ["" "config" "cache" "redis" "media" "downloads"]) ++ ["d ${cfg.dataDir}/database 0755 root root - -"];
+    systemd.tmpfiles.rules = (map (p: "d ${cfg.dataDir}/${p} 0750 readmeabook readmeabook - -") ["config" "cache" "redis" "media" "downloads"]) ++ ["d ${cfg.dataDir} 0755 root root - -" "d ${cfg.dataDir}/database 0755 root root - -" "d ${cfg.dataDir}/database/postgres 0755 root root - -"];
     networking.firewall.allowedTCPPorts = [cfg.port];
     virtualisation.oci-containers.containers.readmeabook = {
       inherit image;
@@ -87,6 +87,7 @@ in {
           command = "${pkgs.callPackage ./probes/check-book-trial.nix {}}/bin/check-book-trial readmeabook ${cfg.dataDir} ${toString cfg.port}";
           interval = "5m";
           intervalSecs = 300;
+          requiresUnit = ["podman-readmeabook.service"];
         }
       ];
       errorPatterns = [

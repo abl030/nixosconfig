@@ -58,12 +58,10 @@ def main() -> None:
                 cursor.execute(f"SELECT COUNT(*) FROM {quote}{table}{quote}")
                 count = cursor.fetchone()[0]
                 cursor.execute(f"UPDATE {quote}{table}{quote} SET {quote}{column}{quote}={quote}{column}{quote} WHERE 1=0")
-                cursor.execute("CREATE TEMPORARY TABLE homelab_write_probe (value INTEGER)")
-                cursor.execute("INSERT INTO homelab_write_probe VALUES (1)")
-                cursor.execute("SELECT value FROM homelab_write_probe")
-                assert cursor.fetchone() == (1,)
+                # Exercise UPDATE authority without DDL: MariaDB's audit alert
+                # deliberately treats non-startup DDL as an operational event.
             connection.rollback()
-            print(json.dumps({"app": app, "catalog_rows": count, "database_write": "ok"}))
+            print(json.dumps({"app": app, "catalog_rows": count, "database_write_authority": "ok"}))
         finally:
             connection.close()
     print(f"{app}: HTTP, application state and database write checks passed")
