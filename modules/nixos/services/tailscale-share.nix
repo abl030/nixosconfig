@@ -262,7 +262,7 @@ in {
 
         publishIpv6 = lib.mkOption {
           type = lib.types.bool;
-          default = false;
+          default = true;
           description = ''
             Also publish an AAAA record carrying the node's Tailscale IPv6.
 
@@ -270,9 +270,10 @@ in {
             tailnet whenever its home address is already taken there (kb/1084);
             the sidecar then masquerades per peer, so the tunnel works but the
             A record resolves to the wrong machine for that sharee alone. The
-            Tailscale IPv6 is never remapped, so an AAAA record gives those
-            devices a working path (Happy Eyeballs prefers it). Seen live on
-            the overseer share on 2026-09-08. When false, an existing AAAA
+            node's IPv6 remained unchanged for the affected recipients, so an
+            AAAA record gives those devices a working path. Seen live on the
+            overseer share on 2026-09-08 and Audiobookshelf on 2026-09-14.
+            Enabled by default for every share. When false, an existing AAAA
             record is removed. See docs/wiki/services/tailscale-share.md.
           '';
         };

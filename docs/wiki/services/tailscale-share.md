@@ -1,6 +1,6 @@
 # tailscaleShare
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-14
 **Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up; "logged out" alert pattern narrowed 2026-05-22 (see [lgtm-stack.md](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap))
 **Owner:** `modules/nixos/services/tailscale-share.nix`
 **Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)
@@ -11,11 +11,23 @@
 
 - a dedicated Tailscale sidecar node and IP
 - a Caddy sidecar sharing that network namespace
-- a repo-owned FQDN and Cloudflare DNS A record (plus an AAAA record with `publishIpv6`)
+- a repo-owned FQDN and Cloudflare DNS A and AAAA records (`publishIpv6` defaults to true)
 - Caddy-managed ACME certs through the Cloudflare DNS challenge
 - a Uptime Kuma monitor for the tailnet-served HTTPS URL
 
 This is a least-privilege sharing pattern: one pinhole per application, not a broad host proxy.
+
+## HTTP redirects (2026-09-14)
+
+Caddy redirects TCP 80 to HTTPS with status 308. The tailnet policy allows both
+TCP 80 and 443 to `tag:share` from trusted clients, servers and `autogroup:shared`.
+External recipients still only see nodes shared with them. Cullen's named Yoto,
+Ali music and Shelfarr grants also include TCP 80; no other destinations are added.
+Shared recipients get only TCP 80/443, and share sidecars gain no fleet egress.
+
+An HTTP redirect needs a working DNS route first. The recipient-side IPv4
+remapping issue below is separate; opening TCP 80 does not correct an A record
+that points to the wrong address in the recipient's tailnet.
 
 ## Monitoring
 
@@ -68,6 +80,7 @@ on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = f
 |---|---|---|---|
 | Overseerr | `doc2` | `overseer.ablz.au` | `/mnt/virtio/tailscale-share/overseerr` |
 | Audiobookshelf | `doc2` | `audiobooks.ablz.au` | `/mnt/virtio/tailscale-share/audiobookshelf` |
+| Shelfarr | `doc2` | `shelfarr.ablz.au` | `/mnt/virtio/tailscale-share/shelfarr` |
 | Ali Cratedigger | `doc2` | `ali-music.ablz.au` | `/mnt/virtio/tailscale-share/ali-music` |
 | Yoto | `doc2` | `yoto.ablz.au` | `/mnt/virtio/tailscale-share/yoto` |
 | Yoto WebDAV | `doc2` | `yotodav.ablz.au` | `/mnt/virtio/tailscale-share/yotodav` |
@@ -106,9 +119,14 @@ Caddy sidecar answers on it (verified from doc1 with
 record stays for IPv4-only clients and for sharees who were not remapped.
 Setting it back to `false` deletes the AAAA record rather than stranding it.
 
-Enabled on `overseerr` first as a trial. If the remapped sharee can reach the
-share, turn it on for the remaining instances. Diagnose a new report of
-"wrong IP in my console" with the netmap dump above before touching anything.
+Enabled by default for all shares on 2026-09-14. Audiobookshelf showed the same
+problem: public DNS pointed to `100.113.122.5`, while Ali's peers knew the node as
+`100.78.45.73`. Its IPv6 remained `fd7a:115c:a1e0::e93a:7a05`, and HTTPS worked
+over that address from doc1. Masquerading translates packets between those
+per-peer addresses; it does not rewrite the public DNS A record. Cullen's exact
+Yoto and Ali music grants include both node addresses so AAAA publication works
+for those shares too. An explicit `publishIpv6 = false` remains the rollback.
+Diagnose a new report of "wrong IP in my console" with the netmap dump above.
 
 ## Verification Evidence
 

@@ -9,7 +9,7 @@
 //
 //   tag:server  full mesh; the fleet's service VMs + pfSense + tower + legacy VMs
 //   ipset:trusted-clients  named personal/admin devices; tailnet + non-Cullen routes
-//   tag:share   inbound-443 share sidecars (own devices + inter-tailnet shares)
+//   tag:share   inbound HTTP redirect + HTTPS sidecars (own devices + inter-tailnet shares)
 //   tag:edge    remote/isolated nodes; no implicit fleet access, enumerated egress only
 //   ipset:cullen  the Cullen-site laptop (laptop-btibh4ie/wsl) — strictest: a minimal
 //               management plane plus direct Syncthing to doc2; nothing else
@@ -72,7 +72,9 @@
     "s-a55":         "100.102.60.123", // phone, trusted personal client
     "s-a55-v6":      "fd7a:115c:a1e0::5301:3c7b",
     "yoto":          "100.125.110.111", // read-only Yoto file share; exact Cullen-laptop pinhole
+    "yoto-v6":       "fd7a:115c:a1e0::4d3a:6e70",
     "ali-music":     "100.121.236.12",  // Ali Cratedigger; exact Cullen-laptop HTTPS pinhole
+    "ali-music-v6":  "fd7a:115c:a1e0::2b3a:ec0d",
     "shelfarr":      "100.118.169.64",  // audiobook requests; exact Cullen-laptop HTTPS pinhole
     "shelfarr-v6":   "fd7a:115c:a1e0::a83a:a942", // same sidecar, published AAAA address
     "yotodav":       "100.125.63.39",   // Yoto WebDAV; negative test keeps Cullen off other shares
@@ -153,19 +155,21 @@
     // Clients may use an approved exit node (tower) for full internet egress.
     { "src": ["ipset:trusted-clients"], "dst": ["autogroup:internet"], "ip": ["*"] },
 
-    // === tag:share — share sidecars (inbound 443) =========================
+    // === tag:share — share sidecars (HTTP redirect + HTTPS) ===============
     // overseer, jellyfin-1, audiobookshelf, hermes-ui. Reached over the tailnet
     // (FQDN→100.x) by BOTH the owner's own devices AND external users via
     // inter-tailnet node-sharing (e.g. overseer shared to ali@). They get NO
     // egress into the fleet (share→fleet stays denied — see the deny tests).
     // tag:server included so Uptime Kuma (on doc2) can health-check the share
     // services over the tailnet (overseer.ablz.au → the share node's 100.x:443).
-    { "src": ["ipset:trusted-clients", "tag:server"], "dst": ["tag:share"], "ip": ["tcp:443"] },
+    // Caddy redirects HTTP to HTTPS, so callers must also reach TCP 80.
+    // See docs/wiki/services/tailscale-share.md (HTTP redirects).
+    { "src": ["ipset:trusted-clients", "tag:server"], "dst": ["tag:share"], "ip": ["tcp:80", "tcp:443"] },
     // External shared-in users (accounts we've shared nodes with) reach whatever
-    // is shared to them on 443. The node-share mechanism limits WHO sees WHICH
-    // node (ali only sees overseer); this grant just lets the 443 through. New
+    // is shared to them on 80/443. The node-share mechanism limits WHO sees WHICH
+    // node; this grant permits the HTTP redirect and HTTPS service. New
     // inter-tailnet shares "just work" as long as the target is tag:share.
-    { "src": ["autogroup:shared"], "dst": ["tag:share"], "ip": ["tcp:443"] },
+    { "src": ["autogroup:shared"], "dst": ["tag:share"], "ip": ["tcp:80", "tcp:443"] },
 
     // === Syncthing mesh ====================================================
     // Participants: epi, framework (client), and doc1 (server). It's a mesh;
@@ -204,11 +208,11 @@
     // tag:server-wide), then hops to siblings from doc1 (the stepping-stone model).
     { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:22"] },
     { "src": ["ipset:cullen"], "dst": ["pfsense"], "ip": ["tcp:53", "udp:53"] },
-    // Work laptop → the intended Yoto/music/audiobook-request HTTPS shares. Pin each exact
-    // share node rather than granting ipset:cullen access to every tag:share service.
-    { "src": ["ipset:cullen"], "dst": ["yoto"], "ip": ["tcp:443"] },
-    { "src": ["ipset:cullen"], "dst": ["ali-music"], "ip": ["tcp:443"] },
-    { "src": ["ipset:cullen"], "dst": ["shelfarr", "shelfarr-v6"], "ip": ["tcp:443"] },
+    // Work laptop → the intended Yoto/music/audiobook-request shares, including
+    // HTTP redirects. Pin both addresses of each node rather than every tag:share.
+    { "src": ["ipset:cullen"], "dst": ["yoto", "yoto-v6"], "ip": ["tcp:80", "tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["ali-music", "ali-music-v6"], "ip": ["tcp:80", "tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["shelfarr", "shelfarr-v6"], "ip": ["tcp:80", "tcp:443"] },
     // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
     { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
@@ -362,7 +366,7 @@
     { "src": "s-a55", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework:22000", "epimetheus:22000", "epimetheus-vm:22000", "s-a55:22000", "tag:share:443", "cullen:443", "192.168.1.1:443", "192.168.1.35:3000", "192.168.2.1:443", "192.168.100.128:443", "192.168.100.139:443", "192.168.100.133:443"], "deny": ["192.168.100.140:443"] },
     { "src": "s-a55-v6", "proto": "tcp", "accept": ["tag:server:22", "tag:server:443", "tag:server:8080", "framework-v6:22000", "epimetheus-v6:22000", "epimetheus-vm-v6:22000", "s-a55-v6:22000", "tag:share:443"] },
     // server mesh sanity + server → share (Kuma health-checks).
-    { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
+    { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:80", "tag:share:443"], "deny": ["tag:share:22", "tag:share:81", "tag:share:8080"] },
     // GWM post-download conversion trigger: exact doc2 → epimetheus SSH only.
     { "src": "doc2", "proto": "tcp", "accept": ["epimetheus:22"] },
     // Dad NAS: fixed DSM relay; personal clients get only the two requested web ports.
@@ -374,11 +378,12 @@
     // route. Syncthing has an exact doc2:22000 exception; the broad server mesh is denied.
     { "src": "doc1", "proto": "tcp", "accept": ["cullen:22"] },
     { "src": "framework", "proto": "tcp", "accept": ["cullen:22"] },
-    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:443", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:80", "yotodav:443", "tag:server:443", "framework:443", "epimetheus:443", "epimetheus-vm:443", "s-a55:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["doc1:22", "pfsense:53", "yoto:80", "yoto:443", "ali-music:80", "ali-music:443", "192.168.1.4:443", "192.168.1.29:443", "192.168.1.35:443", "192.168.1.33:443", "192.168.1.6:443", "192.168.1.35:8050", "192.168.1.2:2049", "192.168.1.111:47989", "192.168.1.111:48010"], "deny": ["yoto:81", "ali-music:81", "yotodav:80", "yotodav:443", "tag:server:443", "framework:443", "epimetheus:443", "epimetheus-vm:443", "s-a55:443", "tag:server:22000", "192.168.1.1:443", "192.168.1.34:443", "192.168.1.45:443", "192.168.1.111:3389"] },
     { "src": "cullen-v6", "proto": "tcp", "deny": ["tag:server:443", "framework-v6:443", "epimetheus-v6:443", "epimetheus-vm-v6:443", "s-a55-v6:443", "tag:server:22000"] },
-    // Shelfarr's published IPv4/IPv6 HTTPS addresses; no management or alternate web ports.
-    { "src": "cullen", "proto": "tcp", "accept": ["shelfarr:443"], "deny": ["shelfarr:22", "shelfarr:80", "shelfarr:5056"] },
-    { "src": "cullen-v6", "proto": "tcp", "accept": ["shelfarr-v6:443"], "deny": ["shelfarr-v6:22", "shelfarr-v6:80", "shelfarr-v6:5056"] },
+    // Named shares over IPv6; no management or backend ports.
+    { "src": "cullen-v6", "proto": "tcp", "accept": ["yoto-v6:80", "yoto-v6:443", "ali-music-v6:80", "ali-music-v6:443"], "deny": ["yoto-v6:22", "yoto-v6:81", "ali-music-v6:22", "ali-music-v6:81"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["shelfarr:80", "shelfarr:443"], "deny": ["shelfarr:22", "shelfarr:81", "shelfarr:5056"] },
+    { "src": "cullen-v6", "proto": "tcp", "accept": ["shelfarr-v6:80", "shelfarr-v6:443"], "deny": ["shelfarr-v6:22", "shelfarr-v6:81", "shelfarr-v6:5056"] },
     // imagegen: exactly the four listed devices reach ComfyUI on :443; every other
     // vantage — servers, share sidecars, the LAN address — is denied. (tag:imagegen
     // has no outbound grants; the "deny" on its own src proves it stays that way.)

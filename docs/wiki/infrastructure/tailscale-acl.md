@@ -58,7 +58,7 @@ meter (`192.168.100.89/32`, encrypted ESPHome API on TCP 6053 and authenticated 
 |---|---|---|
 | `tag:server` | fleet service VMs + infra; full mesh | proxmox-vm (doc1), doc2, igpu, caddy, downloader, pfsense, tower |
 | `tag:client` | trusted personal/admin devices; full tailnet + approved non-Cullen subnet-route access | framework, epimetheus, epimetheus-vm, s-a55 (phone) |
-| `tag:share` | inbound-443 share sidecars (own devices + inter-tailnet shares) | overseer, jellyfin-1, audiobookshelf, hermes-ui |
+| `tag:share` | inbound HTTP redirect (80) + HTTPS (443) sidecars (own devices + inter-tailnet shares) | overseer, jellyfin-1, audiobookshelf, hermes-ui |
 | `tag:edge` | remote/isolated nodes; no implicit fleet access | homeassistant, raspberrypi (dad's), kerrynas (mum's), hermes |
 | `tag:cullen` | the Cullen-site laptop (laptop-btibh4ie/wsl); **strictest** | laptop-btibh4ie |
 
@@ -66,13 +66,13 @@ meter (`192.168.100.89/32`, encrypted ESPHome API on TCP 6053 and authenticated 
 
 | src → | gets |
 |---|---|
-| `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:443` (Kuma health-checks); `hermes:22` (deploy) |
+| `tag:server` | full mesh (`*` to all servers); `kerrynas` NFS (backup); `tag:share:80,443` (HTTP redirects + Kuma health-checks); `hermes:22` (deploy) |
 | `tag:client` | full tailnet access; home/dad/mum subnet routes; exit-node egress; Cullen dashboard + inverter `/32`s only |
-| `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 443 |
+| `tag:share` | **nothing** into the fleet (egress denied — the deny tests enforce it); served *to* clients/servers/shared-in users on 80/443 |
 | `tag:edge` | nothing implicit. HA → the two Cullen inverter `/32`s on `:443` plus the indoor water-meter `/32` on encrypted ESPHome API `:6053` and authenticated OTA `:3232`. hermes → `pfsense:53` only (and inbound `:22` from servers) |
 | `tag:cullen` | Outbound: `pfsense:53` (DNS), exact HTTPS endpoints via tower (`192.168.1.29:443`, `192.168.1.35:443`, `192.168.1.33:443`, `192.168.1.6:443`), exact `yoto:443` share access, `192.168.1.35:8050` (Gotify), and `192.168.1.2:2049` (tower NFS). Inbound: trusted `tag:client` devices can reach it; doc1 gets deploy SSH |
 | `framework` | `tag:cullen:22` (Cullen dev path, in addition to `doc1`) |
-| `autogroup:shared` | `tag:share:443` (inter-tailnet shares, e.g. overseer shared to ali@) |
+| `autogroup:shared` | `tag:share:80,443` (HTTP redirects + HTTPS for inter-tailnet shares) |
 
 The authoritative, commented version with exact IPs/ports is **`tailscale/acl.hujson`** — read
 that, not this table, when changing policy.
@@ -211,7 +211,7 @@ SSH to a server are LAN-reachable regardless of tailnet state).
 - **New fleet node:** tag it (devices-write client, by IP/FQDN) before it relies on tailnet
   access — an untagged node fails closed under default-deny.
 - **New inter-tailnet share** (share a service to an external user): just share the node in the
-  console — `autogroup:shared → tag:share:443` already covers it, as long as the target is
+  console — `autogroup:shared → tag:share:80,443` already covers it, as long as the target is
   `tag:share`. Sharing a non-`tag:share` node needs a new grant.
 - **A service needs a new tailnet port:** find who consumes it over the tailnet (vs LAN — check
   what its FQDN resolves to), add the narrowest grant, add a `tests{}` accept (+ an adjacent
