@@ -1,7 +1,7 @@
 # Personal Tailscale devices and access levels
 
 - Date: 2026-09-14
-- Status: policy deployed; Cullen, phone and Epimetheus user-owned; Framework login pending
+- Status: all four current clients user-owned; Framework NAS IPv4 reconnect pending
 - Source: `tailscale/acl.hujson`, applied by doc1's `tailscale-acl-apply.service`
 - Related: [tailnet policy](tailscale-acl.md), [Dad NAS](../services/dadnas.md),
   [Cullen SSH](wsl-tailscale-ssh.md)
@@ -122,6 +122,16 @@ ports (5000 and 5252) then repeatedly returned HTTP 200 over IPv4 and IPv6, with
 the DSM and Tailscale page titles verified. No ACL or NAS-side change was made.
 The local reconnect is a useful recovery step for this post-reauthentication
 symptom; the exact cause of the stale IPv4 path was not established.
+
+At 19:56 AWST Framework's user login was verified: Andrew's identity, no tags,
+original IPv4/IPv6 addresses, and `accept-routes=true` retained. SSH, Syncthing
+in both directions (including inbound IPv6), DNS, Cullen IPv4 SSH, Dad NAS HTTPS
+and Shelfarr HTTPS passed. Both NAS ports returned their correct pages over IPv6;
+direct NAS IPv4 requests showed the same post-reauthentication timeout as Epi.
+Framework's passworded sudo also prevents an unattended Tailscale restart, so
+the remaining recovery step is local `sudo systemctl restart tailscaled`, then
+repeat the direct IPv4 probes. The old offline Epimetheus VM is the only device
+still using the legacy client tag; its existing role membership is preserved.
 
 Policy tests cover each role member's IPv4 and IPv6, incoming client access,
 Cullen isolation, Shelfarr IPv6, NAS web ports, and unlisted addresses. Match
