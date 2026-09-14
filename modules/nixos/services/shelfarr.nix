@@ -12,6 +12,22 @@
   torrents = "/mnt/data/Media/Temp/shelfarr";
   usenet = "/mnt/data/Media/Temp/completed/shelfarr";
   probe = pkgs.writeText "shelfarr-probe.rb" (builtins.readFile ./probes/shelfarr.rb);
+  # Open Library TLS setup can exceed upstream's five-second deadline.
+  # Remove this override when upstream makes that timeout configurable.
+  # Evidence and rollback: docs/wiki/services/shelfarr.md.
+  metadataTimeout = pkgs.writeText "shelfarr-metadata-timeout.rb" ''
+    module HomelabOpenLibraryTimeout
+      private
+
+      def connection
+        super.tap { |client| client.options.open_timeout = 15 }
+      end
+    end
+
+    Rails.application.config.after_initialize do
+      OpenLibraryClient.singleton_class.prepend(HomelabOpenLibraryTimeout)
+    end
+  '';
 in {
   options.homelab.services.shelfarr = {
     enable = lib.mkEnableOption "Shelfarr audiobook requests";
@@ -74,6 +90,7 @@ in {
         "${torrents}:/downloads/shelfarr:ro"
         "${usenet}:/downloads/completed/shelfarr:ro"
         "${probe}:/etc/shelfarr-probe.rb:ro"
+        "${metadataTimeout}:/rails/config/initializers/homelab_metadata_timeout.rb:ro"
       ];
       extraOptions =
         config.homelab.podman.hardenOptions

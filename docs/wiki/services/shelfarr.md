@@ -67,6 +67,24 @@ request screens show likely/possible matches. Settings shows sync counts and the
 50 most recent cached items. Browse the existing collection in ABS; there is no
 setting in this version to include it in Shelfarr's Library catalog.
 
+### Metadata search timeouts
+
+On 2026-09-14, searches for `rowling` and `j k rowling` intermittently failed.
+Google Books anonymous access returned HTTP 429 with a daily quota of zero;
+no Google or Hardcover key was configured. Open Library also intermittently
+exceeded its hardcoded five-second connection/TLS deadline. Direct application
+tests with a 15-second connection allowance returned 20 results for each of
+`rowling`, `j k rowling`, and `harry potter`, including two calls taking 8–9 seconds.
+The firewall received replies from Open Library's address and the sampled firewall
+logs contained no matching blocks; no firewall or routing changes were made.
+
+The module mounts a read-only Rails initializer that raises only Open Library's
+connection timeout to 15 seconds. The upstream 15-second read timeout remains.
+This tolerates slow connection setup; it cannot prevent provider outages. Remove
+the initializer mount and its `metadataTimeout` definition to roll back, or when
+upstream exposes a supported timeout setting. A dedicated Google Books or
+Hardcover key would provide a second usable metadata source.
+
 ## Ownership and health
 
 Unraid exports `data` with `all_squash,anonuid=99,anongid=100`. New files arrive as
