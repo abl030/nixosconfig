@@ -1,7 +1,7 @@
 # Personal Tailscale devices and access levels
 
 - Date: 2026-09-14
-- Status: policy deployed; Cullen migrated and verified; phone/workstation logins pending
+- Status: policy deployed; Cullen and phone user-owned; Epimetheus reauthentication pending
 - Source: `tailscale/acl.hujson`, applied by doc1's `tailscale-acl-apply.service`
 - Related: [tailnet policy](tailscale-acl.md), [Dad NAS](../services/dadnas.md),
   [Cullen SSH](wsl-tailscale-ssh.md)
@@ -93,7 +93,13 @@ Windows/WSL SSH, Cullen-to-doc1 SSH, doc2 Syncthing, DNS, Dad NAS HTTPS and Shel
 HTTPS all passed. Cullen-to-doc2 HTTPS and Cullen-to-phone SSH remained denied.
 Only the work subnet was approved after login; neither exit route was approved.
 Both solar inverters and the water meter were reachable through that route.
-The phone still had `tag:client`; Framework and Epimetheus were offline and tagged.
+At the Cullen verification, the phone still had `tag:client`; Framework and
+Epimetheus were offline and tagged. At 14:14 AWST, the phone's reauthentication
+was verified: no tags, Andrew's user identity, and both original addresses.
+Termux SSH refused connections, so a NAS fetch from the phone itself was not
+verified remotely. Epimetheus was subsequently woken at the user's request and
+its user-login flow started over LAN SSH, preserving its existing preferences.
+Framework and the old Epimetheus VM remain offline with their legacy tags.
 
 Policy tests cover each role member's IPv4 and IPv6, incoming client access,
 Cullen isolation, Shelfarr IPv6, NAS web ports, and unlisted addresses. Match
