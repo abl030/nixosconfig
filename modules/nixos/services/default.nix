@@ -33,6 +33,7 @@
     ./tautulli.nix
     ./comfyui-gpu.nix
     ./audiobookshelf.nix
+    ./shelfarr.nix
     ./atuin.nix
     ./beancount.nix
     ./beets.nix

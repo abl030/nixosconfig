@@ -314,6 +314,10 @@
         enable = true;
         dataDir = "/mnt/virtio/audiobookshelf";
       };
+      shelfarr = {
+        enable = true;
+        dataDir = "/mnt/virtio/shelfarr";
+      };
       # Companion to ABS: chapter-splits books into Yoto-legal tracks and
       # serves them as a browsable tailnet file drop, because the ABS app
       # downloads into private app storage a file-picker can't reach and a
