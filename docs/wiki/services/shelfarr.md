@@ -55,6 +55,18 @@ source removal is disabled. Shelfarr does not transcode MP3 releases into M4B:
 select M4B releases, or use the existing conversion workflow before manual import.
 Ebook/comic outputs point to private application storage and are not ABS libraries.
 
+### What ABS synchronization displays
+
+Verified against the running application on 2026-09-14: ABS synchronization fills
+an inventory cache for duplicate matching. It does not populate Shelfarr's Library
+page, which lists books acquired/uploaded through Shelfarr and synced Audible
+purchases. All 211 existing ABS records were available for matching while the
+Library catalog correctly returned zero entries before any real acquisition.
+Search results show matching ABS inventory under "Related titles in Audiobookshelf";
+request screens show likely/possible matches. Settings shows sync counts and the
+50 most recent cached items. Browse the existing collection in ABS; there is no
+setting in this version to include it in Shelfarr's Library catalog.
+
 ## Ownership and health
 
 Unraid exports `data` with `all_squash,anonuid=99,anongid=100`. New files arrive as
