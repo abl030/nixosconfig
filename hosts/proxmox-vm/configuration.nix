@@ -215,6 +215,7 @@
       pushDeployOptionalHosts = ["imagegen-gpu"];
     };
     services = {
+      dadnasProxy.enable = true;
       beets.enable = true;
       bdday.enable = true;
       mrnews.enable = true;

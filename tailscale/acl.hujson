@@ -49,6 +49,8 @@
   "hosts": {
     "doc1":          "100.89.160.60",  // the bastion — the only node that deploys cullen
     "doc2":          "100.87.177.120", // GWM archiver host; triggers EPUB conversion on epi
+    "dadnas-proxy":  "100.93.176.58",  // user-owned userspace connection on doc1; never tag this node
+    "dadnas":        "100.103.36.101", // Dad's shared-in zarepath NAS, recipient-side address
     "epimetheus":    "100.115.114.53", // conversion workstation, normally asleep
     "pfsense":       "100.123.61.111", // recursive DNS resolver for the whole fleet
     "framework":     "100.78.17.73",   // dev workstation; reaches cullen for Cullen-side work
@@ -76,6 +78,12 @@
     // doc2's GWM archiver wakes epimetheus and uses a forced-command SSH key to
     // start marker-convert. Keep this to the exact nodes and OpenSSH port.
     { "src": ["doc2"], "dst": ["epimetheus"], "ip": ["tcp:22"] },
+
+    // Normal incoming machine shares cannot be consumed by tagged servers.
+    // This isolated user-owned identity relays only DSM for doc1/Caddy. Cullen
+    // uses its existing 192.168.1.6:443 grant via dadnas.ablz.au, not the NAS IP.
+    // See docs/wiki/services/dadnas.md.
+    { "src": ["dadnas-proxy"], "dst": ["dadnas"], "ip": ["tcp:5000"] },
 
     // server → kerrynas: offsite backup only (doc2 kopia-mum NFS mount, by node
     // IP via MagicDNS). NFS: tcp:2049 (v4) + 111 (rpcbind, if v3 negotiated).
@@ -313,6 +321,9 @@
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:443"] },
     // GWM post-download conversion trigger: exact doc2 → epimetheus SSH only.
     { "src": "doc2", "proto": "tcp", "accept": ["epimetheus:22"] },
+    // Dad NAS: fixed DSM relay; no extra fleet access or direct Cullen backend access.
+    { "src": "dadnas-proxy", "proto": "tcp", "accept": ["dadnas:5000"], "deny": ["dadnas:22", "dadnas:5001", "doc1:22", "doc2:443", "192.168.1.2:2049"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["192.168.1.6:443"], "deny": ["dadnas:5000", "192.168.1.29:15000"] },
     // cullen: deploy/dev SSH in (doc1+framework only); out = SSH to doc1 (bastion),
     // DNS, exact mgmt endpoints, tower NFS(2049). doc1:22 is cullen's SOLE tailnet
     // :22 path — it still reaches NO other fleet tailnet IP and no broad home-LAN

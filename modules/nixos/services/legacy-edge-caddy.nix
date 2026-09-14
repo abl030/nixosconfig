@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  allHosts,
   ...
 }: let
   cfg = config.homelab.services.legacyEdgeCaddy;
@@ -83,6 +84,11 @@
       host = "cockpit.ablz.au";
       upstream = "https://192.168.1.5:9090";
       insecureSkipVerify = true;
+    }
+    {
+      host = "dadnas.ablz.au";
+      # User-owned Tailscale connection on doc1; see docs/wiki/services/dadnas.md.
+      upstream = "http://${allHosts.proxmox-vm.localIp}:15000";
     }
     {
       host = "deluge.ablz.au";
