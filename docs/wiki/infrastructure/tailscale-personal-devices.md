@@ -1,7 +1,7 @@
 # Personal Tailscale devices and access levels
 
-- Date: 2026-09-14
-- Status: all four current clients user-owned; Framework NAS IPv4 reconnect pending
+- Date: 2026-09-15
+- Status: all four current clients user-owned; direct NAS access verified on Cullen, Epimetheus and Framework
 - Source: `tailscale/acl.hujson`, applied by doc1's `tailscale-acl-apply.service`
 - Related: [tailnet policy](tailscale-acl.md), [Dad NAS](../services/dadnas.md),
   [Cullen SSH](wsl-tailscale-ssh.md)
@@ -106,7 +106,7 @@ was verified: no tags, Andrew's user identity, and both original addresses.
 Termux SSH refused connections, so a NAS fetch from the phone itself was not
 verified remotely. Epimetheus was subsequently woken at the user's request and
 its user-login flow started over LAN SSH, preserving its existing preferences.
-Framework and the old Epimetheus VM remain offline with their legacy tags.
+At that point, Framework and the old Epimetheus VM were still offline and tagged.
 
 Epimetheus completed reauthentication at 14:17 AWST, retaining its node ID and
 both addresses. Its owner is `abl030@gmail.com`, with no tags. DNS, doc1 SSH,
@@ -128,10 +128,17 @@ original IPv4/IPv6 addresses, and `accept-routes=true` retained. SSH, Syncthing
 in both directions (including inbound IPv6), DNS, Cullen IPv4 SSH, Dad NAS HTTPS
 and Shelfarr HTTPS passed. Both NAS ports returned their correct pages over IPv6;
 direct NAS IPv4 requests showed the same post-reauthentication timeout as Epi.
-Framework's passworded sudo also prevents an unattended Tailscale restart, so
-the remaining recovery step is local `sudo systemctl restart tailscaled`, then
-repeat the direct IPv4 probes. The old offline Epimetheus VM is the only device
-still using the legacy client tag; its existing role membership is preserved.
+Framework's passworded sudo required the user to run
+`sudo systemctl restart tailscaled` locally. On 2026-09-15, after that restart,
+both NAS ports returned HTTP 200 over IPv4 and IPv6 with the correct DSM and
+Tailscale titles. SSH, Syncthing in both directions (including inbound IPv6),
+DNS, Cullen IPv4 SSH, Dad NAS HTTPS and Shelfarr HTTPS passed again. Framework's
+identity, addresses and preferences remained unchanged. The live policy still
+matched the repository source, and Cullen retained only its approved work route.
+All four current clients are now user-owned and untagged; the phone's direct HTTP
+check remains unverified because Termux SSH was unavailable. The old offline
+Epimetheus VM is the only device still using the legacy client tag; its existing
+role membership is preserved.
 
 Policy tests cover each role member's IPv4 and IPv6, incoming client access,
 Cullen isolation, Shelfarr IPv6, NAS web ports, and unlisted addresses. Match
