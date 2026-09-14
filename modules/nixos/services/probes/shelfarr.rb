@@ -17,9 +17,17 @@ require "securerandom"
     end
     next unless name == "production_queue"
 
-    %w[Worker Dispatcher Scheduler].each do |kind|
-      count = db.get_first_value("SELECT COUNT(*) FROM solid_queue_processes WHERE kind = ? AND last_heartbeat_at > datetime('now', '-5 minutes')", [kind])
-      raise "No recent #{kind} heartbeat" unless count.positive?
+    # OCI readiness precedes Rails/queue startup. Activation can start this
+    # probe immediately; allow workers to register, bounded by the outer timeout.
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 30
+    loop do
+      missing = %w[Worker Dispatcher Scheduler].reject do |kind|
+        db.get_first_value("SELECT COUNT(*) FROM solid_queue_processes WHERE kind = ? AND last_heartbeat_at > datetime('now', '-5 minutes')", [kind]).positive?
+      end
+      break if missing.empty?
+      raise "No recent #{missing.join(', ')} heartbeat" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+      sleep 1
     end
   end
 end

@@ -1,6 +1,6 @@
 # Shelfarr audiobook requests
 
-Date: 2026-09-14. Host: doc2. Application and integrations verified in preflight;
+Date: 2026-09-14. Host: doc2. Application and integrations deployed and verified;
 the dedicated Tailscale node still needs its first interactive authentication.
 
 Shelfarr connects Prowlarr, qBittorrent, NZBGet and the existing ABS AudioBooks
@@ -85,6 +85,22 @@ The test files and records were removed. These tests verify completed-file impor
 and scan integration; they did not fetch an audiobook from a tracker or Usenet.
 The default atomic-publication policy remains enabled; the NFS fallback was not
 needed. The SQLite/worker/storage probe also passed as the final application UID.
+
+The first switch exposed a probe startup race: OCI readiness preceded the queue
+workers registering. The probe now allows 30 seconds for those heartbeats within
+its existing 45-second outer timeout. The first switch installed revision
+`a769db5c`, but the deployment wrapper reported failure while Tailscale enrollment
+was pending. Re-run the verified deployment after enrollment to deploy the probe
+startup fix and obtain a successful fleet-update receipt.
+
+Enrollment is held open in temporary container `shelfarr-enrol`, using the same
+`ts-state` as the final sidecar. Its daemon uses userspace networking and no
+capabilities. The generated Caddy/Tailscale units are stopped while it owns that
+state. After the browser login, stop/remove `shelfarr-enrol`, then run
+`fleet-deploy doc2` and start the generated sidecars/DNS sync if needed. Never run
+both Tailscale daemons against the state directory at once. Verify the public
+FQDN, both DNS address families, the final app's four integration connections,
+and the deep probe before calling the service complete.
 
 Use `fleet-deploy doc2` from doc1 after a signed Forgejo push. Verify the active
 revision and `podman-shelfarr`, `podman-ts-shelfarr`, `podman-caddy-shelfarr`,
