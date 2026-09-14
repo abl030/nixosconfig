@@ -1,4 +1,4 @@
-# Shelfarr audiobook requests
+# Shelfarr audiobook and ebook requests
 
 Date: 2026-09-14. Host: doc2. Application, integrations and Tailscale HTTPS access
 deployed and verified at `https://shelfarr.ablz.au`.
@@ -53,7 +53,71 @@ Approvals and manual release selection are enabled. English, M4B and single-file
 audiobooks are preferred. Copy mode preserves seeding bytes, and automatic Usenet
 source removal is disabled. Shelfarr does not transcode MP3 releases into M4B:
 select M4B releases, or use the existing conversion workflow before manual import.
-Ebook/comic outputs point to private application storage and are not ABS libraries.
+Ebooks use the Calibre bridge below; comic output remains private application storage.
+
+### Calibre ebook delivery
+
+Enabled on doc2 on 2026-09-14 via `homelab.services.shelfarr.calibre.enable`.
+Shelfarr has no native Calibre connector. `shelfarr-calibre.service` runs every
+minute and reads acquired ebook records from Shelfarr's SQLite database in
+read-only WAL mode. It only processes `book_type=1`, a populated `file_path`,
+and no acquisition reservation. This is an explicit upstream schema dependency;
+schema errors fail visibly rather than falling back to scanning download folders.
+
+- Shelfarr's ebook output is `/ebooks`, backed by
+  `/mnt/data/Media/Books/Shelfarr`; author/title folders and EPUB preference apply.
+  Both existing qBittorrent and NZBGet paths feed the ordinary post-processing job.
+- The bridge snapshots regular ebook files from that subtree, rejecting symlinks,
+  traversal, empty/changing files and files above 512 MiB. Accepted formats are
+  EPUB, PDF, MOBI, AZW, AZW3 and DJVU. It never removes the original files.
+- `calibredb add --automerge ignore` sends each ebook to the **running Calibre
+  GUI's** authenticated content server at `http://tower:8086/calibre/#Library`.
+  Existing matching title/author formats are retained; missing formats are added.
+  A repeated import after a crash therefore does not create another copy or
+  overwrite an existing format. Calibre owns all changes to `metadata.db` and
+  `/mnt/user/data/Media/Books/Calibre LIbrary` (the spelling is intentional).
+- Private receipts in `/var/lib/shelfarr-calibre/imports.sqlite3` record successful
+  imports. Unchanged files are skipped without rereading their contents. Failures
+  retry on the next timer run. Successful imports persist a pending Komga scan;
+  a scan failure retries without repeating the Calibre import.
+- Komga library `0QFQQFTD08FRG` is scanned after imports. Browse the ebooks through
+  the existing Calibre desktop or Komga, as before. This bridge does **not** sync
+  existing Calibre inventory into Shelfarr's Library page or duplicate matcher.
+  Shelfarr's acquired ebooks remain available in its own Library page.
+
+Tower configuration is in the existing `calibre` container's persistent
+`/config/.config/calibre`: `gui.py.json` now has `autolaunch_server=true`.
+Existing `server-config.txt` already had `auth True`, port 8081 and prefix
+`calibre`; Docker already published this at tower port 8086. Library API calls
+require authentication; static application HTML is public. No new public proxy
+or tailnet grant is introduced. Authentication uses HTTP Digest on the LAN.
+The new `shelfarr` server account is restricted to `Library`, cannot change its
+password through HTTP, and is separately revocable. Calibre's write account
+includes editing/deleting within that library; it has no add-only permission.
+The pre-existing `readarr` account is retained.
+
+Credentials are in host-scoped `secrets/hosts/doc2/shelfarr-calibre.json`, supplied
+as systemd credentials rather than command-line passwords. The bridge also gets
+the existing Komga sync API credential, which has broader administrative access
+than a single scan. It runs as a separate unprivileged account, with read-only
+ebook and Shelfarr storage mounts, masked Shelfarr encryption keys, private
+temporary/state directories, no host control socket and no Calibre library mount.
+Every run checks authenticated Calibre access even with no pending ebooks.
+Persistent failures log `SHELFARR_CALIBRE_FAILED` and alert through Loki.
+
+Import activity: `journalctl -u shelfarr-calibre.service -n 50`. A Shelfarr request
+becomes Completed when its local acquisition finishes; Calibre delivery follows
+on the next bridge run, then Komga indexing. Shelfarr's Activity page continues to
+show acquisition/search activity; the separate bridge log shows downstream imports.
+
+Rollback: disable `homelab.services.shelfarr.calibre.enable`, sign/push and deploy
+doc2. Keep downloaded ebooks and Calibre contents. Revoke the `shelfarr` account
+through Calibre's server-user management. If retiring the server, turn off its
+autostart in Calibre preferences. Pre-change settings and the server-user DB are
+backed up under `/config/.config/calibre/before-shelfarr-ebooks-20260914/` in the
+Calibre container; do not restore that whole user DB over later account changes.
+Never point a separate `calibredb` process directly at `/Library` while the GUI
+owns it. See [Calibre's supported remote CLI](https://manual.calibre-ebook.com/generated/en/calibredb.html).
 
 ### What ABS synchronization displays
 

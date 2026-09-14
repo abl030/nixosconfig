@@ -41,6 +41,11 @@ in {
       default = 5056;
       description = "Loopback and Podman bridge port for the Tailscale sidecar.";
     };
+    ebookDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/mnt/data/Media/Books/Shelfarr";
+      description = "Retained ebook downloads, separate from Calibre's managed library.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -66,6 +71,7 @@ in {
       "d ${cfg.dataDir}/tmp 0750 shelfarr shelfarr - -"
       "d ${cfg.dataDir}/log 0750 shelfarr shelfarr - -"
       "d ${library} 2775 shelfarr users - -"
+      "d ${cfg.ebookDir} 2775 shelfarr users - -"
       "d ${torrents} 2775 shelfarr users - -"
       "d ${usenet} 2775 shelfarr users - -"
     ];
@@ -85,6 +91,7 @@ in {
         "${cfg.dataDir}/tmp:/rails/tmp"
         "${cfg.dataDir}/log:/rails/log"
         "${library}:/audiobooks"
+        "${cfg.ebookDir}:/ebooks"
         # Copy mode needs only read access. No other clients' downloads or
         # existing ABS books are visible to this container.
         "${torrents}:/downloads/shelfarr:ro"
@@ -105,10 +112,10 @@ in {
         ];
     };
     systemd.services.podman-shelfarr = {
-      unitConfig.RequiresMountsFor = [cfg.dataDir library torrents usenet];
+      unitConfig.RequiresMountsFor = [cfg.dataDir library cfg.ebookDir torrents usenet];
       serviceConfig = {
         TemporaryFileSystem = "/mnt";
-        BindPaths = [cfg.dataDir library];
+        BindPaths = [cfg.dataDir library cfg.ebookDir];
         BindReadOnlyPaths = [torrents usenet];
       };
     };

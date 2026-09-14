@@ -32,12 +32,14 @@ require "securerandom"
   end
 end
 
-Tempfile.create([".shelfarr-probe-", ".tmp"], "/audiobooks") do |file|
-  file.write("shelfarr storage probe")
-  file.flush
-  file.fsync
-  file.rewind
-  raise "Library write/read mismatch" unless file.read == "shelfarr storage probe"
+%w[/audiobooks /ebooks].each do |library|
+  Tempfile.create([".shelfarr-probe-", ".tmp"], library) do |file|
+    file.write("shelfarr storage probe")
+    file.flush
+    file.fsync
+    file.rewind
+    raise "Library write/read mismatch" unless file.read == "shelfarr storage probe"
+  end
 end
 %w[/downloads/shelfarr /downloads/completed/shelfarr].each do |path|
   Dir.open(path, &:read)

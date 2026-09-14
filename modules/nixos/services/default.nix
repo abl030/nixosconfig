@@ -34,6 +34,7 @@
     ./comfyui-gpu.nix
     ./audiobookshelf.nix
     ./shelfarr.nix
+    ./shelfarr-calibre.nix
     ./atuin.nix
     ./beancount.nix
     ./beets.nix

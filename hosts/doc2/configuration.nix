@@ -317,6 +317,7 @@
       shelfarr = {
         enable = true;
         dataDir = "/mnt/virtio/shelfarr";
+        calibre.enable = true;
       };
       # Companion to ABS: chapter-splits books into Yoto-legal tracks and
       # serves them as a browsable tailnet file drop, because the ABS app
