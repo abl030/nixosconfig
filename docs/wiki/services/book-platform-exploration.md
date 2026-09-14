@@ -67,22 +67,35 @@ Primary sources reviewed on 2026-09-14:
 ## Trial access and boundaries
 
 The four NixOS modules are enabled on doc2, using upstream OCI images with the
-normal fleet update policy. No Tailscale nodes, sharing rules, DNS records or
-reverse proxies are introduced. Application listeners bind doc2's LAN address
-and loopback, not its tailnet address.
+normal fleet update policy. At the user's request, named HTTPS URLs were added
+through `homelab.localProxy` on 2026-09-14. Their DNS records point to doc2's LAN
+address, with certificates and WebSocket proxying managed by the existing
+infrastructure. No Tailscale nodes or sharing rules are introduced.
 
-| Application | LAN URL | Persistent state | Role |
+| Application | LAN HTTPS URL | Persistent state | Role |
 | --- | --- | --- | --- |
-| Chaptarr | <http://192.168.1.35:8789> | `/mnt/virtio/chaptarr` | Collection manager |
-| Booklore | <http://192.168.1.35:6060> | `/mnt/virtio/booklore` | Ebook catalog/OPDS |
-| Bookkeep | <http://192.168.1.35:8788> | `/mnt/virtio/bookkeep` | Request/discovery portal |
-| ReadMeABook | <http://192.168.1.35:3031> | `/mnt/virtio/readmeabook` | ABS-aware request portal |
+| Chaptarr | <https://chaptarr.ablz.au> | `/mnt/virtio/chaptarr` | Collection manager |
+| Booklore | <https://booklore.ablz.au> | `/mnt/virtio/booklore` | Ebook catalog/OPDS |
+| Bookkeep | <https://bookkeep.ablz.au> | `/mnt/virtio/bookkeep` | Request/discovery portal |
+| ReadMeABook | <https://readmeabook.ablz.au> | `/mnt/virtio/readmeabook` | ABS-aware request portal |
+
+The original direct HTTP addresses remain available at `192.168.1.35` on ports
+8789, 6060, 8788 and 3031 respectively. Application listeners bind the LAN address
+and loopback, not the tailnet address. Prefer the HTTPS names for logins and OPDS.
 
 Administrator username is `abl030` after bootstrap. Initial passwords are
 separate random values in the operator-only SOPS secret. Recover one on doc2:
 
 ```sh
 sudo jq -r '.booklore.password' /run/secrets/book-trials/bootstrap
+```
+
+From doc1 (`proxmox-vm`), retrieve all four passwords over SSH instead; the
+decrypted file deliberately exists only on doc2:
+
+```sh
+ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 doc2 \
+  "sudo jq 'map_values(.password)' /run/secrets/book-trials/bootstrap"
 ```
 
 Replace `booklore` with `chaptarr`, `bookkeep` or `readmeabook`. Password changes
@@ -101,10 +114,12 @@ Bookkeep requires a Hardcover API token for discovery and matching. It can be
 entered in Settings without replacing the container. Do not treat a missing
 token as a metadata-service outage. The final setup status is recorded below.
 
-Use the LAN IP for these trial URLs, including Bookkeep's Booklore connection.
-Inside the OCI container, `doc2` resolved to inherited loopback `127.0.0.2`,
-while `doc2.ablz.au` hit the wildcard legacy proxy. The module derives the LAN
-address from `homelab.localProxy.localIp`; no new DNS arrangement is needed.
+Bookkeep's Booklore connection uses `https://booklore.ablz.au`. During the initial
+port-only trial, `doc2` resolved inside OCI to inherited loopback `127.0.0.2`,
+while `doc2.ablz.au` hit the wildcard legacy proxy. The temporary LAN-IP connection
+avoided that ambiguity; the dedicated service name now follows doc2 through
+the normal DNS ownership machinery. ReadMeABook's `PUBLIC_URL` and all four HTTP
+health monitors also use their HTTPS service names.
 
 MariaDB (`booklore-db`, helper hostNum 11) and PostgreSQL (`bookkeep-db`, 12;
 `readmeabook-db`, 13) have isolated state and service-only TCP credentials.
@@ -124,7 +139,7 @@ verified in a real browser. HTTP and deeper application-state/database-authority
 probes passed. The existing Shelfarr, ABS, Komga and Calibre bridge remained
 active. Initial deployment commit: `353dcd479a148017aeb5563b138fb71c2f944939`;
 storage/bootstrap correction: `fce1480f1a27875bf768a27f233094539e151e1c`.
-The final LAN endpoint and credential revision
+The initial direct-LAN endpoint and credential revision
 `785bf596523450d83ea7570292bcbbb5d929d152` was verified running on doc2.
 Anonymous requests to protected APIs returned 401/403 in all four apps. Their
 ports were reachable on the LAN address and not on doc2's tailnet address;
@@ -153,7 +168,7 @@ Library 1, **Existing ebooks (read-only trial)**, scans `/books/existing` with
 books differ from Calibre's 282 records; the two-record discrepancy has not yet
 been audited and should not be assumed to be a sync success.
 
-OPDS is enabled at <http://192.168.1.35:6060/api/v1/opds>. OPDS username is
+OPDS is enabled at <https://booklore.ablz.au/api/v1/opds>. OPDS username is
 `abl030`, with a separate password:
 
 ```sh

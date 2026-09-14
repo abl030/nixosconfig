@@ -13,6 +13,10 @@
 in {
   options.homelab.services.chaptarr = {
     enable = lib.mkEnableOption "Chaptarr collection-management trial";
+    fqdn = lib.mkOption {
+      type = lib.types.str;
+      default = "chaptarr.ablz.au";
+    };
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/virtio/chaptarr";
@@ -66,11 +70,18 @@ in {
       }
     ];
     homelab.nfsWatchdog.podman-chaptarr.path = existingAudio;
+    homelab.localProxy.hosts = [
+      {
+        host = cfg.fqdn;
+        inherit (cfg) port;
+        websocket = true;
+      }
+    ];
     homelab.monitoring = {
       monitors = [
         {
           name = "Chaptarr trial";
-          url = "http://${lan}:${toString cfg.port}/ping";
+          url = "https://${cfg.fqdn}/ping";
         }
       ];
       deepProbes = [

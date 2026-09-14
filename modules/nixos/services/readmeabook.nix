@@ -19,6 +19,10 @@
 in {
   options.homelab.services.readmeabook = {
     enable = lib.mkEnableOption "ReadMeABook ABS request trial";
+    fqdn = lib.mkOption {
+      type = lib.types.str;
+      default = "readmeabook.ablz.au";
+    };
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/virtio/readmeabook";
@@ -51,7 +55,7 @@ in {
         PUID = "2024";
         PGID = "2024";
         TZ = "Australia/Perth";
-        PUBLIC_URL = "http://${lan}:${toString cfg.port}";
+        PUBLIC_URL = "https://${cfg.fqdn}";
       };
       volumes = ["${cfg.dataDir}/config:/app/config" "${cfg.dataDir}/cache:/app/cache" "${cfg.dataDir}/redis:/var/lib/redis" "${cfg.dataDir}/media:/media" "${cfg.dataDir}/downloads:/downloads"];
       # Unified image remaps users, starts Redis, then drops the app to PUID.
@@ -74,11 +78,18 @@ in {
         inherit image;
       }
     ];
+    homelab.localProxy.hosts = [
+      {
+        host = cfg.fqdn;
+        inherit (cfg) port;
+        websocket = true;
+      }
+    ];
     homelab.monitoring = {
       monitors = [
         {
           name = "ReadMeABook trial";
-          url = "http://${lan}:${toString cfg.port}/api/health";
+          url = "https://${cfg.fqdn}/api/health";
         }
       ];
       deepProbes = [

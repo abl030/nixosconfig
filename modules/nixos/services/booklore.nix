@@ -20,6 +20,10 @@
 in {
   options.homelab.services.booklore = {
     enable = lib.mkEnableOption "Booklore OPDS library trial";
+    fqdn = lib.mkOption {
+      type = lib.types.str;
+      default = "booklore.ablz.au";
+    };
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/virtio/booklore";
@@ -81,11 +85,18 @@ in {
       }
     ];
     homelab.nfsWatchdog.podman-booklore.path = existing;
+    homelab.localProxy.hosts = [
+      {
+        host = cfg.fqdn;
+        inherit (cfg) port;
+        websocket = true;
+      }
+    ];
     homelab.monitoring = {
       monitors = [
         {
           name = "Booklore trial";
-          url = "http://${lan}:${toString cfg.port}/api/v1/healthcheck";
+          url = "https://${cfg.fqdn}/api/v1/healthcheck";
         }
       ];
       deepProbes = [

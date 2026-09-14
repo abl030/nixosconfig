@@ -19,6 +19,10 @@
 in {
   options.homelab.services.bookkeep = {
     enable = lib.mkEnableOption "Bookkeep request-interface trial";
+    fqdn = lib.mkOption {
+      type = lib.types.str;
+      default = "bookkeep.ablz.au";
+    };
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/virtio/bookkeep";
@@ -82,11 +86,18 @@ in {
         inherit image;
       }
     ];
+    homelab.localProxy.hosts = [
+      {
+        host = cfg.fqdn;
+        inherit (cfg) port;
+        websocket = true;
+      }
+    ];
     homelab.monitoring = {
       monitors = [
         {
           name = "Bookkeep trial";
-          url = "http://${lan}:${toString cfg.port}/health";
+          url = "https://${cfg.fqdn}/health";
         }
       ];
       deepProbes = [
