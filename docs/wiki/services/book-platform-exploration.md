@@ -108,8 +108,11 @@ address from `homelab.localProxy.localIp`; no new DNS arrangement is needed.
 
 MariaDB (`booklore-db`, helper hostNum 11) and PostgreSQL (`bookkeep-db`, 12;
 `readmeabook-db`, 13) have isolated state and service-only TCP credentials.
-ReadMeABook uses internal Redis plus external PostgreSQL. Applications run as
-dedicated UIDs 2021–2024 with capabilities dropped, never the operator's UID.
+ReadMeABook uses internal Redis plus external PostgreSQL. Chaptarr and Bookkeep
+start as dedicated UIDs with all capabilities dropped. Booklore and ReadMeABook
+allow the limited capabilities needed by their root initialization, then run
+Java/Next.js as dedicated application users; ReadMeABook's container supervisor
+remains root. Application UIDs are 2021–2024, never the operator's UID.
 No host control sockets or unrelated
 libraries are mounted. Initial credentials are encrypted only to doc2, editor
 and cold recovery recipients.
@@ -121,6 +124,11 @@ verified in a real browser. HTTP and deeper application-state/database-authority
 probes passed. The existing Shelfarr, ABS, Komga and Calibre bridge remained
 active. Initial deployment commit: `353dcd479a148017aeb5563b138fb71c2f944939`;
 storage/bootstrap correction: `fce1480f1a27875bf768a27f233094539e151e1c`.
+The final LAN endpoint and credential revision
+`785bf596523450d83ea7570292bcbbb5d929d152` was verified running on doc2.
+Anonymous requests to protected APIs returned 401/403 in all four apps. Their
+ports were reachable on the LAN address and not on doc2's tailnet address;
+existing-library mounts were confirmed read-only in the running containers.
 
 | Application | Observed version | What is usable now |
 | --- | --- | --- |
