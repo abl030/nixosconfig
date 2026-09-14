@@ -8,12 +8,14 @@ safe, including a crash between remote import and receipt commit.
 """
 
 import hashlib
+from contextlib import closing
 import os
 from pathlib import Path, PurePosixPath
 import sqlite3
 import stat
 import subprocess
 import tempfile
+import time
 import urllib.request
 
 FORMATS = {".epub", ".pdf", ".mobi", ".azw", ".azw3", ".djvu"}
@@ -21,14 +23,23 @@ MAX_BYTES = 512 * 1024 * 1024
 
 
 def acquired_books(database: Path) -> list[sqlite3.Row]:
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=15) as db:
-        db.row_factory = sqlite3.Row
-        return db.execute("""
-            SELECT id, title, author, file_path FROM books
-            WHERE book_type = 1 AND TRIM(COALESCE(file_path, '')) <> ''
-              AND acquisition_reservation_token IS NULL
-            ORDER BY id
-        """).fetchall()
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=5)) as db:
+                db.row_factory = sqlite3.Row
+                return db.execute("""
+                    SELECT id, title, author, file_path FROM books
+                    WHERE book_type = 1 AND TRIM(COALESCE(file_path, '')) <> ''
+                      AND acquisition_reservation_token IS NULL
+                    ORDER BY id
+                """).fetchall()
+        except sqlite3.OperationalError as error:
+            # A container restart briefly removes WAL/SHM before Rails opens
+            # them again. Never grant write access to work around that window.
+            if getattr(error, "sqlite_errorcode", None) not in (sqlite3.SQLITE_CANTOPEN, sqlite3.SQLITE_BUSY) or time.monotonic() >= deadline:
+                raise
+            time.sleep(1)
 
 
 def book_files(root: Path, container_path: str) -> list[Path]:

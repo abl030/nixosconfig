@@ -119,6 +119,23 @@ Calibre container; do not restore that whole user DB over later account changes.
 Never point a separate `calibredb` process directly at `/Library` while the GUI
 owns it. See [Calibre's supported remote CLI](https://manual.calibre-ebook.com/generated/en/calibredb.html).
 
+Verification on 2026-09-14: ebook search returned eight downloadable results,
+including NZBHydra2 and torrent indexers. Two synthetic EPUBs passed the ordinary
+Shelfarr post-processing job from the qBittorrent and NZBGet completion folders,
+then appeared as EPUB records in Calibre and READY one-page books in Komga.
+Their Calibre file hashes matched the original fixtures exactly. A normal repeat
+run skipped both; deleting one fixture's local import receipt and replaying the
+import still left exactly two Calibre records. All 281 pre-existing book IDs and
+titles were unchanged. Test books and source/output files were subsequently removed.
+These are completed-file import tests, not actual tracker/Usenet transfers.
+
+The first switch (`5ff6aa4f`) activated the bridge during a Shelfarr restart, while
+its WAL/SHM files were briefly absent; the switch wrapper failed on that first
+read-only open. The next timer run succeeded without any permission changes.
+The reader now allows up to 30 seconds for CANTOPEN/BUSY startup errors, keeps
+read-only access, and fails schema errors immediately. Nine behavior tests cover
+these boundaries, retry/scan persistence, duplicate handling and unsafe paths.
+
 ### What ABS synchronization displays
 
 Verified against the running application on 2026-09-14: ABS synchronization fills

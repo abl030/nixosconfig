@@ -93,6 +93,18 @@ class ImportTests(unittest.TestCase):
             writer.commit()
             self.assertEqual([b["id"] for b in bridge.acquired_books(database)], [1])
 
+    def test_startup_missing_wal_is_retried_but_schema_errors_are_not(self):
+        missing = sqlite3.OperationalError("unable to open database file")
+        missing.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+        schema = sqlite3.OperationalError("no such column")
+        schema.sqlite_errorcode = sqlite3.SQLITE_ERROR
+        with patch.object(bridge.sqlite3, "connect", side_effect=[missing, schema]) as connect:
+            with patch.object(bridge.time, "sleep") as sleep:
+                with self.assertRaisesRegex(sqlite3.OperationalError, "no such column"):
+                    bridge.acquired_books(self.root / "database")
+        self.assertEqual(connect.call_count, 2)
+        sleep.assert_called_once_with(1)
+
 
 if __name__ == "__main__":
     unittest.main()
