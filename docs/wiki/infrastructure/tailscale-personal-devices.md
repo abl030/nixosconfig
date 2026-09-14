@@ -1,7 +1,7 @@
 # Personal Tailscale devices and access levels
 
 - Date: 2026-09-14
-- Status: policy validated; ownership transitions require reauthentication
+- Status: policy deployed; Cullen migrated and verified; phone/workstation logins pending
 - Source: `tailscale/acl.hujson`, applied by doc1's `tailscale-acl-apply.service`
 - Related: [tailnet policy](tailscale-acl.md), [Dad NAS](../services/dadnas.md),
   [Cullen SSH](wsl-tailscale-ssh.md)
@@ -50,6 +50,8 @@ On CLI devices, use `tailscale up --advertise-tags= --force-reauth` with the
 existing non-default settings and log in as `abl030@gmail.com`. Do not log out
 first or reset preferences. Android requires reauthentication through its app.
 Verify the resulting owner, absence of tags, and addresses in live status.
+On Android, open the account switcher from the profile/avatar and select
+**Reauthenticate**, then use `abl030@gmail.com`; do not delete the device.
 
 Cullen advertises `192.168.100.0/24` and exit routes; only `192.168.100.0/24` is
 approved. Preserve that exact approved list. `autoApprovers` cannot use IP sets,
@@ -74,6 +76,24 @@ received `canManageNode:false`: sharing does not transfer management rights.
 DSM on port 5000 still requires a NAS login.
 
 ## Verification and recovery
+
+Signed policy commit `d2e6c3c9` was deployed through doc1's verified fleet update.
+All 72 control-plane policy tests and `nix flake check` passed, and the live
+policy matched the deployed source. On 2026-09-14, Cullen reauthenticated as
+`abl030@gmail.com`, with no tags and both original addresses retained.
+
+Windows and WSL both fetched NAS IPv4 ports 5000 and 5252 successfully (HTTP 200);
+Windows also fetched port 5252 over IPv6. Initial IPv4 requests after reauthentication
+timed out, then repeated direct requests succeeded without a policy change or
+service restart. The exact cause of that transient delay was not established.
+Cullen's peer map uses source `100.86.248.7` when talking to Dad's NAS
+(`SelfNodeV4MasqAddrForThisPeer`); its normal tailnet address remains unchanged.
+
+Windows/WSL SSH, Cullen-to-doc1 SSH, doc2 Syncthing, DNS, Dad NAS HTTPS and Shelfarr
+HTTPS all passed. Cullen-to-doc2 HTTPS and Cullen-to-phone SSH remained denied.
+Only the work subnet was approved after login; neither exit route was approved.
+Both solar inverters and the water meter were reachable through that route.
+The phone still had `tag:client`; Framework and Epimetheus were offline and tagged.
 
 Policy tests cover each role member's IPv4 and IPv6, incoming client access,
 Cullen isolation, Shelfarr IPv6, NAS web ports, and unlisted addresses. Match
