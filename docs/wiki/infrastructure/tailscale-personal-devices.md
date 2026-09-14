@@ -53,6 +53,13 @@ Verify the resulting owner, absence of tags, and addresses in live status.
 On Android, open the account switcher from the profile/avatar and select
 **Reauthenticate**, then use `abl030@gmail.com`; do not delete the device.
 
+Framework came online at 19:53 AWST with its original addresses and legacy tag.
+Its live sudo policy requires a password for Tailscale administration; unprivileged
+reauthentication returned `checkprefs access denied`. Run the login locally with
+`sudo tailscale up --advertise-tags= --force-reauth --accept-routes --netfilter-mode=on`
+and authenticate as Andrew. Unlike Epimetheus, Framework already accepts subnet
+routes; preserve that preference. No sudo or operator permissions were widened.
+
 Cullen advertises `192.168.100.0/24` and exit routes; only `192.168.100.0/24` is
 approved. Preserve that exact approved list. `autoApprovers` cannot use IP sets,
 so manually approve the work route on node `n6aoy39Erd11CNTRL` after reauthentication.
