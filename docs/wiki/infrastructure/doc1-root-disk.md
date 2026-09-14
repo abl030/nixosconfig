@@ -38,8 +38,9 @@ capacity targets. The audit used `du -x` to exclude virtiofs and NFS data.
 
 - `/nix`: **157.5 GiB**, the Nix store and its database.
 - `/var/cache/nginx-nix-mirror`: **106.5 GiB**, almost entirely stored NARs.
-  The deployed prune script uses 45-day access-time retention and has no byte
-  limit. Daily pruning succeeded; a read-only age scan found 62.3 GiB matching
+  At the initial audit, the deployed prune script used 45-day access-time
+  retention and had no byte limit. Daily pruning succeeded; a read-only age
+  scan found 62.3 GiB matching
   `find -atime +14` and 34.6 GiB matching `find -atime +30`.
 - `/var/lib/docker`: **52.2 GiB**, mostly old overlay layers. Docker service
   and socket were absent; stored containers mostly last stopped in January.
@@ -55,6 +56,36 @@ capacity targets. The audit used `du -x` to exclude virtiofs and NFS data.
 
 Nix garbage collection succeeded at 03:33 AWST, deleting 40,064 store paths
 and freeing 34.4 GiB. Deleted-but-open files accounted for only 4 KiB.
-No cleanup was performed: the request was to add headroom and then discuss
-usage. Revisit the old container layers and mirror retention first; verify
-that candidate data is still unused before deleting it.
+The initial audit did not delete data. The operator subsequently approved the
+cleanup below.
+
+## Approved cleanup, 2026-09-15
+
+Removed `/var/lib/docker` and `/var/lib/containers`, recovering approximately
+65 GiB. Before deletion, both runtime services/sockets were absent, both runtime
+enable options evaluated to false, and no runtime processes were present. A scan
+of every process's mount namespace, open file descriptors, working directory,
+root, executable, and mapped files found no references to either tree. Active
+systemd configuration also contained no references. Docker's stored containers
+were stopped; Podman's container list was empty. The old application databases
+and media used bind mounts outside the removed directories.
+
+Retained a root-only, gzip-verified recovery archive of container metadata,
+image metadata, and named volumes:
+`/root/doc1-storage-cleanup-20260915/container-metadata-volumes.tar.gz`
+(58,157,801 bytes, mode 0600 inside a 0700 directory). The obsolete image layers
+were deleted. After removal, both directories were absent and root had about
+194 GiB available, at 66% usage.
+
+Doc1's host configuration now sets `homelab.cache.mirrorRetentionDays = 14`.
+This uses the existing daily `nginx-mirror-prune.timer` and its nginx-owned,
+sandboxed service, whose only writable data path is the mirror directory.
+It prunes stored files by access time, preserving temporary download areas.
+There is still no byte limit. Expired packages can be fetched again when needed.
+
+Deploy through the signed Forgejo path with `sudo fleet-update`, then run
+`sudo systemctl start nginx-mirror-prune.service` to apply the retention policy
+immediately. Verify the active executable contains `DAYS=14`, the unit completes
+successfully, disk usage falls, and both cache endpoints still answer. To return
+to 45-day retention, revert the host setting and deploy through the same path;
+already-pruned cache files will be fetched on demand.

@@ -179,6 +179,8 @@
       enable = true;
       mirrorHost = "nix-mirror.ablz.au";
       localHost = "nixcache.ablz.au";
+      # Limit mirror retention; see docs/wiki/infrastructure/doc1-root-disk.md.
+      mirrorRetentionDays = 14;
       nixServeSecretKeyFile = "/var/lib/nixcache/secret.key";
     };
 
