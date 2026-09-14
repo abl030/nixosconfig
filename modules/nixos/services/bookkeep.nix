@@ -86,7 +86,7 @@ in {
       monitors = [
         {
           name = "Bookkeep trial";
-          url = "http://doc2:${toString cfg.port}/health";
+          url = "http://${lan}:${toString cfg.port}/health";
         }
       ];
       deepProbes = [

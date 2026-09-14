@@ -85,7 +85,7 @@ in {
       monitors = [
         {
           name = "Booklore trial";
-          url = "http://doc2:${toString cfg.port}/api/v1/healthcheck";
+          url = "http://${lan}:${toString cfg.port}/api/v1/healthcheck";
         }
       ];
       deepProbes = [

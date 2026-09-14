@@ -51,7 +51,7 @@ in {
         PUID = "2024";
         PGID = "2024";
         TZ = "Australia/Perth";
-        PUBLIC_URL = "http://doc2:${toString cfg.port}";
+        PUBLIC_URL = "http://${lan}:${toString cfg.port}";
       };
       volumes = ["${cfg.dataDir}/config:/app/config" "${cfg.dataDir}/cache:/app/cache" "${cfg.dataDir}/redis:/var/lib/redis" "${cfg.dataDir}/media:/media" "${cfg.dataDir}/downloads:/downloads"];
       # Unified image remaps users, starts Redis, then drops the app to PUID.
@@ -78,7 +78,7 @@ in {
       monitors = [
         {
           name = "ReadMeABook trial";
-          url = "http://doc2:${toString cfg.port}/api/health";
+          url = "http://${lan}:${toString cfg.port}/api/health";
         }
       ];
       deepProbes = [

@@ -70,7 +70,7 @@ in {
       monitors = [
         {
           name = "Chaptarr trial";
-          url = "http://doc2:${toString cfg.port}/ping";
+          url = "http://${lan}:${toString cfg.port}/ping";
         }
       ];
       deepProbes = [
