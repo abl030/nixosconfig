@@ -85,6 +85,12 @@ the initializer mount and its `metadataTimeout` definition to roll back, or when
 upstream exposes a supported timeout setting. A dedicated Google Books or
 Hardcover key would provide a second usable metadata source.
 
+Deployment `612c87ea` passed on doc2. Authenticated HTTPS searches returned
+20 results for `rowling`, 20 for `j k rowling`, and 17 for `harry potter`, with
+ABS matches and no metadata error. The last search took 10 seconds. The mounted
+initializer matched the built file, connection reset retained the override, and
+the SQLite/worker/storage probe passed. Remote metadata remains the active source.
+
 ## Ownership and health
 
 Unraid exports `data` with `all_squash,anonuid=99,anongid=100`. New files arrive as
