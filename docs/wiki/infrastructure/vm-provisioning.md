@@ -4,6 +4,9 @@
 **Status:** Working (Forgejo #6 closed)  
 **Relates to:** [machines.md — doc1](../../machines.md), [prom-hypervisor.md](prom-hypervisor.md)
 
+For expanding an existing guest disk, see [doc1 root disk](doc1-root-disk.md)
+(600 GiB since 2026-09-15, online ext4 expansion and space audit).
+
 ## Clean path: disko image build on doc1
 
 The preferred way to provision a new NixOS VM on prom:
