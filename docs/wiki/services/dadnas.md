@@ -1,6 +1,6 @@
 # Dad NAS login proxy
 
-- Date: 2026-09-14
+- Date: 2026-09-15
 - Status: configured and validated; operational checks below
 - URL: `https://dadnas.ablz.au/` (home LAN or the existing Tailscale home route)
 - NAS: `zarepath`, shared by Ian; recipient-side address `100.103.36.101:5000`
@@ -34,6 +34,28 @@ reauthenticated as the share recipient. Port 5252 is the Tailscale web interface
 the shared recipient receives `canManageNode:false`, not ownership of Dad's NAS.
 Other NAS ports and doc1's relay port remain denied to Cullen. DSM requires its
 own login. Upstream HTTP crosses Dad's connection inside the Tailscale tunnel.
+
+## SSH from doc1
+
+On 2026-09-15, NAS TCP 22 was added only for doc1's existing `dadnas-proxy`
+identity. Personal clients still have only TCP 5000/5252, and Caddy's fixed relay
+still forwards only to DSM. No subnet route or network SSH relay is needed.
+
+Enable SSH on port 22 in DSM's **Control Panel > Terminal & SNMP > Terminal**.
+From doc1, connect with a Synology administrator account:
+
+```sh
+ssh -a -o 'ProxyCommand=sudo -n -u dadnas-tailnet tailscale --socket=/run/dadnas-tailnet/tailscaled.sock nc 100.103.36.101 22' NAS_USERNAME@100.103.36.101
+```
+
+The proxy process runs as the existing daemon user. Its socket directory is
+mode 0700, so access requires doc1's existing sudo privileges. SSH authentication
+still belongs to DSM; no NAS credentials are stored by this change. The command
+disables SSH agent forwarding so Dad's NAS cannot use doc1's agent. The dedicated
+identity now has SSH reachability as well as DSM, so compromise of that daemon
+could attempt NAS SSH authentication. It still has no network grant into the fleet.
+To revoke this access, remove `tcp:22` from the `dadnas-proxy` grant, restore its
+deny test, and deploy the signed policy correction through doc1's fleet update.
 
 ## State and recovery
 

@@ -29,6 +29,8 @@ Trusted clients retain their fleet access, home/Dad/Mum subnet access, exit-node
 use, and the existing three Cullen HTTPS destinations. Cullen retains its exact
 DNS, SSH, HTTPS, Gotify, NFS, Syncthing, and streaming exceptions. Both sets gain
 Dad NAS TCP 5000 and 5252 over IPv4 and IPv6, without NAS file-service access.
+NAS SSH remains denied to both personal-device sets. Doc1 alone has a separate
+SSH path through its private user-owned daemon; see [Dad NAS](../services/dadnas.md#ssh-from-doc1).
 
 New devices get no role until explicitly added. Reauthentication should retain
 addresses; verify both afterward. Do not delete/recreate nodes to change ownership.

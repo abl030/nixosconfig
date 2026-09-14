@@ -107,10 +107,11 @@
     { "src": ["doc2"], "dst": ["epimetheus"], "ip": ["tcp:22"] },
 
     // Normal incoming machine shares cannot be consumed by tagged servers.
-    // This isolated user-owned identity relays only DSM for doc1/Caddy. Cullen
-    // uses its existing 192.168.1.6:443 grant via dadnas.ablz.au, not the NAS IP.
+    // This isolated user-owned identity permits DSM relay traffic and doc1's
+    // local SSH ProxyCommand. The Caddy relay remains fixed to port 5000;
+    // only doc1's privileged operator can access the private daemon socket.
     // See docs/wiki/services/dadnas.md.
-    { "src": ["dadnas-proxy"], "dst": ["dadnas"], "ip": ["tcp:5000"] },
+    { "src": ["dadnas-proxy"], "dst": ["dadnas"], "ip": ["tcp:22", "tcp:5000"] },
 
     // server → kerrynas: offsite backup only (doc2 kopia-mum NFS mount, by node
     // IP via MagicDNS). NFS: tcp:2049 (v4) + 111 (rpcbind, if v3 negotiated).
@@ -369,8 +370,10 @@
     { "src": "tag:server", "proto": "tcp", "accept": ["tag:server:22", "pfsense:53", "tag:share:80", "tag:share:443"], "deny": ["tag:share:22", "tag:share:81", "tag:share:8080"] },
     // GWM post-download conversion trigger: exact doc2 → epimetheus SSH only.
     { "src": "doc2", "proto": "tcp", "accept": ["epimetheus:22"] },
-    // Dad NAS: fixed DSM relay; personal clients get only the two requested web ports.
-    { "src": "dadnas-proxy", "proto": "tcp", "accept": ["dadnas:5000"], "deny": ["dadnas:22", "dadnas:5001", "doc1:22", "doc2:443", "192.168.1.2:2049"] },
+    // Dad NAS: doc1's private connection gets SSH + DSM; clients get only web ports.
+    { "src": "dadnas-proxy", "proto": "tcp", "accept": ["dadnas:22", "dadnas:5000"], "deny": ["dadnas:23", "dadnas:445", "dadnas:5001", "dadnas:5252", "doc1:22", "doc2:443", "192.168.1.2:2049"] },
+    { "src": "doc2", "proto": "tcp", "deny": ["dadnas:22"] },
+    { "src": "caddy", "proto": "tcp", "deny": ["dadnas:22"] },
     { "src": "cullen", "proto": "tcp", "accept": ["192.168.1.6:443"], "deny": ["dadnas:22", "dadnas:445", "dadnas:5001", "192.168.1.29:15000"] },
     // cullen: deploy/dev SSH in (doc1 and trusted clients); out = SSH to doc1 (bastion),
     // DNS, exact mgmt endpoints, tower NFS(2049). doc1:22 is cullen's SOLE tailnet
