@@ -286,9 +286,53 @@ not an API authorization boundary.
 
 ABS indexes the output subtree within the existing AudioBooks library. Its
 filesystem watcher/hourly scan provides discovery; immediate API-triggered scans
-remain off because ABS requires an admin role for that endpoint. The next
-evaluation step is one deliberately chosen request, checking the release, actual
-files, ABS import and final availability together.
+remain off because ABS requires an admin role for that endpoint. The user's first
+request, **Children of Time** (`B071Y9TTHC`), completed and appeared in ABS as item
+`afc64e7b-7561-44c8-adb9-492614da007e`; ReadMeABook reports it available.
+
+### Automatic companion EPUBs and Komga (2026-09-15)
+
+The user selected automatic companions for every ReadMeABook audiobook request.
+In **Admin Settings → E-book Sidecar**, indexer search and auto-grab are enabled,
+preferred format is EPUB, and Anna's Archive and Kindle rewriting remain off.
+The ten configured indexers already have ebook category `7020`. Both qBittorrent
+and NZBGet are available; the automatic **Children of Time** companion selected a
+NZBHydra2 result and completed through NZBGet. Its ebook request is
+`d4aaae69-0c2c-4146-a16b-c029774c780f`, status `downloaded`, with a 1,902,641-byte
+EPUB beside the audio under `Adrian Tchaikovsky/Children of Time B071Y9TTHC`.
+
+This is a search-on-completion policy, not a guarantee that every title has an
+EPUB release. The daily **Find Missing Ebooks** job retries missing companions
+for completed ReadMeABook requests (up to five automatic attempts). It does not
+request ebooks for the entire imported ABS inventory. We triggered it once to
+backfill the already completed Children of Time request and verify automatic
+selection, downloading and organization without manually choosing a release.
+
+Komga consumes the same ReadMeABook output directory through a read-only bind.
+Its **ReadMeABook ebooks** library imports EPUB metadata, enables KOReader
+hashing, and scans EPUB/PDF files; audio is ignored. Native hourly scans provide
+a fallback, while `komga-readmeabook-scan.timer` requests a scan of only this
+library every two minutes. The helper has no media filesystem access, uses a
+systemd credential for Komga's existing API key, and can connect only over
+loopback. Failed scan submissions and Komga scan failures are monitored.
+
+New ebook delivery is **ReadMeABook → shared files → Komga → KOReader**, with no
+Calibre import or second copy. The existing Calibre-backed Komga library and
+Shelfarr bridge remain intact; this change does not retire the old services or
+move their collection. Calibre remains optional for manual conversions/editing,
+and Booklore remains an evaluation candidate. ReadMeABook does not synchronize
+ownership from Komga, so existing ebooks can still be acquired again.
+
+Use the existing <https://magazines.ablz.au> login and KOReader OPDS catalogue at
+<https://magazines.ablz.au/opds/v1.2/catalog> (v2 also supported at
+`/opds/v2/catalog`). New companions appear in **ReadMeABook ebooks**.
+
+Rollback: disable auto-grab and indexer search in ReadMeABook's E-book Sidecar
+settings, stop/disable `komga-readmeabook-scan.timer`, remove only its Komga library
+record, and revert the companion additions in `komga.nix` through fleet deploy.
+The downloaded files and original audiobook request remain intact. The pre-change
+ebook settings were both sources off, auto-grab on, preferred format EPUB, and
+Kindle fixes off.
 
 ### Chaptarr sample import
 

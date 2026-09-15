@@ -8,6 +8,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.homelab.services.komga;
@@ -30,6 +31,37 @@
   # nfsWatchdog entries below). docs/wiki/infrastructure/unraid-nfs-shfs-estale.md
   magazinesHost = "/mnt/magazines";
   calibreHost = "/mnt/data/Media/Books/Calibre LIbrary";
+  # Companion EPUBs stay beside their audiobooks; Komga reads the same files.
+  # See docs/wiki/services/book-platform-exploration.md. Calibre is not involved.
+  requestRoot = "/mnt/data/Media/Books/Audiobooks/ReadMeABook";
+  requestsEnabled = config.homelab.services.readmeabook.enable;
+  requestRoots = lib.optional requestsEnabled requestRoot;
+  scanRequests = pkgs.writeText "komga-readmeabook-scan.py" ''
+    import json
+    import os
+    from pathlib import Path
+    import shlex
+    import urllib.request
+
+    credentials = Path(os.environ["CREDENTIALS_DIRECTORY"], "komga-env").read_text()
+    key = next(shlex.split(line.split("=", 1)[1])[0]
+               for line in credentials.splitlines() if line.startswith("KOMGA_API_KEY="))
+    base = "http://127.0.0.1:${toString cfg.port}"
+
+    def call(path, method="GET"):
+        request = urllib.request.Request(base + path, method=method,
+                                         headers={"X-API-Key": key})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = response.read()
+            return json.loads(body) if body else None
+
+    libraries = [item for item in call("/api/v1/libraries")
+                 if item["root"] == ${builtins.toJSON requestRoot}]
+    if len(libraries) != 1:
+        raise SystemExit("Expected one Komga library for ReadMeABook companion ebooks")
+    call("/api/v1/libraries/" + libraries[0]["id"] + "/scan", "POST")
+    print("Queued ReadMeABook companion ebook scan")
+  '';
   # systemd parses BindReadOnlyPaths values as whitespace-separated within
   # each assignment, so paths with literal spaces must be double-quoted
   # per systemd.exec(5). The \x20 escape is NOT honoured for path entries
@@ -39,7 +71,7 @@
     if lib.hasInfix " " p
     then "\"${p}\""
     else p;
-  libraryRoots = map quotePathIfSpaced [magazinesHost calibreHost];
+  libraryRoots = map quotePathIfSpaced ([magazinesHost calibreHost] ++ requestRoots);
 in {
   options.homelab.services.komga = {
     enable = lib.mkEnableOption "Komga magazine/comic/ebook server (native NixOS module)";
@@ -70,6 +102,12 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    sops.secrets."komga-sync/env" = lib.mkIf requestsEnabled {
+      sopsFile = config.homelab.secrets.sopsFile "komga-sync.env";
+      format = "dotenv";
+      mode = "0400";
+    };
+
     services.komga = {
       enable = true;
       stateDir = cfg.dataDir;
@@ -104,6 +142,7 @@ in {
       # either doesn't cascade-stop Komga — the two nfsWatchdogs recover it.
       after = ["mnt-data.mount" "mnt-magazines.mount"];
       wants = ["mnt-data.mount" "mnt-magazines.mount"];
+      unitConfig.RequiresMountsFor = requestRoots;
 
       serviceConfig = {
         # Narrow /mnt visibility: only the library roots + stateDir.
@@ -117,6 +156,44 @@ in {
         # masked by the TemporaryFileSystem above without this bind.
         # rw — Komga writes its sqlite DB, thumbnails, search index here.
         BindPaths = [cfg.dataDir];
+      };
+    };
+
+    # NFS changes do not generate local inotify events. Scan only the request
+    # library every two minutes; no copying or Calibre database is needed.
+    systemd.services.komga-readmeabook-scan = lib.mkIf requestsEnabled {
+      description = "Discover ReadMeABook companion ebooks in Komga";
+      after = ["komga.service"];
+      requisite = ["komga.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        DynamicUser = true;
+        ExecStart = "${pkgs.python3}/bin/python3 ${scanRequests}";
+        LoadCredential = ["komga-env:${config.sops.secrets."komga-sync/env".path}"];
+        TimeoutStartSec = "50s";
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictSUIDSGID = true;
+        RestrictAddressFamilies = ["AF_INET" "AF_UNIX"];
+        IPAddressDeny = "any";
+        IPAddressAllow = "localhost";
+        TemporaryFileSystem = "/mnt";
+        UMask = "0077";
+      };
+    };
+    systemd.timers.komga-readmeabook-scan = lib.mkIf requestsEnabled {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnActiveSec = "2min";
+        OnUnitInactiveSec = "2min";
+        AccuracySec = "10s";
       };
     };
 
@@ -163,35 +240,43 @@ in {
       # failure strings) can't apply yet. Start with the well-known JVM
       # and Spring-Boot failure shapes and tighten after the first month
       # of real journal data lands in Loki.
-      monitoring.errorPatterns = [
-        {
-          name = "Komga JVM out-of-memory";
-          unit = "komga.service";
-          pattern = "OutOfMemoryError|java\\.lang\\.OutOfMemoryError";
-          severity = "critical";
-          summary = "Komga JVM crashed with OOM — service likely down or degraded";
-          # Single-shot: the JVM doesn't keep logging after OOM.
-          threshold = 0;
-        }
-        {
-          name = "Komga library scan failed";
-          unit = "komga.service";
-          # 2026-06-28: the guessed wording (`library scan for X failed` /
-          # `error scanning`) never matched — verified against Loki, Komga's
-          # actual scan-failure line is, from the TaskHandler:
-          #   `Task ScanLibrary(libraryId='...', scanDeep='false', ...) execution failed`
-          # A real scan failure on 2026-06-28 went unmatched under the old
-          # pattern. Anchored to the real string (the month-of-data tighten-up
-          # the original comment promised).
-          pattern = "(?i)Task ScanLibrary\\(.*\\) execution failed";
+      monitoring.errorPatterns =
+        lib.optional requestsEnabled {
+          name = "ReadMeABook Komga discovery failed";
+          unit = "komga-readmeabook-scan.service";
+          pattern = "Traceback|Expected one Komga library";
           severity = "warning";
-          summary = "Komga library scan threw an error — new issues may not be indexed";
+          summary = "Companion ebooks may not appear in Komga automatically";
         }
-        # Komga's NAMESPACE/bind start-failure (#257) now pages ONCE via the
-        # fleet-wide "Service failed to start (sandbox/namespace)" alert in
-        # alerting.nix — no per-service entry (storm de-collide 2026-06-26).
-        # The nfsWatchdog below still restarts Komga when the mount goes stale.
-      ];
+        ++ [
+          {
+            name = "Komga JVM out-of-memory";
+            unit = "komga.service";
+            pattern = "OutOfMemoryError|java\\.lang\\.OutOfMemoryError";
+            severity = "critical";
+            summary = "Komga JVM crashed with OOM — service likely down or degraded";
+            # Single-shot: the JVM doesn't keep logging after OOM.
+            threshold = 0;
+          }
+          {
+            name = "Komga library scan failed";
+            unit = "komga.service";
+            # 2026-06-28: the guessed wording (`library scan for X failed` /
+            # `error scanning`) never matched — verified against Loki, Komga's
+            # actual scan-failure line is, from the TaskHandler:
+            #   `Task ScanLibrary(libraryId='...', scanDeep='false', ...) execution failed`
+            # A real scan failure on 2026-06-28 went unmatched under the old
+            # pattern. Anchored to the real string (the month-of-data tighten-up
+            # the original comment promised).
+            pattern = "(?i)Task ScanLibrary\\(.*\\) execution failed";
+            severity = "warning";
+            summary = "Komga library scan threw an error — new issues may not be indexed";
+          }
+          # Komga's NAMESPACE/bind start-failure (#257) now pages ONCE via the
+          # fleet-wide "Service failed to start (sandbox/namespace)" alert in
+          # alerting.nix — no per-service entry (storm de-collide 2026-06-26).
+          # The nfsWatchdog below still restarts Komga when the mount goes stale.
+        ];
 
       # NFS watchdog — restart Komga if a bind-source mount goes stale.
       # The 5min-interval timer + service restart is the canonical pattern

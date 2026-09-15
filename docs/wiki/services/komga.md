@@ -52,7 +52,15 @@ own the write side; Komga only consumes.
 
 ## Libraries
 
-Three libraries configured via REST API on first deploy:
+**2026-09-15 update:** ReadMeABook companion ebooks now have a separate library
+reading `/mnt/data/Media/Books/Audiobooks/ReadMeABook` directly and read-only.
+Automatic ebook acquisition uses ReadMeABook/Prowlarr and the existing download
+clients; `komga-readmeabook-scan.timer` discovers additions every two minutes.
+Calibre is not in that delivery path. The older Calibre library remains intact.
+See [book platform exploration](book-platform-exploration.md#automatic-companion-epubs-and-komga-2026-09-15)
+for configuration, verification and rollback.
+
+Three libraries configured via REST API on first deploy (historical counts):
 
 | Library | ID (env-specific) | Root | Books | Source of truth |
 |---|---|---|---|---|
