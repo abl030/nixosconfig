@@ -105,7 +105,7 @@ Base path: `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skill
 - `examples.yaml` — Compound examples combining multiple best practices
 
 ## System Overview
-- HA Core 2026.8.2 on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
+- HA Core 2026.9.2 (verified 2026-09-15) on Home Assistant OS 18.2 — HAOS on prom VM 116 (`192.168.1.20`), URL: https://home.ablz.au
 - Location: <TOWN> WA (AWST UTC+8), metric units, AUD
 - 1115 entities, 29 domains, 276 services, 210 loaded components, 6 areas (Bathroom, Bedroom, Cullen Wines, Garage, Kitchen, Living Room)
 - 33 config entries / 28 integrations. Not loaded: `zha`, `smlight` (Zigbee runs through Zigbee2MQTT on tower, not ZHA); `proxmoxve` in `setup_retry`.
@@ -113,6 +113,8 @@ Base path: `~/.claude/plugins/cache/homeassistant-ai-skills/home-assistant-skill
 - **HA updates itself unattended** since 2026-08-21: Core daily 05:00 (holds back monthly `x.y.0` until a patch exists), OS Sundays 05:30, all 7 add-ons, HACS daily 05:45. ESPHome *device* firmware is deliberately manual. Nightly backup 02:00 → tower → kopia-mum → Mum's Synology. Do not disable the four `Auto-update: *` automations without reading `docs/wiki/services/home-assistant-auto-update.md`.
 
 ## Key Systems (use ha_search_entities/ha_get_states to query details)
+
+**Winery history archive**: doc1 runs a managed hourly collector for hot-water cumulative litres/flow and Solar Analytics generation/net-grid power. It uses the dedicated local-only `winery_history_archive` HA account (`system-read-only`), not the MCP control token. Credentials, archive locations, replay boundaries and backup recovery: `docs/wiki/services/winery-history.md`.
 
 **Solar (Cullen Wines)**: 3x SMA STP 25-50 inverters (75kW total) via pysmaplus. Solar Analytics REST API (site 360613) for consumption/generation/import/export. 134 inverter sensors + 62 SA sensors.
 

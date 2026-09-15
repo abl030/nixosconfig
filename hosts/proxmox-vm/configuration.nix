@@ -217,6 +217,7 @@
       pushDeployOptionalHosts = ["imagegen-gpu"];
     };
     services = {
+      wineryHistory.enable = true;
       dadnasProxy.enable = true;
       beets.enable = true;
       bdday.enable = true;

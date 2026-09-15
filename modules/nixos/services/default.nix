@@ -80,6 +80,7 @@
     ./voice-diary.nix
     ./cullen-dashboard.nix
     ./gwm-archiver.nix
+    ./winery-history.nix
     ./komga.nix
     ./komga-sync.nix
     ./marker-convert.nix

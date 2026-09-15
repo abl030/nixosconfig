@@ -5,6 +5,12 @@
   pkgs,
   system,
 }: let
+  wineryHistoryCheck = pkgs.runCommand "winery-history" {nativeBuildInputs = [pkgs.python3];} ''
+    cp ${../../scripts/winery-history.py} winery-history.py
+    cp ${../../scripts/test_winery_history.py} test_winery_history.py
+    python3 -m unittest discover -p test_winery_history.py
+    touch "$out"
+  '';
   kopiaVerificationCheck = let
     host = self.nixosConfigurations.kopia.config;
     verify = host.systemd.services.kopia-verify-mum;
@@ -727,6 +733,7 @@
       '';
 in {
   inherit
+    wineryHistoryCheck
     kopiaBackupProbeCheck
     kopiaVerificationCheck
     gwmArchiverCheck
