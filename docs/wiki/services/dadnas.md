@@ -85,11 +85,12 @@ The private key remains on doc1. Andrew accepted the NAS ED25519 host fingerprin
 2026-09-15 preflight: DSM 7.4 build 90075; NAS LAN address `192.168.2.174/24`
 on `eth0`, gateway `192.168.2.1`. Tailscale 1.58.2 is installed at
 `/var/packages/Tailscale/target/bin/tailscale`, outside `ibl`'s normal PATH.
-No routes are currently advertised. `accept-routes=true`, `accept-dns=true`,
+At preflight, no routes were advertised. `accept-routes=true`, `accept-dns=true`,
 SNAT enabled, shields down, no tags, and Tailscale SSH disabled were observed.
 
-Status: not configured yet. The user requested advertising `192.168.2.0/24`
-and will approve it in Dad's console. `ibl` can log in with the fleet key but
+Status: advertised and approved in Dad's tailnet at 08:15 AWST; cross-tailnet
+LAN access is unavailable through machine sharing. Andrew ran the command below
+and approved the route in Dad's console. `ibl` can log in with the fleet key but
 `sudo -n` requires a password; the unprivileged `tailscale set` attempt returned
 `checkprefs access denied` and made no change. Run from doc1 and enter the NAS
 password interactively:
@@ -98,7 +99,7 @@ password interactively:
 ssh -t dadnas 'sudo /var/packages/Tailscale/target/bin/tailscale set --advertise-routes=192.168.2.0/24'
 ```
 
-Then approve `192.168.2.0/24` on `zarepath` in Dad's console. This command changes
+Approve `192.168.2.0/24` on `zarepath` in Dad's console. This command changes
 only the advertised routes, preserving other preferences and adding no exit route.
 Rollback uses the same command with `--advertise-routes=`.
 
@@ -115,6 +116,14 @@ into Andrew's tailnet. Our existing `192.168.2.0/24` route belongs to the separa
 Dad's console does not replace that route. Verify forwarding from a client joined
 to Dad's tailnet after approval, using a known LAN TCP service rather than relying
 only on ping. Re-read advertised routes and confirm SSH/DSM still work.
+
+Live verification at 08:15 AWST: `AdvertiseRoutes`, `Self.PrimaryRoutes` and
+`Self.AllowedIPs` contain `192.168.2.0/24`; backend state is `Running`, health
+has no warnings, and the SSH connection remains functional. The NAS's native
+address in Dad's tailnet is `100.103.36.102`; its shared address in ours remains
+`100.103.36.101`. Keep the SSH alias and relay pinned to the recipient address.
+Our Raspberry Pi still has `192.168.2.0/24` assigned but is offline, last seen
+2026-06-21. No forwarding test from a client joined to Dad's tailnet has been run.
 
 ## State and recovery
 
