@@ -45,6 +45,14 @@ SSH is enabled on port 22 in DSM's **Control Panel > Terminal & SNMP > Terminal*
 From doc1, connect as `ibl` using its resident fleet identity:
 
 ```sh
+ssh dadnas
+```
+
+The doc1-only alias is declared in `hosts/proxmox-vm/home.nix`; it selects the
+account, fleet key and private Tailscale socket and disables agent forwarding.
+For diagnosis before Home Manager installs the alias, the equivalent command is:
+
+```sh
 ssh -a -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o 'ProxyCommand=sudo -n -u dadnas-tailnet tailscale --socket=/run/dadnas-tailnet/tailscaled.sock nc 100.103.36.101 22' ibl@100.103.36.101
 ```
 
