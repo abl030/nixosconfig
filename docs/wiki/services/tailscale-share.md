@@ -1,6 +1,6 @@
 # tailscaleShare
 
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 **Status:** working, hardened for issue #232 Tier 2; automatic Kuma monitoring added with #216 follow-up; "logged out" alert pattern narrowed 2026-05-22 (see [lgtm-stack.md](./lgtm-stack.md#per-service-errorpattern-alerts--startup-noise-trap))
 **Owner:** `modules/nixos/services/tailscale-share.nix`
 **Issues:** [#232](https://github.com/abl030/nixosconfig/issues/232), [#216](https://github.com/abl030/nixosconfig/issues/216)

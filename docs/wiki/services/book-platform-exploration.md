@@ -384,6 +384,35 @@ Deploy through signed Forgejo commits: doc1 installs/applies the ACL and doc2
 runs the sidecars. Verify the persistent identity, DNS A/AAAA, HTTPS, login,
 anonymous API denial, Caddy admin isolation, and the application deep probe.
 
+Verified at 08:23 AWST on revision
+`0d483573592102fcb3c818b21c696787d29a86ba` on both doc1 and doc2:
+
+- The managed node retained the enrolled ID and both addresses; the temporary
+  enrollment container was stopped and removed before deployment.
+- Public DNS and pfSense return the sidecar A/AAAA. HTTPS health passed over
+  IPv4 and IPv6 from doc1, and normal DNS/HTTPS and HTTP→HTTPS redirect passed
+  from WSL on the Cullen laptop. Forced IPv6 from WSL could not connect; the
+  laptop's working normal path used IPv4, while both address families are
+  granted and IPv6 is independently verified from doc1.
+- Local login, authenticated requests and retained ebook auto-grab settings
+  passed. Anonymous requests/settings APIs return 401. The application deep
+  probe passed after the switch; ABS and Komga remain active.
+- Caddy runs as `2011:2011`, has only `NET_BIND_SERVICE` and `NoNewPrivs=1`;
+  its admin port is unreachable from the Tailscale sidecar. Podman publishes
+  the app only on `127.0.0.1:3031` and `10.88.0.1:3031`.
+- The Tailscale policy validation API returned 200 and the applied policy
+  semantically matches the committed file. The normal doc1 ACL unit applied it
+  successfully; no manual-edit protection was disabled.
+
+To share, select **readmeabook → Share** in Tailscale's Machines page and send
+the recipient its invitation link. After accepting, they visit
+<https://readmeabook.ablz.au> and register their own ReadMeABook account.
+[Tailscale's sharing instructions](https://tailscale.com/docs/features/sharing#share-using-a-link).
+
+Rollback the sidecar and Cullen additions through the verified deployment path,
+restore the previous local-proxy entry, and remove the stale sidecar AAAA record
+after the LAN A record is restored. Keep the sidecar state for future reuse.
+
 ### Chaptarr sample import
 
 Independent copies of the existing Red Rising audiobook directory and Calibre
