@@ -302,7 +302,9 @@ NZBHydra2 result and completed through NZBGet. Its ebook request is
 EPUB beside the audio under `Adrian Tchaikovsky/Children of Time B071Y9TTHC`.
 
 This is a search-on-completion policy, not a guarantee that every title has an
-EPUB release. The daily **Find Missing Ebooks** job retries missing companions
+EPUB release. EPUB is a ranking preference, not a strict format filter; a
+non-EPUB/PDF fallback will not be served by Komga without conversion. The daily
+**Find Missing Ebooks** job retries missing companions
 for completed ReadMeABook requests (up to five automatic attempts). It does not
 request ebooks for the entire imported ABS inventory. We triggered it once to
 backfill the already completed Children of Time request and verify automatic
@@ -326,6 +328,21 @@ ownership from Komga, so existing ebooks can still be acquired again.
 Use the existing <https://magazines.ablz.au> login and KOReader OPDS catalogue at
 <https://magazines.ablz.au/opds/v1.2/catalog> (v2 also supported at
 `/opds/v2/catalog`). New companions appear in **ReadMeABook ebooks**.
+
+Verified on doc2 revision `cb9259f01e2733ea66c7a55168c51d9c8377e1aa`, deployed
+at 08:03 AWST: the read-only bind is active, the credential-backed scan helper
+exits successfully, and the two-minute timer is enabled. Komga library
+`0RM7YEQPWPYVP` contains **Children of Time**, book `0RM7YEQW0PYSB`, media status
+`READY`. The actual OPDS acquisition link returned HTTP 200, a valid English EPUB
+ZIP, and bytes identical to the source file (SHA-256
+`9eddc32d3667dffeefd0dfc5d11b2bea76dc10a42c88b003577144705423016b`).
+The older Calibre-backed library already contained this title, demonstrating the
+cross-library deduplication limitation; neither copy was removed.
+
+Before deployment, the doc2 toplevel build, unit-hardening audit, Alejandra,
+deadnix and statix passed. Komga, ReadMeABook and ABS remained healthy afterward.
+Pre-change ebook settings are backed up on doc2 at
+`/mnt/virtio/readmeabook/metadata-backups/2026-09-15/ebook-settings-before.json`.
 
 Rollback: disable auto-grab and indexer search in ReadMeABook's E-book Sidecar
 settings, stop/disable `komga-readmeabook-scan.timer`, remove only its Komga library
