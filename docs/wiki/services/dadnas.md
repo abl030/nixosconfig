@@ -41,11 +41,11 @@ On 2026-09-15, NAS TCP 22 was added only for doc1's existing `dadnas-proxy`
 identity. Personal clients still have only TCP 5000/5252, and Caddy's fixed relay
 still forwards only to DSM. No subnet route or network SSH relay is needed.
 
-Enable SSH on port 22 in DSM's **Control Panel > Terminal & SNMP > Terminal**.
-From doc1, connect with a Synology administrator account:
+SSH is enabled on port 22 in DSM's **Control Panel > Terminal & SNMP > Terminal**.
+From doc1, connect as `ibl` using its resident fleet identity:
 
 ```sh
-ssh -a -o 'ProxyCommand=sudo -n -u dadnas-tailnet tailscale --socket=/run/dadnas-tailnet/tailscaled.sock nc 100.103.36.101 22' NAS_USERNAME@100.103.36.101
+ssh -a -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o 'ProxyCommand=sudo -n -u dadnas-tailnet tailscale --socket=/run/dadnas-tailnet/tailscaled.sock nc 100.103.36.101 22' ibl@100.103.36.101
 ```
 
 The proxy process runs as the existing daemon user. Its socket directory is
@@ -63,6 +63,14 @@ server-side policy tests passed. Doc1's proxy reached NAS port 22 and received
 `connection was refused`; DSM SSH was not yet accepting connections. The HTTPS
 login remained HTTP 200. Personal-device SSH deny tests passed; Framework was
 unreachable for a separate live negative probe. No NAS login was attempted.
+
+At 08:04 AWST, Andrew installed doc1's fleet public key with `ssh-copy-id` as
+`ibl`. Both the installed public key and the private key's derived public half
+were checked against `fleetIdentity` in `hosts.nix`. A subsequent SSH command
+with `BatchMode=yes`, public-key-only authentication, strict host-key checking
+and agent forwarding disabled returned user `ibl` and hostname `zarepath`.
+The private key remains on doc1. Andrew accepted the NAS ED25519 host fingerprint
+`SHA256:+hx9jA45kZpcQW3w768MMQUtRSL2Rdz8e8cM+AWMe+w` during installation.
 
 ## State and recovery
 
