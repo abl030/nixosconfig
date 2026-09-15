@@ -125,6 +125,13 @@ address in Dad's tailnet is `100.103.36.102`; its shared address in ours remains
 Our Raspberry Pi still has `192.168.2.0/24` assigned but is offline, last seen
 2026-06-21. No forwarding test from a client joined to Dad's tailnet has been run.
 
+The recipient-side peer map was also checked: the NAS has only its own IPv4/IPv6
+host prefixes in `AllowedIPs`, with no `PrimaryRoutes`. A local OS route cannot
+make the shared peer carry the LAN prefix. An alternative SSH forwarding probe,
+`ssh -W 192.168.2.1:80 dadnas`, was rejected with `administratively prohibited`.
+Normal shell login works, but SSH port forwarding is not currently permitted;
+no SSH-server configuration was changed during that probe.
+
 ## State and recovery
 
 Persistent login state is `/var/lib/dadnas-tailnet` (systemd DynamicUser stores it
