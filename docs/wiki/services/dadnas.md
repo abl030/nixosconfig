@@ -127,10 +127,28 @@ Our Raspberry Pi still has `192.168.2.0/24` assigned but is offline, last seen
 
 The recipient-side peer map was also checked: the NAS has only its own IPv4/IPv6
 host prefixes in `AllowedIPs`, with no `PrimaryRoutes`. A local OS route cannot
-make the shared peer carry the LAN prefix. An alternative SSH forwarding probe,
+make the shared peer carry the LAN prefix. An initial SSH forwarding probe,
 `ssh -W 192.168.2.1:80 dadnas`, was rejected with `administratively prohibited`.
-Normal shell login works, but SSH port forwarding is not currently permitted;
-no SSH-server configuration was changed during that probe.
+DSM's SSH configuration disabled forwarding for `ibl`.
+
+At 08:31 AWST, Andrew enabled local TCP forwarding for `ibl` by appending this
+block to `/etc/ssh/sshd_config`, validating with `sudo /usr/bin/sshd -t`, and
+running `sudo systemctl reload sshd.service`:
+
+```sshconfig
+Match User ibl
+    AllowTcpForwarding local
+    AllowAgentForwarding no
+```
+
+Verified afterward: a fresh `ssh -W 192.168.2.1:80 dadnas` connection carried an
+HTTP HEAD request to Dad's router and returned `HTTP/1.0 200 OK`. Normal key-only
+SSH still returned `ibl` / `zarepath`, and `sshd.service` was active with a
+successful reload. This provides TCP access from doc1 through the NAS to LAN
+destinations; it does not export Dad's subnet route into our tailnet. No persistent
+tunnel or listener was created. Agent forwarding remains disabled. To revoke
+this forwarding permission, remove the `Match User ibl` block, validate, and reload
+SSHD. A pre-change backup exists at `/etc/ssh/sshd_config.backup.20260915-082158`.
 
 ## State and recovery
 
