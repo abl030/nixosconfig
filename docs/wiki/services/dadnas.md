@@ -1,4 +1,4 @@
-# Dad NAS login proxy
+# Dad NAS access
 
 - Date: 2026-09-15
 - Status: configured and validated; operational checks below
@@ -149,6 +149,61 @@ destinations; it does not export Dad's subnet route into our tailnet. No persist
 tunnel or listener was created. Agent forwarding remains disabled. To revoke
 this forwarding permission, remove the `Match User ibl` block, validate, and reload
 SSHD. A pre-change backup exists at `/etc/ssh/sshd_config.backup.20260915-082158`.
+
+## Temporary access to Dad's LAN from work
+
+Decision, 2026-09-15: Andrew wants these tunnels started only when needed and
+closed afterward. When asked for router or RDP access in future, supply the
+commands below, adapting the destination as needed. Do not turn this workaround
+into an always-on service or a `dadrouter.ablz.au` proxy. The existing NAS login
+proxy at `dadnas.ablz.au` is separate.
+
+The path is **work laptop → doc1 → SSH on Dad's NAS → destination on Dad's LAN**.
+Connect Tailscale on the Cullen laptop and run the commands in its local WSL
+terminal, before SSHing into doc1. The laptop uses its existing personal key to
+enter doc1; doc1 uses its resident fleet key and `dadnas` alias to reach the NAS.
+No fleet private key or SSH agent is forwarded to the laptop or NAS. Both tunnel
+listeners bind only to loopback. Cullen's direct NAS SSH access stays denied.
+
+### Router web page — confirmed working
+
+Run on the laptop:
+
+```sh
+ssh -t -a -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8080:127.0.0.1:18080 doc1 \
+  'ssh -a -N -o ExitOnForwardFailure=yes -L 127.0.0.1:18080:192.168.2.1:80 dadnas'
+```
+
+Open **http://localhost:8080** in the Windows browser. Laptop port 8080 connects
+to doc1's loopback port 18080, which forwards through the NAS to the router at
+`192.168.2.1:80`. Andrew confirmed this exact command opened the router page from
+the work laptop on 2026-09-15; the earlier doc1 probe also returned HTTP 200.
+
+### Remote Desktop — template, not yet tested
+
+First obtain the Windows PC's actual LAN address at Dad's and confirm RDP is
+enabled. Replace `DAD_PC_LAN_IP` below with that address; it is not the NAS or
+router address. Run on the laptop:
+
+```sh
+ssh -t -a -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:13389:127.0.0.1:13389 doc1 \
+  'ssh -a -N -o ExitOnForwardFailure=yes -L 127.0.0.1:13389:DAD_PC_LAN_IP:3389 dadnas'
+```
+
+In Windows Remote Desktop, connect to **localhost:13389** and authenticate with
+the target PC's account. This carries RDP over TCP; SSH does not forward RDP's
+optional UDP transport. No target PC address or successful RDP session has been
+verified yet.
+
+For either tunnel, keep the terminal open while using it and press **Ctrl+C**
+when finished. No router port forwarding, DNS record, firewall widening, or
+persistent tunnel service is needed. The NAS SSH forwarding permission remains
+configured for future sessions. If a listener port is already in use, check for
+an existing tunnel or choose an unused port, updating both references to any
+changed doc1 port. If SSH reports `administratively prohibited`, re-check the
+NAS's `Match User ibl` forwarding rule above.
 
 ## State and recovery
 
