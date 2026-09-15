@@ -63,6 +63,7 @@
     ./servarr.nix
     ./netboot.nix
     ./overseerr.nix
+    ./maintainerr.nix
     ./youtarr.nix
     ./musicbrainz.nix
     ./kopia.nix
