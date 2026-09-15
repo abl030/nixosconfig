@@ -7,7 +7,6 @@
 }: let
   cfg = config.homelab.services.readmeabook;
   image = "ghcr.io/kikootwo/readmeabook:latest";
-  lan = config.homelab.localProxy.localIp;
   library = "/mnt/data/Media/Books/Audiobooks/ReadMeABook";
   torrents = "/mnt/data/Media/Temp/readmeabook";
   usenet = "/mnt/data/Media/Temp/completed/readmeabook";
@@ -55,10 +54,10 @@ in {
       # Match the NAS all_squash identity without changing application UID.
       # The mixed-owner completed path is provisioned on tower; see the wiki.
       ++ map (p: "d ${p} 2775 99 users - -") [library torrents];
-    networking.firewall.allowedTCPPorts = [cfg.port];
     virtualisation.oci-containers.containers.readmeabook = {
       inherit image;
-      ports = ["${lan}:${toString cfg.port}:3030" "127.0.0.1:${toString cfg.port}:3030"];
+      # Local probes and the service-specific Tailscale proxy only.
+      ports = ["127.0.0.1:${toString cfg.port}:3030" "10.88.0.1:${toString cfg.port}:3030"];
       environmentFiles = [dbSecret];
       environment = {
         PUID = "2024";
@@ -97,21 +96,23 @@ in {
         inherit image;
       }
     ];
-    homelab.localProxy.hosts = [
-      {
-        host = cfg.fqdn;
-        inherit (cfg) port;
-        websocket = true;
-      }
-    ];
+    homelab.tailscaleShare.readmeabook = {
+      enable = true;
+      inherit (cfg) fqdn;
+      upstream = "http://host.docker.internal:${toString cfg.port}";
+      dataDir = "/mnt/virtio/tailscale-share/readmeabook";
+      hostname = "readmeabook";
+      authKeySecret = null;
+      tags = ["tag:share"];
+      publishIpv6 = true;
+      firewallPorts = [cfg.port];
+      monitorName = "ReadMeABook (Tailnet)";
+      monitorPath = "/api/health";
+    };
+    # Retire the old LAN DNS owner before the sidecar publishes this hostname.
+    systemd.services.tailscale-share-dns-sync-readmeabook.after = ["homelab-dns-sync.service"];
     homelab.nfsWatchdog.podman-readmeabook.path = library;
     homelab.monitoring = {
-      monitors = [
-        {
-          name = "ReadMeABook trial";
-          url = "https://${cfg.fqdn}/api/health";
-        }
-      ];
       deepProbes = [
         {
           name = "ReadMeABook trial state";

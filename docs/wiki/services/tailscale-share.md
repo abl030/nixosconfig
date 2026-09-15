@@ -81,6 +81,7 @@ on 2026-06-19 before the `isolate = false` opt-out was added). Keep `isolate = f
 | Overseerr | `doc2` | `overseer.ablz.au` | `/mnt/virtio/tailscale-share/overseerr` |
 | Audiobookshelf | `doc2` | `audiobooks.ablz.au` | `/mnt/virtio/tailscale-share/audiobookshelf` |
 | Shelfarr | `doc2` | `shelfarr.ablz.au` | `/mnt/virtio/tailscale-share/shelfarr` |
+| ReadMeABook | `doc2` | `readmeabook.ablz.au` | `/mnt/virtio/tailscale-share/readmeabook` |
 | Ali Cratedigger | `doc2` | `ali-music.ablz.au` | `/mnt/virtio/tailscale-share/ali-music` |
 | Yoto | `doc2` | `yoto.ablz.au` | `/mnt/virtio/tailscale-share/yoto` |
 | Yoto WebDAV | `doc2` | `yotodav.ablz.au` | `/mnt/virtio/tailscale-share/yotodav` |

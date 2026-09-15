@@ -351,6 +351,39 @@ The downloaded files and original audiobook request remain intact. The pre-chang
 ebook settings were both sources off, auto-grab on, preferred format EPUB, and
 Kindle fixes off.
 
+### ReadMeABook tailnet sharing (2026-09-15)
+
+The dedicated share is configured in `readmeabook.nix`: node
+`readmeabook`, tag `tag:share`, HTTPS at `readmeabook.ablz.au`, dual-stack DNS,
+and separate root-owned state in `/mnt/virtio/tailscale-share/readmeabook`.
+The application's port becomes loopback/Podman-bridge-only; the existing
+LAN-owned DNS/nginx entry is replaced by the single-service Caddy sidecar.
+DNS publication is ordered after the old local-proxy DNS cleanup.
+
+The legacy doc2 enrollment OAuth credential returned HTTP 401. No new enrollment
+secret was stored. A temporary `readmeabook-enrol` container on doc2 ran a stable
+userspace `tailscaled` against the final `ts-state` directory while the owner
+completed the browser login. Enrollment succeeded with `tag:share`:
+
+- Node ID: `njSQ7rNh3411CNTRL`, name `readmeabook.tail13796.ts.net`.
+- IPv4: `100.84.213.15`; IPv6: `fd7a:115c:a1e0::f93a:d510`.
+- Cullen access: exact HTTP/HTTPS grants for both addresses in
+  `tailscale/acl.hujson`, with deny tests for SSH and direct backend access.
+- External recipients: existing `autogroup:shared → tag:share` HTTP/HTTPS grant;
+  they must still accept a share of this specific node.
+
+**Stop and remove the enrollment container before starting managed
+`ts-readmeabook`**; never run two daemons against the same state. Persistent
+`TS_AUTH_ONCE` preserves the enrolled identity across replacements. The owner
+will share the node with their sister; no invitation has been sent. ReadMeABook
+currently permits local registration without admin approval, so a recipient
+with tailnet access can create their own account. Application API endpoints
+still require authentication.
+
+Deploy through signed Forgejo commits: doc1 installs/applies the ACL and doc2
+runs the sidecars. Verify the persistent identity, DNS A/AAAA, HTTPS, login,
+anonymous API denial, Caddy admin isolation, and the application deep probe.
+
 ### Chaptarr sample import
 
 Independent copies of the existing Red Rising audiobook directory and Calibre

@@ -77,6 +77,8 @@
     "ali-music-v6":  "fd7a:115c:a1e0::2b3a:ec0d",
     "shelfarr":      "100.118.169.64",  // audiobook requests; exact Cullen-laptop HTTPS pinhole
     "shelfarr-v6":   "fd7a:115c:a1e0::a83a:a942", // same sidecar, published AAAA address
+    "readmeabook":   "100.84.213.15", // request portal; exact Cullen-laptop HTTP/HTTPS pinhole
+    "readmeabook-v6": "fd7a:115c:a1e0::f93a:d510",
     "yotodav":       "100.125.63.39",   // Yoto WebDAV; negative test keeps Cullen off other shares
     "imagegen":      "100.96.55.109",  // imagegen-gpu VM (tag:imagegen) — ComfyUI, four-device :443 grant
   },
@@ -214,6 +216,7 @@
     { "src": ["ipset:cullen"], "dst": ["yoto", "yoto-v6"], "ip": ["tcp:80", "tcp:443"] },
     { "src": ["ipset:cullen"], "dst": ["ali-music", "ali-music-v6"], "ip": ["tcp:80", "tcp:443"] },
     { "src": ["ipset:cullen"], "dst": ["shelfarr", "shelfarr-v6"], "ip": ["tcp:80", "tcp:443"] },
+    { "src": ["ipset:cullen"], "dst": ["readmeabook", "readmeabook-v6"], "ip": ["tcp:80", "tcp:443"] },
     // cullen → doc1 Hermes webhook (8644): negative alert routing (RCA) from wsl.
     { "src": ["ipset:cullen"], "dst": ["doc1"], "ip": ["tcp:8644"] },
     // servarr (.4): the *arr WebUIs + qbt.ablz.au, all behind nginx:443. wsl reaches
@@ -387,6 +390,8 @@
     { "src": "cullen-v6", "proto": "tcp", "accept": ["yoto-v6:80", "yoto-v6:443", "ali-music-v6:80", "ali-music-v6:443"], "deny": ["yoto-v6:22", "yoto-v6:81", "ali-music-v6:22", "ali-music-v6:81"] },
     { "src": "cullen", "proto": "tcp", "accept": ["shelfarr:80", "shelfarr:443"], "deny": ["shelfarr:22", "shelfarr:81", "shelfarr:5056"] },
     { "src": "cullen-v6", "proto": "tcp", "accept": ["shelfarr-v6:80", "shelfarr-v6:443"], "deny": ["shelfarr-v6:22", "shelfarr-v6:81", "shelfarr-v6:5056"] },
+    { "src": "cullen", "proto": "tcp", "accept": ["readmeabook:80", "readmeabook:443"], "deny": ["readmeabook:22", "readmeabook:81", "readmeabook:3031"] },
+    { "src": "cullen-v6", "proto": "tcp", "accept": ["readmeabook-v6:80", "readmeabook-v6:443"], "deny": ["readmeabook-v6:22", "readmeabook-v6:81", "readmeabook-v6:3031"] },
     // imagegen: exactly the four listed devices reach ComfyUI on :443; every other
     // vantage — servers, share sidecars, the LAN address — is denied. (tag:imagegen
     // has no outbound grants; the "deny" on its own src proves it stays that way.)
