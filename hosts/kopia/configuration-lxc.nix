@@ -212,6 +212,9 @@
           # monopolized Kopia's single scheduled upload queue for >13h on
           # 2026-07-27, preventing the other six daily sources from running.
           sourceExcludes = {
+            # mbsync removes these ephemeral locks while snapshots walk mail.
+            # Keep messages and persistent .mbsyncstate files backed up.
+            "/mnt/data/Life" = [".mbsyncstate.lock"];
             "/mnt/virtio/Music" = ["/calibration-tmp"];
           };
           repositoryMounts = ["/mnt/mum"];
