@@ -36,6 +36,10 @@ prevent measurement even when counters are unchanged across the outage.
   after a year rather than silently pruning observations.
 
 `winery-history.timer` runs hourly at :15, with up to two minutes jitter.
+Both collection and backup also run at boot/first activation, ordered before
+the freshness probe. The first deployment demonstrated why: an immediate probe
+correctly failed before the initial archive existed; explicit startup ordering
+prevents that commissioning race.
 The collector archives through the previous committed hour, leaving at least
 five minutes for Recorder writes. First run retrieves ten days in bounded
 one-day requests; subsequent runs catch up from the last durable cursor.
@@ -146,3 +150,12 @@ Validation: `python3 -m unittest discover -s scripts -p test_winery_history.py`;
 the same behaviour tests are included in `nix flake check`. They cover exact
 state preservation, outage/reset observations, idempotency, interrupted writes,
 missing entities, backup corruption, independent collection and recovery gaps.
+
+Initial live verification (2026-09-15): ten chunks held 59,726 returned history
+records through 13:00 AWST. Both sandboxed services completed successfully;
+the archive/backup probe delivered a successful heartbeat. The saved modelling
+extract and older hourly statistics were copied into `bootstrap/`. Wasabi
+snapshot `83a5c84223eeb3344f1ab24ddab0a376` included the new archive; recovering
+its latest gzip chunk produced SHA-256
+`e0b8739a4cc7d042d5a1f621b1e6076e61159906cf02bb57e6299ebe59c8ebd5`, matching
+the capture checkpoint. The normal offsite source schedules remain at 06:00.

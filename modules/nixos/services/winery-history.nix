@@ -76,6 +76,7 @@ in {
     ];
     systemd.services.winery-history = {
       description = "Archive original winery hot-water and PV history from HA";
+      wantedBy = ["multi-user.target"];
       after = ["network-online.target"];
       wants = ["network-online.target"];
       unitConfig.OnSuccess = "winery-history-backup.service";
@@ -96,6 +97,8 @@ in {
     };
     systemd.services.winery-history-backup = {
       description = "Copy and verify immutable winery history into the backed-up Life tree";
+      wantedBy = ["multi-user.target"];
+      after = ["winery-history.service"];
       unitConfig.RequiresMountsFor = [cfg.backupDir];
       serviceConfig =
         hardening
@@ -124,6 +127,10 @@ in {
         serviceConfig.ReadOnlyPaths = [cfg.dataDir];
       }
     ];
+    # First activation/boot must capture and copy before checking their cursors.
+    # On later timer invocations these ordering edges do not start either job.
+    systemd.services.deep-probe-winery-history-archive-and-backup.after = ["winery-history-backup.service"];
+    systemd.services.post-maintenance-deep-probe-winery-history-archive-and-backup.after = ["winery-history-backup.service"];
     homelab.monitoring.errorPatterns = [
       {
         name = "Winery history capture failed";
