@@ -115,8 +115,9 @@ The existing `tag:share`, DNS records, node identity and recipient grants are
 retained. The service binds only the podman bridge gateway and its firewall
 port is admitted on `podman0`. It runs as a dynamic user without credentials,
 capabilities or source write access. `/mnt` is blanked and only the audiobook
-and publication roots, plus the configured Andy's music root, are rebound read-only. IP egress is restricted to the
-private bridge and localhost; FFmpeg is restricted to file/pipe protocols.
+and publication roots, plus the configured Andy's music root, are rebound
+read-only. IP egress is restricted to the private bridge and localhost;
+FFmpeg is restricted to file/pipe protocols.
 Path traversal, dotfiles and symlinks outside the allowed roots are denied.
 
 The Caddy sidecar now reverse-proxies this service instead of mounting the
@@ -149,7 +150,7 @@ through HTTP ZIP generation, complete decoding, multi-file ordering, resource
 admission, cancellation cleanup, stale links, traversal and source integrity.
 
 Uptime Kuma checks `/healthz` through the real tailnet URL. The endpoint reads
-both mounted roots and writes a temporary file. There is no persistent app
+all configured roots and writes a temporary file. There is no persistent app
 database. `YOTO_REQUEST_FAILED` and `YOTO_DOWNLOAD_FAILED` emit targeted Loki
 alerts; the latter is essential because a streaming failure can occur after
 HTTP 200 headers. The NFS watchdog restarts `yoto-library.service` for stale
@@ -205,6 +206,16 @@ delete only known generated output. Never delete originals or Ali's music.
   The inventory is `/var/lib/yoto-migration/music-zips-2026-09-16.json`.
   A fresh 20-track Dolly Parton ZIP also passed integrity verification after
   the stored archives were gone, and service scratch was empty afterward.
+- Andy's music deployed as signed revision `99616ed7` after all 18 behavioral
+  tests, full flake checks and the doc2 build passed. The live mount namespace
+  confirmed `ro` for `/mnt/virtio/Music/Beets`, and the running application
+  source hash matched the reviewed source. A 390px Chromium session found
+  Taylor Swift's 1989 deluxe album by artist/album and by song name. The first
+  search took 3.7 seconds; the 22-track Opus-to-AAC ZIP took 46.8 seconds and
+  contained 81,027,433 bytes. All tracks fully decoded and passed ZIP integrity
+  checks. All 24 original album files retained identical hashes and timestamps;
+  the service scratch directory was empty afterward, with no stored album ZIP
+  in the source album or Ali's music tree. Kuma continued to report healthy.
 
 Rollback is a signed revert of the catalogue change followed by
 `fleet-deploy doc2`. Recreate any removed prepared book with
