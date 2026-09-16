@@ -1,6 +1,6 @@
 # Storyteller readaloud trial
 
-Date: 2026-09-16. Status: live; first full-book alignment running.
+Date: 2026-09-16. Status: live; first full-book alignment completed and inspected.
 Related: [book platform evaluation](book-platform-exploration.md).
 
 Storyteller pairs a DRM-free EPUB with its audiobook and creates a readaloud
@@ -66,12 +66,57 @@ then explicitly start alignment. General automatic ingestion is not enabled.
 The copies now live under `/mnt/virtio/storyteller/assets/Children of Ruin`.
 Storyteller book UUID: `110ea8c3-7f10-48c1-80cc-10ca5cd28126`. Alignment began
 at 15:51 AWST, completed audio splitting, downloaded `base.en`, and entered
-transcription. This verifies job execution; it is not yet proof of completed
-alignment or narration accuracy. Source hashes were rechecked after import and
+transcription. It completed at 16:54:37 AWST; the measured result is below.
+Source hashes were rechecked after import and
 remain unchanged. The source manifest is in Storyteller's private data directory.
 The first half-hour transcription produced a 917,307-byte JSON result. Processing
 was paused through the API after that checkpoint to deploy the corrected worker
 thread count, then resumed with cached work preserved.
+
+### Completed run: timing and output inspection
+
+Read-only inspection at 17:25–17:29 AWST confirmed API status `ALIGNED`, version
+2.14.21, engine `whisper.cpp:base.en`, and an existing readaloud EPUB.
+
+| Measurement | Result |
+| --- | --- |
+| First processing start | 15:51:22 AWST |
+| Completed, including packaging | 16:54:37 AWST |
+| Total elapsed | 1h 3m 15s, about 14.6 times faster than playback |
+| Preprocessing/splitting | 45.6 seconds |
+| Successful transcription work | 58m 58.8s across 31 chunks |
+| Intentional pause for worker config deploy | 2m 9.9s |
+| Final text alignment and packaging | 60.8 seconds |
+| Resumed run to completion | 56m 43s |
+| Peak container memory since final restart | 4.06 GiB; no OOM or memory-limit events |
+| Readaloud EPUB | 669,808,985 bytes (638.8 MiB), 482 estimated pages |
+| Private book working set, logical file sizes | 2,036,314,368 bytes (about 1.90 GiB) |
+
+The first half-hour chunk, with the oversubscribed four-processor/sixteen-thread
+setting, took 201.3 seconds. After changing to one processor/four threads, the
+remaining chunks had a median of 110.3 seconds (range 92.1–131.6 seconds).
+This is an observational comparison of different chunks, not a controlled
+benchmark. The successful restarted alignment logged no `ERROR` entries.
+
+The output ZIP passes CRC checks. It contains 31 audio files, 72 SMIL timing
+overlays and 8,844 text/audio pairs. All 69 story chapter documents have overlays;
+all timing references resolve to existing audio and text IDs. Unmatched material
+is front/back matter, some part-title pages, acknowledgements and promotional
+extras; those have no timing overlays.
+
+**Quality caveat:** structural inspection found three adjacent timing entries
+past the end of audio chunk 28, in `chapter062.smil`, IDs `chapter062-s75` through
+`chapter062-s77`. The chunk is 1800.202449 seconds long; the entries extend to
+1803.050 and 1804.770 seconds. The last entry runs backward from 1804.770 to
+1800.202 seconds before the next segment starts in chunk 29. This is a localized
+chunk-boundary defect, not proof of overall narration accuracy. No output file
+was patched during the inspection. Listening/highlight checks around that
+boundary and representative earlier passages remain useful.
+
+A separate Next.js image-cache permission warning occurred during the original
+pre-restart run (`.next/cache/images`). It did not prevent completion; investigate
+if cover caching becomes a visible problem. Do not confuse the systemd wrapper's
+small memory figure with the Podman container's real cgroup memory peak.
 
 ### Smoke-test defects and narrow workarounds
 
@@ -123,9 +168,10 @@ error-pattern audit checks passed.
 Browser verification also passed: login as `abl030`, one paired book visible,
 the direct `/books/110ea8c3-7f10-48c1-80cc-10ca5cd28126/read` route renders the
 ebook, and both download endpoints return HTTP 200 plus HTTP 206 for byte-range
-requests. The reader reports no synchronized track until alignment finishes;
-an initial reading-position 404 represents an unset progress record. No synced
-reading/listening result is claimed yet.
+requests. During processing the reader reported no synchronized track; an initial
+reading-position 404 represented an unset progress record. Completed output has
+since been inspected as described above; a full listening accuracy audit has not
+been performed.
 
 Rollback: set `homelab.services.storyteller.enable = false` on doc2, land the
 signed change and run `fleet-deploy doc2` from doc1. This removes the service and
