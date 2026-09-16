@@ -1,7 +1,8 @@
 # Storyteller readaloud trial
 
-Date: 2026-09-16. Status: live; alignment completed, but phone playback and
-format-switching smoke tests failed. Not yet accepted for everyday use.
+Date: 2026-09-16. Status: live; Readaloud playback and on-device reading/listening
+handoff confirmed after Android recovery. Use Readaloud for both activities;
+switching between separate formats and web-reader cover startup remain faulty.
 Related: [book platform evaluation](book-platform-exploration.md).
 
 Storyteller pairs a DRM-free EPUB with its audiobook and creates a readaloud
@@ -147,13 +148,22 @@ has not been verified):
   empty audio manifest/clips; `applications/mobile/store/tracks.ts` produces no
   tracks. Restarting alone does not reconstruct that persisted metadata.
 
-Phone recovery to test: in the book's Downloads menu, remove **readaloud from
-device**, then Android **Force stop** Storyteller. Reopen to book details and
+Phone recovery subsequently confirmed by the user: in the book's Downloads menu,
+remove **readaloud from device**, then Android **Force stop** Storyteller. Reopen to book details and
 download Readaloud before opening/downloading Ebook. This format-specific removal
 preserves the server copy and the local book/position record. Use Readaloud for
-both reading and listening during the retest. This is source-backed recovery
-guidance, not a verified phone fix; device logs should distinguish `Generated 0
-tracks` from a populated queue.
+both reading and listening. The user confirmed playback after this recovery and
+then confirmed that on-device reading/listening synchronization works while
+staying in Readaloud. This supports the cache diagnosis; the phone's private
+database and installed app version were not inspected.
+
+At 18:14 AWST, the server held an aligned text locator saved at 18:13:44:
+`OEBPS/Text/chapter001.xhtml#chapter001-s6`. Its SMIL clip is 58.020–61.140 seconds
+in the first audio chunk. This confirms that the phone can upload the mapped
+Readaloud location, in addition to the user's on-device playback/handoff report.
+The working trial workflow is **Readaloud only for both reading and listening**.
+Separate EPUB/audiobook switching is not repaired by this workaround, and a
+cross-device resume test has not yet been performed.
 
 The captured audio position maps to `OEBPS/Text/chapter001.xhtml#chapter001-s113`
 in the aligned EPUB, audio `OEBPS/Audio/00001-00001.mp3`, clip 831.47–836.46 seconds.
@@ -223,7 +233,8 @@ ebook, and both download endpoints return HTTP 200 plus HTTP 206 for byte-range
 requests. During processing the reader reported no synchronized track; an initial
 reading-position 404 represented an unset progress record. Completed-output
 testing subsequently exposed the cover-start failure described above; playback
-was verified only with an isolated Chapter 1 start. The trial is not yet accepted.
+was verified only with an isolated Chapter 1 start. The phone's Readaloud-only
+workflow was subsequently confirmed as described above; the web failure remains.
 
 Rollback: set `homelab.services.storyteller.enable = false` on doc2, land the
 signed change and run `fleet-deploy doc2` from doc1. This removes the service and
