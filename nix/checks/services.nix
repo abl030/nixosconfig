@@ -504,6 +504,25 @@
       touch "$out"
     '';
 
+  yotoLibraryCheck = let
+    host = self.nixosConfigurations.doc2.config;
+    service = host.systemd.services.yoto-library.serviceConfig;
+    share = host.homelab.tailscaleShare.yoto;
+  in
+    assert service.DynamicUser && service.NoNewPrivileges;
+    assert service.ProtectSystem == "strict";
+    assert service.IPAddressDeny == "any";
+    assert lib.elem host.homelab.services.yotoShare.libraryDir service.BindReadOnlyPaths;
+    assert share.serveDir == null && share.tags == ["tag:share"];
+    assert share.monitorPath == "/healthz";
+      pkgs.runCommand "yoto-library" {
+        nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.flask])) pkgs.ffmpeg];
+        YOTO_SERVER = "${../../modules/nixos/services/yoto-share}/server.py";
+      } ''
+        python3 ${./test_yoto_library.py} -v
+        touch "$out"
+      '';
+
   aliCratediggerIntegrationCheck = let
     doc2 = self.nixosConfigurations.doc2.config;
     container = doc2.containers.ali-cratedigger;
@@ -746,6 +765,7 @@ in {
     podman6CutoverCheck
     cratediggerDailySummaryCheck
     aliYotoZipCheck
+    yotoLibraryCheck
     aliCratediggerIntegrationCheck
     cratediggerTipCanaryCheck
     ytDlpTipVersionCheck

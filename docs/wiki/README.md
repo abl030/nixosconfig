@@ -54,7 +54,7 @@ Internal knowledge base for research findings, architectural decisions, and oper
 - [indoor-water-meter](services/indoor-water-meter.md) — ESPHome GPIO27 reed-pulse water meter; bench-test evidence, persistence, calibration, and recovery
 - [biodynamic-day](services/biodynamic-day.md) — consuming the `bd.ablz.au` moon-day API (why `day_type` is not the current type), the HA `ir-sensor` banner, and the Cullen laptop wallpaper **incl. how to remove it**
 - [rtrfm-nowplaying](services/rtrfm-nowplaying.md) — RTRFM "now playing" integration
-- [yoto-share](services/yoto-share.md) — `yoto.ablz.au` login-less tailnet file drop on doc2 for Yoto MYO cards; `yoto-prep` chapter-splitting, Yoto's per-track/per-card limits, and the access model
+- [yoto-share](services/yoto-share.md) — `yoto.ablz.au` tailnet audiobook catalogue and on-demand card ZIPs without stored copies; chapter splitting, limits, and access model
 
 ### Claude Code
 

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Yoto library</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main>
+    <nav aria-label="Library"><a href="/">Yoto library</a> <a href="/Books/">Audiobooks</a> <a href="/Music/">Music</a></nav>
+    <h1>{{ title }}</h1>
+    <form action="/Books/" method="get" role="search">
+      <label for="search">Find an audiobook</label>
+      <div class="search"><input id="search" name="q" type="search" placeholder="Book, author or series" maxlength="100"><button>Search</button></div>
+    </form>
+    {% if message %}<p role="alert">{{ message }}</p>{% endif %}
+    {% if book %}
+      <p>{{ book.cards|length }} {{ 'card' if book.cards|length == 1 else 'cards' }}. Download a ZIP, extract it, then add the numbered audio files to a new Yoto Make Your Own playlist.</p>
+      <p class="muted">Keep the download open while your tracks are prepared. If it is interrupted, tap the download again.</p>
+      <ol class="cards">
+      {% for card in book.cards %}
+        <li><a class="download" href="{{ url_for('download', relative=relative, index=loop.index0, v=book.version) }}">Download {{ card_label(loop.index0) }} · ZIP</a>
+          <p>{{ card|length }} tracks · {{ '%.1f'|format((card|sum(attribute='duration')) / 3600) }} hours</p>
+          <details><summary>Show tracks</summary><ol>{% for track in card %}<li>{{ track.segment.title }}</li>{% endfor %}</ol></details>
+        </li>
+      {% endfor %}
+      </ol>
+    {% endif %}
+    {% if entries %}<ul class="listing">
+      {% for name, href, description in entries %}<li><a href="{{ href }}">{{ name }}</a>{% if description %}<p>{{ description }}</p>{% endif %}</li>{% endfor %}
+    </ul>{% elif not book and not message %}<p>No books found here.</p>{% endif %}
+  </main>
+</body>
+</html>

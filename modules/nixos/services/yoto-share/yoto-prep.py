@@ -223,6 +223,7 @@ def find_cover(book_dir: str, src: str, dest_dir: str) -> None:
                  "-an", "-frames:v", "1", tmp_embedded])
             source_image = tmp_embedded
         except RuntimeError:
+            shutil.rmtree(os.path.dirname(tmp_embedded), ignore_errors=True)
             return
 
     cover = os.path.join(dest_dir, "cover.png")

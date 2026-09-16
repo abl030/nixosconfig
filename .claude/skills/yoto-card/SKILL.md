@@ -20,8 +20,13 @@ If a season/album exceeds the per-card cap, split evenly across cards. **Runtime
 
 ## Audiobooks — use `yoto-prep`, do not hand-roll
 
-For anything from the Audiobookshelf library, there is already a tool. Run it
-on doc2 (or from a checkout: `modules/nixos/services/yoto-share/yoto-prep.py`):
+Audiobooks are automatically browsable at `https://yoto.ablz.au/Books/`.
+Each book offers card ZIP downloads generated from the source library, with
+temporary tracks removed as they are streamed. Do not pre-copy books or store
+ZIPs for the website. See `docs/wiki/services/yoto-share.md`.
+
+For an explicitly requested offline export, the existing `yoto-prep` CLI
+remains available on doc2 (source: `modules/nixos/services/yoto-share/yoto-prep.py`):
 
 ```bash
 yoto-prep --dry-run "J.K. Rowling/Harry Potter"   # show the card plan
@@ -30,7 +35,8 @@ yoto-prep "Enid Blyton/Famous Five"               # prep a whole series
 
 It chapter-splits the `.m4b`, packs tracks into the fewest cards that fit,
 zips each card, and builds the artwork — publishing to
-`/mnt/data/Media/Books/Yoto`, which is served at `https://yoto.ablz.au`.
+`/mnt/data/Media/Yoto/Books` for manual exports. The website reads the canonical
+library directly, rather than serving these exports.
 Full detail: `docs/wiki/services/yoto-share.md`.
 
 Two things to know before touching audiobooks by hand:

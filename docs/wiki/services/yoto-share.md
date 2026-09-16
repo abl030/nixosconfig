@@ -1,242 +1,140 @@
-# Yoto share — books and music for Yoto MYO cards
+# Yoto share — audiobook cards on demand
 
-**Last updated:** 2026-08-24
-**Status:** working
-**Owner:** `modules/nixos/services/yoto-share.nix` (+ `modules/nixos/services/yoto-share/yoto-prep.py`), file-server mode in `modules/nixos/services/tailscale-share.nix`
-**Issue:** none — feature request from a family tailnet peer
+**Last updated:** 2026-09-16
+**Status:** implementation and live migration in progress
+**Owner:** `modules/nixos/services/yoto-share.nix`, `yoto-share/server.py`
+**Issue:** none — family request to remove manual preparation and duplicate storage
 
-## The problem this solves
+## User workflow
 
-A tailnet peer (external family member, Android, already uses the `overseer`
-share to request media) wanted to turn our audiobooks into
-[Yoto](https://yotoplay.com) MYO cards for her kids. Yoto's uploader is an
-Android **file picker**, so the files must exist as real files in
-`/sdcard/Download`.
+Open `https://yoto.ablz.au`, choose Audiobooks, browse by author/series or search,
+then open a book. Each card has a **Download Card A · ZIP** link. Extract the
+ZIP in the phone's Downloads folder and add its numbered audio files to a new
+Yoto Make Your Own playlist. Artwork is inside `_artwork/` so selecting all
+audio files does not include images.
 
-Two independent blockers, and both have to be solved:
+The catalogue follows the source filesystem. New books appear automatically;
+there is no publication step, scheduled copying, or permanent ZIP cache.
+Multi-file books are grouped by directory and naturally sorted before packing
+cards. Metadata probes are cached in memory by source path, size and nanosecond
+mtime. Only the book being opened is probed.
 
-1. **Delivery.** Audiobookshelf's Android app — like every audiobook app —
-   downloads into its own private app storage. A file picker cannot see inside
-   another app's sandbox, so the files are unreachable no matter how they got
-   there. Downloading through a *browser* is what puts a file somewhere the
-   picker can read.
-2. **Format.** The library is almost entirely single-file `.m4b` with embedded
-   chapters. `Harry Potter and the Philosopher's Stone` is one file: **438 MB,
-   8.4 hours**. Yoto caps a *track* at **60 min / 100 MB**. The source file is
-   therefore not merely awkward to fetch — it is un-uploadable. Handing over
-   the raw `.m4b` would have failed at the last step no matter how good the
-   transport was.
+The existing `/Music/` URLs still serve Ali's music and album ZIPs. That separate
+acquisition/ZIP timer remains described in [Ali Cratedigger](ali-cratedigger.md).
 
-So the answer is not "expose the library"; it is "publish pre-split,
-Yoto-legal files over a browser-fetchable share".
+## Storage and generation
 
-## Yoto MYO limits
+The old workflow ran `yoto-prep` manually and retained both split tracks and
+per-card ZIPs. On 2026-09-16 the canonical audiobook library occupied 86 GiB;
+119 prepared books occupied another 52 GiB (27,295,028,809 bytes of ZIPs plus
+27,284,462,331 bytes of audio, and artwork). All 119 manifests matched their
+existing source files by size and mtime; no unmanaged prepared audio was found.
 
-| Constraint | Value |
+The new service reads the originals and reuses `yoto-prep`'s chapter splitter,
+stream-copy and artwork operations. ZIPs use `ZIP_STORED` because the audio is
+already compressed. The ZIP central directory is generated only at the end of
+a successful response. ZIP data is never written to disk.
+
+Each download creates **one temporary track at a time**, validates it, streams
+it into the response, and deletes it before preparing the next. The entire
+temporary directory is removed on completion, error or client disconnect.
+Two downloads are admitted concurrently; further requests receive a retry
+message. A private 512 MiB tmpfs, a 110 MiB single-file limit, 1 GiB memory
+limit and two-core CPU quota bound resource consumption. Restarting the unit
+discards the scratch filesystem, including anything left by a killed worker.
+
+MP3 and AAC tracks are stream-copied; unsupported codecs are converted to
+AAC 128k. A card can take longer to download if conversion is needed. Downloads
+are streamed without Content-Length and cannot resume with HTTP Range: retry
+from the book page if interrupted. Changed source stamps invalidate old links;
+a source that changes during streaming aborts the ZIP instead of silently
+serving a partial book. FFmpeg/probe calls time out after 180 seconds and an
+individual download has a 30-minute processing/streaming deadline.
+
+## Limits
+
+[Yoto's current MYO page](https://uk.yotoplay.com/make-your-own) lists MP3 or
+AAC/M4A, 100 tracks per card, one hour and 100 MB per track, and 500 MB per
+card. The app plans with 95 MB tracks and 490 MB cards, then verifies actual
+generated durations and decimal-byte sizes. Chapter boundaries determine
+tracks; long chapters are subdivided, and missing chapters get 30-minute
+slices. The previous conservative five-hour card grouping is retained; the
+current Yoto page does not list five hours as a hard per-card limit.
+
+## Location and access
+
+| Item | Location |
 |---|---|
-| Supported audio | MP3, AAC/M4A (**not** Opus — Yoto silently rejects it) |
-| Per track | ≤ 60 min, ≤ 100 MB |
-| Per card | ≤ 5 h, ≤ 500 MB, ≤ 100 tracks |
+| Host | doc2 |
+| Source library (read-only) | `/mnt/data/Media/Books/Audiobooks` |
+| Existing music/publication tree (read-only) | `/mnt/data/Media/Yoto` |
+| Application | `yoto-library.service`, private bridge `10.88.0.1:13381` |
+| HTTPS | `https://yoto.ablz.au`, existing `yoto` Tailscale node |
+| Temporary tracks | private `/tmp` tmpfs inside the service |
 
-`yoto-prep` uses 58 min / 95 MB as the track ceiling. Cutting lands on the
-nearest packet boundary rather than the exact chapter time, so the margin stops
-a chapter that is *just* under the limit from crossing it.
+There is no application login. **Every peer who can reach the Yoto share can
+browse and download the entire source audiobook library.** This replaces the
+old curated-only book scope at the owner's request. Metadata JSON, scripts,
+ebooks and arbitrary source files are not exposed; the app serves generated
+audio ZIPs. Music files retain attachment downloads.
 
-## Where it lives
+The existing `tag:share`, DNS records, node identity and recipient grants are
+retained. The service binds only the podman bridge gateway and its firewall
+port is admitted on `podman0`. It runs as a dynamic user without credentials,
+capabilities or source write access. `/mnt` is blanked and only the audiobook
+and publication roots are rebound read-only. IP egress is restricted to the
+private bridge and localhost; FFmpeg is restricted to file/pipe protocols.
+Path traversal, dotfiles and symlinks outside the allowed roots are denied.
 
-- **Host:** doc2 (same host as Audiobookshelf)
-- **Source library:** `/mnt/data/Media/Books/Audiobooks` (NFS from tower)
-- **Published tree:** `/mnt/data/Media/Yoto`
-- **Prepared books:** `/mnt/data/Media/Yoto/Books`
-- **Ali's music:** `/mnt/data/Media/Yoto/Music` (owned by her isolated
-  Cratedigger/Beets instance; see `docs/wiki/services/ali-cratedigger.md`)
-- **FQDN:** `https://yoto.ablz.au`, on its own tailscale node `yoto`
+The Caddy sidecar now reverse-proxies this service instead of mounting the
+publication tree. See [tailscale-share](tailscale-share.md) for the pinhole
+model, IPv6 publication and recipient-side IPv4 remapping. Test from a
+`tag:client` node as well as doc1: doc1's broad egress is not proof that a
+recipient grant works.
 
-## Access model — read this before adding anything
+## WebDAV and offline exports
 
-### The node MUST carry `tag:share`
+`https://yotodav.ablz.au` remains a read-only view of the publication tree.
+It can serve Music and explicitly prepared offline exports. On-demand cards
+are available through the browser catalogue; they are not persistent WebDAV
+files. After duplicate cleanup the Books README points users to the catalogue.
 
-The tailnet is **default-DENY** and every share grant in `tailscale/acl.hujson`
-is written against `tag:share`. A share node that is *untagged* matches no
-grant except doc1's unrestricted-egress rule.
-
-That failure mode is genuinely nasty, so know it: the share verifies
-**perfectly from doc1** — 200, valid cert, correct headers — while being
-unreachable from every device that actually needs it. Nothing looks broken.
-
-It bites because `authKeySecret = null` means an interactive first-run login,
-which makes the node **user-owned** (`abl030@`) rather than tag-owned.
-overseer / audiobookshelf / jellyfin were tagged by hand in the admin console;
-`yoto` is tagged declaratively via `homelab.tailscaleShare.<name>.tags`.
-
-Observed 2026-08-22 before the fix:
-
-| From | Tag | Result |
-|---|---|---|
-| doc1 | (unrestricted egress) | 200 |
-| framework | `tag:client` | **HTTP 000 — blocked** |
-
-With `tag:share` the existing grants give inbound 443 from `tag:client`,
-`tag:server` (Kuma health checks) and `autogroup:shared` (inter-tailnet peers),
-while share→fleet egress stays denied. **No bespoke ACL rule is needed** — and
-adding one would punch a hole in the default-deny model for no gain.
-
-Verified after tagging: framework → 200, doc2 → 200, doc1 → 200, and
-`ts-yoto` → doc1:443 still refused.
-
-Changing an existing node's tags replaces user ownership with tag ownership.
-That can force re-authentication (`podman logs ts-yoto` prints a fresh login
-URL), though an admin-owned tag was accepted here without one.
-
-### No login on the share itself
-
-The share has **no login**. `homelab.tailscaleShare` normally fronts an app
-that authenticates its own users (Overseerr, ABS); a bare Caddy `file_server`
-has nothing equivalent. Deliberate decision, 2026-08-22: the access control is
-**which tailnet peers the `yoto` node is shared with**, exactly like the
-`overseer` node, and nothing else.
-
-The consequences to keep in mind:
-
-- `serveDir` points at the curated `Media/Yoto/` publication tree, **never** at
-  either source library or a parent of them. Anything placed there is readable
-  by every peer the node is shared with.
-- The bind mount is `:ro` and Caddy has no upload route, so the share is
-  strictly pull. A peer cannot write into the media tree.
-- The node is a pinhole: its own tailscale identity, `--accept-routes=false`,
-  and the caddy sidecar runs as uid 2011 with `cap-drop=ALL`.
-
-To widen or narrow access, share/unshare the `yoto` node in the tailnet admin
-console. Do not add books for one peer that another peer should not see —
-there is no per-peer scoping here.
-
-## Preparing books
+The CLI remains available for an explicitly requested offline export:
 
 ```bash
-# One book, a whole series, or an author — path under the library, or a
-# case-insensitive substring match.
-yoto-prep "Enid Blyton/Famous Five/1 - Five on a Treasure Island"
-yoto-prep "Enid Blyton"
-yoto-prep --dry-run "J.K. Rowling/Harry Potter"    # show the card plan only
-yoto-prep --jobs 3 "Enid Blyton" "J.K. Rowling/Harry Potter"
+yoto-prep --dry-run "J.K. Rowling/Harry Potter"
+yoto-prep --out /path/to/offline-export "Enid Blyton/Famous Five"
 ```
 
-Useful flags: `--dry-run`, `--force` (re-prep an already-done book),
-`--no-zip`, `--jobs N`, `--library`, `--out`.
+Do not use the CLI to publish every library book again. Its default
+`/mnt/data/Media/Yoto/Books` is for manual exports, not the web catalogue.
 
-Re-runs are cheap: each book gets a `.yoto-prep.json` manifest stamped with the
-source size+mtime, and a book whose stamp still matches is skipped. Change the
-source file and it re-preps automatically.
+## Verification and operations
 
-### What it does
+`nix build .#checks.x86_64-linux.yotoLibraryCheck` exercises actual ffmpeg audio
+through HTTP ZIP generation, complete decoding, multi-file ordering, resource
+admission, cancellation cleanup, stale links, traversal and source integrity.
 
-1. Reads chapters with `ffprobe`. No chapters → falls back to 30-minute slices.
-2. Subdivides any chapter over the track ceiling into equal parts
-   (`Title (Part 1 of 2)`).
-3. Packs tracks into the **fewest cards that fit**, balanced rather than
-   greedy-filled, always in reading order. Greedy filling strands a near-empty
-   final card — a 9.7 h book packs to 5.0 + 4.2 + 0.5 h instead of 4.85 + 4.85.
-4. Cuts with `-c copy` when the source codec is already MP3 or AAC, so it is
-   fast and lossless. Anything else re-encodes to AAC 128k stereo.
-5. Zips each card (`ZIP_STORED` — audio is already compressed).
-6. Builds `_artwork/cover.png` (1080×1350 portrait, blurred-self backdrop) and
-   `icon.png` (320×320) from the book's `cover.jpg`, or from embedded art.
-
-### Output layout
-
-```
-Yoto/
-  Books/
-    README.txt                            <- instructions for the peer
-    Enid Blyton/The Secret Seven/1 - The Secret Seven/
-      1 - The Secret Seven.zip            <- one tap on the phone
-      Card A/01 - Plans for an S. S. Meeting.m4a
-      Card A/02 - The Secret Seven Society.m4a
-      ...
-      _artwork/cover.png
-      _artwork/icon.png
-      .yoto-prep.json                     <- hidden from the listing
-  Music/
-    Artist/2026 - Album/
-      01 Song.mp3
-      2026 - Album.zip                    <- one tap for Ali
-```
-
-One `Card X/` folder = one Yoto card, already within all three per-card limits.
-Multi-card books get `Card A`, `Card B`, … and the zips are named
-`<Book> - Card A.zip` so they do not collide in a phone's single flat Downloads
-folder. Each zip contains a folder named for the book for the same reason.
-
-Artwork lives in `_artwork/` rather than beside the tracks so that
-"select all" in the Yoto uploader cannot sweep a PNG in as a track.
-
-## The two non-obvious delivery details
-
-**`Content-Disposition: attachment`.** Android Chrome opens audio in an inline
-media viewer instead of saving it. Tapping a track would play it and write
-nothing to disk — the whole workflow fails silently at the final step. The
-Caddyfile matches `downloadExtensions` and forces a real download. If someone
-"cleans up" that header, the share will look fine and be useless.
-
-**Zip per card.** Without it the peer taps ~17 links per card, one at a time,
-on a phone. The zip is the intended path; individual tracks stay browsable as a
-fallback.
-
-## The peer's workflow
-
-1. Connect to the tailnet, open `https://yoto.ablz.au`.
-2. Browse to the book, tap the `.zip` → lands in Downloads.
-3. Extract with any file manager.
-4. Yoto app / my.yotoplay.com → new MYO playlist → add the tracks from that
-   folder. They are zero-padded and numbered, so order is preserved.
-5. Optional: `_artwork/cover.png` as the card cover, `icon.png` as track icons.
-
-## Operations
-
-- Availability: Uptime Kuma monitor **"Yoto Share (Tailnet)"**, registered
-  automatically by `homelab.tailscaleShare`, hitting the listing at `/`.
-- NFS: `homelab.nfsWatchdog.yoto-share` restarts `podman-caddy-yoto.service` on
-  a stale handle. The caddy unit also carries `RequiresMountsFor` on the share
-  dir — without it, a boot before the NFS mount would serve an empty listing
-  that reads as "the books disappeared" rather than as an outage.
-- First deploy needs an interactive tailscale login (`authKeySecret = null`,
-  matching the audiobookshelf share): `podman logs ts-yoto` prints a URL. State
-  then persists in `/mnt/virtio/tailscale-share/yoto/ts-state`.
-- Disk: prepared tracks are ~1× the source (stream copy) and the zips ~1× again,
-  so budget **~2× the source size**. The initial 93-book seed (all Enid Blyton +
-  the 7 Harry Potter books, 17.1 GB of source) came to ~34 GB.
-
-## Verifying a prep
-
-Duration of the split tracks should match the source to well under a second;
-the delta is packet-boundary rounding.
+Uptime Kuma checks `/healthz` through the real tailnet URL. The endpoint reads
+both mounted roots and writes a temporary file. There is no persistent app
+database. `YOTO_REQUEST_FAILED` and `YOTO_DOWNLOAD_FAILED` emit targeted Loki
+alerts; the latter is essential because a streaming failure can occur after
+HTTP 200 headers. The NFS watchdog restarts `yoto-library.service` for stale
+source handles; WebDAV retains its own watchdog.
 
 ```bash
-# per track: must decode, and be under 60 min / 100 MB
-ffmpeg -v error -i "<track>" -t 1 -f null -
+ssh doc2 'systemctl status yoto-library --no-pager'
+ssh doc2 'sudo journalctl -u yoto-library -n 50 --no-pager'
+curl -fsS https://yoto.ablz.au/healthz
 ```
 
-Failure modes worth catching:
+Before deleting any old output, verify real book/card downloads and archive
+decoding through HTTPS. Cleanup must recheck each manifest against its
+canonical source, retain a small manifest inventory for reconstruction, and
+delete only known generated output. Never delete originals or Ali's music.
 
-- `moov atom not found` → truncated m4a; re-run that book with `--force`.
-- A track over 100 MB → `yoto-prep` prints a `WARN` line; it does not fail the
-  run, so read the summary.
-- Empty directory listing on the share → NFS, not Caddy. Check `mnt-data.mount`
-  on doc2.
-
-## When to revisit
-
-- If Yoto changes its limits, they are constants at the top of `yoto-prep.py`
-  (`TRACK_SECONDS`, `TRACK_BYTES`, `CARD_*`).
-- Any NEW `tailscaleShare` instance must set `tags = ["tag:share"]`, or it will
-  be silently reachable only from doc1. Test from a `tag:client` node, never
-  from doc1 alone.
-- If the share ever needs per-peer scoping or a login, the file-server mode
-  would need a real auth story — at that point prefer a second `serveDir`
-  instance with its own node over bolting auth onto this one.
-
-## See also
-
-- `.claude/skills/yoto-card/SKILL.md` — TV/music sources for Yoto cards
-- `docs/wiki/services/audiobookshelf.md`
-- `modules/nixos/services/tailscale-share.nix` — the pinhole share model
+Rollback is a signed revert of the catalogue change followed by
+`fleet-deploy doc2`. Recreate any removed prepared book with
+`yoto-prep --force <book-path>`; the canonical sources are unchanged. Until
+generated copies are removed, the previous static service can be restored
+without regeneration.

@@ -325,10 +325,8 @@
       booklore.enable = true;
       bookkeep.enable = true;
       readmeabook.enable = true;
-      # Companion to ABS: chapter-splits books into Yoto-legal tracks and
-      # serves them as a browsable tailnet file drop, because the ABS app
-      # downloads into private app storage a file-picker can't reach and a
-      # single-file .m4b busts Yoto's 60min/100MB per-track cap anyway.
+      # Browse the source audiobook library and stream card ZIPs on demand.
+      # Splits long files for Yoto without storing prepared copies on NFS.
       yotoShare.enable = true;
       atuin = {
         enable = true;

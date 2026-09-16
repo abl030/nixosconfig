@@ -1,18 +1,5 @@
-# Yoto share — a pull-only tailnet file drop for audiobooks destined for
-# Yoto MYO cards.
-#
-# Why this exists rather than "just use Audiobookshelf": ABS (and every other
-# audiobook app) downloads into its own private app storage, which Android's
-# file picker cannot see — and Yoto's uploader is a file picker. On top of
-# that, the library is single-file .m4b, often 8+ hours and several hundred
-# MB, while Yoto caps a track at 60 min / 100 MB. So the source file is not
-# merely awkward to fetch, it is un-uploadable.
-#
-# `yoto-prep` solves the format half (chapter-split into Yoto-legal tracks,
-# packed into card-sized folders, one zip per card); this module solves the
-# delivery half (a browsable HTTPS listing on its own tailnet node, serving
-# Content-Disposition: attachment so a phone browser writes real files into
-# the download folder).
+# Yoto share — source-library browsing with on-demand card ZIP downloads.
+# The app reuses yoto-prep's splitting without keeping tracks or ZIPs on NFS.
 #
 # See docs/wiki/services/yoto-share.md.
 {
@@ -22,6 +9,11 @@
   ...
 }: let
   cfg = config.homelab.services.yotoShare;
+  serverPython = pkgs.python3.withPackages (ps: [ps.flask ps.gunicorn]);
+  serverSource = builtins.path {
+    path = ./yoto-share;
+    name = "yoto-share-source";
+  };
 
   yotoPrepScript = pkgs.writers.writePython3Bin "yoto-prep" {
     libraries = [];
@@ -43,7 +35,13 @@
   '';
 in {
   options.homelab.services.yotoShare = {
-    enable = lib.mkEnableOption "Yoto MYO audiobook share (tailnet file drop + yoto-prep tool)";
+    enable = lib.mkEnableOption "Yoto MYO audiobook catalogue and on-demand card downloads";
+
+    port = lib.mkOption {
+      type = lib.types.port;
+      default = 13381;
+      description = "Private podman bridge port for the card download service.";
+    };
 
     fqdn = lib.mkOption {
       type = lib.types.str;
@@ -55,9 +53,8 @@ in {
       type = lib.types.str;
       default = "/mnt/data/Media/Yoto";
       description = ''
-        Curated top-level tree served read-only to the tailnet. It contains
-        Books and Music, not either canonical source library: the share has no
-        login, so its contents are exactly what any shared peer can download.
+        Existing publication tree containing Music and any manually prepared
+        books. The web catalogue reads audiobooks from libraryDir instead.
       '';
     };
 
@@ -71,7 +68,7 @@ in {
     libraryDir = lib.mkOption {
       type = lib.types.str;
       default = "/mnt/data/Media/Books/Audiobooks";
-      description = "Audiobookshelf library that yoto-prep reads source books from.";
+      description = "Source audiobooks visible to every peer with access to the Yoto share.";
     };
 
     dataDir = lib.mkOption {
@@ -115,6 +112,53 @@ in {
 
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [yoto-prep];
+
+    systemd.services.yoto-library = {
+      description = "Yoto audiobook catalogue and streaming card downloads";
+      wantedBy = ["multi-user.target"];
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
+      unitConfig.RequiresMountsFor = [cfg.libraryDir cfg.shareDir];
+      path = [pkgs.ffmpeg];
+      environment = {
+        YOTO_LIBRARY = cfg.libraryDir;
+        YOTO_SHARE = cfg.shareDir;
+        TMPDIR = "/tmp";
+        PYTHONDONTWRITEBYTECODE = "1";
+      };
+      serviceConfig = {
+        ExecStart = "${serverPython}/bin/gunicorn --chdir ${serverSource} --bind 10.88.0.1:${toString cfg.port} --workers 1 --threads 8 --timeout 240 --access-logfile - server:app";
+        Restart = "on-failure";
+        RestartSec = 5;
+        DynamicUser = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictAddressFamilies = ["AF_INET" "AF_INET6" "AF_UNIX"];
+        RestrictNamespaces = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = ["@system-service" "~@privileged" "~@resources"];
+        # Source and publication mounts are read-only; no ABS credentials or
+        # other /mnt trees are visible. Only bridge clients can reach the app.
+        TemporaryFileSystem = ["/mnt" "/tmp:size=512M,mode=1777" "/var/tmp:size=1M,mode=1777"];
+        BindReadOnlyPaths = [cfg.libraryDir cfg.shareDir];
+        IPAddressDeny = "any";
+        IPAddressAllow = ["localhost" "10.88.0.0/16"];
+        # Two downloads, one <=100 MB track each, no persistent ZIP cache.
+        LimitFSIZE = "110M";
+        MemoryMax = "1G";
+        TasksMax = 128;
+        CPUQuota = "200%";
+        UMask = "0077";
+      };
+    };
 
     # rclone binds the podman bridge gateway, which may not exist yet at boot.
     # Same rationale and same value as audiobookshelf.nix — but two mkDefaults
@@ -181,7 +225,8 @@ in {
       tailscaleShare.yoto = {
         enable = true;
         inherit (cfg) fqdn dataDir;
-        serveDir = cfg.shareDir;
+        upstream = "http://host.docker.internal:${toString cfg.port}";
+        firewallPorts = [cfg.port];
         hostname = "yoto";
         # Same access as the audiobookshelf/overseer/jellyfin shares. The
         # default-deny tailnet grants tag:share inbound 443 from tag:client,
@@ -193,6 +238,7 @@ in {
         # persists under dataDir/ts-state. Matches the audiobookshelf share.
         authKeySecret = null;
         monitorName = "Yoto Share (Tailnet)";
+        monitorPath = "/healthz";
       };
 
       # Separate node so the WebDAV endpoint can be shared (or revoked)
@@ -214,8 +260,8 @@ in {
       # Serving off NFS: a stale handle leaves caddy listing an empty tree,
       # which looks like "the books disappeared" rather than an outage.
       nfsWatchdog.yoto-share = {
-        path = cfg.shareDir;
-        unit = "podman-caddy-yoto.service";
+        path = cfg.libraryDir;
+        unit = "yoto-library.service";
       };
 
       # rclone holds the share dir open; a stale NFS handle wedges it serving
@@ -225,9 +271,17 @@ in {
         unit = "yoto-webdav.service";
       };
 
-      # Availability is covered by the Kuma monitor the tailscaleShare module
-      # registers for the shared URL; caddy sidecar failures surface there.
-      monitoring.errorPatterns = [];
+      # No persistent app state; /healthz reads both source mounts and writes
+      # a temporary file. Generation failures after HTTP headers need logs.
+      monitoring.errorPatterns = [
+        {
+          name = "Yoto card download failure";
+          unit = "yoto-library.service";
+          pattern = "YOTO_DOWNLOAD_FAILED|YOTO_REQUEST_FAILED";
+          summary = "Yoto could not prepare or download an audiobook card";
+          threshold = 0;
+        }
+      ];
     };
   };
 }
