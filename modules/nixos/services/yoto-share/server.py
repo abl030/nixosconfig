@@ -307,8 +307,17 @@ def create_app(library=None, published=None, scratch=None, andys_music=None):
             "books": ("books", "download"), "music": ("music", "music_download"),
             "andys": ("andys_music_page", "andys_download"),
         }[section]
+        parent_link = None
+        if relative:
+            parent = Path(relative).parent
+            parent_relative = "" if parent == Path(".") else parent.as_posix() + "/"
+            parent_name = parent.name or {
+                "books": "Audiobooks", "music": "Music", "andys": "Andy's music",
+            }[section]
+            parent_link = (parent_name, url_for(endpoint, relative=parent_relative))
         return render_template("browse.html", title=title, entries=entries,
                                book=book, relative=relative, message=message,
+                               parent_link=parent_link,
                                card_label=prep.card_label, music=music,
                                search_endpoint=endpoint, download_endpoint=download_endpoint,
                                andys_enabled=andys_music is not None,

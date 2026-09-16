@@ -9,6 +9,7 @@
 <body>
   <main>
     <nav aria-label="Library"><a href="/">Yoto library</a> <a href="/Books/">Audiobooks</a> <a href="/Music/">Music</a>{% if andys_enabled %} <a href="/AndysMusic/">Andy's music</a>{% endif %}</nav>
+    {% if parent_link %}<a class="up" href="{{ parent_link[1] }}" aria-label="Up to {{ parent_link[0] }}"><span aria-hidden="true">↑</span> {{ parent_link[0] }}</a>{% endif %}
     <h1>{{ title }}</h1>
     <form action="{{ url_for(search_endpoint) }}" method="get" role="search">
       <label for="search">{{ 'Find music' if music else 'Find an audiobook' }}</label>

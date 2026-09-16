@@ -46,6 +46,10 @@ on searches after 60 seconds, so new imports appear within a minute of the
 next search; normal folder browsing reads the current filesystem directly.
 Broad searches show the first 200 matches and ask for a narrower query.
 Symlinks, hidden files and incomplete import siblings are excluded.
+An up-arrow button above each folder title opens its parent. From an album,
+it is labelled with the artist's name and opens that artist's other albums,
+including when the album was found through search. The same navigation is
+available in Music and Audiobooks; section roots have no up button.
 
 Album ZIPs use the same bounded streaming workspace as other downloads.
 MP3/AAC are copied; Opus, FLAC, WMA and other supported source codecs are
