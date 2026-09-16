@@ -12,7 +12,9 @@
     webUrl = "https://${cfg.fqdn}";
     transcriptionEngine = "whisper.cpp";
     whisperModel = "base.en";
-    whisperThreads = 4;
+    # Upstream expands this to --processors N --threads (N * 4).
+    # One processor/four threads matches the container's four-CPU budget.
+    whisperThreads = 1;
     parallelTranscodes = 1;
     parallelTranscribes = 1;
     maxTrackLength = 0.5; # Hours; bound transcription memory for long recordings.
@@ -136,6 +138,14 @@ in {
           pattern = "SQLITE_CORRUPT|SQLITE_FULL|SQLITE_READONLY|database disk image is malformed";
           severity = "critical";
           summary = "Storyteller cannot read or write its library database";
+          threshold = 0;
+        }
+        {
+          name = "Storyteller alignment failure";
+          unit = "podman-storyteller.service";
+          pattern = "Processing for .* failed during|Processing for book .* failed unexpectedly|Failed to enqueue book for processing";
+          severity = "warning";
+          summary = "Storyteller could not finish a readaloud alignment";
           threshold = 0;
         }
       ];

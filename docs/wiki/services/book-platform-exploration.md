@@ -79,6 +79,12 @@ infrastructure. No Tailscale nodes or sharing rules are introduced.
 | Bookkeep | <https://bookkeep.ablz.au> | `/mnt/virtio/bookkeep` | Request/discovery portal |
 | ReadMeABook | <https://readmeabook.ablz.au> | `/mnt/virtio/readmeabook` | ABS-aware request portal |
 
+On 2026-09-16, [Storyteller](storyteller.md) joined the trial at
+<https://storyteller.ablz.au> for synchronized narration. Its first book is
+Children of Ruin, using independent copies of the ReadMeABook audiobook and
+companion EPUB. The runbook records the download-path, subtitle-search and paired
+import issues uncovered by this smoke test, plus current alignment status.
+
 The original direct HTTP addresses remain available at `192.168.1.35` on ports
 8789, 6060, 8788 and 3031 respectively. Application listeners bind the LAN address
 and loopback, not the tailnet address. Prefer the HTTPS names for logins and OPDS.
